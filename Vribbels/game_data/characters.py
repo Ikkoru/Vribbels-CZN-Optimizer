@@ -519,10 +519,12 @@ def get_character(res_id: int) -> dict:
 
 
 def get_character_name(res_id: int) -> str:
-    """Get character name by res_id, returning None if not found or if res_id is 0."""
+    """Get character name by res_id, returning the ID string if unknown, or None if unequipped."""
+    if res_id == 0:
+        return None
     char = CHARACTERS.get(res_id)
     if char is None:
-        return None
+        return str(res_id)
     return char.get("name")
 
 

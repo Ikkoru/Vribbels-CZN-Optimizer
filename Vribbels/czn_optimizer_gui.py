@@ -288,15 +288,11 @@ class OptimizerGUI:
                 return
         self.root.destroy()
 
+    # New — uses the same logic as the Load Latest button
     def auto_load(self):
-        for dir_path in ["snapshots", ".", str(Path.home() / "snapshots")]:
-            snapshots = Path(dir_path)
-            if snapshots.exists():
-                files = list(snapshots.glob("memory_fragments_*.json"))
-                if files:
-                    latest = str(max(files, key=lambda f: f.stat().st_mtime))
-                    self.load_data(latest)
-                    return
+        latest = self.capture_manager.get_latest_capture()
+        if latest:
+            self.load_data(str(latest))
 
     def load_file(self):
         filepath = filedialog.askopenfilename(
@@ -330,11 +326,12 @@ class OptimizerGUI:
         if latest:
             try:
                 self.optimizer.load_data(str(latest))
-                self.inventory_tab_instance.refresh_inventory()
-                self.heroes_tab_instance.refresh_heroes()
+                self.inventory_tab_instance.populate_set_filters()
+                self.scoring_tab_instance.apply_custom_weights()  # re-scores and refreshes inventory + heroes
                 self.materials_tab_instance.refresh_materials()
             except Exception:
                 pass  # Silently ignore reload errors during live monitoring
+
 
     def run(self):
         self.root.mainloop()

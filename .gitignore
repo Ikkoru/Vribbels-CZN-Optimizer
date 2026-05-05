@@ -70,3 +70,6 @@ requirements.txt
 # Release packages (distributed via GitHub Releases)
 *.zip
 Vribbels/Vribbels.zip
+
+# I'm normal
+zRUN.bat
