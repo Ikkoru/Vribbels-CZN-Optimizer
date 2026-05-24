@@ -1,8 +1,68 @@
 """
 Optimization engine for CZN Memory Fragment gear builds.
 
-This module contains the core optimization logic for finding optimal
-gear combinations based on various constraints and scoring criteria.
+This module is the link between captured game data (the snapshot JSON)
+and the rest of the program. It iterates the captured characters,
+resolves their relationships (partner, equipped pieces, presets), and
+computes the derived stats that the UI displays.
+
+Pipeline (one call to refresh / load):
+   parse snapshot -> build character_info -> calculate_build_stats
+
+character_info is a name-keyed dict of CharacterInfo objects, each
+carrying everything the UI needs to render that character's row plus
+the equipped-gear detail panel.
+
+The damage formula (Final ATK / Final DEF / Final HP)
+=====================================================
+
+The optimizer uses a LAYERED formula that distinguishes "inner" sources
+(base stat, partner flat, MF%, potential% nodes, gear flat, affection
+flat) from "outer" multipliers (partner %, equipment %, equipment flat):
+
+    inner = (base_stat + partner_flat) * (1 + MF% + potential_node%)
+            + gear_flat
+            + affection_flat
+    Final = inner * (1 + partner_pct + equipment_pct)
+            + equipment_flat
+
+Where each piece comes from:
+
+  base_stat       Character's level-60 stat from CHARACTERS dict. (The
+                  optimizer treats every character as level >=60 for
+                  stat purposes regardless of actual level.)
+  partner_flat    Flat ATK/DEF/HP bonus from the equipped partner
+                  card's class-based stat table (PARTNER_CLASS_STATS).
+  MF%             Substats and main-stat %-type values from all 6
+                  Memory Fragments combined.
+  potential_node% Percentage bonuses from the character's level-40,
+                  -50, -60 potential nodes. Flat bonuses from nodes
+                  10/20/30 don't go here -- they're inside the
+                  gear_flat layer below.
+  gear_flat       Flat ATK/DEF/HP bonuses: nodes 10/20/30 + the flat
+                  main stat / substat values from equipped pieces.
+  affection_flat  Cumulative ATK/DEF/HP from the partner's affection
+                  (formerly "friendship") rewards table.
+  partner_pct     Partner passive bonuses expressed as %.
+  equipment_pct   Outer-layer % multipliers from equipment (rare;
+                  most builds have 0 here).
+  equipment_flat  Outer-layer flat bonuses from equipment (the
+                  EQUIPMENT_FLAT_* constants).
+
+Why layered? Because in-game tooltips reveal that some bonuses scale
+the inner total (the "main" stat box including its substats) while
+others sit outside it. The previous version of this formula treated
+everything as a single big sum, which over-credited percentage bonuses
+on top of percentage bonuses. The layered form matches the in-game
+math closely enough to compare builds reliably.
+
+Heuristic stats removed
+=======================
+A previous iteration computed derived stats like EHP, Avg DMG, Max CD,
+and a Bruiser score. These were dropped because they varied unpredictably
+between game versions and weren't actionable. The Final ATK/DEF/HP plus
+GS columns now carry the comparison work; build-quality judgment lives
+in the user's preset weights, which is where it belongs.
 """
 
 import json
@@ -18,6 +78,9 @@ from game_data import (
     get_partner_stats, get_partner_passive_stats, get_potential_stat_bonus,
     SETS, SLOT_ORDER, ALL_STAT_NAMES
 )
+# Direct module-path import for the newly-added helper to avoid relying
+# on game_data/__init__.py re-exporting it.
+from game_data.characters import get_character_stats_at_level
 
 
 class GearOptimizer:
@@ -41,6 +104,14 @@ class GearOptimizer:
         self.capture_time = ""
         self.priorities: dict[str, int] = {name: 0 for name in ALL_STAT_NAMES}
         self.raw_data = {}
+        # Optional reference to SettingsManager. Reserved for the future
+        # Optimizer-tab "Optimize at" toggle: that tab will read its own
+        # level setting from SettingsManager and pass it to
+        # calculate_build_stats as the `effective_level` argument.
+        # Currently unread (Combatants-tab "Calculate GS for lvl:" is
+        # GS-scoped and doesn't go through this hook). Injected by
+        # czn_optimizer_gui.py at startup.
+        self.settings_manager = None
 
     def load_data(self, filepath: str):
         """
@@ -122,6 +193,12 @@ class GearOptimizer:
         partner_lookup = {}
         hero_items = []
 
+        # Lookup keyed by *instance id* covering EVERY item in char_items —
+        # used as a fallback when a character's partner_id points at a partner
+        # whose res_id isn't in PARTNERS. Without this, we'd lose the partner's
+        # res_id entirely (and couldn't tell the user what to add to partners.py).
+        all_items_by_id = {char.get("id", 0): char for char in char_items}
+
         for char in char_items:
             res_id = char.get("res_id", 0)
             # Check if res_id exists in PARTNERS dict (more accurate than range check)
@@ -130,6 +207,10 @@ class GearOptimizer:
                 partner_lookup[char.get("id", 0)] = char
             else:
                 hero_items.append(char)
+
+        # Stash for any consumer that needs raw entries by instance id
+        # (e.g., heroes_tab to show res_id for unknown equipped partners).
+        self.all_items_by_id = all_items_by_id
 
         for char in hero_items:
             res_id = char.get("res_id", 0)
@@ -142,7 +223,12 @@ class GearOptimizer:
             exp = char.get("exp", 0)
             level = get_level_from_exp(exp)
             ascend = char.get("ascend", 0)
-            max_level = (ascend + 1) * 10
+            # Promotion (ascend) gates the level cap: each tier raises it by
+            # 10. The final tier (ascend 5) was bumped from /60 to /62 in
+            # a later game update, while lower tiers keep their original
+            # caps. Anything beyond ascend 5 is forward-compatibility:
+            # treat the same as the top tier.
+            max_level = 62 if ascend >= 5 else (ascend + 1) * 10
             limit_break = char.get("limit_break", 0)
             friendship_index = char.get("friendship_reward_index", 1)
             friendship_bonus = get_friendship_bonus(friendship_index)
@@ -168,6 +254,14 @@ class GearOptimizer:
                 # Cap partner level at max
                 partner_level = min(partner_level, partner_max_level)
                 partner_limit_break = partner.get("limit_break", 0)
+            elif partner_id and partner_id in all_items_by_id:
+                # Equipped partner whose res_id isn't in PARTNERS: still
+                # recover the res_id from the raw entry so it can be shown
+                # in the UI (so the user knows what to add to partners.py).
+                # partner_name stays empty -> heroes_tab renders the "Unknown
+                # partner" message instead of a fake card with default values.
+                partner = all_items_by_id[partner_id]
+                partner_res_id = partner.get("res_id", 0)
 
             # Parse potential node IDs
             potential_str = char.get("potential_node_ids", "[]")
@@ -237,60 +331,118 @@ class GearOptimizer:
         count = max(1, int(len(candidates) * top_percent / 100))
         return candidates[:count]
 
-    def calculate_build_stats(self, gear: list[MemoryFragment], char_name: str = None) -> dict[str, float]:
+    # Equipment is a separate item system from Memory Fragments. The program
+    # doesn't capture which Equipment a character has, so we model it as a
+    # constant — Legendary tier (the most common endgame target). These values
+    # can be edited if the user wants a different default.
+    #   Legendary: 82 ATK / 31 DEF / 83 HP    (the values used here)
+    #   Other:     74 ATK / 28 DEF / 75 HP    (lower tier)
+    #              90 ATK / 34 DEF / 91 HP    (rarer/higher tier)
+    EQUIPMENT_FLAT_ATK = 82
+    EQUIPMENT_FLAT_DEF = 31
+    EQUIPMENT_FLAT_HP = 83
+    # Equipment ATK%/DEF%/HP% ranges from 0% to 18% in-game; 0% is by far the
+    # most common (only some very rare Equipment provides it). Default to 0;
+    # since Equipment is constant per character, this only affects displayed
+    # Final ATK/DEF/HP values, not which fragment combos win in the optimizer.
+    EQUIPMENT_ATK_PCT = 0.0
+    EQUIPMENT_DEF_PCT = 0.0
+    EQUIPMENT_HP_PCT = 0.0
+
+    def calculate_build_stats(self, gear: list[MemoryFragment],
+                               char_name: str = None,
+                               effective_level: int = None) -> dict[str, float]:
         """
         Calculate final stats for a gear build.
 
-        Includes:
-        - Character base stats
-        - Friendship bonuses
-        - Partner card stats and passive bonuses
-        - Potential node bonuses (nodes 50 and 60)
-        - Gear main stats and substats
-        - Set bonuses (2-piece and 4-piece)
+        Implements the Final ATK / DEF / HP formula:
+
+          inner_X = (Base X + Partner X) * (1 + Memory_Fragment_X% + Potential_X%)
+                    + Gear_Flat_X + Affection_Flat_X
+          Final X = inner_X * (1 + Partner_X% + Equipment_X%) + Equipment_Flat_X
+
+        where (using ATK as an illustration; DEF and HP are analogous):
+          - Base ATK            = character's base ATK at level cap
+          - Partner ATK         = partner card's flat ATK contribution (level-scaled)
+          - Memory Fragment ATK%= sum of substat + main-stat ATK% across all
+                                  6 equipped fragments, plus set-bonus ATK%
+          - Potential ATK%      = bonuses from potential nodes 50 & 60
+          - Gear Flat ATK       = sum of substat + main-stat Flat ATK across
+                                  all 6 equipped fragments
+          - Affection Flat ATK  = the friendship/affection bonus
+          - Partner ATK%        = partner's passive ATK% bonus
+          - Equipment ATK%      = constant (Equipment is a separate system not
+                                  captured by the optimizer)
+          - Equipment Flat ATK  = constant (Legendary tier — see above)
 
         Args:
             gear: List of 6 MemoryFragment objects (one per slot)
             char_name: Character name (optional, for base stats)
 
         Returns:
-            Dictionary with final stat values and derived stats (EHP, Avg DMG, etc.)
+            Dictionary with Final ATK/DEF/HP, CRate, CDmg, the summed substat
+            % buckets (informational), and Ego / Extra DMG% / DoT%.
         """
         base_atk, base_def, base_hp, base_cr, base_cd = 0, 0, 0, 0, 125.0
 
         if char_name:
             char_data = get_character_by_name(char_name)
-            base_atk = char_data.get("base_atk", 0)
-            base_def = char_data.get("base_def", 0)
-            base_hp = char_data.get("base_hp", 0)
+            # Resolve the level at which to read base stats.
+            #
+            # Priority:
+            #   1. effective_level argument from the caller (this is how
+            #      the future Optimizer-tab "Optimize at" toggle will pass
+            #      its tab-scoped value; the Combatants-tab "Calculate GS
+            #      for lvl:" setting is GS-scoped and intentionally does
+            #      NOT flow through here).
+            #   2. max(60, actual character level), clamped to 62.
+            #   3. 60 fallback.
+            #
+            # Optimizer's contract: stats are computed at level >= 60. For
+            # characters below 60 we still use the level-60 baseline (their
+            # in-game stats would be lower, but the optimizer exists to
+            # compare endgame builds, not model mid-level progression).
+            if effective_level is None:
+                actual_level = (self.character_info[char_name].level
+                                if char_name in self.character_info else 60)
+                effective_level = max(60, min(62, actual_level))
+            else:
+                try:
+                    effective_level = max(60, min(62, int(effective_level)))
+                except (ValueError, TypeError):
+                    effective_level = 60
+            # get_character_stats_at_level applies LEVEL_61_BONUS / LEVEL_62_BONUS
+            # additions when the level is 61/62. While those bonuses are still
+            # -1 placeholders this is a no-op and base stats stay at level-60
+            # values; once real bonus data lands, the override starts mattering.
+            scaled = get_character_stats_at_level(char_data, effective_level)
+            base_atk = scaled["base_atk"]
+            base_def = scaled["base_def"]
+            base_hp = scaled["base_hp"]
             base_cr = char_data.get("base_crit_rate", 0)
             base_cd = char_data.get("base_crit_dmg", 125.0)
 
-        # Add friendship bonus and partner card stats
-        friendship_atk, friendship_def, friendship_hp = 0, 0, 0
-        partner_atk, partner_def, partner_hp = 0, 0, 0
+        # Affection (friendship) flat bonuses + partner-card flat stats.
+        affection_atk, affection_def, affection_hp = 0, 0, 0
+        partner_flat_atk, partner_flat_def, partner_flat_hp = 0, 0, 0
         partner_passive_stats = {}
-        potential_stats = {}  # Potential node bonuses
+        potential_stats = {}  # Potential-node bonuses
 
         if char_name and char_name in self.character_info:
             char_info = self.character_info[char_name]
-            # Add friendship bonus
             fb = char_info.friendship_bonus
-            friendship_atk, friendship_def, friendship_hp = fb[0], fb[1], fb[2]
+            affection_atk, affection_def, affection_hp = fb[0], fb[1], fb[2]
 
-            # Add partner card stats
             if char_info.partner_res_id:
                 partner_stats = get_partner_stats(char_info.partner_res_id, char_info.partner_level)
-                partner_atk = partner_stats["atk"]
-                partner_def = partner_stats["def"]
-                partner_hp = partner_stats["hp"]
+                partner_flat_atk = partner_stats["atk"]
+                partner_flat_def = partner_stats["def"]
+                partner_flat_hp = partner_stats["hp"]
 
-                # Add partner passive stats (unconditional bonuses)
                 partner_passive_stats = get_partner_passive_stats(
                     char_info.partner_res_id, char_info.partner_limit_break
                 )
 
-            # Add potential node bonuses (nodes 50 and 60)
             if char_info.potential_50_level > 0:
                 stat_type, bonus = get_potential_stat_bonus(
                     char_info.res_id, 50, char_info.potential_50_level
@@ -305,43 +457,33 @@ class GearOptimizer:
                 if stat_type:
                     potential_stats[stat_type] = potential_stats.get(stat_type, 0) + bonus
 
-        atk_pct, def_pct, hp_pct = 0, 0, 0
-        flat_atk, flat_def, flat_hp = 0, 0, 0
+        # ----- Memory Fragment (substats + main stats) -----------------------
+        # Sum % and flat contributions from the 6 fragments. Set bonuses are
+        # applied below and lumped into the same "Memory Fragment %" bucket
+        # since they're triggered by gear pieces.
+        mf_atk_pct, mf_def_pct, mf_hp_pct = 0, 0, 0
+        gear_flat_atk, gear_flat_def, gear_flat_hp = 0, 0, 0
         crit_rate, crit_dmg = 0, 0
         ego, extra_dmg, dot_dmg = 0, 0, 0
 
-        # Add partner passive percentage bonuses
-        atk_pct += partner_passive_stats.get("ATK%", 0)
-        def_pct += partner_passive_stats.get("DEF%", 0)
-        hp_pct += partner_passive_stats.get("HP%", 0)
-        crit_dmg += partner_passive_stats.get("CDmg", 0)
-        extra_dmg += partner_passive_stats.get("Extra DMG%", 0)
-
-        # Add potential node bonuses
-        atk_pct += potential_stats.get("ATK%", 0)
-        def_pct += potential_stats.get("DEF%", 0)
-        hp_pct += potential_stats.get("HP%", 0)
-        crit_rate += potential_stats.get("CRate", 0)
-        crit_dmg += potential_stats.get("CDmg", 0)
-
         for piece in gear:
             piece_stats = piece.get_total_stats()
-            atk_pct += piece_stats.get("ATK%", 0)
-            def_pct += piece_stats.get("DEF%", 0)
-            hp_pct += piece_stats.get("HP%", 0)
-            flat_atk += piece_stats.get("Flat ATK", 0)
-            flat_def += piece_stats.get("Flat DEF", 0)
-            flat_hp += piece_stats.get("Flat HP", 0)
+            mf_atk_pct += piece_stats.get("ATK%", 0)
+            mf_def_pct += piece_stats.get("DEF%", 0)
+            mf_hp_pct += piece_stats.get("HP%", 0)
+            gear_flat_atk += piece_stats.get("Flat ATK", 0)
+            gear_flat_def += piece_stats.get("Flat DEF", 0)
+            gear_flat_hp += piece_stats.get("Flat HP", 0)
             crit_rate += piece_stats.get("CRate", 0)
             crit_dmg += piece_stats.get("CDmg", 0)
             ego += piece_stats.get("Ego", 0)
             extra_dmg += piece_stats.get("Extra DMG%", 0)
             dot_dmg += piece_stats.get("DoT%", 0)
 
+        # Set bonuses: count pieces per set, add stat bonuses from satisfied sets.
         set_counts = {}
         for piece in gear:
             set_counts[piece.set_id] = set_counts.get(piece.set_id, 0) + 1
-
         for set_id, count in set_counts.items():
             if set_id in SETS:
                 set_info = SETS[set_id]
@@ -349,31 +491,73 @@ class GearOptimizer:
                     stat = set_info.get("stat", "")
                     value = set_info.get("value", 0)
                     if stat == "ATK%":
-                        atk_pct += value
+                        mf_atk_pct += value
                     elif stat == "DEF%":
-                        def_pct += value
+                        mf_def_pct += value
                     elif stat == "HP%":
-                        hp_pct += value
+                        mf_hp_pct += value
                     elif stat == "Crit DMG":
                         crit_dmg += value
 
-        total_atk = base_atk * (1 + atk_pct / 100) + flat_atk + friendship_atk + partner_atk
-        total_def = base_def * (1 + def_pct / 100) + flat_def + friendship_def + partner_def
-        total_hp = base_hp * (1 + hp_pct / 100) + flat_hp + friendship_hp + partner_hp
+        # Potential-node % bonuses (these go into the inner multiplier
+        # alongside Memory Fragment %).
+        potential_atk_pct = potential_stats.get("ATK%", 0)
+        potential_def_pct = potential_stats.get("DEF%", 0)
+        potential_hp_pct  = potential_stats.get("HP%", 0)
+        # Potential-node CRate/CDmg are flat additions (not part of the new
+        # ATK/DEF/HP formula structure).
+        crit_rate += potential_stats.get("CRate", 0)
+        crit_dmg  += potential_stats.get("CDmg", 0)
+
+        # Partner passive % bonuses (these go into the OUTER multiplier
+        # alongside Equipment %).
+        partner_atk_pct = partner_passive_stats.get("ATK%", 0)
+        partner_def_pct = partner_passive_stats.get("DEF%", 0)
+        partner_hp_pct  = partner_passive_stats.get("HP%", 0)
+        crit_dmg  += partner_passive_stats.get("CDmg", 0)
+        extra_dmg += partner_passive_stats.get("Extra DMG%", 0)
+
+        # ----- Apply the layered Final ATK/DEF/HP formulas -------------------
+        # Final X = ((Base X + Partner X) × (1 + MF X% + Potential X%)
+        #            + Gear Flat X + Affection Flat X)
+        #         × (1 + Partner X% + Equipment X%)
+        #         + Equipment Flat X
+        def _final(base, partner_flat, mf_pct, pot_pct, gear_flat, affection_flat,
+                   partner_pct, equip_pct, equip_flat):
+            inner_mult = 1 + (mf_pct + pot_pct) / 100
+            outer_mult = 1 + (partner_pct + equip_pct) / 100
+            inner = (base + partner_flat) * inner_mult + gear_flat + affection_flat
+            return inner * outer_mult + equip_flat
+
+        total_atk = _final(
+            base_atk, partner_flat_atk, mf_atk_pct, potential_atk_pct,
+            gear_flat_atk, affection_atk,
+            partner_atk_pct, self.EQUIPMENT_ATK_PCT, self.EQUIPMENT_FLAT_ATK,
+        )
+        total_def = _final(
+            base_def, partner_flat_def, mf_def_pct, potential_def_pct,
+            gear_flat_def, affection_def,
+            partner_def_pct, self.EQUIPMENT_DEF_PCT, self.EQUIPMENT_FLAT_DEF,
+        )
+        total_hp = _final(
+            base_hp, partner_flat_hp, mf_hp_pct, potential_hp_pct,
+            gear_flat_hp, affection_hp,
+            partner_hp_pct, self.EQUIPMENT_HP_PCT, self.EQUIPMENT_FLAT_HP,
+        )
         total_cr = base_cr + crit_rate
         total_cd = base_cd + crit_dmg
-
-        ehp = total_hp * (total_def / 300 + 1)
-        avg_dmg = total_atk * (total_cr / 100) * (total_cd / 100)
-        max_cd = total_atk * (total_cd / 100)
-        dmg_h = total_hp * (total_cd / 100)
 
         return {
             "ATK": total_atk, "DEF": total_def, "HP": total_hp,
             "CRate": total_cr, "CDmg": total_cd,
-            "ATK%": atk_pct, "DEF%": def_pct, "HP%": hp_pct,
+            # Summed % buckets — informational; reflects total % from MF+
+            # potential+partner+equipment so the user can see what's
+            # contributing. The Final ATK/DEF/HP above already account for
+            # the layered formula.
+            "ATK%": mf_atk_pct + potential_atk_pct + partner_atk_pct + self.EQUIPMENT_ATK_PCT,
+            "DEF%": mf_def_pct + potential_def_pct + partner_def_pct + self.EQUIPMENT_DEF_PCT,
+            "HP%":  mf_hp_pct  + potential_hp_pct  + partner_hp_pct  + self.EQUIPMENT_HP_PCT,
             "Ego": ego, "Extra DMG%": extra_dmg, "DoT%": dot_dmg,
-            "EHP": ehp, "Avg DMG": avg_dmg, "Max CD": max_cd, "Bruiser": dmg_h,
         }
 
     def optimize(self, char_name: str, settings: dict, progress_callback: Callable = None,

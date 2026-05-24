@@ -2,10 +2,65 @@
 Heroes/Combatants display tab.
 
 Provides sortable list of heroes with detailed gear display.
+
+
+Where to look when you want to change X
+=======================================
+
+  Hero row list (left side):       refresh_heroes() -- rebuilds from
+                                   self.optimizer.character_info, applies
+                                   the configured sort, restores the
+                                   previous selection from SettingsManager.
+  Row click / keyboard nav:        _on_row_click, _on_row_right_click,
+                                   _navigate_hero_list. The list is a
+                                   canvas of frames (not a Treeview), so
+                                   keyboard nav is hand-rolled and the
+                                   canvas needs focus to receive Up/Down.
+  Detail panel (right side):       show_hero_details() -- character frame,
+                                   partner card, equipped MFs frame.
+  Per-piece GS in detail panel:    uses compute_fragment_gs() with the
+                                   per-character preset's weights, NOT
+                                   the globally-Apply'd weights. The
+                                   character-list GS column does the same;
+                                   they must agree.
+  Per-character preset assignment: _get_assigned_preset / _weights_for_preset
+                                   / _refresh_preset_dropdown_values. The
+                                   dropdown uses DEFAULT_PRESET_LABEL as
+                                   a sentinel meaning "no assignment ->
+                                   fall back to global weights" (which
+                                   themselves come from scoring_tab's
+                                   apply_active_weights -> preset_manager).
+  Partner card (3 states):         show_hero_details's partner section.
+                                   Known partner -> full card; partner_id
+                                   with unknown res_id -> "Unknown partner
+                                   (res_id X)"; no partner -> "None".
+  Set name color:                  Combatants > Equipped MFs frame. Counts
+                                   actual equipped pieces of the same set
+                                   and compares to the set's pieces
+                                   requirement -- white if complete, dim
+                                   grey if partial.
+  Right-click level checkpoint:    _on_row_right_click ->
+                                   _prompt_level_checkpoint -> writes to
+                                   LevelDataManager and refreshes.
+  Selection memory:                refresh_heroes reads
+                                   SettingsManager["last_selected_character"]
+                                   to choose the initial select_hero_row
+                                   target; select_hero_row writes it back
+                                   on every successful selection.
+
+Cross-file conventions
+======================
+- hero_data_list entries carry name + display fields + res_id + exp.
+  res_id/exp come from CharacterInfo (the optimizer's per-hero data) and
+  are needed by the right-click level-checkpoint flow.
+- DEFAULT_PRESET_LABEL is a UI string only -- never persisted. The
+  CharacterPresetManager stores None for "use default", and we translate
+  to/from the label string at the dropdown boundary.
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
+from tkinter import font as tkfont
 from typing import Optional
 
 from ui.base_tab import BaseTab
@@ -17,6 +72,51 @@ from game_data import (
     get_partner_passive_info, get_potential_stat_bonus
 )
 from models import Stat
+from models.memory_fragment import compute_gs_bounds, normalize_gs
+
+
+# UI label shown when a character has no preset assigned (default 1.0 weights).
+DEFAULT_PRESET_LABEL = "Default Preset (all weights are 1.0)"
+
+
+def compute_fragment_gs(
+    fragment, weights: dict, bounds: Optional[tuple[float, float]] = None
+) -> float:
+    """Pure function: gear score for one fragment using the given stat
+    weights, normalized to a 0-100 scale via the preset's theoretical bounds.
+
+    Substats only -- main stats are intentionally excluded (matches the
+    formulas in memory_fragment.py and scoring_tab.py). However, the
+    fragment's main stat type DOES affect normalization: bounds passed in
+    (or computed lazily here) exclude that stat from the substat pool, so
+    100 is reachable for any fragment given perfect substats relative to
+    its main-stat constraint (Philosophy B).
+
+    Args:
+        weights: stat_name -> weight (missing keys default to 1.0).
+        bounds:  pre-computed (min_raw, max_raw) for these weights with the
+                 fragment's main stat excluded. Pass it in when scoring
+                 many fragments under the same preset -- cache by main_stat
+                 name to share across fragments with the same main.
+                 Computed lazily otherwise.
+    """
+    raw = 0.0
+    for sub in fragment.substats:
+        stat_info = STATS.get(
+            sub.raw_name, (sub.name, sub.name, sub.is_percentage, 1.0, 0.5)
+        )
+        max_roll = stat_info[3]
+        if max_roll <= 0:
+            continue
+        normalized = sub.value / (max_roll * sub.roll_count)
+        weight = weights.get(sub.name, 1.0)
+        raw += normalized * sub.roll_count * weight
+    raw *= 10
+
+    if bounds is None:
+        main_name = fragment.main_stat.name if fragment.main_stat else None
+        bounds = compute_gs_bounds(weights, exclude_stat=main_name)
+    return normalize_gs(raw, bounds)
 
 
 class HeroesTab(BaseTab):
@@ -26,6 +126,25 @@ class HeroesTab(BaseTab):
         super().__init__(parent, context)
         self._init_state()
         self.setup_ui()
+        self._maybe_warn_character_preset_corrupted()
+
+    def _maybe_warn_character_preset_corrupted(self):
+        """If character_preset.json was unreadable on load, tell the user once.
+        Same flow as presets.json: defaults are applied, file is locked from
+        writes until the user explicitly chooses to save (which quarantines)."""
+        cpm = self.context.character_preset_manager
+        if cpm is None or not cpm.is_corrupted():
+            return
+        messagebox.showwarning(
+            "Character Preset File Corrupted",
+            f"The per-character preset file appears to be invalid:\n\n"
+            f"{cpm.corruption_error}\n\n"
+            f"File: {cpm.assignments_file}\n\n"
+            f"All characters have been reset to the default preset (all "
+            f"weights 1.0). The file will not be edited unless you make a "
+            f"new assignment from the dropdown (you'll be prompted to back "
+            f"up the broken file first)."
+        )
 
     def _init_state(self):
         """Initialize all state variables."""
@@ -80,18 +199,27 @@ class HeroesTab(BaseTab):
         hero_header_frame.pack(fill=tk.X)
 
         # Use character widths for consistency between headers and data rows
-        col_char_widths = [12, 6, 9, 10, 7, 5, 5]  # Character widths for each column
-        col_names = ["Combatant", "Grade", "Attribute", "Class", "Level", "Ego", "GS"]
-        col_keys = ["name", "grade", "attribute", "class", "level", "ego", "gs"]
+        col_char_widths = [12, 6, 9, 10, 7, 5, 5, 14]  # +1 col for Preset
+        col_names = ["Combatant", "Grade", "Attribute", "Class", "Level", "Ego", "GS", "Preset"]
+        col_keys = ["name", "grade", "attribute", "class", "level", "ego", "gs", "preset"]
 
         self.hero_header_labels = []
         for i, (name, char_width) in enumerate(zip(col_names, col_char_widths)):
+            # Left-align Combatant (index 0) and Preset (index 7) columns;
+            # all other columns stay centered.
+            anchor = tk.W if i in (0, 7) else tk.CENTER
             lbl = tk.Label(hero_header_frame, text=name, width=char_width,
                           bg=self.colors["bg_lighter"], fg=self.colors["fg"],
                           font=("Segoe UI", 9, "bold"),
-                          anchor=tk.W if i == 0 else tk.CENTER,
+                          anchor=anchor,
                           cursor="hand2")
-            lbl.pack(side=tk.LEFT, padx=1)
+            # Last column (Preset) absorbs any leftover row width — keeps its
+            # 14-char minimum but stretches so long preset names aren't
+            # truncated when there's space available.
+            if i == 7:
+                lbl.pack(side=tk.LEFT, padx=1, fill=tk.X, expand=True)
+            else:
+                lbl.pack(side=tk.LEFT, padx=1)
             lbl.bind("<Button-1>", lambda e, k=col_keys[i]: self.sort_heroes(k))
             lbl.bind("<Enter>", lambda e, l=lbl: l.config(fg=self.colors["accent"]))
             lbl.bind("<Leave>", lambda e, l=lbl: l.config(fg=self.colors["fg"]))
@@ -124,13 +252,62 @@ class HeroesTab(BaseTab):
         self.hero_canvas.bind("<Configure>", self._on_hero_canvas_configure)
         self.hero_list_frame.bind("<Configure>", lambda e: self._update_hero_scrollregion())
 
+        # Up/Down navigate the character list when the canvas has focus.
+        # Binding only fires when this widget is the focus, so the dropdown's
+        # native arrow-key handling is unaffected when *it* has focus.
+        self.hero_canvas.configure(takefocus=1)
+        self.hero_canvas.bind("<Up>",   lambda e: self._navigate_hero_list(-1))
+        self.hero_canvas.bind("<Down>", lambda e: self._navigate_hero_list(+1))
+        # Windows-Explorer-style letter-jump: press a letter to select the
+        # next hero whose name starts with that letter (case-insensitive,
+        # cycling). Non-alphanumeric keys fall through so arrow keys above
+        # still work. See _on_hero_canvas_key for details.
+        self.hero_canvas.bind("<KeyPress>", self._on_hero_canvas_key)
+
         # Right: Hero details
         hero_detail_container = ttk.Frame(content_pane)
         content_pane.add(hero_detail_container, weight=2)
+        self.hero_detail_container = hero_detail_container  # for width-clamp lookups
 
-        # Hero name/title
-        self.hero_detail_name = ttk.Label(hero_detail_container, text="Select a combatant", font=("Segoe UI", 14, "bold"))
-        self.hero_detail_name.pack(anchor=tk.W, pady=(0, 5))
+        # Title row: combatant name on left, "Assign preset" dropdown on right.
+        title_row = ttk.Frame(hero_detail_container)
+        title_row.pack(fill=tk.X, pady=(0, 5))
+
+        self.hero_detail_name = ttk.Label(
+            title_row, text="Select a combatant",
+            font=("Segoe UI", 14, "bold")
+        )
+        self.hero_detail_name.pack(side=tk.LEFT, anchor=tk.W)
+
+        # Right-aligned vertical group: label on top, combobox below.
+        # `expand=True, fill=X` fills the leftover space between the name and
+        # the partner-card right edge — the combobox then expands to that width
+        # automatically, no manual width math required.
+        preset_group = ttk.Frame(title_row)
+        preset_group.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0))
+
+        self.preset_assign_label = ttk.Label(
+            preset_group,
+            text="Assign preset to (no selection) for custom Gear Score:"
+        )
+        self.preset_assign_label.pack(anchor=tk.W)
+
+        self.preset_assign_combo = ttk.Combobox(
+            preset_group, state="readonly", values=[DEFAULT_PRESET_LABEL]
+        )
+        self.preset_assign_combo.set(DEFAULT_PRESET_LABEL)
+        self.preset_assign_combo.pack(anchor=tk.W, fill=tk.X)
+        self.preset_assign_combo.bind(
+            "<<ComboboxSelected>>", self._on_preset_combo_change
+        )
+
+        # Internal: name of the character whose row is currently selected
+        # (used by the combobox change handler to know who to assign to).
+        self._current_detail_hero = None
+
+        # Debounce handle for resize-triggered combobox geometry recompute.
+        self._combo_resize_after_id = None
+        hero_detail_container.bind("<Configure>", self._on_detail_resize)
 
         # Info frame with Character and Partner Card
         # Character takes only needed space, Partner Card fills remaining with text wrapping
@@ -142,15 +319,36 @@ class HeroesTab(BaseTab):
         self.hero_char_info = ttk.Label(char_frame, text="", justify=tk.LEFT)
         self.hero_char_info.pack(anchor=tk.W)
 
-        partner_frame = ttk.LabelFrame(info_frame, text="Partner Card", padding=5)
+        partner_frame = ttk.LabelFrame(info_frame, text="Partner", padding=5)
         partner_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
-        # Use a Text widget for Partner Card to allow proper wrapping
-        self.hero_partner_text = tk.Text(partner_frame, wrap=tk.WORD, height=6,
-                                         bg=self.colors["bg_light"], fg=self.colors["fg"],
-                                         font=("Segoe UI", 9), bd=0, highlightthickness=0,
-                                         padx=2, pady=2)
-        self.hero_partner_text.pack(fill=tk.BOTH, expand=True)
+        # Right-click on the partner pane (the LabelFrame OR the Text widget
+        # inside) opens the "Add confirmed level" dialog for the currently
+        # equipped partner. Same flow as for characters; the partner res_id
+        # and exp come from char_info.partner_res_id / char_info.partner_exp,
+        # populated by the optimizer when the snapshot is parsed.
+        partner_frame.bind("<Button-3>", self._on_partner_right_click)
+        # Use a Text widget for the Partner pane (allows proper word-wrap of
+        # the multi-line description). Wrap it in a sub-frame alongside a
+        # vertical Scrollbar so long descriptions get an actual visible
+        # scrollbar — the Text widget alone doesn't show one.
+        partner_text_frame = ttk.Frame(partner_frame)
+        partner_text_frame.pack(fill=tk.BOTH, expand=True)
+
+        partner_scroll = ttk.Scrollbar(partner_text_frame, orient=tk.VERTICAL)
+        self.hero_partner_text = tk.Text(
+            partner_text_frame, wrap=tk.WORD, height=6,
+            bg=self.colors["bg_light"], fg=self.colors["fg"],
+            font=("Segoe UI", 9), bd=0, highlightthickness=0,
+            padx=2, pady=2,
+            yscrollcommand=partner_scroll.set,
+        )
+        partner_scroll.config(command=self.hero_partner_text.yview)
+        partner_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.hero_partner_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.hero_partner_text.config(state=tk.DISABLED)
+        # Right-click on the Text widget (where the partner description
+        # actually renders) routes to the same handler as the parent frame.
+        self.hero_partner_text.bind("<Button-3>", self._on_partner_right_click)
 
         stats_frame = ttk.LabelFrame(hero_detail_container, text="Build Stats", padding=5)
         stats_frame.pack(fill=tk.X, pady=(0, 10))
@@ -274,7 +472,23 @@ class HeroesTab(BaseTab):
             gear = self.optimizer.characters.get(hero, [])
             char_info = self.optimizer.character_info.get(hero)
 
-            gs = sum(f.gear_score for f in gear)
+            # Per-character GS: use this character's assigned preset weights.
+            # Each fragment's bounds exclude its own main stat (Philosophy B),
+            # so cache by main_stat across this character's pieces to avoid
+            # recomputing bounds for the same (preset, main_stat) pair.
+            preset_name = self._get_assigned_preset(hero)
+            weights = self._weights_for_preset(preset_name)
+            bounds_cache: dict = {}
+            gs = 0.0
+            for f in gear:
+                main_name = f.main_stat.name if f.main_stat else None
+                if main_name not in bounds_cache:
+                    bounds_cache[main_name] = compute_gs_bounds(
+                        weights, exclude_stat=main_name
+                    )
+                gs += compute_fragment_gs(f, weights, bounds_cache[main_name])
+            preset_display = "-" if preset_name is None else preset_name
+
             hero_data = get_character_by_name(hero)
             grade = hero_data.get("grade", 0)
             attribute = hero_data.get("attribute", "Unknown")
@@ -284,10 +498,14 @@ class HeroesTab(BaseTab):
                 level = char_info.level
                 max_level = char_info.max_level
                 ego = char_info.limit_break
+                res_id = char_info.res_id
+                exp = char_info.exp
             else:
                 level = 0
                 max_level = 0
                 ego = 0
+                res_id = 0
+                exp = 0
 
             self.hero_data_list.append({
                 "name": hero,
@@ -297,7 +515,14 @@ class HeroesTab(BaseTab):
                 "level": level,
                 "max_level": max_level,
                 "ego": ego,
-                "gs": gs
+                "gs": gs,
+                "preset": preset_display,
+                # res_id / exp drive the right-click "Add confirmed level"
+                # checkpoint flow. They're 0 when char_info is missing (no
+                # captured data for this hero) -- the right-click handler
+                # treats 0 res_id as "can't record" and aborts cleanly.
+                "res_id": res_id,
+                "exp": exp,
             })
 
         # Sort heroes
@@ -309,6 +534,7 @@ class HeroesTab(BaseTab):
             "level": lambda h: h["level"],
             "ego": lambda h: h["ego"],
             "gs": lambda h: h["gs"],
+            "preset": lambda h: h["preset"],
         }
 
         key_func = sort_key_map.get(self.hero_sort_col, lambda h: h["name"])
@@ -328,7 +554,8 @@ class HeroesTab(BaseTab):
             row_frame.hero_name = h["name"]
 
             # Column values
-            values = [h["name"], f"{h['grade']}*", h["attribute"], h["class"], level_str, ego_str, gs_str]
+            values = [h["name"], f"{h['grade']}*", h["attribute"], h["class"],
+                      level_str, ego_str, gs_str, h["preset"]]
 
             labels = []
             for j, (val, char_width) in enumerate(zip(values, self.hero_col_char_widths)):
@@ -338,19 +565,41 @@ class HeroesTab(BaseTab):
                 else:
                     fg_color = self.colors["fg"]
 
-                lbl = tk.Label(row_frame, text=val, width=char_width, anchor=tk.W if j == 0 else tk.CENTER,
+                # Left-align Combatant (j=0) and Preset (j=7); center the rest.
+                row_anchor = tk.W if j in (0, 7) else tk.CENTER
+                lbl = tk.Label(row_frame, text=val, width=char_width, anchor=row_anchor,
                               bg=self.colors["bg"], fg=fg_color, font=("Segoe UI", 9))
-                lbl.pack(side=tk.LEFT, padx=1)
-                lbl.bind("<Button-1>", lambda e, idx=i: self.select_hero_row(idx))
+                # Mirror the header: Preset column stretches to fill leftover width.
+                if j == 7:
+                    lbl.pack(side=tk.LEFT, padx=1, fill=tk.X, expand=True)
+                else:
+                    lbl.pack(side=tk.LEFT, padx=1)
+                lbl.bind("<Button-1>", lambda e, idx=i: self._on_row_click(idx))
+                lbl.bind("<Button-3>", lambda e, idx=i: self._on_row_right_click(e, idx))
                 labels.append(lbl)
 
             row_frame.labels = labels
-            row_frame.bind("<Button-1>", lambda e, idx=i: self.select_hero_row(idx))
+            row_frame.bind("<Button-1>", lambda e, idx=i: self._on_row_click(idx))
+            row_frame.bind("<Button-3>", lambda e, idx=i: self._on_row_right_click(e, idx))
             self.hero_row_widgets.append(row_frame)
 
-        # Select first hero
+        # Restore the previously-selected character so refreshes (preset
+        # apply, data reload) and program restarts don't snap selection
+        # back to row 0. The persisted name comes from SettingsManager,
+        # written every time select_hero_row succeeds. If the saved name
+        # isn't in the rebuilt list (renamed, removed, not in this user's
+        # captured data), fall back to row 0 -- same as the previous
+        # always-row-0 behavior.
         if self.hero_row_widgets:
-            self.select_hero_row(0)
+            target_idx = 0
+            sm = getattr(self.context, "settings_manager", None)
+            last_name = sm.get("last_selected_character") if sm else None
+            if last_name:
+                for i, h in enumerate(self.hero_data_list):
+                    if h["name"] == last_name:
+                        target_idx = i
+                        break
+            self.select_hero_row(target_idx)
 
         self._update_hero_scrollregion()
 
@@ -364,6 +613,268 @@ class HeroesTab(BaseTab):
             self.hero_sort_reverse = col in ["gs", "grade", "ego"]
 
         self.refresh_heroes()
+
+    def _on_row_click(self, idx: int):
+        """Click handler for hero rows. Selects the row AND moves keyboard
+        focus to the hero canvas so subsequent Up/Down keys navigate the list
+        (instead of being captured by whatever was focused before — typically
+        the preset dropdown)."""
+        try:
+            self.hero_canvas.focus_set()
+        except Exception:
+            pass
+        self.select_hero_row(idx)
+
+    def _on_row_right_click(self, event, idx: int):
+        """Right-click handler: shows a context menu with the option to
+        record a confirmed in-game level for this character. Recorded
+        checkpoints persist to presets/level_data.json and get applied to
+        the active exp table at load time, so the next refresh / restart
+        reflects them in the displayed level.
+
+        The right-click also selects the row (so the user has visual
+        feedback about which character the menu is acting on) before the
+        menu pops up.
+        """
+        self._on_row_click(idx)
+        if idx < 0 or idx >= len(self.hero_data_list):
+            return
+        hero = self.hero_data_list[idx]
+
+        menu = tk.Menu(self.hero_canvas, tearoff=0)
+        menu.add_command(
+            label=f"Add confirmed level for {hero['name']}...",
+            command=lambda h=hero: self._prompt_level_checkpoint(h),
+        )
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            # tk_popup grabs the pointer; releasing the grab is good
+            # practice and avoids subtle focus issues on some platforms.
+            menu.grab_release()
+
+    def _prompt_level_checkpoint(self, hero: dict):
+        """Ask the user for the confirmed in-game level of `hero`, then
+        record an (exp, level) checkpoint via LevelDataManager. On success,
+        the augmented exp tables are reapplied immediately so the rest of
+        the UI can refresh without a restart.
+
+        Args:
+            hero: a hero_data_list entry. Must include 'name', 'res_id',
+                  and 'exp'. The current displayed level (if any) is used
+                  as the dialog default to make typo recovery easier.
+        """
+        from tkinter import simpledialog, messagebox
+
+        ldm = getattr(self.context, "level_data_manager", None)
+        if ldm is None:
+            messagebox.showerror(
+                "Not Available",
+                "Level data manager is not initialized."
+            )
+            return
+
+        name = hero.get("name", "?")
+        res_id = hero.get("res_id") or 0
+        exp = hero.get("exp", 0)
+        current_level = hero.get("level", 1)
+        # res_id == 0 means we have no captured data for this hero (char_info
+        # was missing during refresh_heroes), so we have no exp to anchor a
+        # checkpoint on. Without exp, the data point is useless.
+        if not res_id:
+            messagebox.showerror(
+                "Missing Data",
+                f"Cannot record a checkpoint for {name}: no captured "
+                f"data available for this character yet."
+            )
+            return
+
+        # Bound at 1-62; the dialog will clamp invalid input on its own
+        # but we also re-validate after to handle Cancel returning None.
+        level = simpledialog.askinteger(
+            "Confirm Level",
+            f"What is {name}'s in-game level right now?\n\n"
+            f"(Current snapshot exp: {exp})\n"
+            f"Range: 1-62. Click Cancel to abort.",
+            parent=self.hero_canvas,
+            initialvalue=int(current_level) if current_level else 1,
+            minvalue=1, maxvalue=62,
+        )
+        if level is None:
+            return  # user cancelled
+
+        try:
+            ldm.add_checkpoint("characters", res_id=int(res_id),
+                               name=name, exp=int(exp), level=int(level))
+            ldm.apply_to_constants()
+        except Exception as e:
+            messagebox.showerror(
+                "Save Failed",
+                f"Could not save checkpoint: {e}"
+            )
+            return
+
+        # Refresh so the new level threshold flows through to all displays.
+        try:
+            self.refresh_heroes()
+        except Exception:
+            pass
+
+        messagebox.showinfo(
+            "Checkpoint Saved",
+            f"Recorded: {name} at exp={exp} is level {level}.\n\n"
+            f"This data point now anchors the level lookup for all "
+            f"characters; future calculations will use it."
+        )
+
+    def _on_partner_right_click(self, event):
+        """Right-click handler for the Partner card. Pops the same context
+        menu as the hero rows, but for the partner currently equipped on
+        whichever character is displayed in the detail panel."""
+        hero = self._current_detail_hero
+        if not hero or hero not in self.optimizer.character_info:
+            return
+        char_info = self.optimizer.character_info[hero]
+        partner_res_id = getattr(char_info, "partner_res_id", 0) or 0
+        if not partner_res_id:
+            return  # no partner equipped, nothing to confirm
+
+        partner_name = getattr(char_info, "partner_name", "") or f"res_id {partner_res_id}"
+        menu = tk.Menu(self.hero_partner_text, tearoff=0)
+        menu.add_command(
+            label=f"Add confirmed level for {partner_name}...",
+            command=lambda: self._prompt_partner_level_checkpoint(char_info),
+        )
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def _prompt_partner_level_checkpoint(self, char_info):
+        """Same flow as _prompt_level_checkpoint but routed to the
+        'partners' category in LevelDataManager. Reads partner_res_id,
+        partner_exp, partner_level, partner_name off the supplied
+        CharacterInfo (populated by the optimizer at snapshot load)."""
+        from tkinter import simpledialog, messagebox
+
+        ldm = getattr(self.context, "level_data_manager", None)
+        if ldm is None:
+            messagebox.showerror("Not Available",
+                                 "Level data manager is not initialized.")
+            return
+
+        partner_res_id = getattr(char_info, "partner_res_id", 0) or 0
+        partner_exp = getattr(char_info, "partner_exp", 0) or 0
+        partner_level = getattr(char_info, "partner_level", 1) or 1
+        partner_name = getattr(char_info, "partner_name", "") or "?"
+        if not partner_res_id:
+            messagebox.showerror("Missing Data",
+                                 "No partner equipped on this character.")
+            return
+
+        # Partners max at level 60 (not 62 like characters); enforce that
+        # in the dialog so the user can't enter an impossible level.
+        level = simpledialog.askinteger(
+            "Confirm Partner Level",
+            f"What is {partner_name}'s in-game level right now?\n\n"
+            f"(Current snapshot exp: {partner_exp})\n"
+            f"Range: 1-60. Click Cancel to abort.",
+            parent=self.hero_partner_text,
+            initialvalue=int(partner_level),
+            minvalue=1, maxvalue=60,
+        )
+        if level is None:
+            return
+
+        try:
+            ldm.add_checkpoint("partners", res_id=int(partner_res_id),
+                               name=partner_name, exp=int(partner_exp),
+                               level=int(level))
+            ldm.apply_to_constants()
+        except Exception as e:
+            messagebox.showerror("Save Failed", f"Could not save checkpoint: {e}")
+            return
+
+        try:
+            self.refresh_heroes()
+        except Exception:
+            pass
+
+        messagebox.showinfo(
+            "Checkpoint Saved",
+            f"Recorded: {partner_name} at exp={partner_exp} is level {level}.\n\n"
+            f"Future partner-level calculations will use this anchor."
+        )
+
+    def _navigate_hero_list(self, delta: int):
+        """Move the hero-list selection by `delta` rows (e.g. -1 for Up, +1
+        for Down) and scroll the new row into view. Returns "break" so the
+        Canvas doesn't also scroll its content as a default reaction."""
+        if not self.hero_row_widgets:
+            return "break"
+        cur = self.selected_hero_index if self.selected_hero_index >= 0 else 0
+        new_idx = max(0, min(len(self.hero_row_widgets) - 1, cur + delta))
+        if new_idx != self.selected_hero_index:
+            self.select_hero_row(new_idx)
+            self._scroll_row_into_view(new_idx)
+        return "break"
+
+    def _on_hero_canvas_key(self, event):
+        """Letter-key navigation on the hero list: pressing 'A' jumps to the
+        next hero whose name starts with 'A' (case-insensitive), cycling at
+        the end. Mirror of the preset listbox handler in scoring_tab.
+
+        Returns 'break' on a successful jump so the Canvas doesn't also
+        scroll. Non-alphanumeric keys (arrows etc.) fall through to the
+        canvas's other bindings.
+        """
+        char = event.char
+        if not char or not char.isalnum():
+            return None  # arrows/ctrl/etc. -- let other bindings run
+        char_lower = char.lower()
+
+        total = len(self.hero_data_list)
+        if total == 0:
+            return "break"
+
+        # Start one past the current selection so repeated presses cycle
+        # through all matches. Wrap to 0 at the end.
+        cur = self.selected_hero_index if self.selected_hero_index >= 0 else -1
+        start = (cur + 1) % total
+        for offset in range(total):
+            idx = (start + offset) % total
+            name = self.hero_data_list[idx].get("name", "")
+            if name.lower().startswith(char_lower):
+                self.select_hero_row(idx)
+                self._scroll_row_into_view(idx)
+                return "break"
+        return "break"  # no match -- still swallow so Tk doesn't do anything
+
+    def _scroll_row_into_view(self, idx: int):
+        """Ensure the row at `idx` is visible in the scrollable hero canvas.
+        Scrolls minimally — only when the row is currently above or below the
+        visible viewport."""
+        if not (0 <= idx < len(self.hero_row_widgets)):
+            return
+        try:
+            row = self.hero_row_widgets[idx]
+            # Make sure geometry has been computed.
+            self.hero_canvas.update_idletasks()
+            row_y = row.winfo_y()
+            row_h = row.winfo_height()
+            canvas_h = self.hero_canvas.winfo_height()
+            total_h = max(1, self.hero_list_frame.winfo_height())
+
+            view_top = self.hero_canvas.canvasy(0)
+            view_bottom = view_top + canvas_h
+
+            if row_y < view_top:
+                self.hero_canvas.yview_moveto(row_y / total_h)
+            elif row_y + row_h > view_bottom:
+                target = (row_y + row_h - canvas_h) / total_h
+                self.hero_canvas.yview_moveto(max(0.0, target))
+        except Exception:
+            pass
 
     def select_hero_row(self, index: int):
         """Select a hero row and update display"""
@@ -398,9 +909,30 @@ class HeroesTab(BaseTab):
 
             self.show_hero_details(new_hero_data["name"])
 
+            # Persist so the selection survives preset apply, data reload,
+            # and program restart. SettingsManager.set() is a no-op when
+            # the value is unchanged, so this stays cheap even when
+            # arrow-key navigation fires select_hero_row in rapid bursts.
+            sm = getattr(self.context, "settings_manager", None)
+            if sm is not None:
+                sm.set("last_selected_character", new_hero_data["name"])
+
     def show_hero_details(self, hero_name: str):
         """Show detailed hero information including gear - matches original exactly"""
         self.hero_detail_name.config(text=hero_name)
+        self._current_detail_hero = hero_name
+
+        # Update the "Assign preset to X for custom Gear Score:" label and the
+        # combobox state for this character.
+        self.preset_assign_label.config(
+            text=f"Assign preset to {hero_name} for custom Gear Score:"
+        )
+        self._refresh_preset_dropdown_values()
+        assigned = self._get_assigned_preset(hero_name)
+        if assigned is None:
+            self.preset_assign_combo.set(DEFAULT_PRESET_LABEL)
+        else:
+            self.preset_assign_combo.set(assigned)
 
         char_info = self.optimizer.character_info.get(hero_name)
         if char_info:
@@ -462,6 +994,22 @@ class HeroesTab(BaseTab):
                     f"\n{passive_info['ego_name']} - {passive_info['ego_cost']} EP\n"
                     f"{passive_info['ego_desc']}"
                 )
+            elif char_info.partner_id:
+                # A partner is equipped in-game but isn't in this build's
+                # data (no entry in PARTNERS). optimizer.py recovers the
+                # res_id from the raw inventory item even when the partner
+                # is unknown, so we can show it here — that's the value the
+                # user would add to partners.py.
+                if char_info.partner_res_id:
+                    partner_text = (
+                        f"Unknown partner "
+                        f"(res_id {char_info.partner_res_id}, "
+                        f"instance {char_info.partner_id})"
+                    )
+                else:
+                    # res_id couldn't be recovered (instance id not in raw
+                    # char_items either — unusual). Show what we have.
+                    partner_text = f"Unknown partner (instance {char_info.partner_id})"
             else:
                 partner_text = "No partner equipped"
             # Update partner card Text widget
@@ -481,6 +1029,21 @@ class HeroesTab(BaseTab):
         gear_by_slot = {p.slot_num: p for p in gear}
         total_gs = 0
 
+        # Per-piece GS in this detail panel must match the per-character
+        # GS shown in the character list (which uses the *assigned* preset),
+        # not the globally-Apply'd weights. Bounds are per (preset, main
+        # stat) under Philosophy B; cache across this character's pieces.
+        detail_weights = self._weights_for_preset(self._get_assigned_preset(hero_name))
+        detail_bounds_cache: dict = {}
+
+        def _bounds_for(piece):
+            main = piece.main_stat.name if piece.main_stat else None
+            if main not in detail_bounds_cache:
+                detail_bounds_cache[main] = compute_gs_bounds(
+                    detail_weights, exclude_stat=main
+                )
+            return detail_bounds_cache[main]
+
         for slot_num in range(1, 7):
             labels = self.gear_labels.get(slot_num)
             if not labels:
@@ -489,7 +1052,8 @@ class HeroesTab(BaseTab):
             piece = gear_by_slot.get(slot_num)
 
             if piece:
-                total_gs += piece.gear_score
+                piece_gs = compute_fragment_gs(piece, detail_weights, _bounds_for(piece))
+                total_gs += piece_gs
                 rarity_color = RARITY_COLORS.get(piece.rarity_num, self.colors["fg"])
                 bg_color = RARITY_BG_COLORS.get(piece.rarity_num, self.colors["bg_light"])
 
@@ -590,9 +1154,23 @@ class HeroesTab(BaseTab):
                 # Get bonus description from SETS
                 set_info = SETS.get(piece.set_id)
                 bonus_text = set_info.get("bonus", "") if set_info else ""
-                labels["set"].config(text=f"{piece.set_name} ({set_pieces}) {bonus_text}")
+                # Count how many of THIS character's other equipped pieces
+                # belong to the same set (piece.get_set_pieces() is the set's
+                # REQUIRED count, not the equipped count -- it's a property of
+                # the set definition, not the current loadout).
+                equipped_in_set = sum(1 for p in gear if p.set_id == piece.set_id)
+                required_pieces = set_info.get("pieces", 999) if set_info else 999
+                set_complete = equipped_in_set >= required_pieces
+                # Set name shows white (live) when the equipped count meets
+                # the set's required-pieces threshold, dim grey otherwise --
+                # gives an at-a-glance signal for which set bonuses are
+                # actually active for this character.
+                labels["set"].config(
+                    text=f"{piece.set_name} ({set_pieces}) {bonus_text}",
+                    fg=self.colors["fg"] if set_complete else self.colors["fg_dim"],
+                )
 
-                labels["gs"].config(text=f"GS: {piece.gear_score:.0f}")
+                labels["gs"].config(text=f"GS: {piece_gs:.0f}")
 
                 # Add potential display
                 if piece.potential_low != piece.potential_high:
@@ -641,6 +1219,151 @@ class HeroesTab(BaseTab):
             self.hero_stats_label.config(text=stats_text)
         else:
             self.hero_stats_label.config(text="No gear equipped")
+
+    # ----- Per-character preset helpers ----------------------------------
+
+    def _get_assigned_preset(self, hero_name: str) -> Optional[str]:
+        """Return the preset name currently assigned to a character.
+
+        Returns None if:
+          - no character preset manager is wired up,
+          - the file is corrupted,
+          - the character has no assignment (default),
+          - or the assigned preset has since been deleted.
+        """
+        cpm = self.context.character_preset_manager
+        if cpm is None or cpm.is_corrupted():
+            return None
+        name = cpm.get_preset_for(hero_name)
+        if name is None:
+            return None
+        # Defensive: assignment to a now-deleted preset → treat as default.
+        # (Normal flow has scoring_tab clear these on delete; this guards
+        # against edge cases like external file edits.)
+        pm = self.context.preset_manager
+        if pm is not None and pm.has_preset(name):
+            return name
+        return None
+
+    def _weights_for_preset(self, preset_name: Optional[str]) -> dict:
+        """Resolve a preset name to its weights dict. None => default (1.0 all).
+
+        Returning an empty dict is fine: compute_fragment_gs uses
+        ``weights.get(stat, 1.0)`` so missing keys collapse to 1.0.
+        """
+        if preset_name is None or self.context.preset_manager is None:
+            return {}
+        weights = self.context.preset_manager.get_preset(preset_name)
+        return weights if weights is not None else {}
+
+    def _refresh_preset_dropdown_values(self):
+        """Repopulate combobox values: 'Default Preset...' first, then sorted presets."""
+        pm = self.context.preset_manager
+        names = pm.get_preset_names() if pm is not None else []
+        values = [DEFAULT_PRESET_LABEL] + names
+        self.preset_assign_combo.configure(values=values)
+        self._recompute_combo_geometry()
+
+    def _on_preset_combo_change(self, event):
+        """User chose an option in the dropdown. Save assignment, refresh UI."""
+        if self._current_detail_hero is None:
+            return
+        cpm = self.context.character_preset_manager
+        if cpm is None:
+            return
+
+        # Same flow as scoring_tab.py for presets.json corruption: confirm,
+        # quarantine, then save fresh. If the user declines, revert the combo.
+        if cpm.is_corrupted():
+            confirm = messagebox.askyesno(
+                "Corrupted Character Preset File",
+                f"The character preset file is corrupted:\n\n"
+                f"{cpm.corruption_error}\n\n"
+                f"Saving will rename the broken file (adding '_corrupted' to "
+                f"its filename) and create a fresh one with this assignment.\n\n"
+                f"Continue?"
+            )
+            if not confirm:
+                # Restore combo to whatever the manager would currently say
+                # for this character (which is "Default" while corrupted).
+                assigned = self._get_assigned_preset(self._current_detail_hero)
+                self.preset_assign_combo.set(
+                    DEFAULT_PRESET_LABEL if assigned is None else assigned
+                )
+                return
+            try:
+                cpm.quarantine()
+            except Exception as e:
+                messagebox.showerror(
+                    "Error", f"Failed to back up the broken file: {e}"
+                )
+                return
+
+        selected = self.preset_assign_combo.get()
+        new_value = None if selected == DEFAULT_PRESET_LABEL else selected
+        try:
+            cpm.set_preset_for(self._current_detail_hero, new_value)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save preset assignment: {e}")
+            return
+
+        # Refresh hero list (so the GS column and Preset column update for the
+        # affected character), then re-show the same character's details.
+        target_name = self._current_detail_hero
+        self.refresh_heroes()
+        for i, h in enumerate(self.hero_data_list):
+            if h["name"] == target_name:
+                self.select_hero_row(i)
+                break
+
+        # Refresh the Scoring tab's preset listbox so the link-symbol
+        # markers reflect the new assignment state. Cheap and idempotent;
+        # no-op when scoring_tab isn't wired up (standalone tests).
+        scoring_tab = getattr(self.context, "scoring_tab", None)
+        if scoring_tab is not None:
+            try:
+                scoring_tab.refresh_preset_list()
+            except Exception:
+                pass
+
+    def _on_detail_resize(self, event):
+        """Container resized — debounce the combobox geometry recompute by 100ms."""
+        if self._combo_resize_after_id is not None:
+            try:
+                self.context.root.after_cancel(self._combo_resize_after_id)
+            except Exception:
+                pass
+        try:
+            self._combo_resize_after_id = self.context.root.after(
+                100, self._recompute_combo_geometry
+            )
+        except Exception:
+            pass
+
+    def _recompute_combo_geometry(self):
+        """Set the dropdown popup height (in items).
+
+        Width is handled by pack/fill — the combobox fills the leftover space
+        in title_row automatically, so we don't touch it here.
+
+        Height: enough to show every preset, capped at ~3/4 of the current
+        window height + 8 extra items.
+        """
+        self._combo_resize_after_id = None
+        if not hasattr(self, 'preset_assign_combo'):
+            return
+        try:
+            values = list(self.preset_assign_combo.cget("values")) or [
+                DEFAULT_PRESET_LABEL
+            ]
+            win_h = self.context.root.winfo_height()
+            if win_h > 1:
+                row_px = 20  # rough per-row pixel estimate
+                max_items_by_height = max(3, (win_h * 3 // 4) // row_px) + 8
+                chosen_items = min(len(values), max_items_by_height)
+                self.preset_assign_combo.configure(height=chosen_items)
+        except Exception:
+            pass  # widget might not be fully realized yet
 
     # Helper methods
     def _update_hero_scrollregion(self):

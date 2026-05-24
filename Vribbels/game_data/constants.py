@@ -1,35 +1,142 @@
 """
 Game constants for CZN.
-Contains experience tables, equipment slots, stats, rarity, and other game-wide constants.
+
+This module is the single source of truth for game-rule data that
+doesn't live on individual characters / partners / fragments:
+
+  - Experience -> level tables for characters and partners (CHARACTER_EXP_TABLE,
+    PARTNER_EXP_TABLE) plus the get_level_from_exp / get_partner_level_from_exp
+    helpers. Both tables have firm and estimated entries; provenance is
+    annotated at each table.
+
+  - Affection (formerly "friendship") reward bonuses (FRIENDSHIP_BONUSES)
+    and the closed-form get_friendship_bonus extrapolation. Each entry
+    is the cumulative TOTAL (ATK, DEF, HP) at that level, NOT the
+    increment.
+
+  - Equipment slot definitions (EQUIPMENT_SLOTS / SLOT_ORDER) and rarity
+    tables (RARITY, RARITY_COLORS, RARITY_BG_COLORS, RARITY_ICONS,
+    RARITY_STARTING_SUBSTATS, UPGRADES_PER_RARITY).
+
+  - Stat definitions (STATS dict) -- the central registry that maps the
+    raw enum keys from the captured data to display names, percentage
+    flags, and (for substat-eligible stats) per-roll min/max values.
+    Main-stat-only stats (elemental DMG%) are marked with max_roll=0 as
+    a sentinel; consumers iterating STATS for substat math skip these.
+
+  - SLOT_MAIN_STATS for slot-eligible main stat names; MAX_LEVEL and
+    UPGRADES_PER_RARITY for fragment-upgrade math.
+
+  - GROWTH_STONES for the leveling-item registry used by the materials
+    display (UI sugar; not part of stat math).
+
+Active-table indirection
+========================
+_active_character_exp_table and _active_partner_exp_table are mutable
+module-level references that LevelDataManager.apply_to_constants()
+rewrites at startup to include user-confirmed (exp, level) checkpoints.
+The base CHARACTER_EXP_TABLE / PARTNER_EXP_TABLE stay pristine so the
+hardcoded data can always be distinguished from user augmentation.
+
+Note on capture-related constants
+=================================
+GAME_HOSTS, GAME_PORT, PROXY_PORT, OUTPUT_DIR, HOSTS_PATH used to live
+here. They've been moved to capture/constants.py because they're
+specifically about the capture pipeline.
 """
 
 from pathlib import Path
 
-# Experience thresholds for character levels (heroes)
+# Experience thresholds for character levels (heroes).
+#
+# Each row is (cumulative_exp_required_to_reach_this_level, level).
+# Levels are discrete in-game: a character with exp >= a checkpoint is at
+# (at least) that level, until they accumulate enough for the next.
+#
+# Provenance (which checkpoints are firm vs. estimated):
+#   confirmed:  (144000, 40) -- Lucas at promotion 3/5, in-game level 40
+#               (154800, 41) through (295600, 49) -- Amir, levels 41-49,
+#                              read off snapshots over multiple sessions
+#               (213000, 45) -- replaces the prior estimate of 200000
+#               (320000, 50) -- Amir at promotion 4/5, in-game level 50
+#               (346000, 51) through (665900, 59) -- Amir, levels 51-59,
+#                              read off snapshots over multiple sessions
+#               (720000, 60) -- all max-level heroes in May 11 snapshot
+#               (778200, 61) -- Amir, level 61 (confirmed checkpoint)
+#   estimated:  rows from level 1 through level 35 (round-numbered
+#               guesses; replace as data becomes available)
+#
+# Note: levels 45 (200000 -> 213000) and 55 (481000 -> 480800) previously
+# carried estimated values that have now been replaced with firm ones.
 CHARACTER_EXP_TABLE = [
     (0, 1), (100, 2), (500, 5), (2000, 10), (8000, 15),
     (20000, 20), (40000, 25), (70000, 30), (100000, 35),
-    (144000, 40), (200000, 45), (300000, 50), (481000, 55), (720000, 60),
+    (144000, 40),
+    (154800, 41), (167100, 42), (180900, 43), (196200, 44),
+    (213000, 45), (231400, 46), (251300, 47), (272700, 48), (295600, 49),
+    (320000, 50),
+    (346000, 51), (374900, 52), (407100, 53), (442400, 54),
+    (480800, 55), (522400, 56), (567100, 57), (614900, 58),
+    (665900, 59),
+    (720000, 60), (778200, 61),
 ]
 
-# Partner card exp table (different from heroes!)
-# Based on actual data: Daisy 36300=30, Alyssa 181000=50, Nyx 251000=55
+# Partner card exp table (separate progression from heroes).
+# Confirmed grade-independent: a May 11 snapshot has 20 max-level partners
+# across grades 4, 4.5, and 5 all at exactly exp=346,000.
+#
+# Provenance:
+#   confirmed:  (100, 2)     — Douglas at promotion 0/5, in-game level 2
+#               (1800, 10)   — Zatera at promotion 0/5, in-game level 10
+#               (36300, 30)  — Raidel at promotion 2/5, in-game level 30
+#               (93500, 40)  — Yvonne at promotion 3/5, in-game level 40
+#               (181000, 50) — Anteia at promotion 4/5, in-game level 50
+#               (346000, 60) — every max-level partner (May 11 snapshot)
+#   estimated:  the level-5 / -15 / -20 / -25 / -35 / -45 / -55 rows
 PARTNER_EXP_TABLE = [
-    (0, 1), (100, 2), (1000, 5), (4000, 10), (12000, 15),
+    (0, 1), (100, 2), (1000, 5), (1800, 10), (12000, 15),
     (20000, 20), (28000, 25), (36300, 30), (70000, 35),
-    (110000, 40), (145000, 45), (181000, 50), (251000, 55), (360000, 60),
+    (93500, 40), (145000, 45), (181000, 50), (251000, 55), (346000, 60),
 ]
 
-# Friendship bonus rewards (cumulative)
+# Runtime-active exp tables. These start as copies of the base tables and
+# may be rewritten (in place of the references, not by mutation) by
+# LevelDataManager.apply_to_constants() to incorporate user-confirmed
+# checkpoints. The base CHARACTER_EXP_TABLE / PARTNER_EXP_TABLE above stay
+# pristine so we can always see what was hardcoded vs. user-augmented.
+#
+# get_level_from_exp consults _active_character_exp_table by default;
+# get_partner_level_from_exp explicitly passes _active_partner_exp_table.
+_active_character_exp_table = list(CHARACTER_EXP_TABLE)
+_active_partner_exp_table = list(PARTNER_EXP_TABLE)
+
+# Affection (formerly "friendship") bonus rewards.
+#
+# Each row is the CUMULATIVE TOTAL (level, ATK, DEF, HP) at that affection
+# level — NOT an increment. The function below just looks up by level for
+# values within the table and extrapolates for anything beyond it.
+#
+# In-game cycle (starting at level 2): +3 ATK -> +1 DEF -> +3 HP, repeat.
+#   Level 2 +3 ATK -> totals (3, 0, 0)
+#   Level 3 +1 DEF -> totals (3, 1, 0)
+#   Level 4 +3 HP  -> totals (3, 1, 3)
+#   Level 5 +3 ATK -> totals (6, 1, 3)
+#   ... and so on.
 FRIENDSHIP_BONUSES = [
-    (1, 0, 0, 0), (2, 3, 0, 0), (3, 3, 1, 0), (4, 3, 1, 1), (5, 6, 1, 1),
-    (6, 6, 2, 1), (7, 6, 2, 4), (8, 9, 2, 4), (9, 9, 3, 4), (10, 9, 3, 7),
-    (11, 12, 3, 7), (12, 12, 4, 7), (13, 12, 4, 10), (14, 15, 4, 10), (15, 15, 5, 10),
-    (16, 15, 5, 13), (17, 18, 5, 13), (18, 18, 6, 13), (19, 18, 6, 16), (20, 21, 6, 16),
-    (21, 21, 7, 16), (22, 21, 7, 19), (23, 24, 7, 19), (24, 24, 8, 19), (25, 24, 8, 22),
-    (26, 27, 8, 22), (27, 27, 9, 22), (28, 27, 9, 25), (29, 30, 9, 25), (30, 30, 10, 25),
-    (31, 30, 10, 28), (32, 33, 10, 28), (33, 33, 11, 28), (34, 33, 11, 31), (35, 36, 11, 31),
-    (36, 36, 12, 31), (37, 36, 12, 34), (38, 39, 12, 34), (39, 39, 13, 34), (40, 39, 13, 37),
+    (1, 0, 0, 0),
+    (2, 3, 0, 0), (3, 3, 1, 0), (4, 3, 1, 3),
+    (5, 6, 1, 3), (6, 6, 2, 3), (7, 6, 2, 6),
+    (8, 9, 2, 6), (9, 9, 3, 6), (10, 9, 3, 9),
+    (11, 12, 3, 9), (12, 12, 4, 9), (13, 12, 4, 12),
+    (14, 15, 4, 12), (15, 15, 5, 12), (16, 15, 5, 15),
+    (17, 18, 5, 15), (18, 18, 6, 15), (19, 18, 6, 18),
+    (20, 21, 6, 18), (21, 21, 7, 18), (22, 21, 7, 21),
+    (23, 24, 7, 21), (24, 24, 8, 21), (25, 24, 8, 24),
+    (26, 27, 8, 24), (27, 27, 9, 24), (28, 27, 9, 27),
+    (29, 30, 9, 27), (30, 30, 10, 27), (31, 30, 10, 30),
+    (32, 33, 10, 30), (33, 33, 11, 30), (34, 33, 11, 33),
+    (35, 36, 11, 33), (36, 36, 12, 33), (37, 36, 12, 36),
+    (38, 39, 12, 36), (39, 39, 13, 36), (40, 39, 13, 39),
 ]
 
 # Note: Capture-related constants (GAME_HOSTS, GAME_PORT, PROXY_PORT, OUTPUT_DIR, HOSTS_PATH)
@@ -70,6 +177,22 @@ RARITY_STARTING_SUBSTATS = {
 }
 
 # Stat definitions with min/max roll values
+#
+# (display_name, short_name, is_percentage, max_roll, min_roll)
+#
+# A note on roll bounds:
+#  - For substat-eligible stats, max_roll/min_roll are the actual per-roll
+#    range as observed in-game.
+#  - For MAIN-STAT-ONLY stats (the elemental DMG% block below), the values
+#    are 0 / 0 as a sentinel meaning "this stat does not roll as a substat."
+#    Every consumer that iterates STATS for substat-related work
+#    (compute_gs_bounds, calculate_potential's candidate pool,
+#    _raw_substat_score) skips entries whose max_roll <= 0, so these can
+#    coexist in the dict without polluting GS calculations.
+#  - The elemental DMG% values are determined by the fragment's level
+#    instead of rolling: starts at +5%, gains a flat +2.2% per Legendary
+#    level-up. The optimizer reads the resulting value straight from the
+#    captured data; it does not need to compute it.
 STATS = {
     "S_ATK_INC_ADD_OUT": ("Flat ATK", "Flat ATK", False, 8.0, 5.0),
     "S_ATK_INC_RATE_OUT": ("ATK%", "ATK%", True, 1.3, 0.8),
@@ -82,11 +205,12 @@ STATS = {
     "S_CRI_DMG_RATE_INC_ADD": ("CDmg", "CDmg", True, 4.0, 2.4),
     "S_CHARGING_POWER_INC_ADD": ("Ego", "Ego", False, 5.0, 2.0),
     "S_DOT_ATK_DMG_RATE_INC_ADD": ("DoT%", "DoT%", True, 3.4, 2.7),
-    "S_RED_DMG_RATE_INC_ADD": ("Passion DMG%", "Passion", True, 3.5, 2.0),
-    "S_GREEN_DMG_RATE_INC_ADD": ("Order DMG%", "Order", True, 3.5, 2.0),
-    "S_BLUE_DMG_RATE_INC_ADD": ("Justice DMG%", "Justice", True, 3.5, 2.0),
-    "S_PURPLE_DMG_RATE_INC_ADD": ("Void DMG%", "Void", True, 3.5, 2.0),
-    "S_ORANGE_DMG_RATE_INC_ADD": ("Instinct DMG%", "Instinct", True, 3.5, 2.0),
+    # ---- Main-stat-only (slot 5). Not rollable; 0/0 is the sentinel. ----
+    "S_RED_DMG_RATE_INC_ADD":    ("Passion DMG%",  "Passion",  True, 0, 0),
+    "S_GREEN_DMG_RATE_INC_ADD":  ("Order DMG%",    "Order",    True, 0, 0),
+    "S_BLUE_DMG_RATE_INC_ADD":   ("Justice DMG%",  "Justice",  True, 0, 0),
+    "S_PURPLE_DMG_RATE_INC_ADD": ("Void DMG%",     "Void",     True, 0, 0),
+    "S_ORANGE_DMG_RATE_INC_ADD": ("Instinct DMG%", "Instinct", True, 0, 0),
 }
 
 STAT_SHORT_NAMES = {info[0]: info[1] for info in STATS.values()}
@@ -131,9 +255,20 @@ GROWTH_STONES = {
 
 
 def get_level_from_exp(exp: int, exp_table: list = None) -> int:
-    """Convert experience points to level with interpolation"""
+    """Convert experience points to level with interpolation between
+    the table's checkpoints.
+
+    Uses floor semantics (truncation toward zero, equivalent for the
+    positive values involved): a character whose exp interpolates to
+    "level 59.95" is still in-game level 59, since leveling is discrete.
+    The character only reaches level 60 when their exp meets the actual
+    level-60 threshold. With every level's checkpoint firmly known there'd
+    be no interpolation at all -- table look-ups would suffice -- but for
+    the levels we haven't yet confirmed, floored interpolation gives the
+    most defensible estimate (a strict lower bound on the level).
+    """
     if exp_table is None:
-        exp_table = CHARACTER_EXP_TABLE
+        exp_table = _active_character_exp_table
 
     if exp <= 0:
         return 1
@@ -143,40 +278,55 @@ def get_level_from_exp(exp: int, exp_table: list = None) -> int:
         if exp < min_exp:
             if min_exp > prev_exp:
                 progress = (exp - prev_exp) / (min_exp - prev_exp)
+                # int() floors for non-negative values, which is what we want.
                 return prev_level + int(progress * (lvl - prev_level))
             return prev_level
         prev_exp, prev_level = min_exp, lvl
 
-    return 60  # Max level
+    # Past the table -- return the highest level it documents. With the
+    # built-in tables that's 60; when level-61/62 thresholds are added
+    # (manually or via user-confirmed checkpoints flowing through
+    # level_data_manager) this naturally extends to whatever the table's
+    # top entry is. Previously hardcoded to 60, which capped levels above
+    # 60 even when the table knew about them.
+    return prev_level
 
 
 def get_partner_level_from_exp(exp: int) -> int:
-    """Convert partner card experience to level.
-    Partners use a simpler linear formula at low levels: ~180 exp per level.
-    At higher levels, the exp requirement increases."""
-    if exp <= 0:
-        return 1
+    """Convert partner card experience to level via PARTNER_EXP_TABLE.
 
-    # For low exp (levels 1-10), use linear formula: 180 exp per level
-    if exp < 4000:
-        return min(60, max(1, exp // 180 + 1))
-
-    # For higher levels, use the exp table with interpolation
-    return get_level_from_exp(exp, PARTNER_EXP_TABLE)
+    Note: a previous version short-circuited exp < 4000 to a linear
+    formula (~180 exp/level). That shortcut predated our firm low-end
+    data (Douglas at exp=100 = level 2, Zatera at exp=1800 = level 10),
+    both of which the linear formula gets wrong. The table now covers
+    every level we have data for, so a straight table lookup is correct
+    across the full exp range.
+    """
+    return get_level_from_exp(exp, _active_partner_exp_table)
 
 
 def get_friendship_bonus(index: int) -> tuple[int, int, int]:
-    """Get cumulative friendship bonus (ATK, DEF, HP) for given index"""
+    """Cumulative (ATK, DEF, HP) bonus at the given affection level.
+
+    Looks up the FRIENDSHIP_BONUSES table first (covers the in-game range,
+    currently up to level 40); for levels above the table, derives the
+    answer from the +3 ATK / +1 DEF / +3 HP cycle.
+
+    Cycle math: counting cumulative bumps as the level increases,
+        ATK steps fire at every 3rd level starting from 2: 2, 5, 8, ...
+        DEF steps fire at every 3rd level starting from 3: 3, 6, 9, ...
+        HP  steps fire at every 3rd level starting from 4: 4, 7, 10, ...
+    yielding the closed-form expressions used below.
+    """
     if index <= 1:
         return (0, 0, 0)
-    for bonus in FRIENDSHIP_BONUSES:
-        if bonus[0] == index:
-            return (bonus[1], bonus[2], bonus[3])
-    if index > 40:
-        cycles = (index - 4) // 3
-        remainder = (index - 4) % 3
-        atk = 3 + (cycles + 1) * 3 + (3 if remainder >= 1 else 0)
-        def_b = 1 + cycles + 1 + (1 if remainder >= 2 else 0)
-        hp = 1 + cycles * 3 + (3 if remainder >= 0 else 0)
-        return (atk, def_b, hp)
-    return (0, 0, 0)
+    for level, atk, def_, hp in FRIENDSHIP_BONUSES:
+        if level == index:
+            return (atk, def_, hp)
+    # Beyond the table — extrapolate from the cycle. Verified against
+    # the table's level-40 row (39, 13, 39): ATK=3*((40+1)//3)=39,
+    # DEF=40//3=13, HP=3*((40-1)//3)=39.
+    atk = 3 * ((index + 1) // 3)
+    def_ = index // 3
+    hp = 3 * ((index - 1) // 3)
+    return (atk, def_, hp)

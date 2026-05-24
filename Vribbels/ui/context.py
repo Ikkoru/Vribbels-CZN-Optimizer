@@ -12,9 +12,12 @@ from typing import Callable, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from optimizer import GearOptimizer
     from capture import CaptureManager
-    from update_checker import UpdateChecker
     from config import AppConfig
-    from ui.tabs import InventoryTab, HeroesTab
+    from ui.tabs import InventoryTab, HeroesTab, ScoringTab
+    from preset_manager import PresetManager
+    from character_preset_manager import CharacterPresetManager
+    from level_data_manager import LevelDataManager
+    from settings_manager import SettingsManager
 
 
 @dataclass
@@ -30,7 +33,6 @@ class AppContext:
         notebook: Main ttk.Notebook containing all tabs
         optimizer: GearOptimizer instance for data and optimization
         capture_manager: CaptureManager for capture operations
-        update_checker: UpdateChecker for version checking
         config: AppConfig instance for user preferences
         colors: Color palette dictionary
         style: ttk.Style instance for theming
@@ -42,6 +44,10 @@ class AppContext:
         refresh_callback: Optional callback to refresh displays after data load
         inventory_tab: Optional reference to InventoryTab for cross-tab refresh
         heroes_tab: Optional reference to HeroesTab for cross-tab refresh
+        scoring_tab: Optional reference to ScoringTab; the heroes_tab uses
+            this to refresh the preset listbox's assignment markers
+            after a character preset is changed via the Combatants-tab
+            combobox. Optional -- heroes_tab no-ops cleanly when None.
     """
 
     # Core widgets
@@ -51,7 +57,6 @@ class AppContext:
     # Services
     optimizer: 'GearOptimizer'
     capture_manager: 'CaptureManager'
-    update_checker: 'UpdateChecker'
     config: 'AppConfig'
 
     # Styling
@@ -65,3 +70,16 @@ class AppContext:
     refresh_callback: Optional[Callable[[], None]] = None
     inventory_tab: Optional['InventoryTab'] = None
     heroes_tab: Optional['HeroesTab'] = None
+    scoring_tab: Optional['ScoringTab'] = None
+    preset_manager: Optional['PresetManager'] = None
+    character_preset_manager: Optional['CharacterPresetManager'] = None
+    # User-confirmed (exp, level) checkpoints — augments the built-in
+    # exp tables in constants.py via apply_to_constants(). Initialized at
+    # program startup; the right-click "Add confirmed level" flow in the
+    # Combatants tab writes through this manager.
+    level_data_manager: Optional['LevelDataManager'] = None
+    # General-purpose persistent key-value store for user preferences
+    # that don't fit into the other managers' shapes. Currently holds
+    # last_selected_character (Combatants tab row to restore on refresh
+    # and program restart).
+    settings_manager: Optional['SettingsManager'] = None

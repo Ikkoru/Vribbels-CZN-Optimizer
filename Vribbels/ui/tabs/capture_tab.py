@@ -108,8 +108,10 @@ class CaptureTab(BaseTab):
         self.debug_checkbox = ttk.Checkbutton(
             btn_frame, text="Debug WebSocket traffic", variable=self.debug_var
         )
-        # Hidden for now — uncomment .pack() to re-enable debug logging UI
-        # self.debug_checkbox.pack(side=tk.LEFT, padx=(10, 0))
+        # Enable to log every WebSocket message to a websocket_debug_*.jsonl
+        # file in the snapshots folder — useful when adding support for new
+        # packet types (e.g., fragment create/delete).
+        self.debug_checkbox.pack(side=tk.LEFT, padx=(10, 0))
 
         # Requirements frame
         req_frame = ttk.LabelFrame(main_frame, text="Requirements", padding=10)

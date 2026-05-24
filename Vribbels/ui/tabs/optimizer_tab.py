@@ -83,14 +83,14 @@ class OptimizerTab(BaseTab):
 
     def setup_ui(self):
         """Build the optimization tab UI."""
-        # Toolbar with Load Data, hero selector, Start/Stop/Reset buttons
+        # Toolbar with hero selector, Start/Stop/Reset buttons.
+        # The Load Data button was removed (data loads automatically on
+        # capture / app startup via auto_load + _handle_live_update; manual
+        # loads can still be done via the Setup tab if needed).
         toolbar = ttk.Frame(self.frame)
         toolbar.pack(fill=tk.X, padx=5, pady=5)
 
-        ttk.Button(toolbar, text="Load Data",
-                   command=self.context.load_file_callback).pack(side=tk.LEFT, padx=2)
-
-        ttk.Label(toolbar, text="Combatant:").pack(side=tk.LEFT, padx=(15, 5))
+        ttk.Label(toolbar, text="Combatant:").pack(side=tk.LEFT, padx=(0, 5))
         self.hero_combo = ttk.Combobox(toolbar, textvariable=self.selected_character,
                                        width=12, state="readonly")
         self.hero_combo.pack(side=tk.LEFT)
@@ -563,8 +563,6 @@ class OptimizerTab(BaseTab):
             ("ATK", 0), ("DEF", 0), ("HP", 0), ("CRate", 1), ("CDmg", 1),
             ("- Substats -", None),
             ("ATK%", 1), ("DEF%", 1), ("HP%", 1), ("Ego", 0), ("Extra DMG%", 1), ("DoT%", 1),
-            ("- Calculated -", None),
-            ("EHP", 0), ("Avg DMG", 0), ("Max CD", 0), ("Bruiser", 0),
         ]
 
         for stat_name, decimals in stat_order:
@@ -630,8 +628,6 @@ class OptimizerTab(BaseTab):
             ("ATK", 0), ("DEF", 0), ("HP", 0), ("CRate", 1), ("CDmg", 1),
             ("- Substats -", None),
             ("ATK%", 1), ("DEF%", 1), ("HP%", 1), ("Ego", 0), ("Extra DMG%", 1), ("DoT%", 1),
-            ("- Calculated -", None),
-            ("EHP", 0), ("Avg DMG", 0), ("Max CD", 0), ("Bruiser", 0),
         ]
 
         for stat_name, decimals in stat_order:

@@ -2,9 +2,8 @@
 ScoringTab - Gear scoring configuration interface.
 
 This tab provides controls for configuring how Memory Fragments are scored:
-- Custom stat priority weights (0-100 sliders for each stat)
-- Preset configurations (DPS-focused, Tank-focused)
-- Weight reset functionality
+- Custom stat priority weights (0-5 spinboxes for each stat)
+- Save / load / delete user-defined preset configurations
 - Real-time score recalculation and inventory refresh
 
 The scoring system affects:
@@ -14,200 +13,661 @@ The scoring system affects:
 """
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import ttk, scrolledtext, messagebox
+from pathlib import Path
 
 from ..base_tab import BaseTab
 from ..context import AppContext
 from game_data import STATS
+from preset_manager import PresetManager, SUPPORTED_STATS
+from models.memory_fragment import compute_gs_bounds
+
+
+# Display order: (stat_key used internally, label shown to the user)
+STAT_DISPLAY_NAMES = [
+    ("Flat ATK", "Flat ATK"), ("ATK%", "ATK%"),
+    ("Flat DEF", "Flat DEF"), ("DEF%", "DEF%"),
+    ("Flat HP",  "Flat HP"),  ("HP%",  "HP%"),
+    ("CRate",    "Crit Rate"),("CDmg", "Crit Damage"),
+    ("Ego",      "Ego"),      ("Extra DMG%", "Extra DMG%"),
+    ("DoT%",     "DoT%"),
+]
+
+# Width (in chars) used for buttons and the preset-name entry.
+# Sized to fit the longest button label: "Delete Selected Presets" (23 chars).
+BTN_WIDTH = 23
+
+# Glyph shown in the icon column for presets currently assigned to >=1
+# character (via CharacterPresetManager). A dedicated Treeview column
+# holds this so it always renders in a fixed-width gutter on the left,
+# keeping the preset names themselves vertically aligned regardless of
+# which rows are linked. Unlinked rows get an empty string in the same
+# column. If the link emoji doesn't render on a particular system (rare
+# on Windows 10+, but possible elsewhere), swap this constant for a
+# plain ASCII marker like "*" -- everything else flows from here.
+ASSIGNED_ICON = "\U0001F517"   # link symbol (U+1F517)
 
 
 class ScoringTab(BaseTab):
-    """Tab for configuring gear scoring weights and presets."""
+    """Tab for configuring gear scoring weights and managing presets."""
 
     def __init__(self, parent: tk.Widget, context: AppContext):
-        """
-        Initialize the ScoringTab.
-
-        Args:
-            parent: Parent widget (typically the notebook)
-            context: Application context with shared dependencies
-        """
         super().__init__(parent, context)
         self._init_state()
+
+        # Use the PresetManager and CharacterPresetManager from AppContext.
+        # czn_optimizer_gui.py creates and loads them before constructing tabs,
+        # so they're already populated. Falling back to a fresh one keeps the
+        # tab usable in standalone tests where context is bare.
+        if context.preset_manager is not None:
+            self.preset_manager = context.preset_manager
+        else:
+            program_dir = Path(__file__).resolve().parent.parent.parent
+            self.preset_manager = PresetManager(program_dir)
+            self.preset_manager.load()
+
+        self.character_preset_manager = context.character_preset_manager  # may be None
+
         self.setup_ui()
+        self._initialize_from_loaded_presets()
+
+    # ============================================================
+    # Initialization
+    # ============================================================
 
     def _init_state(self):
         """Initialize state variables."""
-        # Widget references (set in setup_ui)
-        self.stat_weight_vars = {}      # Dict[str, tk.DoubleVar] - 16 stat weights
-        self.weight_status = None       # ttk.Label - status message
+        self.stat_weight_vars = {}        # dict[str, tk.DoubleVar]
+        self.preset_name_var = None       # tk.StringVar (set in setup_ui)
+        self.weight_status = None         # ttk.Label
+        self.preset_tree = None           # ttk.Treeview
+
+        # Currently-applied preset name, or None if "default" / "custom".
+        self.active_preset_name = None
+
+    def _initialize_from_loaded_presets(self):
+        """After UI is built, apply whichever preset (or default) is active."""
+        # If the file was corrupt, tell the user once.
+        if self.preset_manager.is_corrupted():
+            messagebox.showwarning(
+                "Presets File Corrupted",
+                f"The presets file appears to be invalid:\n\n"
+                f"{self.preset_manager.corruption_error}\n\n"
+                f"File: {self.preset_manager.presets_file}\n\n"
+                f"Default weights have been applied. The file will not be edited "
+                f"unless you save a new preset (you'll be prompted to back up "
+                f"the broken file first)."
+            )
+            self._reset_sliders_to_default()
+            self.active_preset_name = None
+            self.weight_status.config(text="Applied default weights (all 1.0)")
+            self.refresh_preset_list()
+            return
+
+        self.refresh_preset_list()
+
+        sel = self.preset_manager.selected_preset
+        if sel and self.preset_manager.has_preset(sel):
+            weights = self.preset_manager.get_preset(sel)
+            self._set_sliders(weights)
+            self.active_preset_name = sel
+            self.weight_status.config(text=f"Applied {sel}")
+        else:
+            self._reset_sliders_to_default()
+            self.active_preset_name = None
+            self.weight_status.config(text="Applied default weights (all 1.0)")
+
+    # ============================================================
+    # UI construction
+    # ============================================================
 
     def setup_ui(self):
-        """Setup the Scoring configuration tab UI."""
         main_frame = ttk.Frame(self.frame)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Title
-        ttk.Label(main_frame, text="Gear Score Calculation", font=("Segoe UI", 14, "bold")).pack(anchor=tk.W)
-        ttk.Label(main_frame, text="Configure how gear scores are calculated",
-                  foreground=self.colors["fg_dim"]).pack(anchor=tk.W, pady=(0, 10))
+        ttk.Label(
+            main_frame, text="Gear Score Calculation",
+            font=("Segoe UI", 14, "bold")
+        ).pack(anchor=tk.W)
+        ttk.Label(
+            main_frame, text="Configure how gear scores are calculated",
+            foreground=self.colors["fg_dim"]
+        ).pack(anchor=tk.W, pady=(0, 10))
 
-        # Split into left (explanation) and right (config)
         content = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
         content.pack(fill=tk.BOTH, expand=True)
 
-        # Left side - Explanation
+        # --- Left side: explanation ----------------------------------
         explain_frame = ttk.LabelFrame(content, text="How Gear Score Works", padding=10)
         content.add(explain_frame, weight=1)
 
-        explanation = """GEAR SCORE (GS) CALCULATION
+        explanation = """GEAR SCORE (GS) EXPLANATION
 
-The Gear Score measures how well a piece of gear rolled relative to its maximum potential.
+The Gear Score measures how well a Memory Fragment (MF) rolled.
+0 is the worst possible outcome. 100 is the best.
+These measurements are calculated based on the weights to the right →.
+Change the values based on how important each stat is to your build, then press "Apply Current Weights".
+This program comes with presets for each character, but you may also create and save your own.
 
-FORMULA:
-For each substat:
-  1. Calculate roll quality = actual_value / (max_roll * num_rolls)
-  2. Multiply by number of rolls
-  3. Sum all substats and multiply by 10
+These weights affect the Memory Fragments and Combatants tabs. The Optimizer tab is not affected.
 
-EXAMPLE:
-A substat with 2 rolls that got:
-  - Roll 1: 7 (max is 8) = 87.5% quality
-  - Roll 2: 6 (max is 8) = 75% quality
-  - Total: 13 out of possible 16
-  - Contribution: (13/16) * 2 * 10 = 16.25 GS
+WEIGHTS:
+Configure custom weights to emphasize stats you care about.
+For example, if a stat is set at 1.0, setting another stat at 2.0 means you value it twice as much.
+The resulting Gear Score is normalized between 0 and 100. Negative weights are allowed (mark a stat as harmful) — normalization clamps to 0 if scores go below the theoretical floor.
 
-STAT MAX ROLLS:
-These are the maximum values each stat can roll:
-  - ATK%/DEF%/HP%: 1.3%
-  - Flat ATK: 8
-  - Flat DEF: 5
-  - Flat HP: 12
-  - CRate: 2.0%
-  - CDmg: 4.0%
-  - Ego: 5
-  - Extra DMG%/DoT%: 3.4%
-  - Element DMG%: 3.5%
-
-WEIGHTED SCORE:
-You can configure custom weights below to emphasize stats you care about. A weight of 1.0 means normal contribution. A weight of 2.0 means that stat contributes double to the score.
+PRESETS:
+Save weight configurations as presets and switch between them with double-click, or by pressing the "Apply Selected Preset" button.
+In the Combatants tab, set a default preset for each character. This only affects the Combatants tab, and the "Highest GS/Pot.: Assigned Presets Only" option.
+Creating presets for each character is useful for finding and dismantling MFs that no character wants.
+Use the "Highest GS" and "Highest Pot." columns in the Memory Fragments tab for this. These columns use all the presets, so an MF with a low "Highest Pot." would be mediocre for all currently existing characters.
 
 POTENTIAL:
-Shows the range of possible final GS based on remaining upgrades. Low assumes minimum rolls, high assumes maximum rolls."""
+The possible Gear Score that an MF can get after being fully upgraded.
+ - Low:  every remaining upgrade rolls minimum on the worst-weighted stat
+ - High: every remaining upgrade rolls maximum on the best-weighted stat
 
-        explain_text = scrolledtext.ScrolledText(explain_frame, height=20, wrap=tk.WORD,
-                                                  bg=self.colors["bg_light"], fg=self.colors["fg"],
-                                                  font=("Consolas", 9))
+STAT MIN - MAX ROLLS:
+ - Flat ATK: 5 - 8
+ - Flat DEF: 3 - 5
+ - Flat HP: 10 - 12
+ - ATK%/DEF%/HP%: 0.8 - 1.3%
+ - CRate: 1.2 - 2.0%
+ - CDmg: 2.4 - 4.0%
+ - Extra DMG%/DoT%: 2.7 - 3.4%
+ - Ego: 2 - 5
+  
+Notes:
+ - 3★ Rare MFs cap below 100 (fewer upgrade rolls than the 4★ ceiling).
+ - GS is calculated from substats only — the main stat itself doesn't add to the score, but its TYPE constrains which stats can appear as substats. Each MF's bounds exclude its own main stat, so two MFs with identical substats but different main stats can score differently (the one with a more high-weighted main wins, since it's playing on a slightly tighter ceiling).
+ - In the Combatants tab, total character GS is the sum of equipped MF scores — the max is 600."""
+
+        explain_text = scrolledtext.ScrolledText(
+            explain_frame, height=20, wrap=tk.WORD,
+            bg=self.colors["bg_light"], fg=self.colors["fg"],
+            font=("Consolas", 9)
+        )
         explain_text.insert("1.0", explanation)
         explain_text.config(state=tk.DISABLED)
         explain_text.pack(fill=tk.BOTH, expand=True)
 
-        # Right side - Configuration
+        # --- Right side: configuration -------------------------------
         config_frame = ttk.LabelFrame(content, text="Stat Weight Configuration", padding=10)
         content.add(config_frame, weight=1)
 
-        ttk.Label(config_frame, text="Adjust weights for custom scoring (1.0 = normal)",
-                  foreground=self.colors["fg_dim"]).pack(anchor=tk.W, pady=(0, 10))
+        ttk.Label(
+            config_frame,
+            text="Adjust weights for custom scoring (1.0 = normal)",
+            foreground=self.colors["fg_dim"]
+        ).pack(anchor=tk.W, pady=(0, 10))
 
-        # Weight configuration
-        weights_inner = ttk.Frame(config_frame)
-        weights_inner.pack(fill=tk.X)
+        # Top region: stats on the left, button column on the right.
+        # Two separate frames so stat rows keep their natural compact spacing
+        # without being pushed apart by taller button rows.
+        top = ttk.Frame(config_frame)
+        top.pack(fill=tk.X, anchor=tk.W)
 
-        stat_display_names = [
-            ("Flat ATK", "Flat ATK"), ("ATK%", "ATK%"),
-            ("Flat DEF", "Flat DEF"), ("DEF%", "DEF%"),
-            ("Flat HP", "Flat HP"), ("HP%", "HP%"),
-            ("CRate", "Crit Rate"), ("CDmg", "Crit Damage"),
-            ("Ego", "Ego"), ("Extra DMG%", "Extra DMG%"),
-            ("DoT%", "DoT%"), ("Passion DMG%", "Passion"),
-            ("Order DMG%", "Order"), ("Justice DMG%", "Justice"),
-            ("Void DMG%", "Void"), ("Instinct DMG%", "Instinct"),
-        ]
+        stats_frame = ttk.Frame(top)
+        stats_frame.pack(side=tk.LEFT, anchor=tk.N)
 
-        for i, (stat_key, display_name) in enumerate(stat_display_names):
-            row = i // 2
-            col = i % 2
-            frame = ttk.Frame(weights_inner)
-            frame.grid(row=row, column=col, sticky=tk.W, padx=5, pady=2)
+        # Spacer between stats and buttons.
+        ttk.Frame(top, width=20).pack(side=tk.LEFT)
 
-            ttk.Label(frame, text=f"{display_name}:", width=12).pack(side=tk.LEFT)
+        # The button frame fills its parent vertically so weighted empty rows
+        # inside it can push the lower buttons down to align with DoT%.
+        btn_frame = ttk.Frame(top)
+        btn_frame.pack(side=tk.LEFT, fill=tk.Y)
+
+        self._build_stats_grid(stats_frame)
+        self._build_button_column(btn_frame)
+
+        # Status label, anchored to the left so it sits right below DoT%.
+        self.weight_status = ttk.Label(
+            config_frame, text="Applied default weights (all 1.0)",
+            foreground=self.colors["fg_dim"]
+        )
+        self.weight_status.pack(anchor=tk.W, padx=5, pady=(15, 5))
+
+        # Preset list, fills remaining space and resizes with the window.
+        # ttk.Treeview with two data-only columns: a narrow marker gutter on
+        # the left and the preset name on the right. We use show="" (not
+        # show="tree") so the special #0 tree column is suppressed entirely
+        # -- otherwise it reserves a few pixels of leading indent + disclosure
+        # indicator space that has no use in a flat list. Data columns still
+        # render even when neither "tree" nor "headings" is in show.
+        list_frame = ttk.Frame(config_frame)
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL)
+        self.preset_tree = ttk.Treeview(
+            list_frame,
+            columns=("marker", "name"),
+            show="",            # no #0 tree column, no headers -- data cells only
+            selectmode="extended",
+            yscrollcommand=scrollbar.set,
+        )
+        # "marker" is the icon gutter on the left -- narrow, fixed width.
+        # "name" takes the rest of the available width.
+        self.preset_tree.column("marker", width=24, minwidth=24, stretch=False, anchor="center")
+        self.preset_tree.column("name", width=200, stretch=True, anchor="w")
+        scrollbar.config(command=self.preset_tree.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.preset_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.preset_tree.bind("<Double-Button-1>", self.on_preset_double_click)
+        # Windows-Explorer-style typing-ahead: press a letter to jump to the
+        # next preset whose name starts with that letter. Cycles when reaching
+        # the end. Non-alphanumeric keys (arrows, etc.) fall through to Tk's
+        # built-in handling.
+        self.preset_tree.bind("<KeyPress>", self._on_preset_key)
+
+    def _build_stats_grid(self, parent: ttk.Frame):
+        """11 stat label+spinbox pairs in a 2-column grid (DoT% alone in row 5).
+
+        Lives in its own frame so spacing isn't perturbed by the (taller)
+        button column to the right.
+        """
+        for i, (stat_key, display_name) in enumerate(STAT_DISPLAY_NAMES):
+            row, col = i // 2, i % 2
+            cell = ttk.Frame(parent)
+            cell.grid(row=row, column=col, sticky=tk.W, padx=5, pady=2)
+
+            ttk.Label(cell, text=f"{display_name}:", width=12).pack(side=tk.LEFT)
             var = tk.DoubleVar(value=1.0)
             self.stat_weight_vars[stat_key] = var
-            # Use tk.Spinbox with dark theme colors
-            spinbox = tk.Spinbox(frame, from_=0.0, to=5.0, increment=0.1, width=5,
-                                 textvariable=var, format="%.1f",
-                                 bg=self.colors["bg_light"], fg=self.colors["fg"],
-                                 buttonbackground=self.colors["bg_lighter"],
-                                 insertbackground=self.colors["fg"],
-                                 selectbackground=self.colors["select"],
-                                 selectforeground=self.colors["fg"],
-                                 relief=tk.FLAT, bd=1)
-            spinbox.pack(side=tk.LEFT, padx=2)
 
-        # Preset buttons
-        preset_frame = ttk.Frame(config_frame)
-        preset_frame.pack(fill=tk.X, pady=(15, 5))
+            tk.Spinbox(
+                cell, from_=0.0, to=5.0, increment=0.1, width=5,
+                textvariable=var, format="%.1f",
+                bg=self.colors["bg_light"], fg=self.colors["fg"],
+                buttonbackground=self.colors["bg_lighter"],
+                insertbackground=self.colors["fg"],
+                selectbackground=self.colors["select"],
+                selectforeground=self.colors["fg"],
+                relief=tk.FLAT, bd=1
+            ).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(preset_frame, text="Presets:", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
-        ttk.Button(preset_frame, text="Reset All", command=self.reset_weights).pack(side=tk.LEFT, padx=5)
-        ttk.Button(preset_frame, text="DPS Focus", command=self.preset_dps_weights).pack(side=tk.LEFT, padx=5)
-        ttk.Button(preset_frame, text="Tank Focus", command=self.preset_tank_weights).pack(side=tk.LEFT, padx=5)
-        ttk.Button(preset_frame, text="Apply Weights", command=self.apply_custom_weights).pack(side=tk.LEFT, padx=5)
+    def _build_button_column(self, parent: ttk.Frame):
+        """Five buttons + label + entry in a 2-column grid that fills its parent.
 
-        # Status
-        self.weight_status = ttk.Label(config_frame, text="Using default weights (all 1.0)",
-                                        foreground=self.colors["fg_dim"])
-        self.weight_status.pack(anchor=tk.W, pady=(10, 0))
+        Top buttons sit at row 0 (so they line up with the top of ATK% in the
+        adjacent stats frame). Rows 1 and 2 are weighted empty space, pushing
+        the lower group (label, save+entry, apply/delete) down so the bottom
+        buttons line up with the bottom of DoT%.
+        """
+        # Row 0: Apply Current Weights | Reset Current Weights
+        ttk.Button(
+            parent, text="Apply Current Weights",
+            command=self.on_apply_current_weights, width=BTN_WIDTH
+        ).grid(row=0, column=0, sticky="ew", padx=2, pady=2)
 
-    def reset_weights(self):
-        """Reset all stat weights to 1.0."""
-        for var in self.stat_weight_vars.values():
-            var.set(1.0)
-        self.weight_status.config(text="Weights reset to default (all 1.0)")
+        ttk.Button(
+            parent, text="Reset Current Weights",
+            command=self.on_reset_current_weights, width=BTN_WIDTH
+        ).grid(row=0, column=1, sticky="ew", padx=2, pady=2)
 
-    def preset_dps_weights(self):
-        """Set weights for DPS-focused scoring."""
-        presets = {
-            "ATK%": 2.0, "Flat ATK": 1.5, "CRate": 2.0, "CDmg": 2.0,
-            "Extra DMG%": 1.5, "DoT%": 1.0,
-            "DEF%": 0.5, "Flat DEF": 0.3, "HP%": 0.5, "Flat HP": 0.3,
-            "Ego": 1.0,
-        }
-        for stat, var in self.stat_weight_vars.items():
-            var.set(presets.get(stat, 1.0))
-        self.weight_status.config(text="Applied DPS preset weights")
+        # Rows 1, 2: weighted empty space — absorbs vertical slack so rows
+        # 3-5 are pinned to the bottom of the frame.
+        parent.grid_rowconfigure(1, weight=1)
+        parent.grid_rowconfigure(2, weight=1)
 
-    def preset_tank_weights(self):
-        """Set weights for tank-focused scoring."""
-        presets = {
-            "DEF%": 2.0, "Flat DEF": 1.5, "HP%": 2.0, "Flat HP": 1.5,
-            "ATK%": 0.5, "Flat ATK": 0.3, "CRate": 0.5, "CDmg": 0.5,
-            "Extra DMG%": 0.3, "DoT%": 0.3, "Ego": 1.0,
-        }
-        for stat, var in self.stat_weight_vars.items():
-            var.set(presets.get(stat, 1.0))
-        self.weight_status.config(text="Applied Tank preset weights")
+        # Row 3, col 1: "Preset Name:" label sits just above the entry.
+        ttk.Label(parent, text="Preset Name:").grid(
+            row=3, column=1, sticky="sw", padx=2
+        )
 
-    def apply_custom_weights(self):
-        """Apply custom weights and recalculate all gear scores."""
+        # Row 4: Save Weights Preset As | preset name entry
+        ttk.Button(
+            parent, text="Save Weights Preset As",
+            command=self.on_save_preset, width=BTN_WIDTH
+        ).grid(row=4, column=0, sticky="ew", padx=2, pady=2)
+
+        self.preset_name_var = tk.StringVar()
+        tk.Entry(
+            parent, textvariable=self.preset_name_var, width=BTN_WIDTH,
+            bg=self.colors["bg_light"], fg=self.colors["fg"],
+            insertbackground=self.colors["fg"],
+            selectbackground=self.colors["select"],
+            selectforeground=self.colors["fg"],
+            relief=tk.FLAT, bd=1, highlightthickness=0
+        ).grid(row=4, column=1, sticky="ew", padx=2, pady=2)
+
+        # Row 5: Apply Selected Preset | Delete Selected Presets
+        ttk.Button(
+            parent, text="Apply Selected Preset",
+            command=self.on_apply_selected_preset, width=BTN_WIDTH
+        ).grid(row=5, column=0, sticky="ew", padx=2, pady=2)
+
+        ttk.Button(
+            parent, text="Delete Selected Presets",
+            command=self.on_delete_selected_presets, width=BTN_WIDTH
+        ).grid(row=5, column=1, sticky="ew", padx=2, pady=2)
+
+        # Force button columns to share width.
+        parent.grid_columnconfigure(0, uniform="btn_col")
+        parent.grid_columnconfigure(1, uniform="btn_col")
+
+    # ============================================================
+    # Public API used from outside the tab
+    # ============================================================
+
+    def apply_active_weights(self):
+        """
+        Recalculate gear scores for all current fragments using whatever
+        weights are currently in the spinboxes, then refresh dependent tabs.
+        Does NOT change the status label — used after live updates / data loads
+        so the displayed "Applied X" text stays consistent.
+
+        Both the base GS and the potential range are normalized to a 0-100
+        scale per the active weights' theoretical bounds, with each
+        fragment's main stat EXCLUDED from its bounds calculation (so 100
+        is reachable regardless of which main stat the fragment has).
+        Bounds are cached by main_stat name across the fragment loop --
+        there are only ~16 distinct main stats max, so this is far cheaper
+        than recomputing per fragment.
+        """
         weights = {stat: var.get() for stat, var in self.stat_weight_vars.items()}
-
-        # Recalculate gear scores with custom weights
+        bounds_cache: dict = {}  # main_stat name -> (min_raw, max_raw)
         for fragment in self.optimizer.fragments:
-            weighted_score = 0.0
-            for sub in fragment.substats:
-                stat_info = STATS.get(sub.raw_name, (sub.name, sub.name, sub.is_percentage, 1.0, 0.5))
-                max_roll = stat_info[3]
-                normalized = sub.value / (max_roll * sub.roll_count) if max_roll > 0 else 0
-                weight = weights.get(sub.name, 1.0)
-                weighted_score += normalized * sub.roll_count * weight
-            fragment.gear_score = round(weighted_score * 10, 1)
-            fragment.calculate_potential()
+            main_name = fragment.main_stat.name if fragment.main_stat else None
+            if main_name not in bounds_cache:
+                bounds_cache[main_name] = compute_gs_bounds(
+                    weights, exclude_stat=main_name
+                )
+            bounds = bounds_cache[main_name]
+            fragment.calculate_base_score(weights=weights, bounds=bounds)
+            fragment.calculate_potential(weights=weights, bounds=bounds)
 
-        # Refresh other tabs via AppContext
         self.context.inventory_tab.refresh_inventory()
         self.context.heroes_tab.refresh_heroes()
 
-        # Update status
-        self.weight_status.config(text="Custom weights applied - scores recalculated",
-                                   foreground=self.colors["green"])
+    # ============================================================
+    # Button handlers
+    # ============================================================
+
+    def on_apply_current_weights(self):
+        """Apply whatever the spinboxes currently say. Marks as 'custom weights'."""
+        self.apply_active_weights()
+        self.active_preset_name = None
+        self.preset_manager.set_selected(None)
+        self.weight_status.config(text="Applied custom weights")
+
+    def on_reset_current_weights(self):
+        """Set every spinbox to 1.0, apply, mark as default."""
+        self._reset_sliders_to_default()
+        self.apply_active_weights()
+        self.active_preset_name = None
+        self.preset_manager.set_selected(None)
+        self.weight_status.config(text="Applied default weights (all 1.0)")
+
+    def on_apply_selected_preset(self):
+        """Apply a preset selected in the listbox (must be exactly one)."""
+        sel = self.preset_tree.selection()
+        if len(sel) > 1:
+            messagebox.showerror(
+                "Multiple Presets Selected",
+                f"Please select only one preset to apply.\n\n"
+                f"You currently have {len(sel)} presets selected."
+            )
+            return
+        if not sel:
+            messagebox.showwarning(
+                "No Preset Selected",
+                "Please select a preset from the list to apply."
+            )
+            return
+
+        # Treeview iids ARE the preset names (we set them so on insert),
+        # so the lookup is direct.
+        name = sel[0]
+        weights = self.preset_manager.get_preset(name)
+        if weights is None:
+            messagebox.showerror("Error", f"Preset '{name}' was not found.")
+            self.refresh_preset_list()
+            return
+
+        self._set_sliders(weights)
+        self.apply_active_weights()
+        self.active_preset_name = name
+        self.preset_manager.set_selected(name)
+        self.weight_status.config(text=f"Applied {name}")
+
+    def on_preset_double_click(self, event):
+        """Apply the preset under the double-clicked row, regardless of selection."""
+        # identify_row returns the iid of the row at the event y, or "" if
+        # the click was below the last row.
+        iid = self.preset_tree.identify_row(event.y)
+        if not iid:
+            return
+        # iid is the preset name (set explicitly on insert).
+        name = iid
+        weights = self.preset_manager.get_preset(name)
+        if weights is None:
+            messagebox.showerror("Error", f"Preset '{name}' was not found.")
+            self.refresh_preset_list()
+            return
+
+        self._set_sliders(weights)
+        self.apply_active_weights()
+        self.active_preset_name = name
+        self.preset_manager.set_selected(name)
+        self.weight_status.config(text=f"Applied {name}")
+
+    def on_save_preset(self):
+        """Save the current spinbox values as a new preset and apply it."""
+        name = self.preset_name_var.get().strip()
+        if not name:
+            messagebox.showerror(
+                "Invalid Preset Name",
+                "Please enter a name for the preset in the Preset Name field."
+            )
+            return
+
+        # If the file is corrupted, get explicit consent before overwriting.
+        if self.preset_manager.is_corrupted():
+            confirm_msg = (
+                f"The presets file is corrupted:\n\n"
+                f"{self.preset_manager.corruption_error}\n\n"
+                f"Saving will rename the broken file (adding '_corrupted' to its "
+                f"filename) and create a fresh one with this preset.\n\n"
+                f"Continue?"
+            )
+            if not messagebox.askyesno("Corrupted Presets File", confirm_msg):
+                return
+            try:
+                self.preset_manager.quarantine()
+            except Exception as e:
+                messagebox.showerror(
+                    "Error", f"Failed to back up the corrupted file: {e}"
+                )
+                return
+
+        # Confirm overwrite if the name already exists.
+        if self.preset_manager.has_preset(name):
+            if not messagebox.askyesno(
+                "Overwrite Preset",
+                f"A preset named '{name}' already exists.\n\n"
+                f"Overwrite it with the current weights?"
+            ):
+                return
+
+        weights = {stat: var.get() for stat, var in self.stat_weight_vars.items()}
+        try:
+            self.preset_manager.save_preset(name, weights, set_selected=True)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save preset: {e}")
+            return
+
+        self.refresh_preset_list()
+        self.apply_active_weights()
+        self.active_preset_name = name
+        self.weight_status.config(text=f"Applied {name}")
+        self.preset_name_var.set("")
+        # Refresh Combatants in case this overwrites a preset already assigned
+        # to one or more characters (their GS should reflect the new weights).
+        if self.context.heroes_tab is not None:
+            try:
+                self.context.heroes_tab.refresh_heroes()
+            except Exception:
+                pass
+
+    def on_delete_selected_presets(self):
+        """Delete one or more selected presets, with confirmation."""
+        sel = self.preset_tree.selection()
+        if not sel:
+            messagebox.showwarning(
+                "No Preset Selected",
+                "Please select one or more presets to delete."
+            )
+            return
+
+        if self.preset_manager.is_corrupted():
+            messagebox.showwarning(
+                "Presets File Corrupted",
+                "The presets file is corrupted and cannot be edited until "
+                "you save a new preset (which will back up the broken file)."
+            )
+            return
+
+        # Treeview iids are the preset names (set on insert), so the
+        # selection tuple IS the list of names to delete.
+        names = list(sel)
+        listing = "\n".join(f"  • {n}" for n in names)
+        confirm_msg = (
+            f"Are you sure you want to delete the following preset"
+            f"{'s' if len(names) > 1 else ''}?\n\n{listing}\n\nThis cannot be undone."
+        )
+        if not messagebox.askyesno("Confirm Delete", confirm_msg):
+            return
+
+        try:
+            self.preset_manager.delete_presets(names)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to delete preset(s): {e}")
+            return
+
+        # Reset every character that pointed at any deleted preset back to default.
+        if self.character_preset_manager is not None:
+            for n in names:
+                try:
+                    self.character_preset_manager.remove_assignments_to(n)
+                except Exception:
+                    pass
+
+        # If the currently-applied preset was deleted, downgrade status to
+        # "Applied custom weights" but keep the spinbox values as-is.
+        if self.active_preset_name in names:
+            self.active_preset_name = None
+            self.weight_status.config(text="Applied custom weights")
+
+        self.refresh_preset_list()
+        # Refresh Combatants tab so its Preset column and per-character GS update.
+        if self.context.heroes_tab is not None:
+            try:
+                self.context.heroes_tab.refresh_heroes()
+            except Exception:
+                pass
+
+    # ============================================================
+    # Helpers
+    # ============================================================
+
+    def refresh_preset_list(self):
+        """Repopulate the Treeview from PresetManager (alphabetical) and
+        highlight the currently-applied preset, if any.
+
+        Each row carries the ASSIGNED_ICON in its left gutter column (#0)
+        when at least one character in CharacterPresetManager points at
+        the preset -- a visual cue that deleting or editing that preset
+        will affect Combatants-tab GS for those characters. Unlinked rows
+        get an empty string in the gutter so the name column starts at
+        the same x-coordinate for every row.
+
+        Iid scheme: each row's iid IS the preset name. This makes lookup
+        from selection() trivial (no separate index->name mapping) and
+        is safe because PresetManager guarantees unique preset names.
+
+        The highlight matters most on program start: without it, the
+        Treeview loads with no row selected, so the user has no visual
+        indication of which preset's weights are currently in effect.
+        On Apply / Save / Delete the preset_manager's selected_preset is
+        updated, so subsequent refreshes reflect the right row.
+        """
+        # Clear all existing rows.
+        for iid in self.preset_tree.get_children():
+            self.preset_tree.delete(iid)
+
+        names = list(self.preset_manager.get_preset_names())
+
+        # Which preset names are currently assigned to >=1 character?
+        assigned_names = set()
+        if self.character_preset_manager is not None:
+            for preset_name in self.character_preset_manager.assignments.values():
+                if preset_name:
+                    assigned_names.add(preset_name)
+
+        for name in names:
+            icon = ASSIGNED_ICON if name in assigned_names else ""
+            # iid=name makes the selection->name lookup direct (see
+            # on_apply_selected_preset / on_delete_selected_presets).
+            # values=(icon, name) puts the marker in the "marker" data
+            # column and the preset name in the "name" data column.
+            self.preset_tree.insert(
+                "", tk.END, iid=name, values=(icon, name)
+            )
+
+        selected = self.preset_manager.selected_preset
+        if selected and selected in names:
+            self.preset_tree.selection_set(selected)
+            self.preset_tree.focus(selected)
+            self.preset_tree.see(selected)
+
+    def _on_preset_key(self, event):
+        """Letter-key navigation: pressing 'A' jumps to the next preset
+        starting with 'A' (case-insensitive), cycling at the end of the
+        list. Matches against the preset name (which is also the row's
+        iid), so the marker glyph in the gutter doesn't affect matching.
+
+        Returns 'break' on a successful jump to prevent Tk's default
+        Treeview behavior from also reacting. Falls through (returns None)
+        for non-alphanumeric keys so arrow keys etc. still work.
+        """
+        char = event.char
+        if not char or not char.isalnum():
+            return None  # arrows, ctrl, etc. -- let Tk handle them
+        char_lower = char.lower()
+
+        items = self.preset_tree.get_children()  # tuple of iids (=names)
+        total = len(items)
+        if total == 0:
+            return "break"
+
+        # Start one past the current selection so repeated presses cycle
+        # through all matches. Wrap to 0 at the end.
+        sel = self.preset_tree.selection()
+        if sel:
+            try:
+                start = (items.index(sel[0]) + 1) % total
+            except ValueError:
+                start = 0
+        else:
+            start = 0
+
+        for offset in range(total):
+            idx = (start + offset) % total
+            iid = items[idx]
+            # iid is the preset name.
+            if iid.lower().startswith(char_lower):
+                self.preset_tree.selection_set(iid)
+                self.preset_tree.focus(iid)
+                self.preset_tree.see(iid)
+                return "break"
+        return "break"  # no match -- still swallow so Tk doesn't try anything
+
+    def _set_sliders(self, weights: dict):
+        """Push a weights dict into the spinbox vars (missing stats default to 1.0)."""
+        for stat, var in self.stat_weight_vars.items():
+            var.set(float(weights.get(stat, 1.0)))
+
+    def _reset_sliders_to_default(self):
+        for var in self.stat_weight_vars.values():
+            var.set(1.0)

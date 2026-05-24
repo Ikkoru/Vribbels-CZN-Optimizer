@@ -77,6 +77,25 @@ class Addon:
             self.debug_file = open(debug_path, "w", encoding="utf-8")
             self.log_callback(f"Debug logging to: {debug_path.name}")
 
+        # Tracks delete (disassemble_piece) requests we're waiting on the
+        # server to confirm. Maps qid -> [piece_id, ...]. The delete
+        # response carries only item_result (proceeds), not the destroyed
+        # piece IDs, so we have to remember intent from the request side
+        # and apply the deletion only when the matching server response
+        # arrives with res='ok'.
+        self.pending_disassembles = {}
+
+        # Tracks bulk-unequip (unequip_piece) requests. The "Unequip All"
+        # in-game button sends one unequip_piece message listing all the
+        # currently-equipped piece IDs of a single character. The server
+        # response has a "pieces" (plural) array with each piece's
+        # char_res_id zeroed out. We can't distinguish that from a
+        # CREATE response (forge/fuse, same "pieces" key shape) by looking
+        # at the response alone -- so we keep a qid-keyed memo of what
+        # the client asked for and dispatch on it when the response
+        # arrives. Maps qid -> {"item_ids": [...], "char_res_id": int}.
+        self.pending_unequips = {}
+
         # Load zstd dictionary if available
         if dict_path and dict_path.exists() and HAS_ZSTD:
             try:
@@ -185,6 +204,46 @@ class Addon:
         """
         msg = flow.websocket.messages[-1]
         if msg.from_client:
+            # Decode and parse the client request once. The parsed form is
+            # needed for two purposes: (1) tracking disassemble_piece intents
+            # so we can apply the deletion when the matching server response
+            # arrives, which must happen whether or not debug is on; and
+            # (2) writing the entry to the debug log when debug is on.
+            content = None
+            parsed = None
+            try:
+                if msg.is_text:
+                    content = msg.text
+                else:
+                    content = self._try_decode_binary(msg.content)
+                    if content is None:
+                        content = "<binary>"
+                try:
+                    parsed = json.loads(content)
+                except (ValueError, TypeError):
+                    parsed = None
+            except Exception:
+                pass
+
+            # Always track disassemble (delete) requests. The game uses a
+            # list-of-commands wire shape where one client message can
+            # contain multiple commands, so we scan every entry.
+            self._track_client_request(parsed)
+
+            # Optional debug log of the raw client message.
+            if self.debug_file and content is not None:
+                try:
+                    entry = {
+                        "ts": datetime.now().isoformat(),
+                        "direction": "client_to_server",
+                        "size": len(content) if isinstance(content, (str, bytes)) else 0,
+                        "keys": list(parsed.keys()) if isinstance(parsed, dict) else [],
+                        "data": parsed if parsed is not None else content,
+                    }
+                    self.debug_file.write(json.dumps(entry, ensure_ascii=False) + "\\n")
+                    self.debug_file.flush()
+                except Exception:
+                    pass  # never let debug logging break capture
             return
 
         try:
@@ -207,6 +266,7 @@ class Addon:
             if self.debug_file:
                 entry = {
                     "ts": datetime.now().isoformat(),
+                    "direction": "server_to_client",
                     "keys": list(data.keys()),
                     "size": len(content),
                     "data": data
@@ -217,9 +277,46 @@ class Addon:
             if data.get("res") != "ok":
                 return
 
+            # Confirm any pending disassemble (delete) request whose qid
+            # this response matches. The server reply carries only proceeds
+            # in item_result -- no piece info -- so we identify which
+            # pieces were destroyed by matching the response qid to the
+            # request we tracked earlier.
+            qid = data.get("qid")
+            if (qid is not None and qid in self.pending_disassembles
+                    and self.inventory_data
+                    and "piece_items" in self.inventory_data):
+                ids = self.pending_disassembles.pop(qid)
+                self._apply_piece_disassemble(ids)
+
+            # Pop any pending unequip-piece request matching this qid. The
+            # actual state update happens in the "pieces" branch below;
+            # we just remember whether this qid was an unequip so we can
+            # route to the right handler (unequip vs. create -- they share
+            # the "pieces" key shape).
+            pending_unequip_info = None
+            if qid is not None and qid in self.pending_unequips:
+                pending_unequip_info = self.pending_unequips.pop(qid)
+
             # Live monitoring: apply piece deltas
+            #   "piece"  (singular): existing swap / upgrade / equip / unequip flows.
+            #   "pieces" (plural):   create flow (forge/fuse/craft a new fragment).
+            #                        The response carries the newly-minted piece(s) as
+            #                        an array along with the resource cost in
+            #                        item_result. We append each piece to the cached
+            #                        piece_items so the inventory stays in sync.
+            #                        UNEQUIP-ALL also uses this key (returning each
+            #                        unequipped piece with char_res_id zeroed); we
+            #                        distinguish via pending_unequip_info above.
             if "piece" in data and self.inventory_data and "piece_items" in self.inventory_data:
                 self._apply_piece_delta(data)
+            elif "pieces" in data and self.inventory_data and "piece_items" in self.inventory_data:
+                if pending_unequip_info is not None:
+                    self._apply_pieces_unequip(
+                        data["pieces"], pending_unequip_info["char_res_id"]
+                    )
+                else:
+                    self._apply_pieces_create(data)
 
             # Check for 'info' structure (new API format)
             if "info" in data:
@@ -343,11 +440,184 @@ class Addon:
             eq_desc = self._describe_piece(equipped_piece)
             self.log_callback(f"[LIVE] Swapped gear on {char_name}: equipped {desc}, removed {eq_desc}")
         elif old_piece and old_piece.get("level", 0) != new_piece.get("level", 0):
-            self.log_callback(f"[LIVE] Upgraded {desc}")
+            # Embed [pid={id}] so the main app can compute Highest Pot.
+            # from the freshly-reloaded fragment and append it to this
+            # line (see _drain_pending_upgrade_lines in czn_optimizer_gui).
+            # The main app strips this marker before display so the user
+            # doesn\'t see it.
+            self.log_callback(f"[LIVE] Upgraded {desc} [pid={new_piece.get('id', 0)}]")
         elif char_id != 0:
             self.log_callback(f"[LIVE] Equipped {desc} to {char_name}")
         else:
             self.log_callback(f"[LIVE] Unequipped {desc}")
+
+    def _apply_pieces_create(self, data):
+        """Apply a piece-create response (forge / fuse / craft new fragment).
+
+        The server sends the freshly-minted piece(s) under the 'pieces'
+        (plural) key as an array. Each entry has the same shape as a normal
+        piece_items entry (id, res_id, char_res_id, level, exp, lock,
+        stat_list, ...). We append any entries whose id isn't already in
+        piece_items -- defensive in case of message duplication or replay.
+        """
+        piece_items = self.inventory_data.get("piece_items", [])
+        new_pieces = data.get("pieces") or []
+        if not isinstance(new_pieces, list):
+            return
+
+        existing_ids = {p.get("id") for p in piece_items}
+        added = []
+        for piece in new_pieces:
+            if not isinstance(piece, dict):
+                continue
+            pid = piece.get("id")
+            if pid is None or pid in existing_ids:
+                continue
+            piece_items.append(piece)
+            existing_ids.add(pid)
+            added.append(piece)
+
+        if not added:
+            return
+
+        self._save_data()
+
+        if len(added) == 1:
+            desc = self._describe_piece(added[0])
+            self.log_callback(f"[LIVE] Created {desc}")
+        else:
+            self.log_callback(f"[LIVE] Created {len(added)} pieces")
+
+    def _apply_pieces_unequip(self, pieces_list, char_res_id):
+        """Apply a bulk-unequip server response ("Unequip All" in-game).
+
+        The response 'pieces' array contains each affected piece with its
+        char_res_id zeroed and equip-related state cleared. The IDs ALREADY
+        exist in piece_items -- we replace the matching entries in place
+        rather than appending (which is what _apply_pieces_create would
+        incorrectly do, since its dedup logic just skips known IDs).
+
+        Args:
+            pieces_list: the 'pieces' array from the server response.
+            char_res_id: integer res_id of the character whose gear was
+                         unequipped (from the original request, coerced
+                         from string by _track_client_request). Used for
+                         the log message only.
+        """
+        if not isinstance(pieces_list, list):
+            return
+        piece_items = self.inventory_data.get("piece_items", [])
+        updated_count = 0
+        for new_piece in pieces_list:
+            if not isinstance(new_piece, dict):
+                continue
+            pid = new_piece.get("id")
+            if pid is None:
+                continue
+            for i, p in enumerate(piece_items):
+                if p.get("id") == pid:
+                    piece_items[i] = new_piece
+                    updated_count += 1
+                    break
+
+        if updated_count == 0:
+            return
+
+        self._save_data()
+
+        char_name = CHAR_NAMES.get(char_res_id, f"Character {char_res_id}")
+        if updated_count == 1:
+            # Defensive: if single-piece unequip also routes through the
+            # unequip_piece cmd (we don't have a debug-capture sample of
+            # that yet), log per-piece detail to match the single-piece
+            # log format produced by _apply_piece_delta's unequip branch.
+            desc = self._describe_piece(pieces_list[0])
+            self.log_callback(f"[LIVE] Unequipped {desc} from {char_name}")
+        else:
+            self.log_callback(
+                f"[LIVE] Unequipped all {updated_count} pieces from {char_name}"
+            )
+
+    def _track_client_request(self, parsed):
+        """Scan a parsed client message for command(s) we want to remember
+        across the request/response gap. Currently:
+
+            disassemble_piece -- delete flow; the server response carries
+                                 no piece info so we have to learn the
+                                 destroyed piece IDs from the request.
+            unequip_piece     -- bulk-unequip flow ("Unequip All" button);
+                                 the server returns a "pieces" array
+                                 sharing its key shape with the create
+                                 (forge / fuse) flow, so we can't tell
+                                 them apart without remembering what the
+                                 client asked for.
+
+        The wire shape is a list of command objects:
+            [{cmd: 'item', qid: N, params: {cmd: '<inner>', ...}}, ...]
+        Multiple commands may be batched in one message (we've seen up
+        to two in normal play), so each entry is checked.
+
+        Args:
+            parsed: the JSON-parsed client message body, or None / non-list
+                    if parsing failed -- handled defensively.
+        """
+        if not isinstance(parsed, list):
+            return
+        for entry in parsed:
+            if not isinstance(entry, dict):
+                continue
+            params = entry.get("params") or {}
+            if not isinstance(params, dict):
+                continue
+            inner_cmd = params.get("cmd")
+            qid = entry.get("qid")
+            if qid is None:
+                continue
+
+            if inner_cmd == "disassemble_piece":
+                ids = params.get("item_db_ids") or []
+                if isinstance(ids, list) and ids:
+                    # Defensive copy in case the request is reused/mutated
+                    # upstream.
+                    self.pending_disassembles[qid] = list(ids)
+
+            elif inner_cmd == "unequip_piece":
+                ids = params.get("item_db_ids") or []
+                if isinstance(ids, list) and ids:
+                    # char_res_id arrives as a string ("1009") in the
+                    # captured data; coerce to int so the CHAR_NAMES
+                    # lookup table (int-keyed) hits.
+                    raw_cid = params.get("char_res_id")
+                    try:
+                        char_res_id = int(raw_cid) if raw_cid is not None else 0
+                    except (TypeError, ValueError):
+                        char_res_id = 0
+                    self.pending_unequips[qid] = {
+                        "item_ids": list(ids),
+                        "char_res_id": char_res_id,
+                    }
+
+    def _apply_piece_disassemble(self, piece_ids):
+        """Remove pieces from piece_items by id (called on server confirmation
+        of a disassemble_piece request). No-ops cleanly when an id isn't
+        currently in piece_items, which can happen if state drifted or the
+        same id was somehow processed twice."""
+        piece_items = self.inventory_data.get("piece_items", [])
+        target = set(piece_ids)
+        removed = [p for p in piece_items if p.get("id") in target]
+        if not removed:
+            return
+        # Filter out the deleted pieces in place (rebuild list, then assign).
+        self.inventory_data["piece_items"] = [
+            p for p in piece_items if p.get("id") not in target
+        ]
+        self._save_data()
+
+        if len(removed) == 1:
+            desc = self._describe_piece(removed[0])
+            self.log_callback(f"[LIVE] Deleted {desc}")
+        else:
+            self.log_callback(f"[LIVE] Deleted {len(removed)} pieces")
 
     def done(self):
         """Cleanup on shutdown."""
@@ -394,6 +664,16 @@ class CaptureManager:
         self.game_server_ips = {}
         self.original_hosts_content = None
         self.current_region = "global"  # Default region
+
+        # Upgrade log lines from the addon arrive tagged with [pid=N] so
+        # the main app can find the upgraded fragment and append its new
+        # Highest Pot. range. We hold those lines here instead of forwarding
+        # them straight to log_callback; the main app drains the queue
+        # after the post-upgrade reload finishes and emits the augmented
+        # version. Thread-safe by design (proxy reader thread puts; main
+        # thread gets).
+        import queue as _queue  # avoid polluting module namespace
+        self.pending_upgrade_lines = _queue.Queue()
 
     def is_capturing(self) -> bool:
         """Check if currently capturing."""
@@ -592,7 +872,11 @@ SLOT_NAMES = {slot_names}
 addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
 '''
 
-            with open(addon_script, "w") as f:
+            # Always write the addon as UTF-8. On Windows the default
+            # locale-derived encoding may be cp932 / cp949 / cp1252 etc.,
+            # and any non-ASCII char in the template (em-dash, smart quote,
+            # arrow, etc.) would otherwise crash with an UnicodeEncodeError.
+            with open(addon_script, "w", encoding="utf-8") as f:
                 f.write(addon_code)
 
             return addon_script
@@ -635,7 +919,15 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
 
                 # Route live updates with info tag, everything else with default tag
                 if "[LIVE]" in line:
-                    self.log_callback(f"[proxy] {line}", "info")
+                    # Defer [LIVE] Upgraded lines: they carry a [pid=N]
+                    # marker that lets the main app fill in Highest Pot.
+                    # after the post-upgrade reload completes. All other
+                    # [LIVE] events (Equipped / Unequipped / Swapped /
+                    # Created / Deleted) log immediately as before.
+                    if "[LIVE] Upgraded" in line and "[pid=" in line:
+                        self.pending_upgrade_lines.put(line)
+                    else:
+                        self.log_callback(f"[proxy] {line}", "info")
                     if self.live_update_callback:
                         self.live_update_callback()
                 else:

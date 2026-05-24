@@ -1,6 +1,6 @@
-# Vribbels - Chaos Zero Nightmare Optimizer
+# Vribbels CZN Optimizer (Ikkoru)
 
-A Fribbels-inspired gear management and optimization tool for the mobile game **Chaos Zero Nightmare**. This tool helps you optimize your Memory Fragments to maximize your combatants' performance.
+A fork of Vribbels, a Fribbels-inspired gear management and optimization tool for the mobile game **Chaos Zero Nightmare**. This tool helps you optimize your Memory Fragments to maximize your combatants' performance.
 
 ## Features
 
@@ -35,7 +35,7 @@ A Fribbels-inspired gear management and optimization tool for the mobile game **
 
 ### Quick Start
 
-1. Download the latest release from the [Releases page](https://github.com/Vorbroker/Vribbels-CZN-Optimizer/releases)
+1. Download the latest release from the [Releases page](https://github.com/Ikkoru/Vribbels-CZN-Optimizer/releases)
 2. Run `Vribbels_CZN_Optimizer.exe`
 3. Navigate to the **Setup** tab and click **Generate & Install Cert**
 
@@ -75,15 +75,17 @@ Contributions are welcome! Feel free to:
 
 ## Credits
 
+Original by [Vorbroker](https://github.com/Vorbroker/Vribbels-CZN-Optimizer)
+
 Inspired by [Fribbels Epic 7 Gear Optimizer](https://github.com/fribbels/Fribbels-Epic-7-Optimizer)
 
 Thanks to [EpicSevenAssetRipper](https://github.com/CeciliaBot/EpicSevenAssetRipper) for asset extraction tools
 
 ## Support
 
-If you find this tool helpful, consider supporting development:
+Currently not accepting donations.
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H2H21PHYKW)
+You can send the original creator a thank you donation on [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H2H21PHYKW) if you wish.
 
 ## License
 

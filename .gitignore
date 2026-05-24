@@ -40,10 +40,12 @@ desktop.ini
 # Project specific
 # Exclude snapshots folder (contains user-specific data extracts)
 Vribbels/snapshots/
+Vribbels/presets/level_data.json
+Vribbels/presets/settings.json
 
 # Reference images and icon generation tools - not needed in repository
 CZN Assets/
-images/
+/images/
 Vribbels/images/create_icon.py
 Vribbels/images/generate_growth_stones.py
 Vribbels/images/__pycache__/
@@ -64,8 +66,8 @@ dist/
 build.bat
 build.spec
 BUILD.md
-requirements.txt
 *.spec
+zCreate exe.bat
 
 # Release packages (distributed via GitHub Releases)
 *.zip

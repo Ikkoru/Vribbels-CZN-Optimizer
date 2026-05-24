@@ -1,198 +1,91 @@
 # Changelog
 
-All notable changes to Vribbels CZN Optimizer will be documented in this file.
+All notable changes to Vribbels CZN Optimizer (Ikkoru) will be
+documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.7.0] - 2026-02-07
+This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer)
+at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the
+pre-fork history, see the upstream repository's CHANGELOG.
+
+## [1.0.0](https://github.com/Ikkoru/Vribbels-CZN-Optimizer/releases/tag/v1.0.0) - 2026-05-24
+
+Initial release of this fork.
 
 ### Added
-- **Live Monitoring** — Keep capture running and see changes in real-time
-  - Equip, unequip, swap, and upgrade memory fragments without restarting capture
-  - Capture log shows human-readable [LIVE] messages for each change
-  - Inventory, Combatants, and Materials tabs auto-refresh on every change
-  - Data auto-loads on initial capture — no need to stop capture and manually load
-- **WebSocket Debug Logger** (hidden, developer tool) for inspecting raw game traffic
+
+- **Per-character Gear Score presets** — Combatants tab assigns a custom GS rubric per hero
+  * `PresetManager` holds named weight presets (11 supported stats)
+  * `CharacterPresetManager` maps character → preset (or `None` for default)
+  * Equipped MFs frame and the character-list GS column use the per-character preset
+- **Link-icon marker on assigned presets** — Scoring tab preset list shows a 🔗 in a dedicated left gutter column when at least one character points at that preset (cue that deleting or editing it will affect Combatants-tab GS for those characters)
+- **Letter-key list navigation** — Windows-Explorer-style typing-ahead on the Scoring tab preset list and the Combatants tab character list; press a letter to jump to the next matching name, cycling at the end
+- **Highest Pot. range on the upgrade log** — the Capture tab's "[LIVE] Upgraded" lines now end with the post-upgrade Highest Pot. range across every defined preset (mirrors the Memory Fragments tab column), e.g. `[proxy] [LIVE] Upgraded Line of Justice Denial (+3). Highest Pot.: 42-58`
+- **"Unequip All" capture handler** — the in-game bulk-unequip action is now tracked; previously the addon silently ignored it because the server response shares its "pieces" key shape with the create flow, which the dedup logic mistook for already-existing pieces
+- **Inventory tab "Highest GS" and "Highest Pot." columns** with per-preset bounds caching
+  * "Assigned Presets Only" filter narrows the search to presets actually in use
+  * Header tooltips on every column (custom Toplevel, since Treeview has no native support)
+- **Main stat and set filters** on the Inventory tab
+- **Memory Fragment lifecycle capture** — create and disassemble events tracked from WebSocket traffic
+  * Equip / unequip / swap / upgrade already covered upstream; create / delete now complete the set
+  * Batch operations supported (3-piece create and 3-id disassemble verified)
+- **Right-click level checkpoints** — confirm in-game level for characters and partners
+  * Persists to `presets/level_data.json` and anchors the exp → level lookup table
+  * Characters: 1–62 range; partners: 1–60
+- **`LevelDataManager`** — owns the checkpoint table and rewrites the active exp tables at startup
+- **Character selection memory** — last-selected hero restored on next launch (via `SettingsManager`)
+- **Single-instance lock** — second launch is rejected via `socket.bind(127.0.0.1:53117)`
+- **Active preset auto-highlight** in the Scoring tab listbox
+- **Level 62 infrastructure** — `LEVEL_61_BONUS` / `LEVEL_62_BONUS` dicts in `characters.py`, `effective_level` parameter on `calculate_build_stats` (placeholders until real bonus values land)
+- **About tab self-contained update check** — direct urllib call to this fork's GitHub releases API, no third-party deps
+  * `update_latest_version` and `update_last_checked` persisted via `SettingsManager`
+  * No popup dialogs — all status shown in-tab
+  * Cached result restored on next launch
 
 ### Changed
-- Capture tab instructions updated to reflect live monitoring workflow
-- Removed post-stop "Load data?" prompt — data is already loaded automatically
-- Filtered noisy mitmproxy WebSocket flow messages from capture log
+
+- **Damage formula overhauled** to layered Final ATK/DEF/HP
+  * `inner = (Base + Partner_flat) × (1 + MF% + Potential%) + Gear_flat + Affection_flat`
+  * `Final = inner × (1 + Partner% + Equipment%) + Equipment_flat`
+  * Equipment legendary constants: ATK 82, DEF 31, HP 83
+- **Gear Score normalized to 0–100** per preset (was raw weighted sum)
+- **Gear Score normalization is per-fragment ("Philosophy B")** — each fragment's bounds exclude its own main stat from the substat pool, so 100 is reachable regardless of which main stat the fragment has. Two fragments with identical substats but different main stats can now score differently: the one whose main is more high-weighted under the active preset gets the higher GS, correctly reflecting that its main stat contributes real build value. `compute_gs_bounds()` gains an `exclude_stat` parameter; new `bounds_for_fragment()` convenience helper. All callers updated with per-main-stat bounds caching to keep performance flat.
+- **`selected_preset` moved from `presets.json` to `settings.json`** — the active preset is per-user state, not shipping default. `PresetManager` reads/writes it through `SettingsManager` when one is wired up; legacy `presets.json` files with a top-level `selected_preset` key are migrated on first load (key copied to settings.json, then dropped from presets.json on the next write). Shipping `presets.json` no longer carries the field.
+- **Partner card display** is now three-state — known partner / unknown res_id / no partner
+- **Internal "friendship" renamed to "affection"** to match the in-game term
+- **About tab links** repointed to this fork (Releases, Issues, README)
+- **Scoring tab preset list switched from `tk.Listbox` to `ttk.Treeview`** so the assigned-preset link icon can live in a dedicated fixed-width gutter on the left, keeping preset names aligned across linked / unlinked rows. Treeview iids are set to the preset names, making selection-to-name lookups direct.
+- **First launch defaults to the Setup tab** instead of the Optimizer tab — the program is useless without captured data, so the user lands on the proxy/cert installation flow before being asked to do anything else. After this fires once, a `first_launch_done` flag in settings.json keeps the default behavior (open at leftmost tab) on subsequent runs. Clearing settings.json re-triggers it, so "reset to factory state" works as expected.
 
 ### Fixed
-- Handled JSON array WebSocket messages that caused `'list' object has no attribute 'get'` errors
 
-## [1.6.0] - 2026-02-07
+- Partner data audited against prydwen.gg; corrections applied
+- **CHARACTER_EXP_TABLE**: Amir 300000 → 320000
+- **CHARACTER_EXP_TABLE**: levels 41–49, 55, and 61 firmed up from estimates to confirmed Amir checkpoints across multiple sessions; level 45 was 200000 → 213000, level 55 was 481000 → 480800, level 61 is new (778200)
+- **PARTNER_EXP_TABLE**: Yvonne 110000 → 93500, Zatera 4000 → 1800, max 360000 → 346000
+- Partner max level now correctly returns 60 at the cap (was rolling to 61)
+- Elemental DMG% (Passion / Order / Justice / Void / Instinct) excluded from the substat roll pool — main-stat only
+- Affection bonus at level 41+ uses closed-form ATK = 3·((N+1)//3), DEF = N//3, HP = 3·((N-1)//3)
+- 5-digit potential node IDs parsed correctly (was hardcoded for 4-digit res_ids)
+- Set name color reflects whether the equipped set is actually complete (was always lit when at least one piece was equipped)
+- WebSocket addon-script writer forced to UTF-8 — fixes Windows cp932 codec error on non-ASCII paths
+- Gear Score documentation corrected: "100" requires the fragment's substats to be the preset's top-4 weighted stats, not just any perfect roll
+- **Optimizer tab refreshes after live capture** — the live-update path now calls `optimizer_tab.refresh_after_load()` (the manual `Load Data` path already did this; the live path skipped it, so newly-captured characters didn't appear in the Optimizer tab's hero combo until manual reload)
+- **User-data persistence in frozen (PyInstaller) builds** — presets, level checkpoints, settings, and per-character preset assignments now persist across runs. Previously `Path(__file__).parent` resolved into PyInstaller's read-only `_MEIPASS` temp dir, which got wiped on exit, silently losing every save. New `_user_data_dir()` helper resolves to `sys.executable.parent` in frozen mode + `_bootstrap_user_data()` copies bundled defaults (`presets.json`, `character_preset.json`) on first run if the user dir is empty.
 
-### Added
-- **New Memory Fragment Sets**
-  - **Beast's Yearning** (4-piece, set_id 24): +30% Justice and Order Attack Cards (max 5 per turn)
-  - **Glory's Reign** (4-piece, set_id 25): +5% ally DMG on Exhaust card create/use (max 15%)
+### Removed
 
-### Changed
-- **UI Improvements**
-  - Application window widened from 1450 to 1550 for better layout
-  - Optimizer tab: 4-piece set checkboxes now use 4 columns
-  - Optimizer tab: Selected Build section uses grid layout to reliably show all 6 gear slots
-  - Optimizer tab: Stats Comparison and Results column layout improvements
-
-### Fixed
-- Update checker now re-notifies on launch from cached data when 24h API throttle is active
-- Manual "Check for Updates" uses Yes/No dialog instead of showinfo (X no longer opens browser)
-- Update notification dialog X button properly dismisses via WM_DELETE_WINDOW handler
-
-## [1.5.1] - 2026-02-06
-
-### Added
-- **New Characters**
-  - **Nine** - 5-star character
-- **New Partner Cards**
-  - **Alcea** partner card
-
-## [1.5.0] - 2026-01-16
-
-### Added
-- **Zstd Dictionary Decompression** for compressed game WebSocket data
-- `find_mitmdump()` utility to locate mitmdump in various installation paths
-- Bundled `zstd_dictionary.bin` for compressed data decompression
-
-### Changed
-- Cleaned up capture logging to reduce verbosity
-
-## [1.4.1] - 2026-01-15
-
-### Added
-- **New Characters**
-  - **Narja** (res_id 1052) - 5-star Instinct Controller with DEF%/CRate potential nodes
-- **New Partner Cards**
-  - **Gaya** (res_id 20002) - 5-star Controller with Defense-based damage passive for Instinct cards
-
-## [1.4.0] - 2025-12-26
-
-### Added
-- **Automatic Update Checking**
-  - Checks GitHub releases for new versions once per 24 hours
-  - Modal dialog at startup when update is available
-  - "About" tab with version info and manual update check
-  - Skip version capability to ignore specific releases
-  - Graceful offline behavior with cached update info
-  - Background threading for non-blocking checks
-
-### Technical Details
-- New `version.py` module as single source of truth for version
-- New `update_checker.py` module for GitHub API integration
-- New `AboutTab` following BaseTab pattern
-- Uses `packaging` library for semantic version comparison
-- Metadata persisted in `%APPDATA%/Vribbels/update_check.json`
-
-## [1.3.1] - 2025-12-26
-
-### Fixed
-- **Bundled Exe Capture Issues**
-  - Fixed addon script generation error in bundled executables
-    - Replaced `inspect.getsource()` with embedded template string
-    - Resolves "could not get source code" error when running from exe
-  - Fixed black console window appearing during capture
-    - Added Windows STARTUPINFO configuration to hide mitmproxy console window
-    - Improves user experience - no more distracting black windows
-  - Fixed snapshots folder created in wrong location
-    - Detects PyInstaller frozen state and uses exe directory
-    - Snapshots now properly created next to the exe instead of in AppData temp folder
-  - Fixed auto-load not working after capture
-    - Corrected `load_data_callback` to point to proper `load_data` method
-    - "Load captured data now?" dialog now works correctly
-
-### Notes
-- All capture features now work correctly in the bundled exe
-- Snapshots folder will be created in the same directory as the exe
-- After capture completes, users will be prompted to auto-load the data
-
-## [1.3.0] - 2025-12-26
-
-### Changed
-- **Major Refactoring: 92% Code Reduction**
-  - Main GUI file reduced from ~3,900 lines to just 296 lines
-  - Complete modularization of the codebase
-
-### Added
-- **Complete UI Modularization** - All 7 tabs extracted to `ui/tabs/` module (~2,441 lines):
-  - Phase 1: MaterialsTab, SetupTab, CaptureTab (~478 lines)
-  - Phase 2: InventoryTab, OptimizerTab (~1,243 lines)
-  - Phase 3: HeroesTab, ScoringTab (~918 lines)
-- **Design Patterns**:
-  - BaseTab pattern with dependency injection
-  - AppContext for cross-component communication
-  - Main GUI now acts purely as coordinator and lifecycle manager
-- **Solia Partner Card** (res_id: 1058)
-  - 5-star Ranger with Spacetime Warp passive
-  - Unconditional: +20-40% Extra Attack damage
-  - Conditional: +10-20% Attack Card Damage on first draw per turn
-  - Ego Skill: Spacetime Rift (cost 3, 250% Damage + Mark 1)
-
-### Fixed
-- Corrected potential stat values to 5 levels
-- Fixed CRate scaling (2%/level, not 0.6%/level)
-- Fixed CDmg potential values (2.4%/level, not 1.2%/level)
-
-### Technical Details
-- All original functionality preserved
-- Zero breaking changes to user experience
-- Each component independently maintainable and testable
-- Clear separation of concerns throughout the codebase
-
-## [1.1.0] - 2025-12-24
-
-### Added
-- **New Characters**
-  - **Sereniel** - 5-star Instinct Hunter (res_id 30075)
-    - Level 60 stats: 491 ATK, 155 DEF, 329 HP
-    - Potential nodes: Crit Rate (50), Crit Damage (60)
-- **New Partner Cards**
-  - **Peko** - 5-star Hunter partner card (res_id 30076)
-    - Passive: Peko's Multi-Purpose Kit (ATK boost, Repairs Complete mechanic)
-    - EGO: Overclock Beacon (cost 3)
-
-### Changed
-- **UI/UX Improvements**
-  - Improved selection contrast - darker blue (#3b6ea5) for better readability
-  - Fixed checkbox hover states - proper dark background with light text
-  - Enhanced Treeview heading hovers - readable text when hovering over table headers
-  - Better combatant selection visibility - dark blue background instead of light blue
-  - Overall contrast improvements across all selection and hover states
+- `update_checker.py` and all consumers (Ikkoru fork doesn't need the upstream's third-party update flow)
+- Third-party dependencies `requests` and `packaging`
+- Heuristic damage stats (EHP, Average Damage, Max Crit Damage, Bruiser) from optimization results — superseded by the new Final ATK/DEF/HP model
+- `threading` and `queue` imports from `czn_optimizer_gui.py` (only the old update flow used them)
+- **Load Data button from the Optimizer tab toolbar** — data loads automatically on app startup (`auto_load`) and after each live capture update (`_handle_live_update`), so the manual button was a vestige. The underlying `load_file_callback` is still in `AppContext` and can be re-exposed in another tab if a manual-load entry point is wanted later.
+- `selected_preset` field from the bundled `presets.json` defaults — it's per-user state and now lives in `settings.json` (see Changed section).
 
 ### Refactored
-- Game data split into separate modules (characters, partners, sets, constants)
-- Improved code organization and maintainability
 
-## [1.0.0] - 2025-12-12
-
-### Added
-- Initial release of Vribbels CZN Optimizer
-- Memory Fragment (gear) management and optimization
-- Data capture via mitmproxy integration
-- Character and partner card database
-- Optimization algorithm with configurable priorities
-- Set bonus calculations
-- Potential node support
-- GUI with multiple tabs:
-  - Optimizer tab for gear optimization
-  - Memory Fragments inventory view
-  - Materials tracking
-  - Combatants (heroes) view
-  - Capture tab for data extraction
-  - Setup tab for prerequisites
-  - Scoring tab for custom weights
-
----
-
-[1.7.0]: https://github.com/Vorbroker/Vribbels-CZN-Optimizer/compare/v1.6.0...v1.7.0
-[1.6.0]: https://github.com/Vorbroker/Vribbels-CZN-Optimizer/compare/v1.5.1...v1.6.0
-[1.5.1]: https://github.com/Vorbroker/Vribbels-CZN-Optimizer/compare/v1.5.0...v1.5.1
-[1.5.0]: https://github.com/Vorbroker/Vribbels-CZN-Optimizer/compare/v1.4.1...v1.5.0
-[1.4.1]: https://github.com/Vorbroker/Vribbels-CZN-Optimizer/compare/v1.4.0...v1.4.1
-[1.4.0]: https://github.com/Vorbroker/Vribbels-CZN-Optimizer/compare/v1.3.1...v1.4.0
-[1.3.1]: https://github.com/Vorbroker/Vribbels-CZN-Optimizer/compare/v1.3.0...v1.3.1
-[1.3.0]: https://github.com/Vorbroker/Vribbels-CZN-Optimizer/compare/v1.1.0...v1.3.0
-[1.1.0]: https://github.com/Vorbroker/Vribbels-CZN-Optimizer/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/Vorbroker/Vribbels-CZN-Optimizer/releases/tag/v1.0.0
+- Substantial documentation pass: top-of-file orientation maps and inline cross-file conventions on `characters.py`, `partners.py`, `constants.py`, `memory_fragment.py`, `optimizer.py`, `czn_optimizer_gui.py`, `heroes_tab.py`, `inventory_tab.py`
+- `compute_fragment_gs` / `compute_fragment_potential` extracted as module-level pure functions in `memory_fragment.py`; per-preset bounds precomputable once and reused across fragments
+- `MemoryFragment.calculate_base_score` / `calculate_potential` delegate to the pure helpers
