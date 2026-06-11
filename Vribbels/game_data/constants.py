@@ -54,8 +54,11 @@ from pathlib import Path
 # (at least) that level, until they accumulate enough for the next.
 #
 # Provenance (which checkpoints are firm vs. estimated):
-#   confirmed:  (144000, 40) -- Lucas at promotion 3/5, in-game level 40
-#               (154800, 41) through (295600, 49) -- Amir, levels 41-49,
+#   confirmed:  every level 1–40 — from the in-game progression panel
+#                (per-level exp deltas read off and summed into cumulative
+#                totals; verified the level-40 total matches the prior
+#                known value of 144000).
+#               (154800, 41) through (295600, 49) — Amir, levels 41-49,
 #                              read off snapshots over multiple sessions
 #               (213000, 45) -- replaces the prior estimate of 200000
 #               (320000, 50) -- Amir at promotion 4/5, in-game level 50
@@ -63,15 +66,20 @@ from pathlib import Path
 #                              read off snapshots over multiple sessions
 #               (720000, 60) -- all max-level heroes in May 11 snapshot
 #               (778200, 61) -- Amir, level 61 (confirmed checkpoint)
-#   estimated:  rows from level 1 through level 35 (round-numbered
-#               guesses; replace as data becomes available)
 #
-# Note: levels 45 (200000 -> 213000) and 55 (481000 -> 480800) previously
-# carried estimated values that have now been replaced with firm ones.
+# History: pre-v1.1.0 had estimated round-number checkpoints for many
+# of the levels under 40 (e.g. (500, 5), (8000, 15), (20000, 20)). Those
+# were significantly off vs. the actual game data; replaced wholesale
+# below.
 CHARACTER_EXP_TABLE = [
-    (0, 1), (100, 2), (500, 5), (2000, 10), (8000, 15),
-    (20000, 20), (40000, 25), (70000, 30), (100000, 35),
-    (144000, 40),
+    (0, 1),       (100, 2),     (200, 3),     (400, 4),     (600, 5),
+    (900, 6),     (1300, 7),    (1700, 8),    (2200, 9),    (2800, 10),
+    (3400, 11),   (4100, 12),   (4900, 13),   (5700, 14),   (6600, 15),
+    (7600, 16),   (8700, 17),   (9900, 18),   (11200, 19),  (12600, 20),
+    (14100, 21),  (16200, 22),  (19000, 23),  (22400, 24),  (26400, 25),
+    (31100, 26),  (36400, 27),  (42300, 28),  (48800, 29),  (56000, 30),
+    (63900, 31),  (72000, 32),  (80300, 33),  (88800, 34),  (97500, 35),
+    (106400, 36), (115500, 37), (124800, 38), (134300, 39), (144000, 40),
     (154800, 41), (167100, 42), (180900, 43), (196200, 44),
     (213000, 45), (231400, 46), (251300, 47), (272700, 48), (295600, 49),
     (320000, 50),
@@ -216,14 +224,95 @@ STATS = {
 STAT_SHORT_NAMES = {info[0]: info[1] for info in STATS.values()}
 ALL_STAT_NAMES = [s[0] for s in STATS.values()]
 
-# Main stats for each slot (using updated names)
+
+# ============================================================================
+# Display-name overrides (v1.1.0 polish round 3, Item 3)
+# ============================================================================
+#
+# Maps an internal STATS .name (the canonical key used in captured-data
+# dicts, set definitions, calculate_build_stats, preset weights, etc.)
+# to its user-facing label.
+#
+# Code that's READING captured data or LOOKING UP in stat dicts continues
+# to use the internal key. Code that DISPLAYS a stat name to the user
+# should translate through this mapping:
+#
+#     label = DISPLAY_NAMES.get(stat_key, stat_key)
+#
+# (The .get() with the key as default makes it safe for stats not in this
+# table -- they'll display their internal name unchanged.)
+#
+# Why this layer instead of renaming STATS directly? Renaming STATS keys
+# would cascade through every saved scoring preset, every optimizer
+# settings entry, and every set-effect definition; this lookup layer lets
+# the rename land in the UI immediately while the data model stays
+# backward-compatible. A future change could promote these to the canonical
+# names everywhere (with a migration step in PresetManager / OptimizerSettings
+# .load to translate old keys to new) -- this dict is the migration map
+# when that day comes.
+#
+# Tabs migrated so far: Optimizer.
+# Tabs still showing internal names: Combatants, Memory Fragments,
+#   Gear Score / Scoring tab.
+DISPLAY_NAMES = {
+    "Flat ATK":      "ATK Flat",
+    "Flat DEF":      "DEF Flat",
+    "Flat HP":       "HP Flat",
+    "CRate":         "Crit%",
+    "CDmg":          "CDMG%",
+    "Extra DMG%":    "Extra%",
+    "Passion DMG%":  "Passion%",
+    "Order DMG%":    "Order%",
+    "Justice DMG%":  "Justice%",
+    "Void DMG%":     "Void%",
+    "Instinct DMG%": "Instinct%",
+}
+
+# Main stats for each slot (using updated names).
+# Note: DEF% as a main stat ONLY appears on slot 6 -- corrected in v1.1.0.
+# Pre-1.1.0 versions of this file listed DEF% under slots 4 and 5 as well,
+# which was incorrect (the in-game data has never had those options). See
+# docs/game_formulas.md §2 for the canonical main-stat table.
 SLOT_MAIN_STATS = {
     1: ["Flat ATK"],
     2: ["Flat DEF"],
     3: ["Flat HP"],
-    4: ["ATK%", "DEF%", "HP%", "CRate", "CDmg"],
-    5: ["ATK%", "DEF%", "HP%", "Passion DMG%", "Order DMG%", "Justice DMG%", "Void DMG%", "Instinct DMG%"],
+    4: ["ATK%", "HP%", "CRate", "CDmg"],
+    5: ["ATK%", "HP%", "Passion DMG%", "Order DMG%", "Justice DMG%", "Void DMG%", "Instinct DMG%"],
     6: ["ATK%", "DEF%", "HP%", "Ego"],
+}
+
+# Maximum main stat values per (slot, stat_name) at Legendary max level.
+#
+# Read off in-game; documents what `fragment.main_stat.value` should
+# converge to for a maxed Legendary fragment. The optimizer doesn't read
+# this directly -- it uses fragment.main_stat.value from captured data --
+# but the table is useful for:
+#   - Reference documentation (see docs/game_formulas.md §2)
+#   - Sanity-checking captured values
+#   - Future UI affordances (e.g. "this fragment's main stat is at X% of
+#     its ceiling")
+#
+# DEF% only appears on slot 6 (game data confirmed).
+MAIN_STAT_VALUES = {
+    (1, "Flat ATK"):       22,
+    (2, "Flat DEF"):       22,
+    (3, "Flat HP"):        37,
+    (4, "ATK%"):           25,
+    (4, "HP%"):            25,
+    (4, "CRate"):          27,
+    (4, "CDmg"):           40.8,
+    (5, "ATK%"):           25,
+    (5, "HP%"):            25,
+    (5, "Passion DMG%"):   16,
+    (5, "Order DMG%"):     16,
+    (5, "Justice DMG%"):   16,
+    (5, "Void DMG%"):      16,
+    (5, "Instinct DMG%"):  16,
+    (6, "ATK%"):           25,
+    (6, "DEF%"):           25,
+    (6, "HP%"):            25,
+    (6, "Ego"):            40,
 }
 
 MAX_LEVEL = 5

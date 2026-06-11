@@ -40,8 +40,12 @@ desktop.ini
 # Project specific
 # Exclude snapshots folder (contains user-specific data extracts)
 Vribbels/snapshots/
-Vribbels/presets/level_data.json
-Vribbels/presets/settings.json
+
+# User-state folder. The bundled defaults live in `default_settings/`
+# (tracked) and are merged into `settings/` on first run by
+# defaults_sync.py. Never track the user's `settings/` -- it holds
+# their own presets, char assignments, optimizer config, etc.
+Vribbels/settings/
 
 # Reference images and icon generation tools - not needed in repository
 CZN Assets/
@@ -75,3 +79,4 @@ Vribbels/Vribbels.zip
 
 # I'm normal
 zRUN.bat
+Vribbels/default_settings/_don't forget to make excluded_default_initialized false

@@ -19,6 +19,10 @@ from pathlib import Path
 from ..base_tab import BaseTab
 from ..context import AppContext
 from game_data import STATS
+# a7 (this round): user-facing stat-name overrides (e.g. "Flat ATK" ->
+# "ATK Flat", "CRate" -> "Crit%", "CDmg" -> "CDMG%"). Applied to the
+# Stat Weight Configuration labels so they match the rest of the app.
+from game_data.constants import DISPLAY_NAMES
 from preset_manager import PresetManager, SUPPORTED_STATS
 from models.memory_fragment import compute_gs_bounds
 
@@ -134,12 +138,18 @@ class ScoringTab(BaseTab):
             foreground=self.colors["fg_dim"]
         ).pack(anchor=tk.W, pady=(0, 10))
 
-        content = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
+        content = ttk.Frame(main_frame)
         content.pack(fill=tk.BOTH, expand=True)
+        # Fixed 50/50 split (v1.1.0): replaces the previous ttk.PanedWindow
+        # so the sash isn't draggable. uniform= ties the two columns to the
+        # same width-share group so they stay equal as the window resizes.
+        content.grid_columnconfigure(0, weight=1, uniform="halves")
+        content.grid_columnconfigure(1, weight=1, uniform="halves")
+        content.grid_rowconfigure(0, weight=1)
 
         # --- Left side: explanation ----------------------------------
         explain_frame = ttk.LabelFrame(content, text="How Gear Score Works", padding=10)
-        content.add(explain_frame, weight=1)
+        explain_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
 
         explanation = """GEAR SCORE (GS) EXPLANATION
 
@@ -149,7 +159,7 @@ These measurements are calculated based on the weights to the right →.
 Change the values based on how important each stat is to your build, then press "Apply Current Weights".
 This program comes with presets for each character, but you may also create and save your own.
 
-These weights affect the Memory Fragments and Combatants tabs. The Optimizer tab is not affected.
+These weights affect the Memory Fragments and Combatants tabs. The Optimizer tab is not affected (almost).
 
 WEIGHTS:
 Configure custom weights to emphasize stats you care about.
@@ -158,7 +168,7 @@ The resulting Gear Score is normalized between 0 and 100. Negative weights are a
 
 PRESETS:
 Save weight configurations as presets and switch between them with double-click, or by pressing the "Apply Selected Preset" button.
-In the Combatants tab, set a default preset for each character. This only affects the Combatants tab, and the "Highest GS/Pot.: Assigned Presets Only" option.
+In the Combatants tab, set a default preset for each character. This only affects the Combatants tab, the "Highest GS/Potential: Assigned Presets Only" option, and which MFs are considered by the Optimizer.
 Creating presets for each character is useful for finding and dismantling MFs that no character wants.
 Use the "Highest GS" and "Highest Pot." columns in the Memory Fragments tab for this. These columns use all the presets, so an MF with a low "Highest Pot." would be mediocre for all currently existing characters.
 
@@ -166,6 +176,12 @@ POTENTIAL:
 The possible Gear Score that an MF can get after being fully upgraded.
  - Low:  every remaining upgrade rolls minimum on the worst-weighted stat
  - High: every remaining upgrade rolls maximum on the best-weighted stat
+  
+Notes:
+ - The Optimizer does not consider bad MFs (to speed up calculations). It uses assigned Presets to know which MFs are bad.
+ - In the Combatants tab, total character GS is the sum of equipped MF scores — the max is 600.
+ - GS is calculated from substats only — the main stat itself doesn't add to the score. An MF not being able to have a substat that is the same as the main stat is accounted for by the normalization system.
+ - 3★ Rare MFs cap below 100 (fewer upgrade rolls than the 4★ ceiling).
 
 STAT MIN - MAX ROLLS:
  - Flat ATK: 5 - 8
@@ -175,25 +191,38 @@ STAT MIN - MAX ROLLS:
  - CRate: 1.2 - 2.0%
  - CDmg: 2.4 - 4.0%
  - Extra DMG%/DoT%: 2.7 - 3.4%
- - Ego: 2 - 5
-  
-Notes:
- - 3★ Rare MFs cap below 100 (fewer upgrade rolls than the 4★ ceiling).
- - GS is calculated from substats only — the main stat itself doesn't add to the score, but its TYPE constrains which stats can appear as substats. Each MF's bounds exclude its own main stat, so two MFs with identical substats but different main stats can score differently (the one with a more high-weighted main wins, since it's playing on a slightly tighter ceiling).
- - In the Combatants tab, total character GS is the sum of equipped MF scores — the max is 600."""
+ - Ego: 2 - 5"""
 
         explain_text = scrolledtext.ScrolledText(
             explain_frame, height=20, wrap=tk.WORD,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             font=("Consolas", 9)
         )
+        # Round 11 follow-up to Task 3: scrolledtext.ScrolledText wraps
+        # its Text widget in an internal tk.Frame whose bg defaults to
+        # the system white. On first show the wrapping frame paints
+        # briefly before the inner Text widget paints over it, producing
+        # a visible white flash. Force the wrapping frame (and the
+        # associated scrollbar) to the dark bg so the flash is gone.
+        try:
+            explain_text.frame.configure(bg=self.colors["bg_light"])
+        except (AttributeError, tk.TclError):
+            pass
+        try:
+            explain_text.vbar.configure(
+                bg=self.colors["bg_light"],
+                troughcolor=self.colors["bg"],
+                activebackground=self.colors["bg_lighter"],
+            )
+        except (AttributeError, tk.TclError):
+            pass
         explain_text.insert("1.0", explanation)
         explain_text.config(state=tk.DISABLED)
         explain_text.pack(fill=tk.BOTH, expand=True)
 
         # --- Right side: configuration -------------------------------
         config_frame = ttk.LabelFrame(content, text="Stat Weight Configuration", padding=10)
-        content.add(config_frame, weight=1)
+        config_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
 
         ttk.Label(
             config_frame,
@@ -269,13 +298,21 @@ Notes:
         for i, (stat_key, display_name) in enumerate(STAT_DISPLAY_NAMES):
             row, col = i // 2, i % 2
             cell = ttk.Frame(parent)
-            cell.grid(row=row, column=col, sticky=tk.W, padx=5, pady=2)
+            # Task 5 (round 9): +5px between the two weight columns (col 1
+            # gets 5px extra left padding -> 15px inter-column gap vs 10).
+            cell.grid(row=row, column=col, sticky=tk.W,
+                      padx=(10 if col == 1 else 5, 5), pady=2)
 
-            ttk.Label(cell, text=f"{display_name}:", width=12).pack(side=tk.LEFT)
+            # a7 (round 8): label uses the canonical DISPLAY_NAMES override
+            # (falling back to display_name); trailing colon dropped.
+            # Task 5 (round 9): width 12 -> 9 (longest label is 8 chars) so
+            # the spinbox sits closer to its text.
+            label = DISPLAY_NAMES.get(stat_key, display_name)
+            ttk.Label(cell, text=label, width=9).pack(side=tk.LEFT)
             var = tk.DoubleVar(value=1.0)
             self.stat_weight_vars[stat_key] = var
 
-            tk.Spinbox(
+            spin = tk.Spinbox(
                 cell, from_=0.0, to=5.0, increment=0.1, width=5,
                 textvariable=var, format="%.1f",
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
@@ -284,7 +321,15 @@ Notes:
                 selectbackground=self.colors["select"],
                 selectforeground=self.colors["fg"],
                 relief=tk.FLAT, bd=1
-            ).pack(side=tk.LEFT, padx=2)
+            )
+            spin.pack(side=tk.LEFT, padx=(0, 2))
+            # Mouse-wheel adjustment (v1.1.0): same handler as Optimizer tab.
+            # tk.Spinbox doesn't bind <MouseWheel> by default; without this
+            # the user has to click the up/down buttons to change values.
+            spin.bind(
+                "<MouseWheel>",
+                lambda e, sp=spin: self._spinbox_wheel(e, sp),
+            )
 
     def _build_button_column(self, parent: ttk.Frame):
         """Five buttons + label + entry in a 2-column grid that fills its parent.
@@ -671,3 +716,18 @@ Notes:
     def _reset_sliders_to_default(self):
         for var in self.stat_weight_vars.values():
             var.set(1.0)
+
+    def _spinbox_wheel(self, event, spinbox):
+        """Increment/decrement a Spinbox on mouse-wheel events.
+
+        tk.Spinbox doesn't bind <MouseWheel> by default. event.delta is
+        positive for wheel-up (increment) and negative for wheel-down on
+        Windows; macOS / Linux differ in magnitude but the sign is
+        consistent. invoke() handles from_/to bounds for us, so we don't
+        have to clamp the value here.
+        """
+        if event.delta > 0:
+            spinbox.invoke("buttonup")
+        elif event.delta < 0:
+            spinbox.invoke("buttondown")
+        return "break"

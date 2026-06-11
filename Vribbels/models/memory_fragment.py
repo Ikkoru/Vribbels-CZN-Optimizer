@@ -263,6 +263,36 @@ def normalize_gs(raw: float, bounds: tuple[float, float]) -> float:
     return round(max(0.0, min(100.0, val)), 1)
 
 
+def compute_fragment_gs(
+    fragment, weights: dict, bounds: tuple[float, float] | None = None
+) -> float:
+    """Pure function: this fragment's normalized 0-100 Gear Score under the
+    given weights. Does NOT mutate fragment.gear_score.
+
+    Symmetric companion to compute_fragment_potential. Useful when scoring
+    the same fragment under multiple presets back-to-back (e.g., the
+    Optimizer-tab detail tree using the character's assigned preset rather
+    than the active one) without clobbering the active preset's cached
+    value.
+
+    Args:
+        fragment: the MemoryFragment instance (read-only; only substats /
+                  main_stat are read).
+        weights:  stat_name -> weight. Missing keys default to 1.0.
+        bounds:   pre-computed (min_raw, max_raw). Computed lazily otherwise
+                  using bounds_for_fragment (the fragment's main stat is
+                  excluded -- Philosophy B). Pass it in when iterating many
+                  fragments under the same weights to skip per-call work.
+    """
+    if weights is None:
+        weights = {}
+    if bounds is None:
+        main_name = fragment.main_stat.name if fragment.main_stat else None
+        bounds = compute_gs_bounds(weights, exclude_stat=main_name)
+    raw = _raw_substat_score(fragment, weights)
+    return normalize_gs(raw, bounds)
+
+
 def compute_fragment_potential(
     fragment, weights: dict, bounds: tuple[float, float] | None = None
 ) -> tuple[float, float]:

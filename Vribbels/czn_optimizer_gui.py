@@ -13,14 +13,26 @@ Top-level layout
   czn_optimizer_gui.py      Tk root + tab orchestration + single-instance
                             lock. Main entry point. Owns the AppContext
                             and instantiates the managers (preset,
-                            character_preset, level_data, settings).
-  config.py                 Theme colors, fonts, sizing constants.
+                            character_preset, optimizer_settings,
+                            level_data, settings).
+  config.py                 AppConfig (server_region) -- now stored at
+                            settings/config.json (was at base_dir before
+                            round 11; load_config migrates on first hit).
   preset_manager.py         User scoring presets (named weight sets).
-  character_preset_manager  Per-character preset assignments.
+  character_preset_manager  Per-character preset assignments. v2 schema
+                            keyed by res_id with parallel name_hints.
+  optimizer_settings_manager Per-character Optimizer-tab config plus the
+                            global excluded_gear_chars list.
   level_data_manager.py     User-confirmed (exp, level) checkpoints
                             that augment the exp tables at startup.
-  settings_manager.py       Generic persistent key-value store. Currently
-                            holds last_selected_character.
+  settings_manager.py       Generic persistent key-value store. Holds
+                            last_selected_character + selected_preset.
+  defaults_sync.py          Three-stage reconciler that runs in
+                            OptimizerGUI.__init__ BEFORE any manager
+                            loads: maintainer bootstrap, new-user
+                            bootstrap, tombstone-aware update merge.
+                            See settings/.defaults_sync.json for the
+                            tombstone sidecar.
   version.py                Version string.
 
 Subpackages
@@ -72,8 +84,10 @@ Conventions
   - Stat names use the display strings ("Flat ATK", "ATK%", "CRate", ...)
     everywhere user-facing. Raw enum keys ("S_ATK_INC_ADD_OUT") appear
     only at the data-parsing boundary in models/.
-  - Anything in /presets/*.json is user-modifiable and reread on
-    startup; any file outside that tree is hardcoded data.
+  - Anything in /settings/*.json is user-modifiable and reread on
+    startup; bundled defaults live in /default_settings/ (tracked) and
+    are merged into /settings/ by defaults_sync. Any file outside those
+    two trees is hardcoded data.
   - capture/manager.py is the ONLY file with strict ASCII requirements
     (Windows cp932 codec can't write Unicode). All other source files
     use Python's default UTF-8 encoding and can contain anything.
@@ -114,11 +128,15 @@ from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, Opt
 # Highest Pot. range across all currently-defined presets (see
 # _drain_pending_upgrade_lines below).
 from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
+# Round 10: reconciles bundled defaults in `default_settings/` with the
+# user's `settings/` folder. Must run BEFORE any manager loads so the
+# first-run / new-user / update-merge cases all see consistent state.
+from defaults_sync import sync_defaults
 
 
 def _user_data_dir() -> Path:
     """Return the directory that holds user-modifiable state
-    (presets/, snapshots/, etc.).
+    (settings/, snapshots/, etc.).
 
     Frozen build (PyInstaller):
         Next to the .exe (sys.executable.parent). Files written here
@@ -132,55 +150,24 @@ def _user_data_dir() -> Path:
     Using `__file__`-based paths for user data in a frozen build would
     silently lose every save the moment the program closes. Capture's
     BASE_DIR already handles this for snapshots/; this helper extends
-    the same treatment to presets/, settings.json, level_data.json, etc.
+    the same treatment to settings/, etc.
+
+    Round 10 note: bundled defaults under `default_settings/` need to
+    resolve to the bundle root (which in frozen builds is _MEIPASS for
+    read-only data), not the user data dir. defaults_sync handles that
+    distinction internally by checking both locations.
     """
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent
 
 
-def _bootstrap_user_data(user_dir: Path) -> None:
-    """First-run setup for a frozen build: copy bundled default files into
-    the user data dir so the program has something to load on startup.
-
-    Only runs in a frozen build, and only copies files that don't already
-    exist in the user dir -- so subsequent runs leave the user's edits
-    alone. A user can force a "reset to defaults" by deleting the file
-    they want regenerated; the next launch copies the bundled version
-    back in.
-
-    Bundled files come from PyInstaller's `_MEIPASS` temp dir, populated
-    via the build's `--add-data` flags. Currently bootstrapped:
-      - presets/presets.json          (default scoring presets)
-      - presets/character_preset.json (default per-character assignments)
-
-    Files NOT bootstrapped (they're user-only by design):
-      - presets/level_data.json   (user-confirmed level checkpoints)
-      - presets/settings.json     (last-selected character/preset, etc.)
-      - snapshots/*.json          (capture output)
-    """
-    if not getattr(sys, "frozen", False):
-        return  # dev mode: defaults live in the source tree, nothing to copy
-
-    meipass = getattr(sys, "_MEIPASS", None)
-    if meipass is None:
-        return  # unlikely, but defensive
-
-    bundled_presets = Path(meipass) / "presets"
-    if not bundled_presets.exists():
-        return  # no bundled defaults to copy from
-
-    user_presets = user_dir / "presets"
-    user_presets.mkdir(parents=True, exist_ok=True)
-    for fname in ("presets.json", "character_preset.json"):
-        src = bundled_presets / fname
-        dst = user_presets / fname
-        if src.exists() and not dst.exists():
-            try:
-                shutil.copy2(src, dst)
-            except Exception:
-                pass  # if the copy fails the manager will see no file and
-                      # start empty -- not great, but not crash-worthy
+# Round 10: `_bootstrap_user_data` was removed. Its job (one-time copy of
+# bundled defaults from _MEIPASS/presets/ to the user's presets/) is now
+# handled by `defaults_sync.sync_defaults()`, which also covers the
+# per-entity update-merge case (new characters added in a program
+# update flow into the user's settings without overwriting their
+# customizations).
 
 
 class MultiSelectListbox(tk.Frame):
@@ -320,17 +307,38 @@ class OptimizerGUI:
         self.app_context.notebook = self.notebook
 
         # Instantiate the managers BEFORE creating any tab so each tab can
-        # access them via self.context. All four share the `presets/` folder
-        # under the user data dir (see _user_data_dir + _bootstrap_user_data
-        # at module scope -- they redirect writes to a persistent location
-        # in frozen builds instead of PyInstaller's read-only _MEIPASS).
+        # access them via self.context. All four share the `settings/` folder
+        # under the user data dir (see _user_data_dir at module scope -- it
+        # redirects writes to a persistent location in frozen builds instead
+        # of PyInstaller's read-only _MEIPASS).
         from preset_manager import PresetManager
         from character_preset_manager import CharacterPresetManager
         from level_data_manager import LevelDataManager
         from settings_manager import SettingsManager
+        from optimizer_settings_manager import OptimizerSettingsManager
 
         program_dir = _user_data_dir()
-        _bootstrap_user_data(program_dir)
+        # Round 10: reconcile bundled defaults vs the user's settings/
+        # BEFORE any manager loads. Handles three cases (maintainer
+        # bootstrap, new-user bootstrap, update-merge) -- see
+        # defaults_sync.py for the full breakdown. Failure here is
+        # non-fatal; managers below would just see empty files and
+        # behave as if it's a fresh install.
+        #
+        # In a frozen build the bundled defaults live in _MEIPASS (the
+        # PyInstaller extract dir) and the user's writable state lives
+        # next to the exe. In dev they're both siblings in the source
+        # tree.
+        user_settings_dir = program_dir / "settings"
+        if getattr(sys, "frozen", False):
+            bundle_root = Path(getattr(sys, "_MEIPASS", program_dir))
+            defaults_dir = bundle_root / "default_settings"
+        else:
+            defaults_dir = program_dir / "default_settings"
+        try:
+            sync_defaults(user_settings_dir, defaults_dir)
+        except Exception:
+            pass
 
         # SettingsManager FIRST so it can be passed to PresetManager.
         # PresetManager uses it as the canonical store for `selected_preset`
@@ -352,10 +360,22 @@ class OptimizerGUI:
         self.level_data_manager = LevelDataManager(program_dir)
         self.level_data_manager.load()
         self.level_data_manager.apply_to_constants()
+        # Optimizer settings manager: per-character optimizer-tab state
+        # (Important Settings sliders, Have at Least minimums, selected
+        # sets, set-effect %, Average Buff fields, etc). Keyed by res_id
+        # so character renames don't lose data. Bootstrapping walks
+        # CHARACTERS and adds a default entry for every known character
+        # that doesn't have one yet -- so new characters added to
+        # characters.py automatically get optimizer settings on the next
+        # program start.
+        self.optimizer_settings_manager = OptimizerSettingsManager(program_dir)
+        self.optimizer_settings_manager.load()
+        self.optimizer_settings_manager.bootstrap_known_characters(CHARACTERS)
         self.app_context.preset_manager = self.preset_manager
         self.app_context.character_preset_manager = self.character_preset_manager
         self.app_context.level_data_manager = self.level_data_manager
         self.app_context.settings_manager = self.settings_manager
+        self.app_context.optimizer_settings_manager = self.optimizer_settings_manager
         # Give the optimizer a reference to settings_manager so its
         # calculate_build_stats can look up the per-character "Optimize
         # at" level override. Optional dependency -- the optimizer falls
@@ -384,6 +404,10 @@ class OptimizerGUI:
         # Set cross-tab refs BEFORE ScoringTab is created — it uses both at init.
         self.app_context.inventory_tab = self.inventory_tab_instance
         self.app_context.heroes_tab = self.heroes_tab_instance
+        # Round 11 follow-up: optimizer_tab ref for the Setup tab's
+        # Restore Defaults > Combatant Settings flow (refreshes the
+        # selected combatant's settings after a restore).
+        self.app_context.optimizer_tab = self.optimizer_tab_instance
 
         self.scoring_tab_instance = ScoringTab(self.notebook, self.app_context)
         self.scoring_tab = self.scoring_tab_instance.get_frame()
@@ -471,30 +495,46 @@ class OptimizerGUI:
             traceback.print_exc()
 
     def _handle_live_update(self):
-        """Handle live update from capture — reload latest snapshot and refresh UI."""
-        latest = self.capture_manager.get_latest_capture()
-        if latest:
-            try:
-                self.optimizer.load_data(str(latest))
-                self._ensure_characters_in_preset_file()
-                # Optimizer tab needs its hero combo + exclude-heroes list
-                # repopulated so newly-captured characters appear there too
-                # (the manual load_data path also calls this; the live path
-                # used to skip it, which was the reason the Optimizer tab
-                # appeared stale after capture).
-                self.optimizer_tab_instance.refresh_after_load()
-                self.inventory_tab_instance.populate_set_filters()
-                self.materials_tab_instance.refresh_materials()
-                # apply_active_weights also refreshes inventory + heroes tabs
-                self.scoring_tab_instance.apply_active_weights()
-            except Exception:
-                pass  # Silently ignore reload errors during live monitoring
+        """Handle live update from capture — reload latest snapshot and refresh UI.
 
-        # Drain any deferred upgrade log lines that arrived while the
-        # addon's stdout was being read. Must happen AFTER the reload so
-        # the upgraded fragment is in optimizer.fragments with its new
-        # level/upgrades when we look it up.
-        self._drain_pending_upgrade_lines()
+        Round 10 Q7: re-entrancy guard. A burst of WebSocket messages (e.g.
+        equip + unequip from one in-game action) can fire this callback
+        repeatedly while a previous invocation is still mid-refresh. Without
+        the guard, the second call walks half-mutated optimizer state and
+        triggers cascading layout passes which the user saw as the col 2
+        "jumping left-right without end" symptom. We just drop nested calls
+        — the outer call already pulls the latest snapshot off disk, so
+        anything written between the two calls gets picked up by that read.
+        """
+        if getattr(self, "_in_live_update", False):
+            return
+        self._in_live_update = True
+        try:
+            latest = self.capture_manager.get_latest_capture()
+            if latest:
+                try:
+                    self.optimizer.load_data(str(latest))
+                    self._ensure_characters_in_preset_file()
+                    # Optimizer tab needs its hero combo + exclude-heroes list
+                    # repopulated so newly-captured characters appear there too
+                    # (the manual load_data path also calls this; the live path
+                    # used to skip it, which was the reason the Optimizer tab
+                    # appeared stale after capture).
+                    self.optimizer_tab_instance.refresh_after_load()
+                    self.inventory_tab_instance.populate_set_filters()
+                    self.materials_tab_instance.refresh_materials()
+                    # apply_active_weights also refreshes inventory + heroes tabs
+                    self.scoring_tab_instance.apply_active_weights()
+                except Exception:
+                    pass  # Silently ignore reload errors during live monitoring
+
+            # Drain any deferred upgrade log lines that arrived while the
+            # addon's stdout was being read. Must happen AFTER the reload so
+            # the upgraded fragment is in optimizer.fragments with its new
+            # level/upgrades when we look it up.
+            self._drain_pending_upgrade_lines()
+        finally:
+            self._in_live_update = False
 
     def _drain_pending_upgrade_lines(self):
         """Pull queued "[LIVE] Upgraded ... [pid=N]" lines off the capture
@@ -523,12 +563,23 @@ class OptimizerGUI:
 
     def _augment_upgrade_log(self, line: str) -> str:
         """Strip the internal [pid=N] marker from `line`, find the upgraded
-        fragment, compute Highest Pot. across presets, and append it.
+        fragment, compute Highest Potential under each preset, and append the
+        best-preset (low, high) pair plus that preset's name in brackets.
 
         Returns the augmented line. On any failure (marker missing,
         fragment not found, no presets defined) returns the marker-stripped
-        line WITHOUT appending Highest Pot. -- never leaks the [pid=N]
+        line WITHOUT appending Highest Potential -- never leaks the [pid=N]
         token to the user.
+
+        Round 10 task 6: the previous version reported min(low) across
+        all presets together with max(high) -- a synthetic range whose two
+        ends didn't necessarily come from the same preset. Now matches the
+        Memory Fragments tab's column logic: pick the preset with the
+        max high, use ITS (low, high) pair. Also appends the winning
+        preset's name and renamed "Highest Pot." -> "Highest Potential".
+        For fully-leveled MFs (low == high under every preset), the
+        preset with max high is also the preset with max GS, so the
+        same one-pass loop handles both cases.
         """
         # Pull the marker; if absent, just show the line unchanged.
         m = re.search(r"\s*\[pid=(\d+)\]\s*$", line)
@@ -548,35 +599,35 @@ class OptimizerGUI:
         if fragment is None:
             return base
 
-        # Mirror the Memory Fragments tab's Highest Pot. column: min(low),
-        # max(high) across every preset's compute_fragment_potential(),
-        # with this fragment's main stat excluded from each preset's
-        # bounds (Philosophy B).
+        # Walk every preset, score each one, then sort by high desc and
+        # take the top 3 to display. Philosophy B: exclude this fragment's
+        # main stat when computing preset bounds (mirrors the MF tab).
         pm = self.preset_manager
         preset_names = list(pm.get_preset_names()) if pm is not None else []
         main_name = fragment.main_stat.name if fragment.main_stat else None
         if not preset_names:
-            # Fall back to default-weights computation so we still show
-            # something useful when no user presets exist yet.
+            # No user presets defined -- compute against default weights so
+            # there's still something useful to display.
             weights = {}
             bounds = compute_gs_bounds(weights, exclude_stat=main_name)
-            low, high = compute_fragment_potential(fragment, weights, bounds)
-            overall_low, overall_high = low, high
-        else:
-            overall_low = None
-            overall_high = None
-            for name in preset_names:
-                weights = pm.get_preset(name) or {}
-                bounds = compute_gs_bounds(weights, exclude_stat=main_name)
-                low, high = compute_fragment_potential(fragment, weights, bounds)
-                if overall_low is None or low < overall_low:
-                    overall_low = low
-                if overall_high is None or high > overall_high:
-                    overall_high = high
+            low, high = compute_fragment_potential(
+                fragment, weights, bounds
+            )
+            return f"{base}. Highest Potential: {low:.0f}-{high:.0f}"
 
-        if overall_low is None:
-            return base
-        return f"{base}. Highest Pot.: {overall_low:.0f}-{overall_high:.0f}"
+        # Compute (low, high, name) per preset.
+        scored = []
+        for name in preset_names:
+            weights = pm.get_preset(name) or {}
+            bounds = compute_gs_bounds(weights, exclude_stat=main_name)
+            low, high = compute_fragment_potential(fragment, weights, bounds)
+            scored.append((low, high, name))
+        # Sort by high desc -- ties broken by low desc (a tighter high-end
+        # with a higher floor is preferable when ceilings tie). Take top 4.
+        scored.sort(key=lambda t: (-t[1], -t[0]))
+        top = scored[:4]
+        parts = [f"{low:.0f}-{high:.0f} [{name}]" for (low, high, name) in top]
+        return f"{base}. Highest Potential: " + ", ".join(parts)
 
     def _ensure_characters_in_preset_file(self):
         """Make sure every character currently in optimizer data has an entry

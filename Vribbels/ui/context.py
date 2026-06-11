@@ -13,11 +13,12 @@ if TYPE_CHECKING:
     from optimizer import GearOptimizer
     from capture import CaptureManager
     from config import AppConfig
-    from ui.tabs import InventoryTab, HeroesTab, ScoringTab
+    from ui.tabs import InventoryTab, HeroesTab, ScoringTab, OptimizerTab
     from preset_manager import PresetManager
     from character_preset_manager import CharacterPresetManager
     from level_data_manager import LevelDataManager
     from settings_manager import SettingsManager
+    from optimizer_settings_manager import OptimizerSettingsManager
 
 
 @dataclass
@@ -71,6 +72,13 @@ class AppContext:
     inventory_tab: Optional['InventoryTab'] = None
     heroes_tab: Optional['HeroesTab'] = None
     scoring_tab: Optional['ScoringTab'] = None
+    # Round 11 follow-up: optimizer_tab ref so the Setup tab's
+    # "Restore Defaults > Combatant Settings" flow can refresh the
+    # currently-displayed per-combatant settings after a restore (the
+    # sliders / dropdowns would otherwise show stale values until the
+    # user manually re-selects the combatant). Optional -- callers
+    # check for None before calling refresh_after_load on it.
+    optimizer_tab: Optional['OptimizerTab'] = None
     preset_manager: Optional['PresetManager'] = None
     character_preset_manager: Optional['CharacterPresetManager'] = None
     # User-confirmed (exp, level) checkpoints — augments the built-in
@@ -83,3 +91,7 @@ class AppContext:
     # last_selected_character (Combatants tab row to restore on refresh
     # and program restart).
     settings_manager: Optional['SettingsManager'] = None
+    # Per-character optimizer-tab settings (Important Settings, Have at
+    # Least minimums, selected sets, etc). Indexed by res_id so character
+    # renames don't lose data. See optimizer_settings_manager.py.
+    optimizer_settings_manager: Optional['OptimizerSettingsManager'] = None

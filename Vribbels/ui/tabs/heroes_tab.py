@@ -79,6 +79,149 @@ from models.memory_fragment import compute_gs_bounds, normalize_gs
 DEFAULT_PRESET_LABEL = "Default Preset (all weights are 1.0)"
 
 
+def _combobox_letter_jump(event, combobox):
+    """Letter-key navigation on a readonly Combobox: pressing 'A' jumps
+    to the next value starting with 'A' (case-insensitive), cycling at
+    the end of the list. Non-alphanumeric keys fall through (return None
+    so Tk's default handling can still process arrows etc.).
+
+    Fires <<ComboboxSelected>> on a successful jump so handlers downstream
+    (e.g. _on_preset_combo_change in this module, on_hero_select in
+    optimizer_tab) see the change.
+
+    Binds to <KeyRelease> (not <KeyPress>): readonly ttk.Combobox's
+    internal handler can swallow KeyPress before our binding sees it on
+    some platforms; KeyRelease fires after Tk's default processing.
+
+    Module-level on purpose: the Optimizer tab uses an analogous helper,
+    and keeping them in sync (same behavior, same caveats) means future
+    edits should touch both.
+    """
+    char = event.char
+    if not char or not char.isalnum():
+        return None
+    char_lower = char.lower()
+
+    values = list(combobox["values"])
+    if not values:
+        return "break"
+
+    current = combobox.get()
+    try:
+        start = (values.index(current) + 1) % len(values)
+    except ValueError:
+        start = 0
+
+    for offset in range(len(values)):
+        idx = (start + offset) % len(values)
+        if values[idx].lower().startswith(char_lower):
+            combobox.set(values[idx])
+            # Item 5 (round 5): force a full text selection so the whole
+            # value highlights after a programmatic set() (readonly
+            # Combobox doesn't do this on its own). Kept in sync with the
+            # analogous helper in optimizer_tab.py.
+            try:
+                combobox.selection_clear()
+                combobox.selection_range(0, "end")
+            except tk.TclError:
+                pass
+            combobox.event_generate("<<ComboboxSelected>>")
+            return "break"
+    return "break"
+
+
+def _combobox_arrow_nav(event, combobox, direction):
+    """Up / Down arrow navigation on a readonly Combobox (Item 5, round 5).
+
+    Steps to the prev/next value in place WITHOUT opening the dropdown
+    popup. Does NOT wrap at the ends (stops at first/last). Forces a full
+    text selection after moving. Returns "break" to suppress Tk's default
+    open-popup behavior on <Down>. Mirror of the helper in optimizer_tab.py.
+    """
+    values = list(combobox["values"])
+    if not values:
+        return "break"
+    current = combobox.get()
+    try:
+        idx = values.index(current)
+    except ValueError:
+        idx = -1 if direction > 0 else len(values)
+    new_idx = idx + direction
+    if new_idx < 0 or new_idx >= len(values):
+        return "break"  # no wrap-around
+    combobox.set(values[new_idx])
+    try:
+        combobox.selection_clear()
+        combobox.selection_range(0, "end")
+    except tk.TclError:
+        pass
+    combobox.event_generate("<<ComboboxSelected>>")
+    return "break"
+
+
+def _popdown_listbox_seek(combobox, listbox_path, char):
+    """Type-ahead seek inside an OPEN combobox dropdown list (Item 11,
+    round 7). Moves the popdown listbox highlight to the next entry starting
+    with `char` (case-insensitive), cycling. Operates via the listbox's Tcl
+    path (it isn't a registered tkinter widget). Does NOT commit the value;
+    Enter/click commits, same as native. Mirror of optimizer_tab.py.
+    """
+    if not char or not char.isalnum():
+        return
+    char_lower = char.lower()
+    tkc = combobox.tk
+    try:
+        size = int(tkc.call(listbox_path, "size"))
+    except tk.TclError:
+        return
+    if size == 0:
+        return
+    values = [str(tkc.call(listbox_path, "get", i)) for i in range(size)]
+    try:
+        cur = int(tkc.call(listbox_path, "index", "active"))
+    except (tk.TclError, ValueError):
+        cur = 0
+    for offset in range(1, size + 1):
+        idx = (cur + offset) % size
+        if values[idx].lower().startswith(char_lower):
+            tkc.call(listbox_path, "selection", "clear", 0, "end")
+            tkc.call(listbox_path, "selection", "set", idx)
+            tkc.call(listbox_path, "activate", idx)
+            tkc.call(listbox_path, "see", idx)
+            return
+
+
+def _bind_popdown_seek(combobox):
+    """Enable type-ahead seek on a readonly Combobox's OPEN dropdown list
+    (Item 11, round 7). Reaches the popdown listbox at "<popdown>.f.l" via
+    ttk::combobox::PopdownWindow and binds at the Tcl level, since the
+    popdown listbox isn't a registered tkinter widget. Wrapped in try/except
+    so it silently no-ops on Tk builds with a different internal path.
+    Mirror of the helper in optimizer_tab.py.
+    """
+    try:
+        popdown = combobox.tk.call("ttk::combobox::PopdownWindow", combobox)
+    except tk.TclError:
+        return
+    listbox_path = f"{popdown}.f.l"
+
+    def _on_key(char):
+        if not char or not char.isalnum():
+            return ""
+        try:
+            _popdown_listbox_seek(combobox, listbox_path, char)
+        except tk.TclError:
+            pass
+        return "break"
+
+    try:
+        cmd = combobox.register(_on_key)
+        script = f"+if {{[{cmd} %A] eq {{break}}}} {{ break }}"
+        combobox.tk.call("bind", listbox_path, "<KeyPress>", script)
+    except tk.TclError:
+        pass
+
+
 def compute_fragment_gs(
     fragment, weights: dict, bounds: Optional[tuple[float, float]] = None
 ) -> float:
@@ -173,33 +316,138 @@ class HeroesTab(BaseTab):
 
     def setup_ui(self):
         """Setup the Heroes tab UI."""
-        # User info frame at top
+        # Top row of the tab: User info on the LEFT, Combatant name +
+        # preset dropdown on the RIGHT. The right-side group used to live
+        # inside hero_detail_container below, stacked above info_frame,
+        # which placed it at the detail panel's top edge -- visibly LOWER
+        # than the user_info_label (since user_frame above pushed it down).
+        # Round 9 follow-up: lifted the title group up here so it sits at
+        # the same Y as the user_info_label. The two grid columns mirror
+        # content_pane's weight=5 / weight=8 split below, so the left side
+        # lines up with the hero list and the right side lines up with the
+        # detail panel.
         user_frame = ttk.Frame(self.frame)
         user_frame.pack(fill=tk.X, padx=10, pady=(10, 5))
+        user_frame.grid_columnconfigure(0, weight=5)
+        user_frame.grid_columnconfigure(1, weight=8)
+
+        # Col 0: user info label
+        user_info_subframe = ttk.Frame(user_frame)
+        user_info_subframe.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         self.user_info_label = tk.Label(
-            user_frame,
+            user_info_subframe,
             text="No data loaded",
             font=("Segoe UI", 10),
             bg=self.colors["bg"],
             fg=self.colors["fg"],
             anchor="w"
         )
-        self.user_info_label.pack(side=tk.LEFT)
+        # anchor=NW pins it to the top-left of the subframe so it stays
+        # aligned with the title group on the right (which is taller --
+        # 2 lines for the preset label + combo).
+        self.user_info_label.pack(side=tk.LEFT, anchor=tk.NW)
 
-        # Main content: hero list on left, details on right
-        content_pane = ttk.PanedWindow(self.frame, orient=tk.HORIZONTAL)
+        # Col 1: Combatant name + preset dropdown (moved from inside
+        # hero_detail_container below). anchor=NW on both sub-widgets so
+        # the Character name and the preset label/combo's top edge sit at
+        # the same Y as the user_info_label.
+        title_row = ttk.Frame(user_frame)
+        title_row.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+
+        self.hero_detail_name = ttk.Label(
+            title_row, text="Select a combatant",
+            font=("Segoe UI", 14, "bold")
+        )
+        self.hero_detail_name.pack(side=tk.LEFT, anchor=tk.NW)
+
+        # Right-aligned vertical group: label on top, combobox below.
+        # `expand=True, fill=X` fills the leftover space between the name
+        # and title_row's right edge.
+        preset_group = ttk.Frame(title_row)
+        preset_group.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0))
+
+        self.preset_assign_label = ttk.Label(
+            preset_group,
+            text="Assign preset to (no selection) for custom Gear Score:"
+        )
+        self.preset_assign_label.pack(anchor=tk.W)
+
+        self.preset_assign_combo = ttk.Combobox(
+            preset_group, state="readonly", values=[DEFAULT_PRESET_LABEL]
+        )
+        self.preset_assign_combo.set(DEFAULT_PRESET_LABEL)
+        self.preset_assign_combo.pack(anchor=tk.W, fill=tk.X)
+        self.preset_assign_combo.bind(
+            "<<ComboboxSelected>>", self._on_preset_combo_change
+        )
+        # v1.1.0: letter-key navigation on the preset assignment dropdown.
+        # KeyRelease + add="+" so readonly Combobox's internal handler
+        # doesn't pre-empt the user binding (some Tk versions don't fire
+        # KeyPress to user bindings on readonly state).
+        self.preset_assign_combo.bind(
+            "<KeyRelease>",
+            lambda e: _combobox_letter_jump(e, self.preset_assign_combo),
+            add="+",
+        )
+        # Item 5 (round 5): arrow keys step through presets in place
+        # instead of opening the dropdown popup (matches the Combatant
+        # dropdown in the Optimizer tab).
+        self.preset_assign_combo.bind(
+            "<Down>",
+            lambda e: _combobox_arrow_nav(e, self.preset_assign_combo, +1),
+        )
+        self.preset_assign_combo.bind(
+            "<Up>",
+            lambda e: _combobox_arrow_nav(e, self.preset_assign_combo, -1),
+        )
+        # Item 11 (round 7): type-ahead seek inside the OPEN dropdown list.
+        _bind_popdown_seek(self.preset_assign_combo)
+
+        # a6++ (round 8): fix the dropdown width to match the label above it,
+        # sized for the longest expected combatant name ("Heidemarie"). Uses
+        # TkDefaultFont metrics -> char count; the pack fill is dropped so the
+        # explicit width sticks (the height popup logic in
+        # _recompute_combo_geometry only touches `height`, never `width`).
+        try:
+            _f = tkfont.nametofont("TkDefaultFont")
+            _sample = "Assign preset to Heidemarie for custom Gear Score:"
+            _char_px = max(1, _f.measure("0"))
+            _chars = max(10, round(_f.measure(_sample) / _char_px) - 1)
+            self.preset_assign_combo.configure(width=_chars)
+            self.preset_assign_combo.pack_configure(fill=tk.NONE)
+        except Exception:
+            pass
+
+        # Internal: name of the character whose row is currently selected
+        # (used by the combobox change handler to know who to assign to).
+        self._current_detail_hero = None
+
+        # Main content: hero list on left, details on right.
+        # v1.1.0: was a ttk.PanedWindow (draggable sash). Replaced with a
+        # grid-based Frame so the user can't accidentally drag the split.
+        content_pane = ttk.Frame(self.frame)
         content_pane.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+        # Task 6 (round 9): widen the left character-list column by ~70px by
+        # shifting the weight ratio 1:2 -> 5:8 (col 0 goes from ~33% to ~38%
+        # of the content width). Tk grid weights are proportional, so the
+        # exact pixel gain tracks the window size.
+        content_pane.grid_columnconfigure(0, weight=5)
+        content_pane.grid_columnconfigure(1, weight=8)
+        content_pane.grid_rowconfigure(0, weight=1)
 
         # Left: Hero list
         hero_list_container = ttk.Frame(content_pane)
-        content_pane.add(hero_list_container, weight=1)
+        hero_list_container.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
 
         # Hero list header - match original structure
         hero_header_frame = tk.Frame(hero_list_container, bg=self.colors["bg_lighter"])
         hero_header_frame.pack(fill=tk.X)
 
         # Use character widths for consistency between headers and data rows
-        col_char_widths = [12, 6, 9, 10, 7, 5, 5, 14]  # +1 col for Preset
+        # a5 (this round): Combatant column trimmed 12 -> 11 so it just fits
+        # the longest name ("Heidemarie"). The Preset column (index 7) still
+        # has fill=X + expand=True below, so it absorbs the freed width.
+        col_char_widths = [11, 6, 9, 10, 7, 5, 5, 14]  # +1 col for Preset
         col_names = ["Combatant", "Grade", "Attribute", "Class", "Level", "Ego", "GS", "Preset"]
         col_keys = ["name", "grade", "attribute", "class", "level", "ego", "gs", "preset"]
 
@@ -266,61 +514,43 @@ class HeroesTab(BaseTab):
 
         # Right: Hero details
         hero_detail_container = ttk.Frame(content_pane)
-        content_pane.add(hero_detail_container, weight=2)
+        hero_detail_container.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
         self.hero_detail_container = hero_detail_container  # for width-clamp lookups
 
-        # Title row: combatant name on left, "Assign preset" dropdown on right.
-        title_row = ttk.Frame(hero_detail_container)
-        title_row.pack(fill=tk.X, pady=(0, 5))
-
-        self.hero_detail_name = ttk.Label(
-            title_row, text="Select a combatant",
-            font=("Segoe UI", 14, "bold")
-        )
-        self.hero_detail_name.pack(side=tk.LEFT, anchor=tk.W)
-
-        # Right-aligned vertical group: label on top, combobox below.
-        # `expand=True, fill=X` fills the leftover space between the name and
-        # the partner-card right edge — the combobox then expands to that width
-        # automatically, no manual width math required.
-        preset_group = ttk.Frame(title_row)
-        preset_group.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0))
-
-        self.preset_assign_label = ttk.Label(
-            preset_group,
-            text="Assign preset to (no selection) for custom Gear Score:"
-        )
-        self.preset_assign_label.pack(anchor=tk.W)
-
-        self.preset_assign_combo = ttk.Combobox(
-            preset_group, state="readonly", values=[DEFAULT_PRESET_LABEL]
-        )
-        self.preset_assign_combo.set(DEFAULT_PRESET_LABEL)
-        self.preset_assign_combo.pack(anchor=tk.W, fill=tk.X)
-        self.preset_assign_combo.bind(
-            "<<ComboboxSelected>>", self._on_preset_combo_change
-        )
-
-        # Internal: name of the character whose row is currently selected
-        # (used by the combobox change handler to know who to assign to).
-        self._current_detail_hero = None
+        # Title row (Combatant name + preset dropdown) used to live HERE,
+        # at the top of hero_detail_container. Round 9 follow-up: moved
+        # up to user_frame's col 1 so it aligns vertically with the
+        # user_info_label at the very top of the tab.
 
         # Debounce handle for resize-triggered combobox geometry recompute.
+        # The combobox itself now lives in user_frame's col 1, but the
+        # <Configure> binding stays on hero_detail_container because that's
+        # the panel whose width drives the combobox's target geometry (they
+        # share content_pane's weight=8 column).
         self._combo_resize_after_id = None
         hero_detail_container.bind("<Configure>", self._on_detail_resize)
 
         # Info frame with Character and Partner Card
         # Character takes only needed space, Partner Card fills remaining with text wrapping
         info_frame = ttk.Frame(hero_detail_container)
-        info_frame.pack(fill=tk.X, pady=(0, 10))
+        # Task 4 (round 9, follow-up): info_frame now absorbs the vertical
+        # excess space in the detail panel (fill=BOTH, expand=True), so the
+        # Build Stats and Equipped MF frames below it stack at the BOTTOM
+        # of the cavity instead of floating mid-panel with empty space
+        # below. The Character / Partner frames inside info_frame get
+        # pack_configure'd to fill=Y / fill=BOTH down in
+        # _compute_and_apply_fixed_sizes so they grow with it.
+        info_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
         char_frame = ttk.LabelFrame(info_frame, text="Character", padding=5)
         char_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 5))
+        self._char_frame = char_frame  # a6++: fixed-size target
         self.hero_char_info = ttk.Label(char_frame, text="", justify=tk.LEFT)
         self.hero_char_info.pack(anchor=tk.W)
 
         partner_frame = ttk.LabelFrame(info_frame, text="Partner", padding=5)
         partner_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+        self._partner_frame = partner_frame  # a6++: fixed-size target
         # Right-click on the partner pane (the LabelFrame OR the Text widget
         # inside) opens the "Add confirmed level" dialog for the currently
         # equipped partner. Same flow as for characters; the partner res_id
@@ -352,12 +582,14 @@ class HeroesTab(BaseTab):
 
         stats_frame = ttk.LabelFrame(hero_detail_container, text="Build Stats", padding=5)
         stats_frame.pack(fill=tk.X, pady=(0, 10))
+        self._stats_frame = stats_frame  # a6++: fixed-size target
 
         self.hero_stats_label = ttk.Label(stats_frame, text="", justify=tk.LEFT)
         self.hero_stats_label.pack(anchor=tk.W)
 
         gear_outer_frame = ttk.LabelFrame(hero_detail_container, text="Equipped Memory Fragments", padding=5)
         gear_outer_frame.pack(fill=tk.BOTH, expand=True)
+        self._gear_outer_frame = gear_outer_frame  # a6++: fixed-size target
 
         self.gear_frames = {}
         self.gear_labels = {}
@@ -411,8 +643,19 @@ class HeroesTab(BaseTab):
                 sub_frames.append({"frame": sub_frame, "gs": gs_contrib, "text": sub_text})
 
             set_label = tk.Label(frame, text="", font=("Segoe UI", 8),
-                               bg=self.colors["bg_light"], fg=self.colors["fg_dim"])
-            set_label.pack(anchor=tk.W, padx=5, pady=(2, 0))
+                               bg=self.colors["bg_light"], fg=self.colors["fg_dim"],
+                               justify=tk.LEFT, anchor=tk.W, wraplength=240)
+            set_label.pack(anchor=tk.W, padx=5, pady=(2, 0), fill=tk.X)
+            # a6 (this round): wrap the set/bonus text to the frame's width
+            # so a long bonus description line-breaks instead of widening the
+            # gear frame (which used to stretch the whole gear grid / left
+            # side). Re-tune wraplength to the frame width on every resize.
+            frame.bind(
+                "<Configure>",
+                lambda e, lbl=set_label: lbl.config(
+                    wraplength=max(80, e.width - 12)
+                ),
+            )
 
             # GS and Potential on same line
             gs_frame = tk.Frame(frame, bg=self.colors["bg_light"])
@@ -476,6 +719,12 @@ class HeroesTab(BaseTab):
             # Each fragment's bounds exclude its own main stat (Philosophy B),
             # so cache by main_stat across this character's pieces to avoid
             # recomputing bounds for the same (preset, main_stat) pair.
+            # Cache is per-hero -- a previous round 11 attempt to share it
+            # across heroes via a (preset_name, main_stat) key was reverted
+            # in the round 11 follow-up because it's wasted work when
+            # heroes have unique presets (the dominant case in current
+            # use); the surrounding code is intentionally back to the
+            # original per-hero shape.
             preset_name = self._get_assigned_preset(hero)
             weights = self._weights_for_preset(preset_name)
             bounds_cache: dict = {}
@@ -602,6 +851,9 @@ class HeroesTab(BaseTab):
             self.select_hero_row(target_idx)
 
         self._update_hero_scrollregion()
+        # a6++ (round 8): freeze the detail-pane frames to their data-driven
+        # max sizes now that the roster is known (self-guards on no data).
+        self._compute_and_apply_fixed_sizes()
 
     # Sorting and display
     def sort_heroes(self, col: str):
@@ -917,6 +1169,270 @@ class HeroesTab(BaseTab):
             if sm is not None:
                 sm.set("last_selected_character", new_hero_data["name"])
 
+    def _format_char_text(self, hero_name: str) -> str:
+        """Build the Character-frame text for `hero_name` (a6++ helper).
+
+        Extracted from show_hero_details so the fixed-size computation can
+        measure the exact string that will be displayed. Returns the
+        "No character data available" placeholder when the character has no
+        captured CharacterInfo.
+        """
+        char_info = self.optimizer.character_info.get(hero_name)
+        if not char_info:
+            return "No character data available"
+        fb = char_info.friendship_bonus
+        hero_data = get_character_by_name(hero_name)
+        grade = hero_data.get("grade", "?")
+        attribute = hero_data.get("attribute", "Unknown")
+        hero_class = hero_data.get("class", "Unknown")
+
+        potential_lines = []
+        if char_info.potential_50_level > 0 or char_info.potential_60_level > 0:
+            if char_info.potential_50_level > 0:
+                stat_type_50, bonus_50 = get_potential_stat_bonus(
+                    char_info.res_id, 50, char_info.potential_50_level
+                )
+                if stat_type_50:
+                    potential_lines.append(f"  Node 5: Lv{char_info.potential_50_level} ({stat_type_50} +{bonus_50:.1f}%)")
+            if char_info.potential_60_level > 0:
+                stat_type_60, bonus_60 = get_potential_stat_bonus(
+                    char_info.res_id, 60, char_info.potential_60_level
+                )
+                if stat_type_60:
+                    potential_lines.append(f"  Node 6: Lv{char_info.potential_60_level} ({stat_type_60} +{bonus_60:.1f}%)")
+        potential_str = "\n".join(potential_lines) if potential_lines else "  None"
+
+        return (
+            f"Grade: {grade}*  |  {attribute}  |  {hero_class}\n"
+            f"Level: {char_info.level}/{char_info.max_level}\n"
+            f"Ego Manifestation: E{char_info.limit_break}\n"
+            f"Friendship Lv: {char_info.friendship_index}\n"
+            f"  Bonus: ATK+{fb[0]}, DEF+{fb[1]}, HP+{fb[2]}\n"
+            f"Potential:\n{potential_str}"
+        )
+
+    def _format_partner_text(self, char_info) -> str:
+        """Build the Partner-frame text for a CharacterInfo (a6++ helper).
+
+        Mirrors the three partner states from show_hero_details: known
+        partner -> full card; equipped-but-unknown res_id -> id line; no
+        partner -> placeholder. char_info=None -> "No partner data".
+        """
+        if char_info is None:
+            return "No partner data"
+        if char_info.partner_name:
+            partner_stats = get_partner_stats(char_info.partner_res_id, char_info.partner_level)
+            partner_data = get_partner(char_info.partner_res_id)
+            partner_grade = partner_data.get("grade", 3)
+            partner_class = partner_data.get("class", "Unknown")
+            passive_info = get_partner_passive_info(
+                char_info.partner_res_id, char_info.partner_limit_break
+            )
+            return (
+                f"{char_info.partner_name}  ({partner_grade}* {partner_class})\n"
+                f"Level: {char_info.partner_level}/{char_info.partner_max_level}  |  Ego: E{char_info.partner_limit_break}\n"
+                f"Stats: ATK+{partner_stats['atk']}, DEF+{partner_stats['def']}, HP+{partner_stats['hp']}\n"
+                f"\n{passive_info['passive_name']}\n"
+                f"{passive_info['passive_desc']}\n"
+                f"\n{passive_info['ego_name']} - {passive_info['ego_cost']} EP\n"
+                f"{passive_info['ego_desc']}"
+            )
+        elif char_info.partner_id:
+            if char_info.partner_res_id:
+                return (f"Unknown partner "
+                        f"(res_id {char_info.partner_res_id}, "
+                        f"instance {char_info.partner_id})")
+            return f"Unknown partner (instance {char_info.partner_id})"
+        return "No partner equipped"
+
+    def _compute_and_apply_fixed_sizes(self):
+        """a6++ (round 8): freeze the four detail-pane frames (Character,
+        Partner, Build Stats, Equipped Memory Fragments) to fixed pixel
+        sizes computed from the WIDEST / TALLEST content across ALL captured
+        combatants, measured via font metrics -- so switching combatants
+        never resizes or shifts the panel.
+
+        Per the spec, the Partner frame's HEIGHT instead tracks the
+        Character frame (so the two cards stay equal height); its WIDTH is
+        sized to its own widest *structured* header line (the wrapping
+        passive/ego prose mustn't drive width -- an unwrapped sentence would
+        be absurdly wide; it wraps inside the card, with the existing
+        scrollbar for overflow).
+
+        Every size is biased a little LARGE (generous PAD_* constants) so
+        content never clips -- over-estimating just leaves a thin margin.
+        Wrapped in try/except so a measurement hiccup can't break the tab;
+        on failure the frames keep their natural auto-resizing behavior.
+        """
+        import math
+        try:
+            names = list(self.optimizer.character_info.keys())
+            if not names or not hasattr(self, "_char_frame"):
+                return
+
+            try:
+                f_default = tkfont.nametofont("TkDefaultFont")
+            except Exception:
+                f_default = tkfont.Font(family="Segoe UI", size=9)
+            f_partner = tkfont.Font(family="Segoe UI", size=9)
+            f_gbold = tkfont.Font(family="Segoe UI", size=9, weight="bold")
+            f_gsub = tkfont.Font(family="Segoe UI", size=8)
+            f_gs7 = tkfont.Font(family="Segoe UI", size=7)
+
+            def _wmax(text, font):
+                return max((font.measure(ln) for ln in text.split("\n")), default=0)
+
+            line_default = f_default.metrics("linespace")
+            line_gbold = f_gbold.metrics("linespace")
+            line_gsub = f_gsub.metrics("linespace")
+
+            char_w = char_lines = 0
+            partner_w = 0
+            stats_w = 0
+            for name in names:
+                ci = self.optimizer.character_info.get(name)
+                ct = self._format_char_text(name)
+                char_w = max(char_w, _wmax(ct, f_default))
+                char_lines = max(char_lines, len(ct.split("\n")))
+
+                pt = self._format_partner_text(ci)
+                # Only the first up-to-3 lines (name/grade, level/ego, stats)
+                # drive width; the prose paragraphs below them wrap.
+                head = pt.split("\n")[:3]
+                partner_w = max(partner_w,
+                                max((f_partner.measure(ln) for ln in head), default=0))
+
+                # Build Stats one-liner: real Sets portion (cheap), padded
+                # numeric fields as a safe upper bound (avoids a full stat calc).
+                gear = self.optimizer.characters.get(name, [])
+                set_counts = {}
+                for p in gear:
+                    set_counts[p.set_id] = set_counts.get(p.set_id, 0) + 1
+                active, flex = [], 0
+                for sid, cnt in set_counts.items():
+                    sinfo = SETS.get(sid)
+                    if sinfo is None:
+                        flex += cnt
+                        continue
+                    pieces = sinfo.get("pieces", 2)
+                    if cnt >= pieces:
+                        active.append(sinfo["name"])
+                        flex += cnt - pieces
+                    else:
+                        flex += cnt
+                active.sort()
+                parts = list(active) + ([f"{flex} Flex"] if flex > 0 else [])
+                sets_str = ", ".join(parts) if parts else "None"
+                # Task 8 (round 9): two lines -- GS+Sets, then the stat list.
+                sample_l1 = f"Total GS: 600  |  Sets: {sets_str}"
+                sample_l2 = (
+                    "ATK: 99999  |  DEF: 99999  |  HP: 99999  |  CRate: 100.0%  |  "
+                    "CDmg: 999.9%  |  Elem: 99.9%  |  Extra: 99.9%  |  DoT: 99.9%  |  Ego: 999"
+                )
+                stats_w = max(stats_w, f_default.measure(sample_l1),
+                              f_default.measure(sample_l2))
+
+            # ----- Gear cell maxima (width driven by the 40-char substat
+            # Text; set-description wrapping drives extra HEIGHT lines) -----
+            char0 = max(1, f_gsub.measure("0"))
+            subtext_px = 40 * char0
+            gs_label_px = 3 * max(1, f_gs7.measure("0"))
+            longest_slot = max(EQUIPMENT_SLOTS.values(), key=len)
+            header_px = f_gbold.measure(f"{longest_slot}  +15")
+            cell_inner = subtext_px + gs_label_px + 12
+            main_px = 0
+            set_wrap_lines = 1
+            for name in names:
+                for p in self.optimizer.characters.get(name, []):
+                    if p.main_stat:
+                        main_px = max(main_px, f_gbold.measure(
+                            f"{p.main_stat.name}  +{p.main_stat.format_value()}"))
+                    set_info = SETS.get(p.set_id)
+                    bonus = set_info.get("bonus", "") if set_info else ""
+                    set_text = f"{p.set_name} ({p.get_set_pieces()}) {bonus}"
+                    tw = f_gsub.measure(set_text)
+                    set_wrap_lines = max(
+                        set_wrap_lines, math.ceil(tw / max(1, cell_inner)))
+            gspot_px = (f_gsub.measure("GS: 600") + 10
+                        + f_gsub.measure("Potential: 600-600"))
+
+            # Task 9 (round 9): each Slot frame is a STATIC size -- width +20px
+            # vs measured content, height reserves at least two wrapped
+            # set-description lines (max across all gear so nothing clips)
+            # plus generous bottom padding, so GS/Potential never gets cut off.
+            set_lines = max(2, set_wrap_lines)
+            # Task 4 (round 9, follow-up): cell slack bumped (+20 -> +32
+            # horizontal, +40 -> +50 vertical) so each cell grows by 12px
+            # wide and 10px tall vs the original pass -- combined with the
+            # PAD_* reductions below, this widens the outer Equipped-MFs
+            # frame by 20px and grows it 25px taller while pulling the
+            # right/bottom padding in line with the (smaller) top/left
+            # padding. (cell_h was bumped 45 -> 50 in a follow-up tweak;
+            # the math: 3 * 10 - 5 = +25 outer height.)
+            cell_w = max(subtext_px + gs_label_px, header_px, main_px, gspot_px) + 14 + 32
+            cell_h = line_gbold * 2 + line_gsub * (5 + set_lines) + 50
+
+            # ----- Content maxima -> OUTER frame sizes (generous pad) -----
+            # Task 4 (round 9, follow-up): PAD_W 18->14 / PAD_H 38->33 pull
+            # the right/bottom labelframe-overhead estimate closer to the
+            # actual ttk theme overhead, fixing the slight asymmetry where
+            # the right/bottom padding read larger than top/left.
+            PAD_W = 14   # LabelFrame internal padding + border + slack
+            PAD_H = 33   # + title-bar height
+            row_h = char_lines * line_default + PAD_H   # Character == Partner height
+            char_W = char_w + PAD_W + 4    # round 9 follow-up: +4px width
+            stats_W = stats_w + PAD_W
+            stats_H = 2 * line_default + PAD_H + 4    # Task 8: two lines; +4 (round 9 follow-up) so the bottom line isn't clipped by the new tighter PAD_H
+            gear_W = 2 * cell_w + 12 + PAD_W             # 2 cols + grid padx (Task 5 round 9: slack 4 -> 0 for symmetric horizontal padding)
+            gear_H = 3 * cell_h + 18 + PAD_H             # 3 rows + grid pady (Task 5 round 9: slack 12 -> 0 for symmetric vertical padding)
+
+            def _fix(frame, w, h):
+                frame.configure(width=int(w), height=int(h))
+                frame.pack_propagate(False)
+
+            _fix(self._char_frame, char_W, row_h)
+            # Task 4 (round 9, follow-up): char_frame is still width-fixed
+            # at char_W (so its content doesn't reflow per character), but
+            # fill=tk.Y lets it grow VERTICALLY with info_frame -- which
+            # now absorbs the detail panel's vertical excess. The minimum
+            # height row_h still applies via pack_propagate(False).
+            self._char_frame.pack_configure(fill=tk.Y)
+
+            # Task 7 (round 9): Partner frame fills the space to its right;
+            # only its HEIGHT was originally pinned (to the Character
+            # frame's height). Task 4 (round 9, follow-up): bumped to
+            # fill=tk.BOTH so it now also grows VERTICALLY with info_frame,
+            # matching the Character frame's new vertical-fill behavior.
+            self._partner_frame.configure(height=int(row_h))
+            self._partner_frame.pack_propagate(False)
+            self._partner_frame.pack_configure(fill=tk.BOTH, expand=True)
+
+            _fix(self._stats_frame, stats_W, stats_H)
+            self._stats_frame.pack_configure(fill=tk.NONE, expand=False, anchor=tk.W)
+            _fix(self._gear_outer_frame, gear_W, gear_H)
+            self._gear_outer_frame.pack_configure(fill=tk.NONE, expand=False, anchor=tk.W)
+
+            # Task 9: pin every individual Slot frame to the static cell size
+            # and stop the grid stretching them, so a long set description
+            # wraps inside a fixed box instead of growing it (which used to
+            # clip GS/Potential on long-description sets like Black Wing).
+            # Round-9 revision: pack_propagate(False) is the correct call here
+            # (each cell uses PACK for its children -- the previous
+            # grid_propagate call was a no-op, which is why the cells silently
+            # stayed at their natural content size while the outer frame grew).
+            cells = list(self.gear_frames.values())
+            if cells:
+                gear_grid = cells[0].master
+                for cell in cells:
+                    cell.configure(width=int(cell_w), height=int(cell_h))
+                    cell.pack_propagate(False)
+                for _c in (0, 1):
+                    gear_grid.columnconfigure(_c, weight=0)
+                for _r in (0, 1, 2):
+                    gear_grid.rowconfigure(_r, weight=0)
+        except Exception:
+            pass
+
     def show_hero_details(self, hero_name: str):
         """Show detailed hero information including gear - matches original exactly"""
         self.hero_detail_name.config(text=hero_name)
@@ -935,95 +1451,14 @@ class HeroesTab(BaseTab):
             self.preset_assign_combo.set(assigned)
 
         char_info = self.optimizer.character_info.get(hero_name)
-        if char_info:
-            fb = char_info.friendship_bonus
-            hero_data = get_character_by_name(hero_name)
-            grade = hero_data.get("grade", "?")
-            attribute = hero_data.get("attribute", "Unknown")
-            hero_class = hero_data.get("class", "Unknown")
-
-            # Build potential info string
-            potential_lines = []
-            if char_info.potential_50_level > 0 or char_info.potential_60_level > 0:
-                if char_info.potential_50_level > 0:
-                    stat_type_50, bonus_50 = get_potential_stat_bonus(
-                        char_info.res_id, 50, char_info.potential_50_level
-                    )
-                    if stat_type_50:
-                        potential_lines.append(f"  Node 5: Lv{char_info.potential_50_level} ({stat_type_50} +{bonus_50:.1f}%)")
-
-                if char_info.potential_60_level > 0:
-                    stat_type_60, bonus_60 = get_potential_stat_bonus(
-                        char_info.res_id, 60, char_info.potential_60_level
-                    )
-                    if stat_type_60:
-                        potential_lines.append(f"  Node 6: Lv{char_info.potential_60_level} ({stat_type_60} +{bonus_60:.1f}%)")
-
-            potential_str = "\n".join(potential_lines) if potential_lines else "  None"
-
-            char_text = (
-                f"Grade: {grade}*  |  {attribute}  |  {hero_class}\n"
-                f"Level: {char_info.level}/{char_info.max_level}\n"
-                f"Ego Manifestation: E{char_info.limit_break}\n"
-                f"Friendship Lv: {char_info.friendship_index}\n"
-                f"  Bonus: ATK+{fb[0]}, DEF+{fb[1]}, HP+{fb[2]}\n"
-                f"Potential:\n{potential_str}"
-            )
-            self.hero_char_info.config(text=char_text)
-
-            if char_info.partner_name:
-                # Get partner stats
-                partner_stats = get_partner_stats(char_info.partner_res_id, char_info.partner_level)
-
-                # Get partner metadata (grade and class)
-                partner_data = get_partner(char_info.partner_res_id)
-                partner_grade = partner_data.get("grade", 3)
-                partner_class = partner_data.get("class", "Unknown")
-
-                # Get partner passive and ego skill info
-                passive_info = get_partner_passive_info(
-                    char_info.partner_res_id, char_info.partner_limit_break
-                )
-
-                partner_text = (
-                    f"{char_info.partner_name}  ({partner_grade}* {partner_class})\n"
-                    f"Level: {char_info.partner_level}/{char_info.partner_max_level}  |  Ego: E{char_info.partner_limit_break}\n"
-                    f"Stats: ATK+{partner_stats['atk']}, DEF+{partner_stats['def']}, HP+{partner_stats['hp']}\n"
-                    f"\n{passive_info['passive_name']}\n"
-                    f"{passive_info['passive_desc']}\n"
-                    f"\n{passive_info['ego_name']} - {passive_info['ego_cost']} EP\n"
-                    f"{passive_info['ego_desc']}"
-                )
-            elif char_info.partner_id:
-                # A partner is equipped in-game but isn't in this build's
-                # data (no entry in PARTNERS). optimizer.py recovers the
-                # res_id from the raw inventory item even when the partner
-                # is unknown, so we can show it here — that's the value the
-                # user would add to partners.py.
-                if char_info.partner_res_id:
-                    partner_text = (
-                        f"Unknown partner "
-                        f"(res_id {char_info.partner_res_id}, "
-                        f"instance {char_info.partner_id})"
-                    )
-                else:
-                    # res_id couldn't be recovered (instance id not in raw
-                    # char_items either — unusual). Show what we have.
-                    partner_text = f"Unknown partner (instance {char_info.partner_id})"
-            else:
-                partner_text = "No partner equipped"
-            # Update partner card Text widget
-            self.hero_partner_text.config(state=tk.NORMAL)
-            self.hero_partner_text.delete("1.0", tk.END)
-            self.hero_partner_text.insert("1.0", partner_text)
-            self.hero_partner_text.config(state=tk.DISABLED)
-        else:
-            self.hero_char_info.config(text="No character data available")
-            # Update partner card Text widget
-            self.hero_partner_text.config(state=tk.NORMAL)
-            self.hero_partner_text.delete("1.0", tk.END)
-            self.hero_partner_text.insert("1.0", "No partner data")
-            self.hero_partner_text.config(state=tk.DISABLED)
+        # a6++ (round 8): text now built by shared helpers so the fixed-size
+        # computation can measure the exact same strings that get displayed.
+        self.hero_char_info.config(text=self._format_char_text(hero_name))
+        partner_text = self._format_partner_text(char_info)
+        self.hero_partner_text.config(state=tk.NORMAL)
+        self.hero_partner_text.delete("1.0", tk.END)
+        self.hero_partner_text.insert("1.0", partner_text)
+        self.hero_partner_text.config(state=tk.DISABLED)
 
         gear = self.optimizer.characters.get(hero_name, [])
         gear_by_slot = {p.slot_num: p for p in gear}
@@ -1206,15 +1641,51 @@ class HeroesTab(BaseTab):
 
         if gear:
             stats = self.optimizer.calculate_build_stats(gear, hero_name)
+            # a6+ (this round): "Sets" now lists the ACTIVE set names (those
+            # whose equipped count meets their piece requirement), WITHOUT
+            # piece counts, plus a "N Flex" token for leftover slots -- all
+            # comma-separated. Mirrors the Optimizer Results "Sets" logic.
             set_counts = {}
-            for f in gear:
-                set_counts[f.set_name] = set_counts.get(f.set_name, 0) + 1
-            sets_str = " + ".join(f"{c}x{n}" for n, c in set_counts.items() if c >= 2)
+            for p in gear:
+                set_counts[p.set_id] = set_counts.get(p.set_id, 0) + 1
+            active_names = []
+            flex = 0
+            for sid, cnt in set_counts.items():
+                sinfo = SETS.get(sid)
+                if sinfo is None:
+                    flex += cnt
+                    continue
+                pieces = sinfo.get("pieces", 2)
+                if cnt >= pieces:
+                    active_names.append(sinfo["name"])
+                    flex += cnt - pieces
+                else:
+                    flex += cnt
+            active_names.sort()
+            set_parts = list(active_names)
+            if flex > 0:
+                set_parts.append(f"{flex} Flex")
+            sets_str = ", ".join(set_parts) if set_parts else "None"
 
+            # Element% = matching-element DMG% main(s) for this character's
+            # attribute (0 for Unknown-attribute characters, since the
+            # Combatants tab has no element override).
+            attribute = get_character_by_name(hero_name).get("attribute", "Unknown")
+            elem_pct = 0.0
+            if attribute and attribute != "Unknown":
+                target = f"{attribute} DMG%"
+                elem_pct = sum(p.main_stat.value for p in gear
+                               if p.main_stat and p.main_stat.name == target)
+
+            # a6+ (round 8) added the missing stats (Elem%/Extra%/DoT%/Ego).
+            # Task 8 (round 9): GS + Sets on line 1, the stat list on line 2.
             stats_text = (
                 f"Total GS: {total_gs:.0f}  |  Sets: {sets_str}\n"
-                f"ATK: {stats.get('ATK', 0):.0f}  |  DEF: {stats.get('DEF', 0):.0f}  |  HP: {stats.get('HP', 0):.0f}\n"
-                f"CRate: {stats.get('CRate', 0):.1f}%  |  CDmg: {stats.get('CDmg', 0):.1f}%"
+                f"ATK: {stats.get('ATK', 0):.0f}  |  DEF: {stats.get('DEF', 0):.0f}  |  "
+                f"HP: {stats.get('HP', 0):.0f}  |  CRate: {stats.get('CRate', 0):.1f}%  |  "
+                f"CDmg: {stats.get('CDmg', 0):.1f}%  |  Elem: {elem_pct:.1f}%  |  "
+                f"Extra: {stats.get('Extra DMG%', 0):.1f}%  |  DoT: {stats.get('DoT%', 0):.1f}%  |  "
+                f"Ego: {stats.get('Ego', 0):.0f}"
             )
             self.hero_stats_label.config(text=stats_text)
         else:

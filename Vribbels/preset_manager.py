@@ -62,7 +62,7 @@ class PresetManager:
                       selection then lives in a local in-memory variable
                       and goes nowhere on disk.
         """
-        self.presets_dir = Path(base_dir) / "presets"
+        self.presets_dir = Path(base_dir) / "settings"
         self.presets_file = self.presets_dir / "presets.json"
 
         self.settings_manager = settings_manager

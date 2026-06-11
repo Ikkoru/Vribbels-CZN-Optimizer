@@ -77,87 +77,10 @@ DEFAULT_CHARACTER = {
 
 # Unified character/hero data: res_id -> all character information
 # Contains: name, grade, attribute, class, and base stats at level 60
+# See get_character_stats_at_level() below for how stats at level 61 are applied
 # Note: Stats marked with # TBD need actual game data
 CHARACTERS = {
     0: None,  # Special case for unequipped
-    1003: {
-        "name": "Nia",
-        "grade": 4,
-        "attribute": "Instinct",
-        "class": "Controller",
-        "base_atk": 392,
-        "base_def": 186,
-        "base_hp": 313,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "HP%",
-        "node_60": "ATK%",
-    },
-    1004: {
-        "name": "Luke",
-        "grade": 5,
-        "attribute": "Order",
-        "class": "Hunter",
-        "base_atk": 491,
-        "base_def": 155,
-        "base_hp": 329,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "CDmg",
-    },
-    1005: {
-        "name": "Selena",
-        "grade": 4,
-        "attribute": "Passion",
-        "class": "Ranger",
-        "base_atk": 482,
-        "base_def": 133,
-        "base_hp": 293,
-        "base_crit_rate": 3,
-        "base_crit_dmg": 125.0,
-        "node_50": "CDmg",
-        "node_60": "CRate",
-    },
-    1008: {
-        "name": "Khalipe",
-        "grade": 5,
-        "attribute": "Instinct",
-        "class": "Vanguard",
-        "base_atk": 407,
-        "base_def": 183,
-        "base_hp": 423,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "HP%",
-    },
-    1009: {
-        "name": "Tressa",
-        "grade": 4,
-        "attribute": "Void",
-        "class": "Psionic",
-        "base_atk": 494,
-        "base_def": 162,
-        "base_hp": 418,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "CDmg",
-    },
-    1010: {
-        "name": "Magna",
-        "grade": 5,
-        "attribute": "Justice",
-        "class": "Vanguard",
-        "base_atk": 407,
-        "base_def": 183,
-        "base_hp": 423,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "HP%",
-    },
     1017: {
         "name": "Amir",
         "grade": 4,
@@ -171,97 +94,6 @@ CHARACTERS = {
         "node_50": "CRate",
         "node_60": "HP%",
     },
-    1018: {
-        "name": "Rin",
-        "grade": 5,
-        "attribute": "Void",
-        "class": "Striker",
-        "base_atk": 467,
-        "base_def": 155,
-        "base_hp": 376,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "CDmg",
-    },
-    1021: {
-        "name": "Lucas",
-        "grade": 4,
-        "attribute": "Passion",
-        "class": "Hunter",
-        "base_atk": 460,
-        "base_def": 147,
-        "base_hp": 305,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "CDmg",
-    },
-    1024: {
-        "name": "Orlea",
-        "grade": 5,
-        "attribute": "Justice",
-        "class": "Controller",
-        "base_atk": 419,
-        "base_def": 197,
-        "base_hp": 336,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "HP%",
-        "node_60": "ATK%",
-    },
-    1027: {
-        "name": "Mei Lin",
-        "grade": 5,
-        "attribute": "Passion",
-        "class": "Striker",
-        "base_atk": 467,
-        "base_def": 155,
-        "base_hp": 376,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "CDmg",
-    },
-    1028: {
-        "name": "Maribell",
-        "grade": 4,
-        "attribute": "Passion",
-        "class": "Vanguard",
-        "base_atk": 300,
-        "base_def": 208,
-        "base_hp": 408,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "HP%",
-    },
-    1033: {
-        "name": "Veronica",
-        "grade": 5,
-        "attribute": "Passion",
-        "class": "Ranger",
-        "base_atk": 541,
-        "base_def": 142,
-        "base_hp": 344,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CDmg",
-        "node_60": "CRate",
-    },
-    1039: {
-        "name": "Mika",
-        "grade": 4,
-        "attribute": "Justice",
-        "class": "Controller",
-        "base_atk": 412,
-        "base_def": 176,
-        "base_hp": 304,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "HP%",
-        "node_60": "ATK%",
-    },
     1040: {
         "name": "Beryl",
         "grade": 4,
@@ -270,32 +102,6 @@ CHARACTERS = {
         "base_atk": 482,
         "base_def": 133,
         "base_hp": 293,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CDmg",
-        "node_60": "CRate",
-    },
-    1041: {
-        "name": "Renoa",
-        "grade": 5,
-        "attribute": "Void",
-        "class": "Hunter",
-        "base_atk": 491,
-        "base_def": 155,
-        "base_hp": 329,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "CDmg",
-    },
-    1043: {
-        "name": "Hugo",
-        "grade": 5,
-        "attribute": "Order",
-        "class": "Ranger",
-        "base_atk": 505,
-        "base_def": 146,
-        "base_hp": 320,
         "base_crit_rate": 3.0,
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
@@ -314,6 +120,60 @@ CHARACTERS = {
         "node_50": "HP%",
         "node_60": "ATK%",
     },
+    1021: {
+        "name": "Lucas",
+        "grade": 4,
+        "attribute": "Passion",
+        "class": "Hunter",
+        "base_atk": 460,
+        "base_def": 147,
+        "base_hp": 305,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+    },
+    1028: {
+        "name": "Maribell",
+        "grade": 4,
+        "attribute": "Passion",
+        "class": "Vanguard",
+        "base_atk": 300,
+        "base_def": 208,
+        "base_hp": 408,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "HP%",
+    },
+    1039: {
+        "name": "Mika",
+        "grade": 4,
+        "attribute": "Justice",
+        "class": "Controller",
+        "base_atk": 412,
+        "base_def": 176,
+        "base_hp": 304,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "HP%",
+        "node_60": "ATK%",
+        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
+    },
+    1003: {
+        "name": "Nia",
+        "grade": 4,
+        "attribute": "Instinct",
+        "class": "Controller",
+        "base_atk": 392,
+        "base_def": 186,
+        "base_hp": 313,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "HP%",
+        "node_60": "ATK%",
+        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
+    },
     1050: {
         "name": "Owen",
         "grade": 4,
@@ -327,19 +187,6 @@ CHARACTERS = {
         "node_50": "CRate",
         "node_60": "CDmg",
     },
-    1052: {
-        "name": "Narja",
-        "grade": 5,
-        "attribute": "Instinct",
-        "class": "Controller",
-        "base_atk": 419,
-        "base_def": 197,
-        "base_hp": 336,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "DEF%",
-        "node_60": "CRate",
-    },
     1056: {
         "name": "Rei",
         "grade": 4,
@@ -352,6 +199,176 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "ATK%",
+    },
+    1005: {
+        "name": "Selena",
+        "grade": 4,
+        "attribute": "Passion",
+        "class": "Ranger",
+        "base_atk": 482,
+        "base_def": 133,
+        "base_hp": 293,
+        "base_crit_rate": 3,
+        "base_crit_dmg": 125.0,
+        "node_50": "CDmg",
+        "node_60": "CRate",
+    },
+    1009: {
+        "name": "Tressa",
+        "grade": 4,
+        "attribute": "Void",
+        "class": "Psionic",
+        "base_atk": 494,
+        "base_def": 162,
+        "base_hp": 418,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+    },
+    1043: {
+        "name": "Hugo",
+        "grade": 5,
+        "attribute": "Order",
+        "class": "Ranger",
+        "base_atk": 505,
+        "base_def": 146,
+        "base_hp": 320,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CDmg",
+        "node_60": "CRate",
+    },
+    1064: {
+        "name": "Kayron",
+        "grade": 5,
+        "attribute": "Void",
+        "class": "Psionic",
+        "base_atk": 443,
+        "base_def": 169,
+        "base_hp": 356,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+    },
+    1008: {
+        "name": "Khalipe",
+        "grade": 5,
+        "attribute": "Instinct",
+        "class": "Vanguard",
+        "base_atk": 407,
+        "base_def": 183,
+        "base_hp": 423,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "HP%",
+    },
+    1004: {
+        "name": "Luke",
+        "grade": 5,
+        "attribute": "Order",
+        "class": "Hunter",
+        "base_atk": 491,
+        "base_def": 155,
+        "base_hp": 329,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+    },
+    1010: {
+        "name": "Magna",
+        "grade": 5,
+        "attribute": "Justice",
+        "class": "Vanguard",
+        "base_atk": 407,
+        "base_def": 183,
+        "base_hp": 423,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "HP%",
+    },
+    1027: {
+        "name": "Mei Lin",
+        "grade": 5,
+        "attribute": "Passion",
+        "class": "Striker",
+        "base_atk": 467,
+        "base_def": 155,
+        "base_hp": 376,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+    },
+    1024: {
+        "name": "Orlea",
+        "grade": 5,
+        "attribute": "Justice",
+        "class": "Controller",
+        "base_atk": 419,
+        "base_def": 197,
+        "base_hp": 336,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "HP%",
+        "node_60": "ATK%",
+    },
+    1041: {
+        "name": "Renoa",
+        "grade": 5,
+        "attribute": "Void",
+        "class": "Hunter",
+        "base_atk": 491,
+        "base_def": 155,
+        "base_hp": 329,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+    },
+    1018: {
+        "name": "Rin",
+        "grade": 5,
+        "attribute": "Void",
+        "class": "Striker",
+        "base_atk": 467,
+        "base_def": 155,
+        "base_hp": 376,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+    },
+    1033: {
+        "name": "Veronica",
+        "grade": 5,
+        "attribute": "Passion",
+        "class": "Ranger",
+        "base_atk": 541,
+        "base_def": 142,
+        "base_hp": 344,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CDmg",
+        "node_60": "CRate",
+    },
+    1062: {
+        "name": "Haru",
+        "grade": 5,
+        "attribute": "Justice",
+        "class": "Striker",
+        "base_atk": 488,
+        "base_def": 162,
+        "base_hp": 394,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},
     },
     1057: {
         "name": "Yuki",
@@ -379,44 +396,31 @@ CHARACTERS = {
         "node_50": "CRate",
         "node_60": "CDmg",
     },
-    1061: {
-        "name": "Diana",
+    30075: {
+        "name": "Sereniel",
         "grade": 5,
-        "attribute": "Passion",
+        "attribute": "Instinct",
         "class": "Hunter",
         "base_atk": 491,
-        "base_def": 161,
-        "base_hp": 344,
+        "base_def": 155,
+        "base_hp": 329,
         "base_crit_rate": 3.0,
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
     },
-    1062: {
-        "name": "Haru",
+    1052: {
+        "name": "Narja",
         "grade": 5,
-        "attribute": "Justice",
-        "class": "Striker",
-        "base_atk": 488,
-        "base_def": 162,
-        "base_hp": 394,
+        "attribute": "Instinct",
+        "class": "Controller",
+        "base_atk": 419,
+        "base_def": 197,
+        "base_hp": 336,
         "base_crit_rate": 3.0,
         "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "CDmg",
-    },
-    1064: {
-        "name": "Kayron",
-        "grade": 5,
-        "attribute": "Void",
-        "class": "Psionic",
-        "base_atk": 443,
-        "base_def": 169,
-        "base_hp": 356,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "CDmg",
+        "node_50": "DEF%",
+        "node_60": "CRate",
     },
     30047: {
         "name": "Nine",
@@ -426,19 +430,6 @@ CHARACTERS = {
         "base_atk": 407,
         "base_def": 178,
         "base_hp": 411,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "CDmg",
-    },
-    30075: {
-        "name": "Sereniel",
-        "grade": 5,
-        "attribute": "Instinct",
-        "class": "Hunter",
-        "base_atk": 491,
-        "base_def": 155,
-        "base_hp": 329,
         "base_crit_rate": 3.0,
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
@@ -457,19 +448,6 @@ CHARACTERS = {
         "node_50": "CRate",
         "node_60": "CDmg",
     },
-    30093: {
-        "name": "Heidemarie",
-        "grade": 5,
-        "attribute": "Passion",
-        "class": "Ranger",
-        "base_atk": 515,
-        "base_def": 141,
-        "base_hp": 317,
-        "base_crit_rate": 3.0,
-        "base_crit_dmg": 125.0,
-        "node_50": "CDmg",
-        "node_60": "CRate",
-    },
     30097: {
         "name": "Rita",
         "grade": 5,
@@ -482,6 +460,46 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+    },
+    1061: {
+        "name": "Diana",
+        "grade": 5,
+        "attribute": "Passion",
+        "class": "Hunter",
+        "base_atk": 491,
+        "base_def": 161,
+        "base_hp": 344,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+    },
+    30093: {
+        "name": "Heidemarie",
+        "grade": 5,
+        "attribute": "Passion",
+        "class": "Ranger",
+        "base_atk": 515,
+        "base_def": 141,
+        "base_hp": 317,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CDmg",
+        "node_60": "CRate",
+        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},
+    },
+    1055: {
+        "name": "Adelheid",
+        "grade": 5,
+        "attribute": "Void",
+        "class": "Vanguard",
+        "base_atk": 407,
+        "base_def": 183,
+        "base_hp": 423,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "HP%",
+        "node_60": "DEF%",
     },
 }
 
@@ -636,21 +654,16 @@ def get_character_by_name(name: str) -> dict:
 # ============================================================================
 #
 # Characters now max at level 62 (was 60). Promotion 5/5 grants +2 effective
-# levels on top of the previous cap. We don't yet have any character at level
-# 61+ in the snapshots, so the per-level stat gains for these two levels are
-# placeholders (-1 = "unknown, fall back to level 60").
+# levels on top of the previous cap. As of v1.1.0, level 61/62 stat bonuses
+# are stored PER CHARACTER (not as a single global table) because in-game
+# data showed the gains differ across characters — Heidemarie was the first
+# confirmed example (ATK +9, DEF +3, HP +7 from level 60 to 61).
 #
-# Once data is observable, replace -1 entries with the actual flat additions
-# on top of the level-60 base stats. If gains turn out to differ per
-# character, refactor LEVEL_61_BONUS / LEVEL_62_BONUS to per-res_id dicts.
-#
-# Nothing currently calls get_character_stats_at_level() with level > 60 in
-# production -- the optimizer still uses the level-60 base stats directly.
-# The helper is wired up for when the eventual "use 61/62 stats" UI toggle
-# arrives, at which point swapping in this call is a one-line change.
-
-LEVEL_61_BONUS = {"atk": -1, "def": -1, "hp": -1}
-LEVEL_62_BONUS = {"atk": -1, "def": -1, "hp": -1}
+# To add level-61/62 data for a character, add a `level_61_bonus` (and/or
+# `level_62_bonus`) key to their entry in the CHARACTERS dict above, with
+# the shape `{"atk": +X, "def": +Y, "hp": +Z}` (additive over level-60 base).
+# Characters without those keys silently fall back to their level-60 stats,
+# matching the prior behavior where the global placeholders were all -1.
 
 
 def get_character_stats_at_level(char_data: dict, level: int) -> dict:
@@ -661,15 +674,18 @@ def get_character_stats_at_level(char_data: dict, level: int) -> dict:
     the safe default for any consumer that doesn't explicitly opt in to
     higher levels.
 
-    For level in [61, 62]: adds LEVEL_61_BONUS (and LEVEL_62_BONUS if
-    level >= 62) on top of base. Any field whose bonus is -1 silently
-    falls back to its level-60 value -- so until real data lands, this
-    function is functionally identical to "always return level 60",
-    keeping the program's behavior unchanged.
+    For level >= 61: adds `level_61_bonus` from char_data (and
+    `level_62_bonus` if level >= 62 and the key exists) on top of base.
+    Missing per-character bonus dicts silently fall back to the level-60
+    values — so until level 61/62 data is observed for a character, this
+    function returns their level-60 stats and the optimizer's behavior
+    matches what it would do at level 60.
 
     Args:
         char_data: a CHARACTERS-dict entry (the value, not the key).
-                   Reads base_atk / base_def / base_hp from it.
+                   Reads base_atk / base_def / base_hp from it, plus the
+                   optional level_61_bonus / level_62_bonus per-character
+                   keys.
         level: the in-game level (1-62). Levels outside [61, 62] route
                through the level-60 fallback.
     """
@@ -681,10 +697,16 @@ def get_character_stats_at_level(char_data: dict, level: int) -> dict:
     if level <= 60:
         return base
 
-    # Apply level-61 bonus; conditionally apply level-62 bonus on top.
-    bonuses = [LEVEL_61_BONUS] + ([LEVEL_62_BONUS] if level >= 62 else [])
-    for bonus in bonuses:
-        if bonus["atk"] != -1: base["base_atk"] += bonus["atk"]
-        if bonus["def"] != -1: base["base_def"] += bonus["def"]
-        if bonus["hp"]  != -1: base["base_hp"]  += bonus["hp"]
+    lvl61 = char_data.get("level_61_bonus")
+    if lvl61:
+        base["base_atk"] += lvl61.get("atk", 0)
+        base["base_def"] += lvl61.get("def", 0)
+        base["base_hp"]  += lvl61.get("hp", 0)
+
+    if level >= 62:
+        lvl62 = char_data.get("level_62_bonus")
+        if lvl62:
+            base["base_atk"] += lvl62.get("atk", 0)
+            base["base_def"] += lvl62.get("def", 0)
+            base["base_hp"]  += lvl62.get("hp", 0)
     return base

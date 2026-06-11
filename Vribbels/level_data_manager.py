@@ -52,10 +52,10 @@ class LevelDataManager:
     def __init__(self, base_dir: Path):
         """
         Args:
-            base_dir: project base dir. The 'presets' folder is reused
+            base_dir: project base dir. The 'settings' folder is used
                       (created on first save) for the level_data.json file.
         """
-        self.presets_dir = Path(base_dir) / "presets"
+        self.presets_dir = Path(base_dir) / "settings"
         self.data_file = self.presets_dir / "level_data.json"
 
         # category -> list of checkpoint dicts

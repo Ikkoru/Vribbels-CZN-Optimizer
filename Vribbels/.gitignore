@@ -40,6 +40,12 @@ env/
 Thumbs.db
 
 # Application specific
-config.json
 snapshots/*.json
 !snapshots/test.json
+
+# User-state folder. The bundled defaults live in `default_settings/`
+# (tracked) and are merged into `settings/` on first run by
+# defaults_sync.py. Never track the user's `settings/` -- it holds
+# their own presets, char assignments, optimizer config, etc.
+# Also where config.json lives as of round 11 (was at the repo root).
+settings/

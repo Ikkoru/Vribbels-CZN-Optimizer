@@ -1,5 +1,18 @@
 {
   "presets": {
+    "Adelheid": {
+      "Flat ATK": 0.271,
+      "ATK%": 0.18,
+      "Flat DEF": 1.56,
+      "DEF%": 1.0,
+      "Flat HP": 0.018,
+      "HP%": 0.01,
+      "CRate": 2.0,
+      "CDmg": 2.0,
+      "Ego": 0.05,
+      "Extra DMG%": 0.0,
+      "DoT%": 0.01
+    },
     "Amir": {
       "Flat ATK": 0.285,
       "ATK%": 0.178,
@@ -72,8 +85,8 @@
       "DEF%": 0.05,
       "Flat HP": 0.021,
       "HP%": 0.01,
-      "CRate": 2,
-      "CDmg": 2,
+      "CRate": 2.0,
+      "CDmg": 2.0,
       "Ego": 0.05,
       "Extra DMG%": 0.0,
       "DoT%": 0.05
@@ -256,7 +269,7 @@
       "HP%": 0.01,
       "CRate": 0.0,
       "CDmg": 0.0,
-      "Ego": 0.1,
+      "Ego": 0.3,
       "Extra DMG%": 0.0,
       "DoT%": 0.01
     },
@@ -282,8 +295,8 @@
       "HP%": 0.01,
       "CRate": 0.0,
       "CDmg": 0.0,
-      "Ego": 0.1,
-      "Extra DMG%": 0.0,
+      "Ego": 0.3,
+      "Extra DMG%": 0.01,
       "DoT%": 0.01
     },
     "Nine (Line of Justice)": {
@@ -300,8 +313,8 @@
       "DoT%": 0.01
     },
     "Orlea (slight DMG skew)": {
-      "Flat ATK": 0.73,
-      "ATK%": 0.5,
+      "Flat ATK": 1.095,
+      "ATK%": 0.75,
       "Flat DEF": 1.48,
       "DEF%": 1.0,
       "Flat HP": 0.022,
@@ -328,8 +341,8 @@
     "Rei (ATK skew)": {
       "Flat ATK": 1.56,
       "ATK%": 1.0,
-      "Flat DEF": 0.77,
-      "DEF%": 0.5,
+      "Flat DEF": 1.542,
+      "DEF%": 1.0,
       "Flat HP": 0.023,
       "HP%": 0.01,
       "CRate": 1.0,
@@ -442,7 +455,7 @@
       "Extra DMG%": 3.0,
       "DoT%": 0.05
     },
-    "Yuki": {
+    "Yuki (non-Conqueror's Aspect)": {
       "Flat ATK": 1.01,
       "ATK%": 1.0,
       "Flat DEF": 0.119,

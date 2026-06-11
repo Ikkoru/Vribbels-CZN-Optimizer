@@ -22,10 +22,10 @@ class SettingsManager:
     def __init__(self, base_dir: Path):
         """
         Args:
-            base_dir: project base dir. The 'presets' folder is reused
+            base_dir: project base dir. The 'settings' folder is used
                       (created on first save) for the settings.json file.
         """
-        self.presets_dir = Path(base_dir) / "presets"
+        self.presets_dir = Path(base_dir) / "settings"
         self.settings_file = self.presets_dir / "settings.json"
         self.settings: dict = {}
         self.corrupted = False

@@ -38,7 +38,11 @@ Where to look when you want to change X
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
-from game_data import EQUIPMENT_SLOTS, RARITY_COLORS
+from game_data import EQUIPMENT_SLOTS, RARITY_COLORS, SETS
+# Item 5 (round 6): user-facing stat-name overrides (e.g. "Flat ATK" ->
+# "ATK Flat", "CDmg" -> "CDMG%"). Applied when rendering the tree's Main /
+# Sub columns so the Memory Fragments tab matches the Optimizer tab.
+from game_data.constants import DISPLAY_NAMES
 from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
 from ..base_tab import BaseTab
 from .heroes_tab import compute_fragment_gs
@@ -77,12 +81,13 @@ FILTER_SLOT_MAIN_STATS = {
 # Layout grid for the Main Stats filter — fixed positions so checkboxes never
 # jump around when slot selections change. Format: list of rows, each row is
 # a list of display labels.
+# Item 9 (round 7): "Ego" moved onto the first row, to the right of HP%
+# (was on its own trailing row).
 MAIN_STAT_LAYOUT = [
-    ["ATK%", "DEF%", "HP%"],
+    ["ATK%", "DEF%", "HP%", "Ego"],
     ["Crit%", "CritDMG%"],
     ["Passion%", "Justice%", "Order%"],
     ["Void%", "Instinct%"],
-    ["Ego"],
 ]
 
 
@@ -209,11 +214,14 @@ class InventoryTab(BaseTab):
         self.inv_main_stat_frame_inner = ttk.Frame(main_frame)
         self.inv_main_stat_frame_inner.pack(anchor=tk.W)
 
-        # Build the fixed layout. Every checkbox starts checked & enabled —
+        # Build the fixed layout. Every checkbox starts checked & enabled --
         # availability is then refined by _refresh_main_stat_availability().
-        # 2px extra top padding before rows that begin a new "stat family":
-        #   row 1 (Crit%/CritDMG%), row 2 (Passion%/Justice%/Order%), row 4 (Ego).
-        ROW_TOP_PAD = {1: 2, 2: 2, 4: 2}
+        # 3px extra top padding before rows that begin a new "stat family":
+        #   row 1 (Crit%/CritDMG%), row 2 (Passion%/Justice%/Order%).
+        # Item 9 (round 7): Ego now lives on row 0 (right of HP%), so the
+        # old row-4 padding entry is gone. Task 4 (round 9): bumped 2 -> 3
+        # (+1px between ATK%/Crit% rows and between Crit%/Passion% rows).
+        ROW_TOP_PAD = {1: 3, 2: 3}
         for row_idx, row_labels in enumerate(MAIN_STAT_LAYOUT):
             extra_top = ROW_TOP_PAD.get(row_idx, 0)
             for col_idx, label in enumerate(row_labels):
@@ -253,7 +261,9 @@ class InventoryTab(BaseTab):
         ttk.Checkbutton(opt_frame, text="Unequipped Only", variable=self.inv_unequipped_var,
                         command=self.refresh_inventory).pack(anchor=tk.W)
 
-        self.inv_include_uncommon_var = tk.BooleanVar(value=True)
+        # Item 10 (round 7): "Include Uncommon" now defaults to OFF, so the
+        # list shows only Rare+ fragments unless the user opts in.
+        self.inv_include_uncommon_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(opt_frame, text="Include Uncommon", variable=self.inv_include_uncommon_var,
                         command=self.refresh_inventory).pack(anchor=tk.W)
 
@@ -261,7 +271,9 @@ class InventoryTab(BaseTab):
         # are currently assigned to characters in the Combatants tab. Useful
         # when many presets exist but only a few are actually in use.
         self.inv_only_assigned_presets_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opt_frame, text="Highest GS/Pot.: Assigned Presets Only",
+        # a4 (this round): two-line label -- text after the colon drops to
+        # the second line; "Pot." spelled out as "Potential".
+        ttk.Checkbutton(opt_frame, text="Highest GS/Potential:\nAssigned Presets Only",
                         variable=self.inv_only_assigned_presets_var,
                         command=self.refresh_inventory).pack(anchor=tk.W)
 
@@ -273,14 +285,20 @@ class InventoryTab(BaseTab):
                     "gs", "potential", "equipped", "highest_gs", "highest_potential")
         self.inv_tree = ttk.Treeview(tree_frame, columns=inv_cols, show="headings", height=25)
 
-        for col, txt, w in [("slot", "Slot", 100), ("set", "Set", 150), ("lvl", "+Lv", 35),
-                            ("main", "Main", 110), ("sub1", "Sub1", 100), ("sub2", "Sub2", 100),
-                            ("sub3", "Sub3", 100), ("sub4", "Sub4", 100), ("gs", "GS", 40),
-                            ("potential", "Potential", 75), ("equipped", "Equipped", 80),
-                            ("highest_gs", "Highest GS", 75),
-                            ("highest_potential", "Highest Pot.", 80)]:
+        for col, txt, w in [("slot", "Slot", 80), ("set", "Set", 140), ("lvl", "Level", 35),
+                            ("main", "Main", 90), ("sub1", "Sub1", 90), ("sub2", "Sub2", 90),
+                            ("sub3", "Sub3", 90), ("sub4", "Sub4", 90), ("gs", "GS", 35),
+                            ("potential", "Potential", 50), ("equipped", "Equipped", 65),
+                            ("highest_gs", "Highest GS", 65),
+                            ("highest_potential", "Highest Potential", 312)]:
             self.inv_tree.heading(col, text=txt, command=lambda c=col.lower(): self.sort_inventory(c))
-            self.inv_tree.column(col, width=w, anchor=tk.W if col in ["slot", "set", "main", "equipped"] else tk.CENTER)
+            # Item 7 (round 7): substat cells (sub1-4) are now left-aligned
+            # too, joining slot/set/main/equipped. The numeric/short columns
+            # (lvl, gs, potential, highest_gs) stay centered. Q4 (round 10):
+            # highest_potential moved to the left-aligned group because its
+            # "60-100 [preset]" format reads more naturally flush-left than
+            # centered.
+            self.inv_tree.column(col, width=w, anchor=tk.W if col in ["slot", "set", "main", "sub1", "sub2", "sub3", "sub4", "equipped", "highest_potential"] else tk.CENTER)
 
         inv_scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.inv_tree.yview)
         self.inv_tree.configure(yscrollcommand=inv_scroll.set)
@@ -325,11 +343,18 @@ class InventoryTab(BaseTab):
         self.refresh_inventory()
 
     def populate_set_filters(self):
-        """Populate set filter checkboxes based on loaded fragments.
+        """Populate set filter checkboxes.
 
-        Preserves selection state across reloads — if a set was unchecked
-        before a live update, it stays unchecked when the same set name still
-        exists. New (previously-unseen) sets default to checked.
+        Item 6 (round 6): show ALL game sets (even those the current snapshot
+        owns none of), ordered like the Optimizer tab -- 4-piece sets first,
+        then 2-piece, alphabetical within each. Each label shows the number
+        of that set currently owned in brackets, e.g. "Storm Caller (3)".
+        Unknown numeric set IDs present in the data but absent from SETS are
+        appended after the known sets so they remain filterable. Laid out in
+        5 columns (was 4).
+
+        Preserves selection state across reloads -- if a set was unchecked
+        before a live update, it stays unchecked. New sets default to checked.
         """
         # Snapshot current selection state before tearing down widgets.
         previous = {name: var.get() for name, var in self.inv_set_vars.items()}
@@ -338,23 +363,93 @@ class InventoryTab(BaseTab):
             widget.destroy()
         self.inv_set_vars.clear()
 
-        # Sort: known set names alphabetically, then unknown numeric IDs in numeric order.
-        # set_name for unknowns is the bare numeric ID string (per memory_fragment.py).
-        names = set(f.set_name for f in self.optimizer.fragments)
-        known = sorted(n for n in names if not n.isdigit())
-        unknown_numeric = sorted((n for n in names if n.isdigit()), key=int)
-        sets = known + unknown_numeric
+        # Count how many of each set the current snapshot owns (by set_name).
+        owned_counts: dict = {}
+        for f in self.optimizer.fragments:
+            owned_counts[f.set_name] = owned_counts.get(f.set_name, 0) + 1
 
-        # 4 columns wide.
-        for i, set_name in enumerate(sets):
+        # Known sets from game data, ordered 4pc-first then 2pc, alpha within.
+        ordered = sorted(
+            SETS.values(),
+            key=lambda s: (-s["pieces"], s["name"].lower()),
+        )
+        set_names = [s["name"] for s in ordered]
+
+        # Append unknown numeric set IDs seen in the data but not in SETS.
+        known_names = {s["name"] for s in SETS.values()}
+        unknown_numeric = sorted(
+            (n for n in owned_counts if n not in known_names and n.isdigit()),
+            key=int,
+        )
+        set_names.extend(unknown_numeric)
+
+        # Task 8 (round 8): proportional-font Checkbutton (set name) + a
+        # separate count Label, gridded into TWO grid columns per logical
+        # column: column 2c holds the name, column 2c+1 holds the "(N)".
+        # a3 (this round): because grid sizes column 2c to its OWN widest
+        # name, the count sits just past the longest name IN THAT COLUMN
+        # (not a global max) -- so the gap is variable per set and no column
+        # has its counts stranded far from short names. The count Label is
+        # width=count_w + anchor=E so the brackets stay right-aligned within
+        # the count column. Clicking the count toggles the box too.
+        # n4 (round 8): the 2-piece (and unknown) sets start on a fresh row
+        # below the 4-piece sets. a2 (this round): the separating gap is
+        # halved (8 -> 4).
+        ncols = 5
+        name_pieces = {s["name"]: s["pieces"] for s in SETS.values()}
+        # set_names is already ordered 4pc -> 2pc -> unknown, so a stable
+        # split preserves the alphabetical ordering within each group.
+        four_names = [n for n in set_names if name_pieces.get(n) == 4]
+        rest_names = [n for n in set_names if name_pieces.get(n) != 4]
+        # Task 4 follow-up (round 9): the count cell width is computed PER
+        # LOGICAL COLUMN, not as a global maximum. Columns whose counts are
+        # all short (e.g. single-digit "(N)") no longer get padded out to the
+        # widest count's char width -- their bracketed numbers sit tight
+        # against each column's longest name. The four_names / rest_names
+        # slices match the row-major fill order used below (i % ncols).
+        def _col_count_w(c):
+            col_sets = four_names[c::ncols] + rest_names[c::ncols]
+            if not col_sets:
+                return 3
+            return max(len(f"({owned_counts.get(n, 0)})") for n in col_sets)
+        col_count_widths = [_col_count_w(c) for c in range(ncols)]
+
+        def _add_set_cell(set_name, row, logical_col, top_pad):
+            count = owned_counts.get(set_name, 0)
             var = tk.BooleanVar(value=previous.get(set_name, True))
             self.inv_set_vars[set_name] = var
-            row = i // 4
-            col = i % 4
+            base_col = logical_col * 2
             ttk.Checkbutton(
                 self.inv_set_frame_inner, text=set_name, variable=var,
-                command=self.refresh_inventory
-            ).grid(row=row, column=col, sticky=tk.W, padx=2)
+                command=self.refresh_inventory,
+            ).grid(row=row, column=base_col, sticky=tk.W,
+                   padx=(2, 0), pady=(top_pad, 0))
+            # Task 4 (round 9, revised): the count label gets a fixed width
+            # (per-column max, see col_count_widths) with anchor=E so the
+            # closing brackets line up right-aligned within the count
+            # column. Task 4 follow-up (round 9): tried -1 left pad but Tk
+            # rejects negative pad values ("bad pad value"), so 0 is the
+            # actual minimum -- the per-column count_w is what reduced the
+            # visible distance for short-count columns.
+            cnt = ttk.Label(self.inv_set_frame_inner, text=f"({count})",
+                            width=col_count_widths[logical_col], anchor=tk.E)
+            cnt.grid(row=row, column=base_col + 1, sticky=tk.W,
+                     padx=(0, 8), pady=(top_pad, 0))
+            # Clicking the count toggles the checkbox too (the count label
+            # isn't part of the Checkbutton's own hit area).
+            cnt.bind(
+                "<Button-1>",
+                lambda _e, v=var: (v.set(not v.get()), self.refresh_inventory()),
+            )
+
+        SET_GROUP_GAP = 4
+        for i, set_name in enumerate(four_names):
+            _add_set_cell(set_name, i // ncols, i % ncols, 0)
+        four_rows = (len(four_names) + ncols - 1) // ncols
+        for j, set_name in enumerate(rest_names):
+            r = four_rows + j // ncols
+            top = SET_GROUP_GAP if j < ncols else 0
+            _add_set_cell(set_name, r, j % ncols, top)
 
         # Also rebuild unknown main-stat checkboxes for the data we just loaded.
         self.populate_unknown_main_stats()
@@ -573,8 +668,8 @@ class InventoryTab(BaseTab):
         # so we can't pre-compute one bounds per preset. Instead we cache
         # lazily as we encounter each (preset, main_stat) combination --
         # at most P x 16 entries for P presets and 16 possible main stats.
-        preset_weights = self._presets_for_highest_gs()  # list[weights_dict]
-        no_presets = not preset_weights
+        preset_data = self._presets_for_highest_gs()  # list[(name, weights)]
+        no_presets = not preset_data
         bounds_cache: dict = {}  # (preset_idx, main_stat_name) -> bounds
 
         for f in filtered:
@@ -582,6 +677,7 @@ class InventoryTab(BaseTab):
                 f.highest_preset_gs = 0.0
                 f.highest_preset_potential_low = 0.0
                 f.highest_preset_potential_high = 0.0
+                f.highest_preset_potential_name = None
                 continue
 
             main_name = f.main_stat.name if f.main_stat else None
@@ -595,7 +691,13 @@ class InventoryTab(BaseTab):
             # actual range, not a synthetic mix.
             best_high = float("-inf")
             best_low = 0.0
-            for pi, weights in enumerate(preset_weights):
+            # Round 10 task 9: track the winning preset's NAME too so the
+            # display can append it in brackets. For fully-leveled MFs the
+            # high collapses to the current GS, so "preset with max high"
+            # is the same as "preset with max GS" -- one annotation works
+            # for both cases.
+            best_high_preset = None
+            for pi, (pname, weights) in enumerate(preset_data):
                 key = (pi, main_name)
                 if key not in bounds_cache:
                     bounds_cache[key] = compute_gs_bounds(
@@ -609,9 +711,11 @@ class InventoryTab(BaseTab):
                 if high > best_high:
                     best_high = high
                     best_low = low
+                    best_high_preset = pname
             f.highest_preset_gs = best_gs
             f.highest_preset_potential_low = best_low
             f.highest_preset_potential_high = best_high
+            f.highest_preset_potential_name = best_high_preset
 
         sort_key_map = {
             "slot": lambda f: f.slot_num,
@@ -633,13 +737,20 @@ class InventoryTab(BaseTab):
         filtered_sorted = sorted(filtered, key=key_func, reverse=self.inv_sort_reverse)
 
         for f in filtered_sorted[:500]:
+            # Item 5 (round 6): translate stat names through DISPLAY_NAMES and
+            # add a space after the colon (matches the Optimizer tab).
             subs = []
             for s in f.substats[:4]:
-                subs.append(f"{s.name}:{s.format_value()}")
+                sub_label = DISPLAY_NAMES.get(s.name, s.name)
+                subs.append(f"{sub_label}: {s.format_value()}")
             while len(subs) < 4:
                 subs.append("-")
 
-            main_str = f"{f.main_stat.name}:{f.main_stat.format_value()}" if f.main_stat else "-"
+            if f.main_stat:
+                main_label = DISPLAY_NAMES.get(f.main_stat.name, f.main_stat.name)
+                main_str = f"{main_label}: {f.main_stat.format_value()}"
+            else:
+                main_str = "-"
             pot = f"{f.potential_low:.0f}-{f.potential_high:.0f}" if f.potential_low != f.potential_high else "-"
 
             set_pieces = f.get_set_pieces()
@@ -649,19 +760,28 @@ class InventoryTab(BaseTab):
             # eligible (no custom presets at all, or none assigned with the
             # checkbox on). Both columns share the same eligibility.
             hgs_str = "—" if no_presets else f"{f.highest_preset_gs:.0f}"
-            # Highest Potential mirrors the regular Potential column's
-            # display rules: range "low-high" when there's upgrade headroom,
-            # or "-" once max level (low == high) collapses the range.
+            # Highest Potential display rules (round 10):
+            #   no presets eligible       -> "—"
+            #   range (unleveled)         -> "60-100 [preset]"
+            #   single (fully leveled)    -> "-"  (NO preset name -- the
+            #                                     Highest GS column already
+            #                                     shows the value for max-
+            #                                     level MFs, so repeating
+            #                                     value+preset here would be
+            #                                     redundant. q3 follow-up.)
             if no_presets:
                 hpot_str = "—"
             elif f.highest_preset_potential_low != f.highest_preset_potential_high:
+                pname = getattr(f, "highest_preset_potential_name", None)
+                preset_suffix = f" [{pname}]" if pname else ""
                 hpot_str = (f"{f.highest_preset_potential_low:.0f}-"
-                            f"{f.highest_preset_potential_high:.0f}")
+                            f"{f.highest_preset_potential_high:.0f}"
+                            f"{preset_suffix}")
             else:
                 hpot_str = "-"
 
             self.inv_tree.insert("", tk.END, values=(
-                f.slot_name, set_display, f"+{f.level}",
+                f.slot_name, set_display, f"{f.level}",
                 main_str, *subs, f"{f.gear_score:.0f}", pot, f.equipped_to or "",
                 hgs_str, hpot_str,
             ), tags=(f"r{f.rarity_num}",))
@@ -696,13 +816,17 @@ class InventoryTab(BaseTab):
         - If "Assigned Presets Only" is checked, narrow to just the presets
           referenced by an assignment in the character_preset_manager.
 
-        Returns a list of weights dicts. Bounds are NOT pre-computed --
-        under Philosophy B they depend on each fragment's main stat, so
+        Returns a list of (name, weights) tuples. Bounds are NOT pre-computed
+        -- under Philosophy B they depend on each fragment's main stat, so
         callers compute them lazily inside the per-fragment loop (cached
         by (preset_idx, main_stat) to avoid recomputation across fragments
         sharing the same main stat).
 
         Returns an empty list when there's nothing to compare against.
+
+        Round 10 task 9: previously returned just the weights dicts; now
+        returns (name, weights) so the Highest Potential column can show
+        which preset won in brackets after the range.
         """
         pm = getattr(self.context, "preset_manager", None)
         if pm is None:
@@ -721,7 +845,7 @@ class InventoryTab(BaseTab):
             if not names:
                 return []
 
-        return [pm.get_preset(name) or {} for name in names]
+        return [(name, pm.get_preset(name) or {}) for name in names]
 
     # =========================================================================
     # Column-header tooltips

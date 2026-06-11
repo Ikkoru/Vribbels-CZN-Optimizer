@@ -1,0 +1,1129 @@
+{
+  "version": 1,
+  "excluded_gear_chars": [
+  ],
+  "characters": {
+    "1003": {
+      "name_hint": "Nia",
+      "optimize_for_level": 62,
+      "extra_pct": 80,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 95,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 71,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        25
+      ],
+      "max_flex_slots": 2,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 100,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 0,
+      "element_override": null
+    },
+    "1004": {
+      "name_hint": "Luke",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 60,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 100,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 100,
+      "element_override": null
+    },
+    "1005": {
+      "name_hint": "Selena",
+      "optimize_for_level": 62,
+      "extra_pct": 100,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 30,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 0,
+      "avg_card_dmg_pct": 100,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 140,
+      "element_override": null
+    },
+    "1008": {
+      "name_hint": "Khalipe",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 100,
+      "shielding_healing_weight": 20,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 301,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        11,
+        19,
+        20
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 262,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 100,
+      "element_override": null
+    },
+    "1009": {
+      "name_hint": "Tressa",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 69,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 30
+      },
+      "sets_selected": [
+        9,
+        11,
+        19
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 20,
+      "avg_card_dmg_pct": 110,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 75,
+      "element_override": null
+    },
+    "1010": {
+      "name_hint": "Magna",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 100,
+      "shielding_healing_weight": 33,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 351,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        11,
+        19,
+        27
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 300,
+      "avg_mult_buff_pct": 30,
+      "avg_add_buff_pct": 100,
+      "element_override": null
+    },
+    "1017": {
+      "name_hint": "Amir",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 100,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 301,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        11,
+        19,
+        20
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 30,
+      "avg_card_dmg_pct": 120,
+      "avg_mult_buff_pct": 15,
+      "avg_add_buff_pct": 200,
+      "element_override": null
+    },
+    "1018": {
+      "name_hint": "Rin",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 1001,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        6,
+        9,
+        11
+      ],
+      "max_flex_slots": 2,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 200,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 0,
+      "element_override": null
+    },
+    "1021": {
+      "name_hint": "Lucas",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 150,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 100,
+      "element_override": null
+    },
+    "1024": {
+      "name_hint": "Orlea",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 40,
+      "shielding_healing_weight": 80,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 301,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        25
+      ],
+      "max_flex_slots": 2,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 100,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 0,
+      "element_override": null
+    },
+    "1027": {
+      "name_hint": "Mei Lin",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 901,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        10,
+        11,
+        19
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 180,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 100,
+      "element_override": null
+    },
+    "1028": {
+      "name_hint": "Maribell",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 100,
+      "shielding_healing_weight": 20,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        6,
+        7,
+        11,
+        19,
+        27
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 300,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 100,
+      "element_override": null
+    },
+    "1033": {
+      "name_hint": "Veronica",
+      "optimize_for_level": 62,
+      "extra_pct": 100,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 901,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19
+      ],
+      "max_flex_slots": 2,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 180,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 75,
+      "element_override": null
+    },
+    "1039": {
+      "name_hint": "Mika",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 100,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 41,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        25
+      ],
+      "max_flex_slots": 2,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 100,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 0,
+      "element_override": null
+    },
+    "1040": {
+      "name_hint": "Beryl",
+      "optimize_for_level": 62,
+      "extra_pct": 50,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 150,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 100,
+      "element_override": null
+    },
+    "1041": {
+      "name_hint": "Renoa",
+      "optimize_for_level": 62,
+      "extra_pct": 90,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 60,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        6,
+        9,
+        11
+      ],
+      "max_flex_slots": 2,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 140,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 0,
+      "element_override": null
+    },
+    "1043": {
+      "name_hint": "Hugo",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [],
+      "max_flex_slots": 6,
+      "set_effect_pct": 0,
+      "avg_card_dmg_pct": 100,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 0,
+      "element_override": null
+    },
+    "1049": {
+      "name_hint": "Cassius",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 33,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        9,
+        11,
+        19,
+        25
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 250,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 100,
+      "element_override": null
+    },
+    "1050": {
+      "name_hint": "Owen",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 100,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 0,
+      "element_override": null
+    },
+    "1052": {
+      "name_hint": "Narja",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 100,
+      "shielding_healing_weight": 20,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 301,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        11,
+        19
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 100,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 0,
+      "element_override": null
+    },
+    "1056": {
+      "name_hint": "Rei",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 50,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        9,
+        25
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 100,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 0,
+      "element_override": null
+    },
+    "1057": {
+      "name_hint": "Yuki",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 700,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 360,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 125,
+      "element_override": null
+    },
+    "1060": {
+      "name_hint": "Chizuru",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 700,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        10,
+        11,
+        19
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 90,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 450,
+      "element_override": null
+    },
+    "1061": {
+      "name_hint": "Diana",
+      "optimize_for_level": 62,
+      "extra_pct": 80,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 50,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 140,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 100,
+      "element_override": null
+    },
+    "1062": {
+      "name_hint": "Haru",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 600,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19,
+        20
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 432,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 100,
+      "element_override": null
+    },
+    "1064": {
+      "name_hint": "Kayron",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [],
+      "max_flex_slots": 6,
+      "set_effect_pct": 0,
+      "avg_card_dmg_pct": 100,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 0,
+      "element_override": null
+    },
+    "30047": {
+      "name_hint": "Nine",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 100,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 351,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        11,
+        20,
+        24
+      ],
+      "max_flex_slots": 2,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 650,
+      "avg_mult_buff_pct": 25,
+      "avg_add_buff_pct": 25,
+      "element_override": null
+    },
+    "30075": {
+      "name_hint": "Sereniel",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 60,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19,
+        23
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 100,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 125,
+      "element_override": null
+    },
+    "30084": {
+      "name_hint": "Tiphera",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 100,
+      "shielding_healing_weight": 50,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 301,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        25
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 150,
+      "avg_mult_buff_pct": 30,
+      "avg_add_buff_pct": 25,
+      "element_override": null
+    },
+    "30093": {
+      "name_hint": "Heidemarie",
+      "optimize_for_level": 62,
+      "extra_pct": 91,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 801,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        6,
+        9,
+        11,
+        19,
+        26
+      ],
+      "max_flex_slots": 6,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 150,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 240,
+      "element_override": null
+    },
+    "30097": {
+      "name_hint": "Rita",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 801,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        20
+      ],
+      "max_flex_slots": 2,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 540,
+      "avg_mult_buff_pct": 100,
+      "avg_add_buff_pct": 0,
+      "element_override": null
+    },
+    "1055": {
+      "name_hint": "Adelheid",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 100,
+      "shielding_healing_weight": 50,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 301,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        25
+      ],
+      "max_flex_slots": 2,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 130,
+      "avg_mult_buff_pct": 15,
+      "avg_add_buff_pct": 140,
+      "element_override": null
+    }
+  },
+  "excluded_default_initialized": false
+}
