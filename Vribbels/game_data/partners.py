@@ -28,6 +28,9 @@ Maps res_id (int) to a partner data dict:
       "passive_desc": "...{DEF%}% ...",   # templated effect text
       "values":       {...},              # template-substitution values
       "stats":        {"DEF%": (12, 15, 18, 21, 24)},  # E0..E4 tiers
+      "stats_conditional": {...},  # optional; same shape/vocabulary as
+                                   # "stats" -- see the conditional-
+                                   # effects section below
     }
 
 PARTNER_CLASS_STATS
@@ -53,9 +56,59 @@ Passive scaling with limit-break
 --------------------------------
 get_partner_passive_stats reads the partner's "stats" dict (a tuple of
 five values, one per E0/E1/E2/E3/E4) and returns the appropriate value
-for the given limit_break index. Passives often grant CRate%, Extra
-DMG%, or attribute-DMG% -- these feed into the inner-layer MF% bucket
-of the optimizer's damage formula.
+for the given limit_break index (pass conditional=True to read the
+"stats_conditional" field instead). The consumed % values for ATK/DEF/HP
+feed the OUTER multiplier of the optimizer's ATK/DEF/HP formula;
+CRate / CDmg / Extra DMG% / DoT% / Ego are flat additions (see the
+vocabulary table below).
+
+Stat-name vocabulary for the "stats" field
+==========================================
+The optimizer consumes ONLY the exact keys below from a partner's
+"stats" dict (see the partner section of core.compute_build_stats).
+Any other key is silently ignored -- no error, no effect. All eight
+character stats are listed so future maintainers don't have to dig
+through code/docs; note that flat ATK/DEF/HP do NOT go here (they come
+from PARTNER_CLASS_STATS via grade+class automatically).
+
+    In-game stat        "stats" key      Where it lands in the formula
+    -----------------   --------------   ------------------------------
+    Attack %            "ATK%"           outer ATK multiplier
+    Defense %           "DEF%"           outer DEF multiplier
+    Health %            "HP%"            outer HP multiplier
+    Crit Chance (Crit%) "CRate"          flat addition to Final CRate
+    Crit DMG (CDMG)     "CDmg"           flat addition to Final CDmg
+    Extra Attack DMG    "Extra DMG%"     flat addition to Extra DMG%
+                                         (note the space!)
+    DoT %               "DoT%"           flat addition to DoT%
+    Ego                 "Ego"            flat addition to Ego
+
+Conditional partner effects -- the "stats_conditional" field
+=============================================================
+Effects that are conditional in-game (stacking buffs, triggered or
+situational bonuses) belong in "stats_conditional", NOT in "stats".
+Same shape and stat-name vocabulary as "stats"; encode each value at
+the magnitude the optimizer should assume (convention: max stacks --
+e.g. Aria's Swelling Melody CDmg at x4 stacks). Both dicts apply at
+full value to Final stats and the optimizer score. NEITHER dict counts
+toward the Have-at-least / Potential-7 comparison values: those
+minimums exist primarily (but not exclusively) to help meet the
+in-game Potential 7 stat requirements, and per in-game verification
+the Potential 7 checks ignore every Partner PASSIVE bonus,
+unconditional and conditional alike. (The Partner's flat class stats
+-- PARTNER_CLASS_STATS, not passives -- DO count toward the Pot7
+ATK/DEF/HP values.) The conditional/unconditional split is kept
+anyway, in case a future consumer needs the distinction.
+Entries with no conditional stat effects simply omit the field.
+
+Entries whose passive_desc / ego_desc contain effects that increase any
+of those eight stats but are NOT (fully) reflected in the "stats" /
+"stats_conditional" dicts are marked with a `# this` comment on the
+passive_name / ego_name line
+-- i.e. `# this` is an attention/TODO marker for uncaptured stat
+effects (conditional/stacking ones included; cf. Aria's Swelling Melody
+CDmg captured at max stacks). Entries whose stat-increasing effects are
+all captured in "stats" / "stats_conditional" carry no marker.
 
 Unknown partner handling
 ========================
@@ -68,12 +121,14 @@ PARTNERS dict (and rerun) once they have its name.
 # Default partner data for unknown partners
 DEFAULT_PARTNER = {
     "name": "Unknown",
-    "grade": 3,
+    "grade": 5,
     "class": "Controller",
     "passive_name": "Unknown Passive",
     "passive_desc": "Unknown passive effect.",
     "values": {},
-    "stats": {},
+    "stats": {
+          
+        },
     "ego_name": "Unknown Skill",
     "ego_cost": 2,
     "ego_desc": "Unknown effect.",
@@ -90,10 +145,11 @@ PARTNERS = {
         "passive_name": "Guard",
         "passive_desc": "The assigned combatant's Attack is increased by {ATK%}%.\nAt the start of battle, Damage dealt by the assigned combatant increases by {DMG%}% for 1 turn.",
         "values": {
-            "ATK%": (8,10,12,14,16),
-            "DMG%": (8,10,12,14,16),
+            "ATK%": (8, 10, 12, 14, 16),
+            "DMG%": (8, 10, 12, 14, 16),
         },
-        "stats": {"ATK%": (8,10,12,14,16)
+        "stats": {
+            "ATK%": (8, 10, 12, 14, 16),
         },
         "ego_name": "Giant Bazooka",
         "ego_cost": 2,
@@ -126,7 +182,9 @@ PARTNERS = {
             "HP%": (8, 10, 12, 14, 16),
             "DEFDAM%": (8, 10, 12, 14, 16),
         },
-        "stats": {"HP%": (8, 10, 12, 14, 16)},
+        "stats": {
+            "HP%": (8, 10, 12, 14, 16),
+        },
         "ego_name": "Analyze Weakness",
         "ego_cost": 2,
         "ego_desc": "Gain 100% Shield. Gain 1 Counterattack.",
@@ -138,10 +196,12 @@ PARTNERS = {
         "passive_name": "Cantrip",
         "passive_desc": "The assigned combatant's Attack is increased by {ATK%}%.\nUpon the first shuffle, the assigned Combatant's damage dealt is increased by {DMG%}%.",
         "values": {
-            "ATK%": (8,10,12,14,16),
-            "DMG%": (8,10,12,14,16)
+            "ATK%": (8, 10, 12, 14, 16),
+            "DMG%": (8, 10, 12, 14, 16)
         },
-        "stats": {"ATK%": (8,10,12,14,16)},
+        "stats": {
+          "ATK%": (8, 10, 12, 14, 16),
+        },
         "ego_name": "Drone Deployment",
         "ego_cost": 3,
         "ego_desc": "Draw 2",
@@ -156,7 +216,9 @@ PARTNERS = {
             "DEF%": (8, 10, 12, 14, 16),
             "heal%": (30, 38, 45, 53, 60),
         },
-        "stats": {"DEF%": (8, 10, 12, 14, 16)},
+        "stats": {
+          "DEF%": (8, 10, 12, 14, 16),
+        },
         "ego_name": "Consecration",
         "ego_cost": 2,
         "ego_desc": "Heal 100%. For 1 turn, gain 1 Fortitude.",
@@ -171,7 +233,9 @@ PARTNERS = {
             "ATK%": (8, 10, 12, 14, 16),
             "skill": (4, 5, 6, 7, 8),
         },
-        "stats": {"ATK%": (8, 10, 12, 14, 16)},
+        "stats": {
+          "ATK%": (8, 10, 12, 14, 16),
+        },
         "ego_name": "Flower of Memory",
         "ego_cost": 2,
         "ego_desc": "Gain 200% Shield.",
@@ -187,8 +251,10 @@ PARTNERS = {
             "BulletDMG%": (10, 13, 15, 18, 20),
             "BulletDMG2%": (12, 15, 18, 21, 24),
         },
-        "stats": {"ATK%": (8, 10, 12, 14, 16)},
-        "ego_name": "What I Wished to Protect",
+        "stats": {
+          "ATK%": (8, 10, 12, 14, 16),
+        },
+        "ego_name": "What I Wished to Protect",  # this
         "ego_cost": 2,
         "ego_desc": "For 1 turn, +25% Critical Chance of Designated Combatant's Attack cards.",
     },
@@ -202,7 +268,9 @@ PARTNERS = {
             "DEF%": (12, 15, 18, 21, 24),
             "heal": (3, 3.8, 4.5, 5.3, 6),
         },
-        "stats": {"DEF%": (12, 15, 18, 21, 24)},
+        "stats": {
+          "DEF%": (12, 15, 18, 21, 24),
+        },
         "ego_name": "Vitality Boosting Potion",
         "ego_cost": 2,
         "ego_desc": "Heal 100%. When in an Injured state, increase Healing Amount by 50%. 1 Morale for 1 turn.",
@@ -217,7 +285,9 @@ PARTNERS = {
             "HP%": (8, 9, 10, 11, 12),
             "DR%": (10, 13, 15, 18, 20),
         },
-        "stats": {"HP%": (8, 9, 10, 11, 12)},
+        "stats": {
+          "HP%": (8, 9, 10, 11, 12),
+        },
         "ego_name": "Pokopo Ponpon!",
         "ego_cost": 3,
         "ego_desc": "Heal 200%. Apply 1 Damage Reduction.",
@@ -233,7 +303,9 @@ PARTNERS = {
             "cardATK%": (10, 13, 15, 18, 20),
             "cardATK%2": (10, 13, 15, 18, 20),
         },
-        "stats": {"ATK%": (8, 10, 12, 14, 16),},
+        "stats": {
+          "ATK%": (8, 10, 12, 14, 16),
+        },
         "ego_name": "Eating Soft Carrots",
         "ego_cost": 2,
         "ego_desc": "Increase Damage Amount of cards created by Designated Combatant's ability by 20% for 1 turn.",
@@ -268,7 +340,9 @@ PARTNERS = {
             "atkcard%": (10, 13, 15, 18, 20),
             "atkcard%2": (12, 15, 18, 21, 24),
         },
-        "stats": {"ATK%": (8, 10, 12, 14, 16),},
+        "stats": {
+          "ATK%": (8, 10, 12, 14, 16),
+        },
         "ego_name": "Activate Defense Module",
         "ego_cost": 3,
         "ego_desc": "For 1 turn, when a card is Exhausted, apply 1 Weaken to a random enemy.",
@@ -284,7 +358,9 @@ PARTNERS = {
             "atkDAM%": (10, 13, 15, 18, 20),
             "atkDAM%2": (10, 13, 15, 18, 20),
         },
-        "stats": {"ATK%": (8, 10, 12, 14, 16),},
+        "stats": {
+          "ATK%": (8, 10, 12, 14, 16),
+        },
         "ego_name": "Light of Judgment",
         "ego_cost": 3,
         "ego_desc": "Deal 100% Damage to all enemies. Draw 1 Attack card(s) from the assigned combatant with cost of less than or equal to 1.",
@@ -299,7 +375,8 @@ PARTNERS = {
             "shieldgain%": (10, 13, 15, 18, 20),
             "counterchance%": (20, 25, 30, 35, 40),
         },
-        "stats": {},
+        "stats": {
+        },
         "ego_name": "Colonel Hamburger!",
         "ego_cost": 2,
         "ego_desc": "Gain 100% Shield. Draw 1 Card.",
@@ -315,7 +392,9 @@ PARTNERS = {
             "Cost2DMG%": (10, 13, 15, 18, 20),
             "CostScaleDMG%": (5, 7, 8, 9, 10),
         },
-        "stats": {"ATK%": (8, 10, 12, 14, 16),},
+        "stats": {
+          "ATK%": (8, 10, 12, 14, 16),
+        },
         "ego_name": "Workplace hazards ahead!",
         "ego_cost": 2,
         "ego_desc": "For 1 turn, 3 Morale.",
@@ -333,7 +412,7 @@ PARTNERS = {
         },
         "stats": {
             "ATK%": (8, 10, 12, 14, 16),
-            "Extra DMG%": (10, 13, 15, 18, 20)
+            "Extra DMG%": (10, 13, 15, 18, 20),
         },
         "ego_name": "Security Team, Requesting Support!",
         "ego_cost": 2,
@@ -349,7 +428,9 @@ PARTNERS = {
             "DEF%": (12, 15, 18, 21, 24),
             "DEFDAM%": (10, 13, 15, 18, 20),
         },
-        "stats": {"DEF%": (12, 15, 18, 21, 24)},
+        "stats": {
+          "DEF%": (12, 15, 18, 21, 24),
+        },
         "ego_name": "Tactical Command",
         "ego_cost": 2,
         "ego_desc": "For 1 turn, gain 2 Morale.\nFor 1 turn, gain 1 Fortitude.",
@@ -430,14 +511,16 @@ PARTNERS = {
         "name": "Serithea",
         "grade": 4.5,
         "class": "Hunter",
-        "passive_name": "Ensemble",
+        "passive_name": "Ensemble",  # this
         "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nThe Critical Chance of the combatant's attack cards increases by {CRate%}%.\nWhen the assigned combatant's attack results in a Critical Hit, +{CDmg%}% Critical Damage. Stacks up to 5 times.",
         "values": {
             "ATK%": (12, 14, 16, 18, 20),
             "CRate%": (8, 10, 12, 14, 16),
             "CDmg%": (3, 3.5, 4, 4.5, 5),
         },
-        "stats": {"ATK%": (12, 14, 16, 18, 20)},
+        "stats": {
+          "ATK%": (12, 14, 16, 18, 20),
+        },
         "ego_name": "Crimson Romance",
         "ego_cost": 3,
         "ego_desc": "250% Damage. 2 Vulnerable.",
@@ -447,7 +530,7 @@ PARTNERS = {
         "grade": 4.5,
         "class": "Ranger",
         "passive_name": "Spacetime Warp",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK}%.\n+{ExtraDMG%}% Extra Attack damage of the assigned combatant.\nWhen the assigned combatant Draws for the first time each turn using an ability, +{CardDMG%}% Attack Card Damage for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{ExtraDMG%}% Extra Attack damage of the assigned combatant.\nWhen the assigned combatant Draws for the first time each turn using an ability, +{CardDMG%}% Attack Card Damage for 1 turn.",
         "values": {
             "ATK%": (12, 14, 16, 18, 20),
             "ExtraDMG%": (20, 25, 30, 35, 40),
@@ -455,7 +538,7 @@ PARTNERS = {
         },
         "stats": {
             "ATK%": (12, 14, 16, 18, 20),
-            "ExtraDMG%": (20, 25, 30, 35, 40),
+            "Extra DMG%": (20, 25, 30, 35, 40),
         },
         "ego_name": "Spacetime Rift",
         "ego_cost": 3,
@@ -472,7 +555,9 @@ PARTNERS = {
             "Cost2DMG%": (25, 32, 38, 44, 50),
             "PulverizeDMG%": (10, 13, 15, 18, 20),
         },
-        "stats": {"ATK%": (16, 18, 20, 22, 24)},
+        "stats": {
+          "ATK%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Light of Ark",
         "ego_cost": 2,
         "ego_desc": "+40% Damage of the next Attack card used by the assigned Combatant for the total cost of all cards in the hand (Max 10).",
@@ -488,7 +573,9 @@ PARTNERS = {
             "CounterDMG%": (15, 19, 23, 27, 30),
             "CounterChance%": (50, 63, 75, 88, 100),
         },
-        "stats": {"DEF%": (16, 18, 20, 22, 24)},
+        "stats": {
+          "DEF%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Crackdown Beam Bombardment",
         "ego_cost": 2,
         "ego_desc": "200% Defense-based Damage to all enemies.\n1 Counterattack.\nIf any enemy's Anticipated Action is attack, 1 Counterattack.",
@@ -504,7 +591,9 @@ PARTNERS = {
             "GraveDMG%": (15, 19, 23, 27, 30),
             "DiscardDMG%": (25, 32, 38, 44, 50),
         },
-        "stats": {"ATK%": (16, 18, 20, 22, 24)},
+        "stats": {
+          "ATK%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Lumina Explosion",
         "ego_cost": 3,
         "ego_desc": "200% Damage. +20% Damage by the number of cards in Graveyard.",
@@ -513,14 +602,16 @@ PARTNERS = {
         "name": "Marin",
         "grade": 5,
         "class": "Ranger",
-        "passive_name": "Raging Wave",
+        "passive_name": "Raging Wave",  # this
         "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nThe Extra Attack damage of cards generated by the assigned combatant's abilities increases by {ExtraDMG%}%.\nWhen a Skill Card is used for the first time by the assigned Combatant each turn, +{SkillExtra%}% Damage Amount to Extra Attacks for 1 turn.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "ExtraDMG%": (15, 19, 23, 27, 30),
             "SkillExtra%": (25, 32, 38, 44, 50),
         },
-        "stats": {"ATK%": (16, 18, 20, 22, 24)},
+        "stats": {
+          "ATK%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Azure Fury",
         "ego_cost": 3,
         "ego_desc": "200% Damage to all enemies. Draw 1 skill card.",
@@ -536,7 +627,9 @@ PARTNERS = {
             "RetainBonus%": (15, 19, 23, 27, 30),
             "FixedDMG%": (15, 19, 23, 27, 30),
         },
-        "stats": {"DEF%": (16, 18, 20, 22, 24)},
+        "stats": {
+          "DEF%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Legato of Faith",
         "ego_cost": 3,
         "ego_desc": "Heal 100%. Activate the Retain effect of all cards held by the assigned combatant.",
@@ -563,15 +656,17 @@ PARTNERS = {
         "name": "Tina",
         "grade": 5,
         "class": "Ranger",
-        "passive_name": "Communication Support",
+        "passive_name": "Communication Support",  # this
         "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nOrder attribute's Extra Attack damage increase by {OrderExtra%}%.\n+{TargetExtra%}% Extra Attack damage from Targeting Attack Cards.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "OrderExtra%": (15, 19, 23, 27, 31),
             "TargetExtra%": (25, 32, 38, 44, 50),
         },
-        "stats": {"ATK%": (16, 18, 20, 22, 24)},
-        "ego_name": "Target confirmed, initiating support!",
+        "stats": {
+          "ATK%": (16, 18, 20, 22, 24),
+        },
+        "ego_name": "Target confirmed, initiating support!",  # this
         "ego_cost": 2,
         "ego_desc": "Draw 1. Increase the combatant's Extra Attack damage by 30% for 1 turn.",
     },
@@ -586,7 +681,9 @@ PARTNERS = {
             "InstDMG%": (15, 19, 23, 27, 31),
             "CelestialBonus%": (25, 32, 38, 44, 50),
         },
-        "stats": {"DEF%": (16, 18, 20, 22, 24)},
+        "stats": {
+          "DEF%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Undertaking the Mission",
         "ego_cost": 2,
         "ego_desc": "200% Defense-Based Damage. Draws 1 highest-cost card.",
@@ -602,7 +699,9 @@ PARTNERS = {
             "DrawnDMG%": (25, 32, 38, 44, 50),
             "InspireDMG%": (10, 13, 15, 18, 20),
         },
-        "stats": {"ATK%": (16, 18, 20, 22, 24)},
+        "stats": {
+          "ATK%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Clue Spotted",
         "ego_cost": 3,
         "ego_desc": "Move 1 card from hand to Draw Pile. Draw 2 assigned Combatant cards.",
@@ -618,7 +717,9 @@ PARTNERS = {
             "StackDMG%": (5, 7, 8, 9, 10),
             "FixedDMG%": (30, 38, 45, 53, 60),
         },
-        "stats": {"ATK%": (16, 18, 20, 22, 24)},
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Moonlit Leisure",
         "ego_cost": 3,
         "ego_desc": "200% Damage to all enemies.\n 1 Fierce Winds.",
@@ -634,7 +735,9 @@ PARTNERS = {
             "RepairsDMG%": (10, 13, 15, 18, 20),
             "RavagedDMG%": (15, 19, 23, 27, 30),
         },
-        "stats": {"ATK%": (16, 18, 20, 22, 24)},
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Overclock Beacon",
         "ego_cost": 3,
         "ego_desc": "When an ally inflicts Ravage, 1 Overclock to the assigned Combatant (1 per turn).",
@@ -650,7 +753,9 @@ PARTNERS = {
             "DEFDAM%": (20, 25, 30, 35, 40),
             "DMG%": (20, 25, 30, 35, 40),
         },
-        "stats": {"DEF%": (16, 18, 20, 22, 24)},
+        "stats": {
+            "DEF%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Ice Wyrm's Roar",
         "ego_cost": 3,
         "ego_desc": "60% Defense-Based Damage x 4.\nDraw 1 Attack Card(s).",
@@ -666,7 +771,9 @@ PARTNERS = {
             "DEFDAM%": (20, 25, 30, 35, 40),
             "FixedShield%": (100, 125, 150, 175, 200),
         },
-        "stats": {"DEF%": (16, 18, 20, 22, 24)},
+        "stats": {
+            "DEF%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "If You Require Assistance",
         "ego_cost": 3,
         "ego_desc": "250% Defense-Based Damage.\n5 Caustic Remarks.",
@@ -675,14 +782,16 @@ PARTNERS = {
         "name": "Tiana",
         "grade": 5,
         "class": "Controller",
-        "passive_name": "Star in the Darkness",
+        "passive_name": "Star in the Darkness",  # this
         "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nWhen the assigned Combatant creates 3 Exhaust cards, increase allies’ next Attack Card Damage Amount by {DMG%}% (max 2 stacks)\nWhen the assigned Combatant has activated Shield gain and Heal through Order Cards, +{CRITRATE%}% Critical Chance of allies for 1 turn. (max 1 stack)",
         "values": {
             "DEF%": (16, 18, 20, 22, 24),
             "DMG%": (15, 19, 23, 27, 30),
             "CRITRATE%": (6, 8, 9, 11, 12),
         },
-        "stats": {"DEF%": (16, 18, 20, 22, 24)},
+        "stats": {
+            "DEF%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Phase Alignment",
         "ego_cost": 3,
         "ego_desc": "Draw 1 Exhaust Card\nDraw 1 Exhaust card the next 2 times Ego Skill is used\nDecrease the Cost of the next Ego Skill used by 1",
@@ -698,7 +807,9 @@ PARTNERS = {
             "2COSTDMG%": (25, 32, 38, 44, 50),
             "IMPLY%": (5, 7, 8, 9, 10),
         },
-        "stats": {"ATK%": (16, 18, 20, 22, 24)},
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "A New Visitor",
         "ego_cost": 3,
         "ego_desc": "2 Illusory Erosion\nIncrease Damage Amount taken from 2-Cost or higher Attack Cards of the assigned Combatant by 20%\nAt the end of the turn, Decrease 1 Illusory Erosion",
@@ -707,15 +818,17 @@ PARTNERS = {
         "name": "Sophia",
         "grade": 5,
         "class": "Hunter",
-        "passive_name": "Milky Way Chorus",
+        "passive_name": "Milky Way Chorus",  # this
         "passive_desc": "Increase the assigned Combatant’s Attack by {ATK%}%.\nWhen a Passion Quietus card of the assigned Combatant is Discarded, +{CDMG%}% Critical Damage (max 4 stacks).\nWhen 3 Bullet cards are Discarded, {EXTRADMG%}% Extra Attack by the assigned Combatant to a random enemy (2 times per turn)",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "CDMG%": (5, 7, 8, 9, 10),
             "EXTRADMG%": (200, 250, 300, 350, 400),
         },
-        "stats": {"ATK%": (16, 18, 20, 22, 24)},
-        "ego_name": "Always Cheer For You",
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
+        "ego_name": "Always Cheer For You",  # this
         "ego_cost": 3,
         "ego_desc": "3 Die-hard Fan\nDraw 1\nDiscard up to 2 cards\n\nDie-hard Fan\n+40% Damage Amount to Extra Attacks of the assigned Combatant\nAt the end of the turn, decrease Die-hard Fan by 1",
     },
@@ -723,15 +836,17 @@ PARTNERS = {
         "name": "Sylvia",
         "grade": 5,
         "class": "Ranger",
-        "passive_name": "Auroric Wingbeats",
+        "passive_name": "Auroric Wingbeats",  # this
         "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nEach time the assigned Combatant's Linked cards are used manually or Discarded, gain  1 [Zephyr].\nWhen [Zephyr] reaches 3, +{CDMG%}% Critical Damage to assigned Combatant.\n[Zephyr]: +{ZEPHYRDMG%}% Damage Amount to assigned Combatant's Passion Attack Cards (max 3 stacks)",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "CDMG%": (20, 25, 30, 35, 40),
             "ZEPHYRDMG%": (15, 19, 23, 27, 30),
         },
-        "stats": {"ATK%": (16, 18, 20, 22, 24)},
-        "ego_name": "Field Overview",
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
+        "ego_name": "Field Overview",  # this
         "ego_cost": 2,
         "ego_desc": "Select up to 2 cards in hand, apply Linked\nIf a selected card is the assigned Combatant's Linked card, +10% Critical Damage to assigned Combatant for each",
     },
@@ -746,12 +861,39 @@ PARTNERS = {
             "HEAL%": (40, 45, 50, 55, 60),
             "PRISMDMG%": (5, 7, 8, 9, 10),
         },
-        "stats": {"DEF%": (16, 18, 20, 22, 24)},
+        "stats": {
+            "DEF%": (16, 18, 20, 22, 24),
+        },
         "ego_name": "Genius Stage Director",
         "ego_cost": 3,
         "ego_desc": "200% Shield\nSelect and Draw 2 Blessing card(s) from Draw Pile",
     },
-    -2: {  # TODO: replace key with real res_id when known (Bria)
+    1070: {
+        "name": "Aria",
+        "grade": 5,
+        "class": "Psionic",
+        "passive_name": "Aria On Stage",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of the assigned Combatant's Basic Attack Cards by {BasicDMG%}% for each Basic Attack Card that shares the same name (max {MaxBasicDMG%}%).\nWhen a Basic Attack Card is activated, the assigned Combatant gains 1 Swelling Melody.\nSwelling Melody: +{CDMG%}% Critical Damage to the assigned Combatant (max 4 stacks)",
+        "values": {
+            "ATK%":       (16, 18, 20, 22, 24),
+            "BasicDMG%": (4, 5, 6, 7, 8),
+            "MaxBasicDMG%": (24, 30, 36, 42, 48),
+            "CDMG%":   (5, 7, 8, 9, 10),
+        },
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
+        "stats_conditional": {
+            # Swelling Melody: +5..10 CDmg per stack, encoded at max
+            # stacks (x4). Fully scored; like all partner passive
+            # bonuses, invisible to Have-at-least / Potential 7.
+            "CDmg": (20, 28, 32, 36, 40),
+        },
+        "ego_name": "An Aria For You",
+        "ego_cost": 2,
+        "ego_desc": "Increase Damage Amount of assigned Combatant's Basic Attack Cards by 20%.\nIf assigned Combatant's Ego Skill was used, decrease Cost of assigned Combatant's Basic Attack Cards by 1 for 1 turn",
+    },
+    -2: {  # TODO: replace key with real res_id when known
         "name": "Bria",
         "grade": 5,
         "class": "Psionic",
@@ -769,11 +911,11 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "Exhaust all Status Ailment Cards (including those that were originally Status Ailment) and Curse Cards from Discard Pile.\nIncrease Damage Amount of the assigned Combatant's Attack Cards by 10% for each card Exhausted for 1 turn.",
     },
-    -3: {  # TODO: replace key with real res_id when known (Janet)
+    -3: {  # TODO: replace key with real res_id when known
         "name": "Janet",
         "grade": 5,
         "class": "Hunter",
-        "passive_name": "Understanding and Ideas",
+        "passive_name": "Understanding and Ideas",  # this
         "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{CritCost1%}% Critical Chance of the assigned combatant's attack cards costing 1 or less.\nWhen the assigned combatant uses 5 Bullet cards, generate a random Handgun Bullet card. Increase Damage Amount of the created card by {HandgunDMG%}%.",
         "values": {
             "ATK%":         (16, 18, 20, 22, 24),
@@ -787,7 +929,7 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "150% Damage to all enemies.\nIncrease Damage Amount of Designated Combatant's Bullets by 20% for 1 turn.",
     },
-    -4: {  # TODO: replace key with real res_id when known (Marianne)
+    -4: {  # TODO: replace key with real res_id when known
         "name": "Marianne",
         "grade": 5,
         "class": "Striker",
@@ -889,12 +1031,21 @@ def get_partner_stats(res_id: int, level: int) -> dict:
     }
 
 
-def get_partner_passive_stats(res_id: int, limit_break: int) -> dict:
-    """Get unconditional passive stat bonuses for a partner card.
-    Returns stat bonuses based on limit_break (0=E0 through 4=E4)."""
+def get_partner_passive_stats(res_id: int, limit_break: int,
+                              conditional: bool = False) -> dict:
+    """Get passive stat bonuses for a partner card at the given
+    limit_break (0=E0 through 4=E4).
+
+    conditional=False (default) reads the "stats" field (unconditional
+    passive bonuses); conditional=True reads the "stats_conditional"
+    field (conditional/stacking effects at their encoded, usually
+    max-stack, value). Both are fully applied to Final stats and the
+    score; neither counts toward Have-at-least / Potential 7, which see
+    only the Partner's flat class stats -- see the module docstring."""
     partner = get_partner(res_id)
+    field = "stats_conditional" if conditional else "stats"
     stats = {}
-    for stat_name, values_tuple in partner.get("stats", {}).items():
+    for stat_name, values_tuple in partner.get(field, {}).items():
         stats[stat_name] = get_value_for_ego_level(values_tuple, limit_break)
     return stats
 

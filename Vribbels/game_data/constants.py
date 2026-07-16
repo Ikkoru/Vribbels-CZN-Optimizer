@@ -226,7 +226,7 @@ ALL_STAT_NAMES = [s[0] for s in STATS.values()]
 
 
 # ============================================================================
-# Display-name overrides (v1.1.0 polish round 3, Item 3)
+# Display-name overrides
 # ============================================================================
 #
 # Maps an internal STATS .name (the canonical key used in captured-data

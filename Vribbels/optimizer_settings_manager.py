@@ -189,11 +189,11 @@ class OptimizerSettingsManager:
             clean_chars[str(key)] = value
         self.data["characters"] = clean_chars
 
-        # Round 10: preserve any unknown top-level keys verbatim so newer
-        # features (e.g. the `excluded_default_initialized` flag added
-        # by the Optimizer tab's first-run-bootstrap path) don't get
-        # silently dropped on load -> next write cycle. Anything we
-        # don't explicitly recognize is carried forward as-is.
+        # Preserve unknown top-level keys verbatim so additive flags
+        # written by other components (e.g. `excluded_default_initialized`
+        # from the Optimizer tab's first-run bootstrap) survive the
+        # load -> next-write cycle. Do not "simplify" this into an
+        # explicit key whitelist -- that's exactly the bug it fixes.
         for key, value in data.items():
             if key in ("version", "excluded_gear_chars", "characters"):
                 continue
@@ -309,7 +309,9 @@ class OptimizerSettingsManager:
         }
 
     def get(self, res_id, field: str, default=None):
-        """Get a single field for a character. Auto-creates the entry if absent."""
+        """Get a single field for a character. Absent entries return
+        `default` (or the field's DEFAULT_CHARACTER_SETTINGS value) --
+        the entry is NOT auto-created."""
         key = str(res_id)
         entry = self.data["characters"].get(key)
         if entry is None:

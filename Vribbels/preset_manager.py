@@ -1,7 +1,7 @@
 """
 PresetManager - Persistent storage for user-defined gear scoring weight presets.
 
-Presets are stored as JSON in a 'presets' folder alongside the program.
+Presets are stored as JSON in the 'settings' folder alongside the program.
 
 File format (current):
     {

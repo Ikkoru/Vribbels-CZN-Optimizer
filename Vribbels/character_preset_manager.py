@@ -128,14 +128,11 @@ def migrate_v1_to_v2(name_keyed_assignments: dict) -> tuple:
 
         existing = assignments_by_id.get(rid_str)
         if rid_str in assignments_by_id:
-            # Collision: numeric key + name key for the same character.
-            # Prefer the non-null assignment.
+            # Collision (numeric key + name key for the same character):
+            # prefer the non-null assignment and the non-numeric hint.
             if existing is None and value is not None:
                 assignments_by_id[rid_str] = value
-            # Update name_hint to the proper-name form if we have one.
-            if not name_hints.get(rid_str, "").isdigit() and hint.isdigit():
-                pass  # existing hint is the proper name; keep it
-            else:
+            if name_hints.get(rid_str, "").isdigit() or not hint.isdigit():
                 name_hints[rid_str] = hint
         else:
             assignments_by_id[rid_str] = value
@@ -194,13 +191,11 @@ class CharacterPresetManager:
         # Cosmetic mirror: res_id (str) -> display name.
         self.name_hints: dict = {}
 
-        # Round 11 Task 4: cache the CHARACTERS lookup tables built by
-        # `_build_character_name_maps`. Without this, every
-        # `_resolve_name_to_id` call rebuilt them from scratch -- which
-        # added up to N rebuilds per HeroesTab.refresh_heroes (one per
-        # combatant), each iterating all ~40 CHARACTERS entries. Lazy
-        # init + invalidate via `invalidate_name_cache()` if game data
-        # ever changes mid-run (it doesn't today, but the hook is there).
+        # CHARACTERS name<->id lookup tables, built lazily and cached for
+        # the manager's lifetime. Do not rebuild per call: name resolution
+        # runs once per combatant per Combatants-tab refresh, and
+        # rebuilding was a measurable slowdown. Call invalidate_name_cache()
+        # if game data is ever reloaded at runtime.
         self._name_to_id_cache = None
         self._id_to_name_cache = None
 
@@ -228,16 +223,12 @@ class CharacterPresetManager:
         """Translate a character display name to its res_id-as-string.
 
         Resolution order:
-          1. CHARACTERS by name (proper-name -> res_id).
+          1. CHARACTERS by name (proper-name -> res_id), via cached map.
           2. If the name itself is a digit-only string, treat it as a
              captured-but-unknown res_id and return as-is.
           3. If the name is already a key in our store (e.g. an unknown
              non-numeric name that survived migration), return it.
           4. Otherwise None.
-
-        Round 11 Task 4: CHARACTERS lookup uses the cached map instead
-        of rebuilding it on every call. ~Nx speedup in refresh_heroes,
-        where N is the number of combatants.
         """
         if not isinstance(character_name, str) or not character_name:
             return None

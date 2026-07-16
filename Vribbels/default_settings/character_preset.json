@@ -32,7 +32,8 @@
     "30084": "Tiphera",
     "1009": "Tressa (Agony focus)",
     "1033": "Veronica",
-    "1057": "Yuki (non-Conqueror's Aspect)"
+    "1057": "Yuki (non-Conqueror's Aspect)",
+    "1069": "Tenebria"
   },
   "name_hints": {
     "1055": "Adelheid",
@@ -66,6 +67,7 @@
     "30084": "Tiphera",
     "1009": "Tressa",
     "1033": "Veronica",
-    "1057": "Yuki"
+    "1057": "Yuki",
+    "1069": "Tenebria"
   }
 }

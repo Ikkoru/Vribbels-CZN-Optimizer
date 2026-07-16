@@ -44,11 +44,13 @@ character's own level.
 
 Higher-level cap (61/62)
 ------------------------
-LEVEL_61_BONUS and LEVEL_62_BONUS at the bottom of this module are
-placeholder dicts (all values -1 = "unknown") for the stat additions
-gained at the new 61/62 level cap. The helper get_character_stats_at_level
-honors -1 as "fall back to level-60 value", so the placeholders are
-no-ops until real data lands.
+Characters max at level 62 (promotion 5/5 grants +2 levels over the old
+60 cap). Level-61/62 stat gains are stored PER CHARACTER as optional
+`level_61_bonus` / `level_62_bonus` keys on the CHARACTERS entries
+(shape {"atk": +X, "def": +Y, "hp": +Z}, additive over the level-60
+base) because the gains differ across characters. The helper
+get_character_stats_at_level falls back to the level-60 values for any
+character without those keys, so missing data is a no-op.
 
 CHARACTERS_BY_NAME, DEFAULT_CHARACTER, helpers
 ----------------------------------------------
@@ -78,7 +80,7 @@ DEFAULT_CHARACTER = {
 # Unified character/hero data: res_id -> all character information
 # Contains: name, grade, attribute, class, and base stats at level 60
 # See get_character_stats_at_level() below for how stats at level 61 are applied
-# Note: Stats marked with # TBD need actual game data
+# Note: Stats marked with # TBC or # Assumed need actual game data
 CHARACTERS = {
     0: None,  # Special case for unequipped
     1017: {
@@ -93,6 +95,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "HP%",
+        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},  # Assumed based on Maribell
     },
     1040: {
         "name": "Beryl",
@@ -106,6 +109,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
+        "level_61_bonus": {"atk": 8, "def": 2, "hp": 7},
     },
     1049: {
         "name": "Cassius",
@@ -119,6 +123,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "ATK%",
+        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},  # Assumed based on Mika
     },
     1021: {
         "name": "Lucas",
@@ -145,6 +150,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "HP%",
+        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
     },
     1039: {
         "name": "Mika",
@@ -199,6 +205,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "ATK%",
+        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
     },
     1005: {
         "name": "Selena",
@@ -212,6 +219,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
+        "level_61_bonus": {"atk": 8, "def": 2, "hp": 7},  # Assumed based on Beryl
     },
     1009: {
         "name": "Tressa",
@@ -231,26 +239,28 @@ CHARACTERS = {
         "grade": 5,
         "attribute": "Order",
         "class": "Ranger",
-        "base_atk": 505,
-        "base_def": 146,
-        "base_hp": 320,
+        "base_atk": 505,  # TBC
+        "base_def": 146,  # TBC
+        "base_hp": 320,  # TBC
         "base_crit_rate": 3.0,
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
+        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},  # Assumed based on Heidemarie
     },
     1064: {
         "name": "Kayron",
         "grade": 5,
         "attribute": "Void",
         "class": "Psionic",
-        "base_atk": 443,
-        "base_def": 169,
-        "base_hp": 356,
+        "base_atk": 443,  # TBC
+        "base_def": 169,  # TBC
+        "base_hp": 356,  # TBC
         "base_crit_rate": 3.0,
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Tenebria
     },
     1008: {
         "name": "Khalipe",
@@ -264,6 +274,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "HP%",
+        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
     },
     1004: {
         "name": "Luke",
@@ -290,6 +301,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "HP%",
+        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},  # Assumed based on Adelheid
     },
     1027: {
         "name": "Mei Lin",
@@ -303,6 +315,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Haru
     },
     1024: {
         "name": "Orlea",
@@ -316,6 +329,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "ATK%",
+        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},  # Assumed based on Tiphera
     },
     1041: {
         "name": "Renoa",
@@ -342,6 +356,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Haru
     },
     1033: {
         "name": "Veronica",
@@ -355,6 +370,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
+        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},  # Assumed based on Heidemarie
     },
     1062: {
         "name": "Haru",
@@ -382,6 +398,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Haru
     },
     1060: {
         "name": "Chizuru",
@@ -395,6 +412,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},
     },
     30075: {
         "name": "Sereniel",
@@ -421,6 +439,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "DEF%",
         "node_60": "CRate",
+        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
     },
     30047: {
         "name": "Nine",
@@ -434,6 +453,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},  # Assumed based on Adelheid
     },
     30084: {
         "name": "Tiphera",
@@ -447,6 +467,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
     },
     30097: {
         "name": "Rita",
@@ -460,6 +481,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Tenebria
     },
     1061: {
         "name": "Diana",
@@ -500,6 +522,35 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "DEF%",
+        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
+    },
+    1069: {
+        "name": "Tenebria",
+        "grade": 5,
+        "attribute": "Passion",
+        "class": "Psionic",
+        "base_atk": 443,
+        "base_def": 169,
+        "base_hp": 356,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},
+    },
+    -1: {
+        "name": "Fei",
+        "grade": 5,
+        "attribute": "Void",
+        "class": "Ranger",
+        "base_atk": 515,  # TBC
+        "base_def": 141,  # TBC
+        "base_hp": 317,  # TBC
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},  # Assumed based on Heidemarie
     },
 }
 

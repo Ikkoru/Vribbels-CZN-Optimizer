@@ -25,8 +25,8 @@ The damage formula (Final ATK / Final DEF / Final HP)
 
 The optimizer's `calculate_build_stats` (below) implements only the
 Final ATK/DEF/HP layered formula, which is one piece of the larger
-picture. The v1.1.0 optimizer overhaul wires in the damage and
-shield/heal scoring formulas on top of this baseline.
+picture. The damage and shield/heal scoring formulas are layered on
+top of this baseline.
 
 The optimizer uses a LAYERED formula that distinguishes "inner" sources
 (base stat, partner flat, MF%, potential% nodes, gear flat, affection
@@ -63,21 +63,22 @@ Where each piece comes from:
 
 Why layered? Because in-game tooltips reveal that some bonuses scale
 the inner total (the "main" stat box including its substats) while
-others sit outside it. The previous version of this formula treated
-everything as a single big sum, which over-credited percentage bonuses
-on top of percentage bonuses. The layered form matches the in-game
-math closely enough to compare builds reliably.
+others sit outside it. Treating everything as a single big sum would
+over-credit percentage bonuses on top of percentage bonuses; the
+layered form matches the in-game math closely enough to compare builds
+reliably.
 
-Heuristic stats removed
-=======================
-A previous iteration computed derived stats like EHP, Avg DMG, Max CD,
-and a Bruiser score. These were dropped because they varied unpredictably
-between game versions and weren't actionable. The Final ATK/DEF/HP plus
-GS columns now carry the comparison work; build-quality judgment lives
-in the user's preset weights, which is where it belongs.
+Heuristic stats
+===============
+Derived stats like EHP, Avg DMG, Max CD, and a Bruiser score are
+deliberately NOT computed: they varied unpredictably between game
+versions and weren't actionable. The Final ATK/DEF/HP plus GS columns
+carry the comparison work; build-quality judgment lives in the user's
+preset weights, which is where it belongs.
 """
 
 import json
+import time
 import itertools
 from typing import Callable
 from pathlib import Path
@@ -90,32 +91,28 @@ from game_data import (
     get_partner_stats, get_partner_passive_stats, get_potential_stat_bonus,
     SETS, SLOT_ORDER, ALL_STAT_NAMES
 )
-# Direct module-path import for the newly-added helper to avoid relying
-# on game_data/__init__.py re-exporting it.
+# Direct module-path import to avoid relying on game_data/__init__.py
+# re-exporting it.
 from game_data.characters import get_character_stats_at_level
-# Pure GS helper for per-character slot pre-filter sorting (v1.1.0 Phase 5).
-# Optimize() resolves the character's assigned preset weights into the
-# settings dict, then this gets used to score candidate fragments inside
-# get_gear_by_slot without mutating their cached fragment.gear_score
-# (which still reflects the globally-active preset). compute_gs_bounds is
-# imported alongside since the per-slot bounds cache reuses it.
+# Pure GS helper for per-character slot pre-filter sorting. optimize()
+# resolves the character's assigned preset weights into the settings
+# dict, then this scores candidate fragments inside get_gear_by_slot
+# without mutating their cached fragment.gear_score (which still
+# reflects the globally-active preset). compute_gs_bounds is imported
+# alongside since the per-slot bounds cache reuses it.
 from models.memory_fragment import compute_fragment_gs, compute_gs_bounds
-
-
-# Mapping from sets.py `stat` field values to the program's internal
-# stat-name vocabulary. Some names match exactly (ATK%, DEF%, HP%);
-# others differ ("Crit DMG" <-> CDmg, "Crit Rate" <-> CRate). DMG multi
-# and DMG add are NOT in this map: they have no Final-stat equivalent
-# and are accumulated separately into the damage card multiplier's
-# Multiplicative_Buffs / Additive_Buffs buckets. See
-# docs/game_formulas.md §5 for the canonical version of this table.
-SET_STAT_NAME_MAP = {
-    "ATK%":      "ATK%",
-    "DEF%":      "DEF%",
-    "HP%":       "HP%",
-    "Crit DMG":  "CDmg",
-    "Crit Rate": "CRate",
-}
+# Pure per-combo evaluation core. The formula bodies live there; the
+# methods on GearOptimizer below are thin wrappers that build the
+# char-static inputs and delegate, so there is exactly one
+# implementation of each formula. SET_STAT_NAME_MAP is re-exported here
+# for back-compat with existing importers.
+from optimizer import core
+from optimizer.core import SET_STAT_NAME_MAP  # noqa: F401  (re-export)
+# Parallel enumeration path. Imported at module level (cheap -- no pool
+# or Manager is created until the first parallel run); optimize()
+# dispatches to it for large runs when optimizer_workers allows, with
+# the sequential path kept as the fallback.
+from optimizer import parallel
 
 
 class GearOptimizer:
@@ -139,13 +136,11 @@ class GearOptimizer:
         self.capture_time = ""
         self.priorities: dict[str, int] = {name: 0 for name in ALL_STAT_NAMES}
         self.raw_data = {}
-        # Optional reference to SettingsManager. Reserved for the future
-        # Optimizer-tab "Optimize at" toggle: that tab will read its own
-        # level setting from SettingsManager and pass it to
-        # calculate_build_stats as the `effective_level` argument.
-        # Currently unread (Combatants-tab "Calculate GS for lvl:" is
-        # GS-scoped and doesn't go through this hook). Injected by
-        # czn_optimizer_gui.py at startup.
+        # Optional reference to SettingsManager, injected by
+        # czn_optimizer_gui.py at startup. Currently unread: the
+        # Optimizer tab's per-character "Optimize for LVL" value reaches
+        # the formulas through the settings dict / effective_level
+        # argument instead.
         self.settings_manager = None
 
     def load_data(self, filepath: str):
@@ -234,9 +229,9 @@ class GearOptimizer:
         # res_id entirely (and couldn't tell the user what to add to partners.py).
         all_items_by_id = {char.get("id", 0): char for char in char_items}
 
-        # Task 1 (round 9): the snapshot lumps characters AND partner cards
-        # into this one list with no explicit type field, so we infer which
-        # entries are partners using several signals in precedence order:
+        # The snapshot lumps characters AND partner cards into this one
+        # list with no explicit type field, so we infer which entries are
+        # partners using several signals in precedence order:
         #   1. known character (res_id in CHARACTERS)            -> character
         #   2. known partner (res_id in PARTNERS)                -> partner
         #   3. instance id referenced as some char's partner_id  -> partner
@@ -246,7 +241,7 @@ class GearOptimizer:
         #      potential tree, partners don't -> has data == character.
         # (3) catches equipped unknown partners; (4) catches OWNED-BUT-
         # UNEQUIPPED unknown partners (e.g. a freshly-pulled "30095" not yet
-        # in partners.py) that previously leaked into the character list.
+        # in partners.py) that would otherwise leak into the character list.
         # A res_id range rule was deliberately avoided: some new CHARACTERS
         # also use 5-digit 30xxx ids (they appear in this snapshot's
         # counseling / archive-gift / business-card data), so a range split
@@ -291,16 +286,17 @@ class GearOptimizer:
             char_data = get_character(res_id)
             name = char_data.get("name", "")
 
-            # Item 13: captured-but-unknown characters (a res_id not yet in
-            # characters.py) used to be skipped here, so they only appeared
-            # in the Combatants / Optimizer tabs via the `characters` dict
-            # (equipped gear) -- meaning they VANISHED when their last MF
-            # was unequipped. Instead, give them a CharacterInfo keyed by
-            # the numeric res_id string (matching get_character_name's
-            # behavior, so this character_info key lines up with the
-            # `equipped_to` value used in the `characters` dict). Now they
-            # show up on capture and persist regardless of equipped gear.
-            # Only a falsy/zero res_id is a genuinely empty entry to skip.
+            # Captured-but-unknown characters (a res_id not yet in
+            # characters.py) must NOT be skipped here: skipping them means
+            # they only appear in the Combatants / Optimizer tabs via the
+            # `characters` dict (equipped gear) -- so they'd VANISH when
+            # their last MF was unequipped. Instead, give them a
+            # CharacterInfo keyed by the numeric res_id string (matching
+            # get_character_name's behavior, so this character_info key
+            # lines up with the `equipped_to` value used in the
+            # `characters` dict). They show up on capture and persist
+            # regardless of equipped gear. Only a falsy/zero res_id is a
+            # genuinely empty entry to skip.
             if not name or name == "Unknown" or name.startswith("Unknown ("):
                 if res_id:
                     name = str(res_id)
@@ -397,10 +393,10 @@ class GearOptimizer:
                 GS computed under THESE weights (pure, doesn't mutate
                 fragment.gear_score). When None, use the cached
                 fragment.gear_score which reflects the globally-active
-                Scoring tab preset. v1.1.0 Phase 5 wires this to the
-                CURRENT CHARACTER's assigned preset weights so the pre-
-                filter heuristic matches the character's actual build
-                goals rather than the global default.
+                Scoring tab preset. This is wired to the CURRENT
+                CHARACTER's assigned preset weights so the pre-filter
+                heuristic matches the character's actual build goals
+                rather than the global default.
 
         Returns:
             List of MemoryFragment objects matching filters, sorted by score
@@ -422,9 +418,9 @@ class GearOptimizer:
         if use_priority_score:
             candidates.sort(key=lambda f: -f.priority_score)
         elif score_weights is not None:
-            # Per-character pre-filter sort (v1.1.0 Phase 5). We score every
-            # candidate under the character's weights using the pure helper
-            # so fragment.gear_score (set by the active preset) stays intact
+            # Per-character pre-filter sort. We score every candidate
+            # under the character's weights using the pure helper so
+            # fragment.gear_score (set by the active preset) stays intact
             # for the rest of the UI. Cache by main_stat name since bounds
             # only depend on weights + which stat is excluded; caps at ~16
             # entries regardless of fragment count.
@@ -446,10 +442,8 @@ class GearOptimizer:
         # `top_percent`% of available fragments, whichever is greater.
         # Rationale: the 10-floor helps small inventories that would otherwise
         # have too few candidates per slot for the optimizer to find good
-        # builds; the percentage handles large inventories. v1.1.0 Phase 4
-        # introduced the floor (previously the only safeguard was `max(1, ...)`,
-        # which left sparse inventories starved). The cap stays at len(candidates)
-        # so we never return more than we have.
+        # builds; the percentage handles large inventories. The cap stays at
+        # len(candidates) so we never return more than we have.
         count_by_pct = int(len(candidates) * top_percent / 100)
         count = min(len(candidates), max(10, count_by_pct))
         return candidates[:count]
@@ -472,6 +466,162 @@ class GearOptimizer:
     EQUIPMENT_DEF_PCT = 0.0
     EQUIPMENT_HP_PCT = 0.0
 
+    def _resolve_effective_level(self, char_name: str, effective_level) -> int:
+        """Resolve the level at which to read base stats.
+
+        Priority:
+          1. effective_level argument from the caller (the Optimizer
+             tab's per-character "Optimize for LVL" stepper flows
+             through here; the Combatants-tab "Calculate GS for lvl:"
+             setting is GS-scoped and intentionally does NOT).
+          2. max(60, actual character level), clamped to 62.
+          3. 60 fallback.
+
+        Optimizer's contract: stats are computed at level >= 60. For
+        characters below 60 we still use the level-60 baseline (their
+        in-game stats would be lower, but the optimizer exists to
+        compare endgame builds, not model mid-level progression).
+        """
+        if not char_name:
+            return 60
+        if effective_level is None:
+            actual_level = (self.character_info[char_name].level
+                            if char_name in self.character_info else 60)
+            return max(60, min(62, actual_level))
+        try:
+            return max(60, min(62, int(effective_level)))
+        except (ValueError, TypeError):
+            return 60
+
+    def _build_char_static(self, char_name: str, effective_level: int) -> dict:
+        """Build the char-static input dict consumed by core.compute_build_stats.
+
+        Everything here is constant across all combos of an optimize()
+        run (base stats at the effective level, affection, partner
+        flats + passives, potential-node bonuses, equipment constants),
+        so optimize() computes it ONCE per run via build_run_context
+        instead of once per combo -- a meaningful hot-loop saving on
+        its own. calculate_build_stats builds it per call for all other
+        callers.
+
+        get_character_stats_at_level applies the character's optional
+        level_61_bonus / level_62_bonus (per-character keys in the
+        CHARACTERS dict) when the level is 61/62. Characters without
+        those keys fall back to their level-60 base stats, so for them
+        this is a no-op.
+        """
+        cs = core.empty_char_static()
+        # Equipment constants apply to every build (even char_name=None
+        # calls -- historical behavior).
+        cs["equip_flat_atk"] = self.EQUIPMENT_FLAT_ATK
+        cs["equip_flat_def"] = self.EQUIPMENT_FLAT_DEF
+        cs["equip_flat_hp"] = self.EQUIPMENT_FLAT_HP
+        cs["equip_atk_pct"] = self.EQUIPMENT_ATK_PCT
+        cs["equip_def_pct"] = self.EQUIPMENT_DEF_PCT
+        cs["equip_hp_pct"] = self.EQUIPMENT_HP_PCT
+        if not char_name:
+            return cs
+
+        char_data = get_character_by_name(char_name)
+        scaled = get_character_stats_at_level(char_data, effective_level)
+        cs["base_atk"] = scaled["base_atk"]
+        cs["base_def"] = scaled["base_def"]
+        cs["base_hp"] = scaled["base_hp"]
+        cs["base_cr"] = char_data.get("base_crit_rate", 0)
+        cs["base_cd"] = char_data.get("base_crit_dmg", 125.0)
+
+        if char_name in self.character_info:
+            char_info = self.character_info[char_name]
+            fb = char_info.friendship_bonus
+            cs["affection_atk"], cs["affection_def"], cs["affection_hp"] = (
+                fb[0], fb[1], fb[2]
+            )
+
+            if char_info.partner_res_id:
+                partner_stats = get_partner_stats(
+                    char_info.partner_res_id, char_info.partner_level
+                )
+                cs["partner_flat_atk"] = partner_stats["atk"]
+                cs["partner_flat_def"] = partner_stats["def"]
+                cs["partner_flat_hp"] = partner_stats["hp"]
+
+                partner_passive = get_partner_passive_stats(
+                    char_info.partner_res_id, char_info.partner_limit_break
+                )
+                cs["partner_atk_pct"] = partner_passive.get("ATK%", 0)
+                cs["partner_def_pct"] = partner_passive.get("DEF%", 0)
+                cs["partner_hp_pct"] = partner_passive.get("HP%", 0)
+                cs["partner_cdmg"] = partner_passive.get("CDmg", 0)
+                cs["partner_extra_dmg"] = partner_passive.get("Extra DMG%", 0)
+                cs["partner_crate"] = partner_passive.get("CRate", 0)
+                cs["partner_dot"] = partner_passive.get("DoT%", 0)
+                cs["partner_ego"] = partner_passive.get("Ego", 0)
+
+                # Conditional partner effects ("stats_conditional"):
+                # scored at full encoded value, excluded from the
+                # Have-at-least comparison values (see core).
+                partner_cond = get_partner_passive_stats(
+                    char_info.partner_res_id, char_info.partner_limit_break,
+                    conditional=True,
+                )
+                cs["partner_atk_pct_cond"] = partner_cond.get("ATK%", 0)
+                cs["partner_def_pct_cond"] = partner_cond.get("DEF%", 0)
+                cs["partner_hp_pct_cond"] = partner_cond.get("HP%", 0)
+                cs["partner_crate_cond"] = partner_cond.get("CRate", 0)
+                cs["partner_cdmg_cond"] = partner_cond.get("CDmg", 0)
+                cs["partner_extra_dmg_cond"] = partner_cond.get("Extra DMG%", 0)
+                cs["partner_dot_cond"] = partner_cond.get("DoT%", 0)
+                cs["partner_ego_cond"] = partner_cond.get("Ego", 0)
+
+            potential_stats = {}  # Potential-node bonuses
+            if char_info.potential_50_level > 0:
+                stat_type, bonus = get_potential_stat_bonus(
+                    char_info.res_id, 50, char_info.potential_50_level
+                )
+                if stat_type:
+                    potential_stats[stat_type] = potential_stats.get(stat_type, 0) + bonus
+            if char_info.potential_60_level > 0:
+                stat_type, bonus = get_potential_stat_bonus(
+                    char_info.res_id, 60, char_info.potential_60_level
+                )
+                if stat_type:
+                    potential_stats[stat_type] = potential_stats.get(stat_type, 0) + bonus
+            cs["pot_atk_pct"] = potential_stats.get("ATK%", 0)
+            cs["pot_def_pct"] = potential_stats.get("DEF%", 0)
+            cs["pot_hp_pct"] = potential_stats.get("HP%", 0)
+            cs["pot_crate"] = potential_stats.get("CRate", 0)
+            cs["pot_cdmg"] = potential_stats.get("CDmg", 0)
+
+        return cs
+
+    def build_run_context(self, char_name: str, settings: dict,
+                          sets_selected: list, max_flex_slots: int) -> dict:
+        """Assemble the per-run context dict consumed by core.evaluate_combo.
+
+        Built ONCE per optimize() run (and, in the parallel path, once
+        in the parent then shipped to every worker). All values are
+        plain picklable data.
+        """
+        effective_level = self._resolve_effective_level(
+            char_name, settings.get("optimize_for_level")
+        )
+        return {
+            "char_static": self._build_char_static(char_name, effective_level),
+            "attribute": self._resolve_attribute(char_name, settings),
+            "set_effect_share": settings.get("set_effect_pct", 0) / 100.0,
+            "sets_selected": list(sets_selected),
+            "max_flex_slots": int(max_flex_slots),
+            "hal": settings.get("have_at_least") or {},
+            "score_pre": core.build_score_precompute(settings),
+            # Greedy trim references. Placeholder here (slot candidates
+            # aren't built until optimize()); optimize() overwrites this
+            # with core.build_greedy_refs(...) once the per-slot
+            # candidate lists exist, BEFORE any enumeration.
+            # {"D": 1.0, "S": 1.0} keeps trim_blend well-defined for any
+            # caller that evaluates combos without setting refs.
+            "gref": {"D": 1.0, "S": 1.0},
+        }
+
     def calculate_build_stats(self, gear: list[MemoryFragment],
                                char_name: str = None,
                                effective_level: int = None,
@@ -485,7 +635,7 @@ class GearOptimizer:
                     + Gear_Flat_X + Affection_Flat_X
           Final X = inner_X * (1 + Partner_X% + Equipment_X%) + Equipment_Flat_X
 
-        Also computes the v1.1.0 optimizer-scoring helper Shield_Heal_DEF
+        Also computes the optimizer-scoring helper Shield_Heal_DEF
         (a Final-DEF variant where Partner_FLAT_DEF is pulled out of the
         inner multiplier; see docs/game_formulas.md §4.1) and returns it
         plus the raw Base_DEF in the result dict under underscore-prefixed
@@ -513,308 +663,17 @@ class GearOptimizer:
             underscore-prefixed `_base_def_for_shield` and `_shield_heal_def`
             used by _compute_optimizer_score.
         """
-        base_atk, base_def, base_hp, base_cr, base_cd = 0, 0, 0, 0, 125.0
-
-        if char_name:
-            char_data = get_character_by_name(char_name)
-            # Resolve the level at which to read base stats.
-            #
-            # Priority:
-            #   1. effective_level argument from the caller (this is how
-            #      the future Optimizer-tab "Optimize at" toggle will pass
-            #      its tab-scoped value; the Combatants-tab "Calculate GS
-            #      for lvl:" setting is GS-scoped and intentionally does
-            #      NOT flow through here).
-            #   2. max(60, actual character level), clamped to 62.
-            #   3. 60 fallback.
-            #
-            # Optimizer's contract: stats are computed at level >= 60. For
-            # characters below 60 we still use the level-60 baseline (their
-            # in-game stats would be lower, but the optimizer exists to
-            # compare endgame builds, not model mid-level progression).
-            if effective_level is None:
-                actual_level = (self.character_info[char_name].level
-                                if char_name in self.character_info else 60)
-                effective_level = max(60, min(62, actual_level))
-            else:
-                try:
-                    effective_level = max(60, min(62, int(effective_level)))
-                except (ValueError, TypeError):
-                    effective_level = 60
-            # get_character_stats_at_level applies the character's optional
-            # level_61_bonus / level_62_bonus (per-character keys in the
-            # CHARACTERS dict) when the level is 61/62. Characters without
-            # those keys fall back to their level-60 base stats, so for them
-            # this is a no-op.
-            scaled = get_character_stats_at_level(char_data, effective_level)
-            base_atk = scaled["base_atk"]
-            base_def = scaled["base_def"]
-            base_hp = scaled["base_hp"]
-            base_cr = char_data.get("base_crit_rate", 0)
-            base_cd = char_data.get("base_crit_dmg", 125.0)
-
-        # Affection (friendship) flat bonuses + partner-card flat stats.
-        affection_atk, affection_def, affection_hp = 0, 0, 0
-        partner_flat_atk, partner_flat_def, partner_flat_hp = 0, 0, 0
-        partner_passive_stats = {}
-        potential_stats = {}  # Potential-node bonuses
-
-        if char_name and char_name in self.character_info:
-            char_info = self.character_info[char_name]
-            fb = char_info.friendship_bonus
-            affection_atk, affection_def, affection_hp = fb[0], fb[1], fb[2]
-
-            if char_info.partner_res_id:
-                partner_stats = get_partner_stats(char_info.partner_res_id, char_info.partner_level)
-                partner_flat_atk = partner_stats["atk"]
-                partner_flat_def = partner_stats["def"]
-                partner_flat_hp = partner_stats["hp"]
-
-                partner_passive_stats = get_partner_passive_stats(
-                    char_info.partner_res_id, char_info.partner_limit_break
-                )
-
-            if char_info.potential_50_level > 0:
-                stat_type, bonus = get_potential_stat_bonus(
-                    char_info.res_id, 50, char_info.potential_50_level
-                )
-                if stat_type:
-                    potential_stats[stat_type] = potential_stats.get(stat_type, 0) + bonus
-
-            if char_info.potential_60_level > 0:
-                stat_type, bonus = get_potential_stat_bonus(
-                    char_info.res_id, 60, char_info.potential_60_level
-                )
-                if stat_type:
-                    potential_stats[stat_type] = potential_stats.get(stat_type, 0) + bonus
-
-        # ----- Memory Fragment (substats + main stats) -----------------------
-        # Sum % and flat contributions from the 6 fragments. Set bonuses are
-        # applied below and lumped into the same "Memory Fragment %" bucket
-        # since they're triggered by gear pieces.
-        mf_atk_pct, mf_def_pct, mf_hp_pct = 0, 0, 0
-        gear_flat_atk, gear_flat_def, gear_flat_hp = 0, 0, 0
-        crit_rate, crit_dmg = 0, 0
-        ego, extra_dmg, dot_dmg = 0, 0, 0
-
-        for piece in gear:
-            piece_stats = piece.get_total_stats()
-            mf_atk_pct += piece_stats.get("ATK%", 0)
-            mf_def_pct += piece_stats.get("DEF%", 0)
-            mf_hp_pct += piece_stats.get("HP%", 0)
-            gear_flat_atk += piece_stats.get("Flat ATK", 0)
-            gear_flat_def += piece_stats.get("Flat DEF", 0)
-            gear_flat_hp += piece_stats.get("Flat HP", 0)
-            crit_rate += piece_stats.get("CRate", 0)
-            crit_dmg += piece_stats.get("CDmg", 0)
-            ego += piece_stats.get("Ego", 0)
-            extra_dmg += piece_stats.get("Extra DMG%", 0)
-            dot_dmg += piece_stats.get("DoT%", 0)
-
-        # Set bonuses: count pieces per set, route satisfied bonuses into
-        # the right bucket. See docs/game_formulas.md §5 for the full taxonomy:
-        #   - "unconditional" sets always apply at full value.
-        #   - "conditional" sets with stat in {Crit DMG, Crit Rate} apply at
-        #     value × set_effect_share (touching Final_CDmg / Final_CRate).
-        #   - "conditional" sets with stat in {DMG multi, DMG add} do NOT
-        #     touch Final stats; they're handled by _compute_optimizer_score
-        #     (skipped here).
-        set_counts = {}
-        for piece in gear:
-            set_counts[piece.set_id] = set_counts.get(piece.set_id, 0) + 1
-        for set_id, count in set_counts.items():
-            if set_id not in SETS:
-                continue
-            set_info = SETS[set_id]
-            if count < set_info["pieces"]:
-                continue
-            stype = set_info["type"]
-            raw_stat = set_info.get("stat", "")
-            value = set_info.get("value", 0)
-
-            if stype == "unconditional":
-                effective = value
-            elif stype == "conditional" and raw_stat in ("Crit DMG", "Crit Rate"):
-                effective = value * set_effect_share
-            else:
-                # Conditional DMG multi / DMG add: handled by the optimizer
-                # score function (flows through card_mult, not Final stats).
-                continue
-
-            program_stat = SET_STAT_NAME_MAP.get(raw_stat)
-            if program_stat == "ATK%":
-                mf_atk_pct += effective
-            elif program_stat == "DEF%":
-                mf_def_pct += effective
-            elif program_stat == "HP%":
-                mf_hp_pct += effective
-            elif program_stat == "CDmg":
-                crit_dmg += effective
-            elif program_stat == "CRate":
-                crit_rate += effective
-
-        # Potential-node % bonuses (these go into the inner multiplier
-        # alongside Memory Fragment %).
-        potential_atk_pct = potential_stats.get("ATK%", 0)
-        potential_def_pct = potential_stats.get("DEF%", 0)
-        potential_hp_pct  = potential_stats.get("HP%", 0)
-        # Potential-node CRate/CDmg are flat additions (not part of the new
-        # ATK/DEF/HP formula structure).
-        crit_rate += potential_stats.get("CRate", 0)
-        crit_dmg  += potential_stats.get("CDmg", 0)
-
-        # Partner passive % bonuses (these go into the OUTER multiplier
-        # alongside Equipment %).
-        partner_atk_pct = partner_passive_stats.get("ATK%", 0)
-        partner_def_pct = partner_passive_stats.get("DEF%", 0)
-        partner_hp_pct  = partner_passive_stats.get("HP%", 0)
-        crit_dmg  += partner_passive_stats.get("CDmg", 0)
-        extra_dmg += partner_passive_stats.get("Extra DMG%", 0)
-
-        # ----- Apply the layered Final ATK/DEF/HP formulas -------------------
-        # Final X = ((Base X + Partner X) × (1 + MF X% + Potential X%)
-        #            + Gear Flat X + Affection Flat X)
-        #         × (1 + Partner X% + Equipment X%)
-        #         + Equipment Flat X
-        def _inner(base, partner_flat, mf_pct, pot_pct, gear_flat, affection_flat):
-            """Inner stat = the build's value BEFORE the outer multiplier.
-            Exposed separately (under "_inner_X" keys) so v1.1.0 polish
-            features can use it: the Have-at-least check (item 7) and
-            the "Potential 7 X" rows in the Stat Contributions popup
-            (item 8). Per in-game verification, Partner% and Equipment
-            don't contribute toward the in-game minimum stat thresholds,
-            so this inner value is what those features compare against.
-            """
-            inner_mult = 1 + (mf_pct + pot_pct) / 100
-            return (base + partner_flat) * inner_mult + gear_flat + affection_flat
-
-        def _final(base, partner_flat, mf_pct, pot_pct, gear_flat, affection_flat,
-                   partner_pct, equip_pct, equip_flat):
-            outer_mult = 1 + (partner_pct + equip_pct) / 100
-            inner = _inner(base, partner_flat, mf_pct, pot_pct, gear_flat, affection_flat)
-            return inner * outer_mult + equip_flat
-
-        # Shield_Heal_DEF: a Final-DEF variant where Partner_FLAT_DEF is
-        # pulled OUT of the inner multiplier (treated as additive flat
-        # instead). The only difference from regular Final DEF. See
-        # docs/game_formulas.md §4.1 for the formula derivation. Computed
-        # here because it shares all the same inputs as Final DEF; consumed
-        # by _compute_optimizer_score via the _shield_heal_def return key.
-        def _final_shield_heal_def(base, partner_flat, mf_pct, pot_pct, gear_flat,
-                                    affection_flat, partner_pct, equip_pct, equip_flat):
-            inner_mult = 1 + (mf_pct + pot_pct) / 100
-            outer_mult = 1 + (partner_pct + equip_pct) / 100
-            # Difference vs _final: partner_flat is NOT added to `base`
-            # before applying inner_mult -- it's added as a separate flat
-            # contribution. The rest of the layered structure is identical.
-            inner = base * inner_mult + partner_flat + gear_flat + affection_flat
-            return inner * outer_mult + equip_flat
-
-        total_atk = _final(
-            base_atk, partner_flat_atk, mf_atk_pct, potential_atk_pct,
-            gear_flat_atk, affection_atk,
-            partner_atk_pct, self.EQUIPMENT_ATK_PCT, self.EQUIPMENT_FLAT_ATK,
-        )
-        total_def = _final(
-            base_def, partner_flat_def, mf_def_pct, potential_def_pct,
-            gear_flat_def, affection_def,
-            partner_def_pct, self.EQUIPMENT_DEF_PCT, self.EQUIPMENT_FLAT_DEF,
-        )
-        total_hp = _final(
-            base_hp, partner_flat_hp, mf_hp_pct, potential_hp_pct,
-            gear_flat_hp, affection_hp,
-            partner_hp_pct, self.EQUIPMENT_HP_PCT, self.EQUIPMENT_FLAT_HP,
-        )
-        # Items 7+8 (round 5): inner ATK/DEF/HP -- the build value without
-        # Partner% multiplier and without Equipment (% or flat). Used by
-        # _meets_have_at_least and surfaced in the breakdown popup as
-        # "Potential 7 X".
-        inner_atk = _inner(base_atk, partner_flat_atk, mf_atk_pct,
-                            potential_atk_pct, gear_flat_atk, affection_atk)
-        inner_def = _inner(base_def, partner_flat_def, mf_def_pct,
-                            potential_def_pct, gear_flat_def, affection_def)
-        inner_hp = _inner(base_hp, partner_flat_hp, mf_hp_pct,
-                           potential_hp_pct, gear_flat_hp, affection_hp)
-        shield_heal_def = _final_shield_heal_def(
-            base_def, partner_flat_def, mf_def_pct, potential_def_pct,
-            gear_flat_def, affection_def,
-            partner_def_pct, self.EQUIPMENT_DEF_PCT, self.EQUIPMENT_FLAT_DEF,
-        )
-        total_cr = base_cr + crit_rate
-        total_cd = base_cd + crit_dmg
-
-        return {
-            "ATK": total_atk, "DEF": total_def, "HP": total_hp,
-            "CRate": total_cr, "CDmg": total_cd,
-            # Summed % buckets — informational; reflects total % from MF+
-            # potential+partner+equipment so the user can see what's
-            # contributing. The Final ATK/DEF/HP above already account for
-            # the layered formula.
-            "ATK%": mf_atk_pct + potential_atk_pct + partner_atk_pct + self.EQUIPMENT_ATK_PCT,
-            "DEF%": mf_def_pct + potential_def_pct + partner_def_pct + self.EQUIPMENT_DEF_PCT,
-            "HP%":  mf_hp_pct  + potential_hp_pct  + partner_hp_pct  + self.EQUIPMENT_HP_PCT,
-            "Ego": ego, "Extra DMG%": extra_dmg, "DoT%": dot_dmg,
-            # v1.1.0 optimizer-scoring internals (underscore-prefixed).
-            # UI display code can filter them out by ignoring keys
-            # starting with "_". See _compute_optimizer_score.
-            "_base_def_for_shield": base_def,
-            "_shield_heal_def": shield_heal_def,
-            # Items 7+8 (round 5): inner values (without outer multiplier
-            # and without equipment). Used by _meets_have_at_least and
-            # displayed in the popup as "Potential 7 X".
-            "_inner_atk": inner_atk,
-            "_inner_def": inner_def,
-            "_inner_hp":  inner_hp,
-        }
+        # Formula body lives in optimizer/core.py; this wrapper resolves
+        # the level, builds the char-static inputs, and delegates.
+        effective_level = self._resolve_effective_level(char_name, effective_level)
+        cs = self._build_char_static(char_name, effective_level)
+        return core.compute_build_stats(gear, cs, set_effect_share=set_effect_share)
 
     def _count_locked_slots(self, combo, sets_selected: list) -> int:
-        """Count how many slots are "locked" into a chosen set's satisfied bonus.
-
-        A slot is locked if it belongs to a fully-satisfied bonus from one of
-        the user's chosen sets. Total wildcard slots = 6 - locked; the build
-        is valid if wildcard count <= max_flex_slots.
-
-        This single rule implicitly enumerates the 6 combo-shape variants
-        from docs/game_formulas.md:
-          - locked=6 (0 wildcards): shape 4+2 (one 4pc + one 2pc) or 2+2+2
-          - locked=4 (2 wildcards): shape 4+wild2 or 2+2+wild2
-          - locked=2 (4 wildcards): shape 2+wild4
-          - locked=0 (6 wildcards): shape wild6
-
-        The max_flex_slots stepper cap maps directly to "how many wildcards
-        are tolerated". Equivalent to enumerating per-shape but avoids
-        partition combinatorics.
-
-        Returns 0 when sets_selected is empty (every slot is a wildcard) --
-        the caller's max_flex_slots check then determines whether that's
-        acceptable.
-
-        Args:
-            combo: Tuple of 6 MemoryFragment objects (one per slot).
-            sets_selected: List of set_id ints the user marked as desirable
-                in the Optimizer tab's Set Configuration checklist.
-
-        Returns:
-            Integer 0-6: the number of slots locked into a satisfied chosen
-            set's bonus.
-        """
-        if not sets_selected:
-            return 0
-        # Quick count: pieces per set in this build.
-        set_counts: dict = {}
-        for piece in combo:
-            set_counts[piece.set_id] = set_counts.get(piece.set_id, 0) + 1
-        locked = 0
-        for set_id in sets_selected:
-            if set_id not in SETS:
-                continue
-            pieces_needed = SETS[set_id]["pieces"]
-            if set_counts.get(set_id, 0) >= pieces_needed:
-                # Bonus is satisfied; this set locks `pieces_needed` slots.
-                # We don't count overflow (e.g. 6 of a 4pc set still only
-                # locks 4 -- the extra 2 are wildcards).
-                locked += pieces_needed
-        return locked
+        """Count how many slots are "locked" into a chosen set's satisfied
+        bonus. Delegates to core.count_locked_slots -- see its docstring
+        for the wildcard rule and the combo-shape taxonomy."""
+        return core.count_locked_slots(combo, sets_selected)
 
     def _resolve_attribute(self, char_name: str, settings: dict) -> str:
         """Return the effective Element attribute for damage-formula purposes.
@@ -838,192 +697,38 @@ class GearOptimizer:
 
     def _meets_have_at_least(self, stats: dict, settings: dict) -> bool:
         """Check whether a build's stats meet every "Have at least" minimum.
-
-        Returns True if all configured thresholds are satisfied (or no
-        thresholds set). Empty / missing / zero thresholds are skipped
-        (trivially met).
-
-        For ATK / DEF / HP, the comparison value is the INNER stat (build
-        value before the outer multiplier and without equipment) -- see
-        _inner() in calculate_build_stats. Per in-game verification, the
-        minimum-stat requirements in CZN don't take Partner% or Equipment
-        into account -- only Base + Partner-flat + Memory-Fragment +
-        Potential% nodes + Affection. So the HAL check uses the same
-        "build contribution" view of ATK/DEF/HP that the in-game
-        requirement checks against.
-
-        For other stats (CRate, CDmg, Ego, Extra DMG%, DoT%), the regular
-        final value is used since there's no inner/outer split for them.
-
-        Item 7 (round 5): switched from "Final - Equipment_Flat" to the
-        inner value, which additionally excludes Partner%.
-        """
-        hal = settings.get("have_at_least") or {}
-        if not hal:
-            return True
-        # ATK/DEF/HP have inner-value alternatives; everything else uses
-        # the regular key.
-        inner_keys = {
-            "ATK": "_inner_atk",
-            "DEF": "_inner_def",
-            "HP":  "_inner_hp",
-        }
-        for stat, min_val in hal.items():
-            if min_val is None or min_val <= 0:
-                continue
-            lookup_key = inner_keys.get(stat, stat)
-            # Fall back to the regular stat if the inner key is missing
-            # (defensive -- calculate_build_stats always populates them).
-            actual = stats.get(lookup_key, stats.get(stat, 0))
-            if actual < min_val:
-                return False
-        return True
+        Delegates to core.meets_have_at_least -- see its docstring. These
+        minimums exist primarily (but not exclusively) for the in-game
+        Potential 7 stat requirements; per in-game verification, those
+        checks ignore all Partner PASSIVE bonuses, all Equipment
+        contributions, and conditional set procs (Partner flat class
+        stats DO count), and the comparison values match."""
+        return core.meets_have_at_least(stats, settings.get("have_at_least") or {})
 
     def _compute_optimizer_score(self, gear: list, stats: dict,
                                   settings: dict, char_name: str) -> float:
-        """v1.1.0 optimizer score: damage / shield-heal blend.
+        """Scalar optimizer score: damage / shield-heal blend.
 
-        See docs/game_formulas.md §3, §4, §5, §8 for the formula sources.
-        Constants that don't affect relative ranking (0.35, Enemy_Defense_
-        Multiplier, Element_Advantage, etc.) are dropped from the comparison.
-        The shield/heal 0.3 constant IS preserved so the heal_share blend
-        stays balanced against damage magnitudes.
+        Delegates to core.compute_score (see docs/game_formulas.md §3,
+        §4, §5, §8 and optimizer/core.py for the formula body). Kept as
+        a method because callers outside optimize() -- e.g. the Optimizer
+        tab's refresh_after_load score recompute -- hold a GearOptimizer
+        and a raw settings dict; optimize() itself goes through the
+        per-run context + core.evaluate_combo instead.
 
-        Args:
-            gear: List of 6 MemoryFragment objects.
-            stats: Result of calculate_build_stats. Must include
-                _base_def_for_shield and _shield_heal_def keys.
-            settings: Per-character optimizer settings dict.
-            char_name: Character name (used for attribute lookup).
-
-        Returns:
-            Scalar score. Higher is better. Magnitudes are arbitrary --
-            rankings are stable but absolute numbers aren't directly
-            meaningful.
+        Returns a scalar score; higher is better. Magnitudes are
+        arbitrary -- rankings are stable but absolute numbers aren't
+        directly meaningful.
         """
-        # All user-supplied percentages, normalized to fractions.
-        extra_share = settings.get("extra_pct", 0) / 100.0
-        dot_share = settings.get("dot_pct", 0) / 100.0
-        def_split = settings.get("atk_def_split", 0) / 100.0
-        heal_share = settings.get("shielding_healing_weight", 0) / 100.0
-        set_effect_share = settings.get("set_effect_pct", 0) / 100.0
-        # avg_card_dmg_pct is the average card's intrinsic multiplier as a
-        # percentage (100 = card does normal damage, 150 = card does +50%, etc.)
-        base_multiplier = settings.get("avg_card_dmg_pct", 100) / 100.0
-        avg_mult_buff = settings.get("avg_mult_buff_pct", 0) / 100.0
-        avg_add_buff = settings.get("avg_add_buff_pct", 0) / 100.0
-
-        # ----- Conditional set DMG multi / DMG add accumulator -----
-        # These flow through the damage card multiplier only (NOT
-        # shield/heal -- see docs §5). Scaled by set_effect_share.
-        # When set_effect_share == 0 we skip the whole walk -- common
-        # case for users who haven't dialed the slider up.
-        set_dmg_multi_total = 0.0
-        set_dmg_add_total = 0.0
-        if set_effect_share > 0:
-            set_counts: dict = {}
-            for piece in gear:
-                set_counts[piece.set_id] = set_counts.get(piece.set_id, 0) + 1
-            for set_id, count in set_counts.items():
-                if set_id not in SETS:
-                    continue
-                set_info = SETS[set_id]
-                if set_info.get("type") != "conditional":
-                    continue
-                if count < set_info["pieces"]:
-                    continue
-                raw_stat = set_info.get("stat", "")
-                value = set_info.get("value", 0)
-                if raw_stat == "DMG multi":
-                    set_dmg_multi_total += value * set_effect_share
-                elif raw_stat == "DMG add":
-                    set_dmg_add_total += value * set_effect_share
-
-        # ----- Card multipliers (damage vs shield/heal) -----
-        # Damage card multiplier includes DMG multi / DMG add.
-        # Shield/heal card multiplier does NOT (see docs §5). Both share
-        # the user's avg_card_dmg_pct base + avg buff inputs.
-        mult_buffs_dmg = avg_mult_buff + set_dmg_multi_total / 100.0
-        add_buffs_dmg = avg_add_buff + set_dmg_add_total / 100.0
-        card_mult_dmg = base_multiplier * (1 + mult_buffs_dmg) + add_buffs_dmg
-        card_mult_shield_heal = (
-            base_multiplier * (1 + avg_mult_buff) + avg_add_buff
+        return core.compute_score(
+            gear, stats,
+            core.build_score_precompute(settings),
+            self._resolve_attribute(char_name, settings),
         )
-
-        # ----- Crit modifier -----
-        # Average damage per hit = (1 - p_crit) × base + p_crit × base × (1 + bonus)
-        #                        = base × (1 + p_crit × bonus)
-        # where bonus = (Final_CDmg - 100) / 100. CRate cap = 100%.
-        final_crate = max(0.0, min(100.0, stats.get("CRate", 0)))
-        final_cdmg = stats.get("CDmg", 125)
-        crit_modifier = 1 + (final_crate / 100.0) * max(0.0, (final_cdmg - 100.0) / 100.0)
-
-        # ----- Element DMG% -----
-        # The optimizer treats all of a character's damage as their
-        # element. We pick up the matching Element DMG% main stat from
-        # slot 5 (if equipped). For Unknown-attribute characters, the
-        # user's element_override drives the matching.
-        attribute = self._resolve_attribute(char_name, settings)
-        element_dmg_pct = 0
-        if attribute:
-            elem_main_name = f"{attribute} DMG%"
-            for piece in gear:
-                if piece.main_stat and piece.main_stat.name == elem_main_name:
-                    element_dmg_pct += piece.main_stat.value
-        element_multiplier = 1 + element_dmg_pct / 100.0
-
-        # ----- ATK vs DEF scaling damage formulas -----
-        # Constants (0.35, Enemy_Defense_Multiplier) dropped -- same
-        # across all builds. See docs §3.1 / §3.2.
-        final_atk = stats.get("ATK", 0)
-        final_def = stats.get("DEF", 0)
-        atk_scaling = card_mult_dmg * final_atk * element_multiplier * crit_modifier
-        def_scaling = card_mult_dmg * (final_atk * 0.3 + final_def * 2.1) \
-                      * element_multiplier * crit_modifier
-
-        # Extra DMG and DoT always use ATK formula with the Mechanic_DMG%
-        # multiplier (Extra DMG% or DoT% respectively). See docs §3 notes.
-        extra_dmg_pct = stats.get("Extra DMG%", 0)
-        dot_dmg_pct = stats.get("DoT%", 0)
-        extra_dmg_per_hit = atk_scaling * (1 + extra_dmg_pct / 100.0)
-        dot_dmg_per_hit = atk_scaling * (1 + dot_dmg_pct / 100.0)
-
-        # ----- Blend damage by share -----
-        # The character's damage is partitioned by type:
-        #   extra_share  : Extra-typed damage (always ATK formula)
-        #   dot_share    : DoT-typed damage   (always ATK formula)
-        #   normal_share : everything else (split between ATK and DEF
-        #                  formulas via def_split slider)
-        # Shares sum to 1.0. If extra + dot > 1, normal_share clamps to 0.
-        normal_share = max(0.0, 1.0 - extra_share - dot_share)
-        damage_score = (
-            normal_share * (1.0 - def_split) * atk_scaling
-            + normal_share * def_split * def_scaling
-            + extra_share * extra_dmg_per_hit
-            + dot_share * dot_dmg_per_hit
-        )
-
-        # ----- Shield/heal score -----
-        # See docs §4.1. Shield_Heal_DEF differs from Final DEF only in
-        # having Partner_FLAT_DEF outside the inner multiplier.
-        base_def_raw = stats.get("_base_def_for_shield", 0)
-        shield_heal_def = stats.get("_shield_heal_def", 0)
-        shield_heal_score = (
-            (base_def_raw + shield_heal_def) / 2.0
-            * 0.3
-            * card_mult_shield_heal
-        )
-
-        # ----- Combined blend -----
-        # heal_share = 0: pure damage. heal_share = 1: pure heal/shield.
-        # In between: weighted blend. The user calibrates this slider by
-        # feel since damage and heal magnitudes aren't naturally
-        # commensurable.
-        return damage_score * (1.0 - heal_share) + shield_heal_score * heal_share
 
     def compute_build_breakdown(self, gear: list, char_name: str,
                                 settings: dict = None) -> dict:
-        """Per-source breakdown of a build's final stats (Item 11).
+        """Per-source breakdown of a build's final stats.
 
         Recomputes the SAME layered formula as calculate_build_stats but
         keeps each contribution separate instead of collapsing it, so the
@@ -1037,9 +742,12 @@ class GearOptimizer:
         affection, partner_pct, other_present (bool -- True if set% /
         equipment %/flat contribute, which they generally do via the
         equipment flat constant). For CRate/CDmg: base, mf_main, mf_sub,
-        other (numeric). For Element%/Extra DMG%/DoT%/Ego: the relevant
-        mf_main / mf_sub split plus a numeric `other`. Plus scalar
-        "xDMG%" (multiplicative buffs) and "+DMG%" (additive buffs).
+        set_effect (all set contributions), pot7_excluded (everything the
+        Potential 7 rows subtract: conditional set contributions plus ALL
+        partner passive crit contributions), other (numeric). For Element%/Extra DMG%/DoT%/Ego:
+        the relevant mf_main / mf_sub split plus a numeric `other`. Plus
+        scalar "xDMG%" (multiplicative buffs) and "+DMG%" (additive
+        buffs).
         """
         settings = settings or {}
         set_effect_share = settings.get("set_effect_pct", 0) / 100.0
@@ -1070,6 +778,7 @@ class GearOptimizer:
         affection_atk = affection_def = affection_hp = 0
         partner_flat_atk = partner_flat_def = partner_flat_hp = 0
         partner_passive = {}
+        partner_cond = {}
         potential = {}
         if char_name and char_name in self.character_info:
             ci = self.character_info[char_name]
@@ -1082,6 +791,10 @@ class GearOptimizer:
                 )
                 partner_passive = get_partner_passive_stats(
                     ci.partner_res_id, ci.partner_limit_break
+                )
+                partner_cond = get_partner_passive_stats(
+                    ci.partner_res_id, ci.partner_limit_break,
+                    conditional=True,
                 )
             for node, lvl in ((50, ci.potential_50_level),
                               (60, ci.potential_60_level)):
@@ -1119,6 +832,13 @@ class GearOptimizer:
         # ----- Set bonuses (same routing as calculate_build_stats) -----
         set_atk_pct = set_def_pct = set_hp_pct = 0.0
         set_crate = set_cdmg = 0.0
+        # Conditional-only portions of the crit set bonuses. Together
+        # with ALL partner crit contributions these form the
+        # pot7_excluded buckets the popup's "Potential 7 CRate/CDMG"
+        # rows subtract (matching the HAL gate's view; the in-game
+        # Potential 7 checks see neither conditional procs nor any
+        # partner contribution).
+        set_crate_cond = set_cdmg_cond = 0.0
         set_dmg_multi = set_dmg_add = 0.0
         set_counts: dict = {}
         for piece in gear:
@@ -1153,8 +873,12 @@ class GearOptimizer:
                 set_hp_pct += eff
             elif ps_name == "CDmg":
                 set_cdmg += eff
+                if stype == "conditional":
+                    set_cdmg_cond += eff
             elif ps_name == "CRate":
                 set_crate += eff
+                if stype == "conditional":
+                    set_crate_cond += eff
 
         # ----- Potential % + flat-crit, partner passive % -----
         pot_atk_pct = potential.get("ATK%", 0)
@@ -1162,11 +886,29 @@ class GearOptimizer:
         pot_hp_pct  = potential.get("HP%", 0)
         pot_crate = potential.get("CRate", 0)
         pot_cdmg  = potential.get("CDmg", 0)
-        partner_atk_pct = partner_passive.get("ATK%", 0)
-        partner_def_pct = partner_passive.get("DEF%", 0)
-        partner_hp_pct  = partner_passive.get("HP%", 0)
+        partner_atk_pct = (partner_passive.get("ATK%", 0)
+                           + partner_cond.get("ATK%", 0))
+        partner_def_pct = (partner_passive.get("DEF%", 0)
+                           + partner_cond.get("DEF%", 0))
+        partner_hp_pct  = (partner_passive.get("HP%", 0)
+                           + partner_cond.get("HP%", 0))
         partner_cdmg  = partner_passive.get("CDmg", 0)
         partner_extra = partner_passive.get("Extra DMG%", 0)
+        partner_crate = partner_passive.get("CRate", 0)
+        partner_dot   = partner_passive.get("DoT%", 0)
+        partner_ego   = partner_passive.get("Ego", 0)
+        # Partner PASSIVE contributions: included in the row totals
+        # (they DO affect Final stats and the score) but excluded from
+        # every Potential 7 value -- for CRate/CDmg, the unconditional
+        # AND conditional partner crit are folded into the
+        # pot7_excluded subtraction buckets, mirroring the HAL gate.
+        # (The Partner's flat CLASS stats, by contrast, DO count toward
+        # Pot7 ATK/DEF/HP -- they sit inside _inner.)
+        partner_crate_cond = partner_cond.get("CRate", 0)
+        partner_cdmg_cond  = partner_cond.get("CDmg", 0)
+        partner_extra_cond = partner_cond.get("Extra DMG%", 0)
+        partner_dot_cond   = partner_cond.get("DoT%", 0)
+        partner_ego_cond   = partner_cond.get("Ego", 0)
 
         # ----- Final ATK/DEF/HP (reconciles with calculate_build_stats) -----
         def _final(base, partner_flat, mf_pct, set_pct, pot_pct, gear_flat,
@@ -1178,8 +920,11 @@ class GearOptimizer:
 
         def _inner(base, partner_flat, mf_pct, set_pct, pot_pct, gear_flat,
                    affection_flat):
-            # Items 7+8 (round 5): inner value (before outer multiplier,
-            # without equipment). Matches calculate_build_stats' _inner.
+            # Inner / Potential-7 view: Partner flat class stats
+            # included, no Partner passive % and no Equipment. Matches
+            # core.compute_build_stats' _inner (plus the set% term this
+            # breakdown keeps separate -- unconditional set bonuses are
+            # sheet-visible and stay in).
             inner_mult = 1 + (mf_pct + set_pct + pot_pct) / 100
             return (base + partner_flat) * inner_mult + gear_flat + affection_flat
 
@@ -1200,21 +945,20 @@ class GearOptimizer:
                           pot_hp_pct, mf_flat_hp, affection_hp)
 
         def _other_present(equip_pct):
-            # Item 1 (v1.1.0 polish round 2): Equipment is now its own column
-            # in the popup ("Equip (apx.)"), so it's no longer rolled into
-            # "Other". With sets ALSO broken out as "Set Effect Sum", every
-            # contributor for ATK/DEF/HP is explicitly named. "Other" now
-            # signals only Equipment ATK%/DEF%/HP% multipliers -- defaults to
-            # 0 (so Other = False, displayed as cross), but if the user
-            # customizes EQUIPMENT_*_PCT in optimizer.py, the cross flips to
-            # check so the popup still reconciles.
+            # Equipment has its own column in the popup ("Equip (apx.)"),
+            # and sets are broken out as "Set Effect Sum", so every
+            # contributor for ATK/DEF/HP is explicitly named. "Other"
+            # signals only Equipment ATK%/DEF%/HP% multipliers -- defaults
+            # to 0 (so Other = False, displayed as cross), but if the user
+            # customizes EQUIPMENT_*_PCT in optimizer.py, the cross flips
+            # to check so the popup still reconciles.
             return bool(equip_pct)
 
         # ----- Crit / element / mechanic stats -----
         attribute = self._resolve_attribute(char_name, settings)
         elem_main = _m(f"{attribute} DMG%") if attribute else 0
 
-        # Items 7 + 9: xDMG% / +DMG% in the popup show ONLY the set-effect
+        # xDMG% / +DMG% in the popup show ONLY the set-effect
         # contributions (Avg Multi Buff% / Avg Add Buff% deliberately
         # excluded -- those are user-assumed external buffs, not actual
         # character contributions). Lines below that have an "Other" field
@@ -1252,39 +996,167 @@ class GearOptimizer:
             "CRate": {
                 "base": base_cr, "mf_main": _m("CRate"), "mf_sub": _s("CRate"),
                 "set_effect": set_crate,
-                "other": pot_crate,
+                "pot7_excluded": (set_crate_cond + partner_crate
+                                  + partner_crate_cond),
+                "other": pot_crate + partner_crate + partner_crate_cond,
             },
             "CDmg": {
                 "base": base_cd, "mf_main": _m("CDmg"), "mf_sub": _s("CDmg"),
                 "set_effect": set_cdmg,
-                "other": pot_cdmg + partner_cdmg,
+                "pot7_excluded": (set_cdmg_cond + partner_cdmg
+                                  + partner_cdmg_cond),
+                "other": pot_cdmg + partner_cdmg + partner_cdmg_cond,
             },
             "Element%": {"mf_main": elem_main, "set_effect": 0.0, "other": 0.0},
             "Extra DMG%": {"mf_sub": _s("Extra DMG%"), "set_effect": 0.0,
-                           "other": partner_extra},
-            "DoT%": {"mf_sub": _s("DoT%"), "set_effect": 0.0, "other": 0.0},
+                           "other": partner_extra + partner_extra_cond},
+            "DoT%": {"mf_sub": _s("DoT%"), "set_effect": 0.0,
+                     "other": partner_dot + partner_dot_cond},
             "Ego": {"mf_main": _m("Ego"), "mf_sub": _s("Ego"),
-                    "set_effect": 0.0, "other": 0.0},
+                    "set_effect": 0.0, "other": partner_ego + partner_ego_cond},
             "xDMG%": set_dmg_multi,
             "+DMG%": set_dmg_add,
         }
+
+    def _resolve_worker_count(self) -> int:
+        """Effective optimizer worker count from settings/config.json's
+        `optimizer_workers` field (0 = auto = cpu_count - 1, 1 =
+        single-thread legacy path, N = capped to cpu_count). Read fresh
+        on every run so a manual config edit applies without an app
+        restart. Any config trouble degrades to auto."""
+        try:
+            from config import load_config
+            configured = int(getattr(load_config(), "optimizer_workers", 0))
+        except Exception:
+            configured = 0
+        return parallel.resolve_worker_count(configured)
+
+    def _optimize_sequential(self, slot_candidates: dict, ctx: dict,
+                             max_results: int, total_perms: int,
+                             progress_callback=None, cancel_flag=None):
+        """Single-process enumeration: the small-run path and the
+        fallback whenever the parallel path is disabled, under the size
+        threshold, or errored. Increments self.last_optimize_stats
+        counters in place. Returns (results, checked).
+
+        The per-combo work lives in core.evaluate_combo, shared with
+        parallel.evaluate_partition -- the status codes map onto the
+        counters identically in both:
+        duplicates and set failures skip both passed counters; HAL
+        failures count as passed_set_reqs only.
+        """
+        results = []
+        checked = 0
+        for combo in itertools.product(*[slot_candidates[s] for s in SLOT_ORDER]):
+            if cancel_flag and cancel_flag[0]:
+                break
+
+            checked += 1
+            self.last_optimize_stats["total_combinations"] += 1
+
+            status, total_score, stats = core.evaluate_combo(combo, ctx)
+            if status == core.COMBO_DUPLICATE or status == core.COMBO_SET_FAIL:
+                continue
+            self.last_optimize_stats["passed_set_reqs"] += 1
+            if status == core.COMBO_HAL_FAIL:
+                continue
+            self.last_optimize_stats["passed_have_at_least"] += 1
+
+            results.append((list(combo), total_score, stats))
+
+            if progress_callback and checked % 5000 == 0:
+                progress_callback(checked, total_perms, len(results))
+
+            if len(results) > max_results * 10:
+                results.sort(key=core.result_sort_key)
+                results = results[:max_results]
+
+        results.sort(key=core.result_sort_key)
+        return results[:max_results], checked
+
+    def reblend_results_for_display(self, results: list, char_name: str,
+                                   settings: dict) -> list:
+        """Re-apply the display blend to an existing results list.
+
+        optimize() ranks/rescales results against the run's true max-D /
+        max-S so the top row reads 100. When the Optimizer tab re-maps a
+        cached results list after a live equip/upgrade event
+        (refresh_after_load), the per-build (D, S) components can change
+        (an upgrade alters substats), so the display must be recomputed
+        on the SAME basis or the Score column falls back to a different
+        scale.
+
+        For each (gear, _oldscore, stats) this recomputes stats +
+        components for the remapped gear, then re-blends against the
+        max-D / max-S of THIS list and rescales so the top row = 100 --
+        identical math to optimize()'s post-merge step, just over the
+        already-trimmed list (no re-enumeration, no re-sort: equip/
+        upgrade events don't change which builds exist, only their
+        numbers, and the tab preserves row identity by index).
+
+        Returns a new list of (gear, display_score, stats) with the
+        refreshed stats dicts (including updated _D / _S). Falls back to
+        the input entry on any per-build error.
+        """
+        if not results:
+            return results
+        sp = core.build_score_precompute(settings)
+        attribute = self._resolve_attribute(char_name, settings)
+        set_effect_share = settings.get("set_effect_pct", 0) / 100.0
+        rebuilt = []
+        for gear, old_score, old_stats in results:
+            try:
+                stats = self.calculate_build_stats(
+                    gear, char_name, set_effect_share=set_effect_share
+                )
+                d, s = core.compute_score_components(gear, stats, sp, attribute)
+                stats["_D"], stats["_S"] = d, s
+                rebuilt.append((gear, None, stats))
+            except Exception:
+                rebuilt.append((gear, old_score, old_stats))
+        EPS = 1e-9
+        d_ref = max((st.get("_D", 0.0) for _g, _s, st in rebuilt), default=0.0)
+        s_ref = max((st.get("_S", 0.0) for _g, _s, st in rebuilt), default=0.0)
+        d_ref = max(d_ref, EPS)
+        s_ref = max(s_ref, EPS)
+        scored = []
+        for gear, placeholder, stats in rebuilt:
+            if placeholder is not None:
+                # Per-build recompute failed above -- keep its old score.
+                scored.append((gear, placeholder, stats))
+                continue
+            scored.append((gear, core.display_blend(
+                stats.get("_D", 0.0), stats.get("_S", 0.0), sp, d_ref, s_ref,
+            ), stats))
+        # Rescale so the current top row reads 100, preserving the tab's
+        # existing row order (index identity matters for selection
+        # restore -- see refresh_after_load).
+        top = max((sc for _g, sc, _st in scored if sc is not None),
+                  default=0.0)
+        if top > 0:
+            scale = 100.0 / top
+            scored = [(g, (sc * scale if sc is not None else sc), st)
+                      for g, sc, st in scored]
+        return scored
 
     def optimize(self, char_name: str, settings: dict, progress_callback: Callable = None,
                  cancel_flag: list = None) -> list[tuple[list[MemoryFragment], float, dict]]:
         """
         Find optimal gear combinations for a character.
 
-        Uses brute-force enumeration with filtering. v1.1.0 rewrite:
-        the build score is the damage/shield-heal blended formula from
-        docs/game_formulas.md §8 (not the old gear_score sum). Per-
-        character settings (Important Settings sliders, Have at Least
-        minimums, set-effect %, avg buff fields, level stepper) drive
-        the scoring; see _compute_optimizer_score for the formula.
+        Uses brute-force enumeration with filtering. The build score is
+        the damage/shield-heal blended formula from
+        docs/game_formulas.md §8. Per-character settings (Important
+        Settings sliders, Have at Least minimums, set-effect %, avg buff
+        fields, level stepper) drive the scoring; see
+        _compute_optimizer_score for the formula.
 
         Side effect: writes `self.last_optimize_stats`, a small counters
         dict the caller can read after optimize() returns to drive UI
         messaging (e.g., distinguishing "no candidate sets found" from
-        "every candidate failed Have at Least").
+        "every candidate failed Have at Least"). Also carries
+        `duration_seconds` and `combos_per_sec` for performance
+        baselining.
 
         Args:
             char_name: Character name to optimize for
@@ -1311,11 +1183,7 @@ class GearOptimizer:
         excluded_heroes = settings.get("excluded_heroes", [])
         max_results = settings.get("max_results", 100)
 
-        # v1.1.0 settings used by calculate_build_stats + _compute_optimizer_score
-        set_effect_share = settings.get("set_effect_pct", 0) / 100.0
-        effective_level = settings.get("optimize_for_level")
-
-        # Phase 5: per-character preset weights for the slot pre-filter
+        # Per-character preset weights for the slot pre-filter
         # heuristic. When the user has assigned a custom preset to this
         # character, we sort each slot's candidates by their score under
         # THAT preset before the Top filter trims down; this keeps the
@@ -1325,7 +1193,7 @@ class GearOptimizer:
         # to fragment.gear_score (the active preset's value).
         slot_filter_weights = settings.get("slot_filter_weights") or None
 
-        # Phase 4 set-combo configuration. `sets_selected` is the full list
+        # Set-combo configuration. `sets_selected` is the full list
         # of set IDs the user marked as usable for this character; the optimizer
         # works out which combo shapes are possible. `max_flex_slots` caps how
         # many slots in a build may NOT belong to a satisfied chosen-set bonus
@@ -1342,16 +1210,20 @@ class GearOptimizer:
         # Counters for caller messaging. Reset on every optimize() call.
         # See check_queue in optimizer_tab for the "0 builds matched"
         # popup that uses passed_have_at_least vs passed_set_reqs to
-        # distinguish "no candidates" from "all filtered". In Phase 4
+        # distinguish "no candidates" from "all filtered".
         # `passed_set_reqs` counts combos that passed the locked-count
         # rule (which subsumes the legacy 4pc/2pc check).
+        start_time = time.perf_counter()
         self.last_optimize_stats = {
             "total_combinations": 0,
             "passed_set_reqs": 0,
             "passed_have_at_least": 0,
+            # Filled in when the run ends (finished OR cancelled).
+            "duration_seconds": 0.0,
+            "combos_per_sec": 0.0,
         }
 
-        # Phase 4 candidate pool sizing:
+        # Candidate pool sizing:
         # - When max_flex_slots == 0 AND sets_selected is non-empty, we know
         #   every slot must belong to a chosen set -- restrict candidates to
         #   chosen sets for efficiency (smaller search space).
@@ -1381,104 +1253,137 @@ class GearOptimizer:
                 required_sets=candidate_set_filter,
                 required_main=main_filter,
                 top_percent=top_percent,
-                use_priority_score=False,  # v1.1.0: always sort by gear_score
-                                            # (priority sliders are gone from UI)
+                use_priority_score=False,  # always sort by gear_score
+                                            # (no priority sliders in the UI)
                 min_rarity=3,  # Only Rare+ for optimizer
-                score_weights=slot_filter_weights,  # Phase 5: per-character preset
+                score_weights=slot_filter_weights,  # per-character preset
             )
             slot_candidates[slot_num] = candidates if candidates else []
 
         for slot_num in SLOT_ORDER:
             if not slot_candidates[slot_num]:
+                self.last_optimize_stats["duration_seconds"] = (
+                    time.perf_counter() - start_time
+                )
                 return []
 
         total_perms = 1
         for slot_num in SLOT_ORDER:
             total_perms *= len(slot_candidates[slot_num])
 
-        results = []
+        # Per-run evaluation context (char-static inputs, resolved
+        # attribute, HAL minimums, score precompute): built ONCE here,
+        # then every combo is evaluated against it by core.evaluate_combo.
+        # Besides enabling the parallel workers (the ctx is plain
+        # picklable data), this keeps the per-combo character lookups
+        # (partner tables, potential nodes, base stats) out of the hot
+        # loop.
+        ctx = self.build_run_context(
+            char_name, settings, sets_selected, max_flex_slots
+        )
+
+        # Build the per-run GREEDY trim references from the top
+        # candidate in each slot, now that slot_candidates exists. These
+        # gate the in-flight trim (a per-run constant divisor pair, so
+        # parallel/sequential parity and the deterministic tie-break are
+        # preserved). The DISPLAYED score is re-blended after the merge
+        # against the run's true max-D / max-S (see below).
+        ctx["gref"] = core.build_greedy_refs(
+            slot_candidates, ctx["char_static"], ctx["set_effect_share"],
+            ctx["score_pre"], ctx["attribute"],
+        )
+
+        # ---- Parallel dispatch ----
+        # Above the size threshold and with more than one configured
+        # worker, the enumeration is farmed out to worker processes
+        # (strided partitioning of slot 1 -- see optimizer/parallel.py).
+        # The sequential method is both the small-run path and the
+        # fallback if the parallel path fails for any reason.
+        results = None
         checked = 0
+        workers = self._resolve_worker_count()
+        if workers > 1 and total_perms >= parallel.PARALLEL_MIN_COMBOS:
+            try:
+                par_results, counters, checked = parallel.optimize_parallel(
+                    slot_candidates, ctx, max_results, workers, total_perms,
+                    progress_callback, cancel_flag,
+                )
+            except Exception:
+                # Spawn trouble (frozen-build quirks, AV interference),
+                # pickling errors, a broken pool -- fall back to the
+                # sequential path below. Correctness over speed.
+                par_results = None
+                checked = 0
+            else:
+                for k in ("total_combinations", "passed_set_reqs",
+                          "passed_have_at_least"):
+                    self.last_optimize_stats[k] = counters[k]
+                # Gear returned from workers consists of pickled COPIES
+                # of the fragments (they crossed a process boundary);
+                # remap onto THIS process's fragment objects by id so
+                # identity-adjacent behavior downstream (live-update
+                # remapping, owner display) matches the single-thread
+                # path exactly.
+                by_id = {getattr(f, "id", None): f for f in self.fragments}
+                by_id.pop(None, None)
+                results = [
+                    ([by_id.get(getattr(p, "id", None), p) for p in gear],
+                     score, stats)
+                    for gear, score, stats in par_results
+                ]
 
-        for combo in itertools.product(*[slot_candidates[s] for s in SLOT_ORDER]):
-            if cancel_flag and cancel_flag[0]:
-                break
-
-            checked += 1
-            self.last_optimize_stats["total_combinations"] += 1
-
-            piece_ids = [p.id for p in combo]
-            if len(piece_ids) != len(set(piece_ids)):
-                continue
-
-            # Phase 4 unified set-combo rule (replaces the legacy any-4pc +
-            # all-2pc check). Count slots locked into chosen-set bonuses; the
-            # build is valid if its wildcard count fits under max_flex_slots.
-            # See _count_locked_slots docstring for the shape taxonomy.
-            locked = self._count_locked_slots(combo, sets_selected)
-            if (6 - locked) > max_flex_slots:
-                continue
-
-            self.last_optimize_stats["passed_set_reqs"] += 1
-
-            # Compute build stats. set_effect_share lets conditional Crit
-            # DMG / Crit Rate sets contribute to Final stats at the right
-            # weighting; conditional DMG multi / DMG add sets affect the
-            # damage card multiplier separately inside _compute_optimizer_score.
-            stats = self.calculate_build_stats(
-                list(combo), char_name,
-                effective_level=effective_level,
-                set_effect_share=set_effect_share,
+        if results is None:
+            results, checked = self._optimize_sequential(
+                slot_candidates, ctx, max_results, total_perms,
+                progress_callback, cancel_flag,
             )
 
-            # Hard constraint: "Have at least this much". Builds that fail
-            # any minimum are excluded entirely (not just docked points).
-            if not self._meets_have_at_least(stats, settings):
-                continue
+        # Wall time + throughput, recorded whether the run finished or
+        # was cancelled.
+        duration = time.perf_counter() - start_time
+        self.last_optimize_stats["duration_seconds"] = duration
+        self.last_optimize_stats["combos_per_sec"] = (
+            checked / duration if duration > 0 else 0.0
+        )
 
-            self.last_optimize_stats["passed_have_at_least"] += 1
-
-            # v1.1.0 scoring (see docs §8)
-            total_score = self._compute_optimizer_score(
-                list(combo), stats, settings, char_name
-            )
-
-            results.append((list(combo), total_score, stats))
-
-            if progress_callback and checked % 5000 == 0:
-                progress_callback(checked, total_perms, len(results))
-
-            if len(results) > max_results * 10:
-                results.sort(key=lambda x: -x[1])
-                results = results[:max_results]
-
-        results.sort(key=lambda x: -x[1])
-        results = results[:max_results]
-
-        # Round 9: rescale the SCORE COLUMN so the numbers are comparable both
-        # within a list and across characters, WITHOUT disturbing the ranking.
-        # Divide every score by the character's "buff baseline" -- the card
-        # multiplier with set effects removed:
-        #     baseline = avg_card_dmg/100 * (1 + avg_mult_buff/100)
-        #                + avg_add_buff/100
-        # This is a per-CHARACTER constant (identical for every build in the
-        # list), so dividing by it preserves order AND ratios EXACTLY --
-        # monotonic, and the visual gaps (e.g. "top is ~5% above 2nd") are
-        # unchanged. It also divides out the user's external-buff assumptions,
-        # so two characters with different Avg Card DMG% / buff settings can be
-        # compared on build quality alone (a low-scoring roster member then
-        # genuinely reflects weaker MFs/sets, not just lower assumed buffs).
+        # ---- Display re-blend ----
+        # Enumeration/trim ranked by the greedy-ref trim blend. Now
+        # re-score the survivors against the run's TRUE max-D / max-S
+        # (the exact percent-normalized semantics), re-sort, and rescale
+        # so the top row reads 100 at any slider position. The (D, S)
+        # components rode along in each stats dict under "_D" / "_S".
         #
-        # Exactness note: the baseline is the damage card multiplier WITHOUT
-        # the conditional DMG-multi/DMG-add set terms (those add into the real
-        # multiplier rather than scaling it). So when such set effects are
-        # active the cross-character normalization is approximate -- but the
-        # within-list order and ratios stay exact regardless, because the
-        # divisor is a single constant for the whole list.
-        base_mult = settings.get("avg_card_dmg_pct", 100) / 100.0
-        mult_buff = settings.get("avg_mult_buff_pct", 0) / 100.0
-        add_buff = settings.get("avg_add_buff_pct", 0) / 100.0
-        buff_baseline = base_mult * (1.0 + mult_buff) + add_buff
-        if buff_baseline <= 0:
-            buff_baseline = 1.0
-        return [(gear, score / buff_baseline, stats)
-                for gear, score, stats in results]
+        # Re-sorting can reorder survivors slightly vs the trim order
+        # (greedy refs != run-max refs): the display uses the true
+        # references, while the trim only had to keep the right builds
+        # IN the survivor pool (it keeps max_results * 10), not rank
+        # them for display.
+        if results:
+            EPS = 1e-9
+            d_ref = max((st.get("_D", 0.0) for _g, _s, st in results),
+                        default=0.0)
+            s_ref = max((st.get("_S", 0.0) for _g, _s, st in results),
+                        default=0.0)
+            d_ref = max(d_ref, EPS)
+            s_ref = max(s_ref, EPS)
+            rescored = []
+            for gear, _trim, stats in results:
+                disp = core.display_blend(
+                    stats.get("_D", 0.0), stats.get("_S", 0.0),
+                    ctx["score_pre"], d_ref, s_ref,
+                )
+                rescored.append((gear, disp, stats))
+            # Sort by the display score (same deterministic tie-break),
+            # then rescale the whole column so the top row = 100.
+            rescored.sort(key=core.result_sort_key)
+            top = rescored[0][1] if rescored else 0.0
+            if top > 0:
+                scale = 100.0 / top
+                results = [(gear, score * scale, stats)
+                           for gear, score, stats in rescored]
+            else:
+                # Degenerate (all-zero) column -- leave scores as-is
+                # rather than divide by zero; ordering already applied.
+                results = rescored
+
+        return results

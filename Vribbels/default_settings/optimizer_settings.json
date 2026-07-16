@@ -1,6 +1,37 @@
 {
   "version": 1,
   "excluded_gear_chars": [
+    "1003",
+    "1004",
+    "1005",
+    "1008",
+    "1009",
+    "1010",
+    "1017",
+    "1018",
+    "1021",
+    "1024",
+    "1027",
+    "1028",
+    "1033",
+    "1039",
+    "1040",
+    "1041",
+    "1049",
+    "1050",
+    "1052",
+    "1055",
+    "1056",
+    "1057",
+    "1060",
+    "1061",
+    "1062",
+    "1069",
+    "30047",
+    "30075",
+    "30084",
+    "30093",
+    "30097"
   ],
   "characters": {
     "1003": {
@@ -792,10 +823,10 @@
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
-        "CRate": 0,
-        "CDmg": 0,
-        "Extra DMG%": 0,
-        "DoT%": 0
+        "CRate": 0.0,
+        "CDmg": 0.0,
+        "Extra DMG%": 0.0,
+        "DoT%": 0.0
       },
       "sets_selected": [
         9,
@@ -803,7 +834,7 @@
         11,
         19
       ],
-      "max_flex_slots": 6,
+      "max_flex_slots": 2,
       "set_effect_pct": 100,
       "avg_card_dmg_pct": 90,
       "avg_mult_buff_pct": 0,
@@ -1123,7 +1154,77 @@
       "avg_mult_buff_pct": 15,
       "avg_add_buff_pct": 140,
       "element_override": null
+    },
+    "1069": {
+      "name_hint": "Tenebria",
+      "optimize_for_level": 62,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 800,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        10,
+        11
+      ],
+      "max_flex_slots": 2,
+      "set_effect_pct": 100,
+      "avg_card_dmg_pct": 300,
+      "avg_mult_buff_pct": 80,
+      "avg_add_buff_pct": 65,
+      "element_override": null
     }
   },
-  "excluded_default_initialized": false
+  "excluded_default_initialized": false,
+  "exclude_seen_rids": [
+    "1003",
+    "1004",
+    "1005",
+    "1008",
+    "1009",
+    "1010",
+    "1017",
+    "1018",
+    "1021",
+    "1024",
+    "1027",
+    "1028",
+    "1033",
+    "1039",
+    "1040",
+    "1041",
+    "1043",
+    "1049",
+    "1050",
+    "1052",
+    "1055",
+    "1056",
+    "1057",
+    "1060",
+    "1061",
+    "1062",
+    "1064",
+    "1069",
+    "30047",
+    "30075",
+    "30084",
+    "30093",
+    "30097"
+  ]
 }

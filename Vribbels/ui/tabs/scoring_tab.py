@@ -19,9 +19,9 @@ from pathlib import Path
 from ..base_tab import BaseTab
 from ..context import AppContext
 from game_data import STATS
-# a7 (this round): user-facing stat-name overrides (e.g. "Flat ATK" ->
-# "ATK Flat", "CRate" -> "Crit%", "CDmg" -> "CDMG%"). Applied to the
-# Stat Weight Configuration labels so they match the rest of the app.
+# User-facing stat-name overrides (e.g. "Flat ATK" -> "ATK Flat",
+# "CRate" -> "Crit%", "CDmg" -> "CDMG%"). Applied to the Stat Weight
+# Configuration labels so they match the rest of the app.
 from game_data.constants import DISPLAY_NAMES
 from preset_manager import PresetManager, SUPPORTED_STATS
 from models.memory_fragment import compute_gs_bounds
@@ -198,12 +198,10 @@ STAT MIN - MAX ROLLS:
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             font=("Consolas", 9)
         )
-        # Round 11 follow-up to Task 3: scrolledtext.ScrolledText wraps
-        # its Text widget in an internal tk.Frame whose bg defaults to
-        # the system white. On first show the wrapping frame paints
-        # briefly before the inner Text widget paints over it, producing
-        # a visible white flash. Force the wrapping frame (and the
-        # associated scrollbar) to the dark bg so the flash is gone.
+        # scrolledtext.ScrolledText wraps its Text widget in an internal
+        # tk.Frame whose bg defaults to system white; the frame paints
+        # briefly before the Text paints over it, producing a white
+        # flash on first show. Force the frame + scrollbar dark.
         try:
             explain_text.frame.configure(bg=self.colors["bg_light"])
         except (AttributeError, tk.TclError):
@@ -298,15 +296,15 @@ STAT MIN - MAX ROLLS:
         for i, (stat_key, display_name) in enumerate(STAT_DISPLAY_NAMES):
             row, col = i // 2, i % 2
             cell = ttk.Frame(parent)
-            # Task 5 (round 9): +5px between the two weight columns (col 1
-            # gets 5px extra left padding -> 15px inter-column gap vs 10).
+            # +5px between the two weight columns (col 1 gets 5px extra
+            # left padding -> 15px inter-column gap).
             cell.grid(row=row, column=col, sticky=tk.W,
                       padx=(10 if col == 1 else 5, 5), pady=2)
 
-            # a7 (round 8): label uses the canonical DISPLAY_NAMES override
-            # (falling back to display_name); trailing colon dropped.
-            # Task 5 (round 9): width 12 -> 9 (longest label is 8 chars) so
-            # the spinbox sits closer to its text.
+            # Label uses the canonical DISPLAY_NAMES override (falling
+            # back to display_name); trailing colon dropped. Width 9
+            # (longest label is 8 chars) keeps the spinbox close to its
+            # text.
             label = DISPLAY_NAMES.get(stat_key, display_name)
             ttk.Label(cell, text=label, width=9).pack(side=tk.LEFT)
             var = tk.DoubleVar(value=1.0)
@@ -424,6 +422,15 @@ STAT MIN - MAX ROLLS:
 
         self.context.inventory_tab.refresh_inventory()
         self.context.heroes_tab.refresh_heroes()
+
+    def refresh_presets(self):
+        """Stable public entry point for OTHER tabs to redraw the preset
+        list (e.g. the Setup tab after a Restore Defaults changes
+        presets.json underneath us). Delegates to refresh_preset_list;
+        keep THIS name stable even if the internal redraw method is ever
+        renamed -- external callers depend on it.
+        """
+        self.refresh_preset_list()
 
     # ============================================================
     # Button handlers

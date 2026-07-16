@@ -58,7 +58,8 @@ Vribbels/images/__pycache__/
 .claude/
 CLAUDE.md
 RELEASE_CHECKLIST.md
-PLAN.md
+plan.md
+tasks.md
 docs/
 
 # Git worktrees (isolated workspaces for parallel development)

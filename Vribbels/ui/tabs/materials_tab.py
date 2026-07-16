@@ -19,6 +19,10 @@ class MaterialsTab(BaseTab):
         super().__init__(parent, context)
         self.material_icons = {}  # res_id -> Label widget mapping
         self.setup_ui()
+        # Render the stone icons immediately (quantity 0) so the tab
+        # isn't a wall of text placeholders before the first capture --
+        # the images are static assets, only the counts need data.
+        self._render_icons({})
 
     def setup_ui(self):
         """Setup the Materials tab UI."""
@@ -92,23 +96,33 @@ class MaterialsTab(BaseTab):
             if res_id:
                 item_quantities[res_id] = amount
 
+        self._render_icons(item_quantities)
+
+    def _render_icons(self, item_quantities: dict):
+        """(Re)draw every growth-stone label: icon + quantity overlay when
+        the image asset exists, text fallback otherwise. `item_quantities`
+        maps res_id -> owned amount; missing entries render as 0, which is
+        also how the tab looks BEFORE any snapshot is loaded (the images
+        are static assets -- only the counts need captured data).
+        """
         # Get the path to images folder
         script_dir = Path(__file__).parent.parent.parent
         images_dir = script_dir / "images"
 
         # Update each growth stone icon
         for res_id, label_widget in self.material_icons.items():
-            if res_id in GROWTH_STONES:
-                attribute, quality, icon_filename = GROWTH_STONES[res_id]
-                quantity = item_quantities.get(res_id, 0)
-                icon_path = images_dir / icon_filename
+            if res_id not in GROWTH_STONES:
+                continue
+            attribute, quality, icon_filename = GROWTH_STONES[res_id]
+            quantity = item_quantities.get(res_id, 0)
+            icon_path = images_dir / icon_filename
 
-                if icon_path.exists():
-                    # Create icon with quantity overlay
-                    photo = create_icon_with_quantity(str(icon_path), quantity)
-                    if photo:
-                        label_widget.config(image=photo, text="")
-                        label_widget.image = photo  # Keep reference to prevent GC
-                else:
-                    # Icon file not found, show text fallback
-                    label_widget.config(text=f"{quality}\n{quantity}", image="")
+            if icon_path.exists():
+                # Create icon with quantity overlay
+                photo = create_icon_with_quantity(str(icon_path), quantity)
+                if photo:
+                    label_widget.config(image=photo, text="")
+                    label_widget.image = photo  # Keep reference to prevent GC
+                    continue
+            # Icon file not found (or failed to build) -- text fallback.
+            label_widget.config(text=f"{quality}\n{quantity}", image="")

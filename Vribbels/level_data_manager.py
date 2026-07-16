@@ -15,7 +15,7 @@ the constants module at startup so all level lookups reflect them.
 
 Storage
 =======
-Path:  <base_dir>/presets/level_data.json
+Path:  <base_dir>/settings/level_data.json
 Shape: {
   "characters": [
     {"name": "Amir", "res_id": 1017, "exp": 320000, "level": 50,

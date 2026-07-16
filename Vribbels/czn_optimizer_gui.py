@@ -15,9 +15,9 @@ Top-level layout
                             and instantiates the managers (preset,
                             character_preset, optimizer_settings,
                             level_data, settings).
-  config.py                 AppConfig (server_region) -- now stored at
-                            settings/config.json (was at base_dir before
-                            round 11; load_config migrates on first hit).
+  config.py                 AppConfig (server_region), stored at
+                            settings/config.json (a legacy base_dir copy
+                            is migrated on first load).
   preset_manager.py         User scoring presets (named weight sets).
   character_preset_manager  Per-character preset assignments. v2 schema
                             keyed by res_id with parallel name_hints.
@@ -128,9 +128,8 @@ from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, Opt
 # Highest Pot. range across all currently-defined presets (see
 # _drain_pending_upgrade_lines below).
 from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
-# Round 10: reconciles bundled defaults in `default_settings/` with the
-# user's `settings/` folder. Must run BEFORE any manager loads so the
-# first-run / new-user / update-merge cases all see consistent state.
+# Reconciles bundled defaults in `default_settings/` with the user's
+# `settings/` folder. Must run BEFORE any manager loads.
 from defaults_sync import sync_defaults
 
 
@@ -152,22 +151,12 @@ def _user_data_dir() -> Path:
     BASE_DIR already handles this for snapshots/; this helper extends
     the same treatment to settings/, etc.
 
-    Round 10 note: bundled defaults under `default_settings/` need to
-    resolve to the bundle root (which in frozen builds is _MEIPASS for
-    read-only data), not the user data dir. defaults_sync handles that
-    distinction internally by checking both locations.
+    Bundled read-only defaults (`default_settings/`) resolve differently:
+    see defaults_sync.resolve_defaults_dir.
     """
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent
-
-
-# Round 10: `_bootstrap_user_data` was removed. Its job (one-time copy of
-# bundled defaults from _MEIPASS/presets/ to the user's presets/) is now
-# handled by `defaults_sync.sync_defaults()`, which also covers the
-# per-entity update-merge case (new characters added in a program
-# update flow into the user's settings without overwriting their
-# customizations).
 
 
 class MultiSelectListbox(tk.Frame):
@@ -318,17 +307,11 @@ class OptimizerGUI:
         from optimizer_settings_manager import OptimizerSettingsManager
 
         program_dir = _user_data_dir()
-        # Round 10: reconcile bundled defaults vs the user's settings/
-        # BEFORE any manager loads. Handles three cases (maintainer
-        # bootstrap, new-user bootstrap, update-merge) -- see
-        # defaults_sync.py for the full breakdown. Failure here is
-        # non-fatal; managers below would just see empty files and
-        # behave as if it's a fresh install.
-        #
-        # In a frozen build the bundled defaults live in _MEIPASS (the
-        # PyInstaller extract dir) and the user's writable state lives
-        # next to the exe. In dev they're both siblings in the source
-        # tree.
+        # Reconcile bundled defaults vs the user's settings/ BEFORE any
+        # manager loads (see defaults_sync.py). Failure is non-fatal;
+        # managers would just see empty files and behave like a fresh
+        # install. Frozen builds read defaults from _MEIPASS; the user's
+        # writable state lives next to the exe.
         user_settings_dir = program_dir / "settings"
         if getattr(sys, "frozen", False):
             bundle_root = Path(getattr(sys, "_MEIPASS", program_dir))
@@ -404,9 +387,8 @@ class OptimizerGUI:
         # Set cross-tab refs BEFORE ScoringTab is created — it uses both at init.
         self.app_context.inventory_tab = self.inventory_tab_instance
         self.app_context.heroes_tab = self.heroes_tab_instance
-        # Round 11 follow-up: optimizer_tab ref for the Setup tab's
-        # Restore Defaults > Combatant Settings flow (refreshes the
-        # selected combatant's settings after a restore).
+        # Setup tab's Restore Defaults flow refreshes the Optimizer tab
+        # through this ref after restoring per-combatant settings.
         self.app_context.optimizer_tab = self.optimizer_tab_instance
 
         self.scoring_tab_instance = ScoringTab(self.notebook, self.app_context)
@@ -497,14 +479,13 @@ class OptimizerGUI:
     def _handle_live_update(self):
         """Handle live update from capture — reload latest snapshot and refresh UI.
 
-        Round 10 Q7: re-entrancy guard. A burst of WebSocket messages (e.g.
-        equip + unequip from one in-game action) can fire this callback
-        repeatedly while a previous invocation is still mid-refresh. Without
-        the guard, the second call walks half-mutated optimizer state and
-        triggers cascading layout passes which the user saw as the col 2
-        "jumping left-right without end" symptom. We just drop nested calls
-        — the outer call already pulls the latest snapshot off disk, so
-        anything written between the two calls gets picked up by that read.
+        Re-entrancy guard: a burst of WebSocket messages (e.g. equip +
+        unequip from one in-game action) can fire this callback while a
+        previous invocation is still mid-refresh; the nested call would
+        walk half-mutated optimizer state and trigger cascading layout
+        passes. Nested calls are dropped — the outer call reads the
+        latest snapshot off disk, so anything written in between is
+        picked up by that read.
         """
         if getattr(self, "_in_live_update", False):
             return
@@ -571,15 +552,10 @@ class OptimizerGUI:
         line WITHOUT appending Highest Potential -- never leaks the [pid=N]
         token to the user.
 
-        Round 10 task 6: the previous version reported min(low) across
-        all presets together with max(high) -- a synthetic range whose two
-        ends didn't necessarily come from the same preset. Now matches the
-        Memory Fragments tab's column logic: pick the preset with the
-        max high, use ITS (low, high) pair. Also appends the winning
-        preset's name and renamed "Highest Pot." -> "Highest Potential".
-        For fully-leveled MFs (low == high under every preset), the
-        preset with max high is also the preset with max GS, so the
-        same one-pass loop handles both cases.
+        Reports the top presets by max high, each with ITS OWN (low, high)
+        pair -- do NOT report min(low)/max(high) across presets combined;
+        that synthetic range's ends can come from different presets and
+        misleads the user. Matches the Memory Fragments tab column logic.
         """
         # Pull the marker; if absent, just show the line unchanged.
         m = re.search(r"\s*\[pid=(\d+)\]\s*$", line)
@@ -600,7 +576,7 @@ class OptimizerGUI:
             return base
 
         # Walk every preset, score each one, then sort by high desc and
-        # take the top 3 to display. Philosophy B: exclude this fragment's
+        # display the top 4. Philosophy B: exclude this fragment's
         # main stat when computing preset bounds (mirrors the MF tab).
         pm = self.preset_manager
         preset_names = list(pm.get_preset_names()) if pm is not None else []
@@ -750,4 +726,15 @@ def main():
 
 
 if __name__ == "__main__":
+    # Required for the parallel optimizer in frozen (PyInstaller) builds:
+    # Windows spawn re-launches this executable for every worker process,
+    # and freeze_support() detects those worker launches and runs the
+    # multiprocessing bootstrap INSTEAD of the GUI (no-op when not frozen
+    # and no-op for a normal user launch). Must be the first statement in
+    # this guard. All other side effects (single-instance lock, admin
+    # prompt, Tk roots) stay inside main(), so a spawned worker importing
+    # this module never triggers them -- and never trips the
+    # single-instance lock.
+    import multiprocessing
+    multiprocessing.freeze_support()
     main()

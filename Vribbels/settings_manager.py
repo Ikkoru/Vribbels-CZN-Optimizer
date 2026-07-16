@@ -1,7 +1,7 @@
 """
 SettingsManager: persistent key-value store for user preferences.
 
-Stores at <base_dir>/presets/settings.json as a flat JSON object. Used
+Stores at <base_dir>/settings/settings.json as a flat JSON object. Used
 for state that doesn't fit into the per-preset / per-character /
 per-checkpoint stores: e.g., "which character was selected last", which
 might later expand to window geometry, last open tab, etc.

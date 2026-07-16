@@ -1,11 +1,11 @@
 """Setup tab for first-time configuration and prerequisite checking.
 
-Round 11 adds a "Restore Defaults" panel to the right of "Setup Status",
-plus modal dialogs (`Restore Default Presets`, `Restore Default Combatant
+Also hosts the "Restore Defaults" panel (right of "Setup Status") and
+its modal dialogs (`Restore Default Presets`, `Restore Default Combatant
 Presets`, `Restore Default Combatant Settings`) for restoring missing
-defaults and replacing changed defaults at the per-entry granularity.
-See `_open_restore_dialog` and the helpers it calls
-(`_compute_diffs`, `_apply_restore_changes`).
+defaults and replacing changed defaults at per-entry granularity. See
+`_open_restore_dialog` and the helpers it calls (`_compute_diffs`,
+`_apply_restore_changes`).
 
 The three "kinds" of restore share a generalized dialog (grid-laid-out
 rows with stable column positions) and differ only in:
@@ -65,8 +65,8 @@ class SetupTab(BaseTab):
     - Certificate generation
     - Administrator privileges
 
-    Round 11: also hosts the "Restore Defaults" panel with three buttons,
-    one per defaultable file.
+    Also hosts the "Restore Defaults" panel with three buttons, one per
+    defaultable file.
     """
 
     def __init__(self, parent, context):
@@ -99,8 +99,8 @@ class SetupTab(BaseTab):
                   text="Complete these steps before using the capture feature",
                   foreground=self.colors["fg_dim"]).pack(anchor=tk.W, pady=(0, 10))
 
-        # Round 11: top row holds Setup Status (left) and Restore Defaults
-        # (right) side-by-side in equal-width columns.
+        # Top row: Setup Status (left) and Restore Defaults (right)
+        # side-by-side in equal-width columns.
         top_row = ttk.Frame(main_frame)
         top_row.pack(fill=tk.X, pady=(0, 10))
         top_row.grid_columnconfigure(0, weight=1, uniform="halves")
@@ -158,7 +158,7 @@ class SetupTab(BaseTab):
             ttk.Label(
                 row, text=explanation,
                 foreground=self.colors["fg_dim"],
-                wraplength=240, justify=tk.LEFT,
+                wraplength=260, justify=tk.LEFT,
             ).pack(side=tk.LEFT, padx=(8, 0), anchor=tk.NW)
 
         # Button frame
@@ -283,7 +283,7 @@ STEP 2: Verify setup
             messagebox.showerror("Error", f"Failed to generate certificate: {e}")
 
     # ====================================================================
-    # Restore Defaults dialog (Round 11)
+    # Restore Defaults dialog
     # ====================================================================
 
     def _open_restore_dialog(self, kind: str) -> None:
@@ -454,9 +454,8 @@ STEP 2: Verify setup
             col 3: Rename entry  (only when show_rename=True; initially hidden)
 
         Using grid + grid_remove() keeps the Rename column at a stable
-        x-position whether the entry is shown or hidden -- fixes the
-        round-11-followup ask where checking Rename made the checkbox
-        and the column-header label jump leftward as the entry appeared.
+        x-position whether the entry is shown or hidden, so checking
+        Rename doesn't shift the checkbox or the column-header label.
 
         changed is a list of (key, display_name). changed_data is filled
         with key -> {"replace": BooleanVar, "display": str, plus
@@ -468,15 +467,11 @@ STEP 2: Verify setup
         rows = ttk.Frame(right)
         rows.pack(fill=tk.BOTH, expand=True)
 
-        # Round 11 follow-up: reserve a fixed minimum width for column 3
-        # (the rename text entry). Without this, the column has zero size
-        # when no rows have the entry visible, and the dialog visibly
-        # RESIZES the first time the user checks any Rename checkbox
-        # (the entry's natural width pushing both panels wider). With
-        # minsize set, the entry's slot is always allocated whether the
-        # entry is present or not, so toggling Rename just paints in /
-        # out of an already-sized cell. 220px fits the 26-char Entry
-        # plus a touch of breathing room.
+        # Reserve a fixed minimum width for column 3 (the rename text
+        # entry). Without this the column has zero size while every
+        # entry is hidden, and the dialog visibly RESIZES the first
+        # time any Rename checkbox is ticked. 220px fits the 26-char
+        # Entry plus breathing room.
         if show_rename:
             rows.grid_columnconfigure(3, minsize=220)
 
@@ -577,10 +572,11 @@ STEP 2: Verify setup
         )
         rename_entry.grid(row=grid_row, column=3, sticky="w", pady=1)
         rename_text_var.set(_RENAME_PLACEHOLDER)
-        # Hide initially but PRESERVE the grid cell so re-show via
-        # grid() places it back in the exact same spot. This is the
-        # key alignment-fix: previously the row used pack + before=
-        # which let the entry's appearance shift the rename_cb's x.
+        # Hide via grid_remove (NOT grid_forget / pack): grid_remove
+        # preserves the cell's grid options so a later grid() call
+        # re-shows the entry in the exact same spot. Pack-based
+        # show/hide shifts the rename checkbox's x-position and makes
+        # the row jump.
         rename_entry.grid_remove()
 
         def on_entry_focus_in(_e):
@@ -717,27 +713,19 @@ STEP 2: Verify setup
     def _diff_character_preset(self, char_preset_mgr, defaults_path):
         """character_preset.json diff: by RES_ID (v2 schema).
 
-        Round 11 follow-up: treat `None` (no preset assigned, i.e. the
-        "Default Preset" UI state) as a non-opinion on BOTH sides.
-        Bucket rules:
-          - defaults' value is None   -> skip (defaults have no
-                                          recommendation to offer for
-                                          this character)
-          - user's value is None or missing AND defaults' value is
-            non-null                  -> Missing (user has no preset of
-                                          their own; defaults recommend
-                                          something concrete)
-          - both non-null and differ  -> Changed (two real opinions in
-                                          conflict)
+        `None` (no preset assigned, i.e. the "Default Preset" UI state)
+        is treated as a non-opinion on BOTH sides. Bucket rules:
+          - defaults' value is None   -> skip (nothing to offer)
+          - user's value is None/missing, defaults' non-null -> Missing
+          - both non-null and differ  -> Changed
           - both non-null and match   -> skip
 
-        Previously the diff treated user=None vs default="Amir" as
-        "Changed", which surprised the user when they'd just reset an
-        assignment to Default Preset and saw it pop up in the Replace
-        Changed list.
+        Do NOT flag user=None vs default=non-null as "Changed": a user
+        who resets an assignment to Default Preset would then see that
+        character pop up in Replace Changed, which reads as noise.
 
-        Both files are normalized to v2 first so we can compare apples
-        to apples even if either side is on disk in v1.
+        Both files are normalized to v2 first so mixed-version files
+        compare correctly.
         """
         try:
             with open(defaults_path, "r", encoding="utf-8") as f:
@@ -1088,10 +1076,10 @@ STEP 2: Verify setup
 
         Mapping:
           - presets / character_preset -> heroes_tab.refresh_heroes()
-            re-renders the Preset column; AND the scoring_tab listbox's
-            assignment markers refresh via whichever method the tab
-            exposes (a couple of method names tried, since the API
-            isn't standardized).
+            re-renders the Preset column; AND
+            scoring_tab.refresh_presets() redraws the preset list
+            (names + assignment markers). refresh_presets is
+            ScoringTab's stable public entry point for exactly this.
           - optimizer_settings -> optimizer_tab.refresh_after_load()
             re-reads the selected combatant's per-char settings into
             the sliders / dropdowns.
@@ -1101,18 +1089,10 @@ STEP 2: Verify setup
                 getattr(self.context, "heroes_tab", None),
                 "refresh_heroes",
             )
-            # scoring_tab listbox markers: try a few candidate method
-            # names since the ScoringTab API isn't standardized for
-            # this specific refresh. First one that exists wins.
-            scoring = getattr(self.context, "scoring_tab", None)
-            for name in (
-                "refresh_preset_assignments",
-                "refresh_preset_list",
-                "refresh_preset_listbox",
-                "_refresh_preset_listbox",
-            ):
-                if self._safe_call(scoring, name):
-                    break
+            self._safe_call(
+                getattr(self.context, "scoring_tab", None),
+                "refresh_presets",
+            )
         if kind == "optimizer_settings":
             self._safe_call(
                 getattr(self.context, "optimizer_tab", None),
@@ -1122,8 +1102,10 @@ STEP 2: Verify setup
     @staticmethod
     def _safe_call(obj, method_name) -> bool:
         """Call obj.method_name() if obj is non-None and method exists.
-        Returns True if the call succeeded (so the caller can stop
-        trying alternate method names)."""
+        Returns True if the call succeeded. Best-effort by design: a
+        missing tab (standalone tests) or a tab-side refresh error
+        shouldn't surface after the user already saw the success
+        dialog."""
         if obj is None:
             return False
         fn = getattr(obj, method_name, None)

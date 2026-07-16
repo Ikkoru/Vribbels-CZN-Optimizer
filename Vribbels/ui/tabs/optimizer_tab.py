@@ -1,8 +1,8 @@
 """
 Optimization configuration and execution tab.
 
-v1.1.0 overhaul: per-character persistent settings, simplified UI, set
-combinations handled internally by the optimizer.
+Per-character persistent settings, set combinations handled internally
+by the optimizer.
 
 UI layout (top to bottom)
 -------------------------
@@ -31,7 +31,7 @@ The Optimizer tab feeds per-character settings (Important Settings
 sliders, Have at Least minimums, set-effect %, avg buff fields, level
 stepper, element override) into `optimizer.optimize()` via the unified
 settings dict built by `_build_optimizer_settings`. The optimizer
-implements the v1.1.0 damage / shield-heal blended scoring from
+implements the damage / shield-heal blended scoring from
 docs/game_formulas.md §8 and applies the Have-at-least hard constraint
 inline during its enumeration. This tab only handles UI / persistence /
 result display; the actual math lives in optimizer.py.
@@ -51,9 +51,9 @@ from game_data import (
     CHARACTERS, CHARACTERS_BY_NAME,
     get_character_by_name
 )
-# v1.1.0 Item 3: Display-name overrides for user-facing labels. Internal
-# stat keys ("CRate", "CDmg", "Flat ATK", etc.) remain unchanged; this map
-# is consulted whenever a stat name is shown to the user.
+# Display-name overrides for user-facing labels. Internal stat keys
+# ("CRate", "CDmg", "Flat ATK", etc.) remain unchanged; this map is
+# consulted whenever a stat name is shown to the user.
 from game_data.constants import DISPLAY_NAMES
 # Pure GS / Potential helpers — used by _populate_detail to compute the
 # Selected Build tree's GS and Potential columns under the character's
@@ -136,9 +136,9 @@ def _combobox_letter_jump(event, combobox):
         idx = (start + offset) % len(values)
         if values[idx].lower().startswith(char_lower):
             combobox.set(values[idx])
-            # Item 5 (round 5): readonly Combobox doesn't auto-select the
-            # displayed text after a programmatic set(); force a full
-            # selection so the whole name is highlighted, not just part.
+            # readonly Combobox doesn't auto-select the displayed text
+            # after a programmatic set(); force a full selection so the
+            # whole name is highlighted, not just part.
             try:
                 combobox.selection_clear()
                 combobox.selection_range(0, "end")
@@ -150,18 +150,17 @@ def _combobox_letter_jump(event, combobox):
 
 
 def _combobox_arrow_nav(event, combobox, direction):
-    """Up / Down arrow navigation on a readonly Combobox (Item 11).
+    """Up / Down arrow navigation on a readonly Combobox.
 
     Tk's default behavior on a readonly ttk.Combobox: pressing Down OPENS
-    the dropdown popup. Many users prefer the Windows-native pattern where
-    Up / Down step through entries in place WITHOUT opening the popup.
-    This handler implements that pattern:
+    the dropdown popup. This handler implements the Windows-native pattern
+    where Up / Down step through entries in place WITHOUT opening the popup:
       * `direction` is +1 for Down, -1 for Up.
-      * Does NOT wrap at the ends (Item 5, round 5): at the first entry,
-        Up does nothing; at the last entry, Down does nothing. Either way
-        we return "break" so Tk's default open-popup binding is suppressed.
-      * Forces a full text selection after moving (Item 5) so the whole
-        name is highlighted rather than partially.
+      * No wrap at the ends: at the first entry, Up does nothing; at the
+        last entry, Down does nothing. Either way return "break" so Tk's
+        default open-popup binding is suppressed.
+      * Forces a full text selection after moving so the whole name is
+        highlighted rather than partially.
       * `<<ComboboxSelected>>` is fired so the bound on_hero_select runs
         as if the user had clicked the entry.
     """
@@ -175,7 +174,7 @@ def _combobox_arrow_nav(event, combobox, direction):
         # No current selection yet -- land on the first or last entry.
         idx = -1 if direction > 0 else len(values)
     new_idx = idx + direction
-    # Item 5: no wrap-around. Out of range -> stay put.
+    # No wrap-around. Out of range -> stay put.
     if new_idx < 0 or new_idx >= len(values):
         return "break"
     combobox.set(values[new_idx])
@@ -189,7 +188,7 @@ def _combobox_arrow_nav(event, combobox, direction):
 
 
 def _popdown_listbox_seek(combobox, listbox_path, char):
-    """Type-ahead seek inside an OPEN combobox dropdown list (Item 11).
+    """Type-ahead seek inside an OPEN combobox dropdown list.
 
     Moves the popdown listbox's highlight to the next entry starting with
     `char` (case-insensitive), cycling. Operates on the listbox via its Tcl
@@ -224,8 +223,7 @@ def _popdown_listbox_seek(combobox, listbox_path, char):
 
 
 def _bind_popdown_seek(combobox):
-    """Enable type-ahead seek on a readonly Combobox's OPEN dropdown list
-    (Item 11, round 7 -- "option 1" from the prior discussion).
+    """Enable type-ahead seek on a readonly Combobox's OPEN dropdown list.
 
     Tk's ttk combobox popdown doesn't implement letter-seek while open; its
     internal listbox lives at "<popdown>.f.l". We obtain the popdown via
@@ -267,7 +265,7 @@ def _bind_popdown_seek(combobox):
 
 
 class OptimizerTab(BaseTab):
-    """v1.1.0 Optimizer tab. See module docstring for layout overview."""
+    """Optimizer tab. See module docstring for layout overview."""
 
     # ------------------------------------------------------------ init / state
 
@@ -275,26 +273,19 @@ class OptimizerTab(BaseTab):
         super().__init__(parent, context)
         self._init_state()
         self.setup_ui()
-        # Layout-settling guard (round 9 follow-up): when this tab is first
-        # shown, Tk runs 2-3 layout passes in view of the user -- col 1's
-        # natural width starts wider than its final settled value (likely a
-        # ttk.Scale or Spinbox whose theme/font metrics resolve after the
-        # first pass), so Important Settings / Set Configuration / Selected
-        # Build visibly shrink and Exclude / Results visibly grow leftward
-        # into the freed space. Binding update_idletasks() to <Map> drains
-        # all pending geometry-idle events SYNCHRONOUSLY before Tk paints,
-        # so the user only ever sees the settled state. _layout_settled
-        # makes it one-shot -- subsequent tab switches (re-Map events) are
-        # no-ops; update_idletasks is cheap when the queue is empty anyway,
-        # but the flag keeps the intent explicit.
+        # Layout-settling guard: when this tab is first shown, Tk runs 2-3
+        # layout passes in view of the user -- col 1's natural width starts
+        # wider than its final settled value (a ttk.Scale / Spinbox whose
+        # theme metrics resolve after the first pass), so panels visibly
+        # shift. Binding update_idletasks() to <Map> drains all pending
+        # geometry-idle events SYNCHRONOUSLY before Tk paints, so the user
+        # only sees the settled state. _layout_settled makes it one-shot.
         self._layout_settled = False
         self.frame.bind("<Map>", self._settle_layout_once, add="+")
-        # Task 3 (round 10 revisited, sub-problem B1): the Preset label
-        # shown above Stats Comparison can go stale if the user reassigns
-        # a character's preset from Heroes / Combatants while this tab
-        # is inactive. Refresh on tab-switch via <<NotebookTabChanged>>;
-        # the handler self-gates on "is this tab the active one?" so it's
-        # a no-op when other tabs are selected.
+        # The Preset label above Stats Comparison can go stale if the user
+        # reassigns a character's preset from the Combatants tab while this
+        # tab is inactive. Refresh on tab-switch via <<NotebookTabChanged>>;
+        # the handler self-gates on "is this tab the active one?".
         nb = self._find_notebook()
         if nb is not None:
             nb.bind("<<NotebookTabChanged>>",
@@ -308,14 +299,13 @@ class OptimizerTab(BaseTab):
             return
         self._layout_settled = True
         self.frame.update_idletasks()
-        # Task 3 A1 (round 10 revisited): the preset_row in the toolbar has
-        # pack_propagate(False) so it doesn't grow with its label content;
-        # we explicitly size it to match the top_row's natural width so the
-        # preset label clips at the right edge of the left toolbar cluster
-        # (Combatant + Level + Start + Stop) instead of pushing help_label
+        # The preset_row in the toolbar has pack_propagate(False) so it
+        # doesn't grow with its label content; explicitly size it to the
+        # top_row's natural width so the preset label clips at the right
+        # edge of the left toolbar cluster instead of pushing help_label
         # right when the preset name is long. Done in the settle pass
-        # rather than at creation because the top_row's reqwidth is only
-        # reliable once Tk has computed the children's natural sizes.
+        # because top_row's reqwidth is only reliable once Tk has computed
+        # the children's natural sizes.
         try:
             top_w = self._toolbar_top_row.winfo_reqwidth()
             if top_w > 1:
@@ -373,7 +363,13 @@ class OptimizerTab(BaseTab):
         self.element_override_var = tk.StringVar(value="")
 
         # --- Per-character UI vars (Have at Least) ---
-        self.have_at_least_vars = {stat: tk.IntVar(value=0) for stat in HAL_ALL_STATS}
+        # The %-bounded stats (col 2) accept one decimal place, so they
+        # get DoubleVars; the raw-integer stats (col 1) stay IntVars.
+        self.have_at_least_vars = {
+            stat: (tk.DoubleVar(value=0.0) if stat in HAL_STATS_WITH_PCT
+                   else tk.IntVar(value=0))
+            for stat in HAL_ALL_STATS
+        }
 
         # --- Per-character UI vars (Set Configuration) ---
         self.set_selected_vars: dict = {}  # set_id (int) -> BooleanVar
@@ -394,12 +390,19 @@ class OptimizerTab(BaseTab):
         # --- Optimization runtime state ---
         self.optimization_results: list = []
         self.result_queue = queue.Queue()
+        # cancel_flag is REPLACED with a fresh list on every Start (the
+        # old one is set True first) -- see run_optimization for why a
+        # single shared flag was racy. _run_id tags queue messages so
+        # check_queue can drop stragglers from superseded runs.
         self.cancel_flag = [False]
+        self._run_id = 0
+        self._optimizing = False
         self.result_sort_col = "score"
         self.result_sort_reverse = False
 
         # --- Widget references (filled by setup_ui) ---
         self.hero_combo = None
+        self.start_button = None
         self.status_label = None
         self.stats_tree = None
         self.result_tree = None
@@ -425,16 +428,11 @@ class OptimizerTab(BaseTab):
         toolbar = ttk.Frame(self.frame)
         toolbar.pack(fill=tk.X, padx=5, pady=(1, 5))
 
-        # Item 4: stack the Combatant label and dropdown vertically (a 2-row
-        # sub-frame). The dropdown sits BELOW the "Combatant:" text instead
-        # of beside it, freeing horizontal space for the other toolbar
-        # controls and matching the new stacked status-label style on the
-        # right (Item 3).
-        # Task 3 A1 (round 10 revisited): the toolbar's left cluster
-        # (Combatant + LVL + Start + Stop) is now wrapped in a vertical
-        # left_cluster -> top_row container so that a preset_row can sit
-        # below it, clipped to the top_row's width. Without this, long
-        # preset names made combatant_frame grow and pushed every other
+        # Stack the Combatant label and dropdown vertically. The toolbar's
+        # left cluster (Combatant + LVL + Start + Stop) is wrapped in a
+        # vertical left_cluster -> top_row container so a preset_row can
+        # sit below it, clipped to top_row's width. Without the clipping,
+        # long preset names make combatant_frame grow and push every other
         # toolbar control right.
         left_cluster = ttk.Frame(toolbar)
         left_cluster.pack(side=tk.LEFT, anchor=tk.N)
@@ -443,50 +441,37 @@ class OptimizerTab(BaseTab):
         combatant_frame = ttk.Frame(self._toolbar_top_row)
         combatant_frame.pack(side=tk.LEFT, padx=(0, 5), anchor=tk.N)
         ttk.Label(combatant_frame, text="Combatant:").pack(anchor=tk.W)
-        # Item 1 (this round): width sized just for the longest character
-        # name in CHARACTERS ("Heidemarie" = 10 chars) plus ~2 chars for the
-        # scrollbar that appears inside the dropdown popup once it has more
-        # entries than fit vertically. The default 18 was wider than
-        # necessary -- this gives the toolbar more room for the help text
-        # and status label.
+        # Width sized for the longest character name ("Heidemarie" = 10
+        # chars) plus ~2 chars for the dropdown popup's scrollbar.
         self.hero_combo = ttk.Combobox(
             combatant_frame, textvariable=self.selected_character,
             width=12, state="readonly",
         )
         self.hero_combo.pack(anchor=tk.W)
-        # Task 3 (round 10 revisited): the Preset: label originally lived
-        # here inside combatant_frame, then briefly above Stats Comparison
-        # (A4) -- both pushed surrounding layout around. It's now below the
-        # whole left toolbar cluster (top_row) inside a width-clipped
-        # preset_row -- see the Stop button block.
         self.hero_combo.bind("<<ComboboxSelected>>", self.on_hero_select)
-        # Letter-key navigation (v1.1.0): type a letter to jump to the next
-        # matching combatant. KeyRelease + add="+" so readonly Combobox's
-        # internal handler doesn't pre-empt us; some Tk versions don't fire
-        # KeyPress to user bindings on readonly state.
+        # Letter-key navigation: type a letter to jump to the next matching
+        # combatant. KeyRelease + add="+" so readonly Combobox's internal
+        # handler doesn't pre-empt us; some Tk versions don't fire KeyPress
+        # to user bindings on readonly state.
         self.hero_combo.bind(
             "<KeyRelease>", lambda e: _combobox_letter_jump(e, self.hero_combo),
             add="+",
         )
-        # Item 11: arrow keys step through the list in place instead of
-        # opening the dropdown popup. Default Tk behavior on readonly
-        # Combobox would open the popup on <Down>; we override that here.
+        # Arrow keys step through the list in place instead of opening the
+        # dropdown popup (Tk's default on readonly Combobox opens it).
         self.hero_combo.bind(
             "<Down>", lambda e: _combobox_arrow_nav(e, self.hero_combo, +1)
         )
         self.hero_combo.bind(
             "<Up>", lambda e: _combobox_arrow_nav(e, self.hero_combo, -1)
         )
-        # Item 11 (round 7): type-ahead seek inside the OPEN dropdown list.
+        # Type-ahead seek inside the OPEN dropdown list.
         _bind_popdown_seek(self.hero_combo)
 
-        # Item 3: every subsequent toolbar widget uses anchor=tk.N so the
-        # row is top-aligned (otherwise pack vertically centers the 1-line
-        # widgets against the help label's 3 lines, leaving them floating
-        # in the middle of the row).
-        # Item 1 (this round): the LVL label + spinner are now stacked
-        # vertically in their own sub-frame, mirroring the Combatant
-        # label/dropdown stacking from a prior turn.
+        # Every subsequent toolbar widget uses anchor=tk.N so the row is
+        # top-aligned (pack would otherwise vertically center the 1-line
+        # widgets against the help label's 3 lines). LVL label + spinner
+        # stack vertically, mirroring the Combatant stacking.
         level_frame = ttk.Frame(self._toolbar_top_row)
         level_frame.pack(side=tk.LEFT, padx=(15, 0), anchor=tk.N)
         ttk.Label(level_frame, text="Optimize for LVL:").pack(anchor=tk.W)
@@ -503,18 +488,17 @@ class OptimizerTab(BaseTab):
             "write", lambda *_: self._save_int_safe("optimize_for_level",
                                                        self.optimize_for_level_var))
 
-        ttk.Button(self._toolbar_top_row, text="Start",
-                   command=self.run_optimization).pack(
-                       side=tk.LEFT, padx=(15, 2), pady=(3, 0), anchor=tk.N)
+        self.start_button = ttk.Button(self._toolbar_top_row, text="Start",
+                                       command=self.run_optimization)
+        self.start_button.pack(side=tk.LEFT, padx=(15, 2), pady=(3, 0), anchor=tk.N)
         ttk.Button(self._toolbar_top_row, text="Stop",
                    command=self.cancel_optimization).pack(
                        side=tk.LEFT, padx=2, pady=(3, 0), anchor=tk.N)
 
-        # Task 3 A1 (round 10 revisited): preset row below the top row.
-        # pack_propagate(False) so the row doesn't grow with its label;
-        # width is synced to top_row's natural reqwidth in
-        # _settle_layout_once so the label clips at the cluster's right
-        # edge. Height is just enough for one Segoe UI 8pt line.
+        # Preset row below the top row. pack_propagate(False) so the row
+        # doesn't grow with its label; width is synced to top_row's natural
+        # reqwidth in _settle_layout_once so the label clips at the
+        # cluster's right edge. Height fits one Segoe UI 8pt line.
         self._toolbar_preset_row = ttk.Frame(left_cluster, height=17)
         self._toolbar_preset_row.pack_propagate(False)
         self._toolbar_preset_row.pack(side=tk.TOP, fill=tk.X, anchor=tk.W)
@@ -525,11 +509,11 @@ class OptimizerTab(BaseTab):
         )
         self.preset_label.pack(side=tk.LEFT, anchor=tk.W)
 
-        # ---- Help text (Item 5: moved from a separate row below the toolbar
-        # to inline with the toolbar, packed between Stop and the status
-        # label). fill=X + expand=True lets it absorb available horizontal
-        # space; the Configure binding reflows wraplength on resize so the
-        # text wraps neatly without pushing the status label off-screen.
+        # ---- Help text, inline with the toolbar between Stop and the
+        # status label. fill=X + expand=True lets it absorb available
+        # horizontal space; the Configure binding reflows wraplength on
+        # resize so the text wraps without pushing the status label
+        # off-screen.
         help_label = ttk.Label(
             toolbar, text=OPTIMIZER_HELP_TEXT,
             justify=tk.LEFT, foreground=self.colors["fg_dim"],
@@ -541,9 +525,8 @@ class OptimizerTab(BaseTab):
             lambda e, lbl=help_label: lbl.config(wraplength=max(200, e.width - 10)),
         )
 
-        # Item 3: status text on two lines ("Loaded\nN fragments"), reduced
-        # right padding so it sits close to the toolbar's right edge, and
-        # top-aligned via anchor=tk.N to match the rest of the row.
+        # Status text on two lines ("Loaded\nN fragments"), close to the
+        # toolbar's right edge, top-aligned to match the rest of the row.
         self.status_label = ttk.Label(
             toolbar, text="No data\nloaded",
             foreground=self.colors["fg_dim"],
@@ -551,31 +534,26 @@ class OptimizerTab(BaseTab):
         )
         self.status_label.pack(side=tk.RIGHT, padx=(10, 2), anchor=tk.N)
 
-        # ---- Body grid (Item 8 restructure) ----
-        # 3 columns: Stats Comp (fixed width), Config (weight=2),
-        # Results / empty area (weight=2).
+        # ---- Body grid ----
+        # 3 columns: Stats Comp (fixed width), Config (weight=100),
+        # Results / Exclude (weight=171). Weights are proportional so the
+        # exact pixel split drifts with window width.
         # 2 rows: top row expands, bottom row natural height.
         # Layout (visual):
-        #   Row 0: [Stats Comp] [Config         ] [EMPTY (above Results)]
-        #   Row 1: [Selected Build (cols 0-1)  ] [Results (shorter)    ]
+        #   Row 0: [Stats Comp] [Config         ] [Exclude over Results]
+        #   Row 1: [Selected Build (cols 0-1)  ] [Results (continued)  ]
         # Selected Build spans cols 0-1 so its right edge aligns with the
-        # Config column's right edge -- which is also the Exclude MFs
-        # frame's right edge, per the user's spec.
+        # Config column's right edge.
         body = ttk.Frame(self.frame)
         body.pack(fill=tk.BOTH, expand=True)
         body.grid_columnconfigure(0, weight=0)
-        # Item 2 (round 6): col 2 (Results / Exclude) widened ~+100px via a
-        # 2:3 weight split vs col 1. Item 2 (round 7): nudged another ~+40px
-        # (100:171). Weights are proportional so the exact pixel delta drifts
-        # with window width.
         body.grid_columnconfigure(1, weight=100)
         body.grid_columnconfigure(2, weight=171)
         body.grid_rowconfigure(0, weight=1)
         body.grid_rowconfigure(1, weight=0)
 
-        # --- Row 0 col 0: Stats Comparison (Item 3: sticky="new" so the
-        # frame is only as tall as its content -- the empty space below it
-        # stays empty instead of the frame stretching to fill row 0). ---
+        # --- Row 0 col 0: Stats Comparison. sticky="new" so the frame is
+        # only as tall as its content. ---
         left_frame = ttk.LabelFrame(body, text="Stats Comparison", padding=5)
         left_frame.grid(row=0, column=0, sticky="new", padx=(5, 4), pady=5)
         self._build_stats_tree(left_frame)
@@ -585,10 +563,9 @@ class OptimizerTab(BaseTab):
         self.middle_frame.grid(row=0, column=1, sticky="nsew", padx=4, pady=5)
         self._build_config(self.middle_frame)
 
-        # --- Col 2 (rowspan 2): Exclude MFs (top) + Results (below). Item 4
-        # moved the Exclude panel here from the bottom of the middle pane so
-        # it sits directly above Results. Results expands to fill whatever
-        # vertical space remains below Exclude. ---
+        # --- Col 2 (rowspan 2): Exclude MFs (top) + Results (below).
+        # Results expands to fill whatever vertical space remains below
+        # Exclude. ---
         self._col2_container = ttk.Frame(body)
         self._col2_container.grid(row=0, column=2, rowspan=2, sticky="nsew",
                                   padx=(4, 5), pady=5)
@@ -601,8 +578,8 @@ class OptimizerTab(BaseTab):
         right_frame.pack(fill=tk.BOTH, expand=True)
         self._build_results(right_frame)
 
-        # --- Row 1 cols 0-1: Selected Build (Item 3 prev round: bottom-
-        # aligned via sticky="sew"). ---
+        # --- Row 1 cols 0-1: Selected Build (bottom-aligned via
+        # sticky="sew"). ---
         detail_frame = ttk.LabelFrame(body, text="Selected Build", padding=5)
         detail_frame.grid(row=1, column=0, columnspan=2, sticky="sew",
                           padx=(5, 4), pady=(0, 5))
@@ -616,27 +593,27 @@ class OptimizerTab(BaseTab):
     def _build_stats_tree(self, parent):
         self.stats_tree = ttk.Treeview(
             parent, columns=("stat", "current", "new", "diff"),
-            show="headings", height=14,
+            show="headings", height=16,
         )
         self.stats_tree.column("#0", width=0, stretch=False)
         self.stats_tree.heading("stat", text="Stat")
-        # Item 3 (round 6): "Current" renamed to "Now".
         self.stats_tree.heading("current", text="Now")
         self.stats_tree.heading("new", text="New")
         self.stats_tree.heading("diff", text="+/-")
-        # Item 3 (round 6): "stat" trimmed to just fit "Element%" (the widest
-        # row label); the three value columns each fit ~5 chars. stretch=
-        # False keeps the Treeview's natural width = the column-width sum, so
-        # (with the parent grid column weight=0) the whole frame hugs it.
-        # Tree height set to exactly the number of rows it now shows (Totals
-        # header + 9 stats + blank + 3 Pot7 rows = 14) so the frame is only
-        # as tall as its content.
-        self.stats_tree.column("stat", width=62, stretch=False)
-        self.stats_tree.column("current", width=44, anchor=tk.E, stretch=False)
-        self.stats_tree.column("new", width=44, anchor=tk.E, stretch=False)
-        self.stats_tree.column("diff", width=44, anchor=tk.E, stretch=False)
+        # "stat" is trimmed to just fit "Element%" (the widest row label);
+        # the three value columns each fit ~5 chars. stretch=False keeps
+        # the Treeview's natural width = the column-width sum, so (with
+        # the parent grid column weight=0) the whole frame hugs it.
+        # Tree height = exactly the number of rows shown (Totals header +
+        # 9 stats + blank + 5 Pot7 rows = 16) so the frame is only as tall
+        # as its content; _populate_stats_compare re-syncs the height to
+        # the live row count whenever the row set changes.
+        self.stats_tree.column("stat", width=74, stretch=False)
+        self.stats_tree.column("current", width=42, anchor=tk.E, stretch=False)
+        self.stats_tree.column("new", width=42, anchor=tk.E, stretch=False)
+        self.stats_tree.column("diff", width=42, anchor=tk.E, stretch=False)
         self.stats_tree.pack(fill=tk.Y, expand=True)
-        # Item 11: right-click opens the "Show all stat contributions" menu.
+        # Right-click opens the "Show all stat contributions" menu.
         self.stats_tree.bind("<Button-3>", self._show_stats_context_menu)
 
     # ------------------------------------------------- UI: middle pane builder
@@ -679,16 +656,15 @@ class OptimizerTab(BaseTab):
         have_frame = ttk.LabelFrame(
             top_row, text="Have at least this much of a stat", padding=5
         )
-        # Item 4: HAL frame no longer expands -- it sizes to its natural
-        # width so the panel hugs its (now narrower) spinboxes. important_
-        # frame still has expand=True so it absorbs the freed horizontal
-        # space. Task 3 (round 9): no right pad here, so the frame's right
-        # edge aligns with the Set Configuration frame's right edge below.
-        # Task 2 (round 9): ipadx=10 widens HAL by 20px (the +20 transfers
-        # from Important Settings, since important_frame's expand=True
-        # automatically gives up the space).
+        # HAL frame doesn't expand -- it sizes to its natural width so the
+        # panel hugs its spinboxes; important_frame has expand=True so it
+        # absorbs the freed horizontal space. No right pad, so the frame's
+        # right edge aligns with Set Configuration's below. ipadx=6 widens
+        # HAL by 12px (was 10/20px -- trimmed to compensate for the col-2
+        # spinboxes growing from 3 to 4 chars, keeping HAL's overall
+        # footprint roughly unchanged).
         have_frame.pack(side=tk.LEFT, fill=tk.Y, expand=False,
-                        padx=(3, 0), ipadx=10)
+                        padx=(3, 0), ipadx=6)
         self._build_have_at_least(have_frame)
 
         # Set Configuration
@@ -697,10 +673,9 @@ class OptimizerTab(BaseTab):
         self._set_frame_ref = set_frame
         self._build_set_config(set_frame)
 
-        # Item 4 (round 6): the "Exclude Combatant's MFs" panel used to be
-        # built here (bottom of the middle pane). It now lives in col 2
-        # above the Results frame -- see setup_ui. _build_exclude_gear is
-        # called from there instead.
+        # The "Exclude Combatant's MFs" panel lives in col 2 above the
+        # Results frame -- see setup_ui. _build_exclude_gear is called
+        # from there, not here.
 
     # ----------------------------------------------- UI: Important Settings
 
@@ -711,22 +686,25 @@ class OptimizerTab(BaseTab):
             font=("Segoe UI", 9), wraplength=350,
         ).pack(anchor=tk.W, pady=(2, 2))
 
-        ed_row = ttk.Frame(parent)
-        ed_row.pack(fill=tk.X, pady=(0, 6))
+        # Extra and DoT each get a FULL row. Side by side, each slider's
+        # rendered track fell below ~100px at common window widths (the
+        # length=120 request only helps when pack can honor it), so
+        # dragging skipped roughly every 8th integer. A full-width row
+        # gives each track ample travel for every value. label_width=5
+        # on both keeps the two tracks left-aligned.
+        ex_row = ttk.Frame(parent)
+        ex_row.pack(fill=tk.X, pady=(0, 2))
         self._labeled_slider(
-            ed_row, "Extra", self.extra_pct_var,
+            ex_row, "Extra", self.extra_pct_var,
             on_change=lambda v: self._save_int("extra_pct", v),
-            label_width=5,  # Task 4 (round 10 revisited): exact text fit so
-                            # Extra's slider-gap matches DoT's (the default
-                            # +1 slack gives Extra ~7px slack and DoT ~3px
-                            # because 1 "average char" is ~5px but actual
-                            # text widths differ -- forcing label_width=5
-                            # tightens Extra's slack to ~2px).
+            label_width=5,
         )
-        ttk.Label(ed_row, text="   ").pack(side=tk.LEFT)
+        dot_row = ttk.Frame(parent)
+        dot_row.pack(fill=tk.X, pady=(0, 6))
         self._labeled_slider(
-            ed_row, "DoT", self.dot_pct_var,
+            dot_row, "DoT", self.dot_pct_var,
             on_change=lambda v: self._save_int("dot_pct", v),
+            label_width=5,
         )
 
         # Block 2: ATK ↔ DEF slider
@@ -740,25 +718,24 @@ class OptimizerTab(BaseTab):
         ttk.Label(ad_row, text="ATK", width=4).pack(side=tk.LEFT)
         ad_scale = ttk.Scale(
             ad_row, from_=0, to=100, variable=self.atk_def_split_var,
-            orient=tk.HORIZONTAL,
+            orient=tk.HORIZONTAL, length=120,
             command=lambda v: self._save_int("atk_def_split", int(float(v))),
         )
         ad_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(3, 3))
-        # Task 7 (round 10): width 4 -> 3 was too aggressive ("DEF" got
-        # clipped on the "F"); 4 with anchor=E keeps "DEF" intact while
-        # shifting its empty slack from the right (between DEF and the
-        # readout) to the left (between scale and DEF). Net effect:
-        # DEF-text right edge now hugs the label's right edge, and the
-        # gap from "DEF" to "100%" matches the other sliders'
-        # scale-end-to-readout gap.
+        ad_scale.bind(
+            "<MouseWheel>",
+            lambda e: self._scale_wheel(
+                e, self.atk_def_split_var,
+                lambda v: self._save_int("atk_def_split", v)),
+        )
+        # width=4 + anchor=E keeps "DEF" intact (width 3 clips the "F")
+        # while shifting the empty slack to the left, so the gap from
+        # "DEF" to the readout matches the other sliders'.
         ttk.Label(ad_row, text="DEF", width=4, anchor=tk.E).pack(side=tk.LEFT)
-        # Task 2 (round 9): anchor=E so the readout's visible text hugs the
-        # right edge (right padding now matches left). Task 1 (round 10
-        # revisited): width 4 -> 5. ttk.Label's effective text area is
-        # width-in-chars minus a couple px of theme-defined internal padding,
-        # which left width=4 just shy of "100%"'s rendered width. anchor=E
-        # keeps the visible glyphs glued to the right; the extra char of
-        # slack lives invisibly on the left.
+        # anchor=E + width=5: ttk.Label's effective text area is width-in-
+        # chars minus a couple px of theme padding, and width=4 is just shy
+        # of "100%"'s rendered width. anchor=E keeps the glyphs glued to
+        # the right; the slack lives invisibly on the left.
         self.ad_readout_label = ttk.Label(ad_row, text="0%", width=5, anchor=tk.E)
         self.ad_readout_label.pack(side=tk.LEFT, padx=(3, 0))
         self.atk_def_split_var.trace_add(
@@ -778,14 +755,18 @@ class OptimizerTab(BaseTab):
         sh_row.pack(fill=tk.X, pady=(0, 6))
         sh_scale = ttk.Scale(
             sh_row, from_=0, to=100, variable=self.shielding_healing_weight_var,
-            orient=tk.HORIZONTAL,
+            orient=tk.HORIZONTAL, length=120,
             command=lambda v: self._save_int("shielding_healing_weight", int(float(v))),
         )
         sh_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
-        # Task 2 (round 9): anchor=E for right-aligned text. Task 1 (round
-        # 10 revisited): width 4 -> 5 to give "100%" room inside the label
-        # itself -- the previous right-padx fix didn't help because the
-        # clipping was internal to the label, not at the row's right edge.
+        sh_scale.bind(
+            "<MouseWheel>",
+            lambda e: self._scale_wheel(
+                e, self.shielding_healing_weight_var,
+                lambda v: self._save_int("shielding_healing_weight", v)),
+        )
+        # anchor=E + width=5 so "100%" doesn't clip inside the label (the
+        # clipping is internal to the label, not at the row's right edge).
         self.sh_readout_label = ttk.Label(sh_row, text="0%", width=5, anchor=tk.E)
         self.sh_readout_label.pack(side=tk.LEFT)
         self.shielding_healing_weight_var.trace_add(
@@ -796,8 +777,7 @@ class OptimizerTab(BaseTab):
         )
 
         # Block 4: Force-main checkboxes (slot 4 HP, slot 5 HP, slot 6 HP, slot 6 Ego)
-        # Item 12: label + checkboxes on the same line (previously the label
-        # had its own row above the checkboxes).
+        # Label + checkboxes on the same line.
         fm_row = ttk.Frame(parent)
         fm_row.pack(fill=tk.X, pady=(2, 2))
         ttk.Label(
@@ -806,10 +786,9 @@ class OptimizerTab(BaseTab):
             font=("Segoe UI", 9),
         ).pack(side=tk.LEFT, padx=(0, 5))
         for idx, (key, label, _slot, _stat) in enumerate(FORCE_MAIN_DEFS):
-            # Task 2 (round 9): the last checkbox drops its 8px right pad so
-            # the rightmost visible element sits flush with the frame's
-            # right padding edge (matching the left edge of the leading
-            # label).
+            # The last checkbox drops its 8px right pad so the rightmost
+            # visible element sits flush with the frame's right padding
+            # edge (matching the left edge of the leading label).
             pad_right = 0 if idx == len(FORCE_MAIN_DEFS) - 1 else 8
             ttk.Checkbutton(
                 fm_row, text=label,
@@ -825,25 +804,33 @@ class OptimizerTab(BaseTab):
         value. We pass int(float(v)) because ttk.Scale's command receives a
         string-formatted float (e.g. "23.0") even on an integer-bound Scale.
 
-        Task 4 (round 10): `label_width` defaults to `len(label) + 1` -- 1
-        char of slack, matching the ATK/DEF row below. Pass an explicit
-        value to override (e.g. to enforce equal column widths across
-        multiple sliders in the same row).
+        `label_width` defaults to `len(label) + 1` -- 1 char of slack,
+        matching the ATK/DEF row. Pass an explicit value to override
+        (e.g. to enforce equal column widths across multiple sliders in
+        the same row).
         """
         wrap = ttk.Frame(parent)
         wrap.pack(side=tk.LEFT, fill=tk.X, expand=True)
         if label_width is None:
             label_width = len(label) + 1
         ttk.Label(wrap, text=label, width=label_width).pack(side=tk.LEFT)
+        # length=120 requests a track at least as long as the 0-100 value
+        # range (ttk's default request is 100px, and after the thumb's
+        # width the drag travel drops below 100px -- so dragging skips
+        # integers). fill=X still lets it grow beyond the request.
         scale = ttk.Scale(
             wrap, from_=0, to=100, variable=var, orient=tk.HORIZONTAL,
+            length=120,
             command=lambda v: on_change(int(float(v))) if on_change else None,
         )
         scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(3, 3))
-        # Task 2 (round 9): anchor=E for right-aligned text. Task 1 (round
-        # 10 revisited): width 4 -> 5 to keep "100%" from clipping inside
-        # the label (Tk's avg-char-width math underestimates the rendered
-        # width of "100%" by 1-2 px on this theme).
+        # Mouse wheel steps exactly +-1, so every integer is reachable
+        # even at window sizes where the rendered track is short.
+        scale.bind("<MouseWheel>",
+                   lambda e, v=var, cb=on_change: self._scale_wheel(e, v, cb))
+        # anchor=E + width=5 so "100%" doesn't clip inside the label (Tk's
+        # avg-char-width math underestimates "100%"'s rendered width by
+        # 1-2 px on this theme).
         readout = ttk.Label(wrap, text="0%", width=5, anchor=tk.E)
         readout.pack(side=tk.LEFT)
         var.trace_add("write",
@@ -855,74 +842,67 @@ class OptimizerTab(BaseTab):
         """Two columns of 4 spinboxes each. Col 1 = ATK/DEF/HP/Ego (raw
         integer), Col 2 = CRate/CDmg/Extra DMG%/DoT% (integer + "%").
 
-        Item 4 (v1.1.0 polish round 3): the label-to-spinbox gap is now
-        natural (label sized to fit its text) instead of a fixed width=10,
-        and the spinboxes are width=4 (just enough for 4 digits). The two
-        column frames don't expand horizontally either, so the surrounding
-        LabelFrame sizes to its natural width.
+        The label-to-spinbox gap is natural (label sized to fit its text)
+        and the column frames don't expand horizontally, so the
+        surrounding LabelFrame sizes to its natural width.
         """
         cols = ttk.Frame(parent)
-        # Task 3 (round 9, revised): no extra padding on either side -- col 1
-        # text sits at the LabelFrame's own left padding edge (matching the
-        # other config frames), and col 2's spinbox is right-aligned at the
-        # LabelFrame's right padding edge (no whitespace hanging off the
-        # right side). Task 2 (round 9): cols fills X (was fill=Y) so the
-        # +20px HAL gained from Important Settings parks BETWEEN col 1
-        # (LEFT) and col 2 (RIGHT) instead of pushing col 2 off its right
-        # alignment.
+        # No extra padding on either side -- col 1 text sits at the
+        # LabelFrame's own left padding edge (matching the other config
+        # frames), and col 2's spinbox is right-aligned at the LabelFrame's
+        # right padding edge. cols fills X (not Y) so the extra width HAL
+        # gains from Important Settings parks BETWEEN col 1 (LEFT) and
+        # col 2 (RIGHT) instead of pushing col 2 off its right alignment.
         cols.pack(fill=tk.X, expand=False, padx=(0, 0))
         col1_frame = ttk.Frame(cols)
         col1_frame.pack(side=tk.LEFT, fill=tk.Y, expand=False, padx=(0, 0))
         col2_frame = ttk.Frame(cols)
-        # Task 2 (round 9): col 2 packed RIGHT (was LEFT) so it stays at
-        # HAL's right padding edge after the frame widens.
+        # Col 2 packed RIGHT so it stays at HAL's right padding edge
+        # regardless of frame width changes.
         col2_frame.pack(side=tk.RIGHT, fill=tk.Y, expand=False)
 
-        # Item 2 (round 5): give every label in a column the same width
-        # (the longest label's char count) so the spinboxes line up
-        # vertically within each column. n2 (this round): colons removed,
-        # so the width no longer counts a trailing ":".
+        # Give every label in a column the same width (the longest label's
+        # char count) so the spinboxes line up vertically within each
+        # column. No trailing colon on the stat labels.
         def _col_label_width(stats):
             return max(len(DISPLAY_NAMES.get(s, s)) for s in stats)
         col1_width = _col_label_width(HAL_COLUMN_1)
         col2_width = _col_label_width(HAL_COLUMN_2)
 
         for stat in HAL_COLUMN_1:
-            # Task 3 (round 9): col 1 needed extra room between the stat
-            # label and its spinbox -- "ATK" etc. were being crowded. Task 2
-            # (round 9, follow-up, revised): instead of using padx between
-            # the label and spinbox, the label's character allocation is
-            # widened to col1_width + 1 with label_pad=0. Same visual
-            # effect -- with anchor=W, the label widget now carries 1 char
-            # of internal whitespace to the right of the text, the spinbox
-            # sits flush against the label's right edge, and the +1 char
-            # of width is reclaimed from the inter-column whitespace
-            # (col 2 is RIGHT-anchored, so col 1 growing on its right eats
-            # into the gap automatically).
+            # Col 1's label allocation is widened to col1_width + 1 with
+            # label_pad=0 (instead of padx between label and spinbox):
+            # with anchor=W the label carries 1 char of internal whitespace
+            # to the right of the text, the spinbox sits flush against the
+            # label's right edge, and the +1 char is reclaimed from the
+            # inter-column whitespace (col 2 is RIGHT-anchored, so col 1
+            # growing on its right eats into the gap automatically).
             self._build_hal_row(col1_frame, stat, label_width=col1_width+1,
                                 label_pad=0)
         for stat in HAL_COLUMN_2:
-            # Task 2 (round 9, follow-up): col 2 spinbox narrowed to 3 chars
-            # (CRate/CDmg/Extra/DoT are %-bounded -- 3 digits is enough).
+            # Col 2 spinboxes are 4 chars wide and show one decimal place
+            # (CRate/CDmg/Extra/DoT are %-valued; e.g. "60.5" fits).
             self._build_hal_row(col2_frame, stat, label_width=col2_width,
-                                spin_width=3)
+                                spin_width=4)
 
-        # Task 2 (round 9, follow-up): note explaining HAL threshold
-        # semantics, packed below the cols grid. wraplength is updated on
-        # <Configure> so the text reflows whenever the HAL frame's width
-        # changes (it does -- HAL trades width with Important Settings).
+        # Note explaining HAL threshold semantics, packed below the cols
+        # grid. wraplength is updated on <Configure> so the text reflows
+        # whenever the HAL frame's width changes (it does -- HAL trades
+        # width with Important Settings).
         hal_note = ttk.Label(
             parent,
-            text=("Note: Input stats as you expect to see them in the "
-            "in-game Combatants menu."),
+            text=("Input stats as you expect them to be in the "
+            "Combatants menu. Partner passive, Equipment, and "
+            "conditional set effects are ignored (Partner flat "
+            "stats still count)."),
             foreground=self.colors["fg_dim"],
             justify=tk.LEFT,
-            wraplength=160,  # initial; will be replaced on first <Configure>
+            wraplength=165,  # initial; will be replaced on first <Configure>
         )
         hal_note.pack(fill=tk.X, expand=False, pady=(4, 0))
         parent.bind(
             "<Configure>",
-            lambda e, lbl=hal_note: lbl.config(wraplength=max(160, e.width - 29)),
+            lambda e, lbl=hal_note: lbl.config(wraplength=max(165, e.width - 29)),
             add="+",
         )
 
@@ -930,27 +910,42 @@ class OptimizerTab(BaseTab):
                        spin_width=4):
         row = ttk.Frame(parent)
         row.pack(fill=tk.X, pady=1)
-        # Item 3: translate the internal stat key to its user-facing label.
-        # Item 2 (round 5): fixed per-column width so spinboxes align;
-        # anchor=tk.W keeps the label text left-justified within that width.
-        # n2 (this round): no trailing colon on the stat labels.
-        # Task 3 (round 9): label_pad is the gap to the spinbox (col 1 = 9).
+        # Internal stat key translated to its user-facing label; fixed
+        # per-column width so spinboxes align; anchor=tk.W keeps the label
+        # text left-justified within that width. No trailing colon.
         label_text = DISPLAY_NAMES.get(stat, stat)
         ttk.Label(row, text=label_text, width=label_width,
                   anchor=tk.W).pack(side=tk.LEFT, padx=(0, label_pad))
         var = self.have_at_least_vars[stat]
-        # Item 4: spinbox width default 4 (big enough for 4-digit ATK/HP
-        # thresholds). Task 2 (round 9, follow-up): callers may override
-        # via spin_width (col 2 uses 3 since its stats are %-bounded).
-        spin = tk.Spinbox(
-            row, from_=0, to=99999, increment=1, width=spin_width,
-            textvariable=var,
-            bg=self.colors["bg_light"], fg=self.colors["fg"],
-            buttonbackground=self.colors["bg_lighter"],
-            insertbackground=self.colors["fg"],
-        )
+        # %-valued stats (DoubleVar) display one decimal place and accept
+        # decimal input; raw-integer stats keep the plain integer spinbox.
+        # Spinbox width default 4 (enough for 4-digit ATK/HP thresholds);
+        # callers may override via spin_width.
+        if stat in HAL_STATS_WITH_PCT:
+            spin = tk.Spinbox(
+                row, from_=0, to=999.9, increment=1, width=spin_width,
+                format="%.1f",
+                textvariable=var,
+                bg=self.colors["bg_light"], fg=self.colors["fg"],
+                buttonbackground=self.colors["bg_lighter"],
+                insertbackground=self.colors["fg"],
+            )
+        else:
+            spin = tk.Spinbox(
+                row, from_=0, to=99999, increment=1, width=spin_width,
+                textvariable=var,
+                bg=self.colors["bg_light"], fg=self.colors["fg"],
+                buttonbackground=self.colors["bg_lighter"],
+                insertbackground=self.colors["fg"],
+            )
         spin.pack(side=tk.LEFT)
-        spin.bind("<MouseWheel>", lambda e, sp=spin: self._spinbox_wheel(e, sp))
+        if stat in HAL_STATS_WITH_PCT:
+            # Wheel steps the %-valued minimums by +-0.1 (the spinbox
+            # BUTTONS keep stepping by 1 via increment=1).
+            spin.bind("<MouseWheel>",
+                      lambda e, v=var: self._hal_pct_wheel(e, v))
+        else:
+            spin.bind("<MouseWheel>", lambda e, sp=spin: self._spinbox_wheel(e, sp))
         if stat in HAL_STATS_WITH_PCT:
             ttk.Label(row, text="%").pack(side=tk.LEFT, padx=(2, 0))
         # Save on any write -- Spinbox button clicks fire the var-trace.
@@ -963,14 +958,9 @@ class OptimizerTab(BaseTab):
 
     def _build_set_config(self, parent):
         # Row 1: Max Flex Slots stepper (left) + Set Effect group (right).
-        # Item 10: the set-effect text + slider were originally a single
-        # left-packed cluster on this row; they're now stacked vertically
-        # in a right-aligned sub-frame so the long descriptive label can
-        # wrap onto its own line without squishing the spinbox.
         row1 = ttk.Frame(parent)
         row1.pack(fill=tk.X, pady=(0, 3))
 
-        # Item 9: "Maximum Flex Slots" -> "Max Flex Slots".
         ttk.Label(row1, text="Max Flex Slots").pack(side=tk.LEFT, padx=(0, 4))
         flex_spin = tk.Spinbox(
             row1, from_=0, to=6, increment=1, width=3,
@@ -985,10 +975,9 @@ class OptimizerTab(BaseTab):
             "write", lambda *a: self._save_int_safe("max_flex_slots",
                                                        self.max_flex_slots_var))
 
-        # Item 10 / n5 (this round): set-effect group -- right-aligned
-        # within row1, on the SAME line as Max Flex Slots. The descriptive
-        # text is split across two lines (bracketed note on the 2nd line)
-        # and sits to the LEFT of the slider (no longer stacked above it).
+        # Set-effect group: right-aligned within row1, on the SAME line as
+        # Max Flex Slots. The descriptive text is split across two lines
+        # and sits to the LEFT of the slider.
         se_frame = ttk.Frame(row1)
         se_frame.pack(side=tk.RIGHT)
         ttk.Label(
@@ -1003,6 +992,12 @@ class OptimizerTab(BaseTab):
             command=lambda v: self._save_int("set_effect_pct", int(float(v))),
         )
         se_scale.pack(side=tk.LEFT, padx=(0, 3))
+        se_scale.bind(
+            "<MouseWheel>",
+            lambda e: self._scale_wheel(
+                e, self.set_effect_pct_var,
+                lambda v: self._save_int("set_effect_pct", v)),
+        )
         self.set_effect_readout_label = ttk.Label(se_frame, text="0%", width=5)
         self.set_effect_readout_label.pack(side=tk.LEFT)
         self.set_effect_pct_var.trace_add(
@@ -1059,16 +1054,16 @@ class OptimizerTab(BaseTab):
         def _add_set_cb(sid, sinfo, row, col, top_pad):
             var = tk.BooleanVar(value=False)
             self.set_selected_vars[sid] = var
-            # Item 9: "<pieces>pc: <name>" so the piece count leads.
-            # Task 2 (round 10): split the visible text into two parts so
-            # element-specific sets can be colored: "Xpc:" gets the first
-            # element's color, "<name>" gets the second's. Single-element
-            # sets use the same color for both; non-element sets use the
-            # default foreground. ATTRIBUTE_COLORS is the same map the
-            # exclude flow uses for combatant-name coloring, so the
-            # palette matches across the tab. The checkbox itself is a
-            # bare ttk.Checkbutton (no text) -- text-clicking is wired
-            # back to it via <Button-1> bindings on the two labels.
+            # "<pieces>pc: <name>" so the piece count leads. The visible
+            # text is split into two labels so element-specific sets can
+            # be colored: "Xpc:" gets the first element's color, "<name>"
+            # gets the second's. Single-element sets use the same color
+            # for both; non-element sets use the default foreground.
+            # ATTRIBUTE_COLORS is the same map the exclude flow uses for
+            # combatant-name coloring, so the palette matches across the
+            # tab. The checkbox itself is a bare ttk.Checkbutton (no
+            # text) -- text-clicking is wired back to it via <Button-1>
+            # bindings on the two labels.
             container = ttk.Frame(self.set_grid_frame)
             container.grid(row=row, column=col, sticky=tk.W,
                            padx=5, pady=(top_pad, 1))
@@ -1106,13 +1101,12 @@ class OptimizerTab(BaseTab):
             pieces_label.bind("<Button-1>", _toggle)
             name_label.bind("<Button-1>", _toggle)
 
-        # Item 4 (round 7): 3 columns. n4 (this round): the 2-piece sets
-        # always start on a fresh row below the 4-piece sets, with a small
-        # vertical gap separating the two groups.
+        # 3 columns; the 2-piece sets always start on a fresh row below
+        # the 4-piece sets, with a small vertical gap separating the two
+        # groups.
         for i, (sid, sinfo) in enumerate(four):
             _add_set_cb(sid, sinfo, i // ncols, i % ncols, 1)
         four_rows = (len(four) + ncols - 1) // ncols
-        # a2 (this round): half the previous 10px gap between 4pc and 2pc.
         SET_GROUP_GAP = 5
         for j, (sid, sinfo) in enumerate(two):
             r = four_rows + j // ncols
@@ -1124,11 +1118,11 @@ class OptimizerTab(BaseTab):
 
     def _build_exclude_gear(self, parent):
         self.exclude_heroes_frame = ttk.Frame(parent)
-        # Round 9 follow-up: lock the natural width to the eventual flow-
-        # layout width (~694px for the current character roster at default
-        # window sizes). The real exclude content is built post-Map (data
-        # load -> refresh_exclude_heroes -> deferred 50ms after() callback
-        # -> _reflow_exclude_heroes), and without this lock the LabelFrame's
+        # Lock the natural width to the eventual flow-layout width (~694px
+        # for the current character roster at default window sizes). The
+        # real exclude content is built post-Map (data load ->
+        # refresh_exclude_heroes -> deferred 50ms after() callback ->
+        # _reflow_exclude_heroes), and without this lock the LabelFrame's
         # reqwidth jumps from 1 -> 694 ~50ms after the tab paints, which
         # forces a visible grid re-balance: col 1 shrinks ~56px and col 2
         # grows the same. update_idletasks() can't catch this because the
@@ -1137,13 +1131,11 @@ class OptimizerTab(BaseTab):
         # changes substantially, this value should be re-tuned to match.
         self.exclude_heroes_frame.configure(width=694)
         self.exclude_heroes_frame.pack(fill=tk.BOTH, expand=True)
-        # Task 1 (round 9): the checklist used to use a fixed 8-column grid
-        # with equal-weight columns -- every column scaled to the widest
-        # name ("Heidemarie"), which left huge gaps after shorter names.
-        # It's now a true flow layout: variable column widths sized to each
-        # name and a variable column count per row based on container
-        # width. The layout logic lives in refresh_exclude_heroes /
-        # _reflow_exclude_heroes; this frame is left as a plain container.
+        # The checklist is a true flow layout: variable column widths sized
+        # to each name, variable column count per row based on container
+        # width (no scaling every column to the widest name). The layout
+        # logic lives in refresh_exclude_heroes / _reflow_exclude_heroes;
+        # this frame is left as a plain container.
 
         btn_row = ttk.Frame(parent)
         btn_row.pack(fill=tk.X, pady=(5, 0))
@@ -1160,25 +1152,18 @@ class OptimizerTab(BaseTab):
         )
         self.progress_label.pack(anchor=tk.W)
 
-        # Item 7: "rank" / # column removed -- row order in the tree is
-        # already the implicit rank (top row = best build). Other columns'
-        # widths trimmed by 5 px each; Sets still stretches to absorb the
-        # remainder. Headings retain new-terminology display names per
-        # Item 3 ("Crit%", "CDMG%", "Extra%").
-        # Item 8: result_tree height reduced from 12 to 9 since the Results
-        # frame now sits at the bottom-right beside Selected Build and
-        # doesn't need the full vertical real estate it had as a top-row
-        # pane.
-        # Item 1 (round 7): added an "element" column before Extra% and an
-        # "ego" column at the end. All numeric columns are right-aligned
-        # (anchor=tk.E); only "sets" stays left-aligned and stretches.
+        # No rank column -- row order in the tree is already the implicit
+        # rank (top row = best build). "sets" is the only left-aligned,
+        # stretching column; all numeric columns are right-aligned
+        # (anchor=tk.E). Headings use the new-terminology display names
+        # ("Crit%", "CDMG%", "Elem%", "Extra%").
         cols = ("score", "sets", "atk", "hp", "def",
                 "crate", "cdmg", "element", "extra", "dot", "ego")
         self.result_tree = ttk.Treeview(
             parent, columns=cols, show="headings", height=9,
         )
         widths = {
-            "score": 45, "sets": 120,
+            "score": 55, "sets": 127,
             "atk": 35, "hp": 35, "def": 35,
             "crate": 42, "cdmg": 44, "element": 46, "extra": 45,
             "dot": 42, "ego": 35,
@@ -1213,12 +1198,11 @@ class OptimizerTab(BaseTab):
         self.detail_tree = ttk.Treeview(
             parent, columns=cols, show="headings", height=6,
         )
-        # n3 (this round): the separate "Potential" column was removed. The
-        # "GS" column now shows the current GS when the MF is at max level,
-        # or the Potential range (low-high) otherwise -- so it's widened to
-        # fit a range like "60-100".
+        # The GS column shows the current GS when the MF is at max level,
+        # or the Potential range (low-high) otherwise -- widened to fit a
+        # range like "60-100".
         col_defs = [
-            ("slot",      "Slot",       94),  # Task 3 (round 9): 101 -> 94 to match dropped "+"
+            ("slot",      "Slot",       94),
             ("set",       "Set",       110),
             ("main",      "Main",      90),
             ("sub1",      "Sub1",       90),
@@ -1230,8 +1214,7 @@ class OptimizerTab(BaseTab):
         ]
         for col, txt, w in col_defs:
             self.detail_tree.heading(col, text=txt)
-            # Item 3 (round 7): substat cells (sub1-4) are now left-aligned
-            # too, joining slot/set/main/owner. gs stays centered.
+            # Everything except gs is left-aligned; gs stays centered.
             anchor = (tk.W if col in ("slot", "set", "main",
                                       "sub1", "sub2", "sub3", "sub4", "owner")
                       else tk.CENTER)
@@ -1253,9 +1236,9 @@ class OptimizerTab(BaseTab):
         so its settings get loaded into the UI vars.
         """
         fragment_count = len(self.optimizer.fragments)
-        # Item 3: two-line status ("Loaded" on top, count on the bottom).
+        # Two-line status ("Loaded" on top, count on the bottom).
         self.status_label.config(
-            text=f"Loaded\n{fragment_count} fragments",
+            text=f"Loaded {fragment_count} fragments",
             foreground=self.colors["green"],
         )
         self.refresh_hero_list()
@@ -1265,20 +1248,17 @@ class OptimizerTab(BaseTab):
         # res_ids that don't yet have an entry.
         self._ensure_captured_chars_have_settings()
 
-        # Task 11 (round 10): previously this cleared optimization_results
-        # outright on every reload -- a live equip event triggered the
-        # same code path as a fresh capture, so the Results + Selected
-        # Build panels would blank out every time the user moved an MF.
-        # Now we try to re-map the cached results' MF references to the
-        # newly-loaded fragments (matched by id), preserving the display.
-        # Results whose MFs are no longer in the snapshot (e.g. deleted)
-        # are dropped. Stats dicts get recomputed against the new MF
-        # substats so upgrade events keep the display consistent (an
-        # equip event leaves substats unchanged, so the recompute is a
-        # no-op for that case). The cached SCORE is left alone -- it was
-        # computed against the same substats and the scoring weights
-        # haven't necessarily changed; re-running optimize is the
-        # canonical way to get a fresh score.
+        # Live equip events trigger this same code path as a fresh capture,
+        # so clearing optimization_results outright here would blank the
+        # Results + Selected Build panels every time the user moved an MF.
+        # Instead we re-map the cached results' MF references to the newly-
+        # loaded fragments (matched by id), preserving the display. Results
+        # whose MFs are no longer in the snapshot (e.g. deleted) KEEP their
+        # old refs; the display layer marks those Owner cells "(deleted)"
+        # (see _populate_detail). Stats dicts get recomputed against the
+        # new MF substats so upgrade events keep the display consistent
+        # (an equip event leaves substats unchanged, so the recompute is
+        # a no-op for that case).
         char = self.selected_character.get()
         prev_selection_idx = None
         if self.optimization_results and self.result_tree:
@@ -1294,54 +1274,32 @@ class OptimizerTab(BaseTab):
                 getattr(f, "id", None): f for f in self.optimizer.fragments
             }
             new_by_id.pop(None, None)
-            # Q9 (round 10): pre-compute settings + buff_baseline once so
-            # the per-result score recompute below is cheap (settings dict
-            # is non-trivial to build but constant across results).
             settings = self._build_optimizer_settings()
-            base_mult = settings.get("avg_card_dmg_pct", 100) / 100.0
-            mult_buff = settings.get("avg_mult_buff_pct", 0) / 100.0
-            add_buff = settings.get("avg_add_buff_pct", 0) / 100.0
-            buff_baseline = base_mult * (1.0 + mult_buff) + add_buff
-            if buff_baseline <= 0:
-                buff_baseline = 1.0
-            updated = []
+            # Re-map each result's MF refs onto the freshly-loaded
+            # fragment objects (matched by id). Deleted MFs keep their
+            # OLD ref so the row still renders its remembered
+            # slot/set/substats; the display layer marks the Owner cell
+            # "(deleted)" (see _populate_detail). Preserving index
+            # identity matters: the auto-restore at the bottom of this
+            # method re-selects by index.
+            remapped = []
             for gear, score, stats in self.optimization_results:
-                # Q8 (round 10): preserve results even when some MFs were
-                # deleted -- keep the OLD ref so the row still renders
-                # its remembered slot/set/substats, and the display layer
-                # marks the Owner column as "(deleted)" for those entries
-                # (see _populate_detail). This avoids the "selection drift"
-                # problem the previous drop-on-missing approach had: index
-                # 50 stays as the same logical build after a partial drop,
-                # so the auto-restore at the bottom of this method lands
-                # on the right row.
-                new_gear = []
-                for old_mf in gear:
-                    new_mf = new_by_id.get(getattr(old_mf, "id", None))
-                    if new_mf is None:
-                        new_gear.append(old_mf)
-                    else:
-                        new_gear.append(new_mf)
-                # Recompute stats against the new MF objects -- equip
-                # events leave substats unchanged so this is a no-op, but
-                # upgrade events change substats and we want the displayed
-                # ATK/HP/DEF/CRate/etc. to reflect the post-upgrade values.
-                # Q9 (round 10): recompute SCORE too -- upgrade events
-                # change a fragment's contribution to the build, so the
-                # cached score is stale. _compute_optimizer_score is pure
-                # given (gear, stats, settings, char), so we just call it.
-                try:
-                    new_stats = self.optimizer.calculate_build_stats(
-                        new_gear, char
-                    )
-                    new_score = self.optimizer._compute_optimizer_score(
-                        new_gear, new_stats, settings, char
-                    ) / buff_baseline
-                except Exception:
-                    new_stats = stats  # fallback to cached if anything goes wrong
-                    new_score = score
-                updated.append((new_gear, new_score, new_stats))
-            self.optimization_results = updated
+                new_gear = [
+                    new_by_id.get(getattr(old_mf, "id", None), old_mf)
+                    for old_mf in gear
+                ]
+                remapped.append((new_gear, score, stats))
+            # Recompute stats + the display score over the remapped
+            # builds in one pass, re-blended against THIS list's max-D /
+            # max-S and rescaled so the top row still reads 100. Equip
+            # events leave substats (and thus D/S) unchanged so this is a
+            # visual no-op; upgrade events change substats and the
+            # column refreshes to match. Doing it here (not per-build
+            # with the legacy scalar) keeps the Score column on the same
+            # 0-100 scale optimize() produced.
+            self.optimization_results = self.optimizer.reblend_results_for_display(
+                remapped, char, settings
+            )
 
         # Refresh the trees from the (possibly re-mapped) results.
         if self.optimization_results:
@@ -1385,23 +1343,22 @@ class OptimizerTab(BaseTab):
     def refresh_hero_list(self):
         """Populate the combobox with currently-known characters.
 
-        Display strings are formatted as just the character name; for
-        captured-but-unknown characters (no entry in CHARACTERS) we
-        append the res_id so the user can distinguish them.
+        Display strings are the character names. Captured-but-unknown
+        characters (no entry in CHARACTERS) are keyed by their res_id
+        string in character_info, so that numeric string IS the name
+        shown for them. res_id resolution happens in _resolve_res_id
+        when needed.
         """
         all_heroes = set(self.optimizer.characters.keys()) | set(
             self.optimizer.character_info.keys()
         )
-        # Build display map: name (or "name #res_id" for unknowns)
         display_strings = sorted(all_heroes)
-        # The combo just shows raw names for now. res_id resolution happens
-        # in _resolve_res_id when needed.
         self.hero_combo["values"] = display_strings
 
     def refresh_exclude_heroes(self):
         """Repopulate the exclude-gear checklist using a flow layout.
 
-        Task 1 (round 9): each row is a sub-Frame packed top-down inside
+        Each row is a sub-Frame packed top-down inside
         exclude_heroes_frame; checkbuttons within a row are packed LEFT
         with natural width and a small gap. A new row starts when the next
         checkbutton wouldn't fit in the remaining container width -- so
@@ -1409,14 +1366,13 @@ class OptimizerTab(BaseTab):
         number of columns per row varies based on container width.
         Re-flows on <Configure> when the container resizes.
 
-        Q7 #1 (round 10): skip the destructive rebuild when nothing
-        visible has changed. Without this, every live-update reflow
-        blinked the entire checklist; the blink was happening because
-        Tk has to destroy + recreate ~30 checkbuttons even when their
-        contents (hero list, excluded set, current character) are the
-        same. We also key the cache by the currently-selected character
-        so Q1's gray+strike treatment for the current char gets reapplied
-        when the user picks a different combatant.
+        Skips the destructive rebuild when nothing visible has changed:
+        Tk destroying + recreating ~30 checkbuttons blinks the whole
+        checklist even when their contents (hero list, excluded set,
+        current character) are the same, and live-update reflows fire
+        often. The cache is keyed by the currently-selected character so
+        the current-char gray+strike treatment gets reapplied when the
+        user picks a different combatant.
         """
         # Use the SAME source-of-truth as refresh_hero_list: union of
         # `characters` (which only has entries for characters with at least
@@ -1444,21 +1400,20 @@ class OptimizerTab(BaseTab):
             )
             self._exclude_configure_bound = True
 
-        # Q7 #1 skip-rebuild check: only rebuild when something visually
+        # Skip-rebuild check: only rebuild when something visually
         # observable has changed.
         if (getattr(self, "_exclude_heroes", None) == new_heroes
                 and getattr(self, "_exclude_excluded_set", None) == new_excluded
                 and getattr(self, "_exclude_last_current", None) == new_current):
             return
 
-        # Round 11 follow-up to Task 2: when ONLY the current-combatant
-        # marker changed (heroes + excluded set are the same), avoid the
-        # destroy + recreate cycle that causes a visible blink on every
-        # combatant dropdown change. Instead just update the foreground
-        # color and font of the previously-current + newly-current
-        # checkbuttons in place. Falls back to a full rebuild when
-        # widget refs are missing (e.g. first call before _reflow has
-        # populated them).
+        # When ONLY the current-combatant marker changed (heroes +
+        # excluded set are the same), avoid the destroy + recreate cycle
+        # that causes a visible blink on every combatant dropdown change.
+        # Instead just update the foreground color and font of the
+        # previously-current + newly-current checkbuttons in place. Falls
+        # back to a full rebuild when widget refs are missing (e.g. first
+        # call before _reflow has populated them).
         same_heroes = getattr(self, "_exclude_heroes", None) == new_heroes
         same_excluded = getattr(self, "_exclude_excluded_set", None) == new_excluded
         only_current_changed = (
@@ -1544,9 +1499,8 @@ class OptimizerTab(BaseTab):
         need to realize each Checkbutton just to measure it.
 
         Stores a `_exclude_widgets` dict mapping hero name -> Checkbutton
-        widget so `_update_exclude_current_marker` (round 11 Task 2) can
-        do in-place font/fg updates on combatant change without a full
-        rebuild.
+        widget so `_update_exclude_current_marker` can do in-place font/fg
+        updates on combatant change without a full rebuild.
         """
         import tkinter.font as tkfont
 
@@ -1569,58 +1523,107 @@ class OptimizerTab(BaseTab):
         f = tkfont.Font(family="Segoe UI", size=9)
         checkbox_overhead = 27
         gap = 7        # px between checkbuttons in a row
-        edge_pad = 0   # px on each side (kept symmetric per Task 1a)
+        edge_pad = 0   # px on each side (kept symmetric)
         available_w = max(1, container_w - 2 * edge_pad)
 
-        row_frame = None
-        row_w = 0
+        # Pass 1: partition heroes into rows by estimated width (same
+        # accounting the packing pass uses), so pass 2 knows each row's
+        # population up front and can JUSTIFY it: leftover width is
+        # distributed into the inter-item gaps so every row ends flush
+        # with the container's right edge. The LAST row stays left-
+        # aligned with the natural gap (justifying a short final row
+        # would smear 2-3 names across the full width). Flushness is
+        # approximate to within a few px since widths are font-metric
+        # estimates, not realized widget widths.
+        rows = []
+        cur_row = []
+        cur_w = 0
         for hero in self._exclude_heroes:
-            res_id = self._resolve_res_id(hero)
-            initial = (str(res_id) in self._exclude_excluded_set
-                       if res_id is not None else False)
-            var = tk.BooleanVar(value=initial)
-            self.exclude_hero_vars[hero] = var
-            char_data = get_character_by_name(hero)
-            fg_color = ATTRIBUTE_COLORS.get(
-                char_data.get("attribute", "Unknown"), self.colors["fg"]
-            )
-            # Q1 (round 10): the currently-selected character's checkbutton
-            # is grayed out + struck through so the user can see at a
-            # glance that the optimizer ignores this row (their MFs are
-            # always available -- see the filter in _build_optimizer_
-            # settings). The check state itself is preserved so it returns
-            # when the user picks a different combatant.
-            is_current = (hero == self.selected_character.get())
-            if is_current:
-                fg_color = self.colors["fg_dim"]
-                if not hasattr(self, "_exclude_strike_font"):
-                    import tkinter.font as tkfont
-                    self._exclude_strike_font = tkfont.Font(
-                        family="Segoe UI", size=9, overstrike=1
-                    )
-                cb_font = self._exclude_strike_font
-            else:
-                cb_font = ("Segoe UI", 9)
-
             est_w = f.measure(hero) + checkbox_overhead
+            if cur_row and cur_w + est_w + gap > available_w:
+                rows.append(cur_row)
+                cur_row = []
+                cur_w = 0
+            cur_row.append((hero, est_w))
+            cur_w += est_w + gap
+        if cur_row:
+            rows.append(cur_row)
 
-            if row_frame is None or row_w + est_w + gap > available_w:
-                row_frame = ttk.Frame(self.exclude_heroes_frame)
-                row_frame.pack(side=tk.TOP, anchor=tk.W, fill=tk.X,
-                                padx=(edge_pad, edge_pad), pady=0)
-                row_w = 0
+        built_rows = []  # (list of checkbuttons, is_last_row) per row
+        for row_idx, row_items in enumerate(rows):
+            is_last_row = (row_idx == len(rows) - 1)
+            n = len(row_items)
+            row_frame = ttk.Frame(self.exclude_heroes_frame)
+            row_frame.pack(side=tk.TOP, anchor=tk.W, fill=tk.X,
+                            padx=(edge_pad, edge_pad), pady=0)
+            row_cbs = []
+            for i, (hero, _est_w) in enumerate(row_items):
+                res_id = self._resolve_res_id(hero)
+                initial = (str(res_id) in self._exclude_excluded_set
+                           if res_id is not None else False)
+                var = tk.BooleanVar(value=initial)
+                self.exclude_hero_vars[hero] = var
+                char_data = get_character_by_name(hero)
+                fg_color = ATTRIBUTE_COLORS.get(
+                    char_data.get("attribute", "Unknown"), self.colors["fg"]
+                )
+                # The currently-selected character's checkbutton is grayed
+                # out + struck through so the user can see at a glance that
+                # the optimizer ignores this row (their MFs are always
+                # available -- see the filter in _build_optimizer_settings).
+                # The check state itself is preserved so it returns when
+                # the user picks a different combatant.
+                is_current = (hero == self.selected_character.get())
+                if is_current:
+                    fg_color = self.colors["fg_dim"]
+                    if not hasattr(self, "_exclude_strike_font"):
+                        self._exclude_strike_font = tkfont.Font(
+                            family="Segoe UI", size=9, overstrike=1
+                        )
+                    cb_font = self._exclude_strike_font
+                else:
+                    cb_font = ("Segoe UI", 9)
 
-            cb = tk.Checkbutton(
-                row_frame, text=hero, variable=var,
-                bg=self.colors["bg"], fg=fg_color,
-                selectcolor=self.colors["bg_light"],
-                activebackground=self.colors["bg"], activeforeground=fg_color,
-                font=cb_font, anchor=tk.W,
-                command=self._save_excluded_gear,
-            )
-            cb.pack(side=tk.LEFT, padx=(0, gap))
-            self._exclude_widgets[hero] = cb  # round 11 Task 2: for in-place updates
-            row_w += est_w + gap
+                cb = tk.Checkbutton(
+                    row_frame, text=hero, variable=var,
+                    bg=self.colors["bg"], fg=fg_color,
+                    selectcolor=self.colors["bg_light"],
+                    activebackground=self.colors["bg"], activeforeground=fg_color,
+                    font=cb_font, anchor=tk.W,
+                    command=self._save_excluded_gear,
+                )
+                cb.pack(side=tk.LEFT,
+                        padx=(0, 0 if i == n - 1 else gap))
+                self._exclude_widgets[hero] = cb  # for in-place current-marker updates
+                row_cbs.append(cb)
+            built_rows.append((row_cbs, is_last_row))
+
+        # Justification pass. Row-BREAKING above uses font-metric
+        # estimates, but the gap stretching must use the REAL rendered
+        # widths: the estimates run a couple px small per checkbutton,
+        # and gaps computed from them overflow the row by roughly one
+        # character's width, clipping the last name. winfo_reqwidth is
+        # valid immediately after widget creation, so re-measure and
+        # stretch (or, if the real widths overflow even at the natural
+        # gap, SHRINK -- floored at 2px) each non-final row in place.
+        for row_cbs, is_last_row in built_rows:
+            n = len(row_cbs)
+            if is_last_row or n < 2:
+                continue
+            content_w = sum(cb.winfo_reqwidth() for cb in row_cbs)
+            leftover = available_w - content_w - (n - 1) * gap
+            if leftover > 0:
+                extra, rem = divmod(leftover, n - 1)
+                for i, cb in enumerate(row_cbs[:-1]):
+                    pad = gap + extra + (1 if i < rem else 0)
+                    cb.pack_configure(padx=(0, pad))
+            elif leftover < 0:
+                # Estimates ran small enough that the real content
+                # overflows the row -- pull the gaps in evenly instead.
+                shrink = min(gap - 2, (-leftover + n - 2) // (n - 1))
+                if shrink > 0:
+                    for cb in row_cbs[:-1]:
+                        cb.pack_configure(padx=(0, gap - shrink))
 
     # =================================================================
     # res_id resolution + per-character settings load/save
@@ -1661,24 +1664,31 @@ class OptimizerTab(BaseTab):
         snapshots but not yet in characters.py) so they too get persistent
         settings.
 
-        Q6 (round 10): also bootstraps the "Exclude Combatant's MFs"
-        checklist to default-checked-for-all. On first run (when the
-        flag `excluded_default_initialized` is absent) we populate the
-        excluded list with every known character's res_id. After that,
-        any res_id encountered for the first time (no per-character
-        entry yet) is auto-added to the excluded list -- so a newly
-        released character defaults to excluded too. The user's manual
-        unchecks are preserved across reloads because they're recorded
-        in excluded_gear_chars (removal from the list), and we only
-        ADD on first-seen.
+        Also bootstraps the "Exclude Combatant's MFs" checklist to
+        default-checked-for-all. Every character the exclude system has
+        seen before is tracked in the persisted `exclude_seen_rids`
+        marker list; a res_id absent from that marker is "new to the
+        exclude system" and gets auto-added to the excluded list (then
+        recorded as seen). The user's manual unchecks are preserved
+        across reloads: unchecking removes the res_id from
+        excluded_gear_chars but leaves it in exclude_seen_rids, so it's
+        never re-added.
+
+        Tracking against exclude_seen_rids rather than "has a settings
+        entry" is deliberate: bootstrap_known_characters creates a
+        settings entry for every KNOWN character at startup, so a newly
+        added known character would already have an entry by the time
+        this runs and an entry-existence test would never see it as new.
+        The seen-marker is independent of that.
         """
         if self.opt_settings is None:
             return
 
-        # Q6 first-run bootstrap: populate excluded list with every
-        # currently-known res_id. Includes both characters already in the
-        # settings file (via bootstrap_known_characters at startup) and
-        # any new captured res_ids we're about to ensure.
+        # First-run bootstrap: populate the excluded list + the seen
+        # marker with every currently-known res_id. Includes both
+        # characters already in the settings file (via
+        # bootstrap_known_characters at startup) and any new captured
+        # res_ids we're about to ensure below.
         #
         # Safety: only OVERWRITE the excluded list when it's empty. For
         # users upgrading from a previous version of the program who've
@@ -1686,43 +1696,75 @@ class OptimizerTab(BaseTab):
         # but the list will be non-empty -- in that case we just set the
         # flag (so this check doesn't re-run on every launch) and leave
         # their state alone.
+        all_known_rids = list(self.opt_settings.data.get("characters", {}).keys())
+        for name in self.optimizer.character_info.keys():
+            rid = self._resolve_res_id(name)
+            if rid is not None and str(rid) not in all_known_rids:
+                all_known_rids.append(str(rid))
+
         if not self.opt_settings.data.get("excluded_default_initialized", False):
             current_excluded = list(self.opt_settings.get_excluded_gear_chars())
             if not current_excluded:
-                all_rids = list(self.opt_settings.data.get("characters", {}).keys())
-                for name in self.optimizer.character_info.keys():
-                    rid = self._resolve_res_id(name)
-                    if rid is not None:
-                        rid_str = str(rid)
-                        if rid_str not in all_rids:
-                            all_rids.append(rid_str)
-                self.opt_settings.set_excluded_gear_chars(all_rids)
+                self.opt_settings.set_excluded_gear_chars(all_known_rids)
+            # Seed the seen marker with everything known at first run --
+            # whether or not we overwrote the excluded list -- so the
+            # per-character auto-exclude below only fires for res_ids that
+            # appear AFTER this point (genuinely new characters).
+            self._set_exclude_seen_rids(all_known_rids)
             # Mark flag either way so subsequent launches don't re-check.
             self.opt_settings.data["excluded_default_initialized"] = True
+        elif "exclude_seen_rids" not in self.opt_settings.data:
+            # Upgrade path: an existing user (flag already set) from before
+            # the seen-marker existed. Grandfather every currently-known
+            # res_id as "already seen" WITHOUT touching their exclude
+            # state, so we don't wrongly re-exclude characters they'd
+            # deliberately un-excluded. Genuinely new characters captured
+            # after this point are absent from the marker and get the
+            # default-excluded treatment below.
+            self._set_exclude_seen_rids(all_known_rids)
 
-        # Snapshot of which res_ids ALREADY have a per-character entry --
-        # we use this BELOW the ensure_character loop to detect newly-
-        # captured characters.
-        existing_chars = set(self.opt_settings.data.get("characters", {}).keys())
-
+        # Per-character pass: ensure a settings entry, and auto-exclude
+        # any res_id the exclude system hasn't seen before (independent
+        # of whether a settings entry already existed for it).
+        seen_rids = set(self._get_exclude_seen_rids())
+        newly_seen = []
         for name in self.optimizer.character_info.keys():
             rid = self._resolve_res_id(name)
             if rid is None:
                 continue
             rid_str = str(rid)
-            is_new = rid_str not in existing_chars
             self.opt_settings.ensure_character(rid, name=name)
-            if is_new:
-                # Q6: brand-new captured character -> default to excluded.
+            if rid_str not in seen_rids:
+                # New to the exclude system -> default to excluded.
                 excluded = list(self.opt_settings.get_excluded_gear_chars())
                 if rid_str not in excluded:
                     excluded.append(rid_str)
                     self.opt_settings.set_excluded_gear_chars(excluded)
+                seen_rids.add(rid_str)
+                newly_seen.append(rid_str)
+        if newly_seen:
+            self._set_exclude_seen_rids(sorted(seen_rids))
 
         # ensure_character doesn't auto-persist; nudge a write if any
         # new entries appeared. _write is safe to call repeatedly.
         if self.opt_settings.data["characters"]:
             self.opt_settings._write()
+
+    def _get_exclude_seen_rids(self) -> list:
+        """res_id strings the exclude system has already processed. Stored
+        as a top-level key in optimizer_settings.json (preserved verbatim
+        by the manager's load()). Absent -> empty list."""
+        if self.opt_settings is None:
+            return []
+        val = self.opt_settings.data.get("exclude_seen_rids", [])
+        return [str(x) for x in val] if isinstance(val, list) else []
+
+    def _set_exclude_seen_rids(self, rids) -> None:
+        """Persist the exclude-seen marker list. Written on the next
+        manager _write (the caller triggers one)."""
+        if self.opt_settings is None:
+            return
+        self.opt_settings.data["exclude_seen_rids"] = sorted({str(x) for x in rids})
 
     def _load_settings_for(self, hero_name: str):
         """Populate every per-character UI var from this character's stored
@@ -1756,7 +1798,11 @@ class OptimizerTab(BaseTab):
 
             hal = s.get("have_at_least", {})
             for stat in HAL_ALL_STATS:
-                self.have_at_least_vars[stat].set(int(hal.get(stat, 0)))
+                raw = hal.get(stat, 0)
+                if stat in HAL_STATS_WITH_PCT:
+                    self.have_at_least_vars[stat].set(round(float(raw), 1))
+                else:
+                    self.have_at_least_vars[stat].set(int(raw))
 
             self.max_flex_slots_var.set(s.get("max_flex_slots", 6))
             self.set_effect_pct_var.set(s.get("set_effect_pct", 0))
@@ -1818,7 +1864,11 @@ class OptimizerTab(BaseTab):
         if self.opt_settings is None:
             return
         try:
-            v = int(self.have_at_least_vars[stat].get())
+            if stat in HAL_STATS_WITH_PCT:
+                # One decimal place for the %-valued stats.
+                v = round(float(self.have_at_least_vars[stat].get()), 1)
+            else:
+                v = int(self.have_at_least_vars[stat].get())
         except (tk.TclError, ValueError):
             return  # spinbox in a half-typed state; ignore
         if v < 0:
@@ -1835,16 +1885,34 @@ class OptimizerTab(BaseTab):
 
     def _save_excluded_gear(self):
         """Translate the hero-name-keyed checkboxes back to a res_id list
-        and persist. Skipped while no opt_settings is available."""
+        and persist. Skipped while no opt_settings is available.
+
+        Preserves persisted res_ids that aren't currently DISPLAYED in the
+        checklist: only captured characters get a checkbox, but the
+        excluded list is bootstrapped with EVERY known character's res_id.
+        Rebuilding the list from the checkboxes alone would silently drop
+        the not-yet-captured entries on any toggle -- and they'd never be
+        re-added (the auto-exclude in _ensure_captured_chars_have_settings
+        only fires for res_ids the exclude system hasn't seen before, and
+        bootstrap already marked these as seen), so those characters would
+        arrive UN-excluded when first captured.
+        """
         if self.opt_settings is None:
             return
-        excluded_ids = []
+        displayed_ids = set()
+        checked_ids = []
         for hero, var in self.exclude_hero_vars.items():
+            rid = self._resolve_res_id(hero)
+            if rid is None:
+                continue
+            rid_str = str(rid)
+            displayed_ids.add(rid_str)
             if var.get():
-                rid = self._resolve_res_id(hero)
-                if rid is not None:
-                    excluded_ids.append(str(rid))
-        self.opt_settings.set_excluded_gear_chars(excluded_ids)
+                checked_ids.append(rid_str)
+        # Keep every persisted exclusion we don't show a checkbox for.
+        kept = [rid for rid in self.opt_settings.get_excluded_gear_chars()
+                if rid not in displayed_ids]
+        self.opt_settings.set_excluded_gear_chars(kept + checked_ids)
 
     def _exclude_all_gear(self):
         """Check every box in the exclude list."""
@@ -1920,6 +1988,16 @@ class OptimizerTab(BaseTab):
         if not char_name:
             messagebox.showwarning("Warning", "Please select a hero")
             return
+        # The combo is disabled when nothing is loaded, but
+        # selected_character can retain a stale name (e.g. data reloaded
+        # empty) -- don't start a pointless run over zero fragments.
+        if not self.optimizer.fragments:
+            messagebox.showwarning("Warning", "No data loaded")
+            return
+        # Start is disabled while a run is live; guard anyway in case the
+        # command fires through another path (e.g. keyboard invoke).
+        if self._optimizing:
+            return
 
         if self._current_res_id is None:
             # Allow optimization to proceed for unknown chars but skip
@@ -1927,11 +2005,20 @@ class OptimizerTab(BaseTab):
             # at the moment.
             pass
 
-        self.cancel_flag[0] = False
+        # Signal any straggler worker to stop, then hand the NEW run its
+        # OWN flag object. Re-using one shared list was racy: resetting
+        # cancel_flag[0] = False could revive a just-cancelled worker
+        # that hadn't polled the flag yet, leaving two threads mutating
+        # shared optimizer state.
+        self.cancel_flag[0] = True
+        self.cancel_flag = [False]
+        run_flag = self.cancel_flag
+        self._run_id += 1
+        run_id = self._run_id
 
-        # Item 5: if the chosen sets can't possibly lock enough slots to
-        # leave a valid build under the current Maximum Flex Slots cap, bump
-        # the cap up to the minimum that works (persisting it + reflecting
+        # If the chosen sets can't possibly lock enough slots to leave a
+        # valid build under the current Maximum Flex Slots cap, bump the
+        # cap up to the minimum that works (persisting it + reflecting
         # it in the UI). Returns the new value if a bump happened, else None.
         bumped_to = self._maybe_bump_flex_slots()
 
@@ -1939,7 +2026,7 @@ class OptimizerTab(BaseTab):
 
         # Zero out the optimizer's legacy priority_score system so the
         # slot pre-filter sorts by gear_score (which uses the Scoring
-        # tab's active preset). The actual build SCORING is the v1.1.0
+        # tab's active preset). The actual build SCORING is the
         # damage/heal formula in optimizer._compute_optimizer_score --
         # the priority system below only affects which fragments are
         # KEPT per slot before enumeration starts.
@@ -1952,26 +2039,34 @@ class OptimizerTab(BaseTab):
 
         def optimize_thread():
             def progress_cb(checked, total, found):
-                self.result_queue.put(("progress", checked, total, found))
-            results = self.optimizer.optimize(
-                char_name, settings, progress_cb, self.cancel_flag
-            )
-            # The optimizer now applies the Have-at-least filter inline
-            # during enumeration (faster + reports counters). Read its
-            # last_optimize_stats to drive the "no builds matched" popup
-            # message in check_queue.
-            stats = getattr(self.optimizer, "last_optimize_stats", {}) or {}
-            self.result_queue.put(("done", results, stats))
+                self.result_queue.put(("progress", run_id, checked, total, found))
+            try:
+                results = self.optimizer.optimize(
+                    char_name, settings, progress_cb, run_flag
+                )
+                # The optimizer applies the Have-at-least filter inline
+                # during enumeration (faster + reports counters). Read its
+                # last_optimize_stats to drive the "no builds matched" popup
+                # message in check_queue.
+                stats = getattr(self.optimizer, "last_optimize_stats", {}) or {}
+            except Exception:
+                # A crashed worker must STILL post "done" -- check_queue's
+                # done handler is the only thing that re-enables Start.
+                results, stats = [], {}
+            self.result_queue.put(("done", run_id, results, stats))
 
+        self._optimizing = True
+        if self.start_button is not None:
+            self.start_button.config(state=tk.DISABLED)
         threading.Thread(target=optimize_thread, daemon=True).start()
 
-        # Item 5: surface the auto-bump AFTER kicking off the worker thread,
-        # so the notice and the optimization run "in parallel" -- the modal
+        # Surface the auto-bump AFTER kicking off the worker thread, so
+        # the notice and the optimization run "in parallel" -- the modal
         # dialog blocks only the UI thread; the daemon worker keeps going.
         if bumped_to is not None:
-            # Task 2 (round 9): pad the message out so the dialog is wide
-            # enough for the title ("Not Enough Flex Slots") not to clip --
-            # messagebox widths are driven by the message text, not the title.
+            # Pad the message out so the dialog is wide enough for the
+            # title ("Not Enough Flex Slots") not to clip -- messagebox
+            # widths are driven by the message text, not the title.
             messagebox.showinfo(
                 "Not Enough Flex Slots",
                 f"Max Flex Slots was too low for the chosen sets — "
@@ -2049,7 +2144,7 @@ class OptimizerTab(BaseTab):
         Combines:
           * Legacy filter fields used by `get_gear_by_slot` (set requirements,
             main-stat filters per slot, top_percent, excluded_heroes).
-          * v1.1.0 fields used by `calculate_build_stats` and
+          * Scoring fields used by `calculate_build_stats` and
             `_compute_optimizer_score` (Extra%, DoT%, ATK/DEF split,
             shield/heal weight, set-effect %, avg buff fields, level
             stepper, element override, have-at-least minimums).
@@ -2079,7 +2174,7 @@ class OptimizerTab(BaseTab):
         slot6_filter = slot6_filter if slot6_filter else None
 
         # Selected sets -> split into 4-piece and 2-piece lists for the
-        # optimizer's legacy fields (kept for back-compat; the Phase 4
+        # optimizer's legacy fields (kept for back-compat; the
         # locked-count rule uses `sets_selected` directly).
         selected_4pc = []
         selected_2pc = []
@@ -2120,10 +2215,10 @@ class OptimizerTab(BaseTab):
             "include_equipped": True,    # always include; exclude list is the new gate
             "excluded_heroes": excluded_heroes,
             "max_results": 100,
-            # ----- Phase 4 set-combo fields (consumed by optimize's locked-count rule) -----
+            # ----- Set-combo fields (consumed by optimize's locked-count rule) -----
             "sets_selected": list(s.get("sets_selected", [])),
             "max_flex_slots": int(s.get("max_flex_slots", 6)),
-            # ----- Phase 5: weights for the slot pre-filter sort -----
+            # ----- Weights for the slot pre-filter sort -----
             # The optimizer ranks fragments per slot by their score under
             # these weights before applying the Top filter. Resolved from
             # CharacterPresetManager (character's assignment) -> active
@@ -2133,7 +2228,7 @@ class OptimizerTab(BaseTab):
             "slot_filter_weights": self._get_weights_for_character(
                 self.selected_character.get()
             ) or None,
-            # ----- v1.1.0 scoring fields (consumed by calculate_build_stats + _compute_optimizer_score) -----
+            # ----- Scoring fields (consumed by calculate_build_stats + _compute_optimizer_score) -----
             "optimize_for_level": s.get("optimize_for_level", 62),
             "extra_pct": s.get("extra_pct", 0),
             "dot_pct": s.get("dot_pct", 0),
@@ -2155,10 +2250,16 @@ class OptimizerTab(BaseTab):
         try:
             while True:
                 msg = self.result_queue.get_nowait()
+                # Every message is tagged with the run-id it came from;
+                # drop stragglers from superseded runs so a cancelled
+                # worker's late "done" can't overwrite the current run's
+                # progress or results.
+                if msg[1] != self._run_id:
+                    continue
                 if msg[0] == "progress":
-                    _, checked, total, found = msg
+                    _, _rid, checked, total, found = msg
                     pct = (checked / total * 100) if total > 0 else 0
-                    # Item 6: the optimizer trims its in-flight results list
+                    # The optimizer trims its in-flight results list
                     # periodically (keeping top max_results), so a live
                     # "Found N" count oscillates wildly between max_results and
                     # ~10x that. We deliberately DON'T surface the running
@@ -2169,14 +2270,24 @@ class OptimizerTab(BaseTab):
                         text=f"Checked {checked:,} ({pct:.1f}%)"
                     )
                 elif msg[0] == "done":
-                    _, results, stats = msg
+                    _, _rid, results, stats = msg
+                    self._optimizing = False
+                    if self.start_button is not None:
+                        self.start_button.config(state=tk.NORMAL)
                     self.optimization_results = results
                     self.display_results(results)
                     passed_sets = stats.get("passed_set_reqs", 0)
-                    passed_hal = stats.get("passed_have_at_least", 0)
+                    # Show the run's wall time next to the build count.
+                    duration = stats.get("duration_seconds", 0.0)
+                    if duration >= 60:
+                        time_note = f" in {int(duration // 60)}m {duration % 60:.0f}s"
+                    elif duration > 0:
+                        time_note = f" in {duration:.1f}s"
+                    else:
+                        time_note = ""
                     if results:
                         self.progress_label.config(
-                            text=f"Done! {len(results)} builds"
+                            text=f"Done! {len(results)} builds{time_note}"
                         )
                     elif passed_sets > 0:
                         # Candidates passed the set requirements but ALL got
@@ -2203,8 +2314,8 @@ class OptimizerTab(BaseTab):
     def display_results(self, results: list):
         self.result_tree.delete(*self.result_tree.get_children())
         char = self.selected_character.get()
-        # Q2 (round 10): resolve the user's selected sets for THIS character
-        # once so _format_set_summary can tag accidental sets with "(F)".
+        # Resolve the user's selected sets for THIS character once so
+        # _format_set_summary can tag accidental sets with "(F)".
         selected_set_ids = set()
         if self.opt_settings is not None and self._current_res_id is not None:
             try:
@@ -2212,15 +2323,29 @@ class OptimizerTab(BaseTab):
                 selected_set_ids = set(s.get("sets_selected", []))
             except Exception:
                 selected_set_ids = set()
+        # Fragment-id set of the character's currently-equipped build, so
+        # the row that exactly matches it can be tagged "(E)". Empty when
+        # the character has fewer than a full build equipped.
+        equipped_ids = frozenset(
+            getattr(p, "id", None)
+            for p in self.optimizer.characters.get(char, [])
+        )
         for i, (gear, score, stats) in enumerate(results[:100]):
             sets_str = self._format_set_summary(gear, selected_set_ids)
-            # Item 1 (round 7): Element% isn't part of calculate_build_stats'
-            # output, so augment to compute it for this build/character.
-            # Ego is already in the stats dict. The value tuple order must
+            # Tag the already-equipped build with "(E)" so the user can
+            # see at a glance that one option is what they already have.
+            score_str = f"{score:.1f}"
+            if equipped_ids and frozenset(
+                getattr(p, "id", None) for p in gear
+            ) == equipped_ids:
+                score_str = f"{score_str} (E)"
+            # Element% isn't part of calculate_build_stats' output, so
+            # augment to compute it for this build/character. Ego is
+            # already in the stats dict. The value tuple order must
             # match the column order: ...cdmg, element, extra, dot, ego.
             stats = self._augment_stats(stats, gear, char)
             self.result_tree.insert("", tk.END, values=(
-                f"{score:.0f}", sets_str,
+                score_str, sets_str,
                 f"{stats.get('ATK', 0):.0f}",
                 f"{stats.get('HP', 0):.0f}",
                 f"{stats.get('DEF', 0):.0f}",
@@ -2233,7 +2358,7 @@ class OptimizerTab(BaseTab):
             ), iid=str(i))
 
     def _format_set_summary(self, gear, selected_set_ids=None) -> str:
-        """Build the Results 'Sets' column string for one build (Item 9).
+        """Build the Results 'Sets' column string for one build.
 
         Ordering: 4-piece active sets first, then 2-piece active sets, then
         a single "N Flex" token if any wildcard slots remain. Alphabetical
@@ -2247,7 +2372,7 @@ class OptimizerTab(BaseTab):
         Name shortening: names <= 15 chars are kept as-is; longer names are
         collapsed to their first word.
 
-        Q2 (round 10): `selected_set_ids` is the set of set IDs the user
+        `selected_set_ids` is the set of set IDs the user
         marked as desirable in the Optimizer tab's Set Configuration. When
         a build's gear contains an active set that ISN'T in this list
         (i.e. the optimizer's flex slots happened to roll a complete set),
@@ -2310,7 +2435,7 @@ class OptimizerTab(BaseTab):
         char = self.selected_character.get()
 
         def _elem(e):
-            # Item 1 (round 7): Element% isn't stored in e[2]; compute it
+            # Element% isn't stored in e[2]; compute it
             # from the build's gear + the current character's attribute,
             # matching _augment_stats' logic.
             attribute = self._character_attribute(char)
@@ -2334,7 +2459,7 @@ class OptimizerTab(BaseTab):
             "ego":   lambda e: e[2].get("Ego", 0),
         }
         key_func = col_map.get(col, col_map["score"])
-        # Item 1 (round 5): secondary sort is always by score. Python's sort
+        # Secondary sort is always by score. Python's sort
         # is stable, so a two-pass approach (sort by score first, then by
         # the clicked column) leaves builds with equal primary values
         # ordered by score-descending. When the primary column IS score,
@@ -2373,9 +2498,19 @@ class OptimizerTab(BaseTab):
         gear, score, new_stats = self.optimization_results[idx]
         char = self.selected_character.get()
         current_gear = self.optimizer.characters.get(char, [])
-        current_stats = self.optimizer.calculate_build_stats(current_gear, char)
+        # Compute the current build at the SAME effective level the
+        # optimizer and the breakdown popup use (the "Optimize for LVL"
+        # stepper), so the Stats Comparison "Now" column and the popup's
+        # "currently equipped" numbers agree. Without this the current
+        # build would be read at the character's actual level and the
+        # level-dependent stats (ATK/DEF/HP and their Pot7 rows) would
+        # disagree whenever the stepper differs from the actual level.
+        eff_level = self._effective_optimize_level(char)
+        current_stats = self.optimizer.calculate_build_stats(
+            current_gear, char, effective_level=eff_level
+        )
 
-        # Item 8: inject Element% (not part of calculate_build_stats) so the
+        # Inject Element% (not part of calculate_build_stats) so the
         # Stats Comparison tree can show it under Totals.
         current_stats = self._augment_stats(current_stats, current_gear, char)
         new_stats = self._augment_stats(new_stats, gear, char)
@@ -2385,9 +2520,32 @@ class OptimizerTab(BaseTab):
 
     def show_current_stats(self, char_name: str):
         gear = self.optimizer.characters.get(char_name, [])
-        stats = self.optimizer.calculate_build_stats(gear, char_name)
+        # Match the optimizer / breakdown effective level so this view
+        # agrees with the Results "New" column and the contributions
+        # popup (see on_result_select).
+        eff_level = self._effective_optimize_level(char_name)
+        stats = self.optimizer.calculate_build_stats(
+            gear, char_name, effective_level=eff_level
+        )
         stats = self._augment_stats(stats, gear, char_name)
         self._populate_stats_compare(stats, None)
+
+    def _effective_optimize_level(self, char_name: str):
+        """The level the Optimizer tab evaluates a build at: the current
+        character's "Optimize for LVL" stepper value. Falls back to the
+        UI var, then None (which lets calculate_build_stats resolve its
+        own default). Kept in one place so every Stats Comparison /
+        breakdown consumer reads the same level."""
+        if self.opt_settings is not None and self._current_res_id is not None:
+            try:
+                s = self.opt_settings.get_character_data(self._current_res_id)
+                return s.get("optimize_for_level")
+            except Exception:
+                pass
+        try:
+            return self.optimize_for_level_var.get()
+        except tk.TclError:
+            return None
 
     def _character_attribute(self, char_name: str) -> str:
         """Resolve the character's Element attribute for Element% display.
@@ -2424,7 +2582,7 @@ class OptimizerTab(BaseTab):
         return out
 
     # =================================================================
-    # Item 11: "Show all stat contributions" right-click breakdown
+    # "Show all stat contributions" right-click breakdown
     # =================================================================
 
     def _show_stats_context_menu(self, event):
@@ -2432,8 +2590,8 @@ class OptimizerTab(BaseTab):
         full per-source breakdown:
           (a) selected build       = the row currently picked in Results
           (b) currently equipped   = the character's actual in-game gear
-        Item 6 split: a single menu item used to do (a) with fallback to (b);
-        now the user picks which one explicitly.
+        The user picks which one explicitly -- no silent fallback from
+        (a) to (b).
         """
         if not self.selected_character.get():
             return
@@ -2458,7 +2616,7 @@ class OptimizerTab(BaseTab):
                               currently-selected Results row. If no row is
                               selected, ask the user to pick one (don't
                               silently fall back to currently-equipped;
-                              Item 6 separates the two intents).
+                              the two intents are separate menu entries).
         use_selected=False -> the character's currently-equipped gear.
         """
         char = self.selected_character.get()
@@ -2509,7 +2667,7 @@ class OptimizerTab(BaseTab):
     @staticmethod
     def _format_breakdown_text(char: str, is_proposed: bool, bd: dict) -> str:
         """Render the breakdown dict into the fixed-width text block shown in
-        the popup. Column widths per the v1.1.0 popup spec (items 8 + 9):
+        the popup. Column widths:
 
           ATK/DEF/HP:  Base 3, Partner 3, MF% 4, Pot 3, MF Flat 2,
                          Affection 2, Partner% 4, Set Effect Sum 4,
@@ -2521,7 +2679,7 @@ class OptimizerTab(BaseTab):
                          Other 4 (or just the cross when zero)
           xDMG% / +DMG%:  4 (set-effect contributions only; the user's
                          Avg Multi Buff% / Avg Add Buff% fields are
-                         deliberately excluded per Item 7)
+                         deliberately excluded)
 
         The "0 if cross" rule for Other: when the value is zero, we render
         a bare cross mark (1 char) rather than a 4-wide padded zero, so the
@@ -2534,7 +2692,7 @@ class OptimizerTab(BaseTab):
             return f"{v:>{w}.1f}"
 
         def _other(v, w):
-            # 4-wide decimal when non-zero; bare cross when zero (Item 8).
+            # 4-wide decimal when non-zero; bare cross when zero.
             return f"{v:>{w}.1f}" if abs(v) > 0.05 else "\u2717"
 
         def _flag(present):
@@ -2560,10 +2718,10 @@ class OptimizerTab(BaseTab):
             )
         lines.append("")
 
-        # Item 1 (round 6): the stats below now lead with their total
-        # followed by " <= " (matching the ATK/DEF/HP format). Totals are
-        # padded to width 5. The total is the sum of the named components,
-        # which reconciles with calculate_build_stats' value for that stat.
+        # The stats below lead with their total followed by " <= "
+        # (matching the ATK/DEF/HP format). Totals are padded to width 5.
+        # The total is the sum of the named components, which reconciles
+        # with calculate_build_stats' value for that stat.
         cr = bd["CRate"]
         cr_total = cr["base"] + cr["mf_main"] + cr["mf_sub"] + cr["set_effect"] + cr["other"]
         lines.append(
@@ -2603,7 +2761,7 @@ class OptimizerTab(BaseTab):
             f" + Set Effect Sum {_dec(dt['set_effect'], 4)}"
             f" + Other {_other(dt['other'], 4)}"
         )
-        lines.append("")  # Item 6: blank line before Ego
+        lines.append("")  # blank line before Ego
         eg = bd["Ego"]
         eg_total = eg["mf_main"] + eg["mf_sub"] + eg["set_effect"] + eg["other"]
         lines.append(
@@ -2615,26 +2773,40 @@ class OptimizerTab(BaseTab):
         lines.append("")
         lines.append(f"xDMG%: {_dec(bd['xDMG%'], 4)}")
         lines.append(f"+DMG%: {_dec(bd['+DMG%'], 4)}")
-        # Item 8: "Potential 7" ATK/DEF/HP -- the inner stat values used by
-        # the Have-at-least minimum check: calculated WITHOUT Partner% and
-        # WITHOUT Equipment. Item 1 (round 6): no blank lines between the
-        # three rows, and an explanatory note directly below. "HP " gets a
-        # trailing space so its colon lines up with ATK:/DEF:.
+        # "Potential 7" ATK/DEF/HP -- the inner values used by the
+        # Have-at-least minimum check: Partner flat class stats count,
+        # Partner passives and Equipment don't. No blank lines between
+        # the three rows, and an
+        # explanatory note directly below. "HP " gets a trailing space so
+        # its colon lines up with ATK:/DEF:.
         lines.append("")
         lines.append(f"Potential 7 ATK: {bd['ATK']['inner']:>4.0f}")
         lines.append(f"Potential 7 DEF: {bd['DEF']['inner']:>4.0f}")
         lines.append(f"Potential 7 HP : {bd['HP']['inner']:>4.0f}")
+        # Potential 7 CRate/CDMG: the final value minus everything the
+        # in-game Potential 7 checks can't see -- conditional set
+        # contributions and ALL partner contributions (unconditional
+        # set bonuses stay in). Mirrors the Have-at-least gate's
+        # _hal_crate/_hal_cdmg. "CDMG " gets a trailing space so its
+        # colon lines up with CRate's.
         lines.append(
-            "Note: For Potential 7, ATK/DEF/HP are calculated without "
-            "Partner% and Equipment."
+            f"Potential 7 CRate: {cr_total - cr.get('pot7_excluded', 0.0):>5.1f}"
+        )
+        lines.append(
+            f"Potential 7 CDMG : {cd_total - cd.get('pot7_excluded', 0.0):>5.1f}"
+        )
+        lines.append(
+            "Note: For Potential 7, stats are calculated without "
+            "Partner passives, Equipment, and Conditional Sets "
+            "(Partner flat stats still count)."
         )
         return "\n".join(lines)
 
     def _show_text_popup(self, title: str, text: str):
         """Show `text` in a resizable Toplevel with a monospace Text widget,
-        sized so each line fits without wrapping. v1.1.0 polish: cap raised
-        from 120 to 200 chars so the wider ATK/DEF/HP lines (now including
-        Set Effect Sum) display on one line."""
+        sized so each line fits without wrapping. The 200-char width cap
+        keeps the wider ATK/DEF/HP lines (including Set Effect Sum) on one
+        line."""
         top = tk.Toplevel(self.root)
         top.title(title)
         top.configure(bg=self.colors["bg"])
@@ -2659,14 +2831,12 @@ class OptimizerTab(BaseTab):
 
     def _populate_stats_compare(self, current_stats: dict, new_stats: Optional[dict]):
         self.stats_tree.delete(*self.stats_tree.get_children())
-        # Item 8: single "Totals" section. Element% added; Extra DMG%, DoT%,
-        # and Ego moved up from the old "Substats" section.
-        # Item 3 polish: each row tuple now carries (internal_key, decimals,
-        # display_label). The internal_key is used for stats.get() lookup;
-        # the display_label is what the user sees. None display_label means
-        # "use internal_key as the label".
-        # Item 10: rows are NO LONGER skipped when current==0 and new is
-        # 0/None -- every configured stat is shown, even at zero.
+        # Single "Totals" section covering base stats, Crit, Element%,
+        # Extra%, DoT%, and Ego. Each row tuple carries (internal_key,
+        # decimals, display_label): internal_key is used for stats.get()
+        # lookup, display_label is what the user sees (None means "use
+        # internal_key as the label"). Rows are never skipped at zero --
+        # every configured stat is shown.
         stat_order = [
             ("- Totals -", None, None),  # header
             ("ATK", 0, None),
@@ -2678,14 +2848,23 @@ class OptimizerTab(BaseTab):
             ("Extra DMG%", 1, "Extra%"),
             ("DoT%", 1, None),
             ("Ego", 0, None),
-            # Item 3 (round 6): blank separator then the Potential-7 values
-            # (inner ATK/DEF/HP -- without Partner% or Equipment, same as
-            # the popup's "Potential 7" rows and the Have-at-least check).
+            # Blank separator then the Potential-7 values: inner
+            # ATK/DEF/HP (Partner flat counts; Partner passives and
+            # Equipment don't) and the crit values without conditional
+            # sets or partner passive contributions -- same as the
+            # popup's "Potential 7" rows and the Have-at-least check.
             ("", None, None),  # blank separator row
             ("_inner_atk", 0, "Pot7 ATK"),
             ("_inner_def", 0, "Pot7 DEF"),
             ("_inner_hp",  0, "Pot7 HP"),
+            ("_hal_crate", 1, "Pot7 Crit%"),
+            ("_hal_cdmg",  1, "Pot7 CDMG"),
         ]
+        # Size the visible height to the actual row count -- the tree's
+        # build-time height predates the Pot7 crit rows, which otherwise
+        # sit hidden behind a scroll. Doing it here keeps the height
+        # self-maintaining if rows are added or removed later.
+        self.stats_tree.configure(height=len(stat_order))
         for stat_key, decimals, display in stat_order:
             if decimals is None:
                 # Header row
@@ -2696,7 +2875,6 @@ class OptimizerTab(BaseTab):
             label = display if display is not None else stat_key
             curr = current_stats.get(stat_key, 0)
             new = new_stats.get(stat_key, 0) if new_stats is not None else None
-            # Item 10: always show -- no zero-skip filter.
 
             curr_fmt = (f"{curr:.0f}" if decimals == 0 else f"{curr:.1f}")
             if new is None:
@@ -2718,12 +2896,12 @@ class OptimizerTab(BaseTab):
 
     def _populate_detail(self, gear):
         # Resolve the weights to use for this build's GS / Potential columns.
-        # Per Task 5 of the v1.1.0 spec: the detail tree shows GS through the
-        # lens of the CURRENT CHARACTER's assigned preset (Combatants tab
-        # assignment), not the globally-active Scoring tab preset. So we
-        # don't read fragment.gear_score / potential_low/high (those are
-        # cached against the active preset) -- we recompute with the
-        # character's weights and a per-fragment bounds cache.
+        # The detail tree shows GS through the lens of the CURRENT
+        # CHARACTER's assigned preset (Combatants tab assignment), not the
+        # globally-active Scoring tab preset. So we don't read
+        # fragment.gear_score / potential_low/high (those are cached
+        # against the active preset) -- we recompute with the character's
+        # weights and a per-fragment bounds cache.
         char_name = self.selected_character.get()
         weights = self._get_weights_for_character(char_name)
 
@@ -2740,19 +2918,18 @@ class OptimizerTab(BaseTab):
             return cached
 
         self.detail_tree.delete(*self.detail_tree.get_children())
-        # Q8 (round 10): collect the current snapshot's MF ids so the Owner
-        # column can show "(deleted)" for any cached gear ref that no longer
-        # exists in optimizer.fragments. The kept (stale) MF still renders
-        # its last-known slot/set/main/subs -- only the Owner column
-        # changes -- so the user can still see WHAT used to be in that slot.
+        # Collect the current snapshot's MF ids so the Owner column can
+        # show "(deleted)" for any cached gear ref that no longer exists
+        # in optimizer.fragments. The kept (stale) MF still renders its
+        # last-known slot/set/main/subs -- only the Owner column changes --
+        # so the user can still see WHAT used to be in that slot.
         current_ids = {getattr(f, "id", None) for f in self.optimizer.fragments}
         for p in sorted(gear, key=lambda x: x.slot_num):
             b = _bounds(p)
             gs = compute_fragment_gs(p, weights, bounds=b)
             pot_low, pot_high = compute_fragment_potential(p, weights, bounds=b)
 
-            # Item 5: space between "<stat name>:" and the value.
-            # Item 3: stat names translated through DISPLAY_NAMES so the
+            # Stat names are translated through DISPLAY_NAMES so the
             # user-facing label uses the new terminology (e.g. "ATK Flat"
             # instead of "Flat ATK", "Crit%" instead of "CRate"). The
             # internal stat.name is unchanged -- this is purely a display
@@ -2768,14 +2945,14 @@ class OptimizerTab(BaseTab):
                 main_str = f"{main_label}: {p.main_stat.format_value()}"
             else:
                 main_str = "-"
-            # n3 (this round): the GS column shows the current GS when the MF
-            # is at max level (no upgrade headroom -> pot_low == pot_high),
-            # or the Potential range (low-high) when it can still be leveled.
+            # The GS column shows the current GS when the MF is at max
+            # level (no upgrade headroom -> pot_low == pot_high), or the
+            # Potential range (low-high) when it can still be leveled.
             if pot_low == pot_high:
                 gs_cell = f"{gs:.0f}"
             else:
                 gs_cell = f"{pot_low:.0f}-{pot_high:.0f}"
-            # Q8 (round 10): mark MFs that no longer exist in the snapshot.
+            # Mark MFs that no longer exist in the snapshot.
             if getattr(p, "id", None) not in current_ids:
                 owner = "(deleted)"
             else:
@@ -2837,20 +3014,20 @@ class OptimizerTab(BaseTab):
             return
         # Load persisted settings into the UI vars
         self._load_settings_for(char)
-        # Item 3: always refresh the Stats Comparison tree on character
+        # Always refresh the Stats Comparison tree on character
         # switch -- even when the character has no Memory Fragments
         # equipped. calculate_build_stats handles an empty gear list (returns
         # base + partner + affection + equipment stats); without this call,
         # the stats_tree retained the PREVIOUSLY-selected character's stats
         # when the new character had no gear.
         self.show_current_stats(char)
-        # Task 3 (round 10): refresh the Preset label below the combobox.
+        # Refresh the Preset label below the combobox.
         self._update_preset_label()
-        # Q1 (round 10): refresh the exclude checklist so the previously-
-        # selected character's gray+strike treatment is removed and the
-        # newly-selected character's is applied. refresh_exclude_heroes
-        # has a skip-if-unchanged guard, so calling it on every selection
-        # is cheap when only the visual current-char marker changed.
+        # Refresh the exclude checklist so the previously-selected
+        # character's gray+strike treatment is removed and the newly-
+        # selected character's is applied. refresh_exclude_heroes has a
+        # skip-if-unchanged guard, so calling it on every selection is
+        # cheap when only the visual current-char marker changed.
         if self.exclude_heroes_frame is not None:
             self.refresh_exclude_heroes()
 
@@ -2893,4 +3070,39 @@ class OptimizerTab(BaseTab):
             spinbox.invoke("buttonup")
         elif event.delta < 0:
             spinbox.invoke("buttondown")
+        return "break"
+
+    def _scale_wheel(self, event, var, on_change=None, lo=0, hi=100):
+        """Step a ttk.Scale's IntVar by exactly +-1 on mouse wheel.
+
+        Guarantees every integer 0-100 is reachable regardless of the
+        rendered track length (dragging can't land on all values when
+        the track's pixel travel is shorter than the value range).
+        on_change(int) is invoked on an actual change so persistence
+        fires -- setting the var directly does NOT trigger the Scale's
+        command= callback.
+        """
+        step = 1 if event.delta > 0 else -1
+        try:
+            cur = int(var.get())
+        except tk.TclError:
+            return "break"
+        new = max(lo, min(hi, cur + step))
+        if new != cur:
+            var.set(new)
+            if on_change:
+                on_change(new)
+        return "break"
+
+    def _hal_pct_wheel(self, event, var):
+        """+-0.1 mouse-wheel steps for the %-valued "Have at least"
+        spinboxes (the spinbox buttons keep stepping by 1). Rounded to
+        one decimal and floored at 0; persistence fires via the var's
+        write-trace."""
+        step = 0.1 if event.delta > 0 else -0.1
+        try:
+            cur = float(var.get())
+        except tk.TclError:
+            return "break"
+        var.set(round(max(0.0, cur + step), 1))
         return "break"
