@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from level_data_manager import LevelDataManager
     from settings_manager import SettingsManager
     from optimizer_settings_manager import OptimizerSettingsManager
+    from log_presets_manager import LogPresetsManager
 
 
 @dataclass
@@ -92,3 +93,12 @@ class AppContext:
     # Least minimums, selected sets, etc). Indexed by res_id so character
     # renames don't lose data. See optimizer_settings_manager.py.
     optimizer_settings_manager: Optional['OptimizerSettingsManager'] = None
+    # Per-combatant selection flags behind the Capture tab's Log Presets
+    # checklist (which assigned presets participate in the "[LIVE]
+    # Upgraded" Highest-Potential lines). See log_presets_manager.py.
+    log_presets_manager: Optional['LogPresetsManager'] = None
+    # Re-renders the LAST "[LIVE] Upgraded" capture-log line against the
+    # current Log Presets selection. Set by the main GUI; the Capture
+    # tab calls it after a checklist toggle. Optional -- callers must
+    # check for None.
+    recompute_upgrade_line_callback: Optional[Callable[[], None]] = None

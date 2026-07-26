@@ -27,6 +27,10 @@ Top-level layout
                             that augment the exp tables at startup.
   settings_manager.py       Generic persistent key-value store. Holds
                             last_selected_character + selected_preset.
+  log_presets_manager.py    Per-combatant flags behind the Capture tab's
+                            Log Presets checklist (which assigned presets
+                            the "[LIVE] Upgraded" Highest-Potential lines
+                            compare).
   defaults_sync.py          Three-stage reconciler that runs in
                             OptimizerGUI.__init__ BEFORE any manager
                             loads: maintainer bootstrap, new-user
@@ -190,6 +194,14 @@ class OptimizerGUI:
         self.config = load_config()
 
         self.root = tk.Tk()
+        # Hide the window before anything else touches it. tk.Tk() maps the
+        # window immediately, so without this the user watches an empty
+        # white frame for as long as construction + auto_load take, and
+        # then watches the UI draw itself widget by widget as Tk works
+        # through its map queue -- including panels whose geometry settles
+        # late and visibly jump into place. Everything is built off-screen
+        # and _reveal_window() (end of __init__) shows it once, complete.
+        self._hide_until_ready()
         self.root.title("Vribbels CZN Optimizer (Ikkoru)")
         self.root.geometry("1550x1000")
         self.root.minsize(1300, 800)
@@ -234,6 +246,61 @@ class OptimizerGUI:
 
         self.auto_load()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        self._reveal_window()
+
+    def _hide_until_ready(self):
+        """Make the window invisible for the duration of startup.
+
+        Prefers full transparency to withdraw(): a transparent window is
+        still MAPPED, so its children realize their true sizes and any
+        startup code that measures winfo_width() -- the Optimizer tab's
+        exclude checklist flow layout does -- gets real numbers rather
+        than falling back to requested ones and re-flowing later, in
+        view. Falls back to withdraw() wherever per-window alpha isn't
+        supported.
+        """
+        self._hidden_via = "withdraw"
+        try:
+            self.root.attributes("-alpha", 0.0)
+            self._hidden_via = "alpha"
+        except tk.TclError:
+            self.root.withdraw()
+
+    def _reveal_window(self):
+        """Show the finished window, once.
+
+        Runs full update() passes -- not just update_idletasks() -- while
+        the window is still invisible. The difference is the whole fix:
+        geometry runs in idle handlers, but the <Configure> events that
+        geometry generates, and the redraws that follow them, are ordinary
+        events. Draining only idle work therefore leaves the layout one
+        pass short and parts of the window never painted, so the window
+        appears mid-settle and finishes assembling in view.
+
+        Concretely, the toolbar's help text re-wraps on <Configure>; that
+        changes the toolbar's height, which shifts everything in the body
+        below it. Until that event is processed, the body is laid out for
+        a taller toolbar.
+
+        Repeats until the root and notebook stop changing requested size,
+        with a floor of three passes (the first pass triggers the re-wrap,
+        the second re-lays out, the third repaints) and a ceiling so a
+        layout that oscillates can't hang startup.
+        """
+        last = None
+        for i in range(10):
+            self.root.update()
+            size = (
+                self.root.winfo_reqwidth(), self.root.winfo_reqheight(),
+                self.notebook.winfo_reqwidth(), self.notebook.winfo_reqheight(),
+            )
+            if i >= 2 and size == last:
+                break
+            last = size
+        if self._hidden_via == "alpha":
+            self.root.attributes("-alpha", 1.0)
+        else:
+            self.root.deiconify()
 
     def configure_styles(self):
         self.style.configure(".", background=self.colors["bg"], foreground=self.colors["fg"])
@@ -305,6 +372,7 @@ class OptimizerGUI:
         from level_data_manager import LevelDataManager
         from settings_manager import SettingsManager
         from optimizer_settings_manager import OptimizerSettingsManager
+        from log_presets_manager import LogPresetsManager
 
         program_dir = _user_data_dir()
         # Reconcile bundled defaults vs the user's settings/ BEFORE any
@@ -354,11 +422,22 @@ class OptimizerGUI:
         self.optimizer_settings_manager = OptimizerSettingsManager(program_dir)
         self.optimizer_settings_manager.load()
         self.optimizer_settings_manager.bootstrap_known_characters(CHARACTERS)
+        # Log Presets flags: per-combatant participation in the Capture
+        # tab's Upgraded-line Highest-Potential comparison. Every known
+        # character is ensured at startup (captured-but-unknown ids get
+        # ensured at each data load); new ids default to selected.
+        self.log_presets_manager = LogPresetsManager(program_dir)
+        self.log_presets_manager.load()
+        self.log_presets_manager.ensure_ids(str(rid) for rid in CHARACTERS.keys())
         self.app_context.preset_manager = self.preset_manager
         self.app_context.character_preset_manager = self.character_preset_manager
         self.app_context.level_data_manager = self.level_data_manager
         self.app_context.settings_manager = self.settings_manager
         self.app_context.optimizer_settings_manager = self.optimizer_settings_manager
+        self.app_context.log_presets_manager = self.log_presets_manager
+        self.app_context.recompute_upgrade_line_callback = (
+            self.recompute_last_upgrade_line
+        )
         # Give the optimizer a reference to settings_manager so its
         # calculate_build_stats can look up the per-character "Optimize
         # at" level override. Optional dependency -- the optimizer falls
@@ -462,15 +541,25 @@ class OptimizerGUI:
             # Update optimizer tab UI
             self.optimizer_tab_instance.refresh_after_load()
 
-            # Update other tabs
+            # Update other tabs. Memory Fragments and Combatants are
+            # deliberately NOT refreshed here: apply_active_weights() below
+            # refreshes both itself, so doing it here too rebuilt each of
+            # them twice per load -- and the first pass rendered with the
+            # previous scores anyway, since the re-score happens inside
+            # apply_active_weights. (The live-update path has always relied
+            # on apply_active_weights alone for the same reason.)
             self.inventory_tab_instance.populate_set_filters()
-            self.inventory_tab_instance.refresh_inventory()
-            self.heroes_tab_instance.refresh_heroes()
             self.materials_tab_instance.refresh_materials()
 
             # Re-score fragments using the currently-active scoring weights
             # (preset or custom), so loading fresh data doesn't wipe them out.
+            # This also refreshes the Memory Fragments and Combatants tabs.
             self.scoring_tab_instance.apply_active_weights()
+
+            # The Log Presets checklist derives from preset assignments,
+            # which ensure-new-characters above may have extended.
+            if hasattr(self, "capture_tab_instance"):
+                self.capture_tab_instance.refresh_log_presets()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load: {e}")
             import traceback
@@ -506,6 +595,7 @@ class OptimizerGUI:
                     self.materials_tab_instance.refresh_materials()
                     # apply_active_weights also refreshes inventory + heroes tabs
                     self.scoring_tab_instance.apply_active_weights()
+                    self.capture_tab_instance.refresh_log_presets()
                 except Exception:
                     pass  # Silently ignore reload errors during live monitoring
 
@@ -538,24 +628,97 @@ class OptimizerGUI:
                 break
             augmented = self._augment_upgrade_log(line)
             if hasattr(self, "capture_tab_instance"):
-                self.capture_tab_instance.capture_log_msg(
+                # log_upgrade_msg (not capture_log_msg): records the line's
+                # extent so Log Presets toggles can rewrite it in place.
+                self.capture_tab_instance.log_upgrade_msg(
                     f"[proxy] {augmented}", "info"
                 )
 
+    def _selected_log_preset_names(self) -> list:
+        """Distinct preset names assigned to at least one combatant whose
+        Log Presets flag is selected (the Capture tab checklist). Sorted.
+        Assignments to since-deleted presets are skipped. Combatants
+        absent from log_presets.json count as selected (the default)."""
+        cpm = self.character_preset_manager
+        pm = self.preset_manager
+        lpm = getattr(self, "log_presets_manager", None)
+        if cpm is None or pm is None or cpm.is_corrupted():
+            return []
+        names = set()
+        for rid, preset in cpm.assignments_by_id.items():
+            if not preset or not pm.has_preset(preset):
+                continue
+            if lpm is None or lpm.is_selected(rid):
+                names.add(preset)
+        return sorted(names)
+
+    def _upgrade_potentials_suffix(self, fragment) -> str:
+        """The ". Highest Potential: ..." suffix for an Upgraded log line:
+        top 5 presets by max high across the SELECTED assigned presets
+        (see _selected_log_preset_names), each with ITS OWN (low, high)
+        pair -- never a synthetic min/max combined across presets, whose
+        ends could come from different presets and mislead. Philosophy B:
+        the fragment's main stat is excluded from each preset's bounds
+        (mirrors the Memory Fragments tab).
+
+        Returns "" when presets exist but none is selected. When NO user
+        presets exist at all, falls back to the default-weight range so
+        there's still something useful to display."""
+        pm = self.preset_manager
+        main_name = fragment.main_stat.name if fragment.main_stat else None
+        all_names = list(pm.get_preset_names()) if pm is not None else []
+        if not all_names:
+            weights = {}
+            bounds = compute_gs_bounds(weights, exclude_stat=main_name)
+            low, high = compute_fragment_potential(fragment, weights, bounds)
+            return f". Highest Potential: {low:.0f}-{high:.0f}"
+
+        selected = self._selected_log_preset_names()
+        if not selected:
+            return ""
+
+        scored = []
+        for name in selected:
+            weights = pm.get_preset(name) or {}
+            bounds = compute_gs_bounds(weights, exclude_stat=main_name)
+            low, high = compute_fragment_potential(fragment, weights, bounds)
+            scored.append((low, high, name))
+        # Sort by high desc -- ties broken by low desc (a tighter high-end
+        # with a higher floor is preferable when ceilings tie). Top 5.
+        scored.sort(key=lambda t: (-t[1], -t[0]))
+        parts = [f"{low:.0f}-{high:.0f} [{name}]"
+                 for (low, high, name) in scored[:5]]
+        return ". Highest Potential: " + ", ".join(parts)
+
+    def recompute_last_upgrade_line(self):
+        """Re-render the LAST "[LIVE] Upgraded" capture-log line against
+        the current Log Presets selection. The fragment OBJECT was
+        retained at augment time, so its stats reflect the state as of
+        that upgrade even after later reloads rebuilt optimizer.fragments.
+        No-op before the first upgrade of the session."""
+        fragment = getattr(self, "_last_upgrade_fragment", None)
+        base = getattr(self, "_last_upgrade_base", None)
+        if fragment is None or base is None:
+            return
+        if not hasattr(self, "capture_tab_instance"):
+            return
+        text = f"[proxy] {base}{self._upgrade_potentials_suffix(fragment)}"
+        self.capture_tab_instance.rewrite_last_upgrade_line(text, "info")
+
     def _augment_upgrade_log(self, line: str) -> str:
         """Strip the internal [pid=N] marker from `line`, find the upgraded
-        fragment, compute Highest Potential under each preset, and append the
-        best-preset (low, high) pair plus that preset's name in brackets.
+        fragment, and append its Highest Potential under the selected
+        assigned presets (see _upgrade_potentials_suffix for the exact
+        semantics and ordering).
+
+        Also RETAINS the fragment object + the marker-stripped base line so
+        a later Log Presets toggle can re-render this line in place
+        (recompute_last_upgrade_line) with the stats as of this upgrade.
 
         Returns the augmented line. On any failure (marker missing,
-        fragment not found, no presets defined) returns the marker-stripped
-        line WITHOUT appending Highest Potential -- never leaks the [pid=N]
-        token to the user.
-
-        Reports the top presets by max high, each with ITS OWN (low, high)
-        pair -- do NOT report min(low)/max(high) across presets combined;
-        that synthetic range's ends can come from different presets and
-        misleads the user. Matches the Memory Fragments tab column logic.
+        fragment not found) returns the marker-stripped line WITHOUT
+        appending Highest Potential -- never leaks the [pid=N] token to
+        the user.
         """
         # Pull the marker; if absent, just show the line unchanged.
         m = re.search(r"\s*\[pid=(\d+)\]\s*$", line)
@@ -575,46 +738,30 @@ class OptimizerGUI:
         if fragment is None:
             return base
 
-        # Walk every preset, score each one, then sort by high desc and
-        # display the top 4. Philosophy B: exclude this fragment's
-        # main stat when computing preset bounds (mirrors the MF tab).
-        pm = self.preset_manager
-        preset_names = list(pm.get_preset_names()) if pm is not None else []
-        main_name = fragment.main_stat.name if fragment.main_stat else None
-        if not preset_names:
-            # No user presets defined -- compute against default weights so
-            # there's still something useful to display.
-            weights = {}
-            bounds = compute_gs_bounds(weights, exclude_stat=main_name)
-            low, high = compute_fragment_potential(
-                fragment, weights, bounds
-            )
-            return f"{base}. Highest Potential: {low:.0f}-{high:.0f}"
+        # Retain for in-place re-render on Log Presets toggles.
+        self._last_upgrade_fragment = fragment
+        self._last_upgrade_base = base
 
-        # Compute (low, high, name) per preset.
-        scored = []
-        for name in preset_names:
-            weights = pm.get_preset(name) or {}
-            bounds = compute_gs_bounds(weights, exclude_stat=main_name)
-            low, high = compute_fragment_potential(fragment, weights, bounds)
-            scored.append((low, high, name))
-        # Sort by high desc -- ties broken by low desc (a tighter high-end
-        # with a higher floor is preferable when ceilings tie). Take top 4.
-        scored.sort(key=lambda t: (-t[1], -t[0]))
-        top = scored[:4]
-        parts = [f"{low:.0f}-{high:.0f} [{name}]" for (low, high, name) in top]
-        return f"{base}. Highest Potential: " + ", ".join(parts)
+        return f"{base}{self._upgrade_potentials_suffix(fragment)}"
 
     def _ensure_characters_in_preset_file(self):
         """Make sure every character currently in optimizer data has an entry
-        in character_preset.json (defaulting to no preset). No-op for already
-        known characters; only newly-seen ones trigger a write."""
+        in character_preset.json (defaulting to no preset) and in
+        log_presets.json (defaulting to selected). No-op for already known
+        characters; only newly-seen ones trigger a write."""
         try:
             names = (
                 set(self.optimizer.characters.keys())
                 | set(self.optimizer.character_info.keys())
             )
             self.character_preset_manager.ensure_characters(names)
+        except Exception:
+            pass
+        try:
+            ids = [str(ci.res_id)
+                   for ci in self.optimizer.character_info.values()
+                   if getattr(ci, "res_id", 0)]
+            self.log_presets_manager.ensure_ids(ids)
         except Exception:
             pass
 

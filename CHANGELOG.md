@@ -10,6 +10,29 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the
 pre-fork history, see the upstream repository's CHANGELOG.
 
+## [1.3.0] - Optimizer Set Effect Selection Improvement
+
+### Added
+
+- **"Ignore MFs below level" filter.** A spinbox (0–5) under the "Loaded N fragments" status excludes Memory Fragments below the selected level from the optimizer's candidate pool. One setting shared by all combatants, remembered between launches; 0 (the default) is the same as how it was before.
+- **Combatants list: Partner column.** Each combatant's equipped partner and its level.
+- **Potential 7 Extra DMG% / DoT% / Ego rows.** The Stat Contributions popup and the Stats Comparison panel now show these alongside the existing Potential 7 rows.
+- **Capture tab: Log Presets.** A checklist of the presets assigned to your combatants. "[LIVE] Upgraded" lines report a fragment's Highest Potential for the top **5** (was 4) of the checked presets **only**. Toggling a preset re-writes the last Upgraded line in place, so you can flip presets on and off and immediately see the comparison change. The selection is remembered per combatant (`settings/log_presets.json`); newly seen combatants start checked.
+- **Fei**. Ruixiang ID missing ATM.
+
+### Changed
+
+- **Each conditional set now has its own "Effect %" spinbox, replacing the global "Set Effect %" slider.** The spinboxs in Set Configuration sets what percent of this combatant's damage benefits from that set's effect; at 0 the effect is ignored but the set MFs still count for their stats. Unconditional sets always apply and have no spinbox. Existing configurations migrate automatically — every conditional set starts at your old global percentage, so results are unchanged until you adjust individual sets. Newly-added combatants start at 0.
+- **Set Configuration polish.** Hovering a set shows its bonus description as a tooltip, and the three averages spinboxes moved up beside Max Flex Slots.
+- **Capture Log no longer shows WebSocket ping/pong keepalive lines.** They carry no information for normal use; with "Debug WebSocket traffic" enabled they still appear (a stalled keepalive is a useful hint when diagnosing a dead capture).
+- **Ego is shown without decimals** in the Stat Contributions popup, matching the Stats Comparison panel. Ego has only ever been a whole number.
+
+### Fixed
+
+- **The window no longer assembles itself in view on startup.** It used to show as a blank white frame for about a second, then draw itself piece by piece — panels appearing half-populated, the Exclude Combatant's MFs checklist flashing rows of blank boxes, and sections jumping as the layout settled. It now stays hidden until it is built, loaded and settled, then appears complete.
+- **Loading a snapshot is faster.** The Memory Fragments and Combatants tabs were each being rebuilt twice per load, and the first rebuild used the previous scores anyway.
+- 
+
 ## [1.2.0] - Multi-core
 
 ### Added

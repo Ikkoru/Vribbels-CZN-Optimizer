@@ -664,6 +664,10 @@ class CaptureManager:
         self.game_server_ips = {}
         self.original_hosts_content = None
         self.current_region = "global"  # Default region
+        # Mirrors the debug_mode flag of the current capture session
+        # (set by start_capture). The output reader uses it to decide
+        # whether WebSocket ping/pong keepalive lines reach the log.
+        self._debug_mode = False
 
         # Upgrade log lines from the addon arrive tagged with [pid=N] so
         # the main app can find the upgraded fragment and append its new
@@ -907,6 +911,16 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
             ">>",
         ]
 
+        # WebSocket ping/pong keepalive frames: pure connection-liveness
+        # noise for a user, but a useful heartbeat when debugging capture
+        # problems (pings stopping often precedes a dead capture) -- so
+        # they're only suppressed outside debug mode.
+        if not self._debug_mode:
+            skip_patterns = skip_patterns + [
+                "Received WebSocket ping",
+                "Received WebSocket pong",
+            ]
+
         try:
             for line in self.proxy_process.stdout:
                 line = line.strip()
@@ -977,6 +991,7 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
             pass
 
         self.log_callback("Starting capture...", None)
+        self._debug_mode = bool(debug_mode)
 
         # Resolve game servers for current region
         # (Always re-resolve to ensure we use the correct region's servers)

@@ -25,8 +25,21 @@ class CaptureTab(BaseTab):
         self.capture_start_btn = None
         self.capture_stop_btn = None
         self.capture_log = None
+        # Log Presets checklist (column 2)
+        self.log_presets_list_frame = None
+        self._log_preset_vars = {}
+        # True once log_upgrade_msg has set the upg_start/upg_end marks
+        # (rewrite_last_upgrade_line no-ops before the first upgrade).
+        self._has_upgrade_marks = False
 
         self.setup_ui()
+        self.refresh_log_presets()
+        # Rebuild the checklist whenever the user switches TO this tab, so
+        # preset assignment changes made in other tabs are always reflected
+        # without cross-tab notification plumbing.
+        self.context.notebook.bind(
+            "<<NotebookTabChanged>>", self._on_tab_changed, add="+"
+        )
 
         # Auto-check prerequisites after UI setup
         self.root.after(500, self.check_capture_prerequisites)
@@ -36,7 +49,31 @@ class CaptureTab(BaseTab):
         main_frame = ttk.Frame(self.frame)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        title_frame = ttk.Frame(main_frame)
+        # Everything above the Capture Log sits in a two-column grid:
+        # column 1 = the capture controls, column 2 = the Log Presets
+        # checklist. uniform="capcols" + equal weights = equal widths.
+        top_columns = ttk.Frame(main_frame)
+        top_columns.pack(fill=tk.X)
+        top_columns.grid_columnconfigure(0, weight=1, uniform="capcols")
+        top_columns.grid_columnconfigure(1, weight=1, uniform="capcols")
+
+        left_col = ttk.Frame(top_columns)
+        left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+
+        right_col = ttk.LabelFrame(top_columns, text="Upgrade Log Presets", padding=10)
+        right_col.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+
+        ttk.Label(
+            right_col,
+            text="Assigned presets compared in the Upgraded log lines' "
+                 "Highest Potential.\nChecking or unchecking a preset "
+                 "excludes it (and re-writes the last Upgraded line).",
+            foreground=self.colors["fg_dim"], justify=tk.LEFT,
+        ).pack(anchor=tk.W, pady=(0, 5))
+        self.log_presets_list_frame = ttk.Frame(right_col)
+        self.log_presets_list_frame.pack(fill=tk.BOTH, expand=True)
+
+        title_frame = ttk.Frame(left_col)
         title_frame.pack(fill=tk.X, pady=(0, 10))
 
         ttk.Label(title_frame, text="Data Capture",
@@ -45,7 +82,7 @@ class CaptureTab(BaseTab):
                   foreground=self.colors["fg_dim"]).pack(anchor=tk.W)
 
         # Status frame
-        status_frame = ttk.LabelFrame(main_frame, text="Status", padding=10)
+        status_frame = ttk.LabelFrame(left_col, text="Status", padding=10)
         status_frame.pack(fill=tk.X, pady=(0, 10))
 
         self.capture_status_label = ttk.Label(status_frame, text="Ready",
@@ -58,7 +95,7 @@ class CaptureTab(BaseTab):
         self.capture_info_label.pack(anchor=tk.W)
 
         # Server Region Selection Frame
-        region_frame = ttk.LabelFrame(main_frame, text="Server Region", padding=10)
+        region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=10)
         region_frame.pack(fill=tk.X, padx=0, pady=(0, 10))
 
         region_inner = ttk.Frame(region_frame)
@@ -87,7 +124,7 @@ class CaptureTab(BaseTab):
         self.detected_label.pack(side=tk.LEFT, padx=(10, 0))
 
         # Button frame
-        btn_frame = ttk.Frame(main_frame)
+        btn_frame = ttk.Frame(left_col)
         btn_frame.pack(fill=tk.X, pady=(0, 10))
 
         self.capture_start_btn = ttk.Button(btn_frame, text="Start Capture",
@@ -114,8 +151,8 @@ class CaptureTab(BaseTab):
         self.debug_checkbox.pack(side=tk.LEFT, padx=(10, 0))
 
         # Requirements frame
-        req_frame = ttk.LabelFrame(main_frame, text="Requirements", padding=10)
-        req_frame.pack(fill=tk.X, pady=(0, 10))
+        req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=10)
+        req_frame.pack(fill=tk.X)
 
         requirements_text = """- Run as Administrator (required for hosts file modification)
 - Certificate installed (see Setup tab)
@@ -128,7 +165,7 @@ class CaptureTab(BaseTab):
 
         # Log frame
         log_frame = ttk.LabelFrame(main_frame, text="Capture Log", padding=5)
-        log_frame.pack(fill=tk.BOTH, expand=True)
+        log_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
         self.capture_log = scrolledtext.ScrolledText(
             log_frame, height=15, wrap=tk.WORD,
@@ -146,6 +183,109 @@ class CaptureTab(BaseTab):
         """Add a message to the capture log."""
         self.capture_log.insert(tk.END, f"{msg}\n", tag)
         self.capture_log.see(tk.END)
+
+    def log_upgrade_msg(self, msg: str, tag: str = None):
+        """capture_log_msg for '[LIVE] Upgraded' lines: also remembers the
+        line's extent via Tk marks so a Log Presets toggle can rewrite the
+        LAST Upgraded line in place (rewrite_last_upgrade_line). LEFT
+        gravity on both marks keeps them pinned to this line while later
+        messages append after it."""
+        t = self.capture_log
+        t.mark_set("upg_start", "end-1c")
+        t.mark_gravity("upg_start", tk.LEFT)
+        t.insert(tk.END, f"{msg}\n", tag)
+        t.mark_set("upg_end", "end-1c")
+        t.mark_gravity("upg_end", tk.LEFT)
+        self._has_upgrade_marks = True
+        t.see(tk.END)
+
+    def rewrite_last_upgrade_line(self, msg: str, tag: str = None):
+        """Replace the last Upgraded line (recorded by log_upgrade_msg)
+        with `msg`. The end mark flips to RIGHT gravity for the insert so
+        it lands after the new text, then back to LEFT so subsequent
+        appends at the log's end don't drag it along."""
+        if not self._has_upgrade_marks:
+            return
+        t = self.capture_log
+        try:
+            t.mark_gravity("upg_end", tk.RIGHT)
+            t.delete("upg_start", "upg_end")
+            t.insert("upg_start", f"{msg}\n", tag)
+            t.mark_gravity("upg_end", tk.LEFT)
+        except tk.TclError:
+            pass
+
+    def _on_tab_changed(self, event):
+        """Rebuild the Log Presets checklist when this tab becomes the
+        selected one (cheap; assignment changes happen in other tabs)."""
+        try:
+            if event.widget.nametowidget(event.widget.select()) is self.frame:
+                self.refresh_log_presets()
+        except Exception:
+            pass
+
+    def refresh_log_presets(self):
+        """Rebuild the Log Presets checklist from current assignments.
+
+        One row per DISTINCT preset name assigned to >=1 combatant. A row
+        is checked iff ANY of its combatants' flags is selected; toggling
+        writes the flag on ALL combatants assigned to that preset. The
+        persistence is per-combatant res_id (settings/log_presets.json),
+        which survives preset renames and reassignments.
+        """
+        frame = self.log_presets_list_frame
+        if frame is None:
+            return
+        for w in frame.winfo_children():
+            w.destroy()
+        self._log_preset_vars = {}
+
+        cpm = self.context.character_preset_manager
+        pm = self.context.preset_manager
+        lpm = self.context.log_presets_manager
+        if cpm is None or pm is None or cpm.is_corrupted():
+            return
+
+        preset_to_ids: dict = {}
+        for rid, preset in cpm.assignments_by_id.items():
+            if preset and pm.has_preset(preset):
+                preset_to_ids.setdefault(preset, []).append(rid)
+
+        if not preset_to_ids:
+            ttk.Label(frame, text="No presets assigned yet.",
+                      foreground=self.colors["fg_dim"]).grid(
+                          row=0, column=0, sticky=tk.W)
+            return
+
+        # Two equal columns, filled left-to-right then down.
+        frame.grid_columnconfigure(0, weight=1, uniform="logpresets")
+        frame.grid_columnconfigure(1, weight=1, uniform="logpresets")
+        for idx, name in enumerate(sorted(preset_to_ids)):
+            ids = preset_to_ids[name]
+            checked = (any(lpm.is_selected(r) for r in ids)
+                       if lpm is not None else True)
+            var = tk.BooleanVar(value=checked)
+            cb = ttk.Checkbutton(
+                frame, text=name, variable=var,
+                command=lambda n=name, v=var: self._on_log_preset_toggle(n, v),
+            )
+            cb.grid(row=idx // 2, column=idx % 2, sticky=tk.W, padx=(0, 8))
+            self._log_preset_vars[name] = var
+
+    def _on_log_preset_toggle(self, preset_name: str, var):
+        """Persist a checklist toggle to every combatant assigned to this
+        preset, then re-render the last Upgraded line against the new
+        selection."""
+        cpm = self.context.character_preset_manager
+        lpm = self.context.log_presets_manager
+        if cpm is None or lpm is None or cpm.is_corrupted():
+            return
+        ids = [rid for rid, p in cpm.assignments_by_id.items()
+               if p == preset_name]
+        lpm.set_selected(ids, bool(var.get()))
+        recompute = self.context.recompute_upgrade_line_callback
+        if recompute is not None:
+            recompute()
 
     def check_capture_prerequisites(self):
         """Check capture prerequisites using capture module."""

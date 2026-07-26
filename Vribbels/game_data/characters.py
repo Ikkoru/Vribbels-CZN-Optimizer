@@ -538,7 +538,7 @@ CHARACTERS = {
         "node_60": "CDmg",
         "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},
     },
-    -1: {
+    30048: {
         "name": "Fei",
         "grade": 5,
         "attribute": "Void",

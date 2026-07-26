@@ -20,7 +20,8 @@ The per-run context (`ctx`) consumed by evaluate_combo is a plain dict:
                            (base/affection/partner/potential/equipment
                            values -- constant across every combo of a run),
       "attribute":         str, resolved element attribute ("" = none),
-      "set_effect_share":  float 0..1,
+      "set_effect_shares": dict {int set_id: float 0..1} -- per-
+                           CONDITIONAL-set effect shares (absent = 0),
       "sets_selected":     list[int] of chosen set ids,
       "max_flex_slots":    int 0..6,
       "hal":               dict of Have-at-least minimums (may be empty),
@@ -83,6 +84,24 @@ COMBO_HAL_FAIL = 2    # passed sets, failed a Have-at-least minimum
 COMBO_OK = 3          # scored
 
 
+def parse_set_effect_shares(settings: dict) -> dict:
+    """Per-conditional-set effect shares from a settings dict:
+    settings["set_effect_pcts"] ({str set_id: int 0-100}, absent id = 0)
+    -> {int set_id: float 0..1}, zero entries dropped so an empty dict
+    means "no conditional set contributes" and consumers can skip the
+    set walk entirely."""
+    shares: dict = {}
+    for k, v in (settings.get("set_effect_pcts") or {}).items():
+        try:
+            sid = int(k)
+            val = float(v) / 100.0
+        except (TypeError, ValueError):
+            continue
+        if val > 0:
+            shares[sid] = min(1.0, val)
+    return shares
+
+
 def empty_char_static() -> dict:
     """Char-static inputs for `char_name=None` calls: all zeros except
     the 125.0 base Crit DMG default (matches the historical behavior of
@@ -114,11 +133,14 @@ def empty_char_static() -> dict:
 
 
 def compute_build_stats(gear: list, cs: dict,
-                        set_effect_share: float = 0.0) -> dict:
+                        set_effect_shares: dict = None) -> dict:
     """Final ATK/DEF/HP layered formula over a 6-piece build.
 
     `cs` is the char-static dict (see GearOptimizer._build_char_static);
-    everything combo-dependent is derived from `gear` here. Returns the
+    everything combo-dependent is derived from `gear` here.
+    `set_effect_shares` is the per-conditional-set effect share dict
+    ({int set_id: float 0..1}, see parse_set_effect_shares); None/empty
+    means no conditional set effect touches Final stats. Returns the
     exact dict shape calculate_build_stats has always returned,
     including the underscore-prefixed scoring internals.
     """
@@ -149,16 +171,17 @@ def compute_build_stats(gear: list, cs: dict,
     # the right bucket. See docs/game_formulas.md §5 for the full taxonomy:
     #   - "unconditional" sets always apply at full value.
     #   - "conditional" sets with stat in {Crit DMG, Crit Rate} apply at
-    #     value × set_effect_share (touching Final_CDmg / Final_CRate).
+    #     value × that set's own effect share.
     #   - "conditional" sets with stat in {DMG multi, DMG add} do NOT
-    #     touch Final stats; they're handled by compute_score
+    #     touch Final stats; they're handled by the score functions
     #     (skipped here).
+    shares = set_effect_shares or {}
     set_counts = {}
     for piece in gear:
         set_counts[piece.set_id] = set_counts.get(piece.set_id, 0) + 1
     # Conditional crit-set contributions are tracked separately: they
-    # count toward Final CRate/CDmg (and the score) at the
-    # set_effect_share weighting, but the Have-at-least gate must NOT
+    # count toward Final CRate/CDmg (and the score) at each set's own
+    # effect-share weighting, but the Have-at-least gate must NOT
     # see them -- conditional procs never appear on the in-game stat
     # sheet, and the in-game minimum requirements only check
     # sheet-visible stats. See the _hal_* return keys.
@@ -177,7 +200,7 @@ def compute_build_stats(gear: list, cs: dict,
         if stype == "unconditional":
             effective = value
         elif stype == "conditional" and raw_stat in ("Crit DMG", "Crit Rate"):
-            effective = value * set_effect_share
+            effective = value * shares.get(set_id, 0.0)
         else:
             # Conditional DMG multi / DMG add: handled by the optimizer
             # score function (flows through card_mult, not Final stats).
@@ -422,9 +445,9 @@ def meets_have_at_least(stats: dict, hal: dict) -> bool:
     value minus all partner passive contributions (_hal_ego /
     _hal_extra / _hal_dot); no conditional-set path feeds these stats.
 
-    The optimizer SCORE still models every excluded source (sets at
-    the Set Effect % weighting, partner stats at full value) -- only
-    this gate ignores them.
+    The optimizer SCORE still models every excluded source (conditional
+    sets at their per-set effect-share weighting, partner passives at
+    full value) -- only this gate ignores them.
     """
     if not hal:
         return True
@@ -460,7 +483,7 @@ def build_score_precompute(settings: dict) -> dict:
     dot_share = settings.get("dot_pct", 0) / 100.0
     def_split = settings.get("atk_def_split", 0) / 100.0
     heal_share = settings.get("shielding_healing_weight", 0) / 100.0
-    set_effect_share = settings.get("set_effect_pct", 0) / 100.0
+    set_effect_shares = parse_set_effect_shares(settings)
     # avg_card_dmg_pct is the average card's intrinsic multiplier as a
     # percentage (100 = card does normal damage, 150 = +50%, etc.)
     base_multiplier = settings.get("avg_card_dmg_pct", 100) / 100.0
@@ -471,7 +494,7 @@ def build_score_precompute(settings: dict) -> dict:
         "dot_share": dot_share,
         "def_split": def_split,
         "heal_share": heal_share,
-        "set_effect_share": set_effect_share,
+        "set_effect_shares": set_effect_shares,
         "base_multiplier": base_multiplier,
         "avg_mult_buff": avg_mult_buff,
         "avg_add_buff": avg_add_buff,
@@ -498,21 +521,22 @@ def compute_score_components(gear: list, stats: dict, sp: dict,
     See docs/game_formulas.md §3, §4, §5, §8. Constants that don't
     affect relative ranking are dropped from the comparison.
     """
-    set_effect_share = sp["set_effect_share"]
+    set_effect_shares = sp["set_effect_shares"]
 
     # ----- Conditional set DMG multi / DMG add accumulator -----
     # These flow through the damage card multiplier only (NOT
-    # shield/heal -- see docs §5). Scaled by set_effect_share.
-    # When set_effect_share == 0 we skip the whole walk -- common
-    # case for users who haven't dialed the slider up.
+    # shield/heal -- see docs §5), each scaled by its own set's
+    # effect share. An empty shares dict (no conditional set dialed
+    # up) skips the whole walk -- the common case.
     set_dmg_multi_total = 0.0
     set_dmg_add_total = 0.0
-    if set_effect_share > 0:
+    if set_effect_shares:
         set_counts: dict = {}
         for piece in gear:
             set_counts[piece.set_id] = set_counts.get(piece.set_id, 0) + 1
         for set_id, count in set_counts.items():
-            if set_id not in SETS:
+            share = set_effect_shares.get(set_id, 0.0)
+            if not share or set_id not in SETS:
                 continue
             set_info = SETS[set_id]
             if set_info.get("type") != "conditional":
@@ -522,9 +546,9 @@ def compute_score_components(gear: list, stats: dict, sp: dict,
             raw_stat = set_info.get("stat", "")
             value = set_info.get("value", 0)
             if raw_stat == "DMG multi":
-                set_dmg_multi_total += value * set_effect_share
+                set_dmg_multi_total += value * share
             elif raw_stat == "DMG add":
-                set_dmg_add_total += value * set_effect_share
+                set_dmg_add_total += value * share
 
     # ----- Card multiplier (damage only) -----
     # The damage card multiplier includes the user's avg buffs plus the
@@ -631,7 +655,7 @@ def trim_blend(components: tuple, sp: dict, gref: dict) -> float:
 
 
 def build_greedy_refs(slot_candidates: dict, char_static: dict,
-                      set_effect_share: float, score_pre: dict,
+                      set_effect_shares: dict, score_pre: dict,
                       attribute: str) -> dict:
     """Build the per-run GREEDY trim references {"D": float, "S": float}.
 
@@ -665,7 +689,7 @@ def build_greedy_refs(slot_candidates: dict, char_static: dict,
         greedy_combo.append(cands[0])
 
     stats = compute_build_stats(
-        greedy_combo, char_static, set_effect_share=set_effect_share
+        greedy_combo, char_static, set_effect_shares=set_effect_shares
     )
     d, s = compute_score_components(greedy_combo, stats, score_pre, attribute)
     return {"D": max(d, EPS), "S": max(s, EPS)}
@@ -735,13 +759,13 @@ def evaluate_combo(combo, ctx: dict):
     if (6 - locked) > ctx["max_flex_slots"]:
         return (COMBO_SET_FAIL, 0.0, None)
 
-    # Compute build stats. set_effect_share lets conditional Crit
-    # DMG / Crit Rate sets contribute to Final stats at the right
+    # Compute build stats. Per-set effect shares let conditional Crit
+    # DMG / Crit Rate sets contribute to Final stats at each set's own
     # weighting; conditional DMG multi / DMG add sets affect the
-    # damage card multiplier separately inside compute_score.
+    # damage card multiplier separately inside the score functions.
     stats = compute_build_stats(
         list(combo), ctx["char_static"],
-        set_effect_share=ctx["set_effect_share"],
+        set_effect_shares=ctx["set_effect_shares"],
     )
 
     # Hard constraint: "Have at least this much". Builds that fail

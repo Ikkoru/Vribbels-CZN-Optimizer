@@ -375,6 +375,7 @@ class GearOptimizer:
                          required_sets: list[int] = None,
                          required_main: list[str] = None, top_percent: float = 100,
                          use_priority_score: bool = False, min_rarity: int = 2,
+                         min_level: int = 0,
                          score_weights: dict = None) -> list[MemoryFragment]:
         """
         Get filtered and ranked gear for a specific slot.
@@ -389,6 +390,11 @@ class GearOptimizer:
             top_percent: Keep only top X% by score (with a 10-fragment floor)
             use_priority_score: Use priority score instead of gear score
             min_rarity: Minimum rarity (1=Common, 2=Uncommon, 3=Rare, 4=Legendary)
+            min_level: Minimum fragment level (0 = no filter). Applied
+                during candidate collection -- before the sort and the
+                top-N / 10-fragment-floor selection -- so the floor's
+                "keep at least 10 per slot" guarantee applies to the
+                fragments that passed this filter.
             score_weights: When provided, rank candidates by their normalized
                 GS computed under THESE weights (pure, doesn't mutate
                 fragment.gear_score). When None, use the cached
@@ -401,7 +407,9 @@ class GearOptimizer:
         Returns:
             List of MemoryFragment objects matching filters, sorted by score
         """
-        candidates = [f for f in self.fragments if f.slot_num == slot_num and f.rarity_num >= min_rarity]
+        candidates = [f for f in self.fragments
+                      if f.slot_num == slot_num and f.rarity_num >= min_rarity
+                      and f.level >= min_level]
 
         if excluded_heroes:
             candidates = [f for f in candidates if f.equipped_to not in excluded_heroes]
@@ -605,14 +613,17 @@ class GearOptimizer:
         effective_level = self._resolve_effective_level(
             char_name, settings.get("optimize_for_level")
         )
+        score_pre = core.build_score_precompute(settings)
         return {
             "char_static": self._build_char_static(char_name, effective_level),
             "attribute": self._resolve_attribute(char_name, settings),
-            "set_effect_share": settings.get("set_effect_pct", 0) / 100.0,
+            # Per-conditional-set effect shares (same parse the score
+            # precompute carries -- one source of truth).
+            "set_effect_shares": score_pre["set_effect_shares"],
             "sets_selected": list(sets_selected),
             "max_flex_slots": int(max_flex_slots),
             "hal": settings.get("have_at_least") or {},
-            "score_pre": core.build_score_precompute(settings),
+            "score_pre": score_pre,
             # Greedy trim references. Placeholder here (slot candidates
             # aren't built until optimize()); optimize() overwrites this
             # with core.build_greedy_refs(...) once the per-slot
@@ -625,7 +636,7 @@ class GearOptimizer:
     def calculate_build_stats(self, gear: list[MemoryFragment],
                                char_name: str = None,
                                effective_level: int = None,
-                               set_effect_share: float = 0.0) -> dict[str, float]:
+                               set_effect_shares: dict = None) -> dict[str, float]:
         """
         Calculate final stats for a gear build.
 
@@ -648,14 +659,15 @@ class GearOptimizer:
                 instead of using the character's actual level. Used by
                 the Optimizer tab's per-character "Optimize for LVL"
                 stepper.
-            set_effect_share: 0.0–1.0 weight applied to conditional sets'
-                Crit DMG / Crit Rate contributions (matches the
-                Optimizer tab's "% of damage with set effect" slider).
-                At 0 (default), no conditional set effect is applied to
-                Final stats — unconditional sets still apply at full
-                value. Callers outside the optimizer (Heroes tab, etc.)
-                leave this at 0 since the conditional bonuses aren't
-                actually always active in-game.
+            set_effect_shares: Per-conditional-set effect share dict
+                ({set_id: 0.0–1.0}, see core.parse_set_effect_shares) —
+                each conditional set's Crit DMG / Crit Rate contribution
+                is weighted by its own share. None/empty (default): no
+                conditional set effect is applied to Final stats —
+                unconditional sets still apply at full value. Callers
+                outside the optimizer (Heroes tab, etc.) leave this
+                unset since the conditional bonuses aren't actually
+                always active in-game.
 
         Returns:
             Dictionary with Final ATK/DEF/HP, CRate, CDmg, the summed substat
@@ -667,7 +679,8 @@ class GearOptimizer:
         # the level, builds the char-static inputs, and delegates.
         effective_level = self._resolve_effective_level(char_name, effective_level)
         cs = self._build_char_static(char_name, effective_level)
-        return core.compute_build_stats(gear, cs, set_effect_share=set_effect_share)
+        return core.compute_build_stats(gear, cs,
+                                        set_effect_shares=set_effect_shares)
 
     def _count_locked_slots(self, combo, sets_selected: list) -> int:
         """Count how many slots are "locked" into a chosen set's satisfied
@@ -745,12 +758,15 @@ class GearOptimizer:
         set_effect (all set contributions), pot7_excluded (everything the
         Potential 7 rows subtract: conditional set contributions plus ALL
         partner passive crit contributions), other (numeric). For Element%/Extra DMG%/DoT%/Ego:
-        the relevant mf_main / mf_sub split plus a numeric `other`. Plus
+        the relevant mf_main / mf_sub split plus a numeric `other`;
+        Extra DMG% / DoT% / Ego also carry `pot7_excluded` (their partner
+        passive contributions -- no conditional-set path feeds these
+        stats). Plus
         scalar "xDMG%" (multiplicative buffs) and "+DMG%" (additive
         buffs).
         """
         settings = settings or {}
-        set_effect_share = settings.get("set_effect_pct", 0) / 100.0
+        set_effect_shares = core.parse_set_effect_shares(settings)
         effective_level = settings.get("optimize_for_level")
 
         # ----- Base character stats at the effective level -----
@@ -852,15 +868,16 @@ class GearOptimizer:
             stype = si["type"]
             raw = si.get("stat", "")
             val = si.get("value", 0)
+            share = set_effect_shares.get(set_id, 0.0)
             if stype == "unconditional":
                 eff = val
             elif stype == "conditional" and raw in ("Crit DMG", "Crit Rate"):
-                eff = val * set_effect_share
+                eff = val * share
             elif stype == "conditional" and raw == "DMG multi":
-                set_dmg_multi += val * set_effect_share
+                set_dmg_multi += val * share
                 continue
             elif stype == "conditional" and raw == "DMG add":
-                set_dmg_add += val * set_effect_share
+                set_dmg_add += val * share
                 continue
             else:
                 continue
@@ -1009,11 +1026,14 @@ class GearOptimizer:
             },
             "Element%": {"mf_main": elem_main, "set_effect": 0.0, "other": 0.0},
             "Extra DMG%": {"mf_sub": _s("Extra DMG%"), "set_effect": 0.0,
-                           "other": partner_extra + partner_extra_cond},
+                           "other": partner_extra + partner_extra_cond,
+                           "pot7_excluded": partner_extra + partner_extra_cond},
             "DoT%": {"mf_sub": _s("DoT%"), "set_effect": 0.0,
-                     "other": partner_dot + partner_dot_cond},
+                     "other": partner_dot + partner_dot_cond,
+                     "pot7_excluded": partner_dot + partner_dot_cond},
             "Ego": {"mf_main": _m("Ego"), "mf_sub": _s("Ego"),
-                    "set_effect": 0.0, "other": partner_ego + partner_ego_cond},
+                    "set_effect": 0.0, "other": partner_ego + partner_ego_cond,
+                    "pot7_excluded": partner_ego + partner_ego_cond},
             "xDMG%": set_dmg_multi,
             "+DMG%": set_dmg_add,
         }
@@ -1102,12 +1122,12 @@ class GearOptimizer:
             return results
         sp = core.build_score_precompute(settings)
         attribute = self._resolve_attribute(char_name, settings)
-        set_effect_share = settings.get("set_effect_pct", 0) / 100.0
+        set_effect_shares = sp["set_effect_shares"]
         rebuilt = []
         for gear, old_score, old_stats in results:
             try:
                 stats = self.calculate_build_stats(
-                    gear, char_name, set_effect_share=set_effect_share
+                    gear, char_name, set_effect_shares=set_effect_shares
                 )
                 d, s = core.compute_score_components(gear, stats, sp, attribute)
                 stats["_D"], stats["_S"] = d, s
@@ -1147,8 +1167,8 @@ class GearOptimizer:
         Uses brute-force enumeration with filtering. The build score is
         the damage/shield-heal blended formula from
         docs/game_formulas.md §8. Per-character settings (Important
-        Settings sliders, Have at Least minimums, set-effect %, avg buff
-        fields, level stepper) drive the scoring; see
+        Settings sliders, Have at Least minimums, per-set effect
+        shares, avg buff fields, level stepper) drive the scoring; see
         _compute_optimizer_score for the formula.
 
         Side effect: writes `self.last_optimize_stats`, a small counters
@@ -1182,6 +1202,11 @@ class GearOptimizer:
         include_equipped = settings.get("include_equipped", True)
         excluded_heroes = settings.get("excluded_heroes", [])
         max_results = settings.get("max_results", 100)
+        # Global minimum-MF-level candidacy filter (0 = off).
+        try:
+            min_gear_level = max(0, int(settings.get("min_gear_level", 0) or 0))
+        except (TypeError, ValueError):
+            min_gear_level = 0
 
         # Per-character preset weights for the slot pre-filter
         # heuristic. When the user has assigned a custom preset to this
@@ -1256,6 +1281,7 @@ class GearOptimizer:
                 use_priority_score=False,  # always sort by gear_score
                                             # (no priority sliders in the UI)
                 min_rarity=3,  # Only Rare+ for optimizer
+                min_level=min_gear_level,  # global "Ignore MFs below level"
                 score_weights=slot_filter_weights,  # per-character preset
             )
             slot_candidates[slot_num] = candidates if candidates else []
@@ -1289,7 +1315,7 @@ class GearOptimizer:
         # preserved). The DISPLAYED score is re-blended after the merge
         # against the run's true max-D / max-S (see below).
         ctx["gref"] = core.build_greedy_refs(
-            slot_candidates, ctx["char_static"], ctx["set_effect_share"],
+            slot_candidates, ctx["char_static"], ctx["set_effect_shares"],
             ctx["score_pre"], ctx["attribute"],
         )
 

@@ -322,12 +322,12 @@ class HeroesTab(BaseTab):
         # preset dropdown on the RIGHT. The title group sits up here (not
         # inside hero_detail_container below) so it aligns at the same Y
         # as the user_info_label. The two grid columns mirror
-        # content_pane's weight=5 / weight=8 split below, so the left side
+        # content_pane's weight=6 / weight=8 split below, so the left side
         # lines up with the hero list and the right side lines up with the
         # detail panel.
         user_frame = ttk.Frame(self.frame)
         user_frame.pack(fill=tk.X, padx=10, pady=(10, 5))
-        user_frame.grid_columnconfigure(0, weight=5)
+        user_frame.grid_columnconfigure(0, weight=6)
         user_frame.grid_columnconfigure(1, weight=8)
 
         # Col 0: user info label
@@ -426,10 +426,11 @@ class HeroesTab(BaseTab):
         # grid-based Frame so the user can't accidentally drag the split.
         content_pane = ttk.Frame(self.frame)
         content_pane.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
-        # The 5:8 weight split gives the left character-list column ~38%
-        # of the content width. Tk grid weights are proportional, so the
-        # exact pixel split tracks the window size.
-        content_pane.grid_columnconfigure(0, weight=5)
+        # The 6:8 weight split gives the left character-list column ~43%
+        # of the content width (widened to fit the Partner column). Tk grid
+        # weights are proportional, so the exact pixel split tracks the
+        # window size.
+        content_pane.grid_columnconfigure(0, weight=6)
         content_pane.grid_columnconfigure(1, weight=8)
         content_pane.grid_rowconfigure(0, weight=1)
 
@@ -443,17 +444,17 @@ class HeroesTab(BaseTab):
 
         # Use character widths for consistency between headers and data rows.
         # Combatant column (11) just fits the longest name ("Heidemarie");
-        # the Preset column (index 7) has fill=X + expand=True below, so it
+        # the Preset column (index 8) has fill=X + expand=True below, so it
         # absorbs any leftover width.
-        col_char_widths = [11, 6, 9, 10, 7, 5, 5, 14]  # +1 col for Preset
-        col_names = ["Combatant", "Grade", "Attribute", "Class", "Level", "Ego", "GS", "Preset"]
-        col_keys = ["name", "grade", "attribute", "class", "level", "ego", "gs", "preset"]
+        col_char_widths = [11, 6, 9, 10, 7, 5, 5, 12, 14]
+        col_names = ["Combatant", "Grade", "Attribute", "Class", "Level", "Ego", "GS", "Partner", "Preset"]
+        col_keys = ["name", "grade", "attribute", "class", "level", "ego", "gs", "partner", "preset"]
 
         self.hero_header_labels = []
         for i, (name, char_width) in enumerate(zip(col_names, col_char_widths)):
-            # Left-align Combatant (index 0) and Preset (index 7) columns;
+            # Left-align Combatant (0), Partner (7) and Preset (8);
             # all other columns stay centered.
-            anchor = tk.W if i in (0, 7) else tk.CENTER
+            anchor = tk.W if i in (0, 7, 8) else tk.CENTER
             lbl = tk.Label(hero_header_frame, text=name, width=char_width,
                           bg=self.colors["bg_lighter"], fg=self.colors["fg"],
                           font=("Segoe UI", 9, "bold"),
@@ -462,7 +463,7 @@ class HeroesTab(BaseTab):
             # Last column (Preset) absorbs any leftover row width — keeps its
             # 14-char minimum but stretches so long preset names aren't
             # truncated when there's space available.
-            if i == 7:
+            if i == 8:
                 lbl.pack(side=tk.LEFT, padx=1, fill=tk.X, expand=True)
             else:
                 lbl.pack(side=tk.LEFT, padx=1)
@@ -740,12 +741,32 @@ class HeroesTab(BaseTab):
                 ego = char_info.limit_break
                 res_id = char_info.res_id
                 exp = char_info.exp
+                # Partner column: name + level. Unknown equipped partners
+                # show "#res_id" (matching the detail card's fallback);
+                # no partner -> "-". Pure attribute access on the already-
+                # parsed CharacterInfo -- no table scans, so no caching
+                # needed in this loop.
+                if char_info.partner_id:
+                    pname = char_info.partner_name
+                    if not pname or pname == "Unknown":
+                        pname = (f"#{char_info.partner_res_id}"
+                                 if char_info.partner_res_id else "?")
+                    partner_str = f"{pname} {char_info.partner_level}"
+                    partner_name_part = pname
+                    partner_level_part = str(char_info.partner_level)
+                else:
+                    partner_str = "-"
+                    partner_name_part = "-"
+                    partner_level_part = ""
             else:
                 level = 0
                 max_level = 0
                 ego = 0
                 res_id = 0
                 exp = 0
+                partner_str = "-"
+                partner_name_part = "-"
+                partner_level_part = ""
 
             self.hero_data_list.append({
                 "name": hero,
@@ -756,6 +777,12 @@ class HeroesTab(BaseTab):
                 "max_level": max_level,
                 "ego": ego,
                 "gs": gs,
+                "partner": partner_str,
+                # Split parts for the two-label Partner cell (name left-
+                # aligned, level right-aligned); "partner" above stays the
+                # combined string for sorting.
+                "partner_name_part": partner_name_part,
+                "partner_level_part": partner_level_part,
                 "preset": preset_display,
                 # res_id / exp drive the right-click "Add confirmed level"
                 # checkpoint flow. They're 0 when char_info is missing (no
@@ -774,6 +801,7 @@ class HeroesTab(BaseTab):
             "level": lambda h: h["level"],
             "ego": lambda h: h["ego"],
             "gs": lambda h: h["gs"],
+            "partner": lambda h: h["partner"],
             "preset": lambda h: h["preset"],
         }
 
@@ -795,7 +823,7 @@ class HeroesTab(BaseTab):
 
             # Column values
             values = [h["name"], f"{h['grade']}*", h["attribute"], h["class"],
-                      level_str, ego_str, gs_str, h["preset"]]
+                      level_str, ego_str, gs_str, h["partner"], h["preset"]]
 
             labels = []
             for j, (val, char_width) in enumerate(zip(values, self.hero_col_char_widths)):
@@ -805,12 +833,36 @@ class HeroesTab(BaseTab):
                 else:
                     fg_color = self.colors["fg"]
 
-                # Left-align Combatant (j=0) and Preset (j=7); center the rest.
-                row_anchor = tk.W if j in (0, 7) else tk.CENTER
+                # Partner cell (j=7): TWO labels inside the one 12-char
+                # column -- name left-aligned, level right-aligned. Both go
+                # into row_frame.labels so the selection recoloring in
+                # select_hero_row covers them (its only index-sensitive
+                # check is the attribute column j=2, before the split).
+                # padx (1,0)+(0,1) totals the same 2px a single padx=1
+                # label carries, keeping the header aligned.
+                if j == 7:
+                    for ptext, pwidth, panchor, ppadx in (
+                        (h["partner_name_part"], char_width - 3, tk.W, (1, 0)),
+                        (h["partner_level_part"], 3, tk.E, (0, 1)),
+                    ):
+                        plbl = tk.Label(row_frame, text=ptext, width=pwidth,
+                                        anchor=panchor, bg=self.colors["bg"],
+                                        fg=fg_color, font=("Segoe UI", 9))
+                        plbl.pack(side=tk.LEFT, padx=ppadx)
+                        plbl.bind("<Button-1>",
+                                  lambda e, idx=i: self._on_row_click(idx))
+                        plbl.bind("<Button-3>",
+                                  lambda e, idx=i: self._on_row_right_click(e, idx))
+                        labels.append(plbl)
+                    continue
+
+                # Left-align Combatant (j=0) and Preset (j=8); center the
+                # rest.
+                row_anchor = tk.W if j in (0, 8) else tk.CENTER
                 lbl = tk.Label(row_frame, text=val, width=char_width, anchor=row_anchor,
                               bg=self.colors["bg"], fg=fg_color, font=("Segoe UI", 9))
                 # Mirror the header: Preset column stretches to fill leftover width.
-                if j == 7:
+                if j == 8:
                     lbl.pack(side=tk.LEFT, padx=1, fill=tk.X, expand=True)
                 else:
                     lbl.pack(side=tk.LEFT, padx=1)

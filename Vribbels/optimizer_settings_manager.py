@@ -52,7 +52,7 @@ File format (version 1)
                 },
                 "sets_selected": [9, 11, 18],           # set IDs eligible for this character
                 "max_flex_slots": 6,                    # 0-6, max non-set pieces in a build
-                "set_effect_pct": 0,                    # 0-100, weight of conditional-set effects
+                "set_effect_pcts": {"9": 100},          # per-CONDITIONAL-set effect share, set_id -> 0-100 (absent = 0)
                 "avg_card_dmg_pct": 100,                # Base Multiplier approximation
                 "avg_mult_buff_pct": 0,                 # extra multiplicative buffs
                 "avg_add_buff_pct": 0,                  # extra additive buffs
@@ -70,8 +70,18 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
+from game_data import SETS
+
 
 OPTIMIZER_SETTINGS_VERSION = 1
+
+
+def _conditional_set_ids() -> list:
+    """str ids of every set whose effect is gated by the per-set effect
+    share (type == "conditional" in sets.py). Unconditional set bonuses
+    always apply and carry no share."""
+    return [str(sid) for sid, s in SETS.items()
+            if isinstance(s, dict) and s.get("type") == "conditional"]
 
 
 # Single source of truth for what a fresh character entry looks like.
@@ -97,7 +107,7 @@ DEFAULT_CHARACTER_SETTINGS: dict = {
     },
     "sets_selected": [],
     "max_flex_slots": 6,
-    "set_effect_pct": 100,
+    "set_effect_pcts": {},
     "avg_card_dmg_pct": 100,
     "avg_mult_buff_pct": 0,
     "avg_add_buff_pct": 0,
@@ -122,7 +132,7 @@ def _fresh_character_settings(name_hint: str = "") -> dict:
         "have_at_least": dict(DEFAULT_CHARACTER_SETTINGS["have_at_least"]),
         "sets_selected": list(DEFAULT_CHARACTER_SETTINGS["sets_selected"]),
         "max_flex_slots": DEFAULT_CHARACTER_SETTINGS["max_flex_slots"],
-        "set_effect_pct": DEFAULT_CHARACTER_SETTINGS["set_effect_pct"],
+        "set_effect_pcts": dict(DEFAULT_CHARACTER_SETTINGS["set_effect_pcts"]),
         "avg_card_dmg_pct": DEFAULT_CHARACTER_SETTINGS["avg_card_dmg_pct"],
         "avg_mult_buff_pct": DEFAULT_CHARACTER_SETTINGS["avg_mult_buff_pct"],
         "avg_add_buff_pct": DEFAULT_CHARACTER_SETTINGS["avg_add_buff_pct"],
@@ -188,6 +198,24 @@ class OptimizerSettingsManager:
                 continue
             clean_chars[str(key)] = value
         self.data["characters"] = clean_chars
+
+        # Migrate the retired global set-effect scalar to the per-set
+        # dict: a character entry still carrying `set_effect_pct` gets
+        # every conditional set id seeded with that value (preserving
+        # the entry's behavior exactly), then the scalar is dropped.
+        # Idempotent; persisted by whichever write happens next.
+        for entry in clean_chars.values():
+            if "set_effect_pct" in entry:
+                pct = entry.pop("set_effect_pct")
+                if "set_effect_pcts" not in entry:
+                    try:
+                        pct = int(pct)
+                    except (TypeError, ValueError):
+                        pct = 0
+                    entry["set_effect_pcts"] = (
+                        {sid: pct for sid in _conditional_set_ids()}
+                        if pct else {}
+                    )
 
         # Preserve unknown top-level keys verbatim so additive flags
         # written by other components (e.g. `excluded_default_initialized`
@@ -300,8 +328,9 @@ class OptimizerSettingsManager:
             "have_at_least": dict(entry.get("have_at_least", DEFAULT_CHARACTER_SETTINGS["have_at_least"])),
             "sets_selected": list(entry.get("sets_selected", [])),
             "max_flex_slots": entry.get("max_flex_slots", 6),
-            "set_effect_pct": entry.get("set_effect_pct",
-                DEFAULT_CHARACTER_SETTINGS["set_effect_pct"]),
+            "set_effect_pcts": {
+                str(k): v for k, v in entry.get("set_effect_pcts", {}).items()
+            },
             "avg_card_dmg_pct": entry.get("avg_card_dmg_pct", 100),
             "avg_mult_buff_pct": entry.get("avg_mult_buff_pct", 0),
             "avg_add_buff_pct": entry.get("avg_add_buff_pct", 0),

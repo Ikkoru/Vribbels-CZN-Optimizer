@@ -12,8 +12,9 @@ UI layout (top to bottom)
     Middle:  Configuration column, top to bottom:
                 Element override (only shown for Unknown-attribute chars)
                 Important Settings | Have at Least (side by side)
-                Set Configuration (Flex Slots + set-effect % + buff
-                  spinboxes + single sets checklist)
+                Set Configuration (Flex Slots + buff spinboxes + sets
+                  checklist with per-conditional-set effect share
+                  spinboxes)
                 Exclude Combatant's MFs (checklist + All/None buttons)
     Right:   Results (Treeview)
   Bottom:  Selected Build detail tree
@@ -28,8 +29,8 @@ updates triggered by on_hero_select.
 Calculation hookup
 ------------------
 The Optimizer tab feeds per-character settings (Important Settings
-sliders, Have at Least minimums, set-effect %, avg buff fields, level
-stepper, element override) into `optimizer.optimize()` via the unified
+sliders, Have at Least minimums, per-set effect shares, avg buff
+fields, level stepper, element override) into `optimizer.optimize()` via the unified
 settings dict built by `_build_optimizer_settings`. The optimizer
 implements the damage / shield-heal blended scoring from
 docs/game_formulas.md §8 and applies the Have-at-least hard constraint
@@ -264,6 +265,77 @@ def _bind_popdown_seek(combobox):
         pass
 
 
+class _Tooltip:
+    """Lightweight hover tooltip for the set checklist.
+
+    One shared instance serves many widgets: bind(widget, text) attaches
+    Enter/Leave handlers that schedule a borderless Toplevel near the
+    pointer after a short hover delay and tear it down on leave/click.
+    Moving between widgets of the same row restarts the delay (Tk fires
+    Leave on the container when the pointer crosses onto a child, so
+    each row binds its individual children).
+    """
+    DELAY_MS = 400
+    WRAP_PX = 320
+
+    def __init__(self, colors):
+        self.colors = colors
+        self._after_id = None
+        self._owner = None
+        self._tip = None
+
+    def bind(self, widget, text):
+        widget.bind("<Enter>",
+                    lambda e, w=widget, t=text: self._schedule(w, t), add="+")
+        widget.bind("<Leave>", lambda e: self._hide(), add="+")
+        # Any click dismisses -- the tooltip shouldn't sit over the row
+        # while the user is toggling checkboxes or editing the spinbox.
+        widget.bind("<Button>", lambda e: self._hide(), add="+")
+
+    def _schedule(self, widget, text):
+        self._hide()
+        self._owner = widget
+        try:
+            self._after_id = widget.after(
+                self.DELAY_MS, lambda: self._show(widget, text))
+        except tk.TclError:
+            self._after_id = None
+
+    def _show(self, widget, text):
+        self._after_id = None
+        try:
+            x = widget.winfo_pointerx() + 12
+            y = widget.winfo_pointery() + 14
+            tip = tk.Toplevel(widget)
+            tip.wm_overrideredirect(True)
+            tip.wm_geometry(f"+{x}+{y}")
+            tip.attributes("-topmost", True)
+            tk.Label(
+                tip, text=text, justify=tk.LEFT,
+                bg=self.colors["bg_lighter"], fg=self.colors["fg"],
+                relief=tk.SOLID, borderwidth=1,
+                font=("Segoe UI", 9), wraplength=self.WRAP_PX,
+                padx=6, pady=4,
+            ).pack()
+            self._tip = tip
+        except tk.TclError:
+            self._tip = None
+
+    def _hide(self):
+        if self._after_id is not None and self._owner is not None:
+            try:
+                self._owner.after_cancel(self._after_id)
+            except (tk.TclError, ValueError):
+                pass
+            self._after_id = None
+        if self._tip is not None:
+            try:
+                self._tip.destroy()
+            except tk.TclError:
+                pass
+            self._tip = None
+
+
 class OptimizerTab(BaseTab):
     """Optimizer tab. See module docstring for layout overview."""
 
@@ -373,8 +445,11 @@ class OptimizerTab(BaseTab):
 
         # --- Per-character UI vars (Set Configuration) ---
         self.set_selected_vars: dict = {}  # set_id (int) -> BooleanVar
+        # Per-CONDITIONAL-set effect share spinboxes (set_id -> IntVar
+        # 0-100; unconditional sets get no spinbox -- their bonuses
+        # always apply).
+        self.set_effect_pct_vars: dict = {}
         self.max_flex_slots_var = tk.IntVar(value=6)
-        self.set_effect_pct_var = tk.IntVar(value=0)
         self.avg_card_dmg_pct_var = tk.IntVar(value=100)
         self.avg_mult_buff_pct_var = tk.IntVar(value=0)
         self.avg_add_buff_pct_var = tk.IntVar(value=0)
@@ -386,6 +461,25 @@ class OptimizerTab(BaseTab):
         # Keyed by hero name (display string); the save callback converts
         # to res_ids at the boundary.
         self.exclude_hero_vars: dict = {}
+        # hero name -> its Checkbutton. Created once per combatant and
+        # repositioned on re-flow, never recreated -- see
+        # _exclude_checkbutton / _reflow_exclude_heroes.
+        self._exclude_widgets: dict = {}
+
+        # --- Global UI vars (optimizer-wide) ---
+        # Minimum MF level for optimizer candidacy: a single GLOBAL
+        # setting (not per-character), persisted in settings.json via
+        # SettingsManager. 0 = off.
+        self.min_gear_level_var = tk.IntVar(value=0)
+        sm = getattr(self.context, "settings_manager", None)
+        if sm is not None:
+            try:
+                self.min_gear_level_var.set(
+                    int(sm.get("optimizer_min_gear_level", 0)))
+            except (TypeError, ValueError):
+                pass
+        self.min_gear_level_var.trace_add(
+            "write", lambda *_: self._save_min_gear_level())
 
         # --- Optimization runtime state ---
         self.optimization_results: list = []
@@ -413,8 +507,10 @@ class OptimizerTab(BaseTab):
         self.set_grid_frame = None
         self.ad_readout_label = None
         self.sh_readout_label = None
-        self.set_effect_readout_label = None
         self.preset_label = None
+        # Shared hover-tooltip instance for the Set Configuration rows
+        # (one at a time can be visible, so one instance serves all).
+        self._set_tooltip = _Tooltip(self.colors)
 
     # Convenience accessor -- avoids repeating self.context.optimizer_settings_manager
     @property
@@ -424,8 +520,18 @@ class OptimizerTab(BaseTab):
     # ----------------------------------------------------------- UI top-level
 
     def setup_ui(self):
+        # Everything is built inside an UNMAPPED container that is packed as
+        # the very last step. Tk maps and lays out widgets incrementally, and
+        # anything already on screen repaints between those passes -- so
+        # building straight into a mapped parent lets the user watch the tab
+        # assemble itself: panels appear half-populated, then jump as later
+        # widgets change the geometry. Children of an unmapped parent are
+        # never drawn, so the whole construction cascade is invisible and the
+        # tab appears once, already settled.
+        content = ttk.Frame(self.frame)
+
         # ---- Toolbar ----
-        toolbar = ttk.Frame(self.frame)
+        toolbar = ttk.Frame(content)
         toolbar.pack(fill=tk.X, padx=5, pady=(1, 5))
 
         # Stack the Combatant label and dropdown vertically. The toolbar's
@@ -525,14 +631,31 @@ class OptimizerTab(BaseTab):
             lambda e, lbl=help_label: lbl.config(wraplength=max(200, e.width - 10)),
         )
 
-        # Status text on two lines ("Loaded\nN fragments"), close to the
-        # toolbar's right edge, top-aligned to match the rest of the row.
+        # Status cluster at the toolbar's right edge: the "Loaded N
+        # fragments" status on top, the global minimum-MF-level filter
+        # row directly under it.
+        status_cluster = ttk.Frame(toolbar)
+        status_cluster.pack(side=tk.RIGHT, padx=(10, 2), anchor=tk.N)
         self.status_label = ttk.Label(
-            toolbar, text="No data\nloaded",
+            status_cluster, text="No data\nloaded",
             foreground=self.colors["fg_dim"],
             justify=tk.RIGHT,
         )
-        self.status_label.pack(side=tk.RIGHT, padx=(10, 2), anchor=tk.N)
+        self.status_label.pack(side=tk.TOP, anchor=tk.E)
+        minlvl_row = ttk.Frame(status_cluster)
+        minlvl_row.pack(side=tk.TOP, anchor=tk.E, pady=(2, 0))
+        ttk.Label(minlvl_row, text="Ignore MFs below level:").pack(
+            side=tk.LEFT, padx=(0, 3))
+        minlvl_spin = tk.Spinbox(
+            minlvl_row, from_=0, to=5, increment=1, width=2,
+            textvariable=self.min_gear_level_var,
+            bg=self.colors["bg_light"], fg=self.colors["fg"],
+            buttonbackground=self.colors["bg_lighter"],
+            insertbackground=self.colors["fg"],
+        )
+        minlvl_spin.pack(side=tk.LEFT)
+        minlvl_spin.bind("<MouseWheel>",
+                         lambda e, sp=minlvl_spin: self._spinbox_wheel(e, sp))
 
         # ---- Body grid ----
         # 3 columns: Stats Comp (fixed width), Config (weight=100),
@@ -544,7 +667,7 @@ class OptimizerTab(BaseTab):
         #   Row 1: [Selected Build (cols 0-1)  ] [Results (continued)  ]
         # Selected Build spans cols 0-1 so its right edge aligns with the
         # Config column's right edge.
-        body = ttk.Frame(self.frame)
+        body = ttk.Frame(content)
         body.pack(fill=tk.BOTH, expand=True)
         body.grid_columnconfigure(0, weight=0)
         body.grid_columnconfigure(1, weight=100)
@@ -585,6 +708,15 @@ class OptimizerTab(BaseTab):
                           padx=(5, 4), pady=(0, 5))
         self._build_detail_tree(detail_frame)
 
+        # Map the finished tree in one go. Deliberately NO update_idletasks()
+        # here: pumping Tk's idle queue during construction makes the root
+        # window appear immediately, and startup then blocks for a second or
+        # two in auto_load() -- reading the snapshot and refreshing every
+        # other tab -- which would leave a half-drawn window on screen for
+        # that whole time. Packing without pumping queues the layout instead,
+        # so the first paint happens when mainloop starts, after the load.
+        content.pack(fill=tk.BOTH, expand=True)
+
         # No data on startup -- disable interactive controls.
         self._update_enabled_state()
 
@@ -593,7 +725,7 @@ class OptimizerTab(BaseTab):
     def _build_stats_tree(self, parent):
         self.stats_tree = ttk.Treeview(
             parent, columns=("stat", "current", "new", "diff"),
-            show="headings", height=16,
+            show="headings", height=19,
         )
         self.stats_tree.column("#0", width=0, stretch=False)
         self.stats_tree.heading("stat", text="Stat")
@@ -605,13 +737,20 @@ class OptimizerTab(BaseTab):
         # the Treeview's natural width = the column-width sum, so (with
         # the parent grid column weight=0) the whole frame hugs it.
         # Tree height = exactly the number of rows shown (Totals header +
-        # 9 stats + blank + 5 Pot7 rows = 16) so the frame is only as tall
+        # 9 stats + blank + 8 Pot7 rows = 19) so the frame is only as tall
         # as its content; _populate_stats_compare re-syncs the height to
         # the live row count whenever the row set changes.
-        self.stats_tree.column("stat", width=74, stretch=False)
-        self.stats_tree.column("current", width=42, anchor=tk.E, stretch=False)
-        self.stats_tree.column("new", width=42, anchor=tk.E, stretch=False)
-        self.stats_tree.column("diff", width=42, anchor=tk.E, stretch=False)
+        # Column widths are trimmed to the minimum that fits their content
+        # ("Element%" is the widest row label) -- the 4px saved across the
+        # four columns goes to the middle config column, where the widest set
+        # name's spinbox would otherwise clip. stretch=False keeps the
+        # Treeview's natural width equal to the column-width sum, so (with
+        # the parent grid column weight=0) the whole frame hugs it and shrinks
+        # by the same 4px.
+        self.stats_tree.column("stat", width=71, stretch=False)
+        self.stats_tree.column("current", width=37, anchor=tk.E, stretch=False)
+        self.stats_tree.column("new", width=37, anchor=tk.E, stretch=False)
+        self.stats_tree.column("diff", width=37, anchor=tk.E, stretch=False)
         self.stats_tree.pack(fill=tk.Y, expand=True)
         # Right-click opens the "Show all stat contributions" menu.
         self.stats_tree.bind("<Button-3>", self._show_stats_context_menu)
@@ -957,9 +1096,13 @@ class OptimizerTab(BaseTab):
     # --------------------------------------------------- UI: Set Configuration
 
     def _build_set_config(self, parent):
-        # Row 1: Max Flex Slots stepper (left) + Set Effect group (right).
+        # Row 1: Max Flex Slots stepper (left) + the three averages
+        # spinboxes right-aligned on the same line. The averages live in
+        # their own sub-frame packed RIGHT so the group hugs the frame's
+        # right padding edge while its pairs keep left-to-right reading
+        # order; Max Flex Slots stays at the left edge.
         row1 = ttk.Frame(parent)
-        row1.pack(fill=tk.X, pady=(0, 3))
+        row1.pack(fill=tk.X, pady=(0, 5))
 
         ttk.Label(row1, text="Max Flex Slots").pack(side=tk.LEFT, padx=(0, 4))
         flex_spin = tk.Spinbox(
@@ -975,56 +1118,27 @@ class OptimizerTab(BaseTab):
             "write", lambda *a: self._save_int_safe("max_flex_slots",
                                                        self.max_flex_slots_var))
 
-        # Set-effect group: right-aligned within row1, on the SAME line as
-        # Max Flex Slots. The descriptive text is split across two lines
-        # and sits to the LEFT of the slider.
-        se_frame = ttk.Frame(row1)
-        se_frame.pack(side=tk.RIGHT)
-        ttk.Label(
-            se_frame,
-            text="What percent of DMG has set effect\n"
-                 "(only affects conditional sets)",
-            justify=tk.LEFT,
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        se_scale = ttk.Scale(
-            se_frame, from_=0, to=100, variable=self.set_effect_pct_var,
-            orient=tk.HORIZONTAL, length=140,
-            command=lambda v: self._save_int("set_effect_pct", int(float(v))),
-        )
-        se_scale.pack(side=tk.LEFT, padx=(0, 3))
-        se_scale.bind(
-            "<MouseWheel>",
-            lambda e: self._scale_wheel(
-                e, self.set_effect_pct_var,
-                lambda v: self._save_int("set_effect_pct", v)),
-        )
-        self.set_effect_readout_label = ttk.Label(se_frame, text="0%", width=5)
-        self.set_effect_readout_label.pack(side=tk.LEFT)
-        self.set_effect_pct_var.trace_add(
-            "write",
-            lambda *a: self.set_effect_readout_label.config(
-                text=f"{self.set_effect_pct_var.get()}%"
-            ),
-        )
-
-        # Row 2: Avg Card DMG / Mult Buff / Add Buff spinboxes
-        row2 = ttk.Frame(parent)
-        row2.pack(fill=tk.X, pady=(0, 5))
-
-        for label, var, field in [
+        avg_frame = ttk.Frame(row1)
+        avg_frame.pack(side=tk.RIGHT)
+        avg_defs = [
             ("Avg Card DMG%", self.avg_card_dmg_pct_var, "avg_card_dmg_pct"),
             ("Avg Mult Buff%", self.avg_mult_buff_pct_var, "avg_mult_buff_pct"),
             ("Avg Add Buff%", self.avg_add_buff_pct_var, "avg_add_buff_pct"),
-        ]:
-            ttk.Label(row2, text=label).pack(side=tk.LEFT, padx=(0, 3))
+        ]
+        for idx, (label, var, field) in enumerate(avg_defs):
+            ttk.Label(avg_frame, text=label).pack(side=tk.LEFT, padx=(0, 3))
             spin = tk.Spinbox(
-                row2, from_=0, to=9999, increment=1, width=5,
+                avg_frame, from_=0, to=9999, increment=1, width=5,
                 textvariable=var,
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
                 buttonbackground=self.colors["bg_lighter"],
                 insertbackground=self.colors["fg"],
             )
-            spin.pack(side=tk.LEFT, padx=(0, 12))
+            # The last spinbox drops its trailing pad so the group sits
+            # flush with the frame's right padding edge (same pattern as
+            # the force-main checkbox row).
+            pad_right = 0 if idx == len(avg_defs) - 1 else 12
+            spin.pack(side=tk.LEFT, padx=(0, pad_right))
             spin.bind("<MouseWheel>", lambda e, sp=spin: self._spinbox_wheel(e, sp))
             var.trace_add(
                 "write", lambda *a, f=field, v=var: self._save_int_safe(f, v)
@@ -1034,8 +1148,10 @@ class OptimizerTab(BaseTab):
         # alphabetical within each).
         ttk.Label(
             parent,
-            text="Selected Sets (the optimizer tries all "
-                 "combinations of the selected sets and flex pieces):",
+            text="Sets. Optimizer tries all combinations of the selected "
+                 "set and flex fragments. A set's number = what percent of "
+                 "this combatant's damage benefits from its effect; at 0 "
+                 "the fragments still count for stats but the effect is ignored:",
             font=("Segoe UI", 9), wraplength=600,
         ).pack(anchor=tk.W, pady=(2, 3))
 
@@ -1065,8 +1181,15 @@ class OptimizerTab(BaseTab):
             # text) -- text-clicking is wired back to it via <Button-1>
             # bindings on the two labels.
             container = ttk.Frame(self.set_grid_frame)
+            # padx is asymmetric and tight on purpose. The grid's three
+            # columns size to their widest set name, and the widest of all
+            # ("Starlight and Dreams") sits in the last column, where any
+            # overflow clips its spinbox against the frame edge. Symmetric
+            # 5px padding spent 30px on margins; (4, 0) spends 12 and gives
+            # the rest back to the names. Columns still read as separate
+            # because each one starts with a checkbox indicator.
             container.grid(row=row, column=col, sticky=tk.W,
-                           padx=5, pady=(top_pad, 1))
+                           padx=(4, 0), pady=(top_pad, 1))
             cb = ttk.Checkbutton(
                 container, variable=var,
                 command=self._save_sets_selected,
@@ -1095,6 +1218,36 @@ class OptimizerTab(BaseTab):
             )
             name_label.pack(side=tk.LEFT)
 
+            # Conditional sets get an effect-share spinbox (0-100, % of
+            # this combatant's damage the effect applies to; 0 = effect
+            # ignored, set still usable for set-locking). Unconditional
+            # set bonuses always apply -- no spinbox.
+            if sinfo.get("type") == "conditional":
+                pvar = tk.IntVar(value=0)
+                self.set_effect_pct_vars[sid] = pvar
+                pspin = tk.Spinbox(
+                    container, from_=0, to=100, increment=1, width=3,
+                    textvariable=pvar,
+                    bg=self.colors["bg_light"], fg=self.colors["fg"],
+                    buttonbackground=self.colors["bg_lighter"],
+                    insertbackground=self.colors["fg"],
+                )
+                pspin.pack(side=tk.LEFT, padx=(3, 0))
+                pspin.bind(
+                    "<MouseWheel>",
+                    lambda e, sp=pspin: self._spinbox_wheel(e, sp))
+                pvar.trace_add(
+                    "write", lambda *_a: self._save_set_effect_pcts())
+
+            # Hover tooltip: the set's bonus description (the same text
+            # the Combatants tab shows under an equipped piece). Bound to
+            # the row's individual children (not the container) -- Tk
+            # fires Leave on the container whenever the pointer crosses
+            # onto a child.
+            tip_text = sinfo.get("bonus", "")
+            for w in (cb, pieces_label, name_label):
+                self._set_tooltip.bind(w, tip_text)
+
             def _toggle(_event=None, v=var):
                 v.set(not v.get())
                 self._save_sets_selected()
@@ -1118,18 +1271,24 @@ class OptimizerTab(BaseTab):
 
     def _build_exclude_gear(self, parent):
         self.exclude_heroes_frame = ttk.Frame(parent)
-        # Lock the natural width to the eventual flow-layout width (~694px
-        # for the current character roster at default window sizes). The
-        # real exclude content is built post-Map (data load ->
-        # refresh_exclude_heroes -> deferred 50ms after() callback ->
-        # _reflow_exclude_heroes), and without this lock the LabelFrame's
-        # reqwidth jumps from 1 -> 694 ~50ms after the tab paints, which
-        # forces a visible grid re-balance: col 1 shrinks ~56px and col 2
-        # grows the same. update_idletasks() can't catch this because the
-        # deferral is timer-based, not idle-based. Locking the reqwidth
-        # here keeps col 2's minimum stable from creation. If the roster
-        # changes substantially, this value should be re-tuned to match.
-        self.exclude_heroes_frame.configure(width=694)
+        # The checklist's content must NOT influence this frame's requested
+        # size. The flow layout reads its available width FROM the frame, so
+        # letting children propagate their size upward closes a feedback
+        # loop: content sets the frame's width -> the body grid re-balances
+        # its columns -> the width change fires <Configure> -> Configure
+        # re-flows the content -> repeat. That loop is why the panel used to
+        # re-lay itself out several times over on first open, and why the
+        # width kept being re-tuned by hand.
+        #
+        # Both dimensions are set explicitly instead. The width below is a
+        # LAYOUT PREFERENCE, not a measurement: it's how much of the body's
+        # width column 2 asks for. It does NOT need re-tuning when the roster
+        # grows -- a longer roster wraps into more rows at the same width.
+        # The height is set by _reflow_exclude_heroes from the row count.
+        # Neither dimension is derived from the children, so nothing feeds
+        # back.
+        self.exclude_heroes_frame.pack_propagate(False)
+        self.exclude_heroes_frame.configure(width=694, height=1)
         self.exclude_heroes_frame.pack(fill=tk.BOTH, expand=True)
         # The checklist is a true flow layout: variable column widths sized
         # to each name, variable column count per row based on container
@@ -1366,13 +1525,12 @@ class OptimizerTab(BaseTab):
         number of columns per row varies based on container width.
         Re-flows on <Configure> when the container resizes.
 
-        Skips the destructive rebuild when nothing visible has changed:
-        Tk destroying + recreating ~30 checkbuttons blinks the whole
-        checklist even when their contents (hero list, excluded set,
-        current character) are the same, and live-update reflows fire
-        often. The cache is keyed by the currently-selected character so
-        the current-char gray+strike treatment gets reapplied when the
-        user picks a different combatant.
+        Skips all work when nothing visible has changed, and updates in
+        place rather than re-flowing whenever the roster itself is the same
+        (only check states or the current-combatant marker differ). The
+        cache is keyed by the currently-selected character so the
+        current-char gray+strike treatment gets reapplied when the user
+        picks a different combatant.
         """
         # Use the SAME source-of-truth as refresh_hero_list: union of
         # `characters` (which only has entries for characters with at least
@@ -1407,75 +1565,22 @@ class OptimizerTab(BaseTab):
                 and getattr(self, "_exclude_last_current", None) == new_current):
             return
 
-        # When ONLY the current-combatant marker changed (heroes +
-        # excluded set are the same), avoid the destroy + recreate cycle
-        # that causes a visible blink on every combatant dropdown change.
-        # Instead just update the foreground color and font of the
-        # previously-current + newly-current checkbuttons in place. Falls
-        # back to a full rebuild when widget refs are missing (e.g. first
-        # call before _reflow has populated them).
+        # While the roster is unchanged, nothing about the LAYOUT can have
+        # changed -- only the check states and the current-combatant marker,
+        # both of which are option updates on widgets that already exist.
+        # Re-flowing here would rearrange identical rows for nothing.
         same_heroes = getattr(self, "_exclude_heroes", None) == new_heroes
-        same_excluded = getattr(self, "_exclude_excluded_set", None) == new_excluded
-        only_current_changed = (
-            same_heroes
-            and same_excluded
-            and getattr(self, "_exclude_last_current", None) != new_current
-        )
-        old_current = getattr(self, "_exclude_last_current", None)
         self._exclude_heroes = new_heroes
         self._exclude_excluded_set = new_excluded
         self._exclude_last_current = new_current
 
-        if only_current_changed and getattr(self, "_exclude_widgets", None):
-            self._update_exclude_current_marker(old_current, new_current)
+        if same_heroes and self._exclude_widgets:
+            self._apply_exclude_states()
             return
 
-        self._reflow_exclude_heroes()
-
-    def _update_exclude_current_marker(self, old_current, new_current):
-        """Cheap in-place update of the gray+strike treatment for one or
-        two checkbuttons (the previously-selected combatant and the newly-
-        selected one). No widget creation/destruction -- avoids the blink
-        the full _reflow_exclude_heroes rebuild causes.
-
-        Called from refresh_exclude_heroes when only the current combatant
-        changed. If the strike font hasn't been built yet (first time the
-        feature fires), this method creates it.
-        """
-        import tkinter.font as tkfont
-        if not hasattr(self, "_exclude_strike_font"):
-            self._exclude_strike_font = tkfont.Font(
-                family="Segoe UI", size=9, overstrike=1
-            )
-        normal_font = ("Segoe UI", 9)
-
-        # Restore the previous current-combatant's normal styling.
-        if old_current and old_current in self._exclude_widgets:
-            cb = self._exclude_widgets[old_current]
-            char_data = get_character_by_name(old_current)
-            normal_fg = ATTRIBUTE_COLORS.get(
-                char_data.get("attribute", "Unknown"), self.colors["fg"]
-            )
-            try:
-                cb.configure(
-                    fg=normal_fg,
-                    activeforeground=normal_fg,
-                    font=normal_font,
-                )
-            except tk.TclError:
-                pass  # widget was destroyed mid-update; full reflow will fix it
-
-        # Apply gray+strike to the new current-combatant's checkbutton.
-        if new_current and new_current in self._exclude_widgets:
-            cb = self._exclude_widgets[new_current]
-            try:
-                cb.configure(
-                    fg=self.colors["fg_dim"],
-                    activeforeground=self.colors["fg_dim"],
-                    font=self._exclude_strike_font,
-                )
-            except tk.TclError:
-                pass
+        # Roster changed: force the re-flow past its partition guard, since
+        # the same row shape may now hold different combatants.
+        self._reflow_exclude_heroes(force=True)
 
     def _on_exclude_configure(self, event):
         """Debounced re-flow trigger. Tk emits many Configure events during
@@ -1493,137 +1598,194 @@ class OptimizerTab(BaseTab):
             50, self._reflow_exclude_heroes
         )
 
-    def _reflow_exclude_heroes(self):
-        """Rebuild the per-row checkbutton frames at the current container
-        width. Each name's width is estimated from font metrics so we don't
-        need to realize each Checkbutton just to measure it.
+    def _exclude_checkbutton(self, hero: str):
+        """The Checkbutton for `hero`, created on first use and reused for
+        the lifetime of the roster entry.
 
-        Stores a `_exclude_widgets` dict mapping hero name -> Checkbutton
-        widget so `_update_exclude_current_marker` can do in-place font/fg
-        updates on combatant change without a full rebuild.
+        Creating these per re-flow is what made the panel flash white: a
+        freshly created batch of ~40 classic Tk widgets gets mapped and
+        drawn before the layout that positions them is final, so the user
+        sees a row of blank default-colored boxes. Widgets are therefore
+        created once and only repositioned afterwards.
+
+        The check variable is created alongside and kept in
+        exclude_hero_vars; _apply_exclude_states syncs its value from
+        persisted state without disturbing the widget.
         """
+        cb = self._exclude_widgets.get(hero)
+        if cb is not None:
+            return cb
         import tkinter.font as tkfont
+        var = tk.BooleanVar(value=False)
+        self.exclude_hero_vars[hero] = var
+        char_data = get_character_by_name(hero)
+        fg_color = ATTRIBUTE_COLORS.get(
+            char_data.get("attribute", "Unknown"), self.colors["fg"]
+        )
+        if not hasattr(self, "_exclude_strike_font"):
+            self._exclude_strike_font = tkfont.Font(
+                family="Segoe UI", size=9, overstrike=1
+            )
+        cb = tk.Checkbutton(
+            self.exclude_heroes_frame, text=hero, variable=var,
+            bg=self.colors["bg"], fg=fg_color,
+            selectcolor=self.colors["bg_light"],
+            activebackground=self.colors["bg"], activeforeground=fg_color,
+            font=("Segoe UI", 9), anchor=tk.W,
+            command=self._save_excluded_gear,
+        )
+        self._exclude_widgets[hero] = cb
+        return cb
 
-        # Tear down the old row frames + their checkbuttons.
-        for widget in self.exclude_heroes_frame.winfo_children():
-            widget.destroy()
-        self.exclude_hero_vars.clear()
-        self._exclude_widgets = {}
-
-        container_w = self.exclude_heroes_frame.winfo_width()
-        if container_w <= 1:
-            # Container hasn't been realized yet (first call before geometry
-            # settles); defer briefly and re-attempt.
-            self.exclude_heroes_frame.after(50, self._reflow_exclude_heroes)
-            return
-
-        # Width estimation: text width via tkfont + a fixed overhead for the
-        # checkbox indicator + a little internal padding. Tuned empirically
-        # on a Windows theme; 27px lands without clipping.
-        f = tkfont.Font(family="Segoe UI", size=9)
-        checkbox_overhead = 27
-        gap = 7        # px between checkbuttons in a row
-        edge_pad = 0   # px on each side (kept symmetric)
-        available_w = max(1, container_w - 2 * edge_pad)
-
-        # Pass 1: partition heroes into rows by estimated width (same
-        # accounting the packing pass uses), so pass 2 knows each row's
-        # population up front and can JUSTIFY it: leftover width is
-        # distributed into the inter-item gaps so every row ends flush
-        # with the container's right edge. The LAST row stays left-
-        # aligned with the natural gap (justifying a short final row
-        # would smear 2-3 names across the full width). Flushness is
-        # approximate to within a few px since widths are font-metric
-        # estimates, not realized widget widths.
-        rows = []
-        cur_row = []
-        cur_w = 0
-        for hero in self._exclude_heroes:
-            est_w = f.measure(hero) + checkbox_overhead
-            if cur_row and cur_w + est_w + gap > available_w:
-                rows.append(cur_row)
-                cur_row = []
-                cur_w = 0
-            cur_row.append((hero, est_w))
-            cur_w += est_w + gap
-        if cur_row:
-            rows.append(cur_row)
-
-        built_rows = []  # (list of checkbuttons, is_last_row) per row
-        for row_idx, row_items in enumerate(rows):
-            is_last_row = (row_idx == len(rows) - 1)
-            n = len(row_items)
-            row_frame = ttk.Frame(self.exclude_heroes_frame)
-            row_frame.pack(side=tk.TOP, anchor=tk.W, fill=tk.X,
-                            padx=(edge_pad, edge_pad), pady=0)
-            row_cbs = []
-            for i, (hero, _est_w) in enumerate(row_items):
-                res_id = self._resolve_res_id(hero)
-                initial = (str(res_id) in self._exclude_excluded_set
-                           if res_id is not None else False)
-                var = tk.BooleanVar(value=initial)
-                self.exclude_hero_vars[hero] = var
+    def _apply_exclude_states(self):
+        """Sync every checkbutton's variable from the persisted excluded
+        set, and apply the current-combatant gray+strike treatment. Pure
+        option updates on existing widgets -- no creation, no re-layout.
+        var.set() does not fire a Checkbutton's command, so this can't
+        write back to settings.
+        """
+        current = self.selected_character.get()
+        for hero, cb in self._exclude_widgets.items():
+            res_id = self._resolve_res_id(hero)
+            var = self.exclude_hero_vars.get(hero)
+            if var is not None:
+                var.set(str(res_id) in self._exclude_excluded_set
+                        if res_id is not None else False)
+            # The currently-selected combatant's row is grayed out and
+            # struck through: the optimizer ignores it (their MFs are always
+            # available -- see the filter in _build_optimizer_settings). The
+            # check state is left alone so it returns when the user picks a
+            # different combatant.
+            if hero == current:
+                fg_color = self.colors["fg_dim"]
+                cb_font = self._exclude_strike_font
+            else:
                 char_data = get_character_by_name(hero)
                 fg_color = ATTRIBUTE_COLORS.get(
                     char_data.get("attribute", "Unknown"), self.colors["fg"]
                 )
-                # The currently-selected character's checkbutton is grayed
-                # out + struck through so the user can see at a glance that
-                # the optimizer ignores this row (their MFs are always
-                # available -- see the filter in _build_optimizer_settings).
-                # The check state itself is preserved so it returns when
-                # the user picks a different combatant.
-                is_current = (hero == self.selected_character.get())
-                if is_current:
-                    fg_color = self.colors["fg_dim"]
-                    if not hasattr(self, "_exclude_strike_font"):
-                        self._exclude_strike_font = tkfont.Font(
-                            family="Segoe UI", size=9, overstrike=1
-                        )
-                    cb_font = self._exclude_strike_font
-                else:
-                    cb_font = ("Segoe UI", 9)
+                cb_font = ("Segoe UI", 9)
+            try:
+                cb.configure(fg=fg_color, activeforeground=fg_color,
+                             font=cb_font)
+            except tk.TclError:
+                pass
 
-                cb = tk.Checkbutton(
-                    row_frame, text=hero, variable=var,
-                    bg=self.colors["bg"], fg=fg_color,
-                    selectcolor=self.colors["bg_light"],
-                    activebackground=self.colors["bg"], activeforeground=fg_color,
-                    font=cb_font, anchor=tk.W,
-                    command=self._save_excluded_gear,
-                )
-                cb.pack(side=tk.LEFT,
-                        padx=(0, 0 if i == n - 1 else gap))
-                self._exclude_widgets[hero] = cb  # for in-place current-marker updates
-                row_cbs.append(cb)
-            built_rows.append((row_cbs, is_last_row))
+    def _reflow_exclude_heroes(self, force: bool = False):
+        """Position the exclude checklist's checkbuttons into rows that fit
+        the current width.
 
-        # Justification pass. Row-BREAKING above uses font-metric
-        # estimates, but the gap stretching must use the REAL rendered
-        # widths: the estimates run a couple px small per checkbutton,
-        # and gaps computed from them overflow the row by roughly one
-        # character's width, clipping the last name. winfo_reqwidth is
-        # valid immediately after widget creation, so re-measure and
-        # stretch (or, if the real widths overflow even at the natural
-        # gap, SHRINK -- floored at 2px) each non-final row in place.
-        for row_cbs, is_last_row in built_rows:
-            n = len(row_cbs)
-            if is_last_row or n < 2:
-                continue
-            content_w = sum(cb.winfo_reqwidth() for cb in row_cbs)
-            leftover = available_w - content_w - (n - 1) * gap
-            if leftover > 0:
-                extra, rem = divmod(leftover, n - 1)
-                for i, cb in enumerate(row_cbs[:-1]):
-                    pad = gap + extra + (1 if i < rem else 0)
-                    cb.pack_configure(padx=(0, pad))
-            elif leftover < 0:
-                # Estimates ran small enough that the real content
-                # overflows the row -- pull the gaps in evenly instead.
-                shrink = min(gap - 2, (-leftover + n - 2) // (n - 1))
-                if shrink > 0:
-                    for cb in row_cbs[:-1]:
-                        cb.pack_configure(padx=(0, gap - shrink))
+        Widgets are created once (see _exclude_checkbutton) and placed by
+        explicit coordinate here, so a re-flow moves widgets instead of
+        destroying and recreating them -- no flashing, and no dependence on
+        row sub-frames (a Tk widget can't change parent, so pooled row
+        frames couldn't be reused across differing partitions).
+
+        When the computed partition and width match what's already on
+        screen this returns without touching a widget, so a burst of
+        <Configure> events costs nothing. Pass force=True after the roster
+        changes, where an identical partition may still need new widgets.
+        """
+        container_w = self.exclude_heroes_frame.winfo_width()
+        if container_w <= 1:
+            # Not realized yet -- this runs during startup, before mainloop.
+            # Draining pending geometry yields the TRUE allocated width, so
+            # the partition computed below is the final one and the
+            # <Configure> that realization fires later hits the no-op guard
+            # instead of re-flowing in view. This is only safe because the
+            # main window is invisible for the whole of startup (see
+            # OptimizerGUI._hide_until_ready): the drain paints, and painting
+            # a half-built window is precisely what being hidden prevents.
+            self.exclude_heroes_frame.update_idletasks()
+            container_w = self.exclude_heroes_frame.winfo_width()
+        if container_w <= 1:
+            # Children never mapped (the withdraw() fallback path). Use the
+            # frame's requested width -- the explicit layout preference set
+            # in _build_exclude_gear.
+            container_w = self.exclude_heroes_frame.winfo_reqwidth()
+        if container_w <= 1:
+            # Still unrealized (the tab has never been mapped). Realization
+            # fires <Configure>, which brings us back here; retry once as a
+            # fallback, but never chain retries.
+            if not getattr(self, "_exclude_reflow_retried", False):
+                self._exclude_reflow_retried = True
+                self.exclude_heroes_frame.after(
+                    50, self._reflow_exclude_heroes)
+            return
+        self._exclude_reflow_retried = False
+
+        gap = 7        # minimum px between checkbuttons in a row
+        edge_pad = 0   # px on each side (kept symmetric)
+        available_w = max(1, container_w - 2 * edge_pad)
+
+        # Drop widgets for combatants that left the roster, then make sure
+        # every current one has a widget. Measurement uses each widget's
+        # REAL requested width -- valid as soon as the widget exists -- so
+        # there's no font-metric estimate to undershoot and no second
+        # correction pass (the old estimate ran a few px small per name,
+        # which is why justification had to re-measure and could still clip
+        # the last name in a row).
+        for gone in [h for h in self._exclude_widgets
+                     if h not in self._exclude_heroes]:
+            self._exclude_widgets.pop(gone).destroy()
+            self.exclude_hero_vars.pop(gone, None)
+        widths = {}
+        for hero in self._exclude_heroes:
+            widths[hero] = self._exclude_checkbutton(hero).winfo_reqwidth()
+        row_h = max(
+            (cb.winfo_reqheight() for cb in self._exclude_widgets.values()),
+            default=22,
+        )
+
+        # Partition into rows: names keep their natural widths (no scaling
+        # every column to the widest name) and the column count per row
+        # follows from the available width.
+        rows = []
+        cur_row = []
+        cur_w = 0
+        for hero in self._exclude_heroes:
+            w = widths[hero]
+            if cur_row and cur_w + gap + w > available_w:
+                rows.append(cur_row)
+                cur_row = []
+                cur_w = 0
+            cur_w += w + (gap if cur_row else 0)
+            cur_row.append(hero)
+        if cur_row:
+            rows.append(cur_row)
+
+        # Nothing visible would change -> don't touch a single widget.
+        if (not force
+                and rows == getattr(self, "_exclude_partition", None)
+                and container_w == getattr(self, "_exclude_packed_width", None)):
+            return
+
+        # Place every checkbutton by explicit coordinate. Rows other than
+        # the last are justified: leftover width is spread into the
+        # inter-name gaps so the row ends flush with the right edge. The last
+        # row keeps the natural gap (justifying 2-3 names across the full
+        # width looks broken). Because the widths are the widgets' real
+        # requested widths, one pass lands flush -- no re-measure, and no
+        # risk of clipping the last name in a row.
+        for row_idx, row in enumerate(rows):
+            n = len(row)
+            content_w = sum(widths[h] for h in row)
+            if n > 1 and row_idx < len(rows) - 1:
+                extra, rem = divmod(max(0, available_w - content_w), n - 1)
+            else:
+                extra, rem = gap, 0
+            x = edge_pad
+            y = row_idx * row_h
+            for i, hero in enumerate(row):
+                self._exclude_widgets[hero].place(x=x, y=y)
+                x += widths[hero] + extra + (1 if i < rem else 0)
+
+        # The row count is the ONE thing the content drives (see
+        # _build_exclude_gear): size the frame to exactly its rows.
+        self.exclude_heroes_frame.configure(height=max(1, len(rows) * row_h))
+        self._exclude_partition = rows
+        self._exclude_packed_width = container_w
+        self._apply_exclude_states()
 
     # =================================================================
     # res_id resolution + per-character settings load/save
@@ -1805,7 +1967,12 @@ class OptimizerTab(BaseTab):
                     self.have_at_least_vars[stat].set(int(raw))
 
             self.max_flex_slots_var.set(s.get("max_flex_slots", 6))
-            self.set_effect_pct_var.set(s.get("set_effect_pct", 0))
+            pcts = s.get("set_effect_pcts", {}) or {}
+            for sid, pvar in self.set_effect_pct_vars.items():
+                try:
+                    pvar.set(int(pcts.get(str(sid), 0)))
+                except (TypeError, ValueError):
+                    pvar.set(0)
             self.avg_card_dmg_pct_var.set(s.get("avg_card_dmg_pct", 100))
             self.avg_mult_buff_pct_var.set(s.get("avg_mult_buff_pct", 0))
             self.avg_add_buff_pct_var.set(s.get("avg_add_buff_pct", 0))
@@ -1874,6 +2041,46 @@ class OptimizerTab(BaseTab):
         if v < 0:
             v = 0
         self.opt_settings.set_have_at_least(self._current_res_id, stat, v)
+
+    def _save_set_effect_pcts(self):
+        """Persist the per-conditional-set effect shares for the current
+        character as the `set_effect_pcts` dict (zero entries dropped --
+        absent id = 0)."""
+        if self._loading_settings or self._current_res_id is None:
+            return
+        if self.opt_settings is None:
+            return
+        pcts = {}
+        for sid, var in self.set_effect_pct_vars.items():
+            try:
+                v = int(var.get())
+            except (tk.TclError, ValueError):
+                return  # spinbox mid-edit; skip this save tick
+            if v > 0:
+                pcts[str(sid)] = min(100, v)
+        self.opt_settings.set(self._current_res_id, "set_effect_pcts", pcts)
+
+    def _save_min_gear_level(self):
+        """Persist the GLOBAL minimum-MF-level filter to settings.json
+        (SettingsManager). Not per-character, so no _loading_settings
+        gating."""
+        sm = getattr(self.context, "settings_manager", None)
+        if sm is None:
+            return
+        try:
+            v = int(self.min_gear_level_var.get())
+        except (tk.TclError, ValueError):
+            return
+        sm.set("optimizer_min_gear_level", max(0, min(5, v)))
+
+    def _current_min_gear_level(self) -> int:
+        """The global minimum-MF-level filter's current value (0 = off),
+        TclError-safe (spinbox mid-edit reads as 0... the last persisted
+        value is what the run would use next launch anyway)."""
+        try:
+            return max(0, min(5, int(self.min_gear_level_var.get())))
+        except (tk.TclError, ValueError):
+            return 0
 
     def _save_sets_selected(self):
         if self._loading_settings or self._current_res_id is None:
@@ -2146,8 +2353,8 @@ class OptimizerTab(BaseTab):
             main-stat filters per slot, top_percent, excluded_heroes).
           * Scoring fields used by `calculate_build_stats` and
             `_compute_optimizer_score` (Extra%, DoT%, ATK/DEF split,
-            shield/heal weight, set-effect %, avg buff fields, level
-            stepper, element override, have-at-least minimums).
+            shield/heal weight, per-set effect shares, avg buff fields,
+            level stepper, element override, have-at-least minimums).
 
         See docs/game_formulas.md §8 for the formula consumers of each field.
         """
@@ -2215,6 +2422,9 @@ class OptimizerTab(BaseTab):
             "include_equipped": True,    # always include; exclude list is the new gate
             "excluded_heroes": excluded_heroes,
             "max_results": 100,
+            # GLOBAL minimum-MF-level candidacy filter (settings.json,
+            # not per-character). 0 = off.
+            "min_gear_level": self._current_min_gear_level(),
             # ----- Set-combo fields (consumed by optimize's locked-count rule) -----
             "sets_selected": list(s.get("sets_selected", [])),
             "max_flex_slots": int(s.get("max_flex_slots", 6)),
@@ -2234,7 +2444,7 @@ class OptimizerTab(BaseTab):
             "dot_pct": s.get("dot_pct", 0),
             "atk_def_split": s.get("atk_def_split", 0),
             "shielding_healing_weight": s.get("shielding_healing_weight", 0),
-            "set_effect_pct": s.get("set_effect_pct", 0),
+            "set_effect_pcts": dict(s.get("set_effect_pcts", {}) or {}),
             "avg_card_dmg_pct": s.get("avg_card_dmg_pct", 100),
             "avg_mult_buff_pct": s.get("avg_mult_buff_pct", 0),
             "avg_add_buff_pct": s.get("avg_add_buff_pct", 0),
@@ -2304,8 +2514,13 @@ class OptimizerTab(BaseTab):
                         # No candidate combinations even satisfied set requirements
                         # (e.g. no 4-piece set selected has 4 candidates in slot N,
                         # or all selected sets together can't fit in 6 slots).
+                        note = ""
+                        if self._current_min_gear_level() > 0:
+                            note = (" — the 'Ignore MFs below level' "
+                                    "filter is active")
                         self.progress_label.config(
-                            text="Done! 0 builds (no candidates satisfied set requirements)"
+                            text="Done! 0 builds (no candidates satisfied "
+                                 f"set requirements{note})"
                         )
         except queue.Empty:
             pass
@@ -2695,6 +2910,11 @@ class OptimizerTab(BaseTab):
             # 4-wide decimal when non-zero; bare cross when zero.
             return f"{v:>{w}.1f}" if abs(v) > 0.05 else "\u2717"
 
+        def _other_int(v, w):
+            # Integer variant of _other (Ego is integer-valued in game
+            # data, so its rows render without decimal points).
+            return f"{v:>{w}.0f}" if abs(v) > 0.05 else "\u2717"
+
         def _flag(present):
             return "\u2713" if present else "\u2717"
 
@@ -2765,10 +2985,10 @@ class OptimizerTab(BaseTab):
         eg = bd["Ego"]
         eg_total = eg["mf_main"] + eg["mf_sub"] + eg["set_effect"] + eg["other"]
         lines.append(
-            f"Ego: {eg_total:>4.1f} <= MF Main {_dec(eg['mf_main'], 4)}"
-            f" + MF Sub Sum {_dec(eg['mf_sub'], 4)}"
-            f" + Set Effect Sum {_dec(eg['set_effect'], 4)}"
-            f" + Other {_other(eg['other'], 4)}"
+            f"Ego: {eg_total:>4.0f} <= MF Main {_int(eg['mf_main'], 3)}"
+            f" + MF Sub Sum {_int(eg['mf_sub'], 3)}"
+            f" + Set Effect Sum {_int(eg['set_effect'], 3)}"
+            f" + Other {_other_int(eg['other'], 3)}"
         )
         lines.append("")
         lines.append(f"xDMG%: {_dec(bd['xDMG%'], 4)}")
@@ -2780,9 +3000,17 @@ class OptimizerTab(BaseTab):
         # explanatory note directly below. "HP " gets a trailing space so
         # its colon lines up with ATK:/DEF:.
         lines.append("")
-        lines.append(f"Potential 7 ATK: {bd['ATK']['inner']:>4.0f}")
-        lines.append(f"Potential 7 DEF: {bd['DEF']['inner']:>4.0f}")
-        lines.append(f"Potential 7 HP : {bd['HP']['inner']:>4.0f}")
+        lines.append("")
+        lines.append(
+            "Note: For Potential 7, stats are calculated without "
+            "Partner passives, Equipment, and Conditional Sets "
+            "(Partner flat stats still count)."
+        )
+        lines.append("")
+        lines.append(f"Pot7 ATK: {bd['ATK']['inner']:>4.0f}")
+        lines.append(f"Pot7 DEF: {bd['DEF']['inner']:>4.0f}")
+        lines.append(f"Pot7 HP : {bd['HP']['inner']:>4.0f}")
+        lines.append("")
         # Potential 7 CRate/CDMG: the final value minus everything the
         # in-game Potential 7 checks can't see -- conditional set
         # contributions and ALL partner contributions (unconditional
@@ -2790,16 +3018,22 @@ class OptimizerTab(BaseTab):
         # _hal_crate/_hal_cdmg. "CDMG " gets a trailing space so its
         # colon lines up with CRate's.
         lines.append(
-            f"Potential 7 CRate: {cr_total - cr.get('pot7_excluded', 0.0):>5.1f}"
+            f"Pot7 CritRate: {cr_total - cr.get('pot7_excluded', 0.0):>5.1f}"
         )
         lines.append(
-            f"Potential 7 CDMG : {cd_total - cd.get('pot7_excluded', 0.0):>5.1f}"
+            f"Pot7 CritDMG%: {cd_total - cd.get('pot7_excluded', 0.0):>5.1f}"
         )
-        lines.append(
-            "Note: For Potential 7, stats are calculated without "
-            "Partner passives, Equipment, and Conditional Sets "
-            "(Partner flat stats still count)."
-        )
+        # Potential 7 Extra DMG% / DoT% / Ego: the final value minus
+        # partner passive contributions (no conditional-set path feeds
+        # these stats). Same Totals ordering and label style as the
+        # rows above; labels padded so the colons align within the trio.
+        ex_p7 = ex_total - ex.get("pot7_excluded", 0.0)
+        dt_p7 = dt_total - dt.get("pot7_excluded", 0.0)
+        eg_p7 = eg_total - eg.get("pot7_excluded", 0.0)
+        lines.append(f"Pot7 ExtrDMG%: {ex_p7:>5.1f}")
+        lines.append(f"Pot7 DoT DMG%: {dt_p7:>5.1f}")
+        lines.append("")
+        lines.append(f"Pot7 Ego: {eg_p7:>4.0f}")
         return "\n".join(lines)
 
     def _show_text_popup(self, title: str, text: str):
@@ -2850,8 +3084,9 @@ class OptimizerTab(BaseTab):
             ("Ego", 0, None),
             # Blank separator then the Potential-7 values: inner
             # ATK/DEF/HP (Partner flat counts; Partner passives and
-            # Equipment don't) and the crit values without conditional
-            # sets or partner passive contributions -- same as the
+            # Equipment don't), the crit values without conditional
+            # sets or partner passive contributions, and Extra%/DoT%/Ego
+            # without partner passive contributions -- same as the
             # popup's "Potential 7" rows and the Have-at-least check.
             ("", None, None),  # blank separator row
             ("_inner_atk", 0, "Pot7 ATK"),
@@ -2859,6 +3094,9 @@ class OptimizerTab(BaseTab):
             ("_inner_hp",  0, "Pot7 HP"),
             ("_hal_crate", 1, "Pot7 Crit%"),
             ("_hal_cdmg",  1, "Pot7 CDMG"),
+            ("_hal_extra", 1, "Pot7 Extra%"),
+            ("_hal_dot",   1, "Pot7 DoT%"),
+            ("_hal_ego",   0, "Pot7 Ego"),
         ]
         # Size the visible height to the actual row count -- the tree's
         # build-time height predates the Pot7 crit rows, which otherwise
