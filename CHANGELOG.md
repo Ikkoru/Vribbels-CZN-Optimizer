@@ -21,6 +21,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Changed
 
+- **Dismissing the Windows Administrator prompt no longer shows an "Elevation Failed" warning** — declining is a choice, not a failure. Genuine failures still report.
 - **`config.json` is folded into `settings.json`.** `server_region` and `optimizer_workers` now live in `settings.json` alongside every other setting; existing values are carried over automatically and the old `config.json` is ignored (left on disk). Note: editing `optimizer_workers` by hand now requires the program to be closed first, since the program rewrites `settings.json` while running.
 - **Capture tab: Log Presets are laid out in three columns.**
 - **The Results status line reports the run differently.** It now reads e.g. `Done in 0.4s! 1,728,000 builds compared (slots 12×12×12×10×10×10)`. The six numbers are how many fragments were considered for each slot — multiply them and you get the number of builds compared, which is the quickest way to see what a filter or exclusion actually changed. When a run finds nothing because one slot had no fragments left, the same numbers show which slot it was.
@@ -30,6 +31,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Fixed
 
+- **The program no longer freezes on startup.** The Setup and Capture tabs check what's installed by running mitmproxy and Python and by looking up the game servers — and those checks ran on the same thread that draws the window, so until they finished, nothing responded to clicks. When one of them never answered at all, the program stayed locked up permanently: the window appeared but was dead, and even closing it from the taskbar did nothing. On Windows, asking for `python` when Python isn't installed opens the Microsoft Store instead of answering, which is what made it hang indefinitely rather than briefly. All these checks now run in the background, give up after five seconds, and no longer flash a console window over the UI.
 - **A newly obtained combatant now appears immediately.** One that had never unlocked a potential node was mistaken for a partner card, so it stayed missing from the Combatants tab — and everywhere else — until an MF was equipped to it. Characters and partner cards are now told apart by the shape of the data the game sends, which doesn't depend on progression.
 - **Memory Fragments: the selection follows the fragment it's on.** Upgrading a selected fragment used to leave the highlight on whatever row took its place; it now moves with the fragment and scrolls back into view.
 - **The window opens in front when launched from a folder without administrator rights.** Declining the UAC prompt used to leave it behind the folder it was started from.

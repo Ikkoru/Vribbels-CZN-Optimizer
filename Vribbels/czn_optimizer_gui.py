@@ -553,6 +553,7 @@ class OptimizerGUI:
                 and self.settings_manager.get("debug_perf_log", False)
             ),
         )
+        self._start_hang_watchdog(program_dir)
         perf_log.log("startup:managers", secs=_time.perf_counter() - _t_start)
         self.app_context.preset_manager = self.preset_manager
         self.app_context.character_preset_manager = self.character_preset_manager
@@ -627,6 +628,34 @@ class OptimizerGUI:
         if not self.settings_manager.get("first_launch_done"):
             self.notebook.select(self.setup_tab)
             self.settings_manager.set("first_launch_done", True)
+
+    def _start_hang_watchdog(self, program_dir):
+        """With `debug_perf_log` on, dump every thread's stack to
+        settings/hang_traceback.txt every 30 seconds.
+
+        For diagnosing an unresponsive window: whatever call is blocking
+        the main thread appears at the bottom of the main thread's stack,
+        which beats inferring it from symptoms. Repeats, so a healthy run
+        just produces a series of dumps parked in mainloop -- that itself
+        is the "startup finished, we're idle and fine" reading.
+
+        The file handle is kept on the instance because faulthandler
+        writes to it from a watchdog thread; letting it be collected
+        would close it mid-dump.
+        """
+        try:
+            import perf_log
+            if not perf_log.is_enabled():
+                return
+            import faulthandler
+            path = Path(program_dir) / "settings" / "hang_traceback.txt"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._hang_dump_file = open(path, "w", encoding="utf-8")
+            faulthandler.dump_traceback_later(
+                30, repeat=True, file=self._hang_dump_file, exit=False
+            )
+        except Exception:
+            pass
 
     def _switch_to_tab(self, tab_frame: tk.Widget):
         """Switch notebook to the specified tab frame."""
@@ -907,10 +936,54 @@ def is_admin():
         return False
 
 
-def run_as_admin():
+# --- Native Windows dialogs for the pre-startup prompts ------------------
+#
+# These run BEFORE OptimizerGUI creates the application's Tk root, and
+# they must NOT create one of their own. A Tk root that is created and
+# destroyed before the real one leaves the process unable to pump events
+# for the root that follows: the main window paints (the reveal's
+# update() passes draw it) and then never responds to anything again.
+# tkinter's messagebox is a wrapper around this same native dialog on
+# Windows, so nothing changes visually.
+MB_OK = 0x00000000
+MB_YESNO = 0x00000004
+MB_ICONQUESTION = 0x00000020
+MB_ICONWARNING = 0x00000030
+MB_SETFOREGROUND = 0x00010000
+MB_TOPMOST = 0x00040000
+IDYES = 6
+
+# ShellExecuteW's result when the user dismissed the UAC prompt
+# (SE_ERR_ACCESSDENIED), as opposed to elevation failing for a reason
+# worth reporting.
+SE_ERR_ACCESSDENIED = 5
+
+
+def _win_message(title: str, text: str, flags: int) -> int:
+    """Show an owner-less native Windows message box and return its ID*
+    result (0 if the call itself fails). Always foreground + topmost:
+    these prompts appear before the app has a window of its own, and
+    launching from an Explorer window otherwise leaves them behind it.
+    """
+    try:
+        return ctypes.windll.user32.MessageBoxW(
+            None, text, title, flags | MB_SETFOREGROUND | MB_TOPMOST
+        )
+    except Exception:
+        return 0
+
+
+def run_as_admin() -> int:
+    """Relaunch this program elevated.
+
+    Returns the raw ShellExecuteW result: > 32 means the elevated copy
+    started and this process should exit; SE_ERR_ACCESSDENIED means the
+    user dismissed the UAC prompt; any other small value is a real
+    failure. 0 if the call raised or the platform isn't Windows.
+    """
     if sys.platform != "win32":
-        return False
-    
+        return 0
+
     try:
         if getattr(sys, 'frozen', False):
             script = sys.executable
@@ -920,12 +993,13 @@ def run_as_admin():
             params = f'"{sys.argv[0]}"'
             if len(sys.argv) > 1:
                 params += " " + " ".join(sys.argv[1:])
-        
-        ret = ctypes.windll.shell32.ShellExecuteW(None, "runas", script, params, None, 1)
-        return ret > 32
+
+        return ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", script, params, None, 1
+        )
     except Exception as e:
         print(f"Failed to elevate: {e}")
-        return False
+        return 0
 
 
 # Loopback port used as a process-wide single-instance lock. Picked from
@@ -967,6 +1041,10 @@ def main():
     global _instance_lock
     _instance_lock = _acquire_single_instance_lock()
     if _instance_lock is None:
+        # A Tk root is fine here ONLY because the process exits straight
+        # afterwards -- no second root ever follows it. See the comment
+        # above _win_message before reusing this pattern anywhere that
+        # keeps running.
         warn_root = tk.Tk()
         warn_root.withdraw()
         messagebox.showwarning(
@@ -978,27 +1056,29 @@ def main():
         sys.exit(0)
 
     if sys.platform == "win32" and not is_admin():
-        temp_root = tk.Tk()
-        temp_root.withdraw()
-        
-        response = messagebox.askyesno(
+        # Native dialogs, not tkinter's: creating a Tk root here and
+        # destroying it leaves the real window frozen (see _win_message).
+        response = _win_message(
             "Administrator Required",
             "This application needs Administrator privileges for the capture feature.\n\n"
             "Do you want to restart with elevated permissions?\n\n"
-            "(Click 'No' to continue without capture functionality)"
+            "(Click 'No' to continue without capture functionality)",
+            MB_YESNO | MB_ICONQUESTION,
         )
-        
-        temp_root.destroy()
-        
-        if response:
-            if run_as_admin():
+
+        if response == IDYES:
+            ret = run_as_admin()
+            if ret > 32:
                 sys.exit(0)
-            else:
-                temp_root2 = tk.Tk()
-                temp_root2.withdraw()
-                messagebox.showwarning("Elevation Failed", "Could not get administrator privileges.")
-                temp_root2.destroy()
-    
+            if ret != SE_ERR_ACCESSDENIED:
+                # Dismissing the UAC prompt is a decision, not a failure;
+                # only report elevation that actually went wrong.
+                _win_message(
+                    "Elevation Failed",
+                    "Could not get administrator privileges.",
+                    MB_OK | MB_ICONWARNING,
+                )
+
     app = OptimizerGUI()
     app.run()
 

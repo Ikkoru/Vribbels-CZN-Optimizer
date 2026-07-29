@@ -21,6 +21,7 @@ import json
 import copy
 import subprocess
 import ctypes
+import threading
 from pathlib import Path
 import sys
 from capture import setup_certificate, open_certificate, find_mitmdump
@@ -77,6 +78,9 @@ class SetupTab(BaseTab):
         self.mitmproxy_status = None
         self.cert_status = None
         self.admin_status = None
+        # Guards against overlapping probe threads (auto-check on open +
+        # an impatient Check Status click).
+        self._checking = False
 
         self.setup_ui()
 
@@ -212,61 +216,118 @@ STEP 2: Verify setup
         instr_text.pack(fill=tk.BOTH, expand=True)
 
     def check_status(self):
-        """Check status of all prerequisites."""
-        # Check Python
-        try:
-            result = subprocess.run(["python", "--version"],
-                                     capture_output=True, text=True)
-            if result.returncode == 0:
-                version = result.stdout.strip() or result.stderr.strip()
-                self.python_status.config(text=f"[OK] {version}",
-                                           foreground=self.colors["green"])
-            else:
-                raise FileNotFoundError()
-        except:
-            self.python_status.config(text="[X] Python not found",
-                                       foreground=self.colors["red"])
+        """Refresh the Setup Status panel.
 
-        # Check mitmproxy
-        mitmdump_path = find_mitmdump()
-        if mitmdump_path:
+        Starts a worker and returns immediately; `_apply_status` paints
+        the answers back. The probing MUST NOT run inline: it shells out
+        to external programs, and a blocked `after()` callback stops Tk
+        processing events at all, so the whole program locks up with a
+        painted but dead window. That is exactly what used to happen --
+        `python --version` can block forever (see `_run_version`), and
+        because this check is scheduled a second after the tab is built,
+        it took the app down on every launch that hit it.
+        """
+        if self._checking:
+            return
+        self._checking = True
+        for label, text in (
+            (self.python_status, "Checking Python..."),
+            (self.mitmproxy_status, "Checking mitmproxy..."),
+            (self.cert_status, "Checking certificate..."),
+            (self.admin_status, "Checking admin rights..."),
+        ):
             try:
-                result = subprocess.run([mitmdump_path, "--version"],
-                                         capture_output=True, text=True)
-                if result.returncode == 0:
-                    version = result.stdout.split()[1] if result.stdout else "installed"
-                    self.mitmproxy_status.config(text=f"[OK] mitmproxy {version}",
-                                                  foreground=self.colors["green"])
-                else:
-                    raise FileNotFoundError()
-            except:
-                self.mitmproxy_status.config(text="[X] mitmproxy not working",
-                                              foreground=self.colors["red"])
-        else:
-            self.mitmproxy_status.config(text="[X] mitmproxy not found",
-                                          foreground=self.colors["red"])
+                label.config(text=text, foreground=self.colors["fg_dim"])
+            except (AttributeError, tk.TclError):
+                pass
+        threading.Thread(target=self._probe_prerequisites, daemon=True).start()
 
-        # Check certificate
-        cert_path = Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.cer"
-        if cert_path.exists():
-            self.cert_status.config(text=f"[OK] Certificate exists",
-                                     foreground=self.colors["green"])
-        else:
-            self.cert_status.config(text="[X] Certificate not generated",
-                                     foreground=self.colors["red"])
+    @staticmethod
+    def _run_version(cmd) -> str:
+        """Run `cmd` and return its version output, or "" if it can't be
+        established.
 
-        # Check admin rights
+        Bounded and pipe-safe deliberately. On Windows a bare `python`
+        usually resolves to the Microsoft Store's app-execution alias,
+        which opens the Store instead of an interpreter and never closes
+        the stdout pipe it inherited -- `communicate()` then waits on
+        that pipe forever, with no timeout to stop it. So: stdin is
+        closed so nothing can block waiting for input, a timeout caps
+        the wait, and CREATE_NO_WINDOW keeps a console from flashing
+        over the UI. The worker thread is the real backstop, since a
+        killed child's grandchildren can still hold the pipe open past
+        the timeout.
+        """
+        kwargs = {}
+        if sys.platform == "win32":
+            kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         try:
-            is_admin = ctypes.windll.shell32.IsUserAnAdmin()
-            if is_admin:
-                self.admin_status.config(text="[OK] Running as Administrator",
-                                          foreground=self.colors["green"])
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=5,
+                stdin=subprocess.DEVNULL, **kwargs
+            )
+        except (OSError, subprocess.SubprocessError):
+            return ""
+        if result.returncode != 0:
+            return ""
+        # Older Pythons report their version on stderr, not stdout.
+        return ((result.stdout or "").strip()
+                or (result.stderr or "").strip())
+
+    def _probe_prerequisites(self):
+        """Worker body for check_status: gather every status string off
+        the UI thread, then hand them back to it. Touches no widgets."""
+        status = {}
+
+        version = self._run_version(["python", "--version"])
+        status["python"] = ((f"[OK] {version}", "green") if version
+                            else ("[X] Python not found", "red"))
+
+        mitmdump_path = find_mitmdump()
+        if not mitmdump_path:
+            status["mitmproxy"] = ("[X] mitmproxy not found", "red")
+        else:
+            version = self._run_version([mitmdump_path, "--version"])
+            parts = version.split()
+            if len(parts) >= 2:
+                status["mitmproxy"] = (f"[OK] mitmproxy {parts[1]}", "green")
+            elif version:
+                status["mitmproxy"] = ("[OK] mitmproxy installed", "green")
             else:
-                self.admin_status.config(text="[!] Not running as Administrator",
-                                          foreground=self.colors["yellow"])
-        except:
-            self.admin_status.config(text="? Could not check admin status",
-                                      foreground=self.colors["yellow"])
+                status["mitmproxy"] = ("[X] mitmproxy not working", "red")
+
+        cert_path = Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.cer"
+        status["cert"] = (("[OK] Certificate exists", "green")
+                          if cert_path.exists()
+                          else ("[X] Certificate not generated", "red"))
+
+        try:
+            if ctypes.windll.shell32.IsUserAnAdmin():
+                status["admin"] = ("[OK] Running as Administrator", "green")
+            else:
+                status["admin"] = ("[!] Not running as Administrator", "yellow")
+        except Exception:
+            status["admin"] = ("? Could not check admin status", "yellow")
+
+        # Back to the UI thread to touch widgets -- same hand-off the
+        # capture manager's live_update_callback uses.
+        self.root.after(0, lambda: self._apply_status(status))
+
+    def _apply_status(self, status: dict):
+        """Paint the worker's findings onto the status labels. Runs on
+        the UI thread."""
+        self._checking = False
+        for key, label in (
+            ("python", self.python_status),
+            ("mitmproxy", self.mitmproxy_status),
+            ("cert", self.cert_status),
+            ("admin", self.admin_status),
+        ):
+            text, color = status.get(key, ("? Unknown", "yellow"))
+            try:
+                label.config(text=text, foreground=self.colors[color])
+            except (AttributeError, tk.TclError):
+                pass
 
     def setup_cert(self):
         """Generate and open certificate for installation."""

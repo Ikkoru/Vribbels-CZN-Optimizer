@@ -100,17 +100,29 @@ def check_prerequisites() -> PrerequisiteStatus:
     mitmdump_path = find_mitmdump()
     if mitmdump_path:
         try:
+            # stdin closed and no console window: this runs under a GUI
+            # process, where an inherited console makes a window flash
+            # over the UI and a child waiting on input would sit out the
+            # whole timeout. Callers must still run this off the UI
+            # thread -- the timeout bounds the wait, it doesn't remove it.
+            kwargs = {}
+            if sys.platform == "win32":
+                kwargs["creationflags"] = getattr(
+                    subprocess, "CREATE_NO_WINDOW", 0
+                )
             result = subprocess.run(
                 [mitmdump_path, "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
+                stdin=subprocess.DEVNULL,
+                **kwargs
             )
             if result.returncode == 0:
                 has_mitmproxy = True
                 # Extract version from output (e.g., "Mitmproxy 10.1.1")
                 mitmproxy_version = result.stdout.split()[1] if result.stdout else "unknown"
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except (OSError, subprocess.SubprocessError):
             pass
 
     # Check certificate

@@ -2,6 +2,7 @@
 
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
+import threading
 from capture import check_prerequisites, CaptureError
 from capture.constants import SERVERS
 from ..base_tab import BaseTab
@@ -179,7 +180,17 @@ class CaptureTab(BaseTab):
         self.capture_log.tag_configure("info", foreground=self.colors["accent"])
 
     def capture_log_msg(self, msg: str, tag: str = None):
-        """Add a message to the capture log."""
+        """Add a message to the capture log.
+
+        Safe to call from any thread. Tk is single-threaded, and this is
+        reached from the capture manager's proxy-reader thread and the
+        prerequisite worker as well as from the UI, so an off-thread call
+        is marshalled onto the UI thread rather than touching the widget
+        directly.
+        """
+        if threading.current_thread() is not threading.main_thread():
+            self.root.after(0, lambda: self.capture_log_msg(msg, tag))
+            return
         self.capture_log.insert(tk.END, f"{msg}\n", tag)
         self.capture_log.see(tk.END)
 
@@ -287,10 +298,50 @@ class CaptureTab(BaseTab):
             recompute()
 
     def check_capture_prerequisites(self):
-        """Check capture prerequisites using capture module."""
-        self.capture_log_msg("Checking prerequisites...")
+        """Report capture prerequisites in the log.
 
-        status = check_prerequisites()
+        The probing happens on a worker thread: `check_prerequisites()`
+        shells out to mitmdump and `resolve_game_server()` does DNS, and
+        neither may run on the UI thread. A blocked `after()` callback
+        stops Tk processing events at all, which locks up the entire
+        program behind a painted, dead window.
+        """
+        self.capture_log_msg("Checking prerequisites...")
+        threading.Thread(
+            target=self._probe_capture_prerequisites, daemon=True
+        ).start()
+
+    def _probe_capture_prerequisites(self):
+        """Worker body for check_capture_prerequisites: run the two
+        blocking calls, then hand the outcome back. Touches no widgets."""
+        try:
+            status = check_prerequisites()
+        except Exception:
+            status = None
+
+        ips = {}
+        # Resolving is pointless without mitmproxy -- the original flow
+        # bailed out at that point too.
+        if status is not None and status.has_mitmproxy:
+            try:
+                self.context.capture_manager.resolve_game_server()
+                ips = dict(
+                    self.context.capture_manager.game_server_ips or {}
+                )
+            except Exception:
+                ips = {}
+
+        self.root.after(
+            0, lambda: self._apply_capture_prerequisites(status, ips)
+        )
+
+    def _apply_capture_prerequisites(self, status, ips: dict):
+        """Log the worker's findings and set the Start button state.
+        Runs on the UI thread."""
+        if status is None:
+            self.capture_log_msg("[X] Could not check prerequisites", "error")
+            self.capture_start_btn.config(state=tk.DISABLED)
+            return
 
         if status.is_admin:
             self.capture_log_msg("[OK] Running as Administrator", "success")
@@ -311,10 +362,8 @@ class CaptureTab(BaseTab):
             self.capture_log_msg("[!] Certificate not found - see Setup tab", "warning")
 
         self.capture_log_msg("Resolving game servers...")
-        self.context.capture_manager.resolve_game_server()
-
-        if self.context.capture_manager.game_server_ips:
-            for host, ip in self.context.capture_manager.game_server_ips.items():
+        if ips:
+            for host, ip in ips.items():
                 self.capture_log_msg(f"  {host} -> {ip}")
             self.capture_log_msg("[OK] Ready to capture!", "success")
         else:
