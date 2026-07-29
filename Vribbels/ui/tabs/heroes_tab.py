@@ -272,6 +272,13 @@ class HeroesTab(BaseTab):
         self._init_state()
         self.setup_ui()
         self._maybe_warn_character_preset_corrupted()
+        # Time every refresh_heroes call into settings/perf_log.txt. Wrapping
+        # the bound method here rather than editing the method body keeps the
+        # measurement in one place and catches every caller (data load,
+        # live capture update, preset change, Restore Defaults).
+        import perf_log
+        self.refresh_heroes = perf_log.timed("refresh_heroes",
+                                             self.refresh_heroes)
 
     def _maybe_warn_character_preset_corrupted(self):
         """If character_preset.json was unreadable on load, tell the user once.

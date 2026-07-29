@@ -15,9 +15,9 @@ Top-level layout
                             and instantiates the managers (preset,
                             character_preset, optimizer_settings,
                             level_data, settings).
-  config.py                 AppConfig (server_region), stored at
-                            settings/config.json (a legacy base_dir copy
-                            is migrated on first load).
+  config.py                 AppConfig -- attribute-style view over
+                            SettingsManager for server_region and
+                            optimizer_workers (context.config).
   preset_manager.py         User scoring presets (named weight sets).
   character_preset_manager  Per-character preset assignments. v2 schema
                             keyed by res_id with parallel name_hints.
@@ -25,8 +25,10 @@ Top-level layout
                             global excluded_gear_chars list.
   level_data_manager.py     User-confirmed (exp, level) checkpoints
                             that augment the exp tables at startup.
-  settings_manager.py       Generic persistent key-value store. Holds
-                            last_selected_character + selected_preset.
+  settings_manager.py       Generic persistent key-value store
+                            (settings.json): server_region,
+                            optimizer_workers, last selected
+                            character/preset, debug flags.
   log_presets_manager.py    Per-combatant flags behind the Capture tab's
                             Log Presets checklist (which assigned presets
                             the "[LIVE] Upgraded" Highest-Potential lines
@@ -126,7 +128,7 @@ from game_data import *
 from models import *
 from capture import *
 from optimizer import GearOptimizer
-from config import load_config, save_config, AppConfig
+from config import AppConfig
 from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, AboutTab
 # Used to augment "[LIVE] Upgraded" log lines with the post-upgrade
 # Highest Pot. range across all currently-defined presets (see
@@ -190,8 +192,10 @@ class MultiSelectListbox(tk.Frame):
 
 class OptimizerGUI:
     def __init__(self):
-        # Load configuration
-        self.config = load_config()
+        # AppConfig is created in setup_ui, after SettingsManager loads
+        # and absorbs any legacy config.json (apply_layout). Nothing
+        # reads context.config before the tabs are built.
+        self.config = None
 
         self.root = tk.Tk()
         # Hide the window before anything else touches it. tk.Tk() maps the
@@ -242,11 +246,23 @@ class OptimizerGUI:
             config=self.config
         )
 
-        self.setup_ui()
+        import perf_log
+        import time as _time
 
+        _t = _time.perf_counter()
+        self.setup_ui()
+        perf_log.log("startup:build_tabs", secs=_time.perf_counter() - _t)
+
+        _t = _time.perf_counter()
         self.auto_load()
+        perf_log.log("startup:auto_load", secs=_time.perf_counter() - _t)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        _t = _time.perf_counter()
         self._reveal_window()
+        perf_log.log("startup:reveal", secs=_time.perf_counter() - _t)
+        _t0 = getattr(self, "_startup_t0", None)
+        if _t0 is not None:
+            perf_log.log("startup:TOTAL", secs=_time.perf_counter() - _t0)
 
     def _hide_until_ready(self):
         """Make the window invisible for the duration of startup.
@@ -287,9 +303,43 @@ class OptimizerGUI:
         the second re-lays out, the third repaints) and a ceiling so a
         layout that oscillates can't hang startup.
         """
+        # Give the OPTIMIZER tab one mapped layout pass while still
+        # invisible, if it isn't already the tab about to be shown. A tab
+        # that has never been displayed has never had its <Configure>
+        # handlers run, so it settles -- visibly -- the first time the user
+        # opens it: the Optimizer tab's help text re-wraps, which changes the
+        # toolbar height and shifts every panel below it.
+        #
+        # ONLY that one tab. Cycling all eight cost 2.6-3.8s of startup
+        # (measured) -- more than every other phase combined -- because each
+        # select() + update() forces a full layout and draw of a tab the user
+        # may never open. The Optimizer tab is the only one with a known
+        # Configure-driven layout dependency; if another turns out to shift,
+        # add it here by name rather than going back to cycling everything.
+        import time as _time
+        import perf_log
+        _t = _time.perf_counter()
+        try:
+            originally_selected = self.notebook.select()
+            optimizer_tab_id = str(self.optimizer_tab_instance.frame)
+            if optimizer_tab_id != originally_selected:
+                self.notebook.select(optimizer_tab_id)
+                self.root.update()
+                self.notebook.select(originally_selected)
+        except (tk.TclError, AttributeError):
+            pass
+        perf_log.log("startup:reveal.pre_settle_tabs",
+                     secs=_time.perf_counter() - _t)
+
+        _t = _time.perf_counter()
         last = None
+        passes = 0
+        pass_secs = []
         for i in range(10):
+            _p = _time.perf_counter()
             self.root.update()
+            pass_secs.append(round(_time.perf_counter() - _p, 3))
+            passes = i + 1
             size = (
                 self.root.winfo_reqwidth(), self.root.winfo_reqheight(),
                 self.notebook.winfo_reqwidth(), self.notebook.winfo_reqheight(),
@@ -297,10 +347,35 @@ class OptimizerGUI:
             if i >= 2 and size == last:
                 break
             last = size
+        perf_log.log("startup:reveal.settle_loop",
+                     secs=_time.perf_counter() - _t, passes=passes,
+                     per_pass=pass_secs)
         if self._hidden_via == "alpha":
             self.root.attributes("-alpha", 1.0)
         else:
             self.root.deiconify()
+        self._take_foreground()
+
+    def _take_foreground(self):
+        """Bring the window to the front on first show.
+
+        Windows refuses to let a process raise a window when the foreground
+        lock belongs to someone else. Launching from an Explorer window and
+        declining the UAC prompt leaves that lock with Explorer, so the
+        window maps BEHIND the folder it was started from -- and clicking any
+        other window before declining releases the lock, which is exactly why
+        that works around it. Briefly flagging the window topmost is the
+        standard way to bypass the restriction without actually staying
+        always-on-top; the flag is cleared on the next idle pass.
+        """
+        try:
+            self.root.lift()
+            self.root.attributes("-topmost", True)
+            self.root.after_idle(
+                lambda: self.root.attributes("-topmost", False))
+            self.root.focus_force()
+        except tk.TclError:
+            pass
 
     def configure_styles(self):
         self.style.configure(".", background=self.colors["bg"], foreground=self.colors["fg"])
@@ -316,6 +391,12 @@ class OptimizerGUI:
         self.style.configure("TCheckbutton", background=self.colors["bg"], foreground=self.colors["fg"])
         self.style.map("TCheckbutton", background=[("active", self.colors["bg_lighter"])],
                        foreground=[("active", self.colors["fg"])])
+        # Compact checkbutton for the Optimizer tab's toolbar status
+        # cluster: zero padding keeps that row short enough for the
+        # cluster to fit inside the toolbar's existing height (see the
+        # cluster's comment in optimizer_tab.setup_ui). Colors etc.
+        # fall back to the TCheckbutton settings above.
+        self.style.configure("Compact.TCheckbutton", padding=0)
         self.style.configure("TLabelframe", background=self.colors["bg"])
         self.style.configure("TLabelframe.Label", background=self.colors["bg"], foreground=self.colors["accent"])
         self.style.configure("TScale", background=self.colors["bg"], troughcolor=self.colors["bg_light"])
@@ -373,6 +454,17 @@ class OptimizerGUI:
         from settings_manager import SettingsManager
         from optimizer_settings_manager import OptimizerSettingsManager
         from log_presets_manager import LogPresetsManager
+        import perf_log
+        import time as _time
+
+        # Startup phase timers. Only ~0.19s of a ~2.5s launch was accounted
+        # for by the tab refreshes, so these split the rest into the four
+        # places it can actually be: manager loading, tab construction, the
+        # snapshot load, and the reveal settle. Module import time is NOT
+        # covered here -- use `python -X importtime` for that.
+        _t_start = _time.perf_counter()
+        # Shared with __init__, which times the later phases and the total.
+        self._startup_t0 = _t_start
 
         program_dir = _user_data_dir()
         # Reconcile bundled defaults vs the user's settings/ BEFORE any
@@ -429,6 +521,39 @@ class OptimizerGUI:
         self.log_presets_manager = LogPresetsManager(program_dir)
         self.log_presets_manager.load()
         self.log_presets_manager.ensure_ids(str(rid) for rid in CHARACTERS.keys())
+        # Fold any legacy config.json into settings.json and materialise
+        # the canonical key order (SettingsManager.LAYOUT). Both historical
+        # locations are offered, settings/ first since that's the one
+        # config.json was migrated to previously.
+        try:
+            from pathlib import Path as _Path
+            _base = _Path(program_dir)
+            self.settings_manager.apply_layout((
+                _base / "settings" / "config.json",
+                _base / "config.json",
+            ))
+        except Exception:
+            pass
+
+        # Attribute-style config view over settings.json (server_region,
+        # optimizer_workers). Created after apply_layout so legacy
+        # config.json values are already absorbed; shared with every tab
+        # via context.config.
+        self.config = AppConfig(self.settings_manager)
+        self.app_context.config = self.config
+
+        # Diagnostics logging is opt-in and off by default: set
+        # "debug_perf_log": true in settings/settings.json to record startup
+        # phases, optimize runs and refresh timings to settings/perf_log.txt.
+        # Disabled, no file is created and the timing wrappers cost nothing.
+        perf_log.configure(
+            program_dir,
+            enabled=bool(
+                getattr(self, "settings_manager", None)
+                and self.settings_manager.get("debug_perf_log", False)
+            ),
+        )
+        perf_log.log("startup:managers", secs=_time.perf_counter() - _t_start)
         self.app_context.preset_manager = self.preset_manager
         self.app_context.character_preset_manager = self.character_preset_manager
         self.app_context.level_data_manager = self.level_data_manager
@@ -554,7 +679,13 @@ class OptimizerGUI:
             # Re-score fragments using the currently-active scoring weights
             # (preset or custom), so loading fresh data doesn't wipe them out.
             # This also refreshes the Memory Fragments and Combatants tabs.
+            import time as _time
+            import perf_log as _perf
+            _t = _time.perf_counter()
             self.scoring_tab_instance.apply_active_weights()
+            _perf.log("rescore+refresh_tabs",
+                      secs=_time.perf_counter() - _t,
+                      fragments=len(self.optimizer.fragments))
 
             # The Log Presets checklist derives from preset assignments,
             # which ensure-new-characters above may have extended.

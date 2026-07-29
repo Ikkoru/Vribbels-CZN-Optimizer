@@ -4,7 +4,6 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
 from capture import check_prerequisites, CaptureError
 from capture.constants import SERVERS
-from config import save_config
 from ..base_tab import BaseTab
 
 
@@ -257,9 +256,9 @@ class CaptureTab(BaseTab):
                           row=0, column=0, sticky=tk.W)
             return
 
-        # Two equal columns, filled left-to-right then down.
-        frame.grid_columnconfigure(0, weight=1, uniform="logpresets")
-        frame.grid_columnconfigure(1, weight=1, uniform="logpresets")
+        # Three equal columns, filled left-to-right then down.
+        for c in range(3):
+            frame.grid_columnconfigure(c, weight=1, uniform="logpresets")
         for idx, name in enumerate(sorted(preset_to_ids)):
             ids = preset_to_ids[name]
             checked = (any(lpm.is_selected(r) for r in ids)
@@ -269,7 +268,7 @@ class CaptureTab(BaseTab):
                 frame, text=name, variable=var,
                 command=lambda n=name, v=var: self._on_log_preset_toggle(n, v),
             )
-            cb.grid(row=idx // 2, column=idx % 2, sticky=tk.W, padx=(0, 8))
+            cb.grid(row=idx // 3, column=idx % 3, sticky=tk.W, padx=(0, 8))
             self._log_preset_vars[name] = var
 
     def _on_log_preset_toggle(self, preset_name: str, var):
@@ -369,9 +368,8 @@ class CaptureTab(BaseTab):
                 )
                 self.detected_label.config(text=f"✓ Detected: {server_name}")
 
-                # Save to config
+                # Persist (writes through settings.json)
                 self.context.config.server_region = detected_region
-                save_config(self.context.config)
 
             self.capture_log_msg(f"Capture file: {captured_file.name}", "success")
 
@@ -379,9 +377,8 @@ class CaptureTab(BaseTab):
         """Called when user manually changes region dropdown."""
         new_region = self.region_var.get()
 
-        # Update config
+        # Persist (writes through settings.json)
         self.context.config.server_region = new_region
-        save_config(self.context.config)
 
         # Clear detection label (manual selection)
         self.detected_label.config(text="")

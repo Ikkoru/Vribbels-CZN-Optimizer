@@ -68,6 +68,82 @@ class SettingsManager:
         )
         tmp.replace(self.settings_file)
 
+    # Canonical key order for settings.json, with "#N" section markers.
+    # Applied on startup so the file reads as a documented settings sheet
+    # rather than an arbitrary key dump, and so every key is visible to a
+    # user editing it by hand instead of appearing only once first set.
+    #
+    # The order survives every later write: load() keeps the parsed dict
+    # as-is, Python dicts preserve insertion order, and set() on an
+    # existing key updates in place. Markers must have DISTINCT keys --
+    # json.loads keeps only the last of any duplicate, so four literal
+    # "#" keys would collapse into one on the first write.
+    LAYOUT = (
+        ("#1", "_Multi-core Settings_"),
+        ("optimizer_workers", 0),
+        ("#2", "_Debug Settings_"),
+        ("debug_perf_log", False),
+        ("#3", "_Settings with UI_"),
+        ("server_region", "global"),
+        ("optimizer_min_gear_level", 4),
+        ("optimizer_ignore_offelement", True),
+        ("#4", "_Memory_"),
+        ("first_launch_done", False),
+        ("update_last_checked", ""),
+        ("update_latest_version", ""),
+        ("last_selected_character", ""),
+        ("selected_preset", ""),
+    )
+
+    def apply_layout(self, legacy_config_files=()) -> None:
+        """Materialise the canonical key set in LAYOUT order, folding in
+        any legacy config.json.
+
+        Legacy config.json files hold `server_region` and
+        `optimizer_workers`; their values are adopted for any key not
+        already in settings.json (so nobody loses their region or
+        worker count), but a value already in settings.json always
+        wins. Once absorbed, config.json is ignored -- the file is left
+        on disk.
+
+        Keys not in LAYOUT are appended rather than dropped, so an
+        unrecognised key (hand-added, or written by a newer version)
+        survives. Writes only when something actually changed.
+        """
+        legacy: dict = {}
+        for path in legacy_config_files:
+            try:
+                path = Path(path)
+                if not path.exists():
+                    continue
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    # Earlier files in the list win; they're passed
+                    # most-canonical-first.
+                    for key, value in data.items():
+                        legacy.setdefault(key, value)
+            except Exception:
+                continue
+
+        before = list(self.settings.items())
+        ordered: dict = {}
+        for key, default in self.LAYOUT:
+            if key.startswith("#"):
+                ordered[key] = default
+            elif key in self.settings:
+                ordered[key] = self.settings[key]
+            elif key in legacy:
+                ordered[key] = legacy[key]
+            else:
+                ordered[key] = default
+        for key, value in self.settings.items():
+            if key not in ordered:
+                ordered[key] = value
+
+        if list(ordered.items()) != before:
+            self.settings = ordered
+            self._write()
+
     def get(self, key: str, default: Any = None) -> Any:
         """Look up a key; return default if absent."""
         return self.settings.get(key, default)

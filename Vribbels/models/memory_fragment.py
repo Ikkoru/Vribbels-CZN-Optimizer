@@ -11,8 +11,9 @@ What lives on a Fragment
 ========================
 - slot_num (1-6, see EQUIPMENT_SLOTS in constants.py)
 - set_id  + set_name (e.g. "Spark of Passion" -- 4-piece set)
-- rarity_num (1=Common ... 4=Legendary)
-- level (current upgrade level, +0 to +15)
+- rarity_num (1=Normal ... 4=Legendary)
+- level (current upgrade level; 0 to the rarity's cap -- Legendary 5,
+  Rare 4, Uncommon 3)
 - main_stat  (Stat instance; type determined by slot, value by level)
 - substats   (list of SubstatRoll; up to 4)
 - equipped_to (character name, or None if unequipped)
@@ -71,9 +72,11 @@ from the per-stat min/max range:
   - Worst per upgrade: the upgrade lands on the lowest-(ratio_min*weight)
     substat, rolling at min_value. Contribution = 10 * ratio_min * weight.
 
-remaining_upgrades = UPGRADES_PER_RARITY[rarity] - current_upgrades.
-Both extremes are normalized through the same (main-stat-excluding)
-bounds so they're on the 0-100 scale.
+remaining_upgrades = the rarity's max level minus the fragment's current
+level. Each level-up contributes exactly one roll: it creates the next
+substat while the fragment has fewer than four, otherwise it lands on an
+existing one. Both extremes are normalized through the same
+(main-stat-excluding) bounds so they're on the 0-100 scale.
 
 When low == high (no remaining upgrades), the Fragment is at max level
 and Potential is undefined as a range -- callers display "-" in that case.
@@ -117,6 +120,9 @@ from game_data import (
     UPGRADES_PER_RARITY,
     get_character_name,
 )
+# Direct module-path imports to avoid relying on game_data/__init__.py
+# re-exporting them.
+from game_data.constants import MAX_LEVEL, MAX_LEVEL_PER_RARITY
 
 
 # =============================================================================
@@ -321,9 +327,19 @@ def compute_fragment_potential(
     if fragment.rarity_num < 3 or not fragment.substats:
         raw_low = raw_high = raw_base
     else:
-        max_upgrades = UPGRADES_PER_RARITY.get(fragment.rarity_num, 3)
-        current_upgrades = sum(s.roll_count - 1 for s in fragment.substats)
-        remaining_upgrades = max(0, max_upgrades - current_upgrades)
+        # Remaining level-ups, taken straight from the fragment's level and
+        # its rarity's cap. Each level-up is exactly one roll -- it creates
+        # the fragment's next substat while it has fewer than four, else it
+        # lands on an existing one, and the candidate pool below covers both
+        # cases.
+        #
+        # Deriving this from the level rather than from accumulated
+        # roll_counts also stops a maxed fragment from appearing to have
+        # headroom left: UPGRADES_PER_RARITY counts only the level-ups that
+        # roll into an EXISTING substat, so subtracting the observed upgrade
+        # count from it left a fully levelled Rare with one phantom upgrade.
+        max_level = MAX_LEVEL_PER_RARITY.get(fragment.rarity_num, MAX_LEVEL)
+        remaining_upgrades = max(0, max_level - fragment.level)
 
         if remaining_upgrades == 0:
             raw_low = raw_high = raw_base

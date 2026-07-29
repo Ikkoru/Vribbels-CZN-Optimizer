@@ -2,19 +2,73 @@
 Memory Fragment set definitions for CZN.
 Contains set bonus information and derived lists.
 
+Entry shape
+===========
+    SETS[set_id] = {
+      "name":     "Black Wing",
+      "pieces":   2,               # 2 or 4 -- pieces needed to complete
+      "bonus":    "+12% Attack",   # description text, shown in the UI
+      "type":     "unconditional", # or "conditional"
+      "stat":     "ATK%",          # see the vocabulary table below
+      "value":    12,              # magnitude, in that stat's own units
+      "elements": ["Void"],        # optional; the card elements the
+                                   # bonus text names. Cosmetic -- the
+                                   # Set Configuration rows colour
+                                   # themselves by it; no formula reads it.
+    }
+
 `type` field semantics (see docs/game_formulas.md §5 for full treatment):
   - "unconditional": the bonus is always active when the set is
     complete. The `stat` and `value` fields tell the optimizer where
     to add the bonus -- typically into a Final stat (ATK%, DEF%, HP%,
     Crit DMG, Crit Rate).
   - "conditional": the bonus only triggers under specific in-game
-    conditions described by `bonus`. The optimizer can't directly
-    evaluate the condition, so it applies the bonus weighted by the
-    user's "% of damage with set effect" slider.
+    conditions described by `bonus`. The optimizer can't evaluate the
+    condition, so it applies the bonus weighted by that set's own
+    effect share (the per-set Effect % spinbox in Set Configuration,
+    stored per combatant; absent = 0 = the bonus contributes nothing,
+    though the set still counts for set-locking).
 
-  The `stat` field for conditional sets uses the extended vocabulary
-  `DMG multi` and `DMG add` for the two damage-multiplier shapes that
-  can't be expressed as a single Final-stat addition.
+Stat-name vocabulary for the "stat" field
+=========================================
+The optimizer consumes ONLY the exact strings below (mapping table:
+`SET_STAT_NAME_MAP` in optimizer/core.py). Any other value is silently
+ignored -- no error, no effect -- so a typo costs the set its bonus
+while leaving it working for set-locking, which is easy to miss.
+
+Note these names match neither the program's internal vocabulary nor
+partners.py: the two crit stats are spelled "Crit DMG" / "Crit Rate"
+here and "CDmg" / "CRate" everywhere else.
+
+    In-game stat        "stat" value   Internal   Where it lands
+    -----------------   ------------   --------   --------------------
+    Attack %            "ATK%"         ATK%       inner ATK multiplier,
+                                                  same bucket as a
+                                                  fragment's ATK%
+    Defense %           "DEF%"         DEF%       inner DEF multiplier
+    Health %            "HP%"          HP%        inner HP multiplier
+    Crit DMG (CDMG)     "Crit DMG"     CDmg       flat addition to
+                                                  Final CDmg
+    Crit Chance (Crit%) "Crit Rate"    CRate      flat addition to
+                                                  Final CRate
+    Damage, multiplied  "DMG multi"    --         Multiplicative_Buffs
+                                                  in the DAMAGE card
+                                                  multiplier
+    Damage, added       "DMG add"      --         Additive_Buffs in the
+                                                  DAMAGE card multiplier
+
+Two things to know about "DMG multi" / "DMG add": they have no
+Final-stat equivalent, so they're absent from SET_STAT_NAME_MAP and
+never reach the stat sheet; and they only work on CONDITIONAL sets --
+the score's card-multiplier walk skips unconditional ones, so an
+unconditional set carrying either name contributes nothing at all.
+Neither touches the shield/heal side (buffs don't apply to shields or
+heals).
+
+There is deliberately NO spelling for Extra DMG%, DoT%, Ego, or a flat
+ATK/DEF/HP bonus: no set grants one today, and the routing in
+`core.compute_build_stats` has no bucket for them. A set needing one
+means adding that bucket, not inventing a string here.
 """
 
 # Set definitions
@@ -37,6 +91,8 @@ SETS = {
  25: {"name": "Glory's Reign", "pieces": 4, "bonus": "Increase ally DMG by 5% on Exhaust Skill Card create/use (max 15%)", "type": "conditional", "stat": "DMG multi", "value": 15},
  26: {"name": "Prelude to a Hero", "pieces": 4, "bonus": "+15% Crit Rate when a Passion or Void Attack Card of this unit is Discarded for 1 turn (max 15%; max 2 stacks)", "type": "conditional", "stat": "Crit Rate", "value": 15, "elements": ["Passion", "Void"]},
  27: {"name": "Starlight and Dreams", "pieces": 4, "bonus": "Increase ally Counterattack and Extra Attack DMG by 5% when Shield is gained through an ability (max 25%)", "type": "conditional", "stat": "DMG multi", "value": 25},
+ 28: {"name": "Battlefield Evolution", "pieces": 4, "bonus": "On Extra Attack / Attack Card created in Draw Pile / Draw via Attack Card: +10% Critical Damage (each source max 1 time). When 3 stacks are reached add an additional +5% Critical Damage", "type": "conditional", "stat": "Crit DMG", "value": 35},
+ 29: {"name": "Sanguine Thorn", "pieces": 4, "bonus": "When Fracture via card, +25% Critical Damage for 1 turn (max 25%, max 2 stacks). When 10+ Fractures via cards, +15% Critical Damage to DoTs (max 15%)", "type": "conditional", "stat": "Crit DMG", "value": 40},
 }
 
 TWO_PIECE_SETS = [sid for sid, s in SETS.items() if s["pieces"] == 2]

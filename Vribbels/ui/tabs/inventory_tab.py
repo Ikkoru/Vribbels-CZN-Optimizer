@@ -275,12 +275,17 @@ class InventoryTab(BaseTab):
         tree_frame = ttk.Frame(self.frame)
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        inv_cols = ("slot", "set", "lvl", "main", "sub1", "sub2", "sub3", "sub4",
+        inv_cols = ("slot", "set", "main", "lvl", "sub1", "sub2", "sub3", "sub4",
                     "gs", "potential", "equipped", "highest_gs", "highest_potential")
         self.inv_tree = ttk.Treeview(tree_frame, columns=inv_cols, show="headings", height=25)
 
-        for col, txt, w in [("slot", "Slot", 80), ("set", "Set", 140), ("lvl", "Level", 35),
-                            ("main", "Main", 90), ("sub1", "Sub1", 90), ("sub2", "Sub2", 90),
+        # Level sits between Main and the substats as a visual divider --
+        # Main and the four Sub cells render in the same "Name: value"
+        # shape, so without a break between them the eye reads Main as a
+        # fifth substat.
+        for col, txt, w in [("slot", "Slot", 80), ("set", "Set", 140),
+                            ("main", "Main", 90), ("lvl", "Level", 35),
+                            ("sub1", "Sub1", 90), ("sub2", "Sub2", 90),
                             ("sub3", "Sub3", 90), ("sub4", "Sub4", 90), ("gs", "GS", 35),
                             ("potential", "Potential", 50), ("equipped", "Equipped", 65),
                             ("highest_gs", "Highest GS", 65),
@@ -642,6 +647,13 @@ class InventoryTab(BaseTab):
 
     def _display_inventory_sorted(self):
         """Display filtered inventory with current sort settings."""
+        # Remember the selected row(s) so the highlight can follow the same
+        # FRAGMENT to wherever it lands after the refresh. Rows are keyed by
+        # fragment id (see the insert below), so an upgrade that changes a
+        # fragment's score -- and therefore its position under the current
+        # sort -- keeps the selection on that fragment instead of leaving it
+        # on whatever row index it used to occupy.
+        previously_selected = self.inv_tree.selection()
         self.inv_tree.delete(*self.inv_tree.get_children())
 
         if not hasattr(self, 'inv_filtered_data'):
@@ -769,15 +781,33 @@ class InventoryTab(BaseTab):
             else:
                 hpot_str = "-"
 
-            self.inv_tree.insert("", tk.END, values=(
-                f.slot_name, set_display, f"{f.level}",
-                main_str, *subs, f"{f.gear_score:.0f}", pot, f.equipped_to or "",
-                hgs_str, hpot_str,
-            ), tags=(f"r{f.rarity_num}",))
+            # iid = the fragment's id, so a refresh can restore the selection
+            # by identity. Fragments with no id fall back to Tk's generated
+            # iid: never restorable, but never colliding either.
+            fid = getattr(f, "id", None)
+            self.inv_tree.insert(
+                "", tk.END,
+                iid=str(fid) if fid is not None else None,
+                values=(
+                    f.slot_name, set_display, main_str, f"{f.level}",
+                    *subs, f"{f.gear_score:.0f}", pot,
+                    f.equipped_to or "", hgs_str, hpot_str,
+                ),
+                tags=(f"r{f.rarity_num}",),
+            )
 
         self.inv_tree.tag_configure("r4", foreground=RARITY_COLORS[4])
         self.inv_tree.tag_configure("r3", foreground=RARITY_COLORS[3])
         self.inv_tree.tag_configure("r2", foreground=RARITY_COLORS[2])
+
+        # Restore the selection onto the same fragments and scroll the first
+        # one back into view. Rows that got filtered out (or dropped past the
+        # 500-row display cap) simply aren't restored.
+        restored = [i for i in previously_selected if self.inv_tree.exists(i)]
+        if restored:
+            self.inv_tree.selection_set(restored)
+            self.inv_tree.focus(restored[0])
+            self.inv_tree.see(restored[0])
 
     def sort_inventory(self, col: str):
         """Sort inventory by specified column."""

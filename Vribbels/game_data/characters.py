@@ -543,13 +543,27 @@ CHARACTERS = {
         "grade": 5,
         "attribute": "Void",
         "class": "Ranger",
-        "base_atk": 515,  # TBC
-        "base_def": 141,  # TBC
-        "base_hp": 317,  # TBC
+        "base_atk": 515,
+        "base_def": 141,
+        "base_hp": 317,
         "base_crit_rate": 3.0,
         "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "CDmg",
+        "node_50": "CDmg",
+        "node_60": "CRate",
+        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},
+    },
+    30113: {
+        "name": "Hilde",
+        "grade": 5,
+        "attribute": "Instinct",
+        "class": "Ranger",
+        "base_atk": 515,
+        "base_def": 141,
+        "base_hp": 317,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CDmg",
+        "node_60": "CRate",
         "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},  # Assumed based on Heidemarie
     },
 }

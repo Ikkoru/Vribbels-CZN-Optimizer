@@ -66,16 +66,26 @@ from models.memory_fragment import (
 
 
 # Multi-line explanation shown below the toolbar where the Reset button
-# used to live. Wraplength is set on the label widget so the text reflows
-# when the user resizes the window.
+# used to live. The label's wraplength is re-set on <Configure> so the text
+# reflows when the user resizes the window.
+#
+# OPTIMIZER_HELP_WRAPLENGTH is the width it settles at in the default
+# window, and should be used as the label's INITIAL wraplength so the very
+# first layout already matches the settled one. Getting that wrong is
+# expensive: if the initial wrap is narrower, the text renders as 4 lines,
+# the toolbar is taller, every panel below it is laid out too low, and the
+# reveal settle loop needs extra full update() passes to correct it -- about
+# 0.7s each, measured, on top of every launch.
+OPTIMIZER_HELP_WRAPLENGTH = 930
+
 OPTIMIZER_HELP_TEXT = (
     "The Optimizer looks through worthwhile Memory Fragments (MFs) to find the "
     "combination that leads to the most damage/healing/shielding.\n"
-    "Select your preferred Sets, tweak Important Settings, exclude the "
-    "equipped MFs of combatants that you do not want to strip, and press Start.\n"
-    "Currently does not account for unleveled MFs' potential. "
-    "Not reducing how many MFs are considered takes longer. "
-    "Select Sets, reduce Flex Slots, exclude characters' MFs."
+    "Select Sets, tweak Important Settings, exclude the equipped MFs of "
+    "combatants that you do not want to strip, and press Start. "
+    "Doesn't account for unleveled MFs' potential.\n"
+    "Not reducing how many MFs are considered takes longer. Increase 'Ignore MFs "
+    "below level' value, select Sets, reduce Flex Slots, exclude characters' MFs."
 )
 
 
@@ -469,17 +479,31 @@ class OptimizerTab(BaseTab):
         # --- Global UI vars (optimizer-wide) ---
         # Minimum MF level for optimizer candidacy: a single GLOBAL
         # setting (not per-character), persisted in settings.json via
-        # SettingsManager. 0 = off.
-        self.min_gear_level_var = tk.IntVar(value=0)
+        # SettingsManager. Defaults to 4: on a 607-fragment inventory that
+        # cuts the search space ~10x (21.3s -> 2.4s measured) while keeping
+        # every fragment close to finished, which is a much better first
+        # run than a minutes-long one. 0 disables the filter.
+        self.min_gear_level_var = tk.IntVar(value=4)
         sm = getattr(self.context, "settings_manager", None)
         if sm is not None:
             try:
                 self.min_gear_level_var.set(
-                    int(sm.get("optimizer_min_gear_level", 0)))
+                    int(sm.get("optimizer_min_gear_level", 4)))
             except (TypeError, ValueError):
                 pass
         self.min_gear_level_var.trace_add(
             "write", lambda *_: self._save_min_gear_level())
+        # Off-element Slot V candidacy filter: drop Slot V MFs whose
+        # main stat is an element DMG% that doesn't match the selected
+        # combatant's element. ATK%/HP% Slot V mains always pass;
+        # unknown characters without an Element override are never
+        # filtered. Also GLOBAL, persisted in settings.json. Default ON.
+        self.ignore_offelement_var = tk.BooleanVar(value=True)
+        if sm is not None:
+            self.ignore_offelement_var.set(
+                bool(sm.get("optimizer_ignore_offelement", True)))
+        self.ignore_offelement_var.trace_add(
+            "write", lambda *_: self._save_ignore_offelement())
 
         # --- Optimization runtime state ---
         self.optimization_results: list = []
@@ -532,7 +556,7 @@ class OptimizerTab(BaseTab):
 
         # ---- Toolbar ----
         toolbar = ttk.Frame(content)
-        toolbar.pack(fill=tk.X, padx=5, pady=(1, 5))
+        toolbar.pack(fill=tk.X, padx=5, pady=(1, 1))
 
         # Stack the Combatant label and dropdown vertically. The toolbar's
         # left cluster (Combatant + LVL + Start + Stop) is wrapped in a
@@ -623,32 +647,50 @@ class OptimizerTab(BaseTab):
         help_label = ttk.Label(
             toolbar, text=OPTIMIZER_HELP_TEXT,
             justify=tk.LEFT, foreground=self.colors["fg_dim"],
-            wraplength=600,
+            wraplength=OPTIMIZER_HELP_WRAPLENGTH,
         )
         help_label.pack(side=tk.LEFT, padx=(15, 0), fill=tk.X, expand=True, anchor=tk.N)
-        help_label.bind(
-            "<Configure>",
-            lambda e, lbl=help_label: lbl.config(wraplength=max(200, e.width - 10)),
-        )
+
+        def _rewrap(event, lbl=help_label):
+            # Skip no-op reconfigures. Setting wraplength changes the label's
+            # REQUESTED width, so a handler that writes unconditionally can
+            # bounce the toolbar's layout for an extra pass or two -- and
+            # every one of those passes is a full relayout of the tab.
+            new = max(200, event.width - 10)
+            try:
+                if int(str(lbl.cget("wraplength"))) == new:
+                    return
+            except (ValueError, tk.TclError):
+                pass
+            lbl.config(wraplength=new)
+
+        help_label.bind("<Configure>", _rewrap)
 
         # Status cluster at the toolbar's right edge: the "Loaded N
-        # fragments" status on top, the global minimum-MF-level filter
-        # row directly under it.
+        # fragments" status on top, the two global filter rows directly
+        # under it ("Ignore MFs below level" spinbox, "Ignore
+        # off-Element MFs" checkbox). The WHOLE cluster uses the small
+        # 8pt font: the toolbar's height is set by its tallest child --
+        # the left cluster (Combatant row + preset row) -- and at
+        # default fonts a three-row status cluster would overtake it,
+        # growing the toolbar and shifting every frame below it down.
+        # At 8pt all three rows fit inside the left cluster's height.
+        small_font = ("Segoe UI", 8)
         status_cluster = ttk.Frame(toolbar)
         status_cluster.pack(side=tk.RIGHT, padx=(10, 2), anchor=tk.N)
         self.status_label = ttk.Label(
-            status_cluster, text="No data\nloaded",
+            status_cluster, text="No data loaded",
             foreground=self.colors["fg_dim"],
-            justify=tk.RIGHT,
+            justify=tk.RIGHT, font=small_font,
         )
         self.status_label.pack(side=tk.TOP, anchor=tk.E)
         minlvl_row = ttk.Frame(status_cluster)
-        minlvl_row.pack(side=tk.TOP, anchor=tk.E, pady=(2, 0))
-        ttk.Label(minlvl_row, text="Ignore MFs below level:").pack(
-            side=tk.LEFT, padx=(0, 3))
+        minlvl_row.pack(side=tk.TOP, anchor=tk.E, pady=(1, 0))
+        ttk.Label(minlvl_row, text="Ignore MFs below level:",
+                  font=small_font).pack(side=tk.LEFT, padx=(0, 3))
         minlvl_spin = tk.Spinbox(
             minlvl_row, from_=0, to=5, increment=1, width=2,
-            textvariable=self.min_gear_level_var,
+            textvariable=self.min_gear_level_var, font=small_font,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             buttonbackground=self.colors["bg_lighter"],
             insertbackground=self.colors["fg"],
@@ -656,6 +698,14 @@ class OptimizerTab(BaseTab):
         minlvl_spin.pack(side=tk.LEFT)
         minlvl_spin.bind("<MouseWheel>",
                          lambda e, sp=minlvl_spin: self._spinbox_wheel(e, sp))
+        offelem_row = ttk.Frame(status_cluster)
+        offelem_row.pack(side=tk.TOP, anchor=tk.E, pady=(1, 0))
+        ttk.Label(offelem_row, text="Ignore off-Element MFs",
+                  font=small_font).pack(side=tk.LEFT, padx=(0, 3))
+        ttk.Checkbutton(
+            offelem_row, variable=self.ignore_offelement_var,
+            style="Compact.TCheckbutton",
+        ).pack(side=tk.LEFT)
 
         # ---- Body grid ----
         # 3 columns: Stats Comp (fixed width), Config (weight=100),
@@ -1322,10 +1372,10 @@ class OptimizerTab(BaseTab):
             parent, columns=cols, show="headings", height=9,
         )
         widths = {
-            "score": 55, "sets": 127,
-            "atk": 35, "hp": 35, "def": 35,
-            "crate": 42, "cdmg": 44, "element": 46, "extra": 45,
-            "dot": 42, "ego": 35,
+            "score": 51, "sets": 127,
+            "atk": 32, "hp": 32, "def": 32,
+            "crate": 39, "cdmg": 44, "element": 46, "extra": 45,
+            "dot": 42, "ego": 32,
         }
         headings = {
             "score": "Score", "sets": "Sets",
@@ -1395,7 +1445,6 @@ class OptimizerTab(BaseTab):
         so its settings get loaded into the UI vars.
         """
         fragment_count = len(self.optimizer.fragments)
-        # Two-line status ("Loaded" on top, count on the bottom).
         self.status_label.config(
             text=f"Loaded {fragment_count} fragments",
             foreground=self.colors["green"],
@@ -1896,6 +1945,7 @@ class OptimizerTab(BaseTab):
                 continue
             rid_str = str(rid)
             self.opt_settings.ensure_character(rid, name=name)
+            self._sync_optimize_level(rid, name)
             if rid_str not in seen_rids:
                 # New to the exclude system -> default to excluded.
                 excluded = list(self.opt_settings.get_excluded_gear_chars())
@@ -1911,6 +1961,55 @@ class OptimizerTab(BaseTab):
         # new entries appeared. _write is safe to call repeatedly.
         if self.opt_settings.data["characters"]:
             self.opt_settings._write()
+
+    def _sync_optimize_level(self, res_id, name: str) -> None:
+        """Keep a combatant's "Optimize for LVL" in step with their real
+        level, without overriding a deliberate choice.
+
+        The setting defaults to 60 so the tab's numbers match the in-game
+        stat sheet. When a combatant is levelled past the highest level the
+        program has seen for them, the intent is almost always to optimize
+        for the new level, so the setting follows -- ONCE. The highest
+        observed level lives in the top-level `optimize_level_seen` map, and
+        that's what makes it a one-time bump rather than a standing
+        override: once recorded, a user who dials the level back down keeps
+        it on every later load, because their actual level no longer exceeds
+        what was already seen.
+
+        On the FIRST sync for a combatant (nothing recorded yet) the setting
+        is initialised from their actual level rather than left as-is, so
+        entries still carrying the old default of 62 line up with the game
+        as well.
+
+        Clamped to 60..62, the band the stat tables cover -- a combatant
+        below 60 is evaluated at 60 regardless (see
+        GearOptimizer._resolve_effective_level).
+
+        Mutates the settings entry in place; the caller's _write() persists
+        it, so a first-run sync across the whole roster costs one write.
+        """
+        if self.opt_settings is None:
+            return
+        info = self.optimizer.character_info.get(name)
+        actual = int(getattr(info, "level", 0) or 0) if info is not None else 0
+        if actual <= 0:
+            return
+        rid_str = str(res_id)
+        entry = self.opt_settings.data.get("characters", {}).get(rid_str)
+        if not isinstance(entry, dict):
+            return
+        seen_map = self.opt_settings.data.setdefault("optimize_level_seen", {})
+        prev_seen = seen_map.get(rid_str)
+        if prev_seen is not None and actual <= int(prev_seen):
+            return
+        seen_map[rid_str] = actual
+        try:
+            current = int(entry.get("optimize_for_level", 60) or 60)
+        except (TypeError, ValueError):
+            current = 60
+        target = max(60, min(62, actual))
+        if prev_seen is None or target > current:
+            entry["optimize_for_level"] = target
 
     def _get_exclude_seen_rids(self) -> list:
         """res_id strings the exclude system has already processed. Stored
@@ -2081,6 +2180,26 @@ class OptimizerTab(BaseTab):
             return max(0, min(5, int(self.min_gear_level_var.get())))
         except (tk.TclError, ValueError):
             return 0
+
+    def _save_ignore_offelement(self):
+        """Persist the GLOBAL off-element Slot V filter toggle to
+        settings.json (SettingsManager). Not per-character, so no
+        _loading_settings gating."""
+        sm = getattr(self.context, "settings_manager", None)
+        if sm is None:
+            return
+        try:
+            v = bool(self.ignore_offelement_var.get())
+        except tk.TclError:
+            return
+        sm.set("optimizer_ignore_offelement", v)
+
+    def _current_ignore_offelement(self) -> bool:
+        """The global off-element Slot V filter's current state."""
+        try:
+            return bool(self.ignore_offelement_var.get())
+        except tk.TclError:
+            return True
 
     def _save_sets_selected(self):
         if self._loading_settings or self._current_res_id is None:
@@ -2425,6 +2544,11 @@ class OptimizerTab(BaseTab):
             # GLOBAL minimum-MF-level candidacy filter (settings.json,
             # not per-character). 0 = off.
             "min_gear_level": self._current_min_gear_level(),
+            # GLOBAL off-element Slot V candidacy filter (settings.json,
+            # not per-character). Drops Slot V candidates whose main
+            # stat is an element DMG% not matching the combatant's
+            # element; ATK%/HP% mains always pass.
+            "ignore_offelement_slot5": self._current_ignore_offelement(),
             # ----- Set-combo fields (consumed by optimize's locked-count rule) -----
             "sets_selected": list(s.get("sets_selected", [])),
             "max_flex_slots": int(s.get("max_flex_slots", 6)),
@@ -2489,21 +2613,49 @@ class OptimizerTab(BaseTab):
                     passed_sets = stats.get("passed_set_reqs", 0)
                     # Show the run's wall time next to the build count.
                     duration = stats.get("duration_seconds", 0.0)
+                    # Record the whole run to settings/perf_log.txt. The
+                    # counters dict is splatted wholesale rather than picked
+                    # over, so every counter optimize() records lands in the
+                    # log without this call needing to know their names.
+                    import perf_log
+                    perf_log.log(
+                        "optimize",
+                        char=self.selected_character.get(),
+                        fragments=len(self.optimizer.fragments),
+                        min_gear_level=self._current_min_gear_level(),
+                        ignore_offelement=self._current_ignore_offelement(),
+                        **{k: v for k, v in stats.items()},
+                    )
                     if duration >= 60:
                         time_note = f" in {int(duration // 60)}m {duration % 60:.0f}s"
                     elif duration > 0:
                         time_note = f" in {duration:.1f}s"
                     else:
                         time_note = ""
+                    # Per-slot candidate counts: the compared total is
+                    # their PRODUCT, which the Top filter's 10-fragment
+                    # floor and 20% cut often make very round (six
+                    # floored slots = exactly 1,000,000) and insensitive
+                    # to filter changes. The breakdown is what actually
+                    # moves when a filter starts biting a slot.
+                    slot_counts = stats.get("slot_candidates") or {}
+                    slots_note = ""
+                    if slot_counts:
+                        slots_note = " (slots " + "×".join(
+                            str(slot_counts[s]) for s in sorted(slot_counts)
+                        ) + ")"
                     if results:
                         self.progress_label.config(
-                            text=f"Done! {len(results)} builds{time_note}"
+                            text=f"Done{time_note}! "
+                                 f"{stats.get('total_combinations', 0):,} "
+                                 f"builds compared{slots_note}"
                         )
                     elif passed_sets > 0:
                         # Candidates passed the set requirements but ALL got
                         # filtered by Have-at-least. Show actionable hint.
                         self.progress_label.config(
-                            text=f"Done! 0 builds (filtered from {passed_sets})"
+                            text=f"Done{time_note}! 0 builds "
+                                 f"(filtered from {passed_sets})"
                         )
                         messagebox.showinfo(
                             "No builds match",
@@ -2514,13 +2666,22 @@ class OptimizerTab(BaseTab):
                         # No candidate combinations even satisfied set requirements
                         # (e.g. no 4-piece set selected has 4 candidates in slot N,
                         # or all selected sets together can't fit in 6 slots).
-                        note = ""
+                        active = []
                         if self._current_min_gear_level() > 0:
-                            note = (" — the 'Ignore MFs below level' "
-                                    "filter is active")
+                            active.append("'Ignore MFs below level'")
+                        if self._current_ignore_offelement():
+                            active.append("'Ignore off-Element MFs'")
+                        if len(active) > 1:
+                            note = (" — the " + " and ".join(active)
+                                    + " filters are active")
+                        elif active:
+                            note = " — the " + active[0] + " filter is active"
+                        else:
+                            note = ""
                         self.progress_label.config(
-                            text="Done! 0 builds (no candidates satisfied "
-                                 f"set requirements{note})"
+                            text=f"Done{time_note}! 0 builds (no candidates "
+                                 f"satisfied set requirements{note})"
+                                 f"{slots_note}"
                         )
         except queue.Empty:
             pass

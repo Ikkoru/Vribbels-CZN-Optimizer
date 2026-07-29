@@ -161,14 +161,20 @@ EQUIPMENT_SLOTS = {
 
 SLOT_ORDER = [1, 2, 3, 4, 5, 6]
 
-RARITY = {1: "Common", 2: "Uncommon", 3: "Rare", 4: "Legendary"}
+# In-game rarity tiers, highest to lowest: Mythic, Legendary, Rare,
+# Uncommon, Normal. Memory Fragments only ever come in the middle three
+# -- Mythic and Normal exist in the game but not for MFs -- so the tiers
+# tracked here stop at 4. Nearly every account uses Legendary MFs
+# exclusively; they're easy to obtain.
+RARITY = {1: "Normal", 2: "Uncommon", 3: "Rare", 4: "Legendary"}
 
-# Updated colors: Orange for Legendary, Blue for Rare, Green for Uncommon
+# Legendary reads as gold in-game; orange is used here because it stays
+# legible on the dark background.
 RARITY_COLORS = {
-    1: "#888888",      # Common - Gray
+    1: "#888888",      # Normal - Gray
     2: "#50C878",      # Uncommon - Green
     3: "#00BFFF",      # Rare - Blue
-    4: "#FF8C00",      # Legendary - Orange
+    4: "#FF8C00",      # Legendary - Orange (gold in-game)
 }
 
 RARITY_BG_COLORS = {
@@ -178,7 +184,7 @@ RARITY_BG_COLORS = {
     4: "#2e2518",      # Legendary - Orange tint
 }
 
-RARITY_ICONS = {1: "[C]", 2: "[U]", 3: "[R]", 4: "[L]"}
+RARITY_ICONS = {1: "[N]", 2: "[U]", 3: "[R]", 4: "[L]"}
 
 RARITY_STARTING_SUBSTATS = {
     1: 0, 2: 1, 3: 2, 4: 3,
@@ -315,8 +321,19 @@ MAIN_STAT_VALUES = {
     (6, "Ego"):            40,
 }
 
+# MAX_LEVEL is LEGENDARY's cap. The cap is rarity-dependent: Legendary 5,
+# Rare 4, Uncommon 3 -- each rarity starts with one fewer substat and
+# gets one fewer level-up, so every rarity converges on 4 substats at max
+# level. See MAX_LEVEL_PER_RARITY and docs/game_formulas.md §2.
 MAX_LEVEL = 5
-UPGRADES_PER_RARITY = {3: 3, 4: 4}
+MAX_LEVEL_PER_RARITY = {2: 3, 3: 4, 4: 5}
+# Level-ups that roll into an EXISTING substat, i.e. the level-ups left
+# after the fragment has gained its fourth substat:
+#   max_level - (4 - starting_substats)
+# Only `max(values())` is consumed now (as the GS bounds anchor in
+# models/memory_fragment.py); remaining-upgrade counts come from
+# MAX_LEVEL_PER_RARITY minus the fragment's level instead, which is exact.
+UPGRADES_PER_RARITY = {2: 0, 3: 2, 4: 4}
 
 # Growth Stone items - maps res_id to (attribute, quality, icon_filename)
 GROWTH_STONES = {

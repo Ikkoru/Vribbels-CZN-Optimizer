@@ -89,7 +89,7 @@ from game_data import (
     get_level_from_exp, get_partner_level_from_exp,
     get_friendship_bonus, parse_potential_node_ids,
     get_partner_stats, get_partner_passive_stats, get_potential_stat_bonus,
-    SETS, SLOT_ORDER, ALL_STAT_NAMES
+    SETS, SLOT_ORDER, SLOT_MAIN_STATS, ALL_STAT_NAMES
 )
 # Direct module-path import to avoid relying on game_data/__init__.py
 # re-exporting it.
@@ -115,6 +115,14 @@ from optimizer.core import SET_STAT_NAME_MAP  # noqa: F401  (re-export)
 from optimizer import parallel
 
 
+# Slot V main stats that are element DMG% -- i.e. everything a Slot V
+# main can be except ATK%/HP%. Consumed by the off-element candidacy
+# filter in get_gear_by_slot.
+SLOT5_ELEMENT_MAINS = frozenset(
+    s for s in SLOT_MAIN_STATS[5] if s.endswith(" DMG%")
+)
+
+
 class GearOptimizer:
     """
     Main optimization engine for Memory Fragment gear builds.
@@ -137,10 +145,10 @@ class GearOptimizer:
         self.priorities: dict[str, int] = {name: 0 for name in ALL_STAT_NAMES}
         self.raw_data = {}
         # Optional reference to SettingsManager, injected by
-        # czn_optimizer_gui.py at startup. Currently unread: the
-        # Optimizer tab's per-character "Optimize for LVL" value reaches
-        # the formulas through the settings dict / effective_level
-        # argument instead.
+        # czn_optimizer_gui.py at startup. Read by _resolve_worker_count
+        # for `optimizer_workers`; the Optimizer tab's per-character
+        # "Optimize for LVL" value reaches the formulas through the
+        # settings dict / effective_level argument instead.
         self.settings_manager = None
 
     def load_data(self, filepath: str):
@@ -223,56 +231,51 @@ class GearOptimizer:
         partner_lookup = {}
         hero_items = []
 
-        # Lookup keyed by *instance id* covering EVERY item in char_items —
+        # Lookup keyed by *instance id*, covering every PARTNER entry —
         # used as a fallback when a character's partner_id points at a partner
         # whose res_id isn't in PARTNERS. Without this, we'd lose the partner's
         # res_id entirely (and couldn't tell the user what to add to partners.py).
-        all_items_by_id = {char.get("id", 0): char for char in char_items}
+        # Character entries carry no instance id, so they're skipped.
+        all_items_by_id = {char["id"]: char for char in char_items if "id" in char}
 
         # The snapshot lumps characters AND partner cards into this one
-        # list with no explicit type field, so we infer which entries are
-        # partners using several signals in precedence order:
-        #   1. known character (res_id in CHARACTERS)            -> character
-        #   2. known partner (res_id in PARTNERS)                -> partner
-        #   3. instance id referenced as some char's partner_id  -> partner
-        #      (only characters equip partners, so anything a partner_id
-        #       points at is definitionally a partner)
-        #   4. tie-break on potential-node data: characters carry a
-        #      potential tree, partners don't -> has data == character.
-        # (3) catches equipped unknown partners; (4) catches OWNED-BUT-
-        # UNEQUIPPED unknown partners (e.g. a freshly-pulled "30095" not yet
-        # in partners.py) that would otherwise leak into the character list.
-        # A res_id range rule was deliberately avoided: some new CHARACTERS
-        # also use 5-digit 30xxx ids (they appear in this snapshot's
-        # counseling / archive-gift / business-card data), so a range split
-        # would hide real characters. The only residual miss is a brand-new
-        # unknown character with ZERO potential unlocked AND no equipped
-        # partner -- vanishingly rare (node 10 unlocks almost immediately),
-        # and resolved permanently once it's added to characters.py.
-        referenced_partner_ids = set()
-        for char in char_items:
-            pid = char.get("partner_id", 0) or char.get("partner", 0)
-            if pid:
-                referenced_partner_ids.add(pid)
-
-        def _has_potential_data(entry) -> bool:
-            raw = entry.get("potential_node_ids")
-            if not raw:
-                return False
-            return str(raw).strip() not in ("", "[]", "{}")
-
+        # list with no explicit type field -- but the game gives the two
+        # DIFFERENT SCHEMAS, which is the reliable discriminator:
+        #
+        #   character entries carry the progression fields
+        #     (potential_node_ids, friendship_exp, psychosis_*,
+        #      card_animations, ...) and have NO instance id;
+        #   partner entries are a short record whose distinguishing
+        #     fields are `id` (instance id) and `lock`, with none of the
+        #     character progression fields.
+        #
+        # So an `id` key means partner and a potential_node_ids /
+        # friendship_exp key means character. The CHARACTERS / PARTNERS
+        # tables are consulted only as a fallback, for entries that carry
+        # neither marker.
+        #
+        # Do NOT test whether potential_node_ids is non-EMPTY. A
+        # brand-new character has "[]" until its first node is unlocked,
+        # and an emptiness test classified it as a partner -- it then
+        # vanished from every tab until an MF was equipped to it, which
+        # reintroduced it through the equipped-gear path only.
+        #
+        # Res_id ranges are NOT usable: characters and partners both
+        # appear in the 1xxx and 3xxxx ranges in real snapshots.
+        #
+        # NB: `partner_id` means different things on the two schemas. On
+        # a character it's the equipped partner's INSTANCE id (what
+        # partner_lookup is keyed by). On a partner it's a back-reference
+        # to the owning character's RES id. Only the character -> partner
+        # direction is used here.
         for char in char_items:
             res_id = char.get("res_id", 0)
             inst_id = char.get("id", 0)
-            known_char_data = get_character(res_id) if res_id else None
-            known_char = bool(known_char_data) and known_char_data.get("name") != "Unknown"
-            known_partner = get_partner(res_id).get("name") != "Unknown"
-            referenced_partner = inst_id in referenced_partner_ids
-            if known_char:
+            if "potential_node_ids" in char or "friendship_exp" in char:
                 hero_items.append(char)
-            elif known_partner or referenced_partner:
+            elif "id" in char or "lock" in char:
                 partner_lookup[inst_id] = char
-            elif _has_potential_data(char):
+            elif res_id and get_character(res_id).get("name") != "Unknown":
                 hero_items.append(char)
             else:
                 partner_lookup[inst_id] = char
@@ -376,6 +379,7 @@ class GearOptimizer:
                          required_main: list[str] = None, top_percent: float = 100,
                          use_priority_score: bool = False, min_rarity: int = 2,
                          min_level: int = 0,
+                         offelement_attribute: str = None,
                          score_weights: dict = None) -> list[MemoryFragment]:
         """
         Get filtered and ranked gear for a specific slot.
@@ -395,6 +399,13 @@ class GearOptimizer:
                 top-N / 10-fragment-floor selection -- so the floor's
                 "keep at least 10 per slot" guarantee applies to the
                 fragments that passed this filter.
+            offelement_attribute: When set (a non-empty element name,
+                e.g. "Passion") and slot_num == 5, drops candidates
+                whose main stat is an element DMG% OTHER than
+                "<attribute> DMG%". ATK%/HP% Slot V mains always pass.
+                Like min_level, applied before the sort/floor selection.
+                None disables the filter (also the right value when the
+                character's element can't be resolved).
             score_weights: When provided, rank candidates by their normalized
                 GS computed under THESE weights (pure, doesn't mutate
                 fragment.gear_score). When None, use the cached
@@ -422,6 +433,15 @@ class GearOptimizer:
 
         if required_main and slot_num in [4, 5, 6]:
             candidates = [f for f in candidates if f.main_stat and f.main_stat.name in required_main]
+
+        if offelement_attribute and slot_num == 5:
+            on_element = f"{offelement_attribute} DMG%"
+            candidates = [
+                f for f in candidates
+                if not (f.main_stat
+                        and f.main_stat.name in SLOT5_ELEMENT_MAINS
+                        and f.main_stat.name != on_element)
+            ]
 
         if use_priority_score:
             candidates.sort(key=lambda f: -f.priority_score)
@@ -1039,16 +1059,19 @@ class GearOptimizer:
         }
 
     def _resolve_worker_count(self) -> int:
-        """Effective optimizer worker count from settings/config.json's
+        """Effective optimizer worker count from settings.json's
         `optimizer_workers` field (0 = auto = cpu_count - 1, 1 =
-        single-thread legacy path, N = capped to cpu_count). Read fresh
-        on every run so a manual config edit applies without an app
-        restart. Any config trouble degrades to auto."""
-        try:
-            from config import load_config
-            configured = int(getattr(load_config(), "optimizer_workers", 0))
-        except Exception:
-            configured = 0
+        single-thread legacy path, N = capped to cpu_count), read
+        through the injected SettingsManager. No manager (standalone
+        use) or a bad value degrades to auto."""
+        configured = 0
+        if self.settings_manager is not None:
+            try:
+                configured = int(
+                    self.settings_manager.get("optimizer_workers", 0)
+                )
+            except (TypeError, ValueError):
+                configured = 0
         return parallel.resolve_worker_count(configured)
 
     def _optimize_sequential(self, slot_candidates: dict, ctx: dict,
@@ -1123,11 +1146,19 @@ class GearOptimizer:
         sp = core.build_score_precompute(settings)
         attribute = self._resolve_attribute(char_name, settings)
         set_effect_shares = sp["set_effect_shares"]
+        # Re-score at the SAME level the run used (the "Optimize for LVL"
+        # stepper), not the character's actual level. Omitting this let
+        # _resolve_effective_level fall back to max(60, actual), so an equip
+        # event silently re-based the Results list and the Stats Comparison
+        # "New" column onto a different level from the one the run -- and
+        # the "Now" column, and both breakdown popups -- were computed at.
+        effective_level = settings.get("optimize_for_level")
         rebuilt = []
         for gear, old_score, old_stats in results:
             try:
                 stats = self.calculate_build_stats(
-                    gear, char_name, set_effect_shares=set_effect_shares
+                    gear, char_name, effective_level=effective_level,
+                    set_effect_shares=set_effect_shares,
                 )
                 d, s = core.compute_score_components(gear, stats, sp, attribute)
                 stats["_D"], stats["_S"] = d, s
@@ -1208,6 +1239,17 @@ class GearOptimizer:
         except (TypeError, ValueError):
             min_gear_level = 0
 
+        # Global off-element Slot V candidacy filter: drop Slot V
+        # fragments whose main stat is an element DMG% that doesn't
+        # match the character's element (ATK%/HP% mains always pass).
+        # Skipped when the character's element can't be resolved
+        # (unknown character without an Element override) -- with no
+        # element, every element main is equally credit-less, so none is
+        # more "off-element" than another.
+        offelement_attr = None
+        if settings.get("ignore_offelement_slot5"):
+            offelement_attr = self._resolve_attribute(char_name, settings) or None
+
         # Per-character preset weights for the slot pre-filter
         # heuristic. When the user has assigned a custom preset to this
         # character, we sort each slot's candidates by their score under
@@ -1282,9 +1324,19 @@ class GearOptimizer:
                                             # (no priority sliders in the UI)
                 min_rarity=3,  # Only Rare+ for optimizer
                 min_level=min_gear_level,  # global "Ignore MFs below level"
+                offelement_attribute=offelement_attr,  # global "Ignore off-Element MFs"
                 score_weights=slot_filter_weights,  # per-character preset
             )
             slot_candidates[slot_num] = candidates if candidates else []
+
+        # Per-slot candidate counts. The search space is the PRODUCT of
+        # these, so they're what any scaling estimate has to be built from --
+        # the fragment total on its own says nothing about run time.
+        # Recorded BEFORE the empty-slot return below, so a run that
+        # dies there still reports which slot came up empty.
+        self.last_optimize_stats["slot_candidates"] = {
+            slot: len(cands) for slot, cands in sorted(slot_candidates.items())
+        }
 
         for slot_num in SLOT_ORDER:
             if not slot_candidates[slot_num]:

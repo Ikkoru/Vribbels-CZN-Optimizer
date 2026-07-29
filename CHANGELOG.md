@@ -10,6 +10,34 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the
 pre-fork history, see the upstream repository's CHANGELOG.
 
+## [1.4.0] - Off-Element Filter and Fixes
+
+### Added
+
+- **Hilde.**
+- **Two new sets: Battlefield Evolution and Sanguine Thorn.** Both are conditional Crit DMG sets, so each gets its own Effect % in Set Configuration.
+- **Ruixiang** is now recognized as a partner (her ID was missing last release, so she showed as an unknown partner).
+- **"Ignore off-Element MFs" filter.** A checkbox under "Ignore MFs below level" that excludes Slot V Memory Fragments whose main stat is an element DMG% not matching the combatant's element. ATK% and HP% Slot V mains are always considered, and combatants whose element the program doesn't know (and has no override for) are never filtered. On by default; one setting shared by all combatants, remembered between launches.
+
+### Changed
+
+- **`config.json` is folded into `settings.json`.** `server_region` and `optimizer_workers` now live in `settings.json` alongside every other setting; existing values are carried over automatically and the old `config.json` is ignored (left on disk). Note: editing `optimizer_workers` by hand now requires the program to be closed first, since the program rewrites `settings.json` while running.
+- **Capture tab: Log Presets are laid out in three columns.**
+- **The Results status line reports the run differently.** It now reads e.g. `Done in 0.4s! 1,728,000 builds compared (slots 12×12×12×10×10×10)`. The six numbers are how many fragments were considered for each slot — multiply them and you get the number of builds compared, which is the quickest way to see what a filter or exclusion actually changed. When a run finds nothing because one slot had no fragments left, the same numbers show which slot it was.
+- **Some combatants' default optimizer settings were adjusted.** This only affects combatants you haven't configured yourself.
+- **"Ignore MFs below level" now starts at 4.** On a 600-fragment inventory that cuts optimizer run time from ~21s to ~2s while keeping every fragment that's close to finished. Set it to 0 to consider everything; the value is remembered, so an existing choice is untouched.
+- **"Optimize for LVL" now defaults to 60 and follows the combatant's own level.** It used to default to 62 for everyone, which silently showed level-62 stats for a combatant who wasn't there yet. When a combatant is levelled past the highest level the program has seen for them, the setting moves up to match — once, so a lower value you set on purpose stays put.
+
+### Fixed
+
+- **A newly obtained combatant now appears immediately.** One that had never unlocked a potential node was mistaken for a partner card, so it stayed missing from the Combatants tab — and everywhere else — until an MF was equipped to it. Characters and partner cards are now told apart by the shape of the data the game sends, which doesn't depend on progression.
+- **Memory Fragments: the selection follows the fragment it's on.** Upgrading a selected fragment used to leave the highlight on whatever row took its place; it now moves with the fragment and scrolls back into view.
+- **The window opens in front when launched from a folder without administrator rights.** Declining the UAC prompt used to leave it behind the folder it was started from.
+- **The Optimizer tab no longer shifts when opened for the first time.** A tab that hadn't been displayed yet finished its layout in view; every tab now settles during startup, like the one shown first.
+- **Equipping an MF no longer changes the stats shown for a proposed build.** The Results list and the Stats Comparison "New" column were re-computed at the combatant's actual level after an equip, while everything else on the tab used the "Optimize for LVL" setting — so the same build reported two different sets of stats depending on when you looked.
+- **A fully levelled Rare fragment no longer shows leftover Potential.** Remaining upgrades are now counted from the fragment's level against its rarity's cap, rather than inferred from its roll counts, which had left maxed Rare fragments with one phantom upgrade.
+- **Startup is roughly three seconds faster.** Preparing tabs that hadn't been opened yet was taking longer than everything else in startup combined; only the tab that actually needs it is prepared now.
+
 ## [1.3.0] - Optimizer Set Effect Selection Improvement
 
 ### Added

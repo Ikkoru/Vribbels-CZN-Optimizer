@@ -8,7 +8,7 @@ A fork of Vribbels, a Fribbels-inspired gear management and optimization tool fo
 
 - **Smart Build Optimization**: Automatically finds the best Memory Fragment combinations for your characters.
 - **Damage-Model Scoring**: Builds are scored using your per-combatant assumptions — Extra DMG / DoT shares, ATK/DEF split, shielding/healing weight, per-set effect uptime, and average card damage / buffs. Every build is scored 0–100 against the best one found in the run. Comes with preset defaults.
-- **Multi-Core Search**: Tune or switch off via `optimizer_workers` in `settings/config.json` (only if the automatic setting doesn't work for you).
+- **Multi-Core Search**: Tune or switch off via `optimizer_workers` in `settings/settings.json`, with the program closed (only if the automatic setting doesn't work for you).
 - **Set Configuration**: Pick the sets you want and cap off-set slots with Maximum Flex Slots. Set how much of a character's damage is affected by the set effect.
 - **Have-at-Least Minimums**: Hard stat floors — builds that don't meet them are excluded. Measured the way the game's Potential 7 requirement checks measure them, so clearing a floor here means clearing it in-game.
 - **Gear Score Calculation**: Evaluates fragments based on substats and potential, using per-combatant weight presets.

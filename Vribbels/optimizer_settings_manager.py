@@ -31,10 +31,11 @@ File format (version 1)
     {
         "version": 1,
         "excluded_gear_chars": ["1004", "1009"],      # list of res_id strings
+        "optimize_level_seen": {"1017": 61},          # res_id -> highest level observed
         "characters": {
             "1017": {                                   # res_id (string key)
                 "name_hint": "Amir",                    # cosmetic; not used for lookup
-                "optimize_for_level": 62,               # 60 / 61 / 62
+                "optimize_for_level": 60,               # 60 / 61 / 62; follows the character's own level upward
                 "extra_pct": 0,                         # 0-100, % of damage that's Extra DMG
                 "dot_pct": 0,                           # 0-100, % of damage that's DoT
                 "atk_def_split": 0,                     # 0-100, % of damage scaling off DEF (0 = full ATK)
@@ -64,6 +65,15 @@ File format (version 1)
 The "Have at Least" thresholds are compared against FINAL stat values --
 the same numbers the Combatants tab displays. Builds that fail any of them
 are excluded from optimizer results.
+
+`optimize_for_level` defaults to 60 so the Optimizer tab's numbers match
+the in-game stat sheet out of the box. The top-level `optimize_level_seen`
+map records the highest level each character has been observed at; when a
+character is levelled past what was last seen, the Optimizer tab raises
+their `optimize_for_level` to match, ONCE per level. Tracking the observed
+level separately is what makes that a one-time bump rather than an
+override: a user who deliberately sets a lower level keeps it across every
+subsequent load. See `OptimizerTab._sync_optimize_level`.
 """
 
 import json
@@ -89,7 +99,7 @@ def _conditional_set_ids() -> list:
 # the nested dicts/lists so each character has its own mutable state.
 DEFAULT_CHARACTER_SETTINGS: dict = {
     "name_hint": "",
-    "optimize_for_level": 62,
+    "optimize_for_level": 60,
     "extra_pct": 0,
     "dot_pct": 0,
     "atk_def_split": 0,
