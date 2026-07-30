@@ -14,8 +14,12 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Added
 
+- **Eunie.**
+
 - **Memory Fragments tab: the active Gear Score preset is named below the Slots filter.** Reads `Default` when every weight is 1.0 and `Custom` for an unsaved set of weights, so it's clear what the GS and Potential columns are being measured against.
+
 - **Optimizer tab: Selected Build has its own LVL column,** to the right of Main. The fragment's level used to be tucked in front of the slot name in the Slot column.
+
 - **The game data files are checked at launch.** The character, partner and set data files are hand-maintained, and most mistakes in them are invisible: a misspelled stat name is ignored, a partner whose grade and class combination isn't listed quietly gets stand-in base stats, and a duplicated entry throws away the one above it. In every case the program keeps working and the scores are simply wrong. Any such problem now appears in a message box on startup, naming the file, the line and the entry, e.g. `characters.py | Ln: 412 | Hilde (30113) | node_50 'CritRate' is not one of HP%, ATK%, DEF%, CRate, CDmg`. If a file won't parse at all, the box gives the file, line and column of the syntax error. Every message says which file to edit to widen a check, for when the game legitimately releases something outside the current range.
 
 ### Changed

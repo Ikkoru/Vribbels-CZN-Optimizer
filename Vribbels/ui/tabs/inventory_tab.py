@@ -620,7 +620,7 @@ class InventoryTab(BaseTab):
         # The tree is NOT cleared here: _display_inventory_sorted() clears
         # it right after reading the current selection, so the highlight
         # can be restored onto the same fragments. Clearing here as well
-        # dropped the selection before it could be read.
+        # would drop the selection before it could be read.
         self.refresh_active_preset_label()
 
         uneq_only = self.inv_unequipped_var.get()
