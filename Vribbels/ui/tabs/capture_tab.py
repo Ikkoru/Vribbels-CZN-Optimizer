@@ -31,6 +31,13 @@ class CaptureTab(BaseTab):
         # True once log_upgrade_msg has set the upg_start/upg_end marks
         # (rewrite_last_upgrade_line no-ops before the first upgrade).
         self._has_upgrade_marks = False
+        # Worker hand-off for the prerequisite probe: (status, ips) once
+        # _probe_capture_prerequisites finishes, None until then.
+        self._prereq_result = None
+        # Set by that same worker when it finds a hosts-file redirect left
+        # behind by an earlier run: (message, tag) for the UI thread to
+        # log, or None when the file was clean.
+        self._stale_hosts_note = None
 
         self.setup_ui()
         self.refresh_log_presets()
@@ -189,7 +196,14 @@ class CaptureTab(BaseTab):
         directly.
         """
         if threading.current_thread() is not threading.main_thread():
-            self.root.after(0, lambda: self.capture_log_msg(msg, tag))
+            try:
+                self.root.after(0, lambda: self.capture_log_msg(msg, tag))
+            except (RuntimeError, tk.TclError):
+                # after() from another thread needs the main thread to be
+                # inside mainloop. Outside it (startup, shutdown) there is
+                # no log to write into anyway, so drop the line rather
+                # than kill the calling thread.
+                pass
             return
         self.capture_log.insert(tk.END, f"{msg}\n", tag)
         self.capture_log.see(tk.END)
@@ -307,13 +321,57 @@ class CaptureTab(BaseTab):
         program behind a painted, dead window.
         """
         self.capture_log_msg("Checking prerequisites...")
+        self._prereq_result = None
+        self._stale_hosts_note = None
         threading.Thread(
             target=self._probe_capture_prerequisites, daemon=True
         ).start()
+        self._poll_capture_prerequisites()
+
+    def _poll_capture_prerequisites(self, attempts: int = 0):
+        """Wait for the worker's findings, then log them.
+
+        The worker can't hand them over itself: `after()` from another
+        thread only works while the main thread is inside `mainloop()`,
+        and this check is scheduled during startup, so the worker can
+        finish while the main thread is still in the reveal's `update()`
+        passes -- or after mainloop has exited, if the window is closed
+        first. Either way Tk raises "main thread is not in main loop".
+        The worker therefore only assigns a plain attribute and this
+        main-thread `after` chain does everything Tk-facing.
+        """
+        if self._prereq_result is None:
+            if attempts < 200:
+                self.root.after(
+                    100, lambda: self._poll_capture_prerequisites(attempts + 1))
+            return
+        status, ips = self._prereq_result
+        self._apply_capture_prerequisites(status, ips)
 
     def _probe_capture_prerequisites(self):
-        """Worker body for check_capture_prerequisites: run the two
-        blocking calls, then hand the outcome back. Touches no widgets."""
+        """Worker body for check_capture_prerequisites: run the blocking
+        calls, then publish the outcome for the UI thread's poll. Touches
+        no widgets and makes no Tk calls."""
+        # A redirect left in the hosts file by a run that ended without
+        # removing it makes every game-server lookup answer with this
+        # machine -- including the one start_capture uses to choose the
+        # proxy's upstream, which would then be the proxy itself. Clear it
+        # before anything resolves anything. It also means the game itself
+        # could not have connected, so the removal is worth reporting.
+        #
+        # Not while a capture is running, though: the redirect is doing its
+        # job then, and removing it would cut the session off mid-flight.
+        try:
+            if (not self.context.capture_manager.is_capturing()
+                    and self.context.capture_manager.remove_hosts_redirect()):
+                self._stale_hosts_note = (
+                    "[!] Removed a leftover capture redirect from the "
+                    "hosts file",
+                    "warning",
+                )
+        except CaptureError as e:
+            self._stale_hosts_note = (f"[!] {e}", "warning")
+
         try:
             status = check_prerequisites()
         except Exception:
@@ -331,13 +389,14 @@ class CaptureTab(BaseTab):
             except Exception:
                 ips = {}
 
-        self.root.after(
-            0, lambda: self._apply_capture_prerequisites(status, ips)
-        )
+        self._prereq_result = (status, ips)
 
     def _apply_capture_prerequisites(self, status, ips: dict):
         """Log the worker's findings and set the Start button state.
         Runs on the UI thread."""
+        if self._stale_hosts_note is not None:
+            self.capture_log_msg(*self._stale_hosts_note)
+
         if status is None:
             self.capture_log_msg("[X] Could not check prerequisites", "error")
             self.capture_start_btn.config(state=tk.DISABLED)
@@ -388,6 +447,11 @@ class CaptureTab(BaseTab):
                 text="Launch the game and load into the main menu. Keep running for live updates."
             )
         except CaptureError as e:
+            # The region dropdown and debug checkbox were disabled for the
+            # duration of a capture that never began; hand them back or
+            # they stay dead until one does.
+            self.region_dropdown.config(state="readonly")
+            self.debug_checkbox.config(state=tk.NORMAL)
             messagebox.showerror("Capture Error", str(e))
 
     def stop_capture(self):

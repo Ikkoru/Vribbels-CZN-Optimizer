@@ -18,6 +18,9 @@ doesn't live on individual characters / partners / fragments:
     tables (RARITY, RARITY_COLORS, RARITY_BG_COLORS, RARITY_ICONS,
     RARITY_STARTING_SUBSTATS, UPGRADES_PER_RARITY).
 
+  - CLASSES, the six combatant/partner classes. Both characters.py and
+    partners.py use these strings; this is the only list of them.
+
   - Stat definitions (STATS dict) -- the central registry that maps the
     raw enum keys from the captured data to display names, percentage
     flags, and (for substat-eligible stats) per-roll min/max values.
@@ -46,6 +49,22 @@ specifically about the capture pipeline.
 """
 
 from pathlib import Path
+
+# The six combatant/partner classes. Characters (characters.py) and
+# partner cards (partners.py) both use these exact strings, and
+# PARTNER_CLASS_STATS is keyed by (grade, class).
+#
+# ADD A NEWLY-RELEASED CLASS HERE. This is the only list of them, and
+# the launch-time data check validates every character's and partner's
+# `class` against it.
+CLASSES = (
+    "Controller",
+    "Hunter",
+    "Psionic",
+    "Ranger",
+    "Striker",
+    "Vanguard",
+)
 
 # Experience thresholds for character levels (heroes).
 #

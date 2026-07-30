@@ -7,8 +7,10 @@
     "1049": "Cassius (DPS skew)",
     "1060": "Chizuru (non-Conqueror's Aspect)",
     "1061": "Diana",
+    "30048": "Fei",
     "1062": "Haru (Line of Justice)",
     "30093": "Heidemarie (high Extra DMG)",
+    "30113": "Hilde (low DoT)",
     "1043": "Hugo",
     "1064": "Kayron",
     "1008": "Khalipe (Line of Justice)",
@@ -29,13 +31,11 @@
     "30097": "Rita (Line of Justice)",
     "1005": "Selena",
     "30075": "Sereniel",
+    "1069": "Tenebria",
     "30084": "Tiphera",
     "1009": "Tressa (Agony focus)",
     "1033": "Veronica",
-    "1057": "Yuki (non-Conqueror's Aspect)",
-    "1069": "Tenebria",
-    "30048": "Fei",
-    "30113": "Hilde"
+    "1057": "Yuki (non-Conqueror's Aspect)"
   },
   "name_hints": {
     "1055": "Adelheid",
@@ -44,8 +44,10 @@
     "1049": "Cassius",
     "1060": "Chizuru",
     "1061": "Diana",
+    "30048": "Fei",
     "1062": "Haru",
     "30093": "Heidemarie",
+    "30113": "Hilde",
     "1043": "Hugo",
     "1064": "Kayron",
     "1008": "Khalipe",
@@ -66,12 +68,10 @@
     "30097": "Rita",
     "1005": "Selena",
     "30075": "Sereniel",
+    "1069": "Tenebria",
     "30084": "Tiphera",
     "1009": "Tressa",
     "1033": "Veronica",
-    "1057": "Yuki",
-    "1069": "Tenebria",
-    "30048": "Fei",
-    "30113": "Hilde"
+    "1057": "Yuki"
   }
 }

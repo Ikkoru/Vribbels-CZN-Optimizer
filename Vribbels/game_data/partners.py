@@ -59,29 +59,18 @@ five values, one per E0/E1/E2/E3/E4) and returns the appropriate value
 for the given limit_break index (pass conditional=True to read the
 "stats_conditional" field instead). The consumed % values for ATK/DEF/HP
 feed the OUTER multiplier of the optimizer's ATK/DEF/HP formula;
-CRate / CDmg / Extra DMG% / DoT% / Ego are flat additions (see the
-vocabulary table below).
+CRate / CDmg / Extra DMG% / DoT% / Ego are flat additions (see
+PARTNER_STAT_NAMES).
 
 Stat-name vocabulary for the "stats" field
 ==========================================
-The optimizer consumes ONLY the exact keys below from a partner's
-"stats" dict (see the partner section of core.compute_build_stats).
-Any other key is silently ignored -- no error, no effect. All eight
-character stats are listed so future maintainers don't have to dig
-through code/docs; note that flat ATK/DEF/HP do NOT go here (they come
-from PARTNER_CLASS_STATS via grade+class automatically).
-
-    In-game stat        "stats" key      Where it lands in the formula
-    -----------------   --------------   ------------------------------
-    Attack %            "ATK%"           outer ATK multiplier
-    Defense %           "DEF%"           outer DEF multiplier
-    Health %            "HP%"            outer HP multiplier
-    Crit Chance (Crit%) "CRate"          flat addition to Final CRate
-    Crit DMG (CDMG)     "CDmg"           flat addition to Final CDmg
-    Extra Attack DMG    "Extra DMG%"     flat addition to Extra DMG%
-                                         (note the space!)
-    DoT %               "DoT%"           flat addition to DoT%
-    Ego                 "Ego"            flat addition to Ego
+The optimizer consumes ONLY the exact keys listed in
+PARTNER_STAT_NAMES below (see the partner section of
+core.compute_build_stats). Any other key is silently ignored -- no
+error, no effect. That tuple carries a comment per stat saying where it
+lands in the formula, and it is what the launch-time data check
+validates against. Note that flat ATK/DEF/HP do NOT go here: they come
+from PARTNER_CLASS_STATS via grade+class automatically.
 
 Conditional partner effects -- the "stats_conditional" field
 =============================================================
@@ -117,6 +106,27 @@ fall-back path in heroes_tab shows "Unknown partner (res_id X, instance
 Y)" when this fires; the user is expected to add the partner to the
 PARTNERS dict (and rerun) once they have its name.
 """
+
+# The ONLY keys the optimizer reads from a partner's "stats" /
+# "stats_conditional" dict. Exact-match: any other key is silently
+# ignored -- no error, no effect -- so a typo costs the whole bonus.
+# Flat ATK/DEF/HP are NOT here; those come from PARTNER_CLASS_STATS via
+# grade+class automatically.
+#
+# ADD A NEWLY-RELEASED PARTNER STAT HERE. The launch-time data check
+# validates every "stats" key against this tuple, so a stat missing here
+# gets reported rather than silently dropped.
+PARTNER_STAT_NAMES = (
+    "ATK%",        # Attack %            -> outer ATK multiplier
+    "DEF%",        # Defense %           -> outer DEF multiplier
+    "HP%",         # Health %            -> outer HP multiplier
+    "CRate",       # Crit Chance (Crit%) -> flat addition to Final CRate
+    "CDmg",        # Crit DMG (CDMG)     -> flat addition to Final CDmg
+    "Extra DMG%",  # Extra Attack DMG    -> flat addition to Extra DMG%
+                   #                        (note the space!)
+    "DoT%",        # DoT %               -> flat addition to DoT%
+    "Ego",         # Ego                 -> flat addition to Ego
+)
 
 # Default partner data for unknown partners
 DEFAULT_PARTNER = {
@@ -643,7 +653,7 @@ PARTNERS = {
         "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIf the assigned Combatant's card was used just before, +{ChainDMG%}% Damage Amount to Attack Cards. Can stack up to 2 times and is removed when a different Combatant's card is used.\nGain Focus each time 2 of the assigned Combatant's cards are used.\nFocus: Increase Damage Amount of the assigned Combatant's Attack Cards by {FocusDMG%}%.\nWhen the effect is activated, decrease Focus by 1, and when another Combatant's card is used, remove Focus.",
         "values": {
             "ATK%":      (16, 18, 20, 22, 24),
-            "ChainDMG%": (15, 19, 23, 26, 30),  # EST
+            "ChainDMG%": (15, 19, 23, 27, 30),
             "FocusDMG%": (20, 25, 30, 35, 40),
         },
         "stats": {
@@ -661,7 +671,7 @@ PARTNERS = {
         "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of Order Attribute Extra Attacks by {OrderExtra%}%.\n+{TargetExtra%}% Damage Amount to Extra Attacks activated through Targeting Attack Cards.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
-            "OrderExtra%": (15, 19, 23, 27, 31),
+            "OrderExtra%": (15, 19, 23, 27, 30),
             "TargetExtra%": (25, 32, 38, 44, 50),
         },
         "stats": {
@@ -679,7 +689,7 @@ PARTNERS = {
         "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nThe Defense-Based Damage of the assigned combatant's Instinct cards is increased by {InstDMG%}%.\nThe assigned Combatant's Defense-Based Damage and Shield Amount for the Celestial card becomes +{CelestialBonus%}%.",
         "values": {
             "DEF%": (16, 18, 20, 22, 24),
-            "InstDMG%": (15, 19, 23, 27, 31),
+            "InstDMG%": (15, 19, 23, 27, 30),
             "CelestialBonus%": (25, 32, 38, 44, 50),
         },
         "stats": {
@@ -921,22 +931,22 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "Draw 1 of the assigned Combatant's Attack Cards\nIf the Cost of that card is either 0 or X, Draw 2",
     },
-    -1: {  # TODO: replace key with real res_id when known
+    30114: {
         "name": "Eunie",
         "grade": 5,
         "class": "Ranger",
         "passive_name": "Battlefield Saturation Doctrine",
-        "passive_desc": "Increase the assigned Combatant's Attack by 16–24%.\nWhen an Instinct-Attribute Attack Card is created in the Draw Pile by the assigned Combatant, increase Damage Amount of the Extra Attack of that card by {CreatedExtraDMG%}% until used.\nIf that card is an Unusable card, gain 1 Preparing Live Rounds.\nPreparing Live Rounds: +{Crit%}% Critical Chance to the assigned Combatant (max 1 stack)",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen an Instinct-Attribute Attack Card is created in the Draw Pile by the assigned Combatant, increase Damage Amount of the Extra Attack of that card by {CreatedExtraDMG%}% until used.\nIf that card is an Unusable card, gain 1 Preparing Live Rounds.\nPreparing Live Rounds: +{Crit%}% Critical Chance to the assigned Combatant (max 1 stack)",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
-            "CreatedExtraDMG%": (40, 50, 60, 70, 80),  # EST
-            "Crit%": (10, 13, 15, 18, 20),  # EST
+            "CreatedExtraDMG%": (40, 50, 60, 70, 80),
+            "Crit%": (10, 13, 15, 18, 20),
         },
         "stats": {
             "ATK%": (16, 18, 20, 22, 24),
         },
         "stats_conditional": {
-            "CRate": (10, 13, 15, 18, 20),  # EST  # When an Unusable Instinct-Attribute Attack Card is created in the Draw Pile by the assigned Combatant (max 1 stack)
+            "CRate": (10, 13, 15, 18, 20),  # When an Unusable Instinct-Attribute Attack Card is created in the Draw Pile by the assigned Combatant (max 1 stack)
         },
         "ego_name": "Lay Down Suppressive Fire!",
         "ego_cost": 3,
@@ -950,8 +960,8 @@ PARTNERS = {
         "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen the assigned Combatant creates a card, gain Risk Factor Report.\nRisk Factor Report: Increase Damage Amount of the assigned Combatant's Attack Cards by {RiskReportDMG%}% for 1 turn (max 3 stacks).\nWhen the assigned Combatant creates a Status Ailment card for the first time (includes cards that have been changed from Status Ailment cards), +{StatusDMG%}% Damage Amount to Attack Cards for 1 turn.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
-            "RiskReportDMG%": (10, 13, 15, 18, 20),  # EST
-            "StatusDMG%": (25, 31, 38, 44, 50),  # EST
+            "RiskReportDMG%": (10, 13, 15, 18, 20),
+            "StatusDMG%": (25, 32, 38, 44, 50),
         },
         "stats": {
             "ATK%": (16, 18, 20, 22, 24),
@@ -989,7 +999,7 @@ PARTNERS = {
         "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of the assigned Combatant when attacking Ravaged enemies by {RavagedDMG%}%.\nThe assigned combatant's Basic Cards always apply as Weak Point Damage, and +{WeakDMG%}% Weakness Damage.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
-            "RavagedDMG%": (15, 19, 23, 26, 30),  # EST
+            "RavagedDMG%": (15, 19, 23, 27, 30),
             "WeakDMG%": (5, 10, 15, 20, 25),
         },
         "stats": {
@@ -1004,6 +1014,13 @@ PARTNERS = {
 # Base stats by grade and class at level 60
 # Offensive classes (Hunter, Psionic, Ranger, Striker): High ATK, low DEF
 # Defensive classes (Controller, Vanguard): Low ATK, high DEF
+#
+# ADD A NEWLY-RELEASED GRADE TIER HERE, one row per class. A partner
+# whose (grade, class) pair has no row falls back to a generic stat
+# block in get_partner_base_stats -- plausible numbers that are wrong
+# for every build using that partner, with nothing visibly broken. The
+# launch-time data check requires every partner's pair to be a key here,
+# so this table is the only place a new tier needs adding.
 PARTNER_CLASS_STATS = {
     # 3-star classes
     (3, "Hunter"):     {"atk": 89, "def": 5, "hp": 85},

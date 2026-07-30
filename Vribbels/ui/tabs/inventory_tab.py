@@ -26,6 +26,10 @@ Where to look when you want to change X
                          high) pair so display can show a range. The
                          pair comes from the SAME preset that produced
                          the max high (not a synthetic mix).
+  Active preset label:   refresh_active_preset_label -- reads the name
+                         from the Scoring tab (which owns the applied-
+                         weights state) and is called from
+                         refresh_inventory, so it tracks every apply.
   Header tooltips:       _setup_header_tooltips -- custom Toplevel popups
                          with a 400ms delay; the standard Treeview doesn't
                          offer header tooltips so we hand-roll them.
@@ -136,6 +140,10 @@ class InventoryTab(BaseTab):
         # Frame for set checkboxes (populated dynamically)
         self.inv_set_frame_inner = None
 
+        # Label below the Slots frame naming the active scoring weights
+        # (preset name, or Default / Custom). Filled in setup_ui.
+        self.active_preset_label = None
+
         # Frames for the Main Stats filter (populated in setup_ui).
         self.inv_main_stat_frame_inner = None
         self.inv_main_unknown_frame = None  # row container for unknowns; hidden if empty.
@@ -162,11 +170,16 @@ class InventoryTab(BaseTab):
             self._mainstat_strike_font = ("TkDefaultFont", 9, "overstrike")
 
         filter_frame = ttk.Frame(self.frame)
-        filter_frame.pack(fill=tk.X, padx=10, pady=5)
+        filter_frame.pack(fill=tk.X, padx=10, pady=(5, 2))
 
         # ----- Slots filter -----------------------------------------------
-        slot_frame = ttk.LabelFrame(filter_frame, text="Slots", padding=3)
-        slot_frame.pack(side=tk.LEFT, padx=(0, 10), anchor=tk.N)
+        # The Slots frame shares a vertical column with the active-preset
+        # label so the label sits directly beneath it.
+        slot_col = ttk.Frame(filter_frame)
+        slot_col.pack(side=tk.LEFT, padx=(0, 10), anchor=tk.N)
+
+        slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=3)
+        slot_frame.pack(fill=tk.X)
 
         slot_inner = ttk.Frame(slot_frame)
         slot_inner.pack()
@@ -190,6 +203,17 @@ class InventoryTab(BaseTab):
                    command=self.select_all_slots).pack(side=tk.LEFT, padx=1)
         ttk.Button(slot_btn_frame, text="None", width=5,
                    command=self.select_no_slots).pack(side=tk.LEFT, padx=1)
+
+        # Which scoring weights the GS / Potential columns are computed
+        # against. wraplength wraps a long preset name onto a second line
+        # rather than widening this column, which would push the Sets and
+        # Main Stats filters to the right.
+        self.active_preset_label = ttk.Label(
+            slot_col, text="Preset: Default",
+            foreground=self.colors["fg_dim"],
+            wraplength=205, justify=tk.LEFT,
+        )
+        self.active_preset_label.pack(anchor=tk.W, pady=(2, 0))
 
         # ----- Sets filter -----------------------------------------------
         set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=3)
@@ -571,9 +595,33 @@ class InventoryTab(BaseTab):
 
     # ----- Refresh / display ---------------------------------------------
 
+    def refresh_active_preset_label(self):
+        """Update the label below the Slots frame to name the scoring
+        weights currently in effect: the applied preset's name, or
+        Default / Custom when no preset is applied.
+
+        The Scoring tab owns that state, so the text is pulled from it;
+        the label keeps its last text while that tab doesn't exist yet
+        (this tab is built first).
+        """
+        if self.active_preset_label is None:
+            return
+        scoring_tab = getattr(self.context, "scoring_tab", None)
+        if scoring_tab is None:
+            return
+        try:
+            name = scoring_tab.active_weights_name()
+        except Exception:
+            return
+        self.active_preset_label.config(text=f"Preset: {name}")
+
     def refresh_inventory(self):
         """Refresh inventory display based on current filter settings."""
-        self.inv_tree.delete(*self.inv_tree.get_children())
+        # The tree is NOT cleared here: _display_inventory_sorted() clears
+        # it right after reading the current selection, so the highlight
+        # can be restored onto the same fragments. Clearing here as well
+        # dropped the selection before it could be read.
+        self.refresh_active_preset_label()
 
         uneq_only = self.inv_unequipped_var.get()
         include_uncommon = self.inv_include_uncommon_var.get()

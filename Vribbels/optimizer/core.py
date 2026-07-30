@@ -55,24 +55,12 @@ tie-break, and the raw (D, S) components ride inside stats under the
 shape (gear, score, stats) is therefore unchanged.
 """
 
-from game_data import SETS, SLOT_ORDER
+from game_data import SETS, SLOT_ORDER, SET_STAT_NAME_MAP
 
-
-# Mapping from sets.py `stat` field values to the program's internal
-# stat-name vocabulary. Some names match exactly (ATK%, DEF%, HP%);
-# others differ ("Crit DMG" <-> CDmg, "Crit Rate" <-> CRate). DMG multi
-# and DMG add are NOT in this map: they have no Final-stat equivalent
-# and are accumulated separately into the damage card multiplier's
-# Multiplicative_Buffs / Additive_Buffs buckets. See
-# docs/game_formulas.md §5 for the canonical version of this table.
-# (optimizer.py re-exports it under the same name for back-compat.)
-SET_STAT_NAME_MAP = {
-    "ATK%":      "ATK%",
-    "DEF%":      "DEF%",
-    "HP%":       "HP%",
-    "Crit DMG":  "CDmg",
-    "Crit Rate": "CRate",
-}
+# SET_STAT_NAME_MAP is defined in game_data/sets.py, beside the `stat`
+# values it maps, and re-exported here (and by optimizer.py) under the
+# same name for the callers that have always imported it from the
+# optimizer package.
 
 
 # evaluate_combo() status codes -- the caller maps these onto its

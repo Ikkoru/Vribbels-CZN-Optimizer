@@ -88,6 +88,11 @@ class ScoringTab(BaseTab):
 
         # Currently-applied preset name, or None if "default" / "custom".
         self.active_preset_name = None
+        # The weights as of the last apply_active_weights call. Tells
+        # "default" (all 1.0) apart from "custom" without trusting the
+        # spinboxes, which the user may have edited since. None until the
+        # first apply.
+        self._applied_weights = None
 
     def _initialize_from_loaded_presets(self):
         """After UI is built, apply whichever preset (or default) is active."""
@@ -393,10 +398,38 @@ STAT MIN - MAX ROLLS:
     # Public API used from outside the tab
     # ============================================================
 
-    def apply_active_weights(self):
+    def active_weights_name(self) -> str:
+        """Name for the scoring weights currently in effect: the applied
+        preset's name, "Default" when every weight is 1.0, or "Custom"
+        otherwise. Displayed by the Memory Fragments tab, whose Gear Score
+        and Potential columns are computed from these weights.
+        """
+        if self.active_preset_name:
+            return self.active_preset_name
+        weights = self._applied_weights
+        if weights is None:
+            # Nothing applied yet (no snapshot loaded) -- the spinboxes are
+            # what the next apply would use.
+            weights = {stat: var.get()
+                       for stat, var in self.stat_weight_vars.items()}
+        try:
+            all_default = all(abs(float(w) - 1.0) < 1e-9
+                              for w in weights.values())
+        except (TypeError, ValueError):
+            return "Custom"
+        return "Default" if all_default else "Custom"
+
+    def apply_active_weights(self, refresh_heroes: bool = True):
         """
         Recalculate gear scores for all current fragments using whatever
         weights are currently in the spinboxes, then refresh dependent tabs.
+
+        `refresh_heroes=False` skips the Combatants-tab rebuild, for
+        callers that have established nothing it displays has changed (see
+        HeroesTab.display_signature). The Combatants tab computes its Gear
+        Scores from each combatant's ASSIGNED preset rather than these
+        weights, so the re-score below never obliges it to redraw.
+
         Does NOT change the status label — used after live updates / data loads
         so the displayed "Applied X" text stays consistent.
 
@@ -420,8 +453,11 @@ STAT MIN - MAX ROLLS:
             fragment.calculate_base_score(weights=weights, bounds=bounds)
             fragment.calculate_potential(weights=weights, bounds=bounds)
 
+        self._applied_weights = dict(weights)
+
         self.context.inventory_tab.refresh_inventory()
-        self.context.heroes_tab.refresh_heroes()
+        if refresh_heroes:
+            self.context.heroes_tab.refresh_heroes()
 
     def refresh_presets(self):
         """Stable public entry point for OTHER tabs to redraw the preset
@@ -436,19 +472,25 @@ STAT MIN - MAX ROLLS:
     # Button handlers
     # ============================================================
 
+    # NB: every handler below sets active_preset_name (and the manager's
+    # selected preset) BEFORE calling apply_active_weights. The refresh it
+    # triggers reads that state to label the Memory Fragments tab's active
+    # preset, so setting it afterwards would leave the label one apply
+    # behind.
+
     def on_apply_current_weights(self):
         """Apply whatever the spinboxes currently say. Marks as 'custom weights'."""
-        self.apply_active_weights()
         self.active_preset_name = None
         self.preset_manager.set_selected(None)
+        self.apply_active_weights()
         self.weight_status.config(text="Applied custom weights")
 
     def on_reset_current_weights(self):
         """Set every spinbox to 1.0, apply, mark as default."""
         self._reset_sliders_to_default()
-        self.apply_active_weights()
         self.active_preset_name = None
         self.preset_manager.set_selected(None)
+        self.apply_active_weights()
         self.weight_status.config(text="Applied default weights (all 1.0)")
 
     def on_apply_selected_preset(self):
@@ -478,9 +520,9 @@ STAT MIN - MAX ROLLS:
             return
 
         self._set_sliders(weights)
-        self.apply_active_weights()
         self.active_preset_name = name
         self.preset_manager.set_selected(name)
+        self.apply_active_weights()
         self.weight_status.config(text=f"Applied {name}")
 
     def on_preset_double_click(self, event):
@@ -499,9 +541,9 @@ STAT MIN - MAX ROLLS:
             return
 
         self._set_sliders(weights)
-        self.apply_active_weights()
         self.active_preset_name = name
         self.preset_manager.set_selected(name)
+        self.apply_active_weights()
         self.weight_status.config(text=f"Applied {name}")
 
     def on_save_preset(self):
@@ -550,8 +592,8 @@ STAT MIN - MAX ROLLS:
             return
 
         self.refresh_preset_list()
-        self.apply_active_weights()
         self.active_preset_name = name
+        self.apply_active_weights()
         self.weight_status.config(text=f"Applied {name}")
         self.preset_name_var.set("")
         # Refresh Combatants in case this overwrites a preset already assigned
@@ -610,6 +652,14 @@ STAT MIN - MAX ROLLS:
         if self.active_preset_name in names:
             self.active_preset_name = None
             self.weight_status.config(text="Applied custom weights")
+            # The weights themselves are untouched, so no re-score is
+            # needed -- but the Memory Fragments tab's preset label now
+            # has to read Custom / Default instead of the gone name.
+            if self.context.inventory_tab is not None:
+                try:
+                    self.context.inventory_tab.refresh_active_preset_label()
+                except Exception:
+                    pass
 
         self.refresh_preset_list()
         # Refresh Combatants tab so its Preset column and per-character GS update.

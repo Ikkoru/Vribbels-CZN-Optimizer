@@ -64,11 +64,15 @@ A fork of Vribbels, a Fribbels-inspired gear management and optimization tool fo
 5. Tick the sets you want under **Set Configuration**, set **Maximum Flex Slots** (how many of the 6 slots may sit outside your chosen sets), and assign each conditional set effect a value: what percent of this combatant's damage actually benefits from that set's effect. At 0 the set MFs still count toward stats but the effect is ignored.
 6. Optionally untick combatants under **Exclude Combatant's MFs** to let the optimizer consider their equipped gear (all are excluded by default; the selected combatant's own gear is always available).
 7. Click **"Start"** to begin optimization.
-8. Review results — Scores are 0–100 with the run's best build at 100, and the build you already have equipped (when it makes the list) is tagged `(E)`. Select a row to compare stats side-by-side and see the required Memory Fragments; right-click the stats comparison for a full per-source breakdown.
+8. Review results — Scores are 0–100 with the run's best build at 100, and the build you already have equipped (when it makes the list) is tagged `(E)`. A set tagged `(F)` is one the flex slots completed by chance rather than one you picked; its bonus is active either way. Select a row to compare stats side-by-side and see the required Memory Fragments; right-click the stats comparison for a full per-source breakdown.
 
 ### Viewing Materials
 
 Navigate to the **Materials** tab to see your growth stone inventory.
+
+### Correcting a Level
+
+Levels are worked out from EXP, and the tables behind that have gaps. If a combatant's level looks wrong, right-click its row in the **Combatants** tab and enter the level the game shows. Right-click the Partner card to do the same for a Partner. Each correction is saved and makes every later level more accurate.
 
 ## Contributing
 

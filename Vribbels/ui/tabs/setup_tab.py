@@ -78,9 +78,12 @@ class SetupTab(BaseTab):
         self.mitmproxy_status = None
         self.cert_status = None
         self.admin_status = None
-        # Guards against overlapping probe threads (auto-check on open +
+        # Guard against overlapping probe threads (auto-check on open +
         # an impatient Check Status click).
         self._checking = False
+        # Worker hand-off: set by _probe_prerequisites, consumed by
+        # _poll_probe on the UI thread. None = not finished yet.
+        self._probe_result = None
 
         self.setup_ui()
 
@@ -230,6 +233,7 @@ STEP 2: Verify setup
         if self._checking:
             return
         self._checking = True
+        self._probe_result = None
         for label, text in (
             (self.python_status, "Checking Python..."),
             (self.mitmproxy_status, "Checking mitmproxy..."),
@@ -241,6 +245,27 @@ STEP 2: Verify setup
             except (AttributeError, tk.TclError):
                 pass
         threading.Thread(target=self._probe_prerequisites, daemon=True).start()
+        self._poll_probe()
+
+    def _poll_probe(self, attempts: int = 0):
+        """Wait for the worker's findings and paint them.
+
+        The worker cannot hand them over itself: `after()` from another
+        thread only works while the main thread is inside `mainloop()`,
+        and this check is scheduled during startup, so the worker can
+        finish while the main thread is still in the reveal's `update()`
+        passes -- or after mainloop has exited, if the window is closed
+        first. Either way Tk raises "main thread is not in main loop".
+        So the worker only assigns a plain attribute, and this poll (a
+        main-thread `after` chain) does everything Tk-facing.
+        """
+        if self._probe_result is None:
+            if attempts < 200:
+                self.root.after(100, lambda: self._poll_probe(attempts + 1))
+            else:
+                self._checking = False
+            return
+        self._apply_status(self._probe_result)
 
     @staticmethod
     def _run_version(cmd) -> str:
@@ -276,7 +301,8 @@ STEP 2: Verify setup
 
     def _probe_prerequisites(self):
         """Worker body for check_status: gather every status string off
-        the UI thread, then hand them back to it. Touches no widgets."""
+        the UI thread, then publish them for _poll_probe. Touches no
+        widgets and makes no Tk calls -- see _poll_probe for why."""
         status = {}
 
         version = self._run_version(["python", "--version"])
@@ -309,9 +335,9 @@ STEP 2: Verify setup
         except Exception:
             status["admin"] = ("? Could not check admin status", "yellow")
 
-        # Back to the UI thread to touch widgets -- same hand-off the
-        # capture manager's live_update_callback uses.
-        self.root.after(0, lambda: self._apply_status(status))
+        # Publish for the UI thread's poll. Assignment is atomic enough:
+        # _poll_probe only ever tests for None.
+        self._probe_result = status
 
     def _apply_status(self, status: dict):
         """Paint the worker's findings onto the status labels. Runs on

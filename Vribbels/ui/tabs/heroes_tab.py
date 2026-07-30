@@ -11,6 +11,12 @@ Where to look when you want to change X
                                    self.optimizer.character_info, applies
                                    the configured sort, restores the
                                    previous selection from SettingsManager.
+  What counts as a change:         display_signature() -- the summary a
+                                   live capture update compares before and
+                                   after a reload to decide whether this
+                                   tab needs rebuilding at all. Extend it
+                                   whenever a new field reaches the rows
+                                   or the detail pane.
   Row click / keyboard nav:        _on_row_click, _on_row_right_click,
                                    _navigate_hero_list. The list is a
                                    canvas of frames (not a Treeview), so
@@ -688,6 +694,47 @@ class HeroesTab(BaseTab):
         gear_grid.rowconfigure(2, weight=1)
 
     # Public API
+    def display_signature(self):
+        """A cheap hashable summary of everything this tab renders.
+
+        Compared across a snapshot reload to decide whether a rebuild is
+        worth its cost: most live capture events (upgrading, forging or
+        dismantling a fragment that nobody has equipped) change nothing
+        here, and refresh_heroes is expensive -- it destroys and recreates
+        every row's labels and re-measures the detail pane's fixed sizes.
+
+        Covers the user line, every field of CharacterInfo the rows or the
+        detail pane read, and the identity + level of each EQUIPPED
+        fragment (a level is the only thing that changes a fragment's
+        substats, and hence its Gear Score). Sorted, so a reordered
+        `characters` payload doesn't read as a change.
+
+        Anything not covered here goes stale silently, so callers treat a
+        raised exception as "changed" and rebuild.
+        """
+        u = self.optimizer.user_info
+        chars = sorted(
+            (
+                name, ci.res_id, ci.level, ci.max_level, ci.limit_break,
+                ci.exp, ci.friendship_index,
+                ci.potential_50_level, ci.potential_60_level,
+                ci.partner_id, ci.partner_res_id, ci.partner_name,
+                ci.partner_level, ci.partner_max_level,
+                ci.partner_limit_break,
+            )
+            for name, ci in self.optimizer.character_info.items()
+        )
+        gear = sorted(
+            (f.equipped_to, getattr(f, "id", 0) or 0, f.slot_num, f.level)
+            for f in self.optimizer.fragments if f.equipped_to
+        )
+        return (
+            (u.nickname, u.level, u.login_total, u.login_continuous,
+             u.login_highest_continuous),
+            tuple(chars),
+            tuple(gear),
+        )
+
     def refresh_heroes(self):
         """Refresh the heroes list."""
         # Clear existing rows

@@ -12,7 +12,7 @@ the character's static properties:
       "name":      "Amir",
       "grade":     5,                 # rarity / star count
       "attribute": "Order",           # Passion / Order / Justice / Void / Instinct
-      "class":     "DPS",             # role (Tank / DPS / Support / Healer)
+      "class":     "Vanguard",        # one of constants.CLASSES
       "base_atk":  ..., "base_def": ..., "base_hp": ...,   # AT LEVEL 60
       "potential_nodes": {...},       # see "Potential nodes" below
     }
@@ -59,7 +59,9 @@ DEFAULT_CHARACTER is the fallback for unknown res_ids (returned by
 get_character / get_character_by_name).
 
 ATTRIBUTE_COLORS is UI styling; it lives here only because the attribute
-strings are defined here.
+strings are defined here — its keys are the canonical list of the five
+attributes, and the launch-time data check validates `attribute` against
+them.
 """
 
 # Default character data for unknown characters
@@ -583,6 +585,11 @@ CHARACTERS_BY_NAME = {
 #
 # Example: a character with "level-50: HP% tier 3" gets
 # POTENTIAL_STAT_VALUES["HP%"][2] = 4.8% HP from their level-50 node.
+#
+# ADD A NEWLY-RELEASED POTENTIAL-NODE STAT HERE. `node_50` / `node_60`
+# on a CHARACTERS entry must name one of these keys; anything else makes
+# get_potential_stat_bonus return zero silently, and the launch-time data
+# check validates against exactly this dict.
 POTENTIAL_STAT_VALUES = {
     "HP%": (1.6, 3.2, 4.8, 6.4, 8.0),      # % HP increase by tier (1-5)
     "ATK%": (1.6, 3.2, 4.8, 6.4, 8.0),     # % ATK increase by tier (1-5)
@@ -591,6 +598,10 @@ POTENTIAL_STAT_VALUES = {
     "CDmg": (2.4, 4.8, 7.2, 9.6, 12.0),    # Crit Damage % by tier (1-5)
 }
 
+# ADD A NEWLY-RELEASED ATTRIBUTE HERE. These keys are the canonical list
+# of attributes: `attribute` on a CHARACTERS entry and `elements` on a
+# set must name one of them, and the launch-time data check validates
+# against exactly this dict.
 ATTRIBUTE_COLORS = {
     "Passion": "#FF6B6B",   # Red
     "Void": "#9B59B6",      # Purple

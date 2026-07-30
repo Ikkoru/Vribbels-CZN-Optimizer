@@ -20,6 +20,7 @@ from .partners import (
     DEFAULT_PARTNER,
     PARTNERS,
     PARTNER_CLASS_STATS,
+    PARTNER_STAT_NAMES,
     get_partner,
     get_value_for_ego_level,
     get_partner_base_stats,
@@ -33,6 +34,8 @@ from .sets import (
     SETS,
     TWO_PIECE_SETS,
     FOUR_PIECE_SETS,
+    SET_STAT_NAME_MAP,
+    SET_CARD_MULT_STATS,
 )
 
 from .constants import (
@@ -40,6 +43,7 @@ from .constants import (
     PARTNER_EXP_TABLE,
     FRIENDSHIP_BONUSES,
     # Note: GAME_HOSTS, GAME_PORT, PROXY_PORT, OUTPUT_DIR, HOSTS_PATH moved to capture module
+    CLASSES,
     EQUIPMENT_SLOTS,
     SLOT_ORDER,
     RARITY,
@@ -77,6 +81,7 @@ __all__ = [
     'DEFAULT_PARTNER',
     'PARTNERS',
     'PARTNER_CLASS_STATS',
+    'PARTNER_STAT_NAMES',
     'get_partner',
     'get_value_for_ego_level',
     'get_partner_base_stats',
@@ -89,12 +94,15 @@ __all__ = [
     'SETS',
     'TWO_PIECE_SETS',
     'FOUR_PIECE_SETS',
+    'SET_STAT_NAME_MAP',
+    'SET_CARD_MULT_STATS',
 
     # Constants
     'CHARACTER_EXP_TABLE',
     'PARTNER_EXP_TABLE',
     'FRIENDSHIP_BONUSES',
     # Note: GAME_HOSTS, GAME_PORT, PROXY_PORT, OUTPUT_DIR, HOSTS_PATH moved to capture module
+    'CLASSES',
     'EQUIPMENT_SLOTS',
     'SLOT_ORDER',
     'RARITY',

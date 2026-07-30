@@ -180,25 +180,43 @@ def setup_certificate() -> Path:
     if not mitmdump_path:
         raise FileNotFoundError("mitmdump not found. Please install mitmproxy.")
 
-    # Start mitmdump briefly to generate certificate
+    cert_path = Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.cer"
+
+    # Start mitmdump; it writes the CA into ~/.mitmproxy on first run.
+    kwargs = {}
+    if sys.platform == "win32":
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     process = subprocess.Popen(
         [mitmdump_path],
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
+        **kwargs
     )
 
-    # Give it time to generate the certificate
-    time.sleep(3)
-
-    # Stop the process
-    process.terminate()
     try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        process.kill()
+        # Wait for the certificate to appear rather than for a fixed
+        # duration: it's usually written in well under a second, and a
+        # fixed wait is both slower than it needs to be and too short
+        # whenever a cold start or an antivirus scan delays the write.
+        # Non-zero size, since the file is visible before it's complete.
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            if cert_path.exists() and cert_path.stat().st_size > 0:
+                break
+            if process.poll() is not None:
+                # mitmdump exited on its own (bad install, port in use);
+                # nothing more is coming.
+                break
+            time.sleep(0.1)
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
 
     # Verify certificate was created
-    cert_path = Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.cer"
     if not cert_path.exists():
         raise Exception("Certificate was not generated")
 

@@ -6,6 +6,7 @@ Handles proxy lifecycle, hosts file modification, and data capture coordination.
 import subprocess
 import threading
 import socket
+import ipaddress
 import re
 import ctypes
 import sys
@@ -20,6 +21,37 @@ from .setup import find_mitmdump
 class CaptureError(Exception):
     """Raised when capture operations fail."""
     pass
+
+
+# Markers delimiting the redirect block this program appends to the
+# Windows hosts file. Everything between them belongs to us and is safe
+# to rewrite; nothing outside them is ever touched.
+HOSTS_BLOCK_START = "# CZN-CAPTURE-START"
+HOSTS_BLOCK_END = "# CZN-CAPTURE-END"
+_HOSTS_BLOCK_RE = re.compile(
+    r"\n*" + re.escape(HOSTS_BLOCK_START)
+    + r".*?" + re.escape(HOSTS_BLOCK_END) + r"\n*",
+    re.DOTALL,
+)
+
+
+def _strip_capture_block(content: str) -> str:
+    """Return hosts-file text with the redirect block removed."""
+    return _HOSTS_BLOCK_RE.sub("", content)
+
+
+def is_loopback_address(ip: str) -> bool:
+    """True for any address that points back at this machine.
+
+    A loopback answer to a game-server lookup is never legitimate: it
+    means the redirect in the hosts file is what answered the query.
+    Unparseable input counts as not-loopback -- the caller's own error
+    handling is better placed to deal with a malformed address.
+    """
+    try:
+        return ipaddress.ip_address(ip).is_loopback
+    except ValueError:
+        return False
 
 
 # Addon template embedded as string constant (works in bundled executables)
@@ -348,16 +380,91 @@ class Addon:
                 self.inventory_data = data
                 self._save_data()
 
-            # Capture character data
+            # Capture character data.
+            #
+            # Two very different messages arrive under the same key. The
+            # login payload carries the FULL roster -- every character and
+            # every partner card -- alongside the user record. Action
+            # responses (re-equipping a partner, for one) reply with the
+            # same `characters` key but only the entries the server
+            # touched: the partner instance, its new owner and its old
+            # owner. Overwriting the cache with one of those deltas
+            # destroys the roster, which silently empties character_info
+            # and everything derived from it -- the Combatants tab, the
+            # exclude checklist, the res_id lookups the exclude step
+            # needs -- with no error anywhere.
+            #
+            # So a characters list replaces the cache only when it
+            # accounts for everything already in it; otherwise it is
+            # merged and nothing is dropped.
             has_characters = "characters" in data and isinstance(data.get("characters"), list)
             has_user = "user" in data
 
-            if has_characters or has_user:
-                self.character_data = data
+            if has_characters:
+                self._merge_character_data(data)
+                self._save_data()
+            elif has_user:
+                # A user-record update with no roster attached: patch the
+                # cached payload rather than replacing it, or the roster
+                # goes the same way as above.
+                if self.character_data:
+                    self.character_data["user"] = data["user"]
+                else:
+                    self.character_data = data
                 self._save_data()
 
         except Exception as e:
             self.log_callback(f"Error: {e}")
+
+    @staticmethod
+    def _entry_identity(entry):
+        """Identity of one entry in a characters-list payload.
+
+        Partner cards carry an instance `id`; characters never do, so
+        their res_id identifies them. The two schemas therefore can't
+        collide, and two copies of the same partner card stay distinct.
+        """
+        if not isinstance(entry, dict):
+            return None
+        if "id" in entry:
+            return ("id", entry["id"])
+        return ("res", entry.get("res_id"))
+
+    def _merge_character_data(self, data):
+        """Fold an incoming characters payload into the cached one.
+
+        A payload that accounts for every entry already cached is
+        authoritative and replaces the cache outright. Anything narrower
+        is a delta: its entries overwrite the matching cached ones (or
+        get appended) and the rest of the cached payload -- the user
+        record included -- is left alone.
+        """
+        incoming = data.get("characters") or []
+        cached = (self.character_data or {}).get("characters")
+        if not isinstance(cached, list) or not cached:
+            self.character_data = data
+            return
+
+        incoming_ids = {self._entry_identity(e) for e in incoming}
+        cached_ids = {self._entry_identity(e) for e in cached}
+        if cached_ids <= incoming_ids:
+            self.character_data = data
+            return
+
+        merged = list(cached)
+        index = {}
+        for i, entry in enumerate(merged):
+            index.setdefault(self._entry_identity(entry), i)
+        for entry in incoming:
+            key = self._entry_identity(entry)
+            if key in index:
+                merged[index[key]] = entry
+            else:
+                index[key] = len(merged)
+                merged.append(entry)
+
+        self.character_data["characters"] = merged
+        self.log_callback(f"[LIVE] Character data updated ({len(incoming)} entries)")
 
     def _save_data(self):
         """
@@ -733,12 +840,23 @@ class CaptureManager:
             except socket.gaierror:
                 pass
 
+    def resolved_to_loopback(self) -> bool:
+        """True if any resolved game-server address points at this machine.
+
+        Which can only mean the redirect in the hosts file answered the
+        lookup. Taking such an address at face value would give mitmdump
+        itself as its own upstream, and every request the game made would
+        be forwarded back into the proxy in an endless loop.
+        """
+        return any(is_loopback_address(ip)
+                   for ip in self.game_server_ips.values())
+
     def modify_hosts_file(self) -> str:
         """
         Modify Windows hosts file to redirect game traffic to local proxy.
 
         Returns:
-            Original hosts file content (for restoration)
+            The hosts file content without the redirect block
 
         Raises:
             CaptureError: If hosts file modification fails
@@ -747,30 +865,106 @@ class CaptureManager:
             with open(HOSTS_PATH, "r") as f:
                 content = f.read()
 
-            # Don't modify if already modified
-            if "# CZN-CAPTURE-START" in content:
-                return content
+            # Strip any block an earlier run left behind before appending
+            # this one. Accepting a file that already carries the redirect
+            # leaves its contents unverified, and leaves the redirect
+            # itself free to answer the game-server lookup that decides
+            # the proxy's upstream (see remove_hosts_redirect).
+            content = _strip_capture_block(content)
 
             # Add redirect entries
             from .constants import SERVERS
             server_config = SERVERS[self.current_region]
-            entries = ["\n# CZN-CAPTURE-START"]
+            entries = ["\n" + HOSTS_BLOCK_START]
             for host in server_config.hosts:
                 entries.append(f"127.0.0.1 {host}")
-            entries.append("# CZN-CAPTURE-END\n")
+            entries.append(HOSTS_BLOCK_END + "\n")
 
             new_content = content + "\n".join(entries)
 
             with open(HOSTS_PATH, "w") as f:
                 f.write(new_content)
 
-            # Flush DNS cache
-            subprocess.run(["ipconfig", "/flushdns"], capture_output=True)
+            self._flush_dns()
 
             return content
 
         except Exception as e:
             raise CaptureError(f"Failed to modify hosts file: {e}")
+
+    def _flush_dns(self):
+        """Drop the OS resolver cache so a hosts-file edit takes effect.
+
+        Failure is reported rather than swallowed: a cache still holding
+        the pre-edit answer is one of the ways a lookup can keep
+        resolving to the wrong address after the file itself is correct.
+
+        Carries a timeout, a closed stdin and CREATE_NO_WINDOW like every
+        other external call in this program -- without the last one a
+        console window flashes over the UI.
+        """
+        kwargs = {}
+        if sys.platform == "win32":
+            kwargs["creationflags"] = getattr(
+                subprocess, "CREATE_NO_WINDOW", 0
+            )
+        try:
+            result = subprocess.run(
+                ["ipconfig", "/flushdns"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                stdin=subprocess.DEVNULL,
+                **kwargs
+            )
+        except (OSError, subprocess.SubprocessError) as e:
+            self.log_callback(f"Could not flush the DNS cache: {e}", "warning")
+            return
+        if result.returncode != 0:
+            self.log_callback(
+                f"Could not flush the DNS cache (exit {result.returncode})",
+                "warning",
+            )
+
+    def remove_hosts_redirect(self) -> bool:
+        """Take the game-server redirect out of the hosts file.
+
+        Returns True if a redirect block was there and has been removed,
+        False if the file was already clean. Only the marked block is
+        touched; the rest of the file is preserved as-is.
+
+        Worth calling before any lookup that has to reach the real
+        server, not just when winding a capture down: a block left behind
+        by a run that ended without removing it (a crash, or the process
+        being killed) makes every game-server lookup answer with this
+        machine, and the game itself unable to connect at all.
+
+        Raises:
+            CaptureError: If the file can't be read, or carries a block
+                that can't be removed (no administrator rights, for
+                instance). Callers that only want best-effort cleanup
+                should use restore_hosts_file instead.
+        """
+        try:
+            with open(HOSTS_PATH, "r") as f:
+                content = f.read()
+        except OSError as e:
+            raise CaptureError(f"Could not read the hosts file: {e}")
+
+        if HOSTS_BLOCK_START not in content:
+            return False
+
+        try:
+            with open(HOSTS_PATH, "w") as f:
+                f.write(_strip_capture_block(content))
+        except OSError as e:
+            raise CaptureError(
+                "A capture redirect left in the hosts file could not be "
+                f"removed: {e}\n\nEditing it needs Administrator rights."
+            )
+
+        self._flush_dns()
+        return True
 
     def restore_hosts_file(self):
         """
@@ -778,20 +972,8 @@ class CaptureManager:
         Removes CZN-CAPTURE entries added by modify_hosts_file().
         """
         try:
-            with open(HOSTS_PATH, "r") as f:
-                content = f.read()
-
-            # Remove our capture entries
-            pattern = r'\n*# CZN-CAPTURE-START.*?# CZN-CAPTURE-END\n*'
-            content = re.sub(pattern, '', content, flags=re.DOTALL)
-
-            with open(HOSTS_PATH, "w") as f:
-                f.write(content)
-
-            # Flush DNS cache
-            subprocess.run(["ipconfig", "/flushdns"], capture_output=True)
-
-        except Exception as e:
+            self.remove_hosts_redirect()
+        except CaptureError as e:
             self.log_callback(f"Failed to restore hosts: {e}", "error")
 
     def _find_dictionary_path(self) -> Optional[Path]:
@@ -997,8 +1179,30 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
         # (Always re-resolve to ensure we use the correct region's servers)
         self.resolve_game_server()
 
+        # A loopback answer means a redirect is already in the hosts file,
+        # left by a run that ended without removing it. Handing that
+        # address to mitmdump as its upstream would point the proxy at
+        # itself, and every request the game made would loop back into it
+        # forever. Clear the block and ask the OS again.
+        if self.resolved_to_loopback():
+            self.log_callback(
+                "The game server resolves to this machine: a capture "
+                "redirect is still in the hosts file. Removing it.",
+                "warning",
+            )
+            self.remove_hosts_redirect()
+            self.resolve_game_server()
+
         if not self.game_server_ips:
             raise CaptureError("Could not resolve game servers.")
+
+        if self.resolved_to_loopback():
+            raise CaptureError(
+                "The game server still resolves to this machine.\n\n"
+                "Something is redirecting it locally. Check "
+                f"{HOSTS_PATH} for an entry pointing "
+                "the game server at 127.0.0.1 and remove it."
+            )
 
         # Get first resolved IP for upstream connection
         # (Using IP avoids circular DNS lookup through modified hosts file)

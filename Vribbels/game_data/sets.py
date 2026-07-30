@@ -42,20 +42,13 @@ here and "CDmg" / "CRate" everywhere else.
 
     In-game stat        "stat" value   Internal   Where it lands
     -----------------   ------------   --------   --------------------
-    Attack %            "ATK%"         ATK%       inner ATK multiplier,
-                                                  same bucket as a
-                                                  fragment's ATK%
+    Attack %            "ATK%"         ATK%       inner ATK multiplier, same bucket as a fragment's ATK%
     Defense %           "DEF%"         DEF%       inner DEF multiplier
     Health %            "HP%"          HP%        inner HP multiplier
-    Crit DMG (CDMG)     "Crit DMG"     CDmg       flat addition to
-                                                  Final CDmg
-    Crit Chance (Crit%) "Crit Rate"    CRate      flat addition to
-                                                  Final CRate
-    Damage, multiplied  "DMG multi"    --         Multiplicative_Buffs
-                                                  in the DAMAGE card
-                                                  multiplier
-    Damage, added       "DMG add"      --         Additive_Buffs in the
-                                                  DAMAGE card multiplier
+    Crit DMG (CDMG)     "Crit DMG"     CDmg       flat addition to Final CDmg
+    Crit Chance (Crit%) "Crit Rate"    CRate      flat addition to Final CRate
+    Damage, multiplied  "DMG multi"    --         Multiplicative_Buffs in the DAMAGE card multiplier
+    Damage, added       "DMG add"      --         Additive_Buffs in the DAMAGE card multiplier
 
 Two things to know about "DMG multi" / "DMG add": they have no
 Final-stat equivalent, so they're absent from SET_STAT_NAME_MAP and
@@ -97,3 +90,27 @@ SETS = {
 
 TWO_PIECE_SETS = [sid for sid, s in SETS.items() if s["pieces"] == 2]
 FOUR_PIECE_SETS = [sid for sid, s in SETS.items() if s["pieces"] == 4]
+
+# Mapping from the `stat` field above to the program's internal stat-name
+# vocabulary. Some names match exactly (ATK%, DEF%, HP%); the crit stats
+# differ ("Crit DMG" -> CDmg, "Crit Rate" -> CRate). `DMG multi` and
+# `DMG add` are deliberately absent: they have no Final-stat equivalent
+# and are accumulated straight into the damage card multiplier's
+# Multiplicative_Buffs / Additive_Buffs buckets instead.
+#
+# ADD A NEWLY-RELEASED SET STAT HERE. This is the single source of truth
+# for which `stat` spellings reach the formulas -- optimizer/core.py
+# imports it, and the launch-time data check validates against it, so a
+# name missing here is silently ignored everywhere.
+# Canonical description: docs/game_formulas.md §5.
+SET_STAT_NAME_MAP = {
+    "ATK%":      "ATK%",
+    "DEF%":      "DEF%",
+    "HP%":       "HP%",
+    "Crit DMG":  "CDmg",
+    "Crit Rate": "CRate",
+}
+
+# The two `stat` values that take effect on CONDITIONAL sets only, by
+# feeding the damage card multiplier rather than a Final stat.
+SET_CARD_MULT_STATS = ("DMG multi", "DMG add")

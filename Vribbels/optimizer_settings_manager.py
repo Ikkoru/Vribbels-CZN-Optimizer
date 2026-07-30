@@ -31,6 +31,8 @@ File format (version 1)
     {
         "version": 1,
         "excluded_gear_chars": ["1004", "1009"],      # list of res_id strings
+        "excluded_default_initialized": true,         # first-run seeding of the two lists above/below has happened
+        "exclude_seen_rids": ["1004", "1009"],        # res_ids the exclude bootstrap has processed; absent = new = auto-excluded once
         "optimize_level_seen": {"1017": 61},          # res_id -> highest level observed
         "characters": {
             "1017": {                                   # res_id (string key)

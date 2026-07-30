@@ -80,4 +80,8 @@ Vribbels/Vribbels.zip
 
 # I'm normal
 zRUN.bat
-Vribbels/default_settings/_don't forget to make excluded_default_initialized false
+Vribbels/default_settings/_1 delet excluded_gear_chars
+Vribbels/default_settings/_2 delet exclude_seen_rids
+Vribbels/default_settings/_3 delet optimize_level_seen
+Vribbels/default_settings/_4 make excluded_default_initialized false
+Vribbels/default_settings/_5 make optimize_for_level 60

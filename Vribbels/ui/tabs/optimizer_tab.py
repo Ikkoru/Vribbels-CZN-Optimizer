@@ -728,12 +728,12 @@ class OptimizerTab(BaseTab):
         # --- Row 0 col 0: Stats Comparison. sticky="new" so the frame is
         # only as tall as its content. ---
         left_frame = ttk.LabelFrame(body, text="Stats Comparison", padding=5)
-        left_frame.grid(row=0, column=0, sticky="new", padx=(5, 4), pady=5)
+        left_frame.grid(row=0, column=0, sticky="new", padx=(5, 4), pady=3)
         self._build_stats_tree(left_frame)
 
         # --- Row 0 col 1: Configuration (middle pane) ---
         self.middle_frame = ttk.Frame(body)
-        self.middle_frame.grid(row=0, column=1, sticky="nsew", padx=4, pady=5)
+        self.middle_frame.grid(row=0, column=1, sticky="nsew", padx=4, pady=3)
         self._build_config(self.middle_frame)
 
         # --- Col 2 (rowspan 2): Exclude MFs (top) + Results (below).
@@ -741,7 +741,7 @@ class OptimizerTab(BaseTab):
         # Exclude. ---
         self._col2_container = ttk.Frame(body)
         self._col2_container.grid(row=0, column=2, rowspan=2, sticky="nsew",
-                                  padx=(4, 5), pady=5)
+                                  padx=(4, 5), pady=3)
         exclude_frame = ttk.LabelFrame(
             self._col2_container, text="Exclude Combatant's MFs", padding=5
         )
@@ -1402,28 +1402,34 @@ class OptimizerTab(BaseTab):
     # --------------------------------------------------- UI: detail tree
 
     def _build_detail_tree(self, parent):
-        cols = ("slot", "set", "main", "sub1", "sub2", "sub3", "sub4",
+        cols = ("slot", "set", "main", "lvl", "sub1", "sub2", "sub3", "sub4",
                 "gs", "owner")
         self.detail_tree = ttk.Treeview(
             parent, columns=cols, show="headings", height=6,
         )
+        # LVL sits between Main and the substats, as it does on the Memory
+        # Fragments tab: Main and the four Sub cells share the same
+        # "Name: value" shape, so a break between them stops the eye
+        # reading Main as a fifth substat.
         # The GS column shows the current GS when the MF is at max level,
         # or the Potential range (low-high) otherwise -- widened to fit a
         # range like "60-100".
         col_defs = [
-            ("slot",      "Slot",       94),
+            ("slot",      "Slot",       85),
             ("set",       "Set",       110),
-            ("main",      "Main",      90),
+            ("main",      "Main",      95),
+            ("lvl",       "LVL",        28),
             ("sub1",      "Sub1",       90),
             ("sub2",      "Sub2",       90),
             ("sub3",      "Sub3",       90),
             ("sub4",      "Sub4",       90),
-            ("gs",        "GS",         45),
+            ("gs",        "GS",         40),
             ("owner",     "Owner",      80),  # stretches
         ]
         for col, txt, w in col_defs:
             self.detail_tree.heading(col, text=txt)
-            # Everything except gs is left-aligned; gs stays centered.
+            # Text-ish columns are left-aligned; the numeric lvl and gs
+            # stay centered.
             anchor = (tk.W if col in ("slot", "set", "main",
                                       "sub1", "sub2", "sub3", "sub4", "owner")
                       else tk.CENTER)
@@ -3357,8 +3363,8 @@ class OptimizerTab(BaseTab):
             else:
                 owner = p.equipped_to or ""
             self.detail_tree.insert("", tk.END, values=(
-                f"{p.level} {p.slot_name}",
-                p.set_name, main_str, *subs,
+                p.slot_name,
+                p.set_name, main_str, f"{p.level}", *subs,
                 gs_cell, owner,
             ), tags=(f"r{p.rarity_num}",))
         self.detail_tree.tag_configure("r4", foreground=RARITY_COLORS[4])

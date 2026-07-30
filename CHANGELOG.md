@@ -10,6 +10,28 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the
 pre-fork history, see the upstream repository's CHANGELOG.
 
+## [1.4.1] - Eunie + Minor Fixes and Improvements
+
+### Added
+
+- **Memory Fragments tab: the active Gear Score preset is named below the Slots filter.** Reads `Default` when every weight is 1.0 and `Custom` for an unsaved set of weights, so it's clear what the GS and Potential columns are being measured against.
+- **Optimizer tab: Selected Build has its own LVL column,** to the right of Main. The fragment's level used to be tucked in front of the slot name in the Slot column.
+- **The game data files are checked at launch.** The character, partner and set data files are hand-maintained, and most mistakes in them are invisible: a misspelled stat name is ignored, a partner whose grade and class combination isn't listed quietly gets stand-in base stats, and a duplicated entry throws away the one above it. In every case the program keeps working and the scores are simply wrong. Any such problem now appears in a message box on startup, naming the file, the line and the entry, e.g. `characters.py | Ln: 412 | Hilde (30113) | node_50 'CritRate' is not one of HP%, ATK%, DEF%, CRate, CDmg`. If a file won't parse at all, the box gives the file, line and column of the syntax error. Every message says which file to edit to widen a check, for when the game legitimately releases something outside the current range.
+
+### Changed
+
+- **The Combatants tab no longer redraws for capture events that don't concern it.** Upgrading, forging or dismantling a Memory Fragment that nobody has equipped changes nothing on that tab, and rebuilding it is the slowest part of reacting to a live update.
+- **Generating the certificate is quicker.** The Setup tab's "Generate & Install Cert" waited a fixed three seconds for mitmproxy to write the certificate; it now continues as soon as the file appears (usually well under a second) and waits longer only if it needs to.
+
+### Fixed
+
+- **Memory Fragments: the selection really does follow the fragment now.** The fix last release worked when re-sorting, but an upgrade arriving from a live capture cleared the list before the highlight could be noted, so it was lost anyway.
+- **Capture can no longer start with the proxy pointed at itself.** If a previous capture ended without cleaning up — a crash, or the program being killed — the redirect it puts in the Windows hosts file stayed behind, and the next Start Capture then resolved the game server to this machine and told the proxy that its own address was the game server. Every request the game made was forwarded back into the proxy in a loop, filling the Capture Log with thousands of `GET https://127.0.0.1:13701/api/` lines, capturing nothing, and leaving the game either hung on the loading screen or showing a connection error. A leftover redirect is now removed at launch (with a note in the Capture Log), Start Capture removes one and re-checks rather than trusting it, and refuses to start at all if the game server still resolves locally — with a message saying where to look. A leftover redirect also blocked the game from connecting at all, so this fixes that too.
+- **A capture that fails to start no longer leaves the Server Region dropdown disabled.**
+- **Failures to flush the DNS cache are reported** instead of passing silently; a cache still holding the old address is another way a capture can end up looking at the wrong server.
+- **The Setup tab no longer gets stuck on "Checking...".** The prerequisite checks moved to the background last release, and when they finished too early or too late they failed to report back at all — leaving the Setup tab's four status lines stuck on "Checking...", the Capture tab's prerequisite lines missing, and an error printed to the console window.
+- **Re-equipping a Partner no longer wipes most combatants out of the capture.** The game's reply to a Partner swap lists only the Partner and the two combatants involved, and that short list replaced the whole roster — so combatants with no gear equipped vanished from the Combatants tab and from "Exclude Combatant's MFs", the remaining exclusion checkmarks appeared cleared, and the optimizer stopped excluding anything. Restarting didn't help, because the damage was in the captured data. Updates like this are now merged into the roster instead of replacing it. Your exclusion choices were never altered on disk; re-capture and they reappear as they were.
+
 ## [1.4.0] - Off-Element Filter and Fixes
 
 ### Added
@@ -31,7 +53,6 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Fixed
 
-- **The program no longer freezes on startup.** The Setup and Capture tabs check what's installed by running mitmproxy and Python and by looking up the game servers — and those checks ran on the same thread that draws the window, so until they finished, nothing responded to clicks. When one of them never answered at all, the program stayed locked up permanently: the window appeared but was dead, and even closing it from the taskbar did nothing. On Windows, asking for `python` when Python isn't installed opens the Microsoft Store instead of answering, which is what made it hang indefinitely rather than briefly. All these checks now run in the background, give up after five seconds, and no longer flash a console window over the UI.
 - **A newly obtained combatant now appears immediately.** One that had never unlocked a potential node was mistaken for a partner card, so it stayed missing from the Combatants tab — and everywhere else — until an MF was equipped to it. Characters and partner cards are now told apart by the shape of the data the game sends, which doesn't depend on progression.
 - **Memory Fragments: the selection follows the fragment it's on.** Upgrading a selected fragment used to leave the highlight on whatever row took its place; it now moves with the fragment and scrolls back into view.
 - **The window opens in front when launched from a folder without administrator rights.** Declining the UAC prompt used to leave it behind the folder it was started from.

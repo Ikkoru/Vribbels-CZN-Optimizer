@@ -114,6 +114,7 @@ import subprocess
 import shutil
 import ctypes
 import re
+import threading
 import webbrowser
 from dataclasses import dataclass, field
 from typing import Optional, Callable
@@ -122,6 +123,16 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 from datetime import datetime
 from PIL import Image, ImageTk, ImageDraw, ImageFont
+
+# === GAME DATA CHECKS ===
+# MUST come before the game_data import below and before any project
+# import that reaches it: a syntax error in a data file is raised while
+# that module is being imported, so this is the only point at which it
+# can still be reported as a message box rather than a traceback. Keep
+# this above the imports if they are ever reordered.
+from game_data_validator import check_data_files
+if not check_data_files():
+    sys.exit(1)
 
 # === GAME DATA IMPORTS ===
 from game_data import *
@@ -260,6 +271,9 @@ class OptimizerGUI:
         _t = _time.perf_counter()
         self._reveal_window()
         perf_log.log("startup:reveal", secs=_time.perf_counter() - _t)
+        # Only now that the window is up and mapped can a modal dialog
+        # be shown safely, so the game-data report waits until here.
+        self._report_data_problems()
         _t0 = getattr(self, "_startup_t0", None)
         if _t0 is not None:
             perf_log.log("startup:TOTAL", secs=_time.perf_counter() - _t0)
@@ -554,6 +568,7 @@ class OptimizerGUI:
             ),
         )
         self._start_hang_watchdog(program_dir)
+        self._start_data_validation()
         perf_log.log("startup:managers", secs=_time.perf_counter() - _t_start)
         self.app_context.preset_manager = self.preset_manager
         self.app_context.character_preset_manager = self.character_preset_manager
@@ -602,6 +617,11 @@ class OptimizerGUI:
         # markers after a Combatants-tab preset change. Set after creation;
         # the heroes_tab queries via the context and no-ops if None.
         self.app_context.scoring_tab = self.scoring_tab_instance
+        # The Memory Fragments tab names the active scoring weights, which
+        # only the Scoring tab knows -- and it didn't exist when that label
+        # was built. Set it now, so it reads correctly even on a launch
+        # with no snapshot to load.
+        self.inventory_tab_instance.refresh_active_preset_label()
 
         self.about_tab_instance = AboutTab(self.notebook, self.app_context)
         self.about_tab = self.about_tab_instance.get_frame()
@@ -654,6 +674,51 @@ class OptimizerGUI:
             faulthandler.dump_traceback_later(
                 30, repeat=True, file=self._hang_dump_file, exit=False
             )
+        except Exception:
+            pass
+
+    def _start_data_validation(self):
+        """Kick off the game-data value checks on a worker thread.
+
+        Runs alongside the rest of startup rather than in it: the checks
+        walk every character, partner and set, and nothing about them
+        needs to finish before the window appears. `_report_data_problems`
+        (called after the reveal) shows the result.
+        """
+        self._data_problems = None
+
+        def work():
+            try:
+                from game_data_validator import find_data_problems
+                problems = find_data_problems()
+            except Exception as exc:                     # noqa: BLE001
+                problems = [f"the data check itself failed: "
+                            f"{type(exc).__name__}: {exc}"]
+            self._data_problems = problems
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _report_data_problems(self, attempts: int = 0):
+        """Show the game-data check's findings, once the worker has them.
+
+        Polls rather than being pushed from the worker so the dialog is
+        guaranteed to appear on the UI thread, after the window is up --
+        a modal dialog raised during startup would sit behind a
+        transparent window with nothing to parent it to. Gives up quietly
+        after ~10s; a check that slow is not worth a dialog.
+        """
+        problems = getattr(self, "_data_problems", None)
+        if problems is None:
+            if attempts < 100:
+                self.root.after(
+                    100, lambda: self._report_data_problems(attempts + 1))
+            return
+        if not problems:
+            return
+        try:
+            from game_data_validator import format_problem_report
+            messagebox.showwarning("Game data problems",
+                                   format_problem_report(problems))
         except Exception:
             pass
 
@@ -742,6 +807,12 @@ class OptimizerGUI:
         try:
             latest = self.capture_manager.get_latest_capture()
             if latest:
+                # Summary of what the Combatants tab shows, taken BEFORE
+                # the reload. Compared against the same summary afterwards
+                # so a rebuild of that tab -- the most expensive refresh in
+                # this path -- is skipped for events that don't touch it,
+                # e.g. upgrading or forging a fragment nobody has equipped.
+                before = self._combatants_signature()
                 try:
                     self.optimizer.load_data(str(latest))
                     self._ensure_characters_in_preset_file()
@@ -753,8 +824,15 @@ class OptimizerGUI:
                     self.optimizer_tab_instance.refresh_after_load()
                     self.inventory_tab_instance.populate_set_filters()
                     self.materials_tab_instance.refresh_materials()
-                    # apply_active_weights also refreshes inventory + heroes tabs
-                    self.scoring_tab_instance.apply_active_weights()
+                    # apply_active_weights re-scores and refreshes the
+                    # Memory Fragments tab, and the Combatants tab unless
+                    # told the latter has nothing new to show. An
+                    # unavailable signature counts as changed.
+                    after = self._combatants_signature()
+                    self.scoring_tab_instance.apply_active_weights(
+                        refresh_heroes=(before is None or after is None
+                                        or before != after)
+                    )
                     self.capture_tab_instance.refresh_log_presets()
                 except Exception:
                     pass  # Silently ignore reload errors during live monitoring
@@ -766,6 +844,15 @@ class OptimizerGUI:
             self._drain_pending_upgrade_lines()
         finally:
             self._in_live_update = False
+
+    def _combatants_signature(self):
+        """HeroesTab.display_signature(), or None if it can't be taken.
+        None means "assume it changed" -- a stale Combatants tab is worse
+        than a redundant refresh."""
+        try:
+            return self.heroes_tab_instance.display_signature()
+        except Exception:
+            return None
 
     def _drain_pending_upgrade_lines(self):
         """Pull queued "[LIVE] Upgraded ... [pid=N]" lines off the capture
