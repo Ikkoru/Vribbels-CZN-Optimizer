@@ -221,7 +221,7 @@ CHAR_TOTAL_LINES = 8 + 1 + CHAR_SETS_LINES + 1 + 5
 #
 # Preset is last and stretches, so its number is a minimum in the other
 # sense as well: it also takes the leftover width.
-HERO_COL_PX = [69, 39, 58, 58, 35, 28, 47, 26, 68, 35, 180]
+HERO_COL_PX = [65, 35, 54, 54, 30, 23, 42, 24, 64, 30, 180]
 
 # Treeview column ids, and the heading each shows. The id IS the sort
 # key, so a heading click needs no lookup table.

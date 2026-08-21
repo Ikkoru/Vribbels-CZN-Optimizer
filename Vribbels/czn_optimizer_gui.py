@@ -169,7 +169,7 @@ from defaults_sync import sync_defaults
 # treeview's own C code and no style option will reach it -- in which
 # case put this back to 0 and treat 4px as the widget's floor.
 # ===================================================================
-TREE_CELL_PAD = 0
+TREE_CELL_PAD = -2
 
 
 # The dark palette every tab reads through `context.colors`. Module level

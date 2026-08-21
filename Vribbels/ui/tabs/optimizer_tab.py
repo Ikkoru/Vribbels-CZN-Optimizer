@@ -666,10 +666,10 @@ class OptimizerTab(BaseTab):
         # 9 stats + blank + 8 Pot7 rows = 19) so the frame is only as tall
         # as its content; _populate_stats_compare re-syncs the height to
         # the live row count whenever the row set changes.
-        self.stats_tree.column("stat", width=71, stretch=False)
-        self.stats_tree.column("current", width=37, anchor=tk.E, stretch=False)
-        self.stats_tree.column("new", width=37, anchor=tk.E, stretch=False)
-        self.stats_tree.column("diff", width=37, anchor=tk.E, stretch=False)
+        self.stats_tree.column("stat", width=66, stretch=False)
+        self.stats_tree.column("current", width=33, anchor=tk.E, stretch=False)
+        self.stats_tree.column("new", width=33, anchor=tk.E, stretch=False)
+        self.stats_tree.column("diff", width=33, anchor=tk.E, stretch=False)
         self.stats_tree.pack(fill=tk.Y, expand=True)
         # Right-click opens the "Show all stat contributions" menu.
         self.stats_tree.bind("<Button-3>", self._show_stats_context_menu)
@@ -1330,9 +1330,9 @@ class OptimizerTab(BaseTab):
         )
         widths = {
             "score": 51, "sets": 127,
-            "atk": 32, "hp": 32, "def": 32,
-            "crate": 39, "cdmg": 44, "element": 46, "extra": 45,
-            "dot": 42, "ego": 32,
+            "atk": 30, "hp": 32, "def": 25,
+            "crate": 39, "cdmg": 46, "element": 44, "extra": 44,
+            "dot": 40, "ego": 30,
         }
         headings = {
             "score": "Score", "sets": "Sets",
@@ -1377,14 +1377,14 @@ class OptimizerTab(BaseTab):
         # or the Potential range (low-high) otherwise -- widened to fit a
         # range like "60-100".
         col_defs = [
-            ("slot",      "Slot",       85),
-            ("set",       "Set",       115),
-            ("main",      "Main",      95),
-            ("lvl",       "LVL",        28),
-            ("sub1",      "Sub1",       85),
-            ("sub2",      "Sub2",       85),
-            ("sub3",      "Sub3",       85),
-            ("sub4",      "Sub4",       85),
+            ("slot",      "Slot",       83),
+            ("set",       "Set",       118),
+            ("main",      "Main",      91),
+            ("lvl",       "LVL",        22),
+            ("sub1",      "Sub1",       83),
+            ("sub2",      "Sub2",       83),
+            ("sub3",      "Sub3",       83),
+            ("sub4",      "Sub4",       83),
             ("gs",        "GS",         40),
             ("owner",     "Owner",      70),  # stretches
         ]
