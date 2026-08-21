@@ -649,10 +649,12 @@ class OptimizerTab(BaseTab):
             show="headings", height=19,
         )
         self.stats_tree.column("#0", width=0, stretch=False)
-        self.stats_tree.heading("stat", text="Stat")
-        self.stats_tree.heading("current", text="Now")
-        self.stats_tree.heading("new", text="New")
-        self.stats_tree.heading("diff", text="+/-")
+        # Headings take their columns' anchors, set just below: `stat` is
+        # left, the three number columns are right.
+        self.stats_tree.heading("stat", text="Stat", anchor=tk.W)
+        self.stats_tree.heading("current", text="Now", anchor=tk.E)
+        self.stats_tree.heading("new", text="New", anchor=tk.E)
+        self.stats_tree.heading("diff", text="+/-", anchor=tk.E)
         # Column widths are trimmed to the minimum that fits their content
         # ("Element%" is the widest row label; the three value columns fit
         # about five characters each). What that saves goes to the middle
@@ -1341,12 +1343,14 @@ class OptimizerTab(BaseTab):
             "extra": "Extra%", "dot": "DoT%", "ego": "Ego",
         }
         for c in cols:
-            self.result_tree.heading(c, text=headings[c],
+            # The heading takes its column's anchor: a heading defaults to
+            # centred whatever the cells below do, which leaves a
+            # right-aligned number column with its title over the middle.
+            anchor = tk.W if c == "sets" else tk.E
+            self.result_tree.heading(c, text=headings[c], anchor=anchor,
                                       command=lambda col=c: self.sort_results(col))
             self.result_tree.column(
-                c, width=widths[c],
-                anchor=tk.W if c == "sets" else tk.E,
-                stretch=(c == "sets"),
+                c, width=widths[c], anchor=anchor, stretch=(c == "sets"),
             )
 
         result_scroll = ttk.Scrollbar(parent, orient=tk.VERTICAL,
@@ -1389,12 +1393,14 @@ class OptimizerTab(BaseTab):
             ("owner",     "Owner",      70),  # stretches
         ]
         for col, txt, w in col_defs:
-            self.detail_tree.heading(col, text=txt)
             # Text-ish columns are left-aligned; the numeric lvl and gs
-            # stay centered.
+            # stay centered. The heading takes the same anchor as its
+            # column, so a title never floats over a differently-aligned
+            # cell below it.
             anchor = (tk.W if col in ("slot", "set", "main",
                                       "sub1", "sub2", "sub3", "sub4", "owner")
                       else tk.CENTER)
+            self.detail_tree.heading(col, text=txt, anchor=anchor)
             self.detail_tree.column(col, width=w, anchor=anchor,
                                      stretch=(col == "owner"))
         self.detail_tree.pack(fill=tk.X)

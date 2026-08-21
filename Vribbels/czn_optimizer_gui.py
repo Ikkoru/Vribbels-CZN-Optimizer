@@ -159,19 +159,6 @@ from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
 from defaults_sync import sync_defaults
 
 
-# ===================================================================
-# TEMPORARY -- Treeview cell padding, reopened to chase a 4px inset.
-#
-# The style says 0 and `ttk::style lookup` agrees, yet the text sits 4px
-# in from the list's edge. NEGATIVE values are accepted, so this is the
-# test: if -4 pulls the text flush, the inset is padding and cancelling
-# it is legitimate. If it does not move, the 4px is drawn by the
-# treeview's own C code and no style option will reach it -- in which
-# case put this back to 0 and treat 4px as the widget's floor.
-# ===================================================================
-TREE_CELL_PAD = -2
-
-
 # The dark palette every tab reads through `context.colors`. Module level
 # rather than built in OptimizerGUI.__init__ so anything that needs the
 # theme -- a tab, a test harness -- can have it without constructing the
@@ -457,14 +444,23 @@ class OptimizerGUI:
         # border sets its own on top.
         self.style.configure(
             ".",
-            bordercolor=self.colors["bg_light"],
-            lightcolor=self.colors["bg_light"],
-            darkcolor=self.colors["bg_light"],
+            bordercolor=self.colors["bg_lighter"],
+            lightcolor=self.colors["bg_lighter"],
+            darkcolor=self.colors["bg_lighter"],
         )
         self.style.configure("TFrame", background=self.colors["bg"])
         self.style.configure("TLabel", background=self.colors["bg"], foreground=self.colors["fg"])
         self.style.configure("TButton", background=self.colors["bg_light"], foreground=self.colors["fg"], padding=5)
         self.style.map("TButton", background=[("active", self.colors["bg_lighter"])])
+        # A focused ttk.Button paints a dotted ring inside its border, and
+        # something has to hold focus the moment a tab is first shown --
+        # so whichever button happens to be first wears it, unasked.
+        # Colouring the ring to match the button hides it without changing
+        # any geometry, where focusthickness=0 would reflow the label.
+        #
+        # The trade is the same one the checkboxes made: keyboard focus is
+        # no longer visible on a button.
+        self.style.configure("TButton", focuscolor=self.colors["bg_light"])
         self.style.configure("TCombobox", fieldbackground=self.colors["bg_lighter"], background=self.colors["bg_lighter"],
                              foreground=self.colors["fg"], selectbackground=self.colors["select"],
                              selectforeground=self.colors["fg"])
@@ -509,7 +505,10 @@ class OptimizerGUI:
                              foreground=self.colors["fg"],
                              fieldbackground=self.colors["bg_light"],
                              padding=0, rowheight=20)
-        self.style.configure("Treeview.Cell", padding=TREE_CELL_PAD)
+        # NEGATIVE on purpose. The element's own default is not zero, so
+        # a 0 here still leaves the cell text a couple of pixels in from
+        # its column's edge; -2 cancels what is left.
+        self.style.configure("Treeview.Cell", padding=-2)
         # No outline. The border's WIDTH is not a style option -- clam's
         # `Treeview.field` exposes only colours -- so the only way to drop
         # it is a layout with no field element, the same trick

@@ -364,13 +364,23 @@ class InventoryTab(BaseTab):
                             ("potential", "Potential", 50), ("equipped", "Equipped", 65),
                             ("highest_gs", "Highest GS", 65),
                             ("highest_potential", "Highest Potential", 312)]:
-            self.inv_tree.heading(col, text=txt, command=lambda c=col.lower(): self.sort_inventory(c))
             # Text-ish cells (slot/set/main/subs/equipped) are left-aligned;
             # numeric/short columns (lvl, gs, potential, highest_gs) stay
             # centered. highest_potential joins the left-aligned group
             # because its "60-100 [preset]" format reads more naturally
             # flush-left than centered.
-            self.inv_tree.column(col, width=w, anchor=tk.W if col in ["slot", "set", "main", "sub1", "sub2", "sub3", "sub4", "equipped", "highest_potential"] else tk.CENTER)
+            #
+            # The HEADING takes the same anchor as its column: a heading
+            # defaults to centred whatever the cells below it do, which
+            # leaves a left-aligned column with its title floating over
+            # the middle of it.
+            anchor = (tk.W if col in ["slot", "set", "main", "sub1", "sub2",
+                                      "sub3", "sub4", "equipped",
+                                      "highest_potential"]
+                      else tk.CENTER)
+            self.inv_tree.heading(col, text=txt, anchor=anchor,
+                                  command=lambda c=col.lower(): self.sort_inventory(c))
+            self.inv_tree.column(col, width=w, anchor=anchor)
 
         inv_scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.inv_tree.yview)
         self.inv_tree.configure(yscrollcommand=inv_scroll.set)
