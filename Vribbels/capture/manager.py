@@ -97,6 +97,14 @@ class Addon:
         self.log_callback = log_callback or (lambda msg: print(msg, flush=True))
         self.inventory_data = None
         self.character_data = None
+
+        # The gacha schedule, keyed by banner id. Every pickup banner
+        # names its unit in its own id -- gacha_pickup_supporter_30116 --
+        # which is the only res_id in the whole payload that does not
+        # depend on owning the unit, so a release's id is readable here
+        # from the day its banner opens.
+        self.gacha_banners = None
+
         self.saved_path = None
         self.zstd_dict = None
         self.zstd_dctx = None
@@ -434,6 +442,40 @@ class Addon:
                 self.character_data = data
             self._save_data()
 
+        # The lobby reply carries the schedule of every gacha banner,
+        # past and upcoming. It arrives batched, alongside no roster and
+        # no inventory, so it is kept on its own and written out with
+        # whatever the next save carries.
+        schedules = data.get("event_schedules")
+        if isinstance(schedules, dict) and isinstance(schedules.get("GACHA"), dict):
+            self.gacha_banners = schedules["GACHA"]
+            self._report_unknown_units()
+            self._save_data()
+
+    def _report_unknown_units(self):
+        """Log any banner naming a res_id this build has no entry for.
+
+        A newly released unit reaches the game_data tables by hand, and
+        until it does it renders as its bare res_id. The banner is the
+        earliest warning available -- it names the unit weeks before the
+        maintainer can own one.
+        """
+        seen = []
+        for banner_id in sorted(self.gacha_banners or {}):
+            # gacha_pickup_<kind>_<res_id>[_<rerun>] -- the res_id is the
+            # FIRST number, and a rerun suffix follows it.
+            parts = banner_id.split("_")
+            if len(parts) < 4 or parts[0] != "gacha" or parts[1] != "pickup":
+                continue
+            numbers = [p for p in parts[3:] if p.isdigit()]
+            if numbers and int(numbers[0]) not in KNOWN_UNIT_IDS:
+                seen.append((banner_id, int(numbers[0])))
+        for banner_id, res_id in seen:
+            self.log_callback(
+                f"[LIVE] Banner {banner_id} names res_id {res_id}, "
+                f"which is not in game_data"
+            )
+
     @staticmethod
     def _entry_identity(entry):
         """Identity of one entry in a characters-list payload.
@@ -502,6 +544,7 @@ class Addon:
             "capture_time": datetime.now().isoformat(),
             "inventory": self.inventory_data,
             "characters": self.character_data,
+            "gacha_banners": self.gacha_banners,
             "detected_region": self._detect_region(),
         }
 
@@ -1070,10 +1113,15 @@ class CaptureManager:
             # Build lookup dicts for live monitoring log messages
             from game_data import CHARACTERS, SETS
             from game_data.constants import EQUIPMENT_SLOTS
+            from game_data.partners import PARTNERS
 
             char_names = {rid: c["name"] for rid, c in CHARACTERS.items() if c is not None}
             set_names = {sid: s["name"] for sid, s in SETS.items()}
             slot_names = {k: v.split(" ", 1)[1] if " " in v else v for k, v in EQUIPMENT_SLOTS.items()}
+
+            # Every res_id this build can name. Units awaiting an id sit
+            # under a negative placeholder key, which no banner can match.
+            known_unit_ids = {rid for rid in list(CHARACTERS) + list(PARTNERS) if rid > 0}
 
             # Generate standalone script using embedded template
             addon_code = f'''{ADDON_TEMPLATE}
@@ -1083,6 +1131,7 @@ DICT_PATH = {dict_path_str}
 CHAR_NAMES = {char_names}
 SET_NAMES = {set_names}
 SLOT_NAMES = {slot_names}
+KNOWN_UNIT_IDS = {known_unit_ids}
 
 addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
 '''

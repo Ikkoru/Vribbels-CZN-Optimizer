@@ -34,6 +34,7 @@ from checks._harness import Skip                       # noqa: E402
 from checks import (                                    # noqa: E402
     check_addon_template,
     check_breakdown_reconciles,
+    check_capture_banners,
     check_capture_batching,
     check_game_data,
     check_optimizer_parity,
@@ -48,6 +49,7 @@ CHECKS = [
     check_spacing_markers,
     check_addon_template,
     check_capture_batching,
+    check_capture_banners,
     check_game_data,
     check_settings_roundtrip,
     check_tabs_build,

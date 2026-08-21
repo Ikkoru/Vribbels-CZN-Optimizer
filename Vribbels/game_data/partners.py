@@ -952,7 +952,7 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "80% Damage × 3 to all enemies\n1 Leaving the Rest to You!, and when an enemy is defeated, 1 Ammo Transfer for each defeated\n\nLeaving the Rest to You!:\nWhen attacked, apply 1 Ammo Transfer to the assigned Combatant\nOn effect activation, decrease Leaving the Rest to You! by 1\n\nAmmo Transfer:\nIncrease Damage Amount of the assigned Combatant’s next Extra Attack by 40%\nOn effect activation, remove Ammo Transfer",
     },
-    -1: {
+    30116: {
         "name": "Licinia",
         "grade": 5,
         "class": "Striker",
@@ -991,7 +991,7 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "Exhaust all Status Ailment Cards (including those that were originally Status Ailment) and Curse Cards from Discard Pile.\nIncrease Damage Amount of the assigned Combatant's Attack Cards by 10% for each card Exhausted for 1 turn.",
     },
-    -3: {  # TODO: replace key with real res_id when known
+    20004: {  # TBC -- the only unplaced Hunter, matched by class alone
         "name": "Janet",
         "grade": 5,
         "class": "Hunter",

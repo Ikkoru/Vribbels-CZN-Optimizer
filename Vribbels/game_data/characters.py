@@ -570,7 +570,7 @@ CHARACTERS = {
         "node_60": "CRate",
         "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},  # Assumed based on Heidemarie
     },
-    -1: {
+    30115: {
         "name": "Arabella",
         "grade": 5,
         "attribute": "Instinct",
