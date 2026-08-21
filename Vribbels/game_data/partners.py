@@ -994,7 +994,7 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "Exhaust all Status Ailment Cards (including those that were originally Status Ailment) and Curse Cards from Discard Pile.\nIncrease Damage Amount of the assigned Combatant's Attack Cards by 10% for each card Exhausted for 1 turn.",
     },
-    20004: {  # TBC -- the only unplaced Hunter, matched by class alone
+    20004: {
         "name": "Janet",
         "grade": 5,
         "class": "Hunter",
