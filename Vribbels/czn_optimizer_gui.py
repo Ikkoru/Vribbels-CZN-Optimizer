@@ -159,6 +159,26 @@ from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
 from defaults_sync import sync_defaults
 
 
+# ===================================================================
+# TEMPORARY -- Treeview cell padding, for trying values on screen.
+#
+# The inset from a column's edge to its text, applied to EVERY list in
+# the app at once (there is one shared Treeview style). It moves all
+# columns together; a single column cannot be inset on its own.
+#
+# This is the padding that decides where a value clips: the text area is
+# the column width minus this, so a value can run out of room while its
+# column still shows empty space.
+#
+# A tuple works too -- (left, right) or (left, top, right, bottom) -- if
+# the two sides want different values.
+#
+# When it is settled, fold it back into the `Treeview.Cell` line in
+# configure_styles and delete this block.
+# ===================================================================
+TREE_CELL_PAD = 0
+
+
 # The dark palette every tab reads through `context.colors`. Module level
 # rather than built in OptimizerGUI.__init__ so anything that needs the
 # theme -- a tab, a test harness -- can have it without constructing the
@@ -478,7 +498,9 @@ class OptimizerGUI:
                              foreground=self.colors["fg"],
                              fieldbackground=self.colors["bg_light"],
                              padding=0, rowheight=20)
-        self.style.configure("Treeview.Cell", padding=0)
+        # TEMPORARY: reads TREE_CELL_PAD at the top of this file so the
+        # value can be tried without hunting for this line.
+        self.style.configure("Treeview.Cell", padding=TREE_CELL_PAD)
         # No outline. The border's WIDTH is not a style option -- clam's
         # `Treeview.field` exposes only colours -- so the only way to drop
         # it is a layout with no field element, the same trick
