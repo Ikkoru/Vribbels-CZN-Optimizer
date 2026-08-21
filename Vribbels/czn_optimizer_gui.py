@@ -160,23 +160,22 @@ from defaults_sync import sync_defaults
 
 
 # ===================================================================
-# TEMPORARY -- Treeview cell padding, for trying values on screen.
+# TEMPORARY -- Treeview heading border, for trying values on screen.
 #
-# The inset from a column's edge to its text, applied to EVERY list in
-# the app at once (there is one shared Treeview style). It moves all
-# columns together; a single column cannot be inset on its own.
+# Each heading cell draws its own border, separate from the heading's
+# padding. It is what gives the header row its raised look, and it adds
+# to the header's height and to the width between columns.
 #
-# This is the padding that decides where a value clips: the text area is
-# the column width minus this, so a value can run out of room while its
-# column still shows empty space.
+# Paired with `relief`, which the theme sets to `raised`: at borderwidth
+# 0 the relief has nothing to draw with and the headers go flat, so the
+# two are really one decision.
 #
-# A tuple works too -- (left, right) or (left, top, right, bottom) -- if
-# the two sides want different values.
+# Applies to EVERY list in the app -- there is one shared Treeview style.
 #
-# When it is settled, fold it back into the `Treeview.Cell` line in
+# When it is settled, fold it into the `Treeview.Heading` line in
 # configure_styles and delete this block.
 # ===================================================================
-TREE_CELL_PAD = 0
+TREE_HEADING_BORDER = 1
 
 
 # The dark palette every tab reads through `context.colors`. Module level
@@ -498,9 +497,7 @@ class OptimizerGUI:
                              foreground=self.colors["fg"],
                              fieldbackground=self.colors["bg_light"],
                              padding=0, rowheight=20)
-        # TEMPORARY: reads TREE_CELL_PAD at the top of this file so the
-        # value can be tried without hunting for this line.
-        self.style.configure("Treeview.Cell", padding=TREE_CELL_PAD)
+        self.style.configure("Treeview.Cell", padding=0)
         # No outline. The border's WIDTH is not a style option -- clam's
         # `Treeview.field` exposes only colours -- so the only way to drop
         # it is a layout with no field element, the same trick
@@ -516,8 +513,12 @@ class OptimizerGUI:
             ])
         except tk.TclError:
             pass
+        # TEMPORARY borderwidth: reads TREE_HEADING_BORDER at the top of
+        # this file so the value can be tried without hunting for this
+        # line. See that block for how it pairs with `relief`.
         self.style.configure("Treeview.Heading", background=self.colors["bg_lighter"],
-                             foreground=self.colors["fg"], padding=2)
+                             foreground=self.colors["fg"], padding=2,
+                             borderwidth=TREE_HEADING_BORDER)
         self.style.map("Treeview.Heading", background=[("active", self.colors["select"])],
                        foreground=[("active", self.colors["fg"])])
         self.style.map("Treeview", background=[("selected", self.colors["select"])],
