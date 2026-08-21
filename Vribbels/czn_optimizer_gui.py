@@ -473,6 +473,27 @@ class OptimizerGUI:
         self.style.configure("TLabelframe", background=self.colors["bg"])
         self.style.configure("TLabelframe.Label", background=self.colors["bg"], foreground=self.colors["accent"])
         self.style.configure("TScale", background=self.colors["bg"], troughcolor=self.colors["bg_light"])
+        # A scrollbar is painted from FIVE colours, and the three border
+        # ones on the root style reach only its outline. The two that
+        # actually fill it are separate:
+        #
+        #   troughcolor  the groove the thumb slides in
+        #   background   the THUMB itself, and the arrow buttons
+        #
+        # Clam ships those as light greys, which is why setting the border
+        # colour recoloured the scrollbar's edges and left its middle pale.
+        # arrowcolor is the glyph inside the arrow buttons.
+        self.style.configure(
+            "TScrollbar",
+            troughcolor=self.colors["bg"],
+            background=self.colors["bg_lighter"],
+            arrowcolor=self.colors["fg_dim"],
+        )
+        self.style.map(
+            "TScrollbar",
+            background=[("active", self.colors["select"])],
+            arrowcolor=[("active", self.colors["fg"])],
+        )
         self.style.configure("TNotebook", background=self.colors["bg"])
         # spacing: content frame -> content frame
         # Clam's Notebook.client element insets its content by 2px on every
