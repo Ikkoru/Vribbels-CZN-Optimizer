@@ -1332,9 +1332,9 @@ class OptimizerTab(BaseTab):
         )
         widths = {
             "score": 51, "sets": 127,
-            "atk": 30, "hp": 32, "def": 25,
-            "crate": 39, "cdmg": 46, "element": 44, "extra": 44,
-            "dot": 40, "ego": 30,
+            "atk": 32, "hp": 32, "def": 32,
+            "crate": 33, "cdmg": 49, "element": 40, "extra": 39,
+            "dot": 36, "ego": 24,
         }
         headings = {
             "score": "Score", "sets": "Sets",
@@ -1385,10 +1385,10 @@ class OptimizerTab(BaseTab):
             ("set",       "Set",       118),
             ("main",      "Main",      91),
             ("lvl",       "LVL",        22),
-            ("sub1",      "Sub1",       83),
-            ("sub2",      "Sub2",       83),
-            ("sub3",      "Sub3",       83),
-            ("sub4",      "Sub4",       83),
+            ("sub1",      "Sub1",       85),
+            ("sub2",      "Sub2",       85),
+            ("sub3",      "Sub3",       85),
+            ("sub4",      "Sub4",       85),
             ("gs",        "GS",         40),
             ("owner",     "Owner",      70),  # stretches
         ]
