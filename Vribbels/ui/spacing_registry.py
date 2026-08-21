@@ -439,4 +439,8 @@ def register_all():
         )
 
 
+# Runs at IMPORT, so importing this module is what fills
+# spacing_audit.REGISTRY -- importing spacing_audit alone leaves it
+# empty. Not idempotent: calling it again after the import appends a
+# second copy of every entry.
 register_all()
