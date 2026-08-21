@@ -175,7 +175,7 @@ from defaults_sync import sync_defaults
 # When it is settled, fold it into the `Treeview.Heading` line in
 # configure_styles and delete this block.
 # ===================================================================
-TREE_HEADING_BORDER = 1
+TREE_HEADING_BORDER = 0
 
 
 # The dark palette every tab reads through `context.colors`. Module level
