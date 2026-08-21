@@ -109,50 +109,6 @@ from models.memory_fragment import compute_gs_bounds, normalize_gs
 DEFAULT_PRESET_LABEL = "Default Preset (all weights are 1.0)"
 
 
-# ===================================================================
-# TEMPORARY -- Treeview spacing, for trying values on screen.
-#
-# These drive a style used by the Combatants list ALONE, so every other
-# list in the app stays at the theme default and can be compared against
-# side by side. Once the numbers are settled they move to
-# configure_styles() as the app-wide `Treeview` style, this block goes,
-# and the values become a rule in docs/ui_spacing.md.
-#
-# None means "leave the theme's own value alone".
-#
-#   TREE_PADDING   the whole tree area, inside the widget's border.
-#                  Insets the rows and the headings together.
-#   TREE_ROWHEIGHT the height of one row, in pixels. Rows are contiguous
-#                  -- there is no gap between them -- so this is the only
-#                  vertical breathing room there is. Below the font's
-#                  line box (15px at Segoe UI 9) the text clips.
-#   TREE_HEADING_PAD  one heading cell's content. The theme ships 3.
-#
-# There is deliberately no item-padding knob. `Treeview.Item` draws the
-# TREE column (#0) -- indicator, image, text -- and `show="headings"`
-# hides that column, so its padding renders nothing however it is set.
-# The inset from a data cell's left edge to its text is drawn by the
-# widget itself and is not a style option in this theme. Padding the
-# STRING is the only lever, and it would have to be undone for sorting.
-# ===================================================================
-TREE_PADDING = 0
-TREE_ROWHEIGHT = 20
-TREE_HEADING_PAD = 2
-
-# Drop the widget's 1px outline. The border's WIDTH is not a style
-# option -- clam's `Treeview.field` exposes only colours -- so the only
-# way to remove it is to replace the layout with one that has no field
-# element at all, which is the same trick `Flush.TNotebook` uses.
-#
-# `fieldbackground` belongs to that element, so it goes with it. The
-# empty area below the last row falls back to the style's `background`,
-# which is set, so it should stay dark -- but that is the thing to look
-# at first if this ever paints white on a short list.
-TREE_BORDERLESS = True
-
-# The style those values configure. Named so it is obvious in a grep
-# which widget is carrying the experiment.
-TREE_STYLE = "Combatants.Treeview"
 
 # Build-stat rows under the Character card: (left column key, right
 # column key). None leaves that half of the row empty -- Element has no
@@ -403,50 +359,6 @@ class HeroesTab(BaseTab):
         self.gear_frames = {}
         self.gear_labels = {}
 
-    def _apply_tree_spacing(self):
-        """Build the Combatants list's own Treeview style.
-
-        TEMPORARY, paired with the TREE_* block at the top of this file.
-        A DERIVED style rather than the app-wide `Treeview` one, so the
-        other lists keep the theme default and can be compared against
-        while the numbers are being chosen.
-
-        A None leaves the theme's value alone rather than setting it to
-        nothing, which is not the same thing -- `configure(padding="")`
-        would clear an inherited value.
-        """
-        style = getattr(self.context, "style", None)
-        if style is None:
-            return
-        base, heading = {}, {}
-        if TREE_PADDING is not None:
-            base["padding"] = TREE_PADDING
-        if TREE_ROWHEIGHT is not None:
-            base["rowheight"] = TREE_ROWHEIGHT
-        if TREE_HEADING_PAD is not None:
-            heading["padding"] = TREE_HEADING_PAD
-        try:
-            if TREE_BORDERLESS:
-                # The same layout minus `Treeview.field`, which is the
-                # element that draws the outline. Set BEFORE configure so
-                # the style exists with its final shape.
-                style.layout(TREE_STYLE, [
-                    ("Treeview.padding", {
-                        "sticky": "nswe",
-                        "children": [
-                            ("Treeview.treearea", {"sticky": "nswe"}),
-                        ],
-                    }),
-                ])
-            # Configure the derived style even when every value is None:
-            # the widget needs the style NAME to exist, and an empty
-            # configure is what creates it as a copy of Treeview.
-            style.configure(TREE_STYLE, **base)
-            if heading:
-                style.configure(f"{TREE_STYLE}.Heading", **heading)
-        except tk.TclError:
-            pass
-
     def setup_ui(self):
         """Setup the Heroes tab UI."""
         # Shared by every substat roll-quality figure in the gear cells.
@@ -595,10 +507,9 @@ class HeroesTab(BaseTab):
         hero_tree_frame = ttk.Frame(hero_list_container)
         hero_tree_frame.pack(fill=tk.BOTH, expand=True)
 
-        self._apply_tree_spacing()
         self.hero_tree = ttk.Treeview(
             hero_tree_frame, columns=HERO_COL_IDS, show="headings",
-            selectmode="browse", style=TREE_STYLE,
+            selectmode="browse",
         )
         hero_vsb = ttk.Scrollbar(hero_tree_frame, orient=tk.VERTICAL,
                                  command=self.hero_tree.yview)

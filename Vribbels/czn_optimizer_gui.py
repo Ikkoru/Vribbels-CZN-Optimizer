@@ -466,9 +466,36 @@ class OptimizerGUI:
             pass
         self.style.configure("TNotebook.Tab", background=self.colors["bg_light"], foreground=self.colors["fg"], padding=[10, 5])
         self.style.map("TNotebook.Tab", background=[("selected", self.colors["bg_lighter"])])
-        self.style.configure("Treeview", background=self.colors["bg_light"], foreground=self.colors["fg"],
-                             fieldbackground=self.colors["bg_light"], rowheight=24)
-        self.style.configure("Treeview.Heading", background=self.colors["bg_lighter"], foreground=self.colors["fg"])
+        # spacing: unique -- Treeview internals, which are style options
+        # rather than anything a geometry manager can reach
+        #
+        # `padding` insets the whole tree area; `rowheight` is the only
+        # vertical spacing a Treeview has, since its rows are contiguous;
+        # `Treeview.Cell` padding is the inset from a column's edge to its
+        # text, and it moves every column together. Below the font's line
+        # box (15px at Segoe UI 9) a row clips its own text.
+        self.style.configure("Treeview", background=self.colors["bg_light"],
+                             foreground=self.colors["fg"],
+                             fieldbackground=self.colors["bg_light"],
+                             padding=0, rowheight=20)
+        self.style.configure("Treeview.Cell", padding=0)
+        # No outline. The border's WIDTH is not a style option -- clam's
+        # `Treeview.field` exposes only colours -- so the only way to drop
+        # it is a layout with no field element, the same trick
+        # `Flush.TNotebook` uses above. `fieldbackground` belongs to that
+        # element and goes with it; the empty area below the last row
+        # falls back to `background`, which is set just above.
+        try:
+            self.style.layout("Treeview", [
+                ("Treeview.padding", {
+                    "sticky": "nswe",
+                    "children": [("Treeview.treearea", {"sticky": "nswe"})],
+                }),
+            ])
+        except tk.TclError:
+            pass
+        self.style.configure("Treeview.Heading", background=self.colors["bg_lighter"],
+                             foreground=self.colors["fg"], padding=2)
         self.style.map("Treeview.Heading", background=[("active", self.colors["select"])],
                        foreground=[("active", self.colors["fg"])])
         self.style.map("Treeview", background=[("selected", self.colors["select"])],
