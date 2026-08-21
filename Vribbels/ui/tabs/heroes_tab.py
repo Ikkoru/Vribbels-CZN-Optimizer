@@ -139,6 +139,17 @@ TREE_PADDING = 0
 TREE_ROWHEIGHT = 20
 TREE_HEADING_PAD = 2
 
+# Drop the widget's 1px outline. The border's WIDTH is not a style
+# option -- clam's `Treeview.field` exposes only colours -- so the only
+# way to remove it is to replace the layout with one that has no field
+# element at all, which is the same trick `Flush.TNotebook` uses.
+#
+# `fieldbackground` belongs to that element, so it goes with it. The
+# empty area below the last row falls back to the style's `background`,
+# which is set, so it should stay dark -- but that is the thing to look
+# at first if this ever paints white on a short list.
+TREE_BORDERLESS = True
+
 # The style those values configure. Named so it is obvious in a grep
 # which widget is carrying the experiment.
 TREE_STYLE = "Combatants.Treeview"
@@ -415,6 +426,18 @@ class HeroesTab(BaseTab):
         if TREE_HEADING_PAD is not None:
             heading["padding"] = TREE_HEADING_PAD
         try:
+            if TREE_BORDERLESS:
+                # The same layout minus `Treeview.field`, which is the
+                # element that draws the outline. Set BEFORE configure so
+                # the style exists with its final shape.
+                style.layout(TREE_STYLE, [
+                    ("Treeview.padding", {
+                        "sticky": "nswe",
+                        "children": [
+                            ("Treeview.treearea", {"sticky": "nswe"}),
+                        ],
+                    }),
+                ])
             # Configure the derived style even when every value is None:
             # the widget needs the style NAME to exist, and an empty
             # configure is what creates it as a copy of Treeview.
