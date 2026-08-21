@@ -17,13 +17,31 @@ Where to look when you want to change X
                                    tab needs rebuilding at all. Extend it
                                    whenever a new field reaches the rows
                                    or the detail pane.
-  Row click / keyboard nav:        _on_row_click, _on_row_right_click,
-                                   _navigate_hero_list. The list is a
-                                   canvas of frames (not a Treeview), so
-                                   keyboard nav is hand-rolled and the
-                                   canvas needs focus to receive Up/Down.
-  Detail panel (right side):       show_hero_details() -- character frame,
-                                   partner card, equipped MFs frame.
+  Row click / keyboard nav:        the list is a ttk.Treeview, so
+                                   selection, Up/Down and scrolling are
+                                   its own. _on_tree_select turns a
+                                   selection into a detail-pane refresh;
+                                   _on_hero_list_key adds letter-jump.
+                                   A row's iid is its index into
+                                   hero_data_list.
+  Row colour:                      one TAG per Element, set on the row.
+                                   A Treeview colours a ROW, never a
+                                   single cell, so the Element colour
+                                   covers the whole row rather than the
+                                   Attribute cell alone.
+  Detail panel (right side):       show_hero_details() -- character card
+                                   (ONE Text widget holding the details,
+                                   the Sets line and the build-stat
+                                   block), partner card, equipped MFs
+                                   frame.
+  Build stats under Character:     HERO_STAT_ROWS / HERO_STAT_DISPLAY set
+                                   the two columns, laid out on the Text
+                                   widget's tab stops; _format_stats_text
+                                   builds the block, _format_sets_text the
+                                   Sets line. Both the display and
+                                   _compute_and_apply_fixed_sizes read
+                                   them, so a new row is picked up by the
+                                   sizing pass automatically.
   Per-piece GS in detail panel:    uses compute_fragment_gs() with the
                                    per-character preset's weights, NOT
                                    the globally-Apply'd weights. The
@@ -47,7 +65,7 @@ Where to look when you want to change X
                                    and compares to the set's pieces
                                    requirement -- white if complete, dim
                                    grey if partial.
-  Right-click level checkpoint:    _on_row_right_click ->
+  Right-click level checkpoint:    _on_tree_right_click ->
                                    _prompt_level_checkpoint -> writes to
                                    LevelDataManager and refreshes.
   Selection memory:                refresh_heroes reads
@@ -73,11 +91,15 @@ from typing import Optional
 
 from ui.base_tab import BaseTab
 from ui.context import AppContext
+from ui.utils.tooltip import Tooltip
+from ui.utils.combobox_nav import (
+    combobox_letter_jump, combobox_arrow_nav, bind_popdown_seek,
+)
 from game_data import (
     EQUIPMENT_SLOTS, SETS, STATS, RARITY_COLORS, RARITY_BG_COLORS,
     RARITY_STARTING_SUBSTATS, ATTRIBUTE_COLORS,
     get_character_by_name, get_partner, get_partner_stats,
-    get_partner_passive_info, get_potential_stat_bonus
+    get_partner_passive_info
 )
 from models import Stat
 from models.memory_fragment import compute_gs_bounds, normalize_gs
@@ -87,147 +109,193 @@ from models.memory_fragment import compute_gs_bounds, normalize_gs
 DEFAULT_PRESET_LABEL = "Default Preset (all weights are 1.0)"
 
 
-def _combobox_letter_jump(event, combobox):
-    """Letter-key navigation on a readonly Combobox: pressing 'A' jumps
-    to the next value starting with 'A' (case-insensitive), cycling at
-    the end of the list. Non-alphanumeric keys fall through (return None
-    so Tk's default handling can still process arrows etc.).
+# ===================================================================
+# TEMPORARY -- Treeview spacing, for trying values on screen.
+#
+# These drive a style used by the Combatants list ALONE, so every other
+# list in the app stays at the theme default and can be compared against
+# side by side. Once the numbers are settled they move to
+# configure_styles() as the app-wide `Treeview` style, this block goes,
+# and the values become a rule in docs/ui_spacing.md.
+#
+# None means "leave the theme's own value alone".
+#
+#   TREE_PADDING   the whole tree area, inside the widget's border.
+#                  Insets the rows and the headings together.
+#   TREE_ROWHEIGHT the height of one row, in pixels. Rows are contiguous
+#                  -- there is no gap between them -- so this is the only
+#                  vertical breathing room there is. Below the font's
+#                  line box (15px at Segoe UI 9) the text clips.
+#   TREE_HEADING_PAD  one heading cell's content. The theme ships 3.
+#
+# There is deliberately no item-padding knob. `Treeview.Item` draws the
+# TREE column (#0) -- indicator, image, text -- and `show="headings"`
+# hides that column, so its padding renders nothing however it is set.
+# The inset from a data cell's left edge to its text is drawn by the
+# widget itself and is not a style option in this theme. Padding the
+# STRING is the only lever, and it would have to be undone for sorting.
+# ===================================================================
+TREE_PADDING = 0
+TREE_ROWHEIGHT = 20
+TREE_HEADING_PAD = 2
 
-    Fires <<ComboboxSelected>> on a successful jump so handlers downstream
-    (e.g. _on_preset_combo_change in this module, on_hero_select in
-    optimizer_tab) see the change.
+# The style those values configure. Named so it is obvious in a grep
+# which widget is carrying the experiment.
+TREE_STYLE = "Combatants.Treeview"
 
-    Binds to <KeyRelease> (not <KeyPress>): readonly ttk.Combobox's
-    internal handler can swallow KeyPress before our binding sees it on
-    some platforms; KeyRelease fires after Tk's default processing.
+# Build-stat rows under the Character card: (left column key, right
+# column key). None leaves that half of the row empty -- Element has no
+# left-hand partner. Laid out on the Text widget's tab stops rather than
+# by padding the text, so the two value columns align in a proportional
+# font.
+HERO_STAT_ROWS = [
+    ("ATK", "CRate"),
+    ("DEF", "CDmg"),
+    ("HP", "Extra DMG%"),
+    ("Ego", "DoT%"),
+    (None, "Element"),
+]
 
-    Module-level on purpose: the Optimizer tab uses an analogous helper,
-    and keeping them in sync (same behavior, same caveats) means future
-    edits should touch both.
+# Stat key -> the label shown for it. "Element" isn't a calculate_build_stats
+# key; it's the summed matching-element DMG% mains, computed in
+# show_hero_details.
+HERO_STAT_DISPLAY = {
+    "ATK": "ATK", "DEF": "DEF", "HP": "HP", "Ego": "Ego",
+    "CRate": "Crit%", "CDmg": "CDMG", "Extra DMG%": "Extra%",
+    "DoT%": "DoT%", "Element": "Element",
+}
+
+# The widest value each STAT will ever hold, as the string itself.
+#
+# Per stat, not per column, because the column's edge is placed at
+# `max(label + 4 + value)` taken row by row -- so a row pairing a wide
+# label with a narrow value costs nothing. `Element` is the widest label
+# in the block and would drag the whole column right if the two were
+# maxed separately.
+#
+# Strings rather than character counts: Segoe UI's digits are tabular, so
+# a count is exact for digits alone, but `.` and `%` are not digit-width
+# and the right column carries both.
+#
+# Stated rather than measured from the loaded data, so the columns do not
+# jitter between combatants. A value that outgrows its entry clips rather
+# than pushing the column, so widen it here if one ever does.
+HERO_STAT_VALUE_MAXIMA = {
+    "ATK": "9999", "DEF": "9999", "HP": "9999", "Ego": "999",
+    "CRate": "99.9%", "CDmg": "999.9%", "Extra DMG%": "99.9%",
+    "DoT%": "99.9%", "Element": "99.9%",
+}
+
+# Fixed size of one Equipped Memory Fragments cell. Stated rather than
+# derived: deriving it meant estimating the LabelFrame overhead, the wrap
+# width and the line count separately, and the three estimates disagreed.
+# Calibrated against the longest set description currently in the game --
+# a longer one clips rather than growing the cell.
+GEAR_CELL_W = 401
+GEAR_CELL_H = 163
+
+# How far the set-description text wraps short of the cell's own width.
+# Raise it to pull the wrap in, lower it to let the text run wider. The
+# cell is a fixed size, so this is the only thing that moves the wrap.
+GEAR_SET_WRAP_INSET = 6
+
+# Width the Character panel gives up to the Partner panel beside it.
+# They share a row, so what one does not take, the other gets.
+CHAR_WIDTH_CEDED = 19
+
+# Lines the Character panel always reserves under each heading, filled
+# with blanks when there is less to say, so its height is the same for
+# every combatant.
+#
+# Six slots hold at most three 2-piece sets, or two sets plus a Flex
+# token -- three lines either way.
+CHAR_SETS_LINES = 3
+# One per potential node the program tracks. Nodes 5 and 6 are the two
+# carrying stats; the rest are parsed and dropped (see
+# docs/game_formulas.md "The potential tree"), so listing them here waits
+# on them being stored.
+CHAR_POTENTIAL_LINES = 2
+# Shared by the set names and the potential nodes, so the two blocks read
+# as the same kind of list.
+CHAR_SUBLIST_INDENT = "  "
+
+# The widest line the details block renders: the Affinity BONUS line,
+# `  Bonus: ATK+39, DEF+12, HP+36`, at 175px. The combatant's NAME is not
+# in this panel at all -- it is the heading above -- so nothing here
+# scales with it.
+#
+# Two traps, both of which have caught a reader already. The widest by
+# CHARACTER COUNT and the widest in PIXELS are different strings, and the
+# pixel one is what matters. And the obvious candidate is not the widest:
+# the Grade / element / class line tops out at 156px, well short of the
+# bonus figures, which grow with Affinity level.
+#
+# Re-measure rather than reason: format every combatant's card and take
+# max(measure(line)).
+CHAR_CONTENT_PX = 180
+# Details block + "Sets:" + its lines + "Stats:" + one per stat row.
+CHAR_TOTAL_LINES = 8 + 1 + CHAR_SETS_LINES + 1 + 5
+
+# Character-list column widths, in PIXELS. A tk.Label's `width` counts
+# CHARACTERS, which is only a width in a monospaced font -- these are
+# applied as the Treeview's column widths.
+#
+# **Every number here is a FLOOR, not a width.** A grid column ends up at
+#
+#     max(this number, the bold header's width, the widest cell's width)
+#
+# so LOWERING one below its content changes nothing on screen -- the
+# label still asks for room for its text and the column still grants it.
+# Raising one always works. To go narrower than the content, the content
+# has to be truncated; nothing here will do it.
+#
+# Each is currently the wider of its bold header and its widest real
+# value, plus a little room -- measured, not guessed.
+#
+# Preset is last and stretches, so its number is a minimum in the other
+# sense as well: it also takes the leftover width.
+HERO_COL_PX = [69, 39, 58, 58, 35, 28, 47, 26, 68, 35, 180]
+
+# Treeview column ids, and the heading each shows. The id IS the sort
+# key, so a heading click needs no lookup table.
+HERO_COL_IDS = ("name", "grade", "attribute", "class", "level",
+                "ego", "affinity", "gs", "partner", "partner_level",
+                "preset")
+HERO_COL_TITLES = ("Combatant", "Grade", "Attribute", "Class", "Level",
+                   "Ego", "Affinity", "GS", "Partner", "Level", "Preset")
+
+# Tag for a row whose Element the program does not know, so it still gets
+# an explicit foreground rather than inheriting the theme's.
+HERO_TAG_UNKNOWN = "_unknown_element"
+
+
+def _padded_sublist(tokens):
+    """Indented lines, one per token, padded to CHAR_SETS_LINES.
+
+    Every path through the Sets block comes here, the empty one included
+    -- an early `return "None"` skipped both the indent and the padding,
+    so an ungeared combatant's panel was a different shape from everyone
+    else's.
     """
-    char = event.char
-    if not char or not char.isalnum():
-        return None
-    char_lower = char.lower()
-
-    values = list(combobox["values"])
-    if not values:
-        return "break"
-
-    current = combobox.get()
-    try:
-        start = (values.index(current) + 1) % len(values)
-    except ValueError:
-        start = 0
-
-    for offset in range(len(values)):
-        idx = (start + offset) % len(values)
-        if values[idx].lower().startswith(char_lower):
-            combobox.set(values[idx])
-            # Force a full text selection so the whole value highlights
-            # after a programmatic set() (readonly Combobox doesn't do
-            # this on its own). Kept in sync with the analogous helper
-            # in optimizer_tab.py.
-            try:
-                combobox.selection_clear()
-                combobox.selection_range(0, "end")
-            except tk.TclError:
-                pass
-            combobox.event_generate("<<ComboboxSelected>>")
-            return "break"
-    return "break"
+    lines = [CHAR_SUBLIST_INDENT + t for t in tokens[:CHAR_SETS_LINES]]
+    lines += [""] * (CHAR_SETS_LINES - len(lines))
+    return "\n".join(lines)
 
 
-def _combobox_arrow_nav(event, combobox, direction):
-    """Up / Down arrow navigation on a readonly Combobox.
+def _default_font():
+    """TkDefaultFont, or an explicit equivalent when it isn't registered.
 
-    Steps to the prev/next value in place WITHOUT opening the dropdown
-    popup. Does NOT wrap at the ends (stops at first/last). Forces a full
-    text selection after moving. Returns "break" to suppress Tk's default
-    open-popup behavior on <Down>. Mirror of the helper in optimizer_tab.py.
-    """
-    values = list(combobox["values"])
-    if not values:
-        return "break"
-    current = combobox.get()
-    try:
-        idx = values.index(current)
-    except ValueError:
-        idx = -1 if direction > 0 else len(values)
-    new_idx = idx + direction
-    if new_idx < 0 or new_idx >= len(values):
-        return "break"  # no wrap-around
-    combobox.set(values[new_idx])
-    try:
-        combobox.selection_clear()
-        combobox.selection_range(0, "end")
-    except tk.TclError:
-        pass
-    combobox.event_generate("<<ComboboxSelected>>")
-    return "break"
-
-
-def _popdown_listbox_seek(combobox, listbox_path, char):
-    """Type-ahead seek inside an OPEN combobox dropdown list.
-    Moves the popdown listbox highlight to the next entry starting
-    with `char` (case-insensitive), cycling. Operates via the listbox's Tcl
-    path (it isn't a registered tkinter widget). Does NOT commit the value;
-    Enter/click commits, same as native. Mirror of optimizer_tab.py.
-    """
-    if not char or not char.isalnum():
-        return
-    char_lower = char.lower()
-    tkc = combobox.tk
-    try:
-        size = int(tkc.call(listbox_path, "size"))
-    except tk.TclError:
-        return
-    if size == 0:
-        return
-    values = [str(tkc.call(listbox_path, "get", i)) for i in range(size)]
-    try:
-        cur = int(tkc.call(listbox_path, "index", "active"))
-    except (tk.TclError, ValueError):
-        cur = 0
-    for offset in range(1, size + 1):
-        idx = (cur + offset) % size
-        if values[idx].lower().startswith(char_lower):
-            tkc.call(listbox_path, "selection", "clear", 0, "end")
-            tkc.call(listbox_path, "selection", "set", idx)
-            tkc.call(listbox_path, "activate", idx)
-            tkc.call(listbox_path, "see", idx)
-            return
-
-
-def _bind_popdown_seek(combobox):
-    """Enable type-ahead seek on a readonly Combobox's OPEN dropdown list.
-    Reaches the popdown listbox at "<popdown>.f.l" via
-    ttk::combobox::PopdownWindow and binds at the Tcl level, since the
-    popdown listbox isn't a registered tkinter widget. Wrapped in try/except
-    so it silently no-ops on Tk builds with a different internal path.
-    Mirror of the helper in optimizer_tab.py.
+    The Character card's Text widget and the fixed-size computation must
+    use the SAME font: the computation derives the card's width and its
+    tab stops from font metrics, and a mismatch would put the columns
+    somewhere other than where they were measured.
     """
     try:
-        popdown = combobox.tk.call("ttk::combobox::PopdownWindow", combobox)
-    except tk.TclError:
-        return
-    listbox_path = f"{popdown}.f.l"
+        return tkfont.nametofont("TkDefaultFont")
+    except Exception:
+        return tkfont.Font(family="Segoe UI", size=9)
 
-    def _on_key(char):
-        if not char or not char.isalnum():
-            return ""
-        try:
-            _popdown_listbox_seek(combobox, listbox_path, char)
-        except tk.TclError:
-            pass
-        return "break"
 
-    try:
-        cmd = combobox.register(_on_key)
-        script = f"+if {{[{cmd} %A] eq {{break}}}} {{ break }}"
-        combobox.tk.call("bind", listbox_path, "<KeyPress>", script)
-    except tk.TclError:
-        pass
 
 
 def compute_fragment_gs(
@@ -311,47 +379,93 @@ class HeroesTab(BaseTab):
         self.hero_sort_reverse = False
 
         # Canvas/List widgets (set in setup_ui)
-        self.hero_canvas = None
-        self.hero_list_frame = None
-        self.hero_canvas_window = None
-        self.hero_row_widgets = []
+        self.hero_tree = None
         self.hero_data_list = []
         self.hero_col_char_widths = None
         self.selected_hero_index = -1
-        self.hero_header_labels = []
 
         # Detail widgets (set in setup_ui)
         self.user_info_label = None
         self.hero_detail_name = None
-        self.hero_char_info = None
+        self.hero_char_text = None
         self.hero_partner_text = None
-        self.hero_stats_label = None
         self.gear_frames = {}
         self.gear_labels = {}
 
+    def _apply_tree_spacing(self):
+        """Build the Combatants list's own Treeview style.
+
+        TEMPORARY, paired with the TREE_* block at the top of this file.
+        A DERIVED style rather than the app-wide `Treeview` one, so the
+        other lists keep the theme default and can be compared against
+        while the numbers are being chosen.
+
+        A None leaves the theme's value alone rather than setting it to
+        nothing, which is not the same thing -- `configure(padding="")`
+        would clear an inherited value.
+        """
+        style = getattr(self.context, "style", None)
+        if style is None:
+            return
+        base, heading = {}, {}
+        if TREE_PADDING is not None:
+            base["padding"] = TREE_PADDING
+        if TREE_ROWHEIGHT is not None:
+            base["rowheight"] = TREE_ROWHEIGHT
+        if TREE_HEADING_PAD is not None:
+            heading["padding"] = TREE_HEADING_PAD
+        try:
+            # Configure the derived style even when every value is None:
+            # the widget needs the style NAME to exist, and an empty
+            # configure is what creates it as a copy of Treeview.
+            style.configure(TREE_STYLE, **base)
+            if heading:
+                style.configure(f"{TREE_STYLE}.Heading", **heading)
+        except tk.TclError:
+            pass
+
     def setup_ui(self):
         """Setup the Heroes tab UI."""
-        # Top row of the tab: User info on the LEFT, Combatant name +
-        # preset dropdown on the RIGHT. The title group sits up here (not
-        # inside hero_detail_container below) so it aligns at the same Y
-        # as the user_info_label. The two grid columns mirror
-        # content_pane's weight=6 / weight=8 split below, so the left side
-        # lines up with the hero list and the right side lines up with the
-        # detail panel.
-        user_frame = ttk.Frame(self.frame)
-        user_frame.pack(fill=tk.X, padx=10, pady=(10, 5))
-        user_frame.grid_columnconfigure(0, weight=6)
-        user_frame.grid_columnconfigure(1, weight=8)
+        # Shared by every substat roll-quality figure in the gear cells.
+        self._gear_tooltip = Tooltip(self.colors)
+        # Two independent vertical stacks, one per column, rather than a
+        # full-width header above a full-width content pane. A shared
+        # header row would hold the character list down to the TALLER of
+        # the two headers -- the right column's name + preset dropdown --
+        # even though the left one is a single line. Stacking per column
+        # lets the list rise under the user info label on its own.
+        columns = ttk.Frame(self.frame)
+        # spacing: content frame -> content frame
+        # spacing: tab list -> first element
+        columns.pack(fill=tk.BOTH, expand=True, padx=2, pady=(1, 2))
+        # The 6:8 weight split gives the left character-list column ~43%
+        # of the content width (widened to fit the Partner column). Tk grid
+        # weights are proportional, so the exact pixel split tracks the
+        # window size.
+        columns.grid_columnconfigure(0, weight=6)
+        columns.grid_columnconfigure(1, weight=8)
+        columns.grid_rowconfigure(0, weight=1)
 
-        # Col 0: user info label
-        user_info_subframe = ttk.Frame(user_frame)
-        user_info_subframe.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
-        self.user_info_label = tk.Label(
+        left_column = ttk.Frame(columns)
+        left_column.grid(row=0, column=0, sticky="nsew")
+        right_column = ttk.Frame(columns)
+        right_column.grid(row=0, column=1, sticky="nsew")
+
+        # Col 0 header: user info label
+        user_info_subframe = ttk.Frame(left_column)
+        user_info_subframe.pack(fill=tk.X)
+        # spacing: tab list -> first element
+        # ttk.Label, not tk.Label: this needs negative padding to cancel
+        # the font's internal offset (see docs/ui_spacing.md
+        # "The rules"), and tk.Label's pady clamps at 0 so it can barely
+        # give anything back. The ttk default background already matches
+        # colors["bg"], so the appearance is unchanged.
+        self.user_info_label = ttk.Label(
             user_info_subframe,
             text="No data loaded",
-            font=("Segoe UI", 10),
-            bg=self.colors["bg"],
-            fg=self.colors["fg"],
+            font=("Segoe UI", 9),
+            foreground=self.colors["fg"],
+            padding=(0, 0, 0, 0),
             anchor="w"
         )
         # anchor=NW pins it to the top-left of the subframe so it stays
@@ -359,15 +473,16 @@ class HeroesTab(BaseTab):
         # 2 lines for the preset label + combo).
         self.user_info_label.pack(side=tk.LEFT, anchor=tk.NW)
 
-        # Col 1: Combatant name + preset dropdown (moved from inside
-        # hero_detail_container below). anchor=NW on both sub-widgets so
-        # the Character name and the preset label/combo's top edge sit at
-        # the same Y as the user_info_label.
-        title_row = ttk.Frame(user_frame)
-        title_row.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+        # Col 1 header: Combatant name + preset dropdown.
+        title_row = ttk.Frame(right_column)
+        # spacing: content frame -> content frame
+        title_row.pack(fill=tk.X, padx=(4, 0))
 
+        # spacing: header subtext
+        # padding cancels the 14pt font's internal leading -- same
+        # correction as the other tabs' headings.
         self.hero_detail_name = ttk.Label(
-            title_row, text="Select a combatant",
+            title_row, text="Select a combatant", padding=(0, -3, 0, -2),
             font=("Segoe UI", 14, "bold")
         )
         self.hero_detail_name.pack(side=tk.LEFT, anchor=tk.NW)
@@ -376,6 +491,7 @@ class HeroesTab(BaseTab):
         # `expand=True, fill=X` fills the leftover space between the name
         # and title_row's right edge.
         preset_group = ttk.Frame(title_row)
+        # spacing: TBD -- heading -> the control group beside it
         preset_group.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0))
 
         self.preset_assign_label = ttk.Label(
@@ -392,13 +508,13 @@ class HeroesTab(BaseTab):
         self.preset_assign_combo.bind(
             "<<ComboboxSelected>>", self._on_preset_combo_change
         )
-        # v1.1.0: letter-key navigation on the preset assignment dropdown.
+        # Letter-key navigation on the preset assignment dropdown.
         # KeyRelease + add="+" so readonly Combobox's internal handler
         # doesn't pre-empt the user binding (some Tk versions don't fire
         # KeyPress to user bindings on readonly state).
         self.preset_assign_combo.bind(
             "<KeyRelease>",
-            lambda e: _combobox_letter_jump(e, self.preset_assign_combo),
+            lambda e: combobox_letter_jump(e, self.preset_assign_combo),
             add="+",
         )
         # Arrow keys step through presets in place instead of opening the
@@ -406,14 +522,14 @@ class HeroesTab(BaseTab):
         # tab).
         self.preset_assign_combo.bind(
             "<Down>",
-            lambda e: _combobox_arrow_nav(e, self.preset_assign_combo, +1),
+            lambda e: combobox_arrow_nav(e, self.preset_assign_combo, +1),
         )
         self.preset_assign_combo.bind(
             "<Up>",
-            lambda e: _combobox_arrow_nav(e, self.preset_assign_combo, -1),
+            lambda e: combobox_arrow_nav(e, self.preset_assign_combo, -1),
         )
         # Type-ahead seek inside the OPEN dropdown list.
-        _bind_popdown_seek(self.preset_assign_combo)
+        bind_popdown_seek(self.preset_assign_combo)
 
         # Fix the dropdown width to match the label above it, sized for
         # the longest expected combatant name ("Heidemarie"). Uses
@@ -434,103 +550,76 @@ class HeroesTab(BaseTab):
         # (used by the combobox change handler to know who to assign to).
         self._current_detail_hero = None
 
-        # Main content: hero list on left, details on right.
-        # v1.1.0: was a ttk.PanedWindow (draggable sash). Replaced with a
-        # grid-based Frame so the user can't accidentally drag the split.
-        content_pane = ttk.Frame(self.frame)
-        content_pane.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
-        # The 6:8 weight split gives the left character-list column ~43%
-        # of the content width (widened to fit the Partner column). Tk grid
-        # weights are proportional, so the exact pixel split tracks the
-        # window size.
-        content_pane.grid_columnconfigure(0, weight=6)
-        content_pane.grid_columnconfigure(1, weight=8)
-        content_pane.grid_rowconfigure(0, weight=1)
+        # Left: Hero list.
+        hero_list_container = ttk.Frame(left_column)
+        # spacing: content frame -> content frame
+        # The top pad is larger than the sides because it stands in for
+        # what three nesting levels contribute on the other columns; this
+        # one has fewer levels above it. The bottom pad is the tab's own
+        # bottom margin, shared with the container below.
+        hero_list_container.pack(fill=tk.BOTH, expand=True, padx=2, pady=(6, 2))
 
-        # Left: Hero list
-        hero_list_container = ttk.Frame(content_pane)
-        hero_list_container.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+        # The character list is a Treeview: ONE widget that draws its own
+        # rows, where the hand-rolled version was a label per cell -- 374
+        # widgets that Tk re-laid-out on every window resize, which is what
+        # made this tab drag. Pixel columns, sorting, selection, scrolling
+        # and keyboard navigation all come with it.
+        #
+        # The cost is that a Treeview colours a ROW, never a single cell:
+        # a tag's foreground covers the whole row. So the Element colour
+        # that used to sit on the Attribute cell alone now runs across the
+        # row -- which is the trade that bought the speed.
+        hero_tree_frame = ttk.Frame(hero_list_container)
+        hero_tree_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Hero list header - match original structure
-        hero_header_frame = tk.Frame(hero_list_container, bg=self.colors["bg_lighter"])
-        hero_header_frame.pack(fill=tk.X)
-
-        # Use character widths for consistency between headers and data rows.
-        # Combatant column (11) just fits the longest name ("Heidemarie");
-        # the Preset column (index 8) has fill=X + expand=True below, so it
-        # absorbs any leftover width.
-        col_char_widths = [11, 6, 9, 10, 7, 5, 5, 12, 14]
-        col_names = ["Combatant", "Grade", "Attribute", "Class", "Level", "Ego", "GS", "Partner", "Preset"]
-        col_keys = ["name", "grade", "attribute", "class", "level", "ego", "gs", "partner", "preset"]
-
-        self.hero_header_labels = []
-        for i, (name, char_width) in enumerate(zip(col_names, col_char_widths)):
-            # Left-align Combatant (0), Partner (7) and Preset (8);
-            # all other columns stay centered.
-            anchor = tk.W if i in (0, 7, 8) else tk.CENTER
-            lbl = tk.Label(hero_header_frame, text=name, width=char_width,
-                          bg=self.colors["bg_lighter"], fg=self.colors["fg"],
-                          font=("Segoe UI", 9, "bold"),
-                          anchor=anchor,
-                          cursor="hand2")
-            # Last column (Preset) absorbs any leftover row width — keeps its
-            # 14-char minimum but stretches so long preset names aren't
-            # truncated when there's space available.
-            if i == 8:
-                lbl.pack(side=tk.LEFT, padx=1, fill=tk.X, expand=True)
-            else:
-                lbl.pack(side=tk.LEFT, padx=1)
-            lbl.bind("<Button-1>", lambda e, k=col_keys[i]: self.sort_heroes(k))
-            lbl.bind("<Enter>", lambda e, l=lbl: l.config(fg=self.colors["accent"]))
-            lbl.bind("<Leave>", lambda e, l=lbl: l.config(fg=self.colors["fg"]))
-            self.hero_header_labels.append(lbl)
-
-        self.hero_col_char_widths = col_char_widths  # Store character widths for data rows
-
-        # Scrollable hero list
-        hero_canvas_frame = ttk.Frame(hero_list_container)
-        hero_canvas_frame.pack(fill=tk.BOTH, expand=True)
-
-        self.hero_canvas = tk.Canvas(
-            hero_canvas_frame,
-            bg=self.colors["bg"],
-            highlightthickness=0
+        self._apply_tree_spacing()
+        self.hero_tree = ttk.Treeview(
+            hero_tree_frame, columns=HERO_COL_IDS, show="headings",
+            selectmode="browse", style=TREE_STYLE,
         )
-        hero_vsb = ttk.Scrollbar(hero_canvas_frame, orient=tk.VERTICAL, command=self.hero_canvas.yview)
-        self.hero_canvas.configure(yscrollcommand=hero_vsb.set)
-
-        self.hero_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        hero_vsb = ttk.Scrollbar(hero_tree_frame, orient=tk.VERTICAL,
+                                 command=self.hero_tree.yview)
+        self.hero_tree.configure(yscrollcommand=hero_vsb.set)
+        self.hero_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         hero_vsb.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.hero_list_frame = tk.Frame(self.hero_canvas, bg=self.colors["bg"])
-        self.hero_canvas_window = self.hero_canvas.create_window(
-            (0, 0),
-            window=self.hero_list_frame,
-            anchor="nw"
-        )
+        for col_id, title, width_px in zip(
+                HERO_COL_IDS, HERO_COL_TITLES, HERO_COL_PX):
+            # Left-align Combatant, Partner and Preset; centre the rest.
+            # The second "Level" is the PARTNER's -- it follows the Partner
+            # column, which is what disambiguates it.
+            anchor = (tk.W if col_id in ("name", "partner", "preset")
+                      else tk.CENTER)
+            self.hero_tree.heading(
+                col_id, text=title, anchor=anchor,
+                command=lambda k=col_id: self.sort_heroes(k))
+            # Preset takes the leftover width; every other column is fixed.
+            self.hero_tree.column(
+                col_id, width=width_px, minwidth=width_px, anchor=anchor,
+                stretch=(col_id == "preset"))
 
-        self.hero_canvas.bind("<Configure>", self._on_hero_canvas_configure)
-        self.hero_list_frame.bind("<Configure>", lambda e: self._update_hero_scrollregion())
+        # One tag per Element, plus a fallback. Rows carry the tag for
+        # their own Element, which is what colours them.
+        for element, colour in ATTRIBUTE_COLORS.items():
+            self.hero_tree.tag_configure(element, foreground=colour)
+        self.hero_tree.tag_configure(
+            HERO_TAG_UNKNOWN, foreground=self.colors["fg"])
 
-        # Up/Down navigate the character list when the canvas has focus.
-        # Binding only fires when this widget is the focus, so the dropdown's
-        # native arrow-key handling is unaffected when *it* has focus.
-        self.hero_canvas.configure(takefocus=1)
-        self.hero_canvas.bind("<Up>",   lambda e: self._navigate_hero_list(-1))
-        self.hero_canvas.bind("<Down>", lambda e: self._navigate_hero_list(+1))
+        self.hero_tree.bind("<<TreeviewSelect>>", self._on_tree_select)
+        self.hero_tree.bind("<Button-3>", self._on_tree_right_click)
         # Windows-Explorer-style letter-jump: press a letter to select the
-        # next hero whose name starts with that letter (case-insensitive,
-        # cycling). Non-alphanumeric keys fall through so arrow keys above
-        # still work. See _on_hero_canvas_key for details.
-        self.hero_canvas.bind("<KeyPress>", self._on_hero_canvas_key)
+        # next combatant whose name starts with it. Up/Down come free with
+        # the Treeview.
+        self.hero_tree.bind("<KeyPress>", self._on_hero_list_key)
 
         # Right: Hero details
-        hero_detail_container = ttk.Frame(content_pane)
-        hero_detail_container.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+        hero_detail_container = ttk.Frame(right_column)
+        # spacing: content frame -> content frame
+        hero_detail_container.pack(fill=tk.BOTH, expand=True, padx=2, pady=(6, 2))
         self.hero_detail_container = hero_detail_container  # for width-clamp lookups
 
         # Debounce handle for resize-triggered combobox geometry recompute.
-        # The combobox itself lives in user_frame's col 1, but the
+        # The combobox itself lives in the right column's title_row, but the
         # <Configure> binding stays on hero_detail_container because that's
         # the panel whose width drives the combobox's target geometry (they
         # share content_pane's weight=8 column).
@@ -541,22 +630,60 @@ class HeroesTab(BaseTab):
         # Character takes only needed space, Partner Card fills remaining with text wrapping
         info_frame = ttk.Frame(hero_detail_container)
         # info_frame absorbs the vertical excess space in the detail panel
-        # (fill=BOTH, expand=True), so the Build Stats and Equipped MF
-        # frames below it stack at the BOTTOM of the cavity instead of
-        # floating mid-panel with empty space below. The Character /
-        # Partner frames inside info_frame get pack_configure'd to
-        # fill=Y / fill=BOTH down in _compute_and_apply_fixed_sizes so
-        # they grow with it.
-        info_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        # (fill=BOTH, expand=True), so the Equipped MF frame below it sits
+        # at the BOTTOM of the cavity instead of floating mid-panel with
+        # empty space below. The Character / Partner frames inside
+        # info_frame get pack_configure'd to fill=Y / fill=BOTH down in
+        # _compute_and_apply_fixed_sizes so they grow with it.
+        # spacing: content frame -> content frame
+        info_frame.pack(fill=tk.BOTH, expand=True, pady=2)
 
-        char_frame = ttk.LabelFrame(info_frame, text="Character", padding=5)
-        char_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 5))
+        # No frame padding: the text inset lives on the Text's own
+        # padx/pady, so its lighter background reaches the frame border --
+        # the same construction as the Partner frame below.
+        char_frame = ttk.LabelFrame(info_frame, text="Character", padding=0)
+        # spacing: content frame -> content frame
+        # Leading 0, not 2: this panel's left edge already carries
+        # hero_detail_container's 2 plus the LabelFrame's own border, which
+        # together overshot the rule. The trailing half is untouched, so
+        # the gap to the Partner panel beside it is unchanged.
+        char_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 2))
         self._char_frame = char_frame  # fixed-size target
-        self.hero_char_info = ttk.Label(char_frame, text="", justify=tk.LEFT)
-        self.hero_char_info.pack(anchor=tk.W)
 
-        partner_frame = ttk.LabelFrame(info_frame, text="Partner", padding=5)
-        partner_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+        # ONE Text widget holds the whole card: the character details, the
+        # Sets line, and the two-column build-stat block. The stat columns
+        # line up on tab stops rather than in a grid -- the stops are set
+        # from font metrics in _compute_and_apply_fixed_sizes, because a
+        # Text widget has no columns of its own to align to.
+        #
+        # No scrollbar, unlike Partner: this card's content is a fixed
+        # number of lines and the frame is sized to hold them, where
+        # Partner's passive/ego prose has no bound. The widget packs
+        # straight into the LabelFrame for the same reason -- there is
+        # nothing to sit beside it.
+        # spacing: frame edge -> first checkbox or text
+        # The panel's inset sits here rather than on the LabelFrame,
+        # inside the text widget's own lighter background. The pady has
+        # the line box's leading above the first glyph netted out of it,
+        # which is why it differs between text panels in different fonts.
+        # wrap=NONE: every line here is sized to fit -- the stat block is
+        # tab-stopped to measured columns and the Sets line is wrapped by
+        # the width computation -- so a wrap would only ever fire on
+        # something that had already gone wrong, and hide it.
+        self.hero_char_text = tk.Text(
+            char_frame, wrap=tk.NONE, height=6,
+            bg=self.colors["bg_light"], fg=self.colors["fg"],
+            font=_default_font(), bd=0, highlightthickness=0,
+            padx=6, pady=3,
+        )
+        self.hero_char_text.pack(fill=tk.BOTH, expand=True)
+        self.hero_char_text.config(state=tk.DISABLED)
+
+        # No frame padding: the text inset lives on the Text's own
+        # padx/pady, so its lighter background reaches the frame border.
+        partner_frame = ttk.LabelFrame(info_frame, text="Partner", padding=0)
+        # spacing: content frame -> content frame
+        partner_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=2)
         self._partner_frame = partner_frame  # fixed-size target
         # Right-click on the partner pane (the LabelFrame OR the Text widget
         # inside) opens the "Add confirmed level" dialog for the currently
@@ -572,11 +699,16 @@ class HeroesTab(BaseTab):
         partner_text_frame.pack(fill=tk.BOTH, expand=True)
 
         partner_scroll = ttk.Scrollbar(partner_text_frame, orient=tk.VERTICAL)
+        # spacing: frame edge -> first checkbox or text
+        # The panel's inset sits here rather than on the LabelFrame,
+        # inside the text widget's own lighter background. The pady has
+        # the line box's leading above the first glyph netted out of it,
+        # which is why it differs between text panels in different fonts.
         self.hero_partner_text = tk.Text(
             partner_text_frame, wrap=tk.WORD, height=6,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             font=("Segoe UI", 9), bd=0, highlightthickness=0,
-            padx=2, pady=2,
+            padx=6, pady=3,
             yscrollcommand=partner_scroll.set,
         )
         partner_scroll.config(command=self.hero_partner_text.yview)
@@ -587,15 +719,15 @@ class HeroesTab(BaseTab):
         # actually renders) routes to the same handler as the parent frame.
         self.hero_partner_text.bind("<Button-3>", self._on_partner_right_click)
 
-        stats_frame = ttk.LabelFrame(hero_detail_container, text="Build Stats", padding=5)
-        stats_frame.pack(fill=tk.X, pady=(0, 10))
-        self._stats_frame = stats_frame  # fixed-size target
-
-        self.hero_stats_label = ttk.Label(stats_frame, text="", justify=tk.LEFT)
-        self.hero_stats_label.pack(anchor=tk.W)
-
-        gear_outer_frame = ttk.LabelFrame(hero_detail_container, text="Equipped Memory Fragments", padding=5)
-        gear_outer_frame.pack(fill=tk.BOTH, expand=True)
+        gear_outer_frame = ttk.LabelFrame(
+            hero_detail_container, text="Equipped Memory Fragments", padding=0,
+            style="Gear.Borderless.TLabelframe")
+        # spacing: content frame -> content frame
+        # The bottom pad is 0: this frame is the last thing in the detail
+        # column, so anything here would stack on hero_detail_container's
+        # own bottom pad and lift the panel above the character list
+        # beside it, whose canvas sits flush against the container edge.
+        gear_outer_frame.pack(fill=tk.BOTH, expand=True, pady=(2, 0))
         self._gear_outer_frame = gear_outer_frame  # fixed-size target
 
         self.gear_frames = {}
@@ -615,27 +747,69 @@ class HeroesTab(BaseTab):
             slot_name = EQUIPMENT_SLOTS.get(slot_num, f"Slot {slot_num}")
 
             frame = tk.Frame(gear_grid, bg=self.colors["bg_light"], relief=tk.RIDGE, bd=1)
-            frame.grid(row=row, column=col, padx=3, pady=3, sticky="nsew")
+            # spacing: content frame -> content frame
+            # padx is asymmetric on purpose: the LabelFrame title above
+            # starts inset from the frame's left edge, so an even split
+            # put the cells right of their own title. The trailing side
+            # takes the difference back, leaving the gap BETWEEN columns
+            # unchanged.
+            # No pady BELOW the last row: a symmetric value there is
+            # trailing space inside the frame, which left the bottom row
+            # of cells short of the panel's bottom edge. Rows above keep
+            # both halves, so the gap BETWEEN rows is unchanged.
+            frame.grid(row=row, column=col, padx=(0, 4),
+                       pady=(2, 2) if row < 2 else (2, 0), sticky="nsew")
 
-            header = tk.Label(frame, text=slot_name, font=("Segoe UI", 9, "bold"),
-                            bg=self.colors["bg_light"], fg=self.colors["fg_dim"])
-            header.pack(anchor=tk.W, padx=5, pady=(3, 0))
+            # The slot name and the main stat SHARE a row: main stat left,
+            # slot name right. Stacking them cost a full line of height,
+            # which the cell -- a fixed size computed from font metrics --
+            # cannot spare now that its text is a size larger.
+            top_row = tk.Frame(frame, bg=self.colors["bg_light"])
+            # spacing: frame edge -> first checkbox or text
+            # (the same padx on every child of the cell below)
+            top_row.pack(fill=tk.X, padx=3, pady=(0, 0))
 
-            main_stat = tk.Label(frame, text="", font=("Segoe UI", 9, "bold"),
+            main_stat = tk.Label(top_row, text="", font=("Segoe UI", 9, "bold"),
                                bg=self.colors["bg_light"], fg=self.colors["orange"])
-            main_stat.pack(anchor=tk.W, padx=5)
+            main_stat.pack(side=tk.LEFT, anchor=tk.W)
+
+            header = tk.Label(top_row, text=slot_name, font=("Segoe UI", 9, "bold"),
+                            bg=self.colors["bg_light"], fg=self.colors["fg_dim"])
+            header.pack(side=tk.RIGHT, anchor=tk.E)
+
+            # GS and Potential centre in whatever the other two leave.
+            # expand=True without fill is what centres it: pack gives the
+            # frame the leftover width and puts it in the middle of it.
+            gs_frame = tk.Frame(top_row, bg=self.colors["bg_light"])
+            gs_frame.pack(side=tk.LEFT, expand=True)
+
+            gs_label = tk.Label(gs_frame, text="", font=("Segoe UI", 9, "bold"),
+                               bg=self.colors["bg_light"], fg=self.colors["accent"])
+            gs_label.pack(side=tk.LEFT)
+
+            # spacing: element and its label ↔ element and its label
+            pot_label = tk.Label(gs_frame, text="", font=("Segoe UI", 9),
+                                bg=self.colors["bg_light"], fg=self.colors["fg_dim"])
+            pot_label.pack(side=tk.LEFT, padx=(1, 0))
 
             sub_frames = []
             for i in range(4):
                 sub_frame = tk.Frame(frame, bg=self.colors["bg_light"])
-                sub_frame.pack(anchor=tk.W, padx=5, fill=tk.X)
+                sub_frame.pack(anchor=tk.W, padx=3, fill=tk.X)
 
-                gs_contrib = tk.Label(sub_frame, text="", font=("Segoe UI", 7),
+                gs_contrib = tk.Label(sub_frame, text="", font=("Segoe UI", 9),
                                      bg=self.colors["bg_light"], fg=self.colors["accent"], width=3, anchor=tk.E)
                 gs_contrib.pack(side=tk.LEFT)
+                # Nothing in the UI says what this number is, and "close
+                # to a Gear Score, beside a Gear Score" is the wrong guess
+                # to leave available.
+                self._gear_tooltip.bind(
+                    gs_contrib,
+                    "How close to perfect this substat rolled (%). "
+                    "Not Gear Score.")
 
                 # Use Text widget for colored roll values
-                sub_text = tk.Text(sub_frame, font=("Segoe UI", 8), height=1, width=40,
+                sub_text = tk.Text(sub_frame, font=("Segoe UI", 9), height=1, width=40,
                                    bg=self.colors["bg_light"], fg=self.colors["fg"],
                                    bd=0, highlightthickness=0, padx=2, pady=0)
                 sub_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -649,32 +823,16 @@ class HeroesTab(BaseTab):
 
                 sub_frames.append({"frame": sub_frame, "gs": gs_contrib, "text": sub_text})
 
-            set_label = tk.Label(frame, text="", font=("Segoe UI", 8),
+            set_label = tk.Label(frame, text="", font=("Segoe UI", 9),
                                bg=self.colors["bg_light"], fg=self.colors["fg_dim"],
                                justify=tk.LEFT, anchor=tk.W, wraplength=240)
-            set_label.pack(anchor=tk.W, padx=5, pady=(2, 0), fill=tk.X)
-            # Wrap the set/bonus text to the frame's width so a long bonus
-            # description line-breaks instead of widening the gear frame
-            # (which would stretch the whole gear grid / left side).
-            # Re-tune wraplength to the frame width on every resize.
-            frame.bind(
-                "<Configure>",
-                lambda e, lbl=set_label: lbl.config(
-                    wraplength=max(80, e.width - 12)
-                ),
-            )
-
-            # GS and Potential on same line
-            gs_frame = tk.Frame(frame, bg=self.colors["bg_light"])
-            gs_frame.pack(anchor=tk.W, padx=5, pady=(0, 3), fill=tk.X)
-
-            gs_label = tk.Label(gs_frame, text="", font=("Segoe UI", 8, "bold"),
-                               bg=self.colors["bg_light"], fg=self.colors["accent"])
-            gs_label.pack(side=tk.LEFT)
-
-            pot_label = tk.Label(gs_frame, text="", font=("Segoe UI", 8),
-                                bg=self.colors["bg_light"], fg=self.colors["fg_dim"])
-            pot_label.pack(side=tk.LEFT, padx=(10, 0))
+            set_label.pack(anchor=tk.W, padx=3, pady=(2, 0), fill=tk.X)
+            # Wrap the set/bonus text so a long bonus description
+            # line-breaks instead of widening the cell. Set once, not on
+            # <Configure>: the cell is a stated size, so the width this
+            # derives from never changes at runtime.
+            set_label.config(
+                wraplength=max(80, GEAR_CELL_W - GEAR_SET_WRAP_INSET))
 
             self.gear_frames[slot_num] = frame
             self.gear_labels[slot_num] = {
@@ -684,7 +842,8 @@ class HeroesTab(BaseTab):
                 "set": set_label,
                 "gs": gs_label,
                 "potential": pot_label,
-                "gs_frame": gs_frame
+                "gs_frame": gs_frame,
+                "top_row": top_row
             }
 
         gear_grid.columnconfigure(0, weight=1)
@@ -737,10 +896,9 @@ class HeroesTab(BaseTab):
 
     def refresh_heroes(self):
         """Refresh the heroes list."""
-        # Clear existing rows
-        for widget in self.hero_row_widgets:
-            widget.destroy()
-        self.hero_row_widgets.clear()
+        # Clear existing rows. One call, where the hand-rolled list had
+        # to destroy every label it had made.
+        self.hero_tree.delete(*self.hero_tree.get_children())
         self.hero_data_list.clear()
         self.selected_hero_index = -1
 
@@ -793,6 +951,7 @@ class HeroesTab(BaseTab):
                 level = char_info.level
                 max_level = char_info.max_level
                 ego = char_info.limit_break
+                affinity = char_info.friendship_index
                 res_id = char_info.res_id
                 exp = char_info.exp
                 # Partner column: name + level. Unknown equipped partners
@@ -816,6 +975,7 @@ class HeroesTab(BaseTab):
                 level = 0
                 max_level = 0
                 ego = 0
+                affinity = 0
                 res_id = 0
                 exp = 0
                 partner_str = "-"
@@ -830,6 +990,7 @@ class HeroesTab(BaseTab):
                 "level": level,
                 "max_level": max_level,
                 "ego": ego,
+                "affinity": affinity,
                 "gs": gs,
                 "partner": partner_str,
                 # Split parts for the two-label Partner cell (name left-
@@ -854,80 +1015,35 @@ class HeroesTab(BaseTab):
             "class": lambda h: h["class"],
             "level": lambda h: h["level"],
             "ego": lambda h: h["ego"],
+            "affinity": lambda h: h["affinity"],
             "gs": lambda h: h["gs"],
-            "partner": lambda h: h["partner"],
+            "partner": lambda h: h["partner_name_part"],
+            "partner_level": lambda h: h["partner_level_part"],
             "preset": lambda h: h["preset"],
         }
 
         key_func = sort_key_map.get(self.hero_sort_col, lambda h: h["name"])
         self.hero_data_list.sort(key=key_func, reverse=self.hero_sort_reverse)
 
-        # Create rows with individually colored cells
+        # One insert per row. The row's iid is its index in
+        # hero_data_list, so a selection maps back to its data with int().
         for i, h in enumerate(self.hero_data_list):
-            level_str = f"{h['level']}/{h['max_level']}" if h['max_level'] > 0 else "-"
+            level_str = str(h["level"]) if h["max_level"] > 0 else "-"
             ego_str = f"E{h['ego']}" if h['max_level'] > 0 else "-"
             gs_str = f"{h['gs']:.0f}" if h['gs'] > 0 else "-"
+            affinity_str = (str(h["affinity"]) if h["max_level"] > 0 else "-")
 
-            row_frame = tk.Frame(self.hero_list_frame, bg=self.colors["bg"])
-            row_frame.pack(fill=tk.X)
-
-            # Store reference to row data
-            row_frame.hero_index = i
-            row_frame.hero_name = h["name"]
-
-            # Column values
-            values = [h["name"], f"{h['grade']}*", h["attribute"], h["class"],
-                      level_str, ego_str, gs_str, h["partner"], h["preset"]]
-
-            labels = []
-            for j, (val, char_width) in enumerate(zip(values, self.hero_col_char_widths)):
-                # Determine color - only attribute column (index 2) gets colored
-                if j == 2:  # Attribute column
-                    fg_color = ATTRIBUTE_COLORS.get(h["attribute"], self.colors["fg"])
-                else:
-                    fg_color = self.colors["fg"]
-
-                # Partner cell (j=7): TWO labels inside the one 12-char
-                # column -- name left-aligned, level right-aligned. Both go
-                # into row_frame.labels so the selection recoloring in
-                # select_hero_row covers them (its only index-sensitive
-                # check is the attribute column j=2, before the split).
-                # padx (1,0)+(0,1) totals the same 2px a single padx=1
-                # label carries, keeping the header aligned.
-                if j == 7:
-                    for ptext, pwidth, panchor, ppadx in (
-                        (h["partner_name_part"], char_width - 3, tk.W, (1, 0)),
-                        (h["partner_level_part"], 3, tk.E, (0, 1)),
-                    ):
-                        plbl = tk.Label(row_frame, text=ptext, width=pwidth,
-                                        anchor=panchor, bg=self.colors["bg"],
-                                        fg=fg_color, font=("Segoe UI", 9))
-                        plbl.pack(side=tk.LEFT, padx=ppadx)
-                        plbl.bind("<Button-1>",
-                                  lambda e, idx=i: self._on_row_click(idx))
-                        plbl.bind("<Button-3>",
-                                  lambda e, idx=i: self._on_row_right_click(e, idx))
-                        labels.append(plbl)
-                    continue
-
-                # Left-align Combatant (j=0) and Preset (j=8); center the
-                # rest.
-                row_anchor = tk.W if j in (0, 8) else tk.CENTER
-                lbl = tk.Label(row_frame, text=val, width=char_width, anchor=row_anchor,
-                              bg=self.colors["bg"], fg=fg_color, font=("Segoe UI", 9))
-                # Mirror the header: Preset column stretches to fill leftover width.
-                if j == 8:
-                    lbl.pack(side=tk.LEFT, padx=1, fill=tk.X, expand=True)
-                else:
-                    lbl.pack(side=tk.LEFT, padx=1)
-                lbl.bind("<Button-1>", lambda e, idx=i: self._on_row_click(idx))
-                lbl.bind("<Button-3>", lambda e, idx=i: self._on_row_right_click(e, idx))
-                labels.append(lbl)
-
-            row_frame.labels = labels
-            row_frame.bind("<Button-1>", lambda e, idx=i: self._on_row_click(idx))
-            row_frame.bind("<Button-3>", lambda e, idx=i: self._on_row_right_click(e, idx))
-            self.hero_row_widgets.append(row_frame)
+            values = (h["name"], f"{h['grade']}*", h["attribute"], h["class"],
+                      level_str, ego_str, affinity_str, gs_str,
+                      h["partner_name_part"], h["partner_level_part"],
+                      h["preset"])
+            # The row's Element tag is what colours it. An Element the
+            # program has no colour for falls back to the plain
+            # foreground rather than the theme's default.
+            tag = (h["attribute"] if h["attribute"] in ATTRIBUTE_COLORS
+                   else HERO_TAG_UNKNOWN)
+            self.hero_tree.insert("", tk.END, iid=str(i), values=values,
+                                  tags=(tag,))
 
         # Restore the previously-selected character so refreshes (preset
         # apply, data reload) and program restarts don't snap selection
@@ -936,7 +1052,7 @@ class HeroesTab(BaseTab):
         # isn't in the rebuilt list (renamed, removed, not in this user's
         # captured data), fall back to row 0 -- same as the previous
         # always-row-0 behavior.
-        if self.hero_row_widgets:
+        if self.hero_data_list:
             target_idx = 0
             sm = getattr(self.context, "settings_manager", None)
             last_name = sm.get("last_selected_character") if sm else None
@@ -947,7 +1063,6 @@ class HeroesTab(BaseTab):
                         break
             self.select_hero_row(target_idx)
 
-        self._update_hero_scrollregion()
         # Freeze the detail-pane frames to their data-driven max sizes now
         # that the roster is known (self-guards on no data).
         self._compute_and_apply_fixed_sizes()
@@ -959,22 +1074,37 @@ class HeroesTab(BaseTab):
             self.hero_sort_reverse = not self.hero_sort_reverse
         else:
             self.hero_sort_col = col
-            self.hero_sort_reverse = col in ["gs", "grade", "ego"]
+            self.hero_sort_reverse = col in ["gs", "grade", "ego", "affinity",
+                                         "partner_level"]
 
         self.refresh_heroes()
 
-    def _on_row_click(self, idx: int):
-        """Click handler for hero rows. Selects the row AND moves keyboard
-        focus to the hero canvas so subsequent Up/Down keys navigate the list
-        (instead of being captured by whatever was focused before — typically
-        the preset dropdown)."""
-        try:
-            self.hero_canvas.focus_set()
-        except Exception:
-            pass
-        self.select_hero_row(idx)
+    def _on_tree_select(self, _event=None):
+        """The Treeview's selection changed -- show that combatant.
 
-    def _on_row_right_click(self, event, idx: int):
+        Fires for a click, for Up/Down, and for a programmatic
+        `selection_set`. select_hero_row's index guard is what stops the
+        last of those recursing.
+        """
+        sel = self.hero_tree.selection()
+        if not sel:
+            return
+        try:
+            self.select_hero_row(int(sel[0]))
+        except (TypeError, ValueError):
+            pass
+
+    def _row_index_at(self, event):
+        """The hero_data_list index under the pointer, or None."""
+        iid = self.hero_tree.identify_row(event.y)
+        if not iid:
+            return None
+        try:
+            return int(iid)
+        except (TypeError, ValueError):
+            return None
+
+    def _on_tree_right_click(self, event):
         """Right-click handler: shows a context menu with the option to
         record a confirmed in-game level for this character. Recorded
         checkpoints persist to settings/level_data.json and get applied to
@@ -985,12 +1115,14 @@ class HeroesTab(BaseTab):
         feedback about which character the menu is acting on) before the
         menu pops up.
         """
-        self._on_row_click(idx)
-        if idx < 0 or idx >= len(self.hero_data_list):
+        idx = self._row_index_at(event)
+        if idx is None or idx >= len(self.hero_data_list):
             return
+        self.hero_tree.focus_set()
+        self.select_hero_row(idx)
         hero = self.hero_data_list[idx]
 
-        menu = tk.Menu(self.hero_canvas, tearoff=0)
+        menu = tk.Menu(self.hero_tree, tearoff=0)
         menu.add_command(
             label=f"Add confirmed level for {hero['name']}...",
             command=lambda h=hero: self._prompt_level_checkpoint(h),
@@ -1045,7 +1177,7 @@ class HeroesTab(BaseTab):
             f"What is {name}'s in-game level right now?\n\n"
             f"(Current snapshot exp: {exp})\n"
             f"Range: 1-62. Click Cancel to abort.",
-            parent=self.hero_canvas,
+            parent=self.hero_tree,
             initialvalue=int(current_level) if current_level else 1,
             minvalue=1, maxvalue=62,
         )
@@ -1155,27 +1287,14 @@ class HeroesTab(BaseTab):
             f"Future partner-level calculations will use this anchor."
         )
 
-    def _navigate_hero_list(self, delta: int):
-        """Move the hero-list selection by `delta` rows (e.g. -1 for Up, +1
-        for Down) and scroll the new row into view. Returns "break" so the
-        Canvas doesn't also scroll its content as a default reaction."""
-        if not self.hero_row_widgets:
-            return "break"
-        cur = self.selected_hero_index if self.selected_hero_index >= 0 else 0
-        new_idx = max(0, min(len(self.hero_row_widgets) - 1, cur + delta))
-        if new_idx != self.selected_hero_index:
-            self.select_hero_row(new_idx)
-            self._scroll_row_into_view(new_idx)
-        return "break"
+    def _on_hero_list_key(self, event):
+        """Letter-key navigation: 'A' jumps to the next combatant whose
+        name starts with 'A', cycling at the end. Mirror of the preset
+        listbox handler in scoring_tab.
 
-    def _on_hero_canvas_key(self, event):
-        """Letter-key navigation on the hero list: pressing 'A' jumps to the
-        next hero whose name starts with 'A' (case-insensitive), cycling at
-        the end. Mirror of the preset listbox handler in scoring_tab.
-
-        Returns 'break' on a successful jump so the Canvas doesn't also
-        scroll. Non-alphanumeric keys (arrows etc.) fall through to the
-        canvas's other bindings.
+        Returns 'break' on a jump so the Treeview does not also act on the
+        key. Non-alphanumeric keys fall through, which is what leaves
+        Up/Down to the Treeview's own bindings.
         """
         char = event.char
         if not char or not char.isalnum():
@@ -1195,66 +1314,30 @@ class HeroesTab(BaseTab):
             name = self.hero_data_list[idx].get("name", "")
             if name.lower().startswith(char_lower):
                 self.select_hero_row(idx)
-                self._scroll_row_into_view(idx)
                 return "break"
         return "break"  # no match -- still swallow so Tk doesn't do anything
 
-    def _scroll_row_into_view(self, idx: int):
-        """Ensure the row at `idx` is visible in the scrollable hero canvas.
-        Scrolls minimally — only when the row is currently above or below the
-        visible viewport."""
-        if not (0 <= idx < len(self.hero_row_widgets)):
-            return
-        try:
-            row = self.hero_row_widgets[idx]
-            # Make sure geometry has been computed.
-            self.hero_canvas.update_idletasks()
-            row_y = row.winfo_y()
-            row_h = row.winfo_height()
-            canvas_h = self.hero_canvas.winfo_height()
-            total_h = max(1, self.hero_list_frame.winfo_height())
-
-            view_top = self.hero_canvas.canvasy(0)
-            view_bottom = view_top + canvas_h
-
-            if row_y < view_top:
-                self.hero_canvas.yview_moveto(row_y / total_h)
-            elif row_y + row_h > view_bottom:
-                target = (row_y + row_h - canvas_h) / total_h
-                self.hero_canvas.yview_moveto(max(0.0, target))
-        except Exception:
-            pass
-
     def select_hero_row(self, index: int):
-        """Select a hero row and update display"""
-        # Deselect previous - reset ALL labels to proper colors
-        if 0 <= self.selected_hero_index < len(self.hero_row_widgets):
-            old_row = self.hero_row_widgets[self.selected_hero_index]
-            old_row.config(bg=self.colors["bg"])
-            old_hero_data = self.hero_data_list[self.selected_hero_index]
-            for j, lbl in enumerate(old_row.labels):
-                lbl.config(bg=self.colors["bg"])
-                # Restore attribute color for attribute column (index 2)
-                if j == 2:
-                    attr_color = ATTRIBUTE_COLORS.get(old_hero_data["attribute"], self.colors["fg"])
-                    lbl.config(fg=attr_color)
-                else:
-                    lbl.config(fg=self.colors["fg"])
+        """Select a row and show its combatant.
 
-        # Select new
+        Recolouring is the Treeview's own job -- the selected row takes
+        the style's selected background, and the row keeps its Element
+        foreground from its tag. Nothing here touches colours.
+
+        Re-entrancy: `selection_set` fires <<TreeviewSelect>>, which calls
+        straight back here. The index guard below makes the second call a
+        no-op rather than a loop.
+        """
+        if index == self.selected_hero_index:
+            return
         self.selected_hero_index = index
-        if 0 <= index < len(self.hero_row_widgets):
-            new_row = self.hero_row_widgets[index]
-            new_row.config(bg=self.colors["select"])
+        if 0 <= index < len(self.hero_data_list):
             new_hero_data = self.hero_data_list[index]
-            for j, lbl in enumerate(new_row.labels):
-                lbl.config(bg=self.colors["select"])
-                # Keep attribute color for attribute column
-                if j == 2:
-                    attr_color = ATTRIBUTE_COLORS.get(new_hero_data["attribute"], self.colors["fg"])
-                    lbl.config(fg=attr_color)
-                else:
-                    lbl.config(fg=self.colors["fg"])
+            iid = str(index)
+            if self.hero_tree.exists(iid):
+                self.hero_tree.selection_set(iid)
+                self.hero_tree.focus(iid)
+                self.hero_tree.see(iid)
 
             self.show_hero_details(new_hero_data["name"])
 
@@ -1282,30 +1365,75 @@ class HeroesTab(BaseTab):
         grade = hero_data.get("grade", "?")
         attribute = hero_data.get("attribute", "Unknown")
         hero_class = hero_data.get("class", "Unknown")
+        # A combatant the program has no entry for reports "Unknown" for
+        # both its element and its class, and saying so twice on one line
+        # tells the reader nothing the first one did not.
+        header_tail = (attribute if hero_class == attribute
+                       else f"{attribute}  |  {hero_class}")
 
+        # One line per tracked node, in the same shape whether or not the
+        # node is levelled, so the block does not change height between
+        # combatants.
+        #
+        # The bracket holds the node's DESCRIPTOR -- what the node does,
+        # the way the game names it. Nodes 5 and 6 raise a stat that
+        # differs per character, so `(?)` stands in until the descriptors
+        # for the other eight nodes are stored and every line can carry
+        # its own. See docs/game_formulas.md "The potential tree".
         potential_lines = []
-        if char_info.potential_50_level > 0 or char_info.potential_60_level > 0:
-            if char_info.potential_50_level > 0:
-                stat_type_50, bonus_50 = get_potential_stat_bonus(
-                    char_info.res_id, 50, char_info.potential_50_level
-                )
-                if stat_type_50:
-                    potential_lines.append(f"  Node 5: Lv{char_info.potential_50_level} ({stat_type_50} +{bonus_50:.1f}%)")
-            if char_info.potential_60_level > 0:
-                stat_type_60, bonus_60 = get_potential_stat_bonus(
-                    char_info.res_id, 60, char_info.potential_60_level
-                )
-                if stat_type_60:
-                    potential_lines.append(f"  Node 6: Lv{char_info.potential_60_level} ({stat_type_60} +{bonus_60:.1f}%)")
-        potential_str = "\n".join(potential_lines) if potential_lines else "  None"
+        for node, level in ((5, char_info.potential_50_level),
+                            (6, char_info.potential_60_level)):
+            potential_lines.append(
+                f"{CHAR_SUBLIST_INDENT}Node {node}: Lv{level} (?)")
+        potential_lines = potential_lines[:CHAR_POTENTIAL_LINES]
+        potential_lines += [""] * (CHAR_POTENTIAL_LINES - len(potential_lines))
+        potential_str = "\n".join(potential_lines)
 
         return (
-            f"Grade: {grade}*  |  {attribute}  |  {hero_class}\n"
+            f"Grade: {grade}*  |  {header_tail}\n"
             f"Level: {char_info.level}/{char_info.max_level}\n"
             f"Ego Manifestation: E{char_info.limit_break}\n"
-            f"Friendship Lv: {char_info.friendship_index}\n"
+            f"Affinity Lv: {char_info.friendship_index}\n"
             f"  Bonus: ATK+{fb[0]}, DEF+{fb[1]}, HP+{fb[2]}\n"
             f"Potential:\n{potential_str}"
+        )
+
+    def _format_stats_text(self, stat_values: dict) -> str:
+        """Build the two-column build-stat block for the Character card.
+
+        Cells are separated by TAB characters and land on the tab stops
+        configured in _compute_and_apply_fixed_sizes: value stops are
+        right-aligned so the numbers line up despite the proportional
+        font, name stops left-aligned. A row whose left key is None still
+        emits both of the left pair's tabs, so the right-hand column stays
+        on its own stops.
+
+        stat_values maps stat key -> already-formatted string; missing
+        keys render as "-", which is what an ungeared character shows.
+        """
+        lines = []
+        for left_key, right_key in HERO_STAT_ROWS:
+            if left_key is None:
+                left = "\t"
+            else:
+                left = (f"{HERO_STAT_DISPLAY[left_key]}\t"
+                        f"{stat_values.get(left_key, '-')}")
+            right = ""
+            if right_key is not None:
+                right = (f"{HERO_STAT_DISPLAY[right_key]}\t"
+                         f"{stat_values.get(right_key, '-')}")
+            lines.append(f"{left}\t{right}")
+        return "\n".join(lines)
+
+    def _format_character_card(self, hero_name: str, stat_values: dict) -> str:
+        """The full Character card text: details block, Sets line, stat
+        block. Shared by show_hero_details and the fixed-size computation
+        so both work from the same string.
+        """
+        return (
+            f"{self._format_char_text(hero_name)}\n"
+            f"Sets:\n{self._format_sets_text(hero_name)}\n"
+            f"Stats:\n{self._format_stats_text(stat_values)}"
         )
 
     def _format_partner_text(self, char_info) -> str:
@@ -1350,9 +1478,43 @@ class HeroesTab(BaseTab):
             return f"Unknown partner (instance {char_info.partner_id})"
         return "No partner equipped"
 
+    def _format_sets_text(self, hero_name: str) -> str:
+        """The Sets line for a character: the ACTIVE set names (those whose
+        equipped count meets their piece requirement), WITHOUT piece
+        counts, plus an "N Flex" token for leftover slots, comma-separated.
+        Mirrors the Optimizer Results "Sets" logic.
+
+        Shared by show_hero_details and the fixed-size computation so both
+        measure the same string.
+        """
+        gear = self.optimizer.characters.get(hero_name, [])
+        if not gear:
+            return _padded_sublist(["None"])
+        set_counts = {}
+        for p in gear:
+            set_counts[p.set_id] = set_counts.get(p.set_id, 0) + 1
+        active_names = []
+        flex = 0
+        for sid, cnt in set_counts.items():
+            sinfo = SETS.get(sid)
+            if sinfo is None:
+                flex += cnt
+                continue
+            pieces = sinfo.get("pieces", 2)
+            if cnt >= pieces:
+                active_names.append(sinfo["name"])
+                flex += cnt - pieces
+            else:
+                flex += cnt
+        active_names.sort()
+        parts = list(active_names)
+        if flex > 0:
+            parts.append(f"{flex} Flex")
+        return _padded_sublist(parts)
+
     def _compute_and_apply_fixed_sizes(self):
-        """Freeze the four detail-pane frames (Character, Partner, Build
-        Stats, Equipped Memory Fragments) to fixed pixel sizes computed
+        """Freeze the three detail-pane frames (Character, Partner,
+        Equipped Memory Fragments) to fixed pixel sizes computed
         from the WIDEST / TALLEST content across ALL captured combatants,
         measured via font metrics -- so switching combatants never resizes
         or shifts the panel.
@@ -1369,121 +1531,93 @@ class HeroesTab(BaseTab):
         Wrapped in try/except so a measurement hiccup can't break the tab;
         on failure the frames keep their natural auto-resizing behavior.
         """
-        import math
         try:
-            names = list(self.optimizer.character_info.keys())
-            if not names or not hasattr(self, "_char_frame"):
+            if not hasattr(self, "_char_frame"):
                 return
 
             try:
-                f_default = tkfont.nametofont("TkDefaultFont")
+                f_default = _default_font()
             except Exception:
                 f_default = tkfont.Font(family="Segoe UI", size=9)
-            f_partner = tkfont.Font(family="Segoe UI", size=9)
-            f_gbold = tkfont.Font(family="Segoe UI", size=9, weight="bold")
-            f_gsub = tkfont.Font(family="Segoe UI", size=8)
-            f_gs7 = tkfont.Font(family="Segoe UI", size=7)
-
-            def _wmax(text, font):
-                return max((font.measure(ln) for ln in text.split("\n")), default=0)
 
             line_default = f_default.metrics("linespace")
-            line_gbold = f_gbold.metrics("linespace")
-            line_gsub = f_gsub.metrics("linespace")
 
-            char_w = char_lines = 0
-            partner_w = 0
-            stats_w = 0
-            for name in names:
-                ci = self.optimizer.character_info.get(name)
-                ct = self._format_char_text(name)
-                char_w = max(char_w, _wmax(ct, f_default))
-                char_lines = max(char_lines, len(ct.split("\n")))
-
-                pt = self._format_partner_text(ci)
-                # Only the first up-to-3 lines (name/grade, level/ego, stats)
-                # drive width; the prose paragraphs below them wrap.
-                head = pt.split("\n")[:3]
-                partner_w = max(partner_w,
-                                max((f_partner.measure(ln) for ln in head), default=0))
-
-                # Build Stats one-liner: real Sets portion (cheap), padded
-                # numeric fields as a safe upper bound (avoids a full stat calc).
-                gear = self.optimizer.characters.get(name, [])
-                set_counts = {}
-                for p in gear:
-                    set_counts[p.set_id] = set_counts.get(p.set_id, 0) + 1
-                active, flex = [], 0
-                for sid, cnt in set_counts.items():
-                    sinfo = SETS.get(sid)
-                    if sinfo is None:
-                        flex += cnt
-                        continue
-                    pieces = sinfo.get("pieces", 2)
-                    if cnt >= pieces:
-                        active.append(sinfo["name"])
-                        flex += cnt - pieces
-                    else:
-                        flex += cnt
-                active.sort()
-                parts = list(active) + ([f"{flex} Flex"] if flex > 0 else [])
-                sets_str = ", ".join(parts) if parts else "None"
-                # Two lines -- GS+Sets, then the stat list.
-                sample_l1 = f"Total GS: 600  |  Sets: {sets_str}"
-                sample_l2 = (
-                    "ATK: 99999  |  DEF: 99999  |  HP: 99999  |  CRate: 100.0%  |  "
-                    "CDmg: 999.9%  |  Elem: 99.9%  |  Extra: 99.9%  |  DoT: 99.9%  |  Ego: 999"
-                )
-                stats_w = max(stats_w, f_default.measure(sample_l1),
-                              f_default.measure(sample_l2))
-
-            # ----- Gear cell maxima (width driven by the 40-char substat
-            # Text; set-description wrapping drives extra HEIGHT lines) -----
-            char0 = max(1, f_gsub.measure("0"))
-            subtext_px = 40 * char0
-            gs_label_px = 3 * max(1, f_gs7.measure("0"))
-            longest_slot = max(EQUIPMENT_SLOTS.values(), key=len)
-            header_px = f_gbold.measure(f"{longest_slot}  +15")
-            cell_inner = subtext_px + gs_label_px + 12
-            main_px = 0
-            set_wrap_lines = 1
-            for name in names:
-                for p in self.optimizer.characters.get(name, []):
-                    if p.main_stat:
-                        main_px = max(main_px, f_gbold.measure(
-                            f"{p.main_stat.name}  +{p.main_stat.format_value()}"))
-                    set_info = SETS.get(p.set_id)
-                    bonus = set_info.get("bonus", "") if set_info else ""
-                    set_text = f"{p.set_name} ({p.get_set_pieces()}) {bonus}"
-                    tw = f_gsub.measure(set_text)
-                    set_wrap_lines = max(
-                        set_wrap_lines, math.ceil(tw / max(1, cell_inner)))
-            gspot_px = (f_gsub.measure("GS: 600") + 10
-                        + f_gsub.measure("Potential: 600-600"))
-
-            # Each Slot frame is a STATIC size: the height reserves at
-            # least two wrapped set-description lines (max across all gear
-            # so nothing clips) plus generous bottom padding, so
-            # GS/Potential never gets cut off.
-            set_lines = max(2, set_wrap_lines)
-            # The +32 horizontal / +50 vertical slack pads each cell so its
-            # padding reads symmetric against the outer frame's PAD_*
-            # overhead below.
-            cell_w = max(subtext_px + gs_label_px, header_px, main_px, gspot_px) + 14 + 32
-            cell_h = line_gbold * 2 + line_gsub * (5 + set_lines) + 50
+            # A STATED size, not a derived one. Deriving it meant
+            # estimating the LabelFrame overhead, the wrap width and the
+            # line count separately, and the three estimates disagreed --
+            # the wrap estimate alone ran ~47px narrower than the real
+            # frame, so every cell reserved lines it never used.
+            #
+            # Calibrated against the longest set description currently in
+            # the game. A longer one clips rather than growing the cell,
+            # so if a set is added and its description runs off, raise
+            # GEAR_CELL_H here.
+            cell_w, cell_h = GEAR_CELL_W, GEAR_CELL_H
 
             # ----- Content maxima -> OUTER frame sizes (generous pad) -----
-            # PAD_W / PAD_H approximate the actual ttk LabelFrame theme
-            # overhead so the right/bottom padding reads the same as
-            # top/left.
+            # spacing: frame edge -> first checkbox or text
+            # PAD_W / PAD_H approximate the ttk LabelFrame theme overhead
+            # so the right and bottom padding read like the top and left.
+            # Measured against the longest set description: the right edge
+            # lands on the rule's 6px, and the bottom reads 6 under a
+            # descender and 9 without one -- the same 3px spread the
+            # descender convention produces everywhere else. CHAR_PAD_W adds to PAD_W rather
+            # than subtracting from it: the Character frame's own padding
+            # is now 0, and its inset comes from the Text widget's padx on
+            # both sides.
             PAD_W = 14   # LabelFrame internal padding + border + slack
             PAD_H = 33   # + title-bar height
-            row_h = char_lines * line_default + PAD_H   # Character == Partner height
-            char_W = char_w + PAD_W + 4
-            stats_W = stats_w + PAD_W
-            stats_H = 2 * line_default + PAD_H + 4    # two lines; +4 so the bottom line isn't clipped
-            gear_W = 2 * cell_w + 12 + PAD_W             # 2 cols + grid padx
-            gear_H = 3 * cell_h + 18 + PAD_H             # 3 rows + grid pady
+            CHAR_PAD_W = PAD_W + 12
+
+            # The stat block's tab stops. Four stops per row: the left
+            # value (right-aligned), the right column's name, the right
+            # value (right-aligned), and nothing after. A right-aligned
+            # stop sits at the END of its column, so each is the running
+            # total of everything to its left.
+            # spacing: TBD -- stat label -> its value
+            # spacing: element and its label ↔ element and its label
+            # Stops are PIXEL offsets, not character counts, so the 4 and
+            # the 8 below are the rendered gaps themselves. `name_px` is
+            # the widest label measured in this font, which is what makes
+            # every value in a column start from the same place.
+            # Measured PER COLUMN. One max across both columns places the
+            # left column's values as if its labels were as wide as
+            # `Element`, which is the right column's longest -- the left
+            # labels are all three characters, so that alone put ~20px of
+            # dead space between them and their values.
+            # Row by row: each stat's own label plus its own widest value.
+            # Taking max(label) and max(value) separately would place the
+            # column for a row that does not exist -- the widest label and
+            # the widest value are not on the same line.
+            def _column_width(col):
+                return max(
+                    f_default.measure(HERO_STAT_DISPLAY[row[col]]) + 4
+                    + f_default.measure(HERO_STAT_VALUE_MAXIMA[row[col]])
+                    for row in HERO_STAT_ROWS if row[col]
+                )
+            stop_val1 = _column_width(0)
+            stop_name2 = stop_val1 + 8
+            stop_val2 = stop_name2 + _column_width(1)
+            try:
+                self.hero_char_text.configure(tabs=(
+                    stop_val1, "right", stop_name2, "left",
+                    stop_val2, "right",
+                ))
+            except (AttributeError, tk.TclError):
+                pass
+            # STATED, not measured. Every line in this panel is now a fixed
+            # shape: the details block is a constant set of lines, Sets and
+            # Potential pad themselves to CHAR_SETS_LINES and
+            # CHAR_POTENTIAL_LINES, and the stat block sits on tab stops
+            # derived from HERO_STAT_VALUE_MAXIMA. The only thing left that
+            # varied with the data was the widest combatant name, and
+            # CHAR_NAME_PX states that.
+            #
+            # Measuring instead is what made resizing slow: this runs from
+            # <Configure>, and it walked every combatant's formatted card
+            # to re-derive numbers that no longer move.
+            char_W = CHAR_CONTENT_PX + CHAR_PAD_W + 4 - CHAR_WIDTH_CEDED
+            row_h = CHAR_TOTAL_LINES * line_default + PAD_H
 
             def _fix(frame, w, h):
                 frame.configure(width=int(w), height=int(h))
@@ -1505,9 +1639,14 @@ class HeroesTab(BaseTab):
             self._partner_frame.pack_propagate(False)
             self._partner_frame.pack_configure(fill=tk.BOTH, expand=True)
 
-            _fix(self._stats_frame, stats_W, stats_H)
-            self._stats_frame.pack_configure(fill=tk.NONE, expand=False, anchor=tk.W)
-            _fix(self._gear_outer_frame, gear_W, gear_H)
+            # The gear frame is NOT pinned to a computed size: every cell
+            # inside it is pinned individually just below, so its natural
+            # size is already constant across combatants. Computing it here
+            # instead meant guessing the LabelFrame's own overhead, and the
+            # guess (sized for padding=5 plus a border) over-provisioned the
+            # height once the frame went borderless with padding=0 -- which
+            # showed up as a gap between the last row of cells and the
+            # bottom of the panel.
             self._gear_outer_frame.pack_configure(fill=tk.NONE, expand=False, anchor=tk.W)
 
             # Pin every individual Slot frame to the static cell size and
@@ -1550,8 +1689,10 @@ class HeroesTab(BaseTab):
 
         char_info = self.optimizer.character_info.get(hero_name)
         # Text is built by shared helpers so the fixed-size computation can
-        # measure the exact same strings that get displayed.
-        self.hero_char_info.config(text=self._format_char_text(hero_name))
+        # measure the exact same strings that get displayed. The Character
+        # card is written at the END of this method instead of here: it now
+        # includes the build stats, which aren't known until the gear loop
+        # below has run.
         partner_text = self._format_partner_text(char_info)
         self.hero_partner_text.config(state=tk.NORMAL)
         self.hero_partner_text.delete("1.0", tk.END)
@@ -1560,7 +1701,6 @@ class HeroesTab(BaseTab):
 
         gear = self.optimizer.characters.get(hero_name, [])
         gear_by_slot = {p.slot_num: p for p in gear}
-        total_gs = 0
 
         # Per-piece GS in this detail panel must match the per-character
         # GS shown in the character list (which uses the *assigned* preset),
@@ -1586,7 +1726,6 @@ class HeroesTab(BaseTab):
 
             if piece:
                 piece_gs = compute_fragment_gs(piece, detail_weights, _bounds_for(piece))
-                total_gs += piece_gs
                 rarity_color = RARITY_COLORS.get(piece.rarity_num, self.colors["fg"])
                 bg_color = RARITY_BG_COLORS.get(piece.rarity_num, self.colors["bg_light"])
 
@@ -1606,8 +1745,8 @@ class HeroesTab(BaseTab):
                     if i < len(piece.substats):
                         sub = piece.substats[i]
 
-                        gs_contrib = sub.get_gs_contribution()
-                        sub_data["gs"].config(text=f"{gs_contrib:.1f}")
+                        quality = sub.get_roll_quality_pct()
+                        sub_data["gs"].config(text=f"{quality:.0f}")
 
                         # Get the Text widget
                         text_widget = sub_data["text"]
@@ -1713,7 +1852,9 @@ class HeroesTab(BaseTab):
                 labels["potential"].config(text=pot_text)
 
                 self.gear_frames[slot_num].config(bg=bg_color)
-                for widget in [labels["header"], labels["main"], labels["set"], labels["gs"], labels["potential"], labels["gs_frame"]]:
+                for widget in [labels["header"], labels["main"], labels["set"],
+                               labels["gs"], labels["potential"],
+                               labels["gs_frame"], labels["top_row"]]:
                     widget.config(bg=bg_color)
             else:
                 bg_color = self.colors["bg_light"]
@@ -1734,36 +1875,13 @@ class HeroesTab(BaseTab):
                 labels["potential"].config(text="")
 
                 self.gear_frames[slot_num].config(bg=bg_color)
-                for widget in [labels["header"], labels["main"], labels["set"], labels["gs"], labels["potential"], labels["gs_frame"]]:
+                for widget in [labels["header"], labels["main"], labels["set"],
+                               labels["gs"], labels["potential"],
+                               labels["gs_frame"], labels["top_row"]]:
                     widget.config(bg=bg_color)
 
         if gear:
             stats = self.optimizer.calculate_build_stats(gear, hero_name)
-            # "Sets" lists the ACTIVE set names (those whose equipped count
-            # meets their piece requirement), WITHOUT piece counts, plus a
-            # "N Flex" token for leftover slots -- all comma-separated.
-            # Mirrors the Optimizer Results "Sets" logic.
-            set_counts = {}
-            for p in gear:
-                set_counts[p.set_id] = set_counts.get(p.set_id, 0) + 1
-            active_names = []
-            flex = 0
-            for sid, cnt in set_counts.items():
-                sinfo = SETS.get(sid)
-                if sinfo is None:
-                    flex += cnt
-                    continue
-                pieces = sinfo.get("pieces", 2)
-                if cnt >= pieces:
-                    active_names.append(sinfo["name"])
-                    flex += cnt - pieces
-                else:
-                    flex += cnt
-            active_names.sort()
-            set_parts = list(active_names)
-            if flex > 0:
-                set_parts.append(f"{flex} Flex")
-            sets_str = ", ".join(set_parts) if set_parts else "None"
 
             # Element% = matching-element DMG% main(s) for this character's
             # attribute (0 for Unknown-attribute characters, since the
@@ -1775,19 +1893,25 @@ class HeroesTab(BaseTab):
                 elem_pct = sum(p.main_stat.value for p in gear
                                if p.main_stat and p.main_stat.name == target)
 
-            # GS + Sets on line 1, the full stat list (including
-            # Elem%/Extra%/DoT%/Ego) on line 2.
-            stats_text = (
-                f"Total GS: {total_gs:.0f}  |  Sets: {sets_str}\n"
-                f"ATK: {stats.get('ATK', 0):.0f}  |  DEF: {stats.get('DEF', 0):.0f}  |  "
-                f"HP: {stats.get('HP', 0):.0f}  |  CRate: {stats.get('CRate', 0):.1f}%  |  "
-                f"CDmg: {stats.get('CDmg', 0):.1f}%  |  Elem: {elem_pct:.1f}%  |  "
-                f"Extra: {stats.get('Extra DMG%', 0):.1f}%  |  DoT: {stats.get('DoT%', 0):.1f}%  |  "
-                f"Ego: {stats.get('Ego', 0):.0f}"
-            )
-            self.hero_stats_label.config(text=stats_text)
+            stat_values = {
+                "ATK": f"{stats.get('ATK', 0):.0f}",
+                "DEF": f"{stats.get('DEF', 0):.0f}",
+                "HP": f"{stats.get('HP', 0):.0f}",
+                "Ego": f"{stats.get('Ego', 0):.0f}",
+                "CRate": f"{stats.get('CRate', 0):.1f}%",
+                "CDmg": f"{stats.get('CDmg', 0):.1f}%",
+                "Extra DMG%": f"{stats.get('Extra DMG%', 0):.1f}%",
+                "DoT%": f"{stats.get('DoT%', 0):.1f}%",
+                "Element": f"{elem_pct:.1f}%",
+            }
         else:
-            self.hero_stats_label.config(text="No gear equipped")
+            stat_values = {}
+
+        self.hero_char_text.config(state=tk.NORMAL)
+        self.hero_char_text.delete("1.0", tk.END)
+        self.hero_char_text.insert(
+            "1.0", self._format_character_card(hero_name, stat_values))
+        self.hero_char_text.config(state=tk.DISABLED)
 
     # ----- Per-character preset helpers ----------------------------------
 
@@ -1935,25 +2059,6 @@ class HeroesTab(BaseTab):
             pass  # widget might not be fully realized yet
 
     # Helper methods
-    def _update_hero_scrollregion(self):
-        """Update scroll region and ensure content stays at top when it fits"""
-        self.hero_canvas.configure(scrollregion=self.hero_canvas.bbox("all"))
-        # If content fits in view, reset to top
-        if self.hero_canvas.bbox("all"):
-            content_height = self.hero_canvas.bbox("all")[3]
-            visible_height = self.hero_canvas.winfo_height()
-            if content_height <= visible_height:
-                self.hero_canvas.yview_moveto(0)
-
-    def _on_hero_canvas_configure(self, event):
-        """Handle canvas resize - update width and check scrolling"""
-        self.hero_canvas.itemconfig(self.hero_canvas_window, width=event.width)
-        # Check if we need to reset scroll position
-        if self.hero_canvas.bbox("all"):
-            content_height = self.hero_canvas.bbox("all")[3]
-            if content_height <= event.height:
-                self.hero_canvas.yview_moveto(0)
-
     def format_roll_with_color(self, sub: Stat, parent_frame: tk.Frame, bg_color: str):
         """Format a substat roll string with individual roll coloring"""
         stat_info = STATS.get(sub.raw_name, (sub.name, sub.name, sub.is_percentage, 1.0, 0.5))

@@ -57,9 +57,12 @@ Vribbels/images/__pycache__/
 # Claude Code files and internal documentation
 .claude/
 CLAUDE.md
+CLAUDE [ClaudeCode].md
+CLAUDE [MCP].md
 RELEASE_CHECKLIST.md
 plan.md
 tasks.md
+paused_task.md
 docs/
 
 # Git worktrees (isolated workspaces for parallel development)
@@ -79,7 +82,13 @@ zCreate exe.bat
 Vribbels/Vribbels.zip
 
 # I'm normal
+.old/
+_tmp/
 zRUN.bat
+zRUN Spacing Audit.bat
+zRUN Spacing Audit Verbose.bat
+zRUN Spacing Audit Freeze.bat
+zRUN Checks.bat
 Vribbels/default_settings/_1 delet excluded_gear_chars
 Vribbels/default_settings/_2 delet exclude_seen_rids
 Vribbels/default_settings/_3 delet optimize_level_seen

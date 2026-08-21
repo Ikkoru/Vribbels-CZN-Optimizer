@@ -187,7 +187,7 @@ class AboutTab(BaseTab):
     def setup_ui(self):
         """Build the About tab UI."""
         main_container = ttk.Frame(self.frame)
-        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(22, 20))
 
         # ===== APPLICATION INFO SECTION =====
         info_section = ttk.LabelFrame(main_container, text="Application Information", padding=15)

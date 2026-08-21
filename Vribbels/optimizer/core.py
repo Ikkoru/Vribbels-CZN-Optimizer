@@ -246,7 +246,7 @@ def compute_build_stats(gear: list, cs: dict,
 
     # ----- Apply the layered Final ATK/DEF/HP formulas -------------------
     # Final X = ((Base X + Partner X) × (1 + MF X% + Potential X%)
-    #            + Gear Flat X + Affection Flat X)
+    #            + Gear Flat X + Affinity Flat X)
     #         × (1 + Partner X% + Equipment X%)
     #         + Equipment Flat X
     def _inner(base, partner_flat, mf_pct, pot_pct, gear_flat, affection_flat):
@@ -422,7 +422,7 @@ def meets_have_at_least(stats: dict, hal: dict) -> bool:
 
     For ATK / DEF / HP, the comparison value is the INNER stat -- see
     _inner() in compute_build_stats: (Base + Partner flat) inside the
-    inner multiplier, plus fragment flat and Affection flat; no outer
+    inner multiplier, plus fragment flat and Affinity flat; no outer
     (Partner% + Equipment%) multiplier, no Equipment flat.
 
     For CRate / CDmg, the comparison value is the final value minus

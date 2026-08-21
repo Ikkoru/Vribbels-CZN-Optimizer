@@ -487,7 +487,7 @@ class Addon:
             "detected_region": self._detect_region(),
         }
 
-        with open(self.saved_path, "w") as f:
+        with open(self.saved_path, "w", encoding="utf-8") as f:
             json.dump(save_data, f, indent=2)
 
         count = len(self.inventory_data.get("piece_items", []))
@@ -804,7 +804,7 @@ class CaptureManager:
         """Read detected_region from capture file."""
         import json
         try:
-            with open(capture_file, 'r') as f:
+            with open(capture_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
             return data.get("detected_region")
         except Exception:
@@ -862,7 +862,15 @@ class CaptureManager:
             CaptureError: If hosts file modification fails
         """
         try:
-            with open(HOSTS_PATH, "r") as f:
+            # The hosts file belongs to the system and carries other
+            # people's entries. It is read whole, edited and written back,
+            # so an encoding guess that differs between the read and the
+            # write corrupts lines this program never touched. UTF-8 with
+            # surrogateescape round-trips any byte it cannot decode
+            # unchanged, which is the only safe option on a file whose
+            # encoding is not ours to know.
+            with open(HOSTS_PATH, "r", encoding="utf-8",
+                      errors="surrogateescape") as f:
                 content = f.read()
 
             # Strip any block an earlier run left behind before appending
@@ -882,7 +890,8 @@ class CaptureManager:
 
             new_content = content + "\n".join(entries)
 
-            with open(HOSTS_PATH, "w") as f:
+            with open(HOSTS_PATH, "w", encoding="utf-8",
+                      errors="surrogateescape") as f:
                 f.write(new_content)
 
             self._flush_dns()
@@ -946,7 +955,8 @@ class CaptureManager:
                 should use restore_hosts_file instead.
         """
         try:
-            with open(HOSTS_PATH, "r") as f:
+            with open(HOSTS_PATH, "r", encoding="utf-8",
+                      errors="surrogateescape") as f:
                 content = f.read()
         except OSError as e:
             raise CaptureError(f"Could not read the hosts file: {e}")
@@ -955,7 +965,8 @@ class CaptureManager:
             return False
 
         try:
-            with open(HOSTS_PATH, "w") as f:
+            with open(HOSTS_PATH, "w", encoding="utf-8",
+                      errors="surrogateescape") as f:
                 f.write(_strip_capture_block(content))
         except OSError as e:
             raise CaptureError(

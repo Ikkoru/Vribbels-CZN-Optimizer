@@ -13,8 +13,8 @@ The scoring system affects:
 """
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
-from pathlib import Path
+from tkinter import ttk
+from tkinter import font as tkfont, scrolledtext, messagebox
 
 from ..base_tab import BaseTab
 from ..context import AppContext
@@ -23,7 +23,7 @@ from game_data import STATS
 # "CRate" -> "Crit%", "CDmg" -> "CDMG%"). Applied to the Stat Weight
 # Configuration labels so they match the rest of the app.
 from game_data.constants import DISPLAY_NAMES
-from preset_manager import PresetManager, SUPPORTED_STATS
+from preset_manager import SUPPORTED_STATS
 from models.memory_fragment import compute_gs_bounds
 
 
@@ -59,16 +59,22 @@ class ScoringTab(BaseTab):
         super().__init__(parent, context)
         self._init_state()
 
-        # Use the PresetManager and CharacterPresetManager from AppContext.
-        # czn_optimizer_gui.py creates and loads them before constructing tabs,
-        # so they're already populated. Falling back to a fresh one keeps the
-        # tab usable in standalone tests where context is bare.
-        if context.preset_manager is not None:
-            self.preset_manager = context.preset_manager
-        else:
-            program_dir = Path(__file__).resolve().parent.parent.parent
-            self.preset_manager = PresetManager(program_dir)
-            self.preset_manager.load()
+        # PresetManager and CharacterPresetManager come from AppContext.
+        # czn_optimizer_gui.py creates and loads them before constructing
+        # any tab, so they are already populated.
+        #
+        # There is deliberately NO fallback that builds its own manager.
+        # Deriving a program_dir from __file__ would resolve inside
+        # PyInstaller's _MEIPASS in a frozen build, and every preset the
+        # user saved would be discarded when the process exits (see
+        # _user_data_dir in czn_optimizer_gui.py). Failing here instead
+        # is loud, immediate and cannot lose data.
+        self.preset_manager = context.preset_manager
+        if self.preset_manager is None:
+            raise RuntimeError(
+                "ScoringTab requires context.preset_manager. The managers "
+                "are constructed before any tab in OptimizerGUI.setup_ui."
+            )
 
         self.character_preset_manager = context.character_preset_manager  # may be None
 
@@ -132,29 +138,50 @@ class ScoringTab(BaseTab):
 
     def setup_ui(self):
         main_frame = ttk.Frame(self.frame)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # spacing: content frame -> content frame
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
 
+        # Title and subtitle share one line: the subtitle sits to the
+        # right of the heading, bottom-aligned so the two read as a single
+        # header rather than two stacked blocks.
+        header_row = ttk.Frame(main_frame)
+        # spacing: content frame -> content frame
+        header_row.pack(fill=tk.X, pady=(0, 2))
+
+        # spacing: header subtext
+        # padding here corrects for the font's own internal offsets, NOT
+        # for layout: the top component removes the blank leading above
+        # the capitals, the bottom one the space below the descenders.
+        # Without them a 14pt heading sits lower than a LabelFrame title
+        # at the same padding, and the gap to the row below opens up. See
+        # docs/ui_spacing.md "The rules".
         ttk.Label(
-            main_frame, text="Gear Score Calculation",
+            header_row, text="Gear Score Calculation", padding=(0, -2, 0, -2),
             font=("Segoe UI", 14, "bold")
-        ).pack(anchor=tk.W)
+        ).pack(side=tk.LEFT, anchor=tk.S)
+        # anchor=S puts the subtitle on the heading's own line rather
+        # than stacking it below.
         ttk.Label(
-            main_frame, text="Configure how gear scores are calculated",
-            foreground=self.colors["fg_dim"]
-        ).pack(anchor=tk.W, pady=(0, 10))
+            header_row, text="Configure how gear scores are calculated",
+            foreground=self.colors["fg_dim"], padding=(0, 0, 0, 0)
+        ).pack(side=tk.LEFT, anchor=tk.S, padx=(10, 0), pady=(0, 0))
 
         content = ttk.Frame(main_frame)
         content.pack(fill=tk.BOTH, expand=True)
-        # Fixed 50/50 split (v1.1.0): replaces the previous ttk.PanedWindow
-        # so the sash isn't draggable. uniform= ties the two columns to the
-        # same width-share group so they stay equal as the window resizes.
+        # Fixed 50/50 split, deliberately not a ttk.PanedWindow: there is
+        # no draggable sash. uniform= ties the two columns to the same
+        # width-share group so they stay equal as the window resizes.
         content.grid_columnconfigure(0, weight=1, uniform="halves")
         content.grid_columnconfigure(1, weight=1, uniform="halves")
         content.grid_rowconfigure(0, weight=1)
 
         # --- Left side: explanation ----------------------------------
-        explain_frame = ttk.LabelFrame(content, text="How Gear Score Works", padding=10)
-        explain_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+        # No frame padding: the text inset lives on the Text's own
+        # padx/pady, so its lighter background reaches the frame border.
+        explain_frame = ttk.LabelFrame(content, text="How Gear Score Works",
+                                       padding=0)
+        # spacing: content frame -> content frame
+        explain_frame.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
 
         explanation = """GEAR SCORE (GS) EXPLANATION
 
@@ -179,8 +206,8 @@ Use the "Highest GS" and "Highest Pot." columns in the Memory Fragments tab for 
 
 POTENTIAL:
 The possible Gear Score that an MF can get after being fully upgraded.
- - Low:  every remaining upgrade rolls minimum on the worst-weighted stat
- - High: every remaining upgrade rolls maximum on the best-weighted stat
+ - Low:	every remaining upgrade rolls minimum on the worst-weighted stat
+ - High:	every remaining upgrade rolls maximum on the best-weighted stat
   
 Notes:
  - The Optimizer does not consider bad MFs (to speed up calculations). It uses assigned Presets to know which MFs are bad.
@@ -189,20 +216,48 @@ Notes:
  - 3★ Rare MFs cap below 100 (fewer upgrade rolls than the 4★ ceiling).
 
 STAT MIN - MAX ROLLS:
- - Flat ATK: 5 - 8
- - Flat DEF: 3 - 5
- - Flat HP: 10 - 12
- - ATK%/DEF%/HP%: 0.8 - 1.3%
- - CRate: 1.2 - 2.0%
- - CDmg: 2.4 - 4.0%
- - Extra DMG%/DoT%: 2.7 - 3.4%
- - Ego: 2 - 5"""
+ - Flat ATK:	5 - 8
+ - Flat DEF:	3 - 5
+ - Flat HP:	10 - 12
+ - ATK%/DEF%/HP%:	0.8 - 1.3%
+ - CRate:	1.2 - 2.0%
+ - CDMG:	2.4 - 4.0%
+ - Extra DMG%/DoT%:	2.7 - 3.4%
+ - Ego:	2 - 5"""
 
+        # spacing: frame edge -> first checkbox or text
+        # The panel's inset sits here rather than on the LabelFrame,
+        # inside the text widget's own lighter background. The pady has
+        # the line box's leading above the first glyph netted out of it,
+        # which is why it differs between text panels in different fonts.
         explain_text = scrolledtext.ScrolledText(
             explain_frame, height=20, wrap=tk.WORD,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
-            font=("Consolas", 9)
+            font=("Segoe UI", 11),
+            bd=0, highlightthickness=0, padx=6, pady=4
         )
+        # The two aligned groups line up on TAB STOPS rather than on
+        # hand-counted spaces, which only work in a monospaced face. Same
+        # technique as the Combatants tab's Character panel.
+        #
+        # They get a stop EACH, from their own labels. Sharing one stop
+        # across both dragged Low/High out to clear `ATK%/DEF%/HP%`, which
+        # belongs to the other block entirely -- two lists that happen to
+        # sit in one widget are not one column.
+        #
+        # A Text widget's own `tabs` is the default; a TAG carrying its own
+        # `tabs` overrides it for the lines it covers.
+        _f = tkfont.Font(font=explain_text.cget("font"))
+
+        def _stop_for(labels):
+            return max(_f.measure(f" - {lab}:") for lab in labels) + 8
+
+        _rolls_stop = _stop_for(("Flat ATK", "Flat DEF", "Flat HP",
+                                 "ATK%/DEF%/HP%", "CRate", "CDMG",
+                                 "Extra DMG%/DoT%", "Ego"))
+        explain_text.configure(tabs=(_rolls_stop,))
+        explain_text.tag_configure(
+            "potential_block", tabs=(_stop_for(("Low", "High")),))
         # scrolledtext.ScrolledText wraps its Text widget in an internal
         # tk.Frame whose bg defaults to system white; the frame paints
         # briefly before the Text paints over it, producing a white
@@ -220,18 +275,32 @@ STAT MIN - MAX ROLLS:
         except (AttributeError, tk.TclError):
             pass
         explain_text.insert("1.0", explanation)
+        # Tag the two POTENTIAL lines so they take their own tab stop.
+        # Found by their text rather than by line number, which would go
+        # stale the moment a sentence is added above them.
+        for _needle in (" - Low:", " - High:"):
+            _at = explain_text.search(_needle, "1.0", tk.END)
+            if _at:
+                explain_text.tag_add("potential_block", _at, f"{_at} lineend")
         explain_text.config(state=tk.DISABLED)
         explain_text.pack(fill=tk.BOTH, expand=True)
 
         # --- Right side: configuration -------------------------------
-        config_frame = ttk.LabelFrame(content, text="Stat Weight Configuration", padding=10)
-        config_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+        # spacing: frame edge -> first checkbox or text
+        # This padding is the lever for the whole panel's left inset --
+        # the stat grid sits flush against it, and so does the status
+        # label below, which the audit measures in its own right.
+        config_frame = ttk.LabelFrame(content, text="Stat Weight Configuration",
+                                      padding=(4, 2, 5, 5))
+        # spacing: content frame -> content frame
+        config_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
 
+        # spacing: explanation text -> the controls it explains
         ttk.Label(
             config_frame,
             text="Adjust weights for custom scoring (1.0 = normal)",
             foreground=self.colors["fg_dim"]
-        ).pack(anchor=tk.W, pady=(0, 10))
+        ).pack(anchor=tk.W, pady=(0, 5))
 
         # Top region: stats on the left, button column on the right.
         # Two separate frames so stat rows keep their natural compact spacing
@@ -242,8 +311,9 @@ STAT MIN - MAX ROLLS:
         stats_frame = ttk.Frame(top)
         stats_frame.pack(side=tk.LEFT, anchor=tk.N)
 
+        # spacing: TBD -- stat block -> button column
         # Spacer between stats and buttons.
-        ttk.Frame(top, width=20).pack(side=tk.LEFT)
+        ttk.Frame(top, width=11).pack(side=tk.LEFT)
 
         # The button frame fills its parent vertically so weighted empty rows
         # inside it can push the lower buttons down to align with DoT%.
@@ -253,12 +323,17 @@ STAT MIN - MAX ROLLS:
         self._build_stats_grid(stats_frame)
         self._build_button_column(btn_frame)
 
-        # Status label, anchored to the left so it sits right below DoT%.
+        # spacing: frame edge -> first checkbox or text
+        # Status label, anchored left so it sits directly below DoT%. Its
+        # LEFT inset is a registered audit entry, and comes from
+        # config_frame's padding rather than from here. The negative TOP
+        # is a separate correction: pack's pady cannot go below 0, so any
+        # further lift has to come out of the label's own inset.
         self.weight_status = ttk.Label(
             config_frame, text="Applied default weights (all 1.0)",
-            foreground=self.colors["fg_dim"]
+            foreground=self.colors["fg_dim"], padding=(0, -1, 0, 0)
         )
-        self.weight_status.pack(anchor=tk.W, padx=5, pady=(15, 5))
+        self.weight_status.pack(anchor=tk.W, padx=0, pady=(0, 2))
 
         # Preset list, fills remaining space and resizes with the window.
         # ttk.Treeview with two data-only columns: a narrow marker gutter on
@@ -267,8 +342,10 @@ STAT MIN - MAX ROLLS:
         # -- otherwise it reserves a few pixels of leading indent + disclosure
         # indicator space that has no use in a flat list. Data columns still
         # render even when neither "tree" nor "headings" is in show.
+        # spacing: TBD -- status label -> the list below it
+        # (the label's own trailing pady is the other half of it)
         list_frame = ttk.Frame(config_frame)
-        list_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(2, 0))
 
         scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL)
         self.preset_tree = ttk.Treeview(
@@ -298,20 +375,50 @@ STAT MIN - MAX ROLLS:
         Lives in its own frame so spacing isn't perturbed by the (taller)
         button column to the right.
         """
+        # One width for every label in the block, so the spinboxes line up
+        # across both columns. LABEL_GAP_PX is the rule's own distance,
+        # measured from the LONGEST label -- every shorter one simply has
+        # more room before its spinbox.
+        LABEL_GAP_PX = 4
+        _lf = tkfont.nametofont("TkDefaultFont")
+        label_col_px = max(
+            _lf.measure(DISPLAY_NAMES.get(k, d))
+            for k, d in STAT_DISPLAY_NAMES
+        ) + LABEL_GAP_PX
+
         for i, (stat_key, display_name) in enumerate(STAT_DISPLAY_NAMES):
             row, col = i // 2, i % 2
             cell = ttk.Frame(parent)
-            # +5px between the two weight columns (col 1 gets 5px extra
-            # left padding -> 15px inter-column gap).
+            # spacing: frame edge -> first checkbox or text
+            # spacing: TBD -- weight column -> weight column
+            # spacing: TBD -- between rows of spinboxes
+            # Column 0 sits flush against config_frame's own padding, so
+            # that padding is what puts these labels on target and this
+            # side must stay 0. Column 1's leading pad and column 0's
+            # trailing pad sum to the gap between the two weight columns.
             cell.grid(row=row, column=col, sticky=tk.W,
-                      padx=(10 if col == 1 else 5, 5), pady=2)
+                      padx=(10 if col == 1 else 0, 5), pady=2)
 
             # Label uses the canonical DISPLAY_NAMES override (falling
-            # back to display_name); trailing colon dropped. Width 9
-            # (longest label is 8 chars) keeps the spinbox close to its
-            # text.
+            # back to display_name); trailing colon dropped.
+            #
+            # Pinned to a MEASURED pixel width, not a character count: a
+            # count is a width only in a monospaced font, and it left each
+            # spinbox at whatever distance its own label happened to fall
+            # short of nine characters. The width is the widest label in
+            # the block plus the label-to-element gap, so every spinbox in
+            # a column starts from the same place and the longest label is
+            # exactly that gap away from its own.
             label = DISPLAY_NAMES.get(stat_key, display_name)
-            ttk.Label(cell, text=label, width=9).pack(side=tk.LEFT)
+            # A grid column MINSIZE, not a pinned frame: the column is an
+            # exact pixel width while the row keeps its NATURAL height, so
+            # nothing can clip the text or seat it off-centre. A pinned
+            # frame has to be given a height, and a ttk.Label is taller
+            # than its font's line box by however much the style pads it.
+            cell.grid_columnconfigure(0, minsize=label_col_px)
+            # spacing: label ↔ its element
+            ttk.Label(cell, text=label, anchor=tk.W).grid(
+                row=0, column=0, sticky="w")
             var = tk.DoubleVar(value=1.0)
             self.stat_weight_vars[stat_key] = var
 
@@ -325,8 +432,8 @@ STAT MIN - MAX ROLLS:
                 selectforeground=self.colors["fg"],
                 relief=tk.FLAT, bd=1
             )
-            spin.pack(side=tk.LEFT, padx=(0, 2))
-            # Mouse-wheel adjustment (v1.1.0): same handler as Optimizer tab.
+            spin.grid(row=0, column=1, sticky="w", padx=(0, 2))
+            # Mouse-wheel adjustment, same handler as the Optimizer tab.
             # tk.Spinbox doesn't bind <MouseWheel> by default; without this
             # the user has to click the up/down buttons to change values.
             spin.bind(
@@ -342,6 +449,12 @@ STAT MIN - MAX ROLLS:
         the lower group (label, save+entry, apply/delete) down so the bottom
         buttons line up with the bottom of DoT%.
         """
+        # spacing: button -> button
+        # Each button's padx/pady of 2 meets its neighbour's, so the pair
+        # sums to the gap. The row sits in a borderless ttk.Frame, so
+        # there is no frame edge for the button rule's left and bottom to
+        # measure against; only the gap between buttons applies.
+        #
         # Row 0: Apply Current Weights | Reset Current Weights
         ttk.Button(
             parent, text="Apply Current Weights",

@@ -26,6 +26,7 @@ from pathlib import Path
 import sys
 from capture import setup_certificate, open_certificate, find_mitmdump
 from ..base_tab import BaseTab
+from ..utils.checkbox import make_checkbox
 from defaults_sync import resolve_defaults_dir
 
 
@@ -97,44 +98,63 @@ class SetupTab(BaseTab):
     def setup_ui(self):
         """Setup the Setup tab UI."""
         main_frame = ttk.Frame(self.frame)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # spacing: content frame -> content frame
+        # spacing: tab list -> first element
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(1, 2))
 
-        # Title
-        ttk.Label(main_frame, text="First-Time Setup",
-                  font=("Segoe UI", 14, "bold")).pack(anchor=tk.W)
-        ttk.Label(main_frame,
+        # Title and subtitle share one line, bottom-aligned (as on the
+        # Gear Score tab).
+        header_row = ttk.Frame(main_frame)
+        # spacing: content frame -> content frame
+        header_row.pack(fill=tk.X, pady=(0, 2))
+
+        # spacing: header subtext
+        # padding corrects the font's internal offsets, not layout -- see
+        # docs/ui_spacing.md "The rules".
+        ttk.Label(header_row, text="First-Time Setup", padding=(-1, -3, 0, -2),
+                  font=("Segoe UI", 14, "bold")).pack(side=tk.LEFT, anchor=tk.S)
+        ttk.Label(header_row,
                   text="Complete these steps before using the capture feature",
-                  foreground=self.colors["fg_dim"]).pack(anchor=tk.W, pady=(0, 10))
+                  foreground=self.colors["fg_dim"],
+                  padding=(0, 0, 0, -4)).pack(
+                      side=tk.LEFT, anchor=tk.S, padx=(10, 0), pady=(0, 0))
 
         # Top row: Setup Status (left) and Restore Defaults (right)
         # side-by-side in equal-width columns.
         top_row = ttk.Frame(main_frame)
-        top_row.pack(fill=tk.X, pady=(0, 10))
+        # spacing: content frame -> content frame
+        top_row.pack(fill=tk.X, pady=2)
         top_row.grid_columnconfigure(0, weight=1, uniform="halves")
         top_row.grid_columnconfigure(1, weight=1, uniform="halves")
 
-        status_frame = ttk.LabelFrame(top_row, text="Setup Status", padding=10)
-        status_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        # spacing: frame edge -> first checkbox or text
+        status_frame = ttk.LabelFrame(top_row, text="Setup Status", padding=(4, 6, 5, 5))
+        # spacing: content frame -> content frame
+        status_frame.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
 
+        # spacing: unique -- between rows of important status text
+        # (the same pady on all four labels below)
         self.python_status = ttk.Label(status_frame, text="Checking Python...",
-                                        font=("Segoe UI", 10))
+                                        font=("Segoe UI", 11))
         self.python_status.pack(anchor=tk.W, pady=2)
 
         self.mitmproxy_status = ttk.Label(status_frame, text="Checking mitmproxy...",
-                                           font=("Segoe UI", 10))
+                                           font=("Segoe UI", 11))
         self.mitmproxy_status.pack(anchor=tk.W, pady=2)
 
         self.cert_status = ttk.Label(status_frame, text="Checking certificate...",
-                                      font=("Segoe UI", 10))
+                                      font=("Segoe UI", 11))
         self.cert_status.pack(anchor=tk.W, pady=2)
 
         self.admin_status = ttk.Label(status_frame, text="Checking admin rights...",
-                                       font=("Segoe UI", 10))
+                                       font=("Segoe UI", 11))
         self.admin_status.pack(anchor=tk.W, pady=2)
 
         # Restore Defaults panel: three [button + explanation] rows.
-        restore_frame = ttk.LabelFrame(top_row, text="Restore Defaults", padding=10)
-        restore_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        # spacing: frame edge -> button
+        restore_frame = ttk.LabelFrame(top_row, text="Restore Defaults", padding=(3, 6, 5, 0))
+        # spacing: content frame -> content frame
+        restore_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
 
         button_specs = [
             (
@@ -157,11 +177,13 @@ class SetupTab(BaseTab):
         ]
         for label, explanation, kind in button_specs:
             row = ttk.Frame(restore_frame)
+            # spacing: TBD -- between button rows in a panel
             row.pack(fill=tk.X, anchor=tk.NW, pady=(0, 4))
             ttk.Button(
                 row, text=label, width=20,
                 command=lambda k=kind: self._open_restore_dialog(k),
             ).pack(side=tk.LEFT, anchor=tk.NW)
+            # spacing: TBD -- button -> the explanation beside it
             ttk.Label(
                 row, text=explanation,
                 foreground=self.colors["fg_dim"],
@@ -170,16 +192,27 @@ class SetupTab(BaseTab):
 
         # Button frame
         btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill=tk.X, pady=(0, 10))
+        # spacing: content frame -> content frame
+        btn_frame.pack(fill=tk.X, pady=2)
 
+        # spacing: button -> button
+        # Each button's trailing pad meets the next one's leading pad, so
+        # the pair sums to the gap. The row sits in a borderless frame, so
+        # there is no frame edge for the button rule's left and bottom to
+        # measure against; the leading pad just matches main_frame's own.
         ttk.Button(btn_frame, text="Check Status",
-                   command=self.check_status, width=15).pack(side=tk.LEFT, padx=5)
+                   command=self.check_status, width=15).pack(side=tk.LEFT, padx=(2, 2))
         ttk.Button(btn_frame, text="Generate & Install Cert",
-                   command=self.setup_cert, width=22).pack(side=tk.LEFT, padx=5)
+                   command=self.setup_cert, width=22).pack(side=tk.LEFT, padx=(2, 5))
 
-        # Instructions frame
-        instr_frame = ttk.LabelFrame(main_frame, text="Setup Instructions", padding=10)
-        instr_frame.pack(fill=tk.BOTH, expand=True)
+        # spacing: content frame -> content frame
+        # This padx and main_frame's own sum to the gap from the window
+        # edge, matching every other bordered panel. The frame itself
+        # carries no padding, so the text widget's own background reaches
+        # the border; the text inset lives on the Text's padx/pady.
+        instr_frame = ttk.LabelFrame(main_frame, text="Setup Instructions",
+                                     padding=0)
+        instr_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
 
         instructions = """STEP 1: Generate and install certificate
   - Click "Generate & Install Cert" button
@@ -195,9 +228,15 @@ STEP 2: Verify setup
   - Click "Check Status" to verify all components are ready
   - All items should show green checkmarks [OK]"""
 
+        # spacing: frame edge -> first checkbox or text
+        # The panel's inset sits here rather than on the LabelFrame,
+        # inside the text widget's own lighter background. The pady has
+        # the line box's leading above the first glyph netted out of it,
+        # which is why it differs between text panels in different fonts.
         instr_text = scrolledtext.ScrolledText(
             instr_frame, height=18, wrap=tk.WORD,
-            bg=self.colors["bg_light"], fg=self.colors["fg"]
+            bg=self.colors["bg_light"], fg=self.colors["fg"],
+            bd=0, highlightthickness=0, padx=6, pady=6
         )
         # Match the Gear Score tab's white-flash fix: force the wrapping
         # frame + scrollbar to dark so we never see a white paint on
@@ -419,6 +458,9 @@ STEP 2: Verify setup
             return
 
         # ----- Build the dialog -----
+        # spacing: out of scope -- a modal dialog, deferred like the
+        # Materials and About tabs. The rules scope to the tabs' own
+        # panels, so nothing below here is measured or marked.
         dlg = tk.Toplevel(self.frame)
         dlg.title(meta["dialog_title"])
         dlg.transient(self.root)
@@ -511,7 +553,7 @@ STEP 2: Verify setup
                 grid_row = i + 1
                 var = tk.BooleanVar(value=True)
                 missing_data[key] = {"restore": var, "display": display}
-                ttk.Checkbutton(rows, variable=var).grid(
+                make_checkbox(rows, self.colors, variable=var).grid(
                     row=grid_row, column=0, sticky="w", padx=(0, 16), pady=1,
                 )
                 ttk.Label(rows, text=display).grid(
@@ -615,7 +657,8 @@ STEP 2: Verify setup
         """Simple per-row builder (no Rename) for character_preset and
         optimizer_settings restores."""
         replace_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(parent_grid, variable=replace_var).grid(
+        make_checkbox(parent_grid, self.colors,
+                      variable=replace_var).grid(
             row=grid_row, column=0, sticky="w", padx=(0, 16), pady=1,
         )
         ttk.Label(parent_grid, text=display).grid(
@@ -637,13 +680,15 @@ STEP 2: Verify setup
         rename_text_var = tk.StringVar(value="")
         suppress = [False]  # re-entrancy guard for the two var-traces
 
-        ttk.Checkbutton(parent_grid, variable=replace_var).grid(
+        make_checkbox(parent_grid, self.colors,
+                      variable=replace_var).grid(
             row=grid_row, column=0, sticky="w", padx=(0, 16), pady=1,
         )
         ttk.Label(parent_grid, text=display).grid(
             row=grid_row, column=1, sticky="w", padx=(0, 16), pady=1,
         )
-        rename_cb = ttk.Checkbutton(parent_grid, variable=rename_var)
+        rename_cb = make_checkbox(parent_grid, self.colors,
+                                  variable=rename_var)
         rename_cb.grid(
             row=grid_row, column=2, sticky="w", padx=(0, 6), pady=1,
         )

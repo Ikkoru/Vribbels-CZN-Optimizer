@@ -43,18 +43,25 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
 from game_data import EQUIPMENT_SLOTS, RARITY_COLORS, SETS
+from game_data.characters import ATTRIBUTE_COLORS
 # User-facing stat-name overrides (e.g. "Flat ATK" -> "ATK Flat",
 # "CDmg" -> "CDMG%"). Applied when rendering the tree's Main / Sub
 # columns so the Memory Fragments tab matches the Optimizer tab.
 from game_data.constants import DISPLAY_NAMES
 from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
 from ..base_tab import BaseTab
+from ..utils.checkbox import make_checkbox
 from .heroes_tab import compute_fragment_gs
 
 
 # Display label -> canonical stat name (as stored in main_stat.name).
 # The canonical names match the first element of STATS tuples and the values
 # in FILTER_SLOT_MAIN_STATS, so slot-driven filter logic can use them directly.
+# SETS is keyed by set id; the filter panel only ever holds the display
+# name, so it needs the reverse lookup.
+SETS_BY_NAME = {v["name"]: v for v in SETS.values()}
+
+
 MAIN_STAT_DISPLAY = [
     ("ATK%",      "ATK%"),
     ("DEF%",      "DEF%"),
@@ -170,15 +177,25 @@ class InventoryTab(BaseTab):
             self._mainstat_strike_font = ("TkDefaultFont", 9, "overstrike")
 
         filter_frame = ttk.Frame(self.frame)
-        filter_frame.pack(fill=tk.X, padx=10, pady=(5, 2))
+        # spacing: content frame -> content frame
+        # spacing: tab list -> first element
+        # This tab has no main_frame wrapper -- filter_frame and tree_frame
+        # pack straight into self.frame -- so the outer pads carry the whole
+        # distance to the window edge themselves, where other tabs split it
+        # across two nesting levels. The filter LabelFrames still get half
+        # from here and half from slot_col/set_frame/main_frame/opt_frame
+        # below.
+        filter_frame.pack(fill=tk.X, padx=2, pady=(3, 2))
 
         # ----- Slots filter -----------------------------------------------
         # The Slots frame shares a vertical column with the active-preset
         # label so the label sits directly beneath it.
         slot_col = ttk.Frame(filter_frame)
-        slot_col.pack(side=tk.LEFT, padx=(0, 10), anchor=tk.N)
+        # spacing: content frame -> content frame
+        slot_col.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 
-        slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=3)
+        # spacing: frame edge -> first checkbox or text
+        slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=(1, 2, 1, 3))
         slot_frame.pack(fill=tk.X)
 
         slot_inner = ttk.Frame(slot_frame)
@@ -192,17 +209,21 @@ class InventoryTab(BaseTab):
                 slot_name = EQUIPMENT_SLOTS[slot_num]
                 var = tk.BooleanVar(value=True)
                 self.inv_slot_vars[slot_num] = var
-                ttk.Checkbutton(
-                    slot_inner, text=slot_name, variable=var,
+                # spacing: TBD -- checkbox column -> checkbox column
+                make_checkbox(
+                    slot_inner, self.colors, text=slot_name, variable=var,
                     command=lambda n=slot_num: self._on_slot_toggle(n)
                 ).grid(row=row, column=col, sticky=tk.W, padx=2)
 
         slot_btn_frame = ttk.Frame(slot_frame)
-        slot_btn_frame.pack(fill=tk.X, pady=(5, 0))
+        # spacing: checkbox block -> All/None row
+        slot_btn_frame.pack(fill=tk.X, pady=(1, 0))
+        # spacing: frame edge -> button
+        # spacing: button -> button
         ttk.Button(slot_btn_frame, text="All", width=5,
-                   command=self.select_all_slots).pack(side=tk.LEFT, padx=1)
+                   command=self.select_all_slots).pack(side=tk.LEFT, padx=(2, 2))
         ttk.Button(slot_btn_frame, text="None", width=5,
-                   command=self.select_no_slots).pack(side=tk.LEFT, padx=1)
+                   command=self.select_no_slots).pack(side=tk.LEFT, padx=(2, 0))
 
         # Which scoring weights the GS / Potential columns are computed
         # against. wraplength wraps a long preset name onto a second line
@@ -213,42 +234,60 @@ class InventoryTab(BaseTab):
             foreground=self.colors["fg_dim"],
             wraplength=205, justify=tk.LEFT,
         )
+        # spacing: TBD -- panel -> the label beneath it
         self.active_preset_label.pack(anchor=tk.W, pady=(2, 0))
 
         # ----- Sets filter -----------------------------------------------
-        set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=3)
-        set_frame.pack(side=tk.LEFT, padx=(0, 10), anchor=tk.N)
+        # spacing: frame edge -> first checkbox or text
+        set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=(1, 2, 0, 3))
+        # spacing: content frame -> content frame
+        set_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 
         self.inv_set_frame_inner = ttk.Frame(set_frame)
         self.inv_set_frame_inner.pack()
 
         set_btn_frame = ttk.Frame(set_frame)
-        set_btn_frame.pack(fill=tk.X, pady=(5, 0))
+        # spacing: checkbox block -> All/None row
+        set_btn_frame.pack(fill=tk.X, pady=(1, 0))
+        # spacing: frame edge -> button
+        # spacing: button -> button
         ttk.Button(set_btn_frame, text="All", width=5,
-                   command=self.select_all_sets).pack(side=tk.LEFT, padx=1)
+                   command=self.select_all_sets).pack(side=tk.LEFT, padx=(2, 2))
         ttk.Button(set_btn_frame, text="None", width=5,
-                   command=self.select_no_sets).pack(side=tk.LEFT, padx=1)
+                   command=self.select_no_sets).pack(side=tk.LEFT, padx=(2, 0))
 
         # ----- Main Stats filter -----------------------------------------
-        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=3)
-        main_frame.pack(side=tk.LEFT, padx=(0, 10), anchor=tk.N)
+        # spacing: frame edge -> first checkbox or text
+        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=(2, 4, 2, 3))
+        # spacing: content frame -> content frame
+        main_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 
         self.inv_main_stat_frame_inner = ttk.Frame(main_frame)
         self.inv_main_stat_frame_inner.pack(anchor=tk.W)
 
+        # spacing: checkbox row -> checkbox row
+        # spacing: checkbox row -> checkbox row (small division)
         # Build the fixed layout. Every checkbox starts checked & enabled --
         # availability is then refined by _refresh_main_stat_availability().
-        # 3px extra top padding before rows that begin a new "stat family":
-        #   row 1 (Crit%/CritDMG%), row 2 (Passion%/Justice%/Order%).
-        ROW_TOP_PAD = {1: 3, 2: 3}
+        #
+        # Row 0 takes no top pad: its gap upward is the frame-edge rule,
+        # not a row gap. The rest take the row pitch, and the two rows that
+        # start a new "stat family" (Crit%/CritDMG%, then
+        # Passion%/Justice%/Order%) take the wider division instead.
+        #
+        # These are LEVERS, not rendered distances, and neither row-pitch
+        # rule is in the spacing audit yet -- so the gaps they produce are
+        # asserted, not measured. Measure before trusting them.
+        ROW_TOP_PAD = {1: 8, 2: 8}
         for row_idx, row_labels in enumerate(MAIN_STAT_LAYOUT):
-            extra_top = ROW_TOP_PAD.get(row_idx, 0)
+            extra_top = 0 if row_idx == 0 else ROW_TOP_PAD.get(row_idx, 4)
             for col_idx, label in enumerate(row_labels):
                 var = tk.BooleanVar(value=True)
                 self.inv_main_stat_vars[label] = var
                 cb = self._make_mainstat_checkbutton(
                     self.inv_main_stat_frame_inner, label, var
                 )
+                # spacing: TBD -- checkbox column -> checkbox column
                 cb.grid(row=row_idx, column=col_idx, sticky=tk.W,
                         padx=2, pady=(extra_top, 0))
                 self.inv_main_stat_checks[label] = cb
@@ -263,41 +302,52 @@ class InventoryTab(BaseTab):
         # Empty by default; widgets get added dynamically.
 
         main_btn_frame = ttk.Frame(main_frame)
-        main_btn_frame.pack(fill=tk.X, pady=(5, 0))
+        # spacing: checkbox block -> All/None row
+        main_btn_frame.pack(fill=tk.X, pady=(2, 0))
+        # spacing: frame edge -> button
+        # spacing: button -> button
         ttk.Button(main_btn_frame, text="All", width=5,
-                   command=self.select_all_main_stats).pack(side=tk.LEFT, padx=1)
+                   command=self.select_all_main_stats).pack(side=tk.LEFT, padx=(1, 2))
         ttk.Button(main_btn_frame, text="None", width=5,
-                   command=self.select_no_main_stats).pack(side=tk.LEFT, padx=1)
+                   command=self.select_no_main_stats).pack(side=tk.LEFT, padx=(2, 0))
 
         # Initial availability sync (all slots checked at startup → everything on).
         self._refresh_main_stat_availability()
 
         # ----- Options ---------------------------------------------------
         opt_frame = ttk.Frame(filter_frame)
-        opt_frame.pack(side=tk.LEFT, padx=(0, 10))
+        # spacing: content frame -> content frame
+        opt_frame.pack(side=tk.LEFT, padx=(1, 2))
 
         self.inv_unequipped_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opt_frame, text="Unequipped Only", variable=self.inv_unequipped_var,
-                        command=self.refresh_inventory).pack(anchor=tk.W)
+        make_checkbox(opt_frame, self.colors, text="Unequipped Only",
+                      variable=self.inv_unequipped_var,
+                      command=self.refresh_inventory).pack(anchor=tk.W)
 
         # "Include Uncommon" defaults to OFF, so the list shows only Rare+
         # fragments unless the user opts in.
         self.inv_include_uncommon_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opt_frame, text="Include Uncommon", variable=self.inv_include_uncommon_var,
-                        command=self.refresh_inventory).pack(anchor=tk.W)
+        make_checkbox(opt_frame, self.colors, text="Include Uncommon",
+                      variable=self.inv_include_uncommon_var,
+                      command=self.refresh_inventory).pack(anchor=tk.W)
 
         # Restricts the new "Highest GS" column to only consider presets that
         # are currently assigned to characters in the Combatants tab. Useful
         # when many presets exist but only a few are actually in use.
         self.inv_only_assigned_presets_var = tk.BooleanVar(value=False)
         # Two-line label -- text after the colon drops to the second line.
-        ttk.Checkbutton(opt_frame, text="Highest GS/Potential:\nAssigned Presets Only",
-                        variable=self.inv_only_assigned_presets_var,
-                        command=self.refresh_inventory).pack(anchor=tk.W)
+        make_checkbox(opt_frame, self.colors,
+                      text="Highest GS/Potential:\nAssigned Presets Only",
+                      variable=self.inv_only_assigned_presets_var,
+                      command=self.refresh_inventory).pack(anchor=tk.W)
 
         # ----- Treeview ---------------------------------------------------
         tree_frame = ttk.Frame(self.frame)
-        tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        # spacing: content frame -> content frame
+        # Twice the other tabs' value, because the Treeview is packed
+        # directly inside with no padding of its own: this frame supplies
+        # the whole edge gap rather than half of it.
+        tree_frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=(2, 4))
 
         inv_cols = ("slot", "set", "main", "lvl", "sub1", "sub2", "sub3", "sub4",
                     "gs", "potential", "equipped", "highest_gs", "highest_potential")
@@ -439,21 +489,46 @@ class InventoryTab(BaseTab):
             var = tk.BooleanVar(value=previous.get(set_name, True))
             self.inv_set_vars[set_name] = var
             base_col = logical_col * 2
-            ttk.Checkbutton(
-                self.inv_set_frame_inner, text=set_name, variable=var,
-                command=self.refresh_inventory,
+            # spacing: frame edge -> first checkbox or text
+            # spacing: checkbox row -> checkbox row (small division)
+            # (the leading padx feeds the panel's left inset; top_pad is
+            # the divider between the 4-piece and 2-piece groups)
+            # A two-Element set reads left-to-right in the order it lists
+            # them: the NAME takes the left Element, the count takes the
+            # right. A one-Element set uses it for both; a set with no
+            # Element stays on the default foreground.
+            #
+            # The checkbox goes with the name rather than the count,
+            # because Tk draws a Checkbutton's tick in `fg` -- the same
+            # option that colours its text. Giving the indicator a third
+            # colour means splitting it into a text-less Checkbutton plus
+            # a Label, the way the Optimizer's Set Configuration rows do.
+            elements = (SETS_BY_NAME.get(set_name) or {}).get("elements") or []
+            left = ATTRIBUTE_COLORS.get(
+                elements[0] if elements else None, self.colors["fg"])
+            right = ATTRIBUTE_COLORS.get(
+                elements[-1] if elements else None, self.colors["fg"])
+            make_checkbox(
+                self.inv_set_frame_inner, self.colors, text=set_name,
+                variable=var, command=self.refresh_inventory, fg=left,
             ).grid(row=row, column=base_col, sticky=tk.W,
                    padx=(2, 0), pady=(top_pad, 0))
             # The count label gets a fixed width (per-column max, see
             # col_count_widths) with anchor=E so the closing brackets line
-            # up right-aligned within the count column. NB: Tk rejects
-            # negative pad values ("bad pad value"), so 0 is the minimum
-            # left pad -- the per-column count_w is what keeps the visible
-            # distance short for short-count columns.
+            # up right-aligned within the count column.
             cnt = ttk.Label(self.inv_set_frame_inner, text=f"({count})",
+                            foreground=right,
                             width=col_count_widths[logical_col], anchor=tk.E)
+            # spacing: frame edge -> first checkbox or text
+            # spacing: TBD -- checkbox column -> checkbox column
+            # The last logical column has no neighbour, so its trailing pad
+            # is the one feeding the panel's RIGHT inset, together with the
+            # label's own trailing inset. Tk rejects negative pad values, so
+            # 0 is the minimum on the leading side -- the per-column count
+            # width is what keeps short-count columns tight instead.
             cnt.grid(row=row, column=base_col + 1, sticky=tk.W,
-                     padx=(0, 8), pady=(top_pad, 0))
+                     padx=(0, 4 if logical_col == len(col_count_widths) - 1 else 8),
+                     pady=(top_pad, 0))
             # Clicking the count toggles the checkbox too (the count label
             # isn't part of the Checkbutton's own hit area).
             cnt.bind(
@@ -461,6 +536,7 @@ class InventoryTab(BaseTab):
                 lambda _e, v=var: (v.set(not v.get()), self.refresh_inventory()),
             )
 
+        # spacing: checkbox row -> checkbox row (small division)
         SET_GROUP_GAP = 4
         for i, set_name in enumerate(four_names):
             _add_set_cell(set_name, i // ncols, i % ncols, 0)
@@ -531,6 +607,7 @@ class InventoryTab(BaseTab):
             cb = self._make_mainstat_checkbutton(
                 self.inv_main_unknown_frame, canonical, var
             )
+            # spacing: TBD -- checkbox column -> checkbox column
             cb.grid(row=0, column=col_idx, sticky=tk.W, padx=2)
             self.inv_unknown_main_stat_checks[canonical] = cb
 
@@ -538,16 +615,24 @@ class InventoryTab(BaseTab):
         """Build a tk.Checkbutton styled to blend with the surrounding ttk
         widgets in the dark theme. Used by both the fixed-position grid and
         the unknowns row so they look identical."""
+        # spacing: frame edge -> first checkbox or text
+        # bd and highlightthickness are zeroed for looks AND for spacing:
+        # Tk's defaults add a border and focus ring outside the indicator,
+        # which would push every checkbox in the panel inward.
+        # The five elemental DMG% filters take their Element's colour, the
+        # same map every other Element-coloured thing in the app uses. The
+        # label is "Passion%", so the Element is its text minus the "%".
+        colour = ATTRIBUTE_COLORS.get(label.rstrip("%"), self.colors["fg"])
         return tk.Checkbutton(
             parent, text=label, variable=var,
             command=self.refresh_inventory,
-            bg=self.colors["bg"], fg=self.colors["fg"],
+            bg=self.colors["bg"], fg=colour,
             activebackground=self.colors["bg"],
-            activeforeground=self.colors["fg"],
+            activeforeground=colour,
             disabledforeground=self.colors["fg_dim"],
             selectcolor=self.colors["bg_light"],
             font=self._mainstat_font,
-            anchor=tk.W, bd=0, highlightthickness=0,
+            anchor=tk.W, bd=0, highlightthickness=0, takefocus=0,
         )
 
     def _refresh_main_stat_availability(self):

@@ -27,7 +27,7 @@ class MaterialsTab(BaseTab):
     def setup_ui(self):
         """Setup the Materials tab UI."""
         container = ttk.Frame(self.frame)
-        container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(22, 20))
 
         # Title
         title_label = ttk.Label(container, text="Growth Stones",

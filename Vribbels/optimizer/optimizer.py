@@ -47,10 +47,10 @@ Where each piece comes from:
                   card's class-based stat table (PARTNER_CLASS_STATS).
   MF%             Substats and main-stat %-type values from all 6
                   Memory Fragments combined.
-  potential_node% Percentage bonuses from the character's level-40,
-                  -50, -60 potential nodes. Flat bonuses from nodes
-                  10/20/30 don't go here -- they're inside the
-                  gear_flat layer below.
+  potential_node% Percentage bonuses from the character's level-50 and
+                  level-60 potential nodes -- the only two the program
+                  models. Flat bonuses from nodes 10/20/30 don't go
+                  here; they're inside the gear_flat layer below.
   gear_flat       Flat ATK/DEF/HP bonuses: nodes 10/20/30 + the flat
                   main stat / substat values from equipped pieces.
   affection_flat  Cumulative ATK/DEF/HP from the partner's affection
@@ -161,7 +161,7 @@ class GearOptimizer:
         Args:
             filepath: Path to capture JSON file
         """
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         self.raw_data = data
@@ -654,7 +654,7 @@ class GearOptimizer:
         }
 
     def calculate_build_stats(self, gear: list[MemoryFragment],
-                               char_name: str = None,
+                               char_name: str = None, *,
                                effective_level: int = None,
                                set_effect_shares: dict = None) -> dict[str, float]:
         """
@@ -663,7 +663,7 @@ class GearOptimizer:
         Implements the Final ATK / DEF / HP formula:
 
           inner_X = (Base X + Partner X) * (1 + Memory_Fragment_X% + Potential_X%)
-                    + Gear_Flat_X + Affection_Flat_X
+                    + Gear_Flat_X + Affinity_Flat_X
           Final X = inner_X * (1 + Partner_X% + Equipment_X%) + Equipment_Flat_X
 
         Also computes the optimizer-scoring helper Shield_Heal_DEF
@@ -759,9 +759,15 @@ class GearOptimizer:
             self._resolve_attribute(char_name, settings),
         )
 
-    def compute_build_breakdown(self, gear: list, char_name: str,
+    def compute_build_breakdown(self, gear: list, char_name: str, *,
                                 settings: dict = None) -> dict:
         """Per-source breakdown of a build's final stats.
+
+        `settings` is keyword-only, as is `calculate_build_stats`'
+        `effective_level`. The two take the same first two arguments and
+        a different THIRD -- a settings dict here, an int level there --
+        so a positional call that picks the wrong one is accepted
+        silently and returns plausible, wrong numbers.
 
         Recomputes the SAME layered formula as calculate_build_stats but
         keeps each contribution separate instead of collapsing it, so the
@@ -810,7 +816,7 @@ class GearOptimizer:
             base_cr = char_data.get("base_crit_rate", 0)
             base_cd = char_data.get("base_crit_dmg", 125.0)
 
-        # ----- Affection + partner flat + partner passive + potential -----
+        # ----- Affinity + partner flat + partner passive + potential -----
         affection_atk = affection_def = affection_hp = 0
         partner_flat_atk = partner_flat_def = partner_flat_hp = 0
         partner_passive = {}

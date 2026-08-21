@@ -9,7 +9,7 @@ doesn't live on individual characters / partners / fragments:
     helpers. Both tables have firm and estimated entries; provenance is
     annotated at each table.
 
-  - Affection (formerly "friendship") reward bonuses (FRIENDSHIP_BONUSES)
+  - Affinity reward bonuses (FRIENDSHIP_BONUSES)
     and the closed-form get_friendship_bonus extrapolation. Each entry
     is the cumulative TOTAL (ATK, DEF, HP) at that level, NOT the
     increment.
@@ -86,10 +86,10 @@ CLASSES = (
 #               (720000, 60) -- all max-level heroes in May 11 snapshot
 #               (778200, 61) -- Amir, level 61 (confirmed checkpoint)
 #
-# History: pre-v1.1.0 had estimated round-number checkpoints for many
-# of the levels under 40 (e.g. (500, 5), (8000, 15), (20000, 20)). Those
-# were significantly off vs. the actual game data; replaced wholesale
-# below.
+# Every checkpoint below is read from the game. Estimated round-number
+# checkpoints were tried for the levels under 40 and were far enough off
+# to matter, so nothing here is interpolated -- add a real reading rather
+# than a plausible one.
 CHARACTER_EXP_TABLE = [
     (0, 1),       (100, 2),     (200, 3),     (400, 4),     (600, 5),
     (900, 6),     (1300, 7),    (1700, 8),    (2200, 9),    (2800, 10),
@@ -137,7 +137,9 @@ PARTNER_EXP_TABLE = [
 _active_character_exp_table = list(CHARACTER_EXP_TABLE)
 _active_partner_exp_table = list(PARTNER_EXP_TABLE)
 
-# Affection (formerly "friendship") bonus rewards.
+# Affinity bonus rewards. The game calls this Affinity; the
+# identifiers here say FRIENDSHIP, inherited from upstream. Keep
+# user-visible text on the game's word.
 #
 # Each row is the CUMULATIVE TOTAL (level, ATK, DEF, HP) at that affection
 # level — NOT an increment. The function below just looks up by level for
@@ -166,8 +168,8 @@ FRIENDSHIP_BONUSES = [
     (38, 39, 12, 36), (39, 39, 13, 36), (40, 39, 13, 39),
 ]
 
-# Note: Capture-related constants (GAME_HOSTS, GAME_PORT, PROXY_PORT, OUTPUT_DIR, HOSTS_PATH)
-# have been moved to the capture module (capture/constants.py)
+# Capture-related constants (GAME_HOSTS, GAME_PORT, PROXY_PORT,
+# OUTPUT_DIR, HOSTS_PATH) live in capture/constants.py, not here.
 
 EQUIPMENT_SLOTS = {
     1: "I Shock",
@@ -276,9 +278,9 @@ ALL_STAT_NAMES = [s[0] for s in STATS.values()]
 # .load to translate old keys to new) -- this dict is the migration map
 # when that day comes.
 #
-# Tabs migrated so far: Optimizer.
-# Tabs still showing internal names: Combatants, Memory Fragments,
-#   Gear Score / Scoring tab.
+# Not every tab translates: grep for DISPLAY_NAMES to see which do.
+# A tab that doesn't shows the internal key instead, which is a display
+# inconsistency rather than a fault.
 DISPLAY_NAMES = {
     "Flat ATK":      "ATK Flat",
     "Flat DEF":      "DEF Flat",
@@ -293,10 +295,9 @@ DISPLAY_NAMES = {
     "Instinct DMG%": "Instinct%",
 }
 
-# Main stats for each slot (using updated names).
-# Note: DEF% as a main stat ONLY appears on slot 6 -- corrected in v1.1.0.
-# Pre-1.1.0 versions of this file listed DEF% under slots 4 and 5 as well,
-# which was incorrect (the in-game data has never had those options). See
+# Main stats for each slot.
+# DEF% appears as a main stat on slot 6 ONLY -- the game has never
+# offered it on slots 4 or 5, however plausible that looks. See
 # docs/game_formulas.md §2 for the canonical main-stat table.
 SLOT_MAIN_STATS = {
     1: ["Flat ATK"],
@@ -408,12 +409,11 @@ def get_level_from_exp(exp: int, exp_table: list = None) -> int:
             return prev_level
         prev_exp, prev_level = min_exp, lvl
 
-    # Past the table -- return the highest level it documents. With the
-    # built-in tables that's 60; when level-61/62 thresholds are added
-    # (manually or via user-confirmed checkpoints flowing through
-    # level_data_manager) this naturally extends to whatever the table's
-    # top entry is. Previously hardcoded to 60, which capped levels above
-    # 60 even when the table knew about them.
+    # Past the table -- return the highest level it DOCUMENTS, not a
+    # hardcoded cap. With the built-in tables that's 60; when level-61/62
+    # thresholds are added (manually, or via user-confirmed checkpoints
+    # flowing through level_data_manager) this extends to whatever the
+    # table's top entry is, with nothing here to update.
     return prev_level
 
 

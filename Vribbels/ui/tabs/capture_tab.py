@@ -5,7 +5,9 @@ from tkinter import ttk, scrolledtext, messagebox
 import threading
 from capture import check_prerequisites, CaptureError
 from capture.constants import SERVERS
+from game_data.characters import CHARACTERS, ATTRIBUTE_COLORS
 from ..base_tab import BaseTab
+from ..utils.checkbox import make_checkbox
 
 
 class CaptureTab(BaseTab):
@@ -28,6 +30,11 @@ class CaptureTab(BaseTab):
         # Log Presets checklist (column 2)
         self.log_presets_list_frame = None
         self._log_preset_vars = {}
+        # Upgrade Log mismatch filters (column 2, below the checklist)
+        self.ignore_atkdef_var = None
+        self.ignore_element_var = None
+        self.ignore_dps_hp_var = None
+        self.ignore_dps_ego_var = None
         # True once log_upgrade_msg has set the upg_start/upg_end marks
         # (rewrite_last_upgrade_line no-ops before the first upgrade).
         self._has_upgrade_marks = False
@@ -54,60 +61,162 @@ class CaptureTab(BaseTab):
     def setup_ui(self):
         """Setup the Capture tab UI."""
         main_frame = ttk.Frame(self.frame)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # spacing: content frame -> content frame
+        # The sides and bottom absorb the notebook's removed client inset
+        # so this tab sits where it did (see Flush.TNotebook in
+        # czn_optimizer_gui). The top is 0 instead -- see top_columns
+        # below for the nesting level that pays for it.
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
 
         # Everything above the Capture Log sits in a two-column grid:
-        # column 1 = the capture controls, column 2 = the Log Presets
-        # checklist. uniform="capcols" + equal weights = equal widths.
+        # column 1 = the capture controls at a fixed 610px, column 2 =
+        # the Upgrade Log settings taking whatever is left. weight=0 +
+        # minsize pins the left column; an equal-weight `uniform` pair
+        # would force a 50/50 split and ignore left_col's width request.
         top_columns = ttk.Frame(main_frame)
-        top_columns.pack(fill=tk.X)
-        top_columns.grid_columnconfigure(0, weight=1, uniform="capcols")
-        top_columns.grid_columnconfigure(1, weight=1, uniform="capcols")
+        # spacing: tab list -> first element
+        # pady top is 0, not 2: this tab has an extra nesting level that
+        # the other tabs don't (main_frame -> top_columns -> left_col),
+        # so a value here would stack on top of one the other tabs never
+        # pay and drop the heading below theirs.
+        top_columns.pack(fill=tk.X, pady=(0, 2))
+        top_columns.grid_columnconfigure(0, weight=0, minsize=610)
+        top_columns.grid_columnconfigure(1, weight=1)
 
         left_col = ttk.Frame(top_columns)
-        left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        # spacing: content frame -> content frame
+        # The widest lever on this tab: everything down the left side is
+        # a child of this frame, so its padx positions the heading,
+        # Status, Server Region, Requirements and the button row at once.
+        left_col.grid(row=0, column=0, sticky="nsew", padx=2)
+        # grid_propagate(False) caps the frame at the requested 610px;
+        # without it a wide child (the button row) would push the column
+        # past minsize.
+        left_col.configure(width=610)
+        left_col.grid_propagate(False)
 
-        right_col = ttk.LabelFrame(top_columns, text="Upgrade Log Presets", padding=10)
-        right_col.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        # spacing: frame edge -> first checkbox or text
+        # The frame's own padding is NOT the lever for the left inset --
+        # the explanation label below carries that, for the reason given
+        # there.
+        right_col = ttk.LabelFrame(top_columns, text="Upgrade Log Settings",
+                                   padding=(3, 1, 5, 3))
+        # spacing: TBD -- panel title -> heading in the adjacent column
+        # The pady top lands this LabelFrame's title on the same line as
+        # the left column's heading: a LabelFrame title has no internal
+        # leading above it, where the 14pt heading beside it keeps a
+        # little after its negative padding.
+        right_col.grid(row=0, column=1, sticky="nsew", padx=2, pady=(3, 0))
 
+        # spacing: frame edge -> first checkbox or text
+        # spacing: explanation text -> the controls it explains
+        # Corrected on this LABEL rather than on the panel's padding: the
+        # checkboxes below are already on target, and a frame-level shift
+        # would move them off it to bring this one on.
         ttk.Label(
             right_col,
             text="Assigned presets compared in the Upgraded log lines' "
                  "Highest Potential.\nChecking or unchecking a preset "
                  "excludes it (and re-writes the last Upgraded line).",
             foreground=self.colors["fg_dim"], justify=tk.LEFT,
-        ).pack(anchor=tk.W, pady=(0, 5))
+        ).pack(anchor=tk.W, padx=(1, 0), pady=(0, 0))
+
+        # Mismatch filters, bottom-left, two columns. Packed BEFORE the
+        # checklist so the checklist's expand=True doesn't swallow the
+        # cavity these need. Global (settings.json), all on by default;
+        # toggling one re-writes the last Upgraded line, as a preset
+        # toggle does.
+        options_frame = ttk.Frame(right_col)
+        # spacing: checkboxes -> unrelated checkboxes
+        # (from the Log Presets checklist above. No audit entry covers
+        # this rule anywhere yet.)
+        options_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(5, 0))
+        options_frame.grid_columnconfigure(1, weight=1)
+
+        sm = self.context.settings_manager
+
+        def _filter_checkbox(text, key, row, column):
+            var = tk.BooleanVar(
+                value=(bool(sm.get(key, True)) if sm is not None else True)
+            )
+            # spacing: TBD -- checkbox column -> checkbox column
+            make_checkbox(
+                options_frame, self.colors, text=text, variable=var,
+                command=lambda: self._on_log_filter_toggle(key, var),
+            ).grid(row=row, column=column, sticky=tk.W,
+                   padx=(0, 10) if column == 0 else 0)
+            return var
+
+        self.ignore_atkdef_var = _filter_checkbox(
+            "Don't show presets on ATK/DEF mismatch",
+            "upgrade_log_ignore_atkdef_mismatch", 0, 0)
+        self.ignore_element_var = _filter_checkbox(
+            "Don't show presets on Element mismatch",
+            "upgrade_log_ignore_element_mismatch", 1, 0)
+        self.ignore_dps_hp_var = _filter_checkbox(
+            "Don't show DPS presets for HP% MFs",
+            "upgrade_log_ignore_dps_hp", 0, 1)
+        self.ignore_dps_ego_var = _filter_checkbox(
+            "Don't show DPS presets for Ego MFs",
+            "upgrade_log_ignore_dps_ego", 1, 1)
+
         self.log_presets_list_frame = ttk.Frame(right_col)
         self.log_presets_list_frame.pack(fill=tk.BOTH, expand=True)
 
+        # Title and subtitle share one line, bottom-aligned (as on the
+        # Gear Score tab).
         title_frame = ttk.Frame(left_col)
-        title_frame.pack(fill=tk.X, pady=(0, 10))
+        # spacing: content frame -> content frame
+        title_frame.pack(fill=tk.X, pady=(0, 2))
 
-        ttk.Label(title_frame, text="Data Capture",
-                  font=("Segoe UI", 14, "bold")).pack(anchor=tk.W)
+        # spacing: header subtext
+        # The vertical padding corrects the font's internal offsets, not
+        # layout -- see docs/ui_spacing.md "The rules". The LEFT
+        # component is a different job: this tab nests one level deeper
+        # than the other headers (main_frame -> top_columns -> left_col),
+        # so the accumulated container padding sits the heading right of
+        # theirs; this pulls it back, and takes one more. The subtitle
+        # follows automatically -- pack places it after this label's (now
+        # narrower) box.
+        ttk.Label(title_frame, text="Data Capture", padding=(-3, -3, 0, -2),
+                  font=("Segoe UI", 14, "bold")).pack(side=tk.LEFT, anchor=tk.S)
         ttk.Label(title_frame, text="Capture game data by intercepting API traffic",
-                  foreground=self.colors["fg_dim"]).pack(anchor=tk.W)
+                  foreground=self.colors["fg_dim"],
+                  padding=(0, 0, 0, -4)).pack(
+                      side=tk.LEFT, anchor=tk.S, padx=(10, 0), pady=(0, 0))
 
-        # Status frame
-        status_frame = ttk.LabelFrame(left_col, text="Status", padding=10)
-        status_frame.pack(fill=tk.X, pady=(0, 10))
+        # spacing: exception -- the LEFT inset deliberately does not meet
+        # the frame-edge rule, and the panel is left out of the audit for
+        # it; see docs/ui_spacing.md.
+        status_frame = ttk.LabelFrame(left_col, text="Status", padding=(5, 1, 5, 3))
+        # spacing: content frame -> content frame
+        status_frame.pack(fill=tk.X, pady=2)
 
-        self.capture_status_label = ttk.Label(status_frame, text="Ready",
-                                               font=("Segoe UI", 12))
-        self.capture_status_label.pack(anchor=tk.W)
+        # spacing: header subtext
+        # "Ready" and the hint sit on one line, the hint bottom-aligned
+        # against the larger status font.
+        status_row = ttk.Frame(status_frame)
+        status_row.pack(fill=tk.X)
 
-        self.capture_info_label = ttk.Label(status_frame,
+        self.capture_status_label = ttk.Label(status_row, text="Ready",
+                                               font=("Segoe UI", 11))
+        self.capture_status_label.pack(side=tk.LEFT, anchor=tk.S)
+
+        self.capture_info_label = ttk.Label(status_row,
                                              text="Click 'Start Capture' to begin",
                                              foreground=self.colors["fg_dim"])
-        self.capture_info_label.pack(anchor=tk.W)
+        self.capture_info_label.pack(side=tk.LEFT, anchor=tk.S,
+                                     padx=(10, 0), pady=(0, 2))
 
-        # Server Region Selection Frame
-        region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=10)
-        region_frame.pack(fill=tk.X, padx=0, pady=(0, 10))
+        # spacing: frame edge -> first checkbox or text
+        region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(4, 6, 5, 5))
+        # spacing: content frame -> content frame
+        region_frame.pack(fill=tk.X, padx=0, pady=2)
 
         region_inner = ttk.Frame(region_frame)
         region_inner.pack(fill=tk.X)
 
+        # spacing: TBD -- caption -> the field it labels
         ttk.Label(region_inner, text="Region:").pack(side=tk.LEFT, padx=(0, 10))
 
         # Dropdown with server options
@@ -128,38 +237,51 @@ class CaptureTab(BaseTab):
             text="",
             foreground=self.colors['green']
         )
+        # spacing: TBD -- field -> the status text beside it
         self.detected_label.pack(side=tk.LEFT, padx=(10, 0))
 
-        # Button frame
+        # spacing: button -> button
+        # The trailing padx on each button below is the lever. The row
+        # sits in a borderless ttk.Frame, so there is no frame edge for
+        # the button rule's left and bottom to measure against; only the
+        # gap between the buttons themselves applies here.
         btn_frame = ttk.Frame(left_col)
-        btn_frame.pack(fill=tk.X, pady=(0, 10))
+        # spacing: content frame -> content frame
+        btn_frame.pack(fill=tk.X, pady=2)
 
         self.capture_start_btn = ttk.Button(btn_frame, text="Start Capture",
                                              command=self.start_capture, width=18)
-        self.capture_start_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.capture_start_btn.pack(side=tk.LEFT, padx=(0, 4))
 
         self.capture_stop_btn = ttk.Button(btn_frame, text="Stop Capture",
                                             command=self.stop_capture,
                                             width=18, state=tk.DISABLED)
-        self.capture_stop_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.capture_stop_btn.pack(side=tk.LEFT, padx=(0, 4))
 
         ttk.Button(btn_frame, text="Open Snapshots",
-                   command=self.open_snapshots_folder, width=15).pack(side=tk.LEFT, padx=(0, 10))
+                   command=self.open_snapshots_folder, width=15).pack(side=tk.LEFT, padx=(0, 4))
         ttk.Button(btn_frame, text="Load Latest",
-                   command=self.load_latest_capture, width=12).pack(side=tk.LEFT, padx=(0, 10))
+                   command=self.load_latest_capture, width=12).pack(side=tk.LEFT)
 
         self.debug_var = tk.BooleanVar(value=False)
-        self.debug_checkbox = ttk.Checkbutton(
-            btn_frame, text="Debug WebSocket traffic", variable=self.debug_var
+        # wraplength keeps the label narrow inside the fixed-width left
+        # column instead of pushing the button row wider.
+        self.debug_checkbox = make_checkbox(
+            btn_frame, self.colors, text="Debug WebSocket traffic",
+            variable=self.debug_var, wraplength=100,
         )
         # Enable to log every WebSocket message to a websocket_debug_*.jsonl
         # file in the snapshots folder — useful when adding support for new
         # packet types (e.g., fragment create/delete).
-        self.debug_checkbox.pack(side=tk.LEFT, padx=(10, 0))
+        # spacing: TBD -- button row -> a checkbox beside it
+        self.debug_checkbox.pack(side=tk.LEFT, padx=(6, 0))
 
-        # Requirements frame
-        req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=10)
-        req_frame.pack(fill=tk.X)
+        # spacing: frame edge -> first checkbox or text
+        # The right edge carries slack, not a target: the frame is
+        # stretched wider than its text.
+        req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(4, 2, 5, 4))
+        # spacing: content frame -> content frame
+        req_frame.pack(fill=tk.X, pady=2)
 
         requirements_text = """- Run as Administrator (required for hosts file modification)
 - Certificate installed (see Setup tab)
@@ -170,14 +292,27 @@ class CaptureTab(BaseTab):
 
         ttk.Label(req_frame, text=requirements_text, justify=tk.LEFT).pack(anchor=tk.W)
 
-        # Log frame
-        log_frame = ttk.LabelFrame(main_frame, text="Capture Log", padding=5)
-        log_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        # spacing: content frame -> content frame
+        # This padx and main_frame's own sum to the gap from the window
+        # edge, matching every other bordered panel.
+        #
+        # No frame padding: the text inset lives on the Text's own
+        # padx/pady, so its lighter background reaches the frame border.
+        log_frame = ttk.LabelFrame(main_frame, text="Capture Log", padding=0)
+        log_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
 
+        # spacing: frame edge -> first checkbox or text
+        # The panel's inset sits here rather than on the LabelFrame,
+        # inside the text widget's own lighter background. The pady has
+        # the line box's leading above the first glyph netted out of it,
+        # which is why it differs between text panels in different fonts.
+        # bd and highlightthickness are zeroed because Tk's defaults draw
+        # a border and focus ring in colours the dark theme never set.
         self.capture_log = scrolledtext.ScrolledText(
             log_frame, height=15, wrap=tk.WORD,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
-            insertbackground=self.colors["fg"]
+            insertbackground=self.colors["fg"],
+            bd=0, highlightthickness=0, padx=6, pady=6
         )
         self.capture_log.pack(fill=tk.BOTH, expand=True)
 
@@ -281,20 +416,51 @@ class CaptureTab(BaseTab):
                           row=0, column=0, sticky=tk.W)
             return
 
-        # Three equal columns, filled left-to-right then down.
-        for c in range(3):
+        # Four equal columns, filled left-to-right then down.
+        columns = 4
+        for c in range(columns):
             frame.grid_columnconfigure(c, weight=1, uniform="logpresets")
         for idx, name in enumerate(sorted(preset_to_ids)):
             ids = preset_to_ids[name]
             checked = (any(lpm.is_selected(r) for r in ids)
                        if lpm is not None else True)
             var = tk.BooleanVar(value=checked)
-            cb = ttk.Checkbutton(
-                frame, text=name, variable=var,
+            cb = make_checkbox(
+                frame, self.colors, text=name, variable=var,
+                fg=self._preset_element_colour(ids),
                 command=lambda n=name, v=var: self._on_log_preset_toggle(n, v),
             )
-            cb.grid(row=idx // 3, column=idx % 3, sticky=tk.W, padx=(0, 8))
+            # spacing: TBD -- checkbox column -> checkbox column
+            cb.grid(row=idx // columns, column=idx % columns,
+                    sticky=tk.W, padx=(0, 8))
             self._log_preset_vars[name] = var
+
+    def _preset_element_colour(self, res_ids):
+        """The shared Element colour of a preset's combatants, or None.
+
+        A preset assigned to combatants of one Element is drawn in that
+        Element's colour; a preset spanning several stays on the default
+        foreground, because there is no one colour that would be honest.
+        Unknown combatants -- captured but not yet in CHARACTERS -- count
+        as a distinct Element for this, so a preset covering one is never
+        coloured on incomplete information.
+        """
+        elements = set()
+        for rid in res_ids:
+            # assignments_by_id is keyed by str(res_id) (the v2 schema);
+            # CHARACTERS is keyed by int. Looking up the string finds
+            # nothing and every preset silently reads as "unknown
+            # Element", which looks exactly like "no shared Element".
+            try:
+                entry = CHARACTERS.get(int(rid))
+            except (TypeError, ValueError):
+                entry = None
+            elements.add(entry.get("attribute") if entry else None)
+            if len(elements) > 1:
+                return None
+        if len(elements) != 1:
+            return None
+        return ATTRIBUTE_COLORS.get(elements.pop())
 
     def _on_log_preset_toggle(self, preset_name: str, var):
         """Persist a checklist toggle to every combatant assigned to this
@@ -307,6 +473,16 @@ class CaptureTab(BaseTab):
         ids = [rid for rid, p in cpm.assignments_by_id.items()
                if p == preset_name]
         lpm.set_selected(ids, bool(var.get()))
+        recompute = self.context.recompute_upgrade_line_callback
+        if recompute is not None:
+            recompute()
+
+    def _on_log_filter_toggle(self, key: str, var):
+        """Persist one of the Upgrade Log mismatch filters, then re-render
+        the last Upgraded line against the new setting."""
+        sm = self.context.settings_manager
+        if sm is not None:
+            sm.set(key, bool(var.get()))
         recompute = self.context.recompute_upgrade_line_callback
         if recompute is not None:
             recompute()

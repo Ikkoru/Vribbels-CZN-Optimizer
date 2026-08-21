@@ -26,14 +26,16 @@ exists to compare endgame builds).
 
 Potential nodes
 ---------------
-Each character has 6 potential-tree levels: 10, 20, 30, 40, 50, 60.
-Reaching each level unlocks a stat bonus.
+The potential tree has TEN nodes, which the wire numbers 10, 20, 30, 31,
+40, 50, 51, 52, 60, 70. Only `node_50` and `node_60` are stored here,
+because only those two raise a STAT -- the rest improve card effects or
+unlock a one-off, and the build score does not model them. Node 7 (`70`)
+can also move a stat, per character, and is not encoded yet. The full
+table, including which in-game node each wire number is, lives in
+`docs/game_formulas.md` §1 "The potential tree".
 
-  - Nodes 10/20/30 are FLAT bonuses (e.g. +50 ATK, +5% HP).
-  - Nodes 40/50/60 are PERCENTAGE bonuses.
-
-POTENTIAL_STAT_VALUES gives the FIVE possible bonus magnitudes for nodes
-40, 50, and 60 (each character gets a different magnitude per tier). The
+POTENTIAL_STAT_VALUES gives the FIVE possible bonus magnitudes for the
+two stat nodes (each character gets a different magnitude per tier). The
 tuple positions are "tier 1 through tier 5"; a character with HP% tier 3
 at the level-50 node gets POTENTIAL_STAT_VALUES["HP%"][2] (zero-indexed)
 which is 4.8% HP. The five tiers are NOT character levels -- this is the
@@ -125,7 +127,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "ATK%",
-        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},  # Assumed based on Mika
+        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
     },
     1021: {
         "name": "Lucas",
@@ -331,7 +333,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "ATK%",
-        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},  # Assumed based on Tiphera
+        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
     },
     1041: {
         "name": "Renoa",
@@ -568,6 +570,20 @@ CHARACTERS = {
         "node_60": "CRate",
         "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},  # Assumed based on Heidemarie
     },
+    -1: {
+        "name": "Arabella",
+        "grade": 5,
+        "attribute": "Instinct",
+        "class": "Striker",
+        "base_atk": 495,
+        "base_def": 146,
+        "base_hp": 332,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Haru
+    },
 }
 
 # Build reverse lookup: name -> character data (for lookups by name)
@@ -577,8 +593,11 @@ CHARACTERS_BY_NAME = {
     if char_data is not None
 }
 
-# Potential-node stat values at level-40, level-50, level-60 nodes (the
-# percentage-bonus tier). The five tuple positions are STRENGTH TIERS
+# Stat magnitudes for the two stat nodes, `node_50` and `node_60`. Node
+# 40 is NOT one of them -- it multiplies Signature Card effects and its
+# levels run to 10, so reading it through this five-tier table returns
+# zero (see docs/game_formulas.md §1 "The potential tree").
+# The five tuple positions are STRENGTH TIERS
 # 1-5, not character levels -- each character has a fixed tier assignment
 # per node (read from the source data), and the tier indexes into this
 # tuple. See the module docstring for the full explanation.
@@ -729,11 +748,11 @@ def get_character_by_name(name: str) -> dict:
 # Levels 61 and 62 (added in a later game update; rare in practice)
 # ============================================================================
 #
-# Characters now max at level 62 (was 60). Promotion 5/5 grants +2 effective
-# levels on top of the previous cap. As of v1.1.0, level 61/62 stat bonuses
-# are stored PER CHARACTER (not as a single global table) because in-game
-# data showed the gains differ across characters — Heidemarie was the first
-# confirmed example (ATK +9, DEF +3, HP +7 from level 60 to 61).
+# Characters max at level 62: promotion 5/5 grants +2 effective levels over
+# the level-60 cap. The level 61/62 stat bonuses are stored PER CHARACTER
+# rather than as one global table, because the gains differ across
+# characters — Heidemarie gains ATK +9, DEF +3, HP +7 from 60 to 61, and a
+# shared table would have to be wrong for someone.
 #
 # To add level-61/62 data for a character, add a `level_61_bonus` (and/or
 # `level_62_bonus`) key to their entry in the CHARACTERS dict above, with

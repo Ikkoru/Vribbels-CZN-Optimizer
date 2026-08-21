@@ -95,8 +95,6 @@ Thanks to [EpicSevenAssetRipper](https://github.com/CeciliaBot/EpicSevenAssetRip
 
 Currently not accepting donations.
 
-You can send the original creator a thank you donation on [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H2H21PHYKW) if you wish.
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.

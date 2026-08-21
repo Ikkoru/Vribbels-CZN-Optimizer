@@ -952,6 +952,27 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "80% Damage × 3 to all enemies\n1 Leaving the Rest to You!, and when an enemy is defeated, 1 Ammo Transfer for each defeated\n\nLeaving the Rest to You!:\nWhen attacked, apply 1 Ammo Transfer to the assigned Combatant\nOn effect activation, decrease Leaving the Rest to You! by 1\n\nAmmo Transfer:\nIncrease Damage Amount of the assigned Combatant’s next Extra Attack by 40%\nOn effect activation, remove Ammo Transfer",
     },
+    -1: {
+        "name": "Licinia",
+        "grade": 5,
+        "class": "Striker",
+        "passive_name": "Poison-Laced Atonement",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen Fracture is applied through an ability of the assigned Combatant, +{PostFracCrit%}% to Critical Chance. (cannot stack)\nWhen Fracture is activated through an ability of the assigned Combatant, inflict 1 Virutoxin on the target. Virutoxin: Increase Damage Amount taken from the assigned Combatant by {PostFracProcDMG%}% (max 4 stacks)",
+        "values": {
+            "ATK%": (16, 18, 20, 22, 24),
+            "PostFracCrit%": (10, 13, 15, 18, 20),
+            "PostFracProcDMG%": (4, 5, 6, 7, 8),
+        },
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
+        "stats_conditional": {
+            "CRate": (10, 13, 15, 18, 20),  # After Fracture is applied (max 1 stack)
+        },
+        "ego_name": "Blossoming Venom",
+        "ego_cost": 3,
+        "ego_desc": "Gain 1 AP\n3 Paralytic Poison to all enemies\nParalytic Poison: When attacked by a card of the assigned Combatant, 1 Fracture\nAt the end of the turn decrease Paralytic Poison by 1",
+    },
     -2: {  # TODO: replace key with real res_id when known
         "name": "Bria",
         "grade": 5,

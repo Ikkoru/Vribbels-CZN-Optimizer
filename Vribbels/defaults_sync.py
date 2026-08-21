@@ -81,16 +81,27 @@ def resolve_defaults_dir(base_dir: Path) -> Path:
     return Path(base_dir) / "default_settings"
 
 
-def sync_defaults(user_dir: Path, defaults_dir: Path) -> None:
+def sync_defaults(user_dir: Path, defaults_dir: Path) -> list:
     """Run the three-stage reconciliation. Call before managers load.
 
     Args:
         user_dir: the writable settings/ folder.
         defaults_dir: the bundled default_settings/ folder (may be
             read-only in frozen builds).
+
+    Returns:
+        A list of `(stage, filename, message)` for every copy that
+        failed. Empty is the normal case. The caller decides what to do
+        with them -- see `OptimizerGUI._report_sync_failures`.
+
+        A failure here is not recoverable in place, but it MUST NOT be
+        silent: stage 2 failing means a new user starts with no presets,
+        no combatant assignments and no optimizer settings, in an app
+        that otherwise looks perfectly healthy.
     """
     user_dir = Path(user_dir)
     defaults_dir = Path(defaults_dir)
+    failures: list = []
 
     user_dir.mkdir(parents=True, exist_ok=True)
 
@@ -101,17 +112,18 @@ def sync_defaults(user_dir: Path, defaults_dir: Path) -> None:
     # if the dir doesn't exist at all.
     try:
         defaults_dir.mkdir(parents=True, exist_ok=True)
-    except Exception:
+    except Exception as e:
         if not defaults_dir.exists():
-            return
+            failures.append(("locate defaults", defaults_dir.name, str(e)))
+            return failures
     for fname in _DEFAULTABLE_FILES:
         d_path = defaults_dir / fname
         u_path = user_dir / fname
         if not d_path.exists() and u_path.exists():
             try:
                 shutil.copy2(u_path, d_path)
-            except Exception:
-                pass
+            except Exception as e:
+                failures.append(("maintainer bootstrap", fname, str(e)))
 
     # Stage 2.
     for fname in _DEFAULTABLE_FILES:
@@ -120,8 +132,8 @@ def sync_defaults(user_dir: Path, defaults_dir: Path) -> None:
         if not u_path.exists() and d_path.exists():
             try:
                 shutil.copy2(d_path, u_path)
-            except Exception:
-                pass
+            except Exception as e:
+                failures.append(("new-user bootstrap", fname, str(e)))
 
     # Stage 3.
     state_file = user_dir / _SYNC_STATE_FILENAME
@@ -139,6 +151,8 @@ def sync_defaults(user_dir: Path, defaults_dir: Path) -> None:
         user_dir, defaults_dir, synced.get("optimizer_settings", []), is_first_sync
     )
     _save_sync_state(state_file, new_synced)
+
+    return failures
 
 
 # -------------------- io helpers --------------------

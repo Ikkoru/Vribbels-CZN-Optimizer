@@ -222,10 +222,11 @@ dividing by zero.
   after `_reveal_window()`. Line numbers from a best-effort AST key map,
   including negative keys (the placeholder partner ids parse as unary
   minus, not constants). Advisory only.
-- **D** — [IMPLEMENTED 2026-07-30] CLAUDE.md "Game-data validation"
-  section, including the rule that a new KIND of data in these files
-  needs a maintainer ruling on whether and how to verify it, and the
-  warning against inferring bounds from current values.
+- **D** — [IMPLEMENTED 2026-07-30] The written guidance, including the
+  rule that a new KIND of data in these files needs a maintainer ruling
+  on whether and how to verify it, and the warning against inferring
+  bounds from current values. It landed in CLAUDE.md and now lives in
+  `docs/game_data_files.md`.
 - **E** — [IMPLEMENTED 2026-07-30] `characters.py` docstring fixed: the
   `"class"` example said `"DPS"` with roles "Tank / DPS / Support /
   Healer", which don't exist in the game. Now points at

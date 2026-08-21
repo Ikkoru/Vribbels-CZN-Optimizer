@@ -42,7 +42,8 @@ from .constants import (
     CHARACTER_EXP_TABLE,
     PARTNER_EXP_TABLE,
     FRIENDSHIP_BONUSES,
-    # Note: GAME_HOSTS, GAME_PORT, PROXY_PORT, OUTPUT_DIR, HOSTS_PATH moved to capture module
+    # Capture constants (GAME_HOSTS, GAME_PORT, PROXY_PORT, OUTPUT_DIR,
+    # HOSTS_PATH) live in capture/constants.py, not here.
     CLASSES,
     EQUIPMENT_SLOTS,
     SLOT_ORDER,
@@ -101,7 +102,8 @@ __all__ = [
     'CHARACTER_EXP_TABLE',
     'PARTNER_EXP_TABLE',
     'FRIENDSHIP_BONUSES',
-    # Note: GAME_HOSTS, GAME_PORT, PROXY_PORT, OUTPUT_DIR, HOSTS_PATH moved to capture module
+    # Capture constants (GAME_HOSTS, GAME_PORT, PROXY_PORT, OUTPUT_DIR,
+    # HOSTS_PATH) live in capture/constants.py, not here.
     'CLASSES',
     'EQUIPMENT_SLOTS',
     'SLOT_ORDER',

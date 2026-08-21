@@ -55,15 +55,20 @@ Subpackages
                   partners.py    per-partner data + class-based base stats
   models/       In-memory dataclasses (MemoryFragment + the math helpers
                 that compute GS and Potential).
-  optimizer/    optimizer.py -- the snapshot-to-CharacterInfo pipeline
-                and the layered Final ATK/DEF/HP damage formula.
+  optimizer/    optimizer.py  snapshot-to-CharacterInfo pipeline, run
+                              context, and dispatch between the
+                              sequential and parallel paths
+                core.py       pure per-combo math: build stats, the
+                              layered Final ATK/DEF/HP formula, scoring
+                              and the deterministic result sort
+                parallel.py   the persistent multiprocessing pool
   ui/           context.py (AppContext shared between tabs) + tabs/
                 (one file per visible tab in the application).
 
 Where to look when changing X
 -----------------------------
   GS / Potential formula             models/memory_fragment.py
-  Damage / Final stats formula       optimizer/optimizer.py
+  Damage / Final stats formula       optimizer/core.py
   Adding a new preset stat           preset_manager.py + scoring_tab
   Character data (stats, potential)  game_data/characters.py
   Partner data                       game_data/partners.py
@@ -139,6 +144,10 @@ from game_data import *
 from models import *
 from capture import *
 from optimizer import GearOptimizer
+# Slot V element main-stat names, shared with the optimizer's off-element
+# candidacy filter; the Upgraded-line element-mismatch filter tests the
+# same set.
+from optimizer.optimizer import SLOT5_ELEMENT_MAINS
 from config import AppConfig
 from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, AboutTab
 # Used to augment "[LIVE] Upgraded" log lines with the post-upgrade
@@ -148,6 +157,18 @@ from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
 # Reconciles bundled defaults in `default_settings/` with the user's
 # `settings/` folder. Must run BEFORE any manager loads.
 from defaults_sync import sync_defaults
+
+
+# The dark palette every tab reads through `context.colors`. Module level
+# rather than built in OptimizerGUI.__init__ so anything that needs the
+# theme -- a tab, a test harness -- can have it without constructing the
+# whole application.
+COLORS = {
+    "bg": "#1e1e2e", "bg_light": "#2a2a3e", "bg_lighter": "#363650",
+    "fg": "#cdd6f4", "fg_dim": "#6c7086", "accent": "#89b4fa",
+    "green": "#a6e3a1", "red": "#f38ba8", "yellow": "#f9e2af",
+    "purple": "#cba6f7", "orange": "#FF8C00", "select": "#3b6ea5",
+}
 
 
 def _user_data_dir() -> Path:
@@ -176,31 +197,6 @@ def _user_data_dir() -> Path:
     return Path(__file__).resolve().parent
 
 
-class MultiSelectListbox(tk.Frame):
-    """A frame containing a listbox with multi-select capability"""
-    def __init__(self, parent, items, height=4, **kwargs):
-        super().__init__(parent, **kwargs)
-        
-        self.listbox = tk.Listbox(self, selectmode=tk.MULTIPLE, height=height,
-                                  exportselection=False, bg="#363650", fg="#cdd6f4",
-                                  selectbackground="#3b6ea5", selectforeground="#cdd6f4",
-                                  highlightthickness=0)
-        self.listbox.pack(fill=tk.BOTH, expand=True)
-        
-        for item in items:
-            self.listbox.insert(tk.END, item)
-    
-    def get_selected(self) -> list[str]:
-        indices = self.listbox.curselection()
-        return [self.listbox.get(i) for i in indices]
-    
-    def select_items(self, items: list[str]):
-        self.listbox.selection_clear(0, tk.END)
-        for i in range(self.listbox.size()):
-            if self.listbox.get(i) in items:
-                self.listbox.selection_set(i)
-
-
 class OptimizerGUI:
     def __init__(self):
         # AppConfig is created in setup_ui, after SettingsManager loads
@@ -221,12 +217,7 @@ class OptimizerGUI:
         self.root.geometry("1550x1000")
         self.root.minsize(1300, 800)
 
-        self.colors = {
-            "bg": "#1e1e2e", "bg_light": "#2a2a3e", "bg_lighter": "#363650",
-            "fg": "#cdd6f4", "fg_dim": "#6c7086", "accent": "#89b4fa",
-            "green": "#a6e3a1", "red": "#f38ba8", "yellow": "#f9e2af", "purple": "#cba6f7",
-            "orange": "#FF8C00", "select": "#3b6ea5",
-        }
+        self.colors = dict(COLORS)
 
         self.root.configure(bg=self.colors["bg"])
         self.style = ttk.Style()
@@ -274,6 +265,11 @@ class OptimizerGUI:
         # Only now that the window is up and mapped can a modal dialog
         # be shown safely, so the game-data report waits until here.
         self._report_data_problems()
+        self._report_sync_failures()
+        # Dev-only, off unless asked for. Must come after the reveal:
+        # the audit reads pixels off the screen, so the window has to be
+        # up, settled and painted.
+        self._maybe_schedule_spacing_audit()
         _t0 = getattr(self, "_startup_t0", None)
         if _t0 is not None:
             perf_log.log("startup:TOTAL", secs=_time.perf_counter() - _t0)
@@ -391,6 +387,47 @@ class OptimizerGUI:
         except tk.TclError:
             pass
 
+    def _maybe_schedule_spacing_audit(self):
+        """Run the UI spacing audit when asked for on the command line or
+        via CZN_SPACING_AUDIT=1. No-op otherwise.
+
+        Scheduled with `after` rather than called directly: __init__ runs
+        BEFORE mainloop, and while `_reveal_window` has drained Tk's
+        layout and draw work, the compositor has not necessarily put the
+        finished window on screen yet -- and this reads the screen. A
+        short delay after mainloop starts is the cheap, reliable answer.
+
+        Imported inside the function so that a normal launch never pays
+        for it, and so a problem in the audit (or a missing ImageGrab on
+        a non-Windows host) can't stop the app starting.
+        """
+        wanted = ("--spacing-audit" in sys.argv
+                  or "--spacing-audit-verbose" in sys.argv
+                  or "--spacing-audit-freeze" in sys.argv
+                  or os.environ.get("CZN_SPACING_AUDIT") in ("1", "verbose"))
+        if not wanted:
+            return
+        verbose = ("--spacing-audit-verbose" in sys.argv
+                   or os.environ.get("CZN_SPACING_AUDIT") == "verbose")
+        freeze = "--spacing-audit-freeze" in sys.argv
+
+        def _run():
+            try:
+                from ui import spacing_audit
+                from ui import spacing_registry  # noqa: F401  (registers)
+            except Exception as exc:                      # noqa: BLE001
+                print(f"spacing audit unavailable: {exc}")
+                return
+            print("\n--- UI spacing audit ---")
+            print("Keep the window unobscured and the pointer off it; "
+                  "hover state repaints and is measured.")
+            try:
+                spacing_audit.run_audit(self, verbose=verbose, freeze=freeze)
+            except Exception as exc:                      # noqa: BLE001
+                print(f"spacing audit failed: {exc}")
+
+        self.root.after(400, _run)
+
     def configure_styles(self):
         self.style.configure(".", background=self.colors["bg"], foreground=self.colors["fg"])
         self.style.configure("TFrame", background=self.colors["bg"])
@@ -402,19 +439,31 @@ class OptimizerGUI:
                              selectforeground=self.colors["fg"])
         self.style.map("TCombobox", fieldbackground=[("readonly", self.colors["bg_lighter"])], 
                        foreground=[("readonly", self.colors["fg"])])
-        self.style.configure("TCheckbutton", background=self.colors["bg"], foreground=self.colors["fg"])
-        self.style.map("TCheckbutton", background=[("active", self.colors["bg_lighter"])],
-                       foreground=[("active", self.colors["fg"])])
-        # Compact checkbutton for the Optimizer tab's toolbar status
-        # cluster: zero padding keeps that row short enough for the
-        # cluster to fit inside the toolbar's existing height (see the
-        # cluster's comment in optimizer_tab.setup_ui). Colors etc.
-        # fall back to the TCheckbutton settings above.
-        self.style.configure("Compact.TCheckbutton", padding=0)
+        # No TCheckbutton styles. Every checkbox in the app is a
+        # tk.Checkbutton built by ui/utils/checkbox.py, which carries the
+        # palette itself -- see that module for why the two widget classes
+        # are not mixed.
         self.style.configure("TLabelframe", background=self.colors["bg"])
         self.style.configure("TLabelframe.Label", background=self.colors["bg"], foreground=self.colors["accent"])
         self.style.configure("TScale", background=self.colors["bg"], troughcolor=self.colors["bg_light"])
         self.style.configure("TNotebook", background=self.colors["bg"])
+        # spacing: content frame -> content frame
+        # Clam's Notebook.client element insets its content by 2px on every
+        # side, which lands on top of each tab's own margins and can't be
+        # tuned per tab. Borrowing the default theme's client element drops
+        # the inset to zero; tabs that shouldn't move add the 2px back
+        # themselves. The derived Flush.TNotebook.Tab style inherits every
+        # TNotebook.Tab setting below, dynamic state maps included.
+        try:
+            self.style.element_create(
+                "flush.Notebook.client", "from", "default")
+            self.style.layout(
+                "Flush.TNotebook",
+                [("flush.Notebook.client", {"sticky": "nswe"})])
+            self.style.configure(
+                "Flush.TNotebook", background=self.colors["bg"], borderwidth=0)
+        except tk.TclError:
+            pass
         self.style.configure("TNotebook.Tab", background=self.colors["bg_light"], foreground=self.colors["fg"], padding=[10, 5])
         self.style.map("TNotebook.Tab", background=[("selected", self.colors["bg_lighter"])])
         self.style.configure("Treeview", background=self.colors["bg_light"], foreground=self.colors["fg"],
@@ -424,35 +473,63 @@ class OptimizerGUI:
                        foreground=[("active", self.colors["fg"])])
         self.style.map("Treeview", background=[("selected", self.colors["select"])],
                        foreground=[("selected", self.colors["fg"])])
+        # Panels whose only child is a bordered widget (a Treeview, a
+        # canvas): the LabelFrame's own border doubles up with the child's,
+        # so this variant keeps the title and drops the frame.
+        self.style.configure("Borderless.TLabelframe",
+                             background=self.colors["bg"],
+                             borderwidth=0, relief=tk.FLAT)
+        # spacing: title above, element below
+        # The bottom component is the lever, one less than the theme's
+        # default. The rule measures from the title text to the first
+        # thing painted below it, which for a LabelFrame is its own top
+        # border -- so this distance is set HERE, once, for every panel
+        # that inherits this style. Per-panel padding cannot fix it:
+        # padding moves the content, not the border, and leaves the gap
+        # unchanged. labelmargins REPLACES the theme's margins rather
+        # than adding to them, so all four components have to be given;
+        # 0 in the first slot is the default title x offset.
+        self.style.configure("TLabelframe",
+                             labelmargins="0 0 0 3")
+        self.style.configure("Borderless.TLabelframe.Label",
+                             background=self.colors["bg"],
+                             foreground=self.colors["accent"])
+        # spacing: title above, element below
+        # The Borderless variants set their own labelmargins and inherit
+        # nothing from the base style above, so the same lever has to be
+        # repeated here. labelmargins REPLACES the theme's margins, so
+        # all four components have to be given; 0 in the first slot is
+        # the default title x offset.
+        #
+        # No audit entry watches these panels, so this value rests on
+        # the base style's measurement rather than one of its own.
+        self.style.configure("Borderless.TLabelframe",
+                             labelmargins="0 0 0 3")
+        # spacing: exception -- the Results tree is pulled tighter to its
+        # title than the rule, deliberately.
+        # labelmargins replaces the theme's default margins outright, so a
+        # bottom component of -1 sits well below the theme's default, not
+        # 1px below it. The dotted name inherits everything from
+        # Borderless.*.
+        self.style.configure("Tight.Borderless.TLabelframe",
+                             labelmargins="0 0 0 -1")
+        # spacing: title above, element below
+        # The title is nudged right so it lines up with the gear grid
+        # beneath it (Combatants). labelmargins' first component is the
+        # title's x offset; the default is 0.
+        #
+        # The three trailing zeros do NOT reproduce the base style's
+        # correction -- they sit tighter than the theme's default, which
+        # this style replaces rather than inherits. That is an inference
+        # from the base style's measurement, not a measurement of this
+        # one: no audit entry covers it, so measure before trusting it to
+        # match the other panels.
+        self.style.configure("Gear.Borderless.TLabelframe",
+                             labelmargins="1 0 0 0")
 
     def setup_ui(self):
-        top_bar = ttk.Frame(self.root)
-        top_bar.pack(fill=tk.X, padx=5, pady=(5, 0))
-        
-        # Original behavior: opened ko-fi.com in the browser. Replaced with the
-        # same messagebox used by the About tab's Support Development button.
-        # kofi_btn = tk.Button(top_bar, text="Support on Ko-Fi",
-        #                     command=lambda: webbrowser.open("https://ko-fi.com/H2H21PHYKW"),
-        #                     bg="#72a4f2", fg="white", font=("Segoe UI", 9, "bold"),
-        #                     relief=tk.FLAT, padx=10, pady=3, cursor="hand2")
-        # kofi_btn.pack(side=tk.RIGHT, padx=5)
-
-        def _show_donation_message():
-            messagebox.showinfo(
-                "Support Development",
-                "Currently not accepting donations.\n\n"
-                "If you wish to instead donate to the original creator of this project, "
-                "feel free to do so at:\nhttps://ko-fi.com/H2H21PHYKW"
-            )
-
-        kofi_btn = tk.Button(top_bar, text="Support on Ko-Fi",
-                            command=_show_donation_message,
-                            bg="#72a4f2", fg="white", font=("Segoe UI", 9, "bold"),
-                            relief=tk.FLAT, padx=10, pady=3, cursor="hand2")
-        kofi_btn.pack(side=tk.RIGHT, padx=5)
-        
-        self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.notebook = ttk.Notebook(self.root, style="Flush.TNotebook")
+        self.notebook.pack(fill=tk.BOTH, expand=True)
 
         # Update AppContext with notebook reference
         self.app_context.notebook = self.notebook
@@ -492,15 +569,25 @@ class OptimizerGUI:
             defaults_dir = bundle_root / "default_settings"
         else:
             defaults_dir = program_dir / "default_settings"
+        # Never silently. A sync that fails leaves a new user with no
+        # presets, no combatant assignments and no optimizer settings in
+        # an app that looks perfectly healthy, so the failures are kept
+        # and reported after the window is up (_report_sync_failures).
+        self._sync_failures: list = []
         try:
-            sync_defaults(user_settings_dir, defaults_dir)
-        except Exception:
-            pass
+            self._sync_failures = sync_defaults(
+                user_settings_dir, defaults_dir) or []
+        except Exception as e:
+            self._sync_failures = [("sync", "default_settings", str(e))]
+        for stage, fname, msg in self._sync_failures:
+            perf_log.log("defaults_sync:FAILED", stage=stage, file=fname,
+                         error=msg)
 
         # SettingsManager FIRST so it can be passed to PresetManager.
-        # PresetManager uses it as the canonical store for `selected_preset`
-        # (was previously inside presets.json, which made it impossible to
-        # ship as a bundled default without polluting user state).
+        # PresetManager uses it as the canonical store for `selected_preset`.
+        # That key stays out of presets.json deliberately: presets.json ships
+        # as a bundled default, and a user's current selection has no place
+        # in a file everyone receives.
         self.settings_manager = SettingsManager(program_dir)
         self.settings_manager.load()
 
@@ -722,6 +809,34 @@ class OptimizerGUI:
         except Exception:
             pass
 
+    def _report_sync_failures(self):
+        """Tell the user when the bundled defaults could not be installed.
+
+        Only the stages whose failure the USER feels are worth a dialog.
+        The maintainer bootstrap writes INTO `default_settings/` and only
+        ever fires on the maintainer's own machine, so its failure is
+        logged and nothing more.
+        """
+        shown = [f for f in getattr(self, "_sync_failures", [])
+                 if f[0] != "maintainer bootstrap"]
+        if not shown:
+            return
+        lines = "\n".join(f"  {fname}: {msg}"
+                          for _stage, fname, msg in shown)
+        try:
+            messagebox.showwarning(
+                "Default settings could not be installed",
+                "The bundled defaults could not be copied into your "
+                "settings folder:\n\n"
+                f"{lines}\n\n"
+                "The program will run, but scoring presets and "
+                "per-combatant settings may be missing or incomplete. "
+                "The usual cause is a permissions problem on the "
+                "settings folder."
+            )
+        except Exception:
+            pass
+
     def _switch_to_tab(self, tab_frame: tk.Widget):
         """Switch notebook to the specified tab frame."""
         self.notebook.select(tab_frame)
@@ -817,10 +932,9 @@ class OptimizerGUI:
                     self.optimizer.load_data(str(latest))
                     self._ensure_characters_in_preset_file()
                     # Optimizer tab needs its hero combo + exclude-heroes list
-                    # repopulated so newly-captured characters appear there too
-                    # (the manual load_data path also calls this; the live path
-                    # used to skip it, which was the reason the Optimizer tab
-                    # appeared stale after capture).
+                    # repopulated so newly-captured characters appear there
+                    # too. Both load paths must call it -- the manual one and
+                    # this live one -- or the tab reads stale after a capture.
                     self.optimizer_tab_instance.refresh_after_load()
                     self.inventory_tab_instance.populate_set_filters()
                     self.materials_tab_instance.refresh_materials()
@@ -860,10 +974,8 @@ class OptimizerGUI:
         compute its post-upgrade Highest Pot. range, and emit the augmented
         log line to the Capture tab.
 
-        Highest Pot. semantics here match the Memory Fragments tab's
-        column: the min low / max high across every preset currently in
-        PresetManager. If no presets exist (only the implicit default),
-        a single (low, high) is computed against the default weights.
+        See _upgrade_potentials_suffix for what the range is measured
+        against and which presets make the cut.
         """
         if not hasattr(self.capture_manager, "pending_upgrade_lines"):
             return
@@ -881,36 +993,136 @@ class OptimizerGUI:
                     f"[proxy] {augmented}", "info"
                 )
 
-    def _selected_log_preset_names(self) -> list:
-        """Distinct preset names assigned to at least one combatant whose
-        Log Presets flag is selected (the Capture tab checklist). Sorted.
+    def _selected_log_presets(self) -> dict:
+        """Preset name -> the res_ids of the combatants assigned to it
+        whose Log Presets flag is selected (the Capture tab checklist).
         Assignments to since-deleted presets are skipped. Combatants
-        absent from log_presets.json count as selected (the default)."""
+        absent from log_presets.json count as selected (the default).
+
+        Keyed by preset because that's the unit the Upgraded line
+        displays; the res_ids come along so the mismatch filters can ask
+        who actually wants the fragment."""
         cpm = self.character_preset_manager
         pm = self.preset_manager
         lpm = getattr(self, "log_presets_manager", None)
         if cpm is None or pm is None or cpm.is_corrupted():
-            return []
-        names = set()
+            return {}
+        by_preset: dict = {}
         for rid, preset in cpm.assignments_by_id.items():
             if not preset or not pm.has_preset(preset):
                 continue
             if lpm is None or lpm.is_selected(rid):
-                names.add(preset)
-        return sorted(names)
+                by_preset.setdefault(preset, []).append(rid)
+        return by_preset
+
+    # Upgrade Log mismatch filters: the settings.json keys behind the
+    # Capture tab's checkboxes. All default on.
+    UPGRADE_LOG_FILTERS = (
+        "upgrade_log_ignore_atkdef_mismatch",
+        "upgrade_log_ignore_element_mismatch",
+        "upgrade_log_ignore_dps_hp",
+        "upgrade_log_ignore_dps_ego",
+    )
+
+    def _upgrade_log_filter_flags(self) -> dict:
+        """Current state of every Upgrade Log mismatch filter, keyed by
+        its settings.json key. Missing settings (or no SettingsManager)
+        read as on."""
+        sm = getattr(self, "settings_manager", None)
+        if sm is None:
+            return {key: True for key in self.UPGRADE_LOG_FILTERS}
+        return {key: bool(sm.get(key, True))
+                for key in self.UPGRADE_LOG_FILTERS}
+
+    def _combatant_accepts_main(self, res_id, fragment, flags: dict) -> bool:
+        """Whether `fragment` is plausibly for this combatant, judged
+        only by its MAIN stat. Every test is opt-out (Capture tab); the
+        `flags` dict comes from _upgrade_log_filter_flags.
+
+        Element: an element DMG% main that isn't the combatant's element
+        contributes nothing to their damage. A combatant whose element
+        can't be resolved (unknown character, no Element override) is
+        never filtered -- with no element, no element main is more
+        off-element than another. Matches the optimizer's off-element
+        Slot V candidacy filter.
+
+        ATK/DEF: read off the combatant's ATK/DEF Split, the share of
+        their damage that scales off DEF. 0-33 is ATK-scaling and
+        rejects a DEF% main, 67-100 is DEF-scaling and rejects an ATK%
+        main, and the hybrid band between them accepts both. The test is
+        on the main stat rather than the slot, so it covers ATK% in
+        slots IV, V and VI and DEF% in slot VI.
+
+        DPS: a combatant whose Shielding & Healing weight is 45 or less
+        is treated as a damage dealer, and rejects an HP% main (slots
+        IV, V and VI) and an Ego main (slot VI).
+        """
+        main = fragment.main_stat.name if fragment.main_stat else None
+        if not main:
+            return True
+        osm = getattr(self, "optimizer_settings_manager", None)
+
+        if flags.get("upgrade_log_ignore_element_mismatch") and \
+                main in SLOT5_ELEMENT_MAINS:
+            try:
+                attribute = get_character(int(res_id)).get("attribute", "Unknown")
+            except (TypeError, ValueError):
+                attribute = "Unknown"
+            if attribute == "Unknown":
+                attribute = (osm.get(res_id, "element_override")
+                             if osm is not None else None) or ""
+            if attribute and main != f"{attribute} DMG%":
+                return False
+
+        if flags.get("upgrade_log_ignore_atkdef_mismatch") and \
+                main in ("ATK%", "DEF%") and osm is not None:
+            def_split = self._combatant_setting(osm, res_id, "atk_def_split")
+            if main == "DEF%" and def_split <= 33:
+                return False
+            if main == "ATK%" and def_split >= 67:
+                return False
+
+        dps_filtered_mains = {
+            "HP%": flags.get("upgrade_log_ignore_dps_hp"),
+            "Ego": flags.get("upgrade_log_ignore_dps_ego"),
+        }
+        if dps_filtered_mains.get(main) and osm is not None:
+            heal_weight = self._combatant_setting(
+                osm, res_id, "shielding_healing_weight")
+            if heal_weight <= 45:
+                return False
+
+        return True
+
+    @staticmethod
+    def _combatant_setting(osm, res_id, field: str) -> int:
+        """One of a combatant's 0-100 Important Settings sliders as an
+        int. Anything unreadable reads as 0 -- the same value a combatant
+        with no stored entry gets."""
+        try:
+            return int(osm.get(res_id, field) or 0)
+        except (TypeError, ValueError):
+            return 0
 
     def _upgrade_potentials_suffix(self, fragment) -> str:
         """The ". Highest Potential: ..." suffix for an Upgraded log line:
         top 5 presets by max high across the SELECTED assigned presets
-        (see _selected_log_preset_names), each with ITS OWN (low, high)
+        (see _selected_log_presets), each with ITS OWN (low, high)
         pair -- never a synthetic min/max combined across presets, whose
         ends could come from different presets and mislead. Philosophy B:
         the fragment's main stat is excluded from each preset's bounds
         (mirrors the Memory Fragments tab).
 
-        Returns "" when presets exist but none is selected. When NO user
-        presets exist at all, falls back to the default-weight range so
-        there's still something useful to display."""
+        A preset is dropped when the Capture tab's mismatch filters are
+        on and NONE of its selected combatants accepts the fragment's
+        main stat (_combatant_accepts_main). ANY rather than ALL: a
+        preset shared by combatants of different elements or scaling
+        stays as long as one of them wants the fragment.
+
+        Returns "" when presets exist but none survives selection and
+        filtering. When NO user presets exist at all, falls back to the
+        default-weight range so there's still something useful to
+        display."""
         pm = self.preset_manager
         main_name = fragment.main_stat.name if fragment.main_stat else None
         all_names = list(pm.get_preset_names()) if pm is not None else []
@@ -920,12 +1132,22 @@ class OptimizerGUI:
             low, high = compute_fragment_potential(fragment, weights, bounds)
             return f". Highest Potential: {low:.0f}-{high:.0f}"
 
-        selected = self._selected_log_preset_names()
+        selected = self._selected_log_presets()
         if not selected:
             return ""
 
+        flags = self._upgrade_log_filter_flags()
+        if any(flags.values()):
+            selected = {
+                name: rids for name, rids in selected.items()
+                if any(self._combatant_accepts_main(rid, fragment, flags)
+                       for rid in rids)
+            }
+            if not selected:
+                return ""
+
         scored = []
-        for name in selected:
+        for name in sorted(selected):
             weights = pm.get_preset(name) or {}
             bounds = compute_gs_bounds(weights, exclude_stat=main_name)
             low, high = compute_fragment_potential(fragment, weights, bounds)
@@ -939,7 +1161,7 @@ class OptimizerGUI:
 
     def recompute_last_upgrade_line(self):
         """Re-render the LAST "[LIVE] Upgraded" capture-log line against
-        the current Log Presets selection. The fragment OBJECT was
+        the current Upgrade Log settings. The fragment OBJECT was
         retained at augment time, so its stats reflect the state as of
         that upgrade even after later reloads rebuilt optimizer.fragments.
         No-op before the first upgrade of the session."""
