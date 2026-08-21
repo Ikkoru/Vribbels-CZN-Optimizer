@@ -160,22 +160,16 @@ from defaults_sync import sync_defaults
 
 
 # ===================================================================
-# TEMPORARY -- Treeview heading border, for trying values on screen.
+# TEMPORARY -- Treeview cell padding, reopened to chase a 4px inset.
 #
-# Each heading cell draws its own border, separate from the heading's
-# padding. It is what gives the header row its raised look, and it adds
-# to the header's height and to the width between columns.
-#
-# Paired with `relief`, which the theme sets to `raised`: at borderwidth
-# 0 the relief has nothing to draw with and the headers go flat, so the
-# two are really one decision.
-#
-# Applies to EVERY list in the app -- there is one shared Treeview style.
-#
-# When it is settled, fold it into the `Treeview.Heading` line in
-# configure_styles and delete this block.
+# The style says 0 and `ttk::style lookup` agrees, yet the text sits 4px
+# in from the list's edge. NEGATIVE values are accepted, so this is the
+# test: if -4 pulls the text flush, the inset is padding and cancelling
+# it is legitimate. If it does not move, the 4px is drawn by the
+# treeview's own C code and no style option will reach it -- in which
+# case put this back to 0 and treat 4px as the widget's floor.
 # ===================================================================
-TREE_HEADING_BORDER = 0
+TREE_CELL_PAD = 0
 
 
 # The dark palette every tab reads through `context.colors`. Module level
@@ -449,6 +443,24 @@ class OptimizerGUI:
 
     def configure_styles(self):
         self.style.configure(".", background=self.colors["bg"], foreground=self.colors["fg"])
+        # Frame borders, everywhere at once.
+        #
+        # Clam draws a border from THREE colours, not one: `bordercolor`
+        # is the outline, `lightcolor` and `darkcolor` are the highlight
+        # and shadow that make a relief look raised or sunken. Setting
+        # only bordercolor leaves the pale 3D shading behind, which on a
+        # dark theme reads as the border not having changed.
+        #
+        # These live on the root style, so every ttk widget that draws a
+        # border inherits them -- LabelFrames, Frames, Notebook, Entry,
+        # Combobox, Spinbox, Treeview. Anything wanting a different
+        # border sets its own on top.
+        self.style.configure(
+            ".",
+            bordercolor=self.colors["bg_light"],
+            lightcolor=self.colors["bg_light"],
+            darkcolor=self.colors["bg_light"],
+        )
         self.style.configure("TFrame", background=self.colors["bg"])
         self.style.configure("TLabel", background=self.colors["bg"], foreground=self.colors["fg"])
         self.style.configure("TButton", background=self.colors["bg_light"], foreground=self.colors["fg"], padding=5)
@@ -497,7 +509,7 @@ class OptimizerGUI:
                              foreground=self.colors["fg"],
                              fieldbackground=self.colors["bg_light"],
                              padding=0, rowheight=20)
-        self.style.configure("Treeview.Cell", padding=0)
+        self.style.configure("Treeview.Cell", padding=TREE_CELL_PAD)
         # No outline. The border's WIDTH is not a style option -- clam's
         # `Treeview.field` exposes only colours -- so the only way to drop
         # it is a layout with no field element, the same trick
@@ -513,12 +525,11 @@ class OptimizerGUI:
             ])
         except tk.TclError:
             pass
-        # TEMPORARY borderwidth: reads TREE_HEADING_BORDER at the top of
-        # this file so the value can be tried without hunting for this
-        # line. See that block for how it pairs with `relief`.
+        # borderwidth 0 also flattens the heading: clam's `relief` is
+        # `raised`, and a relief with no border width has nothing to draw.
         self.style.configure("Treeview.Heading", background=self.colors["bg_lighter"],
                              foreground=self.colors["fg"], padding=2,
-                             borderwidth=TREE_HEADING_BORDER)
+                             borderwidth=0)
         self.style.map("Treeview.Heading", background=[("active", self.colors["select"])],
                        foreground=[("active", self.colors["fg"])])
         self.style.map("Treeview", background=[("selected", self.colors["select"])],
