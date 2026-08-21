@@ -973,7 +973,10 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "Gain 1 AP\n3 Paralytic Poison to all enemies\nParalytic Poison: When attacked by a card of the assigned Combatant, 1 Fracture\nAt the end of the turn decrease Paralytic Poison by 1",
     },
-    -2: {  # TODO: replace key with real res_id when known
+    # TODO: replace key with real res_id when known. The duplicate shop
+    # names this one by its selector item, 4500012, and no message maps
+    # that item to a res_id -- see docs/game_data_files.md.
+    -2: {
         "name": "Bria",
         "grade": 5,
         "class": "Psionic",
@@ -1012,7 +1015,10 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "150% Damage to all enemies.\nIncrease Damage Amount of Designated Combatant's Bullets by 20% for 1 turn.",
     },
-    -4: {  # TODO: replace key with real res_id when known
+    # TODO: replace key with real res_id when known. The duplicate shop
+    # names this one by its selector item, 4500019, and no message maps
+    # that item to a res_id -- see docs/game_data_files.md.
+    -4: {
         "name": "Marianne",
         "grade": 5,
         "class": "Striker",
