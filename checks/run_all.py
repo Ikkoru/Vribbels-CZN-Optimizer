@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# Rule names carry arrows now, and this prints them. A Windows console
+# Rule names carry arrows, and this prints them. A Windows console
 # on a cp932 / cp949 / cp1252 codepage cannot encode those, and the
 # failure lands as a UnicodeEncodeError from print() -- reporting the
 # checker as broken when the check itself worked fine.
@@ -34,6 +34,7 @@ from checks._harness import Skip                       # noqa: E402
 from checks import (                                    # noqa: E402
     check_addon_template,
     check_breakdown_reconciles,
+    check_capture_batching,
     check_game_data,
     check_optimizer_parity,
     check_settings_roundtrip,
@@ -46,6 +47,7 @@ from checks import (                                    # noqa: E402
 CHECKS = [
     check_spacing_markers,
     check_addon_template,
+    check_capture_batching,
     check_game_data,
     check_settings_roundtrip,
     check_tabs_build,

@@ -290,131 +290,149 @@ class Addon:
 
             data = json.loads(content)
 
-            # Skip non-object messages (some responses are JSON arrays)
-            if not isinstance(data, dict):
+            # One frame carries either a single reply object or a LIST
+            # of them: the client batches its commands whenever it has
+            # several to send, and the server answers in kind. Both forms
+            # reach the same handler, one reply at a time.
+            if isinstance(data, dict):
+                payloads = [data]
+            elif isinstance(data, list):
+                payloads = [item for item in data if isinstance(item, dict)]
+            else:
                 return
 
-            # Debug: log every decoded message before filtering
-            if self.debug_file:
-                entry = {
-                    "ts": datetime.now().isoformat(),
-                    "direction": "server_to_client",
-                    "keys": list(data.keys()),
-                    "size": len(content),
-                    "data": data
-                }
-                self.debug_file.write(json.dumps(entry, ensure_ascii=False) + "\\n")
-                self.debug_file.flush()
-
-            if data.get("res") != "ok":
-                return
-
-            # Confirm any pending disassemble (delete) request whose qid
-            # this response matches. The server reply carries only proceeds
-            # in item_result -- no piece info -- so we identify which
-            # pieces were destroyed by matching the response qid to the
-            # request we tracked earlier.
-            qid = data.get("qid")
-            if (qid is not None and qid in self.pending_disassembles
-                    and self.inventory_data
-                    and "piece_items" in self.inventory_data):
-                ids = self.pending_disassembles.pop(qid)
-                self._apply_piece_disassemble(ids)
-
-            # Pop any pending unequip-piece request matching this qid. The
-            # actual state update happens in the "pieces" branch below;
-            # we just remember whether this qid was an unequip so we can
-            # route to the right handler (unequip vs. create -- they share
-            # the "pieces" key shape).
-            pending_unequip_info = None
-            if qid is not None and qid in self.pending_unequips:
-                pending_unequip_info = self.pending_unequips.pop(qid)
-
-            # Live monitoring: apply piece deltas
-            #   "piece"  (singular): existing swap / upgrade / equip / unequip flows.
-            #   "pieces" (plural):   create flow (forge/fuse/craft a new fragment).
-            #                        The response carries the newly-minted piece(s) as
-            #                        an array along with the resource cost in
-            #                        item_result. We append each piece to the cached
-            #                        piece_items so the inventory stays in sync.
-            #                        UNEQUIP-ALL also uses this key (returning each
-            #                        unequipped piece with char_res_id zeroed); we
-            #                        distinguish via pending_unequip_info above.
-            if "piece" in data and self.inventory_data and "piece_items" in self.inventory_data:
-                self._apply_piece_delta(data)
-            elif "pieces" in data and self.inventory_data and "piece_items" in self.inventory_data:
-                if pending_unequip_info is not None:
-                    self._apply_pieces_unequip(
-                        data["pieces"], pending_unequip_info["char_res_id"]
-                    )
-                else:
-                    self._apply_pieces_create(data)
-
-            # Check for 'info' structure (new API format)
-            if "info" in data:
-                info = data.get("info", {})
-
-                # Check for item data in new format
-                if isinstance(info, dict) and "item" in info:
-                    item_info = info.get("item", {})
-
-                    # Check for piece (Memory Fragment) data
-                    if "piece" in item_info:
-                        piece_info = item_info.get("piece", {})
-                        # Store this as inventory data (new format)
-                        if not self.inventory_data:
-                            self.inventory_data = {}
-                        self.inventory_data["info_item_piece"] = piece_info
-                        self._save_data()
-
-                # Check for character data in new format
-                if isinstance(info, dict) and "character" in info:
-                    char_info = info.get("character", {})
-                    if not self.character_data:
-                        self.character_data = {}
-                    self.character_data["info_character"] = char_info
-                    self._save_data()
-
-            # Capture inventory data (Memory Fragments)
-            if "piece_items" in data:
-                self.inventory_data = data
-                self._save_data()
-
-            # Capture character data.
-            #
-            # Two very different messages arrive under the same key. The
-            # login payload carries the FULL roster -- every character and
-            # every partner card -- alongside the user record. Action
-            # responses (re-equipping a partner, for one) reply with the
-            # same `characters` key but only the entries the server
-            # touched: the partner instance, its new owner and its old
-            # owner. Overwriting the cache with one of those deltas
-            # destroys the roster, which silently empties character_info
-            # and everything derived from it -- the Combatants tab, the
-            # exclude checklist, the res_id lookups the exclude step
-            # needs -- with no error anywhere.
-            #
-            # So a characters list replaces the cache only when it
-            # accounts for everything already in it; otherwise it is
-            # merged and nothing is dropped.
-            has_characters = "characters" in data and isinstance(data.get("characters"), list)
-            has_user = "user" in data
-
-            if has_characters:
-                self._merge_character_data(data)
-                self._save_data()
-            elif has_user:
-                # A user-record update with no roster attached: patch the
-                # cached payload rather than replacing it, or the roster
-                # goes the same way as above.
-                if self.character_data:
-                    self.character_data["user"] = data["user"]
-                else:
-                    self.character_data = data
-                self._save_data()
+            for payload in payloads:
+                self._handle_server_payload(payload, len(content))
 
         except Exception as e:
             self.log_callback(f"Error: {e}")
+
+    def _handle_server_payload(self, data, frame_size):
+        """Act on one reply object from the server.
+
+        A frame yields one of these when the server answers a single
+        command and several when it answers a batch, so nothing here
+        knows how the reply arrived. frame_size describes the whole
+        frame and is recorded in the debug log.
+        """
+        # Debug: log every decoded message before filtering
+        if self.debug_file:
+            entry = {
+                "ts": datetime.now().isoformat(),
+                "direction": "server_to_client",
+                "keys": list(data.keys()),
+                "size": frame_size,
+                "data": data
+            }
+            self.debug_file.write(json.dumps(entry, ensure_ascii=False) + "\\n")
+            self.debug_file.flush()
+
+        if data.get("res") != "ok":
+            return
+
+        # Confirm any pending disassemble (delete) request whose qid
+        # this response matches. The server reply carries only proceeds
+        # in item_result -- no piece info -- so we identify which
+        # pieces were destroyed by matching the response qid to the
+        # request we tracked earlier.
+        qid = data.get("qid")
+        if (qid is not None and qid in self.pending_disassembles
+                and self.inventory_data
+                and "piece_items" in self.inventory_data):
+            ids = self.pending_disassembles.pop(qid)
+            self._apply_piece_disassemble(ids)
+
+        # Pop any pending unequip-piece request matching this qid. The
+        # actual state update happens in the "pieces" branch below;
+        # we just remember whether this qid was an unequip so we can
+        # route to the right handler (unequip vs. create -- they share
+        # the "pieces" key shape).
+        pending_unequip_info = None
+        if qid is not None and qid in self.pending_unequips:
+            pending_unequip_info = self.pending_unequips.pop(qid)
+
+        # Live monitoring: apply piece deltas
+        #   "piece"  (singular): existing swap / upgrade / equip / unequip flows.
+        #   "pieces" (plural):   create flow (forge/fuse/craft a new fragment).
+        #                        The response carries the newly-minted piece(s) as
+        #                        an array along with the resource cost in
+        #                        item_result. We append each piece to the cached
+        #                        piece_items so the inventory stays in sync.
+        #                        UNEQUIP-ALL also uses this key (returning each
+        #                        unequipped piece with char_res_id zeroed); we
+        #                        distinguish via pending_unequip_info above.
+        if "piece" in data and self.inventory_data and "piece_items" in self.inventory_data:
+            self._apply_piece_delta(data)
+        elif "pieces" in data and self.inventory_data and "piece_items" in self.inventory_data:
+            if pending_unequip_info is not None:
+                self._apply_pieces_unequip(
+                    data["pieces"], pending_unequip_info["char_res_id"]
+                )
+            else:
+                self._apply_pieces_create(data)
+
+        # Check for 'info' structure (new API format)
+        if "info" in data:
+            info = data.get("info", {})
+
+            # Check for item data in new format
+            if isinstance(info, dict) and "item" in info:
+                item_info = info.get("item", {})
+
+                # Check for piece (Memory Fragment) data
+                if "piece" in item_info:
+                    piece_info = item_info.get("piece", {})
+                    # Store this as inventory data (new format)
+                    if not self.inventory_data:
+                        self.inventory_data = {}
+                    self.inventory_data["info_item_piece"] = piece_info
+                    self._save_data()
+
+            # Check for character data in new format
+            if isinstance(info, dict) and "character" in info:
+                char_info = info.get("character", {})
+                if not self.character_data:
+                    self.character_data = {}
+                self.character_data["info_character"] = char_info
+                self._save_data()
+
+        # Capture inventory data (Memory Fragments)
+        if "piece_items" in data:
+            self.inventory_data = data
+            self._save_data()
+
+        # Capture character data.
+        #
+        # Two very different messages arrive under the same key. The
+        # login payload carries the FULL roster -- every character and
+        # every partner card -- alongside the user record. Action
+        # responses (re-equipping a partner, for one) reply with the
+        # same `characters` key but only the entries the server
+        # touched: the partner instance, its new owner and its old
+        # owner. Overwriting the cache with one of those deltas
+        # destroys the roster, which silently empties character_info
+        # and everything derived from it -- the Combatants tab, the
+        # exclude checklist, the res_id lookups the exclude step
+        # needs -- with no error anywhere.
+        #
+        # So a characters list replaces the cache only when it
+        # accounts for everything already in it; otherwise it is
+        # merged and nothing is dropped.
+        has_characters = "characters" in data and isinstance(data.get("characters"), list)
+        has_user = "user" in data
+
+        if has_characters:
+            self._merge_character_data(data)
+            self._save_data()
+        elif has_user:
+            # A user-record update with no roster attached: patch the
+            # cached payload rather than replacing it, or the roster
+            # goes the same way as above.
+            if self.character_data:
+                self.character_data["user"] = data["user"]
+            else:
+                self.character_data = data
+            self._save_data()
 
     @staticmethod
     def _entry_identity(entry):
