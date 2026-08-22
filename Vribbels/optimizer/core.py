@@ -468,7 +468,12 @@ def build_score_precompute(settings: dict) -> dict:
     per-character settings dict, once per run. Consumed by
     compute_score."""
     extra_share = settings.get("extra_pct", 0) / 100.0
+    # `dot_pct` is the AGONY share -- the DoT type the program has always
+    # modelled, before the game gave the others names. Fracture and
+    # Scorched share `fracture_pct` between them: they are mechanically
+    # identical, so a share each would score identically. See docs §3.4.
     dot_share = settings.get("dot_pct", 0) / 100.0
+    fracture_share = settings.get("fracture_pct", 0) / 100.0
     def_split = settings.get("atk_def_split", 0) / 100.0
     heal_share = settings.get("shielding_healing_weight", 0) / 100.0
     set_effect_shares = parse_set_effect_shares(settings)
@@ -480,6 +485,7 @@ def build_score_precompute(settings: dict) -> dict:
     return {
         "extra_share": extra_share,
         "dot_share": dot_share,
+        "fracture_share": fracture_share,
         "def_split": def_split,
         "heal_share": heal_share,
         "set_effect_shares": set_effect_shares,
@@ -578,26 +584,47 @@ def compute_score_components(gear: list, stats: dict, sp: dict,
     def_scaling = card_mult_dmg * (final_atk * 0.3 + final_def * 2.1) \
                   * element_multiplier * crit_modifier
 
-    # Extra DMG and DoT always use ATK formula with the Mechanic_DMG%
-    # multiplier (Extra DMG% or DoT% respectively). See docs §3 notes.
+    # Extra DMG and every DoT type always use the ATK formula with the
+    # Mechanic_DMG% multiplier -- Extra DMG% for Extra, DoT% for all
+    # three DoT types. See docs §3 notes and §3.4.
     extra_dmg_pct = stats.get("Extra DMG%", 0)
     dot_dmg_pct = stats.get("DoT%", 0)
     extra_dmg_per_hit = atk_scaling * (1 + extra_dmg_pct / 100.0)
-    dot_dmg_per_hit = atk_scaling * (1 + dot_dmg_pct / 100.0)
+
+    # Fracture and Scorched behave like any other ATK-scaling damage:
+    # they crit, and they take the buffs in the card multiplier.
+    fracture_per_hit = atk_scaling * (1 + dot_dmg_pct / 100.0)
+
+    # Agony neither crits nor takes buffs, so it drops crit_modifier and
+    # uses the bare base multiplier where the others use card_mult_dmg.
+    # Dropping the buffs also drops the conditional DMG multi / DMG add
+    # set terms, which is what makes this build-dependent rather than a
+    # constant rescale: a conditional set dialled up for DMG multi does
+    # not lift the Agony portion.
+    agony_per_hit = (
+        sp["base_multiplier"] * final_atk * element_multiplier
+        * (1 + dot_dmg_pct / 100.0)
+    )
 
     # ----- Blend damage by share -----
     # The character's damage is partitioned by type:
-    #   extra_share  : Extra-typed damage (always ATK formula)
-    #   dot_share    : DoT-typed damage   (always ATK formula)
-    #   normal_share : everything else (split between ATK and DEF
-    #                  formulas via def_split slider)
-    # Shares sum to 1.0. If extra + dot > 1, normal_share clamps to 0.
-    normal_share = max(0.0, 1.0 - sp["extra_share"] - sp["dot_share"])
+    #   extra_share    : Extra-typed damage     (always ATK formula)
+    #   dot_share      : Agony                  (always ATK formula)
+    #   fracture_share : Fracture and Scorched  (always ATK formula)
+    #   normal_share   : everything else (split between ATK and DEF
+    #                    formulas via def_split slider)
+    # Shares sum to 1.0. If the typed shares exceed 1, normal_share
+    # clamps to 0.
+    normal_share = max(
+        0.0,
+        1.0 - sp["extra_share"] - sp["dot_share"] - sp["fracture_share"],
+    )
     damage_score = (
         normal_share * (1.0 - sp["def_split"]) * atk_scaling
         + normal_share * sp["def_split"] * def_scaling
         + sp["extra_share"] * extra_dmg_per_hit
-        + sp["dot_share"] * dot_dmg_per_hit
+        + sp["dot_share"] * agony_per_hit
+        + sp["fracture_share"] * fracture_per_hit
     )
 
     # ----- Shield/heal score -----

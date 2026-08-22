@@ -101,6 +101,12 @@ HAL_STATS_WITH_PCT = {"CRate", "CDmg", "Extra DMG%", "DoT%"}  # show "%" suffix
 HAL_ALL_STATS = HAL_COLUMN_1 + HAL_COLUMN_2
 
 
+# Label column width shared by the Extra / Agony / Fracture sliders, in
+# characters: the longest label plus a character of slack. Sizing all
+# three alike is what leaves their tracks left-aligned.
+DMG_TYPE_LABEL_WIDTH = len("Fracture") + 1
+
+
 # Element choices for the Unknown-character override dropdown.
 ELEMENT_CHOICES = ["", "Passion", "Order", "Justice", "Void", "Instinct"]
 
@@ -211,7 +217,10 @@ class OptimizerTab(BaseTab):
 
         # --- Per-character UI vars (Important Settings) ---
         self.extra_pct_var = tk.IntVar(value=0)
+        # dot_pct_var drives the AGONY slider -- the setting key predates
+        # the game naming its DoT types. See docs/game_formulas.md §3.4.
         self.dot_pct_var = tk.IntVar(value=0)
+        self.fracture_pct_var = tk.IntVar(value=0)
         self.atk_def_split_var = tk.IntVar(value=0)
         self.shielding_healing_weight_var = tk.IntVar(value=0)
         self.force_main_vars = {key: tk.BooleanVar(value=False)
@@ -764,29 +773,41 @@ class OptimizerTab(BaseTab):
             padding=(-1, 0, 0, 0),
         ).pack(anchor=tk.W, pady=(2, 2))
 
-        # Extra and DoT each get a FULL row. Side by side, each slider's
+        # Each damage type gets a FULL row. Side by side, each slider's
         # rendered track fell below ~100px at common window widths (the
         # length=120 request only helps when pack can honor it), so
         # dragging skipped roughly every 8th integer. A full-width row
-        # gives each track ample travel for every value. label_width=5
-        # on both keeps the two tracks left-aligned.
+        # gives each track ample travel for every value. A shared
+        # label_width, sized to the longest label, keeps the tracks
+        # left-aligned with each other.
         ex_row = ttk.Frame(parent)
         # spacing: TBD -- config panel row -> row
         ex_row.pack(fill=tk.X, pady=(0, 2))
         self._labeled_slider(
             ex_row, "Extra", self.extra_pct_var,
             on_change=lambda v: self._save_int("extra_pct", v),
-            label_width=6,
+            label_width=DMG_TYPE_LABEL_WIDTH,
         )
         dot_row = ttk.Frame(parent)
         # spacing: TBD -- config panel row -> row
-        # (the larger trailing value ends the block, where the row above
-        # only separates two rows of the same block)
-        dot_row.pack(fill=tk.X, pady=(0, 6))
+        dot_row.pack(fill=tk.X, pady=(0, 2))
         self._labeled_slider(
             dot_row, "Agony", self.dot_pct_var,
             on_change=lambda v: self._save_int("dot_pct", v),
-            label_width=6,
+            label_width=DMG_TYPE_LABEL_WIDTH,
+        )
+        # One slider covers Fracture AND Scorched: the two are
+        # mechanically identical, so a share each would score the same.
+        # The caption above names both. See docs/game_formulas.md §3.4.
+        frac_row = ttk.Frame(parent)
+        # spacing: TBD -- config panel row -> row
+        # (the larger trailing value ends the block, where the rows above
+        # only separate rows of the same block)
+        frac_row.pack(fill=tk.X, pady=(0, 6))
+        self._labeled_slider(
+            frac_row, "Fracture", self.fracture_pct_var,
+            on_change=lambda v: self._save_int("fracture_pct", v),
+            label_width=DMG_TYPE_LABEL_WIDTH,
         )
 
         # Block 2: ATK <-> DEF slider
@@ -2030,6 +2051,7 @@ class OptimizerTab(BaseTab):
             self.optimize_for_level_var.set(s.get("optimize_for_level", 62))
             self.extra_pct_var.set(s.get("extra_pct", 0))
             self.dot_pct_var.set(s.get("dot_pct", 0))
+            self.fracture_pct_var.set(s.get("fracture_pct", 0))
             self.atk_def_split_var.set(s.get("atk_def_split", 0))
             self.shielding_healing_weight_var.set(s.get("shielding_healing_weight", 0))
 
@@ -2547,6 +2569,7 @@ class OptimizerTab(BaseTab):
             "optimize_for_level": s.get("optimize_for_level", 62),
             "extra_pct": s.get("extra_pct", 0),
             "dot_pct": s.get("dot_pct", 0),
+            "fracture_pct": s.get("fracture_pct", 0),
             "atk_def_split": s.get("atk_def_split", 0),
             "shielding_healing_weight": s.get("shielding_healing_weight", 0),
             "set_effect_pcts": dict(s.get("set_effect_pcts", {}) or {}),

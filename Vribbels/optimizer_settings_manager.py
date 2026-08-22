@@ -39,7 +39,8 @@ File format (version 1)
                 "name_hint": "Amir",                    # cosmetic; not used for lookup
                 "optimize_for_level": 60,               # 60 / 61 / 62; follows the character's own level upward
                 "extra_pct": 0,                         # 0-100, % of damage that's Extra DMG
-                "dot_pct": 0,                           # 0-100, % of damage that's DoT
+                "dot_pct": 0,                           # 0-100, % of damage that's Agony
+                "fracture_pct": 0,                      # 0-100, % of damage that's Fracture or Scorched
                 "atk_def_split": 0,                     # 0-100, % of damage scaling off DEF (0 = full ATK)
                 "shielding_healing_weight": 0,          # 0-100, blend toward shield/heal score
                 "force_main": {
@@ -104,6 +105,7 @@ DEFAULT_CHARACTER_SETTINGS: dict = {
     "optimize_for_level": 60,
     "extra_pct": 0,
     "dot_pct": 0,
+    "fracture_pct": 0,
     "atk_def_split": 0,
     "shielding_healing_weight": 0,
     "force_main": {
@@ -138,6 +140,7 @@ def _fresh_character_settings(name_hint: str = "") -> dict:
         "optimize_for_level": DEFAULT_CHARACTER_SETTINGS["optimize_for_level"],
         "extra_pct": DEFAULT_CHARACTER_SETTINGS["extra_pct"],
         "dot_pct": DEFAULT_CHARACTER_SETTINGS["dot_pct"],
+        "fracture_pct": DEFAULT_CHARACTER_SETTINGS["fracture_pct"],
         "atk_def_split": DEFAULT_CHARACTER_SETTINGS["atk_def_split"],
         "shielding_healing_weight": DEFAULT_CHARACTER_SETTINGS["shielding_healing_weight"],
         "force_main": dict(DEFAULT_CHARACTER_SETTINGS["force_main"]),
@@ -334,6 +337,7 @@ class OptimizerSettingsManager:
                 DEFAULT_CHARACTER_SETTINGS["optimize_for_level"]),
             "extra_pct": entry.get("extra_pct", 0),
             "dot_pct": entry.get("dot_pct", 0),
+            "fracture_pct": entry.get("fracture_pct", 0),
             "atk_def_split": entry.get("atk_def_split", 0),
             "shielding_healing_weight": entry.get("shielding_healing_weight", 0),
             "force_main": dict(entry.get("force_main", DEFAULT_CHARACTER_SETTINGS["force_main"])),
