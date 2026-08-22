@@ -410,29 +410,9 @@ class CaptureTab(BaseTab):
         frame = self.log_presets_list_frame
         if frame is None:
             return
-
-        # Build with the container UNMAPPED. This runs on every switch to
-        # the tab, so the checkboxes are otherwise created into a visible
-        # frame and each one is painted as it appears; hidden, they are
-        # all painted in the single pass that follows the repack. The
-        # frame is the last child packed into its parent, so repacking it
-        # puts it back where it was.
-        was_packed = bool(frame.winfo_manager())
-        if was_packed:
-            frame.pack_forget()
-
         for w in frame.winfo_children():
             w.destroy()
         self._log_preset_vars = {}
-        try:
-            self._fill_log_presets(frame)
-        finally:
-            if was_packed:
-                frame.pack(fill=tk.BOTH, expand=True)
-
-    def _fill_log_presets(self, frame):
-        """The checkbox grid itself. Separated so refresh_log_presets can
-        hide the container around every path out of it."""
 
         cpm = self.context.character_preset_manager
         pm = self.context.preset_manager
