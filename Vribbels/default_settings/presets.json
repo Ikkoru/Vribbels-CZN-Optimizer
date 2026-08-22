@@ -506,6 +506,19 @@
       "Ego": 0.05,
       "Extra DMG%": 0.0,
       "DoT%": 0.05
+    },
+    "Arabella (high DoT)": {
+      "Flat ATK": 0.952,
+      "ATK%": 1.0,
+      "Flat DEF": 0.12,
+      "DEF%": 0.05,
+      "Flat HP": 0.02,
+      "HP%": 0.01,
+      "CRate": 2.0,
+      "CDmg": 2.0,
+      "Ego": 0.05,
+      "Extra DMG%": 0.0,
+      "DoT%": 2.5
     }
   }
 }
