@@ -42,14 +42,11 @@ TYPES = {
 
 
 class _Piece:
-    """Only what the score walk and the stat sum read off a fragment."""
+    """Only the two attributes the score walk reads off a fragment."""
 
     def __init__(self, set_id):
         self.set_id = set_id
         self.main_stat = None
-
-    def get_total_stats(self):
-        return {}
 
 
 def run():
@@ -127,48 +124,6 @@ def run():
             f"Mixed shares do not equal the weighted pure terms "
             f"({blended:.6f} vs {parts:.6f}). A share is missing from the "
             f"blend, or normal_share is not the remainder."
-        )
-
-    # ----- The calibration, at the build it is measured against -----
-    # Agony carries the reference build's card multiplier and crit as a
-    # constant where Fracture carries the candidate's live ones. On the
-    # reference build itself those are the same numbers, so the two
-    # terms must come out EQUAL there. That equality is the whole point
-    # of the calibration: it is what makes a declared share arrive as
-    # declared instead of shrinking by the combatant's own crit and
-    # buffs. Nothing about losing it is visible in a results table.
-    char_static = dict(core.empty_char_static(), base_cr=60.0, base_cd=200.0)
-    ref_gear = [_Piece(DMG_MULTI_SET)] * DMG_MULTI_PIECES + [_Piece(1)] * 4
-    buffed = dict(BASE_SETTINGS, avg_mult_buff_pct=40, avg_add_buff_pct=20,
-                  set_effect_pcts={str(DMG_MULTI_SET): 100})
-
-    sp = core.build_score_precompute(buffed)
-    calibration = core.build_agony_calibration(
-        ref_gear, char_static, sp["set_effect_shares"], sp)
-    if calibration == sp["base_multiplier"]:
-        failures.append(
-            "build_agony_calibration returned the bare base multiplier "
-            "for a reference build with crit and buffs on it. Agony would "
-            "sit on a shorter scale than the damage the share is measured "
-            "against."
-        )
-
-    ref_stats = core.compute_build_stats(
-        ref_gear, char_static, set_effect_shares=sp["set_effect_shares"])
-    ref_terms = {}
-    for key in ("dot_pct", "fracture_pct"):
-        pure = core.build_score_precompute(dict(buffed, **{key: 100}))
-        pure["agony_calibration"] = calibration
-        ref_terms[key] = core.compute_score_components(
-            ref_gear, ref_stats, pure, "Passion")[0]
-
-    if abs(ref_terms["dot_pct"] - ref_terms["fracture_pct"]) > 1e-9:
-        failures.append(
-            f"On the reference build Agony and Fracture disagree "
-            f"({ref_terms['dot_pct']:.6f} vs "
-            f"{ref_terms['fracture_pct']:.6f}). The calibration is not "
-            f"putting Agony on the card-damage scale, so a mixed "
-            f"combatant's declared Agony share is not the delivered one."
         )
 
     return failures

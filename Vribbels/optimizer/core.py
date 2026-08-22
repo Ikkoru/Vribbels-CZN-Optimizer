@@ -52,10 +52,7 @@ evaluate_combo returns (status, score, stats): on COMBO_OK, score is
 the trim_blend scalar (greedy refs) that gates trimming and the
 tie-break, and the raw (D, S) components ride inside stats under the
 "_D" / "_S" keys for the parent-side display re-blend. The result-tuple
-shape (gear, score, stats) is therefore unchanged. "_agony_cal" rides
-along with them: a later re-blend rebuilds the precompute from settings
-alone and cannot re-derive that constant, whose reference build needs
-the per-slot candidate lists (see build_agony_calibration).
+shape (gear, score, stats) is therefore unchanged.
 """
 
 from game_data import SETS, SLOT_ORDER, SET_STAT_NAME_MAP
@@ -501,14 +498,6 @@ def build_score_precompute(settings: dict) -> dict:
         "buff_baseline": (
             base_multiplier * (1 + avg_mult_buff) + avg_add_buff
         ),
-        # Puts the Agony term on the card-damage scale. optimize()
-        # overwrites this with build_agony_calibration() against the
-        # combatant's reference build before anything is scored. The
-        # bare base multiplier is what a caller with no reference build
-        # gets -- Agony then sits on its own scale, which is exact for a
-        # combatant whose damage is ALL Agony (one share, so the
-        # constant divides out) and under-weights it for any mix.
-        "agony_calibration": base_multiplier,
     }
 
 
@@ -558,36 +547,6 @@ def crit_multiplier(stats: dict) -> float:
     final_crate = max(0.0, min(100.0, stats.get("CRate", 0)))
     final_cdmg = stats.get("CDmg", 125)
     return 1 + (final_crate / 100.0) * max(0.0, (final_cdmg - 100.0) / 100.0)
-
-
-def build_agony_calibration(ref_gear: list, char_static: dict,
-                            set_effect_shares: dict, sp: dict) -> float:
-    """The per-run constant that puts Agony on the card-damage scale.
-
-    The Important Settings sliders ask what percent of a combatant's
-    TOTAL damage each type accounts for, and that total is dominated by
-    card damage -- so a declared share is only delivered as declared if
-    every type's per-hit term sits on the same scale at the build the
-    user was looking at when they judged it. Extra and Fracture do,
-    having every factor the card terms have. Agony does not: it carries
-    neither crit nor buffs, so without this it arrives on a shorter
-    yardstick and a declared 50% behaves like far less.
-
-    So Agony is multiplied by the REFERENCE build's card multiplier and
-    crit factor. Constants, not the candidate's own -- multiplying by
-    the candidate's crit would restore exactly the sensitivity that
-    Agony is not supposed to have. `sp["base_multiplier"]` cancels out
-    of the ratio, which is why this replaces it outright rather than
-    scaling it.
-
-    Called once per run, parent-side, before the greedy refs (which
-    score through compute_score_components and so must see the final
-    value). See docs/game_formulas.md §3.4.
-    """
-    stats = compute_build_stats(
-        ref_gear, char_static, set_effect_shares=set_effect_shares
-    )
-    return damage_card_multiplier(ref_gear, sp) * crit_multiplier(stats)
 
 
 def compute_score_components(gear: list, stats: dict, sp: dict,
@@ -644,15 +603,14 @@ def compute_score_components(gear: list, stats: dict, sp: dict,
     # they crit, and they take the buffs in the card multiplier.
     fracture_per_hit = atk_scaling * (1 + dot_dmg_pct / 100.0)
 
-    # Agony neither crits nor takes buffs, so where the others carry
-    # this build's card multiplier and crit factor it carries the
-    # REFERENCE build's, frozen into a per-run constant by
-    # build_agony_calibration. Dropping the candidate's buffs also drops
-    # its conditional DMG multi / DMG add set terms, which is what makes
-    # this build-dependent rather than a constant rescale: a conditional
-    # set dialled up for DMG multi does not lift the Agony portion.
+    # Agony neither crits nor takes buffs, so it drops crit_modifier and
+    # uses the bare base multiplier where the others use card_mult_dmg.
+    # Dropping the buffs also drops the conditional DMG multi / DMG add
+    # set terms, which is what makes this build-dependent rather than a
+    # constant rescale: a conditional set dialled up for DMG multi does
+    # not lift the Agony portion.
     agony_per_hit = (
-        sp["agony_calibration"] * final_atk * element_multiplier
+        sp["base_multiplier"] * final_atk * element_multiplier
         * (1 + dot_dmg_pct / 100.0)
     )
 
@@ -842,13 +800,8 @@ def evaluate_combo(combo, ctx: dict):
         list(combo), stats, ctx["score_pre"], ctx["attribute"]
     )
     trim_score = trim_blend(components, ctx["score_pre"], ctx["gref"])
-    # Carry the raw components for the parent-side display re-blend, and
-    # the Agony calibration with them: a later re-blend re-derives the
-    # components from a fresh precompute, and cannot rebuild that
-    # constant itself -- its reference build needs the per-slot
-    # candidate lists, which only optimize() has.
+    # Carry the raw components for the parent-side display re-blend.
     stats["_D"], stats["_S"] = components
-    stats["_agony_cal"] = ctx["score_pre"]["agony_calibration"]
     return (COMBO_OK, trim_score, stats)
 
 

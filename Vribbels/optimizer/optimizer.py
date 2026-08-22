@@ -653,37 +653,6 @@ class GearOptimizer:
             "gref": {"D": 1.0, "S": 1.0},
         }
 
-    def _calibration_reference_build(self, char_name: str,
-                                     slot_candidates: dict) -> list:
-        """The build the Agony calibration is measured against.
-
-        Chosen per SLOT rather than per build: the combatant's own
-        equipped fragment wherever they have one, the slot's top
-        candidate wherever they do not. The percentage the user typed
-        describes the damage they were looking at, so their real gear is
-        the honest reference -- but a half-geared combatant read
-        literally would be calibrated against empty slots, which is less
-        crit than they will actually be running, and the mixed shares
-        would tilt accordingly.
-
-        A slot with neither is simply left out; a run in that state
-        returns no results anyway.
-        """
-        equipped = {}
-        for piece in self.characters.get(char_name, []):
-            equipped.setdefault(piece.slot_num, piece)
-
-        reference = []
-        for slot_num in SLOT_ORDER:
-            piece = equipped.get(slot_num)
-            if piece is None:
-                candidates = slot_candidates.get(slot_num) or []
-                if not candidates:
-                    continue
-                piece = candidates[0]
-            reference.append(piece)
-        return reference
-
     def calculate_build_stats(self, gear: list[MemoryFragment],
                                char_name: str = None, *,
                                effective_level: int = None,
@@ -1181,18 +1150,6 @@ class GearOptimizer:
         if not results:
             return results
         sp = core.build_score_precompute(settings)
-        # The Agony calibration is a per-run constant measured against a
-        # reference build this path cannot reconstruct -- it needs the
-        # per-slot candidate lists, which only optimize() has. Recover
-        # the run's own value from the results instead; every row of a
-        # run carries the same one. Without it the Agony share would be
-        # weighted differently here from the run that produced these
-        # rows, and the column would shift under an equip with no gear
-        # having changed for most of them.
-        for _g, _s, st in results:
-            if "_agony_cal" in st:
-                sp["agony_calibration"] = st["_agony_cal"]
-                break
         attribute = self._resolve_attribute(char_name, settings)
         set_effect_shares = sp["set_effect_shares"]
         # Re-score at the SAME level the run used (the "Optimize for LVL"
@@ -1211,10 +1168,6 @@ class GearOptimizer:
                 )
                 d, s = core.compute_score_components(gear, stats, sp, attribute)
                 stats["_D"], stats["_S"] = d, s
-                # Re-stamp it: calculate_build_stats returns a fresh
-                # dict, so without this a second re-blend would find no
-                # calibration to recover and fall back to the default.
-                stats["_agony_cal"] = sp["agony_calibration"]
                 rebuilt.append((gear, None, stats))
             except Exception:
                 rebuilt.append((gear, old_score, old_stats))
@@ -1411,17 +1364,6 @@ class GearOptimizer:
         # loop.
         ctx = self.build_run_context(
             char_name, settings, sets_selected, max_flex_slots
-        )
-
-        # Put the Agony term on the card-damage scale, BEFORE the greedy
-        # refs below -- those score through compute_score_components, so
-        # they have to see the finished calibration or the trim would be
-        # gated against a different formula from the one that produced
-        # the results. Both are per-run constants, which is what keeps
-        # the parallel path byte-identical to the sequential one.
-        ctx["score_pre"]["agony_calibration"] = core.build_agony_calibration(
-            self._calibration_reference_build(char_name, slot_candidates),
-            ctx["char_static"], ctx["set_effect_shares"], ctx["score_pre"],
         )
 
         # Build the per-run GREEDY trim references from the top
