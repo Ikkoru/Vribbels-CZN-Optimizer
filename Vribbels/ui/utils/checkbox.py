@@ -53,6 +53,10 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
         # clicked, never tabbed to, so nothing is lost -- but note that
         # this does remove them from the keyboard tab order.
         highlightthickness=0, bd=0, takefocus=0,
+        # Themed even though the ring above is off: it defaults to
+        # SystemButtonFace, and that is the one near-white value left on
+        # a widget whose every other colour comes from the palette.
+        highlightbackground=colors["bg"],
     )
     if command is not None:
         opts["command"] = command
