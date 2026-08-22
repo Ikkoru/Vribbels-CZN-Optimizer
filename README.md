@@ -21,6 +21,8 @@ The latest snapshot loads on startup. Pick a combatant, fill in **Important Sett
 Most of the settings are self-explanatory. These are the ones that aren't:
 
 - **The three damage sliders** — Extra, Agony and Fracture — are the share of the combatant's damage that comes from each. Fracture and Scorched share the one slider. Work them out from your deck rather than from damage numbers: add up the DMG% of each source per turn and take the fractions. Everything left over counts as ordinary card damage.
+
+  > Don't stress about getting these super accurate. Dealing 3 more damage per turn isn't going to save you from the Nightmare.
 - **Have at Least** floors are measured the way the game's Potential 7 checks measure them, so clearing one here means clearing it in-game. Builds that miss any floor are dropped entirely.
 - **Maximum Flex Slots** is how many of the six slots may sit outside the sets you ticked.
 - **A conditional set's percentage** is how much of this combatant's damage actually benefits from that set's effect. At 0 the fragments still count for their stats and the effect is ignored.
