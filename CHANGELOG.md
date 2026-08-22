@@ -14,35 +14,37 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Added
 
-- **The optimizer knows the three damage-over-time types apart.** What the program called DoT is the one the game calls Agony, and Important Settings now says so. A second slider under it covers Fracture and Scorched, which the game added later and which behave differently: they can crit and they take buffs, where Agony does neither. Set the two sliders to the share of a combatant's damage each type accounts for. The practical effect is that a combatant whose damage is mostly Agony no longer has crit gear ranked for it, and no longer gains from a conditional set dialled up for its damage multiplier — while one built around Fracture still wants both. Existing combatants keep their setting as their Agony share, and Fracture starts at 0%. Because the sliders ask for a share of *total* damage, and that total is mostly card damage, the Agony share is scaled onto the same footing as the rest — measured against the combatant's own equipped Fragments, falling back slot by slot to the best available one for any slot they have empty. Without that, a heavily-built combatant asking for 50% Agony would have got the weighting of about 20%.
+- **Arabella and Licinia**, plus Janet's data.
 
-- **The Upgraded log lines hide presets that can't use the fragment.** Four checkboxes at the bottom of the Capture tab's Upgrade Log Settings drop a preset from an Upgraded line's Highest Potential when none of the combatants using it wants that fragment's main stat. "Don't show presets on Element mismatch": a Slot V element DMG% that isn't the combatant's element. "Don't show presets on ATK/DEF mismatch": read off the combatant's ATK/DEF Split, so an ATK-scaling combatant no longer sees a DEF% main and a DEF-scaling one no longer sees an ATK% main (in Slot IV, V or VI). "Don't show DPS presets for HP% MFs" and "...for Ego MFs": a combatant whose Shielding & Healing value is 45% or less counts as a damage dealer. Combatants in the middle of the ATK/DEF split, and those whose element the program doesn't know, are never filtered. All four are on by default and remembered between launches; toggling one re-writes the last Upgraded line, as the preset checkboxes do.
+- **Fracture and Scorched damage.** Important Settings now has three damage-type sliders instead of two: Extra, Agony (what the program used to call DoT) and Fracture. Fracture and Scorched share the one slider. Set each to the share of a combatant's damage it accounts for. Agony can't crit and isn't affected by buffs, so a combatant built around it no longer has crit gear ranked for it. Fracture and Scorched do both. Existing combatants keep their old setting as Agony; Fracture starts at 0%.
+
+- **The Upgraded log lines hide presets that can't use the fragment.** Four new checkboxes in the Capture tab's Upgrade Log Settings. They drop a preset from an Upgraded line when none of its combatants wants that fragment's main stat: an element that isn't theirs, an ATK% main on a DEF-scaling combatant (or the reverse), and HP% or Ego mains for damage dealers. Combatants in the middle of the ATK/DEF split, and those the program doesn't know, are never filtered. All four are on by default and remembered.
 
 ### Changed
 
-- **Every checkbox in the app now uses one widget style.** Two different kinds were in use, with different box sizes and different internal spacing, which made the gaps around them look inconsistent from panel to panel. Set Configuration checkboxes now take their set's Element colour, and Capture's Log Preset checkboxes take their combatants' Element colour when every combatant on that preset shares one.
+- **The Combatants tab's character list is a real table now.** It resizes faster, its columns stay lined up, and each row is coloured by its Element. Sorting, scrolling and keyboard navigation match the other lists in the app. New Affinity column, and Partner level has its own column.
 
-- **The Capture tab's "Upgrade Log Presets" is now "Upgrade Log Settings",** since it holds more than the preset checklist.
+- **Combatants tab: Sets and build stats moved into the Character card.** The separate Build Stats strip is gone. Text in the card can now be selected and copied. Total GS is no longer repeated there — the list's GS column already shows it.
 
-- **The Combatants tab's character list is a real table now.** It was hand-built from one label per cell, which is why that tab was sluggish to resize and why its columns could drift out of line. Each row is coloured by its Element across the whole row, rather than just the Attribute cell. Sorting, scrolling and keyboard navigation behave the way the other lists in the app do.
+- **One text size across the app,** with a second, larger size for status lines. Gear cells put the slot name on the same row as the main stat, and are a little wider.
 
-- **Text sizes across the app are now consistent.** Body text was using five different sizes; it now uses one, with a second, larger size for status lines. Combatants tab gear cells put the slot name on the same row as the main stat to make room, and are a little wider. The Gear Score explanation moved off its monospaced font and keeps its columns aligned with tab stops.
+- **One checkbox style across the app.** They no longer show a dotted rectangle when clicked, and are no longer reachable with Tab.
 
-- **More things are coloured by Element.** Memory Fragments tab: the elemental Main Stat filters, and the Sets list — a two-Element set colours its name with the first Element and its count with the second. Capture tab: the Log Preset checkboxes, which were meant to be coloured already but never were.
+- **More things are coloured by Element:** the Memory Fragments tab's elemental Main Stat filters and Sets list, and the Capture tab's Log Preset checkboxes.
 
-- **Checkboxes no longer show a dotted focus rectangle** when clicked. They are also no longer reachable with Tab.
+- **Tighter, more consistent spacing across every tab,** and panel borders no longer double up around lists that already have one.
 
-- **Combatants tab: Sets and build stats moved into the Character card.** The separate "Build Stats" strip is gone; its contents now sit under the character's details, as a Sets line and two columns of build stats (ATK/DEF/HP/Ego on the left, Crit%/CDMG/Extra%/DoT%/Element on the right). The card is a single panel now, matching Partner beside it, so its text can be selected and copied. Total GS is no longer repeated there — the combatant list's GS column already shows it.
+- **Capture tab: "Upgrade Log Presets" is now "Upgrade Log Settings",** it is wider, and its checkboxes sit in five columns.
 
-- **Removed the "Support on Ko-Fi" button** and the strip of empty space it sat in, so the tabs start at the top of the window. The same message is still available from the About tab's Support Development button.
-
-- **Tighter, more consistent spacing across the tabs.** Panel margins and the gaps between panels on the Capture, Memory Fragments, Gear Score, Combatants and Setup tabs now match the Optimizer tab. The Gear Score tab's heading and its one-line description now share a row, and the panels holding the Optimizer's Stats Comparison, Results and Selected Build lists — and the Combatants tab's Equipped Memory Fragments grid — no longer draw a border around content that already has one.
+- **Removed the "Support on Ko-Fi" button** and the empty strip it sat in, so the tabs start at the top of the window. The message is still on the About tab.
 
 ### Fixed
 
-- **Snapshot and hosts-file reads/writes now state their encoding.** They previously used whatever the Windows locale happened to be, so on a Japanese or Korean system a snapshot containing non-ASCII text (a team preset name, for instance) could fail to load or come back mangled. The hosts file is now round-tripped byte-for-byte, so a capture can no longer disturb entries it didn't write.
+- **Capture missed anything the game sent in a batch.** Most of what the game sends after the loading screen arrives batched, and all of it was being discarded — including the reply that says you obtained a new combatant. That is why a new combatant did not appear until the next time you logged in.
 
-- **A failure to install the bundled default settings is now reported instead of ignored.** If the defaults couldn't be copied into the settings folder — usually a permissions problem — the program used to carry on silently with no scoring presets and no per-combatant settings, looking perfectly healthy. It now says so.
+- **Snapshot and hosts-file reads/writes now state their encoding.** On a Japanese or Korean system a snapshot with non-ASCII text in it could fail to load or come back mangled. The hosts file is now left exactly as found.
+
+- **A failure to install the bundled default settings is now reported** instead of leaving the program looking healthy with no presets and no per-combatant settings.
 
 ## [1.4.1] - Eunie + Minor Fixes and Improvements
 

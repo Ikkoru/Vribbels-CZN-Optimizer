@@ -1,87 +1,43 @@
 # Vribbels CZN Optimizer (Ikkoru)
 
-A fork of Vribbels, a Fribbels-inspired gear management and optimization tool for the mobile game **Chaos Zero Nightmare**. This tool helps you optimize your Memory Fragments to maximize your combatants' performance.
-
-## Features
-
-### Memory Fragment Optimizer
-
-- **Smart Build Optimization**: Automatically finds the best Memory Fragment combinations for your characters.
-- **Damage-Model Scoring**: Builds are scored using your per-combatant assumptions — Extra DMG / DoT shares, ATK/DEF split, shielding/healing weight, per-set effect uptime, and average card damage / buffs. Every build is scored 0–100 against the best one found in the run. Comes with preset defaults.
-- **Multi-Core Search**: Tune or switch off via `optimizer_workers` in `settings/settings.json`, with the program closed (only if the automatic setting doesn't work for you).
-- **Set Configuration**: Pick the sets you want and cap off-set slots with Maximum Flex Slots. Set how much of a character's damage is affected by the set effect.
-- **Have-at-Least Minimums**: Hard stat floors — builds that don't meet them are excluded. Measured the way the game's Potential 7 requirement checks measure them, so clearing a floor here means clearing it in-game.
-- **Gear Score Calculation**: Evaluates fragments based on substats and potential, using per-combatant weight presets.
-
-### Inventory Management
-
-- **Memory Fragments Tab**: View and filter all your equipped and unequipped fragments.
-- **Materials Tab**: Track your growth stone inventory.
-- **Combatants Tab**: View all characters with levels, gear scores, stats, and equipped Partners.
-
-### Data Capture
-
-- **Integrated mitmproxy Setup**: Built-in proxy configuration for capturing game data.
-- **Automatic Data Extraction**: Captures Memory Fragments, character data, and inventory.
-- **One-Click Capture**: Simple interface for extracting data from the game.
-- **Capture Log evaluates quality of Memory Fragments** in real time when you upgrade them.
-
-### Other Features
-
-- **Friendship Bonus Tracking**: Accounts for character friendship stats.
-- **Multi-Build Comparison**: Compare current vs. optimized builds side-by-side.
+A fork of Vribbels, a Fribbels-inspired gear management and optimization tool for the mobile game **Chaos Zero Nightmare**. It reads your Memory Fragments from the game and works out the best six for a combatant.
 
 ## Installation
 
-### Requirements
-
-- Windows.
-- STOVE Client.
-
-### Quick Start
+You need Windows and the STOVE client.
 
 1. Download the latest release from the [Releases page](https://github.com/Ikkoru/Vribbels-CZN-Optimizer/releases).
 2. Run `Vribbels_CZN_Optimizer_Ikkoru.exe`.
-3. Navigate to the **Setup** tab and click **Generate & Install Cert**.
+3. Open the **Setup** tab and click **Generate & Install Cert**.
 
-## Usage
+## Capturing your data
 
-### Capturing Game Data
+Run the program as Administrator, start the capture on the **Capture** tab, then launch the game and go to the main menu. Your data is saved next to the program in `snapshots/`, and changes you make in-game are picked up while the capture is running.
 
-1. Launch the application (run as Administrator on Windows for capture functionality).
-2. Navigate to the **Capture** tab.
-3. Click **"Start Capture"**.
-4. Launch Chaos Zero Nightmare and navigate to the main menu.
-5. In-game changes will be automatically tracked by the program.
-6. Your data will be saved to `snapshots/memory_fragments_[timestamp].json` (next to the program).
+## Optimizing
 
-### Optimizing Builds
+The latest snapshot loads on startup. Pick a combatant, fill in **Important Settings**, then press Start.
 
-1. Launch the app — the latest capture snapshot loads automatically (live captures refresh it while running).
-2. Select a combatant from the dropdown — its assigned Gear Score preset is shown below it (assign presets in the **Combatants** tab; edit preset weights in the **Gear Score** tab).
-3. Adjust the **Important Settings** to describe how the combatant deals damage: Extra DMG% / DoT% shares, ATK/DEF split, shielding/healing weight, and (optionally) force HP or Ego main stats on slots IV–VI.
-4. Optionally set **Have at Least** minimums — builds that don't meet all of them are excluded.
-5. Tick the sets you want under **Set Configuration**, set **Maximum Flex Slots** (how many of the 6 slots may sit outside your chosen sets), and assign each conditional set effect a value: what percent of this combatant's damage actually benefits from that set's effect. At 0 the set MFs still count toward stats but the effect is ignored.
-6. Optionally untick combatants under **Exclude Combatant's MFs** to let the optimizer consider their equipped gear (all are excluded by default; the selected combatant's own gear is always available).
-7. Click **"Start"** to begin optimization.
-8. Review results — Scores are 0–100 with the run's best build at 100, and the build you already have equipped (when it makes the list) is tagged `(E)`. A set tagged `(F)` is one the flex slots completed by chance rather than one you picked; its bonus is active either way. Select a row to compare stats side-by-side and see the required Memory Fragments; right-click the stats comparison for a full per-source breakdown.
+Most of the settings are self-explanatory. These are the ones that aren't:
 
-### Viewing Materials
+- **The three damage sliders** — Extra, Agony and Fracture — are the share of the combatant's damage that comes from each. Fracture and Scorched share the one slider. Work them out from your deck rather than from damage numbers: add up the DMG% of each source per turn and take the fractions. Everything left over counts as ordinary card damage.
+- **Have at Least** floors are measured the way the game's Potential 7 checks measure them, so clearing one here means clearing it in-game. Builds that miss any floor are dropped entirely.
+- **Maximum Flex Slots** is how many of the six slots may sit outside the sets you ticked.
+- **A conditional set's percentage** is how much of this combatant's damage actually benefits from that set's effect. At 0 the fragments still count for their stats and the effect is ignored.
+- **Exclude Combatant's MFs** starts with everyone excluded. Unticking someone lets the optimizer take the gear they are wearing. The combatant you are optimizing is never excluded from their own gear.
 
-Navigate to the **Materials** tab to see your growth stone inventory.
+In the results, scores run 0–100 with the run's best build at 100. `(E)` marks the build you already have on. `(F)` marks a set the flex slots completed by accident rather than one you picked — its bonus counts either way. Click a row to compare it against your current build; right-click that comparison for a full breakdown of where every number comes from.
 
-### Correcting a Level
+## Other things worth knowing
 
-Levels are worked out from EXP, and the tables behind that have gaps. If a combatant's level looks wrong, right-click its row in the **Combatants** tab and enter the level the game shows. Right-click the Partner card to do the same for a Partner. Each correction is saved and makes every later level more accurate.
+- **Gear Score** weights are per-combatant presets. Assign them on the **Combatants** tab, edit the weights on the **Gear Score** tab.
+- **If a level looks wrong,** right-click the combatant's row on the **Combatants** tab and type the level the game shows. Levels are worked out from EXP and the tables behind that have gaps; each correction you enter makes later ones more accurate. Right-click a Partner card to do the same for a Partner.
+- **The optimizer uses every CPU core.** If that causes trouble, close the program and change `optimizer_workers` in `settings/settings.json`.
+- **Affinity, potential nodes and Partner bonuses** are all counted in the stats the optimizer scores.
 
 ## Contributing
 
-Contributions are welcome! Feel free to:
-
-- Report bugs via GitHub Issues.
-- Submit character/partner data updates.
-- Suggest new features.
-- Improve documentation.
+Bug reports, character and partner data corrections, and feature ideas are all welcome via GitHub Issues.
 
 ## Credits
 
@@ -97,7 +53,7 @@ Currently not accepting donations.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License — see [LICENSE](LICENSE) file for details.
 
 Chaos Zero Nightmare and all related assets are property of their respective owners.
 
