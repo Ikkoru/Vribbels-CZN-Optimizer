@@ -89,6 +89,7 @@ zRUN Spacing Audit.bat
 zRUN Spacing Audit Verbose.bat
 zRUN Spacing Audit Freeze.bat
 zRUN Checks.bat
+Vribbels/default_settings/_0 delet default json files, then RUN
 Vribbels/default_settings/_1 delet excluded_gear_chars
 Vribbels/default_settings/_2 delet exclude_seen_rids
 Vribbels/default_settings/_3 delet optimize_level_seen
