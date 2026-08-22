@@ -10,7 +10,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the
 pre-fork history, see the upstream repository's CHANGELOG.
 
-## [1.5.0] -
+## [1.5.0] - Arabella, Fracture, UI update ongoing
 
 ### Added
 
@@ -21,6 +21,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 ### Changed
 
 - **Every checkbox in the app now uses one widget style.** Two different kinds were in use, with different box sizes and different internal spacing, which made the gaps around them look inconsistent from panel to panel. Set Configuration checkboxes now take their set's Element colour, and Capture's Log Preset checkboxes take their combatants' Element colour when every combatant on that preset shares one.
+
 - **The Capture tab's "Upgrade Log Presets" is now "Upgrade Log Settings",** since it holds more than the preset checklist.
 
 - **The Combatants tab's character list is a real table now.** It was hand-built from one label per cell, which is why that tab was sluggish to resize and why its columns could drift out of line. Each row is coloured by its Element across the whole row, rather than just the Attribute cell. Sorting, scrolling and keyboard navigation behave the way the other lists in the app do.
@@ -186,7 +187,7 @@ so renames don't lose data.
 ### Changed
 
 - **Optimizer tab fully overhauled.** The middle Configuration column is rebuilt around per-character persistent settings:
-  
+
   * **Important Settings** (left side of top row): Extra% + DoT% sliders, ATK↔DEF scaling slider, Shielding/Healing weight slider, four force-main checkboxes (IV: HP / V: HP / VI: HP / VI: Ego).
   * **Have at Least** (right side of top row): 8 minimum-threshold spinboxes that act as hard constraints on build results.
   * **Set Configuration**: Maximum Flex Slots stepper, set-effect % slider, three Average buff spinboxes (Card DMG / Mult Buff / Add Buff), and a single combined checklist of all sets (4-piece sorted first, then 2-piece). The old separated 4-piece / 2-piece multi-selects are gone — select any usable sets and the optimizer (in Phase 4 of the v1.1.0 work) will figure out the best combination shapes.
@@ -207,7 +208,7 @@ so renames don't lose data.
 - **`SET_STAT_NAME_MAP`** added in `optimizer.py` for translating `sets.py` stat names (`Crit DMG`, `Crit Rate`) to the program's internal vocabulary (`CDmg`, `CRate`).
 
 - **Phase 4 — Set-combo search rewrite.** The optimizer's set-requirement check was replaced with a **unified locked-count rule** that subsumes all six combo shapes from the design spec:
-  
+
   * 4+2 (chosen 4pc + chosen 2pc), 4+wild2, 2+2+2, 2+2+wild2, 2+wild4, wild6
   * Implementation: count slots locked into a satisfied chosen-set bonus; the build is valid iff `(6 - locked) <= max_flex_slots`. Mathematically equivalent to per-shape enumeration but avoids the partition combinatorics (no `C(6,4)` partition explosion per shape).
   * New `_count_locked_slots(combo, sets_selected)` helper does the counting; integer 0–6. Overflow pieces of the same set don't count beyond the bonus threshold (6 of a 4pc set still locks only 4 slots).
@@ -217,7 +218,7 @@ so renames don't lose data.
 - **`get_gear_by_slot` Top filter gains a 10-fragment floor.** Previously kept top `top_percent`% of candidates per slot, with no minimum — sparse inventories ended up with 1–2 candidates per slot, starving the optimizer. Now keeps `max(10, top_percent%)` per slot (capped at `len(candidates)`). Larger search space for sparse inventories; same behavior for typical / large inventories.
 
 - **Phase 5 — Per-character preset wired into the Optimizer tab.** The Selected Build detail tree and the optimizer's slot pre-filter now both honor the character's assigned scoring preset (Combatants tab assignment) instead of the globally-active Scoring tab preset:
-  
+
   * **Detail-tree GS / Potential columns** — recomputed per-build under the character's weights via the new `compute_fragment_gs` pure helper in `memory_fragment.py` (parallel to the existing `compute_fragment_potential`). Doesn't mutate `fragment.gear_score`, so the global cached value stays valid for tabs that share it.
   * **Slot pre-filter sort** — `get_gear_by_slot` gains a `score_weights` parameter. When supplied, the per-slot top-N candidates are picked by their score under those weights rather than by the globally-cached `fragment.gear_score`. With per-main-stat bounds caching so the per-slot loop stays cheap.
   * **Resolution order** in `_get_weights_for_character`: (1) character's assigned preset via `CharacterPresetManager.get_preset_for`, (2) currently-active preset (`PresetManager.selected_preset`), (3) empty dict = all-1.0 weights. Matches the Heroes / Combatants tab behavior. If the assigned preset name no longer exists in `PresetManager`, falls through silently.
@@ -225,7 +226,7 @@ so renames don't lose data.
 - **Per-character preset wired into the slot pre-filter sort** (already described above) plus the Selected Build detail tree.
 
 - **Polish round (15-item punchlist).** A batch of UI/data refinements after the Phase 1-5 overhaul:
-  
+
   * **Mouse-wheel on all spinboxes.** The Gear Score tab's stat-weight spinboxes now respond to the scroll wheel (the Optimizer tab's already did). Shared `_spinbox_wheel` handler.
   * **Keyboard navigation on dropdowns.** The Optimizer tab Combatant selector and the Combatants tab preset-assignment dropdown now support type-to-jump (press a letter to cycle to the next matching entry). Explicit `_combobox_letter_jump` binding so behavior is consistent across platforms.
   * **Non-resizable panels.** The Gear Score, Combatants, and Optimizer tabs replaced their draggable `ttk.PanedWindow` splits with fixed-ratio grid layouts (50/50, 1:2, and 1:2:2 respectively). The sash can no longer be dragged.
@@ -238,7 +239,7 @@ so renames don't lose data.
   * **`CHARACTER_EXP_TABLE` levels 1-40 firmed up** from the in-game progression panel (every level now has a confirmed cumulative threshold; the old table had estimated round numbers for many sub-40 levels that were significantly off). Level-40 total (144000) unchanged.
 
 - **Polish round 2 (Combatants tab + Optimizer tab + Memory Fragments refinements).** Continuation of the visual iteration after the 15-item punchlist:
-  
+
   * **Combatants tab fixed-size detail panel.** Character / Partner / Build Stats / Equipped Memory Fragments frames are sized to data-driven maxima via font metrics over the entire captured roster, so switching combatants never resizes or shifts the layout. Partner fills the horizontal space to the right of Character (only its height is pinned, to match Character). Equipped Memory Fragments slot frames are individually static-sized (+20px wider, height reserves 2 wrap lines of set description + bottom padding) so long set descriptions wrap inside the fixed box rather than stretching it, and GS / Potential never clips.
   * **Combatants tab Build Stats** displays on two lines: GS + active set names + N Flex token on line 1; full stat list (ATK / DEF / HP / Crit% / CDMG% / Elem% / Extra% / DoT% / Ego) on line 2.
   * **Combatants list ~70px wider** (content-pane weight ratio shifted 1:2 → 5:8). Preset combobox width fixed to the label-text width at "Heidemarie". Combatant column trimmed to fit "Heidemarie" exactly.
@@ -249,7 +250,7 @@ so renames don't lose data.
   * **Stat-label canonicalization on the Gear Score tab.** Stat Weight Configuration labels now go through `DISPLAY_NAMES` like the Optimizer / Memory Fragments tabs (`ATK Flat`, `Crit%`, `CDMG%`, `Extra%`, …). Spinboxes sit closer to their labels and the inter-column gap grew +5px.
 
 - **Polish round 3 (round 9 iterations).** Final pass of UI refinements:
-  
+
   * **Exclude Combatant's MFs converted to flow layout.** The fixed 8-column grid (every column scaled to the widest name "Heidemarie") replaced with a true flow layout: each row is its own frame, checkbuttons pack LEFT at their natural widths plus a 7px gap, and a new row starts when the next checkbutton wouldn't fit the remaining container width. Variable column widths per row, variable column count per row, debounced re-flow on `<Configure>`. Eliminates the wasted whitespace after shorter names.
   * **HAL note explaining threshold semantics.** A short reflowing note below the HAL grid: "Note: Input stats as you expect to see them in the in-game Combatants menu." Wraplength auto-updates on `<Configure>` so the note fills the HAL frame's content width and never clips. Avoids the previous ambiguity around whether CDmg/CRate thresholds include character base values (they do) and whether ATK/DEF/HP thresholds use Final vs inner values (inner — Partner% and Equipment excluded, matching in-game requirement checks).
   * **HAL frame finer geometry.** ipadx=10 widens the frame by 20px (the +20 transfers from Important Settings, which has expand=True and surrenders the space automatically). Col 1 label allocation widened by +1 char with no padx gap (anchor=W keeps the text left-aligned with the extra whitespace inside the label, spinbox flush against the label's right edge). Col 2 spinbox narrowed to 3 chars (its stats are %-bounded — 3 digits is enough). Cols container packs fill=tk.X with col 1 LEFT and col 2 RIGHT, so the +20px parks between the columns instead of pushing col 2 off its right alignment.

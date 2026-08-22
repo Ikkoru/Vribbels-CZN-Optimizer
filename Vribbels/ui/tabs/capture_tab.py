@@ -10,6 +10,15 @@ from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
 
 
+# Width of the tab's fixed left column, in pixels. The right column
+# takes whatever is left of the tab, so this is the only lever on the
+# Upgrade Log Settings panel's width.
+LEFT_COLUMN_PX = 583
+
+# Log Preset checkboxes per row, filled left-to-right then down.
+LOG_PRESET_COLUMNS = 5
+
+
 class CaptureTab(BaseTab):
     """
     Capture tab for intercepting and capturing game data via proxy.
@@ -80,7 +89,10 @@ class CaptureTab(BaseTab):
         # so a value here would stack on top of one the other tabs never
         # pay and drop the heading below theirs.
         top_columns.pack(fill=tk.X, pady=(0, 2))
-        top_columns.grid_columnconfigure(0, weight=0, minsize=610)
+        # Column 0 is fixed and column 1 takes the rest, so this width is
+        # what sets the Upgrade Log Settings panel's: every pixel taken
+        # off here is one the panel gains.
+        top_columns.grid_columnconfigure(0, weight=0, minsize=LEFT_COLUMN_PX)
         top_columns.grid_columnconfigure(1, weight=1)
 
         left_col = ttk.Frame(top_columns)
@@ -89,10 +101,10 @@ class CaptureTab(BaseTab):
         # a child of this frame, so its padx positions the heading,
         # Status, Server Region, Requirements and the button row at once.
         left_col.grid(row=0, column=0, sticky="nsew", padx=2)
-        # grid_propagate(False) caps the frame at the requested 610px;
+        # grid_propagate(False) caps the frame at the requested width;
         # without it a wide child (the button row) would push the column
         # past minsize.
-        left_col.configure(width=610)
+        left_col.configure(width=LEFT_COLUMN_PX)
         left_col.grid_propagate(False)
 
         # spacing: frame edge -> first checkbox or text
@@ -416,8 +428,7 @@ class CaptureTab(BaseTab):
                           row=0, column=0, sticky=tk.W)
             return
 
-        # Four equal columns, filled left-to-right then down.
-        columns = 4
+        columns = LOG_PRESET_COLUMNS
         for c in range(columns):
             frame.grid_columnconfigure(c, weight=1, uniform="logpresets")
         for idx, name in enumerate(sorted(preset_to_ids)):
