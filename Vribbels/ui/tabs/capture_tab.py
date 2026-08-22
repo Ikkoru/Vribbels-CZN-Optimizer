@@ -18,6 +18,9 @@ LEFT_COLUMN_PX = 583
 # Log Preset checkboxes per row, filled left-to-right then down.
 LOG_PRESET_COLUMNS = 5
 
+# Gap between those columns, in pixels.
+LOG_PRESET_COLUMN_GAP = 6
+
 
 class CaptureTab(BaseTab):
     """
@@ -112,7 +115,7 @@ class CaptureTab(BaseTab):
         # the explanation label below carries that, for the reason given
         # there.
         right_col = ttk.LabelFrame(top_columns, text="Upgrade Log Settings",
-                                   padding=(3, 1, 5, 3))
+                                   padding=(3, 1, 4, 3))
         # spacing: TBD -- panel title -> heading in the adjacent column
         # The pady top lands this LabelFrame's title on the same line as
         # the left column's heading: a LabelFrame title has no internal
@@ -155,9 +158,6 @@ class CaptureTab(BaseTab):
             make_checkbox(
                 options_frame, self.colors, text=text, variable=var,
                 command=lambda: self._on_log_filter_toggle(key, var),
-                # spacing: element and its label ↔ element and its label
-                # Matches the preset checklist above it in the same panel.
-                pady=0,
             ).grid(row=row, column=column, sticky=tk.W,
                    padx=(0, 10) if column == 0 else 0)
             return var
@@ -449,17 +449,14 @@ class CaptureTab(BaseTab):
                 frame, self.colors, text=name, variable=var,
                 fg=self._preset_element_colour(ids),
                 command=lambda n=name, v=var: self._on_log_preset_toggle(n, v),
-                # spacing: element and its label ↔ element and its label
-                # The widget's own pady, not the grid's: these rows sit
-                # flush, so the checkbox's internal inset IS the row gap.
-                pady=0,
             )
             column = idx % columns
-            # spacing: TBD -- checkbox column -> checkbox column
+            # spacing: element and its label ↔ element and its label
             # Leading pad, so the last column ends at its own label and
             # the panel's frame-edge padding is the only gap after it.
             cb.grid(row=idx // columns, column=column,
-                    sticky=tk.W, padx=(0 if column == 0 else 8, 0))
+                    sticky=tk.W,
+                    padx=(0 if column == 0 else LOG_PRESET_COLUMN_GAP, 0))
             self._log_preset_vars[name] = var
 
     def _preset_element_colour(self, res_ids):
