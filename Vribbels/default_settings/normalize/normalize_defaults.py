@@ -23,7 +23,7 @@ not recognise are kept and sorted in ahead of `characters` -- dropping
 an unknown key is how user state gets lost, and this file is the one
 that seeds everyone's.
 
-    python "default_settings/normalize_defaults.py"
+    python "default_settings/normalize/normalize_defaults.py"
 
 Curated per-combatant values -- a recommended set, a HAL threshold --
 are deliberately left alone. See docs/how_to_maintain_default_settings.md.
@@ -33,7 +33,9 @@ import json
 import sys
 from pathlib import Path
 
-TARGET = Path(__file__).resolve().parent / "optimizer_settings.json"
+# One level up: this script sits in its own subfolder so that clearing
+# the shipped JSONs by hand cannot delete it along with them.
+TARGET = Path(__file__).resolve().parents[1] / "optimizer_settings.json"
 
 # Emptied wholesale: per-user state the first run seeds for itself.
 EMPTY_LIST_KEYS = ("excluded_gear_chars", "exclude_seen_rids")

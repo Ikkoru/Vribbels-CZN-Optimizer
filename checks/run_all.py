@@ -40,6 +40,7 @@ from checks import (                                    # noqa: E402
     check_game_data,
     check_optimizer_parity,
     check_settings_roundtrip,
+    check_shipped_defaults,
     check_spacing_markers,
     check_tabs_build,
 )
@@ -53,6 +54,7 @@ CHECKS = [
     check_capture_banners,
     check_game_data,
     check_dot_types,
+    check_shipped_defaults,
     check_settings_roundtrip,
     check_tabs_build,
     check_breakdown_reconciles,
