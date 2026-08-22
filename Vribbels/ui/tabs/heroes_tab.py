@@ -855,25 +855,8 @@ class HeroesTab(BaseTab):
             gear = self.optimizer.characters.get(hero, [])
             char_info = self.optimizer.character_info.get(hero)
 
-            # Per-character GS: use this character's assigned preset weights.
-            # Each fragment's bounds exclude its own main stat (Philosophy B),
-            # so cache by main_stat across this character's pieces to avoid
-            # recomputing bounds for the same (preset, main_stat) pair.
-            # The cache is intentionally per-hero: sharing it across heroes
-            # (keyed by (preset_name, main_stat)) was tried and reverted --
-            # in current use every hero has a unique preset, so a shared
-            # cache never hits and just adds overhead.
             preset_name = self._get_assigned_preset(hero)
-            weights = self._weights_for_preset(preset_name)
-            bounds_cache: dict = {}
-            gs = 0.0
-            for f in gear:
-                main_name = f.main_stat.name if f.main_stat else None
-                if main_name not in bounds_cache:
-                    bounds_cache[main_name] = compute_gs_bounds(
-                        weights, exclude_stat=main_name
-                    )
-                gs += compute_fragment_gs(f, weights, bounds_cache[main_name])
+            gs = self._hero_gs(gear, preset_name)
             preset_display = "-" if preset_name is None else preset_name
 
             hero_data = get_character_by_name(hero)
@@ -1849,6 +1832,54 @@ class HeroesTab(BaseTab):
 
     # ----- Per-character preset helpers ----------------------------------
 
+    def _hero_gs(self, gear: list, preset_name: Optional[str]) -> float:
+        """One combatant's total Gear Score under a preset's weights.
+
+        Each fragment's bounds exclude its own main stat (Philosophy B),
+        so the bounds are cached by main_stat across this combatant's
+        pieces rather than recomputed per fragment. The cache is
+        deliberately per-CALL: sharing it across combatants, keyed by
+        (preset_name, main_stat), was tried and reverted -- in current
+        use every combatant has a unique preset, so a shared cache never
+        hits and only adds overhead.
+        """
+        weights = self._weights_for_preset(preset_name)
+        bounds_cache: dict = {}
+        gs = 0.0
+        for f in gear:
+            main_name = f.main_stat.name if f.main_stat else None
+            if main_name not in bounds_cache:
+                bounds_cache[main_name] = compute_gs_bounds(
+                    weights, exclude_stat=main_name
+                )
+            gs += compute_fragment_gs(f, weights, bounds_cache[main_name])
+        return gs
+
+    def _apply_preset_to_row(self, hero_name: str,
+                             preset_name: Optional[str]) -> None:
+        """Re-do one combatant's Preset and GS cells where they stand.
+
+        A preset assignment moves exactly those two, and only for this
+        combatant -- so the whole-list rebuild the caller used to do was
+        visible as the list blinking out and back.
+        """
+        for index, hero in enumerate(self.hero_data_list):
+            if hero["name"] == hero_name:
+                break
+        else:
+            return
+
+        gear = self.optimizer.characters.get(hero_name, [])
+        hero["gs"] = self._hero_gs(gear, preset_name)
+        hero["preset"] = "-" if preset_name is None else preset_name
+
+        iid = str(index)
+        if self.hero_tree.exists(iid):
+            self.hero_tree.set(
+                iid, "gs",
+                f"{hero['gs']:.0f}" if hero["gs"] > 0 else "-")
+            self.hero_tree.set(iid, "preset", hero["preset"])
+
     def _get_assigned_preset(self, hero_name: str) -> Optional[str]:
         """Return the preset name currently assigned to a character.
 
@@ -1934,14 +1965,20 @@ class HeroesTab(BaseTab):
             messagebox.showerror("Error", f"Failed to save preset assignment: {e}")
             return
 
-        # Refresh hero list (so the GS column and Preset column update for the
-        # affected character), then re-show the same character's details.
+        # The assignment moves this combatant's Preset and GS cells, and
+        # the per-piece GS in the detail pane beside them. Sorting BY
+        # either of those two columns is the one case where the row's
+        # position changes as well, and only that case rebuilds.
         target_name = self._current_detail_hero
-        self.refresh_heroes()
-        for i, h in enumerate(self.hero_data_list):
-            if h["name"] == target_name:
-                self.select_hero_row(i)
-                break
+        if self.hero_sort_col in ("gs", "preset"):
+            self.refresh_heroes()
+            for i, h in enumerate(self.hero_data_list):
+                if h["name"] == target_name:
+                    self.select_hero_row(i)
+                    break
+        else:
+            self._apply_preset_to_row(target_name, new_value)
+            self.show_hero_details(target_name)
 
         # Refresh the Scoring tab's preset listbox so the link-symbol
         # markers reflect the new assignment state. Cheap and idempotent;

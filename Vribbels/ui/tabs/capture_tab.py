@@ -200,9 +200,9 @@ class CaptureTab(BaseTab):
                   padding=(0, 0, 0, -4)).pack(
                       side=tk.LEFT, anchor=tk.S, padx=(10, 0), pady=(0, 0))
 
-        # spacing: exception -- the LEFT inset deliberately does not meet
-        # the frame-edge rule, and the panel is left out of the audit for
-        # it; see docs/ui_spacing.md.
+        # spacing: exception -- frame edge -> first checkbox or text
+        # The LEFT inset deliberately does not meet it, and the panel is
+        # left out of the audit for that; see docs/ui_spacing.md.
         status_frame = ttk.LabelFrame(left_col, text="Status", padding=(5, 1, 5, 3))
         # spacing: content frame -> content frame
         status_frame.pack(fill=tk.X, pady=2)

@@ -761,9 +761,9 @@ class OptimizerTab(BaseTab):
     def _build_important_settings(self, parent):
         # Block 1: Extra% + DoT% sliders
         # spacing: frame edge -> first checkbox or text
-        # spacing: exception -- explanation text -> the controls it
-        # explains. The slider row below is taller than a checkbox row,
-        # so the rule's 10px reads too tall against it.
+        # spacing: exception -- explanation text -> the controls it explains
+        # The slider row below is taller than a checkbox row, so the
+        # rule's 10px reads too tall against it.
         # The negative LEADING padding is on this LABEL, not on the frame:
         # the DMG vs Heal/Shield slider below is already on target, and a
         # frame-level shift would take it past.
@@ -811,9 +811,9 @@ class OptimizerTab(BaseTab):
         )
 
         # Block 2: ATK <-> DEF slider
-        # spacing: exception -- explanation text -> the controls it
-        # explains. The slider row below is taller than a checkbox row,
-        # so the rule's 10px reads too tall against it.
+        # spacing: exception -- explanation text -> the controls it explains
+        # The slider row below is taller than a checkbox row, so the
+        # rule's 10px reads too tall against it.
         ttk.Label(
             parent, text="What percent of damage scales off DEF?",
             font=("Segoe UI", 9), wraplength=350,
@@ -855,9 +855,9 @@ class OptimizerTab(BaseTab):
         )
 
         # Block 3: Shielding/Healing slider
-        # spacing: exception -- explanation text -> the controls it
-        # explains. The slider row below is taller than a checkbox row,
-        # so the rule's 10px reads too tall against it.
+        # spacing: exception -- explanation text -> the controls it explains
+        # The slider row below is taller than a checkbox row, so the
+        # rule's 10px reads too tall against it.
         ttk.Label(
             parent, text="How much value should be given to Shielding & Healing?",
             font=("Segoe UI", 9), wraplength=350,
@@ -1072,9 +1072,6 @@ class OptimizerTab(BaseTab):
                       lambda e, v=var: self._hal_pct_wheel(e, v))
         else:
             spin.bind("<MouseWheel>", lambda e, sp=spin: self._spinbox_wheel(e, sp))
-        if stat in HAL_STATS_WITH_PCT:
-            # spacing: TBD -- spinbox -> its unit suffix
-            ttk.Label(row, text="%").pack(side=tk.LEFT, padx=(2, 0))
         # Save on any write -- Spinbox button clicks fire the var-trace.
         var.trace_add(
             "write",
@@ -1139,10 +1136,10 @@ class OptimizerTab(BaseTab):
 
         # Row 3+: Sets list (single grid; 4-piece sorted first, then 2-piece,
         # alphabetical within each).
-        # spacing: exception -- explanation text -> the controls it
-        # explains. Each set row pairs a checkbox with a stepper, and
-        # the stepper is the taller of the two, so the rule's 10px
-        # reads too tall against them.
+        # spacing: exception -- explanation text -> the controls it explains
+        # Each set row pairs a checkbox with a stepper, and the stepper
+        # is the taller of the two, so the rule's 10px reads too tall
+        # against them.
         ttk.Label(
             parent,
             text="All selected Set and Flex combinations are tried.\n"
@@ -2667,25 +2664,47 @@ class OptimizerTab(BaseTab):
                             "Try lowering one or more thresholds in the right panel."
                         )
                     else:
-                        # No candidate combinations even satisfied set requirements
-                        # (e.g. no 4-piece set selected has 4 candidates in slot N,
-                        # or all selected sets together can't fit in 6 slots).
+                        # No candidate combinations even satisfied set
+                        # requirements (e.g. no 4-piece set selected has 4
+                        # candidates in slot N, or all selected sets
+                        # together can't fit in 6 slots).
+                        #
+                        # The label stays as short as the branch above it:
+                        # the reasons run long enough to clip it, and a
+                        # zero-build run needs the same announcement
+                        # whichever way it got there.
+                        self.progress_label.config(
+                            text=f"Done{time_note}! 0 builds (no candidates)"
+                        )
                         active = []
                         if self._current_min_gear_level() > 0:
                             active.append("'Ignore MFs below level'")
                         if self._current_ignore_offelement():
                             active.append("'Ignore off-Element MFs'")
-                        if len(active) > 1:
-                            note = (" — the " + " and ".join(active)
-                                    + " filters are active")
-                        elif active:
-                            note = " — the " + active[0] + " filter is active"
-                        else:
-                            note = ""
-                        self.progress_label.config(
-                            text=f"Done{time_note}! 0 builds (no candidates "
-                                 f"satisfied set requirements{note})"
-                                 f"{slots_note}"
+                        reasons = [
+                            "No combination of your Memory Fragments "
+                            "satisfied the Set Configuration.",
+                            "",
+                            "Either a set you picked has too few fragments "
+                            "in one slot, or the sets together need more "
+                            "than 6 slots. Raising Maximum Flex Slots, or "
+                            "picking fewer sets, is usually the fix.",
+                        ]
+                        if active:
+                            reasons += [
+                                "",
+                                "Also active: " + " and ".join(active) + ".",
+                            ]
+                        if slot_counts:
+                            reasons += [
+                                "",
+                                "Candidates per slot: " + ", ".join(
+                                    f"{s}: {slot_counts[s]}"
+                                    for s in sorted(slot_counts)
+                                ),
+                            ]
+                        messagebox.showinfo(
+                            "No builds match", "\n".join(reasons)
                         )
         except queue.Empty:
             pass

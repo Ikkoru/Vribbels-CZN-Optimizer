@@ -586,8 +586,9 @@ class OptimizerGUI:
         # the base style's measurement rather than one of its own.
         self.style.configure("Borderless.TLabelframe",
                              labelmargins="0 0 0 3")
-        # spacing: exception -- the Results tree is pulled tighter to its
-        # title than the rule, deliberately.
+        # spacing: exception -- title above, element below
+        # The Results tree is pulled tighter to its title than the rule,
+        # deliberately.
         # labelmargins replaces the theme's default margins outright, so a
         # bottom component of -1 sits well below the theme's default, not
         # 1px below it. The dotted name inherits everything from

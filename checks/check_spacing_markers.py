@@ -120,7 +120,7 @@ def run():
                 f"RULE_ constant {const!r} is not a row in the docs table"
             )
 
-    used, code_tbd = set(), set()
+    used, code_tbd, code_exceptions = set(), set(), set()
     for path in glob.glob(str(SOURCE_ROOT / "**" / "*.py"), recursive=True):
         if "__pycache__" in path or "_capture_addon" in path:
             continue
@@ -135,12 +135,17 @@ def run():
             body = m.group(1)
             if body.startswith("TBD -- "):
                 code_tbd.add(body[len("TBD -- "):])
-            elif body.startswith(PREFIXES[1:]):
-                # exception / out of scope / unique. None of these name a
-                # rule -- `unique` exists precisely for a deliberate value
-                # that no rule covers and that is not an exception to one
-                # either -- so their free text is never matched against
-                # anything.
+            elif body.startswith("exception -- "):
+                # An exception DOES name a rule -- the one it excepts --
+                # so that grepping a rule surfaces its own exceptions.
+                # The reason goes on the comment lines below, out of the
+                # marker, because a marker is matched one line at a time.
+                code_exceptions.add(body[len("exception -- "):])
+            elif body.startswith(PREFIXES[2:]):
+                # out of scope / unique. Neither names a rule -- `unique`
+                # exists precisely for a deliberate value that no rule
+                # covers and that is not an exception to one either -- so
+                # their free text is never matched against anything.
                 continue
             elif body.startswith("<rule>"):
                 continue          # the convention's own description
@@ -151,6 +156,13 @@ def run():
         failures.append(
             f"code marker {name!r} matches no rule in the docs table -- "
             f"a typo here splits grep into two partial answers"
+        )
+    for name in sorted(code_exceptions - set(rules)):
+        failures.append(
+            f"exception marker {name!r} names no rule in the docs table. "
+            f"An exception has to name the rule it excepts, in the Marker "
+            f"column's spelling -- and on ONE line, or the name is "
+            f"truncated at the wrap and greps for it find nothing."
         )
     for name in sorted(code_tbd - doc_tbd):
         failures.append(
