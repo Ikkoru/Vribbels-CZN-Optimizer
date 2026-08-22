@@ -759,8 +759,8 @@ class OptimizerTab(BaseTab):
         # the DMG vs Heal/Shield slider below is already on target, and a
         # frame-level shift would take it past.
         ttk.Label(
-            parent, text="What percent of damage is Extra DMG and DoT DMG?",
-            font=("Segoe UI", 9), wraplength=350,
+            parent, text="What percent of damage is Extra, Agony, or Fracture/Scorched DMG?",
+            font=("Segoe UI", 9), wraplength=376,
             padding=(-1, 0, 0, 0),
         ).pack(anchor=tk.W, pady=(2, 2))
 
@@ -776,7 +776,7 @@ class OptimizerTab(BaseTab):
         self._labeled_slider(
             ex_row, "Extra", self.extra_pct_var,
             on_change=lambda v: self._save_int("extra_pct", v),
-            label_width=5,
+            label_width=6,
         )
         dot_row = ttk.Frame(parent)
         # spacing: TBD -- config panel row -> row
@@ -784,9 +784,9 @@ class OptimizerTab(BaseTab):
         # only separates two rows of the same block)
         dot_row.pack(fill=tk.X, pady=(0, 6))
         self._labeled_slider(
-            dot_row, "DoT", self.dot_pct_var,
+            dot_row, "Agony", self.dot_pct_var,
             on_change=lambda v: self._save_int("dot_pct", v),
-            label_width=5,
+            label_width=6,
         )
 
         # Block 2: ATK <-> DEF slider

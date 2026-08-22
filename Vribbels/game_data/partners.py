@@ -591,6 +591,27 @@ PARTNERS = {
         "ego_cost": 2,
         "ego_desc": "200% Defense-based Damage to all enemies.\n1 Counterattack.\nIf any enemy's Anticipated Action is attack, 1 Counterattack.",
     },
+    20004: {
+        "name": "Janet",
+        "grade": 5,
+        "class": "Hunter",
+        "passive_name": "Understanding and Ideas",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{CritCost1%}% Critical Chance of the assigned combatant's attack cards costing 1 or less.\nWhen the assigned combatant uses 5 Bullet cards, generate a random Handgun Bullet card. Increase Damage Amount of the created card by {HandgunDMG%}%.",
+        "values": {
+            "ATK%": (16, 18, 20, 22, 24),
+            "CritCost1%": (9, 11, 13, 16, 18),     # EST
+            "HandgunDMG%": (50, 88, 125, 163, 200), # EST
+        },
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
+        "stats_conditional": {
+            "CRate": (9, 11, 13, 16, 18),  # EST  # Only Attack Cards with Cost 1 or less
+        },
+        "ego_name": "Ultimate Missile Turret!",
+        "ego_cost": 3,
+        "ego_desc": "150% Damage to all enemies.\nIncrease Damage Amount of Designated Combatant's Bullets by 20% for 1 turn.",
+    },
     20030: {
         "name": "Kiara",
         "grade": 5,
@@ -994,31 +1015,10 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "Exhaust all Status Ailment Cards (including those that were originally Status Ailment) and Curse Cards from Discard Pile.\nIncrease Damage Amount of the assigned Combatant's Attack Cards by 10% for each card Exhausted for 1 turn.",
     },
-    20004: {
-        "name": "Janet",
-        "grade": 5,
-        "class": "Hunter",
-        "passive_name": "Understanding and Ideas",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{CritCost1%}% Critical Chance of the assigned combatant's attack cards costing 1 or less.\nWhen the assigned combatant uses 5 Bullet cards, generate a random Handgun Bullet card. Increase Damage Amount of the created card by {HandgunDMG%}%.",
-        "values": {
-            "ATK%": (16, 18, 20, 22, 24),
-            "CritCost1%": (9, 11, 13, 16, 18),     # EST
-            "HandgunDMG%": (50, 88, 125, 163, 200), # EST
-        },
-        "stats": {
-            "ATK%": (16, 18, 20, 22, 24),
-        },
-        "stats_conditional": {
-            "CRate": (9, 11, 13, 16, 18),  # EST  # Only Attack Cards with Cost 1 or less
-        },
-        "ego_name": "Ultimate Missile Turret!",
-        "ego_cost": 3,
-        "ego_desc": "150% Damage to all enemies.\nIncrease Damage Amount of Designated Combatant's Bullets by 20% for 1 turn.",
-    },
     # TODO: replace key with real res_id when known. The duplicate shop
     # names this one by its selector item, 4500019, and no message maps
     # that item to a res_id -- see docs/game_data_files.md.
-    -4: {
+    -3: {
         "name": "Marianne",
         "grade": 5,
         "class": "Striker",
