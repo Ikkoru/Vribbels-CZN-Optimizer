@@ -1,7 +1,9 @@
 {
   "version": 1,
-  "excluded_gear_chars": [
-  ],
+  "excluded_default_initialized": false,
+  "excluded_gear_chars": [],
+  "exclude_seen_rids": [],
+  "optimize_level_seen": {},
   "characters": {
     "1003": {
       "name_hint": "Nia",
@@ -1408,37 +1410,6 @@
       "avg_add_buff_pct": 144,
       "element_override": null
     },
-    "-1": {
-      "name_hint": "Arabella",
-      "optimize_for_level": 60,
-      "extra_pct": 0,
-      "dot_pct": 0,
-      "atk_def_split": 0,
-      "shielding_healing_weight": 0,
-      "force_main": {
-        "slot4_hp": false,
-        "slot5_hp": false,
-        "slot6_hp": false,
-        "slot6_ego": false
-      },
-      "have_at_least": {
-        "ATK": 0,
-        "DEF": 0,
-        "HP": 0,
-        "Ego": 0,
-        "CRate": 0,
-        "CDmg": 0,
-        "Extra DMG%": 0,
-        "DoT%": 0
-      },
-      "sets_selected": [],
-      "max_flex_slots": 6,
-      "set_effect_pcts": {},
-      "avg_card_dmg_pct": 100,
-      "avg_mult_buff_pct": 0,
-      "avg_add_buff_pct": 0,
-      "element_override": null
-    },
     "30115": {
       "name_hint": "Arabella",
       "optimize_for_level": 60,
@@ -1475,10 +1446,5 @@
       "element_override": null,
       "fracture_pct": 69
     }
-  },
-  "excluded_default_initialized": false,
-  "exclude_seen_rids": [
-  ],
-  "optimize_level_seen": {
   }
 }
