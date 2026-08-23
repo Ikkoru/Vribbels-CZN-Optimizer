@@ -178,9 +178,16 @@ GEAR_SET_WRAP_INSET = 6
 # packed frames, and these are the only levers on them.
 # spacing: TBD -- gear cell column
 GEAR_TAB_GS = 196        # centre stop: GS and Potential, between the ends
-GEAR_TAB_SLOT = 388      # right stop: the slot name and its level
+GEAR_TAB_SLOT = 385      # right stop: the slot name and its level
 GEAR_TAB_QUALITY = 20    # right stop: a substat's roll-quality percent
 GEAR_TAB_SUB = 26        # left stop: where the substat text starts
+
+# What separates GS from Potential on a cell's top row. A Text has no
+# letter-spacing, so the only lever inside a line is the space glyph --
+# 3px of advance each in Segoe UI 9, which is why this is a string and
+# not a pixel count.
+# spacing: element and its label ↔ element and its label
+GEAR_GS_POT_GAP = "  "
 
 # Width the Character panel gives up to the Partner panel beside it.
 # They share a row, so what one does not take, the other gets.
@@ -705,7 +712,13 @@ class HeroesTab(BaseTab):
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
                 relief=tk.RIDGE, bd=1, highlightthickness=0,
                 # spacing: frame edge -> first checkbox or text
-                padx=3, pady=0,
+                # padx is symmetric, so it sets the LEFT inset and part of
+                # the right one; GEAR_TAB_SLOT carries the rest.
+                # spacing: checkbox row -> checkbox row
+                # spacing3 is the gap BELOW each line, which is what
+                # separates one row of the cell from the next. spacing1
+                # would add to the top inset above instead.
+                padx=5, pady=2, spacing3=2,
                 # Selectable but never focusable, and no insertion cursor:
                 # the text can be copied, and nothing about it invites
                 # typing into it.
@@ -1902,7 +1915,7 @@ class HeroesTab(BaseTab):
         if piece.potential_low != piece.potential_high:
             cell.insert(
                 tk.END,
-                f" Potential: {piece.potential_low:.0f}-"
+                f"{GEAR_GS_POT_GAP}Potential: {piece.potential_low:.0f}-"
                 f"{piece.potential_high:.0f}",
                 ("pot",))
         cell.insert(tk.END, "\t")

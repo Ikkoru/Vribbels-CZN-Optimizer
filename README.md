@@ -16,19 +16,23 @@ Run the program as Administrator, start the capture on the **Capture** tab, then
 
 ## Optimizing
 
-The latest snapshot loads on startup. Pick a combatant, fill in **Important Settings**, then press Start.
+The latest snapshot loads on startup. Pick a combatant, fill in **Important Settings** (optional), then press Start.
 
 Most of the settings are self-explanatory. These are the ones that aren't:
 
 - **The three damage sliders** — Extra, Agony and Fracture — are the share of the combatant's damage that comes from each. Fracture and Scorched share the one slider. Work them out from your deck rather than from damage numbers: add up the DMG% of each source per turn and take the fractions. Everything left over counts as ordinary card damage.
 
   > Don't stress about getting these super accurate. Dealing 3 more damage per turn isn't going to save you from the Nightmare.
+
 - **Have at Least** floors are measured the way the game's Potential 7 checks measure them, so clearing one here means clearing it in-game. Builds that miss any floor are dropped entirely.
+
 - **Maximum Flex Slots** is how many of the six slots may sit outside the sets you ticked.
-- **A conditional set's percentage** is how much of this combatant's damage actually benefits from that set's effect. At 0 the fragments still count for their stats and the effect is ignored.
+
+- **A conditional set's percentage** is how much of this combatant's damage actually benefits from that set's effect. At 0 the fragments still count for their stats and only the effect is ignored.
+
 - **Exclude Combatant's MFs** starts with everyone excluded. Unticking someone lets the optimizer take the gear they are wearing. The combatant you are optimizing is never excluded from their own gear.
 
-In the results, scores run 0–100 with the run's best build at 100. `(E)` marks the build you already have on. `(F)` marks a set the flex slots completed by accident rather than one you picked — its bonus counts either way. Click a row to compare it against your current build; right-click that comparison for a full breakdown of where every number comes from.
+In the results, scores run 0–100 with the run's best build at 100. `(E)` marks the build you already equipped. `(F)` marks a set the flex slots completed by accident rather than one you picked — its bonus counts either way. Click a row to compare it against your current build; right-click that comparison for a full breakdown of where every number comes from.
 
 ## Other things worth knowing
 
