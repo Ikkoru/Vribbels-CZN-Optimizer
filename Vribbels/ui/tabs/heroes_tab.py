@@ -84,10 +84,13 @@ Cross-file conventions
   to/from the label string at the dropdown boundary.
 """
 
+import time
 import tkinter as tk
 from tkinter import ttk, messagebox
 from tkinter import font as tkfont
 from typing import Optional
+
+import perf_log
 
 from ui.base_tab import BaseTab
 from ui.context import AppContext
@@ -1251,12 +1254,30 @@ class HeroesTab(BaseTab):
         if 0 <= index < len(self.hero_data_list):
             new_hero_data = self.hero_data_list[index]
             iid = str(index)
+
+            # Two timings, because they fail differently and only one of
+            # them is reachable from a headless run. `work` is everything
+            # this method does; `settle` is what Tk spends afterwards on
+            # layout and painting, which it defers to the idle queue. A
+            # selection that stutters with a small `work` and a large
+            # `settle` is a repaint cost, not a computation one.
+            _perf = perf_log.is_enabled()
+            _t0 = time.perf_counter() if _perf else 0.0
+
             if self.hero_tree.exists(iid):
                 self.hero_tree.selection_set(iid)
                 self.hero_tree.focus(iid)
                 self.hero_tree.see(iid)
 
             self.show_hero_details(new_hero_data["name"])
+
+            if _perf:
+                _work = time.perf_counter() - _t0
+                self.context.root.after_idle(
+                    lambda n=new_hero_data["name"], w=_work, s=_t0:
+                    perf_log.log("heroes:select", char=n, work=w,
+                                 settle=time.perf_counter() - s - w)
+                )
 
             # Persist so the selection survives preset apply, data reload,
             # and program restart. SettingsManager.set() is a no-op when
