@@ -34,6 +34,15 @@ Where to look when you want to change X
                                    the Sets line and the build-stat
                                    block), partner card, equipped MFs
                                    frame.
+  Equipped MF cells:               one Text widget each, drawn by
+                                   _render_gear_cell. Columns are the
+                                   `toprow` / `subrow` tags' tab stops
+                                   (GEAR_TAB_*), colours are tags, and
+                                   `rarity` is re-coloured per fragment.
+                                   Every widget in the pane repaints on
+                                   every selection, so the cell holding
+                                   one widget rather than eleven is what
+                                   keeps moving through the list smooth.
   Build stats under Character:     HERO_STAT_ROWS / HERO_STAT_DISPLAY set
                                    the two columns, laid out on the Text
                                    widget's tab stops; _format_stats_text
@@ -163,6 +172,15 @@ GEAR_CELL_H = 163
 # Raise it to pull the wrap in, lower it to let the text run wider. The
 # cell is a fixed size, so this is the only thing that moves the wrap.
 GEAR_SET_WRAP_INSET = 6
+
+# Tab stops inside a gear cell, in pixels from the text's left edge. The
+# cell is one Text widget, so its columns are tab stops rather than
+# packed frames, and these are the only levers on them.
+# spacing: TBD -- gear cell column
+GEAR_TAB_GS = 196        # centre stop: GS and Potential, between the ends
+GEAR_TAB_SLOT = 388      # right stop: the slot name and its level
+GEAR_TAB_QUALITY = 20    # right stop: a substat's roll-quality percent
+GEAR_TAB_SUB = 26        # left stop: where the substat text starts
 
 # Width the Character panel gives up to the Partner panel beside it.
 # They share a row, so what one does not take, the other gets.
@@ -354,8 +372,8 @@ class HeroesTab(BaseTab):
         self.hero_detail_name = None
         self.hero_char_text = None
         self.hero_partner_text = None
-        self.gear_frames = {}
-        self.gear_labels = {}
+        # slot number -> the one Text widget that draws that cell
+        self.gear_cells = {}
 
     def setup_ui(self):
         """Setup the Heroes tab UI."""
@@ -662,8 +680,7 @@ class HeroesTab(BaseTab):
         gear_outer_frame.pack(fill=tk.BOTH, expand=True, pady=(2, 0))
         self._gear_outer_frame = gear_outer_frame  # fixed-size target
 
-        self.gear_frames = {}
-        self.gear_labels = {}
+        self.gear_cells = {}
 
         gear_grid = ttk.Frame(gear_outer_frame)
         gear_grid.pack(fill=tk.BOTH, expand=True)
@@ -676,9 +693,24 @@ class HeroesTab(BaseTab):
         ]
 
         for slot_num, row, col in slot_positions:
-            slot_name = EQUIPMENT_SLOTS.get(slot_num, f"Slot {slot_num}")
-
-            frame = tk.Frame(gear_grid, bg=self.colors["bg_light"], relief=tk.RIDGE, bd=1)
+            # ONE Text per cell, where this was eleven widgets: a frame,
+            # three inner frames, six labels and a Text per substat. Every
+            # one of them repainted on every selection, and the repaint --
+            # not the work behind it -- is what made moving through the
+            # combatant list stutter. Columns are tab stops now and the
+            # colours are tags; the Character and Partner cards beside it
+            # are built the same way.
+            cell = tk.Text(
+                gear_grid, font=("Segoe UI", 9), wrap=tk.WORD,
+                bg=self.colors["bg_light"], fg=self.colors["fg"],
+                relief=tk.RIDGE, bd=1, highlightthickness=0,
+                # spacing: frame edge -> first checkbox or text
+                padx=3, pady=0,
+                # Selectable but never focusable, and no insertion cursor:
+                # the text can be copied, and nothing about it invites
+                # typing into it.
+                takefocus=0, insertwidth=0, cursor="arrow",
+            )
             # spacing: content frame -> content frame
             # padx is asymmetric on purpose: the LabelFrame title above
             # starts inset from the frame's left edge, so an even split
@@ -689,94 +721,43 @@ class HeroesTab(BaseTab):
             # trailing space inside the frame, which left the bottom row
             # of cells short of the panel's bottom edge. Rows above keep
             # both halves, so the gap BETWEEN rows is unchanged.
-            frame.grid(row=row, column=col, padx=(0, 4),
-                       pady=(2, 2) if row < 2 else (2, 0), sticky="nsew")
+            cell.grid(row=row, column=col, padx=(0, 4),
+                      pady=(2, 2) if row < 2 else (2, 0), sticky="nsew")
 
-            # The slot name and the main stat SHARE a row: main stat left,
-            # slot name right. Stacking them cost a full line of height,
-            # which the cell -- a fixed size computed from font metrics --
-            # cannot spare now that its text is a size larger.
-            top_row = tk.Frame(frame, bg=self.colors["bg_light"])
-            # spacing: frame edge -> first checkbox or text
-            # (the same padx on every child of the cell below)
-            top_row.pack(fill=tk.X, padx=3, pady=(0, 0))
+            # Colours. `rarity` is the only one re-set per render -- it
+            # carries the fragment's rarity, which the slot name and the
+            # main stat both take.
+            cell.tag_configure("rarity", font=("Segoe UI", 9, "bold"))
+            cell.tag_configure("gs", foreground=self.colors["accent"],
+                               font=("Segoe UI", 9, "bold"))
+            cell.tag_configure("pot", foreground=self.colors["fg_dim"])
+            cell.tag_configure("quality", foreground=self.colors["accent"])
+            cell.tag_configure("default", foreground=self.colors["fg"])
+            cell.tag_configure("added", foreground=self.colors["fg"])
+            cell.tag_configure("max_roll", foreground=self.colors["green"])
+            cell.tag_configure("min_roll", foreground=self.colors["red"])
+            cell.tag_configure("normal", foreground=self.colors["yellow"])
+            cell.tag_configure("set_live", foreground=self.colors["fg"])
+            cell.tag_configure("set_dim", foreground=self.colors["fg_dim"])
 
-            main_stat = tk.Label(top_row, text="", font=("Segoe UI", 9, "bold"),
-                               bg=self.colors["bg_light"], fg=self.colors["orange"])
-            main_stat.pack(side=tk.LEFT, anchor=tk.W)
+            # Columns. A right-aligned stop sits at the END of its column.
+            cell.tag_configure(
+                "toprow",
+                tabs=(GEAR_TAB_GS, "center", GEAR_TAB_SLOT, "right"))
+            cell.tag_configure(
+                "subrow",
+                tabs=(GEAR_TAB_QUALITY, "right", GEAR_TAB_SUB, "left"))
 
-            header = tk.Label(top_row, text=slot_name, font=("Segoe UI", 9, "bold"),
-                            bg=self.colors["bg_light"], fg=self.colors["fg_dim"])
-            header.pack(side=tk.RIGHT, anchor=tk.E)
+            # Nothing in the UI says what the quality number is, and
+            # "close to a Gear Score, beside a Gear Score" is the wrong
+            # guess to leave available.
+            self._gear_tooltip.bind_tag(
+                cell, "quality",
+                "How close to perfect this substat rolled (%). "
+                "Not Gear Score.")
 
-            # GS and Potential centre in whatever the other two leave.
-            # expand=True without fill is what centres it: pack gives the
-            # frame the leftover width and puts it in the middle of it.
-            gs_frame = tk.Frame(top_row, bg=self.colors["bg_light"])
-            gs_frame.pack(side=tk.LEFT, expand=True)
-
-            gs_label = tk.Label(gs_frame, text="", font=("Segoe UI", 9, "bold"),
-                               bg=self.colors["bg_light"], fg=self.colors["accent"])
-            gs_label.pack(side=tk.LEFT)
-
-            # spacing: element and its label ↔ element and its label
-            pot_label = tk.Label(gs_frame, text="", font=("Segoe UI", 9),
-                                bg=self.colors["bg_light"], fg=self.colors["fg_dim"])
-            pot_label.pack(side=tk.LEFT, padx=(1, 0))
-
-            sub_frames = []
-            for i in range(4):
-                sub_frame = tk.Frame(frame, bg=self.colors["bg_light"])
-                sub_frame.pack(anchor=tk.W, padx=3, fill=tk.X)
-
-                gs_contrib = tk.Label(sub_frame, text="", font=("Segoe UI", 9),
-                                     bg=self.colors["bg_light"], fg=self.colors["accent"], width=3, anchor=tk.E)
-                gs_contrib.pack(side=tk.LEFT)
-                # Nothing in the UI says what this number is, and "close
-                # to a Gear Score, beside a Gear Score" is the wrong guess
-                # to leave available.
-                self._gear_tooltip.bind(
-                    gs_contrib,
-                    "How close to perfect this substat rolled (%). "
-                    "Not Gear Score.")
-
-                # Use Text widget for colored roll values
-                sub_text = tk.Text(sub_frame, font=("Segoe UI", 9), height=1, width=40,
-                                   bg=self.colors["bg_light"], fg=self.colors["fg"],
-                                   bd=0, highlightthickness=0, padx=2, pady=0)
-                sub_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
-                # Configure tags for roll colors
-                sub_text.tag_configure("max_roll", foreground=self.colors["green"])
-                sub_text.tag_configure("min_roll", foreground=self.colors["red"])
-                sub_text.tag_configure("normal", foreground=self.colors["yellow"])  # Mid-rolls in yellow
-                sub_text.tag_configure("added", foreground=self.colors["fg"])  # Same as default
-                sub_text.tag_configure("default", foreground=self.colors["fg"])
-                sub_text.config(state=tk.DISABLED)
-
-                sub_frames.append({"frame": sub_frame, "gs": gs_contrib, "text": sub_text})
-
-            set_label = tk.Label(frame, text="", font=("Segoe UI", 9),
-                               bg=self.colors["bg_light"], fg=self.colors["fg_dim"],
-                               justify=tk.LEFT, anchor=tk.W, wraplength=240)
-            set_label.pack(anchor=tk.W, padx=3, pady=(2, 0), fill=tk.X)
-            # Wrap the set/bonus text so a long bonus description
-            # line-breaks instead of widening the cell. Set once, not on
-            # <Configure>: the cell is a stated size, so the width this
-            # derives from never changes at runtime.
-            set_label.config(
-                wraplength=max(80, GEAR_CELL_W - GEAR_SET_WRAP_INSET))
-
-            self.gear_frames[slot_num] = frame
-            self.gear_labels[slot_num] = {
-                "header": header,
-                "main": main_stat,
-                "subs": sub_frames,
-                "set": set_label,
-                "gs": gs_label,
-                "potential": pot_label,
-                "gs_frame": gs_frame,
-                "top_row": top_row
-            }
+            cell.config(state=tk.DISABLED)
+            self.gear_cells[slot_num] = cell
 
         gear_grid.columnconfigure(0, weight=1)
         gear_grid.columnconfigure(1, weight=1)
@@ -1567,12 +1548,18 @@ class HeroesTab(BaseTab):
             # cell uses PACK for its children, so grid_propagate would be
             # a silent no-op and the cells would stay at their natural
             # content size while the outer frame grew.
-            cells = list(self.gear_frames.values())
+            cells = list(self.gear_cells.values())
             if cells:
                 gear_grid = cells[0].master
                 for cell in cells:
-                    cell.configure(width=int(cell_w), height=int(cell_h))
-                    cell.pack_propagate(False)
+                    # A Text sizes in CHARACTERS unless told otherwise, so
+                    # the pixel size goes on the grid cell and the widget
+                    # is left to fill it.
+                    cell.configure(width=1, height=1)
+                gear_grid.grid_columnconfigure(0, minsize=int(cell_w))
+                gear_grid.grid_columnconfigure(1, minsize=int(cell_w))
+                for _r in (0, 1, 2):
+                    gear_grid.grid_rowconfigure(_r, minsize=int(cell_h))
                 for _c in (0, 1):
                     gear_grid.columnconfigure(_c, weight=0)
                 for _r in (0, 1, 2):
@@ -1628,167 +1615,14 @@ class HeroesTab(BaseTab):
             return detail_bounds_cache[main]
 
         for slot_num in range(1, 7):
-            labels = self.gear_labels.get(slot_num)
-            if not labels:
+            cell = self.gear_cells.get(slot_num)
+            if cell is None:
                 continue
-
             piece = gear_by_slot.get(slot_num)
-
-            if piece:
-                piece_gs = compute_fragment_gs(piece, detail_weights, _bounds_for(piece))
-                rarity_color = RARITY_COLORS.get(piece.rarity_num, self.colors["fg"])
-                bg_color = RARITY_BG_COLORS.get(piece.rarity_num, self.colors["bg_light"])
-
-                # Update header to include gear level
-                slot_name = EQUIPMENT_SLOTS.get(slot_num, f"Slot {slot_num}")
-                labels["header"].config(text=f"{slot_name}  +{piece.level}", fg=rarity_color)
-
-                if piece.main_stat:
-                    main_text = f"{piece.main_stat.name}  +{piece.main_stat.format_value()}"
-                    labels["main"].config(text=main_text, fg=rarity_color)
-                else:
-                    labels["main"].config(text="")
-
-                num_starting = RARITY_STARTING_SUBSTATS.get(piece.rarity_num, 3)
-
-                for i, sub_data in enumerate(labels["subs"]):
-                    if i < len(piece.substats):
-                        sub = piece.substats[i]
-
-                        quality = sub.get_roll_quality_pct()
-                        sub_data["gs"].config(text=f"{quality:.0f}")
-
-                        # Get the Text widget
-                        text_widget = sub_data["text"]
-
-                        # Build stat name + total
-                        stat_name = sub.name
-                        total_val = sub.format_value()
-
-                        # Get roll color info
-                        roll_parts = self.format_roll_with_color(sub, sub_data["frame"], bg_color)
-
-                        # Check if this is an added stat (type 2)
-                        is_added = i >= num_starting
-
-                        # Enable widget for editing
-                        text_widget.config(state=tk.NORMAL)
-                        text_widget.delete("1.0", tk.END)
-
-                        # Determine base tag for stat name
-                        base_tag = "added" if is_added else "default"
-
-                        if sub.roll_count > 1:
-                            # Format: "Stat +total (base | +upg1, +upg2)"
-                            text_widget.insert(tk.END, f"{stat_name} +{total_val} (", base_tag)
-
-                            base_shown = False
-                            for idx, (roll_text, roll_color) in enumerate(roll_parts):
-                                # Determine the tag based on color
-                                if roll_color == self.colors["green"]:
-                                    tag = "max_roll"
-                                elif roll_color == self.colors["red"]:
-                                    tag = "min_roll"
-                                else:
-                                    tag = "normal"
-
-                                # First roll is base stat, rest are upgrades
-                                if idx == 0:
-                                    text_widget.insert(tk.END, roll_text, tag)
-                                    base_shown = True
-                                else:
-                                    if idx == 1 and base_shown:
-                                        text_widget.insert(tk.END, " | ", base_tag)
-                                    elif idx > 1:
-                                        text_widget.insert(tk.END, ", ", base_tag)
-                                    text_widget.insert(tk.END, roll_text, tag)
-
-                            text_widget.insert(tk.END, ")", base_tag)
-                        else:
-                            # Single roll - color the value if max/min
-                            text_widget.insert(tk.END, f"{stat_name} +", base_tag)
-                            if roll_parts and len(roll_parts) > 0:
-                                roll_color = roll_parts[0][1]
-                                if roll_color == self.colors["green"]:
-                                    tag = "max_roll"
-                                elif roll_color == self.colors["red"]:
-                                    tag = "min_roll"
-                                else:
-                                    tag = base_tag
-                                text_widget.insert(tk.END, total_val, tag)
-                            else:
-                                text_widget.insert(tk.END, total_val, base_tag)
-
-                        # Disable widget and update background
-                        text_widget.config(state=tk.DISABLED, bg=bg_color)
-
-                        sub_data["frame"].config(bg=bg_color)
-                        sub_data["gs"].config(bg=bg_color)
-                    else:
-                        text_widget = sub_data["text"]
-                        text_widget.config(state=tk.NORMAL)
-                        text_widget.delete("1.0", tk.END)
-                        text_widget.config(state=tk.DISABLED, bg=bg_color)
-                        sub_data["gs"].config(text="", bg=bg_color)
-                        sub_data["frame"].config(bg=bg_color)
-
-                set_pieces = piece.get_set_pieces()
-                # Get bonus description from SETS
-                set_info = SETS.get(piece.set_id)
-                bonus_text = set_info.get("bonus", "") if set_info else ""
-                # Count how many of THIS character's other equipped pieces
-                # belong to the same set (piece.get_set_pieces() is the set's
-                # REQUIRED count, not the equipped count -- it's a property of
-                # the set definition, not the current loadout).
-                equipped_in_set = sum(1 for p in gear if p.set_id == piece.set_id)
-                required_pieces = set_info.get("pieces", 999) if set_info else 999
-                set_complete = equipped_in_set >= required_pieces
-                # Set name shows white (live) when the equipped count meets
-                # the set's required-pieces threshold, dim grey otherwise --
-                # gives an at-a-glance signal for which set bonuses are
-                # actually active for this character.
-                labels["set"].config(
-                    text=f"{piece.set_name} ({set_pieces}) {bonus_text}",
-                    fg=self.colors["fg"] if set_complete else self.colors["fg_dim"],
-                )
-
-                labels["gs"].config(text=f"GS: {piece_gs:.0f}")
-
-                # Add potential display
-                if piece.potential_low != piece.potential_high:
-                    pot_text = f"Potential: {piece.potential_low:.0f}-{piece.potential_high:.0f}"
-                else:
-                    pot_text = ""
-                labels["potential"].config(text=pot_text)
-
-                self.gear_frames[slot_num].config(bg=bg_color)
-                for widget in [labels["header"], labels["main"], labels["set"],
-                               labels["gs"], labels["potential"],
-                               labels["gs_frame"], labels["top_row"]]:
-                    widget.config(bg=bg_color)
-            else:
-                bg_color = self.colors["bg_light"]
-                # Reset header to just slot name
-                slot_name = EQUIPMENT_SLOTS.get(slot_num, f"Slot {slot_num}")
-                labels["header"].config(text=slot_name, fg=self.colors["fg_dim"])
-                labels["main"].config(text="Empty", fg=self.colors["fg_dim"])
-                for sub_data in labels["subs"]:
-                    sub_data["gs"].config(text="", bg=bg_color)
-                    # Clear Text widget properly
-                    text_widget = sub_data["text"]
-                    text_widget.config(state=tk.NORMAL)
-                    text_widget.delete("1.0", tk.END)
-                    text_widget.config(state=tk.DISABLED, bg=bg_color)
-                    sub_data["frame"].config(bg=bg_color)
-                labels["set"].config(text="")
-                labels["gs"].config(text="")
-                labels["potential"].config(text="")
-
-                self.gear_frames[slot_num].config(bg=bg_color)
-                for widget in [labels["header"], labels["main"], labels["set"],
-                               labels["gs"], labels["potential"],
-                               labels["gs_frame"], labels["top_row"]]:
-                    widget.config(bg=bg_color)
+            piece_gs = (compute_fragment_gs(piece, detail_weights,
+                                            _bounds_for(piece))
+                        if piece else 0.0)
+            self._render_gear_cell(cell, slot_num, piece, gear, piece_gs)
 
         if gear:
             stats = self.optimizer.calculate_build_stats(gear, hero_name)
@@ -2023,8 +1857,118 @@ class HeroesTab(BaseTab):
             pass  # widget might not be fully realized yet
 
     # Helper methods
-    def format_roll_with_color(self, sub: Stat, parent_frame: tk.Frame, bg_color: str):
-        """Format a substat roll string with individual roll coloring"""
+    def _render_gear_cell(self, cell, slot_num, piece, gear, piece_gs):
+        """Draw one Equipped Memory Fragments cell into its Text widget.
+
+        Layout, one line each:
+
+            main stat        GS: n  Potential: a-b        Slot  +level
+            q%  substat +total (base | +upg, +upg)
+            ... one per substat ...
+            Set name (n) bonus description, wrapped
+
+        The columns are the `toprow` / `subrow` tags' tab stops and every
+        colour is a tag. `rarity` is re-coloured per fragment, because the
+        slot name and the main stat both take the fragment's rarity.
+        """
+        slot_name = EQUIPMENT_SLOTS.get(slot_num, f"Slot {slot_num}")
+        cell.config(state=tk.NORMAL)
+        cell.delete("1.0", tk.END)
+
+        if piece is None:
+            cell.tag_configure("rarity", foreground=self.colors["fg_dim"])
+            line = cell.index("end-1c")
+            cell.insert(tk.END, "Empty", ("rarity",))
+            cell.insert(tk.END, "\t\t")
+            cell.insert(tk.END, slot_name, ("rarity",))
+            cell.tag_add("toprow", line, "end-1c")
+            cell.config(state=tk.DISABLED, bg=self.colors["bg_light"])
+            return
+
+        rarity_color = RARITY_COLORS.get(piece.rarity_num, self.colors["fg"])
+        bg_color = RARITY_BG_COLORS.get(piece.rarity_num,
+                                        self.colors["bg_light"])
+        cell.tag_configure("rarity", foreground=rarity_color)
+
+        # ----- Top row -----
+        line = cell.index("end-1c")
+        if piece.main_stat:
+            cell.insert(
+                tk.END,
+                f"{piece.main_stat.name}  +{piece.main_stat.format_value()}",
+                ("rarity",))
+        cell.insert(tk.END, "\t")
+        cell.insert(tk.END, f"GS: {piece_gs:.0f}", ("gs",))
+        if piece.potential_low != piece.potential_high:
+            cell.insert(
+                tk.END,
+                f" Potential: {piece.potential_low:.0f}-"
+                f"{piece.potential_high:.0f}",
+                ("pot",))
+        cell.insert(tk.END, "\t")
+        cell.insert(tk.END, f"{slot_name}  +{piece.level}", ("rarity",))
+        cell.tag_add("toprow", line, "end-1c")
+
+        # ----- One line per substat -----
+        num_starting = RARITY_STARTING_SUBSTATS.get(piece.rarity_num, 3)
+        for i, sub in enumerate(piece.substats[:4]):
+            cell.insert(tk.END, "\n")
+            line = cell.index("end-1c")
+            cell.insert(tk.END, "\t")
+            cell.insert(tk.END, f"{sub.get_roll_quality_pct():.0f}",
+                        ("quality",))
+            cell.insert(tk.END, "\t")
+
+            # An ADDED substat -- one the fragment gained on level-up
+            # rather than starting with -- carries its own tag, the same
+            # colour today and the hook if it ever stops being.
+            base_tag = "added" if i >= num_starting else "default"
+            roll_parts = self.format_roll_with_color(sub)
+
+            if sub.roll_count > 1:
+                cell.insert(tk.END,
+                            f"{sub.name} +{sub.format_value()} (", (base_tag,))
+                for idx, (roll_text, roll_color) in enumerate(roll_parts):
+                    if idx == 1:
+                        cell.insert(tk.END, " | ", (base_tag,))
+                    elif idx > 1:
+                        cell.insert(tk.END, ", ", (base_tag,))
+                    cell.insert(tk.END, roll_text,
+                                (self._roll_tag(roll_color, "normal"),))
+                cell.insert(tk.END, ")", (base_tag,))
+            else:
+                cell.insert(tk.END, f"{sub.name} +", (base_tag,))
+                value_tag = (self._roll_tag(roll_parts[0][1], base_tag)
+                             if roll_parts else base_tag)
+                cell.insert(tk.END, sub.format_value(), (value_tag,))
+            cell.tag_add("subrow", line, "end-1c")
+
+        # ----- Set line -----
+        # The name shows live when this combatant has the set's required
+        # pieces equipped and dim otherwise, which is the at-a-glance
+        # signal for whether the bonus is actually running.
+        set_info = SETS.get(piece.set_id)
+        bonus_text = set_info.get("bonus", "") if set_info else ""
+        required = set_info.get("pieces", 999) if set_info else 999
+        equipped_in_set = sum(1 for p in gear if p.set_id == piece.set_id)
+        set_tag = "set_live" if equipped_in_set >= required else "set_dim"
+        cell.insert(
+            tk.END,
+            f"\n{piece.set_name} ({piece.get_set_pieces()}) {bonus_text}",
+            (set_tag,))
+
+        cell.config(state=tk.DISABLED, bg=bg_color)
+
+    def _roll_tag(self, roll_color, fallback):
+        """The tag that paints a roll of this colour."""
+        if roll_color == self.colors["green"]:
+            return "max_roll"
+        if roll_color == self.colors["red"]:
+            return "min_roll"
+        return fallback
+
+    def format_roll_with_color(self, sub: Stat):
+        """A substat's rolls as (text, colour) pairs, one per roll."""
         stat_info = STATS.get(sub.raw_name, (sub.name, sub.name, sub.is_percentage, 1.0, 0.5))
         max_roll = stat_info[3]
         min_roll = stat_info[4]

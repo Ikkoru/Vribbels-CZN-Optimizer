@@ -36,6 +36,20 @@ class Tooltip:
         # while the user is toggling checkboxes or editing the spinbox.
         widget.bind("<Button>", lambda e: self._hide(), add="+")
 
+    def bind_tag(self, text_widget, tag, text):
+        """Same, for one tagged RANGE inside a Text rather than a widget.
+
+        A Text that draws what used to be several widgets has no separate
+        window to hover, so the hover lives on the tag. The tip still
+        positions against the Text itself, which is close enough for a
+        cell-sized widget.
+        """
+        text_widget.tag_bind(
+            tag, "<Enter>",
+            lambda e, w=text_widget, t=text: self._schedule(w, t), add="+")
+        text_widget.tag_bind(tag, "<Leave>", lambda e: self._hide(), add="+")
+        text_widget.tag_bind(tag, "<Button>", lambda e: self._hide(), add="+")
+
     def _schedule(self, widget, text):
         self._hide()
         self._owner = widget

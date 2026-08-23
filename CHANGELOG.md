@@ -14,6 +14,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Changed
 
+- **Combatants tab: moving through the character list is faster.** Each Equipped Memory Fragments cell is drawn as one block of text instead of eleven separate widgets, which is most of what the tab had to redraw every time you moved to another combatant. The cells look the same, and their text can now be selected and copied like the Character card's.
+
 - **The Combatants tab no longer remembers which combatant was selected.** It opens on the first row. The setting it used for that wrote to disk on every row you moved to.
 
 ### Fixed
