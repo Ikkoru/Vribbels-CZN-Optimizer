@@ -65,4 +65,17 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
     if wraplength is not None:
         opts["wraplength"] = wraplength
     opts.update(kwargs)
-    return tk.Checkbutton(parent, **opts)
+    widget = tk.Checkbutton(parent, **opts)
+    # NOT dead code, and the reason is invisible from here. Tk defers
+    # creating a widget's underlying window until it is first mapped, and
+    # a tk.Checkbutton's window is erased to the system default before Tk
+    # paints it -- so a gridful of them appears as blank light-grey blocks
+    # for a frame the first time their tab is shown. `winfo_id()` forces
+    # the window into existence now, while the tab is still hidden, with
+    # `bg` already applied, leaving nothing to erase at map time.
+    #
+    # Only tk.Checkbutton does this: a ttk.Checkbutton doesn't, nor does
+    # any ttk widget, nor does this one in a tk.Frame with its own
+    # background, nor with the indicator turned off. All measured.
+    widget.winfo_id()
+    return widget

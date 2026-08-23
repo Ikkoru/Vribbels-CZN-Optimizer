@@ -10,6 +10,12 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the
 pre-fork history, see the upstream repository's CHANGELOG.
 
+## [1.6.0] - unreleased
+
+### Fixed
+
+- **Checkbox lists no longer flash light grey when their tab first opens.** The Memory Fragments Sets and Main Stats filters did it once on first open, and the Capture tab's Upgrade Log Settings every time you switched to it.
+
 ## [1.5.0] - Arabella, Fracture, UI update ongoing
 
 ### Added

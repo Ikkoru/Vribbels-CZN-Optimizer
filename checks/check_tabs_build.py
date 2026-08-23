@@ -15,8 +15,15 @@ building a tab is not read-only -- selecting the first row of the
 Combatants list persists `last_selected_character`.
 
 Skips itself where Tk cannot open a display.
+
+It also guards the `winfo_id()` call in `make_checkbox`, which reads as
+dead code -- its return value is discarded -- and is the only thing
+stopping a gridful of checkboxes flashing light grey the first time
+their tab is shown. Nothing about losing it is visible from a headless
+run, so the guard is on the source rather than on behaviour.
 """
 
+import ast
 import shutil
 import tempfile
 from pathlib import Path
@@ -32,9 +39,33 @@ TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
              "HeroesTab", "ScoringTab", "MaterialsTab", "AboutTab")
 
 
+def _make_checkbox_forces_its_window():
+    """True if make_checkbox still calls winfo_id() on the widget."""
+    tree = ast.parse((SOURCE_ROOT / "ui" / "utils" / "checkbox.py")
+                     .read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "make_checkbox":
+            return any(
+                isinstance(call.func, ast.Attribute)
+                and call.func.attr == "winfo_id"
+                for call in ast.walk(node)
+                if isinstance(call, ast.Call)
+            )
+    return False
+
+
 def run():
     failures = []
     add_source_to_path()
+
+    if not _make_checkbox_forces_its_window():
+        failures.append(
+            "make_checkbox no longer calls winfo_id(). Tk defers creating "
+            "a widget's window until it is mapped, and a tk.Checkbutton's "
+            "is erased to the system default before Tk paints it -- so "
+            "every checkbox grid flashes light grey the first time its tab "
+            "is shown. The call looks like dead code and is not."
+        )
 
     try:
         import tkinter as tk
