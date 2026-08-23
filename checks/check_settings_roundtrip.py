@@ -35,7 +35,6 @@ MANAGERS = [
     "preset_manager.py",
     "optimizer_settings_manager.py",
     "character_preset_manager.py",
-    "level_data_manager.py",
     "log_presets_manager.py",
 ]
 

@@ -1769,7 +1769,7 @@ class OptimizerTab(BaseTab):
         widths = {}
         for hero in self._exclude_heroes:
             widths[hero] = self._exclude_checkbutton(hero).winfo_reqwidth()
-        # spacing: checkbox row -> checkbox row
+        # spacing: checkbox/slider ↕ checkbox/slider rows
         # -2 against the checkbutton's requested height, which leaves
         # more background between rows than the row-pitch rule wants.
         # A LEVER, not a rendered distance: this rule is not in the

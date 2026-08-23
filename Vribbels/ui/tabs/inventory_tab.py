@@ -265,7 +265,7 @@ class InventoryTab(BaseTab):
         self.inv_main_stat_frame_inner = ttk.Frame(main_frame)
         self.inv_main_stat_frame_inner.pack(anchor=tk.W)
 
-        # spacing: checkbox row -> checkbox row
+        # spacing: checkbox/slider ↕ checkbox/slider rows
         # spacing: checkbox row -> checkbox row (small division)
         # Build the fixed layout. Every checkbox starts checked & enabled --
         # availability is then refined by _refresh_main_stat_availability().
