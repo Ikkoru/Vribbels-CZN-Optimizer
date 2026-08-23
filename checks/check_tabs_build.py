@@ -10,9 +10,9 @@ This builds each tab against a withdrawn Tk root and a real AppContext.
 It catches the whole class: undefined names, wrong widget options, a
 constant deleted from under a caller.
 
-Settings managers are pointed at a COPY of `Vribbels/settings/`, because
-building a tab is not read-only -- selecting the first row of the
-Combatants list persists `last_selected_character`.
+Settings managers are pointed at a COPY of `Vribbels/settings/`. Building
+a tab is not reliably read-only, and the maintainer's own state is not
+something a check may write through.
 
 Skips itself where Tk cannot open a display.
 

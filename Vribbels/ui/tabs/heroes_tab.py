@@ -68,11 +68,6 @@ Where to look when you want to change X
   Right-click level checkpoint:    _on_tree_right_click ->
                                    _prompt_level_checkpoint -> writes to
                                    LevelDataManager and refreshes.
-  Selection memory:                refresh_heroes reads
-                                   SettingsManager["last_selected_character"]
-                                   to choose the initial select_hero_row
-                                   target; select_hero_row writes it back
-                                   on every successful selection.
 
 Cross-file conventions
 ======================
@@ -965,23 +960,8 @@ class HeroesTab(BaseTab):
             self.hero_tree.insert("", tk.END, iid=str(i), values=values,
                                   tags=(tag,))
 
-        # Restore the previously-selected character so refreshes (preset
-        # apply, data reload) and program restarts don't snap selection
-        # back to row 0. The persisted name comes from SettingsManager,
-        # written every time select_hero_row succeeds. If the saved name
-        # isn't in the rebuilt list (renamed, removed, not in this user's
-        # captured data), fall back to row 0 -- same as the previous
-        # always-row-0 behavior.
         if self.hero_data_list:
-            target_idx = 0
-            sm = getattr(self.context, "settings_manager", None)
-            last_name = sm.get("last_selected_character") if sm else None
-            if last_name:
-                for i, h in enumerate(self.hero_data_list):
-                    if h["name"] == last_name:
-                        target_idx = i
-                        break
-            self.select_hero_row(target_idx)
+            self.select_hero_row(0)
 
         # Freeze the detail-pane frames to their data-driven max sizes now
         # that the roster is known (self-guards on no data).
@@ -1278,14 +1258,6 @@ class HeroesTab(BaseTab):
                     perf_log.log("heroes:select", char=n, work=w,
                                  settle=time.perf_counter() - s - w)
                 )
-
-            # Persist so the selection survives preset apply, data reload,
-            # and program restart. SettingsManager.set() is a no-op when
-            # the value is unchanged, so this stays cheap even when
-            # arrow-key navigation fires select_hero_row in rapid bursts.
-            sm = getattr(self.context, "settings_manager", None)
-            if sm is not None:
-                sm.set("last_selected_character", new_hero_data["name"])
 
     def _format_char_text(self, hero_name: str) -> str:
         """Build the Character-frame text for `hero_name`.

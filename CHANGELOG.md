@@ -12,6 +12,10 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ## [1.6.0] - unreleased
 
+### Changed
+
+- **The Combatants tab no longer remembers which combatant was selected.** It opens on the first row. The setting it used for that wrote to disk on every row you moved to.
+
 ### Fixed
 
 - **Checkbox lists no longer flash light grey when their tab first opens.** The Memory Fragments Sets and Main Stats filters did it once on first open, and the Capture tab's Upgrade Log Settings every time you switched to it.

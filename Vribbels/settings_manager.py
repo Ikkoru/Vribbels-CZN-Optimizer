@@ -95,7 +95,6 @@ class SettingsManager:
         ("first_launch_done", False),
         ("update_last_checked", ""),
         ("update_latest_version", ""),
-        ("last_selected_character", ""),
         ("selected_preset", ""),
     )
 

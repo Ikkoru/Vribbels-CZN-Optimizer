@@ -85,9 +85,7 @@ class AppContext:
     # Combatants tab writes through this manager.
     level_data_manager: Optional['LevelDataManager'] = None
     # General-purpose persistent key-value store for user preferences
-    # that don't fit into the other managers' shapes. Currently holds
-    # last_selected_character (Combatants tab row to restore on refresh
-    # and program restart).
+    # that don't fit into the other managers' shapes.
     settings_manager: Optional['SettingsManager'] = None
     # Per-character optimizer-tab settings (Important Settings, Have at
     # Least minimums, selected sets, etc). Indexed by res_id so character
