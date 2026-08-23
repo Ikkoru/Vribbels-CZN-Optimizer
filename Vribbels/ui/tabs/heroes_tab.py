@@ -74,9 +74,6 @@ Where to look when you want to change X
                                    and compares to the set's pieces
                                    requirement -- white if complete, dim
                                    grey if partial.
-  Right-click level checkpoint:    _on_tree_right_click ->
-                                   _prompt_level_checkpoint -> writes to
-                                   LevelDataManager and refreshes.
 
 Cross-file conventions
 ======================
@@ -563,7 +560,6 @@ class HeroesTab(BaseTab):
             HERO_TAG_UNKNOWN, foreground=self.colors["fg"])
 
         self.hero_tree.bind("<<TreeviewSelect>>", self._on_tree_select)
-        self.hero_tree.bind("<Button-3>", self._on_tree_right_click)
         # Windows-Explorer-style letter-jump: press a letter to select the
         # next combatant whose name starts with it. Up/Down come free with
         # the Treeview.
@@ -618,7 +614,7 @@ class HeroesTab(BaseTab):
         # Partner's passive/ego prose has no bound. The widget packs
         # straight into the LabelFrame for the same reason -- there is
         # nothing to sit beside it.
-        # spacing: frame edge -> first checkbox or text
+        # spacing: frame edge -> first non-button element
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
@@ -647,7 +643,6 @@ class HeroesTab(BaseTab):
         # equipped partner. Same flow as for characters; the partner res_id
         # and exp come from char_info.partner_res_id / char_info.partner_exp,
         # populated by the optimizer when the snapshot is parsed.
-        partner_frame.bind("<Button-3>", self._on_partner_right_click)
         # Use a Text widget for the Partner pane (allows proper word-wrap of
         # the multi-line description). Wrap it in a sub-frame alongside a
         # vertical Scrollbar so long descriptions get an actual visible
@@ -656,7 +651,7 @@ class HeroesTab(BaseTab):
         partner_text_frame.pack(fill=tk.BOTH, expand=True)
 
         partner_scroll = ttk.Scrollbar(partner_text_frame, orient=tk.VERTICAL)
-        # spacing: frame edge -> first checkbox or text
+        # spacing: frame edge -> first non-button element
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
@@ -674,7 +669,6 @@ class HeroesTab(BaseTab):
         self.hero_partner_text.config(state=tk.DISABLED)
         # Right-click on the Text widget (where the partner description
         # actually renders) routes to the same handler as the parent frame.
-        self.hero_partner_text.bind("<Button-3>", self._on_partner_right_click)
 
         gear_outer_frame = ttk.LabelFrame(
             hero_detail_container, text="Equipped Memory Fragments", padding=0,
@@ -711,14 +705,14 @@ class HeroesTab(BaseTab):
                 gear_grid, font=("Segoe UI", 9), wrap=tk.WORD,
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
                 relief=tk.RIDGE, bd=1, highlightthickness=0,
-                # spacing: frame edge -> first checkbox or text
+                # spacing: frame edge -> first non-button element
                 # padx is symmetric, so it sets the LEFT inset and part of
                 # the right one; GEAR_TAB_SLOT carries the rest.
-                # spacing: checkbox row -> checkbox row
+                # spacing: text label row -> text label row
                 # spacing3 is the gap BELOW each line, which is what
                 # separates one row of the cell from the next. spacing1
                 # would add to the top inset above instead.
-                padx=5, pady=2, spacing3=2,
+                padx=5, pady=2, spacing3=4,
                 # Selectable but never focusable, and no insertion cursor:
                 # the text can be copied, and nothing about it invites
                 # typing into it.
@@ -998,189 +992,6 @@ class HeroesTab(BaseTab):
         except (TypeError, ValueError):
             return None
 
-    def _on_tree_right_click(self, event):
-        """Right-click handler: shows a context menu with the option to
-        record a confirmed in-game level for this character. Recorded
-        checkpoints persist to settings/level_data.json and get applied to
-        the active exp table at load time, so the next refresh / restart
-        reflects them in the displayed level.
-
-        The right-click also selects the row (so the user has visual
-        feedback about which character the menu is acting on) before the
-        menu pops up.
-        """
-        idx = self._row_index_at(event)
-        if idx is None or idx >= len(self.hero_data_list):
-            return
-        self.hero_tree.focus_set()
-        self.select_hero_row(idx)
-        hero = self.hero_data_list[idx]
-
-        menu = tk.Menu(self.hero_tree, tearoff=0)
-        menu.add_command(
-            label=f"Add confirmed level for {hero['name']}...",
-            command=lambda h=hero: self._prompt_level_checkpoint(h),
-        )
-        try:
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            # tk_popup grabs the pointer; releasing the grab is good
-            # practice and avoids subtle focus issues on some platforms.
-            menu.grab_release()
-
-    def _prompt_level_checkpoint(self, hero: dict):
-        """Ask the user for the confirmed in-game level of `hero`, then
-        record an (exp, level) checkpoint via LevelDataManager. On success,
-        the augmented exp tables are reapplied immediately so the rest of
-        the UI can refresh without a restart.
-
-        Args:
-            hero: a hero_data_list entry. Must include 'name', 'res_id',
-                  and 'exp'. The current displayed level (if any) is used
-                  as the dialog default to make typo recovery easier.
-        """
-        from tkinter import simpledialog, messagebox
-
-        ldm = getattr(self.context, "level_data_manager", None)
-        if ldm is None:
-            messagebox.showerror(
-                "Not Available",
-                "Level data manager is not initialized."
-            )
-            return
-
-        name = hero.get("name", "?")
-        res_id = hero.get("res_id") or 0
-        exp = hero.get("exp", 0)
-        current_level = hero.get("level", 1)
-        # res_id == 0 means we have no captured data for this hero (char_info
-        # was missing during refresh_heroes), so we have no exp to anchor a
-        # checkpoint on. Without exp, the data point is useless.
-        if not res_id:
-            messagebox.showerror(
-                "Missing Data",
-                f"Cannot record a checkpoint for {name}: no captured "
-                f"data available for this character yet."
-            )
-            return
-
-        # Bound at 1-62; the dialog will clamp invalid input on its own
-        # but we also re-validate after to handle Cancel returning None.
-        level = simpledialog.askinteger(
-            "Confirm Level",
-            f"What is {name}'s in-game level right now?\n\n"
-            f"(Current snapshot exp: {exp})\n"
-            f"Range: 1-62. Click Cancel to abort.",
-            parent=self.hero_tree,
-            initialvalue=int(current_level) if current_level else 1,
-            minvalue=1, maxvalue=62,
-        )
-        if level is None:
-            return  # user cancelled
-
-        try:
-            ldm.add_checkpoint("characters", res_id=int(res_id),
-                               name=name, exp=int(exp), level=int(level))
-            ldm.apply_to_constants()
-        except Exception as e:
-            messagebox.showerror(
-                "Save Failed",
-                f"Could not save checkpoint: {e}"
-            )
-            return
-
-        # Refresh so the new level threshold flows through to all displays.
-        try:
-            self.refresh_heroes()
-        except Exception:
-            pass
-
-        messagebox.showinfo(
-            "Checkpoint Saved",
-            f"Recorded: {name} at exp={exp} is level {level}.\n\n"
-            f"This data point now anchors the level lookup for all "
-            f"characters; future calculations will use it."
-        )
-
-    def _on_partner_right_click(self, event):
-        """Right-click handler for the Partner card. Pops the same context
-        menu as the hero rows, but for the partner currently equipped on
-        whichever character is displayed in the detail panel."""
-        hero = self._current_detail_hero
-        if not hero or hero not in self.optimizer.character_info:
-            return
-        char_info = self.optimizer.character_info[hero]
-        partner_res_id = getattr(char_info, "partner_res_id", 0) or 0
-        if not partner_res_id:
-            return  # no partner equipped, nothing to confirm
-
-        partner_name = getattr(char_info, "partner_name", "") or f"res_id {partner_res_id}"
-        menu = tk.Menu(self.hero_partner_text, tearoff=0)
-        menu.add_command(
-            label=f"Add confirmed level for {partner_name}...",
-            command=lambda: self._prompt_partner_level_checkpoint(char_info),
-        )
-        try:
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            menu.grab_release()
-
-    def _prompt_partner_level_checkpoint(self, char_info):
-        """Same flow as _prompt_level_checkpoint but routed to the
-        'partners' category in LevelDataManager. Reads partner_res_id,
-        partner_exp, partner_level, partner_name off the supplied
-        CharacterInfo (populated by the optimizer at snapshot load)."""
-        from tkinter import simpledialog, messagebox
-
-        ldm = getattr(self.context, "level_data_manager", None)
-        if ldm is None:
-            messagebox.showerror("Not Available",
-                                 "Level data manager is not initialized.")
-            return
-
-        partner_res_id = getattr(char_info, "partner_res_id", 0) or 0
-        partner_exp = getattr(char_info, "partner_exp", 0) or 0
-        partner_level = getattr(char_info, "partner_level", 1) or 1
-        partner_name = getattr(char_info, "partner_name", "") or "?"
-        if not partner_res_id:
-            messagebox.showerror("Missing Data",
-                                 "No partner equipped on this character.")
-            return
-
-        # Partners max at level 60 (not 62 like characters); enforce that
-        # in the dialog so the user can't enter an impossible level.
-        level = simpledialog.askinteger(
-            "Confirm Partner Level",
-            f"What is {partner_name}'s in-game level right now?\n\n"
-            f"(Current snapshot exp: {partner_exp})\n"
-            f"Range: 1-60. Click Cancel to abort.",
-            parent=self.hero_partner_text,
-            initialvalue=int(partner_level),
-            minvalue=1, maxvalue=60,
-        )
-        if level is None:
-            return
-
-        try:
-            ldm.add_checkpoint("partners", res_id=int(partner_res_id),
-                               name=partner_name, exp=int(partner_exp),
-                               level=int(level))
-            ldm.apply_to_constants()
-        except Exception as e:
-            messagebox.showerror("Save Failed", f"Could not save checkpoint: {e}")
-            return
-
-        try:
-            self.refresh_heroes()
-        except Exception:
-            pass
-
-        messagebox.showinfo(
-            "Checkpoint Saved",
-            f"Recorded: {partner_name} at exp={partner_exp} is level {level}.\n\n"
-            f"Future partner-level calculations will use this anchor."
-        )
-
     def _on_hero_list_key(self, event):
         """Letter-key navigation: 'A' jumps to the next combatant whose
         name starts with 'A', cycling at the end. Mirror of the preset
@@ -1459,7 +1270,7 @@ class HeroesTab(BaseTab):
             cell_w, cell_h = GEAR_CELL_W, GEAR_CELL_H
 
             # ----- Content maxima -> OUTER frame sizes (generous pad) -----
-            # spacing: frame edge -> first checkbox or text
+            # spacing: frame edge -> first non-button element
             # PAD_W / PAD_H approximate the ttk LabelFrame theme overhead
             # so the right and bottom padding read like the top and left.
             # Measured against the longest set description: the right edge
@@ -1478,7 +1289,7 @@ class HeroesTab(BaseTab):
             # value (right-aligned), and nothing after. A right-aligned
             # stop sits at the END of its column, so each is the running
             # total of everything to its left.
-            # spacing: TBD -- stat label -> its value
+            # spacing: label ↔ its element
             # spacing: element and its label ↔ element and its label
             # Stops are PIXEL offsets, not character counts, so the 4 and
             # the 8 below are the rendered gaps themselves. `name_px` is

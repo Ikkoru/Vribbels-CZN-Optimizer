@@ -93,7 +93,7 @@ def run():
         from optimizer.optimizer import GearOptimizer
         import preset_manager, character_preset_manager
         import optimizer_settings_manager, settings_manager
-        import level_data_manager, log_presets_manager
+        import log_presets_manager
         from config import AppConfig
         from ._harness import newest_snapshot
 
@@ -119,8 +119,7 @@ def run():
             preset_manager=_load(preset_manager.PresetManager),
             character_preset_manager=_load(
                 character_preset_manager.CharacterPresetManager),
-            level_data_manager=_load(level_data_manager.LevelDataManager),
-            settings_manager=sm,
+                settings_manager=sm,
             optimizer_settings_manager=_load(
                 optimizer_settings_manager.OptimizerSettingsManager),
             log_presets_manager=_load(log_presets_manager.LogPresetsManager),

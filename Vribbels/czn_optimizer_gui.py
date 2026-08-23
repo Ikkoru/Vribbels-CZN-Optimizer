@@ -14,7 +14,7 @@ Top-level layout
                             lock. Main entry point. Owns the AppContext
                             and instantiates the managers (preset,
                             character_preset, optimizer_settings,
-                            level_data, settings).
+                            settings).
   config.py                 AppConfig -- attribute-style view over
                             SettingsManager for server_region and
                             optimizer_workers (context.config).
@@ -23,8 +23,6 @@ Top-level layout
                             keyed by res_id with parallel name_hints.
   optimizer_settings_manager Per-character Optimizer-tab config plus the
                             global excluded_gear_chars list.
-  level_data_manager.py     User-confirmed (exp, level) checkpoints
-                            that augment the exp tables at startup.
   settings_manager.py       Generic persistent key-value store
                             (settings.json): server_region,
                             optimizer_workers, last selected
@@ -76,8 +74,6 @@ Where to look when changing X
   Live inventory updates             capture/manager.py (addon template)
   Inventory display / filtering      ui/tabs/inventory_tab.py
   Per-character preset assignment    ui/tabs/heroes_tab.py
-  Right-click level checkpoint flow  heroes_tab._prompt_level_checkpoint
-                                     + level_data_manager.py
 
 Data flow (one user action -> displayed result)
 -----------------------------------------------
@@ -623,7 +619,6 @@ class OptimizerGUI:
         # of PyInstaller's read-only _MEIPASS).
         from preset_manager import PresetManager
         from character_preset_manager import CharacterPresetManager
-        from level_data_manager import LevelDataManager
         from settings_manager import SettingsManager
         from optimizer_settings_manager import OptimizerSettingsManager
         from log_presets_manager import LogPresetsManager
@@ -683,9 +678,6 @@ class OptimizerGUI:
         # and rewrites constants._active_*_exp_table so all level lookups
         # see the augmented values. Must be applied BEFORE the optimizer
         # builds character info (which calls get_level_from_exp).
-        self.level_data_manager = LevelDataManager(program_dir)
-        self.level_data_manager.load()
-        self.level_data_manager.apply_to_constants()
         # Optimizer settings manager: per-character optimizer-tab state
         # (Important Settings sliders, Have at Least minimums, selected
         # sets, set-effect %, Average Buff fields, etc). Keyed by res_id
@@ -741,7 +733,6 @@ class OptimizerGUI:
         perf_log.log("startup:managers", secs=_time.perf_counter() - _t_start)
         self.app_context.preset_manager = self.preset_manager
         self.app_context.character_preset_manager = self.character_preset_manager
-        self.app_context.level_data_manager = self.level_data_manager
         self.app_context.settings_manager = self.settings_manager
         self.app_context.optimizer_settings_manager = self.optimizer_settings_manager
         self.app_context.log_presets_manager = self.log_presets_manager

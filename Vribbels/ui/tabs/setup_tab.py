@@ -127,7 +127,7 @@ class SetupTab(BaseTab):
         top_row.grid_columnconfigure(0, weight=1, uniform="halves")
         top_row.grid_columnconfigure(1, weight=1, uniform="halves")
 
-        # spacing: frame edge -> first checkbox or text
+        # spacing: frame edge -> first non-button element
         status_frame = ttk.LabelFrame(top_row, text="Setup Status", padding=(4, 6, 5, 5))
         # spacing: content frame -> content frame
         status_frame.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
@@ -183,7 +183,7 @@ class SetupTab(BaseTab):
                 row, text=label, width=20,
                 command=lambda k=kind: self._open_restore_dialog(k),
             ).pack(side=tk.LEFT, anchor=tk.NW)
-            # spacing: TBD -- button -> the explanation beside it
+            # spacing: label ↔ its element
             ttk.Label(
                 row, text=explanation,
                 foreground=self.colors["fg_dim"],
@@ -228,7 +228,7 @@ STEP 2: Verify setup
   - Click "Check Status" to verify all components are ready
   - All items should show green checkmarks [OK]"""
 
-        # spacing: frame edge -> first checkbox or text
+        # spacing: frame edge -> first non-button element
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,

@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from ui.tabs import InventoryTab, HeroesTab, ScoringTab, OptimizerTab
     from preset_manager import PresetManager
     from character_preset_manager import CharacterPresetManager
-    from level_data_manager import LevelDataManager
     from settings_manager import SettingsManager
     from optimizer_settings_manager import OptimizerSettingsManager
     from log_presets_manager import LogPresetsManager
@@ -82,8 +81,6 @@ class AppContext:
     # User-confirmed (exp, level) checkpoints — augments the built-in
     # exp tables in constants.py via apply_to_constants(). Initialized at
     # program startup; the right-click "Add confirmed level" flow in the
-    # Combatants tab writes through this manager.
-    level_data_manager: Optional['LevelDataManager'] = None
     # General-purpose persistent key-value store for user preferences
     # that don't fit into the other managers' shapes.
     settings_manager: Optional['SettingsManager'] = None

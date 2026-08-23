@@ -33,13 +33,6 @@ doesn't live on individual characters / partners / fragments:
   - GROWTH_STONES for the leveling-item registry used by the materials
     display (UI sugar; not part of stat math).
 
-Active-table indirection
-========================
-_active_character_exp_table and _active_partner_exp_table are mutable
-module-level references that LevelDataManager.apply_to_constants()
-rewrites at startup to include user-confirmed (exp, level) checkpoints.
-The base CHARACTER_EXP_TABLE / PARTNER_EXP_TABLE stay pristine so the
-hardcoded data can always be distinguished from user augmentation.
 
 Note on capture-related constants
 =================================
@@ -125,17 +118,6 @@ PARTNER_EXP_TABLE = [
     (20000, 20), (28000, 25), (36300, 30), (70000, 35),
     (93500, 40), (145000, 45), (181000, 50), (251000, 55), (346000, 60),
 ]
-
-# Runtime-active exp tables. These start as copies of the base tables and
-# may be rewritten (in place of the references, not by mutation) by
-# LevelDataManager.apply_to_constants() to incorporate user-confirmed
-# checkpoints. The base CHARACTER_EXP_TABLE / PARTNER_EXP_TABLE above stay
-# pristine so we can always see what was hardcoded vs. user-augmented.
-#
-# get_level_from_exp consults _active_character_exp_table by default;
-# get_partner_level_from_exp explicitly passes _active_partner_exp_table.
-_active_character_exp_table = list(CHARACTER_EXP_TABLE)
-_active_partner_exp_table = list(PARTNER_EXP_TABLE)
 
 # Affinity bonus rewards. The game calls this Affinity; the
 # identifiers here say FRIENDSHIP, inherited from upstream. Keep
@@ -394,7 +376,7 @@ def get_level_from_exp(exp: int, exp_table: list = None) -> int:
     most defensible estimate (a strict lower bound on the level).
     """
     if exp_table is None:
-        exp_table = _active_character_exp_table
+        exp_table = CHARACTER_EXP_TABLE
 
     if exp <= 0:
         return 1
@@ -410,10 +392,8 @@ def get_level_from_exp(exp: int, exp_table: list = None) -> int:
         prev_exp, prev_level = min_exp, lvl
 
     # Past the table -- return the highest level it DOCUMENTS, not a
-    # hardcoded cap. With the built-in tables that's 60; when level-61/62
-    # thresholds are added (manually, or via user-confirmed checkpoints
-    # flowing through level_data_manager) this extends to whatever the
-    # table's top entry is, with nothing here to update.
+    # hardcoded cap. Adding level-61/62 thresholds to the table extends
+    # this to whatever its top entry is, with nothing here to update.
     return prev_level
 
 
@@ -427,7 +407,7 @@ def get_partner_level_from_exp(exp: int) -> int:
     every level we have data for, so a straight table lookup is correct
     across the full exp range.
     """
-    return get_level_from_exp(exp, _active_partner_exp_table)
+    return get_level_from_exp(exp, PARTNER_EXP_TABLE)
 
 
 def get_friendship_bonus(index: int) -> tuple[int, int, int]:

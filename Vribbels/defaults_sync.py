@@ -38,7 +38,7 @@ Three stages, in order:
     so there's nothing to add anyway).
 
 Files with no bundled default (never touched here): settings.json,
-level_data.json, config.json.
+config.json.
 
 Known limitations (accepted trade-offs, do not "fix" without a design
 discussion):
