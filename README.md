@@ -37,7 +37,7 @@ In the results, scores run 0–100 with the run's best build at 100. `(E)` marks
 ## Other things worth knowing
 
 - **Gear Score** weights are per-combatant presets. Assign them on the **Combatants** tab, edit the weights on the **Gear Score** tab.
-- **If a level looks wrong,** right-click the combatant's row on the **Combatants** tab and type the level the game shows. Levels are worked out from EXP and the tables behind that have gaps; each correction you enter makes later ones more accurate. Right-click a Partner card to do the same for a Partner.
+- **Double-click** or select a preset and press Apply in the **Gear Score** tab to change the GS and Potetial values in the **Memory Fragments** tab. Useful for finding good MFs to level and bad MFs to dismantle.
 - **The optimizer uses every CPU core.** If that causes trouble, close the program and change `optimizer_workers` in `settings/settings.json`.
 - **Affinity, potential nodes and Partner bonuses** are all counted in the stats the optimizer scores.
 
