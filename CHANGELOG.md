@@ -20,7 +20,9 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Fixed
 
-- **Checkbox lists no longer flash light grey when their tab first opens.** The Memory Fragments Sets and Main Stats filters did it once on first open, and the Capture tab's Upgrade Log Settings every time you switched to it.
+- **Nothing flashes light grey when a tab first opens any more.** The checkbox lists were only part of it — the Capture Log, the About tab's link buttons and the Gear Score spinboxes did the same thing, for the same reason. Every tab is now covered, including ones nobody had reported.
+
+- **The Memory Fragments Main Stats filters and the Optimizer's Exclude Combatant's MFs list are drawn like every other checkbox.** They had been built separately and had drifted: the exclude list still showed a focus rectangle, could be reached with Tab, and sat slightly larger than the checkboxes around it.
 
 ## [1.5.0] - Arabella, Fracture, UI update ongoing
 

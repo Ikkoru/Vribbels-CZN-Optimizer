@@ -66,16 +66,15 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
         opts["wraplength"] = wraplength
     opts.update(kwargs)
     widget = tk.Checkbutton(parent, **opts)
-    # NOT dead code, and the reason is invisible from here. Tk defers
-    # creating a widget's underlying window until it is first mapped, and
-    # a tk.Checkbutton's window is erased to the system default before Tk
-    # paints it -- so a gridful of them appears as blank light-grey blocks
-    # for a frame the first time their tab is shown. `winfo_id()` forces
-    # the window into existence now, while the tab is still hidden, with
-    # `bg` already applied, leaving nothing to erase at map time.
+    # NOT dead code: the return value is discarded and the call still has
+    # to happen, or a gridful of these appears as blank light-grey blocks
+    # for a frame the first time its tab is shown. `ui/utils/realize.py`
+    # holds the mechanism and what was measured to establish it.
     #
-    # Only tk.Checkbutton does this: a ttk.Checkbutton doesn't, nor does
-    # any ttk widget, nor does this one in a tk.Frame with its own
-    # background, nor with the indicator turned off. All measured.
+    # The startup walk there covers everything built during `setup_ui`.
+    # This call is for the three panels that rebuild their checkboxes
+    # AFTER startup -- Capture's log presets, and Memory Fragments' Sets
+    # and unknown main stats -- whose widgets are created long after that
+    # walk has run. Both callers are needed; neither subsumes the other.
     widget.winfo_id()
     return widget

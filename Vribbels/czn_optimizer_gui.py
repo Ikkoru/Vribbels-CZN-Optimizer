@@ -309,6 +309,23 @@ class OptimizerGUI:
         the second re-lays out, the third repaints) and a ceiling so a
         layout that oscillates can't hang startup.
         """
+        # NOT dead code: the return value is thrown away and the call
+        # still has to happen. Every widget's window is created HERE,
+        # while the window is invisible, so that opening a tab for the
+        # first time has nothing left to erase. Drop this and every
+        # classic Tk widget in the app -- checkbox grids, the Capture
+        # Log, the About tab's link buttons -- flashes near-white for a
+        # frame the first time its tab is shown. See ui/utils/realize.py
+        # for the mechanism and for what was measured to establish it.
+        # The walk is the point; the log line is only evidence it reached
+        # anything. Keep them on separate statements -- perf_log.log is a
+        # no-op when logging is off, and folding the call into its
+        # argument list invites someone to guard the whole thing later.
+        import perf_log
+        from ui.utils.realize import realize_windows
+        realized = realize_windows(self.root)
+        perf_log.log("startup:realize_windows", count=realized)
+
         # Give the OPTIMIZER tab one mapped layout pass while still
         # invisible, if it isn't already the tab about to be shown. A tab
         # that has never been displayed has never had its <Configure>
@@ -513,19 +530,34 @@ class OptimizerGUI:
         # spacing: unique -- Treeview internals, which are style options
         # rather than anything a geometry manager can reach
         #
-        # `padding` insets the whole tree area; `rowheight` is the only
-        # vertical spacing a Treeview has, since its rows are contiguous;
-        # `Treeview.Cell` padding is the inset from a column's edge to its
-        # text, and it moves every column together. Below the font's line
-        # box (15px at Segoe UI 9) a row clips its own text.
+        # `padding` here is BOTH levers at once, and that is not obvious.
+        # It insets the tree area, and it is also what the cell's own
+        # `Treedata.padding` element resolves `padding` to -- so it sets
+        # the inset from a column's edge to its text as well.
+        #
+        # **Setting it at all makes `Treeview.Cell` padding inert.** Any
+        # value, 0 included: once the widget's own style defines
+        # `padding`, the lookup for the cell element stops there and the
+        # derived `Treeview.Cell` style is never consulted. Measured by
+        # sweeping cell padding -4..12 with and without this option --
+        # with it, the cell's text element does not move at any value;
+        # without it, every value moves it. So a `Treeview.Cell` line
+        # here would look like the cell lever and do nothing, which is
+        # how one sat here unnoticed.
+        #
+        # To tune the cell inset, change THIS number. To get an
+        # independent cell lever back, drop `padding` from this call --
+        # the tree area does not move when you do, because the borderless
+        # layout below has already removed the field element that the
+        # theme's own padding was insetting from.
+        #
+        # `rowheight` is the only vertical spacing a Treeview has, since
+        # its rows are contiguous. Below the font's line box (15px at
+        # Segoe UI 9) a row clips its own text.
         self.style.configure("Treeview", background=self.colors["bg_light"],
                              foreground=self.colors["fg"],
                              fieldbackground=self.colors["bg_light"],
                              padding=0, rowheight=20)
-        # NEGATIVE on purpose. The element's own default is not zero, so
-        # a 0 here still leaves the cell text a couple of pixels in from
-        # its column's edge; -2 cancels what is left.
-        self.style.configure("Treeview.Cell", padding=-2)
         # No outline. The border's WIDTH is not a style option -- clam's
         # `Treeview.field` exposes only colours -- so the only way to drop
         # it is a layout with no field element, the same trick

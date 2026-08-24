@@ -374,18 +374,28 @@ def _text_left_inset(title, prefix):
 
 
 # Elements measured in their own right, because a panel's left inset is
-# not one number. Three of these disagree with their panel's FIRST
-# element, so a frame-level padding change would fix one and break the
-# other -- which is the whole reason they are tracked separately.
+# not one number. Each of these disagrees with its panel's FIRST element,
+# so a frame-level padding change would fix one and break the other --
+# which is the whole reason they are tracked separately.
+#
+# The class names are Tk's, not the widget module's: a `ttk.Checkbutton`
+# reports "TCheckbutton" and a `tk.Checkbutton` reports "Checkbutton".
+# Every checkbox in this app is the latter, and will stay that way (see
+# `ui/utils/checkbox.py`) -- naming only the ttk spelling here matched
+# nothing and reported "no ... in panel", which the audit prints as a
+# skipped row rather than a failure. Both spellings are listed anyway, so
+# the entry survives a widget swap either way.
 #
 # (tab, panel, label, target, resolver)
+CHECKBOX_CLASSES = ("Checkbutton", "TCheckbutton")
+
 ELEMENT_ENTRIES = [
     ("Optimizer", "Important Settings", "slider", 6,
      _class_left_inset("Important Settings", "TScale", "Scale")),
     ("Optimizer", "Set Configuration", "checkboxes", 6,
-     _class_left_inset("Set Configuration", "TCheckbutton")),
+     _class_left_inset("Set Configuration", *CHECKBOX_CLASSES)),
     ("Capture", "Upgrade Log Settings", "checkboxes", 6,
-     _class_left_inset("Upgrade Log Settings", "TCheckbutton")),
+     _class_left_inset("Upgrade Log Settings", *CHECKBOX_CLASSES)),
     ("Gear Score", "Stat Weight Configuration", "applied preset label", 6,
      _text_left_inset("Stat Weight Configuration", "Applied")),
 ]

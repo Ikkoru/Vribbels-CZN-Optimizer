@@ -622,27 +622,28 @@ class InventoryTab(BaseTab):
             self.inv_unknown_main_stat_checks[canonical] = cb
 
     def _make_mainstat_checkbutton(self, parent, label: str, var: tk.BooleanVar):
-        """Build a tk.Checkbutton styled to blend with the surrounding ttk
-        widgets in the dark theme. Used by both the fixed-position grid and
-        the unknowns row so they look identical."""
+        """One Main Stats filter checkbox. Used by both the fixed-position
+        grid and the unknowns row so they look identical.
+
+        Goes through `make_checkbox` like every other checkbox in the app.
+        Two options are this panel's own: a font it swaps for a
+        struck-through copy when the stat becomes unavailable, and the
+        `disabledforeground` that greys the label in that state.
+        """
         # spacing: frame edge -> first non-button element
-        # bd and highlightthickness are zeroed for looks AND for spacing:
-        # Tk's defaults add a border and focus ring outside the indicator,
-        # which would push every checkbox in the panel inward.
+        # The helper zeroes bd and highlightthickness, which is a spacing
+        # lever as well as a cosmetic one: Tk's defaults add a border and
+        # focus ring outside the indicator, which would push every
+        # checkbox in the panel inward.
         # The five elemental DMG% filters take their Element's colour, the
         # same map every other Element-coloured thing in the app uses. The
         # label is "Passion%", so the Element is its text minus the "%".
         colour = ATTRIBUTE_COLORS.get(label.rstrip("%"), self.colors["fg"])
-        return tk.Checkbutton(
-            parent, text=label, variable=var,
-            command=self.refresh_inventory,
-            bg=self.colors["bg"], fg=colour,
-            activebackground=self.colors["bg"],
-            activeforeground=colour,
-            disabledforeground=self.colors["fg_dim"],
-            selectcolor=self.colors["bg_light"],
+        return make_checkbox(
+            parent, self.colors, text=label, variable=var,
+            command=self.refresh_inventory, fg=colour,
             font=self._mainstat_font,
-            anchor=tk.W, bd=0, highlightthickness=0, takefocus=0,
+            disabledforeground=self.colors["fg_dim"],
         )
 
     def _refresh_main_stat_availability(self):

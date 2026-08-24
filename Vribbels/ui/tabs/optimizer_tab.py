@@ -436,7 +436,7 @@ class OptimizerTab(BaseTab):
         # Preset row below the top row. pack_propagate(False) so the row
         # doesn't grow with its label; width is synced to top_row's natural
         # reqwidth in _settle_layout_once so the label clips at the
-        # cluster's right edge. Height fits one Segoe UI 8pt line.
+        # cluster's right edge. Height fits one line of the body font.
         self._toolbar_preset_row = ttk.Frame(left_cluster, height=17)
         self._toolbar_preset_row.pack_propagate(False)
         self._toolbar_preset_row.pack(side=tk.TOP, fill=tk.X, anchor=tk.W)
@@ -484,12 +484,17 @@ class OptimizerTab(BaseTab):
         # Status cluster at the toolbar's right edge: the "Loaded N
         # fragments" status on top, the two global filter rows directly
         # under it ("Ignore MFs below level" spinbox, "Ignore
-        # off-Element MFs" checkbox). The WHOLE cluster uses the small
-        # 8pt font: the toolbar's height is set by its tallest child --
-        # the left cluster (Combatant row + preset row) -- and at
-        # default fonts a three-row status cluster would overtake it,
-        # growing the toolbar and shifting every frame below it down.
-        # At 8pt all three rows fit inside the left cluster's height.
+        # off-Element MFs" checkbox).
+        #
+        # The cluster's height is CONSTRAINED, not free: the toolbar's
+        # height is set by its tallest child -- the left cluster
+        # (Combatant row + preset row) -- and three stacked rows on the
+        # right have only a few pixels of headroom before they overtake
+        # it, growing the toolbar and shifting every frame below it down.
+        # So this font is a lever on the toolbar's height, not a
+        # cosmetic choice; raising it needs the fit re-checked on screen.
+        # It is the body size now, the same as TkDefaultFont, so the name
+        # is historical -- there is no smaller font left in the app.
         small_font = ("Segoe UI", 9)
         status_cluster = ttk.Frame(toolbar)
         # spacing: overarching tab control element group ↔ OTC element group
@@ -1642,7 +1647,10 @@ class OptimizerTab(BaseTab):
         freshly created batch of ~40 classic Tk widgets gets mapped and
         drawn before the layout that positions them is final, so the user
         sees a row of blank default-colored boxes. Widgets are therefore
-        created once and only repositioned afterwards.
+        created once and only repositioned afterwards. `make_checkbox`
+        now realizes each window at build time, which removes the erase
+        the user saw -- but not the cost of destroying and rebuilding the
+        set on every <Configure>, so the reuse stays.
 
         The check variable is created alongside and kept in
         exclude_hero_vars; _apply_exclude_states syncs its value from
@@ -1662,13 +1670,9 @@ class OptimizerTab(BaseTab):
             self._exclude_strike_font = tkfont.Font(
                 family="Segoe UI", size=9, overstrike=1
             )
-        cb = tk.Checkbutton(
-            self.exclude_heroes_frame, text=hero, variable=var,
-            bg=self.colors["bg"], fg=fg_color,
-            selectcolor=self.colors["bg_light"],
-            activebackground=self.colors["bg"], activeforeground=fg_color,
-            font=("Segoe UI", 9), anchor=tk.W,
-            command=self._save_excluded_gear,
+        cb = make_checkbox(
+            self.exclude_heroes_frame, self.colors, text=hero, variable=var,
+            fg=fg_color, command=self._save_excluded_gear,
         )
         self._exclude_widgets[hero] = cb
         return cb
