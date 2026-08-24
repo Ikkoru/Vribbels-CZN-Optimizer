@@ -1,67 +1,9 @@
 #!/usr/bin/env python3
-"""
-Vribbels - CZN Memory Fragment Tool
-A Fribbels-inspired gear management and optimization tool for Chaos Zero Nightmare.
-Includes integrated data capture and setup functionality.
+"""Vribbels — CZN Memory Fragment optimizer. Main entry point.
 
-
-Project orientation (for future maintainers / future Claude)
-=============================================================
-
-Top-level layout
-----------------
-  czn_optimizer_gui.py      Tk root + tab orchestration + single-instance
-                            lock. Main entry point. Owns the AppContext
-                            and instantiates the managers (preset,
-                            character_preset, optimizer_settings,
-                            settings).
-  config.py                 AppConfig -- attribute-style view over
-                            SettingsManager for server_region and
-                            optimizer_workers (context.config).
-  preset_manager.py         User scoring presets (named weight sets).
-  character_preset_manager  Per-character preset assignments. v2 schema
-                            keyed by res_id with parallel name_hints.
-  optimizer_settings_manager Per-character Optimizer-tab config plus the
-                            global excluded_gear_chars list.
-  settings_manager.py       Generic persistent key-value store
-                            (settings.json): server_region,
-                            optimizer_workers, last selected
-                            character/preset, debug flags.
-  log_presets_manager.py    Per-combatant flags behind the Capture tab's
-                            Log Presets checklist (which assigned presets
-                            the "[LIVE] Upgraded" Highest-Potential lines
-                            compare).
-  defaults_sync.py          Three-stage reconciler that runs in
-                            OptimizerGUI.__init__ BEFORE any manager
-                            loads: maintainer bootstrap, new-user
-                            bootstrap, tombstone-aware update merge.
-                            See settings/.defaults_sync.json for the
-                            tombstone sidecar.
-  version.py                Version string.
-
-Subpackages
------------
-  capture/      Data-capture machinery (mitmproxy add-on + hosts edits +
-                temp-cert mgmt). manager.py contains the addon template
-                that handles live piece create / equip / unequip / swap /
-                upgrade / delete events.
-  game_data/    Static game-rule data:
-                  constants.py   experience tables, stats, rarities, slots,
-                                 affection bonuses, growth stones
-                  characters.py  per-character base stats, attributes,
-                                 classes, potential-tree assignments
-                  partners.py    per-partner data + class-based base stats
-  models/       In-memory dataclasses (MemoryFragment + the math helpers
-                that compute GS and Potential).
-  optimizer/    optimizer.py  snapshot-to-CharacterInfo pipeline, run
-                              context, and dispatch between the
-                              sequential and parallel paths
-                core.py       pure per-combo math: build stats, the
-                              layered Final ATK/DEF/HP formula, scoring
-                              and the deterministic result sort
-                parallel.py   the persistent multiprocessing pool
-  ui/           context.py (AppContext shared between tabs) + tabs/
-                (one file per visible tab in the application).
+Owns the Tk root, the notebook, the single-instance lock and the
+`AppContext`, and instantiates the four settings managers before any tab
+is built.
 
 Where to look when changing X
 -----------------------------
@@ -74,36 +16,35 @@ Where to look when changing X
   Live inventory updates             capture/manager.py (addon template)
   Inventory display / filtering      ui/tabs/inventory_tab.py
   Per-character preset assignment    ui/tabs/heroes_tab.py
+  Settings reconciliation            defaults_sync.py
 
-Data flow (one user action -> displayed result)
------------------------------------------------
+Data flow, one user action to a displayed result
+------------------------------------------------
   in-game action (e.g. equip a Fragment)
     -> mitmproxy intercepts the WebSocket message
-    -> capture/manager.py addon parses + updates piece_items
+    -> capture/manager.py addon parses and updates piece_items
     -> _save_data() writes memory_fragments_*.json
-    -> user clicks Refresh in the app (or it auto-detects)
-    -> optimizer reads the JSON, builds character_info
+    -> the app reloads (auto-detected, or Refresh)
+    -> optimizer reads the JSON and builds character_info
     -> tabs read character_info via AppContext
-    -> render
 
 Conventions
 -----------
-  - Stat names use the display strings ("Flat ATK", "ATK%", "CRate", ...)
-    everywhere user-facing. Raw enum keys ("S_ATK_INC_ADD_OUT") appear
-    only at the data-parsing boundary in models/.
-  - Anything in /settings/*.json is user-modifiable and reread on
-    startup; bundled defaults live in /default_settings/ (tracked) and
-    are merged into /settings/ by defaults_sync. Any file outside those
-    two trees is hardcoded data.
-  - capture/manager.py is the ONLY file with strict ASCII requirements
-    (Windows cp932 codec can't write Unicode). All other source files
-    use Python's default UTF-8 encoding and can contain anything.
+- **Stat names use the display strings** ("Flat ATK", "ATK%", "CRate")
+  everywhere user-facing. Raw enum keys ("S_ATK_INC_ADD_OUT") appear
+  only at the data-parsing boundary in `models/`.
+- Anything in `settings/` is user state, reread on startup; bundled
+  defaults are in `default_settings/` and merged in by `defaults_sync`.
+  Files outside those two trees are hardcoded data.
 
 Single-instance lock
 --------------------
-main() binds a localhost socket on port 53117 (IANA dynamic range) as
-the cheapest cross-platform single-instance check. Hold the returned
-socket in a module-level reference; releasing it frees the lock.
+`main()` binds a localhost socket on port 53117 as the cheapest
+cross-platform single-instance check. **Hold the returned socket in a
+module-level reference** — releasing it frees the lock.
+
+Startup ordering, threading and the anti-flicker machinery are in
+`docs/ui_runtime.md`.
 """
 
 import json
@@ -730,8 +671,8 @@ class OptimizerGUI:
         self.log_presets_manager.ensure_ids(str(rid) for rid in CHARACTERS.keys())
         # Fold any legacy config.json into settings.json and materialise
         # the canonical key order (SettingsManager.LAYOUT). Both historical
-        # locations are offered, settings/ first since that's the one
-        # config.json was migrated to previously.
+        # locations are offered, settings/ first: that is where
+        # config.json lands.
         try:
             from pathlib import Path as _Path
             _base = _Path(program_dir)

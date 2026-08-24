@@ -1763,9 +1763,9 @@ class OptimizerTab(BaseTab):
         # every current one has a widget. Measurement uses each widget's
         # REAL requested width -- valid as soon as the widget exists -- so
         # there's no font-metric estimate to undershoot and no second
-        # correction pass (the old estimate ran a few px small per name,
-        # which is why justification had to re-measure and could still clip
-        # the last name in a row).
+        # correction pass: a font-metric estimate runs a few px small per
+        # name, which forces justification to re-measure and can still clip
+        # the last name in a row.
         for gone in [h for h in self._exclude_widgets
                      if h not in self._exclude_heroes]:
             self._exclude_widgets.pop(gone).destroy()

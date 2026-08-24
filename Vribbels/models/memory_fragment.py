@@ -1,111 +1,92 @@
-"""
-Memory Fragment data model for CZN.
+"""Memory Fragment data model, Gear Score and Potential.
 
-A Memory Fragment is an equippable piece of gear -- the game's analogue
-of a relic / artifact in similar gacha games. Each character can equip
-one Fragment per slot, slots 1-6. This module defines the in-memory
-representation plus the Gear Score (GS) and Potential calculations that
-drive the optimizer and the UI.
+A Memory Fragment is equippable gear, one per slot, slots 1-6. This
+module holds the in-memory representation plus the GS and Potential
+maths the optimizer and UI run on.
 
-What lives on a Fragment
-========================
-- slot_num (1-6, see EQUIPMENT_SLOTS in constants.py)
-- set_id  + set_name (e.g. "Spark of Passion" -- 4-piece set)
-- rarity_num (1=Normal ... 4=Legendary)
-- level (current upgrade level; 0 to the rarity's cap -- Legendary 5,
-  Rare 4, Uncommon 3)
-- main_stat  (Stat instance; type determined by slot, value by level)
-- substats   (list of SubstatRoll; up to 4)
-- equipped_to (character name, or None if unequipped)
-- gear_score / potential_low / potential_high (cached; see below)
+Fields: `slot_num` (1-6, see `EQUIPMENT_SLOTS`), `set_id` / `set_name`,
+`rarity_num` (1=Normal … 4=Legendary), `level` (0 to the rarity's cap),
+`main_stat`, `substats` (up to 4), `equipped_to`, and the cached
+`gear_score` / `potential_low` / `potential_high`.
 
-GS and Potential -- the conceptual story
-========================================
-We want one comparable number per Fragment that says "is this good?"
-for a given build (preset of stat weights). Raw approach is straightforward
-(weighted sum of substat rolls); the subtlety is making it COMPARABLE.
+Gear Score
+==========
 
-  Raw score:
-      For each substat, take (value / max_value) * weight * 10. That's
-      the substat's "fraction of its maximum potential" times the user's
-      weighting times a scaling factor.
-  Normalization (per-fragment, Philosophy B):
-      Two presets with very different weights would produce raw scores
-      with very different magnitudes (one preset's "great" could be
-      another's "mediocre" numerically). To make scores comparable across
-      presets, we map every raw score onto [0, 100]:
+One comparable number per fragment per preset. The raw score is a
+weighted sum of substat rolls: `(value / max_value) * weight * 10`
+each — the roll's fraction of its own maximum, times the user's weight.
 
-         normalize_gs(raw, bounds) = (raw - min_raw) / (max_raw - min_raw) * 100
+The subtlety is making raw scores COMPARABLE ACROSS PRESETS, since two
+presets with different weights produce different magnitudes. So every
+raw score is mapped onto 0-100:
 
-      where (min_raw, max_raw) is the theoretical floor / ceiling of raw
-      scores under THIS preset's weights AS THIS FRAGMENT CAN ACTUALLY
-      ACHIEVE THEM. The fragment's main stat is excluded from the bounds
-      calculation because a fragment cannot have its main stat appear
-      as a substat -- so an MF whose main happens to be a top-4 weighted
-      stat would otherwise cap below 100 even with perfectly-rolled
-      substats. compute_gs_bounds() takes an `exclude_stat` parameter and
-      bounds_for_fragment() is the convenience wrapper that passes the
-      fragment's main stat name.
+    normalize_gs(raw, bounds) = (raw - min_raw) / (max_raw - min_raw) * 100
 
-      Practical consequences:
-        - Every fragment can in theory reach 100 with perfect substat
-          rolls relative to its main-stat constraint.
-        - Two fragments with the same substats but different main stats
-          can score differently: the one whose main stat is more
-          high-weighted under the preset gets a HIGHER score, because
-          its bounds ceiling is lower (one fewer high-weight stat
-          available in the substat pool), so the same raw value
-          normalizes higher. This correctly reflects the build value of
-          the main stat (which GS itself doesn't measure).
-        - 3-star Rare fragments still cap below 100 because they have
-          fewer upgrade rolls than the 4-star ceiling assumes -- the
-          bounds use _MAX_UPGRADES_FOR_BOUNDS (= 4-star count).
+`(min_raw, max_raw)` is the theoretical floor and ceiling under THIS
+preset's weights AS THIS FRAGMENT CAN REACH THEM. **The fragment's main
+stat is excluded from the bounds** — a fragment cannot roll its own main
+as a substat, so without the exclusion a fragment whose main is a
+top-weighted stat could never reach 100 even with perfect rolls.
+`compute_gs_bounds(exclude_stat=...)`; `bounds_for_fragment` is the
+wrapper that passes the main stat's name.
+
+Consequences worth knowing:
+
+- Every fragment can in theory reach 100, relative to its own main-stat
+  constraint.
+- **Two fragments with identical substats but different mains score
+  differently.** The one whose main is more highly weighted scores
+  HIGHER, because excluding it lowers the bounds ceiling and the same
+  raw value normalizes higher. That correctly reflects the build value
+  of the main stat, which GS itself does not measure.
+- Rare fragments cap below 100: they have fewer upgrade rolls than the
+  bounds assume (`_MAX_UPGRADES_FOR_BOUNDS` is the Legendary count).
 
 Potential (low, high)
 =====================
-Tells the user "what's the range this Fragment can still reach with
-remaining upgrades". Each level-up adds a single roll, value chosen
-from the per-stat min/max range:
 
-  - Best per upgrade: the upgrade lands on the highest-weighted substat,
-    rolling at max_value. Contribution = 10 * best_weight.
-  - Worst per upgrade: the upgrade lands on the lowest-(ratio_min*weight)
-    substat, rolling at min_value. Contribution = 10 * ratio_min * weight.
+The range a fragment can still reach with its remaining upgrades.
+`remaining_upgrades` = the rarity's max level minus the current level,
+and each level-up contributes exactly one roll — creating the next
+substat while the fragment has fewer than four, otherwise landing on an
+existing one.
 
-remaining_upgrades = the rarity's max level minus the fragment's current
-level. Each level-up contributes exactly one roll: it creates the next
-substat while the fragment has fewer than four, otherwise it lands on an
-existing one. Both extremes are normalized through the same
-(main-stat-excluding) bounds so they're on the 0-100 scale.
+- **Best per upgrade:** lands on the highest-weighted substat at
+  `max_value` → `10 * best_weight`.
+- **Worst per upgrade:** lands on the lowest `ratio_min * weight`
+  substat at `min_value` → `10 * ratio_min * weight`.
 
-When low == high (no remaining upgrades), the Fragment is at max level
-and Potential is undefined as a range -- callers display "-" in that case.
+Both extremes normalize through the same main-stat-excluding bounds.
+When `low == high` there are no upgrades left and Potential is undefined
+as a range — callers display `-`.
 
-Why bounds matter for elementals
-================================
-STATS in constants.py includes both rollable substats (Flat ATK, ATK%,
-CRate, ...) and main-stat-only entries (Passion DMG%, Order DMG%, ...).
-The latter have min_roll/max_roll set to 0 as a sentinel -- they cannot
-roll as substats. Every iteration over STATS that builds GS or Potential
-data must skip max_roll <= 0 to avoid polluting the bounds calculation.
-This is enforced in _raw_substat_score, compute_gs_bounds, and the
-candidate-pool loop in compute_fragment_potential. (Same skip is what
-lets fragments WITH elemental main stats reach 100: the elemental main
-is already excluded from the substat pool by the max_roll filter, so the
-per-fragment exclude_stat=main_name is a no-op for them.)
+Elemental stats and the max_roll sentinel
+=========================================
+
+`STATS` holds both rollable substats and main-stat-only entries (Passion
+DMG%, Order DMG%, …). The latter carry `min_roll`/`max_roll` of 0 as a
+sentinel: they cannot roll as substats. **Every iteration over `STATS`
+that builds GS or Potential data must skip `max_roll <= 0`** or it
+pollutes the bounds. Enforced in `_raw_substat_score`,
+`compute_gs_bounds`, and the candidate-pool loop in
+`compute_fragment_potential`.
+
+That skip is also what lets fragments with elemental mains reach 100:
+the elemental main is already out of the substat pool, so
+`exclude_stat=main_name` is a no-op for them.
 
 Module-level helpers vs methods
 ===============================
-The numerical core (_raw_substat_score, compute_gs_bounds, normalize_gs,
-compute_fragment_potential) is module-level and pure: same inputs always
-produce the same outputs and no state on the Fragment is mutated. The
-MemoryFragment methods calculate_base_score / calculate_potential just
-delegate to the pure helpers and store the result for later display.
 
-This split exists because per-fragment-per-preset loops (the Highest GS
-and Highest Potential columns in the Inventory tab) need to score the
-same Fragment under many presets back-to-back without clobbering its
-display values, which reflect the globally-Apply'd preset's weights.
+The numerical core (`_raw_substat_score`, `compute_gs_bounds`,
+`normalize_gs`, `compute_fragment_potential`) is module-level and pure.
+`MemoryFragment.calculate_base_score` / `calculate_potential` delegate to
+it and cache the result for display.
+
+The split exists because the Memory Fragments tab's Highest GS and
+Highest Potential columns score one fragment under many presets
+back-to-back, and must not clobber the display values, which reflect the
+globally applied preset.
 """
 
 from dataclasses import dataclass, field

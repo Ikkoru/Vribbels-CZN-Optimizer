@@ -1,44 +1,42 @@
-"""
-Memory Fragment set definitions for CZN.
-Contains set bonus information and derived lists.
+"""Memory Fragment set definitions.
 
 Entry shape
 ===========
+::
+
     SETS[set_id] = {
       "name":     "Black Wing",
-      "pieces":   2,               # 2 or 4 -- pieces needed to complete
+      "pieces":   2,               # 2 or 4, pieces needed to complete
       "bonus":    "+12% Attack",   # description text, shown in the UI
       "type":     "unconditional", # or "conditional"
-      "stat":     "ATK%",          # see the vocabulary table below
+      "stat":     "ATK%",          # see the vocabulary below
       "value":    12,              # magnitude, in that stat's own units
-      "elements": ["Void"],        # optional; the card elements the
-                                   # bonus text names. Cosmetic -- the
-                                   # Set Configuration rows colour
-                                   # themselves by it; no formula reads it.
+      "elements": ["Void"],        # optional, cosmetic: the Set
+                                   # Configuration rows colour by it.
+                                   # No formula reads it.
     }
 
-`type` field semantics (see docs/game_formulas.md §5 for full treatment):
-  - "unconditional": the bonus is always active when the set is
-    complete. The `stat` and `value` fields tell the optimizer where
-    to add the bonus -- typically into a Final stat (ATK%, DEF%, HP%,
-    Crit DMG, Crit Rate).
-  - "conditional": the bonus only triggers under specific in-game
-    conditions described by `bonus`. The optimizer can't evaluate the
-    condition, so it applies the bonus weighted by that set's own
-    effect share (the per-set Effect % spinbox in Set Configuration,
-    stored per combatant; absent = 0 = the bonus contributes nothing,
-    though the set still counts for set-locking).
+- **`unconditional`** — always active once the set is complete. `stat`
+  and `value` say where to add the bonus, typically a Final stat.
+- **`conditional`** — triggers only under the in-game condition
+  described by `bonus`. The optimizer cannot evaluate that, so it
+  applies the bonus weighted by the set's own effect share (the Effect %
+  spinbox in Set Configuration, per combatant; absent = 0 = contributes
+  nothing, though the set still counts for set-locking).
 
-Stat-name vocabulary for the "stat" field
-=========================================
-The optimizer consumes ONLY the exact strings below (mapping table:
-`SET_STAT_NAME_MAP` in optimizer/core.py). Any other value is silently
-ignored -- no error, no effect -- so a typo costs the set its bonus
-while leaving it working for set-locking, which is easy to miss.
+Full treatment: `docs/game_formulas.md` §5.
 
-Note these names match neither the program's internal vocabulary nor
-partners.py: the two crit stats are spelled "Crit DMG" / "Crit Rate"
-here and "CDmg" / "CRate" everywhere else.
+Stat-name vocabulary
+====================
+
+**The optimizer consumes ONLY the exact strings below** (mapping:
+`SET_STAT_NAME_MAP` in `optimizer/core.py`). Any other value is silently
+ignored — no error, no effect — so a typo costs the set its bonus while
+leaving set-locking working, which is easy to miss.
+
+These names match neither the program's internal vocabulary nor
+`partners.py`: the crit stats are `Crit DMG` / `Crit Rate` here and
+`CDmg` / `CRate` everywhere else.
 
     In-game stat        "stat" value   Internal   Where it lands
     -----------------   ------------   --------   --------------------
@@ -50,18 +48,16 @@ here and "CDmg" / "CRate" everywhere else.
     Damage, multiplied  "DMG multi"    --         Multiplicative_Buffs in the DAMAGE card multiplier
     Damage, added       "DMG add"      --         Additive_Buffs in the DAMAGE card multiplier
 
-Two things to know about "DMG multi" / "DMG add": they have no
-Final-stat equivalent, so they're absent from SET_STAT_NAME_MAP and
-never reach the stat sheet; and they only work on CONDITIONAL sets --
-the score's card-multiplier walk skips unconditional ones, so an
-unconditional set carrying either name contributes nothing at all.
-Neither touches the shield/heal side (buffs don't apply to shields or
-heals).
+**`DMG multi` / `DMG add` have no Final-stat equivalent**, so they are
+absent from `SET_STAT_NAME_MAP` and never reach the stat sheet; and they
+work on CONDITIONAL sets only — the card-multiplier walk skips
+unconditional ones, so an unconditional set carrying either name
+contributes nothing at all. Neither touches the shield/heal side.
 
-There is deliberately NO spelling for Extra DMG%, DoT%, Ego, or a flat
-ATK/DEF/HP bonus: no set grants one today, and the routing in
-`core.compute_build_stats` has no bucket for them. A set needing one
-means adding that bucket, not inventing a string here.
+There is deliberately **no spelling for Extra DMG%, DoT%, Ego or a flat
+ATK/DEF/HP bonus**: no set grants one, and `core.compute_build_stats`
+has no bucket for them. A set needing one means adding that bucket, not
+inventing a string here.
 """
 
 # Set definitions

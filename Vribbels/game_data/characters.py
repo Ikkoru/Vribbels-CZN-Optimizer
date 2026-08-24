@@ -1,69 +1,58 @@
-"""
-Character data and related functions for CZN.
-
-Module structure
-================
+"""Character data.
 
 CHARACTERS
-----------
-The big one. Maps in-game character res_id (int) to a dict describing
-the character's static properties:
+==========
+
+res_id (int) → static properties::
+
     {
       "name":      "Amir",
       "grade":     5,                 # rarity / star count
-      "attribute": "Order",           # Passion / Order / Justice / Void / Instinct
+      "attribute": "Order",           # Passion/Order/Justice/Void/Instinct
       "class":     "Vanguard",        # one of constants.CLASSES
       "base_atk":  ..., "base_def": ..., "base_hp": ...,   # AT LEVEL 60
-      "potential_nodes": {...},       # see "Potential nodes" below
+      "potential_nodes": {...},
     }
 
-The base stats are observed at level 60 -- they are the canonical figures
-the optimizer uses. The optimizer DOES NOT scale these down for
-lower-level characters; characters below level 60 are treated as if they
-were at level 60 for stat-calculation purposes. This is intentional per
-the project's design (game progression is the player's job; the optimizer
-exists to compare endgame builds).
+**Base stats are observed at level 60 and are never scaled down.** A
+character below 60 is treated as if at 60 for stat purposes — by design,
+since the optimizer exists to compare endgame builds.
 
 Potential nodes
----------------
-The potential tree has TEN nodes, which the wire numbers 10, 20, 30, 31,
-40, 50, 51, 52, 60, 70. Only `node_50` and `node_60` are stored here,
-because only those two raise a STAT -- the rest improve card effects or
-unlock a one-off, and the build score does not model them. Node 7 (`70`)
-can also move a stat, per character, and is not encoded yet. The full
-table, including which in-game node each wire number is, lives in
-`docs/game_formulas.md` §1 "The potential tree".
+===============
 
-POTENTIAL_STAT_VALUES gives the FIVE possible bonus magnitudes for the
-two stat nodes (each character gets a different magnitude per tier). The
-tuple positions are "tier 1 through tier 5"; a character with HP% tier 3
-at the level-50 node gets POTENTIAL_STAT_VALUES["HP%"][2] (zero-indexed)
-which is 4.8% HP. The five tiers are NOT character levels -- this is the
-single point of confusion most likely to trip future maintainers. Each
-character has a fixed tier per node from the data file, so the array
-index resolves a different question (which strength bracket) from the
-character's own level.
+The tree has TEN nodes, wire-numbered 10, 20, 30, 31, 40, 50, 51, 52,
+60, 70. **Only `node_50` and `node_60` are stored**, because only those
+two raise a STAT; the rest improve card effects or unlock a one-off, and
+the build score does not model them. Node 7 (`70`) can also move a stat,
+per character, and is not encoded yet. Full table, including which
+in-game node each wire number is: `docs/game_formulas.md` §1.
 
-Higher-level cap (61/62)
-------------------------
-Characters max at level 62 (promotion 5/5 grants +2 levels over the old
-60 cap). Level-61/62 stat gains are stored PER CHARACTER as optional
-`level_61_bonus` / `level_62_bonus` keys on the CHARACTERS entries
-(shape {"atk": +X, "def": +Y, "hp": +Z}, additive over the level-60
-base) because the gains differ across characters. The helper
-get_character_stats_at_level falls back to the level-60 values for any
-character without those keys, so missing data is a no-op.
+`POTENTIAL_STAT_VALUES` gives the FIVE bonus magnitudes for the two stat
+nodes. **The tuple positions are strength tiers, NOT character levels** —
+the single most likely point of confusion here. A character with HP%
+tier 3 at the level-50 node gets `POTENTIAL_STAT_VALUES["HP%"][2]`.
+Each character has a fixed tier per node from the data file.
 
-CHARACTERS_BY_NAME, DEFAULT_CHARACTER, helpers
-----------------------------------------------
-CHARACTERS_BY_NAME is the reverse index for name -> char_data lookups.
-DEFAULT_CHARACTER is the fallback for unknown res_ids (returned by
-get_character / get_character_by_name).
+Levels 61 and 62
+================
 
-ATTRIBUTE_COLORS is UI styling; it lives here only because the attribute
-strings are defined here — its keys are the canonical list of the five
-attributes, and the launch-time data check validates `attribute` against
-them.
+Promotion 5/5 grants +2 levels over the 60 cap, and the gains differ per
+character, so they are optional `level_61_bonus` / `level_62_bonus` keys
+of shape `{"atk": +X, "def": +Y, "hp": +Z}`, additive over the level-60
+base. `get_character_stats_at_level` falls back to the level-60 values
+when they are absent, so missing data is a no-op.
+
+Lookups
+=======
+
+`CHARACTERS_BY_NAME` is the reverse index. `DEFAULT_CHARACTER` is the
+fallback for unknown res_ids returned by `get_character` /
+`get_character_by_name`.
+
+`ATTRIBUTE_COLORS` is UI styling but lives here because its keys are the
+canonical list of the five attributes, and the launch-time data check
+validates `attribute` against them.
 """
 
 # Default character data for unknown characters

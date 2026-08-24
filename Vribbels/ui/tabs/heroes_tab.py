@@ -1,88 +1,56 @@
-"""
-Heroes/Combatants display tab.
+"""Combatants tab: sortable combatant list plus a gear detail pane.
 
-Provides sortable list of heroes with detailed gear display.
+Where to look when changing X
+=============================
 
+- **The row list** — `refresh_heroes()` rebuilds from
+  `optimizer.character_info`, applies the sort and restores the
+  selection.
+- **Whether a live update rebuilds this tab** — `display_signature()`,
+  taken either side of a snapshot reload and compared. **Extend it
+  whenever a new field reaches the rows or the detail pane**, or that
+  field goes stale in silence.
+- **Selection and keyboard** — the list is a `ttk.Treeview`, so
+  selection, Up/Down and scrolling are its own. `_on_tree_select` drives
+  the detail pane; `_on_hero_list_key` adds letter-jump. A row's iid is
+  its index into `hero_data_list`.
+- **Row colour** — one TAG per Element, set on the row. A Treeview
+  colours a ROW, never a cell, so the Element colour runs the full
+  width.
+- **The detail pane** — `show_hero_details()`: character card (ONE Text
+  widget holding details, the Sets line and the build-stat block),
+  partner card, equipped MFs frame.
+- **Equipped MF cells** — one Text widget each, drawn by
+  `_render_gear_cell`. Columns are the `toprow` / `subrow` tags' tab
+  stops (`GEAR_TAB_*`); colours are tags. Every widget in the pane
+  repaints on every selection, so one widget per cell rather than eleven
+  is what keeps moving through the list smooth.
+- **Build stats** — `HERO_STAT_ROWS` / `HERO_STAT_DISPLAY` set the two
+  columns, laid out on the Text widget's tab stops.
+  `_format_stats_text` builds the block, `_format_sets_text` the Sets
+  line. Both the display and `_compute_and_apply_fixed_sizes` read them,
+  so a new row is picked up by the sizing pass automatically.
+- **Per-piece GS** — `compute_fragment_gs()` with the PER-CHARACTER
+  preset's weights, not the globally applied ones. The list's GS column
+  does the same; **the two must agree.**
+- **Preset assignment** — `_get_assigned_preset` /
+  `_weights_for_preset` / `_refresh_preset_dropdown_values`.
+- **Set name colour** — counts equipped pieces of the same set against
+  the set's requirement: white if complete, dim grey if partial.
 
-Where to look when you want to change X
-=======================================
+Partner card has three states: known partner → full card; unknown res_id
+→ full card named "Unknown (res_id X)"; `partner_id` with no name →
+"Unknown partner (res_id X)" line; none → "None".
 
-  Hero row list (left side):       refresh_heroes() -- rebuilds from
-                                   self.optimizer.character_info, applies
-                                   the configured sort, restores the
-                                   previous selection from SettingsManager.
-  What counts as a change:         display_signature() -- the summary a
-                                   live capture update compares before and
-                                   after a reload to decide whether this
-                                   tab needs rebuilding at all. Extend it
-                                   whenever a new field reaches the rows
-                                   or the detail pane.
-  Row click / keyboard nav:        the list is a ttk.Treeview, so
-                                   selection, Up/Down and scrolling are
-                                   its own. _on_tree_select turns a
-                                   selection into a detail-pane refresh;
-                                   _on_hero_list_key adds letter-jump.
-                                   A row's iid is its index into
-                                   hero_data_list.
-  Row colour:                      one TAG per Element, set on the row.
-                                   A Treeview colours a ROW, never a
-                                   single cell, so the Element colour
-                                   covers the whole row rather than the
-                                   Attribute cell alone.
-  Detail panel (right side):       show_hero_details() -- character card
-                                   (ONE Text widget holding the details,
-                                   the Sets line and the build-stat
-                                   block), partner card, equipped MFs
-                                   frame.
-  Equipped MF cells:               one Text widget each, drawn by
-                                   _render_gear_cell. Columns are the
-                                   `toprow` / `subrow` tags' tab stops
-                                   (GEAR_TAB_*), colours are tags, and
-                                   `rarity` is re-coloured per fragment.
-                                   Every widget in the pane repaints on
-                                   every selection, so the cell holding
-                                   one widget rather than eleven is what
-                                   keeps moving through the list smooth.
-  Build stats under Character:     HERO_STAT_ROWS / HERO_STAT_DISPLAY set
-                                   the two columns, laid out on the Text
-                                   widget's tab stops; _format_stats_text
-                                   builds the block, _format_sets_text the
-                                   Sets line. Both the display and
-                                   _compute_and_apply_fixed_sizes read
-                                   them, so a new row is picked up by the
-                                   sizing pass automatically.
-  Per-piece GS in detail panel:    uses compute_fragment_gs() with the
-                                   per-character preset's weights, NOT
-                                   the globally-Apply'd weights. The
-                                   character-list GS column does the same;
-                                   they must agree.
-  Per-character preset assignment: _get_assigned_preset / _weights_for_preset
-                                   / _refresh_preset_dropdown_values. The
-                                   dropdown uses DEFAULT_PRESET_LABEL as
-                                   a sentinel meaning "no assignment ->
-                                   fall back to global weights" (which
-                                   themselves come from scoring_tab's
-                                   apply_active_weights -> preset_manager).
-  Partner card (3 states):         show_hero_details's partner section.
-                                   Known partner -> full card; unknown
-                                   res_id -> full card with "Unknown
-                                   (res_id X)" as the name; partner_id
-                                   with no name -> "Unknown partner
-                                   (res_id X)" line; no partner -> "None".
-  Set name color:                  Combatants > Equipped MFs frame. Counts
-                                   actual equipped pieces of the same set
-                                   and compares to the set's pieces
-                                   requirement -- white if complete, dim
-                                   grey if partial.
+Conventions
+===========
 
-Cross-file conventions
-======================
-- hero_data_list entries carry name + display fields + res_id + exp.
-  res_id/exp come from CharacterInfo (the optimizer's per-hero data) and
-  are needed by the right-click level-checkpoint flow.
-- DEFAULT_PRESET_LABEL is a UI string only -- never persisted. The
-  CharacterPresetManager stores None for "use default", and we translate
-  to/from the label string at the dropdown boundary.
+- `hero_data_list` entries carry name, display fields, `res_id` and
+  `exp`. The last two come from `CharacterInfo` and drive the
+  right-click level-checkpoint flow.
+- **`DEFAULT_PRESET_LABEL` is a UI string only, never persisted.**
+  `CharacterPresetManager` stores `None` for "use default"; the
+  translation happens at the dropdown boundary.
 """
 
 import time
@@ -521,9 +489,8 @@ class HeroesTab(BaseTab):
         # and keyboard navigation all come with it.
         #
         # The cost is that a Treeview colours a ROW, never a single cell:
-        # a tag's foreground covers the whole row. So the Element colour
-        # that used to sit on the Attribute cell alone now runs across the
-        # row -- which is the trade that bought the speed.
+        # a tag's foreground covers the whole row, so the Element colour
+        # runs the full width rather than sitting on the Attribute cell.
         hero_tree_frame = ttk.Frame(hero_list_container)
         hero_tree_frame.pack(fill=tk.BOTH, expand=True)
 

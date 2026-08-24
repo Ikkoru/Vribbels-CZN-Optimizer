@@ -1,80 +1,53 @@
-"""
-Optimization engine for CZN Memory Fragment gear builds.
+"""Optimization engine: snapshot to CharacterInfo, run context, dispatch.
 
-This module is the link between captured game data (the snapshot JSON)
-and the rest of the program. It iterates the captured characters,
-resolves their relationships (partner, equipped pieces, presets), and
-computes the derived stats that the UI displays.
+The link between captured game data and the rest of the program. It
+iterates the captured characters, resolves their relationships (partner,
+equipped pieces, presets) and computes the derived stats the UI shows.
 
-Pipeline (one call to refresh / load):
-   parse snapshot -> build character_info -> calculate_build_stats
+    parse snapshot -> build character_info -> calculate_build_stats
 
-character_info is a name-keyed dict of CharacterInfo objects, each
-carrying everything the UI needs to render that character's row plus
-the equipped-gear detail panel.
+`character_info` is name-keyed `CharacterInfo` objects, each carrying
+what the UI needs for that character's row and its gear detail pane.
 
-The damage formula (Final ATK / Final DEF / Final HP)
-=====================================================
+**`docs/game_formulas.md` is canonical** for damage, shield/heal, set
+effects, main stat values and scoring. When in-game math disagrees with
+this module, fix that doc FIRST, then propagate here.
 
->>> For the FULL game formula reference (damage, shield/heal, set
->>> effects, main stat values, endgame benchmarks, scoring), see
->>> docs/game_formulas.md at the project root. That file is the
->>> canonical source -- whenever the in-game math disagrees with what
->>> this module computes, FIX docs/game_formulas.md FIRST and then
->>> propagate the change into the code.
+The layered Final ATK/DEF/HP formula
+====================================
 
-The optimizer's `calculate_build_stats` (below) implements only the
-Final ATK/DEF/HP layered formula, which is one piece of the larger
-picture. The damage and shield/heal scoring formulas are layered on
-top of this baseline.
-
-The optimizer uses a LAYERED formula that distinguishes "inner" sources
-(base stat, partner flat, MF%, potential% nodes, gear flat, affection
-flat) from "outer" multipliers (partner %, equipment %, equipment flat):
+`calculate_build_stats` implements this one piece; damage and
+shield/heal scoring layer on top of it. The split between "inner"
+sources and "outer" multipliers is what stops percentage bonuses being
+credited on top of percentage bonuses::
 
     inner = (base_stat + partner_flat) * (1 + MF% + potential_node%)
             + gear_flat
-            + affection_flat
+            + affinity_flat
     Final = inner * (1 + partner_pct + equipment_pct)
             + equipment_flat
 
-Where each piece comes from:
+Where each term comes from:
 
-  base_stat       Character's level-60 stat from CHARACTERS dict. (The
-                  optimizer treats every character as level >=60 for
-                  stat purposes regardless of actual level.)
-  partner_flat    Flat ATK/DEF/HP bonus from the equipped partner
-                  card's class-based stat table (PARTNER_CLASS_STATS).
-  MF%             Substats and main-stat %-type values from all 6
-                  Memory Fragments combined.
-  potential_node% Percentage bonuses from the character's level-50 and
-                  level-60 potential nodes -- the only two the program
-                  models. Flat bonuses from nodes 10/20/30 don't go
-                  here; they're inside the gear_flat layer below.
-  gear_flat       Flat ATK/DEF/HP bonuses: nodes 10/20/30 + the flat
-                  main stat / substat values from equipped pieces.
-  affection_flat  Cumulative ATK/DEF/HP from the partner's affection
-                  (formerly "friendship") rewards table.
-  partner_pct     Partner passive bonuses expressed as %.
-  equipment_pct   Outer-layer % multipliers from equipment (rare;
-                  most builds have 0 here).
-  equipment_flat  Outer-layer flat bonuses from equipment (the
-                  EQUIPMENT_FLAT_* constants).
+  base_stat        Level-60 stat from `CHARACTERS`. The optimizer treats
+                   every character as level >=60 for stat purposes.
+  partner_flat     Class-based flat ATK/DEF/HP (`PARTNER_CLASS_STATS`).
+  MF%              Substat and main-stat % values across all 6 fragments.
+  potential_node%  Nodes 50 and 60 — the only two the program models.
+  gear_flat        Flat ATK/DEF/HP: nodes 10/20/30 plus flat main and
+                   substat values from equipped pieces.
+  affinity_flat    Cumulative ATK/DEF/HP from the Affinity rewards table.
+  partner_pct      Partner passive bonuses as %.
+  equipment_pct    Outer-layer % from equipment (usually 0).
+  equipment_flat   Outer-layer flat from equipment (`EQUIPMENT_FLAT_*`).
 
-Why layered? Because in-game tooltips reveal that some bonuses scale
-the inner total (the "main" stat box including its substats) while
-others sit outside it. Treating everything as a single big sum would
-over-credit percentage bonuses on top of percentage bonuses; the
-layered form matches the in-game math closely enough to compare builds
-reliably.
+Deliberately not computed
+=========================
 
-Heuristic stats
-===============
-Derived stats like EHP, Avg DMG, Max CD, and a Bruiser score are
-deliberately NOT computed: they varied unpredictably between game
-versions and weren't actionable. The Final ATK/DEF/HP plus GS columns
-carry the comparison work; build-quality judgment lives in the user's
-preset weights, which is where it belongs.
+EHP, Avg DMG, Max CD and a Bruiser score. They varied unpredictably
+between game versions and were not actionable. Final ATK/DEF/HP plus the
+GS columns carry the comparison; build-quality judgement lives in the
+user's preset weights.
 """
 
 import json

@@ -1,82 +1,74 @@
-"""
-OptimizerSettingsManager - Per-character optimizer settings persistence.
+"""Per-character Optimizer-tab settings persistence.
 
-The Optimizer tab needs to remember each character's individual configuration
-between launches (Important Settings sliders, Have at Least minimums, selected
-sets, set-effect %, Average Buff fields, etc). This manager owns that state.
+Owns `settings/optimizer_settings.json`: each character's Important
+Settings sliders, Have at Least minimums, selected sets, set-effect
+shares and Average Buff fields. Runtime reconciliation with shipped
+defaults is `docs/settings_architecture.md`.
 
 Design choices
 ==============
-- **File**: settings/optimizer_settings.json, alongside the other manager files.
-- **Key by res_id, not name.** Character names can change in the game data, so
-  we key per-character entries by `str(res_id)`. A `name_hint` field is stored
-  alongside each entry purely for human readability when inspecting the file;
-  the manager doesn't trust or use it for lookups.
+
+- **Keyed by `str(res_id)`, not name.** Names change in the game data.
+  `name_hint` is stored alongside for readability only and is never used
+  for lookup.
 - **Bootstrap on every load.** `bootstrap_known_characters()` walks
-  `CHARACTERS` (the game's master table from characters.py) and adds an entry
-  for every res_id that's not already present, using DEFAULT_CHARACTER_SETTINGS.
-  This means new characters added to the game (or to characters.py) get their
-  optimizer settings auto-initialized the next time the program starts.
-- **Stale entries kept.** When a res_id disappears from CHARACTERS (rare:
-  game removes a character, or characters.py is edited downward) we DON'T
-  prune the corresponding entry. Cheap defensive choice -- if it comes back
-  later, the user keeps their settings.
-- **Global vs per-character.** The "excluded gear chars" list is global (one
-  list of characters whose currently-equipped gear should be skipped when
-  the optimizer searches for candidate fragments, regardless of who you're
-  currently optimizing for). Everything else is per-character.
+  `CHARACTERS` and adds a `DEFAULT_CHARACTER_SETTINGS` entry for every
+  res_id not already present, so a newly added character is initialized
+  on the next start.
+- **Stale entries are kept**, never pruned. If a res_id leaves
+  `CHARACTERS` and later returns, the user keeps their settings.
+- **`excluded_gear_chars` is global** — one list of characters whose
+  equipped gear is skipped when searching for candidates, whoever you
+  are optimizing for. Everything else is per-character.
 
 File format (version 1)
 =======================
+::
+
     {
-        "version": 1,
-        "excluded_gear_chars": ["1004", "1009"],      # list of res_id strings
-        "excluded_default_initialized": true,         # first-run seeding of the two lists above/below has happened
-        "exclude_seen_rids": ["1004", "1009"],        # res_ids the exclude bootstrap has processed; absent = new = auto-excluded once
-        "optimize_level_seen": {"1017": 61},          # res_id -> highest level observed
-        "characters": {
-            "1017": {                                   # res_id (string key)
-                "name_hint": "Amir",                    # cosmetic; not used for lookup
-                "optimize_for_level": 60,               # 60 / 61 / 62; follows the character's own level upward
-                "extra_pct": 0,                         # 0-100, % of damage that's Extra DMG
-                "dot_pct": 0,                           # 0-100, % of damage that's Agony
-                "fracture_pct": 0,                      # 0-100, % of damage that's Fracture or Scorched
-                "atk_def_split": 0,                     # 0-100, % of damage scaling off DEF (0 = full ATK)
-                "shielding_healing_weight": 0,          # 0-100, blend toward shield/heal score
-                "force_main": {
-                    "slot4_hp": false,
-                    "slot5_hp": false,
-                    "slot6_hp": false,
-                    "slot6_ego": false
-                },
-                "have_at_least": {                      # hard constraints on FINAL stats
-                    "ATK": 0,    "DEF": 0,    "HP": 0,    "Ego": 0,
-                    "CRate": 0,  "CDmg": 0,
-                    "Extra DMG%": 0,    "DoT%": 0
-                },
-                "sets_selected": [9, 11, 18],           # set IDs eligible for this character
-                "max_flex_slots": 6,                    # 0-6, max non-set pieces in a build
-                "set_effect_pcts": {"9": 100},          # per-CONDITIONAL-set effect share, set_id -> 0-100 (absent = 0)
-                "avg_card_dmg_pct": 100,                # Base Multiplier approximation
-                "avg_mult_buff_pct": 0,                 # extra multiplicative buffs
-                "avg_add_buff_pct": 0,                  # extra additive buffs
-                "element_override": null                # used only when character.attribute == "Unknown"
-            }
+      "version": 1,
+      "excluded_gear_chars": ["1004", "1009"],   # res_id strings
+      "excluded_default_initialized": true,      # first-run seeding done
+      "exclude_seen_rids": ["1004", "1009"],     # absent = new = auto-excluded once
+      "optimize_level_seen": {"1017": 61},       # res_id -> highest level observed
+      "characters": {
+        "1017": {
+          "name_hint": "Amir",                   # cosmetic, not a lookup key
+          "optimize_for_level": 60,              # 60/61/62
+          "extra_pct": 0,                        # 0-100, share that is Extra DMG
+          "dot_pct": 0,                          # 0-100, share that is Agony
+          "fracture_pct": 0,                     # 0-100, share that is Fracture/Scorched
+          "atk_def_split": 0,                    # 0-100, share scaling off DEF
+          "shielding_healing_weight": 0,         # 0-100, blend toward shield/heal
+          "force_main": {"slot4_hp": false, "slot5_hp": false,
+                         "slot6_hp": false, "slot6_ego": false},
+          "have_at_least": {"ATK": 0, "DEF": 0, "HP": 0, "Ego": 0,
+                            "CRate": 0, "CDmg": 0,
+                            "Extra DMG%": 0, "DoT%": 0},
+          "sets_selected": [9, 11, 18],          # set IDs eligible
+          "max_flex_slots": 6,                   # 0-6 non-set pieces
+          "set_effect_pcts": {"9": 100},         # CONDITIONAL sets only, absent = 0
+          "avg_card_dmg_pct": 100,               # Base Multiplier approximation
+          "avg_mult_buff_pct": 0,
+          "avg_add_buff_pct": 0,
+          "element_override": null               # only when attribute == "Unknown"
         }
+      }
     }
 
-The "Have at Least" thresholds are compared against FINAL stat values --
-the same numbers the Combatants tab displays. Builds that fail any of them
-are excluded from optimizer results.
+**Have at Least is NOT compared against the displayed Final stats.** The
+comparison values mirror the in-game Potential 7 checks: ATK/DEF/HP
+against the build's INNER value, CRate/CDmg and the rest against the
+final value minus partner passives and conditional set contributions.
+Canonical: `docs/game_formulas.md` §8. Builds failing any minimum are
+dropped from results.
 
-`optimize_for_level` defaults to 60 so the Optimizer tab's numbers match
-the in-game stat sheet out of the box. The top-level `optimize_level_seen`
-map records the highest level each character has been observed at; when a
-character is levelled past what was last seen, the Optimizer tab raises
-their `optimize_for_level` to match, ONCE per level. Tracking the observed
-level separately is what makes that a one-time bump rather than an
-override: a user who deliberately sets a lower level keeps it across every
-subsequent load. See `OptimizerTab._sync_optimize_level`.
+`optimize_for_level` defaults to 60 so the tab's numbers match the
+in-game stat sheet out of the box. `optimize_level_seen` records the
+highest level each character has been observed at, which is what makes a
+level-up raise `optimize_for_level` ONCE rather than overriding a
+deliberate lower choice on every load. See
+`OptimizerTab._sync_optimize_level`.
 """
 
 import json

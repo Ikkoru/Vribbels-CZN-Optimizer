@@ -1,110 +1,87 @@
-"""
-Partner card data and related functions for CZN.
+"""Partner card data.
 
-Partners are the secondary equippable units that pair with characters --
-analogous to relic-set or weapon-companion mechanics in similar games.
-Each character can equip one partner card. Partners contribute three
-things to a build:
+Each character equips one partner card, which contributes:
 
-  1. Flat ATK/DEF/HP added before the inner-layer multipliers in the
-     optimizer's damage formula. Scales LINEARLY with partner level.
-  2. Unconditional passive stat bonuses (% scaling) that vary with the
-     partner's limit-break (E0 through E4) level. Some partners give
-     CRate, others Extra DMG%, etc. See get_partner_passive_stats.
-  3. A named passive ability whose effect text scales with limit-break.
-     This is descriptive only -- not factored into stat math directly.
-
-Module structure
-================
+1. **Flat ATK/DEF/HP**, added before the inner-layer multipliers. Scales
+   LINEARLY with partner level.
+2. **Passive stat bonuses** (%), varying with limit break (E0-E4). See
+   `get_partner_passive_stats`.
+3. A named passive ability whose effect text scales with limit break —
+   descriptive only, not in the stat math.
 
 PARTNERS
---------
-Maps res_id (int) to a partner data dict:
+========
+
+res_id (int) → data dict::
+
     {
       "name":         "Alyssa",
       "grade":        4,                  # rarity / star count
       "class":        "Controller",       # determines base stat scaling
       "passive_name": "Alchemical Fruits",
       "passive_desc": "...{DEF%}% ...",   # templated effect text
-      "values":       {...},              # template-substitution values
-      "stats":        {"DEF%": (12, 15, 18, 21, 24)},  # E0..E4 tiers
-      "stats_conditional": {...},  # optional; same shape/vocabulary as
-                                   # "stats" -- see the conditional-
-                                   # effects section below
+      "values":       {...},              # template substitutions
+      "stats":        {"DEF%": (12, 15, 18, 21, 24)},   # E0..E4
+      "stats_conditional": {...},         # optional, same shape
     }
 
 PARTNER_CLASS_STATS
--------------------
-Maps (grade, class) tuples to base ATK/DEF/HP at level 60:
-    PARTNER_CLASS_STATS[(4, "Controller")] = {"atk": 92, "def": 9, "hp": 96}
+===================
 
-Partners share base-stat profiles by grade+class because the game
-ensures balance at that granularity -- two 4-star Controllers have the
-same level-60 stats regardless of which character they are. This is
-verified empirically against snapshot data.
+`(grade, class)` → base ATK/DEF/HP at level 60. Partners share base-stat
+profiles at that granularity — two 4-star Controllers have the same
+level-60 stats regardless of which they are. Verified against snapshot
+data.
 
-Level scaling
--------------
-get_partner_stats(res_id, level) returns the partner's effective ATK/
-DEF/HP at the given level. Scaling is LINEAR from level 0 (zero) to
-level 60 (base). This matches the in-game progression closely enough
-for build comparison; the game may use a slightly different curve
-internally but the linear approximation is well within rounding error
-at the levels that matter (50+).
+`get_partner_stats(res_id, level)` scales LINEARLY from 0 at level 0 to
+base at level 60. The game may use a slightly different curve, but the
+approximation is within rounding error at the levels that matter (50+).
 
-Passive scaling with limit-break
---------------------------------
-get_partner_passive_stats reads the partner's "stats" dict (a tuple of
-five values, one per E0/E1/E2/E3/E4) and returns the appropriate value
-for the given limit_break index (pass conditional=True to read the
-"stats_conditional" field instead). The consumed % values for ATK/DEF/HP
-feed the OUTER multiplier of the optimizer's ATK/DEF/HP formula;
-CRate / CDmg / Extra DMG% / DoT% / Ego are flat additions (see
-PARTNER_STAT_NAMES).
+`get_partner_passive_stats` reads the five-tuple in `stats` by limit
+break index (`conditional=True` reads `stats_conditional` instead).
+ATK/DEF/HP % feed the OUTER multiplier; CRate / CDmg / Extra DMG% /
+DoT% / Ego are flat additions.
 
-Stat-name vocabulary for the "stats" field
-==========================================
-The optimizer consumes ONLY the exact keys listed in
-PARTNER_STAT_NAMES below (see the partner section of
-core.compute_build_stats). Any other key is silently ignored -- no
-error, no effect. That tuple carries a comment per stat saying where it
-lands in the formula, and it is what the launch-time data check
-validates against. Note that flat ATK/DEF/HP do NOT go here: they come
-from PARTNER_CLASS_STATS via grade+class automatically.
+Stat-name vocabulary
+====================
 
-Conditional partner effects -- the "stats_conditional" field
-=============================================================
-Effects that are conditional in-game (stacking buffs, triggered or
-situational bonuses) belong in "stats_conditional", NOT in "stats".
-Same shape and stat-name vocabulary as "stats"; encode each value at
-the magnitude the optimizer should assume (convention: max stacks --
-e.g. Aria's Swelling Melody CDmg at x4 stacks). Both dicts apply at
-full value to Final stats and the optimizer score. NEITHER dict counts
-toward the Have-at-least / Potential-7 comparison values: those
-minimums exist primarily (but not exclusively) to help meet the
-in-game Potential 7 stat requirements, and per in-game verification
-the Potential 7 checks ignore every Partner PASSIVE bonus,
-unconditional and conditional alike. (The Partner's flat class stats
--- PARTNER_CLASS_STATS, not passives -- DO count toward the Pot7
-ATK/DEF/HP values.) The conditional/unconditional split is kept
-anyway, in case a future consumer needs the distinction.
-Entries with no conditional stat effects simply omit the field.
+**The optimizer reads ONLY the exact keys in `PARTNER_STAT_NAMES`
+below.** Any other key is silently ignored — no error, no effect. That
+tuple carries a comment per stat saying where it lands, and is what the
+launch-time data check validates against.
 
-Entries whose passive_desc / ego_desc contain effects that increase any
-of those eight stats but are NOT (fully) reflected in the "stats" /
-"stats_conditional" dicts are marked with a `# this` comment on the
-passive_name / ego_name line
--- i.e. `# this` is an attention/TODO marker for uncaptured stat
-effects (conditional/stacking ones included; cf. Aria's Swelling Melody
-CDmg captured at max stacks). Entries whose stat-increasing effects are
-all captured in "stats" / "stats_conditional" carry no marker.
+Flat ATK/DEF/HP do NOT go here: they come from `PARTNER_CLASS_STATS` via
+grade+class automatically.
 
-Unknown partner handling
-========================
-get_partner returns a generic placeholder for unknown res_ids. The UI
-fall-back path in heroes_tab shows "Unknown partner (res_id X, instance
-Y)" when this fires; the user is expected to add the partner to the
-PARTNERS dict (and rerun) once they have its name.
+`stats_conditional`
+===================
+
+Effects that are conditional in-game — stacking, triggered or
+situational — go here rather than in `stats`. Same shape and vocabulary.
+**Encode each value at the magnitude the optimizer should assume**;
+convention is max stacks (e.g. Aria's Swelling Melody CDmg at x4).
+
+Both dicts apply at full value to Final stats and the score. **Neither
+counts toward the Have-at-least / Potential 7 comparison values** — the
+in-game Potential 7 checks ignore every Partner PASSIVE bonus,
+conditional or not. The Partner's flat class stats DO count there. The
+conditional/unconditional split is kept in case a future consumer needs
+it; entries with no conditional effects omit the field.
+
+Markers
+=======
+
+`# this` on a `passive_name` / `ego_name` line means the entry's effect
+text raises one of the eight stats but is not fully captured in `stats`
+/ `stats_conditional` — an attention marker for uncaptured effects.
+Fully-captured entries carry no marker.
+
+Unknown partners
+================
+
+`get_partner` returns a generic placeholder for unknown res_ids; the UI
+shows "Unknown partner (res_id X, instance Y)". Add it to `PARTNERS`
+once its name is known. Finding a res_id: `docs/game_data_files.md`.
 """
 
 # The ONLY keys the optimizer reads from a partner's "stats" /
