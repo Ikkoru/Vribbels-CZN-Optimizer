@@ -11,6 +11,7 @@ import re
 import ctypes
 import sys
 import os
+import time
 from pathlib import Path
 from typing import Optional, Callable
 
@@ -829,6 +830,11 @@ class CaptureManager:
 
         self.capturing = False
         self.proxy_process = None
+        # Wall clock at the moment the proxy was launched. A snapshot
+        # older than this belongs to an EARLIER session, which is the
+        # difference between "this run captured nothing" and "this run
+        # captured what you see". None while not capturing.
+        self._session_started_at = None
         self.game_server_ips = {}
         self.original_hosts_content = None
         self.current_region = "global"  # Default region
@@ -852,14 +858,31 @@ class CaptureManager:
         return self.capturing
 
     def get_latest_capture(self) -> Optional[Path]:
-        """
-        Get path to most recent capture file.
-
-        Returns:
-            Path to latest capture file, or None if no snapshots exist
-        """
+        """Most recent snapshot on disk, from ANY session, or None."""
         files = list(self.output_folder.glob("memory_fragments_*.json"))
         return max(files, key=lambda f: f.stat().st_mtime) if files else None
+
+    def get_session_capture(self) -> Optional[Path]:
+        """The snapshot THIS capture session wrote, or None.
+
+        `get_latest_capture` answers a different question, and using it
+        to report a result is how a capture that recorded nothing came
+        to announce the previous run's file as its own -- with a success
+        line and no hint that the proxy had seen no traffic. That is the
+        shape a wrong Server Region takes: the hosts redirect points at
+        a hostname the game never contacts, so nothing reaches the proxy.
+
+        One second of slack because some filesystems keep mtime only to
+        the second, so a snapshot written in the same second the proxy
+        started can carry a timestamp just below the watermark.
+        """
+        if self._session_started_at is None:
+            return None
+        latest = self.get_latest_capture()
+        if latest is None:
+            return None
+        return latest if (latest.stat().st_mtime
+                          >= self._session_started_at - 1) else None
 
     def _read_detected_region(self, capture_file: Path) -> Optional[str]:
         """Read detected_region from capture file."""
@@ -1350,6 +1373,9 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
             self.restore_hosts_file()
             raise CaptureError(f"Failed to start proxy: {e}")
 
+        # Set BEFORE the first payload can arrive, so any snapshot the
+        # addon writes this session is newer than it.
+        self._session_started_at = time.time()
         self.capturing = True
 
         if self.status_callback:
@@ -1387,12 +1413,24 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
         if self.status_callback:
             self.status_callback("[O] Stopped")
 
-        # Get latest capture file
-        latest = self.get_latest_capture()
-        if latest:
-            detected = self._read_detected_region(latest)
-            self.log_callback(f"Capture stopped. File: {latest.name}", "success")
-            return (latest, detected)
+        # Only a snapshot THIS session wrote counts as a result. See
+        # get_session_capture: reporting the newest file on disk made a
+        # capture that recorded nothing announce the previous run's
+        # file, which is how a wrong Server Region looked like success.
+        captured = self.get_session_capture()
+        if captured:
+            detected = self._read_detected_region(captured)
+            self.log_callback(f"Capture stopped. File: {captured.name}",
+                              "success")
+            self._session_started_at = None
+            return (captured, detected)
 
-        self.log_callback("Capture stopped. No data captured.", None)
+        self._session_started_at = None
+        self.log_callback(
+            "Capture stopped, but nothing was captured: no game traffic "
+            "reached the proxy. The usual cause is the wrong Server "
+            "Region -- the redirect is written for the region you "
+            "selected, so a game on the other one never passes through "
+            "it.",
+            "warning")
         return None
