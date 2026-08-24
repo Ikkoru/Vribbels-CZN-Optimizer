@@ -104,33 +104,6 @@ HERO_STAT_DISPLAY = {
     "DoT%": "DoT%", "Element": "Element",
 }
 
-# The widest value each STAT will ever hold, as the string itself.
-#
-# Per stat, not per column, because the column's edge is placed at
-# `max(label + 4 + value)` taken row by row -- so a row pairing a wide
-# label with a narrow value costs nothing. `Element` is the widest label
-# in the block and would drag the whole column right if the two were
-# maxed separately.
-#
-# Strings rather than character counts: Segoe UI's digits are tabular, so
-# a count is exact for digits alone, but `.` and `%` are not digit-width
-# and the right column carries both.
-#
-# Stated rather than measured from the loaded data, so the columns do not
-# jitter between combatants. A value that outgrows its entry clips rather
-# than pushing the column, so widen it here if one ever does.
-#
-# NOT dead data, though nothing reads it at runtime any more. This is
-# where CHAR_TAB_VAL1 / CHAR_TAB_NAME2 / CHAR_TAB_VAL2 come from:
-# widest label + 4 + widest value per column, with 8 between the two
-# pairs. Recompute those stops from this table after any change to the
-# rows, the body font or either rule's target.
-HERO_STAT_VALUE_MAXIMA = {
-    "ATK": "9999", "DEF": "9999", "HP": "9999", "Ego": "999",
-    "CRate": "99.9%", "CDmg": "999.9%", "Extra DMG%": "99.9%",
-    "DoT%": "99.9%", "Element": "99.9%",
-}
-
 # Fixed size of one Equipped Memory Fragments cell. Stated rather than
 # derived: deriving it meant estimating the LabelFrame overhead, the wrap
 # width and the line count separately, and the three estimates disagreed.
@@ -169,6 +142,10 @@ GEAR_SUBSTAT_ROWS = 4
 #
 # The two columns are a `label ↔ its element` pair each, and the gap
 # between the pairs is `element and its label ↔ element and its label`.
+#
+# Recompute these after changing HERO_STAT_ROWS, the body font, or
+# either rule's target -- docs/ui_spacing.md "Column alignment" holds
+# the widest value per stat and the arithmetic.
 # spacing: label ↔ its element
 # spacing: element and its label ↔ element and its label
 CHAR_TAB_VAL1 = 50     # right stop: end of the left column's value
