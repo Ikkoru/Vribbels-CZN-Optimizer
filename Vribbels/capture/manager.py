@@ -117,6 +117,14 @@ class Addon:
         self.session_account = None
         self.mixed_accounts = False
 
+        # Which region the game actually connected to, learned from
+        # the TLS SNI of the first connection. Both regions are
+        # redirected, so this is OBSERVED rather than chosen.
+        self.detected_region = None
+        # Every region seen this session. More than one means two
+        # games running on different servers.
+        self.seen_regions = set()
+
         self.zstd_dict = None
         self.zstd_dctx = None
 
@@ -157,22 +165,17 @@ class Addon:
             except Exception as e:
                 self.log_callback(f"Warning: Failed to load zstd dictionary: {e}")
 
-    def _detect_region(self) -> Optional[str]:
-        """Detect server region from world_id in character data."""
-        if not self.character_data:
-            return None
+    def _detect_region(self):
+        """The region this session's connections actually went to.
 
-        # Check for world_id in user data
-        user_data = self.character_data.get("user", {})
-        world_id = user_data.get("world_id", "")
-
-        # Map world_id to region
-        if "world_live_global" in world_id:
-            return "global"
-        elif "world_live_asia" in world_id:
-            return "asia"
-
-        return None
+        Observed in `server_connect` from the client's SNI, because both
+        regions are redirected and the game picks. NOT read from the
+        payload: `world_id` is something the CLIENT sends in its auth
+        request, and the server's `user` record has never carried it, so
+        the field this used to read was always absent and this always
+        returned None.
+        """
+        return self.detected_region
 
     def _try_decode_binary(self, raw_bytes):
         """
@@ -325,6 +328,47 @@ class Addon:
 
         except Exception as e:
             self.log_callback(f"Error: {e}")
+
+    def server_connect(self, data):
+        """Point this connection at its own region's server.
+
+        Both game hostnames are redirected to loopback, so a connection
+        can be for either region -- but mitmproxy's reverse mode has a
+        single upstream, fixed at launch. The client's SNI still carries
+        the hostname it believes it is talking to, and that is what
+        picks the address.
+
+        Leaving the address alone falls back to the launch upstream,
+        which is the behaviour from before both regions were redirected.
+        """
+        sni = getattr(data.client, "sni", None)
+        if not sni:
+            return
+        route = REGION_ROUTES.get(sni)
+        if route is None:
+            return
+        region, ip, port = route
+        try:
+            data.server.address = (ip, port)
+        except Exception as e:
+            self.log_callback("[!] Could not route " + str(sni) + ": " + str(e))
+            return
+        self._note_region(region)
+
+    def _note_region(self, region):
+        """Record which server region this session is talking to."""
+        if region in self.seen_regions:
+            return
+        self.seen_regions.add(region)
+        if self.detected_region is None:
+            self.detected_region = region
+            self.log_callback("[REGION] " + str(region))
+        else:
+            self.log_callback(
+                "[X] A game on a second server region connected ("
+                + str(region) + "). Two games are running at once; "
+                "close the extra one and capture again."
+            )
 
     def _account_of(self, data):
         """Account id in this payload, or None if it carries no user."""
@@ -879,6 +923,9 @@ class CaptureManager:
         self.log_callback = log_callback
         self.status_callback = status_callback
         self.live_update_callback = live_update_callback
+        # Called with a region_id, or "conflict" when two servers
+        # answer in one session. Set by the Capture tab.
+        self.region_callback = None
 
         self.capturing = False
         self.proxy_process = None
@@ -888,8 +935,15 @@ class CaptureManager:
         # captured what you see". None while not capturing.
         self._session_started_at = None
         self.game_server_ips = {}
+        # host -> region_id, filled by resolve_game_server. The addon
+        # routes each connection by the hostname the client asked for,
+        # so this is what tells it which region that hostname is.
+        self.host_regions = {}
         self.original_hosts_content = None
-        self.current_region = "global"  # Default region
+        # Last region OBSERVED, for the readout to open on. Nothing
+        # about a capture depends on it: both regions are redirected
+        # and the addon routes per connection.
+        self.current_region = None
         # Mirrors the debug_mode flag of the current capture session
         # (set by start_capture). The output reader uses it to decide
         # whether WebSocket ping/pong keepalive lines reach the log.
@@ -955,26 +1009,37 @@ class CaptureManager:
             subprocess.run(["xdg-open", str(self.output_folder)])
 
     def set_region(self, region_id: str):
-        """Set the active server region for capture."""
-        from .constants import SERVERS
-        if region_id not in SERVERS:
-            raise ValueError(f"Unknown region: {region_id}")
-        self.current_region = region_id
+        """Deprecated: the region is observed, not chosen.
+
+        Every region is redirected during a capture and the addon routes
+        each connection to its own server, so there is nothing here to
+        select. Kept as a no-op because losing it would break any caller
+        not updated in the same edit; `detected_region` on the snapshot
+        is the answer now.
+        """
+        return
 
     def resolve_game_server(self):
-        """
-        Resolve game server hostnames to IP addresses for current region.
-        Stores results in self.game_server_ips.
+        """Resolve EVERY region's hostnames to IP addresses.
+
+        Both regions are redirected during a capture, so both have to be
+        resolved before the redirect is written -- once the hosts block
+        is in place, the answer for either is 127.0.0.1.
+
+        Fills `game_server_ips` (host -> ip) and `host_regions`
+        (host -> region_id), which together are what the addon routes on.
         """
         from .constants import SERVERS
-        server_config = SERVERS[self.current_region]
         self.game_server_ips = {}
-        for host in server_config.hosts:
-            try:
-                ip = socket.gethostbyname(host)
+        self.host_regions = {}
+        for region_id, server_config in SERVERS.items():
+            for host in server_config.hosts:
+                try:
+                    ip = socket.gethostbyname(host)
+                except socket.gaierror:
+                    continue
                 self.game_server_ips[host] = ip
-            except socket.gaierror:
-                pass
+                self.host_regions[host] = region_id
 
     def resolved_to_loopback(self) -> bool:
         """True if any resolved game-server address points at this machine.
@@ -1016,12 +1081,16 @@ class CaptureManager:
             # the proxy's upstream (see remove_hosts_redirect).
             content = _strip_capture_block(content)
 
-            # Add redirect entries
+            # Redirect EVERY region, not just a selected one: which
+            # server the game talks to is the game's choice, and
+            # redirecting only one meant a game on the other never
+            # passed through the proxy at all -- a silent no-capture.
+            # The addon sends each connection on to its own region.
             from .constants import SERVERS
-            server_config = SERVERS[self.current_region]
             entries = ["\n" + HOSTS_BLOCK_START]
-            for host in server_config.hosts:
-                entries.append(f"127.0.0.1 {host}")
+            for server_config in SERVERS.values():
+                for host in server_config.hosts:
+                    entries.append(f"127.0.0.1 {host}")
             entries.append(HOSTS_BLOCK_END + "\n")
 
             new_content = content + "\n".join(entries)
@@ -1198,6 +1267,16 @@ class CaptureManager:
             # under a negative placeholder key, which no banner can match.
             known_unit_ids = {rid for rid in list(CHARACTERS) + list(PARTNERS) if rid > 0}
 
+            # hostname -> (region_id, real_ip, port). The addon reads
+            # the client's SNI and sends that connection to the right
+            # server, which is what lets BOTH regions be redirected at
+            # once. Empty if resolution failed, in which case the addon
+            # leaves mitmproxy's launch upstream alone.
+            region_routes = {
+                host: (self.host_regions.get(host), ip, GAME_PORT)
+                for host, ip in self.game_server_ips.items()
+            }
+
             # Generate standalone script using embedded template
             addon_code = f'''{ADDON_TEMPLATE}
 
@@ -1207,6 +1286,7 @@ CHAR_NAMES = {char_names}
 SET_NAMES = {set_names}
 SLOT_NAMES = {slot_names}
 KNOWN_UNIT_IDS = {known_unit_ids}
+REGION_ROUTES = {region_routes}
 
 addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
 '''
@@ -1281,6 +1361,14 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
                         self.live_update_callback()
                 else:
                     self.log_callback(f"[proxy] {line}", None)
+
+                # The addon reports which server region a connection
+                # actually went to; both are redirected, so this is
+                # the only place the answer exists.
+                if "[REGION]" in line and self.region_callback:
+                    self.region_callback(line.split("[REGION]", 1)[1].strip())
+                elif "second server region" in line and self.region_callback:
+                    self.region_callback("conflict")
 
                 # Auto-reload on any save (initial capture + deltas)
                 if "Saved:" in line and "Memory Fragments" in line:

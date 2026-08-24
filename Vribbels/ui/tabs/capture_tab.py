@@ -22,6 +22,13 @@ LOG_PRESET_COLUMNS = 5
 # Gap between those columns, in pixels.
 LOG_PRESET_COLUMN_GAP = 6
 
+# What the Region readout says before a capture has seen a connection.
+REGION_UNKNOWN = "not detected yet"
+# ...and when two games on different servers are running at once.
+REGION_CONFLICT = (
+    "two servers at once -- close one game and capture again"
+)
+
 
 class CaptureTab(BaseTab):
     """
@@ -61,6 +68,12 @@ class CaptureTab(BaseTab):
 
         self.setup_ui()
         self.refresh_log_presets()
+
+        # The addon learns the region from the first connection's SNI
+        # and reports it up through the proxy reader thread.
+        if self.context.capture_manager is not None:
+            self.context.capture_manager.region_callback = \
+                self.set_detected_region
         # Rebuild the checklist whenever the user switches TO this tab, so
         # preset assignment changes made in other tabs are always reflected
         # without cross-tab notification plumbing.
@@ -232,29 +245,22 @@ class CaptureTab(BaseTab):
         region_inner = ttk.Frame(region_frame)
         region_inner.pack(fill=tk.X)
 
-        # spacing: TBD -- caption -> the field it labels
+        # A READOUT, not a choice. Both regions are redirected during a
+        # capture and the addon forwards each connection to its own
+        # server, so which one the game uses is the game's business --
+        # there is nothing for the user to get wrong, and nothing to
+        # select. This reports what was observed.
+        # spacing: label ↔ its element
         ttk.Label(region_inner, text="Region:").pack(side=tk.LEFT, padx=(0, 10))
 
-        # Dropdown with server options
-        self.region_var = tk.StringVar(value=self.context.config.server_region)
-        self.region_dropdown = ttk.Combobox(
-            region_inner,
-            textvariable=self.region_var,
-            values=list(SERVERS.keys()),
-            state="readonly",
-            width=15
-        )
-        self.region_dropdown.pack(side=tk.LEFT, padx=(0, 10))
-        self.region_dropdown.bind("<<ComboboxSelected>>", self._on_region_changed)
-
-        # Display label showing detected region (initially hidden)
+        self.region_var = tk.StringVar(value=REGION_UNKNOWN)
+        # spacing: label ↔ its element
         self.detected_label = ttk.Label(
             region_inner,
-            text="",
-            foreground=self.colors['green']
+            textvariable=self.region_var,
+            foreground=self.colors["fg_dim"],
         )
-        # spacing: TBD -- field -> the status text beside it
-        self.detected_label.pack(side=tk.LEFT, padx=(10, 0))
+        self.detected_label.pack(side=tk.LEFT)
 
         # spacing: button -> button
         # The trailing padx on each button below is the lever. The row
@@ -632,12 +638,9 @@ class CaptureTab(BaseTab):
     def start_capture(self):
         """Start capture using CaptureManager."""
         try:
-            # Set region before starting
-            selected_region = self.region_var.get()
-            self.context.capture_manager.set_region(selected_region)
-
-            # Disable region dropdown and debug checkbox during capture
-            self.region_dropdown.config(state="disabled")
+            # No region to set: both are redirected and the addon routes
+            # each connection to its own server.
+            self.region_var.set(REGION_UNKNOWN)
             self.debug_checkbox.config(state=tk.DISABLED)
 
             self.context.capture_manager.start_capture(debug_mode=self.debug_var.get())
@@ -647,56 +650,47 @@ class CaptureTab(BaseTab):
                 text="Launch the game and load into the main menu. Keep running for live updates."
             )
         except CaptureError as e:
-            # The region dropdown and debug checkbox were disabled for the
-            # duration of a capture that never began; hand them back or
-            # they stay dead until one does.
-            self.region_dropdown.config(state="readonly")
+            # The debug checkbox was disabled for the duration of a
+            # capture that never began; hand it back or it stays dead
+            # until one does.
             self.debug_checkbox.config(state=tk.NORMAL)
             messagebox.showerror("Capture Error", str(e))
 
     def stop_capture(self):
-        """Stop capture and handle auto-detection."""
+        """Stop the capture and report which region it saw."""
         result = self.context.capture_manager.stop_capture()
 
-        # Re-enable region dropdown and debug checkbox
-        self.region_dropdown.config(state="readonly")
         self.debug_checkbox.config(state=tk.NORMAL)
-
         self.capture_start_btn.config(state=tk.NORMAL)
         self.capture_stop_btn.config(state=tk.DISABLED)
         self.capture_info_label.config(text="Check snapshots folder for your data")
 
         if result:
             captured_file, detected_region = result
+            self.set_detected_region(detected_region)
+            self.capture_log_msg(f"Capture file: {captured_file.name}",
+                                 "success")
 
-            # Auto-detection logic
-            if detected_region and detected_region != self.region_var.get():
-                # Auto-switch with notification
-                self.region_var.set(detected_region)
+    def set_detected_region(self, region_id):
+        """Show which server region the capture actually talked to.
 
-                server_name = SERVERS[detected_region].display_name
-                self.capture_log_msg(
-                    f"✓ Auto-detected {server_name} server, updated selection",
-                    "success"
-                )
-                self.detected_label.config(text=f"✓ Detected: {server_name}")
-
-                # Persist (writes through settings.json)
-                self.context.config.server_region = detected_region
-
-            self.capture_log_msg(f"Capture file: {captured_file.name}", "success")
-
-    def _on_region_changed(self, *args):
-        """Called when user manually changes region dropdown."""
-        new_region = self.region_var.get()
-
-        # Persist (writes through settings.json)
-        self.context.config.server_region = new_region
-
-        # Clear detection label (manual selection)
-        self.detected_label.config(text="")
-
-        self.capture_log_msg(f"Region changed to: {SERVERS[new_region].display_name}", "info")
+        Reached from the proxy reader thread as well as from
+        stop_capture, so it only touches a StringVar.
+        """
+        if region_id in (None, ""):
+            self.region_var.set(REGION_UNKNOWN)
+            return
+        if region_id == "conflict":
+            self.region_var.set(REGION_CONFLICT)
+            return
+        config = SERVERS.get(region_id)
+        self.region_var.set(config.display_name if config else str(region_id))
+        # Remembered only so the readout can open on the last known
+        # answer; nothing about the capture depends on it any more.
+        try:
+            self.context.config.server_region = region_id
+        except Exception:
+            pass
 
     def open_snapshots_folder(self):
         """Open snapshots folder using CaptureManager."""
