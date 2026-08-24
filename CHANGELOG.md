@@ -20,6 +20,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Fixed
 
+- **A capture that records nothing now says so.** With the Server Region set to the wrong server the game never passes through the capture proxy, but the program reported the *previous* capture's file as though it had just been written, with a success message. It now tells you nothing was captured and names the likely cause.
+
 - **Nothing flashes light grey when a tab first opens any more.** The checkbox lists were only part of it — the Capture Log, the About tab's link buttons and the Gear Score spinboxes did the same thing, for the same reason. Every tab is now covered, including ones nobody had reported.
 
 - **The Memory Fragments Main Stats filters and the Optimizer's Exclude Combatant's MFs list are drawn like every other checkbox.** They had been built separately and had drifted: the exclude list still showed a focus rectangle, could be reached with Tab, and sat slightly larger than the checkboxes around it.

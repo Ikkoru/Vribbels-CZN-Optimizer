@@ -156,6 +156,11 @@ GEAR_CELL_PADX = 5
 # DISPLAY area, which starts after padx.
 GEAR_TEXT_W = GEAR_CELL_W - 2 * GEAR_CELL_BD - 2 * GEAR_CELL_PADX
 
+# Substat rows a gear cell always reserves. Four is the maximum any
+# rarity reaches, so a cell is the same shape at every level and the
+# set line below always lands in the same place.
+GEAR_SUBSTAT_ROWS = 4
+
 # Tab stops for the Character panel's two-column stat block, in pixels
 # from the text's left edge. STATED, like the gear cell's: the block is
 # a grid of labels and values that happens to live in a Text widget for
@@ -750,6 +755,11 @@ class HeroesTab(BaseTab):
             cell.tag_configure("normal", foreground=self.colors["yellow"])
             cell.tag_configure("set_live", foreground=self.colors["fg"])
             cell.tag_configure("set_dim", foreground=self.colors["fg_dim"])
+            # Reserved substat rows on a fragment that has not gained
+            # all four yet. Dim, so they read as absent rather than as
+            # a stat whose value happens to be a dash.
+            cell.tag_configure("placeholder",
+                               foreground=self.colors["fg_dim"])
 
             # Columns. A right-aligned stop sits at the END of its column.
             cell.tag_configure(
@@ -1759,6 +1769,18 @@ class HeroesTab(BaseTab):
                 value_tag = (self._roll_tag(roll_parts[0][1], base_tag)
                              if roll_parts else base_tag)
                 cell.insert(tk.END, sub.format_value(), (value_tag,))
+            cell.tag_add("subrow", line, "end-1c")
+
+        # A fragment below max level carries fewer than four substats
+        # (a level-0 Legendary three, a Rare two, an Uncommon one), and
+        # a short block pulled the set line up with it -- so cells in
+        # the same row disagreed about where anything sat. Reserve the
+        # missing rows so every cell has the same shape whatever the
+        # fragment's level.
+        for _ in range(GEAR_SUBSTAT_ROWS - len(piece.substats[:4])):
+            cell.insert(tk.END, "\n")
+            line = cell.index("end-1c")
+            cell.insert(tk.END, "\t-\t-", ("placeholder",))
             cell.tag_add("subrow", line, "end-1c")
 
         # ----- Set line -----
