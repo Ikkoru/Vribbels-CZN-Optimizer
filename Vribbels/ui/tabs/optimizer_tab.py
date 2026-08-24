@@ -1774,20 +1774,25 @@ class OptimizerTab(BaseTab):
         for hero in self._exclude_heroes:
             widths[hero] = self._exclude_checkbutton(hero).winfo_reqwidth()
         # spacing: checkbox/slider ↕ checkbox/slider rows
-        # The row PITCH: rows are placed at y = row * row_h, so the
-        # background left between them is this offset against the
-        # widget's own requested height.
+        # The row PITCH: rows are placed at y = row * row_h, so this
+        # offset against the widget's own requested height is the
+        # background left between them, one for one.
         #
-        # A LEVER, not a rendered distance. It is also a lever that moves
-        # when the WIDGET does, which has bitten once: the offset was -2
-        # while these checkbuttons carried Tk's default border and focus
-        # ring, and routing them through `make_checkbox` dropped 6px of
-        # requested height and took the gap down with it. Calibrated
-        # against a reading of 3px at offset -2 with the current widget,
-        # so +2 is the rule's 7px. Re-measure after anything that changes
-        # the checkbutton's height -- this rule is not in the audit yet,
-        # so nothing else will notice.
-        ROW_PITCH_OFFSET = 2
+        # **Keep it positive.** A negative offset makes the pitch shorter
+        # than the widget, so consecutive rows OVERLAP and each one's
+        # painted bottom is clipped by the row beneath it -- which also
+        # makes the gap measure smaller than it is, so a reading taken
+        # then understates the true value.
+        #
+        # A LEVER, not a rendered distance, and one that moves when the
+        # WIDGET does: it sat at -2 while these carried Tk's default
+        # border and focus ring, and routing them through `make_checkbox`
+        # dropped 6px of requested height and took the gap with it.
+        # Measured 5px at +2, and the relation is one for one, so +4 is
+        # the rule's 7px. Re-measure after anything that changes the
+        # checkbutton's height -- this rule is not in the audit yet, so
+        # nothing else will notice.
+        ROW_PITCH_OFFSET = 4
         row_h = max(
             (cb.winfo_reqheight() for cb in self._exclude_widgets.values()),
             default=22,
