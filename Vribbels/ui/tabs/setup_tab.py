@@ -129,11 +129,13 @@ class SetupTab(BaseTab):
         # docs/ui_spacing.md "The rules".
         ttk.Label(header_row, text="First-Time Setup", padding=(-1, -3, 0, -2),
                   font=("Segoe UI", 14, "bold")).pack(side=tk.LEFT, anchor=tk.S)
+        # spacing: heading ↔ element
         ttk.Label(header_row,
                   text="Complete these steps before using the capture feature",
                   foreground=self.colors["fg_dim"],
                   padding=(0, 0, 0, -4)).pack(
-                      side=tk.LEFT, anchor=tk.S, padx=(10, 0), pady=(0, 0))
+                      side=tk.LEFT, anchor=tk.S,
+                      padx=(14, 0), pady=(0, 0))
 
         # Top row: Setup Status (left) and Restore Defaults (right)
         # side-by-side in equal-width columns.
@@ -144,27 +146,46 @@ class SetupTab(BaseTab):
         top_row.grid_columnconfigure(1, weight=1, uniform="halves")
 
         # spacing: frame edge -> first non-button element
-        status_frame = ttk.LabelFrame(top_row, text="Setup Status", padding=(4, 6, 5, 5))
+        # spacing: exception -- frame edge -> first non-button element
+        # Two components, two meanings. LEFT answers to the rule and is
+        # a registered audit entry. TOP is the exception: these four
+        # rows read as one block at a single pitch
+        # so the gap above the first row matches
+        # the gaps between them rather than the frame-edge target.
+        #
+        # The target is out of reach here in any case: a Segoe UI 11
+        # label's ink starts 7px below its own box top, so even a top
+        # padding of 0 renders 7.
+        #
+        # BOTTOM is larger than it looks because the rows carry no
+        # pady of their own -- it supplies the whole pitch under the
+        # last row where the others split it between two neighbours.
+        status_frame = ttk.LabelFrame(top_row, text="Setup Status",
+                                      padding=(4, 4, 5, 7))
         # spacing: content frame -> content frame
         status_frame.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
 
         # spacing: unique -- between rows of important status text
-        # (the same pady on all four labels below)
+        # The rows carry no pady: a Segoe UI 11 label's own line box
+        # already contributes 7px above its ink and 4 below, which is
+        # the whole pitch. Anything added here lands on top of that.
+        # The frame's top and bottom padding make the first and last
+        # gaps match; docs/ui_spacing.md records what they read.
         self.python_status = ttk.Label(status_frame, text="Checking Python...",
                                         font=("Segoe UI", 11))
-        self.python_status.pack(anchor=tk.W, pady=2)
+        self.python_status.pack(anchor=tk.W)
 
         self.mitmproxy_status = ttk.Label(status_frame, text="Checking mitmproxy...",
                                            font=("Segoe UI", 11))
-        self.mitmproxy_status.pack(anchor=tk.W, pady=2)
+        self.mitmproxy_status.pack(anchor=tk.W)
 
         self.cert_status = ttk.Label(status_frame, text="Checking certificate...",
                                       font=("Segoe UI", 11))
-        self.cert_status.pack(anchor=tk.W, pady=2)
+        self.cert_status.pack(anchor=tk.W)
 
         self.admin_status = ttk.Label(status_frame, text="Checking admin rights...",
                                        font=("Segoe UI", 11))
-        self.admin_status.pack(anchor=tk.W, pady=2)
+        self.admin_status.pack(anchor=tk.W)
 
         # Restore Defaults panel: three [button + explanation] rows.
         # spacing: frame edge -> button

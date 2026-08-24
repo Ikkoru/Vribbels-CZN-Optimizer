@@ -162,10 +162,12 @@ class ScoringTab(BaseTab):
         ).pack(side=tk.LEFT, anchor=tk.S)
         # anchor=S puts the subtitle on the heading's own line rather
         # than stacking it below.
+        # spacing: heading ↔ element
         ttk.Label(
             header_row, text="Configure how gear scores are calculated",
             foreground=self.colors["fg_dim"], padding=(0, 0, 0, 0)
-        ).pack(side=tk.LEFT, anchor=tk.S, padx=(10, 0), pady=(0, 0))
+        ).pack(side=tk.LEFT, anchor=tk.S, padx=(14, 0),
+               pady=(0, 0))
 
         content = ttk.Frame(main_frame)
         content.pack(fill=tk.BOTH, expand=True)

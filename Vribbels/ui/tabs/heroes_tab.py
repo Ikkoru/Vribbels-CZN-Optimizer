@@ -433,8 +433,9 @@ class HeroesTab(BaseTab):
         # `expand=True, fill=X` fills the leftover space between the name
         # and title_row's right edge.
         preset_group = ttk.Frame(title_row)
-        # spacing: TBD -- heading -> the control group beside it
-        preset_group.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0))
+        # spacing: heading ↔ element
+        preset_group.pack(side=tk.LEFT, fill=tk.X, expand=True,
+                          padx=(14, 0))
 
         self.preset_assign_label = ttk.Label(
             preset_group,

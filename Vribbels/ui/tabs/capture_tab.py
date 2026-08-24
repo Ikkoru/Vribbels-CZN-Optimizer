@@ -209,10 +209,12 @@ class CaptureTab(BaseTab):
         # narrower) box.
         ttk.Label(title_frame, text="Data Capture", padding=(-3, -3, 0, -2),
                   font=("Segoe UI", 14, "bold")).pack(side=tk.LEFT, anchor=tk.S)
+        # spacing: heading ↔ element
         ttk.Label(title_frame, text="Capture game data by intercepting API traffic",
                   foreground=self.colors["fg_dim"],
                   padding=(0, 0, 0, -4)).pack(
-                      side=tk.LEFT, anchor=tk.S, padx=(10, 0), pady=(0, 0))
+                      side=tk.LEFT, anchor=tk.S, padx=(14, 0),
+                      pady=(0, 0))
 
         # spacing: exception -- frame edge -> first non-button element
         # The LEFT inset deliberately does not meet it, and the panel is
