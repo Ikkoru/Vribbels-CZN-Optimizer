@@ -32,13 +32,13 @@ from . import spacing_audit as sa
 RULE_CONTENT_FRAME = "content frame -> content frame"
 RULE_TAB_LIST = "tab list -> first element"
 RULE_HEADER_SUBTEXT = "header subtext"
-RULE_FRAME_EDGE_CONTENT = "frame edge -> first non-button element"
+RULE_BORDER_EDGE_CONTENT = "border edge -> first non-button element"
 RULE_BUTTON_GAP = "button -> button"
-RULE_FRAME_EDGE_BUTTON = "frame edge -> button"
+RULE_BORDER_EDGE_BUTTON = "border edge -> button"
 RULE_ALL_NONE_ROW = "checkbox block -> All/None row"
 RULE_SPINBOX_PITCH = "spinbox row -> spinbox row"
 RULE_CHECKBOX_PITCH = "checkbox/slider ↕ checkbox/slider rows"
-RULE_TEXT_LABEL_PITCH = "text label row -> text label row"
+RULE_LABEL_ROW_PITCH = "label row -> label row"
 RULE_CHECKBOX_DIVISION = "checkbox row -> checkbox row (small division)"
 RULE_TITLE_ELEMENT = "title above, element below"
 RULE_LABEL_ELEMENT = "label ↔ its element"
@@ -48,7 +48,7 @@ RULE_EXPLANATION = "explanation text -> the controls it explains"
 RULE_UNRELATED_CHECKBOXES = "checkboxes -> unrelated checkboxes"
 RULE_PANEL_UNRELATED_LABEL = "panel ↕ unrelated label"
 RULE_CONFIG_PANEL_ROW = "config panel row ↕ row"
-RULE_OTC_GROUP = "overarching tab control element group ↔ OTC element group"
+RULE_CONTROL_GROUP = "control group ↔ control group"
 
 
 DESCENDERS = "gjpqy"
@@ -426,8 +426,8 @@ def register_all():
             sa.track(
                 name=f"{title}: left edge -> content",
                 tab=tab,
-                rule=(RULE_FRAME_EDGE_BUTTON if title in LEFT_INSET_TARGETS
-                      else RULE_FRAME_EDGE_CONTENT),
+                rule=(RULE_BORDER_EDGE_BUTTON if title in LEFT_INSET_TARGETS
+                      else RULE_BORDER_EDGE_CONTENT),
                 target=LEFT_INSET_TARGETS.get(title, 6),
                 resolve=(_text_panel_left_inset(title) if is_text
                          else _left_inset(title)),
@@ -437,7 +437,7 @@ def register_all():
         sa.track(
             name=f"{panel}: left edge -> {label}",
             tab=tab,
-            rule=RULE_FRAME_EDGE_CONTENT,
+            rule=RULE_BORDER_EDGE_CONTENT,
             target=target,
             resolve=resolve,
         )

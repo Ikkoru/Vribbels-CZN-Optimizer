@@ -359,9 +359,9 @@ class OptimizerTab(BaseTab):
         self._toolbar_top_row = ttk.Frame(left_cluster)
         self._toolbar_top_row.pack(side=tk.TOP, fill=tk.X, anchor=tk.W)
         combatant_frame = ttk.Frame(self._toolbar_top_row)
-        # spacing: overarching tab control element group ↔ OTC element group
+        # spacing: control group ↔ control group
         combatant_frame.pack(side=tk.LEFT, padx=(0, 5), anchor=tk.N)
-        # spacing: TBD -- caption -> the field it labels
+        # spacing: title above, element below
         # The negative LEADING padding pulls the caption's glyphs left to
         # sit over the Combobox's text below it, which carries an inset of
         # its own that a Label does not. pack's padx can't go negative
@@ -401,9 +401,9 @@ class OptimizerTab(BaseTab):
         # widgets against the help label's 3 lines). LVL label + spinner
         # stack vertically, mirroring the Combatant stacking.
         level_frame = ttk.Frame(self._toolbar_top_row)
-        # spacing: overarching tab control element group ↔ OTC element group
+        # spacing: control group ↔ control group
         level_frame.pack(side=tk.LEFT, padx=(15, 0), anchor=tk.N)
-        # spacing: TBD -- caption -> the field it labels
+        # spacing: title above, element below
         ttk.Label(level_frame, text="Optimize for LVL:",
                   padding=(-2, 0, 0, 0)).pack(anchor=tk.W)
         level_spin = tk.Spinbox(
@@ -422,7 +422,7 @@ class OptimizerTab(BaseTab):
         self.start_button = ttk.Button(self._toolbar_top_row, text="Start",
                                        command=self.run_optimization)
         # spacing: button -> button
-        # spacing: overarching tab control element group ↔ OTC element group
+        # spacing: control group ↔ control group
         # spacing: tab list -> first element
         # The pady is the correction that puts the buttons' painted top
         # edge level with the other elements in this row. A ttk.Button's
@@ -444,7 +444,7 @@ class OptimizerTab(BaseTab):
             self._toolbar_preset_row, text="Preset: (default)",
             foreground=self.colors["fg_dim"],
             font=("Segoe UI", 9),
-            # spacing: frame edge -> first non-button element
+            # spacing: border edge -> first non-button element
             # The negative LEADING padding trims the label's own internal
             # inset so its glyphs line up with the content's left edge.
             # pack's padx can't go negative, and taking one more would
@@ -463,7 +463,7 @@ class OptimizerTab(BaseTab):
             justify=tk.LEFT, foreground=self.colors["fg_dim"],
             wraplength=OPTIMIZER_HELP_WRAPLENGTH,
         )
-        # spacing: overarching tab control element group ↔ OTC element group
+        # spacing: control group ↔ control group
         help_label.pack(side=tk.LEFT, padx=(15, 0), fill=tk.X, expand=True, anchor=tk.N)
 
         def _rewrap(event, lbl=help_label):
@@ -497,9 +497,9 @@ class OptimizerTab(BaseTab):
         # is historical -- there is no smaller font left in the app.
         small_font = ("Segoe UI", 9)
         status_cluster = ttk.Frame(toolbar)
-        # spacing: overarching tab control element group ↔ OTC element group
+        # spacing: control group ↔ control group
         status_cluster.pack(side=tk.RIGHT, padx=(10, 2), anchor=tk.N)
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # The negative TRAILING padding pulls the glyphs 2px right, to the
         # rule's 6px: a Label's box stops short of its own text where the
         # spinbox below it ends at its border. pack's padx cannot go
@@ -518,7 +518,7 @@ class OptimizerTab(BaseTab):
         # row and a checkbox row seat their content at different insets --
         # so this pair and the pair below carry separate numbers.
         minlvl_row.pack(side=tk.TOP, anchor=tk.E, pady=(0, 0))
-        # spacing: TBD -- caption -> the field it labels
+        # spacing: label ↔ its element
         ttk.Label(minlvl_row, text="Ignore MFs below level:",
                   font=small_font).pack(side=tk.LEFT, padx=(0, 3))
         minlvl_spin = tk.Spinbox(
@@ -535,10 +535,10 @@ class OptimizerTab(BaseTab):
         # spacing: unique -- between mixed element rows (spinbox -> checkbox)
         # Target 3px.
         offelem_row.pack(side=tk.TOP, anchor=tk.E, pady=(0, 0))
-        # spacing: TBD -- caption -> the field it labels
+        # spacing: label ↔ its element
         ttk.Label(offelem_row, text="Ignore off-Element MFs",
                   font=small_font).pack(side=tk.LEFT, padx=(0, 3))
-        # spacing: exception -- frame edge -> first non-button element
+        # spacing: exception -- border edge -> first non-button element
         # Sits 13px from the right edge where the rule asks for 6, and
         # where the status text above reads 8 and the spinbox 6. Keeping
         # it near-centred under the spinbox rather than flush right looks
@@ -600,7 +600,7 @@ class OptimizerTab(BaseTab):
         # spacing: content frame -> content frame
         self._col2_container.grid(row=0, column=2, rowspan=2, sticky="nsew",
                                   padx=2, pady=2)
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         exclude_frame = ttk.LabelFrame(
             self._col2_container, text="Exclude Combatant's MFs", padding=(1, 2, 1, 3)
         )
@@ -697,11 +697,11 @@ class OptimizerTab(BaseTab):
         exclude gear."""
         # Element override (conditional visibility -- toggled by
         # _update_element_override_visibility based on selected character).
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         self.element_override_frame = ttk.LabelFrame(
             parent, text="Element override (Unknown character)", padding=4
         )
-        # spacing: TBD -- caption -> the field it labels
+        # spacing: label ↔ its element
         ttk.Label(
             self.element_override_frame,
             text="Treat this character's damage as element:",
@@ -726,13 +726,13 @@ class OptimizerTab(BaseTab):
         # spacing: content frame -> content frame
         top_row.pack(fill=tk.X, pady=(0, 5))
 
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         important_frame = ttk.LabelFrame(top_row, text="Important Settings", padding=(5, 6, 5, 5))
         # spacing: content frame -> content frame
         important_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 2))
         self._build_important_settings(important_frame)
 
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         have_frame = ttk.LabelFrame(
             top_row, text="Have at least this much of a stat", padding=(4, 6, 5, 5)
         )
@@ -750,7 +750,7 @@ class OptimizerTab(BaseTab):
         self._build_have_at_least(have_frame)
 
         # Set Configuration
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         set_frame = ttk.LabelFrame(parent, text="Set Configuration", padding=(4, 6, 5, 5))
         # spacing: content frame -> content frame
         set_frame.pack(fill=tk.X, pady=(0, 5))
@@ -765,7 +765,7 @@ class OptimizerTab(BaseTab):
 
     def _build_important_settings(self, parent):
         # Block 1: Extra% + DoT% sliders
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # spacing: explanation text -> the controls it explains
         # The negative LEADING padding is on this LABEL, not on the frame:
         # the DMG vs Heal/Shield slider below is already on target, and a
@@ -894,14 +894,14 @@ class OptimizerTab(BaseTab):
         fm_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row
         fm_row.pack(fill=tk.X, pady=(2, 2))
-        # spacing: TBD -- caption -> the field it labels
+        # spacing: label ↔ its element
         ttk.Label(
             fm_row,
             text="Force HP/Ego on a Slot:",
             font=("Segoe UI", 9),
         ).pack(side=tk.LEFT, padx=(0, 5))
         for idx, (key, label, _slot, _stat) in enumerate(FORCE_MAIN_DEFS):
-            # spacing: frame edge -> first non-button element
+            # spacing: border edge -> first non-button element
             # spacing: element and its label ↔ element and its label
             # The last checkbox drops its right pad so the rightmost
             # visible element sits flush with the frame's right padding
@@ -972,7 +972,7 @@ class OptimizerTab(BaseTab):
         # right padding edge. cols fills X (not Y) so the extra width HAL
         # gains from Important Settings parks BETWEEN col 1 (LEFT) and
         # col 2 (RIGHT) instead of pushing col 2 off its right alignment.
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         cols.pack(fill=tk.X, expand=False, padx=(0, 0))
         col1_frame = ttk.Frame(cols)
         col1_frame.pack(side=tk.LEFT, fill=tk.Y, expand=False, padx=(0, 0))
@@ -1121,7 +1121,7 @@ class OptimizerTab(BaseTab):
                 buttonbackground=self.colors["bg_lighter"],
                 insertbackground=self.colors["fg"],
             )
-            # spacing: frame edge -> first non-button element
+            # spacing: border edge -> first non-button element
             # spacing: element and its label ↔ element and its label
             # The last spinbox drops its trailing pad so the group sits
             # flush with the frame's right padding edge (same pattern as
@@ -1174,7 +1174,7 @@ class OptimizerTab(BaseTab):
             # is wired back to it via <Button-1> bindings on the two
             # labels.
             container = ttk.Frame(self.set_grid_frame)
-            # spacing: frame edge -> first non-button element
+            # spacing: border edge -> first non-button element
             # spacing: element and its label ↔ element and its label
             # spacing: checkbox row -> checkbox row (small division)
             #
@@ -1215,8 +1215,8 @@ class OptimizerTab(BaseTab):
             # The indicator takes the piece count's Element colour, so the
             # row reads as one coloured unit rather than a grey box beside
             # a coloured label.
-            # spacing: frame edge -> first non-button element
-            # spacing: TBD -- checkbox indicator -> its own adjacent label
+            # spacing: border edge -> first non-button element
+            # spacing: label ↔ its element
             # The leading pad is this panel's left inset and moves every
             # checkbox in the grid with it; the trailing pad closes the gap
             # to the piece count. tk.Checkbutton's own padx applies to both
@@ -1325,7 +1325,7 @@ class OptimizerTab(BaseTab):
         btn_row = ttk.Frame(parent)
         # spacing: checkbox block -> All/None row
         btn_row.pack(fill=tk.X, pady=(2, 0))
-        # spacing: frame edge -> button
+        # spacing: border edge -> button
         # spacing: button -> button
         ttk.Button(btn_row, text="All",
                    command=self._exclude_all_gear).pack(side=tk.LEFT, padx=(2, 2))

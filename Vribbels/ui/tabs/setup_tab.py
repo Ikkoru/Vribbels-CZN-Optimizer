@@ -45,7 +45,7 @@ _RENAME_PLACEHOLDER = "Rename current preset to..."
 # LEVERS, not rendered distances: neither rule is in the spacing audit
 # yet, so measure before trusting them.
 RESTORE_ROW_GAP = 4     # spacing: button -> button
-RESTORE_EDGE_PAD = 3    # spacing: frame edge -> button
+RESTORE_EDGE_PAD = 3    # spacing: border edge -> button
 RESTORE_TEXT_TRIM = -2  # spacing: button -> button
 
 
@@ -145,8 +145,8 @@ class SetupTab(BaseTab):
         top_row.grid_columnconfigure(0, weight=1, uniform="halves")
         top_row.grid_columnconfigure(1, weight=1, uniform="halves")
 
-        # spacing: frame edge -> first non-button element
-        # spacing: exception -- frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
+        # spacing: exception -- border edge -> first non-button element
         # Two components, two meanings. LEFT answers to the rule and is
         # a registered audit entry. TOP is the exception: these four
         # rows read as one block at a single pitch
@@ -188,7 +188,7 @@ class SetupTab(BaseTab):
         self.admin_status.pack(anchor=tk.W)
 
         # Restore Defaults panel: three [button + explanation] rows.
-        # spacing: frame edge -> button
+        # spacing: border edge -> button
         # Every edge whose neighbour is a button carries the button
         # rule -- top, left and bottom. The right is slack, the panel
         # being stretched wider than its text.
@@ -288,7 +288,7 @@ STEP 2: Verify setup
   - Click "Check Status" to verify all components are ready
   - All items should show green checkmarks [OK]"""
 
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,

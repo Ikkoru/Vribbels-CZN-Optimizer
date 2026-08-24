@@ -228,7 +228,7 @@ STAT MIN - MAX ROLLS:
  - Extra DMG%/DoT%:	2.7 - 3.4%
  - Ego:	2 - 5"""
 
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
@@ -271,7 +271,7 @@ STAT MIN - MAX ROLLS:
         explain_text.pack(fill=tk.BOTH, expand=True)
 
         # --- Right side: configuration -------------------------------
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # This padding is the lever for the whole panel's left inset --
         # the stat grid sits flush against it, and so does the status
         # label below, which the audit measures in its own right.
@@ -296,7 +296,7 @@ STAT MIN - MAX ROLLS:
         stats_frame = ttk.Frame(top)
         stats_frame.pack(side=tk.LEFT, anchor=tk.N)
 
-        # spacing: TBD -- stat block -> button column
+        # spacing: control group ↔ control group
         # Spacer between stats and buttons.
         ttk.Frame(top, width=11).pack(side=tk.LEFT)
 
@@ -308,7 +308,7 @@ STAT MIN - MAX ROLLS:
         self._build_stats_grid(stats_frame)
         self._build_button_column(btn_frame)
 
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # Status label, anchored left so it sits directly below DoT%. Its
         # LEFT inset is a registered audit entry, and comes from
         # config_frame's padding rather than from here. The negative TOP
@@ -327,7 +327,7 @@ STAT MIN - MAX ROLLS:
         # -- otherwise it reserves a few pixels of leading indent + disclosure
         # indicator space that has no use in a flat list. Data columns still
         # render even when neither "tree" nor "headings" is in show.
-        # spacing: TBD -- status label -> the list below it
+        # spacing: explanation text -> the controls it explains
         # (the label's own trailing pady is the other half of it)
         list_frame = ttk.Frame(config_frame)
         list_frame.pack(fill=tk.BOTH, expand=True, pady=(2, 0))
@@ -374,7 +374,7 @@ STAT MIN - MAX ROLLS:
         for i, (stat_key, display_name) in enumerate(STAT_DISPLAY_NAMES):
             row, col = i // 2, i % 2
             cell = ttk.Frame(parent)
-            # spacing: frame edge -> first non-button element
+            # spacing: border edge -> first non-button element
             # spacing: element and its label ↔ element and its label
             # spacing: spinbox row -> spinbox row
             # Column 0 sits flush against config_frame's own padding, so

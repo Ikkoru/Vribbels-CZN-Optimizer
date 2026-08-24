@@ -194,7 +194,7 @@ class InventoryTab(BaseTab):
         # spacing: content frame -> content frame
         slot_col.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=(1, 2, 1, 3))
         slot_frame.pack(fill=tk.X)
 
@@ -218,7 +218,7 @@ class InventoryTab(BaseTab):
         slot_btn_frame = ttk.Frame(slot_frame)
         # spacing: checkbox block -> All/None row
         slot_btn_frame.pack(fill=tk.X, pady=(1, 0))
-        # spacing: frame edge -> button
+        # spacing: border edge -> button
         # spacing: button -> button
         ttk.Button(slot_btn_frame, text="All", width=5,
                    command=self.select_all_slots).pack(side=tk.LEFT, padx=(2, 2))
@@ -238,7 +238,7 @@ class InventoryTab(BaseTab):
         self.active_preset_label.pack(anchor=tk.W, pady=(2, 0))
 
         # ----- Sets filter -----------------------------------------------
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=(1, 2, 0, 3))
         # spacing: content frame -> content frame
         set_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
@@ -249,7 +249,7 @@ class InventoryTab(BaseTab):
         set_btn_frame = ttk.Frame(set_frame)
         # spacing: checkbox block -> All/None row
         set_btn_frame.pack(fill=tk.X, pady=(1, 0))
-        # spacing: frame edge -> button
+        # spacing: border edge -> button
         # spacing: button -> button
         ttk.Button(set_btn_frame, text="All", width=5,
                    command=self.select_all_sets).pack(side=tk.LEFT, padx=(2, 2))
@@ -257,7 +257,7 @@ class InventoryTab(BaseTab):
                    command=self.select_no_sets).pack(side=tk.LEFT, padx=(2, 0))
 
         # ----- Main Stats filter -----------------------------------------
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=(2, 4, 2, 3))
         # spacing: content frame -> content frame
         main_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
@@ -304,7 +304,7 @@ class InventoryTab(BaseTab):
         main_btn_frame = ttk.Frame(main_frame)
         # spacing: checkbox block -> All/None row
         main_btn_frame.pack(fill=tk.X, pady=(2, 0))
-        # spacing: frame edge -> button
+        # spacing: border edge -> button
         # spacing: button -> button
         ttk.Button(main_btn_frame, text="All", width=5,
                    command=self.select_all_main_stats).pack(side=tk.LEFT, padx=(1, 2))
@@ -499,7 +499,7 @@ class InventoryTab(BaseTab):
             var = tk.BooleanVar(value=previous.get(set_name, True))
             self.inv_set_vars[set_name] = var
             base_col = logical_col * 2
-            # spacing: frame edge -> first non-button element
+            # spacing: border edge -> first non-button element
             # spacing: checkbox row -> checkbox row (small division)
             # (the leading padx feeds the panel's left inset; top_pad is
             # the divider between the 4-piece and 2-piece groups)
@@ -529,7 +529,7 @@ class InventoryTab(BaseTab):
             cnt = ttk.Label(self.inv_set_frame_inner, text=f"({count})",
                             foreground=right,
                             width=col_count_widths[logical_col], anchor=tk.E)
-            # spacing: frame edge -> first non-button element
+            # spacing: border edge -> first non-button element
             # spacing: element and its label ↔ element and its label
             # The last logical column has no neighbour, so its trailing pad
             # is the one feeding the panel's RIGHT inset, together with the
@@ -630,7 +630,7 @@ class InventoryTab(BaseTab):
         struck-through copy when the stat becomes unavailable, and the
         `disabledforeground` that greys the label in that state.
         """
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # The helper zeroes bd and highlightthickness, which is a spacing
         # lever as well as a cosmetic one: Tk's defaults add a border and
         # focus ring outside the indicator, which would push every

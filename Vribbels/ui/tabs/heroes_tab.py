@@ -161,7 +161,7 @@ CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
 # centred. Written as 196 it was 1.5px right of centre and would have
 # drifted further the moment GEAR_CELL_W moved.
 GEAR_TAB_GS = GEAR_TEXT_W // 2   # centre stop: GS and Potential
-# spacing: TBD -- gear cell column
+# spacing: label ↔ its element
 GEAR_TAB_SLOT = 385      # right stop: the slot name and its level
 GEAR_TAB_QUALITY = 20    # right stop: a substat's roll-quality percent
 GEAR_TAB_SUB = 26        # left stop: where the substat text starts
@@ -601,7 +601,7 @@ class HeroesTab(BaseTab):
         # Partner's passive/ego prose has no bound. The widget packs
         # straight into the LabelFrame for the same reason -- there is
         # nothing to sit beside it.
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
@@ -638,7 +638,7 @@ class HeroesTab(BaseTab):
         partner_text_frame.pack(fill=tk.BOTH, expand=True)
 
         partner_scroll = ttk.Scrollbar(partner_text_frame, orient=tk.VERTICAL)
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
@@ -692,10 +692,10 @@ class HeroesTab(BaseTab):
                 gear_grid, font=("Segoe UI", 9), wrap=tk.WORD,
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
                 relief=tk.RIDGE, bd=GEAR_CELL_BD, highlightthickness=0,
-                # spacing: frame edge -> first non-button element
+                # spacing: border edge -> first non-button element
                 # padx is symmetric, so it sets the LEFT inset and part of
                 # the right one; GEAR_TAB_SLOT carries the rest.
-                # spacing: text label row -> text label row
+                # spacing: label row -> label row
                 # spacing3 is the gap BELOW each line, which is what
                 # separates one row of the cell from the next. spacing1
                 # would add to the top inset above instead.
@@ -1262,10 +1262,10 @@ class HeroesTab(BaseTab):
             cell_w, cell_h = GEAR_CELL_W, GEAR_CELL_H
 
             # ----- Content maxima -> OUTER frame sizes (generous pad) -----
-            # spacing: frame edge -> first non-button element
+            # spacing: border edge -> first non-button element
             # PAD_W / PAD_H approximate the ttk LabelFrame theme overhead
             # so the right and bottom padding read like the top and left.
-            # Both edges answer to `frame edge -> first non-button element`;
+            # Both edges answer to `border edge -> first non-button element`;
             # the bottom shows the usual descender spread. Targets live in
             # docs/ui_spacing.md, not here. CHAR_PAD_W adds to PAD_W rather
             # than subtracting from it: the Character frame's own padding

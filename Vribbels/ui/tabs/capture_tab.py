@@ -124,20 +124,20 @@ class CaptureTab(BaseTab):
         left_col.configure(width=LEFT_COLUMN_PX)
         left_col.grid_propagate(False)
 
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # The frame's own padding is NOT the lever for the left inset --
         # the explanation label below carries that, for the reason given
         # there.
         right_col = ttk.LabelFrame(top_columns, text="Upgrade Log Settings",
                                    padding=(3, 1, 4, 3))
-        # spacing: TBD -- panel title -> heading in the adjacent column
+        # spacing: tab list -> first element
         # The pady top lands this LabelFrame's title on the same line as
         # the left column's heading: a LabelFrame title has no internal
         # leading above it, where the 14pt heading beside it keeps a
         # little after its negative padding.
         right_col.grid(row=0, column=1, sticky="nsew", padx=2, pady=(3, 0))
 
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # spacing: explanation text -> the controls it explains
         # Corrected on this LABEL rather than on the panel's padding: the
         # checkboxes below are already on target, and a frame-level shift
@@ -216,7 +216,7 @@ class CaptureTab(BaseTab):
                       side=tk.LEFT, anchor=tk.S, padx=(14, 0),
                       pady=(0, 0))
 
-        # spacing: exception -- frame edge -> first non-button element
+        # spacing: exception -- border edge -> first non-button element
         # The LEFT inset deliberately does not meet it, and the panel is
         # left out of the audit for that; see docs/ui_spacing.md.
         status_frame = ttk.LabelFrame(left_col, text="Status", padding=(5, 1, 5, 3))
@@ -239,7 +239,7 @@ class CaptureTab(BaseTab):
         self.capture_info_label.pack(side=tk.LEFT, anchor=tk.S,
                                      padx=(10, 0), pady=(0, 2))
 
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(4, 6, 5, 5))
         # spacing: content frame -> content frame
         region_frame.pack(fill=tk.X, padx=0, pady=2)
@@ -297,10 +297,10 @@ class CaptureTab(BaseTab):
         # Enable to log every WebSocket message to a websocket_debug_*.jsonl
         # file in the snapshots folder — useful when adding support for new
         # packet types (e.g., fragment create/delete).
-        # spacing: TBD -- button row -> a checkbox beside it
+        # spacing: element and its label ↔ element and its label
         self.debug_checkbox.pack(side=tk.LEFT, padx=(6, 0))
 
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # The right edge carries slack, not a target: the frame is
         # stretched wider than its text.
         req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(4, 2, 5, 4))
@@ -325,7 +325,7 @@ class CaptureTab(BaseTab):
         log_frame = ttk.LabelFrame(main_frame, text="Capture Log", padding=0)
         log_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
 
-        # spacing: frame edge -> first non-button element
+        # spacing: border edge -> first non-button element
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
