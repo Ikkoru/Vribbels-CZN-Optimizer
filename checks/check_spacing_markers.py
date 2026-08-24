@@ -28,7 +28,11 @@ from ._harness import REPO_ROOT, SOURCE_ROOT
 NAME = "spacing markers"
 
 MARKER = re.compile(r"#\s*spacing:\s*(.+?)\s*$", re.M)
-ORIENTATIONS = ("↔", "↕")          # <-> and up/down
+# Horizontal, vertical, or a lever that acts in both -- a frame padding
+# or a style inset reaches all four edges at once, and writing one arrow
+# for it would drop the site out of the other arrow's grep.
+ORIENTATIONS = ("↔", "↕", "↔↕")
+SUFFIX = re.compile(r"^(.*?)\s*([↔↕]+)$")
 
 # Headings this check reads the doc through. Kept here so a rename shows
 # up as one edit rather than four scattered string literals.
@@ -37,10 +41,7 @@ VOCAB_HEADING = "### The element vocabulary"
 UNRULED_HEADING = "## The unruled rows, as a table"
 END_HEADING = "## Checking spacing"
 
-# Set to True once every marker carries a suffix. Until then a bare
-# marker is accepted, so the conversion can go file by file with this
-# check green the whole way.
-REQUIRE_SUFFIX = False
+REQUIRE_SUFFIX = True
 
 
 class DocLayoutChanged(Exception):
@@ -146,16 +147,16 @@ def _check_suffix(suffix, vocab, where, failures):
                 f"every site."
             )
         return
-    orientation = suffix[-1]
-    if orientation not in ORIENTATIONS:
+    trailing = SUFFIX.match(suffix)
+    if not trailing or trailing.group(2) not in ORIENTATIONS:
         failures.append(
-            f"{where} ends with {orientation!r}, not ↔ or ↕. The "
-            f"orientation is written even where the rule's own name "
-            f"carries an arrow -- optional means grep returns a partial "
-            f"answer that looks complete."
+            f"{where} does not end with ↔, ↕ or ↔↕. The orientation is "
+            f"written even where the rule's own name carries an arrow -- "
+            f"optional means grep returns a partial answer that looks "
+            f"complete."
         )
         return
-    words = [w.strip() for w in suffix[:-1].split(",")]
+    words = [w.strip() for w in trailing.group(1).split(",")]
     for word in words:
         if not word:
             failures.append(f"{where} has an empty element name.")

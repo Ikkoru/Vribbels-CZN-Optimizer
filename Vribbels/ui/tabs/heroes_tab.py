@@ -146,8 +146,8 @@ GEAR_SUBSTAT_ROWS = 4
 # Recompute these after changing HERO_STAT_ROWS, the body font, or
 # either rule's target -- docs/ui_spacing.md "Column alignment" holds
 # the widest value per stat and the arithmetic.
-# spacing: label ↔ its element
-# spacing: element and its label ↔ element and its label
+# spacing: label ↔ its element -- text, text ↔
+# spacing: element and its label ↔ element and its label -- text, text ↔
 CHAR_TAB_VAL1 = 50     # right stop: end of the left column's value
 CHAR_TAB_NAME2 = 58    # left stop: start of the right column's label
 CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
@@ -161,7 +161,7 @@ CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
 # centred. Written as 196 it was 1.5px right of centre and would have
 # drifted further the moment GEAR_CELL_W moved.
 GEAR_TAB_GS = GEAR_TEXT_W // 2   # centre stop: GS and Potential
-# spacing: label ↔ its element
+# spacing: label ↔ its element -- text, text ↔
 GEAR_TAB_SLOT = 385      # right stop: the slot name and its level
 GEAR_TAB_QUALITY = 20    # right stop: a substat's roll-quality percent
 GEAR_TAB_SUB = 26        # left stop: where the substat text starts
@@ -170,7 +170,7 @@ GEAR_TAB_SUB = 26        # left stop: where the substat text starts
 # letter-spacing, so the only lever inside a line is the space glyph --
 # 3px of advance each in Segoe UI 9, which is why this is a string and
 # not a pixel count.
-# spacing: element and its label ↔ element and its label
+# spacing: element and its label ↔ element and its label -- text, text ↔
 GEAR_GS_POT_GAP = "  "
 
 # Width the Character panel gives up to the Partner panel beside it.
@@ -377,8 +377,8 @@ class HeroesTab(BaseTab):
         # even though the left one is a single line. Stacking per column
         # lets the list rise under the user info label on its own.
         columns = ttk.Frame(self.frame)
-        # spacing: content frame -> content frame
-        # spacing: tab list -> first element
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        # spacing: tab list -> first element -- tab, frame ↕
         columns.pack(fill=tk.BOTH, expand=True, padx=2, pady=(1, 2))
         # The 6:8 weight split gives the left character-list column ~43%
         # of the content width (widened to fit the Partner column). Tk grid
@@ -396,7 +396,7 @@ class HeroesTab(BaseTab):
         # Col 0 header: user info label
         user_info_subframe = ttk.Frame(left_column)
         user_info_subframe.pack(fill=tk.X)
-        # spacing: tab list -> first element
+        # spacing: tab list -> first element -- tab, label ↕
         # ttk.Label, not tk.Label: this needs negative padding to cancel
         # the font's internal offset (see docs/ui_spacing.md
         # "The rules"), and tk.Label's pady clamps at 0 so it can barely
@@ -417,10 +417,10 @@ class HeroesTab(BaseTab):
 
         # Col 1 header: Combatant name + preset dropdown.
         title_row = ttk.Frame(right_column)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔
         title_row.pack(fill=tk.X, padx=(4, 0))
 
-        # spacing: header subtext
+        # spacing: header subtext -- heading, label ↔
         # padding cancels the 14pt font's internal leading -- same
         # correction as the other tabs' headings.
         self.hero_detail_name = ttk.Label(
@@ -433,7 +433,7 @@ class HeroesTab(BaseTab):
         # `expand=True, fill=X` fills the leftover space between the name
         # and title_row's right edge.
         preset_group = ttk.Frame(title_row)
-        # spacing: heading ↔ element
+        # spacing: heading ↔ element -- heading, label ↔
         preset_group.pack(side=tk.LEFT, fill=tk.X, expand=True,
                           padx=(14, 0))
 
@@ -495,7 +495,7 @@ class HeroesTab(BaseTab):
 
         # Left: Hero list.
         hero_list_container = ttk.Frame(left_column)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔↕
         # The top pad is larger than the sides because it stands in for
         # what three nesting levels contribute on the other columns; this
         # one has fewer levels above it. The bottom pad is the tab's own
@@ -554,7 +554,7 @@ class HeroesTab(BaseTab):
 
         # Right: Hero details
         hero_detail_container = ttk.Frame(right_column)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔↕
         hero_detail_container.pack(fill=tk.BOTH, expand=True, padx=2, pady=(6, 2))
         self.hero_detail_container = hero_detail_container  # for width-clamp lookups
 
@@ -575,14 +575,14 @@ class HeroesTab(BaseTab):
         # empty space below. The Character / Partner frames inside
         # info_frame get pack_configure'd to fill=Y / fill=BOTH down in
         # _compute_and_apply_fixed_sizes so they grow with it.
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↕
         info_frame.pack(fill=tk.BOTH, expand=True, pady=2)
 
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border --
         # the same construction as the Partner frame below.
         char_frame = ttk.LabelFrame(info_frame, text="Character", padding=0)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔
         # Leading 0, not 2: this panel's left edge already carries
         # hero_detail_container's 2 plus the LabelFrame's own border, which
         # together overshot the rule. The trailing half is untouched, so
@@ -601,7 +601,7 @@ class HeroesTab(BaseTab):
         # Partner's passive/ego prose has no bound. The widget packs
         # straight into the LabelFrame for the same reason -- there is
         # nothing to sit beside it.
-        # spacing: border edge -> first non-button element
+        # spacing: border edge -> first non-button element -- panel, text ↔↕
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
@@ -622,7 +622,7 @@ class HeroesTab(BaseTab):
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border.
         partner_frame = ttk.LabelFrame(info_frame, text="Partner", padding=0)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔
         partner_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=2)
         self._partner_frame = partner_frame  # fixed-size target
         # Right-click on the partner pane (the LabelFrame OR the Text widget
@@ -638,7 +638,7 @@ class HeroesTab(BaseTab):
         partner_text_frame.pack(fill=tk.BOTH, expand=True)
 
         partner_scroll = ttk.Scrollbar(partner_text_frame, orient=tk.VERTICAL)
-        # spacing: border edge -> first non-button element
+        # spacing: border edge -> first non-button element -- panel, text ↔↕
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
@@ -660,7 +660,7 @@ class HeroesTab(BaseTab):
         gear_outer_frame = ttk.LabelFrame(
             hero_detail_container, text="Equipped Memory Fragments", padding=0,
             style="Gear.Borderless.TLabelframe")
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↕
         # The bottom pad is 0: this frame is the last thing in the detail
         # column, so anything here would stack on hero_detail_container's
         # own bottom pad and lift the panel above the character list
@@ -692,10 +692,10 @@ class HeroesTab(BaseTab):
                 gear_grid, font=("Segoe UI", 9), wrap=tk.WORD,
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
                 relief=tk.RIDGE, bd=GEAR_CELL_BD, highlightthickness=0,
-                # spacing: border edge -> first non-button element
+                # spacing: border edge -> first non-button element -- text, text ↔↕
                 # padx is symmetric, so it sets the LEFT inset and part of
                 # the right one; GEAR_TAB_SLOT carries the rest.
-                # spacing: label row -> label row
+                # spacing: label row -> label row -- text, text ↕
                 # spacing3 is the gap BELOW each line, which is what
                 # separates one row of the cell from the next. spacing1
                 # would add to the top inset above instead.
@@ -705,7 +705,7 @@ class HeroesTab(BaseTab):
                 # typing into it.
                 takefocus=0, insertwidth=0, cursor="arrow",
             )
-            # spacing: content frame -> content frame
+            # spacing: content frame -> content frame -- text, text ↔↕
             # padx is asymmetric on purpose: the LabelFrame title above
             # starts inset from the frame's left edge, so an even split
             # put the cells right of their own title. The trailing side
@@ -1262,7 +1262,7 @@ class HeroesTab(BaseTab):
             cell_w, cell_h = GEAR_CELL_W, GEAR_CELL_H
 
             # ----- Content maxima -> OUTER frame sizes (generous pad) -----
-            # spacing: border edge -> first non-button element
+            # spacing: border edge -> first non-button element -- panel, text ↔↕
             # PAD_W / PAD_H approximate the ttk LabelFrame theme overhead
             # so the right and bottom padding read like the top and left.
             # Both edges answer to `border edge -> first non-button element`;
@@ -1280,8 +1280,8 @@ class HeroesTab(BaseTab):
             # value (right-aligned), and nothing after. A right-aligned
             # stop sits at the END of its column, so each is the running
             # total of everything to its left.
-            # spacing: label ↔ its element
-            # spacing: element and its label ↔ element and its label
+            # spacing: label ↔ its element -- text, text ↔
+            # spacing: element and its label ↔ element and its label -- text, text ↔
             # Stops are PIXEL offsets, not character counts, so the 4 and
             # the 8 below are the rendered gaps themselves. `name_px` is
             # the widest label measured in this font, which is what makes

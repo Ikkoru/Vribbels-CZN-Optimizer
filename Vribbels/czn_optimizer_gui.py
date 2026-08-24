@@ -449,7 +449,7 @@ class OptimizerGUI:
             arrowcolor=[("active", self.colors["fg"])],
         )
         self.style.configure("TNotebook", background=self.colors["bg"])
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔↕
         # Clam's Notebook.client element insets its content by 2px on every
         # side, which lands on top of each tab's own margins and can't be
         # tuned per tab. Borrowing the default theme's client element drops
@@ -468,7 +468,7 @@ class OptimizerGUI:
             pass
         self.style.configure("TNotebook.Tab", background=self.colors["bg_light"], foreground=self.colors["fg"], padding=[10, 5])
         self.style.map("TNotebook.Tab", background=[("selected", self.colors["bg_lighter"])])
-        # spacing: unique -- Treeview internals, which are style options
+        # spacing: unique -- tree, text ↔↕ -- Treeview internals, which are style options
         # rather than anything a geometry manager can reach
         #
         # `padding` here is BOTH levers at once, and that is not obvious.
@@ -529,7 +529,7 @@ class OptimizerGUI:
         self.style.configure("Borderless.TLabelframe",
                              background=self.colors["bg"],
                              borderwidth=0, relief=tk.FLAT)
-        # spacing: title above, element below
+        # spacing: title above, element below -- title, panel ↕
         # The bottom component is the lever, one less than the theme's
         # default. The rule measures from the title text to the first
         # thing painted below it, which for a LabelFrame is its own top
@@ -544,7 +544,7 @@ class OptimizerGUI:
         self.style.configure("Borderless.TLabelframe.Label",
                              background=self.colors["bg"],
                              foreground=self.colors["accent"])
-        # spacing: title above, element below
+        # spacing: title above, element below -- title, panel ↕
         # The Borderless variants set their own labelmargins and inherit
         # nothing from the base style above, so the same lever has to be
         # repeated here. labelmargins REPLACES the theme's margins, so
@@ -555,7 +555,7 @@ class OptimizerGUI:
         # the base style's measurement rather than one of its own.
         self.style.configure("Borderless.TLabelframe",
                              labelmargins="0 0 0 3")
-        # spacing: exception -- title above, element below
+        # spacing: exception -- title above, element below -- title, tree ↕
         # The Results tree is pulled tighter to its title than the rule,
         # deliberately.
         # labelmargins replaces the theme's default margins outright, so a
@@ -564,7 +564,7 @@ class OptimizerGUI:
         # Borderless.*.
         self.style.configure("Tight.Borderless.TLabelframe",
                              labelmargins="0 0 0 -1")
-        # spacing: title above, element below
+        # spacing: title above, element below -- title, frame ↔
         # The title is nudged right so it lines up with the gear grid
         # beneath it (Combatants). labelmargins' first component is the
         # title's x offset; the default is 0.

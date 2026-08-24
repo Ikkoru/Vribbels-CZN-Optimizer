@@ -44,9 +44,9 @@ _RENAME_PLACEHOLDER = "Rename current preset to..."
 #
 # LEVERS, not rendered distances: neither rule is in the spacing audit
 # yet, so measure before trusting them.
-RESTORE_ROW_GAP = 4     # spacing: button -> button
-RESTORE_EDGE_PAD = 3    # spacing: border edge -> button
-RESTORE_TEXT_TRIM = -2  # spacing: button -> button
+RESTORE_ROW_GAP = 4     # spacing: button -> button -- button, button ↕
+RESTORE_EDGE_PAD = 3    # spacing: border edge -> button -- panel, button ↔↕
+RESTORE_TEXT_TRIM = -2  # spacing: button -> button -- button, button ↕
 
 
 # -------- per-kind metadata for the generalized restore dialog --------
@@ -114,22 +114,22 @@ class SetupTab(BaseTab):
     def setup_ui(self):
         """Setup the Setup tab UI."""
         main_frame = ttk.Frame(self.frame)
-        # spacing: content frame -> content frame
-        # spacing: tab list -> first element
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        # spacing: tab list -> first element -- tab, frame ↕
         main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(1, 2))
 
         # Title and subtitle share one line, bottom-aligned (as on the
         # Gear Score tab).
         header_row = ttk.Frame(main_frame)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↕
         header_row.pack(fill=tk.X, pady=(0, 2))
 
-        # spacing: header subtext
+        # spacing: header subtext -- heading, label ↔
         # padding corrects the font's internal offsets, not layout -- see
         # docs/ui_spacing.md "The rules".
         ttk.Label(header_row, text="First-Time Setup", padding=(-1, -3, 0, -2),
                   font=("Segoe UI", 14, "bold")).pack(side=tk.LEFT, anchor=tk.S)
-        # spacing: heading ↔ element
+        # spacing: heading ↔ element -- heading, label ↔
         ttk.Label(header_row,
                   text="Complete these steps before using the capture feature",
                   foreground=self.colors["fg_dim"],
@@ -140,13 +140,13 @@ class SetupTab(BaseTab):
         # Top row: Setup Status (left) and Restore Defaults (right)
         # side-by-side in equal-width columns.
         top_row = ttk.Frame(main_frame)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↕
         top_row.pack(fill=tk.X, pady=2)
         top_row.grid_columnconfigure(0, weight=1, uniform="halves")
         top_row.grid_columnconfigure(1, weight=1, uniform="halves")
 
-        # spacing: border edge -> first non-button element
-        # spacing: exception -- border edge -> first non-button element
+        # spacing: border edge -> first non-button element -- panel, label ↔
+        # spacing: exception -- border edge -> first non-button element -- panel, label ↕
         # Two components, two meanings. LEFT answers to the rule and is
         # a registered audit entry. TOP is the exception: these four
         # rows read as one block at a single pitch
@@ -162,10 +162,10 @@ class SetupTab(BaseTab):
         # last row where the others split it between two neighbours.
         status_frame = ttk.LabelFrame(top_row, text="Setup Status",
                                       padding=(4, 4, 5, 7))
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔↕
         status_frame.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
 
-        # spacing: unique -- between rows of important status text
+        # spacing: unique -- label, label ↕ -- between rows of important status text
         # The rows carry no pady: a Segoe UI 11 label's own line box
         # already contributes 7px above its ink and 4 below, which is
         # the whole pitch. Anything added here lands on top of that.
@@ -188,7 +188,7 @@ class SetupTab(BaseTab):
         self.admin_status.pack(anchor=tk.W)
 
         # Restore Defaults panel: three [button + explanation] rows.
-        # spacing: border edge -> button
+        # spacing: border edge -> button -- panel, button ↔↕
         # Every edge whose neighbour is a button carries the button
         # rule -- top, left and bottom. The right is slack, the panel
         # being stretched wider than its text.
@@ -196,7 +196,7 @@ class SetupTab(BaseTab):
             top_row, text="Restore Defaults",
             padding=(RESTORE_EDGE_PAD, RESTORE_EDGE_PAD, 5,
                      RESTORE_EDGE_PAD))
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔↕
         restore_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
 
         button_specs = [
@@ -220,7 +220,7 @@ class SetupTab(BaseTab):
         ]
         for index, (label, explanation, kind) in enumerate(button_specs):
             row = ttk.Frame(restore_frame)
-            # spacing: button -> button
+            # spacing: button -> button -- button, button ↕
             # The gap goes on the LEADING edge of every row after the
             # first, so the last row adds nothing below itself and the
             # frame's own bottom padding is the only thing between the
@@ -236,7 +236,7 @@ class SetupTab(BaseTab):
                 row, text=label, width=20,
                 command=lambda k=kind: self._open_restore_dialog(k),
             ).grid(row=0, column=0, sticky="")
-            # spacing: label ↔ its element
+            # spacing: label ↔ its element -- button, label ↔
             # The negative vertical padding trims the label's box to its
             # own line boxes -- two lines of text sit in a box 4px taller
             # than they need, and that surplus used to make the label the
@@ -252,10 +252,10 @@ class SetupTab(BaseTab):
 
         # Button frame
         btn_frame = ttk.Frame(main_frame)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↕
         btn_frame.pack(fill=tk.X, pady=2)
 
-        # spacing: button -> button
+        # spacing: button -> button -- button, button ↔
         # Each button's trailing pad meets the next one's leading pad, so
         # the pair sums to the gap. The row sits in a borderless frame, so
         # there is no frame edge for the button rule's left and bottom to
@@ -265,7 +265,7 @@ class SetupTab(BaseTab):
         ttk.Button(btn_frame, text="Generate & Install Cert",
                    command=self.setup_cert, width=22).pack(side=tk.LEFT, padx=(2, 5))
 
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔↕
         # This padx and main_frame's own sum to the gap from the window
         # edge, matching every other bordered panel. The frame itself
         # carries no padding, so the text widget's own background reaches
@@ -288,7 +288,7 @@ STEP 2: Verify setup
   - Click "Check Status" to verify all components are ready
   - All items should show green checkmarks [OK]"""
 
-        # spacing: border edge -> first non-button element
+        # spacing: border edge -> first non-button element -- panel, text ↔↕
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,

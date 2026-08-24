@@ -311,7 +311,7 @@ def frame_border_edges(cap: Capture, frame) -> tuple:
 def inset_from_frame_edge(cap: Capture, frame, child, side: str,
                           bg=None) -> tuple:
     """Background pixels between a frame's painted border and a child's
-    painted content, for the "frame edge -> first element" rules.
+    painted content, for the "border edge -> ..." rules.
 
     Both ends are painted edges: the inner edge of the frame's border,
     and the child's painted extent (not its box, so a Label's empty

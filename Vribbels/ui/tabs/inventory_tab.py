@@ -177,8 +177,8 @@ class InventoryTab(BaseTab):
             self._mainstat_strike_font = ("TkDefaultFont", 9, "overstrike")
 
         filter_frame = ttk.Frame(self.frame)
-        # spacing: content frame -> content frame
-        # spacing: tab list -> first element
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        # spacing: tab list -> first element -- tab, frame ↕
         # This tab has no main_frame wrapper -- filter_frame and tree_frame
         # pack straight into self.frame -- so the outer pads carry the whole
         # distance to the window edge themselves, where other tabs split it
@@ -191,10 +191,10 @@ class InventoryTab(BaseTab):
         # The Slots frame shares a vertical column with the active-preset
         # label so the label sits directly beneath it.
         slot_col = ttk.Frame(filter_frame)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔
         slot_col.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 
-        # spacing: border edge -> first non-button element
+        # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=(1, 2, 1, 3))
         slot_frame.pack(fill=tk.X)
 
@@ -209,17 +209,17 @@ class InventoryTab(BaseTab):
                 slot_name = EQUIPMENT_SLOTS[slot_num]
                 var = tk.BooleanVar(value=True)
                 self.inv_slot_vars[slot_num] = var
-                # spacing: element and its label ↔ element and its label
+                # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
                 make_checkbox(
                     slot_inner, self.colors, text=slot_name, variable=var,
                     command=lambda n=slot_num: self._on_slot_toggle(n)
                 ).grid(row=row, column=col, sticky=tk.W, padx=2)
 
         slot_btn_frame = ttk.Frame(slot_frame)
-        # spacing: checkbox block -> All/None row
+        # spacing: checkbox block -> All/None row -- checkbox, button ↕
         slot_btn_frame.pack(fill=tk.X, pady=(1, 0))
-        # spacing: border edge -> button
-        # spacing: button -> button
+        # spacing: border edge -> button -- panel, button ↔
+        # spacing: button -> button -- button, button ↔
         ttk.Button(slot_btn_frame, text="All", width=5,
                    command=self.select_all_slots).pack(side=tk.LEFT, padx=(2, 2))
         ttk.Button(slot_btn_frame, text="None", width=5,
@@ -234,39 +234,39 @@ class InventoryTab(BaseTab):
             foreground=self.colors["fg_dim"],
             wraplength=205, justify=tk.LEFT,
         )
-        # spacing: panel ↕ unrelated label
+        # spacing: panel ↕ unrelated label -- panel, label ↕
         self.active_preset_label.pack(anchor=tk.W, pady=(2, 0))
 
         # ----- Sets filter -----------------------------------------------
-        # spacing: border edge -> first non-button element
+        # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=(1, 2, 0, 3))
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔
         set_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 
         self.inv_set_frame_inner = ttk.Frame(set_frame)
         self.inv_set_frame_inner.pack()
 
         set_btn_frame = ttk.Frame(set_frame)
-        # spacing: checkbox block -> All/None row
+        # spacing: checkbox block -> All/None row -- checkbox, button ↕
         set_btn_frame.pack(fill=tk.X, pady=(1, 0))
-        # spacing: border edge -> button
-        # spacing: button -> button
+        # spacing: border edge -> button -- panel, button ↔
+        # spacing: button -> button -- button, button ↔
         ttk.Button(set_btn_frame, text="All", width=5,
                    command=self.select_all_sets).pack(side=tk.LEFT, padx=(2, 2))
         ttk.Button(set_btn_frame, text="None", width=5,
                    command=self.select_no_sets).pack(side=tk.LEFT, padx=(2, 0))
 
         # ----- Main Stats filter -----------------------------------------
-        # spacing: border edge -> first non-button element
+        # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=(2, 4, 2, 3))
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔
         main_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 
         self.inv_main_stat_frame_inner = ttk.Frame(main_frame)
         self.inv_main_stat_frame_inner.pack(anchor=tk.W)
 
-        # spacing: checkbox/slider ↕ checkbox/slider rows
-        # spacing: checkbox row -> checkbox row (small division)
+        # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
+        # spacing: checkbox row -> checkbox row (small division) -- checkbox, checkbox ↕
         # Build the fixed layout. Every checkbox starts checked & enabled --
         # availability is then refined by _refresh_main_stat_availability().
         #
@@ -287,7 +287,7 @@ class InventoryTab(BaseTab):
                 cb = self._make_mainstat_checkbutton(
                     self.inv_main_stat_frame_inner, label, var
                 )
-                # spacing: element and its label ↔ element and its label
+                # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
                 cb.grid(row=row_idx, column=col_idx, sticky=tk.W,
                         padx=2, pady=(extra_top, 0))
                 self.inv_main_stat_checks[label] = cb
@@ -302,10 +302,10 @@ class InventoryTab(BaseTab):
         # Empty by default; widgets get added dynamically.
 
         main_btn_frame = ttk.Frame(main_frame)
-        # spacing: checkbox block -> All/None row
+        # spacing: checkbox block -> All/None row -- checkbox, button ↕
         main_btn_frame.pack(fill=tk.X, pady=(2, 0))
-        # spacing: border edge -> button
-        # spacing: button -> button
+        # spacing: border edge -> button -- panel, button ↔
+        # spacing: button -> button -- button, button ↔
         ttk.Button(main_btn_frame, text="All", width=5,
                    command=self.select_all_main_stats).pack(side=tk.LEFT, padx=(1, 2))
         ttk.Button(main_btn_frame, text="None", width=5,
@@ -316,7 +316,7 @@ class InventoryTab(BaseTab):
 
         # ----- Options ---------------------------------------------------
         opt_frame = ttk.Frame(filter_frame)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔
         opt_frame.pack(side=tk.LEFT, padx=(1, 2))
 
         self.inv_unequipped_var = tk.BooleanVar(value=False)
@@ -343,7 +343,7 @@ class InventoryTab(BaseTab):
 
         # ----- Treeview ---------------------------------------------------
         tree_frame = ttk.Frame(self.frame)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔↕
         # Twice the other tabs' value, because the Treeview is packed
         # directly inside with no padding of its own: this frame supplies
         # the whole edge gap rather than half of it.
@@ -499,8 +499,8 @@ class InventoryTab(BaseTab):
             var = tk.BooleanVar(value=previous.get(set_name, True))
             self.inv_set_vars[set_name] = var
             base_col = logical_col * 2
-            # spacing: border edge -> first non-button element
-            # spacing: checkbox row -> checkbox row (small division)
+            # spacing: border edge -> first non-button element -- panel, checkbox ↔
+            # spacing: checkbox row -> checkbox row (small division) -- checkbox, checkbox ↕
             # (the leading padx feeds the panel's left inset; top_pad is
             # the divider between the 4-piece and 2-piece groups)
             # A two-Element set reads left-to-right in the order it lists
@@ -529,8 +529,8 @@ class InventoryTab(BaseTab):
             cnt = ttk.Label(self.inv_set_frame_inner, text=f"({count})",
                             foreground=right,
                             width=col_count_widths[logical_col], anchor=tk.E)
-            # spacing: border edge -> first non-button element
-            # spacing: element and its label ↔ element and its label
+            # spacing: border edge -> first non-button element -- label, panel ↔
+            # spacing: element and its label ↔ element and its label -- label, checkbox ↔
             # The last logical column has no neighbour, so its trailing pad
             # is the one feeding the panel's RIGHT inset, together with the
             # label's own trailing inset. Tk rejects negative pad values, so
@@ -546,7 +546,7 @@ class InventoryTab(BaseTab):
                 lambda _e, v=var: (v.set(not v.get()), self.refresh_inventory()),
             )
 
-        # spacing: checkbox row -> checkbox row (small division)
+        # spacing: checkbox row -> checkbox row (small division) -- checkbox, checkbox ↕
         SET_GROUP_GAP = 4
         for i, set_name in enumerate(four_names):
             _add_set_cell(set_name, i // ncols, i % ncols, 0)
@@ -617,7 +617,7 @@ class InventoryTab(BaseTab):
             cb = self._make_mainstat_checkbutton(
                 self.inv_main_unknown_frame, canonical, var
             )
-            # spacing: element and its label ↔ element and its label
+            # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
             cb.grid(row=0, column=col_idx, sticky=tk.W, padx=2)
             self.inv_unknown_main_stat_checks[canonical] = cb
 
@@ -630,7 +630,7 @@ class InventoryTab(BaseTab):
         struck-through copy when the stat becomes unavailable, and the
         `disabledforeground` that greys the label in that state.
         """
-        # spacing: border edge -> first non-button element
+        # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         # The helper zeroes bd and highlightthickness, which is a spacing
         # lever as well as a cosmetic one: Tk's defaults add a border and
         # focus ring outside the indicator, which would push every

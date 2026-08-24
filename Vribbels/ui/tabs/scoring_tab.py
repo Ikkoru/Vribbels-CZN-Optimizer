@@ -139,17 +139,17 @@ class ScoringTab(BaseTab):
 
     def setup_ui(self):
         main_frame = ttk.Frame(self.frame)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔↕
         main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
 
         # Title and subtitle share one line: the subtitle sits to the
         # right of the heading, bottom-aligned so the two read as a single
         # header rather than two stacked blocks.
         header_row = ttk.Frame(main_frame)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↕
         header_row.pack(fill=tk.X, pady=(0, 2))
 
-        # spacing: header subtext
+        # spacing: header subtext -- heading, label ↔
         # padding here corrects for the font's own internal offsets, NOT
         # for layout: the top component removes the blank leading above
         # the capitals, the bottom one the space below the descenders.
@@ -162,7 +162,7 @@ class ScoringTab(BaseTab):
         ).pack(side=tk.LEFT, anchor=tk.S)
         # anchor=S puts the subtitle on the heading's own line rather
         # than stacking it below.
-        # spacing: heading ↔ element
+        # spacing: heading ↔ element -- heading, label ↔
         ttk.Label(
             header_row, text="Configure how gear scores are calculated",
             foreground=self.colors["fg_dim"], padding=(0, 0, 0, 0)
@@ -183,7 +183,7 @@ class ScoringTab(BaseTab):
         # padx/pady, so its lighter background reaches the frame border.
         explain_frame = ttk.LabelFrame(content, text="How Gear Score Works",
                                        padding=0)
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔↕
         explain_frame.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
 
         explanation = """GEAR SCORE (GS) EXPLANATION
@@ -228,7 +228,7 @@ STAT MIN - MAX ROLLS:
  - Extra DMG%/DoT%:	2.7 - 3.4%
  - Ego:	2 - 5"""
 
-        # spacing: border edge -> first non-button element
+        # spacing: border edge -> first non-button element -- panel, text ↔↕
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
@@ -271,16 +271,16 @@ STAT MIN - MAX ROLLS:
         explain_text.pack(fill=tk.BOTH, expand=True)
 
         # --- Right side: configuration -------------------------------
-        # spacing: border edge -> first non-button element
+        # spacing: border edge -> first non-button element -- panel, label ↔↕
         # This padding is the lever for the whole panel's left inset --
         # the stat grid sits flush against it, and so does the status
         # label below, which the audit measures in its own right.
         config_frame = ttk.LabelFrame(content, text="Stat Weight Configuration",
                                       padding=(4, 2, 5, 5))
-        # spacing: content frame -> content frame
+        # spacing: content frame -> content frame -- frame, frame ↔↕
         config_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
 
-        # spacing: explanation text -> the controls it explains
+        # spacing: explanation text -> the controls it explains -- label, spinbox ↕
         ttk.Label(
             config_frame,
             text="Adjust weights for custom scoring (1.0 = normal)",
@@ -296,7 +296,7 @@ STAT MIN - MAX ROLLS:
         stats_frame = ttk.Frame(top)
         stats_frame.pack(side=tk.LEFT, anchor=tk.N)
 
-        # spacing: control group ↔ control group
+        # spacing: control group ↔ control group -- spinbox, button ↔
         # Spacer between stats and buttons.
         ttk.Frame(top, width=11).pack(side=tk.LEFT)
 
@@ -308,7 +308,7 @@ STAT MIN - MAX ROLLS:
         self._build_stats_grid(stats_frame)
         self._build_button_column(btn_frame)
 
-        # spacing: border edge -> first non-button element
+        # spacing: border edge -> first non-button element -- panel, label ↔
         # Status label, anchored left so it sits directly below DoT%. Its
         # LEFT inset is a registered audit entry, and comes from
         # config_frame's padding rather than from here. The negative TOP
@@ -327,7 +327,7 @@ STAT MIN - MAX ROLLS:
         # -- otherwise it reserves a few pixels of leading indent + disclosure
         # indicator space that has no use in a flat list. Data columns still
         # render even when neither "tree" nor "headings" is in show.
-        # spacing: explanation text -> the controls it explains
+        # spacing: explanation text -> the controls it explains -- label, tree ↕
         # (the label's own trailing pady is the other half of it)
         list_frame = ttk.Frame(config_frame)
         list_frame.pack(fill=tk.BOTH, expand=True, pady=(2, 0))
@@ -374,9 +374,9 @@ STAT MIN - MAX ROLLS:
         for i, (stat_key, display_name) in enumerate(STAT_DISPLAY_NAMES):
             row, col = i // 2, i % 2
             cell = ttk.Frame(parent)
-            # spacing: border edge -> first non-button element
-            # spacing: element and its label ↔ element and its label
-            # spacing: spinbox row -> spinbox row
+            # spacing: border edge -> first non-button element -- panel, label ↔
+            # spacing: element and its label ↔ element and its label -- spinbox, label ↔
+            # spacing: spinbox row -> spinbox row -- spinbox, spinbox ↕
             # Column 0 sits flush against config_frame's own padding, so
             # that padding is what puts these labels on target and this
             # side must stay 0. Column 1's leading pad and column 0's
@@ -401,7 +401,7 @@ STAT MIN - MAX ROLLS:
             # frame has to be given a height, and a ttk.Label is taller
             # than its font's line box by however much the style pads it.
             cell.grid_columnconfigure(0, minsize=label_col_px)
-            # spacing: label ↔ its element
+            # spacing: label ↔ its element -- label, spinbox ↔
             ttk.Label(cell, text=label, anchor=tk.W).grid(
                 row=0, column=0, sticky="w")
             var = tk.DoubleVar(value=1.0)
@@ -434,7 +434,7 @@ STAT MIN - MAX ROLLS:
         the lower group (label, save+entry, apply/delete) down so the bottom
         buttons line up with the bottom of DoT%.
         """
-        # spacing: button -> button
+        # spacing: button -> button -- button, button ↔↕
         # Each button's padx/pady of 2 meets its neighbour's, so the pair
         # sums to the gap. The row sits in a borderless ttk.Frame, so
         # there is no frame edge for the button rule's left and bottom to
