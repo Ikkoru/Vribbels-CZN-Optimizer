@@ -126,6 +126,34 @@ def run():
         failures.append(
             f"a connection with no SNI raised {type(e).__name__}: {e}")
 
+    # The proxy reader must recognise both kinds of region line, and
+    # must not let the skip filter eat them. "connected" contains
+    # "connect", which the filter drops -- the two-regions warning
+    # vanished entirely, readout and log alike, until the parse moved
+    # above the filter.
+    conflict_line = ("A game on a second server region connected (asia). "
+                     "Two games are running at once; close the extra one "
+                     "and capture again.")
+    for line, want in (("[REGION] global", "global"),
+                       ("[REGION] asia", "asia"),
+                       (conflict_line, "conflict"),
+                       ("client connect", None),
+                       ("Saved: 705 Memory Fragments", None)):
+        got = mgr._region_from_line(line)
+        if got != want:
+            failures.append(
+                f"_region_from_line({line[:40]!r}...) returned {got!r}, "
+                f"expected {want!r}.")
+
+    reader = inspect.getsource(mgr._read_proxy_output)
+    before_filter = reader.split("skip_patterns)")[0]
+    if "_region_from_line" not in before_filter:
+        failures.append(
+            "the region line is read AFTER the skip filter. That filter "
+            "drops anything containing 'connect', and the two-regions "
+            "warning says 'connected' -- so it disappears with no readout "
+            "and no log line.")
+
     # The hosts block covers every region.
     if "SERVERS.values()" not in inspect.getsource(mgr.modify_hosts_file):
         failures.append(

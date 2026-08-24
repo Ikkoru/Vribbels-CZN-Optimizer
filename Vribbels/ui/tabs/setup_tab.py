@@ -168,11 +168,13 @@ class SetupTab(BaseTab):
 
         # Restore Defaults panel: three [button + explanation] rows.
         # spacing: frame edge -> button
-        # Left and bottom carry the button rule; the top is the title
-        # rule's and the right is slack, the panel being stretched
-        # wider than its text.
-        restore_frame = ttk.LabelFrame(top_row, text="Restore Defaults",
-                                       padding=(3, 6, 5, RESTORE_EDGE_PAD))
+        # Every edge whose neighbour is a button carries the button
+        # rule -- top, left and bottom. The right is slack, the panel
+        # being stretched wider than its text.
+        restore_frame = ttk.LabelFrame(
+            top_row, text="Restore Defaults",
+            padding=(RESTORE_EDGE_PAD, RESTORE_EDGE_PAD, 5,
+                     RESTORE_EDGE_PAD))
         # spacing: content frame -> content frame
         restore_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
 

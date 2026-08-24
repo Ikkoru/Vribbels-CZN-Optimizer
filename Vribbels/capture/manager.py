@@ -1303,6 +1303,19 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
         except Exception as e:
             raise CaptureError(f"Failed to generate addon script: {e}")
 
+    @staticmethod
+    def _region_from_line(line):
+        """The region a proxy line reports, or None if it reports none.
+
+        "conflict" means a second server region answered in one
+        session -- two games running at once.
+        """
+        if "[REGION]" in line:
+            return line.split("[REGION]", 1)[1].strip() or None
+        if "second server region" in line:
+            return "conflict"
+        return None
+
     def _read_proxy_output(self):
         """
         Read proxy process output and forward to log callback.
@@ -1342,6 +1355,24 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
                 if not line:
                     continue
 
+                # The addon reports which server region a connection
+                # actually went to; both hostnames are redirected, so
+                # this is the only place the answer exists.
+                #
+                # Handled BEFORE the skip filter, and it returns
+                # rather than falling through, because that filter
+                # drops any line containing "connect" -- which the
+                # two-regions warning does, in the word "connected".
+                # Left below the filter it vanished entirely: no
+                # readout, no log line, nothing to show why.
+                region = self._region_from_line(line)
+                if region is not None:
+                    if self.region_callback:
+                        self.region_callback(region)
+                    if region == "conflict":
+                        self.log_callback(f"[proxy] {line}", "error")
+                    continue
+
                 # Skip verbose mitmproxy messages
                 if any(pattern.lower() in line.lower() for pattern in skip_patterns):
                     continue
@@ -1361,14 +1392,6 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
                         self.live_update_callback()
                 else:
                     self.log_callback(f"[proxy] {line}", None)
-
-                # The addon reports which server region a connection
-                # actually went to; both are redirected, so this is
-                # the only place the answer exists.
-                if "[REGION]" in line and self.region_callback:
-                    self.region_callback(line.split("[REGION]", 1)[1].strip())
-                elif "second server region" in line and self.region_callback:
-                    self.region_callback("conflict")
 
                 # Auto-reload on any save (initial capture + deltas)
                 if "Saved:" in line and "Memory Fragments" in line:
