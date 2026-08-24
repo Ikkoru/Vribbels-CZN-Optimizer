@@ -300,8 +300,8 @@ sa.register_scenario("element_override",
 # correction rather than a reading of its own -- which is why the entry
 # reports `target inferred`. Measuring it needs an Unknown-attribute
 # character on screen to make the panel appear, which is why the
-# hand-measuring pass skipped it. See docs/ui_spacing.md "Three glyph
-# classes below the baseline, not two".
+# hand-measuring pass skipped it. See the glyph-class table in
+# docs/ui_spacing.md "The rules".
 TITLE_GAP_TARGETS = {
     "Element override (Unknown character)": 4,
 }

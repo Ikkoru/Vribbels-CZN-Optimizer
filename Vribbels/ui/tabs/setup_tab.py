@@ -149,9 +149,9 @@ class SetupTab(BaseTab):
         # spacing: exception -- border edge -> first non-button element -- panel, label ↕
         # Two components, two meanings. LEFT answers to the rule and is
         # a registered audit entry. TOP is the exception: these four
-        # rows read as one block at a single pitch
-        # so the gap above the first row matches
-        # the gaps between them rather than the frame-edge target.
+        # rows read as one block at a single pitch, so the gap above the
+        # first row matches the gaps between them rather than the
+        # border-edge target.
         #
         # The target is out of reach here in any case: a Segoe UI 11
         # label's ink starts 7px below its own box top, so even a top
