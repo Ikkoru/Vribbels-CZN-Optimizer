@@ -14,6 +14,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Changed
 
+- **The Server Region is detected, not chosen.** The dropdown is gone. A capture now redirects both servers and forwards each connection to the right one, so whichever region your game uses is captured without you telling it. The Capture tab reports which one it saw, and says so plainly if two games on different servers are running at once.
+
 - **Combatants tab: moving through the character list is faster.** Each Equipped Memory Fragments cell is drawn as one block of text instead of eleven separate widgets, which is most of what the tab had to redraw every time you moved to another combatant. The cells look the same, and their text can now be selected and copied like the Character card's.
 
 - **The Combatants tab no longer remembers which combatant was selected.** It opens on the first row. The setting it used for that wrote to disk on every row you moved to.
