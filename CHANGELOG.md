@@ -24,6 +24,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The Memory Fragments Main Stats filters and the Optimizer's Exclude Combatant's MFs list are drawn like every other checkbox.** They had been built separately and had drifted: the exclude list still showed a focus rectangle, could be reached with Tab, and sat slightly larger than the checkboxes around it.
 
+- **The Capture Log no longer flashes white when the tab first opens.** The Gear Score and Setup panels had this fixed already; the Capture Log had been missed.
+
 ## [1.5.0] - Arabella, Fracture, UI update ongoing
 
 ### Added

@@ -1,13 +1,14 @@
 """Capture tab for intercepting game data."""
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, messagebox
 import threading
 from capture import check_prerequisites, CaptureError
 from capture.constants import SERVERS
 from game_data.characters import CHARACTERS, ATTRIBUTE_COLORS
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
+from ..utils.scrolled_text import make_scrolled_text
 
 
 # Width of the tab's fixed left column, in pixels. The right column
@@ -321,13 +322,12 @@ class CaptureTab(BaseTab):
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
         # which is why it differs between text panels in different fonts.
-        # bd and highlightthickness are zeroed because Tk's defaults draw
-        # a border and focus ring in colours the dark theme never set.
-        self.capture_log = scrolledtext.ScrolledText(
-            log_frame, height=15, wrap=tk.WORD,
-            bg=self.colors["bg_light"], fg=self.colors["fg"],
-            insertbackground=self.colors["fg"],
-            bd=0, highlightthickness=0, padx=6, pady=6
+        # The helper carries the dark palette, zeroes Tk's default border
+        # and focus ring, and darkens the wrapping frame and scrollbar
+        # that the ScrolledText builds for itself -- none of which the
+        # constructor can reach. See ui/utils/scrolled_text.py.
+        self.capture_log = make_scrolled_text(
+            log_frame, self.colors, height=15, wrap=tk.WORD,
         )
         self.capture_log.pack(fill=tk.BOTH, expand=True)
 

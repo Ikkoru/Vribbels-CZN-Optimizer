@@ -18,15 +18,24 @@ Three failure modes, all of which leave a working, silent program:
    `setup_ui` flashes again.
 2. `make_checkbox` stops realizing its own widget, so the three panels
    that rebuild checkboxes AFTER startup flash again.
-3. A tab builds a classic `tk.*` widget by hand instead of through the
-   helper. Checkbuttons are the ones that keep happening -- two sites
-   had drifted out of `make_checkbox` and had picked up Tk's default
-   focus ring and border along the way, which is a spacing difference
-   as well as a flash.
+3. A tab builds a `Checkbutton` or a `ScrolledText` by hand instead of
+   through its helper. Both have already drifted once. Two checkbutton
+   sites had picked up Tk's default focus ring and border, which is a
+   spacing difference as well as a flash; and of three ScrolledTexts,
+   two had the wrapper fix and one did not -- which is why the Capture
+   Log went on flashing after the walk in (1) was already fixing
+   everything else.
 
-(3) is checked only for Checkbutton. Every other classic widget is built
-once inside `setup_ui` and is covered by the walk in (1) wherever it
-sits, so there is nothing for a rule to catch there.
+A ScrolledText has a SECOND fault that the walk cannot touch: it builds
+its own `tk.Frame` and `tk.Scrollbar`, neither reachable through the
+constructor, so the frame keeps Tk's near-white default and paints
+before the Text covers it. Realizing a window early cannot fix a
+background that is genuinely white. `ui/utils/scrolled_text.py` is where
+both corrections live together.
+
+Other classic widgets are built once inside `setup_ui` and are covered
+by the walk in (1) wherever they sit, so there is nothing for a rule to
+catch there.
 """
 
 import ast
@@ -36,9 +45,17 @@ from ._harness import SOURCE_ROOT
 
 NAME = "no first-map flash"
 
-# Checkbuttons must come from the helper. `checkbox.py` is where the one
-# legitimate constructor lives.
-CHECKBOX_HELPER = "ui/utils/checkbox.py"
+# Widget class -> the module holding the one legitimate constructor for
+# it. Every other file must go through that module's helper.
+SOLE_CONSTRUCTORS = {
+    "Checkbutton": "ui/utils/checkbox.py",
+    "ScrolledText": "ui/utils/scrolled_text.py",
+}
+CHECKBOX_HELPER = SOLE_CONSTRUCTORS["Checkbutton"]
+
+# The modules each widget may be constructed from, so `tk.Checkbutton`,
+# `ttk.Checkbutton` and `scrolledtext.ScrolledText` are all caught.
+WIDGET_MODULES = ("tk", "ttk", "scrolledtext", "tkinter")
 
 
 def _calls_winfo_id(tree, func_name):
@@ -107,10 +124,23 @@ def run():
             "after that walk has run."
         )
 
-    # 3. No hand-rolled checkbuttons outside the helper.
+    # 3. No hand-rolled widgets outside the module that owns each.
+    WHY = {
+        "Checkbutton":
+            "Every checkbox goes through ui/utils/checkbox.make_checkbox -- "
+            "it carries the palette, takefocus=0, the zeroed border and "
+            "focus ring (a spacing lever, not just a look), and the "
+            "winfo_id() that stops the flash.",
+        "ScrolledText":
+            "Every scrolled text goes through "
+            "ui/utils/scrolled_text.make_scrolled_text -- it darkens the "
+            "wrapping frame and scrollbar the widget builds for itself, "
+            "which no constructor keyword can reach and which paint "
+            "near-white before the Text covers them.",
+    }
     for path in sorted(SOURCE_ROOT.rglob("*.py")):
         rel = path.relative_to(SOURCE_ROOT).as_posix()
-        if rel == CHECKBOX_HELPER or "__pycache__" in rel:
+        if "__pycache__" in rel:
             continue
         try:
             tree = ast.parse(io.open(path, encoding="utf-8").read(),
@@ -118,18 +148,18 @@ def run():
         except SyntaxError:
             continue                      # compileall is what reports this
         for node in ast.walk(tree):
-            if (isinstance(node, ast.Call)
+            if not (isinstance(node, ast.Call)
                     and isinstance(node.func, ast.Attribute)
-                    and node.func.attr == "Checkbutton"
                     and isinstance(node.func.value, ast.Name)
-                    and node.func.value.id in ("tk", "ttk")):
-                failures.append(
-                    f"{rel}:{node.lineno} builds a "
-                    f"{node.func.value.id}.Checkbutton directly. Every "
-                    f"checkbox goes through ui/utils/checkbox.make_checkbox "
-                    f"-- it carries the palette, takefocus=0, the zeroed "
-                    f"border and focus ring (a spacing lever, not just a "
-                    f"look), and the winfo_id() that stops the flash."
-                )
+                    and node.func.value.id in WIDGET_MODULES):
+                continue
+            widget = node.func.attr
+            owner = SOLE_CONSTRUCTORS.get(widget)
+            if owner is None or rel == owner:
+                continue
+            failures.append(
+                f"{rel}:{node.lineno} builds a "
+                f"{node.func.value.id}.{widget} directly. {WHY[widget]}"
+            )
 
     return failures

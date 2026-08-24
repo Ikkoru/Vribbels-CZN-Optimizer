@@ -16,7 +16,7 @@ rows with stable column positions) and differ only in:
 """
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, messagebox
 import json
 import copy
 import subprocess
@@ -27,6 +27,7 @@ import sys
 from capture import setup_certificate, open_certificate, find_mitmdump
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
+from ..utils.scrolled_text import make_scrolled_text
 from defaults_sync import resolve_defaults_dir
 
 
@@ -233,26 +234,9 @@ STEP 2: Verify setup
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
         # which is why it differs between text panels in different fonts.
-        instr_text = scrolledtext.ScrolledText(
-            instr_frame, height=18, wrap=tk.WORD,
-            bg=self.colors["bg_light"], fg=self.colors["fg"],
-            bd=0, highlightthickness=0, padx=6, pady=6
+        instr_text = make_scrolled_text(
+            instr_frame, self.colors, height=18, wrap=tk.WORD,
         )
-        # Match the Gear Score tab's white-flash fix: force the wrapping
-        # frame + scrollbar to dark so we never see a white paint on
-        # first show.
-        try:
-            instr_text.frame.configure(bg=self.colors["bg_light"])
-        except (AttributeError, tk.TclError):
-            pass
-        try:
-            instr_text.vbar.configure(
-                bg=self.colors["bg_light"],
-                troughcolor=self.colors["bg"],
-                activebackground=self.colors["bg_lighter"],
-            )
-        except (AttributeError, tk.TclError):
-            pass
         instr_text.insert("1.0", instructions)
         instr_text.config(state=tk.DISABLED)
         instr_text.pack(fill=tk.BOTH, expand=True)

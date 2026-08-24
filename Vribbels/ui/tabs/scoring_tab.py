@@ -14,10 +14,11 @@ The scoring system affects:
 
 import tkinter as tk
 from tkinter import ttk
-from tkinter import font as tkfont, scrolledtext, messagebox
+from tkinter import font as tkfont, messagebox
 
 from ..base_tab import BaseTab
 from ..context import AppContext
+from ..utils.scrolled_text import make_scrolled_text
 from game_data import STATS
 # User-facing stat-name overrides (e.g. "Flat ATK" -> "ATK Flat",
 # "CRate" -> "Crit%", "CDmg" -> "CDMG%"). Applied to the Stat Weight
@@ -230,11 +231,9 @@ STAT MIN - MAX ROLLS:
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
         # which is why it differs between text panels in different fonts.
-        explain_text = scrolledtext.ScrolledText(
-            explain_frame, height=20, wrap=tk.WORD,
-            bg=self.colors["bg_light"], fg=self.colors["fg"],
-            font=("Segoe UI", 11),
-            bd=0, highlightthickness=0, padx=6, pady=4
+        explain_text = make_scrolled_text(
+            explain_frame, self.colors, height=20, wrap=tk.WORD,
+            font=("Segoe UI", 11), pady=4,
         )
         # The two aligned groups line up on TAB STOPS rather than on
         # hand-counted spaces, which only work in a monospaced face. Same
@@ -258,22 +257,6 @@ STAT MIN - MAX ROLLS:
         explain_text.configure(tabs=(_rolls_stop,))
         explain_text.tag_configure(
             "potential_block", tabs=(_stop_for(("Low", "High")),))
-        # scrolledtext.ScrolledText wraps its Text widget in an internal
-        # tk.Frame whose bg defaults to system white; the frame paints
-        # briefly before the Text paints over it, producing a white
-        # flash on first show. Force the frame + scrollbar dark.
-        try:
-            explain_text.frame.configure(bg=self.colors["bg_light"])
-        except (AttributeError, tk.TclError):
-            pass
-        try:
-            explain_text.vbar.configure(
-                bg=self.colors["bg_light"],
-                troughcolor=self.colors["bg"],
-                activebackground=self.colors["bg_lighter"],
-            )
-        except (AttributeError, tk.TclError):
-            pass
         explain_text.insert("1.0", explanation)
         # Tag the two POTENTIAL lines so they take their own tab stop.
         # Found by their text rather than by line number, which would go
