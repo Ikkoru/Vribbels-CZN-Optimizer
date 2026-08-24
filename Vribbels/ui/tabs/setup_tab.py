@@ -33,6 +33,21 @@ from defaults_sync import resolve_defaults_dir
 
 _RENAME_PLACEHOLDER = "Rename current preset to..."
 
+# Restore Defaults panel geometry.
+#
+# The explanation beside each button wraps to two lines, and a Label's
+# box is taller than the lines it holds. Left alone it is the taller
+# child of its row, which puts the row height on the TEXT and makes the
+# button gap `row padding + (text height - button height)` -- so the
+# button rule could not be applied directly at all. Trimming the box to
+# its line boxes hands the row height back to the button.
+#
+# LEVERS, not rendered distances: neither rule is in the spacing audit
+# yet, so measure before trusting them.
+RESTORE_ROW_GAP = 4     # spacing: button -> button
+RESTORE_EDGE_PAD = 3    # spacing: frame edge -> button
+RESTORE_TEXT_TRIM = -2  # spacing: button -> button
+
 
 # -------- per-kind metadata for the generalized restore dialog --------
 
@@ -153,7 +168,11 @@ class SetupTab(BaseTab):
 
         # Restore Defaults panel: three [button + explanation] rows.
         # spacing: frame edge -> button
-        restore_frame = ttk.LabelFrame(top_row, text="Restore Defaults", padding=(3, 6, 5, 0))
+        # Left and bottom carry the button rule; the top is the title
+        # rule's and the right is slack, the panel being stretched
+        # wider than its text.
+        restore_frame = ttk.LabelFrame(top_row, text="Restore Defaults",
+                                       padding=(3, 6, 5, RESTORE_EDGE_PAD))
         # spacing: content frame -> content frame
         restore_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
 
@@ -176,20 +195,37 @@ class SetupTab(BaseTab):
                 "optimizer_settings",
             ),
         ]
-        for label, explanation, kind in button_specs:
+        for index, (label, explanation, kind) in enumerate(button_specs):
             row = ttk.Frame(restore_frame)
-            # spacing: TBD -- between button rows in a panel
-            row.pack(fill=tk.X, anchor=tk.NW, pady=(0, 4))
+            # spacing: button -> button
+            # The gap goes on the LEADING edge of every row after the
+            # first, so the last row adds nothing below itself and the
+            # frame's own bottom padding is the only thing between the
+            # last button and the edge.
+            row.pack(fill=tk.X, anchor=tk.NW,
+                     pady=(0 if index == 0 else RESTORE_ROW_GAP, 0))
+            row.grid_columnconfigure(1, weight=1)
+
+            # grid, not pack: `sticky` is what centres each child in the
+            # row, and the same value on both is what keeps their middles
+            # level whichever turns out to be taller.
             ttk.Button(
                 row, text=label, width=20,
                 command=lambda k=kind: self._open_restore_dialog(k),
-            ).pack(side=tk.LEFT, anchor=tk.NW)
+            ).grid(row=0, column=0, sticky="")
             # spacing: label ↔ its element
+            # The negative vertical padding trims the label's box to its
+            # own line boxes -- two lines of text sit in a box 4px taller
+            # than they need, and that surplus used to make the label the
+            # taller child and push the buttons apart. With it gone the
+            # BUTTON sets the row height, so the row padding above is the
+            # button gap exactly.
             ttk.Label(
                 row, text=explanation,
                 foreground=self.colors["fg_dim"],
                 wraplength=260, justify=tk.LEFT,
-            ).pack(side=tk.LEFT, padx=(8, 0), anchor=tk.NW)
+                padding=(0, RESTORE_TEXT_TRIM, 0, RESTORE_TEXT_TRIM),
+            ).grid(row=0, column=1, sticky="w", padx=(8, 0))
 
         # Button frame
         btn_frame = ttk.Frame(main_frame)

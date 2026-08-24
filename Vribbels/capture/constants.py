@@ -14,7 +14,11 @@ class ServerConfig:
     region_id: str           # Internal ID: "global" or "asia"
     display_name: str        # User-facing name: "Global" or "Asia"
     hosts: List[str]         # Game server hostnames
-    world_id: str           # Expected world_id in API responses
+    # The client sends this in its auth request; the server never
+    # echoes it, so nothing in a capture can be matched against it.
+    # Kept as documentation of what the region IS, not as a lever --
+    # the region is detected from the connection's SNI instead.
+    world_id: str
 
 
 # Server configurations
