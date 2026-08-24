@@ -138,11 +138,28 @@ GEAR_CELL_H = 163
 # cell is a fixed size, so this is the only thing that moves the wrap.
 GEAR_SET_WRAP_INSET = 6
 
+# The cell Text widget's own border and horizontal inset. Repeated here
+# rather than read off the widget because the tab stops below are set in
+# `tag_configure` before the cell is mapped, when `winfo_width()` still
+# reads 1. Keep in step with the `tk.Text(...)` call in show_hero_details.
+GEAR_CELL_BD = 1
+GEAR_CELL_PADX = 5
+
+# Width available to the tab stops: the cell minus its border and inset
+# on both sides. Tab stops are measured from the left edge of the text's
+# DISPLAY area, which starts after padx.
+GEAR_TEXT_W = GEAR_CELL_W - 2 * GEAR_CELL_BD - 2 * GEAR_CELL_PADX
+
 # Tab stops inside a gear cell, in pixels from the text's left edge. The
 # cell is one Text widget, so its columns are tab stops rather than
 # packed frames, and these are the only levers on them.
+#
+# The centre stop is DERIVED, not chosen: a centre-aligned stop has to
+# sit at the middle of the text area or the block it carries is not
+# centred. Written as 196 it was 1.5px right of centre and would have
+# drifted further the moment GEAR_CELL_W moved.
+GEAR_TAB_GS = GEAR_TEXT_W // 2   # centre stop: GS and Potential
 # spacing: TBD -- gear cell column
-GEAR_TAB_GS = 196        # centre stop: GS and Potential, between the ends
 GEAR_TAB_SLOT = 385      # right stop: the slot name and its level
 GEAR_TAB_QUALITY = 20    # right stop: a substat's roll-quality percent
 GEAR_TAB_SUB = 26        # left stop: where the substat text starts
@@ -671,7 +688,7 @@ class HeroesTab(BaseTab):
             cell = tk.Text(
                 gear_grid, font=("Segoe UI", 9), wrap=tk.WORD,
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
-                relief=tk.RIDGE, bd=1, highlightthickness=0,
+                relief=tk.RIDGE, bd=GEAR_CELL_BD, highlightthickness=0,
                 # spacing: frame edge -> first non-button element
                 # padx is symmetric, so it sets the LEFT inset and part of
                 # the right one; GEAR_TAB_SLOT carries the rest.
@@ -679,7 +696,7 @@ class HeroesTab(BaseTab):
                 # spacing3 is the gap BELOW each line, which is what
                 # separates one row of the cell from the next. spacing1
                 # would add to the top inset above instead.
-                padx=5, pady=2, spacing3=4,
+                padx=GEAR_CELL_PADX, pady=2, spacing3=4,
                 # Selectable but never focusable, and no insertion cursor:
                 # the text can be copied, and nothing about it invites
                 # typing into it.
@@ -1240,10 +1257,9 @@ class HeroesTab(BaseTab):
             # spacing: frame edge -> first non-button element
             # PAD_W / PAD_H approximate the ttk LabelFrame theme overhead
             # so the right and bottom padding read like the top and left.
-            # Measured against the longest set description: the right edge
-            # lands on the rule's 6px, and the bottom reads 6 under a
-            # descender and 9 without one -- the same 3px spread the
-            # descender convention produces everywhere else. CHAR_PAD_W adds to PAD_W rather
+            # Both edges answer to `frame edge -> first non-button element`;
+            # the bottom shows the usual descender spread. Targets live in
+            # docs/ui_spacing.md, not here. CHAR_PAD_W adds to PAD_W rather
             # than subtracting from it: the Character frame's own padding
             # is now 0, and its inset comes from the Text widget's padx on
             # both sides.
