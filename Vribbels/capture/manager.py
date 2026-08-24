@@ -107,6 +107,16 @@ class Addon:
         self.gacha_banners = None
 
         self.saved_path = None
+
+        # Account identity of this capture session, from the first
+        # `user` record seen. A second, different one means a second
+        # game is running: two accounts' data would be merged into one
+        # snapshot, and nothing downstream could tell them apart --
+        # piece_items carry no account id, so once the two are mixed
+        # the snapshot is silently wrong. Capture stops instead.
+        self.session_account = None
+        self.mixed_accounts = False
+
         self.zstd_dict = None
         self.zstd_dctx = None
 
@@ -316,6 +326,42 @@ class Addon:
         except Exception as e:
             self.log_callback(f"Error: {e}")
 
+    def _account_of(self, data):
+        """Account id in this payload, or None if it carries no user."""
+        user = data.get("user")
+        if not isinstance(user, dict):
+            return None
+        return user.get("id") or user.get("auth_id")
+
+    def _account_is_consistent(self, data):
+        """False once a SECOND account has been seen this session.
+
+        Two games running at once -- two accounts, or the same region
+        twice -- both reach this proxy, and their payloads are
+        indistinguishable after the fact: only the `user` record names
+        an account, and piece_items do not. Merging them produces one
+        snapshot holding one account's fragments against another's
+        roster, with nothing to detect it downstream. So the first
+        account wins and the rest of the session is dropped.
+        """
+        if self.mixed_accounts:
+            return False
+        account = self._account_of(data)
+        if account is None:
+            return True
+        if self.session_account is None:
+            self.session_account = account
+            return True
+        if account == self.session_account:
+            return True
+        self.mixed_accounts = True
+        self.log_callback(
+            "[X] A second game account started sending data. Capture "
+            "has stopped to avoid mixing two accounts into one "
+            "snapshot. Close the extra game, then capture again."
+        )
+        return False
+
     def _handle_server_payload(self, data, frame_size):
         """Act on one reply object from the server.
 
@@ -337,6 +383,12 @@ class Addon:
             self.debug_file.flush()
 
         if data.get("res") != "ok":
+            return
+
+        # Dropped AFTER the debug log, so a mixed session is still
+        # visible in the debug file, and BEFORE anything that mutates
+        # cached state.
+        if not self._account_is_consistent(data):
             return
 
         # Confirm any pending disassemble (delete) request whose qid
