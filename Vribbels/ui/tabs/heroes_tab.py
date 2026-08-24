@@ -119,6 +119,12 @@ HERO_STAT_DISPLAY = {
 # Stated rather than measured from the loaded data, so the columns do not
 # jitter between combatants. A value that outgrows its entry clips rather
 # than pushing the column, so widen it here if one ever does.
+#
+# NOT dead data, though nothing reads it at runtime any more. This is
+# where CHAR_TAB_VAL1 / CHAR_TAB_NAME2 / CHAR_TAB_VAL2 come from:
+# widest label + 4 + widest value per column, with 8 between the two
+# pairs. Recompute those stops from this table after any change to the
+# rows, the body font or either rule's target.
 HERO_STAT_VALUE_MAXIMA = {
     "ATK": "9999", "DEF": "9999", "HP": "9999", "Ego": "999",
     "CRate": "99.9%", "CDmg": "999.9%", "Extra DMG%": "99.9%",
@@ -149,6 +155,20 @@ GEAR_CELL_PADX = 5
 # on both sides. Tab stops are measured from the left edge of the text's
 # DISPLAY area, which starts after padx.
 GEAR_TEXT_W = GEAR_CELL_W - 2 * GEAR_CELL_BD - 2 * GEAR_CELL_PADX
+
+# Tab stops for the Character panel's two-column stat block, in pixels
+# from the text's left edge. STATED, like the gear cell's: the block is
+# a grid of labels and values that happens to live in a Text widget for
+# drawing speed, so its columns are ruled like labels rather than left
+# to font metrics.
+#
+# The two columns are a `label ↔ its element` pair each, and the gap
+# between the pairs is `element and its label ↔ element and its label`.
+# spacing: label ↔ its element
+# spacing: element and its label ↔ element and its label
+CHAR_TAB_VAL1 = 50     # right stop: end of the left column's value
+CHAR_TAB_NAME2 = 58    # left stop: start of the right column's label
+CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
 
 # Tab stops inside a gear cell, in pixels from the text's left edge. The
 # cell is one Text widget, so its columns are tab stops rather than
@@ -1287,27 +1307,18 @@ class HeroesTab(BaseTab):
             # Taking max(label) and max(value) separately would place the
             # column for a row that does not exist -- the widest label and
             # the widest value are not on the same line.
-            def _column_width(col):
-                return max(
-                    f_default.measure(HERO_STAT_DISPLAY[row[col]]) + 4
-                    + f_default.measure(HERO_STAT_VALUE_MAXIMA[row[col]])
-                    for row in HERO_STAT_ROWS if row[col]
-                )
-            stop_val1 = _column_width(0)
-            stop_name2 = stop_val1 + 8
-            stop_val2 = stop_name2 + _column_width(1)
             try:
                 self.hero_char_text.configure(tabs=(
-                    stop_val1, "right", stop_name2, "left",
-                    stop_val2, "right",
+                    CHAR_TAB_VAL1, "right", CHAR_TAB_NAME2, "left",
+                    CHAR_TAB_VAL2, "right",
                 ))
             except (AttributeError, tk.TclError):
                 pass
             # STATED, not measured. Every line in this panel is now a fixed
             # shape: the details block is a constant set of lines, Sets and
             # Potential pad themselves to CHAR_SETS_LINES and
-            # CHAR_POTENTIAL_LINES, and the stat block sits on tab stops
-            # derived from HERO_STAT_VALUE_MAXIMA. The only thing left that
+            # CHAR_POTENTIAL_LINES, and the stat block sits on stated tab
+            # stops (CHAR_TAB_*). The only thing left that
             # varied with the data was the widest combatant name, and
             # CHAR_NAME_PX states that.
             #
