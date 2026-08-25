@@ -288,7 +288,13 @@ class InventoryTab(BaseTab):
         self.inv_main_unknown_frame.grid(
             row=unknown_row, column=0, columnspan=10, sticky=tk.W
         )
-        # Empty by default; widgets get added dynamically.
+        # Empty by default; widgets get added dynamically. Taken OUT of
+        # the grid until it has some: an empty ttk.Frame still requests
+        # 1x1, and that pixel sits between the lowest checkbox and the
+        # All/None row, which is where the panel read 1px wider than the
+        # other three. `grid_remove` keeps its row and column, so
+        # `grid()` alone puts it back.
+        self.inv_main_unknown_frame.grid_remove()
 
         make_all_none_row(main_frame, self.select_all_main_stats,
                           self.select_no_main_stats)
@@ -602,6 +608,15 @@ class InventoryTab(BaseTab):
             # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
             cb.grid(row=0, column=col_idx, sticky=tk.W, padx=2)
             self.inv_unknown_main_stat_checks[canonical] = cb
+
+        # Back into the grid only when it holds something. NOT dead code:
+        # without it the row stays removed after the first load that
+        # finds an unknown stat, and the checkboxes are built but never
+        # shown.
+        if seen_unknown:
+            self.inv_main_unknown_frame.grid()
+        else:
+            self.inv_main_unknown_frame.grid_remove()
 
     def _make_mainstat_checkbutton(self, parent, label: str, var: tk.BooleanVar):
         """One Main Stats filter checkbox. Used by both the fixed-position

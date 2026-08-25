@@ -85,13 +85,13 @@ def box_of(widget) -> Box:
 class Capture:
     """One screenshot of the window plus the palette to classify it.
 
-    `background` is the plain window background ONLY. It is tempting to
-    also treat `bg_light` / `bg_lighter` as empty space -- they are
-    backgrounds in the design sense -- but they are the FILL of buttons,
-    spinboxes, comboboxes and Treeviews. Counting them as background
-    makes the scan look straight through a control and measure to its
-    text instead of its edge, inflating every gap whose first element is
-    a control.
+    `background` is the window background and the notebook strip behind
+    the tabs, and nothing else. It is tempting to also treat `bg_light`
+    / `bg_lighter` as empty space -- they are backgrounds in the design
+    sense -- but they are the FILL of buttons, spinboxes, comboboxes and
+    Treeviews. Counting them as background makes the scan look straight
+    through a control and measure to its text instead of its edge,
+    inflating every gap whose first element is a control.
 
     Where a gap really is inside a lighter region (text inside a Text
     widget, which fills its panel with `bg_light`), the caller passes
@@ -123,7 +123,13 @@ class Capture:
         image = ImageGrab.grab(bbox).convert("RGB")
         palette = {k: _hex_to_rgb(v) for k, v in colors.items()
                    if isinstance(v, str) and v.startswith("#")}
-        return cls(image, (x, y), [palette["bg"]], palette)
+        # `bg_strip` counts as empty space, unlike every other shade in
+        # the palette. It is the notebook's own background, and it shows
+        # in the top row or two of a tab's box where the client element
+        # does not reach -- so treating it as ink made every tab's first
+        # element measure 0 from the tab list.
+        empty = [palette["bg"], palette["bg_strip"]]
+        return cls(image, (x, y), empty, palette)
 
     def is_background(self, x: int, y: int, bg=None) -> bool:
         ox, oy = self.origin
@@ -704,10 +710,29 @@ def painted_runs_v(cap: Capture, box: Box, bg=None) -> list:
 # reaches the screen.
 AXIS_MARK = {"h": "<>", "v": "^v"}
 
-# Dark yellow for a row that is registered but not yet confirmed against
-# a hand reading. `checks/run_all.py` colours its results the same way.
+# Dark yellow for a row nobody has confirmed against a hand reading yet,
+# red for one that misses its target. `checks/run_all.py` colours its
+# results the same way.
 PROVISIONAL = "\033[33m"
+OFF_TARGET = "\033[31m"
 RESET = "\033[0m"
+
+
+def _colour(line, flag, provisional):
+    """Paint one row: yellow for unconfirmed, red for off target.
+
+    A row can be both. It stays yellow and only the `<-` turns red, so
+    "nobody has checked this" and "this is wrong" remain two facts
+    rather than one colour cancelling the other.
+    """
+    if provisional and flag:
+        marked = line.replace(flag, f"{OFF_TARGET}{flag}{PROVISIONAL}")
+        return f"{PROVISIONAL}{marked}{RESET}"
+    if provisional:
+        return f"{PROVISIONAL}{line}{RESET}"
+    if flag:
+        return f"{OFF_TARGET}{line}{RESET}"
+    return line
 
 BASELINE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -907,23 +932,23 @@ def _print_table(rows, out, verbose=False):
         arrow = AXIS_MARK[axis]
         if value is None:
             body.append((tab, name, arrow, f"{target:>6}", f"{'--':>8}",
-                         f"{'--':>5}", note, provisional))
+                         f"{'--':>5}", note, provisional, "  <-"))
             continue
         delta = value - target
         flag = "" if delta == 0 else "  <-"
         body.append((tab, name, arrow, f"{target:>6}", f"{value:>8}",
-                     f"{delta:>+5}", f"{note}{flag}", provisional))
+                     f"{delta:>+5}", f"{note}{flag}", provisional, flag))
 
     width = max(len(r[1]) for r in body)
     note_width = max(len(r[6]) for r in body)
     out(f"{'gap'.ljust(width)}  axis  target  measured  delta  "
         f"{'note'.ljust(note_width)}  manual note")
     current = None
-    for tab, name, arrow, target, value, delta, note, provisional in body:
+    for tab, name, arrow, target, value, delta, note, prov, flag in body:
         if tab != current:
             out(f"  {tab}")
             current = tab
         line = (f"{name.ljust(width)}  {arrow:>4}  {target}  {value}  "
                 f"{delta}  {note.ljust(note_width)}")
-        out(f"{PROVISIONAL}{line}{RESET}" if provisional else line)
+        out(_colour(line, flag, prov))
     out(f"\n{on_target}/{len(rows)} on target")

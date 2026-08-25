@@ -14,8 +14,10 @@ different inset in each -- see `ui/spacing_registry.py`.
 import tkinter as tk
 from tkinter import ttk
 
-# Between the checkbox block above and this row.
-ROW_GAP = 2
+# Between the checkbox block above and this row. 4, not the rule's 5:
+# a checkbox's painted bottom sits a pixel below its box's, so the lever
+# and the render differ by one.
+ROW_GAP = 4
 
 # The leading pad on `All`, feeding its distance from the panel's border.
 EDGE_PAD = 2
