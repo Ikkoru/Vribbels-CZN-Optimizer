@@ -248,19 +248,13 @@ def _text_panel_inset(title, side="left"):
         if side == "top":
             return sa.gap_between(box.top - 1, extent[0]), ""
         # The far edges take the text widget's box as the border's inner
-        # edge, the way the near ones do. Reporting the leftover between
-        # the widget and the frame did not settle whether that holds: a
-        # LabelFrame's own border is 2px, so a frame 2px wider than its
-        # text is exactly what a flush fit looks like. The raw numbers
-        # do settle it, so they are what the note carries.
-        fb = sa.box_of(frame)
+        # edge, the way the near ones do. Confirmed by reading the raw
+        # coordinates once: the frame sits exactly 2px outside the text
+        # box, which is its own border, so the widget is flush and the
+        # reading is the inset alone.
         if side == "right":
-            return (sa.gap_between(extent[1], box.right + 1),
-                    f"ink ends {extent[1]}, text box {box.right}, "
-                    f"frame {fb.right}")
-        return (sa.gap_between(extent[1], box.bottom + 1),
-                f"ink ends {extent[1]}, text box {box.bottom}, "
-                f"frame {fb.bottom}")
+            return sa.gap_between(extent[1], box.right + 1), ""
+        return sa.gap_between(extent[1], box.bottom + 1), ""
     return resolve
 
 
@@ -343,6 +337,62 @@ def _left_inset(title):
             return None, "panel has no children"
         return sa.inset_from_frame_edge(cap, frame, child, "left")
     return resolve
+
+
+def _panel_edge_inset(title, side):
+    """Resolver: one border of a panel -> the nearest ink inside it.
+
+    Scans the whole INTERIOR rather than a nominated child, which is
+    what makes it work on all four sides: the first child is the right
+    reference for a top or left inset and the wrong one for a bottom or
+    right, where what matters is whichever element reaches furthest.
+
+    Deliberately NOT used for the left insets that were already
+    registered. Those read against `first_child` and are frozen on
+    target; swapping their resolver would move 20 rows to prove a point
+    about tidiness.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, title)
+        edges, saturated = sa.frame_border_edges(cap, frame)
+        note = ("border scan hit its cap; interior may be filled"
+                if saturated else "")
+        interior = sa.Box(edges["left"] + 1, edges["top"] + 1,
+                          edges["right"] - 1, edges["bottom"] - 1)
+        measure = (sa.painted_extent_v if side in ("top", "bottom")
+                   else sa.painted_extent_h)
+        extent = measure(cap, interior)
+        if extent is None:
+            return None, "nothing painted inside the panel"
+        if side == "left":
+            return sa.gap_between(edges["left"], extent[0]), note
+        if side == "top":
+            return sa.gap_between(edges["top"], extent[0]), note
+        if side == "right":
+            return sa.gap_between(extent[1], edges["right"]), note
+        return sa.gap_between(extent[1], edges["bottom"]), note
+    return resolve
+
+
+# The rule says "5px, all edges" and only the left edges were tracked.
+# (tab, panel, side, what the maintainer read off the screen). The
+# readings are calibration, not targets: a resolver that disagrees with
+# one is measuring the wrong thing, and no pixel should move until they
+# agree.
+PANEL_EDGES = [
+    ("Optimizer", "Important Settings", "top", 13),
+    ("Optimizer", "Important Settings", "right", 6),
+    ("Optimizer", "Important Settings", "bottom", 8),
+    ("Optimizer", "Have at least this much of a stat", "top", 7),
+    ("Optimizer", "Exclude Combatant's MFs", "top", 4),
+    ("Optimizer", "Set Configuration", "top", 6),
+    ("Optimizer", "Set Configuration", "bottom", 6),
+    ("Capture", "Requirements", "top", 7),
+    ("Capture", "Requirements", "bottom", 9),
+    ("Capture", "Upgrade Log Settings", "top", 6),
+    ("Capture", "Upgrade Log Settings", "bottom", 4),
+    ("Capture", "Upgrade Log Settings", "right", 6),
+]
 
 
 def _panel_gap(first, second, axis):
@@ -884,6 +934,18 @@ def register_all():
             resolve=_tab_list_to_first_element(_text, _bold),
             axis="v",
             provisional=False,
+        )
+
+    for tab, title, side, hand in PANEL_EDGES:
+        sa.track(
+            name=f"{title}: {side} edge -> content",
+            tab=tab,
+            rule=RULE_BORDER_EDGE_CONTENT,
+            target=5,
+            resolve=_panel_edge_inset(title, side),
+            axis=("v" if side in ("top", "bottom") else "h"),
+            provisional=True,
+            hand=hand,
         )
 
     for tab, title, side in TEXT_PANEL_EDGES:

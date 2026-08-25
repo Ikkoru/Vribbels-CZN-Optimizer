@@ -405,6 +405,14 @@ class TrackedGap:
     the flag comes off once the reading agrees -- so a batch being
     calibrated is visible at a glance among rows that already were.
 
+    `hand` is what the maintainer read off the screen for this gap when
+    it was registered. It is NOT a target and never affects whether a
+    row passes: it exists so a new resolver can be checked against the
+    eye before its numbers are acted on. A resolver that disagrees with
+    a hand reading is measuring the wrong thing, and nudging pixels to
+    satisfy it makes the UI worse. The note says so and the row stays
+    yellow until the two agree; then the hand reading comes off.
+
     `target_source` records HOW that number was arrived at:
 
       "rule"     derived from the rule and the string -- a gap below
@@ -431,6 +439,7 @@ class TrackedGap:
     scenario: str = "default"
     target_source: str = "rule"
     provisional: bool = False
+    hand: Optional[int] = None
     couples_with: tuple = field(default_factory=tuple)
 
 
@@ -438,14 +447,15 @@ REGISTRY: list[TrackedGap] = []
 
 
 def track(name, tab, rule, target, resolve, axis, scenario="default",
-          target_source="rule", provisional=False, couples_with=()):
+          target_source="rule", provisional=False, hand=None,
+          couples_with=()):
     """Register one gap. `axis` is required: a row whose direction is
     not stated cannot be read out of a table of forty."""
     if axis not in ("h", "v"):
         raise ValueError(f"{name}: axis must be 'h' or 'v', got {axis!r}")
     REGISTRY.append(
         TrackedGap(name, tab, rule, target, resolve, axis, scenario,
-                   target_source, provisional, tuple(couples_with)))
+                   target_source, provisional, hand, tuple(couples_with)))
 
 
 # ----------------------------------------------------------------- scenarios
@@ -949,6 +959,9 @@ def _measure_tabs(app, notebook, gaps, scenario):
                              f"error: {exc}", tab_name, g.axis,
                              g.provisional))
                 continue
+            if g.hand is not None and value is not None and value != g.hand:
+                disagreement = f"HAND READ {g.hand}"
+                note = f"{note}, {disagreement}" if note else disagreement
             rows.append((prefix + g.name, g.target, value,
                          _with_source(note, g.target_source), tab_name,
                          g.axis, g.provisional))
