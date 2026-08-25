@@ -316,6 +316,36 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_over_label("Slots", "Preset:")),
 ]
 
+def _heading_to_subtitle(heading, subtitle):
+    """Resolver: a tab heading's ink -> the subtitle's ink beside it.
+
+    Both by the words on them. The heading is 14pt and the subtitle 9pt,
+    and they sit on one line bottom-aligned, so this measures the gap
+    `make_tab_header` exists to keep identical across the three tabs
+    that have one.
+    """
+    def resolve(cap, app):
+        tab = sa.current_tab_widget(app)
+        a = sa.find_descendant_text(tab, heading)
+        b = sa.find_descendant_text(tab, subtitle)
+        if a is None:
+            return None, f"no heading starting {heading!r}"
+        if b is None:
+            return None, f"no subtitle starting {subtitle!r}"
+        return sa.horizontal_gap(cap, a, b)
+    return resolve
+
+
+# (tab, heading, subtitle) for every tab whose header `make_tab_header`
+# builds. Registered so the helper's one set of numbers is measured
+# rather than trusted -- three call sites had drifted apart before it,
+# and nothing would have reported that.
+TAB_HEADERS = [
+    ("Capture", "Data Capture", "Capture game data"),
+    ("Gear Score", "Gear Score Calculation", "Configure how gear scores"),
+    ("Setup", "First-Time Setup", "Complete these steps"),
+]
+
 # The All/None rows, the only adjacent button pairs inside a panel.
 BUTTON_ROW_PANELS = [
     ("Memory Fragments", "Slots"),
@@ -598,6 +628,17 @@ def register_all():
             resolve=resolve,
             axis="v",
             provisional=provisional,
+        )
+
+    for tab, heading, subtitle in TAB_HEADERS:
+        sa.track(
+            name=f"{heading} -> its subtitle",
+            tab=tab,
+            rule=RULE_HEADING_ELEMENT,
+            target=14,
+            resolve=_heading_to_subtitle(heading, subtitle),
+            axis="h",
+            provisional=True,
         )
 
     for tab, title in BUTTON_ROW_PANELS:

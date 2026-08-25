@@ -28,6 +28,7 @@ from capture import setup_certificate, open_certificate, find_mitmdump
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
 from ..utils.scrolled_text import make_scrolled_text
+from ..utils.tab_header import make_tab_header
 from defaults_sync import resolve_defaults_dir
 
 
@@ -118,24 +119,9 @@ class SetupTab(BaseTab):
         # spacing: tab list -> first element -- tab, frame ↕
         main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(1, 2))
 
-        # Title and subtitle share one line, bottom-aligned (as on the
-        # Gear Score tab).
-        header_row = ttk.Frame(main_frame)
-        # spacing: content frame -> content frame -- frame, frame ↕
-        header_row.pack(fill=tk.X, pady=(0, 2))
-
-        # spacing: header subtext -- heading, label ↔
-        # padding corrects the font's internal offsets, not layout -- see
-        # docs/ui_spacing.md "The rules".
-        ttk.Label(header_row, text="First-Time Setup", padding=(-1, -3, 0, -2),
-                  font=("Segoe UI", 14, "bold")).pack(side=tk.LEFT, anchor=tk.S)
-        # spacing: heading ↔ element -- heading, label ↔
-        ttk.Label(header_row,
-                  text="Complete these steps before using the capture feature",
-                  foreground=self.colors["fg_dim"],
-                  padding=(0, 0, 0, -4)).pack(
-                      side=tk.LEFT, anchor=tk.S,
-                      padx=(14, 0), pady=(0, 0))
+        make_tab_header(
+            main_frame, self.colors, "First-Time Setup",
+            "Complete these steps before using the capture feature")
 
         # Top row: Setup Status (left) and Restore Defaults (right)
         # side-by-side in equal-width columns.

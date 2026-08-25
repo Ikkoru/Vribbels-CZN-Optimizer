@@ -9,6 +9,7 @@ from game_data.characters import CHARACTERS, ATTRIBUTE_COLORS
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
 from ..utils.scrolled_text import make_scrolled_text
+from ..utils.tab_header import make_tab_header
 
 
 # Width of the tab's fixed left column, in pixels. The right column
@@ -198,27 +199,13 @@ class CaptureTab(BaseTab):
 
         # Title and subtitle share one line, bottom-aligned (as on the
         # Gear Score tab).
-        title_frame = ttk.Frame(left_col)
-        # spacing: content frame -> content frame -- frame, frame ↕
-        title_frame.pack(fill=tk.X, pady=(0, 2))
-
-        # spacing: header subtext -- heading, label ↔
-        # The vertical padding corrects the font's internal offsets, not
-        # layout -- see docs/ui_spacing.md "The rules". The LEFT
-        # component is a different job: this tab nests one level deeper
-        # than the other headers (main_frame -> top_columns -> left_col),
-        # so the accumulated container padding sits the heading right of
-        # theirs; this pulls it back, and takes one more. The subtitle
-        # follows automatically -- pack places it after this label's (now
-        # narrower) box.
-        ttk.Label(title_frame, text="Data Capture", padding=(-3, -3, 0, -2),
-                  font=("Segoe UI", 14, "bold")).pack(side=tk.LEFT, anchor=tk.S)
-        # spacing: heading ↔ element -- heading, label ↔
-        ttk.Label(title_frame, text="Capture game data by intercepting API traffic",
-                  foreground=self.colors["fg_dim"],
-                  padding=(0, 0, 0, -4)).pack(
-                      side=tk.LEFT, anchor=tk.S, padx=(14, 0),
-                      pady=(0, 0))
+        # x_trim, where the other two tabs pass nothing: this tab nests
+        # one level deeper (main_frame -> top_columns -> left_col), so
+        # the accumulated container padding starts its heading right of
+        # theirs and this brings it back level.
+        make_tab_header(
+            left_col, self.colors, "Data Capture",
+            "Capture game data by intercepting API traffic", x_trim=-3)
 
         # spacing: exception -- border edge -> first non-button element -- panel, label ↔↕
         # The LEFT inset deliberately does not meet it, and the panel is

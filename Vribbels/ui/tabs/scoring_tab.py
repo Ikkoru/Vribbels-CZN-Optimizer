@@ -19,6 +19,7 @@ from tkinter import font as tkfont, messagebox
 from ..base_tab import BaseTab
 from ..context import AppContext
 from ..utils.scrolled_text import make_scrolled_text
+from ..utils.tab_header import make_tab_header
 from game_data import STATS
 # User-facing stat-name overrides (e.g. "Flat ATK" -> "ATK Flat",
 # "CRate" -> "Crit%", "CDmg" -> "CDMG%"). Applied to the Stat Weight
@@ -145,29 +146,8 @@ class ScoringTab(BaseTab):
         # Title and subtitle share one line: the subtitle sits to the
         # right of the heading, bottom-aligned so the two read as a single
         # header rather than two stacked blocks.
-        header_row = ttk.Frame(main_frame)
-        # spacing: content frame -> content frame -- frame, frame ↕
-        header_row.pack(fill=tk.X, pady=(0, 2))
-
-        # spacing: header subtext -- heading, label ↔
-        # padding here corrects for the font's own internal offsets, NOT
-        # for layout: the top component removes the blank leading above
-        # the capitals, the bottom one the space below the descenders.
-        # Without them a 14pt heading sits lower than a LabelFrame title
-        # at the same padding, and the gap to the row below opens up. See
-        # docs/ui_spacing.md "The rules".
-        ttk.Label(
-            header_row, text="Gear Score Calculation", padding=(0, -2, 0, -2),
-            font=("Segoe UI", 14, "bold")
-        ).pack(side=tk.LEFT, anchor=tk.S)
-        # anchor=S puts the subtitle on the heading's own line rather
-        # than stacking it below.
-        # spacing: heading ↔ element -- heading, label ↔
-        ttk.Label(
-            header_row, text="Configure how gear scores are calculated",
-            foreground=self.colors["fg_dim"], padding=(0, 0, 0, 0)
-        ).pack(side=tk.LEFT, anchor=tk.S, padx=(14, 0),
-               pady=(0, 0))
+        make_tab_header(main_frame, self.colors, "Gear Score Calculation",
+                        "Configure how gear scores are calculated")
 
         content = ttk.Frame(main_frame)
         content.pack(fill=tk.BOTH, expand=True)
