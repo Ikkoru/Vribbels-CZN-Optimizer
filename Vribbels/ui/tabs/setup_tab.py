@@ -117,7 +117,7 @@ class SetupTab(BaseTab):
         main_frame = ttk.Frame(self.frame)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(1, 2))
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
 
         make_tab_header(
             main_frame, self.colors, "First-Time Setup",

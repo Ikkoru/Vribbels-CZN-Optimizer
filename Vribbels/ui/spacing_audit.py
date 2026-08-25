@@ -183,11 +183,15 @@ def painted_extent_v(cap: Capture, box: Box, bg=None) -> Optional[tuple]:
     Used where the reference is the whole element rather than one
     column: the deepest painted row ANYWHERE on a line of text, and the
     topmost. Those are the rules' two reference points -- the bottom of
-    the descenders for a gap below, and the topmost painted pixel for a
-    gap above, whichever glyph that pixel belongs to. The upper one is
-    deliberately NOT "the top of capitals and ascenders": those differ
-    in height by a per-font pixel, in both directions, so there is no
-    single glyph to name (see docs/ui_spacing.md).
+    the descenders for a gap below, and the top of the capitals for a
+    gap above.
+
+    The upper one is approximated by the topmost painted pixel, which is
+    an ascender where the string has one taller than its caps. The rule
+    says to ignore ascenders and judge by capitals; at Segoe UI 9 and 11
+    the two top out level, so the approximation costs nothing there. It
+    is the 14 bold headings where they differ, and those are measured
+    against targets read off the screen rather than derived.
 
     A line with no descender therefore reports a higher bottom edge, and
     the gap below it measures larger -- correctly, and with no need to

@@ -27,9 +27,17 @@ HEADING_FONT = ("Segoe UI", 14, "bold")
 HEADING_PAD_TOP = -3
 HEADING_PAD_BOTTOM = -2
 
-# The subtitle is 9pt, so it has less to give back -- only its bottom
-# needs trimming for the two to sit level.
-SUBTITLE_PAD_BOTTOM = -4
+# The subtitle is 9pt and sits bottom-aligned, so its bottom padding is
+# what places its ink: `anchor=tk.S` pins the box's bottom edge, and
+# taking padding off that edge pulls the ink DOWN with it. 0, not a
+# negative -- at -4 all three subtitles read 4px low.
+SUBTITLE_PAD_BOTTOM = 0
+
+# Leading pad on the subtitle. NOT the rule's 14: the heading's box ends
+# past its ink and the subtitle's begins before its own, and the two
+# together spend 4px that no padding here can see. Measured at 18 when
+# this was 14.
+SUBTITLE_PAD_LEFT = 10
 
 
 def make_tab_header(parent, colors, title, subtitle, *, x_trim=0):
@@ -62,11 +70,9 @@ def make_tab_header(parent, colors, title, subtitle, *, x_trim=0):
     ).pack(side=tk.LEFT, anchor=tk.S)
 
     # spacing: heading ↔ element -- heading, label ↔
-    # The leading padx is the whole gap: the heading's own box ends at
-    # its ink, having given back what it had.
     ttk.Label(
         row, text=subtitle, foreground=colors["fg_dim"],
         padding=(0, 0, 0, SUBTITLE_PAD_BOTTOM),
-    ).pack(side=tk.LEFT, anchor=tk.S, padx=(14, 0))
+    ).pack(side=tk.LEFT, anchor=tk.S, padx=(SUBTITLE_PAD_LEFT, 0))
 
     return row

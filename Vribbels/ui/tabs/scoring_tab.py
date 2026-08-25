@@ -141,6 +141,7 @@ class ScoringTab(BaseTab):
     def setup_ui(self):
         main_frame = ttk.Frame(self.frame)
         # spacing: content frame -> content frame -- frame, frame ↔↕
+        # spacing: tab list -> first element -- tab, frame ↕
         main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
 
         # Title and subtitle share one line: the subtitle sits to the

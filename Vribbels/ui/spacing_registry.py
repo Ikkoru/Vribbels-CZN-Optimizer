@@ -336,6 +336,31 @@ def _heading_to_subtitle(heading, subtitle):
     return resolve
 
 
+def _tab_list_to_first_element():
+    """Resolver: the tab strip's bottom -> the first ink on the tab.
+
+    The strip has no widget of its own, so the reference is the tab
+    frame's box top, which abuts it: `Flush.TNotebook` removed clam's
+    2px client inset, so there is nothing between the two. The other end
+    is whatever paints first anywhere across the tab's width -- a
+    heading's capitals, a panel's border, a list.
+    """
+    def resolve(cap, app):
+        tab = sa.current_tab_widget(app)
+        box = sa.box_of(tab)
+        extent = sa.painted_extent_v(cap, box)
+        if extent is None:
+            return None, "nothing painted on this tab"
+        return sa.gap_between(box.top - 1, extent[0]), ""
+    return resolve
+
+
+# Every in-scope tab. The rule has nine marker sites and had no entry,
+# which is how Setup came to sit a pixel below the other two headers
+# with nothing reporting it.
+TAB_LIST_TABS = ["Optimizer", "Memory Fragments", "Gear Score",
+                 "Combatants", "Capture", "Setup"]
+
 # (tab, heading, subtitle) for every tab whose header `make_tab_header`
 # builds. Registered so the helper's one set of numbers is measured
 # rather than trusted -- three call sites had drifted apart before it,
@@ -628,6 +653,17 @@ def register_all():
             resolve=resolve,
             axis="v",
             provisional=provisional,
+        )
+
+    for tab in TAB_LIST_TABS:
+        sa.track(
+            name=f"{tab}: tab list -> first element",
+            tab=tab,
+            rule=RULE_TAB_LIST,
+            target=6,
+            resolve=_tab_list_to_first_element(),
+            axis="v",
+            provisional=True,
         )
 
     for tab, heading, subtitle in TAB_HEADERS:
