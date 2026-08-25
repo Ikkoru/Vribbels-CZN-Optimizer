@@ -189,17 +189,23 @@ def _text_of(app, title):
     return frame, text
 
 
-def _to_baseline(measured, note, text):
-    """A gap read from a title's INK, restated from its baseline.
+def restate_from_reference(measured, note, overshoot):
+    """A gap read from a string's INK, restated from its reference edge.
 
-    The rules measure a gap below text to the baseline; the screen shows
-    ink, which reaches lower wherever the string has a descender. Adding
-    that depth back is what makes every title answer to one number
-    instead of one per glyph class.
+    **The correction always ADDS, whichever end of the gap the text is
+    on.** Ink overshoots INTO the gap in both directions: a descender
+    hangs down into a gap below the text, and a tall ascender rises up
+    into a gap above it. Either way the raw reading is short by however
+    far the glyphs reach, and either way that is what gets added back.
+
+    The two looked like opposites and one of them was written with the
+    sign flipped, which put both 14 bold tab headings 2px out -- one for
+    the correction going the wrong way and one for the target having
+    moved to meet it.
     """
     if measured is None:
         return None, note
-    return measured + ink_below_baseline(text), note
+    return measured + overshoot, note
 
 
 def _text_panel_title_gap(title):
@@ -213,8 +219,9 @@ def _text_panel_title_gap(title):
         extent = sa.painted_extent_v(cap, sa.box_of(text), fill)
         if extent is None:
             return None, "text widget is empty"
-        return _to_baseline(*sa.title_gap(cap, frame, extent[0], bg=strip_bg),
-                            title)
+        return restate_from_reference(
+            *sa.title_gap(cap, frame, extent[0], bg=strip_bg),
+            ink_below_baseline(title))
     return resolve
 
 
@@ -272,8 +279,9 @@ def _caption_to_field(prefix):
         field = sa.find_descendant_class(label.master, "TCombobox")
         if field is None:
             return None, "no dropdown under that caption"
-        return _to_baseline(*sa.vertical_gap(cap, label, field),
-                            label.cget("text"))
+        return restate_from_reference(
+            *sa.vertical_gap(cap, label, field),
+            ink_below_baseline(label.cget("text")))
     return resolve
 
 
@@ -320,7 +328,8 @@ def _title_to_first_element(title):
         extent = sa.painted_extent_v(cap, sa.box_of(child))
         if extent is None:
             return None, "first child painted nothing"
-        return _to_baseline(*sa.title_gap(cap, frame, extent[0]), title)
+        return restate_from_reference(*sa.title_gap(cap, frame, extent[0]),
+                                      ink_below_baseline(title))
     return resolve
 
 
@@ -470,12 +479,12 @@ def _tab_list_to_first_element(text=None, bold14=False):
         extent = sa.painted_extent_v(cap, box)
         if extent is None:
             return None, "nothing painted on this tab"
-        # Dropped to the CAPITALS. The scan finds the topmost ink,
-        # which on a 14 bold heading is an ascender rather than a
-        # capital -- so the correction comes off and the target stays
-        # the plain 6 for every tab.
+        # Restated from the CAPITALS. The scan finds the topmost ink,
+        # which on a 14 bold heading is an ascender standing above the
+        # caps -- so it has eaten into this gap and the rise is added
+        # back, leaving the target the plain 6 for every tab.
         gap = (sa.gap_between(box.top - 1, extent[0])
-               - ink_above_caps(text or "", bold14))
+               + ink_above_caps(text or "", bold14))
         if gap == 0:
             # `painted_extent_v` scans EVERY column of a row, so one
             # stray pixel anywhere across the window's width puts the
