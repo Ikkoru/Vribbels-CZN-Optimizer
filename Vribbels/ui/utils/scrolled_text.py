@@ -27,7 +27,7 @@ import tkinter as tk
 from tkinter import scrolledtext
 
 
-def make_scrolled_text(parent, colors, *, padx=6, pady=6, **kwargs):
+def make_scrolled_text(parent, colors, *, padx=5, pady=6, **kwargs):
     """A dark-themed `ScrolledText`, wrapper and scrollbar included.
 
     Args:

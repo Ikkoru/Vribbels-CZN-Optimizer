@@ -148,7 +148,7 @@ class CaptureTab(BaseTab):
                  "Highest Potential.\nChecking or unchecking a preset "
                  "excludes it (and re-writes the last Upgraded line).",
             foreground=self.colors["fg_dim"], justify=tk.LEFT,
-        ).pack(anchor=tk.W, padx=(1, 0), pady=(0, 0))
+        ).pack(anchor=tk.W, padx=(0, 0), pady=(0, 0))
 
         # Mismatch filters, bottom-left, two columns. Packed BEFORE the
         # checklist so the checklist's expand=True doesn't swallow the
@@ -240,7 +240,7 @@ class CaptureTab(BaseTab):
                                      padx=(10, 0), pady=(0, 2))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(4, 6, 5, 5))
+        region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(3, 6, 5, 5))
         # spacing: content frame -> content frame -- frame, frame ↕
         region_frame.pack(fill=tk.X, padx=0, pady=2)
 
@@ -303,7 +303,7 @@ class CaptureTab(BaseTab):
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         # The right edge carries slack, not a target: the frame is
         # stretched wider than its text.
-        req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(4, 2, 5, 4))
+        req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(3, 2, 5, 4))
         # spacing: content frame -> content frame -- frame, frame ↕
         req_frame.pack(fill=tk.X, pady=2)
 

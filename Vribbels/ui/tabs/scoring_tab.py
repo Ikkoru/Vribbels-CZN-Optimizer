@@ -276,7 +276,7 @@ STAT MIN - MAX ROLLS:
         # the stat grid sits flush against it, and so does the status
         # label below, which the audit measures in its own right.
         config_frame = ttk.LabelFrame(content, text="Stat Weight Configuration",
-                                      padding=(4, 2, 5, 5))
+                                      padding=(3, 2, 5, 5))
         # spacing: content frame -> content frame -- frame, frame ↔↕
         config_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
 

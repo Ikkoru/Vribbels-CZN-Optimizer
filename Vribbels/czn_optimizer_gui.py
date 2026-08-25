@@ -530,7 +530,7 @@ class OptimizerGUI:
                              background=self.colors["bg"],
                              borderwidth=0, relief=tk.FLAT)
         # spacing: title above, element below -- title, panel ↕
-        # The bottom component is the lever, one less than the theme's
+        # The bottom component is the lever, two less than the theme's
         # default. The rule measures from the title text to the first
         # thing painted below it, which for a LabelFrame is its own top
         # border -- so this distance is set HERE, once, for every panel
@@ -540,19 +540,25 @@ class OptimizerGUI:
         # than adding to them, so all four components have to be given;
         # 0 in the first slot is the default title x offset.
         self.style.configure("TLabelframe",
-                             labelmargins="0 0 0 3")
+                             labelmargins="0 0 0 2")
         self.style.configure("Borderless.TLabelframe.Label",
                              background=self.colors["bg"],
                              foreground=self.colors["accent"])
         # spacing: title above, element below -- title, panel ↕
         # The Borderless variants set their own labelmargins and inherit
-        # nothing from the base style above, so the same lever has to be
-        # repeated here. labelmargins REPLACES the theme's margins, so
-        # all four components have to be given; 0 in the first slot is
-        # the default title x offset.
+        # nothing from the base style above, so the lever is repeated
+        # here. labelmargins REPLACES the theme's margins, so all four
+        # components have to be given; 0 in the first slot is the
+        # default title x offset.
         #
-        # No audit entry watches these panels, so this value rests on
-        # the base style's measurement rather than one of its own.
+        # **This value does NOT match the base style's, and nothing has
+        # measured whether it should.** The base is 2 because a bordered
+        # panel's title measures to its own top border; there is no
+        # border here, so the gap runs to the content instead.
+        # `Gear.Borderless` is the same shape and is measured correct at
+        # 0. Neither panel using THIS style -- Stats Comparison,
+        # Selected Build -- is in the audit, so 3 rests on nothing.
+        # Register them before trusting it.
         self.style.configure("Borderless.TLabelframe",
                              labelmargins="0 0 0 3")
         # spacing: exception -- title above, element below -- title, tree ↕

@@ -258,7 +258,7 @@ class InventoryTab(BaseTab):
 
         # ----- Main Stats filter -----------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=(2, 4, 2, 3))
+        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=(1, 4, 2, 3))
         # spacing: content frame -> content frame -- frame, frame ↔
         main_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 

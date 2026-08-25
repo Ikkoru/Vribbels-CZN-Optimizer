@@ -311,7 +311,7 @@ sa.register_scenario("element_override",
 # hand-measuring pass skipped it. See the glyph-class table in
 # docs/ui_spacing.md "The rules".
 TITLE_GAP_TARGETS = {
-    "Element override (Unknown character)": 4,
+    "Element override (Unknown character)": 3,
 }
 
 

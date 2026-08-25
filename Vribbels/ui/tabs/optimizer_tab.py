@@ -729,14 +729,14 @@ class OptimizerTab(BaseTab):
         top_row.pack(fill=tk.X, pady=(0, 5))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        important_frame = ttk.LabelFrame(top_row, text="Important Settings", padding=(5, 6, 5, 5))
+        important_frame = ttk.LabelFrame(top_row, text="Important Settings", padding=(4, 6, 5, 5))
         # spacing: content frame -> content frame -- frame, frame ↔
         important_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 2))
         self._build_important_settings(important_frame)
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         have_frame = ttk.LabelFrame(
-            top_row, text="Have at least this much of a stat", padding=(4, 6, 5, 5)
+            top_row, text="Have at least this much of a stat", padding=(3, 6, 5, 5)
         )
         # HAL frame doesn't expand -- it sizes to its natural width so the
         # panel hugs its spinboxes; important_frame has expand=True so it
@@ -753,7 +753,7 @@ class OptimizerTab(BaseTab):
 
         # Set Configuration
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        set_frame = ttk.LabelFrame(parent, text="Set Configuration", padding=(4, 6, 5, 5))
+        set_frame = ttk.LabelFrame(parent, text="Set Configuration", padding=(3, 6, 5, 5))
         # spacing: content frame -> content frame -- frame, frame ↕
         set_frame.pack(fill=tk.X, pady=(0, 5))
         self._set_frame_ref = set_frame
@@ -1227,7 +1227,7 @@ class OptimizerTab(BaseTab):
                 container, self.colors, variable=var, fg=pieces_color,
                 command=self._save_sets_selected,
             )
-            cb.pack(side=tk.LEFT, padx=(1, 1))
+            cb.pack(side=tk.LEFT, padx=(0, 1))
 
             # The piece count is pulled toward its checkbox: the negative
             # padding here is all the internal inset a ttk.Label has to
@@ -1758,7 +1758,7 @@ class OptimizerTab(BaseTab):
 
         # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
         gap = 7        # minimum px between checkbuttons in a row
-        edge_pad = 0   # px on each side (kept symmetric)
+        edge_pad = 2   # px on each side (kept symmetric)
         available_w = max(1, container_w - 2 * edge_pad)
 
         # Drop widgets for combatants that left the roster, then make sure
