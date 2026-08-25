@@ -790,7 +790,7 @@ def register_all():
             target=5,
             resolve=_checkbox_block_to_buttons(title),
             axis="v",
-            provisional=True,
+            provisional=False,
         )
         sa.track(
             name=f"{title}: left edge -> All",
@@ -799,7 +799,7 @@ def register_all():
             target=3,
             resolve=_first_button_left_inset(title),
             axis="h",
-            provisional=True,
+            provisional=False,
         )
 
     for tab, title in BUTTON_ROW_PANELS:

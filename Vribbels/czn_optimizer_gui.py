@@ -87,6 +87,7 @@ from optimizer import GearOptimizer
 from optimizer.optimizer import SLOT5_ELEMENT_MAINS
 from config import AppConfig
 from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, AboutTab
+from ui.utils.button_width import BUTTON_PAD_X
 # Used to augment "[LIVE] Upgraded" log lines with the post-upgrade
 # Highest Pot. range across all currently-defined presets (see
 # _drain_pending_upgrade_lines below).
@@ -410,20 +411,19 @@ class OptimizerGUI:
         )
         self.style.configure("TFrame", background=self.colors["bg"])
         self.style.configure("TLabel", background=self.colors["bg"], foreground=self.colors["fg"])
-        # spacing: unique -- a button's own internal inset -- button, text ↔↕
-        # A scalar would inset all four sides alike; this leaves the
-        # vertical at 5 so the height a row is built around does not
-        # move.
+        # spacing: unique -- a button's own internal inset -- button, text ↕
+        # Only the VERTICAL half is decided here, and it stays 5 so the
+        # height every button row is built around does not move.
         #
-        # It renders ONE MORE than it says -- 2 puts the text 3px from
-        # the fill's edge -- and it does NOT change the button's size.
-        # `width` fixes that in characters, so the padding moves the
-        # text WITHIN the fill rather than growing the fill around it,
-        # which is why a colour-based reading of the button's inside
-        # width is the same before and after.
+        # The horizontal half sets a button's WIDTH as much as its
+        # inset, so it lives beside the widths in
+        # `ui/utils/button_width.py` and is imported. Two copies would
+        # let a button's size and the size that module predicts drift
+        # apart, which is exactly what a width in characters makes hard
+        # to notice.
         self.style.configure("TButton", background=self.colors["bg_light"],
                              foreground=self.colors["fg"],
-                             padding=(2, 5))
+                             padding=(BUTTON_PAD_X, 5))
         self.style.map("TButton", background=[("active", self.colors["bg_lighter"])])
         # A focused ttk.Button paints a dotted ring inside its border, and
         # something has to hold focus the moment a tab is first shown --
