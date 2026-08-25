@@ -336,15 +336,19 @@ LEFT_INSET_EXCEPTIONS = {
 # RULE is stated per entry rather than inferred from membership,
 # because the two entries here are here for opposite reasons and one
 # flag cannot carry both.
+# `target_source` is stated per entry rather than inferred from
+# membership. The two are here for opposite reasons and only one of them
+# has a target the rules table cannot supply -- deriving the flag from
+# the dict labelled Restore Defaults' perfectly ordinary 3 as a reading.
 LEFT_INSET_OVERRIDES = {
-    # A different rule: the first element is a button, so the button
-    # rule applies rather than the one for text. Measured, and correct.
-    "Restore Defaults": (RULE_BORDER_EDGE_BUTTON, 3),
+    # A different rule, at that rule's own number: the first element is
+    # a button, so the button rule applies rather than the one for text.
+    "Restore Defaults": (RULE_BORDER_EDGE_BUTTON, 3, "rule"),
     # THIS rule, deliberately missed. The panel is built to be legible
     # before anything else on the tab, in Segoe UI 11 rather than 9, and
     # 7 is where its left edge is meant to sit. Tracked at what it is so
     # a drift still shows, rather than left out and unwatched.
-    "Setup Status": (RULE_BORDER_EDGE_CONTENT, 7),
+    "Setup Status": (RULE_BORDER_EDGE_CONTENT, 7, "observed"),
 }
 
 
@@ -529,16 +533,15 @@ def register_all():
             )
             if title in LEFT_INSET_EXCEPTIONS:
                 continue
-            left_rule, left_target = LEFT_INSET_OVERRIDES.get(
-                title, (RULE_BORDER_EDGE_CONTENT, 5))
+            left_rule, left_target, left_source = LEFT_INSET_OVERRIDES.get(
+                title, (RULE_BORDER_EDGE_CONTENT, 5, "rule"))
             sa.track(
                 name=f"{title}: left edge -> content",
                 tab=tab,
                 rule=left_rule,
                 target=left_target,
                 axis="h",
-                target_source=("observed" if title in LEFT_INSET_OVERRIDES
-                               else "rule"),
+                target_source=left_source,
                 resolve=(_text_panel_left_inset(title) if is_text
                          else _left_inset(title)),
             )

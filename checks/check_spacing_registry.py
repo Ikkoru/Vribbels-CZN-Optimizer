@@ -18,13 +18,23 @@ What it enforces beyond "it imports":
     silently drops one entry's reading and reports the other twice.
   * every RULE is one the docs table spells, the same constraint the
     marker check applies to the widget code.
+  * a title gap flagged `target rule` really is the number the rule
+    derives, and one flagged `observed`/`inferred` really is not. The
+    flag decides whether a later reader may "correct" the number from
+    the rule, so a target that lies about where it came from is worse
+    than a wrong number -- it is a wrong number nobody is allowed to
+    question. This has been wrong once: the flag was derived from
+    membership of the overrides table rather than stated, which marked
+    Restore Defaults' perfectly ordinary 3 as a hand reading.
   * importing twice does not double the registry, which `register_all`
     would happily do.
 """
 
 import importlib
+import io
+import re
 
-from ._harness import SOURCE_ROOT, add_source_to_path
+from ._harness import REPO_ROOT, add_source_to_path
 
 NAME = "spacing registry"
 
@@ -32,21 +42,48 @@ VALID_AXES = ("h", "v")
 VALID_SOURCES = ("rule", "observed", "inferred")
 
 
+def _rule_targets():
+    """{marker: target} for every rule the docs table gives ONE number.
+
+    Read from the table rather than restated here, for the same reason
+    the marker check reads the marker column from it: a second copy of a
+    number does not fail when it drifts, it just disagrees quietly.
+
+    A trailing qualifier is fine: "5px, all edges" still names one
+    number. What is left out is a target with an ALTERNATIVE -- "2px
+    (5px where the title has no descender)", "16px, or min 16px where
+    the distance varies" -- because there the condition is what decides
+    and the registry derives it per entry.
+    """
+    doc = io.open(REPO_ROOT / "docs" / "ui_spacing.md",
+                  encoding="utf-8").read()
+    targets = {}
+    for row in doc.splitlines():
+        cells = [c.strip() for c in row.split("|")]
+        if len(cells) < 5:
+            continue
+        marker = re.fullmatch(r"`([^`]+)`", cells[3])
+        plain = re.fullmatch(r"(\d+)px(?:,(?! or ).*)?", cells[2])
+        if marker and plain:
+            targets[marker.group(1)] = int(plain.group(1))
+    return targets
+
+
 def run():
     add_source_to_path()
     failures = []
 
     from ui import spacing_audit as sa
-    importlib.import_module("ui.spacing_registry")
+    registry = importlib.import_module("ui.spacing_registry")
 
     if not sa.REGISTRY:
         return ["the registry is empty -- register_all() did not run on "
                 "import, so the audit would measure nothing and report a "
                 "clean table"]
 
-    rules = {v for k, v in vars(
-        importlib.import_module("ui.spacing_registry")).items()
-        if k.startswith("RULE_") and isinstance(v, str)}
+    rules = {v for k, v in vars(registry).items()
+             if k.startswith("RULE_") and isinstance(v, str)}
+    rule_targets = _rule_targets()
 
     seen = {}
     for g in sa.REGISTRY:
@@ -64,6 +101,26 @@ def run():
                 f"{g.name!r} names rule {g.rule!r}, which has no RULE_ "
                 f"constant -- the marker check compares those against the "
                 f"docs table, so a rule invented here escapes it")
+        if g.rule == registry.RULE_TITLE_ELEMENT:
+            expected = registry._title_gap_target(g.name.split(":")[0])
+            where = "the rule derives for that title"
+        else:
+            expected = rule_targets.get(g.rule)
+            where = "the docs table gives for that rule"
+        if expected is not None:
+            if g.target_source == "rule" and g.target != expected:
+                failures.append(
+                    f"{g.name!r} is flagged `target rule` but carries "
+                    f"{g.target}, where {expected} is what {where}. Either "
+                    f"the number is a hand reading and should say so, or it "
+                    f"is wrong")
+            if g.target_source != "rule" and g.target == expected:
+                failures.append(
+                    f"{g.name!r} is flagged `target {g.target_source}` but "
+                    f"carries {expected}, exactly what {where}. A target "
+                    f"claiming to be a reading cannot be corrected from the "
+                    f"rule by a later reader -- do not spend that on a number "
+                    f"the rule already gives")
         key = (g.name, g.scenario)
         if key in seen:
             failures.append(
