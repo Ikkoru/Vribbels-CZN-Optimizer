@@ -217,7 +217,11 @@ STAT MIN - MAX ROLLS:
         # which is why it differs between text panels in different fonts.
         explain_text = make_scrolled_text(
             explain_frame, self.colors, height=20, wrap=tk.WORD,
-            font=("Segoe UI", 11), pady=4,
+            # 0, where the 9pt panels take 4: this one is Segoe UI 11
+            # and its line box already contributes the whole inset
+            # above the first glyph. At 4 it read 9 against the
+            # rule's 5.
+            font=("Segoe UI", 11), pady=0,
         )
         # The two aligned groups line up on TAB STOPS rather than on
         # hand-counted spaces, which only work in a monospaced face. Same

@@ -131,23 +131,21 @@ class Capture:
         empty = [palette["bg"], palette["bg_strip"]]
         return cls(image, (x, y), empty, palette)
 
-    # How far a pixel may sit from a single background colour and still
-    # count as empty, per channel. For antialiasing against one shade
-    # only; a seam BETWEEN two of them is handled below and needs no
-    # tolerance at all.
-    NEAR = 1
-
     def is_background(self, x: int, y: int, bg=None) -> bool:
         """Whether (x, y) is empty space rather than something painted.
 
-        **A blend of two background shades is background.** Where the
-        darkened tab strip meets the window behind it the seam is a
-        gradient, not one colour -- it read (30, 30, 45) at one window
-        size and (29, 29, 44) at another, so no fixed tolerance covers
-        it. Testing whether the pixel lies BETWEEN two known background
-        colours does, exactly and at any width, and cannot swallow ink:
-        every other shade in the palette sits outside that range on at
-        least one channel.
+        **A blend of two background shades is background, and nothing
+        else is.** Where the darkened tab strip meets the window behind
+        it the seam is a gradient, not one colour -- it read (30, 30, 45)
+        at one window size and (29, 29, 44) at another, so no fixed
+        tolerance covers it. Testing whether the pixel lies BETWEEN two
+        known background colours does, exactly and at any width.
+
+        **There is deliberately no near-miss tolerance.** One of ±1 also
+        counted the faint outer column of an antialiased GLYPH as empty,
+        which stopped a right-edge reading two pixels short of the text
+        it was measuring to. A blend of two backgrounds is a fact about
+        the palette; a blend of background and ink is ink.
 
         It matters for a single pixel because a row counts as painted if
         ANY column in it is, so one seam column at the end of the tab
@@ -159,8 +157,6 @@ class Capture:
         if pixel in colours:
             return True
         for first in colours:
-            if all(abs(p - c) <= self.NEAR for p, c in zip(pixel, first)):
-                return True
             for second in colours:
                 if second is first:
                     continue

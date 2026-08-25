@@ -620,7 +620,7 @@ class HeroesTab(BaseTab):
             char_frame, wrap=tk.NONE, height=6,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             font=_default_font(), bd=0, highlightthickness=0,
-            padx=5, pady=3,
+            padx=5, pady=2,
         )
         self.hero_char_text.pack(fill=tk.BOTH, expand=True)
         self.hero_char_text.config(state=tk.DISABLED)
@@ -653,7 +653,7 @@ class HeroesTab(BaseTab):
             partner_text_frame, wrap=tk.WORD, height=6,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             font=("Segoe UI", 9), bd=0, highlightthickness=0,
-            padx=5, pady=3,
+            padx=5, pady=2,
             yscrollcommand=partner_scroll.set,
         )
         partner_scroll.config(command=self.hero_partner_text.yview)
