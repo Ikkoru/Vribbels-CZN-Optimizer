@@ -565,16 +565,21 @@ class OptimizerGUI:
         self.style.configure("Tight.Borderless.TLabelframe",
                              labelmargins="0 0 0 -1")
         # spacing: title above, element below -- title, frame ↔
-        # The title is nudged right so it lines up with the gear grid
-        # beneath it (Combatants). labelmargins' first component is the
-        # title's x offset; the default is 0.
+        # **The 1 is wrong and is queued for removal.** A title is
+        # aligned with its own panel automatically, and hand-aligning
+        # one hides what it was reporting: `Equipped Memory Fragments`
+        # sits 5px from the character list where the content-frame rule
+        # asks 4, and the title was moved to meet the misplaced grid
+        # instead of the panel being moved back. Removing this needs the
+        # panel fixed in the same pass -- see plan.md phase 4.
         #
-        # The three trailing zeros do NOT reproduce the base style's
-        # correction -- they sit tighter than the theme's default, which
-        # this style replaces rather than inherits. That is an inference
-        # from the base style's measurement, not a measurement of this
-        # one: no audit entry covers it, so measure before trusting it to
-        # match the other panels.
+        # The BOTTOM component is a different matter and is correct: 0
+        # where the base style has 3, because the gear cells carry a
+        # pady of their own that a bordered panel's content does not.
+        # Measured on screen at the rule's 2/5.
+        #
+        # labelmargins' first component is the title's x offset, and it
+        # REPLACES rather than adds, so all four have to be given.
         self.style.configure("Gear.Borderless.TLabelframe",
                              labelmargins="1 0 0 0")
 
