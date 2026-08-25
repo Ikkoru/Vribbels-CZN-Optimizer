@@ -194,20 +194,19 @@ def _text_panel_inset(title, side="left"):
         if side == "top":
             return sa.gap_between(box.top - 1, extent[0]), ""
         # The far edges take the text widget's box as the border's inner
-        # edge, which the near ones have earned the right to assume: a
-        # panel built this way puts the widget flush against the border.
-        # If the widget does NOT fill the frame, the leftover is slack
-        # and the reading is that slack plus the inset, with no way to
-        # tell them apart from the number alone. So say how much room is
-        # left over -- 0 means the assumption held.
+        # edge, the way the near ones do. Reporting the leftover between
+        # the widget and the frame did not settle whether that holds: a
+        # LabelFrame's own border is 2px, so a frame 2px wider than its
+        # text is exactly what a flush fit looks like. The raw numbers
+        # do settle it, so they are what the note carries.
         fb = sa.box_of(frame)
         if side == "right":
-            spare = fb.right - box.right
-            note = "" if spare == 0 else f"{spare}px of frame right of the text"
-            return sa.gap_between(extent[1], box.right + 1), note
-        spare = fb.bottom - box.bottom
-        note = "" if spare == 0 else f"{spare}px of frame below the text"
-        return sa.gap_between(extent[1], box.bottom + 1), note
+            return (sa.gap_between(extent[1], box.right + 1),
+                    f"ink ends {extent[1]}, text box {box.right}, "
+                    f"frame {fb.right}")
+        return (sa.gap_between(extent[1], box.bottom + 1),
+                f"ink ends {extent[1]}, text box {box.bottom}, "
+                f"frame {fb.bottom}")
     return resolve
 
 
