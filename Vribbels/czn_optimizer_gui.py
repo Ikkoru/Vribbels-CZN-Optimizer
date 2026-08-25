@@ -468,7 +468,7 @@ class OptimizerGUI:
             pass
         self.style.configure("TNotebook.Tab", background=self.colors["bg_light"], foreground=self.colors["fg"], padding=[10, 5])
         self.style.map("TNotebook.Tab", background=[("selected", self.colors["bg_lighter"])])
-        # spacing: unique -- tree, text ↔↕ -- Treeview internals, which are style options
+        # spacing: unique -- Treeview internals, which are style options -- tree, text ↔↕
         # rather than anything a geometry manager can reach
         #
         # `padding` here is BOTH levers at once, and that is not obvious.

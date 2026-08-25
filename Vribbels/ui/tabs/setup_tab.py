@@ -165,7 +165,16 @@ class SetupTab(BaseTab):
         # spacing: content frame -> content frame -- frame, frame ↔↕
         status_frame.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
 
-        # spacing: unique -- label, label ↕ -- between rows of important status text
+        # spacing: unique -- Setup Status stands apart on purpose -- label, label ↕
+        # This panel is the first thing a new user sees, and the one
+        # place a troubleshooter reads whether the four prerequisites
+        # are live. So it is deliberately not built to the app's
+        # defaults: Segoe UI 11 rather than 9, a pitch of its own, and
+        # a size that matches Restore Defaults beside it. The larger
+        # font is also why its padding values differ from every other
+        # panel's while its border-edge TARGET does not -- a Segoe UI
+        # 11 glyph starts further inside its box than a 9 does.
+        #
         # The rows carry no pady: a Segoe UI 11 label's own line box
         # already contributes 7px above its ink and 4 below, which is
         # the whole pitch. Anything added here lands on top of that.

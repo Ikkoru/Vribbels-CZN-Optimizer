@@ -391,13 +391,13 @@ def _text_left_inset(title, prefix):
 CHECKBOX_CLASSES = ("Checkbutton", "TCheckbutton")
 
 ELEMENT_ENTRIES = [
-    ("Optimizer", "Important Settings", "slider", 6,
+    ("Optimizer", "Important Settings", "slider", 5,
      _class_left_inset("Important Settings", "TScale", "Scale")),
-    ("Optimizer", "Set Configuration", "checkboxes", 6,
+    ("Optimizer", "Set Configuration", "checkboxes", 5,
      _class_left_inset("Set Configuration", *CHECKBOX_CLASSES)),
-    ("Capture", "Upgrade Log Settings", "checkboxes", 6,
+    ("Capture", "Upgrade Log Settings", "checkboxes", 5,
      _class_left_inset("Upgrade Log Settings", *CHECKBOX_CLASSES)),
-    ("Gear Score", "Stat Weight Configuration", "applied preset label", 6,
+    ("Gear Score", "Stat Weight Configuration", "applied preset label", 5,
      _text_left_inset("Stat Weight Configuration", "Applied")),
 ]
 
@@ -428,7 +428,7 @@ def register_all():
                 tab=tab,
                 rule=(RULE_BORDER_EDGE_BUTTON if title in LEFT_INSET_TARGETS
                       else RULE_BORDER_EDGE_CONTENT),
-                target=LEFT_INSET_TARGETS.get(title, 6),
+                target=LEFT_INSET_TARGETS.get(title, 5),
                 resolve=(_text_panel_left_inset(title) if is_text
                          else _left_inset(title)),
             )

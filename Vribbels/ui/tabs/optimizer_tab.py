@@ -500,10 +500,12 @@ class OptimizerTab(BaseTab):
         # spacing: control group ↔ control group -- label, label ↔
         status_cluster.pack(side=tk.RIGHT, padx=(10, 2), anchor=tk.N)
         # spacing: border edge -> first non-button element -- label, frame ↔
-        # The negative TRAILING padding pulls the glyphs 2px right, to the
-        # rule's 6px: a Label's box stops short of its own text where the
+        # The negative TRAILING padding pulls the glyphs right, toward
+        # the rule: a Label's box stops short of its own text where the
         # spinbox below it ends at its border. pack's padx cannot go
-        # negative, so the correction lives on the widget.
+        # negative, so the correction lives on the widget. The target
+        # moved to 5 after this was set, so the audit should now read it
+        # a pixel wide.
         self.status_label = ttk.Label(
             status_cluster, text="No data loaded",
             foreground=self.colors["fg_dim"],
@@ -512,7 +514,7 @@ class OptimizerTab(BaseTab):
         )
         self.status_label.pack(side=tk.TOP, anchor=tk.E)
         minlvl_row = ttk.Frame(status_cluster)
-        # spacing: unique -- label, spinbox ↕ -- between mixed element rows (text -> spinbox)
+        # spacing: unique -- between mixed element rows (label -> spinbox) -- label, spinbox ↕
         # Target 5px, measured painted-edge to painted-edge. The rows are
         # different heights whatever this says -- a text row, a spinbox
         # row and a checkbox row seat their content at different insets --
@@ -532,14 +534,14 @@ class OptimizerTab(BaseTab):
         minlvl_spin.bind("<MouseWheel>",
                          lambda e, sp=minlvl_spin: self._spinbox_wheel(e, sp))
         offelem_row = ttk.Frame(status_cluster)
-        # spacing: unique -- spinbox, checkbox ↕ -- between mixed element rows (spinbox -> checkbox)
+        # spacing: unique -- between mixed element rows (spinbox -> checkbox) -- spinbox, checkbox ↕
         # Target 3px.
         offelem_row.pack(side=tk.TOP, anchor=tk.E, pady=(0, 0))
         # spacing: label ↔ its element -- label, checkbox ↔
         ttk.Label(offelem_row, text="Ignore off-Element MFs",
                   font=small_font).pack(side=tk.LEFT, padx=(0, 3))
         # spacing: exception -- border edge -> first non-button element -- checkbox, frame ↔
-        # Sits 13px from the right edge where the rule asks for 6, and
+        # Sits 13px from the right edge where the rule asks for 5, and
         # where the status text above reads 8 and the spinbox 6. Keeping
         # it near-centred under the spinbox rather than flush right looks
         # and clicks better, and the click target is the reason it wins.

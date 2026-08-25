@@ -218,12 +218,12 @@ def run():
             elif body.startswith("unique -- "):
                 # No rule to name, but the elements and orientation are
                 # written the same way so one grep finds every gap of a
-                # kind, ruled or not.
-                # A body with no second ` -- ` is still in the old form,
-                # which REQUIRE_SUFFIX decides on.
-                rest = body[len("unique -- "):]
-                head, sep, _what = rest.partition(" -- ")
-                _check_suffix(head.strip() if sep else "", vocab, where,
+                # kind, ruled or not. Split from the RIGHT: the subject
+                # is free prose and may hold a ` -- ` of its own, and
+                # the suffix has to end the line like every other
+                # marker's or an anchored orientation grep skips it.
+                _what, sep, suffix = body[len("unique -- "):].rpartition(" -- ")
+                _check_suffix(suffix.strip() if sep else "", vocab, where,
                               failures)
             elif body.startswith("out of scope -- "):
                 continue
