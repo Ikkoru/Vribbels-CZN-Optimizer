@@ -203,17 +203,93 @@ def _left_inset(title):
     return resolve
 
 
+def _panel_gap(first, second, axis):
+    """Resolver: the gap between two panels, border to border.
+
+    Both ends are the panels' own painted borders, which is what the
+    content-frame rule measures -- the pads that produce it are split
+    across two containers and neither is readable on its own.
+    """
+    def resolve(cap, app):
+        a, b = _panel(app, first), _panel(app, second)
+        return (sa.horizontal_gap(cap, a, b) if axis == "h"
+                else sa.vertical_gap(cap, a, b))
+    return resolve
+
+
+def _list_to_panel_gap(panel):
+    """Resolver: the character list's right edge -> a panel beside it.
+
+    The list is a Treeview and a scrollbar sharing a frame, and the
+    SCROLLBAR is the rightmost painted thing -- so the gap is measured
+    from the frame that holds both, not from the tree. Located by class
+    because there is exactly one Treeview on this tab.
+    """
+    def resolve(cap, app):
+        tree = sa.find_descendant_class(sa.current_tab_widget(app), "Treeview")
+        if tree is None:
+            return None, "no Treeview on this tab"
+        return sa.horizontal_gap(cap, tree.master, _panel(app, panel))
+    return resolve
+
+
+def _first_button_gap(title):
+    """Resolver: the gap between a panel's first two buttons.
+
+    The All/None rows are the only pairs of adjacent buttons inside a
+    panel, so the first two found are them. A panel that grows a third
+    button before these two would measure the wrong pair -- the entry is
+    named for the row so that reads as wrong rather than as a number.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, title)
+        buttons = sa.find_descendants_class(frame, "TButton", "Button")
+        if len(buttons) < 2:
+            return None, f"{len(buttons)} buttons in panel, need 2"
+        return sa.horizontal_gap(cap, buttons[0], buttons[1])
+    return resolve
+
+
+# (tab, name, target, resolver) for the gaps between content frames.
+# Not every instance -- the rule has 47 marker sites and most are pads
+# on borderless containers with nothing painted to measure to. These
+# are the ones where both ends draw an edge.
+CONTENT_FRAME_ENTRIES = [
+    ("Memory Fragments", "Slots -> Sets", 4, _panel_gap("Slots", "Sets", "h")),
+    ("Memory Fragments", "Sets -> Main Stats", 4,
+     _panel_gap("Sets", "Main Stats", "h")),
+    ("Capture", "Status -> Server Region", 4,
+     _panel_gap("Status", "Server Region", "v")),
+    ("Capture", "Server Region -> Requirements", 4,
+     _panel_gap("Server Region", "Requirements", "v")),
+    ("Setup", "Setup Status -> Restore Defaults", 4,
+     _panel_gap("Setup Status", "Restore Defaults", "h")),
+    ("Combatants", "character list -> Equipped Memory Fragments", 4,
+     _list_to_panel_gap("Equipped Memory Fragments")),
+]
+
+# The All/None rows, the only adjacent button pairs inside a panel.
+BUTTON_ROW_PANELS = [
+    ("Memory Fragments", "Slots"),
+    ("Memory Fragments", "Sets"),
+    ("Memory Fragments", "Main Stats"),
+    ("Optimizer", "Exclude Combatant's MFs"),
+]
+
+
 # Tab label -> the panels on it that follow the standard two rules.
 # Tab labels must match the notebook's tab text exactly; a mismatch is
 # reported as "no tab" on the first run rather than failing silently.
 PANELS = {
     "Memory Fragments": ["Slots", "Sets", "Main Stats"],
-    "Combatants": ["Character", "Partner"],
+    "Combatants": ["Character", "Partner", "Equipped Memory Fragments"],
     "Optimizer": [
         "Important Settings",
         "Have at least this much of a stat",
         "Set Configuration",
         "Exclude Combatant's MFs",
+        "Stats Comparison",
+        "Selected Build",
     ],
     "Gear Score": ["How Gear Score Works", "Stat Weight Configuration"],
     "Capture": [
@@ -226,13 +302,24 @@ PANELS = {
     "Setup": ["Setup Status", "Restore Defaults", "Setup Instructions"],
 }
 
-# Panels whose left inset is NOT the frame-edge rule.
+# Panels whose left inset is NOT the border-edge rule.
 LEFT_INSET_EXCEPTIONS = {
-    # Confirmed by measurement as deliberate; the frame-edge rule does
+    # Confirmed by measurement as deliberate; the border-edge rule does
     # not apply to this panel's left edge at all, so registering it
     # would show a permanent red row and train the reader to ignore
     # them.
     "Status",
+    # The three `Borderless` panels. Two reasons, both disqualifying.
+    # There is no border, so the rule has no edge to measure from --
+    # and a border scan does not merely fail here, it walks into the
+    # content's own fill and saturates. And what fills them draws its
+    # own inset by rules of its own: a Treeview's internals are style
+    # options (see docs/ui_spacing.md), and a gear cell carries its
+    # padding on the Text inside it, marked there. Their TITLE gaps are
+    # tracked -- that is what these three were added for.
+    "Stats Comparison",
+    "Selected Build",
+    "Equipped Memory Fragments",
 }
 
 # Panels whose left inset is not the border-edge rule at its 5px. The
@@ -451,6 +538,24 @@ def register_all():
             rule=RULE_BORDER_EDGE_CONTENT,
             target=target,
             resolve=resolve,
+        )
+
+    for tab, name, target, resolve in CONTENT_FRAME_ENTRIES:
+        sa.track(
+            name=name,
+            tab=tab,
+            rule=RULE_CONTENT_FRAME,
+            target=target,
+            resolve=resolve,
+        )
+
+    for tab, title in BUTTON_ROW_PANELS:
+        sa.track(
+            name=f"{title}: All -> None",
+            tab=tab,
+            rule=RULE_BUTTON_GAP,
+            target=4,
+            resolve=_first_button_gap(title),
         )
 
     for title in ELEMENT_OVERRIDE_PANELS:

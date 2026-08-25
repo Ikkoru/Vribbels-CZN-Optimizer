@@ -729,7 +729,7 @@ class OptimizerTab(BaseTab):
         top_row.pack(fill=tk.X, pady=(0, 5))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        important_frame = ttk.LabelFrame(top_row, text="Important Settings", padding=(4, 6, 5, 5))
+        important_frame = ttk.LabelFrame(top_row, text="Important Settings", padding=(3, 6, 5, 5))
         # spacing: content frame -> content frame -- frame, frame ↔
         important_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 2))
         self._build_important_settings(important_frame)
@@ -769,13 +769,15 @@ class OptimizerTab(BaseTab):
         # Block 1: Extra% + DoT% sliders
         # spacing: border edge -> first non-button element -- panel, label ↔
         # spacing: explanation text -> the controls it explains -- label, slider ↕
-        # The negative LEADING padding is on this LABEL, not on the frame:
-        # the DMG vs Heal/Shield slider below is already on target, and a
-        # frame-level shift would take it past.
+        # No leading correction, unlike its siblings' absence of one: the
+        # FRAME carries this panel's inset now, because an ordinary 9pt
+        # Label is what most of the content is. This label used to hold a
+        # -1 and the frame a pixel more, which put this one line on
+        # target and left every other label a pixel out.
         ttk.Label(
             parent, text="What percent of damage is Extra, Agony, or Fracture/Scorched DMG?",
             font=("Segoe UI", 9), wraplength=376,
-            padding=(-1, 0, 0, 0),
+            padding=(0, 0, 0, 0),
         ).pack(anchor=tk.W, pady=(2, 2))
 
         # Each damage type gets a FULL row. Side by side, each slider's
@@ -872,8 +874,14 @@ class OptimizerTab(BaseTab):
             orient=tk.HORIZONTAL, length=120,
             command=lambda v: self._save_int("shielding_healing_weight", int(float(v))),
         )
+        # spacing: border edge -> first non-button element -- panel, slider ↔
         # spacing: label ↔ its element -- slider, label ↔
-        sh_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
+        # The LEADING pad is this slider's own correction. It is the only
+        # one in the panel that starts at the frame's edge -- the rest sit
+        # after a row label -- and a Scale's trough begins at its box edge
+        # where a Label's glyphs start inside theirs, so it needs a pixel
+        # the labels do not.
+        sh_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(1, 3))
         sh_scale.bind(
             "<MouseWheel>",
             lambda e: self._scale_wheel(
