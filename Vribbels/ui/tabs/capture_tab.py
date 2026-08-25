@@ -221,6 +221,9 @@ class CaptureTab(BaseTab):
         # left out of the audit for that; see docs/ui_spacing.md.
         status_frame = ttk.LabelFrame(left_col, text="Status", padding=(5, 1, 5, 3))
         # spacing: content frame -> content frame -- frame, frame ↕
+        # The trailing side feeds the gap down to Server Region's title,
+        # which answers to `panel ↕ unrelated label` -- the lever for
+        # that one is on the panel BELOW, so this stays symmetric.
         status_frame.pack(fill=tk.X, pady=2)
 
         # spacing: header subtext -- label, label ↔
@@ -241,8 +244,14 @@ class CaptureTab(BaseTab):
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(3, 6, 5, 5))
+        # spacing: panel ↕ unrelated label -- panel, title ↕
         # spacing: content frame -> content frame -- frame, frame ↕
-        region_frame.pack(fill=tk.X, padx=0, pady=2)
+        # Asymmetric, because the two sides answer to different rules.
+        # ABOVE is the Status panel's border against this panel's own
+        # TITLE: text is what sits across that gap, and the nearer
+        # element decides. BELOW is an ordinary frame-to-frame gap --
+        # the button row under it draws no border to measure to.
+        region_frame.pack(fill=tk.X, padx=0, pady=(5, 2))
 
         region_inner = ttk.Frame(region_frame)
         region_inner.pack(fill=tk.X)

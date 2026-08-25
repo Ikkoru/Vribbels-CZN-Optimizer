@@ -235,7 +235,9 @@ class InventoryTab(BaseTab):
             wraplength=205, justify=tk.LEFT,
         )
         # spacing: panel ↕ unrelated label -- panel, label ↕
-        self.active_preset_label.pack(anchor=tk.W, pady=(2, 0))
+        # The leading pad is the whole lever: the trailing side has
+        # nothing below it in this column.
+        self.active_preset_label.pack(anchor=tk.W, pady=(5, 0))
 
         # ----- Sets filter -----------------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕

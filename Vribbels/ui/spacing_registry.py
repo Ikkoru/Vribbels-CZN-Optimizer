@@ -312,7 +312,7 @@ def _panel_over_label(panel, prefix):
 PANEL_OVER_TEXT_ENTRIES = [
     ("Capture", "Status -> Server Region title", 10, False,
      _panel_gap("Status", "Server Region", "v")),
-    ("Memory Fragments", "Slots -> active preset label", 10, True,
+    ("Memory Fragments", "Slots -> active preset label", 10, False,
      _panel_over_label("Slots", "Preset:")),
 ]
 
