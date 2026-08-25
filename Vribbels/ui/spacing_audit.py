@@ -131,31 +131,43 @@ class Capture:
         empty = [palette["bg"], palette["bg_strip"]]
         return cls(image, (x, y), empty, palette)
 
-    # How far a pixel may sit from a background colour and still count
-    # as empty, per channel.
-    #
-    # **Not slack for a close-enough match.** It is for ANTIALIASING:
-    # where two background shades meet, the seam is blended, and the
-    # blend belongs to neither. Darkening the notebook strip put such a
-    # seam at the right-hand end of the tab row -- one pixel column of
-    # (30, 30, 45) against a background of (30, 30, 46) -- and because a
-    # row counts as painted if ANY column in it is, that single column
-    # made every tab's first element measure 0 from the tab list.
-    #
-    # Safe at 1 because the palette's shades are a dozen apart at their
-    # closest. Widening it would start swallowing real ink.
+    # How far a pixel may sit from a single background colour and still
+    # count as empty, per channel. For antialiasing against one shade
+    # only; a seam BETWEEN two of them is handled below and needs no
+    # tolerance at all.
     NEAR = 1
 
     def is_background(self, x: int, y: int, bg=None) -> bool:
+        """Whether (x, y) is empty space rather than something painted.
+
+        **A blend of two background shades is background.** Where the
+        darkened tab strip meets the window behind it the seam is a
+        gradient, not one colour -- it read (30, 30, 45) at one window
+        size and (29, 29, 44) at another, so no fixed tolerance covers
+        it. Testing whether the pixel lies BETWEEN two known background
+        colours does, exactly and at any width, and cannot swallow ink:
+        every other shade in the palette sits outside that range on at
+        least one channel.
+
+        It matters for a single pixel because a row counts as painted if
+        ANY column in it is, so one seam column at the end of the tab
+        row made every tab's first element measure 0.
+        """
         ox, oy = self.origin
         colours = self.background if bg is None else bg
         pixel = self._px[x - ox, y - oy]
         if pixel in colours:
             return True
-        return any(
-            all(abs(p - c) <= self.NEAR for p, c in zip(pixel, colour))
-            for colour in colours
-        )
+        for first in colours:
+            if all(abs(p - c) <= self.NEAR for p, c in zip(pixel, first)):
+                return True
+            for second in colours:
+                if second is first:
+                    continue
+                if all(min(a, b) <= p <= max(a, b)
+                       for p, a, b in zip(pixel, first, second)):
+                    return True
+        return False
 
     def contains(self, x: int, y: int) -> bool:
         ox, oy = self.origin

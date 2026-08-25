@@ -5,15 +5,17 @@ by the font's average character width and the style adds its padding, so
 a pixel target only lands exactly on some values. At Segoe UI 9 the
 relation is:
 
-    inside = 6 * width + 8           edge-to-edge = inside + 4
+    inside = 6 * width + 12          edge-to-edge = inside + 4
 
 measured from two buttons twelve characters apart, which is what
 separates the per-character step from the fixed padding. A target that
 falls between steps rounds DOWN, so a button never grows past what was
 asked for.
 
-The constant term is `TButton`'s horizontal padding, twice: change it in
-`configure_styles` and every number below moves with it.
+The constant term is NOT the style's padding. `width` fixes the label
+in characters, so padding moves the text within the button rather than
+growing it -- a colour-based reading of the inside width is the same
+whatever the padding is.
 
 Sharing a constant is what makes a size a decision rather than an
 accident: seven different widths were in the code, none of them agreeing
@@ -22,16 +24,16 @@ one-line change at the call site -- which is the point of naming them by
 SIZE rather than by the panel that happens to use them.
 """
 
-# 60px edge-to-edge
+# 60px inside, 64 edge-to-edge
 BUTTON_W_TINY = 8
 
-# 78px edge-to-edge
+# 78px inside, 82 edge-to-edge
 BUTTON_W_SMALL = 11
 
-# 96px edge-to-edge
+# 96px inside, 100 edge-to-edge
 BUTTON_W_MEDIUM = 14
 
-# 132px edge-to-edge
+# 132px inside, 136 edge-to-edge
 BUTTON_W_LARGE = 20
 
 
@@ -39,4 +41,4 @@ def inside_px(width: int) -> int:
     """The rendered inside width, in pixels, of a button `width` chars
     wide at Segoe UI 9. For choosing a constant, not for laying out --
     nothing should predict a rendered distance from a lever."""
-    return 6 * width + 8
+    return 6 * width + 12
