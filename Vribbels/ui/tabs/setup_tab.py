@@ -268,9 +268,11 @@ class SetupTab(BaseTab):
 
         # spacing: button -> button -- button, button ↔
         # Each button's trailing pad meets the next one's leading pad, so
-        # the pair sums to the gap. The row sits in a borderless frame, so
-        # there is no frame edge for the button rule's left and bottom to
-        # measure against; the leading pad just matches main_frame's own.
+        # the pair sums to the gap between them. The button rule reaches
+        # no further here: it is `border edge -> internal button`, and
+        # these sit in a plain frame rather than inside a panel, so the
+        # leading pad answers to the frame rule and matches main_frame's
+        # own.
         ttk.Button(btn_frame, text="Check Status",
                    command=self.check_status, width=15).pack(side=tk.LEFT, padx=(2, 2))
         ttk.Button(btn_frame, text="Generate & Install Cert",

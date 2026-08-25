@@ -575,7 +575,10 @@ class HeroesTab(BaseTab):
         # empty space below. The Character / Partner frames inside
         # info_frame get pack_configure'd to fill=Y / fill=BOTH down in
         # _compute_and_apply_fixed_sizes so they grow with it.
-        # spacing: content frame -> content frame -- frame, frame ↕
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        # The trailing component is half the gap from the Character and
+        # Partner panels' bottom borders to the Equipped Memory Fragments
+        # title beneath them; the other half is on that frame's own pady.
         info_frame.pack(fill=tk.BOTH, expand=True, pady=2)
 
         # No frame padding: the text inset lives on the Text's own
@@ -660,7 +663,9 @@ class HeroesTab(BaseTab):
         gear_outer_frame = ttk.LabelFrame(
             hero_detail_container, text="Equipped Memory Fragments", padding=0,
             style="Gear.Borderless.TLabelframe")
-        # spacing: content frame -> content frame -- frame, frame ↕
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        # The leading component is the other half of the gap from the
+        # panels above to this one's title.
         # The bottom pad is 0: this frame is the last thing in the detail
         # column, so anything here would stack on hero_detail_container's
         # own bottom pad and lift the panel above the character list

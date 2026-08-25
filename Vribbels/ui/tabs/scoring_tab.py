@@ -436,9 +436,10 @@ STAT MIN - MAX ROLLS:
         """
         # spacing: button -> button -- button, button ↔↕
         # Each button's padx/pady of 2 meets its neighbour's, so the pair
-        # sums to the gap. The row sits in a borderless ttk.Frame, so
-        # there is no frame edge for the button rule's left and bottom to
-        # measure against; only the gap between buttons applies.
+        # sums to the gap between them. The button rule reaches no
+        # further here: it is `border edge -> internal button`, and these
+        # sit in a plain frame rather than inside a panel, so their
+        # offset from its edge answers to the frame rule.
         #
         # Row 0: Apply Current Weights | Reset Current Weights
         ttk.Button(

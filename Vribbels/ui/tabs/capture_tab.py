@@ -101,6 +101,10 @@ class CaptureTab(BaseTab):
         # would force a 50/50 split and ignore left_col's width request.
         top_columns = ttk.Frame(main_frame)
         # spacing: tab list -> first element -- tab, frame ↕
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        # Two components, two rules. The TRAILING one is half the gap
+        # down to the Capture Log panel's title, which is text -- the
+        # other half is on that panel's own pady.
         # pady top is 0, not 2: this tab has an extra nesting level that
         # the other tabs don't (main_frame -> top_columns -> left_col),
         # so a value here would stack on top of one the other tabs never
@@ -274,10 +278,11 @@ class CaptureTab(BaseTab):
         self.detected_label.pack(side=tk.LEFT)
 
         # spacing: button -> button -- button, button ↔
-        # The trailing padx on each button below is the lever. The row
-        # sits in a borderless ttk.Frame, so there is no frame edge for
-        # the button rule's left and bottom to measure against; only the
-        # gap between the buttons themselves applies here.
+        # The trailing padx on each button below is the lever for the gap
+        # BETWEEN them. The button rule reaches no further here: it is
+        # `border edge -> internal button`, and these sit in a plain
+        # frame rather than inside a panel, so their offset from the
+        # tab's edge answers to the frame rule on this frame's own pack.
         btn_frame = ttk.Frame(left_col)
         # spacing: content frame -> content frame -- frame, frame ↕
         btn_frame.pack(fill=tk.X, pady=2)
@@ -325,9 +330,13 @@ class CaptureTab(BaseTab):
 
         ttk.Label(req_frame, text=requirements_text, justify=tk.LEFT).pack(anchor=tk.W)
 
-        # spacing: content frame -> content frame -- frame, frame ↔↕
-        # This padx and main_frame's own sum to the gap from the window
-        # edge, matching every other bordered panel.
+        # spacing: content frame -> content frame -- frame, frame ↔
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        # The padx answers to the frame rule: it and main_frame's own sum
+        # to the gap from the window edge, matching every other bordered
+        # panel. The pady does not -- above this panel is the bottom
+        # border of the ones in top_columns, and below that border sits
+        # this panel's own TITLE, so the gap is text-facing.
         #
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border.
