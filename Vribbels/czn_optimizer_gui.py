@@ -564,24 +564,21 @@ class OptimizerGUI:
         # Borderless.*.
         self.style.configure("Tight.Borderless.TLabelframe",
                              labelmargins="0 0 0 -1")
-        # spacing: title above, element below -- title, frame ↔
-        # **The 1 is wrong and is queued for removal.** A title is
-        # aligned with its own panel automatically, and hand-aligning
-        # one hides what it was reporting: `Equipped Memory Fragments`
-        # sits 5px from the character list where the content-frame rule
-        # asks 4, and the title was moved to meet the misplaced grid
-        # instead of the panel being moved back. Removing this needs the
-        # panel fixed in the same pass -- see plan.md phase 4.
+        # spacing: title above, element below -- title, frame ↕
+        # This style exists for its BOTTOM component: 0, where the base
+        # style has 3, because the gear cells carry a pady of their own
+        # that a bordered panel's content does not. Measured on screen
+        # at the rule's 2/5. labelmargins REPLACES rather than adds, so
+        # the other three have to be given even though they are the
+        # default.
         #
-        # The BOTTOM component is a different matter and is correct: 0
-        # where the base style has 3, because the gear cells carry a
-        # pady of their own that a bordered panel's content does not.
-        # Measured on screen at the rule's 2/5.
-        #
-        # labelmargins' first component is the title's x offset, and it
-        # REPLACES rather than adds, so all four have to be given.
+        # The first component -- the title's x offset -- stays 0 like
+        # every other panel's. It carried a 1 to line the title up with
+        # the gear grid, which moved the one thing that was already
+        # right: the grid sits at the content-frame rule's 4px from the
+        # character list, and the nudge is what put the TITLE at 5.
         self.style.configure("Gear.Borderless.TLabelframe",
-                             labelmargins="1 0 0 0")
+                             labelmargins="0 0 0 0")
 
     def setup_ui(self):
         self.notebook = ttk.Notebook(self.root, style="Flush.TNotebook")
