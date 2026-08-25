@@ -46,6 +46,7 @@ from checks import (                                    # noqa: E402
     check_settings_roundtrip,
     check_shipped_defaults,
     check_spacing_markers,
+    check_spacing_registry,
     check_tabs_build,
 )
 
@@ -53,6 +54,7 @@ from checks import (                                    # noqa: E402
 # against the thing that broke it rather than after a minute of search.
 CHECKS = [
     check_spacing_markers,
+    check_spacing_registry,
     check_addon_template,
     check_capture_batching,
     check_capture_banners,

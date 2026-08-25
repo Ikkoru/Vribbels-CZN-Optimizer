@@ -352,6 +352,15 @@ class TrackedGap:
     descender ("Upgrade Log Settings") sits lower than one without
     ("Slots") and its gap below measures smaller.
 
+    `axis` is the direction the gap runs in, printed so a table of
+    forty rows can be read for one direction at a time. It matches the
+    orientation the spacing markers carry in their suffixes.
+
+    `provisional` marks an entry that has been registered but not yet
+    confirmed against a hand reading. Those rows print in yellow, and
+    the flag comes off once the reading agrees -- so a batch being
+    calibrated is visible at a glance among rows that already were.
+
     `target_source` records HOW that number was arrived at:
 
       "rule"     derived from the rule and the string -- a gap below
@@ -376,19 +385,25 @@ class TrackedGap:
     rule: str
     target: int
     resolve: object
+    axis: str = "h"                  # "h" or "v"
     scenario: str = "default"
     target_source: str = "rule"
+    provisional: bool = False
     couples_with: tuple = field(default_factory=tuple)
 
 
 REGISTRY: list[TrackedGap] = []
 
 
-def track(name, tab, rule, target, resolve, scenario="default",
-          target_source="rule", couples_with=()):
+def track(name, tab, rule, target, resolve, axis, scenario="default",
+          target_source="rule", provisional=False, couples_with=()):
+    """Register one gap. `axis` is required: a row whose direction is
+    not stated cannot be read out of a table of forty."""
+    if axis not in ("h", "v"):
+        raise ValueError(f"{name}: axis must be 'h' or 'v', got {axis!r}")
     REGISTRY.append(
-        TrackedGap(name, tab, rule, target, resolve, scenario,
-                   target_source, tuple(couples_with)))
+        TrackedGap(name, tab, rule, target, resolve, axis, scenario,
+                   target_source, provisional, tuple(couples_with)))
 
 
 # ----------------------------------------------------------------- scenarios
@@ -658,7 +673,7 @@ def title_gap(cap: Capture, frame, limit_y: int, probe_offset: int = 2,
     title_end = runs[0][1]
     if len(runs) > 1:
         return gap_between(title_end, runs[1][0]), ""
-    return gap_between(title_end, limit_y), "no border below title"
+    return gap_between(title_end, limit_y), ""
 
 
 def painted_runs_v(cap: Capture, box: Box, bg=None) -> list:
@@ -681,6 +696,16 @@ def painted_runs_v(cap: Capture, box: Box, bg=None) -> list:
 
 
 # ------------------------------------------------------------------ reporting
+
+# ASCII, not the arrows the markers use: this prints to a cp932 console,
+# where a non-ASCII character raises UnicodeEncodeError before the table
+# reaches the screen.
+AXIS_MARK = {"h": "<>", "v": "^v"}
+
+# Dark yellow for a row that is registered but not yet confirmed against
+# a hand reading. `checks/run_all.py` colours its results the same way.
+PROVISIONAL = "\033[33m"
+RESET = "\033[0m"
 
 BASELINE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -757,7 +782,7 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False):
         setup, teardown = SCENARIOS.get(scenario, (None, None))
         if setup is None:
             rows.extend((g.name, g.target, None, f"no scenario {scenario!r}",
-                         g.tab) for g in gaps)
+                         g.tab, g.axis, g.provisional) for g in gaps)
             continue
         setup(app)
         app.root.update()
@@ -801,7 +826,8 @@ def _measure_tabs(app, notebook, gaps, scenario):
         tab_id = _tab_id(notebook, tab_name)
         if tab_id is None:
             rows.extend((prefix + g.name, g.target, None,
-                         f"no tab {tab_name!r}", tab_name) for g in tab_gaps)
+                         f"no tab {tab_name!r}", tab_name, g.axis,
+                         g.provisional) for g in tab_gaps)
             continue
         notebook.select(tab_id)
         app.root.update()
@@ -811,14 +837,17 @@ def _measure_tabs(app, notebook, gaps, scenario):
                 value, note = g.resolve(cap, app)
             except tk.TclError as exc:
                 rows.append((prefix + g.name, g.target, None,
-                             f"unmapped: {exc}", tab_name))
+                             f"unmapped: {exc}", tab_name, g.axis,
+                             g.provisional))
                 continue
             except Exception as exc:                      # noqa: BLE001
                 rows.append((prefix + g.name, g.target, None,
-                             f"error: {exc}", tab_name))
+                             f"error: {exc}", tab_name, g.axis,
+                             g.provisional))
                 continue
             rows.append((prefix + g.name, g.target, value,
-                         _with_source(note, g.target_source), tab_name))
+                         _with_source(note, g.target_source), tab_name,
+                         g.axis, g.provisional))
     return rows
 
 
@@ -857,7 +886,7 @@ def _print_table(rows, out, verbose=False):
     only way to tell a wrong measurement from a wrong target -- see
     plan.md 3.0.
     """
-    on_target = sum(1 for _n, t, v, _note, _tab in rows
+    on_target = sum(1 for _n, t, v, *_ in rows
                     if v is not None and v == t)
     shown = rows if verbose else [r for r in rows
                                   if r[2] is None or r[2] != r[1]]
@@ -866,25 +895,27 @@ def _print_table(rows, out, verbose=False):
         return
 
     body = []
-    for name, target, value, note, tab in shown:
+    for name, target, value, note, tab, axis, provisional in shown:
+        arrow = AXIS_MARK[axis]
         if value is None:
-            body.append((tab, name, f"{target:>6}", f"{'--':>8}",
-                         f"{'--':>5}", note))
+            body.append((tab, name, arrow, f"{target:>6}", f"{'--':>8}",
+                         f"{'--':>5}", note, provisional))
             continue
         delta = value - target
         flag = "" if delta == 0 else "  <-"
-        body.append((tab, name, f"{target:>6}", f"{value:>8}",
-                     f"{delta:>+5}", f"{note}{flag}"))
+        body.append((tab, name, arrow, f"{target:>6}", f"{value:>8}",
+                     f"{delta:>+5}", f"{note}{flag}", provisional))
 
     width = max(len(r[1]) for r in body)
-    note_width = max(len(r[5]) for r in body)
-    out(f"{'gap'.ljust(width)}  target  measured  delta  "
+    note_width = max(len(r[6]) for r in body)
+    out(f"{'gap'.ljust(width)}  axis  target  measured  delta  "
         f"{'note'.ljust(note_width)}  manual note")
     current = None
-    for tab, name, target, value, delta, note in body:
+    for tab, name, arrow, target, value, delta, note, provisional in body:
         if tab != current:
             out(f"  {tab}")
             current = tab
-        out(f"{name.ljust(width)}  {target}  {value}  {delta}  "
-            f"{note.ljust(note_width)}")
+        line = (f"{name.ljust(width)}  {arrow:>4}  {target}  {value}  "
+                f"{delta}  {note.ljust(note_width)}")
+        out(f"{PROVISIONAL}{line}{RESET}" if provisional else line)
     out(f"\n{on_target}/{len(rows)} on target")

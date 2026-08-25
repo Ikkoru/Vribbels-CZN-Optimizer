@@ -105,7 +105,7 @@ def track_text_top_gap(name, tab, rule, resolve, text, target=None,
             f"{why}"
         )
     sa.track(name=name, tab=tab, rule=rule, target=target, resolve=resolve,
-             scenario=scenario, target_source="observed")
+             axis="v", scenario=scenario, target_source="observed")
 
 
 # The panels whose only content is a text widget filling the frame
@@ -204,16 +204,23 @@ def _left_inset(title):
 
 
 def _panel_gap(first, second, axis):
-    """Resolver: the gap between two panels, border to border.
+    """Resolver: the gap between two panels, BOX edge to box edge.
 
-    Both ends are the panels' own painted borders, which is what the
-    content-frame rule measures -- the pads that produce it are split
-    across two containers and neither is readable on its own.
+    Box rather than painted extent, which every other resolver uses,
+    and the content-frame rule is the reason: it is the one rule
+    defined by the pads that produce it rather than by pixels on
+    screen. Horizontally the two agree -- a LabelFrame's border starts
+    at its box edge. Vertically they do not: the title is drawn ABOVE
+    the border and inside the box, so a painted reading of the lower
+    panel starts at the title's glyphs and adds that title's leading to
+    the gap. Measured 7 where the pads give 4.
     """
     def resolve(cap, app):
-        a, b = _panel(app, first), _panel(app, second)
-        return (sa.horizontal_gap(cap, a, b) if axis == "h"
-                else sa.vertical_gap(cap, a, b))
+        a = sa.box_of(_panel(app, first))
+        b = sa.box_of(_panel(app, second))
+        if axis == "h":
+            return sa.gap_between(a.right, b.left), ""
+        return sa.gap_between(a.bottom, b.top), ""
     return resolve
 
 
@@ -255,16 +262,19 @@ def _first_button_gap(title):
 # on borderless containers with nothing painted to measure to. These
 # are the ones where both ends draw an edge.
 CONTENT_FRAME_ENTRIES = [
-    ("Memory Fragments", "Slots -> Sets", 4, _panel_gap("Slots", "Sets", "h")),
-    ("Memory Fragments", "Sets -> Main Stats", 4,
+    ("Memory Fragments", "Slots -> Sets", 4, "h",
+     _panel_gap("Slots", "Sets", "h")),
+    ("Memory Fragments", "Sets -> Main Stats", 4, "h",
      _panel_gap("Sets", "Main Stats", "h")),
-    ("Capture", "Status -> Server Region", 4,
+    ("Capture", "Status -> Server Region", 4, "v",
      _panel_gap("Status", "Server Region", "v")),
-    ("Capture", "Server Region -> Requirements", 4,
-     _panel_gap("Server Region", "Requirements", "v")),
-    ("Setup", "Setup Status -> Restore Defaults", 4,
+    # Server Region -> Requirements is NOT here: the Start/Stop button
+    # row sits between them, so the two panels are not adjacent and the
+    # rule has nothing to say about the distance. It was registered
+    # once and read 45.
+    ("Setup", "Setup Status -> Restore Defaults", 4, "h",
      _panel_gap("Setup Status", "Restore Defaults", "h")),
-    ("Combatants", "character list -> Equipped Memory Fragments", 4,
+    ("Combatants", "character list -> Equipped Memory Fragments", 4, "h",
      _list_to_panel_gap("Equipped Memory Fragments")),
 ]
 
@@ -515,6 +525,7 @@ def register_all():
                 target=target,
                 target_source=source,
                 resolve=title_resolve,
+                axis="v",
             )
             if title in LEFT_INSET_EXCEPTIONS:
                 continue
@@ -525,6 +536,7 @@ def register_all():
                 tab=tab,
                 rule=left_rule,
                 target=left_target,
+                axis="h",
                 target_source=("observed" if title in LEFT_INSET_OVERRIDES
                                else "rule"),
                 resolve=(_text_panel_left_inset(title) if is_text
@@ -538,15 +550,17 @@ def register_all():
             rule=RULE_BORDER_EDGE_CONTENT,
             target=target,
             resolve=resolve,
+            axis="h",
         )
 
-    for tab, name, target, resolve in CONTENT_FRAME_ENTRIES:
+    for tab, name, target, axis, resolve in CONTENT_FRAME_ENTRIES:
         sa.track(
             name=name,
             tab=tab,
             rule=RULE_CONTENT_FRAME,
             target=target,
             resolve=resolve,
+            axis=axis,
         )
 
     for tab, title in BUTTON_ROW_PANELS:
@@ -556,6 +570,7 @@ def register_all():
             rule=RULE_BUTTON_GAP,
             target=4,
             resolve=_first_button_gap(title),
+            axis="h",
         )
 
     for title in ELEMENT_OVERRIDE_PANELS:
@@ -567,6 +582,7 @@ def register_all():
             target=target,
             target_source=source,
             resolve=_title_to_first_element(title),
+            axis="v",
             scenario="element_override",
         )
 

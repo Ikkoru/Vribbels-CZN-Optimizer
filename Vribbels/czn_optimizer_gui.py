@@ -560,7 +560,7 @@ class OptimizerGUI:
         # Selected Build -- is in the audit, so 3 rests on nothing.
         # Register them before trusting it.
         self.style.configure("Borderless.TLabelframe",
-                             labelmargins="0 0 0 3")
+                             labelmargins="0 0 0 2")
         # spacing: exception -- title above, element below -- title, tree ↕
         # The Results tree is pulled tighter to its title than the rule,
         # deliberately.
