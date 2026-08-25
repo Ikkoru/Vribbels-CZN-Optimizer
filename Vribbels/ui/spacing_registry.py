@@ -364,7 +364,14 @@ def _tab_list_to_first_element():
         extent = sa.painted_extent_v(cap, box)
         if extent is None:
             return None, "nothing painted on this tab"
-        return sa.gap_between(box.top - 1, extent[0]), ""
+        gap = sa.gap_between(box.top - 1, extent[0])
+        if gap == 0:
+            # Every one of these read 0 the run after the tab strip was
+            # darkened. Name the colour sitting on the tab's first row:
+            # if it is a shade the palette knows, the capture should be
+            # treating it as empty and is not.
+            return gap, f"first row is {sa.colour_at(cap, box.left + 40, box.top)}"
+        return gap, ""
     return resolve
 
 
@@ -594,10 +601,11 @@ def _title_target_and_source(title):
     return _title_gap_target(title), "rule"
 
 
-# Empty now that the tool reproduces every hand measurement. Add a
-# panel here to have its raw coordinates dumped when a reading is
-# disputed again.
-DEBUG_PANELS = ()
+# Panels whose reading is disputed. Both of these dropped to 0 the run
+# after the tab strip was darkened, alongside every tab-list gap -- and
+# treating that shade as background, which fixed nothing, ruled out the
+# obvious explanation. Dumped until the run says which end is wrong.
+DEBUG_PANELS = ("Sets", "Upgrade Log Settings")
 
 
 def _debug_panel(title):

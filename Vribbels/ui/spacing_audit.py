@@ -591,6 +591,24 @@ def labelframe_title_bottom(cap: Capture, frame, limit_y: int,
     return None if extent is None else extent[1]
 
 
+def colour_at(cap: Capture, x: int, y: int) -> str:
+    """The pixel at (x, y), named if the palette knows it.
+
+    For diagnosing a scan that found ink where the eye sees empty
+    space: a named colour says which style painted it, and a bare RGB
+    triple says the palette is not where it came from.
+    """
+    if not cap.contains(x, y):
+        return "outside the capture"
+    ox, oy = cap.origin
+    rgb = cap._px[x - ox, y - oy]
+    for name, value in cap.palette.items():
+        if value == rgb:
+            empty = " (counted as empty)" if rgb in cap.background else ""
+            return f"{name} {rgb}{empty}"
+    return f"unnamed {rgb}"
+
+
 def debug_dump(cap: Capture, frame, child, out=print, bg=None):
     """Print the raw coordinates behind a title gap.
 
@@ -881,8 +899,14 @@ def _measure_tabs(app, notebook, gaps, scenario):
 
 def _grouped_by_panel(gaps):
     """Gaps reordered so one panel's rows are adjacent, panels keeping
-    the order they were first registered in."""
+    the order they were first registered in.
+
+    The tab-list gap leads, whatever order it was registered in: it is
+    the distance to the topmost thing on the tab, so it reads first for
+    the same reason the rest read left to right and top to bottom.
+    """
     order, buckets = [], {}
+    gaps = sorted(gaps, key=lambda g: g.rule != "tab list -> first element")
     for g in gaps:
         panel = g.name.split(":")[0]
         if panel not in buckets:
@@ -940,15 +964,13 @@ def _print_table(rows, out, verbose=False):
                      f"{delta:>+5}", f"{note}{flag}", provisional, flag))
 
     width = max(len(r[1]) for r in body)
-    note_width = max(len(r[6]) for r in body)
-    out(f"{'gap'.ljust(width)}  axis  target  measured  delta  "
-        f"{'note'.ljust(note_width)}  manual note")
+    out(f"{'gap'.ljust(width)}  axis  target  measured  delta  note")
     current = None
     for tab, name, arrow, target, value, delta, note, prov, flag in body:
         if tab != current:
             out(f"  {tab}")
             current = tab
         line = (f"{name.ljust(width)}  {arrow:>4}  {target}  {value}  "
-                f"{delta}  {note.ljust(note_width)}")
+                f"{delta}  {note}".rstrip())
         out(_colour(line, flag, prov))
     out(f"\n{on_target}/{len(rows)} on target")
