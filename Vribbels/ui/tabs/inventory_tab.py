@@ -50,6 +50,7 @@ from game_data.characters import ATTRIBUTE_COLORS
 from game_data.constants import DISPLAY_NAMES
 from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
 from ..base_tab import BaseTab
+from ..utils.all_none_row import make_all_none_row
 from ..utils.checkbox import make_checkbox
 from .heroes_tab import compute_fragment_gs
 
@@ -215,15 +216,8 @@ class InventoryTab(BaseTab):
                     command=lambda n=slot_num: self._on_slot_toggle(n)
                 ).grid(row=row, column=col, sticky=tk.W, padx=2)
 
-        slot_btn_frame = ttk.Frame(slot_frame)
-        # spacing: checkbox block -> All/None row -- checkbox, button ↕
-        slot_btn_frame.pack(fill=tk.X, pady=(1, 0))
-        # spacing: border edge -> button -- panel, button ↔
-        # spacing: button -> button -- button, button ↔
-        ttk.Button(slot_btn_frame, text="All", width=5,
-                   command=self.select_all_slots).pack(side=tk.LEFT, padx=(2, 2))
-        ttk.Button(slot_btn_frame, text="None", width=5,
-                   command=self.select_no_slots).pack(side=tk.LEFT, padx=(2, 0))
+        make_all_none_row(slot_frame, self.select_all_slots,
+                          self.select_no_slots)
 
         # Which scoring weights the GS / Potential columns are computed
         # against. wraplength wraps a long preset name onto a second line
@@ -248,15 +242,8 @@ class InventoryTab(BaseTab):
         self.inv_set_frame_inner = ttk.Frame(set_frame)
         self.inv_set_frame_inner.pack()
 
-        set_btn_frame = ttk.Frame(set_frame)
-        # spacing: checkbox block -> All/None row -- checkbox, button ↕
-        set_btn_frame.pack(fill=tk.X, pady=(1, 0))
-        # spacing: border edge -> button -- panel, button ↔
-        # spacing: button -> button -- button, button ↔
-        ttk.Button(set_btn_frame, text="All", width=5,
-                   command=self.select_all_sets).pack(side=tk.LEFT, padx=(2, 2))
-        ttk.Button(set_btn_frame, text="None", width=5,
-                   command=self.select_no_sets).pack(side=tk.LEFT, padx=(2, 0))
+        make_all_none_row(set_frame, self.select_all_sets,
+                          self.select_no_sets)
 
         # ----- Main Stats filter -----------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
@@ -303,15 +290,8 @@ class InventoryTab(BaseTab):
         )
         # Empty by default; widgets get added dynamically.
 
-        main_btn_frame = ttk.Frame(main_frame)
-        # spacing: checkbox block -> All/None row -- checkbox, button ↕
-        main_btn_frame.pack(fill=tk.X, pady=(2, 0))
-        # spacing: border edge -> button -- panel, button ↔
-        # spacing: button -> button -- button, button ↔
-        ttk.Button(main_btn_frame, text="All", width=5,
-                   command=self.select_all_main_stats).pack(side=tk.LEFT, padx=(1, 2))
-        ttk.Button(main_btn_frame, text="None", width=5,
-                   command=self.select_no_main_stats).pack(side=tk.LEFT, padx=(2, 0))
+        make_all_none_row(main_frame, self.select_all_main_stats,
+                          self.select_no_main_stats)
 
         # Initial availability sync (all slots checked at startup → everything on).
         self._refresh_main_stat_availability()

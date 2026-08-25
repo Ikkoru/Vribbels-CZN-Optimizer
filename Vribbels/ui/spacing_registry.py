@@ -416,6 +416,55 @@ TAB_HEADERS = [
     ("Setup", "First-Time Setup", "Complete these steps"),
 ]
 
+def _panel_buttons(app, title):
+    frame = _panel(app, title)
+    return frame, sa.find_descendants_class(frame, "TButton", "Button")
+
+
+def _checkbox_block_to_buttons(title):
+    """Resolver: the lowest checkbox in a panel -> its All/None row.
+
+    The block's bottom is the LOWEST painted checkbox, not the last one
+    registered: these grids fill row by row, so the final column of the
+    last row can be empty and the widget order says nothing about which
+    sits deepest.
+    """
+    def resolve(cap, app):
+        frame, buttons = _panel_buttons(app, title)
+        boxes = sa.find_descendants_class(frame, *CHECKBOX_CLASSES)
+        if not boxes or not buttons:
+            return None, f"{len(boxes)} checkboxes and {len(buttons)} buttons"
+        bottoms = [e[1] for e in
+                   (sa.painted_extent_v(cap, sa.box_of(w)) for w in boxes)
+                   if e]
+        top = sa.painted_extent_v(cap, sa.box_of(buttons[0]))
+        if not bottoms or top is None:
+            return None, "checkbox block or button painted nothing"
+        return sa.gap_between(max(bottoms), top[0]), ""
+    return resolve
+
+
+def _first_button_left_inset(title):
+    """Resolver: a panel's left border -> its All button."""
+    def resolve(cap, app):
+        frame, buttons = _panel_buttons(app, title)
+        if not buttons:
+            return None, "no buttons in panel"
+        return sa.inset_from_frame_edge(cap, frame, buttons[0], "left")
+    return resolve
+
+
+# Every panel `make_all_none_row` builds a row for. Both of the row's
+# gaps are tracked: the helper holds one set of levers, but each panel's
+# own padding differs, so the same lever renders a different inset in
+# each and only measuring says which.
+ALL_NONE_PANELS = [
+    ("Memory Fragments", "Slots"),
+    ("Memory Fragments", "Sets"),
+    ("Memory Fragments", "Main Stats"),
+    ("Optimizer", "Exclude Combatant's MFs"),
+]
+
 # The All/None rows, the only adjacent button pairs inside a panel.
 BUTTON_ROW_PANELS = [
     ("Memory Fragments", "Slots"),
@@ -708,7 +757,7 @@ def register_all():
             target=_tab_list_target(tab),
             resolve=_tab_list_to_first_element(),
             axis="v",
-            provisional=True,
+            provisional=False,
         )
 
     for tab, heading, subtitle in TAB_HEADERS:
@@ -718,6 +767,26 @@ def register_all():
             rule=RULE_HEADING_ELEMENT,
             target=14,
             resolve=_heading_to_subtitle(heading, subtitle),
+            axis="h",
+            provisional=False,
+        )
+
+    for tab, title in ALL_NONE_PANELS:
+        sa.track(
+            name=f"{title}: checkbox block -> All/None",
+            tab=tab,
+            rule=RULE_ALL_NONE_ROW,
+            target=5,
+            resolve=_checkbox_block_to_buttons(title),
+            axis="v",
+            provisional=True,
+        )
+        sa.track(
+            name=f"{title}: left edge -> All",
+            tab=tab,
+            rule=RULE_BORDER_EDGE_BUTTON,
+            target=3,
+            resolve=_first_button_left_inset(title),
             axis="h",
             provisional=True,
         )

@@ -46,6 +46,7 @@ from typing import Optional
 
 from ui.base_tab import BaseTab
 from ui.context import AppContext
+from ui.utils.all_none_row import make_all_none_row
 from ui.utils.checkbox import make_checkbox
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import (
@@ -1338,15 +1339,8 @@ class OptimizerTab(BaseTab):
         # logic lives in refresh_exclude_heroes / _reflow_exclude_heroes;
         # this frame is left as a plain container.
 
-        btn_row = ttk.Frame(parent)
-        # spacing: checkbox block -> All/None row -- checkbox, button ↕
-        btn_row.pack(fill=tk.X, pady=(2, 0))
-        # spacing: border edge -> button -- panel, button ↔
-        # spacing: button -> button -- button, button ↔
-        ttk.Button(btn_row, text="All",
-                   command=self._exclude_all_gear).pack(side=tk.LEFT, padx=(2, 2))
-        ttk.Button(btn_row, text="None",
-                   command=self._exclude_no_gear).pack(side=tk.LEFT, padx=(2, 0))
+        make_all_none_row(parent, self._exclude_all_gear,
+                          self._exclude_no_gear)
 
     # ----------------------------------------------------------- UI: Results
 
