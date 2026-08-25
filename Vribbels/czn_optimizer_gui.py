@@ -415,7 +415,7 @@ class OptimizerGUI:
         # vertical at 5 so the height a row is built around does not
         # move.
         #
-        # It renders ONE MORE than it says -- 3 puts the text 4px from
+        # It renders ONE MORE than it says -- 2 puts the text 3px from
         # the fill's edge -- and it does NOT change the button's size.
         # `width` fixes that in characters, so the padding moves the
         # text WITHIN the fill rather than growing the fill around it,
@@ -423,7 +423,7 @@ class OptimizerGUI:
         # width is the same before and after.
         self.style.configure("TButton", background=self.colors["bg_light"],
                              foreground=self.colors["fg"],
-                             padding=(3, 5))
+                             padding=(2, 5))
         self.style.map("TButton", background=[("active", self.colors["bg_lighter"])])
         # A focused ttk.Button paints a dotted ring inside its border, and
         # something has to hold focus the moment a tab is first shown --
