@@ -602,11 +602,13 @@ def _title_target_and_source(title):
     return _title_gap_target(title), "rule"
 
 
-# Panels whose reading is disputed. Both of these dropped to 0 the run
-# after the tab strip was darkened, alongside every tab-list gap -- and
-# treating that shade as background, which fixed nothing, ruled out the
-# obvious explanation. Dumped until the run says which end is wrong.
-DEBUG_PANELS = ("Sets", "Upgrade Log Settings")
+# Empty now that the tool reproduces every hand measurement. Add a
+# panel here to have its raw coordinates dumped when a reading is
+# disputed again. It found the last one: a single antialiased column
+# where the darkened tab strip met the window background, one unit off
+# `bg` and therefore counted as ink -- which a scan that reports a row
+# as painted if ANY column in it is turns into a gap of 0.
+DEBUG_PANELS = ()
 
 
 def _debug_panel(title):

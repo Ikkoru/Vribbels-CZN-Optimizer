@@ -410,7 +410,15 @@ class OptimizerGUI:
         )
         self.style.configure("TFrame", background=self.colors["bg"])
         self.style.configure("TLabel", background=self.colors["bg"], foreground=self.colors["fg"])
-        self.style.configure("TButton", background=self.colors["bg_light"], foreground=self.colors["fg"], padding=5)
+        # spacing: unique -- a button's own internal inset -- button, text ↔↕
+        # A scalar would inset all four sides alike. The horizontal
+        # component is 4 where the vertical stays 5, which narrows every
+        # button by 4px without changing the height a row is built
+        # around. `ui/utils/button_width.py` converts a width in
+        # characters to pixels and depends on this number.
+        self.style.configure("TButton", background=self.colors["bg_light"],
+                             foreground=self.colors["fg"],
+                             padding=(4, 5))
         self.style.map("TButton", background=[("active", self.colors["bg_lighter"])])
         # A focused ttk.Button paints a dotted ring inside its border, and
         # something has to hold focus the moment a tab is first shown --
