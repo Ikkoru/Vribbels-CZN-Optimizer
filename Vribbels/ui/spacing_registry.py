@@ -171,24 +171,71 @@ def _text_panel_title_gap(title):
     return resolve
 
 
-def _text_panel_left_inset(title):
+def _text_panel_inset(title, side="left"):
     """Resolver: frame border -> the prose inside the text widget.
 
     The border is NOT found by scanning here. These panels are built so
     the fill reaches the border -- that is the point of them -- so there
     is no background pixel between the two for a scan to stop at. But
     the same fact gives the answer directly: the text widget abuts the
-    border, so the border's inner edge is the widget's own left edge.
+    border, so the border's inner edge is the widget's own box edge.
     """
     def resolve(cap, app):
         _frame, text = _text_of(app, title)
         fill = {cap.palette["bg_light"]}
         box = sa.box_of(text)
-        extent = sa.painted_extent_h(cap, box, fill)
+        measure = (sa.painted_extent_v if side in ("top", "bottom")
+                   else sa.painted_extent_h)
+        extent = measure(cap, box, fill)
         if extent is None:
             return None, "text widget is empty"
-        return sa.gap_between(box.left - 1, extent[0]), ""
+        if side == "left":
+            return sa.gap_between(box.left - 1, extent[0]), ""
+        if side == "top":
+            return sa.gap_between(box.top - 1, extent[0]), ""
+        if side == "right":
+            return sa.gap_between(extent[1], box.right + 1), ""
+        return sa.gap_between(extent[1], box.bottom + 1), ""
     return resolve
+
+
+def _caption_to_field(prefix):
+    """Resolver: a caption's ink -> the field packed under it.
+
+    The caption is found by the words on it and the field by class among
+    its siblings, so neither has to be stored on the tab just to be
+    measured.
+    """
+    def resolve(cap, app):
+        tab = sa.current_tab_widget(app)
+        label = sa.find_descendant_text(tab, prefix)
+        if label is None:
+            return None, f"no caption starting {prefix!r}"
+        field = sa.find_descendant_class(label.master, "TCombobox")
+        if field is None:
+            return None, "no dropdown under that caption"
+        return sa.vertical_gap(cap, label, field)
+    return resolve
+
+
+# What phase 4 of plan.md asked for, as measurements rather than nudges.
+# Its list was written before anything could measure, and two of the
+# gaps it named have since been tracked and found ON target -- so the
+# remaining question is only about the edges nothing watches.
+#
+# (tab, name, title, side). BOTTOM is absent everywhere: a text panel's
+# prose stops where it stops, so the space under it is slack rather than
+# an inset. RIGHT is Character only -- Partner puts a scrollbar between
+# its text and the border, and the other three wrap, which makes their
+# right edge the wrap point rather than a lever.
+TEXT_PANEL_EDGES = [
+    ("Combatants", "Character", "top"),
+    ("Combatants", "Character", "right"),
+    ("Combatants", "Partner", "top"),
+    ("Capture", "Capture Log", "top"),
+    ("Setup", "Setup Instructions", "top"),
+    ("Gear Score", "How Gear Score Works", "top"),
+]
 
 
 def _panel(app, title):
@@ -725,7 +772,7 @@ def register_all():
                 target=left_target,
                 axis="h",
                 target_source=left_source,
-                resolve=(_text_panel_left_inset(title) if is_text
+                resolve=(_text_panel_inset(title) if is_text
                          else _left_inset(title)),
             )
 
@@ -770,6 +817,27 @@ def register_all():
             axis="v",
             provisional=False,
         )
+
+    for tab, title, side in TEXT_PANEL_EDGES:
+        sa.track(
+            name=f"{title}: {side} edge -> text",
+            tab=tab,
+            rule=RULE_BORDER_EDGE_CONTENT,
+            target=5,
+            resolve=_text_panel_inset(title, side),
+            axis=("v" if side in ("top", "bottom") else "h"),
+            provisional=True,
+        )
+
+    sa.track(
+        name="Assign preset caption -> dropdown",
+        tab="Combatants",
+        rule=RULE_TITLE_ELEMENT,
+        target=_title_gap_target("Assign preset to"),
+        resolve=_caption_to_field("Assign preset to"),
+        axis="v",
+        provisional=True,
+    )
 
     for tab, heading, subtitle in TAB_HEADERS:
         sa.track(
