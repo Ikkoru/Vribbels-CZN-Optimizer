@@ -58,6 +58,19 @@ DESCENDERS = "gjpqy"
 # target.
 PARENTHESES = "()"
 
+# Glyphs that reach ABOVE cap height at Segoe UI 14 bold, the tab
+# headings' font. The rule measures a gap above text to the top of the
+# CAPITALS, so a string holding one of these reads 1px tighter than the
+# rule asks while sitting exactly where it should -- the same shape as a
+# descender reading tighter below.
+#
+# `i` and `l` are measured. The rest are the same typographic class --
+# ascenders and tittles -- and are assumed to behave alike; `t` is NOT
+# one of them, which "Data Capture" reading dead on 6 confirms. At
+# Segoe UI 9 and 11 the whole class tops out level with the capitals and
+# none of this applies.
+ASCENDERS_ABOVE_CAP = "bdfhijkl"
+
 # Characters that never reach above the x-height, plus the punctuation
 # that sits on or below the baseline. A string built only from these has
 # NO cap and NO ascender, so its topmost painted pixel is the x-height
@@ -355,11 +368,43 @@ def _tab_list_to_first_element():
     return resolve
 
 
-# Every in-scope tab. The rule has nine marker sites and had no entry,
-# which is how Setup came to sit a pixel below the other two headers
-# with nothing reporting it.
-TAB_LIST_TABS = ["Optimizer", "Memory Fragments", "Gear Score",
-                 "Combatants", "Capture", "Setup"]
+# The rule has nine marker sites and had no entry, which is how Setup
+# came to sit a pixel below the other two headers with nothing
+# reporting it.
+#
+# (tab, the string the gap is measured to, is it 14 bold). The string is
+# there for the ascender class above; None where the first thing painted
+# on the tab is not text.
+#
+# COMBATANTS IS ABSENT ON PURPOSE. Its topmost element is the detail
+# pane's heading, whose text is the selected character's name -- so
+# whether the reading is 5 or 6 depends on which row is selected, and an
+# entry whose target changes with the data cannot be tracked.
+TAB_LIST_TARGET = 6
+TAB_LIST_TABS = [
+    ("Optimizer", None, False),
+    ("Memory Fragments", None, False),
+    ("Gear Score", "Gear Score Calculation", True),
+    ("Capture", "Data Capture", True),
+    ("Setup", "First-Time Setup", True),
+]
+
+
+def _tab_list_target(tab: str) -> int:
+    """The tab-list target for one tab, allowing for its first glyph.
+
+    Public to `checks/check_spacing_registry.py`, which compares every
+    entry's target against what the rule derives -- it has to derive the
+    same number here as `register_all` does, or it reports its own
+    arithmetic as a mistake in the registry.
+    """
+    for name, text, bold14 in TAB_LIST_TABS:
+        if name != tab:
+            continue
+        if bold14 and text and any(c in text for c in ASCENDERS_ABOVE_CAP):
+            return TAB_LIST_TARGET - 1
+        return TAB_LIST_TARGET
+    return TAB_LIST_TARGET
 
 # (tab, heading, subtitle) for every tab whose header `make_tab_header`
 # builds. Registered so the helper's one set of numbers is measured
@@ -655,12 +700,12 @@ def register_all():
             provisional=provisional,
         )
 
-    for tab in TAB_LIST_TABS:
+    for tab, _text, _bold in TAB_LIST_TABS:
         sa.track(
             name=f"{tab}: tab list -> first element",
             tab=tab,
             rule=RULE_TAB_LIST,
-            target=6,
+            target=_tab_list_target(tab),
             resolve=_tab_list_to_first_element(),
             axis="v",
             provisional=True,

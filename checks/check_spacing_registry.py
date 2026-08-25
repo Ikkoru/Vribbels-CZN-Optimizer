@@ -124,6 +124,9 @@ def run():
         if g.rule == registry.RULE_TITLE_ELEMENT:
             expected = registry._title_gap_target(g.name.split(":")[0])
             where = "the rule derives for that title"
+        elif g.rule == registry.RULE_TAB_LIST:
+            expected = registry._tab_list_target(g.tab)
+            where = "the rule derives for that tab's first glyph"
         else:
             expected = rule_targets.get(g.rule)
             where = "the docs table gives for that rule"

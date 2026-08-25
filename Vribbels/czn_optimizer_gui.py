@@ -102,6 +102,12 @@ from defaults_sync import sync_defaults
 # whole application.
 COLORS = {
     "bg": "#1e1e2e", "bg_light": "#2a2a3e", "bg_lighter": "#363650",
+    # The strip the tabs sit in. Darker than `bg` by a hair, which is
+    # enough to give the tab row a bottom EDGE across the full window --
+    # without it the area right of the last tab is the same colour as
+    # the content below, and the topmost element over there has nothing
+    # above it to measure from.
+    "bg_strip": "#191926",
     "fg": "#cdd6f4", "fg_dim": "#6c7086", "accent": "#89b4fa",
     "green": "#a6e3a1", "red": "#f38ba8", "yellow": "#f9e2af",
     "purple": "#cba6f7", "orange": "#FF8C00", "select": "#3b6ea5",
@@ -448,7 +454,7 @@ class OptimizerGUI:
             background=[("active", self.colors["select"])],
             arrowcolor=[("active", self.colors["fg"])],
         )
-        self.style.configure("TNotebook", background=self.colors["bg"])
+        self.style.configure("TNotebook", background=self.colors["bg_strip"])
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # Clam's Notebook.client element insets its content by 2px on every
         # side, which lands on top of each tab's own margins and can't be
@@ -463,7 +469,8 @@ class OptimizerGUI:
                 "Flush.TNotebook",
                 [("flush.Notebook.client", {"sticky": "nswe"})])
             self.style.configure(
-                "Flush.TNotebook", background=self.colors["bg"], borderwidth=0)
+                "Flush.TNotebook", background=self.colors["bg_strip"],
+                borderwidth=0)
         except tk.TclError:
             pass
         self.style.configure("TNotebook.Tab", background=self.colors["bg_light"], foreground=self.colors["fg"], padding=[10, 5])

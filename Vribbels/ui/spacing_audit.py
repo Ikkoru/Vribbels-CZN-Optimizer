@@ -741,17 +741,18 @@ def compare_baseline(rows, path=BASELINE_PATH, out=print):
     changed = [(n, base[n], now[n]) for n in base if n in now
                and base[n] != now[n]]
     missing = [n for n in base if n not in now]
-    added = [n for n in now if n not in base]
 
-    if not (changed or missing or added):
+    # Entries the baseline has never seen are NOT reported. An entry
+    # that new is one nobody has confirmed, so it is flagged
+    # `provisional` and its whole row prints yellow -- saying it twice
+    # only lengthens the run.
+    if not (changed or missing):
         out("baseline: no change")
         return
     for name, was, is_ in changed:
         out(f"baseline CHANGED  {name}: {was} -> {is_}")
     for name in missing:
         out(f"baseline MISSING  {name} (renamed panel, or no longer measured)")
-    for name in added:
-        out(f"baseline NEW      {name}")
 
 
 def run_audit(app, out=print, verbose: bool = False, freeze: bool = False):
