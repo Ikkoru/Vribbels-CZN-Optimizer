@@ -366,19 +366,17 @@ class TrackedGap:
       "rule"     derived from the rule and the string -- a gap below
                  text, where the character set determines whether a
                  descender is present
-      "observed" measured once, agreed correct, and frozen -- a gap
-                 ABOVE text, where capitals and ascenders differ in
-                 height by a font quirk that cannot be derived from
-                 the characters (see docs/ui_spacing.md)
-      "inferred" neither: carried across from a measurement of a
-                 DIFFERENT panel or an earlier build. Weaker than
-                 "observed" and deliberately distinguished from it, so
-                 a row resting on an inference cannot be read as one
-                 resting on a reading.
+      "exception" the site deliberately misses the rule, and its call
+                  site carries an `exception` marker saying so. The
+                  number is a reading of what it is meant to be
+      "inferred"  the rule applies and is followed, but its number
+                  cannot be COMPUTED for this case, so it was carried
+                  across from a different panel or an earlier build.
+                  Weaker than a reading and deliberately distinguished
+                  from one. No entry needs this today
 
-    The distinction is printed, so an observed 7 is not later
-    "corrected" to 6 by someone applying the rule from memory, and an
-    inferred one is not mistaken for a reading.
+    The distinction is printed, so an exception's 7 is not later
+    "corrected" to 5 by someone applying the rule from memory.
     """
     name: str
     tab: str
@@ -865,10 +863,15 @@ def _grouped_by_panel(gaps):
 
 
 def _with_source(note, source):
+    """The note column, with the target's provenance where it has one.
+
+    Bare word, not "target exception": the column already reads as
+    something about this row, and what a reader wants from it is what
+    the row IS, not where its number came from.
+    """
     if source == "rule":
         return note
-    tag = f"target {source}"
-    return f"{note}, {tag}" if note else tag
+    return f"{note}, {source}" if note else source
 
 
 def _tab_id(notebook, tab_name):

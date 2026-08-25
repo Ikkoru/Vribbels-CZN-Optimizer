@@ -103,8 +103,8 @@ def track_text_top_gap(name, tab, rule, resolve, text, target=None,
     ascender or -- when the string has neither -- the x-height, and the
     first two differ from each other by a per-font pixel that cannot be
     derived (see docs/ui_spacing.md). So `target` must be supplied,
-    measured once and agreed, and it is recorded as observed rather than
-    rule-derived.
+    measured once and agreed, and it is recorded as an exception rather
+    than rule-derived.
 
     The x-height-only case is the one worth catching early, because it
     looks like an ordinary gap that is 2-3px too wide: the error message
@@ -119,7 +119,7 @@ def track_text_top_gap(name, tab, rule, resolve, text, target=None,
             f"{why}"
         )
     sa.track(name=name, tab=tab, rule=rule, target=target, resolve=resolve,
-             axis="v", scenario=scenario, target_source="observed")
+             axis="v", scenario=scenario, target_source="exception")
 
 
 # The panels whose only content is a text widget filling the frame
@@ -285,12 +285,35 @@ CONTENT_FRAME_ENTRIES = [
      _list_to_panel_gap("Equipped Memory Fragments")),
 ]
 
-# (tab, name, target, panel above, text below) for a panel with text
-# beneath it. Two panels stacked are one of these: what sits across the
-# gap is the lower panel's title, not its border.
+def _panel_over_label(panel, prefix):
+    """Resolver: a panel's painted bottom -> the ink of a label below it.
+
+    The label is found by the words on it, like a panel by its title.
+    `prefix` has to be the part that never changes -- this one's text is
+    rewritten with the active preset's name.
+    """
+    def resolve(cap, app):
+        label = sa.find_descendant_text(sa.current_tab_widget(app), prefix)
+        if label is None:
+            return None, f"no element whose text starts {prefix!r}"
+        return sa.vertical_gap(cap, _panel(app, panel), label)
+    return resolve
+
+
+# (tab, name, target, provisional, resolver) for a panel with text
+# beneath it. Two stacked panels are one of these: what sits across the
+# gap is the lower panel's TITLE, not its border, and the nearer element
+# decides which rule applies.
+#
+# The rule's 10px has never been measured anywhere. The Memory Fragments
+# row is the site it was written for, registered so the number has a
+# second reading to answer to rather than resting on the Capture pair
+# alone.
 PANEL_OVER_TEXT_ENTRIES = [
-    ("Capture", "Status -> Server Region title", 10,
+    ("Capture", "Status -> Server Region title", 10, False,
      _panel_gap("Status", "Server Region", "v")),
+    ("Memory Fragments", "Slots -> active preset label", 10, True,
+     _panel_over_label("Slots", "Preset:")),
 ]
 
 # The All/None rows, the only adjacent button pairs inside a panel.
@@ -363,7 +386,7 @@ LEFT_INSET_OVERRIDES = {
     # before anything else on the tab, in Segoe UI 11 rather than 9, and
     # 7 is where its left edge is meant to sit. Tracked at what it is so
     # a drift still shows, rather than left out and unwatched.
-    "Setup Status": (RULE_BORDER_EDGE_CONTENT, 7, "observed"),
+    "Setup Status": (RULE_BORDER_EDGE_CONTENT, 7, "exception"),
 }
 
 
@@ -566,7 +589,7 @@ def register_all():
             axis=axis,
         )
 
-    for tab, name, target, resolve in PANEL_OVER_TEXT_ENTRIES:
+    for tab, name, target, provisional, resolve in PANEL_OVER_TEXT_ENTRIES:
         sa.track(
             name=name,
             tab=tab,
@@ -574,6 +597,7 @@ def register_all():
             target=target,
             resolve=resolve,
             axis="v",
+            provisional=provisional,
         )
 
     for tab, title in BUTTON_ROW_PANELS:

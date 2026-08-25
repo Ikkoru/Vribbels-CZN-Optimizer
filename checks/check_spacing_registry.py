@@ -18,8 +18,8 @@ What it enforces beyond "it imports":
     silently drops one entry's reading and reports the other twice.
   * every RULE is one the docs table spells, the same constraint the
     marker check applies to the widget code.
-  * a title gap flagged `target rule` really is the number the rule
-    derives, and one flagged `observed`/`inferred` really is not. The
+  * a gap flagged `target rule` really is the number the rule
+    derives, and one flagged `exception`/`inferred` really is not. The
     flag decides whether a later reader may "correct" the number from
     the rule, so a target that lies about where it came from is worse
     than a wrong number -- it is a wrong number nobody is allowed to
@@ -40,7 +40,7 @@ from ._harness import REPO_ROOT, SOURCE_ROOT, add_source_to_path
 NAME = "spacing registry"
 
 VALID_AXES = ("h", "v")
-VALID_SOURCES = ("rule", "observed", "inferred")
+VALID_SOURCES = ("rule", "exception", "inferred")
 
 
 def _rule_targets():
