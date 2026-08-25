@@ -181,7 +181,7 @@ def _text_panel_inset(title, side="left"):
     border, so the border's inner edge is the widget's own box edge.
     """
     def resolve(cap, app):
-        _frame, text = _text_of(app, title)
+        frame, text = _text_of(app, title)
         fill = {cap.palette["bg_light"]}
         box = sa.box_of(text)
         measure = (sa.painted_extent_v if side in ("top", "bottom")
@@ -193,9 +193,21 @@ def _text_panel_inset(title, side="left"):
             return sa.gap_between(box.left - 1, extent[0]), ""
         if side == "top":
             return sa.gap_between(box.top - 1, extent[0]), ""
+        # The far edges take the text widget's box as the border's inner
+        # edge, which the near ones have earned the right to assume: a
+        # panel built this way puts the widget flush against the border.
+        # If the widget does NOT fill the frame, the leftover is slack
+        # and the reading is that slack plus the inset, with no way to
+        # tell them apart from the number alone. So say how much room is
+        # left over -- 0 means the assumption held.
+        fb = sa.box_of(frame)
         if side == "right":
-            return sa.gap_between(extent[1], box.right + 1), ""
-        return sa.gap_between(extent[1], box.bottom + 1), ""
+            spare = fb.right - box.right
+            note = "" if spare == 0 else f"{spare}px of frame right of the text"
+            return sa.gap_between(extent[1], box.right + 1), note
+        spare = fb.bottom - box.bottom
+        note = "" if spare == 0 else f"{spare}px of frame below the text"
+        return sa.gap_between(extent[1], box.bottom + 1), note
     return resolve
 
 
