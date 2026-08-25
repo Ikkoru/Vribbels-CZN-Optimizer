@@ -13,10 +13,13 @@ How it measures
 The same way the maintainer does. `docs/ui_spacing.md` "The rules"
 defines a gap as the count of BACKGROUND-coloured pixels between two
 painted edges, both end pixels included, with no hover effect showing.
-So the audit screenshots the window and counts background pixels. That
-is glyph-accurate for free: a title ending in "g" and one ending in "s"
-produce different counts because their descenders differ, exactly as
-they do on screen.
+So the audit screenshots the window and counts background pixels.
+
+What it counts to is the INK, and the rules name a baseline and a cap --
+so a title ending in "g" reaches lower than one ending in "s" and reads
+tighter for it. `ui/spacing_registry.py` corrects the reading rather
+than the target, which is what lets every panel obeying one rule answer
+to one number.
 
 Nothing here runs in a normal launch -- see `run_audit`'s caller.
 
@@ -181,9 +184,10 @@ def _hex_to_rgb(value: str):
 def last_painted_row(cap: Capture, box: Box, x: int) -> Optional[int]:
     """Bottom-most painted row of `box` along column `x`.
 
-    Scanning a single column is deliberate. The reference point for a
-    gap below text is the bottom of the DESCENDERS, so the column has to
-    be one that a descender actually occupies -- see `text_scan_column`.
+    Scanning a single column is deliberate: it finds the ink in that
+    column and nothing else. The caller decides what the ink means --
+    see `ink_below_baseline` in the registry, which restates a reading
+    taken from a descender as one taken from the baseline.
     """
     for y in range(box.bottom, box.top - 1, -1):
         if cap.contains(x, y) and not cap.is_background(x, y):
@@ -386,10 +390,11 @@ class TrackedGap:
     (value, note).
 
     `target` lives on the entry rather than being looked up from the
-    rule, because two panels obeying the SAME rule can legitimately
-    differ: the reference point is the painted glyph, so a title with a
-    descender ("Upgrade Log Settings") sits lower than one without
-    ("Slots") and its gap below measures smaller.
+    rule. It no longer differs between two panels obeying one rule --
+    the reading is corrected to the baseline and the cap before it
+    arrives, so the glyphs in a title do not change what its gap should
+    be -- but an entry that answers to a different rule, or misses its
+    own, still carries its own number.
 
     `axis` is the direction the gap runs in, printed so a table of
     forty rows can be read for one direction at a time. It matches the

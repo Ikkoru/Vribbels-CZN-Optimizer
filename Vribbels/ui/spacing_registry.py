@@ -9,12 +9,12 @@ Two conventions worth knowing before adding entries:
 * **Panels are named by their visible title**, not by attribute. See
   `docs/ui_spacing.md` "Checking spacing" for why, and for what
   breaks if a title is renamed.
-* **Targets are per-entry, not per-rule.** The reference point for a gap
-  below text is the bottom of the DESCENDERS, so a title containing a
-  `g` sits lower than one that does not and its gap below measures 3
-  where the other measures 6 -- same rule, same panel spacing, two
-  numbers. `_title_gap_target` derives which from the title itself
-  rather than making each entry state it.
+* **The READING is corrected, not the target.** The rules measure to a
+  baseline and a cap; the screen shows ink, which overshoots both
+  wherever the string has a descender or a tall ascender. The
+  correction is applied where the gap is measured, so a title holding a
+  `g` and one holding none answer to the same number -- which is what
+  makes a target a plain number rather than one per glyph class.
 """
 
 from . import spacing_audit as sa
@@ -90,21 +90,54 @@ def reaches_cap_height(text: str) -> bool:
     return any(c not in X_HEIGHT_ONLY for c in text)
 
 
-def _title_gap_target(title: str) -> int:
-    """The target for one title's gap below, from its lowest glyph.
+# How far below the BASELINE a string's ink reaches, and how far above
+# its CAPITALS. The rules measure to the baseline and the cap; the
+# screen shows ink; these are the difference.
+#
+# They were targets once -- a title with a descender was given 2 where
+# one without was given 5, and a 14 bold heading with an ascender lost a
+# pixel. Four glyph classes spread across two tables, all of them saying
+# the same thing twice: that the tool reads a different reference point
+# than the rules name. Correcting the READING says it once, and every
+# target below is a plain number again.
+DESCENDER_DEPTH = 3
+PARENTHESIS_DEPTH = 2
+ASCENDER_RISE_14_BOLD = 1
 
-    Same rendered spacing in every case -- the glyphs just reach
-    different depths. A descender is the deepest; a parenthesis lands
-    exactly 1px above it at Segoe UI 9; anything else stops on the
-    baseline. See `docs/ui_spacing.md`.
 
-    Checked in that order because a title can hold both, and the deeper
-    glyph is the one the gap is measured from.
+def ink_below_baseline(text: str) -> int:
+    """How far `text`'s ink reaches below the baseline.
+
+    Checked deepest first: a string can hold both a descender and a
+    parenthesis, and the deeper glyph is the one the ink stops at.
     """
-    if any(c in title for c in DESCENDERS):
-        return 2
-    if any(c in title for c in PARENTHESES):
-        return 3
+    if any(c in text for c in DESCENDERS):
+        return DESCENDER_DEPTH
+    if any(c in text for c in PARENTHESES):
+        return PARENTHESIS_DEPTH
+    return 0
+
+
+def ink_above_caps(text: str, bold14: bool = False) -> int:
+    """How far `text`'s ink reaches above its capitals.
+
+    Only at Segoe UI 14 bold. At 9 and 11 the ascenders top out level
+    with the caps, so every gap above body text needs no correction.
+    """
+    if bold14 and any(c in text for c in ASCENDERS_ABOVE_CAP):
+        return ASCENDER_RISE_14_BOLD
+    return 0
+
+
+def _title_gap_target(title: str) -> int:
+    """One number for every title now: the reading is corrected to the
+    baseline before it gets here, so the glyphs in the string no longer
+    change what the gap should be.
+
+    Kept as a function rather than folded into its callers because it is
+    what `checks/check_spacing_registry.py` compares against, and a
+    rule whose target stops being uniform would go back through here.
+    """
     return 5
 
 
@@ -156,6 +189,19 @@ def _text_of(app, title):
     return frame, text
 
 
+def _to_baseline(measured, note, text):
+    """A gap read from a title's INK, restated from its baseline.
+
+    The rules measure a gap below text to the baseline; the screen shows
+    ink, which reaches lower wherever the string has a descender. Adding
+    that depth back is what makes every title answer to one number
+    instead of one per glyph class.
+    """
+    if measured is None:
+        return None, note
+    return measured + ink_below_baseline(text), note
+
+
 def _text_panel_title_gap(title):
     def resolve(cap, app):
         frame, text = _text_of(app, title)
@@ -167,7 +213,8 @@ def _text_panel_title_gap(title):
         extent = sa.painted_extent_v(cap, sa.box_of(text), fill)
         if extent is None:
             return None, "text widget is empty"
-        return sa.title_gap(cap, frame, extent[0], bg=strip_bg)
+        return _to_baseline(*sa.title_gap(cap, frame, extent[0], bg=strip_bg),
+                            title)
     return resolve
 
 
@@ -225,7 +272,8 @@ def _caption_to_field(prefix):
         field = sa.find_descendant_class(label.master, "TCombobox")
         if field is None:
             return None, "no dropdown under that caption"
-        return sa.vertical_gap(cap, label, field)
+        return _to_baseline(*sa.vertical_gap(cap, label, field),
+                            label.cget("text"))
     return resolve
 
 
@@ -272,7 +320,7 @@ def _title_to_first_element(title):
         extent = sa.painted_extent_v(cap, sa.box_of(child))
         if extent is None:
             return None, "first child painted nothing"
-        return sa.title_gap(cap, frame, extent[0])
+        return _to_baseline(*sa.title_gap(cap, frame, extent[0]), title)
     return resolve
 
 
@@ -407,7 +455,7 @@ def _heading_to_subtitle(heading, subtitle):
     return resolve
 
 
-def _tab_list_to_first_element():
+def _tab_list_to_first_element(text=None, bold14=False):
     """Resolver: the tab strip's bottom -> the first ink on the tab.
 
     The strip has no widget of its own, so the reference is the tab
@@ -422,7 +470,12 @@ def _tab_list_to_first_element():
         extent = sa.painted_extent_v(cap, box)
         if extent is None:
             return None, "nothing painted on this tab"
-        gap = sa.gap_between(box.top - 1, extent[0])
+        # Dropped to the CAPITALS. The scan finds the topmost ink,
+        # which on a 14 bold heading is an ascender rather than a
+        # capital -- so the correction comes off and the target stays
+        # the plain 6 for every tab.
+        gap = (sa.gap_between(box.top - 1, extent[0])
+               - ink_above_caps(text or "", bold14))
         if gap == 0:
             # `painted_extent_v` scans EVERY column of a row, so one
             # stray pixel anywhere across the window's width puts the
@@ -457,19 +510,14 @@ TAB_LIST_TABS = [
 
 
 def _tab_list_target(tab: str) -> int:
-    """The tab-list target for one tab, allowing for its first glyph.
+    """One number for every tab now: the reading is dropped to the
+    capitals before it gets here, so an ascender in the heading no
+    longer changes what the gap should be.
 
-    Public to `checks/check_spacing_registry.py`, which compares every
-    entry's target against what the rule derives -- it has to derive the
-    same number here as `register_all` does, or it reports its own
-    arithmetic as a mistake in the registry.
+    Still a function because `checks/check_spacing_registry.py` compares
+    against it, and a rule whose target stops being uniform would come
+    back through here.
     """
-    for name, text, bold14 in TAB_LIST_TABS:
-        if name != tab:
-            continue
-        if bold14 and text and any(c in text for c in ASCENDERS_ABOVE_CAP):
-            return TAB_LIST_TARGET - 1
-        return TAB_LIST_TARGET
     return TAB_LIST_TARGET
 
 # (tab, heading, subtitle) for every tab whose header `make_tab_header`
@@ -824,7 +872,7 @@ def register_all():
             tab=tab,
             rule=RULE_TAB_LIST,
             target=_tab_list_target(tab),
-            resolve=_tab_list_to_first_element(),
+            resolve=_tab_list_to_first_element(_text, _bold),
             axis="v",
             provisional=False,
         )

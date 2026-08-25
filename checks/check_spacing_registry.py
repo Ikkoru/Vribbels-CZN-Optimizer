@@ -121,15 +121,15 @@ def run():
                 f"{g.name!r} names rule {g.rule!r}, which has no RULE_ "
                 f"constant -- the marker check compares those against the "
                 f"docs table, so a rule invented here escapes it")
-        if g.rule == registry.RULE_TITLE_ELEMENT:
-            expected = registry._title_gap_target(g.name.split(":")[0])
-            where = "the rule derives for that title"
-        elif g.rule == registry.RULE_TAB_LIST:
-            expected = registry._tab_list_target(g.tab)
-            where = "the rule derives for that tab's first glyph"
-        else:
-            expected = rule_targets.get(g.rule)
-            where = "the docs table gives for that rule"
+        # Every rule with one number in the docs table is compared
+        # against THAT, including the title and tab-list rules. They
+        # used to derive a target per string, and this check called the
+        # very function that produced it -- so the comparison could not
+        # fail, whatever either side said. Correcting the reading rather
+        # than the target made both constants, which puts them back
+        # under the table like everything else.
+        expected = rule_targets.get(g.rule)
+        where = "the docs table gives for that rule"
         if expected is not None and g.target != expected:
             # A target that misses its rule means the site breaks the
             # rule, and a site that breaks a rule carries an `exception`
