@@ -30,11 +30,12 @@ What it enforces beyond "it imports":
     would happily do.
 """
 
+import glob
 import importlib
 import io
 import re
 
-from ._harness import REPO_ROOT, add_source_to_path
+from ._harness import REPO_ROOT, SOURCE_ROOT, add_source_to_path
 
 NAME = "spacing registry"
 
@@ -69,6 +70,24 @@ def _rule_targets():
     return targets
 
 
+def _excepted_rules():
+    """Rules the widget code says some site deliberately breaks.
+
+    Only the `exception` form counts. A `unique` site has no rule at
+    all, so it never produces a registry entry naming one -- accepting
+    it here would let any unique marker anywhere excuse every miss.
+    """
+    excepted = set()
+    for path in glob.glob(str(SOURCE_ROOT / "**" / "*.py"), recursive=True):
+        if "__pycache__" in path or "_capture_addon" in path:
+            continue
+        text = io.open(path, encoding="utf-8", errors="replace").read()
+        for m in re.finditer(r"#\s*spacing:\s*exception -- (.+?)\s*$",
+                             text, re.M):
+            excepted.add(m.group(1).rsplit(" -- ", 1)[0])
+    return excepted
+
+
 def run():
     add_source_to_path()
     failures = []
@@ -84,6 +103,7 @@ def run():
     rules = {v for k, v in vars(registry).items()
              if k.startswith("RULE_") and isinstance(v, str)}
     rule_targets = _rule_targets()
+    excepted = _excepted_rules()
 
     seen = {}
     for g in sa.REGISTRY:
@@ -107,6 +127,20 @@ def run():
         else:
             expected = rule_targets.get(g.rule)
             where = "the docs table gives for that rule"
+        if expected is not None and g.target != expected:
+            # A target that misses its rule means the site breaks the
+            # rule, and a site that breaks a rule carries an `exception`
+            # or a `unique` saying so. This finds the marker for the
+            # RULE, not for this panel -- nothing ties an entry to a
+            # call site -- so it catches a miss nobody marked anywhere,
+            # not a miss marked on the wrong panel.
+            if g.rule not in excepted:
+                failures.append(
+                    f"{g.name!r} carries {g.target} where its rule asks "
+                    f"{expected}, but no `exception` or `unique` marker in "
+                    f"the widget code says that rule is broken. A miss with "
+                    f"nothing marking it reads as a target someone typed "
+                    f"wrong")
         if expected is not None:
             if g.target_source == "rule" and g.target != expected:
                 failures.append(

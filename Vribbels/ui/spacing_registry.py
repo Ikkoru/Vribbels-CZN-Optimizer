@@ -53,6 +53,11 @@ RULE_CONTROL_GROUP = "control group ↔ control group"
 
 DESCENDERS = "gjpqy"
 
+# One pixel above a descender at Segoe UI 9, measured. Between the two
+# derived classes, which is why titles holding one used to need a hand
+# target.
+PARENTHESES = "()"
+
 # Characters that never reach above the x-height, plus the punctuation
 # that sits on or below the baseline. A string built only from these has
 # NO cap and NO ascender, so its topmost painted pixel is the x-height
@@ -73,12 +78,21 @@ def reaches_cap_height(text: str) -> bool:
 
 
 def _title_gap_target(title: str) -> int:
-    """2 where the title has a descender, 5 where it does not.
+    """The target for one title's gap below, from its lowest glyph.
 
-    Same rendered spacing either way -- the glyphs just reach further
-    down in one case. See `docs/ui_spacing.md`.
+    Same rendered spacing in every case -- the glyphs just reach
+    different depths. A descender is the deepest; a parenthesis lands
+    exactly 1px above it at Segoe UI 9; anything else stops on the
+    baseline. See `docs/ui_spacing.md`.
+
+    Checked in that order because a title can hold both, and the deeper
+    glyph is the one the gap is measured from.
     """
-    return 2 if any(c in title for c in DESCENDERS) else 5
+    if any(c in title for c in DESCENDERS):
+        return 2
+    if any(c in title for c in PARENTHESES):
+        return 3
+    return 5
 
 
 def track_text_top_gap(name, tab, rule, resolve, text, target=None,
@@ -204,23 +218,19 @@ def _left_inset(title):
 
 
 def _panel_gap(first, second, axis):
-    """Resolver: the gap between two panels, BOX edge to box edge.
+    """Resolver: the gap between two panels, painted edge to painted
+    edge like every other rule.
 
-    Box rather than painted extent, which every other resolver uses,
-    and the content-frame rule is the reason: it is the one rule
-    defined by the pads that produce it rather than by pixels on
-    screen. Horizontally the two agree -- a LabelFrame's border starts
-    at its box edge. Vertically they do not: the title is drawn ABOVE
-    the border and inside the box, so a painted reading of the lower
-    panel starts at the title's glyphs and adds that title's leading to
-    the gap. Measured 7 where the pads give 4.
+    What each end IS differs by direction, and that is why the two
+    directions answer to different rules. Side by side, both ends are
+    borders. Stacked, the lower panel's topmost ink is its TITLE, drawn
+    above its border -- so the nearest thing across the gap is text, and
+    by proximity the text rule governs rather than the frame one.
     """
     def resolve(cap, app):
-        a = sa.box_of(_panel(app, first))
-        b = sa.box_of(_panel(app, second))
-        if axis == "h":
-            return sa.gap_between(a.right, b.left), ""
-        return sa.gap_between(a.bottom, b.top), ""
+        a, b = _panel(app, first), _panel(app, second)
+        return (sa.horizontal_gap(cap, a, b) if axis == "h"
+                else sa.vertical_gap(cap, a, b))
     return resolve
 
 
@@ -266,16 +276,21 @@ CONTENT_FRAME_ENTRIES = [
      _panel_gap("Slots", "Sets", "h")),
     ("Memory Fragments", "Sets -> Main Stats", 4, "h",
      _panel_gap("Sets", "Main Stats", "h")),
-    ("Capture", "Status -> Server Region", 4, "v",
-     _panel_gap("Status", "Server Region", "v")),
-    # Server Region -> Requirements is NOT here: the Start/Stop button
-    # row sits between them, so the two panels are not adjacent and the
-    # rule has nothing to say about the distance. It was registered
-    # once and read 45.
+    # Nothing vertical belongs here. Stacked panels put the lower
+    # one's TITLE across the gap, and the nearest element decides which
+    # rule applies -- see PANEL_OVER_TEXT_ENTRIES.
     ("Setup", "Setup Status -> Restore Defaults", 4, "h",
      _panel_gap("Setup Status", "Restore Defaults", "h")),
     ("Combatants", "character list -> Equipped Memory Fragments", 4, "h",
      _list_to_panel_gap("Equipped Memory Fragments")),
+]
+
+# (tab, name, target, panel above, text below) for a panel with text
+# beneath it. Two panels stacked are one of these: what sits across the
+# gap is the lower panel's title, not its border.
+PANEL_OVER_TEXT_ENTRIES = [
+    ("Capture", "Status -> Server Region title", 10,
+     _panel_gap("Status", "Server Region", "v")),
 ]
 
 # The All/None rows, the only adjacent button pairs inside a panel.
@@ -400,25 +415,10 @@ sa.register_scenario("element_override",
                      _restore_element_override)
 
 
-# Titles whose gap target cannot be derived from the character set.
-# Parentheses drop below the baseline but not as far as a descender, so
-# a title ending in one sits between the two derived values.
-#
-# NOT measured. The parenthesis class was read off an earlier build, and
-# this target is that class carried across the app-wide `labelmargins`
-# correction rather than a reading of its own -- which is why the entry
-# reports `target inferred`. Measuring it needs an Unknown-attribute
-# character on screen to make the panel appear, which is why the
-# hand-measuring pass skipped it. See the glyph-class table in
-# docs/ui_spacing.md "The rules".
-TITLE_GAP_TARGETS = {
-    "Element override (Unknown character)": 3,
-}
-
-
 def _title_target_and_source(title):
-    if title in TITLE_GAP_TARGETS:
-        return TITLE_GAP_TARGETS[title], "inferred"
+    """Every title gap derives now. Kept as a pair because a title whose
+    lowest glyph is not in one of the three classes would have to be
+    measured, and the caller has to be able to say so."""
     return _title_gap_target(title), "rule"
 
 
@@ -564,6 +564,16 @@ def register_all():
             target=target,
             resolve=resolve,
             axis=axis,
+        )
+
+    for tab, name, target, resolve in PANEL_OVER_TEXT_ENTRIES:
+        sa.track(
+            name=name,
+            tab=tab,
+            rule=RULE_PANEL_UNRELATED_LABEL,
+            target=target,
+            resolve=resolve,
+            axis="v",
         )
 
     for tab, title in BUTTON_ROW_PANELS:
