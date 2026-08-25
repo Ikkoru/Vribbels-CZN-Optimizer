@@ -1853,7 +1853,13 @@ class OptimizerTab(BaseTab):
 
         # The row count is the ONE thing the content drives (see
         # _build_exclude_gear): size the frame to exactly its rows.
-        self.exclude_heroes_frame.configure(height=max(1, len(rows) * row_h))
+        # One pitch short of `rows * row_h`: the pitch INCLUDES the gap
+        # that follows a row, so reserving it for the last row too leaves
+        # 4px of empty frame under the checklist -- which the All/None
+        # row below then sits on top of its own pad, reading 7 where the
+        # other three panels read 3.
+        self.exclude_heroes_frame.configure(
+            height=max(1, len(rows) * row_h - ROW_PITCH_OFFSET))
         self._exclude_partition = rows
         self._exclude_packed_width = container_w
         self._apply_exclude_states()
