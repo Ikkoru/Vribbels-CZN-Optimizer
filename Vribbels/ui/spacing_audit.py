@@ -688,7 +688,7 @@ BASELINE_PATH = os.path.join(
 
 
 def save_baseline(rows, path=BASELINE_PATH, out=print):
-    data = {name: value for name, _t, value, _n in rows if value is not None}
+    data = {name: value for name, _t, value, *_ in rows if value is not None}
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, sort_keys=True)
     out(f"baseline written: {len(data)} gaps -> {path}")
@@ -709,7 +709,7 @@ def compare_baseline(rows, path=BASELINE_PATH, out=print):
         return
     with open(path, encoding="utf-8") as fh:
         base = json.load(fh)
-    now = {name: value for name, _t, value, _n in rows if value is not None}
+    now = {name: value for name, _t, value, *_ in rows if value is not None}
 
     changed = [(n, base[n], now[n]) for n in base if n in now
                and base[n] != now[n]]
@@ -756,8 +756,8 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False):
     for scenario, gaps in by_scenario.items():
         setup, teardown = SCENARIOS.get(scenario, (None, None))
         if setup is None:
-            rows.extend((g.name, g.target, None, f"no scenario {scenario!r}")
-                        for g in gaps)
+            rows.extend((g.name, g.target, None, f"no scenario {scenario!r}",
+                         g.tab) for g in gaps)
             continue
         setup(app)
         app.root.update()
@@ -792,11 +792,16 @@ def _measure_tabs(app, notebook, gaps, scenario):
     prefix = "" if scenario == "default" else f"[{scenario}] "
     rows = []
     for tab_name in tab_names:
-        tab_gaps = by_tab[tab_name]
+        # A panel's rows stay together. Entries tracking a second element
+        # inside a panel are registered after every panel's title and
+        # edge, so in registration order they land at the bottom of the
+        # tab, away from the panel they belong to -- and a panel is read
+        # as a unit.
+        tab_gaps = _grouped_by_panel(by_tab[tab_name])
         tab_id = _tab_id(notebook, tab_name)
         if tab_id is None:
             rows.extend((prefix + g.name, g.target, None,
-                         f"no tab {tab_name!r}") for g in tab_gaps)
+                         f"no tab {tab_name!r}", tab_name) for g in tab_gaps)
             continue
         notebook.select(tab_id)
         app.root.update()
@@ -806,15 +811,28 @@ def _measure_tabs(app, notebook, gaps, scenario):
                 value, note = g.resolve(cap, app)
             except tk.TclError as exc:
                 rows.append((prefix + g.name, g.target, None,
-                             f"unmapped: {exc}"))
+                             f"unmapped: {exc}", tab_name))
                 continue
             except Exception as exc:                      # noqa: BLE001
                 rows.append((prefix + g.name, g.target, None,
-                             f"error: {exc}"))
+                             f"error: {exc}", tab_name))
                 continue
             rows.append((prefix + g.name, g.target, value,
-                         _with_source(note, g.target_source)))
+                         _with_source(note, g.target_source), tab_name))
     return rows
+
+
+def _grouped_by_panel(gaps):
+    """Gaps reordered so one panel's rows are adjacent, panels keeping
+    the order they were first registered in."""
+    order, buckets = [], {}
+    for g in gaps:
+        panel = g.name.split(":")[0]
+        if panel not in buckets:
+            order.append(panel)
+            buckets[panel] = []
+        buckets[panel].append(g)
+    return [g for panel in order for g in buckets[panel]]
 
 
 def _with_source(note, source):
@@ -832,21 +850,41 @@ def _tab_id(notebook, tab_name):
 
 
 def _print_table(rows, out, verbose=False):
-    on_target = sum(1 for _n, t, v, _note in rows if v is not None and v == t)
+    """The measured rows, under a heading per tab.
+
+    `manual note` is left empty on purpose. It is the column a hand
+    reading goes in when the tool and the eye disagree, which is the
+    only way to tell a wrong measurement from a wrong target -- see
+    plan.md 3.0.
+    """
+    on_target = sum(1 for _n, t, v, _note, _tab in rows
+                    if v is not None and v == t)
     shown = rows if verbose else [r for r in rows
                                   if r[2] is None or r[2] != r[1]]
     if not shown:
         out(f"all {len(rows)} gaps on target")
         return
 
-    width = max((len(r[0]) for r in shown), default=4)
-    out(f"{'gap'.ljust(width)}  target  measured  delta  note")
-    for name, target, value, note in shown:
+    body = []
+    for name, target, value, note, tab in shown:
         if value is None:
-            out(f"{name.ljust(width)}  {target:>6}  {'--':>8}  {'--':>5}  {note}")
+            body.append((tab, name, f"{target:>6}", f"{'--':>8}",
+                         f"{'--':>5}", note))
             continue
         delta = value - target
         flag = "" if delta == 0 else "  <-"
-        out(f"{name.ljust(width)}  {target:>6}  {value:>8}  {delta:>+5}  "
-            f"{note}{flag}")
+        body.append((tab, name, f"{target:>6}", f"{value:>8}",
+                     f"{delta:>+5}", f"{note}{flag}"))
+
+    width = max(len(r[1]) for r in body)
+    note_width = max(len(r[5]) for r in body)
+    out(f"{'gap'.ljust(width)}  target  measured  delta  "
+        f"{'note'.ljust(note_width)}  manual note")
+    current = None
+    for tab, name, target, value, delta, note in body:
+        if tab != current:
+            out(f"  {tab}")
+            current = tab
+        out(f"{name.ljust(width)}  {target}  {value}  {delta}  "
+            f"{note.ljust(note_width)}")
     out(f"\n{on_target}/{len(rows)} on target")
