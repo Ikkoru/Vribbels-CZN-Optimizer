@@ -235,11 +235,19 @@ LEFT_INSET_EXCEPTIONS = {
     "Status",
 }
 
-# Panels whose left inset follows a DIFFERENT rule, with the target.
-LEFT_INSET_TARGETS = {
-    # First element is a button, so the button rule applies rather than
-    # the frame-edge text rule. Measured, and correct.
-    "Restore Defaults": 3,
+# Panels whose left inset is not the border-edge rule at its 5px. The
+# RULE is stated per entry rather than inferred from membership,
+# because the two entries here are here for opposite reasons and one
+# flag cannot carry both.
+LEFT_INSET_OVERRIDES = {
+    # A different rule: the first element is a button, so the button
+    # rule applies rather than the one for text. Measured, and correct.
+    "Restore Defaults": (RULE_BORDER_EDGE_BUTTON, 3),
+    # THIS rule, deliberately missed. The panel is built to be legible
+    # before anything else on the tab, in Segoe UI 11 rather than 9, and
+    # 7 is where its left edge is meant to sit. Tracked at what it is so
+    # a drift still shows, rather than left out and unwatched.
+    "Setup Status": (RULE_BORDER_EDGE_CONTENT, 7),
 }
 
 
@@ -423,12 +431,15 @@ def register_all():
             )
             if title in LEFT_INSET_EXCEPTIONS:
                 continue
+            left_rule, left_target = LEFT_INSET_OVERRIDES.get(
+                title, (RULE_BORDER_EDGE_CONTENT, 5))
             sa.track(
                 name=f"{title}: left edge -> content",
                 tab=tab,
-                rule=(RULE_BORDER_EDGE_BUTTON if title in LEFT_INSET_TARGETS
-                      else RULE_BORDER_EDGE_CONTENT),
-                target=LEFT_INSET_TARGETS.get(title, 5),
+                rule=left_rule,
+                target=left_target,
+                target_source=("observed" if title in LEFT_INSET_OVERRIDES
+                               else "rule"),
                 resolve=(_text_panel_left_inset(title) if is_text
                          else _left_inset(title)),
             )

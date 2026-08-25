@@ -145,17 +145,19 @@ class SetupTab(BaseTab):
         top_row.grid_columnconfigure(0, weight=1, uniform="halves")
         top_row.grid_columnconfigure(1, weight=1, uniform="halves")
 
-        # spacing: border edge -> first non-button element -- panel, label ↔
-        # spacing: exception -- border edge -> first non-button element -- panel, label ↕
-        # Two components, two meanings. LEFT answers to the rule and is
-        # a registered audit entry. TOP is the exception: these four
-        # rows read as one block at a single pitch, so the gap above the
-        # first row matches the gaps between them rather than the
-        # border-edge target.
+        # spacing: exception -- border edge -> first non-button element -- panel, label ↔↕
+        # Both directions miss the rule, for two different reasons.
         #
-        # The target is out of reach here in any case: a Segoe UI 11
-        # label's ink starts 7px below its own box top, so even a top
-        # padding of 0 renders 7.
+        # LEFT renders 7 where the rule asks 5, deliberately: this panel
+        # is built to read before anything else on the tab and its left
+        # edge is placed for that. The audit tracks it at 7 rather than
+        # leaving it out, so a drift from 7 still shows.
+        #
+        # TOP is out of reach in any case -- a Segoe UI 11 label's ink
+        # starts 7px below its own box top, so even a padding of 0
+        # renders 7 -- and it is wanted anyway: these four rows read as
+        # one block at a single pitch, so the gap above the first row
+        # matches the gaps between them.
         #
         # BOTTOM is larger than it looks because the rows carry no
         # pady of their own -- it supplies the whole pitch under the

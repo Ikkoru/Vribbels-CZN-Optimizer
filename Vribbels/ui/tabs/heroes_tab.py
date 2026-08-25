@@ -146,8 +146,8 @@ GEAR_SUBSTAT_ROWS = 4
 # Recompute these after changing HERO_STAT_ROWS, the body font, or
 # either rule's target -- docs/ui_spacing.md "Column alignment" holds
 # the widest value per stat and the arithmetic.
-# spacing: label ↔ its element -- text, text ↔
-# spacing: element and its label ↔ element and its label -- text, text ↔
+# spacing: label ↔ its element -- run, run ↔
+# spacing: element and its label ↔ element and its label -- run, run ↔
 CHAR_TAB_VAL1 = 50     # right stop: end of the left column's value
 CHAR_TAB_NAME2 = 58    # left stop: start of the right column's label
 CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
@@ -161,7 +161,7 @@ CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
 # centred. Written as 196 it was 1.5px right of centre and would have
 # drifted further the moment GEAR_CELL_W moved.
 GEAR_TAB_GS = GEAR_TEXT_W // 2   # centre stop: GS and Potential
-# spacing: label ↔ its element -- text, text ↔
+# spacing: label ↔ its element -- run, run ↔
 GEAR_TAB_SLOT = 385      # right stop: the slot name and its level
 GEAR_TAB_QUALITY = 20    # right stop: a substat's roll-quality percent
 GEAR_TAB_SUB = 26        # left stop: where the substat text starts
@@ -170,7 +170,7 @@ GEAR_TAB_SUB = 26        # left stop: where the substat text starts
 # letter-spacing, so the only lever inside a line is the space glyph --
 # 3px of advance each in Segoe UI 9, which is why this is a string and
 # not a pixel count.
-# spacing: element and its label ↔ element and its label -- text, text ↔
+# spacing: element and its label ↔ element and its label -- run, run ↔
 GEAR_GS_POT_GAP = "  "
 
 # Width the Character panel gives up to the Partner panel beside it.
@@ -692,10 +692,10 @@ class HeroesTab(BaseTab):
                 gear_grid, font=("Segoe UI", 9), wrap=tk.WORD,
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
                 relief=tk.RIDGE, bd=GEAR_CELL_BD, highlightthickness=0,
-                # spacing: border edge -> first non-button element -- text, text ↔↕
+                # spacing: border edge -> first non-button element -- text, run ↔↕
                 # padx is symmetric, so it sets the LEFT inset and part of
                 # the right one; GEAR_TAB_SLOT carries the rest.
-                # spacing: label row -> label row -- text, text ↕
+                # spacing: label row -> label row -- run, run ↕
                 # spacing3 is the gap BELOW each line, which is what
                 # separates one row of the cell from the next. spacing1
                 # would add to the top inset above instead.
@@ -1280,8 +1280,8 @@ class HeroesTab(BaseTab):
             # value (right-aligned), and nothing after. A right-aligned
             # stop sits at the END of its column, so each is the running
             # total of everything to its left.
-            # spacing: label ↔ its element -- text, text ↔
-            # spacing: element and its label ↔ element and its label -- text, text ↔
+            # spacing: label ↔ its element -- run, run ↔
+            # spacing: element and its label ↔ element and its label -- run, run ↔
             # Stops are PIXEL offsets, not character counts, so the 4 and
             # the 8 below are the rendered gaps themselves. `name_px` is
             # the widest label measured in this font, which is what makes
