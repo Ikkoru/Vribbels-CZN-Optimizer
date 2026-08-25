@@ -7,6 +7,7 @@ from capture import check_prerequisites, CaptureError
 from capture.constants import SERVERS
 from game_data.characters import CHARACTERS, ATTRIBUTE_COLORS
 from ..base_tab import BaseTab
+from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.checkbox import make_checkbox
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
@@ -275,18 +276,18 @@ class CaptureTab(BaseTab):
         btn_frame.pack(fill=tk.X, pady=2)
 
         self.capture_start_btn = ttk.Button(btn_frame, text="Start Capture",
-                                             command=self.start_capture, width=18)
+                                             command=self.start_capture, width=BUTTON_W_MEDIUM)
         self.capture_start_btn.pack(side=tk.LEFT, padx=(0, 4))
 
         self.capture_stop_btn = ttk.Button(btn_frame, text="Stop Capture",
                                             command=self.stop_capture,
-                                            width=18, state=tk.DISABLED)
+                                            width=BUTTON_W_MEDIUM, state=tk.DISABLED)
         self.capture_stop_btn.pack(side=tk.LEFT, padx=(0, 4))
 
         ttk.Button(btn_frame, text="Open Snapshots",
-                   command=self.open_snapshots_folder, width=15).pack(side=tk.LEFT, padx=(0, 4))
+                   command=self.open_snapshots_folder, width=BUTTON_W_MEDIUM).pack(side=tk.LEFT, padx=(0, 4))
         ttk.Button(btn_frame, text="Load Latest",
-                   command=self.load_latest_capture, width=12).pack(side=tk.LEFT)
+                   command=self.load_latest_capture, width=BUTTON_W_MEDIUM).pack(side=tk.LEFT)
 
         self.debug_var = tk.BooleanVar(value=False)
         # wraplength keeps the label narrow inside the fixed-width left

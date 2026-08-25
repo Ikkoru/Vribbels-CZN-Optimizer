@@ -366,11 +366,12 @@ def _tab_list_to_first_element():
             return None, "nothing painted on this tab"
         gap = sa.gap_between(box.top - 1, extent[0])
         if gap == 0:
-            # Every one of these read 0 the run after the tab strip was
-            # darkened. Name the colour sitting on the tab's first row:
-            # if it is a shade the palette knows, the capture should be
-            # treating it as empty and is not.
-            return gap, f"first row is {sa.colour_at(cap, box.left + 40, box.top)}"
+            # `painted_extent_v` scans EVERY column of a row, so one
+            # stray pixel anywhere across the window's width puts the
+            # first painted row at the tab's own top. Sampling a single
+            # column reported "bg, counted as empty" and explained
+            # nothing; this finds where the ink actually is.
+            return gap, f"row {box.top}: {sa._first_painted_x(cap, box, box.top)}"
         return gap, ""
     return resolve
 

@@ -18,6 +18,7 @@ from tkinter import font as tkfont, messagebox
 
 from ..base_tab import BaseTab
 from ..context import AppContext
+from ..utils.button_width import BUTTON_W_LARGE
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 from game_data import STATS
@@ -41,7 +42,7 @@ STAT_DISPLAY_NAMES = [
 
 # Width (in chars) used for buttons and the preset-name entry.
 # Sized to fit the longest button label: "Delete Selected Presets" (23 chars).
-BTN_WIDTH = 23
+BTN_WIDTH = BUTTON_W_LARGE
 
 # Glyph shown in the icon column for presets currently assigned to >=1
 # character (via CharacterPresetManager). A dedicated Treeview column

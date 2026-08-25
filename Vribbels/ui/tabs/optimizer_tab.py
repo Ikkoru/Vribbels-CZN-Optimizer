@@ -47,6 +47,7 @@ from typing import Optional
 from ui.base_tab import BaseTab
 from ui.context import AppContext
 from ui.utils.all_none_row import make_all_none_row
+from ui.utils.button_width import BUTTON_W_SMALL
 from ui.utils.checkbox import make_checkbox
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import (
@@ -421,6 +422,7 @@ class OptimizerTab(BaseTab):
                                                        self.optimize_for_level_var))
 
         self.start_button = ttk.Button(self._toolbar_top_row, text="Start",
+                                       width=BUTTON_W_SMALL,
                                        command=self.run_optimization)
         # spacing: button -> button -- button, button ↔
         # spacing: control group ↔ control group -- spinbox, button ↔
@@ -431,6 +433,7 @@ class OptimizerTab(BaseTab):
         # glyphs, so equal pady would render them unequal.
         self.start_button.pack(side=tk.LEFT, padx=(15, 2), pady=(5, 0), anchor=tk.N)
         ttk.Button(self._toolbar_top_row, text="Stop",
+                   width=BUTTON_W_SMALL,
                    command=self.cancel_optimization).pack(
                        side=tk.LEFT, padx=2, pady=(5, 0), anchor=tk.N)
 
@@ -3278,7 +3281,8 @@ class OptimizerTab(BaseTab):
         txt.config(state=tk.DISABLED)
         txt.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
 
-        ttk.Button(top, text="Close", command=top.destroy).pack(pady=(0, 8))
+        ttk.Button(top, text="Close", width=BUTTON_W_SMALL,
+                   command=top.destroy).pack(pady=(0, 8))
 
     def _populate_stats_compare(self, current_stats: dict, new_stats: Optional[dict]):
         self.stats_tree.delete(*self.stats_tree.get_children())

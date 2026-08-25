@@ -26,6 +26,8 @@ from pathlib import Path
 import sys
 from capture import setup_certificate, open_certificate, find_mitmdump
 from ..base_tab import BaseTab
+from ..utils.button_width import (
+    BUTTON_W_LARGE, BUTTON_W_SMALL, BUTTON_W_TINY)
 from ..utils.checkbox import make_checkbox
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
@@ -230,7 +232,7 @@ class SetupTab(BaseTab):
             # row, and the same value on both is what keeps their middles
             # level whichever turns out to be taller.
             ttk.Button(
-                row, text=label, width=20,
+                row, text=label, width=BUTTON_W_LARGE,
                 command=lambda k=kind: self._open_restore_dialog(k),
             ).grid(row=0, column=0, sticky="")
             # spacing: label ↔ its element -- button, label ↔
@@ -260,9 +262,9 @@ class SetupTab(BaseTab):
         # leading pad answers to the frame rule and matches main_frame's
         # own.
         ttk.Button(btn_frame, text="Check Status",
-                   command=self.check_status, width=15).pack(side=tk.LEFT, padx=(2, 2))
+                   command=self.check_status, width=BUTTON_W_LARGE).pack(side=tk.LEFT, padx=(2, 2))
         ttk.Button(btn_frame, text="Generate & Install Cert",
-                   command=self.setup_cert, width=22).pack(side=tk.LEFT, padx=(2, 5))
+                   command=self.setup_cert, width=BUTTON_W_LARGE).pack(side=tk.LEFT, padx=(2, 5))
 
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # This padx and main_frame's own sum to the gap from the window
@@ -531,11 +533,11 @@ STEP 2: Verify setup
         bottom = ttk.Frame(outer)
         bottom.pack(fill=tk.X, pady=(10, 0))
         ttk.Button(
-            bottom, text="Cancel", width=10,
+            bottom, text="Cancel", width=BUTTON_W_SMALL,
             command=dlg.destroy,
         ).pack(side=tk.RIGHT)
         ttk.Button(
-            bottom, text="Restore", width=10,
+            bottom, text="Restore", width=BUTTON_W_SMALL,
             command=lambda: self._apply_restore_changes(
                 kind, mgr, defaults_path, missing_data, changed_data, dlg,
             ),
@@ -605,11 +607,11 @@ STEP 2: Verify setup
         buttons = ttk.Frame(left)
         buttons.pack(fill=tk.X, pady=(8, 0))
         ttk.Button(
-            buttons, text="All", width=6,
+            buttons, text="All", width=BUTTON_W_TINY,
             command=lambda: self._toggle_all(missing_data, "restore", True),
         ).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(
-            buttons, text="None", width=6,
+            buttons, text="None", width=BUTTON_W_TINY,
             command=lambda: self._toggle_all(missing_data, "restore", False),
         ).pack(side=tk.LEFT)
 
@@ -685,11 +687,11 @@ STEP 2: Verify setup
         buttons = ttk.Frame(right)
         buttons.pack(fill=tk.X, pady=(8, 0))
         ttk.Button(
-            buttons, text="All", width=6,
+            buttons, text="All", width=BUTTON_W_TINY,
             command=lambda: self._toggle_all(changed_data, "replace", True),
         ).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(
-            buttons, text="None", width=6,
+            buttons, text="None", width=BUTTON_W_TINY,
             command=lambda: self._toggle_all(changed_data, "replace", False),
         ).pack(side=tk.LEFT)
 

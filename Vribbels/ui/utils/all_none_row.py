@@ -14,6 +14,8 @@ different inset in each -- see `ui/spacing_registry.py`.
 import tkinter as tk
 from tkinter import ttk
 
+from .button_width import BUTTON_W_TINY
+
 # Between the checkbox block above and this row. 4, not the rule's 5:
 # a checkbox's painted bottom sits a pixel below its box's, so the lever
 # and the render differ by one.
@@ -28,7 +30,7 @@ HALF_BUTTON_GAP = 2
 
 # Both buttons take the same width so the pair reads as one control
 # rather than two of different sizes.
-BUTTON_WIDTH = 5
+BUTTON_WIDTH = BUTTON_W_TINY
 
 
 def make_all_none_row(parent, on_all, on_none, *, width=BUTTON_WIDTH):

@@ -635,12 +635,36 @@ def debug_dump(cap: Capture, frame, child, out=print, bg=None):
     out(f"    child paint {extent}")
     if extent is None:
         return
-    strip = Box(fb.left + 8, fb.top, min(fb.left + 20, fb.right),
-                min(extent[0] - 1, fb.bottom))
-    out(f"    title strip rows {strip.top}..{strip.bottom} "
-        f"cols {strip.left}..{strip.right}")
-    out(f"    painted runs in strip: {painted_runs_v(cap, strip, bg)}")
+    # The strip `title_gap` actually uses -- FULL width, offset only
+    # enough to clear the frame's own border. A narrow probe over the
+    # title's own columns is a different measurement and reports
+    # different runs, which is worse than no diagnostic: it agrees with
+    # the eye while the code disagrees with both.
+    wide = Box(fb.left + 2, fb.top, fb.right - 2,
+               min(extent[0] - 1, fb.bottom))
+    out(f"    title strip rows {wide.top}..{wide.bottom} "
+        f"cols {wide.left}..{wide.right} (what title_gap scans)")
+    runs = painted_runs_v(cap, wide, bg)
+    out(f"    painted runs: {runs}")
+    out(f"    merged:       {merge_runs(runs)}")
+    for first, last in runs[:6]:
+        out(f"      row {first}: first paint at "
+            f"{_first_painted_x(cap, wide, first, bg)}")
+    narrow = Box(fb.left + 8, fb.top, min(fb.left + 20, fb.right),
+                 min(extent[0] - 1, fb.bottom))
+    out(f"    over the title's own columns {narrow.left}..{narrow.right}: "
+        f"{painted_runs_v(cap, narrow, bg)}")
     out(f"    title bottom {labelframe_title_bottom(cap, frame, extent[0], bg=bg)}")
+
+
+def _first_painted_x(cap: Capture, box: Box, y: int, bg=None):
+    """(x, offset from the box's left, colour) of the first paint on a
+    row -- which is the whole question when a full-width scan finds ink
+    that a narrow one does not."""
+    for x in range(box.left, box.right + 1):
+        if cap.contains(x, y) and not cap.is_background(x, y, bg):
+            return f"x={x} (+{x - box.left}) {colour_at(cap, x, y)}"
+    return "nothing painted on this row"
 
 
 def merge_runs(runs, max_gap: int = 1) -> list:
