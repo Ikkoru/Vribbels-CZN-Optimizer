@@ -1315,7 +1315,11 @@ class OptimizerTab(BaseTab):
         for j, (sid, sinfo) in enumerate(two):
             r = four_rows + j // ncols
             c = j % ncols
-            top = SET_GROUP_GAP if j < ncols else 0
+            # The division above this group's FIRST row; every row
+            # after it takes the ordinary pitch, not nothing. Leaving it
+            # at 0 kept the whole second group 4px tighter than the
+            # first, which the pitch reading hid by out-voting it.
+            top = SET_GROUP_GAP if j < ncols else 4
             _add_set_cb(sid, sinfo, r, c, top)
 
     # ------------------------------------------------ UI: Exclude Gear panel

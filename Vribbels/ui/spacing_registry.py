@@ -780,11 +780,16 @@ def _tally(gaps):
 
 
 def _row_pitch(title, classes):
-    """Resolver: the gap a panel's rows of `classes` USUALLY sit at.
+    """Resolver: the SMALLEST gap between a panel's rows of `classes`.
 
-    The most common gap, not the smallest. A panel with a division in it
-    has one gap deliberately larger, and one with a part-empty last row
-    can have one smaller -- the pitch is what the rest of them share.
+    The smallest, not the most common. The pitch rule says every row
+    sits at one distance, so the reading that matters is the one
+    furthest from it -- and a division is always the widest gap, so it
+    can never be mistaken for the pitch.
+
+    It was the most common once. Three panels kept a whole group of rows
+    4px tighter than the rest and passed anyway, the wrong rows being
+    out-voted by the right ones.
 
     No glyph correction: a checkbox row's painted bottom is its
     INDICATOR and a spinbox row's is its border, so no descender in any
@@ -794,11 +799,12 @@ def _row_pitch(title, classes):
         gaps = _row_gaps(cap, _panel(app, title), classes)
         if not gaps:
             return None, "fewer than two rows of that kind in the panel"
-        common = max(set(gaps), key=lambda g: (gaps.count(g), -g))
+        common = min(gaps)
         # A panel whose rows do not all sit at one pitch is worth
-        # saying so about: the answer is then a vote rather than a
-        # reading, and which pair the eye happened to measure decides
-        # whether the two agree.
+        # saying so about. The value already reports the worst of them,
+        # so the tally is what says how many rows are wrong rather than
+        # just that one is -- `7 x6, 3 x2` is two stragglers, `3 x8` is
+        # a panel nobody has touched.
         note = "" if len(set(gaps)) == 1 else f"gaps {_tally(gaps)}"
         return common, note
     return resolve

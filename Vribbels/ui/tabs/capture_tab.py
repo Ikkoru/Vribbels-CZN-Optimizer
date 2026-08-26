@@ -178,8 +178,14 @@ class CaptureTab(BaseTab):
             make_checkbox(
                 options_frame, self.colors, text=text, variable=var,
                 command=lambda: self._on_log_filter_toggle(key, var),
+            # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
+            # These sit below the `checkboxes -> unrelated checkboxes`
+            # division, and needed the ordinary pitch of their own -- the
+            # division says how far the block starts from what is above
+            # it, not how its rows sit among themselves.
             ).grid(row=row, column=column, sticky=tk.W,
-                   padx=(0, 10) if column == 0 else 0)
+                   padx=(0, 10) if column == 0 else 0,
+                   pady=(0 if row == 0 else 4, 0))
             return var
 
         self.ignore_atkdef_var = _filter_checkbox(

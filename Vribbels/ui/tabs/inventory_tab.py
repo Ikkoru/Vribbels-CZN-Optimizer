@@ -549,7 +549,10 @@ class InventoryTab(BaseTab):
         four_rows = (len(four_names) + ncols - 1) // ncols
         for j, set_name in enumerate(rest_names):
             r = four_rows + j // ncols
-            top = SET_GROUP_GAP if j < ncols else 0
+            # As in the Optimizer's Set Configuration: the division
+            # belongs to this group's FIRST row only, and every row
+            # after it takes the ordinary pitch.
+            top = SET_GROUP_GAP if j < ncols else 4
             _add_set_cell(set_name, r, j % ncols, top)
 
         # Also rebuild unknown main-stat checkboxes for the data we just loaded.
