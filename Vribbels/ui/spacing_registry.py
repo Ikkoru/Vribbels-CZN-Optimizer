@@ -617,20 +617,134 @@ def _panel_over_label(panel, prefix):
     return resolve
 
 
-# (tab, name, target, provisional, resolver) for a panel with text
-# beneath it. Two stacked panels are one of these: what sits across the
-# gap is the lower panel's TITLE, not its border, and the nearer element
-# decides which rule applies.
+def _label_over_panel(prefix, panel):
+    """Resolver: a label's ink -> the title of the panel below it.
+
+    The mirror of `_panel_over_label`, and the rule reaches both ways: a
+    tab heading standing over the first panel on its tab is the same
+    kind of gap seen from the other side.
+
+    The string is read off the widget rather than passed in, because two
+    of these are rewritten while the app runs.
+    """
+    def resolve(cap, app):
+        label = sa.find_descendant_text(sa.current_tab_widget(app), prefix)
+        if label is None:
+            return None, f"no element whose text starts {prefix!r}"
+        return restate_from_reference(
+            *sa.vertical_gap(cap, label, _panel(app, panel)),
+            ink_below_baseline(label.cget("text")))
+    return resolve
+
+
+def _user_info_to_list():
+    """Resolver: the Combatants user line's ink -> the list beneath it.
+
+    The list rather than a panel, because this column has none: the
+    Treeview and its scrollbar sit straight in the column, and the
+    scrollbar is what reaches furthest, so the frame holding both is the
+    reference (as in `_list_to_panel_gap`).
+
+    The label is taken off the tab instead of found by its words, the
+    only entry that does. Its text is one of three strings depending on
+    whether a snapshot is loaded and whether that snapshot has a
+    nickname, so any prefix stable enough to find it is short enough to
+    find something else -- and it is already stored on the tab, so
+    reaching for it costs nothing the convention exists to avoid.
+    """
+    def resolve(cap, app):
+        label = app.heroes_tab_instance.user_info_label
+        tree = sa.find_descendant_class(sa.current_tab_widget(app), "Treeview")
+        if tree is None:
+            return None, "no Treeview on this tab"
+        return restate_from_reference(
+            *sa.vertical_gap(cap, label, tree.master),
+            ink_below_baseline(label.cget("text")))
+    return resolve
+
+
+def _dropdown_over_panel(prefix, panel):
+    """Resolver: the dropdown under a caption -> the panel below it.
+
+    The caption is found by its words and the field by class among its
+    siblings, the same pair `_caption_to_field` uses. No correction: a
+    dropdown's bottom edge is its border, not a baseline.
+    """
+    def resolve(cap, app):
+        tab = sa.current_tab_widget(app)
+        label = sa.find_descendant_text(tab, prefix)
+        if label is None:
+            return None, f"no caption starting {prefix!r}"
+        field = sa.find_descendant_class(label.master, "TCombobox")
+        if field is None:
+            return None, "no dropdown under that caption"
+        return sa.vertical_gap(cap, field, _panel(app, panel))
+    return resolve
+
+
+# (tab, name, target, hand reading, resolver) for a panel with text
+# across the gap from it. Two stacked panels are one of these: what sits
+# across the gap is the lower panel's TITLE, not its border, and the
+# nearer element decides which rule applies.
 #
-# The rule's 10px has never been measured anywhere. The Memory Fragments
-# row is the site it was written for, registered so the number has a
-# second reading to answer to rather than resting on the Capture pair
-# alone.
+# The rule runs BOTH ways, and the two directions are worth reading as
+# two groups. A panel over a title reads 7-9 everywhere; a heading or a
+# header control over a panel reads 11-14. The rule's single 10px sits
+# between them and no site has ever met it -- the first two rows were
+# nudged to it, and every row carrying a hand reading is a site that has
+# not been. Whether one number can serve both shapes is the open
+# question the readings exist to answer; see docs/ui_spacing.md.
 PANEL_OVER_TEXT_ENTRIES = [
-    ("Capture", "Status -> Server Region title", 10, False,
+    ("Capture", "Status -> Server Region title", 10, None,
      _panel_gap("Status", "Server Region", "v")),
-    ("Memory Fragments", "Slots -> active preset label", 10, False,
+    ("Memory Fragments", "Slots -> active preset label", 10, None,
      _panel_over_label("Slots", "Preset:")),
+
+    # A panel above, the next panel's title below.
+    ("Optimizer", "Important Settings -> Set Configuration title", 10, 8,
+     _panel_gap("Important Settings", "Set Configuration", "v")),
+    # Results' title is a labelwidget, so there is no LabelFrame text to
+    # find it by -- the label itself is what the gap ends at.
+    ("Optimizer", "Exclude Combatant's MFs -> Results title", 10, 8,
+     _panel_over_label("Exclude Combatant's MFs", "Results")),
+    ("Combatants", "Character -> Equipped Memory Fragments title", 10, 7,
+     _panel_gap("Character", "Equipped Memory Fragments", "v")),
+    ("Capture", "Server Region -> Requirements title", 10, 9,
+     _panel_gap("Server Region", "Requirements", "v")),
+    # The Upgrade Log Settings panel, not Requirements: both columns of
+    # the top grid stretch to the row height, and this one ends in a
+    # border where the left column ends in a button row that stops short
+    # of it.
+    ("Capture", "Upgrade Log Settings -> Capture Log title", 10, 9,
+     _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
+    ("Setup", "Setup Status -> Setup Instructions title", 10, 7,
+     _panel_gap("Setup Status", "Setup Instructions", "v")),
+
+    # Text above, a panel below. The three tab headings differ only in
+    # how much container padding stands under them -- Gear Score and
+    # Capture spend 4px and read 12, Setup spends 6 and reads 14.
+    #
+    # "First-Time Setup" is the only 14pt heading with a descender, and
+    # the depth of one at that size has never been measured; the
+    # correction applies the 9pt depth. If that is wrong this row is the
+    # site that says so, by disagreeing with its hand reading while the
+    # other two agree.
+    ("Gear Score", "Gear Score Calculation -> How Gear Score Works title",
+     10, 12,
+     _label_over_panel("Gear Score Calculation", "How Gear Score Works")),
+    ("Capture", "Data Capture -> Status title", 10, 12,
+     _label_over_panel("Data Capture", "Status")),
+    ("Setup", "First-Time Setup -> Setup Status title", 10, 14,
+     _label_over_panel("First-Time Setup", "Setup Status")),
+
+    # The Combatants header band, one entry per column. Both read 11,
+    # from two unrelated constructions -- the left column's label is a
+    # single line over a list, the right column's is the second row of a
+    # control group over a panel.
+    ("Combatants", "user info -> character list", 10, 11,
+     _user_info_to_list()),
+    ("Combatants", "preset dropdown -> Character title", 10, 11,
+     _dropdown_over_panel("Assign preset to", "Character")),
 ]
 
 def _heading_to_subtitle(heading, subtitle):
@@ -826,7 +940,7 @@ def _row_division(title, classes):
     return resolve
 
 
-# (tab, panel, rule, classes, target, hand reading).
+# (tab, panel, rule, classes, target).
 ROW_PITCH_ENTRIES = [
     ("Memory Fragments", "Slots", RULE_CHECKBOX_PITCH,
      CHECKBOX_CLASSES, 7),
@@ -1173,7 +1287,7 @@ def register_all():
             axis=axis,
         )
 
-    for tab, name, target, provisional, resolve in PANEL_OVER_TEXT_ENTRIES:
+    for tab, name, target, hand, resolve in PANEL_OVER_TEXT_ENTRIES:
         sa.track(
             name=name,
             tab=tab,
@@ -1181,7 +1295,7 @@ def register_all():
             target=target,
             resolve=resolve,
             axis="v",
-            provisional=provisional,
+            hand=hand,
         )
 
     for tab, _text, _bold in TAB_LIST_TABS:
