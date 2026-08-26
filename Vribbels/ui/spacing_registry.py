@@ -17,6 +17,8 @@ Two conventions worth knowing before adding entries:
   makes a target a plain number rather than one per glyph class.
 """
 
+import tkinter as tk
+
 from . import spacing_audit as sa
 
 
@@ -379,18 +381,70 @@ def _border_inner_edges(cap, frame):
                 return i, True
         return i, False
 
-    def h(x):
-        return cap.contains(x, mid_y) and not cap.is_background(x, mid_y)
+    def h_at(y):
+        return lambda x: cap.contains(x, y) and not cap.is_background(x, y)
 
-    def v(y):
-        return cap.contains(mid_x, y) and not cap.is_background(mid_x, y)
+    def v_at(x):
+        return lambda y: cap.contains(x, y) and not cap.is_background(x, y)
 
-    left, ls = run_end(fb.left, fb.right, 1, h)
-    right, rs = run_end(fb.right, fb.left, -1, h)
-    top, ts = run_end(fb.top, fb.bottom, 1, v)
-    bottom, bs = run_end(fb.bottom, fb.top, -1, v)
+    def best(start, limit, step, probe_at, positions):
+        """The first scan line that does NOT run into filled content.
+
+        One line through the middle is not enough: a panel whose content
+        reaches the centre -- a row of spinboxes, all `bg_light` -- has
+        no background there for the border run to stop at, so the scan
+        saturates and reports an edge inside the fill. Trying a few
+        lines and taking one that terminates cleanly costs three scans
+        and avoids a reading of 0.
+        """
+        first = None
+        for at in positions:
+            found, saturated = run_end(start, limit, step, probe_at(at))
+            if first is None:
+                first = (found, saturated)
+            if not saturated:
+                return found, False
+        return first
+
+    def spread(lo, hi):
+        span = hi - lo
+        return [lo + span // 2, lo + span // 4, lo + (span * 3) // 4]
+
+    rows, cols = spread(fb.top, fb.bottom), spread(fb.left, fb.right)
+    left, ls = best(fb.left, fb.right, 1, h_at, rows)
+    right, rs = best(fb.right, fb.left, -1, h_at, rows)
+    top, ts = best(fb.top, fb.bottom, 1, v_at, cols)
+    bottom, bs = best(fb.bottom, fb.top, -1, v_at, cols)
     return ({"left": left, "right": right, "top": top, "bottom": bottom},
             any((ls, rs, ts, bs)))
+
+
+def _lowest_text(cap, frame):
+    """The text of whichever descendant paints lowest inside `frame`.
+
+    Which string matters is a question about pixels, not about widget
+    order: a grid fills row by row and its last child can sit above one
+    registered earlier. Returns "" where nothing inside carries text, so
+    the caller's correction comes to zero.
+    """
+    lowest, found = None, ""
+    stack = [frame]
+    while stack:
+        widget = stack.pop()
+        stack.extend(widget.winfo_children())
+        try:
+            text = widget.cget("text")
+        except tk.TclError:
+            continue
+        if not isinstance(text, str) or not text:
+            continue
+        try:
+            extent = sa.painted_extent_v(cap, sa.box_of(widget))
+        except tk.TclError:
+            continue
+        if extent and (lowest is None or extent[1] > lowest):
+            lowest, found = extent[1], text
+    return found
 
 
 def _panel_edge_inset(title, side):
@@ -424,7 +478,14 @@ def _panel_edge_inset(title, side):
             return sa.gap_between(edges["top"], extent[0]), note
         if side == "right":
             return sa.gap_between(extent[1], edges["right"]), note
-        return sa.gap_between(extent[1], edges["bottom"]), note
+        # The BOTTOM edge measures up to text as often as not, and the
+        # rules take the baseline -- so a panel whose last line has a
+        # descender reads short by its depth, exactly as a title gap
+        # does. Requirements ends on "...starting a new capture" and read
+        # 6 against a hand reading of 9.
+        return restate_from_reference(
+            sa.gap_between(extent[1], edges["bottom"]), note,
+            ink_below_baseline(_lowest_text(cap, frame)))
     return resolve
 
 
