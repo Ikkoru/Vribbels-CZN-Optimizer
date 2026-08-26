@@ -608,7 +608,7 @@ class OptimizerTab(BaseTab):
                                   padx=2, pady=2)
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         exclude_frame = ttk.LabelFrame(
-            self._col2_container, text="Exclude Combatant's MFs", padding=(1, 2, 1, 3)
+            self._col2_container, text="Exclude Combatant's MFs", padding=(1, 3, 1, 3)
         )
         # spacing: panel ↕ unrelated label -- panel, title ↕
         # The whole gap: the Results panel below packs with no pady of
@@ -739,7 +739,8 @@ class OptimizerTab(BaseTab):
         top_row.pack(fill=tk.X, pady=(0, 5))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        important_frame = ttk.LabelFrame(top_row, text="Important Settings", padding=(3, 6, 5, 5))
+        important_frame = ttk.LabelFrame(top_row, text="Important Settings",
+                                         padding=(3, 0, 4, 2))
         # spacing: content frame -> content frame -- frame, frame ↔
         important_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 2))
         self._build_important_settings(important_frame)
@@ -763,7 +764,7 @@ class OptimizerTab(BaseTab):
 
         # Set Configuration
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        set_frame = ttk.LabelFrame(parent, text="Set Configuration", padding=(3, 6, 5, 5))
+        set_frame = ttk.LabelFrame(parent, text="Set Configuration", padding=(3, 5, 5, 5))
         # spacing: content frame -> content frame -- frame, frame ↕
         set_frame.pack(fill=tk.X, pady=(0, 5))
         self._set_frame_ref = set_frame
@@ -788,7 +789,7 @@ class OptimizerTab(BaseTab):
             parent, text="What percent of damage is Extra, Agony, or Fracture/Scorched DMG?",
             font=("Segoe UI", 9), wraplength=376,
             padding=(0, 0, 0, 0),
-        ).pack(anchor=tk.W, pady=(2, 2))
+        ).pack(anchor=tk.W, pady=(0, 2))
 
         # Each damage type gets a FULL row. Side by side, each slider's
         # rendered track fell below ~100px at common window widths (the

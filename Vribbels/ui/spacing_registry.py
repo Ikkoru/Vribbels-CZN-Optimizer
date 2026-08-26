@@ -521,7 +521,7 @@ PANEL_EDGES = [
     ("Optimizer", "Have at least this much of a stat", "top", 7),
     ("Optimizer", "Exclude Combatant's MFs", "top", 4),
     ("Optimizer", "Set Configuration", "top", 6),
-    ("Optimizer", "Set Configuration", "bottom", 6),
+    ("Optimizer", "Set Configuration", "bottom", 5),
     ("Capture", "Requirements", "top", 7),
     ("Capture", "Requirements", "bottom", 9),
     ("Capture", "Upgrade Log Settings", "top", 6),

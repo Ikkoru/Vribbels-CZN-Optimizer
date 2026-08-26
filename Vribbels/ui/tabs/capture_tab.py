@@ -135,7 +135,7 @@ class CaptureTab(BaseTab):
         # the explanation label below carries that, for the reason given
         # there.
         right_col = ttk.LabelFrame(top_columns, text="Upgrade Log Settings",
-                                   padding=(3, 1, 4, 3))
+                                   padding=(3, 0, 3, 3))
         # spacing: tab list -> first element -- tab, panel ↕
         # The pady top lands this LabelFrame's title on the same line as
         # the left column's heading: a LabelFrame title has no internal
@@ -305,7 +305,7 @@ class CaptureTab(BaseTab):
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         # The right edge carries slack, not a target: the frame is
         # stretched wider than its text.
-        req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(3, 2, 5, 4))
+        req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(3, 0, 5, 0))
         # spacing: content frame -> content frame -- frame, frame ↕
         req_frame.pack(fill=tk.X, pady=2)
 
