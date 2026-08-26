@@ -1305,9 +1305,9 @@ class OptimizerTab(BaseTab):
             _add_set_cb(sid, sinfo, i // ncols, i % ncols, 0)
         four_rows = (len(four) + ncols - 1) // ncols
         # spacing: checkbox row -> checkbox row (small division) -- checkbox, checkbox ↕
-        # A LEVER, not a rendered distance -- the small-division rule is
-        # not in the spacing audit yet. 4 against a base row gap of 0.
-        SET_GROUP_GAP = 4
+        # What a row on the far side of the division adds ON TOP of the
+        # ordinary pitch below it.
+        SET_GROUP_GAP = 9
         for j, (sid, sinfo) in enumerate(two):
             r = four_rows + j // ncols
             c = j % ncols

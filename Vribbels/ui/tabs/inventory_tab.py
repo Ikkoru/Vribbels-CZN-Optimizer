@@ -211,10 +211,15 @@ class InventoryTab(BaseTab):
                 var = tk.BooleanVar(value=True)
                 self.inv_slot_vars[slot_num] = var
                 # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
+                # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
+                # The pady is LEADING only, so the first row's gap
+                # upward stays the border-edge rule's and the last adds
+                # nothing above the All/None row.
                 make_checkbox(
                     slot_inner, self.colors, text=slot_name, variable=var,
                     command=lambda n=slot_num: self._on_slot_toggle(n)
-                ).grid(row=row, column=col, sticky=tk.W, padx=2)
+                ).grid(row=row, column=col, sticky=tk.W, padx=2,
+                       pady=(0 if row == 0 else 4, 0))
 
         make_all_none_row(slot_frame, self.select_all_slots,
                           self.select_no_slots)
@@ -267,7 +272,7 @@ class InventoryTab(BaseTab):
         # These are LEVERS, not rendered distances, and neither row-pitch
         # rule is in the spacing audit yet -- so the gaps they produce are
         # asserted, not measured. Measure before trusting them.
-        ROW_TOP_PAD = {1: 8, 2: 8}
+        ROW_TOP_PAD = {1: 9, 2: 9}
         for row_idx, row_labels in enumerate(MAIN_STAT_LAYOUT):
             extra_top = 0 if row_idx == 0 else ROW_TOP_PAD.get(row_idx, 4)
             for col_idx, label in enumerate(row_labels):
@@ -535,9 +540,12 @@ class InventoryTab(BaseTab):
             )
 
         # spacing: checkbox row -> checkbox row (small division) -- checkbox, checkbox ↕
-        SET_GROUP_GAP = 4
+        # What a row on the far side of the division adds ON TOP of the
+        # ordinary pitch below, not instead of it.
+        SET_GROUP_GAP = 9
         for i, set_name in enumerate(four_names):
-            _add_set_cell(set_name, i // ncols, i % ncols, 0)
+            _add_set_cell(set_name, i // ncols, i % ncols,
+                          0 if i < ncols else 4)
         four_rows = (len(four_names) + ncols - 1) // ncols
         for j, set_name in enumerate(rest_names):
             r = four_rows + j // ncols

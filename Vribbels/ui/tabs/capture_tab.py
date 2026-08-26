@@ -468,9 +468,11 @@ class CaptureTab(BaseTab):
             # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
             # Leading pad, so the last column ends at its own label and
             # the panel's frame-edge padding is the only gap after it.
+            # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
             cb.grid(row=idx // columns, column=column,
                     sticky=tk.W,
-                    padx=(0 if column == 0 else LOG_PRESET_COLUMN_GAP, 0))
+                    padx=(0 if column == 0 else LOG_PRESET_COLUMN_GAP, 0),
+                    pady=(0 if idx < columns else 4, 0))
             self._log_preset_vars[name] = var
 
     def _preset_element_colour(self, res_ids):

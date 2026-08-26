@@ -773,6 +773,12 @@ def _row_gaps(cap, frame, classes):
             for i in range(len(rows) - 1)]
 
 
+def _tally(gaps):
+    """`0 x4, 1 x2` -- every distinct gap and how many pairs sit at it."""
+    return ", ".join(f"{g} x{gaps.count(g)}"
+                     for g in sorted(set(gaps)))
+
+
 def _row_pitch(title, classes):
     """Resolver: the gap a panel's rows of `classes` USUALLY sit at.
 
@@ -789,7 +795,12 @@ def _row_pitch(title, classes):
         if not gaps:
             return None, "fewer than two rows of that kind in the panel"
         common = max(set(gaps), key=lambda g: (gaps.count(g), -g))
-        return common, ""
+        # A panel whose rows do not all sit at one pitch is worth
+        # saying so about: the answer is then a vote rather than a
+        # reading, and which pair the eye happened to measure decides
+        # whether the two agree.
+        note = "" if len(set(gaps)) == 1 else f"gaps {_tally(gaps)}"
+        return common, note
     return resolve
 
 
