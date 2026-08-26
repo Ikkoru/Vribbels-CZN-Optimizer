@@ -341,6 +341,12 @@ def _left_inset(title):
     return resolve
 
 
+def _is(cap, x, y, colour):
+    """Whether the pixel at (x, y) is exactly `colour`."""
+    ox, oy = cap.origin
+    return cap._px[x - ox, y - oy] == colour
+
+
 def _border_inner_edges(cap, frame):
     """Each border's inner edge, found by scanning INWARD for the first
     paint rather than requiring paint at the frame's box edge.
@@ -381,11 +387,20 @@ def _border_inner_edges(cap, frame):
                 return i, True
         return i, False
 
+    # The border is drawn in `bordercolor`, which `configure_styles`
+    # sets to `bg_lighter` -- a DIFFERENT shade from the `bg_light` that
+    # fills spinboxes and Treeviews. Looking for that one colour finds
+    # the border however much content abuts it, where "the first thing
+    # that is not background" cannot: a panel whose spinboxes reach
+    # every scan line has no background for such a run to stop at, and
+    # the edge lands inside the fill.
+    border = cap.palette.get("bg_lighter")
+
     def h_at(y):
-        return lambda x: cap.contains(x, y) and not cap.is_background(x, y)
+        return lambda x: cap.contains(x, y) and _is(cap, x, y, border)
 
     def v_at(x):
-        return lambda y: cap.contains(x, y) and not cap.is_background(x, y)
+        return lambda y: cap.contains(x, y) and _is(cap, x, y, border)
 
     def best(start, limit, step, probe_at, positions):
         """The first scan line that does NOT run into filled content.
@@ -419,32 +434,37 @@ def _border_inner_edges(cap, frame):
             any((ls, rs, ts, bs)))
 
 
-def _lowest_text(cap, frame):
-    """The text of whichever descendant paints lowest inside `frame`.
+# Widgets whose lowest ink is their TEXT. A Checkbutton's is its
+# INDICATOR and a Button's is its border, so a descender in either one's
+# label never reaches the bottom of the widget -- correcting by it would
+# add three pixels that are not there. Three bottom insets moved that
+# way before this was restricted.
+TEXT_ONLY_CLASSES = ("TLabel", "Label")
 
-    Which string matters is a question about pixels, not about widget
-    order: a grid fills row by row and its last child can sit above one
-    registered earlier. Returns "" where nothing inside carries text, so
-    the caller's correction comes to zero.
+
+def _lowest_text(cap, frame, floor):
+    """The text of the label whose ink reaches `floor`, or "".
+
+    Two guards, both learned the hard way. Only LABELS count, because
+    only their lowest ink is a glyph. And the label has to be what the
+    edge actually measures to -- `floor` is the lowest ink in the whole
+    panel, and a label sitting above a spinbox is not what the reading
+    stopped at, however low it is among labels.
     """
-    lowest, found = None, ""
     stack = [frame]
     while stack:
         widget = stack.pop()
         stack.extend(widget.winfo_children())
         try:
+            if widget.winfo_class() not in TEXT_ONLY_CLASSES:
+                continue
             text = widget.cget("text")
-        except tk.TclError:
-            continue
-        if not isinstance(text, str) or not text:
-            continue
-        try:
             extent = sa.painted_extent_v(cap, sa.box_of(widget))
         except tk.TclError:
             continue
-        if extent and (lowest is None or extent[1] > lowest):
-            lowest, found = extent[1], text
-    return found
+        if isinstance(text, str) and text and extent and extent[1] == floor:
+            return text
+    return ""
 
 
 def _panel_edge_inset(title, side):
@@ -485,7 +505,7 @@ def _panel_edge_inset(title, side):
         # 6 against a hand reading of 9.
         return restate_from_reference(
             sa.gap_between(extent[1], edges["bottom"]), note,
-            ink_below_baseline(_lowest_text(cap, frame)))
+            ink_below_baseline(_lowest_text(cap, frame, extent[1])))
     return resolve
 
 
