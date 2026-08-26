@@ -135,7 +135,7 @@ class CaptureTab(BaseTab):
         # the explanation label below carries that, for the reason given
         # there.
         right_col = ttk.LabelFrame(top_columns, text="Upgrade Log Settings",
-                                   padding=(3, 0, 3, 3))
+                                   padding=(3, 0, 3, 4))
         # spacing: tab list -> first element -- tab, panel ↕
         # The pady top lands this LabelFrame's title on the same line as
         # the left column's heading: a LabelFrame title has no internal

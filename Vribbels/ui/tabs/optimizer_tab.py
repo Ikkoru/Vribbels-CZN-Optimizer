@@ -747,7 +747,7 @@ class OptimizerTab(BaseTab):
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         have_frame = ttk.LabelFrame(
-            top_row, text="Have at least this much of a stat", padding=(3, 6, 5, 5)
+            top_row, text="Have at least this much of a stat", padding=(3, 4, 5, 5)
         )
         # HAL frame doesn't expand -- it sizes to its natural width so the
         # panel hugs its spinboxes; important_frame has expand=True so it

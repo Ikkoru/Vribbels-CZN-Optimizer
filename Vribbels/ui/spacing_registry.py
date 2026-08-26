@@ -510,23 +510,27 @@ def _panel_edge_inset(title, side):
 
 
 # The rule says "5px, all edges" and only the left edges were tracked.
-# (tab, panel, side, what the maintainer read off the screen). The
-# readings are calibration, not targets: a resolver that disagrees with
-# one is measuring the wrong thing, and no pixel should move until they
-# agree.
+#
+# These carried hand readings while their resolvers were being
+# calibrated, and the readings earned it: they caught a scan that was
+# measuring panel TITLES, another that stopped inside a spinbox's fill,
+# and a baseline correction applied to checkboxes that have no baseline.
+# All twelve agree with the eye now, so the readings are gone -- see
+# `TrackedGap.hand` for why leaving them would have been worse than
+# never adding them.
 PANEL_EDGES = [
-    ("Optimizer", "Important Settings", "top", 13),
-    ("Optimizer", "Important Settings", "right", 6),
-    ("Optimizer", "Important Settings", "bottom", 8),
-    ("Optimizer", "Have at least this much of a stat", "top", 7),
-    ("Optimizer", "Exclude Combatant's MFs", "top", 4),
-    ("Optimizer", "Set Configuration", "top", 6),
-    ("Optimizer", "Set Configuration", "bottom", 5),
-    ("Capture", "Requirements", "top", 7),
-    ("Capture", "Requirements", "bottom", 9),
-    ("Capture", "Upgrade Log Settings", "top", 6),
-    ("Capture", "Upgrade Log Settings", "bottom", 4),
-    ("Capture", "Upgrade Log Settings", "right", 6),
+    ("Optimizer", "Important Settings", "top"),
+    ("Optimizer", "Important Settings", "right"),
+    ("Optimizer", "Important Settings", "bottom"),
+    ("Optimizer", "Have at least this much of a stat", "top"),
+    ("Optimizer", "Exclude Combatant's MFs", "top"),
+    ("Optimizer", "Set Configuration", "top"),
+    ("Optimizer", "Set Configuration", "bottom"),
+    ("Capture", "Requirements", "top"),
+    ("Capture", "Requirements", "bottom"),
+    ("Capture", "Upgrade Log Settings", "top"),
+    ("Capture", "Upgrade Log Settings", "bottom"),
+    ("Capture", "Upgrade Log Settings", "right"),
 ]
 
 
@@ -1071,7 +1075,7 @@ def register_all():
             provisional=False,
         )
 
-    for tab, title, side, hand in PANEL_EDGES:
+    for tab, title, side in PANEL_EDGES:
         sa.track(
             name=f"{title}: {side} edge -> content",
             tab=tab,
@@ -1079,8 +1083,6 @@ def register_all():
             target=5,
             resolve=_panel_edge_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
-            provisional=True,
-            hand=hand,
         )
 
     for tab, title, side in TEXT_PANEL_EDGES:

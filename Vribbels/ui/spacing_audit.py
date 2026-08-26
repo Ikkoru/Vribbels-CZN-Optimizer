@@ -410,8 +410,14 @@ class TrackedGap:
     row passes: it exists so a new resolver can be checked against the
     eye before its numbers are acted on. A resolver that disagrees with
     a hand reading is measuring the wrong thing, and nudging pixels to
-    satisfy it makes the UI worse. The note says so and the row stays
-    yellow until the two agree; then the hand reading comes off.
+    satisfy it makes the UI worse.
+
+    **Remove it the moment the two agree.** A hand reading describes the
+    build it was taken from, so the first nudge to that gap makes it a
+    record of a state that no longer exists -- and it goes on reporting
+    a disagreement with the screen for as long as it is left in place.
+    It is worth nothing once its resolver is trusted, and worse than
+    nothing after the pixels move.
 
     `target_source` records HOW that number was arrived at:
 
