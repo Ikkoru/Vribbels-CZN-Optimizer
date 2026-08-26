@@ -1233,7 +1233,7 @@ def register_all():
             target=5,
             resolve=_text_panel_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
-            provisional=True,
+            provisional=False,
         )
 
     sa.track(
@@ -1243,7 +1243,7 @@ def register_all():
         target=_title_gap_target("Assign preset to"),
         resolve=_caption_to_field("Assign preset to"),
         axis="v",
-        provisional=True,
+        provisional=False,
     )
 
     for tab, heading, subtitle in TAB_HEADERS:
