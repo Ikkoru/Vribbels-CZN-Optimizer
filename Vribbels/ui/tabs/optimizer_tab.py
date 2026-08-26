@@ -1768,7 +1768,7 @@ class OptimizerTab(BaseTab):
         self._exclude_reflow_retried = False
 
         # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
-        gap = 7        # minimum px between checkbuttons in a row
+        gap = 8        # minimum px between checkbuttons in a row
         edge_pad = 2   # px on each side (kept symmetric)
         available_w = max(1, container_w - 2 * edge_pad)
 

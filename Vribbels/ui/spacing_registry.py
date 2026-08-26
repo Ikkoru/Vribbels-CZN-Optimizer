@@ -339,6 +339,60 @@ def _left_inset(title):
     return resolve
 
 
+def _border_inner_edges(cap, frame):
+    """Each border's inner edge, found by scanning INWARD for the first
+    paint rather than requiring paint at the frame's box edge.
+
+    `sa.frame_border_edges` requires it, and a LabelFrame does not
+    oblige: it reserves its title's height at the top, so the top border
+    sits several rows inside the box and that scan finds nothing there.
+    It then falls back to the box edge, which puts the interior ABOVE
+    the border -- so the first thing found inside is the TITLE, and
+    every panel reports its title's own offset instead of its content's.
+    Six panels read a constant 3 that way, against hand readings from 4
+    to 13.
+
+    The same fallback on the right puts the interior over the border and
+    finds the border itself, which reads 0.
+
+    Kept here rather than fixed in `frame_border_edges`: twenty frozen
+    entries measure through that function on their LEFT edges, where the
+    assumption happens to hold, and moving them all to prove a point is
+    not worth a re-freeze.
+    """
+    fb = sa.box_of(frame)
+    mid_y = (fb.top + fb.bottom) // 2
+    mid_x = (fb.left + fb.right) // 2
+
+    def run_end(start, limit, step, painted):
+        """Skip inward to the first paint, then walk to that run's end."""
+        i = start
+        while i != limit and not painted(i):
+            i += step
+        if not painted(i):
+            return start - step, False           # no border on this side
+        crossed = 0
+        while i != limit and painted(i + step):
+            i += step
+            crossed += 1
+            if crossed >= sa.MAX_BORDER:
+                return i, True
+        return i, False
+
+    def h(x):
+        return cap.contains(x, mid_y) and not cap.is_background(x, mid_y)
+
+    def v(y):
+        return cap.contains(mid_x, y) and not cap.is_background(mid_x, y)
+
+    left, ls = run_end(fb.left, fb.right, 1, h)
+    right, rs = run_end(fb.right, fb.left, -1, h)
+    top, ts = run_end(fb.top, fb.bottom, 1, v)
+    bottom, bs = run_end(fb.bottom, fb.top, -1, v)
+    return ({"left": left, "right": right, "top": top, "bottom": bottom},
+            any((ls, rs, ts, bs)))
+
+
 def _panel_edge_inset(title, side):
     """Resolver: one border of a panel -> the nearest ink inside it.
 
@@ -354,7 +408,7 @@ def _panel_edge_inset(title, side):
     """
     def resolve(cap, app):
         frame = _panel(app, title)
-        edges, saturated = sa.frame_border_edges(cap, frame)
+        edges, saturated = _border_inner_edges(cap, frame)
         note = ("border scan hit its cap; interior may be filled"
                 if saturated else "")
         interior = sa.Box(edges["left"] + 1, edges["top"] + 1,
