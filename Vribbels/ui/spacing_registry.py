@@ -733,6 +733,105 @@ def _panel_buttons(app, title):
     return frame, sa.find_descendants_class(frame, "TButton", "Button")
 
 
+# The widget classes the row rules count. Checkbuttons are matched by
+# both spellings because a panel that has not been through
+# `make_checkbox` yet would still register as the ttk one -- a check
+# enforces the helper, and this outlives it being briefly wrong.
+CHECKBOX_CLASSES = ("Checkbutton", "TCheckbutton")
+SPINBOX_CLASSES = ("Spinbox", "TSpinbox")
+
+
+def _painted_rows(cap, frame, classes):
+    """The painted (top, bottom) of each ROW of `classes` in a panel.
+
+    Widgets are grouped by whether they overlap vertically, not by grid
+    row: a row's members are laid out by several different calls in
+    these panels, and a grid can leave its last row part-empty, so the
+    pixels are the only thing that says which widgets sit level.
+    """
+    spans = []
+    for widget in sa.find_descendants_class(frame, *classes):
+        try:
+            extent = sa.painted_extent_v(cap, sa.box_of(widget))
+        except tk.TclError:
+            continue
+        if extent:
+            spans.append(list(extent))
+    spans.sort()
+    rows = []
+    for top, bottom in spans:
+        if rows and top <= rows[-1][1]:
+            rows[-1][1] = max(rows[-1][1], bottom)
+        else:
+            rows.append([top, bottom])
+    return rows
+
+
+def _row_gaps(cap, frame, classes):
+    rows = _painted_rows(cap, frame, classes)
+    return [sa.gap_between(rows[i][1], rows[i + 1][0])
+            for i in range(len(rows) - 1)]
+
+
+def _row_pitch(title, classes):
+    """Resolver: the gap a panel's rows of `classes` USUALLY sit at.
+
+    The most common gap, not the smallest. A panel with a division in it
+    has one gap deliberately larger, and one with a part-empty last row
+    can have one smaller -- the pitch is what the rest of them share.
+
+    No glyph correction: a checkbox row's painted bottom is its
+    INDICATOR and a spinbox row's is its border, so no descender in any
+    label reaches either edge of these gaps.
+    """
+    def resolve(cap, app):
+        gaps = _row_gaps(cap, _panel(app, title), classes)
+        if not gaps:
+            return None, "fewer than two rows of that kind in the panel"
+        common = max(set(gaps), key=lambda g: (gaps.count(g), -g))
+        return common, ""
+    return resolve
+
+
+def _row_division(title, classes):
+    """Resolver: the LARGEST gap between a panel's rows of `classes`.
+
+    Which pair carries the division is data-driven -- the Sets grid
+    divides where the four-piece sets end, and how many of those exist
+    depends on the game -- so it is found by being the widest rather
+    than by an index that would go stale.
+    """
+    def resolve(cap, app):
+        gaps = _row_gaps(cap, _panel(app, title), classes)
+        if len(gaps) < 2:
+            return None, "no division: fewer than three rows"
+        return max(gaps), ""
+    return resolve
+
+
+# (tab, panel, rule, classes, target, hand reading).
+ROW_PITCH_ENTRIES = [
+    ("Memory Fragments", "Slots", RULE_CHECKBOX_PITCH,
+     CHECKBOX_CLASSES, 7, 3),
+    ("Memory Fragments", "Sets", RULE_CHECKBOX_PITCH,
+     CHECKBOX_CLASSES, 7, 3),
+    ("Capture", "Upgrade Log Settings", RULE_CHECKBOX_PITCH,
+     CHECKBOX_CLASSES, 7, 3),
+    ("Optimizer", "Set Configuration", RULE_SPINBOX_PITCH,
+     SPINBOX_CLASSES, 2, 1),
+    ("Gear Score", "Stat Weight Configuration", RULE_SPINBOX_PITCH,
+     SPINBOX_CLASSES, 2, 4),
+]
+
+# The same rows, measured for their widest gap instead of their usual
+# one. Separate because a panel can have both.
+ROW_DIVISION_ENTRIES = [
+    ("Optimizer", "Set Configuration", CHECKBOX_CLASSES, 7),
+    ("Memory Fragments", "Sets", CHECKBOX_CLASSES, 7),
+    ("Memory Fragments", "Main Stats", CHECKBOX_CLASSES, 11),
+]
+
+
 def _checkbox_block_to_buttons(title):
     """Resolver: the lowest checkbox in a panel -> its All/None row.
 
@@ -984,7 +1083,6 @@ def _text_left_inset(title, prefix):
 # the entry survives a widget swap either way.
 #
 # (tab, panel, label, target, resolver)
-CHECKBOX_CLASSES = ("Checkbutton", "TCheckbutton")
 
 ELEMENT_ENTRIES = [
     ("Optimizer", "Important Settings", "slider", 5,
@@ -1073,6 +1171,30 @@ def register_all():
             resolve=_tab_list_to_first_element(_text, _bold),
             axis="v",
             provisional=False,
+        )
+
+    for tab, title, rule, classes, target, hand in ROW_PITCH_ENTRIES:
+        sa.track(
+            name=f"{title}: row pitch",
+            tab=tab,
+            rule=rule,
+            target=target,
+            resolve=_row_pitch(title, classes),
+            axis="v",
+            provisional=True,
+            hand=hand,
+        )
+
+    for tab, title, classes, hand in ROW_DIVISION_ENTRIES:
+        sa.track(
+            name=f"{title}: row division",
+            tab=tab,
+            rule=RULE_CHECKBOX_DIVISION,
+            target=12,
+            resolve=_row_division(title, classes),
+            axis="v",
+            provisional=True,
+            hand=hand,
         )
 
     for tab, title, side in PANEL_EDGES:

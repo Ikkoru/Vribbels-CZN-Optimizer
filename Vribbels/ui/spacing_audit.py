@@ -412,12 +412,18 @@ class TrackedGap:
     a hand reading is measuring the wrong thing, and nudging pixels to
     satisfy it makes the UI worse.
 
-    **Remove it the moment the two agree.** A hand reading describes the
-    build it was taken from, so the first nudge to that gap makes it a
-    record of a state that no longer exists -- and it goes on reporting
-    a disagreement with the screen for as long as it is left in place.
-    It is worth nothing once its resolver is trusted, and worse than
-    nothing after the pixels move.
+    **Remove it once the two agree AND a nudge has moved them together.**
+    Agreement in one state is weak: a resolver returning a constant, or
+    measuring the wrong pair of edges, can land on the right number by
+    luck. What rules that out is changing a lever the gap depends on and
+    watching the reading move by the same amount -- the measuring
+    equivalent of breaking a check to see it fail.
+
+    Then remove it, and do not leave it a moment longer. A hand reading
+    describes the build it was taken from, so the nudge that proved the
+    resolver is also what makes the reading a record of a state that no
+    longer exists -- and it goes on reporting a disagreement with the
+    screen for as long as it stays.
 
     `target_source` records HOW that number was arrived at:
 
