@@ -823,23 +823,28 @@ def _row_division(title, classes):
 # (tab, panel, rule, classes, target, hand reading).
 ROW_PITCH_ENTRIES = [
     ("Memory Fragments", "Slots", RULE_CHECKBOX_PITCH,
-     CHECKBOX_CLASSES, 7, 3),
+     CHECKBOX_CLASSES, 7),
     ("Memory Fragments", "Sets", RULE_CHECKBOX_PITCH,
-     CHECKBOX_CLASSES, 7, 3),
+     CHECKBOX_CLASSES, 7),
     ("Capture", "Upgrade Log Settings", RULE_CHECKBOX_PITCH,
-     CHECKBOX_CLASSES, 7, 3),
-    ("Optimizer", "Set Configuration", RULE_SPINBOX_PITCH,
-     SPINBOX_CLASSES, 2, 1),
+     CHECKBOX_CLASSES, 7),
+    # CHECKBOXES here, not the spinboxes beside them, per the standing
+    # exception in docs/ui_spacing.md: only conditional sets carry a
+    # spinbox, so consecutive ones can be rows apart and the column has
+    # no pitch to measure. Read as spinboxes it came out `0 x5, 9 x1,
+    # 42 x1` -- a vote, not a distance.
+    ("Optimizer", "Set Configuration", RULE_CHECKBOX_PITCH,
+     CHECKBOX_CLASSES, 7),
     ("Gear Score", "Stat Weight Configuration", RULE_SPINBOX_PITCH,
-     SPINBOX_CLASSES, 2, 4),
+     SPINBOX_CLASSES, 2),
 ]
 
 # The same rows, measured for their widest gap instead of their usual
 # one. Separate because a panel can have both.
 ROW_DIVISION_ENTRIES = [
-    ("Optimizer", "Set Configuration", CHECKBOX_CLASSES, 7),
-    ("Memory Fragments", "Sets", CHECKBOX_CLASSES, 7),
-    ("Memory Fragments", "Main Stats", CHECKBOX_CLASSES, 11),
+    ("Optimizer", "Set Configuration", CHECKBOX_CLASSES),
+    ("Memory Fragments", "Sets", CHECKBOX_CLASSES),
+    ("Memory Fragments", "Main Stats", CHECKBOX_CLASSES),
 ]
 
 
@@ -1184,7 +1189,7 @@ def register_all():
             provisional=False,
         )
 
-    for tab, title, rule, classes, target, hand in ROW_PITCH_ENTRIES:
+    for tab, title, rule, classes, target in ROW_PITCH_ENTRIES:
         sa.track(
             name=f"{title}: row pitch",
             tab=tab,
@@ -1192,11 +1197,9 @@ def register_all():
             target=target,
             resolve=_row_pitch(title, classes),
             axis="v",
-            provisional=True,
-            hand=hand,
         )
 
-    for tab, title, classes, hand in ROW_DIVISION_ENTRIES:
+    for tab, title, classes in ROW_DIVISION_ENTRIES:
         sa.track(
             name=f"{title}: row division",
             tab=tab,
@@ -1204,8 +1207,6 @@ def register_all():
             target=12,
             resolve=_row_division(title, classes),
             axis="v",
-            provisional=True,
-            hand=hand,
         )
 
     for tab, title, side in PANEL_EDGES:

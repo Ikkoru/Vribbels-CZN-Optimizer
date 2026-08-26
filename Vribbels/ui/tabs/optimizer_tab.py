@@ -1302,7 +1302,11 @@ class OptimizerTab(BaseTab):
         # the 4-piece sets, with a small vertical gap separating the two
         # groups.
         for i, (sid, sinfo) in enumerate(four):
-            _add_set_cb(sid, sinfo, i // ncols, i % ncols, 0)
+            # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
+            # Leading only, so nothing is added above the first row
+            # and the panel's top inset stays where it is.
+            _add_set_cb(sid, sinfo, i // ncols, i % ncols,
+                        0 if i < ncols else 4)
         four_rows = (len(four) + ncols - 1) // ncols
         # spacing: checkbox row -> checkbox row (small division) -- checkbox, checkbox ↕
         # What a row on the far side of the division adds ON TOP of the
