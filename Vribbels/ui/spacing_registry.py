@@ -1008,7 +1008,12 @@ def _neighbour_gaps(cap, frame, classes):
     whose gap is the distance that was set.
     """
     found = []
-    for w in sa.find_descendants_class(frame, *classes):
+    # DIRECT children only. Searching the subtree finds the frames a cell
+    # is built out of as well as the cells themselves, and one stray
+    # packed widget among them is enough to make a gridded block look
+    # ungridded and send it down the wrong branch below.
+    for w in [c for c in sa.find_descendants_class(frame, *classes)
+              if c.master is frame]:
         box = sa.box_of(w)
         top = sa.painted_extent_v(cap, box)
         span = sa.painted_extent_h(cap, box)
@@ -1083,6 +1088,45 @@ def _panel_at(title):
     return find
 
 
+def _block_in(panel, classes):
+    """Locator: the frame a panel's block of controls actually sits in.
+
+    Some panels hold their block directly and some put it in an inner
+    frame; taking the first control's parent finds it either way,
+    without the entry having to know which. A panel with two blocks
+    would give the first, so it is only for panels with one.
+    """
+    def find(app):
+        frame = _panel(app, panel)
+        found = sa.find_descendants_class(frame, *classes)
+        if not found:
+            raise LookupError(f"no {'/'.join(classes)} in {panel!r}")
+        return found[0].master
+    return find
+
+
+def _tab_attr(instance, attr):
+    """Locator: a frame the tab already stores on itself.
+
+    The convention is to find things by their words, and these two
+    cannot be: the Sets grid is labelled with set names and the Set
+    Configuration grid with them too, both of which come from the data.
+    Neither frame is being stored FOR the audit -- the tabs rebuild
+    their contents and kept the handle already.
+    """
+    def find(app):
+        return getattr(getattr(app, instance), attr)
+    return find
+
+
+LABEL_CLASSES = ("TLabel", "Label")
+
+# Cells of a grid, for the two panels that wrap each label-and-control
+# pair in a frame of its own. A frame paints nothing itself, so its
+# painted extent is its children's -- which is exactly the pair's.
+CELL_CLASSES = ("TFrame",)
+
+
 FILTER_CHECKBOX = "Don't show presets on ATK/DEF"
 
 # (tab, name, target, hand reading, container locator, classes, index)
@@ -1094,7 +1138,8 @@ PAIR_GAP_ENTRIES = [
     # every gap but the smallest is slack. The smallest is the one the
     # reflow is told to keep, and the only one worth a target.
     ("Optimizer", "Exclude checkboxes", 8, None,
-     _panel_at("Exclude Combatant's MFs"), CHECKBOX_CLASSES, None),
+     _block_in("Exclude Combatant's MFs", CHECKBOX_CLASSES),
+     CHECKBOX_CLASSES, None),
     # The grid frame, not the panel: the panel also holds the row of
     # unknown main stats, which is gridded from column 0 of its own
     # frame and would merge into these columns.
@@ -1109,6 +1154,28 @@ PAIR_GAP_ENTRIES = [
     # tighter, so a panel-wide reading would report it instead.
     ("Capture", "log filter checkboxes", 8, None,
      lambda app: _group_of(FILTER_CHECKBOX)(app), CHECKBOX_CLASSES, None),
+
+    # The rule's other half: pairs of UNLIKE controls, where one class
+    # list cannot describe both ends.
+    #
+    # Two of them wrap each pair in a frame, so the cells are the units
+    # and the gap between grid columns is the gap between pairs.
+    ("Optimizer", "Set Configuration cells", 8, 6,
+     _tab_attr("optimizer_tab_instance", "set_grid_frame"),
+     CELL_CLASSES, 0),
+    ("Gear Score", "weight columns", 8, 19,
+     lambda app: _group_of("ATK Flat")(app).master, CELL_CLASSES, 0),
+
+    # The other two pack or grid their labels and controls side by side
+    # with nothing wrapping a pair, so the gaps alternate: label to its
+    # own control, then control to the NEXT label. The odd positions are
+    # this rule's; the even ones belong to `label ↔ its element`.
+    ("Optimizer", "Set Config averages", 8, 14,
+     lambda app: _by_text("Avg Card DMG%")(app).master,
+     LABEL_CLASSES + SPINBOX_CLASSES, 1),
+    ("Memory Fragments", "Sets count -> next set", 8, 14,
+     _tab_attr("inventory_tab_instance", "inv_set_frame_inner"),
+     CHECKBOX_CLASSES + LABEL_CLASSES, 1),
 ]
 
 
