@@ -13,9 +13,17 @@ from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 
 
-# Width of the tab's fixed left column, in pixels. The right column
-# takes whatever is left of the tab, so this is the only lever on the
-# Upgrade Log Settings panel's width.
+# Intended width of the tab's left column, in pixels. It reaches the
+# grid as a MINSIZE, so it is a floor and not a width: the column ends
+# up as wide as its widest child asks, and only this value if that is
+# wider still.
+#
+# It is not, today. The button row asks for more, so this number sets
+# nothing and the column is whatever the row costs -- four buttons at
+# BUTTON_W_MEDIUM plus the debug checkbox, which is why the checkbox
+# carries a wraplength. The right column takes what is left of the tab,
+# so every pixel the ROW gives up is one the Upgrade Log Settings panel
+# gains; this constant cannot hand it any.
 LEFT_COLUMN_PX = 474
 
 # Log Preset checkboxes per row, filled left-to-right then down.
@@ -126,22 +134,14 @@ class CaptureTab(BaseTab):
         # a child of this frame, so its padx positions the heading,
         # Status, Server Region, Requirements and the button row at once.
         left_col.grid(row=0, column=0, sticky="nsew", padx=2)
-        # NEITHER OF THESE TWO LINES DOES ANYTHING, and the column is
-        # wider than LEFT_COLUMN_PX because of it. Tk keeps the
-        # propagation flag per geometry MANAGER, and this frame's
-        # children are packed, not gridded -- so turning grid propagation
-        # off leaves pack propagation on, `width` is overridden by the
-        # children, and left_col asks for whatever its widest child does.
-        # The button row is 526 where LEFT_COLUMN_PX is 498, so the
-        # Upgrade Log Settings panel beside it is 28px narrower than
-        # intended.
-        #
-        # Left in place rather than deleted because making the clamp work
-        # is a choice, not a fix: `pack_propagate(False)` would need an
-        # explicit HEIGHT too, and the alternative is narrowing the
-        # button row until it fits.
-        left_col.configure(width=LEFT_COLUMN_PX)
-        left_col.grid_propagate(False)
+        # There is no width clamp here, and one cannot usefully be added:
+        # this frame's children are PACKED, and Tk keeps the propagation
+        # flag per geometry manager, so `grid_propagate(False)` on it sets
+        # a flag nothing reads while pack propagation stays on. A
+        # `configure(width=...)` beside it is overridden the same way.
+        # The column is as wide as its widest child asks, full stop --
+        # see LEFT_COLUMN_PX, which describes that width rather than
+        # imposing it.
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         # The frame's own padding is NOT the lever for the left inset --
@@ -322,9 +322,11 @@ class CaptureTab(BaseTab):
         self.debug_checkbox.pack(side=tk.LEFT, padx=(6, 0))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        # The right edge carries slack, not a target: the frame is
-        # stretched wider than its text.
-        req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(3, 0, 5, 0))
+        # Left and right padding match, and the right one only renders
+        # while this text is the widest thing in the column: the frame
+        # fills the column, so anything past the longest line is slack
+        # that no padding here reaches.
+        req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(3, 0, 3, 0))
         # spacing: panel ↕ unrelated label -- button, title ↕
         # ABOVE is the capture button row against this panel's own TITLE:
         # text is what sits across that gap, so the label rule governs

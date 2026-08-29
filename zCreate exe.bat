@@ -2,11 +2,11 @@
 
 echo Don't forget to:
 echo 0. Ensure the default settings are correct.
-echo 1. Delet default json files, then zRUN Vribbels
+echo 1. Delete default json files, then zRUN Vribbels
 echo 2. Be happy
 echo.
 
-cd ".\Vribbels"
+cd /d "%~dp0Vribbels" || (echo CANNOT FIND Vribbels NEXT TO THIS FILE & pause & exit /b 1)
 
 python "./default_settings/normalize/normalize_defaults.py" || (echo NORMALIZE FAILED & pause & exit /b 1)
 echo.

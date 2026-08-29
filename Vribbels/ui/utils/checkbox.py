@@ -38,7 +38,8 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
         compact: drop the widget's own padding to zero, for rows whose
             height is constrained by something else (the Optimizer
             toolbar's status cluster).
-        wraplength: wrap the label at this pixel width.
+        wraplength: wrap the label at this pixel width. Wrapped labels
+            are left-justified, so a caller does not have to ask.
     """
     colour = fg or colors["fg"]
     opts = dict(
@@ -63,7 +64,13 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
     if compact:
         opts.update(padx=0, pady=0)
     if wraplength is not None:
+        # justify with it, always. A wrapped label is the only way this
+        # widget gets a second line, and tk.Checkbutton centres its lines
+        # by default -- which reads as ragged beside the `anchor=tk.W`
+        # above, and against every other label in the app. Two of the
+        # three call sites passed it by hand and the third did not.
         opts["wraplength"] = wraplength
+        opts["justify"] = tk.LEFT
     opts.update(kwargs)
     widget = tk.Checkbutton(parent, **opts)
     # NOT dead code: the return value is discarded and the call still has
