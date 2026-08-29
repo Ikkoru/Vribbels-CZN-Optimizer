@@ -312,7 +312,7 @@ class CaptureTab(BaseTab):
         # wraplength keeps the label narrow inside the fixed-width left
         # column instead of pushing the button row wider.
         self.debug_checkbox = make_checkbox(
-            btn_frame, self.colors, text="Debug Socket",
+            btn_frame, self.colors, text="Debug WS",
             variable=self.debug_var, wraplength=40,
         )
         # Enable to log every WebSocket message to a websocket_debug_*.jsonl
@@ -346,7 +346,7 @@ class CaptureTab(BaseTab):
 - Game must be closed before starting capture
 - Start capture, then launch the game and load into the main menu
 - Keep capture running to see live updates as you make changes
-- If you stop the capture, close the game before starting a new capture"""
+- If you stop the capture, close the game before starting a new capture ddddddddddddddddddddddddd"""
 
         ttk.Label(req_frame, text=requirements_text, justify=tk.LEFT).pack(anchor=tk.W)
 
