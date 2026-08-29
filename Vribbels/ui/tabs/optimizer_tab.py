@@ -927,7 +927,7 @@ class OptimizerTab(BaseTab):
             # The last checkbox drops its right pad so the rightmost
             # visible element sits flush with the frame's right padding
             # edge, matching the left edge of the leading label.
-            pad_right = 0 if idx == len(FORCE_MAIN_DEFS) - 1 else 8
+            pad_right = 0 if idx == len(FORCE_MAIN_DEFS) - 1 else 4
             make_checkbox(
                 fm_row, self.colors, text=label,
                 variable=self.force_main_vars[key],
@@ -1773,7 +1773,10 @@ class OptimizerTab(BaseTab):
         self._exclude_reflow_retried = False
 
         # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
-        gap = 8        # minimum px between checkbuttons in a row
+        # Between the checkbuttons' BOXES. A checkbutton's ink stops
+        # short of its box on each side, so the rendered gap is wider
+        # than this by a constant -- the rule's 8 is the rendered one.
+        gap = 4        # minimum px between checkbuttons in a row
         edge_pad = 2   # px on each side (kept symmetric)
         available_w = max(1, container_w - 2 * edge_pad)
 

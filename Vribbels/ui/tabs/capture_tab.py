@@ -186,7 +186,7 @@ class CaptureTab(BaseTab):
             # division says how far the block starts from what is above
             # it, not how its rows sit among themselves.
             ).grid(row=row, column=column, sticky=tk.W,
-                   padx=(0, 10) if column == 0 else 0,
+                   padx=(0, 4) if column == 0 else 0,
                    pady=(0 if row == 0 else 4, 0))
             return var
 

@@ -1007,14 +1007,39 @@ def _neighbour_gaps(cap, frame, classes):
     much shorter its own label is; the widest member is the only one
     whose gap is the distance that was set.
     """
-    rows = {}
+    found = []
     for w in sa.find_descendants_class(frame, *classes):
         box = sa.box_of(w)
         top = sa.painted_extent_v(cap, box)
         span = sa.painted_extent_h(cap, box)
         if top is None or span is None:
             continue
-        rows.setdefault(top[0], []).append(span)
+        info = w.grid_info()
+        found.append((w, top[0], span, info.get("column") if info else None))
+    if not found:
+        return []
+
+    if all(col is not None for _w, _t, _s, col in found):
+        # Gridded: a COLUMN is the unit, and its span is its widest
+        # member's. Reading row by row instead would miss the widest
+        # member of a column whose own row is short -- Main Stats has
+        # four columns in its first row and two in its second, so the
+        # widest thing in column 2 has nothing to its right on its own
+        # line and never gets measured.
+        cols = {}
+        for _w, _top, span, col in found:
+            edge = cols.setdefault(col, [span[0], span[1]])
+            edge[0] = min(edge[0], span[0])
+            edge[1] = max(edge[1], span[1])
+        ordered = [cols[c] for c in sorted(cols)]
+        return [sa.gap_between(a[1], b[0])
+                for a, b in zip(ordered, ordered[1:])]
+
+    # Packed or placed: there are no columns to group by, so each row is
+    # read left to right and the smallest gap at each position wins.
+    rows = {}
+    for _w, top, span, _col in found:
+        rows.setdefault(top, []).append(span)
     at = {}
     for spans in rows.values():
         spans.sort()
@@ -1063,21 +1088,26 @@ FILTER_CHECKBOX = "Don't show presets on ATK/DEF"
 # (tab, name, target, hand reading, container locator, classes, index)
 # for two label-and-control pairs side by side.
 PAIR_GAP_ENTRIES = [
-    ("Optimizer", "Force HP/Ego checkboxes", 8, 12,
+    ("Optimizer", "Force HP/Ego checkboxes", 8, None,
      lambda app: _group_of(FORCE_CAPTION)(app), CHECKBOX_CLASSES, None),
     # Variable by construction: the row reflows to the panel's width, so
     # every gap but the smallest is slack. The smallest is the one the
     # reflow is told to keep, and the only one worth a target.
-    ("Optimizer", "Exclude checkboxes", 8, 8,
+    ("Optimizer", "Exclude checkboxes", 8, None,
      _panel_at("Exclude Combatant's MFs"), CHECKBOX_CLASSES, None),
+    # The grid frame, not the panel: the panel also holds the row of
+    # unknown main stats, which is gridded from column 0 of its own
+    # frame and would merge into these columns.
     ("Memory Fragments", "Main Stats columns 1-2", 8, 7,
-     _panel_at("Main Stats"), CHECKBOX_CLASSES, 0),
+     lambda app: _group_of("ATK%")(app), CHECKBOX_CLASSES, 0),
     ("Memory Fragments", "Main Stats columns 2-3", 8, 6,
-     _panel_at("Main Stats"), CHECKBOX_CLASSES, 1),
+     lambda app: _group_of("ATK%")(app), CHECKBOX_CLASSES, 1),
+    ("Memory Fragments", "Main Stats columns 3-4", 8, None,
+     lambda app: _group_of("ATK%")(app), CHECKBOX_CLASSES, 2),
     # The mismatch filters only, NOT the preset checklist above them --
     # that is the other block of checkboxes in this panel and it sits
     # tighter, so a panel-wide reading would report it instead.
-    ("Capture", "log filter checkboxes", 8, 14,
+    ("Capture", "log filter checkboxes", 8, None,
      lambda app: _group_of(FILTER_CHECKBOX)(app), CHECKBOX_CLASSES, None),
 ]
 
