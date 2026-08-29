@@ -106,15 +106,27 @@ DESCENDER_DEPTH = 3
 PARENTHESIS_DEPTH = 2
 ASCENDER_RISE_14_BOLD = 1
 
+# A descender at Segoe UI 14 bold, the tab headings' font, reaches a
+# pixel deeper than one at 9. Measured from the three tab headings read
+# against each other: "Data Capture" and "First-Time Setup" each carry a
+# `p` and each read 1px tighter than the eye, where "Gear Score
+# Calculation" has no descender and read dead on. Two sites saying the
+# same thing with a control beside them.
+DESCENDER_DEPTH_14_BOLD = 4
 
-def ink_below_baseline(text: str) -> int:
+
+def ink_below_baseline(text: str, bold14: bool = False) -> int:
     """How far `text`'s ink reaches below the baseline.
 
     Checked deepest first: a string can hold both a descender and a
     parenthesis, and the deeper glyph is the one the ink stops at.
+
+    `bold14` for the tab headings, whose descenders reach a pixel
+    further than body text's. A parenthesis has never been measured at
+    that size and no heading holds one, so it keeps the 9pt depth.
     """
     if any(c in text for c in DESCENDERS):
-        return DESCENDER_DEPTH
+        return DESCENDER_DEPTH_14_BOLD if bold14 else DESCENDER_DEPTH
     if any(c in text for c in PARENTHESES):
         return PARENTHESIS_DEPTH
     return 0
@@ -617,12 +629,17 @@ def _panel_over_label(panel, prefix):
     return resolve
 
 
-def _label_over_panel(prefix, panel):
+def _label_over_panel(prefix, panel, bold14=False):
     """Resolver: a label's ink -> the title of the panel below it.
 
     The mirror of `_panel_over_label`, and the rule reaches both ways: a
     tab heading standing over the first panel on its tab is the same
     kind of gap seen from the other side.
+
+    `bold14` says the label is a 14pt heading, whose descenders reach
+    deeper than body text's. Every site is one today; the argument is
+    there rather than assumed because the resolver is named for labels
+    in general.
 
     The string is read off the widget rather than passed in, because two
     of these are rewritten while the app runs.
@@ -633,7 +650,28 @@ def _label_over_panel(prefix, panel):
             return None, f"no element whose text starts {prefix!r}"
         return restate_from_reference(
             *sa.vertical_gap(cap, label, _panel(app, panel)),
-            ink_below_baseline(label.cget("text")))
+            ink_below_baseline(label.cget("text"), bold14))
+    return resolve
+
+
+def _button_over_panel(text, panel):
+    """Resolver: a button's bottom -> the title of the panel below it.
+
+    For the two tabs whose panels are not stacked directly: a row of
+    buttons sits between them, so the nearest thing above the lower
+    panel's title is a button border rather than another panel.
+
+    The button is taken rather than the frame that holds it. Both rows
+    carry something taller beside the buttons -- Capture's a wrapping
+    checkbox label -- and the rule is read off the buttons.
+
+    No correction: a button's bottom edge is a border, not a baseline.
+    """
+    def resolve(cap, app):
+        button = sa.find_descendant_text(sa.current_tab_widget(app), text)
+        if button is None:
+            return None, f"no button reading {text!r}"
+        return sa.vertical_gap(cap, button, _panel(app, panel))
     return resolve
 
 
@@ -709,33 +747,48 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_over_label("Exclude Combatant's MFs", "Results")),
     ("Combatants", "Character -> Equipped Memory Fragments title", 10, 7,
      _panel_gap("Character", "Equipped Memory Fragments", "v")),
-    ("Capture", "Server Region -> Requirements title", 10, 9,
-     _panel_gap("Server Region", "Requirements", "v")),
-    # The Upgrade Log Settings panel, not Requirements: both columns of
-    # the top grid stretch to the row height, and this one ends in a
-    # border where the left column ends in a button row that stops short
-    # of it.
-    ("Capture", "Upgrade Log Settings -> Capture Log title", 10, 9,
+
+    # A button row, then a panel title. Neither of these two pairs is
+    # stacked: Capture puts its capture buttons between Server Region
+    # and Requirements, and Setup puts Check Status between the top row
+    # and the instructions. Measuring panel to panel here skips the row
+    # entirely and reports the whole distance across it.
+    ("Capture", "capture buttons -> Requirements title", 10, 9,
+     _button_over_panel("Start Capture", "Requirements")),
+    ("Setup", "Setup buttons -> Setup Instructions title", 10, 7,
+     _button_over_panel("Check Status", "Setup Instructions")),
+
+    # BOTH columns of the Capture tab's top grid, against the same
+    # title below them. Requirements is the one the rule is read off:
+    # it ends the left column, which is where the eye measures. The
+    # Upgrade Log Settings row is what catches the two columns falling
+    # out of level -- its panel grows with the number of preset rows and
+    # is meant to sit flush with Requirements' bottom until it has
+    # enough of them to reach past it. Two entries at one target rather
+    # than a rule about alignment: when both read the same number the
+    # columns are level, and when they do not, the difference IS the
+    # misalignment.
+    ("Capture", "Requirements -> Capture Log title", 10, 9,
+     _panel_gap("Requirements", "Capture Log", "v")),
+    ("Capture", "Upgrade Log Settings -> Capture Log title", 10, 7,
      _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
-    ("Setup", "Setup Status -> Setup Instructions title", 10, 7,
-     _panel_gap("Setup Status", "Setup Instructions", "v")),
 
     # Text above, a panel below. The three tab headings differ only in
     # how much container padding stands under them -- Gear Score and
     # Capture spend 4px and read 12, Setup spends 6 and reads 14.
     #
-    # "First-Time Setup" is the only 14pt heading with a descender, and
-    # the depth of one at that size has never been measured; the
-    # correction applies the 9pt depth. If that is wrong this row is the
-    # site that says so, by disagreeing with its hand reading while the
-    # other two agree.
+    # These three are what measured `DESCENDER_DEPTH_14_BOLD`. Two of
+    # them carry a `p` and the third carries no descender at all, so
+    # reading all three against the eye isolates the depth from
+    # everything else in the gap.
     ("Gear Score", "Gear Score Calculation -> How Gear Score Works title",
      10, 12,
-     _label_over_panel("Gear Score Calculation", "How Gear Score Works")),
+     _label_over_panel("Gear Score Calculation", "How Gear Score Works",
+                       bold14=True)),
     ("Capture", "Data Capture -> Status title", 10, 12,
-     _label_over_panel("Data Capture", "Status")),
+     _label_over_panel("Data Capture", "Status", bold14=True)),
     ("Setup", "First-Time Setup -> Setup Status title", 10, 14,
-     _label_over_panel("First-Time Setup", "Setup Status")),
+     _label_over_panel("First-Time Setup", "Setup Status", bold14=True)),
 
     # The Combatants header band, one entry per column. Both read 11,
     # from two unrelated constructions -- the left column's label is a

@@ -16,13 +16,13 @@ from ..utils.tab_header import make_tab_header
 # Width of the tab's fixed left column, in pixels. The right column
 # takes whatever is left of the tab, so this is the only lever on the
 # Upgrade Log Settings panel's width.
-LEFT_COLUMN_PX = 583
+LEFT_COLUMN_PX = 498
 
 # Log Preset checkboxes per row, filled left-to-right then down.
-LOG_PRESET_COLUMNS = 5
+LOG_PRESET_COLUMNS = 6
 
 # Gap between those columns, in pixels.
-LOG_PRESET_COLUMN_GAP = 6
+LOG_PRESET_COLUMN_GAP = 8
 
 # What the Region readout says before a capture has seen a connection.
 REGION_UNKNOWN = "not detected yet"
@@ -97,7 +97,7 @@ class CaptureTab(BaseTab):
         main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
 
         # Everything above the Capture Log sits in a two-column grid:
-        # column 1 = the capture controls at a fixed 610px, column 2 =
+        # column 1 = the capture controls at a fixed width, column 2 =
         # the Upgrade Log settings taking whatever is left. weight=0 +
         # minsize pins the left column; an equal-weight `uniform` pair
         # would force a 50/50 split and ignore left_col's width request.
@@ -151,7 +151,7 @@ class CaptureTab(BaseTab):
         ttk.Label(
             right_col,
             text="Assigned presets compared in the Upgraded log lines' "
-                 "Highest Potential.\nChecking or unchecking a preset "
+                 "Highest Potential. Checking or unchecking a preset "
                  "excludes it (and re-writes the last Upgraded line).",
             foreground=self.colors["fg_dim"], justify=tk.LEFT,
         ).pack(anchor=tk.W, padx=(0, 0), pady=(0, 0))
@@ -299,8 +299,8 @@ class CaptureTab(BaseTab):
         # wraplength keeps the label narrow inside the fixed-width left
         # column instead of pushing the button row wider.
         self.debug_checkbox = make_checkbox(
-            btn_frame, self.colors, text="Debug WebSocket traffic",
-            variable=self.debug_var, wraplength=100,
+            btn_frame, self.colors, text="Debug WebSocket",
+            variable=self.debug_var, wraplength=80,
         )
         # Enable to log every WebSocket message to a websocket_debug_*.jsonl
         # file in the snapshots folder — useful when adding support for new
@@ -663,7 +663,7 @@ class CaptureTab(BaseTab):
             self.capture_start_btn.config(state=tk.DISABLED)
             self.capture_stop_btn.config(state=tk.NORMAL)
             self.capture_info_label.config(
-                text="Launch the game and load into the main menu. Keep running for live updates."
+                text="Keep running for live updates."
             )
         except CaptureError as e:
             # The debug checkbox was disabled for the duration of a
