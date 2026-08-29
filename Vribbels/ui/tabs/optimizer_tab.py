@@ -404,7 +404,7 @@ class OptimizerTab(BaseTab):
         # stack vertically, mirroring the Combatant stacking.
         level_frame = ttk.Frame(self._toolbar_top_row)
         # spacing: control group ↔ control group -- dropdown, label ↔
-        level_frame.pack(side=tk.LEFT, padx=(15, 0), anchor=tk.N)
+        level_frame.pack(side=tk.LEFT, padx=(11, 0), anchor=tk.N)
         # spacing: title above, element below -- label, spinbox ↕
         ttk.Label(level_frame, text="Optimize for LVL:",
                   padding=(-2, 0, 0, 0)).pack(anchor=tk.W)
@@ -431,7 +431,7 @@ class OptimizerTab(BaseTab):
         # edge level with the other elements in this row. A ttk.Button's
         # box edge IS its border, where a Label's box starts above its
         # glyphs, so equal pady would render them unequal.
-        self.start_button.pack(side=tk.LEFT, padx=(15, 2), pady=(5, 0), anchor=tk.N)
+        self.start_button.pack(side=tk.LEFT, padx=(14, 2), pady=(5, 0), anchor=tk.N)
         ttk.Button(self._toolbar_top_row, text="Stop",
                    width=BUTTON_W_SMALL,
                    command=self.cancel_optimization).pack(
@@ -468,7 +468,7 @@ class OptimizerTab(BaseTab):
             wraplength=OPTIMIZER_HELP_WRAPLENGTH,
         )
         # spacing: control group ↔ control group -- button, label ↔
-        help_label.pack(side=tk.LEFT, padx=(15, 0), fill=tk.X, expand=True, anchor=tk.N)
+        help_label.pack(side=tk.LEFT, padx=(12, 0), fill=tk.X, expand=True, anchor=tk.N)
 
         def _rewrap(event, lbl=help_label):
             # Skip no-op reconfigures. Setting wraplength changes the label's
@@ -914,7 +914,7 @@ class OptimizerTab(BaseTab):
         # Label + checkboxes on the same line.
         fm_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, checkbox ↕
-        fm_row.pack(fill=tk.X, pady=(2, 2))
+        fm_row.pack(fill=tk.X, pady=(1, 2))
         # spacing: label ↔ its element -- label, checkbox ↔
         ttk.Label(
             fm_row,

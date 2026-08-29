@@ -1041,6 +1041,27 @@ def _sibling_before(locator):
     return find
 
 
+def _of_class(locator, *classes):
+    """Locator: the first widget of `classes` inside what `locator`
+    finds.
+
+    A config row's own painted extent is not always the element the rule
+    names. The Important Settings rows put a name label and a percent
+    readout either side of their slider, and the text's baseline sits
+    lower than the slider's bottom -- so measuring the ROW reads 3px
+    tighter than measuring the slider, and the markers at those sites
+    name the slider.
+    """
+    def find(app):
+        w = locator(app)
+        for cls in classes:
+            found = sa.find_descendant_class(w, cls)
+            if found is not None:
+                return found
+        raise LookupError(f"no {'/'.join(classes)} inside {w}")
+    return find
+
+
 def _gap(first, second, axis):
     """Resolver: the painted gap between two located widgets."""
     def resolve(cap, app):
@@ -1079,30 +1100,30 @@ def _class_block_gap(panel, left_classes, right_classes):
 # one case and a checkbox indicator in the other. Their pads differ for
 # that reason and cannot be made uniform.
 CONTROL_GROUP_ENTRIES = [
-    ("Optimizer", "Combatant group -> LVL group", 16, 20,
+    ("Optimizer", "Combatant group -> LVL group", 16, None,
      _gap(_group_of("Combatant:"), _group_of("Optimize for LVL:"), "h")),
-    ("Optimizer", "LVL group -> Start", 16, 17,
+    ("Optimizer", "LVL group -> Start", 16, None,
      _gap(_group_of("Optimize for LVL:"), _by_text("Start"), "h")),
-    ("Optimizer", "Stop -> help text", 16, 19,
+    ("Optimizer", "Stop -> help text", 16, None,
      _gap(_by_text("Stop"), _by_text(OPTIMIZER_HELP_PREFIX), "h")),
-    ("Gear Score", "stat grid -> button column", 16, 20,
+    ("Gear Score", "stat grid -> button column", 16, None,
      _class_block_gap("Stat Weight Configuration",
                       SPINBOX_CLASSES, ("TButton", "Button"))),
 ]
 
 CONFIG_ROW_ENTRIES = [
     ("Optimizer", "Fracture row -> DEF caption", 12, 19,
-     _gap(_sibling_before(_by_text(DEF_CAPTION)),
+     _gap(_of_class(_sibling_before(_by_text(DEF_CAPTION)), "TScale"),
           _by_text(DEF_CAPTION), "v")),
     ("Optimizer", "ATK row -> Shielding caption", 12, 19,
-     _gap(_sibling_before(_by_text(SHIELD_CAPTION)),
+     _gap(_of_class(_sibling_before(_by_text(SHIELD_CAPTION)), "TScale"),
           _by_text(SHIELD_CAPTION), "v")),
     # The Force HP/Ego caption shares a row with its checkboxes, so the
     # ROW is what has a sibling above it and the row is also the lower
     # end: the gap runs to the checkbox indicators, which paint higher
     # than the caption's capitals.
-    ("Optimizer", "Shielding row -> Force HP/Ego row", 12, 13,
-     _gap(_sibling_before(_group_of(FORCE_CAPTION)),
+    ("Optimizer", "Shielding row -> Force HP/Ego row", 12, None,
+     _gap(_of_class(_sibling_before(_group_of(FORCE_CAPTION)), "TScale"),
           _group_of(FORCE_CAPTION), "v")),
 ]
 
