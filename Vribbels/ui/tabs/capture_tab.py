@@ -16,7 +16,7 @@ from ..utils.tab_header import make_tab_header
 # Width of the tab's fixed left column, in pixels. The right column
 # takes whatever is left of the tab, so this is the only lever on the
 # Upgrade Log Settings panel's width.
-LEFT_COLUMN_PX = 498
+LEFT_COLUMN_PX = 474
 
 # Log Preset checkboxes per row, filled left-to-right then down.
 LOG_PRESET_COLUMNS = 6
@@ -312,8 +312,8 @@ class CaptureTab(BaseTab):
         # wraplength keeps the label narrow inside the fixed-width left
         # column instead of pushing the button row wider.
         self.debug_checkbox = make_checkbox(
-            btn_frame, self.colors, text="Debug WebSocket",
-            variable=self.debug_var, wraplength=80,
+            btn_frame, self.colors, text="Debug Socket",
+            variable=self.debug_var, wraplength=40,
         )
         # Enable to log every WebSocket message to a websocket_debug_*.jsonl
         # file in the snapshots folder — useful when adding support for new
@@ -342,8 +342,8 @@ class CaptureTab(BaseTab):
         requirements_text = """- Run as Administrator (required for hosts file modification)
 - Certificate installed (see Setup tab)
 - Game must be closed before starting capture
-- After starting capture, launch the game and load into the main menu
-- Data loads automatically, keep capture running to see live updates as you make changes
+- Start capture, then launch the game and load into the main menu
+- Keep capture running to see live updates as you make changes
 - If you stop the capture, close the game before starting a new capture"""
 
         ttk.Label(req_frame, text=requirements_text, justify=tk.LEFT).pack(anchor=tk.W)
