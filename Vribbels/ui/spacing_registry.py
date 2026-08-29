@@ -1045,12 +1045,15 @@ def _of_class(locator, *classes):
     """Locator: the first widget of `classes` inside what `locator`
     finds.
 
-    A config row's own painted extent is not always the element the rule
-    names. The Important Settings rows put a name label and a percent
-    readout either side of their slider, and the text's baseline sits
-    lower than the slider's bottom -- so measuring the ROW reads 3px
-    tighter than measuring the slider, and the markers at those sites
-    name the slider.
+    A config row's painted extent is not necessarily the element the
+    rule names. The Important Settings rows put a name label and a
+    percent readout either side of their slider, and the markers at
+    those sites name the SLIDER as the pair's upper element -- so that
+    is what the entry reaches for.
+
+    Both read the same today: the slider is the lowest thing in each of
+    those rows, measured. Naming it anyway is what stops the entry
+    quietly changing meaning if a taller widget ever joins the row.
     """
     def find(app):
         w = locator(app)
@@ -1095,10 +1098,12 @@ def _class_block_gap(panel, left_classes, right_classes):
 # (tab, name, target, hand reading, resolver) for the gaps between
 # groups of tab-wide controls, and between the rows of a config panel.
 #
-# The two Important Settings captions read 6px wider than the checkbox
+# The two Important Settings captions read 3px wider than the checkbox
 # row for the same padding, because what sits across the gap is text in
-# one case and a checkbox indicator in the other. Their pads differ for
-# that reason and cannot be made uniform.
+# one case and a checkbox indicator in the other, and an indicator
+# paints nearer the top of its box than a capital does. So the same 12px
+# target costs 4px of padding above a caption and 7px above the checkbox
+# row -- a difference that looks like a mistake and is not.
 CONTROL_GROUP_ENTRIES = [
     ("Optimizer", "Combatant group -> LVL group", 16, None,
      _gap(_group_of("Combatant:"), _group_of("Optimize for LVL:"), "h")),
@@ -1112,10 +1117,10 @@ CONTROL_GROUP_ENTRIES = [
 ]
 
 CONFIG_ROW_ENTRIES = [
-    ("Optimizer", "Fracture row -> DEF caption", 12, 19,
+    ("Optimizer", "Fracture row -> DEF caption", 12, None,
      _gap(_of_class(_sibling_before(_by_text(DEF_CAPTION)), "TScale"),
           _by_text(DEF_CAPTION), "v")),
-    ("Optimizer", "ATK row -> Shielding caption", 12, 19,
+    ("Optimizer", "ATK row -> Shielding caption", 12, None,
      _gap(_of_class(_sibling_before(_by_text(SHIELD_CAPTION)), "TScale"),
           _by_text(SHIELD_CAPTION), "v")),
     # The Force HP/Ego caption shares a row with its checkboxes, so the

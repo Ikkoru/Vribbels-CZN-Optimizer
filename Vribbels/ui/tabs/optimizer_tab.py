@@ -821,7 +821,7 @@ class OptimizerTab(BaseTab):
         # spacing: config panel row ↕ row -- slider, label ↕
         # (the larger trailing value ends the block, where the rows above
         # only separate rows of the same block)
-        frac_row.pack(fill=tk.X, pady=(0, 6))
+        frac_row.pack(fill=tk.X, pady=(0, 4))
         self._labeled_slider(
             frac_row, "Fracture", self.fracture_pct_var,
             on_change=lambda v: self._save_int("fracture_pct", v),
@@ -833,11 +833,11 @@ class OptimizerTab(BaseTab):
         ttk.Label(
             parent, text="What percent of damage scales off DEF?",
             font=("Segoe UI", 9), wraplength=350,
-        ).pack(anchor=tk.W, pady=(2, 2))
+        ).pack(anchor=tk.W, pady=(0, 2))
 
         ad_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, label ↕
-        ad_row.pack(fill=tk.X, pady=(0, 6))
+        ad_row.pack(fill=tk.X, pady=(0, 4))
         ttk.Label(ad_row, text="ATK", width=4).pack(side=tk.LEFT)
         ad_scale = ttk.Scale(
             ad_row, from_=0, to=100, variable=self.atk_def_split_var,
@@ -875,7 +875,7 @@ class OptimizerTab(BaseTab):
         ttk.Label(
             parent, text="How much value should be given to Shielding & Healing?",
             font=("Segoe UI", 9), wraplength=350,
-        ).pack(anchor=tk.W, pady=(2, 2))
+        ).pack(anchor=tk.W, pady=(0, 2))
 
         sh_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, checkbox ↕
