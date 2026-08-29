@@ -994,6 +994,94 @@ def _controls_over_label(panel, prefix, *classes):
     return resolve
 
 
+def _neighbour_gaps(cap, frame, classes):
+    """The horizontal gap at each neighbour position, taken as the
+    SMALLEST any row shows there.
+
+    Controls are grouped into rows by their painted top, and each row is
+    read left to right, so a reflowed block and a grid are handled the
+    same way -- neither is asked for a column number it may not have.
+
+    The smallest is the one the rule means. A column sizes to its widest
+    member, so every other row in it shows a gap padded out by however
+    much shorter its own label is; the widest member is the only one
+    whose gap is the distance that was set.
+    """
+    rows = {}
+    for w in sa.find_descendants_class(frame, *classes):
+        box = sa.box_of(w)
+        top = sa.painted_extent_v(cap, box)
+        span = sa.painted_extent_h(cap, box)
+        if top is None or span is None:
+            continue
+        rows.setdefault(top[0], []).append(span)
+    at = {}
+    for spans in rows.values():
+        spans.sort()
+        for i, (a, b) in enumerate(zip(spans, spans[1:])):
+            gap = sa.gap_between(a[1], b[0])
+            at[i] = gap if i not in at else min(at[i], gap)
+    return [at[i] for i in sorted(at)]
+
+
+def _pair_gap(container, classes, index=None):
+    """Resolver: the gap between two controls sitting side by side.
+
+    `container` is a LOCATOR, not a panel title, because a panel can
+    hold more than one block of the same control: Upgrade Log Settings
+    has its four mismatch filters and forty preset checkboxes, and a
+    panel-wide reading would report whichever block is tighter.
+
+    `index` picks a neighbour position, counting from the left, for a
+    grid whose columns are set apart by different distances. Without one
+    the smallest gap in the container is reported, which is what a row
+    of equally-spaced controls has exactly one of, and what a reflowing
+    block promises as its minimum.
+    """
+    def resolve(cap, app):
+        gaps = _neighbour_gaps(cap, container(app), classes)
+        if not gaps:
+            return None, f"no two {'/'.join(classes)} share a row"
+        if index is None:
+            return min(gaps), ""
+        if index >= len(gaps):
+            return None, f"only {len(gaps)} neighbour gaps, wanted #{index}"
+        return gaps[index], ""
+    return resolve
+
+
+def _panel_at(title):
+    """Locator: a panel by its visible title, for the resolvers that
+    take a container rather than a title."""
+    def find(app):
+        return _panel(app, title)
+    return find
+
+
+FILTER_CHECKBOX = "Don't show presets on ATK/DEF"
+
+# (tab, name, target, hand reading, container locator, classes, index)
+# for two label-and-control pairs side by side.
+PAIR_GAP_ENTRIES = [
+    ("Optimizer", "Force HP/Ego checkboxes", 8, 12,
+     lambda app: _group_of(FORCE_CAPTION)(app), CHECKBOX_CLASSES, None),
+    # Variable by construction: the row reflows to the panel's width, so
+    # every gap but the smallest is slack. The smallest is the one the
+    # reflow is told to keep, and the only one worth a target.
+    ("Optimizer", "Exclude checkboxes", 8, 8,
+     _panel_at("Exclude Combatant's MFs"), CHECKBOX_CLASSES, None),
+    ("Memory Fragments", "Main Stats columns 1-2", 8, 7,
+     _panel_at("Main Stats"), CHECKBOX_CLASSES, 0),
+    ("Memory Fragments", "Main Stats columns 2-3", 8, 6,
+     _panel_at("Main Stats"), CHECKBOX_CLASSES, 1),
+    # The mismatch filters only, NOT the preset checklist above them --
+    # that is the other block of checkboxes in this panel and it sits
+    # tighter, so a panel-wide reading would report it instead.
+    ("Capture", "log filter checkboxes", 8, 14,
+     lambda app: _group_of(FILTER_CHECKBOX)(app), CHECKBOX_CLASSES, None),
+]
+
+
 def _by_text(prefix):
     """Locator: the widget whose words start with `prefix`."""
     def find(app):
@@ -1647,6 +1735,17 @@ def register_all():
             resolve=_panel_edge_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
             hand=PANEL_EDGE_HANDS.get((title, side)),
+        )
+
+    for tab, name, target, hand, panel, classes, index in PAIR_GAP_ENTRIES:
+        sa.track(
+            name=name,
+            tab=tab,
+            rule=RULE_PAIR_GAP,
+            target=target,
+            resolve=_pair_gap(panel, classes, index),
+            axis="h",
+            hand=hand,
         )
 
     for rule, table in ((RULE_CONTROL_GROUP, CONTROL_GROUP_ENTRIES),
