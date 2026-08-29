@@ -518,6 +518,10 @@ class InventoryTab(BaseTab):
             make_checkbox(
                 self.inv_set_frame_inner, self.colors, text=set_name,
                 variable=var, command=self.refresh_inventory, fg=left,
+                # The whole set-to-count gap was this widget's own
+                # internal padx; both grid pads either side of it are
+                # already 0 and Tk rejects a negative one.
+                compact=True,
             ).grid(row=row, column=base_col, sticky=tk.W,
                    padx=(2, 0), pady=(top_pad, 0))
             # The count label gets a fixed width (per-column max, see

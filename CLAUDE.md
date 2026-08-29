@@ -45,7 +45,7 @@ loaded; read them on demand.
 
 ## Headless verification
 
-**Run `python checks/run_all.py` before handing work over.** Sixteen
+**Run `python checks/run_all.py` before handing work over.** Seventeen
 checks, ~15s, no GUI. They cover invariants that fail QUIETLY —
 optimizer parity, scoring reconciliation, game data, settings
 round-trips, spacing markers, the spacing registry, tab construction,

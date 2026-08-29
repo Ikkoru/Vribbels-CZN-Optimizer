@@ -106,7 +106,13 @@ HAL_ALL_STATS = HAL_COLUMN_1 + HAL_COLUMN_2
 # Label column width shared by the Extra / Agony / Fracture sliders, in
 # characters: the longest label plus a character of slack. Sizing all
 # three alike is what leaves their tracks left-aligned.
-DMG_TYPE_LABEL_WIDTH = len("Fracture") + 1
+# Shared by the three damage rows so their sliders line up. In
+# CHARACTERS, which is Tk's average character width -- "Fracture" is
+# 43px of ink against 6px per character, so 7 is the narrowest that
+# leaves the rule's gap and it is a pixel under the ink. If the word
+# clips, a measured pixel width is the fix (see the Gear Score stat
+# grid, which pins a grid column instead of counting characters).
+DMG_TYPE_LABEL_WIDTH = 7
 
 
 # Element choices for the Unknown-character override dropdown.
@@ -962,7 +968,7 @@ class OptimizerTab(BaseTab):
             command=lambda v: on_change(int(float(v))) if on_change else None,
         )
         # spacing: label ↔ its element -- label, slider ↔
-        scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(3, 3))
+        scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(2, 3))
         # Mouse wheel steps exactly +-1, so every integer is reachable
         # even at window sizes where the rendered track is short.
         scale.bind("<MouseWheel>",

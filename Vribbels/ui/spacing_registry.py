@@ -1237,6 +1237,25 @@ LABEL_ELEMENT_ENTRIES = [
      CHECKBOX_CLASSES + LABEL_CLASSES, 0),
 ]
 
+# The same rule, measured with every percent slider at 100 so the
+# readouts are as wide as they get. See `_max_readouts` for why the gap
+# is not a distance at any other value.
+#
+# (tab, name, target, hand reading, container locator, classes, index)
+READOUT_ENTRIES = [
+    ("Optimizer", "damage slider -> its readout", 4, 8,
+     lambda app: _group_of("Fracture")(app),
+     LABEL_CLASSES + SCALE_CLASSES, 1),
+    # [ATK] [====slider====] [DEF] [nn%] -- the readout is the third gap
+    # on this row, where the other two have it second.
+    ("Optimizer", "DEF -> its readout", 4, 9,
+     lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
+     LABEL_CLASSES + SCALE_CLASSES, 2),
+    ("Optimizer", "Shielding slider -> its readout", 4, 8,
+     lambda app: _sibling_before(_group_of(FORCE_CAPTION))(app),
+     LABEL_CLASSES + SCALE_CLASSES, 0),
+]
+
 
 def _by_text(prefix):
     """Locator: the widget whose words start with `prefix`."""
@@ -1654,6 +1673,43 @@ ELEMENT_OVERRIDE_PANELS = [
 ]
 
 
+# The Optimizer's percent sliders, whose readouts the max_readouts
+# scenario fills out.
+READOUT_VARS = ("extra_pct_var", "dot_pct_var", "fracture_pct_var",
+                "atk_def_split_var", "shielding_healing_weight_var")
+
+
+def _max_readouts(app):
+    """Drive every percent slider to 100.
+
+    A readout is a fixed-width label with `anchor=tk.E`, so a short value
+    leaves its slack on the LEFT -- the side the gap to the slider is
+    measured on. At 0% that gap is 12px wider than at 100%, purely
+    because "0%" is 12px narrower than "100%". Filling the readouts is
+    what makes the distance a distance, and it is the same convention as
+    measuring a column from its LONGEST label.
+
+    Two things stop this writing to the maintainer's settings. The saves
+    no-op while no character is selected, which is the state the app
+    starts in -- `checks/check_optimizer_starts_unselected.py` keeps it
+    that way. And `_loading_settings` is raised here as well, which is
+    the app's own guard for programmatic var writes.
+    """
+    tab = app.optimizer_tab_instance
+    app._spacing_readouts = {n: getattr(tab, n).get() for n in READOUT_VARS}
+    app._spacing_was_loading = tab._loading_settings
+    tab._loading_settings = True
+    for name in READOUT_VARS:
+        getattr(tab, name).set(100)
+
+
+def _restore_readouts(app):
+    tab = app.optimizer_tab_instance
+    for name, value in getattr(app, "_spacing_readouts", {}).items():
+        getattr(tab, name).set(value)
+    tab._loading_settings = getattr(app, "_spacing_was_loading", False)
+
+
 def _force_element_override(app):
     """Show the Optimizer's Element override frame.
 
@@ -1685,6 +1741,7 @@ def _restore_element_override(app):
 sa.register_scenario("element_override",
                      _force_element_override,
                      _restore_element_override)
+sa.register_scenario("max_readouts", _max_readouts, _restore_readouts)
 
 
 def _title_target_and_source(title):
@@ -1893,8 +1950,10 @@ def register_all():
             hand=PANEL_EDGE_HANDS.get((title, side)),
         )
 
-    for rule, table in ((RULE_PAIR_GAP, PAIR_GAP_ENTRIES),
-                        (RULE_LABEL_ELEMENT, LABEL_ELEMENT_ENTRIES)):
+    for rule, table, scenario in (
+            (RULE_PAIR_GAP, PAIR_GAP_ENTRIES, "default"),
+            (RULE_LABEL_ELEMENT, LABEL_ELEMENT_ENTRIES, "default"),
+            (RULE_LABEL_ELEMENT, READOUT_ENTRIES, "max_readouts")):
         for tab, name, target, hand, container, classes, index in table:
             sa.track(
                 name=name,
@@ -1904,6 +1963,7 @@ def register_all():
                 resolve=_pair_gap(container, classes, index),
                 axis="h",
                 hand=hand,
+                scenario=scenario,
             )
 
     for rule, table in ((RULE_CONTROL_GROUP, CONTROL_GROUP_ENTRIES),

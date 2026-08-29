@@ -96,6 +96,19 @@ deriving something, and the refusal names the reason.
 These are exact targets, not floors: a value above target needs bringing
 down as much as one below it needs raising.
 
+**A gap to a right-aligned readout is only a distance at its widest
+value.** The Optimizer's percent readouts are fixed-width labels with
+`anchor=tk.E`, so a short value leaves its slack on the LEFT — the side
+the gap to the slider is measured on. `0%` is 16px of ink and `100%` is
+28, and the gap moves by exactly that 12 as the slider travels. The
+audit's `max_readouts` scenario fills them before measuring, which is
+the same convention as measuring a column from its LONGEST label.
+
+That scenario writes to the app's own variables, and is only safe
+because no combatant is selected at startup — every per-combatant save
+no-ops while `_current_res_id` is None.
+`checks/check_optimizer_starts_unselected.py` holds that invariant.
+
 **Moving a label's ink down does not close the gap below it.** Anything
 spent above a packed widget — a leading `pady`, or internal TOP padding,
 which grows its box downward — drops the ink and drops everything packed
