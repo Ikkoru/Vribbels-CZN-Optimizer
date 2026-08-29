@@ -1098,9 +1098,9 @@ PAIR_GAP_ENTRIES = [
     # The grid frame, not the panel: the panel also holds the row of
     # unknown main stats, which is gridded from column 0 of its own
     # frame and would merge into these columns.
-    ("Memory Fragments", "Main Stats columns 1-2", 8, 7,
+    ("Memory Fragments", "Main Stats columns 1-2", 8, None,
      lambda app: _group_of("ATK%")(app), CHECKBOX_CLASSES, 0),
-    ("Memory Fragments", "Main Stats columns 2-3", 8, 6,
+    ("Memory Fragments", "Main Stats columns 2-3", 8, None,
      lambda app: _group_of("ATK%")(app), CHECKBOX_CLASSES, 1),
     ("Memory Fragments", "Main Stats columns 3-4", 8, None,
      lambda app: _group_of("ATK%")(app), CHECKBOX_CLASSES, 2),

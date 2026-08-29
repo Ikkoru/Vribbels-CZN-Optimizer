@@ -282,8 +282,12 @@ class InventoryTab(BaseTab):
                     self.inv_main_stat_frame_inner, label, var
                 )
                 # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
+                # Asymmetric, and the LEADING half is the fixed one: the
+                # first column's left pad is what the panel's registered
+                # left inset is measured from, so the column gap has to
+                # be bought on the trailing side alone.
                 cb.grid(row=row_idx, column=col_idx, sticky=tk.W,
-                        padx=2, pady=(extra_top, 0))
+                        padx=(2, 3), pady=(extra_top, 0))
                 self.inv_main_stat_checks[label] = cb
 
         # Reserve a row below the layout for unknown main stats. Hidden until
@@ -617,7 +621,9 @@ class InventoryTab(BaseTab):
                 self.inv_main_unknown_frame, canonical, var
             )
             # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
-            cb.grid(row=0, column=col_idx, sticky=tk.W, padx=2)
+            # Matches the grid above it -- this row is the same block,
+            # built later because its stats come from the data.
+            cb.grid(row=0, column=col_idx, sticky=tk.W, padx=(2, 3))
             self.inv_unknown_main_stat_checks[canonical] = cb
 
         # Back into the grid only when it holds something. NOT dead code:
