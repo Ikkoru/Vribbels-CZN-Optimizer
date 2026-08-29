@@ -1,4 +1,5 @@
 {
+  "Applied status -> preset list": 8,
   "Assign preset caption -> dropdown": 5,
   "Capture Log: left edge -> content": 5,
   "Capture Log: title -> first element": 5,
@@ -24,6 +25,7 @@
   "Gear Score Calculation -> How Gear Score Works title": 10,
   "Gear Score Calculation -> its subtitle": 14,
   "Gear Score: tab list -> first element": 6,
+  "HAL note -> the spinboxes above it": 8,
   "Have at least this much of a stat: left edge -> content": 5,
   "Have at least this much of a stat: title -> first element": 5,
   "Have at least this much of a stat: top edge -> content": 5,
@@ -48,6 +50,7 @@
   "Partner: left edge -> content": 5,
   "Partner: title -> first element": 5,
   "Partner: top edge -> text": 5,
+  "Preset Name: -> its entry": 8,
   "Requirements -> Capture Log title": 10,
   "Requirements: bottom edge -> content": 5,
   "Requirements: left edge -> content": 5,
@@ -93,6 +96,7 @@
   "Stat Weight Configuration: left edge -> content": 5,
   "Stat Weight Configuration: row pitch": 2,
   "Stat Weight Configuration: title -> first element": 5,
+  "Stat Weight Configuration: top edge -> content": 5,
   "Stats Comparison: title -> first element": 5,
   "Status -> Server Region title": 10,
   "Status: title -> first element": 5,
@@ -111,5 +115,9 @@
   "capture buttons -> Requirements title": 10,
   "character list -> Equipped Memory Fragments": 4,
   "preset dropdown -> Character title": 10,
-  "user info -> character list": 10
+  "presets caption -> the checklist": 8,
+  "set explanation -> the set rows": 8,
+  "stat grid -> Applied status": 8,
+  "user info -> character list": 10,
+  "weights caption -> the stat grid": 8
 }
