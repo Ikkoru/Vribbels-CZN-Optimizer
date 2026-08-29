@@ -1210,25 +1210,26 @@ LABEL_ELEMENT_ENTRIES = [
     ("Optimizer", "Fracture -> its slider", 4, 17,
      lambda app: _group_of("Fracture")(app),
      LABEL_CLASSES + SCALE_CLASSES, 0),
-    ("Optimizer", "damage slider -> its readout", 4, 8,
-     lambda app: _group_of("Fracture")(app),
+    # A slider's PERCENT READOUT is deliberately absent, on all four
+    # rows. The readout is a fixed-width label with `anchor=tk.E`, so a
+    # short value leaves its slack on the LEFT -- which is the side the
+    # rule measures. `0%` is 16px of ink and `100%` is 28, and the gap
+    # moves by exactly that 12 as the slider travels. There is no
+    # distance there to have a target for; the space is slack, the way
+    # the Requirements panel's right edge is.
+    #
+    # [ATK] [====slider====] [DEF] [nn%] -- four elements, so DEF is the
+    # SECOND gap, not the third. The third is a readout.
+    ("Optimizer", "ATK -> its slider", 4, 7,
+     lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
+     LABEL_CLASSES + SCALE_CLASSES, 0),
+    ("Optimizer", "slider -> DEF", 4, 10,
+     lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
      LABEL_CLASSES + SCALE_CLASSES, 1),
-    # [ATK] [====slider====] [DEF] [nn%] -- four elements, so the
-    # readout's gap is the third and not the second.
-    ("Optimizer", "ATK -> its slider", 4, 8,
-     lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
-     LABEL_CLASSES + SCALE_CLASSES, 0),
-    ("Optimizer", "DEF -> its readout", 4, 10,
-     lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
-     LABEL_CLASSES + SCALE_CLASSES, 2),
-    # [====slider====] [nn%] -- no leading label at all on this one.
-    ("Optimizer", "Shielding slider -> its readout", 4, 8,
-     lambda app: _sibling_before(_group_of(FORCE_CAPTION))(app),
-     LABEL_CLASSES + SCALE_CLASSES, 0),
-    ("Optimizer", "Max Flex Slots -> its spinbox", 4, 6,
+    ("Optimizer", "Max Flex Slots -> its spinbox", 4, None,
      lambda app: _by_text("Max Flex Slots")(app).master,
      LABEL_CLASSES + SPINBOX_CLASSES, 0),
-    ("Optimizer", "Force HP/Ego -> its checkboxes", 4, 9,
+    ("Optimizer", "Force HP/Ego -> its checkboxes", 4, None,
      lambda app: _group_of(FORCE_CAPTION)(app),
      LABEL_CLASSES + CHECKBOX_CLASSES, 0),
     ("Memory Fragments", "Sets set -> its count", 4, 8,

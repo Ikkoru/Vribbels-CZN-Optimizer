@@ -845,7 +845,7 @@ class OptimizerTab(BaseTab):
             command=lambda v: self._save_int("atk_def_split", int(float(v))),
         )
         # spacing: label ↔ its element -- label, slider ↔
-        ad_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(3, 3))
+        ad_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
         ad_scale.bind(
             "<MouseWheel>",
             lambda e: self._scale_wheel(
@@ -920,7 +920,7 @@ class OptimizerTab(BaseTab):
             fm_row,
             text="Force HP/Ego on a Slot:",
             font=("Segoe UI", 9),
-        ).pack(side=tk.LEFT, padx=(0, 5))
+        ).pack(side=tk.LEFT, padx=(0, 0))
         for idx, (key, label, _slot, _stat) in enumerate(FORCE_MAIN_DEFS):
             # spacing: border edge -> first non-button element -- checkbox, panel ↔
             # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
@@ -1111,7 +1111,7 @@ class OptimizerTab(BaseTab):
         row1.pack(fill=tk.X, pady=(0, 5))
 
         # spacing: label ↔ its element -- label, spinbox ↔
-        ttk.Label(row1, text="Max Flex Slots").pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Label(row1, text="Max Flex Slots").pack(side=tk.LEFT, padx=(0, 2))
         flex_spin = tk.Spinbox(
             row1, from_=0, to=6, increment=1, width=3,
             textvariable=self.max_flex_slots_var,
