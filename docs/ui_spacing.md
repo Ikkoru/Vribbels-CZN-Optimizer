@@ -383,19 +383,18 @@ another face.
 ### Measured, or not
 
 **A marker says which rule a value answers to, not that the value is on
-target.** 113 gaps are registered and 112 of them are on target; roughly
-200 markers exist, so about half the deliberate spacing values in the
-app have something watching them and about half do not.
+target.** 113 gaps are registered and every one is; roughly 200 markers
+exist, so about half the deliberate spacing values in the app have
+something watching them and about half do not.
 
-The one that misses is `Upgrade Log Settings -> Capture Log title`, and
-it is not a padding to nudge. Both columns of the Capture tab's top grid
-end above that title, so two entries measure to it, and they differ by
-however far out of level the columns are. `left_col` has
-`grid_propagate` off — it has to, its Requirements label wants more
-width than the column allows — which throws away its height request and
-leaves the grid row sized by the right column alone. So the right column
-ends a pixel low whatever the left one does. Closing it means giving
-`left_col` a vote in the row height without letting that label widen it.
+**Two entries measure to the Capture Log title, one per column above
+it,** and that pair is worth knowing about because it is the only place
+the ledger watches an ALIGNMENT. `left_col` is the taller of the two
+columns, so its height is the grid row's, and whatever pad sits below
+its last panel pushes the row down — carrying the right column's border
+with it and leaving the left one where it was. The two entries then read
+different numbers, and the difference is exactly that pad. Keeping it at
+0 is what keeps the columns ending level.
 
 A gap nothing watches has not been checked, whatever its marker says.
 `element and its label ↔ element and its label` and `label ↔ its

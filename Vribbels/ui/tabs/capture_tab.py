@@ -126,9 +126,20 @@ class CaptureTab(BaseTab):
         # a child of this frame, so its padx positions the heading,
         # Status, Server Region, Requirements and the button row at once.
         left_col.grid(row=0, column=0, sticky="nsew", padx=2)
-        # grid_propagate(False) caps the frame at the requested width;
-        # without it a wide child (the button row) would push the column
-        # past minsize.
+        # NEITHER OF THESE TWO LINES DOES ANYTHING, and the column is
+        # wider than LEFT_COLUMN_PX because of it. Tk keeps the
+        # propagation flag per geometry MANAGER, and this frame's
+        # children are packed, not gridded -- so turning grid propagation
+        # off leaves pack propagation on, `width` is overridden by the
+        # children, and left_col asks for whatever its widest child does.
+        # The button row is 526 where LEFT_COLUMN_PX is 498, so the
+        # Upgrade Log Settings panel beside it is 28px narrower than
+        # intended.
+        #
+        # Left in place rather than deleted because making the clamp work
+        # is a choice, not a fix: `pack_propagate(False)` would need an
+        # explicit HEIGHT too, and the alternative is narrowing the
+        # button row until it fits.
         left_col.configure(width=LEFT_COLUMN_PX)
         left_col.grid_propagate(False)
 
@@ -315,16 +326,18 @@ class CaptureTab(BaseTab):
         # stretched wider than its text.
         req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(3, 0, 5, 0))
         # spacing: panel ↕ unrelated label -- button, title ↕
-        # spacing: content frame -> content frame -- frame, frame ↕
-        # Asymmetric, because the two sides answer to different rules.
         # ABOVE is the capture button row against this panel's own TITLE:
         # text is what sits across that gap, so the label rule governs
         # and this side carries the correction, the button row's own
         # trailing pad being shared with the gap up to Server Region.
-        # BELOW is slack inside left_col rather than a distance -- the
-        # column is stretched to the grid row's height, so this pad does
-        # not place anything.
-        req_frame.pack(fill=tk.X, pady=(3, 2))
+        #
+        # BELOW is 0, and it has to be. This is the last thing packed in
+        # left_col, and left_col is the taller of the two columns, so its
+        # height IS the grid row's -- a pad here would sit below this
+        # border and push the row down, taking the right column's border
+        # with it while leaving this one where it is. That is the whole
+        # of the distance the two columns end out of level by.
+        req_frame.pack(fill=tk.X, pady=(3, 0))
 
         requirements_text = """- Run as Administrator (required for hosts file modification)
 - Certificate installed (see Setup tab)
@@ -343,18 +356,17 @@ class CaptureTab(BaseTab):
         # border of the ones in top_columns, and below that border sits
         # this panel's own TITLE, so the gap is text-facing.
         #
-        # The two columns of top_columns do not end level, so there are
-        # two such gaps and this pad sets both at once. It is placed for
-        # the LEFT one, off Requirements' border, which is where the eye
-        # reads it. The right column ends lower because `grid_propagate`
-        # is off on left_col, which throws away its height request and
-        # leaves the grid row sized by right_col alone -- both audit
-        # entries are registered so the difference stays visible.
+        # BOTH columns of top_columns end above this title, so this pad
+        # sets two gaps at once and they are only one number while the
+        # columns end level. Both are registered for that reason: when
+        # the two entries disagree, the difference is how far out of
+        # level they are, and the pad below Requirements is what puts
+        # them there.
         #
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border.
         log_frame = ttk.LabelFrame(main_frame, text="Capture Log", padding=0)
-        log_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(4, 2))
+        log_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(5, 2))
 
         # spacing: border edge -> first non-button element -- panel, text ↔↕
         # The panel's inset sits here rather than on the LabelFrame,
