@@ -314,9 +314,12 @@ STAT MIN - MAX ROLLS:
         # indicator space that has no use in a flat list. Data columns still
         # render even when neither "tree" nor "headings" is in show.
         # spacing: explanation text -> the controls it explains -- label, tree ↕
-        # (the label's own trailing pady is the other half of it)
+        # The label's own trailing pady is the other half of it. Its TOP
+        # padding is not: that grows the label's box downward, so it
+        # carries this frame down with it and only ever moves the gap
+        # ABOVE the status line. Corrections to this gap land here.
         list_frame = ttk.Frame(config_frame)
-        list_frame.pack(fill=tk.BOTH, expand=True, pady=(4, 0))
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(1, 0))
 
         scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL)
         self.preset_tree = ttk.Treeview(

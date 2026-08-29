@@ -96,6 +96,17 @@ deriving something, and the refusal names the reason.
 These are exact targets, not floors: a value above target needs bringing
 down as much as one below it needs raising.
 
+**Moving a label's ink down does not close the gap below it.** Anything
+spent above a packed widget — a leading `pady`, or internal TOP padding,
+which grows its box downward — drops the ink and drops everything packed
+after it by the same amount. The gap above changes; the gap below is
+untouched. Reaching a gap BELOW text takes the label's trailing pad, the
+next widget's leading pad, or a negative BOTTOM padding.
+
+This bites where one label carries an entry on each side of it, because
+the two gaps look like they trade against each other and they do not.
+Assuming they did cost a run.
+
 ### Which rule wins — PROXIMITY, and this is untested
 
 **Where two rules could govern one gap, the nearer element decides.**
@@ -130,15 +141,9 @@ from the other side. The two groups sat either side of the rule's number
 with nothing on it, which is what made "does one number serve both"
 a real question rather than a formality.
 
-It was ruled that one does. Every site is on 10 now bar one, so the rule
-finally has instances — and if the two shapes turn out to want different
+It was ruled that one does. All fourteen are on 10, so the rule finally
+has instances — and if the two shapes turn out to want different
 numbers, the evidence for splitting them is the table above.
-
-**Every other stacked pair is unregistered and still at whatever it
-was** — Setup's two rows, the Optimizer's Exclude above Results, Memory
-Fragments' filters above the list. If the 10 stands they all want the
-same +3; if it does not, the two moved here come back. Register them
-before spending either way.
 
 ### Markers
 
