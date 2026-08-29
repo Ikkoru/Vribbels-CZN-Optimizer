@@ -128,8 +128,15 @@ class SetupTab(BaseTab):
         # Top row: Setup Status (left) and Restore Defaults (right)
         # side-by-side in equal-width columns.
         top_row = ttk.Frame(main_frame)
+        # spacing: panel ↕ unrelated label -- heading, panel ↕
         # spacing: content frame -> content frame -- frame, frame ↕
-        top_row.pack(fill=tk.X, pady=2)
+        # Asymmetric, because the two sides answer to different rules.
+        # ABOVE is the tab heading against Setup Status' title, text over
+        # a panel, and this tab spends one nesting level more on that run
+        # than the two other headed tabs -- so the leading side gives it
+        # back rather than the shared header helper losing a pixel the
+        # others need.
+        top_row.pack(fill=tk.X, pady=(0, 2))
         top_row.grid_columnconfigure(0, weight=1, uniform="halves")
         top_row.grid_columnconfigure(1, weight=1, uniform="halves")
 
@@ -273,7 +280,12 @@ class SetupTab(BaseTab):
         # the border; the text inset lives on the Text's padx/pady.
         instr_frame = ttk.LabelFrame(main_frame, text="Setup Instructions",
                                      padding=0)
-        instr_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        # spacing: panel ↕ unrelated label -- button, title ↕
+        # The leading side carries the whole gap from the Check Status
+        # button row down to this panel's title: the button row's own
+        # trailing pad is shared with the run up to the top row, so the
+        # correction lands here where nothing else reads it.
+        instr_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(5, 2))
 
         instructions = """STEP 1: Generate and install certificate
   - Click "Generate & Install Cert" button

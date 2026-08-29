@@ -60,8 +60,12 @@ def make_tab_header(parent, colors, title, subtitle, *, x_trim=0):
         it or add to it, not because anything currently does.
     """
     row = ttk.Frame(parent)
-    # spacing: content frame -> content frame -- frame, frame ↕
-    row.pack(fill=tk.X, pady=(0, 2))
+    # spacing: panel ↕ unrelated label -- heading, panel ↕
+    # 0, and that is the value: what stands under every one of these
+    # headings is the first panel on its tab, and that panel's own
+    # leading pad already spends the whole distance. A pad here would
+    # stack on top of it, on three tabs at once.
+    row.pack(fill=tk.X, pady=(0, 0))
 
     # spacing: header subtext -- heading, label ↔
     ttk.Label(

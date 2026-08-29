@@ -104,9 +104,11 @@ class CaptureTab(BaseTab):
         top_columns = ttk.Frame(main_frame)
         # spacing: tab list -> first element -- tab, frame ↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
-        # Two components, two rules. The TRAILING one is half the gap
-        # down to the Capture Log panel's title, which is text -- the
-        # other half is on that panel's own pady.
+        # Two components, two rules. The TRAILING one is the smaller
+        # share of the gap down to the Capture Log panel's title, which
+        # is text -- the rest is on that panel's own leading pady, which
+        # is where corrections go because this one is shared by both
+        # columns above it.
         # pady top is 0, not 2: this tab has an extra nesting level that
         # the other tabs don't (main_frame -> top_columns -> left_col),
         # so a value here would stack on top of one the other tabs never
@@ -312,8 +314,17 @@ class CaptureTab(BaseTab):
         # The right edge carries slack, not a target: the frame is
         # stretched wider than its text.
         req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(3, 0, 5, 0))
+        # spacing: panel ↕ unrelated label -- button, title ↕
         # spacing: content frame -> content frame -- frame, frame ↕
-        req_frame.pack(fill=tk.X, pady=2)
+        # Asymmetric, because the two sides answer to different rules.
+        # ABOVE is the capture button row against this panel's own TITLE:
+        # text is what sits across that gap, so the label rule governs
+        # and this side carries the correction, the button row's own
+        # trailing pad being shared with the gap up to Server Region.
+        # BELOW is slack inside left_col rather than a distance -- the
+        # column is stretched to the grid row's height, so this pad does
+        # not place anything.
+        req_frame.pack(fill=tk.X, pady=(3, 2))
 
         requirements_text = """- Run as Administrator (required for hosts file modification)
 - Certificate installed (see Setup tab)
@@ -332,10 +343,18 @@ class CaptureTab(BaseTab):
         # border of the ones in top_columns, and below that border sits
         # this panel's own TITLE, so the gap is text-facing.
         #
+        # The two columns of top_columns do not end level, so there are
+        # two such gaps and this pad sets both at once. It is placed for
+        # the LEFT one, off Requirements' border, which is where the eye
+        # reads it. The right column ends lower because `grid_propagate`
+        # is off on left_col, which throws away its height request and
+        # leaves the grid row sized by right_col alone -- both audit
+        # entries are registered so the difference stays visible.
+        #
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border.
         log_frame = ttk.LabelFrame(main_frame, text="Capture Log", padding=0)
-        log_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        log_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(4, 2))
 
         # spacing: border edge -> first non-button element -- panel, text ↔↕
         # The panel's inset sits here rather than on the LabelFrame,

@@ -498,12 +498,14 @@ class HeroesTab(BaseTab):
 
         # Left: Hero list.
         hero_list_container = ttk.Frame(left_column)
-        # spacing: content frame -> content frame -- frame, frame ↔↕
-        # The top pad is larger than the sides because it stands in for
-        # what three nesting levels contribute on the other columns; this
-        # one has fewer levels above it. The bottom pad is the tab's own
-        # bottom margin, shared with the container below.
-        hero_list_container.pack(fill=tk.BOTH, expand=True, padx=2, pady=(6, 2))
+        # spacing: content frame -> content frame -- frame, frame ↔
+        # spacing: panel ↕ unrelated label -- label, tree ↕
+        # Two rules, one value. The TOP pad carries the drop from the
+        # user info line to the list, which is text over content and
+        # answers to the label rule; it is larger than the sides for that
+        # reason and not because of the nesting. The bottom pad is the
+        # tab's own bottom margin, shared with the container below.
+        hero_list_container.pack(fill=tk.BOTH, expand=True, padx=2, pady=(5, 2))
 
         # The character list is a Treeview: ONE widget that draws its own
         # rows, where the hand-rolled version was a label per cell -- 374
@@ -557,8 +559,12 @@ class HeroesTab(BaseTab):
 
         # Right: Hero details
         hero_detail_container = ttk.Frame(right_column)
-        # spacing: content frame -> content frame -- frame, frame ↔↕
-        hero_detail_container.pack(fill=tk.BOTH, expand=True, padx=2, pady=(6, 2))
+        # spacing: content frame -> content frame -- frame, frame ↔
+        # spacing: panel ↕ unrelated label -- dropdown, panel ↕
+        # The top pad carries the drop from the preset dropdown in
+        # title_row to the Character panel's title, which is a control
+        # over a panel; it matches the list column's beside it.
+        hero_detail_container.pack(fill=tk.BOTH, expand=True, padx=2, pady=(5, 2))
         self.hero_detail_container = hero_detail_container  # for width-clamp lookups
 
         # Debounce handle for resize-triggered combobox geometry recompute.
@@ -579,9 +585,10 @@ class HeroesTab(BaseTab):
         # info_frame get pack_configure'd to fill=Y / fill=BOTH down in
         # _compute_and_apply_fixed_sizes so they grow with it.
         # spacing: panel ↕ unrelated label -- panel, title ↕
-        # The trailing component is half the gap from the Character and
-        # Partner panels' bottom borders to the Equipped Memory Fragments
-        # title beneath them; the other half is on that frame's own pady.
+        # The trailing component is the smaller share of the gap from the
+        # Character and Partner panels' bottom borders to the Equipped
+        # Memory Fragments title beneath them; the rest is on that
+        # frame's own leading pady, which is where corrections go.
         info_frame.pack(fill=tk.BOTH, expand=True, pady=2)
 
         # No frame padding: the text inset lives on the Text's own
@@ -667,13 +674,17 @@ class HeroesTab(BaseTab):
             hero_detail_container, text="Equipped Memory Fragments", padding=0,
             style="Gear.Borderless.TLabelframe")
         # spacing: panel ↕ unrelated label -- panel, title ↕
-        # The leading component is the other half of the gap from the
-        # panels above to this one's title.
+        # The leading component carries the larger share of the gap from
+        # the panels above to this one's title. Not an even split with
+        # info_frame's trailing pad, because info_frame's LEADING side is
+        # spoken for -- it sits in the run down from the preset dropdown
+        # -- so the whole correction lands here, where nothing else reads
+        # it.
         # The bottom pad is 0: this frame is the last thing in the detail
         # column, so anything here would stack on hero_detail_container's
         # own bottom pad and lift the panel above the character list
         # beside it, whose canvas sits flush against the container edge.
-        gear_outer_frame.pack(fill=tk.BOTH, expand=True, pady=(2, 0))
+        gear_outer_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
         self._gear_outer_frame = gear_outer_frame  # fixed-size target
 
         self.gear_cells = {}

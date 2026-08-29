@@ -614,7 +614,7 @@ class OptimizerTab(BaseTab):
         # The whole gap: the Results panel below packs with no pady of
         # its own, so this trailing component is the only lever on the
         # distance from this panel's border to the Results title.
-        exclude_frame.pack(fill=tk.X, pady=(0, 3))
+        exclude_frame.pack(fill=tk.X, pady=(0, 5))
         self._build_exclude_gear(exclude_frame)
         # The Results panel's title is a labelwidget rather than plain
         # `text=` so the run status can sit beside it on the title line
@@ -736,7 +736,7 @@ class OptimizerTab(BaseTab):
         # The whole gap: Set Configuration below leads with 0, so this
         # trailing component alone sets the distance from the Important
         # Settings / Have at Least borders to that panel's title.
-        top_row.pack(fill=tk.X, pady=(0, 5))
+        top_row.pack(fill=tk.X, pady=(0, 7))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         important_frame = ttk.LabelFrame(top_row, text="Important Settings",

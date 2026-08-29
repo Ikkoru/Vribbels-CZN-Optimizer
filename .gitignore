@@ -31,14 +31,15 @@ Vribbels/snapshots/
 # their own presets, char assignments, optimizer config, etc.
 Vribbels/settings/
 
-# Claude Code files and internal documentation
+# Working scratch, not documentation. `tasks.md` is a queue rather than
+# a roadmap, and the other two are notes for work in flight -- a plan
+# graduates into `past_plans/` when its work lands, and `paused_task.md`
+# is written to be deleted. `CLAUDE.md`, `docs/` and `past_plans/` are
+# tracked.
 .claude/
-CLAUDE.md
 plan.md
 tasks.md
 paused_task.md
-docs/
-past_plans/
 
 # Git worktrees (isolated workspaces for parallel development)
 .worktrees/
@@ -52,8 +53,3 @@ zCreate exe.bat
 # I'm normal
 .old/
 _tmp/
-zRUN.bat
-zRUN Checks.bat
-zRUN Spacing Audit.bat
-zRUN Spacing Audit Verbose.bat
-zRUN Spacing Audit Freeze.bat

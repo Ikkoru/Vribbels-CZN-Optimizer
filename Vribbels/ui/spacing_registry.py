@@ -725,13 +725,14 @@ def _dropdown_over_panel(prefix, panel):
 # across the gap is the lower panel's TITLE, not its border, and the
 # nearer element decides which rule applies.
 #
-# The rule runs BOTH ways, and the two directions are worth reading as
-# two groups. A panel over a title reads 7-9 everywhere; a heading or a
-# header control over a panel reads 11-14. The rule's single 10px sits
-# between them and no site has ever met it -- the first two rows were
-# nudged to it, and every row carrying a hand reading is a site that has
-# not been. Whether one number can serve both shapes is the open
-# question the readings exist to answer; see docs/ui_spacing.md.
+# The rule runs BOTH ways and one number serves both: a panel over a
+# title, and a heading or header control over a panel. The two shapes
+# were built 7-9 and 11-14 respectively, which is why the ruling was
+# worth taking before any of them moved.
+#
+# The hand column is empty because every reading it held has been
+# nudged past; see `TrackedGap.hand` for why one does not outlive the
+# build it was taken in.
 PANEL_OVER_TEXT_ENTRIES = [
     ("Capture", "Status -> Server Region title", 10, None,
      _panel_gap("Status", "Server Region", "v")),
@@ -739,13 +740,13 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_over_label("Slots", "Preset:")),
 
     # A panel above, the next panel's title below.
-    ("Optimizer", "Important Settings -> Set Configuration title", 10, 8,
+    ("Optimizer", "Important Settings -> Set Configuration title", 10, None,
      _panel_gap("Important Settings", "Set Configuration", "v")),
     # Results' title is a labelwidget, so there is no LabelFrame text to
     # find it by -- the label itself is what the gap ends at.
-    ("Optimizer", "Exclude Combatant's MFs -> Results title", 10, 8,
+    ("Optimizer", "Exclude Combatant's MFs -> Results title", 10, None,
      _panel_over_label("Exclude Combatant's MFs", "Results")),
-    ("Combatants", "Character -> Equipped Memory Fragments title", 10, 7,
+    ("Combatants", "Character -> Equipped Memory Fragments title", 10, None,
      _panel_gap("Character", "Equipped Memory Fragments", "v")),
 
     # A button row, then a panel title. Neither of these two pairs is
@@ -753,9 +754,9 @@ PANEL_OVER_TEXT_ENTRIES = [
     # and Requirements, and Setup puts Check Status between the top row
     # and the instructions. Measuring panel to panel here skips the row
     # entirely and reports the whole distance across it.
-    ("Capture", "capture buttons -> Requirements title", 10, 9,
+    ("Capture", "capture buttons -> Requirements title", 10, None,
      _button_over_panel("Start Capture", "Requirements")),
-    ("Setup", "Setup buttons -> Setup Instructions title", 10, 7,
+    ("Setup", "Setup buttons -> Setup Instructions title", 10, None,
      _button_over_panel("Check Status", "Setup Instructions")),
 
     # BOTH columns of the Capture tab's top grid, against the same
@@ -768,9 +769,9 @@ PANEL_OVER_TEXT_ENTRIES = [
     # than a rule about alignment: when both read the same number the
     # columns are level, and when they do not, the difference IS the
     # misalignment.
-    ("Capture", "Requirements -> Capture Log title", 10, 9,
+    ("Capture", "Requirements -> Capture Log title", 10, None,
      _panel_gap("Requirements", "Capture Log", "v")),
-    ("Capture", "Upgrade Log Settings -> Capture Log title", 10, 7,
+    ("Capture", "Upgrade Log Settings -> Capture Log title", 10, None,
      _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
 
     # Text above, a panel below. The three tab headings differ only in
@@ -782,21 +783,21 @@ PANEL_OVER_TEXT_ENTRIES = [
     # reading all three against the eye isolates the depth from
     # everything else in the gap.
     ("Gear Score", "Gear Score Calculation -> How Gear Score Works title",
-     10, 12,
+     10, None,
      _label_over_panel("Gear Score Calculation", "How Gear Score Works",
                        bold14=True)),
-    ("Capture", "Data Capture -> Status title", 10, 12,
+    ("Capture", "Data Capture -> Status title", 10, None,
      _label_over_panel("Data Capture", "Status", bold14=True)),
-    ("Setup", "First-Time Setup -> Setup Status title", 10, 14,
+    ("Setup", "First-Time Setup -> Setup Status title", 10, None,
      _label_over_panel("First-Time Setup", "Setup Status", bold14=True)),
 
     # The Combatants header band, one entry per column. Both read 11,
     # from two unrelated constructions -- the left column's label is a
     # single line over a list, the right column's is the second row of a
     # control group over a panel.
-    ("Combatants", "user info -> character list", 10, 11,
+    ("Combatants", "user info -> character list", 10, None,
      _user_info_to_list()),
-    ("Combatants", "preset dropdown -> Character title", 10, 11,
+    ("Combatants", "preset dropdown -> Character title", 10, None,
      _dropdown_over_panel("Assign preset to", "Character")),
 ]
 
