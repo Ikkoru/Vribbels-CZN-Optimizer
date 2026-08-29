@@ -1135,6 +1135,7 @@ def _tab_attr(instance, attr):
 
 
 LABEL_CLASSES = ("TLabel", "Label")
+SCALE_CLASSES = ("TScale",)
 
 # Cells of a grid, for the two panels that wrap each label-and-control
 # pair in a frame of its own. A frame paints nothing itself, so its
@@ -1191,6 +1192,48 @@ PAIR_GAP_ENTRIES = [
     ("Memory Fragments", "Sets count -> next set", 8, None,
      _tab_attr("inventory_tab_instance", "inv_set_frame_inner"),
      CHECKBOX_CLASSES + LABEL_CLASSES, 1),
+]
+
+
+# (tab, name, target, hand reading, container locator, classes, index)
+# for a label beside the element it names. Same resolver as the pair
+# gaps -- a row read left to right -- with a different position picked
+# out of it: the even ones here, the odd ones there.
+#
+# Every entry is the LONGEST label in its group. A row of labels shares
+# one width, sized to the longest, so every shorter label simply has
+# more room before its element and only the longest one's gap is the
+# distance that was set.
+LABEL_ELEMENT_ENTRIES = [
+    # [Fracture] [====slider====] [nn%] -- the widest of the three damage
+    # rows, and the one the shared label width is sized to.
+    ("Optimizer", "Fracture -> its slider", 4, 17,
+     lambda app: _group_of("Fracture")(app),
+     LABEL_CLASSES + SCALE_CLASSES, 0),
+    ("Optimizer", "damage slider -> its readout", 4, 8,
+     lambda app: _group_of("Fracture")(app),
+     LABEL_CLASSES + SCALE_CLASSES, 1),
+    # [ATK] [====slider====] [DEF] [nn%] -- four elements, so the
+    # readout's gap is the third and not the second.
+    ("Optimizer", "ATK -> its slider", 4, 8,
+     lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
+     LABEL_CLASSES + SCALE_CLASSES, 0),
+    ("Optimizer", "DEF -> its readout", 4, 10,
+     lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
+     LABEL_CLASSES + SCALE_CLASSES, 2),
+    # [====slider====] [nn%] -- no leading label at all on this one.
+    ("Optimizer", "Shielding slider -> its readout", 4, 8,
+     lambda app: _sibling_before(_group_of(FORCE_CAPTION))(app),
+     LABEL_CLASSES + SCALE_CLASSES, 0),
+    ("Optimizer", "Max Flex Slots -> its spinbox", 4, 6,
+     lambda app: _by_text("Max Flex Slots")(app).master,
+     LABEL_CLASSES + SPINBOX_CLASSES, 0),
+    ("Optimizer", "Force HP/Ego -> its checkboxes", 4, 9,
+     lambda app: _group_of(FORCE_CAPTION)(app),
+     LABEL_CLASSES + CHECKBOX_CLASSES, 0),
+    ("Memory Fragments", "Sets set -> its count", 4, 8,
+     _tab_attr("inventory_tab_instance", "inv_set_frame_inner"),
+     CHECKBOX_CLASSES + LABEL_CLASSES, 0),
 ]
 
 
@@ -1849,16 +1892,18 @@ def register_all():
             hand=PANEL_EDGE_HANDS.get((title, side)),
         )
 
-    for tab, name, target, hand, panel, classes, index in PAIR_GAP_ENTRIES:
-        sa.track(
-            name=name,
-            tab=tab,
-            rule=RULE_PAIR_GAP,
-            target=target,
-            resolve=_pair_gap(panel, classes, index),
-            axis="h",
-            hand=hand,
-        )
+    for rule, table in ((RULE_PAIR_GAP, PAIR_GAP_ENTRIES),
+                        (RULE_LABEL_ELEMENT, LABEL_ELEMENT_ENTRIES)):
+        for tab, name, target, hand, container, classes, index in table:
+            sa.track(
+                name=name,
+                tab=tab,
+                rule=rule,
+                target=target,
+                resolve=_pair_gap(container, classes, index),
+                axis="h",
+                hand=hand,
+            )
 
     for rule, table in ((RULE_CONTROL_GROUP, CONTROL_GROUP_ENTRIES),
                         (RULE_CONFIG_PANEL_ROW, CONFIG_ROW_ENTRIES)):
