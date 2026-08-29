@@ -543,7 +543,15 @@ PANEL_EDGES = [
     ("Capture", "Upgrade Log Settings", "top"),
     ("Capture", "Upgrade Log Settings", "bottom"),
     ("Capture", "Upgrade Log Settings", "right"),
+    ("Gear Score", "Stat Weight Configuration", "top"),
 ]
+
+# Hand readings for PANEL_EDGES rows that have not been nudged yet.
+# Keyed by (panel, side) rather than carried in the table, because every
+# other row in it has been on target for long enough to have none.
+PANEL_EDGE_HANDS = {
+    ("Stat Weight Configuration", "top"): 7,
+}
 
 
 def _panel_gap(first, second, axis):
@@ -907,6 +915,113 @@ def _panel_buttons(app, title):
 # enforces the helper, and this outlives it being briefly wrong.
 CHECKBOX_CLASSES = ("Checkbutton", "TCheckbutton")
 SPINBOX_CLASSES = ("Spinbox", "TSpinbox")
+ENTRY_CLASSES = ("Entry", "TEntry")
+TREE_CLASSES = ("Treeview",)
+
+
+def _controls_beyond(cap, frame, classes, edge, side):
+    """The nearest painted edge of `classes` on one side of `edge`.
+
+    `side` is "below" or "above". Controls on the WRONG side are
+    dropped rather than min'd over, which is what lets one explanation
+    label be measured against the spinboxes above it and the list below
+    it without either resolver naming a widget.
+    """
+    found = []
+    for w in sa.find_descendants_class(frame, *classes):
+        extent = sa.painted_extent_v(cap, sa.box_of(w))
+        if extent is None:
+            continue
+        if side == "below" and extent[0] > edge:
+            found.append(extent[0])
+        elif side == "above" and extent[1] < edge:
+            found.append(extent[1])
+    if not found:
+        return None
+    return min(found) if side == "below" else max(found)
+
+
+def _label_over_controls(panel, prefix, *classes):
+    """Resolver: an explanation label's ink -> the controls beneath it.
+
+    The label is found by its words and the controls by class, taking
+    the topmost that starts below the label -- so a panel with controls
+    on both sides of its explanation measures the right ones.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, panel)
+        label = sa.find_descendant_text(frame, prefix)
+        if label is None:
+            return None, f"no label starting {prefix!r} in {panel!r}"
+        ink = sa.painted_extent_v(cap, sa.box_of(label))
+        if ink is None:
+            return None, "label painted nothing"
+        top = _controls_beyond(cap, frame, classes, ink[1], "below")
+        if top is None:
+            return None, f"no {'/'.join(classes)} below that label"
+        return restate_from_reference(
+            sa.gap_between(ink[1], top), "",
+            ink_below_baseline(label.cget("text")))
+    return resolve
+
+
+def _controls_over_label(panel, prefix, *classes):
+    """Resolver: the controls above an explanation label -> its ink.
+
+    The mirror of `_label_over_controls`. No correction: the gap ends at
+    the TOP of the text, which at Segoe UI 9 is the cap height the rule
+    names.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, panel)
+        label = sa.find_descendant_text(frame, prefix)
+        if label is None:
+            return None, f"no label starting {prefix!r} in {panel!r}"
+        ink = sa.painted_extent_v(cap, sa.box_of(label))
+        if ink is None:
+            return None, "label painted nothing"
+        bottom = _controls_beyond(cap, frame, classes, ink[0], "above")
+        if bottom is None:
+            return None, f"no {'/'.join(classes)} above that label"
+        return sa.gap_between(bottom, ink[0]), ""
+    return resolve
+
+
+# (tab, name, target, hand reading, source, resolver) for the prose that
+# introduces a group of controls. The rule runs both ways -- the label
+# sits above its controls everywhere except HAL and the Gear Score
+# status line, which sit below theirs.
+EXPLANATION_ENTRIES = [
+    ("Optimizer", "HAL note -> the spinboxes above it", 8, 10, "rule",
+     _controls_over_label("Have at least this much of a stat",
+                          "Input stats as you expect", *SPINBOX_CLASSES)),
+    # An exception at the site, and the marker there says why: the set
+    # rows pair a checkbox with a stepper, so they are taller than the
+    # rule assumes and it reads too wide against them. Registered at
+    # what the marker intends rather than at the rule -- the reading and
+    # the marker agree, and the dump that called it wrong did not know
+    # about the marker.
+    ("Optimizer", "set explanation -> the set rows", 6, None, "exception",
+     _label_over_controls("Set Configuration",
+                          "All selected Set and Flex", *CHECKBOX_CLASSES)),
+    ("Gear Score", "weights caption -> the stat grid", 8, 11, "rule",
+     _label_over_controls("Stat Weight Configuration",
+                          "Adjust weights for custom", *SPINBOX_CLASSES)),
+    ("Gear Score", "Preset Name: -> its entry", 8, 13, "rule",
+     _label_over_controls("Stat Weight Configuration",
+                          "Preset Name:", *ENTRY_CLASSES)),
+    # One label, two gaps: the status line sits between the stat grid
+    # and the preset list, so moving it trades one against the other.
+    ("Gear Score", "stat grid -> Applied status", 8, 5, "rule",
+     _controls_over_label("Stat Weight Configuration",
+                          "Applied ", *SPINBOX_CLASSES)),
+    ("Gear Score", "Applied status -> preset list", 8, 9, "rule",
+     _label_over_controls("Stat Weight Configuration",
+                          "Applied ", *TREE_CLASSES)),
+    ("Capture", "presets caption -> the checklist", 8, 7, "rule",
+     _label_over_controls("Upgrade Log Settings",
+                          "Assigned presets compared", *CHECKBOX_CLASSES)),
+]
 
 
 def _painted_rows(cap, frame, classes):
@@ -1391,6 +1506,19 @@ def register_all():
             target=5,
             resolve=_panel_edge_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
+            hand=PANEL_EDGE_HANDS.get((title, side)),
+        )
+
+    for tab, name, target, hand, source, resolve in EXPLANATION_ENTRIES:
+        sa.track(
+            name=name,
+            tab=tab,
+            rule=RULE_EXPLANATION,
+            target=target,
+            resolve=resolve,
+            axis="v",
+            target_source=source,
+            hand=hand,
         )
 
     for tab, title, side in TEXT_PANEL_EDGES:
