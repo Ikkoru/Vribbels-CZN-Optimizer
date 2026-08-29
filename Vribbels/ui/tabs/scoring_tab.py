@@ -262,7 +262,7 @@ STAT MIN - MAX ROLLS:
         # the stat grid sits flush against it, and so does the status
         # label below, which the audit measures in its own right.
         config_frame = ttk.LabelFrame(content, text="Stat Weight Configuration",
-                                      padding=(3, 2, 5, 5))
+                                      padding=(3, 0, 5, 5))
         # spacing: content frame -> content frame -- frame, frame ↔↕
         config_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
 
@@ -271,7 +271,7 @@ STAT MIN - MAX ROLLS:
             config_frame,
             text="Adjust weights for custom scoring (1.0 = normal)",
             foreground=self.colors["fg_dim"]
-        ).pack(anchor=tk.W, pady=(0, 5))
+        ).pack(anchor=tk.W, pady=(0, 2))
 
         # Top region: stats on the left, button column on the right.
         # Two separate frames so stat rows keep their natural compact spacing
@@ -302,7 +302,7 @@ STAT MIN - MAX ROLLS:
         # further lift has to come out of the label's own inset.
         self.weight_status = ttk.Label(
             config_frame, text="Applied default weights (all 1.0)",
-            foreground=self.colors["fg_dim"], padding=(0, -1, 0, 0)
+            foreground=self.colors["fg_dim"], padding=(0, 2, 0, 0)
         )
         self.weight_status.pack(anchor=tk.W, padx=0, pady=(0, 2))
 
@@ -316,7 +316,7 @@ STAT MIN - MAX ROLLS:
         # spacing: explanation text -> the controls it explains -- label, tree ↕
         # (the label's own trailing pady is the other half of it)
         list_frame = ttk.Frame(config_frame)
-        list_frame.pack(fill=tk.BOTH, expand=True, pady=(2, 0))
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(4, 0))
 
         scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL)
         self.preset_tree = ttk.Treeview(
@@ -444,7 +444,7 @@ STAT MIN - MAX ROLLS:
         parent.grid_rowconfigure(2, weight=1)
 
         # Row 3, col 1: "Preset Name:" label sits just above the entry.
-        ttk.Label(parent, text="Preset Name:").grid(
+        ttk.Label(parent, text="Preset Name:", padding=(0, 0, 0, -5)).grid(
             row=3, column=1, sticky="sw", padx=2
         )
 

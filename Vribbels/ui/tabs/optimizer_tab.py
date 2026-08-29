@@ -1041,7 +1041,7 @@ class OptimizerTab(BaseTab):
             wraplength=175,  # initial; will be replaced on first <Configure>
         )
         # spacing: explanation text -> the controls it explains -- spinbox, label ↕
-        hal_note.pack(fill=tk.X, expand=False, pady=(4, 0))
+        hal_note.pack(fill=tk.X, expand=False, pady=(2, 0))
         parent.bind(
             "<Configure>",
             lambda e, lbl=hal_note: lbl.config(wraplength=max(175, e.width - 19)),
@@ -1156,11 +1156,7 @@ class OptimizerTab(BaseTab):
 
         # Row 3+: Sets list (single grid; 4-piece sorted first, then 2-piece,
         # alphabetical within each).
-        # spacing: exception -- explanation text -> the controls it explains -- label, checkbox ↕
-        # Each set row pairs a checkbox with a stepper. A stepper is a
-        # spinbox, and a spinbox row is the one single-row element with a
-        # target of its own -- so these rows are taller than the rule
-        # assumes and it reads too tall against them.
+        # spacing: explanation text -> the controls it explains -- label, checkbox ↕
         ttk.Label(
             parent,
             text="All selected Set and Flex combinations are tried.\n"

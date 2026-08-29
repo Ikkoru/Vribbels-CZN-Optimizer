@@ -156,7 +156,7 @@ class CaptureTab(BaseTab):
                  "Highest Potential. Checking or unchecking a preset "
                  "excludes it (and re-writes the last Upgraded line).",
             foreground=self.colors["fg_dim"], justify=tk.LEFT,
-        ).pack(anchor=tk.W, padx=(0, 0), pady=(0, 0))
+        ).pack(anchor=tk.W, padx=(0, 0), pady=(0, 1))
 
         # Mismatch filters, bottom-left, two columns. Packed BEFORE the
         # checklist so the checklist's expand=True doesn't swallow the

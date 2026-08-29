@@ -549,9 +549,7 @@ PANEL_EDGES = [
 # Hand readings for PANEL_EDGES rows that have not been nudged yet.
 # Keyed by (panel, side) rather than carried in the table, because every
 # other row in it has been on target for long enough to have none.
-PANEL_EDGE_HANDS = {
-    ("Stat Weight Configuration", "top"): 7,
-}
+PANEL_EDGE_HANDS = {}
 
 
 def _panel_gap(first, second, axis):
@@ -992,33 +990,27 @@ def _controls_over_label(panel, prefix, *classes):
 # sits above its controls everywhere except HAL and the Gear Score
 # status line, which sit below theirs.
 EXPLANATION_ENTRIES = [
-    ("Optimizer", "HAL note -> the spinboxes above it", 8, 10, "rule",
+    ("Optimizer", "HAL note -> the spinboxes above it", 8, None, "rule",
      _controls_over_label("Have at least this much of a stat",
                           "Input stats as you expect", *SPINBOX_CLASSES)),
-    # An exception at the site, and the marker there says why: the set
-    # rows pair a checkbox with a stepper, so they are taller than the
-    # rule assumes and it reads too wide against them. Registered at
-    # what the marker intends rather than at the rule -- the reading and
-    # the marker agree, and the dump that called it wrong did not know
-    # about the marker.
-    ("Optimizer", "set explanation -> the set rows", 6, None, "exception",
+    ("Optimizer", "set explanation -> the set rows", 8, None, "rule",
      _label_over_controls("Set Configuration",
                           "All selected Set and Flex", *CHECKBOX_CLASSES)),
-    ("Gear Score", "weights caption -> the stat grid", 8, 11, "rule",
+    ("Gear Score", "weights caption -> the stat grid", 8, None, "rule",
      _label_over_controls("Stat Weight Configuration",
                           "Adjust weights for custom", *SPINBOX_CLASSES)),
-    ("Gear Score", "Preset Name: -> its entry", 8, 13, "rule",
+    ("Gear Score", "Preset Name: -> its entry", 8, None, "rule",
      _label_over_controls("Stat Weight Configuration",
                           "Preset Name:", *ENTRY_CLASSES)),
     # One label, two gaps: the status line sits between the stat grid
     # and the preset list, so moving it trades one against the other.
-    ("Gear Score", "stat grid -> Applied status", 8, 5, "rule",
+    ("Gear Score", "stat grid -> Applied status", 8, None, "rule",
      _controls_over_label("Stat Weight Configuration",
                           "Applied ", *SPINBOX_CLASSES)),
-    ("Gear Score", "Applied status -> preset list", 8, 9, "rule",
+    ("Gear Score", "Applied status -> preset list", 8, None, "rule",
      _label_over_controls("Stat Weight Configuration",
                           "Applied ", *TREE_CLASSES)),
-    ("Capture", "presets caption -> the checklist", 8, 7, "rule",
+    ("Capture", "presets caption -> the checklist", 8, None, "rule",
      _label_over_controls("Upgrade Log Settings",
                           "Assigned presets compared", *CHECKBOX_CLASSES)),
 ]
