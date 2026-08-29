@@ -1185,7 +1185,7 @@ PAIR_GAP_ENTRIES = [
     # with nothing wrapping a pair, so the gaps alternate: label to its
     # own control, then control to the NEXT label. The odd positions are
     # this rule's; the even ones belong to `label ↔ its element`.
-    ("Optimizer", "Set Config averages", 8, 14,
+    ("Optimizer", "Set Config averages", 8, None,
      lambda app: _by_text("Avg Card DMG%")(app).master,
      LABEL_CLASSES + SPINBOX_CLASSES, 1),
     ("Memory Fragments", "Sets count -> next set", 8, None,

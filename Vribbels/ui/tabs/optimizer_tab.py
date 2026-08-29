@@ -1147,7 +1147,7 @@ class OptimizerTab(BaseTab):
             # The last spinbox drops its trailing pad so the group sits
             # flush with the frame's right padding edge (same pattern as
             # the force-main checkbox row).
-            pad_right = 0 if idx == len(avg_defs) - 1 else 12
+            pad_right = 0 if idx == len(avg_defs) - 1 else 6
             spin.pack(side=tk.LEFT, padx=(0, pad_right))
             spin.bind("<MouseWheel>", lambda e, sp=spin: self._spinbox_wheel(e, sp))
             var.trace_add(
