@@ -1020,11 +1020,12 @@ def _neighbour_gaps(cap, frame, classes):
         if top is None or span is None:
             continue
         info = w.grid_info()
-        found.append((w, top[0], span, info.get("column") if info else None))
+        found.append((w, top[0], top[1], span,
+                      info.get("column") if info else None))
     if not found:
         return []
 
-    if all(col is not None for _w, _t, _s, col in found):
+    if all(col is not None for _w, _t, _b, _s, col in found):
         # Gridded: a COLUMN is the unit, and its span is its widest
         # member's. Reading row by row instead would miss the widest
         # member of a column whose own row is short -- Main Stats has
@@ -1032,7 +1033,7 @@ def _neighbour_gaps(cap, frame, classes):
         # widest thing in column 2 has nothing to its right on its own
         # line and never gets measured.
         cols = {}
-        for _w, _top, span, col in found:
+        for _w, _top, _bottom, span, col in found:
             edge = cols.setdefault(col, [span[0], span[1]])
             edge[0] = min(edge[0], span[0])
             edge[1] = max(edge[1], span[1])
@@ -1042,11 +1043,25 @@ def _neighbour_gaps(cap, frame, classes):
 
     # Packed or placed: there are no columns to group by, so each row is
     # read left to right and the smallest gap at each position wins.
-    rows = {}
-    for _w, top, span, _col in found:
-        rows.setdefault(top, []).append(span)
+    #
+    # A row is a set of controls whose painted heights OVERLAP, not a set
+    # sharing a top edge. Different controls start their ink at different
+    # heights -- a label at its cap, a spinbox at its border -- so keying
+    # on the top edge splits one visual line of alternating labels and
+    # spinboxes into two rows, and then measures label to label straight
+    # across the spinbox between them.
+    rows = []
+    for _w, top, bottom, span in sorted(found, key=lambda f: f[1]):
+        for row in rows:
+            if top <= row[1] and bottom >= row[0]:
+                row[0] = min(row[0], top)
+                row[1] = max(row[1], bottom)
+                row[2].append(span)
+                break
+        else:
+            rows.append([top, bottom, [span]])
     at = {}
-    for spans in rows.values():
+    for _top, _bottom, spans in rows:
         spans.sort()
         for i, (a, b) in enumerate(zip(spans, spans[1:])):
             gap = sa.gap_between(a[1], b[0])
@@ -1160,10 +1175,10 @@ PAIR_GAP_ENTRIES = [
     #
     # Two of them wrap each pair in a frame, so the cells are the units
     # and the gap between grid columns is the gap between pairs.
-    ("Optimizer", "Set Configuration cells", 8, 6,
+    ("Optimizer", "Set Configuration cells", 8, None,
      _tab_attr("optimizer_tab_instance", "set_grid_frame"),
      CELL_CLASSES, 0),
-    ("Gear Score", "weight columns", 8, 19,
+    ("Gear Score", "weight columns", 8, None,
      lambda app: _group_of("ATK Flat")(app).master, CELL_CLASSES, 0),
 
     # The other two pack or grid their labels and controls side by side
@@ -1173,7 +1188,7 @@ PAIR_GAP_ENTRIES = [
     ("Optimizer", "Set Config averages", 8, 14,
      lambda app: _by_text("Avg Card DMG%")(app).master,
      LABEL_CLASSES + SPINBOX_CLASSES, 1),
-    ("Memory Fragments", "Sets count -> next set", 8, 14,
+    ("Memory Fragments", "Sets count -> next set", 8, None,
      _tab_attr("inventory_tab_instance", "inv_set_frame_inner"),
      CHECKBOX_CLASSES + LABEL_CLASSES, 1),
 ]

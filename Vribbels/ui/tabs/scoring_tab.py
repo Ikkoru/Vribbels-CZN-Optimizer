@@ -371,7 +371,7 @@ STAT MIN - MAX ROLLS:
             # side must stay 0. Column 1's leading pad and column 0's
             # trailing pad sum to the gap between the two weight columns.
             cell.grid(row=row, column=col, sticky=tk.W,
-                      padx=(10 if col == 1 else 0, 5), pady=1)
+                      padx=(2 if col == 1 else 0, 2), pady=1)
 
             # Label uses the canonical DISPLAY_NAMES override (falling
             # back to display_name); trailing colon dropped.

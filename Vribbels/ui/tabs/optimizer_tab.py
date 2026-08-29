@@ -1214,7 +1214,7 @@ class OptimizerTab(BaseTab):
             # checkbox AND the conditional-set spinbox, which sit in it
             # together.
             container.grid(row=row, column=col, sticky=tk.W,
-                           padx=(0 if col == 0 else 4, 0),
+                           padx=(0 if col == 0 else 6, 0),
                            pady=(top_pad, 0))
             pieces_text = f"{sinfo['pieces']}pc"
             name_text = " " + sinfo["name"]  # leading space separates from "pc"
