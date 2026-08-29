@@ -283,8 +283,11 @@ STAT MIN - MAX ROLLS:
         stats_frame.pack(side=tk.LEFT, anchor=tk.N)
 
         # spacing: control group ↔ control group -- spinbox, button ↔
-        # Spacer between stats and buttons.
-        ttk.Frame(top, width=7).pack(side=tk.LEFT)
+        # Spacer between stats and buttons. It carries only PART of that
+        # gap: the stat cells' trailing padx sits inside stats_frame's
+        # width and lands in this gap too, so the two are one lever in
+        # two places and a change to either moves this distance.
+        ttk.Frame(top, width=10).pack(side=tk.LEFT)
 
         # The button frame fills its parent vertically so weighted empty rows
         # inside it can push the lower buttons down to align with DoT%.

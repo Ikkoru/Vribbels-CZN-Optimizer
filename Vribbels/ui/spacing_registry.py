@@ -1051,7 +1051,7 @@ def _neighbour_gaps(cap, frame, classes):
     # spinboxes into two rows, and then measures label to label straight
     # across the spinbox between them.
     rows = []
-    for _w, top, bottom, span in sorted(found, key=lambda f: f[1]):
+    for _w, top, bottom, span, _col in sorted(found, key=lambda f: f[1]):
         for row in rows:
             if top <= row[1] and bottom >= row[0]:
                 row[0] = min(row[0], top)
