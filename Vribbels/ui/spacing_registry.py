@@ -916,6 +916,15 @@ SPINBOX_CLASSES = ("Spinbox", "TSpinbox")
 ENTRY_CLASSES = ("Entry", "TEntry")
 TREE_CLASSES = ("Treeview",)
 
+# Prefixes that locate a widget with no other handle on it. Kept here
+# rather than inline because each is a fragment of a sentence the tab
+# owns: if one is reworded the entry stops finding its widget, and the
+# audit reports that as an error rather than as a distance.
+OPTIMIZER_HELP_PREFIX = "The Optimizer finds the six"
+DEF_CAPTION = "What percent of damage scales off DEF?"
+SHIELD_CAPTION = "How much value should be given"
+FORCE_CAPTION = "Force HP/Ego on a Slot:"
+
 
 def _controls_beyond(cap, frame, classes, edge, side):
     """The nearest painted edge of `classes` on one side of `edge`.
@@ -983,6 +992,119 @@ def _controls_over_label(panel, prefix, *classes):
             return None, f"no {'/'.join(classes)} above that label"
         return sa.gap_between(bottom, ink[0]), ""
     return resolve
+
+
+def _by_text(prefix):
+    """Locator: the widget whose words start with `prefix`."""
+    def find(app):
+        w = sa.find_descendant_text(sa.current_tab_widget(app), prefix)
+        if w is None:
+            raise LookupError(f"no element whose text starts {prefix!r}")
+        return w
+    return find
+
+
+def _group_of(prefix):
+    """Locator: the frame a caption is stacked inside.
+
+    The toolbar's control groups are `Frame(caption over control)` and
+    the Important Settings rows are `Frame(label, slider, readout)`;
+    either way the frame is what the gap runs to, and the caption is the
+    only part of it with words to find it by.
+    """
+    def find(app):
+        return _by_text(prefix)(app).master
+    return find
+
+
+def _sibling_before(locator):
+    """Locator: the widget packed immediately above the one `locator`
+    finds.
+
+    For the row above a caption, which has nothing on it to search for
+    -- a slider row's words are its stat name, and those repeat
+    elsewhere on the tab.
+
+    Takes a locator rather than a prefix because the widget whose
+    neighbour is wanted is not always the one with the words on it: a
+    caption stacked in the panel is its own sibling, but a caption
+    sharing a row with checkboxes is the FIRST child of that row, and it
+    is the row that has a sibling above.
+    """
+    def find(app):
+        w = locator(app)
+        kids = w.master.winfo_children()
+        i = kids.index(w)
+        if i == 0:
+            raise LookupError(f"{w} is first in its frame")
+        return kids[i - 1]
+    return find
+
+
+def _gap(first, second, axis):
+    """Resolver: the painted gap between two located widgets."""
+    def resolve(cap, app):
+        a, b = first(app), second(app)
+        return (sa.horizontal_gap(cap, a, b) if axis == "h"
+                else sa.vertical_gap(cap, a, b))
+    return resolve
+
+
+def _class_block_gap(panel, left_classes, right_classes):
+    """Resolver: the rightmost of one class of control -> the leftmost
+    of another, inside one panel.
+
+    For a column of controls beside a column of buttons, where neither
+    side is one widget and neither frame has any words on it.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, panel)
+        edges = []
+        for classes, pick in ((left_classes, max), (right_classes, min)):
+            spans = [sa.painted_extent_h(cap, sa.box_of(w))
+                     for w in sa.find_descendants_class(frame, *classes)]
+            spans = [s for s in spans if s]
+            if not spans:
+                return None, f"nothing painted for {'/'.join(classes)}"
+            edges.append(pick(s[1] if pick is max else s[0] for s in spans))
+        return sa.gap_between(edges[0], edges[1]), ""
+    return resolve
+
+
+# (tab, name, target, hand reading, resolver) for the gaps between
+# groups of tab-wide controls, and between the rows of a config panel.
+#
+# The two Important Settings captions read 6px wider than the checkbox
+# row for the same padding, because what sits across the gap is text in
+# one case and a checkbox indicator in the other. Their pads differ for
+# that reason and cannot be made uniform.
+CONTROL_GROUP_ENTRIES = [
+    ("Optimizer", "Combatant group -> LVL group", 16, 20,
+     _gap(_group_of("Combatant:"), _group_of("Optimize for LVL:"), "h")),
+    ("Optimizer", "LVL group -> Start", 16, 17,
+     _gap(_group_of("Optimize for LVL:"), _by_text("Start"), "h")),
+    ("Optimizer", "Stop -> help text", 16, 19,
+     _gap(_by_text("Stop"), _by_text(OPTIMIZER_HELP_PREFIX), "h")),
+    ("Gear Score", "stat grid -> button column", 16, 20,
+     _class_block_gap("Stat Weight Configuration",
+                      SPINBOX_CLASSES, ("TButton", "Button"))),
+]
+
+CONFIG_ROW_ENTRIES = [
+    ("Optimizer", "Fracture row -> DEF caption", 12, 19,
+     _gap(_sibling_before(_by_text(DEF_CAPTION)),
+          _by_text(DEF_CAPTION), "v")),
+    ("Optimizer", "ATK row -> Shielding caption", 12, 19,
+     _gap(_sibling_before(_by_text(SHIELD_CAPTION)),
+          _by_text(SHIELD_CAPTION), "v")),
+    # The Force HP/Ego caption shares a row with its checkboxes, so the
+    # ROW is what has a sibling above it and the row is also the lower
+    # end: the gap runs to the checkbox indicators, which paint higher
+    # than the caption's capitals.
+    ("Optimizer", "Shielding row -> Force HP/Ego row", 12, 13,
+     _gap(_sibling_before(_group_of(FORCE_CAPTION)),
+          _group_of(FORCE_CAPTION), "v")),
+]
 
 
 # (tab, name, target, hand reading, source, resolver) for the prose that
@@ -1500,6 +1622,19 @@ def register_all():
             axis=("v" if side in ("top", "bottom") else "h"),
             hand=PANEL_EDGE_HANDS.get((title, side)),
         )
+
+    for rule, table in ((RULE_CONTROL_GROUP, CONTROL_GROUP_ENTRIES),
+                        (RULE_CONFIG_PANEL_ROW, CONFIG_ROW_ENTRIES)):
+        for tab, name, target, hand, resolve in table:
+            sa.track(
+                name=name,
+                tab=tab,
+                rule=rule,
+                target=target,
+                resolve=resolve,
+                axis=("h" if rule == RULE_CONTROL_GROUP else "v"),
+                hand=hand,
+            )
 
     for tab, name, target, hand, source, resolve in EXPLANATION_ENTRIES:
         sa.track(
