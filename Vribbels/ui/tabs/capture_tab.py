@@ -13,19 +13,6 @@ from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 
 
-# Intended width of the tab's left column, in pixels. It reaches the
-# grid as a MINSIZE, so it is a floor and not a width: the column ends
-# up as wide as its widest child asks, and only this value if that is
-# wider still.
-#
-# It is not, today. The button row asks for more, so this number sets
-# nothing and the column is whatever the row costs -- four buttons at
-# BUTTON_W_MEDIUM plus the debug checkbox, which is why the checkbox
-# carries a wraplength. The right column takes what is left of the tab,
-# so every pixel the ROW gives up is one the Upgrade Log Settings panel
-# gains; this constant cannot hand it any.
-LEFT_COLUMN_PX = 474
-
 # Log Preset checkboxes per row, filled left-to-right then down.
 LOG_PRESET_COLUMNS = 6
 
@@ -105,10 +92,11 @@ class CaptureTab(BaseTab):
         main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
 
         # Everything above the Capture Log sits in a two-column grid:
-        # column 1 = the capture controls at a fixed width, column 2 =
-        # the Upgrade Log settings taking whatever is left. weight=0 +
-        # minsize pins the left column; an equal-weight `uniform` pair
-        # would force a 50/50 split and ignore left_col's width request.
+        # column 1 = the capture controls, column 2 = the Upgrade Log
+        # settings taking whatever is left. weight=0 gives the left
+        # column exactly what its content asks for; an equal-weight
+        # `uniform` pair would force a 50/50 split and ignore that
+        # request entirely.
         top_columns = ttk.Frame(main_frame)
         # spacing: tab list -> first element -- tab, frame ↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
@@ -122,10 +110,13 @@ class CaptureTab(BaseTab):
         # so a value here would stack on top of one the other tabs never
         # pay and drop the heading below theirs.
         top_columns.pack(fill=tk.X, pady=(0, 2))
-        # Column 0 is fixed and column 1 takes the rest, so this width is
-        # what sets the Upgrade Log Settings panel's: every pixel taken
-        # off here is one the panel gains.
-        top_columns.grid_columnconfigure(0, weight=0, minsize=LEFT_COLUMN_PX)
+        # Column 0 takes what its widest child asks and column 1 takes
+        # the rest, so that child is what sets the Upgrade Log Settings
+        # panel's width: every pixel it gives up is one the panel gains.
+        # There is no minsize -- the one that used to be here entered at
+        # 583, above what the row cost, and stopped binding once the
+        # buttons were standardised.
+        top_columns.grid_columnconfigure(0, weight=0)
         top_columns.grid_columnconfigure(1, weight=1)
 
         left_col = ttk.Frame(top_columns)
@@ -136,12 +127,10 @@ class CaptureTab(BaseTab):
         left_col.grid(row=0, column=0, sticky="nsew", padx=2)
         # There is no width clamp here, and one cannot usefully be added:
         # this frame's children are PACKED, and Tk keeps the propagation
-        # flag per geometry manager, so `grid_propagate(False)` on it sets
-        # a flag nothing reads while pack propagation stays on. A
+        # flag per geometry manager, so `grid_propagate(False)` on it
+        # sets a flag nothing reads while pack propagation stays on. A
         # `configure(width=...)` beside it is overridden the same way.
-        # The column is as wide as its widest child asks, full stop --
-        # see LEFT_COLUMN_PX, which describes that width rather than
-        # imposing it.
+        # The column is as wide as its widest child asks, full stop.
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         # The frame's own padding is NOT the lever for the left inset --
@@ -309,8 +298,10 @@ class CaptureTab(BaseTab):
                    command=self.load_latest_capture, width=BUTTON_W_MEDIUM).pack(side=tk.LEFT)
 
         self.debug_var = tk.BooleanVar(value=False)
-        # wraplength keeps the label narrow inside the fixed-width left
-        # column instead of pushing the button row wider.
+        # wraplength breaks the label over two lines so it does not push
+        # the button row wider. The row is usually the widest thing in
+        # the left column, and the column's width is what the Upgrade
+        # Log Settings panel beside it does not get.
         self.debug_checkbox = make_checkbox(
             btn_frame, self.colors, text="Debug WS",
             variable=self.debug_var, wraplength=40,
@@ -346,7 +337,7 @@ class CaptureTab(BaseTab):
 - Game must be closed before starting capture
 - Start capture, then launch the game and load into the main menu
 - Keep capture running to see live updates as you make changes
-- If you stop the capture, close the game before starting a new capture ddddddddddddddddddddddddd"""
+- If you stop the capture, close the game before starting a new capture"""
 
         ttk.Label(req_frame, text=requirements_text, justify=tk.LEFT).pack(anchor=tk.W)
 
