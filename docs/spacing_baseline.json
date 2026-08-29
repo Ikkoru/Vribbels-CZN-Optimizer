@@ -1,4 +1,5 @@
 {
+  "ATK row -> Shielding caption": 12,
   "Applied status -> preset list": 8,
   "Assign preset caption -> dropdown": 5,
   "Capture Log: left edge -> content": 5,
@@ -10,6 +11,7 @@
   "Character: right edge -> text": 5,
   "Character: title -> first element": 5,
   "Character: top edge -> text": 5,
+  "Combatant group -> LVL group": 16,
   "Data Capture -> Status title": 10,
   "Data Capture -> its subtitle": 14,
   "Equipped Memory Fragments: title -> first element": 5,
@@ -22,6 +24,7 @@
   "Exclude Combatant's MFs: top edge -> content": 5,
   "First-Time Setup -> Setup Status title": 10,
   "First-Time Setup -> its subtitle": 14,
+  "Fracture row -> DEF caption": 12,
   "Gear Score Calculation -> How Gear Score Works title": 10,
   "Gear Score Calculation -> its subtitle": 14,
   "Gear Score: tab list -> first element": 6,
@@ -39,6 +42,7 @@
   "Important Settings: right edge -> content": 5,
   "Important Settings: title -> first element": 5,
   "Important Settings: top edge -> content": 5,
+  "LVL group -> Start": 16,
   "Main Stats: All -> None": 4,
   "Main Stats: checkbox block -> All/None": 5,
   "Main Stats: left edge -> All": 3,
@@ -84,6 +88,7 @@
   "Setup Status: title -> first element": 5,
   "Setup buttons -> Setup Instructions title": 10,
   "Setup: tab list -> first element": 6,
+  "Shielding row -> Force HP/Ego row": 12,
   "Slots -> Sets": 4,
   "Slots -> active preset label": 10,
   "Slots: All -> None": 4,
@@ -100,6 +105,7 @@
   "Stats Comparison: title -> first element": 5,
   "Status -> Server Region title": 10,
   "Status: title -> first element": 5,
+  "Stop -> help text": 16,
   "Upgrade Log Settings -> Capture Log title": 10,
   "Upgrade Log Settings: bottom edge -> content": 5,
   "Upgrade Log Settings: left edge -> checkboxes": 5,
@@ -118,6 +124,7 @@
   "presets caption -> the checklist": 8,
   "set explanation -> the set rows": 8,
   "stat grid -> Applied status": 8,
+  "stat grid -> button column": 16,
   "user info -> character list": 10,
   "weights caption -> the stat grid": 8
 }
