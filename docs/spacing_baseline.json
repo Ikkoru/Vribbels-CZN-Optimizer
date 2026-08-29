@@ -70,6 +70,8 @@
   "Selected Build: title -> first element": 5,
   "Server Region: left edge -> content": 5,
   "Server Region: title -> first element": 5,
+  "Set Config averages": 8,
+  "Set Configuration cells": 8,
   "Set Configuration: bottom edge -> content": 5,
   "Set Configuration: left edge -> checkboxes": 5,
   "Set Configuration: left edge -> content": 5,
@@ -78,6 +80,7 @@
   "Set Configuration: title -> first element": 5,
   "Set Configuration: top edge -> content": 5,
   "Sets -> Main Stats": 4,
+  "Sets count -> next set": 8,
   "Sets: All -> None": 4,
   "Sets: checkbox block -> All/None": 5,
   "Sets: left edge -> All": 3,
@@ -132,5 +135,6 @@
   "stat grid -> Applied status": 8,
   "stat grid -> button column": 16,
   "user info -> character list": 10,
+  "weight columns": 8,
   "weights caption -> the stat grid": 8
 }
