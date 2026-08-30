@@ -369,7 +369,7 @@ STAT MIN - MAX ROLLS:
         # LABEL_GAP_PX is on top of what a Label asks for around its ink,
         # since a minsize is a floor the column still grows past -- see
         # `ui/utils/label_width.py`.
-        LABEL_GAP_PX = 3
+        LABEL_GAP_PX = 2
         label_col_px = [
             column_px([DISPLAY_NAMES.get(k, d)
                        for i, (k, d) in enumerate(STAT_DISPLAY_NAMES)

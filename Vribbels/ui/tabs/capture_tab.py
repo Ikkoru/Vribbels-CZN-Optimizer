@@ -243,7 +243,7 @@ class CaptureTab(BaseTab):
                                      padx=(10, 0), pady=(0, 2))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(3, 6, 5, 5))
+        region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(2, 6, 5, 5))
         # spacing: panel ↕ unrelated label -- panel, title ↕
         # spacing: content frame -> content frame -- frame, frame ↕
         # Asymmetric, because the two sides answer to different rules.

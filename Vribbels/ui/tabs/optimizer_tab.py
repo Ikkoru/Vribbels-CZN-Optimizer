@@ -121,11 +121,11 @@ DMG_READOUT_WIDEST = "100%"
 # up. This clears the widest REQUEST and leaves the rule's gap after it.
 DMG_LABEL_COL_SLACK = 5
 
-# The ATK/DEF row needs one more than the damage rows do. Both floors
-# are calibrated on screen rather than derived, because a string's
-# rendered ink and what `font.measure` reports for it differ by about a
-# pixel, and not by the same pixel for every string.
-AD_LABEL_COL_SLACK = 6
+# The ATK/DEF row's own floor. Both are calibrated on screen rather than
+# derived, because a string's rendered ink and what `font.measure`
+# reports for it differ by about a pixel, and not by the same pixel for
+# every string -- so the two rows do not necessarily agree.
+AD_LABEL_COL_SLACK = 5
 
 # A readout column pinned to the ink ALONE is outgrown the moment the
 # value reaches its widest, and the column steals those pixels from the
@@ -485,7 +485,7 @@ class OptimizerTab(BaseTab):
         # edge level with the other elements in this row. A ttk.Button's
         # box edge IS its border, where a Label's box starts above its
         # glyphs, so equal pady would render them unequal.
-        self.start_button.pack(side=tk.LEFT, padx=(14, 2), pady=(5, 0), anchor=tk.N)
+        self.start_button.pack(side=tk.LEFT, padx=(13, 2), pady=(5, 0), anchor=tk.N)
         ttk.Button(self._toolbar_top_row, text="Stop",
                    width=BUTTON_W_SMALL,
                    command=self.cancel_optimization).pack(
@@ -580,7 +580,7 @@ class OptimizerTab(BaseTab):
         minlvl_row.pack(side=tk.TOP, anchor=tk.E, pady=(0, 0))
         # spacing: label ↔ its element -- label, spinbox ↔
         ttk.Label(minlvl_row, text="Ignore MFs below level:",
-                  font=small_font).pack(side=tk.LEFT, padx=(0, 2))
+                  font=small_font).pack(side=tk.LEFT, padx=(0, 1))
         minlvl_spin = tk.Spinbox(
             minlvl_row, from_=0, to=5, increment=1, width=2,
             textvariable=self.min_gear_level_var, font=small_font,
@@ -794,7 +794,7 @@ class OptimizerTab(BaseTab):
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         important_frame = ttk.LabelFrame(top_row, text="Important Settings",
-                                         padding=(3, 0, 4, 2))
+                                         padding=(3, 0, 3, 2))
         # spacing: content frame -> content frame -- frame, frame ↔
         important_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 2))
         self._build_important_settings(important_frame)
@@ -818,7 +818,7 @@ class OptimizerTab(BaseTab):
 
         # Set Configuration
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        set_frame = ttk.LabelFrame(parent, text="Set Configuration", padding=(3, 5, 5, 5))
+        set_frame = ttk.LabelFrame(parent, text="Set Configuration", padding=(2, 5, 5, 5))
         # spacing: content frame -> content frame -- frame, frame ↕
         set_frame.pack(fill=tk.X, pady=(0, 5))
         self._set_frame_ref = set_frame
@@ -909,7 +909,7 @@ class OptimizerTab(BaseTab):
         )
         # spacing: label ↔ its element -- label, slider ↔
         # spacing: label ↔ its element -- slider, label ↔
-        ad_scale.grid(row=0, column=1, sticky="ew", padx=(0, 1))
+        ad_scale.grid(row=0, column=1, sticky="ew", padx=(0, 0))
         ad_scale.bind(
             "<MouseWheel>",
             lambda e: self._scale_wheel(
@@ -957,7 +957,7 @@ class OptimizerTab(BaseTab):
         # the labels do not.
         sh_row.grid_columnconfigure(0, weight=1)
         sh_row.grid_columnconfigure(1, minsize=_dmg_readout_col_px())
-        sh_scale.grid(row=0, column=0, sticky="ew", padx=(1, 1))
+        sh_scale.grid(row=0, column=0, sticky="ew", padx=(1, 0))
         sh_scale.bind(
             "<MouseWheel>",
             lambda e: self._scale_wheel(
@@ -1039,7 +1039,7 @@ class OptimizerTab(BaseTab):
         # Both sides are the rule: the name on the left and the percent
         # readout on the right. Each column is pinned to its own text's
         # width, so what is left here IS the gap.
-        scale.grid(row=0, column=1, sticky="ew", padx=(0, 1))
+        scale.grid(row=0, column=1, sticky="ew", padx=(0, 0))
         # Mouse wheel steps exactly +-1, so every integer is reachable
         # even at window sizes where the rendered track is short.
         scale.bind("<MouseWheel>",
@@ -1337,7 +1337,7 @@ class OptimizerTab(BaseTab):
             # A pad, not the leading space the name used to carry: a
             # space is whatever the font makes it and cannot be tuned by
             # a pixel.
-            name_label.pack(side=tk.LEFT, padx=(1, 0))
+            name_label.pack(side=tk.LEFT, padx=(0, 0))
 
             # Conditional sets get an effect-share spinbox (0-100, % of
             # this combatant's damage the effect applies to; 0 = effect
