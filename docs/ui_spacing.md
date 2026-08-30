@@ -105,6 +105,13 @@ list running flush to three borders cost the whole panel 3px that way.
 The scan tries the middle first and falls back to other lines, any one
 of which reports the same border where there is background behind it.
 
+Where a side has background on NO line — the list spans that panel's
+full width, so every column at the bottom is filled — there is no
+transition to find at all, and the scan cannot answer however many lines
+it tries. A frame's border is one width, so that side takes it from a
+side that did answer, and the reading says it was inferred rather than
+passing for a measurement.
+
 **A glyph's ADVANCE and its INK are not the same width, and the
 difference is per string.** `font.measure` returns the advance — what Tk
 reserves to lay the next character out — while the audit reads painted

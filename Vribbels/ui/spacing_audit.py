@@ -369,7 +369,41 @@ def frame_border_edges(cap: Capture, frame) -> tuple:
         "top": fb.top - 1 if top is None else top,
         "bottom": fb.bottom + 1 if bottom is None else bottom,
     }
-    return edges, any((l_sat, r_sat, t_sat, b_sat))
+
+    # A side whose content TOUCHES its border cannot be scanned at all:
+    # there is no transition to find, because the border runs straight
+    # into the content and both are painted. The Gear Score preset list
+    # spans its panel's full width flush to the bottom, so every column
+    # there saturates however many are tried.
+    #
+    # A frame's border is one width, though, so a side that did answer
+    # gives it. The note says which sides were inferred, rather than
+    # letting the number pass for a reading.
+    widths = {
+        "left": None if left is None or l_sat else left - fb.left,
+        "right": None if right is None or r_sat else fb.right - right,
+        "top": None if top is None or t_sat else top - fb.top,
+        "bottom": None if bottom is None or b_sat else fb.bottom - bottom,
+    }
+    known = [w for w in widths.values() if w is not None]
+    stuck = [side for side, sat in (("left", l_sat), ("right", r_sat),
+                                    ("top", t_sat), ("bottom", b_sat)) if sat]
+    if stuck and known:
+        width = min(known)
+        for side in stuck:
+            if side == "left":
+                edges["left"] = fb.left + width
+            elif side == "right":
+                edges["right"] = fb.right - width
+            elif side == "top":
+                edges["top"] = fb.top + width
+            else:
+                edges["bottom"] = fb.bottom - width
+        return edges, (f"{'/'.join(stuck)} border inferred from the others "
+                       f"at {width}px")
+    if stuck:
+        return edges, "border scan hit its cap; interior may be filled"
+    return edges, ""
 
 
 def inset_from_frame_edge(cap: Capture, frame, child, side: str,
@@ -381,9 +415,7 @@ def inset_from_frame_edge(cap: Capture, frame, child, side: str,
     and the child's painted extent (not its box, so a Label's empty
     margin does not count as part of the gap).
     """
-    edges, saturated = frame_border_edges(cap, frame)
-    note = "border scan hit its cap; interior may be filled" if saturated \
-        else ""
+    edges, note = frame_border_edges(cap, frame)
     if side in ("top", "bottom"):
         extent = painted_extent_v(cap, box_of(child), bg)
     else:

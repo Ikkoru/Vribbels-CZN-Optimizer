@@ -2100,7 +2100,7 @@ def _class_left_inset(title, *classes):
         left = sa.leftmost_painted(cap, widgets)
         if left is None:
             return None, "elements painted nothing"
-        edges, saturated = sa.frame_border_edges(cap, frame)
+        edges, _note = sa.frame_border_edges(cap, frame)
         note = "border scan hit its cap" if saturated else ""
         return sa.gap_between(edges["left"], left), note
     return resolve
@@ -2116,7 +2116,7 @@ def _text_left_inset(title, prefix):
         extent = sa.painted_extent_h(cap, sa.box_of(widget))
         if extent is None:
             return None, "element painted nothing"
-        edges, saturated = sa.frame_border_edges(cap, frame)
+        edges, _note = sa.frame_border_edges(cap, frame)
         note = "border scan hit its cap" if saturated else ""
         return sa.gap_between(edges["left"], extent[0]), note
     return resolve
