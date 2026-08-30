@@ -46,7 +46,9 @@ _RENAME_PLACEHOLDER = "Rename current preset to..."
 # its line boxes hands the row height back to the button.
 #
 # LEVERS, not rendered distances: neither rule is in the spacing audit
-# yet, so measure before trusting them.
+# yet, so measure before trusting them. The button-to-explanation pad
+# below IS tracked now, and it is two pixels short of the gap it renders
+# -- a lever is what is left after the label's own inset.
 RESTORE_ROW_GAP = 4     # spacing: button -> button -- button, button ↕
 RESTORE_EDGE_PAD = 3    # spacing: border edge -> button -- panel, button ↔↕
 RESTORE_TEXT_TRIM = -2  # spacing: button -> button -- button, button ↕
@@ -208,18 +210,18 @@ class SetupTab(BaseTab):
         button_specs = [
             (
                 "Presets",
-                "Restores default Gear Score presets. Does NOT delete user presets.",
+                "Restores default Gear Score presets.\nDoes NOT delete user presets.",
                 "presets",
             ),
             (
                 "Combatant Presets",
-                "Restores default per-Combatant preset assignments. "
+                "Restores default per-Combatant preset assignments.\n"
                 "Does NOT delete user assignments.",
                 "character_preset",
             ),
             (
                 "Combatant Settings",
-                "Restores default Optimizer tab settings per Combatant. "
+                "Restores default Optimizer tab settings per Combatant.\n"
                 "Does NOT delete user settings.",
                 "optimizer_settings",
             ),
@@ -252,9 +254,9 @@ class SetupTab(BaseTab):
             ttk.Label(
                 row, text=explanation,
                 foreground=self.colors["fg_dim"],
-                wraplength=260, justify=tk.LEFT,
+                wraplength=350, justify=tk.LEFT,
                 padding=(0, RESTORE_TEXT_TRIM, 0, RESTORE_TEXT_TRIM),
-            ).grid(row=0, column=1, sticky="w", padx=(1, 0))
+            ).grid(row=0, column=1, sticky="w", padx=(2, 0))
 
         # Button frame
         btn_frame = ttk.Frame(main_frame)
