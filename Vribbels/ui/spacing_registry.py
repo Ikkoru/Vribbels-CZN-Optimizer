@@ -1359,6 +1359,26 @@ def _indicator_gap(container, classes, debug=False):
     return resolve
 
 
+def _to_window_edge(locator):
+    """Resolver: a widget's painted right edge -> the window's.
+
+    The capture is the CLIENT area -- `winfo_rootx` plus `winfo_width`,
+    with no title bar, border or shadow in it -- so the window edge is
+    the first column past the image, and the gap is the background
+    between the ink and that. Counted the same way as every other rule:
+    the pixels BETWEEN the two, neither end included.
+
+    Right edge only. Nothing in the app ends at the bottom of the
+    window; the panel that looks like it does has another beneath it.
+    """
+    def resolve(cap, app):
+        span = sa.painted_extent_h(cap, sa.box_of(locator(app)))
+        if span is None:
+            return None, "painted nothing"
+        return sa.gap_between(span[1], cap.origin[0] + cap.image.size[0]), ""
+    return resolve
+
+
 def _by_text(prefix):
     """Locator: the widget whose words start with `prefix`."""
     def find(app):
@@ -1498,9 +1518,19 @@ BUTTON_ROW_ABOVE_ENTRIES = [
 # be the finding rather than a set of separate nudges. Dumping its runs
 # while it answers whether the distance is Tk's own.
 INDICATOR_ENTRIES = [
-    ("Memory Fragments", "checkbox indicator -> its label", 4, 5,
+    ("Memory Fragments", "checkbox indicator -> its label", 5, None,
      _indicator_gap(_block_in("Slots", CHECKBOX_CLASSES),
-                    CHECKBOX_CLASSES, debug=True)),
+                    CHECKBOX_CLASSES)),
+]
+
+# (tab, name, target, hand reading, resolver) for content that ends at
+# the window's right edge.
+WINDOW_EDGE_ENTRIES = [
+    ("Optimizer", "status cluster -> window edge", 4, 6,
+     _to_window_edge(
+         lambda app: app.optimizer_tab_instance.status_label.master)),
+    ("Combatants", "Partner -> window edge", 4, 6,
+     _to_window_edge(_panel_at("Partner"))),
 ]
 
 CONFIG_ROW_ENTRIES = [
@@ -2097,11 +2127,12 @@ def register_all():
                 scenario=scenario,
             )
 
-    for rule, table, axis in (
-            (RULE_CONTROL_GROUP, CONTROL_GROUP_ENTRIES, "h"),
-            (RULE_CONFIG_PANEL_ROW, CONFIG_ROW_ENTRIES, "v"),
-            (RULE_CONTENT_FRAME, BUTTON_ROW_ABOVE_ENTRIES, "v"),
-            (RULE_LABEL_ELEMENT, INDICATOR_ENTRIES, "h")):
+    for rule, table, axis, source in (
+            (RULE_CONTROL_GROUP, CONTROL_GROUP_ENTRIES, "h", "rule"),
+            (RULE_CONFIG_PANEL_ROW, CONFIG_ROW_ENTRIES, "v", "rule"),
+            (RULE_CONTENT_FRAME, BUTTON_ROW_ABOVE_ENTRIES, "v", "rule"),
+            (RULE_LABEL_ELEMENT, INDICATOR_ENTRIES, "h", "exception"),
+            (RULE_CONTENT_FRAME, WINDOW_EDGE_ENTRIES, "h", "rule")):
         for tab, name, target, hand, resolve in table:
             sa.track(
                 name=name,
@@ -2111,6 +2142,7 @@ def register_all():
                 resolve=resolve,
                 axis=axis,
                 hand=hand,
+                target_source=source,
             )
 
     for tab, name, target, hand, source, resolve in EXPLANATION_ENTRIES:
