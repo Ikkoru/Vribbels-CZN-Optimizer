@@ -683,6 +683,12 @@ class OptimizerTab(BaseTab):
             foreground=self.colors["fg_dim"]
         )
         # spacing: header subtext -- label, label ↔
+        # The pad is the whole lever. Seating the status on the title's
+        # line needs nothing, unlike every other site under this rule:
+        # both are plain Labels in one font with no padding and the same
+        # anchor, so they share a line box and align by construction.
+        # Give either one a font or a padding of its own and that stops
+        # being true.
         self.progress_label.pack(side=tk.LEFT, padx=(10, 0))
         # spacing: title above, element below -- title, tree ↕
         # padding is 0 all round: the tree inside sits flush with the

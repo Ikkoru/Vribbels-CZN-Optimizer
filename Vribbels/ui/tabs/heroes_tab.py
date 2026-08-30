@@ -431,14 +431,19 @@ class HeroesTab(BaseTab):
         # spacing: content frame -> content frame -- frame, frame ↔
         title_row.pack(fill=tk.X, padx=(4, 0))
 
-        # spacing: header subtext -- heading, label ↔
-        # padding cancels the 14pt font's internal leading. One deeper
-        # than `make_tab_header`'s, and NOT drift: those headings are
-        # bottom-aligned beside a subtitle, this one is top-aligned
-        # beside a control group, so the same correction lands a pixel
-        # differently. Measured against the preset label next to it.
+        # spacing: tab list -> first element -- tab, heading ↕
+        # The top padding cancels the 14pt font's internal leading, and
+        # what it answers to is the TAB LIST above, not the preset
+        # caption beside it. The two do end up level, but that is both of
+        # them meeting the same distance from the top rather than either
+        # being placed against the other -- so the caption is not a
+        # reference, and matching it is not the goal.
+        #
+        # One deeper than `make_tab_header`'s, and NOT drift: those
+        # headings are bottom-aligned beside a subtitle where this one is
+        # top-aligned, so the same correction lands a pixel differently.
         self.hero_detail_name = ttk.Label(
-            title_row, text="Select a combatant", padding=(0, -4, 0, -2),
+            title_row, text="Select a combatant", padding=(0, -3, 0, -2),
             font=("Segoe UI", 14, "bold")
         )
         self.hero_detail_name.pack(side=tk.LEFT, anchor=tk.NW)
