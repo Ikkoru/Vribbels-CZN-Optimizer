@@ -121,16 +121,20 @@ DMG_READOUT_WIDEST = "100%"
 DMG_LABEL_COL_SLACK = 5
 
 
-def _dmg_label_col_px():
-    """Pixel width of the damage rows' name column, measured.
+def _name_col_px(names):
+    """Pixel width for a column holding any of `names`, measured.
 
     Called at build time rather than computed once at import: the font
     is not resolvable until a Tk root exists.
     """
     import tkinter.font as tkfont
     f = tkfont.nametofont("TkDefaultFont")
-    return (max(f.measure(name) for name in DMG_TYPE_LABELS)
-            + DMG_LABEL_COL_SLACK)
+    return max(f.measure(name) for name in names) + DMG_LABEL_COL_SLACK
+
+
+def _dmg_label_col_px():
+    """Pixel width of the damage rows' name column."""
+    return _name_col_px(DMG_TYPE_LABELS)
 
 
 def _dmg_readout_col_px():
@@ -868,34 +872,39 @@ class OptimizerTab(BaseTab):
         ad_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, label ↕
         ad_row.pack(fill=tk.X, pady=(0, 4))
-        ttk.Label(ad_row, text="ATK", width=4).pack(side=tk.LEFT)
+        # Four pinned columns, the same construction as the damage rows
+        # above: every `width=` in CHARACTERS left slack that landed in
+        # one rule-governed gap or the other depending on the anchor, and
+        # no character count sits on the gap. See `_dmg_label_col_px`.
+        ad_row.grid_columnconfigure(1, weight=1)
+        ad_row.grid_columnconfigure(0, minsize=_name_col_px(("ATK", "DEF")))
+        ad_row.grid_columnconfigure(3, minsize=_dmg_readout_col_px())
+        ttk.Label(ad_row, text="ATK", anchor=tk.W).grid(
+            row=0, column=0, sticky="w")
         ad_scale = ttk.Scale(
             ad_row, from_=0, to=100, variable=self.atk_def_split_var,
             orient=tk.HORIZONTAL, length=120,
             command=lambda v: self._save_int("atk_def_split", int(float(v))),
         )
         # spacing: label ↔ its element -- label, slider ↔
-        ad_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 1))
+        # spacing: label ↔ its element -- slider, label ↔
+        ad_scale.grid(row=0, column=1, sticky="ew", padx=(0, 1))
         ad_scale.bind(
             "<MouseWheel>",
             lambda e: self._scale_wheel(
                 e, self.atk_def_split_var,
                 lambda v: self._save_int("atk_def_split", v)),
         )
-        # width=4 + anchor=E keeps "DEF" intact (width 3 clips the "F")
-        # while shifting the empty slack to the left, so the gap from
-        # "DEF" to the readout matches the other sliders'.
-        # anchor=W, not E: this label's slack would otherwise sit on its
-        # LEFT, which is the side the gap from the slider is measured on,
-        # and 4px of it went straight into that gap.
-        ttk.Label(ad_row, text="DEF", width=4, anchor=tk.W).pack(side=tk.LEFT)
-        # anchor=E + width=5: ttk.Label's effective text area is width-in-
-        # chars minus a couple px of theme padding, and width=4 is just shy
-        # of "100%"'s rendered width. anchor=E keeps the glyphs glued to
-        # the right; the slack lives invisibly on the left.
-        self.ad_readout_label = ttk.Label(ad_row, text="0%", width=5, anchor=tk.E)
-        # spacing: label ↔ its element -- slider, label ↔
-        self.ad_readout_label.pack(side=tk.LEFT, padx=(3, 0))
+        # No `width=`: the column is pinned, so the label asks for its
+        # own text and has no slack to put on either side of it.
+        ttk.Label(ad_row, text="DEF", anchor=tk.W).grid(
+            row=0, column=2, sticky="w")
+        # anchor=E so the % stays put as digits are added; the column is
+        # its widest value's measured width, so there is no slack left of
+        # the glyphs for the gap to swallow.
+        self.ad_readout_label = ttk.Label(ad_row, text="0%", anchor=tk.E)
+        # spacing: label ↔ its element -- label, label ↔
+        self.ad_readout_label.grid(row=0, column=3, sticky="e", padx=(2, 0))
         self.atk_def_split_var.trace_add(
             "write",
             lambda *a: self.ad_readout_label.config(
@@ -925,17 +934,20 @@ class OptimizerTab(BaseTab):
         # after a row label -- and a Scale's trough begins at its box edge
         # where a Label's glyphs start inside theirs, so it needs a pixel
         # the labels do not.
-        sh_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(1, 3))
+        sh_row.grid_columnconfigure(0, weight=1)
+        sh_row.grid_columnconfigure(1, minsize=_dmg_readout_col_px())
+        sh_scale.grid(row=0, column=0, sticky="ew", padx=(1, 2))
         sh_scale.bind(
             "<MouseWheel>",
             lambda e: self._scale_wheel(
                 e, self.shielding_healing_weight_var,
                 lambda v: self._save_int("shielding_healing_weight", v)),
         )
-        # anchor=E + width=5 so "100%" doesn't clip inside the label (the
-        # clipping is internal to the label, not at the row's right edge).
-        self.sh_readout_label = ttk.Label(sh_row, text="0%", width=5, anchor=tk.E)
-        self.sh_readout_label.pack(side=tk.LEFT)
+        # anchor=E so the % stays put as digits are added; the column is
+        # its widest value's measured width, so there is no slack left of
+        # the glyphs for the gap to swallow.
+        self.sh_readout_label = ttk.Label(sh_row, text="0%", anchor=tk.E)
+        self.sh_readout_label.grid(row=0, column=1, sticky="e")
         self.shielding_healing_weight_var.trace_add(
             "write",
             lambda *a: self.sh_readout_label.config(
