@@ -1574,7 +1574,14 @@ CELL_LABEL_ENTRIES = [
                        CHECKBOX_CLASSES + LABEL_CLASSES)),
     # Two weight columns, each with its own distance, so each is read
     # alone rather than as the smallest of the two.
-    ("Gear Score", "weight column 1 label -> its spinbox", 4, 3,
+    #
+    # Column 1 sits a pixel wide and is PARKED there, not fudged: both
+    # columns take the same extra on top of their own longest label, so
+    # the pixel is the difference between what `font.measure` reports for
+    # "ATK Flat" and what it renders as. Closing it with a per-column
+    # constant would tie a number to today's stat names, and the
+    # antialiasing question may delete it -- see docs/ui_spacing.md.
+    ("Gear Score", "weight column 1 label -> its spinbox", 4, None,
      _gap_within_cells(lambda app: _group_of("ATK Flat")(app).master,
                        LABEL_CLASSES + SPINBOX_CLASSES, column=0)),
     ("Gear Score", "weight column 2 label -> its spinbox", 4, 1,

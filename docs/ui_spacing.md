@@ -96,6 +96,28 @@ deriving something, and the refusal names the reason.
 These are exact targets, not floors: a value above target needs bringing
 down as much as one below it needs raising.
 
+**A glyph's ADVANCE and its INK are not the same width, and the
+difference is per string.** `font.measure` returns the advance — what Tk
+reserves to lay the next character out — while the audit reads painted
+pixels, and a glyph's antialiased edge fades rather than stopping. So
+two strings measured identically can render a pixel apart, and the same
+column formula lands on 4 for one and 5 for another.
+
+It has turned up four times and always as a single pixel: the ATK/DEF
+row's name column needing one more than the damage rows', the two Gear
+Score weight columns landing a pixel apart under one formula, and `4pc`
+sitting a different distance from its indicator than `2pc`.
+
+**Open: whether the audit should ignore the antialiased fringe of a
+glyph** — count a column as ink only past some threshold, rather than at
+the first pixel that is not exactly background. That would make the ink
+edge agree with the advance and take these pixels off the table
+together. It is a change to what every reading means, so it belongs
+before the rules pass and not during it. Until then, a lone pixel that
+traces to this is PARKED rather than closed with a per-site constant:
+such a constant ties itself to today's strings and the change would
+delete it.
+
 **A grid `minsize` is a FLOOR, not a width, and a fixed-width label's
 slack lands on the side its anchor points away from.** Two ways a column
 that looks pinned is not:
