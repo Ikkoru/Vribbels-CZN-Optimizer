@@ -375,10 +375,10 @@ def _border_inner_edges(cap, frame):
     The same fallback on the right puts the interior over the border and
     finds the border itself, which reads 0.
 
-    Kept here rather than fixed in `frame_border_edges`: twenty frozen
-    entries measure through that function on their LEFT edges, where the
-    assumption happens to hold, and moving them all to prove a point is
-    not worth a re-freeze.
+    Kept here rather than fixed in `frame_border_edges`: twenty-seven
+    frozen entries measure through that function on their LEFT edges,
+    where the assumption happens to hold, and moving them all to prove a
+    point is not worth a re-freeze.
     """
     fb = sa.box_of(frame)
     mid_y = (fb.top + fb.bottom) // 2

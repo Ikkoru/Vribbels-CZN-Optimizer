@@ -349,7 +349,7 @@ was being rewritten anyway:
 | `overarching tab control element group ↔ OTC element group` | `control group ↔ control group`           | It applies inside a panel too, not only tab-wide. Also 54 characters to 29, which is what keeps the suffix affordable |
 
 `panel edge` was considered for the first two and dropped. The border
-measured to belongs to a LabelFrame at 40 of the 43 sites, so the name
+measured to belongs to a LabelFrame at 36 of the 39 sites, so the name
 would have been right most of the time — but the three it is wrong
 about (the Optimizer toolbar's preset label, status label and
 off-Element checkbox) measure to a plain frame's content edge, where
@@ -461,9 +461,10 @@ another face.
 ### Measured, or not
 
 **A marker says which rule a value answers to, not that the value is on
-target.** 113 gaps are registered and every one is; roughly 200 markers
-exist, so about half the deliberate spacing values in the app have
-something watching them and about half do not.
+target.** 162 gaps are registered against 213 markers, so about three
+in four of the app's deliberate spacing values now have something
+watching them. All but one are on target; that one is the Gear Score
+weight column parked behind the antialiasing question above.
 
 **Two entries measure to the Capture Log title, one per column above
 it,** and that pair is worth knowing about because it is the only place
@@ -866,8 +867,8 @@ before editing any spacing value.**
 | Lever                                                               | Also moves                                                                                                                                                                                                      |
 | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TLabelframe` `labelmargins`                                        | The title → border gap on EVERY LabelFrame. The `Borderless`, `Tight.Borderless` and `Gear.Borderless` variants set their own and do NOT inherit it.                                                            |
-| A Set Configuration checkbox's `pack(padx=(left, right))`           | Every checkbutton in the set grid — one pack call serves every row. LEADING component is the panel's frame-edge lever; TRAILING is half of a split correction, below.                                           |
-| That trailing component **and** `pieces_label`'s negative `padding` | One correction in two halves. The Label gives back all the internal inset it has and the remainder comes off the checkbutton's trailing side; moving either alone breaks it.                                    |
+| A Set Configuration checkbox's `pack(padx=(left, right))`           | Every checkbutton in the set grid — one pack call serves every row. LEADING component is the panel's frame-edge lever; the TRAILING one is 0 and has to stay there, since the widget reserves 7px after its indicator that no padding reaches. |
+| A Set Configuration name label's `pack(padx)`                       | The gap from the piece count, which is the checkbox's own TEXT — so this is the only lever on it. It replaced a leading space in the name string, which was untunable.                                          |
 | A LabelFrame's `padding` left                                       | Every element in that panel, not just the first. Four panels track a second element in its own right (`ELEMENT_ENTRIES`), so a frame-level change there breaks as much as it fixes.                             |
 | Capture's `left_col` grid `padx`                                    | The tab header, Status, Server Region, Requirements and the button row together.                                                                                                                                |
 | A Set Configuration row's `container` `pady`                        | The checkbox AND its spinbox — they share one container.                                                                                                                                                        |
@@ -891,11 +892,14 @@ ways:
   only one starting at the frame's edge rather than after a row label,
   and a Scale's trough begins at its box edge where a Label's glyphs
   start inside theirs.
-- **Set Configuration** and **Stat Weight Configuration** take the frame
-  lever for both elements. Stat Weight's grid and its `Applied ...`
-  label sit flush against the same padding; Set Configuration's
-  checkboxes ride it with the leading component of their own
+- **Set Configuration** takes the frame lever for both elements, its
+  checkboxes riding it with the leading component of their own
   `pack(padx=...)` as the differential.
+- **Stat Weight Configuration** has no frame lever at all. Its preset
+  list runs to three of the panel's borders, and a frame padding insets
+  every child alike — so the inset lives on each of the OTHER children's
+  `padx` as `PANEL_INSET`, and the list carries nothing. Its grid, its
+  `Applied ...` label and its caption all take that one constant.
 
 ## Reading a bad measurement
 

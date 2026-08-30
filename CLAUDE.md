@@ -48,10 +48,12 @@ loaded; read them on demand.
 **Run `python checks/run_all.py` before handing work over.** Seventeen
 checks, ~15s, no GUI. They cover invariants that fail QUIETLY —
 optimizer parity, scoring reconciliation, game data, settings
-round-trips, spacing markers, the spacing registry, tab construction,
-the flash fix, and six on capture: the addon template, batched frames,
-gacha banners, one account per session, both regions routed, and
-reporting only the snapshot this session wrote. Checks needing captured data skip
+round-trips, DoT scoring, shipped defaults holding no user state,
+spacing markers, the spacing registry, tab construction, the flash fix,
+the Optimizer opening with no combatant selected, and six on capture:
+the addon template, batched frames, gacha banners, one account per
+session, both regions routed, and reporting only the snapshot this
+session wrote. Checks needing captured data skip
 themselves when `Vribbels/snapshots/` is empty. Parity runs bounded;
 `--full` takes minutes.
 
@@ -85,7 +87,7 @@ geometry.
 | Parallel/sequential parity            | `checks/check_optimizer_parity.py` — don't re-roll it by hand                                                                        |
 | A settings or defaults-sync change    | Point the managers at a COPY of `Vribbels/settings/` in the scratchpad, never the live folder                                        |
 | Which widgets a change moved          | Build the tabs the `check_tabs_build.py` way, snapshot every row's values before and after, diff                                      |
-| A rendered GAP, in pixels             | `zRUN Spacing Audit Verbose.bat` — 101 registered gaps read off a screenshot. Ask before running one                                  |
+| A rendered GAP, in pixels             | `zRUN Spacing Audit Verbose.bat` — 162 registered gaps read off a screenshot. Ask before running one                                  |
 | Something only the screen shows       | A side-by-side repro in `_tmp/`, for the maintainer to run                                                                            |
 
 Snapshots are the maintainer's captured game data. Read them; never
