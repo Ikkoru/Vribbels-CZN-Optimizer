@@ -120,8 +120,21 @@ DMG_READOUT_WIDEST = "100%"
 # up. This clears the widest REQUEST and leaves the rule's gap after it.
 DMG_LABEL_COL_SLACK = 5
 
+# The ATK/DEF row needs one more than the damage rows do. Both floors
+# are calibrated on screen rather than derived, because a string's
+# rendered ink and what `font.measure` reports for it differ by about a
+# pixel, and not by the same pixel for every string.
+AD_LABEL_COL_SLACK = 6
 
-def _name_col_px(names):
+# What a ttk.Label asks for beyond its ink -- the style's own inset,
+# measured. A readout column pinned to the ink ALONE is outgrown the
+# moment the value reaches its widest, and the column steals those
+# pixels from the slider beside it: the sliders visibly shorten going
+# from 99% to 100%. Clearing the REQUEST is what holds them still.
+LABEL_REQUEST_INSET = 4
+
+
+def _name_col_px(names, slack=None):
     """Pixel width for a column holding any of `names`, measured.
 
     Called at build time rather than computed once at import: the font
@@ -129,7 +142,8 @@ def _name_col_px(names):
     """
     import tkinter.font as tkfont
     f = tkfont.nametofont("TkDefaultFont")
-    return max(f.measure(name) for name in names) + DMG_LABEL_COL_SLACK
+    return (max(f.measure(name) for name in names)
+            + (DMG_LABEL_COL_SLACK if slack is None else slack))
 
 
 def _dmg_label_col_px():
@@ -138,9 +152,15 @@ def _dmg_label_col_px():
 
 
 def _dmg_readout_col_px():
-    """Pixel width of the damage rows' percent readout column."""
+    """Pixel width of a percent readout column.
+
+    The widest value's ink PLUS what a Label asks for around it, so the
+    column never has to grow when the value reaches 100% -- see
+    LABEL_REQUEST_INSET.
+    """
     import tkinter.font as tkfont
-    return tkfont.nametofont("TkDefaultFont").measure(DMG_READOUT_WIDEST)
+    return (tkfont.nametofont("TkDefaultFont").measure(DMG_READOUT_WIDEST)
+            + LABEL_REQUEST_INSET)
 
 
 # Element choices for the Unknown-character override dropdown.
@@ -877,7 +897,8 @@ class OptimizerTab(BaseTab):
         # one rule-governed gap or the other depending on the anchor, and
         # no character count sits on the gap. See `_dmg_label_col_px`.
         ad_row.grid_columnconfigure(1, weight=1)
-        ad_row.grid_columnconfigure(0, minsize=_name_col_px(("ATK", "DEF")))
+        ad_row.grid_columnconfigure(
+            0, minsize=_name_col_px(("ATK", "DEF"), AD_LABEL_COL_SLACK))
         ad_row.grid_columnconfigure(3, minsize=_dmg_readout_col_px())
         ttk.Label(ad_row, text="ATK", anchor=tk.W).grid(
             row=0, column=0, sticky="w")
@@ -904,7 +925,7 @@ class OptimizerTab(BaseTab):
         # the glyphs for the gap to swallow.
         self.ad_readout_label = ttk.Label(ad_row, text="0%", anchor=tk.E)
         # spacing: label ↔ its element -- label, label ↔
-        self.ad_readout_label.grid(row=0, column=3, sticky="e", padx=(2, 0))
+        self.ad_readout_label.grid(row=0, column=3, sticky="e")
         self.atk_def_split_var.trace_add(
             "write",
             lambda *a: self.ad_readout_label.config(
@@ -936,7 +957,7 @@ class OptimizerTab(BaseTab):
         # the labels do not.
         sh_row.grid_columnconfigure(0, weight=1)
         sh_row.grid_columnconfigure(1, minsize=_dmg_readout_col_px())
-        sh_scale.grid(row=0, column=0, sticky="ew", padx=(1, 2))
+        sh_scale.grid(row=0, column=0, sticky="ew", padx=(1, 1))
         sh_scale.bind(
             "<MouseWheel>",
             lambda e: self._scale_wheel(

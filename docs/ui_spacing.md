@@ -105,6 +105,11 @@ that looks pinned is not:
   INK is outgrown by the longest label, which then sets its own column
   while the shorter rows keep the floor. The rows stop lining up and
   only the longest one's gap looks wrong.
+- The same floor on a column whose text CHANGES is outgrown whenever the
+  text reaches its widest, and the pixels come out of whatever shares
+  the row: a readout column pinned to `100%`'s ink made every slider
+  beside it visibly shorten going from 99% to 100%. A floor has to clear
+  the widest REQUEST, not the widest ink.
 - `anchor=tk.E` on a `width=` label puts its slack on the LEFT. Where
   that is the side a rule measures, the slack is in the gap — 4px of a
   `DEF` label went straight into the distance from its slider.

@@ -1257,6 +1257,43 @@ READOUT_ENTRIES = [
 ]
 
 
+def _debug_neighbours(container, classes, index, limit=4):
+    """TEMPORARY. Measures as usual and dumps the raw edges with it.
+
+    A gap is a number; this says which SIDE of it the pixels are on. For
+    each of the leftmost few controls it prints the widget's box and the
+    ink inside it, so a distance that no padding reaches can be read as
+    either "the left widget's ink stops short of its box" or "the right
+    one's starts late" rather than inferred from the total.
+
+    Wired onto one entry at a time and taken off once it has answered.
+    """
+    inner = _pair_gap(container, classes, index)
+
+    def resolve(cap, app):
+        frame = container(app)
+        kids = [c for c in sa.find_descendants_class(frame, *classes)
+                if c.master is frame]
+        spans = []
+        for w in kids:
+            box = sa.box_of(w)
+            ink = sa.painted_extent_h(cap, box)
+            if ink:
+                spans.append((ink[0], w, box, ink))
+        spans.sort()
+        print(f"  [debug] leftmost {limit} of {len(spans)} in {frame}")
+        for _key, w, box, ink in spans[:limit]:
+            try:
+                text = str(w.cget("text"))[:18]
+            except tk.TclError:
+                text = ""
+            print(f"    {w.winfo_class():12} {text:<18} "
+                  f"box {box.left}..{box.right}  ink {ink[0]}..{ink[1]}  "
+                  f"lead {ink[0] - box.left}  trail {box.right - ink[1]}")
+        return inner(cap, app)
+    return resolve
+
+
 def _by_text(prefix):
     """Locator: the widget whose words start with `prefix`."""
     def find(app):
@@ -1759,6 +1796,9 @@ def _title_target_and_source(title):
 # as painted if ANY column in it is turns into a gap of 0.
 DEBUG_PANELS = ()
 
+# Pair-gap entries to dump raw edges for on the next run.
+DEBUG_PAIR_GAPS = ("Sets set -> its count",)
+
 
 def _debug_panel(title):
     """Resolver that measures as usual AND dumps its raw coordinates.
@@ -1955,12 +1995,16 @@ def register_all():
             (RULE_LABEL_ELEMENT, LABEL_ELEMENT_ENTRIES, "default"),
             (RULE_LABEL_ELEMENT, READOUT_ENTRIES, "max_readouts")):
         for tab, name, target, hand, container, classes, index in table:
+            # One entry at a time, while a distance no padding reaches is
+            # being chased. Empty the set once it has answered.
+            build = (_debug_neighbours if name in DEBUG_PAIR_GAPS
+                     else _pair_gap)
             sa.track(
                 name=name,
                 tab=tab,
                 rule=rule,
                 target=target,
-                resolve=_pair_gap(container, classes, index),
+                resolve=build(container, classes, index),
                 axis="h",
                 hand=hand,
                 scenario=scenario,
