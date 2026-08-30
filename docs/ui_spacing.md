@@ -655,6 +655,48 @@ its own `tk.Frame` and `tk.Scrollbar` that no constructor keyword
 reaches, which is why `ui/utils/scrolled_text.py` builds the pair itself
 instead. See `ui_runtime.md`.
 
+### What the audit counts as ink
+
+The audit's question is not "is this pixel painted" but **"would the eye
+put the edge here"** — a gap measured to a pixel nobody can see reads as
+misaligned when it looks fine. Antialiasing puts such a pixel at both
+ends of every string.
+
+So `is_background` runs three tests in order. A pixel matching a
+background shade exactly is empty space. A blend of two background
+shades is too — that is the tab-strip seam, and it needs no tolerance in
+RGB because testing whether the pixel lies BETWEEN two known shades is
+exact at any width. Then, for a pixel matching no palette colour at all,
+a **lightness** test: below `FRINGE_LIGHTNESS` in CIE L\* from the
+background, it is a fringe the eye cannot find, and it is empty space.
+
+Three things about that last test are load-bearing.
+
+**It is lightness, not colour difference.** These fringes are strongly
+tinted — Windows renders text with subpixel antialiasing, so a glyph's
+left edge goes blue and its right edge red rather than both going grey.
+A ΔE that includes chroma does not separate the visible from the
+invisible; L\* alone does, cleanly. The eye is not finding these specks
+by their colour.
+
+**It only ever judges blends.** A control's fill and a border are
+palette colours and stay ink by identity. That matters because
+`bg_light` is a SMALLER lightness step from `bg` than the faintest glyph
+edge is — it is legible in the app because it covers an area, not
+because any one of its pixels stands out. A per-pixel test that judged
+it would look straight through every control.
+
+**The palette therefore has to be complete.** `Capture.of_window` adds
+the rarity and element tables to it, because three of the four rarity
+row fills sit within L\* 6 of the window background and nothing about
+their own lightness would save them. **A widget painted in a shade from
+some new table must have that table added there too.**
+
+`FRINGE_LIGHTNESS` was fitted against graded judgements of real glyph
+edges at life size, and `checks/check_fringe_lightness.py` holds that
+grading — it is the only record of it. Set the constant to 0 for the
+old exact-match behaviour.
+
 ## Column alignment, and what it cannot have both of
 
 `label ↔ its element` is 4px, but in a COLUMN of label/value pairs the

@@ -40,6 +40,7 @@ from checks import (                                    # noqa: E402
     check_capture_region_routing,
     check_capture_session_file,
     check_dot_types,
+    check_fringe_lightness,
     check_game_data,
     check_no_flash,
     check_optimizer_parity,
@@ -56,6 +57,7 @@ from checks import (                                    # noqa: E402
 CHECKS = [
     check_spacing_markers,
     check_spacing_registry,
+    check_fringe_lightness,
     check_addon_template,
     check_capture_batching,
     check_capture_banners,

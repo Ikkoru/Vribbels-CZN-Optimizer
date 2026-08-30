@@ -45,11 +45,12 @@ loaded; read them on demand.
 
 ## Headless verification
 
-**Run `python checks/run_all.py` before handing work over.** Seventeen
+**Run `python checks/run_all.py` before handing work over.** Eighteen
 checks, ~15s, no GUI. They cover invariants that fail QUIETLY —
 optimizer parity, scoring reconciliation, game data, settings
 round-trips, DoT scoring, shipped defaults holding no user state,
-spacing markers, the spacing registry, tab construction, the flash fix,
+spacing markers, the spacing registry, the audit's ink test against the
+eye that calibrated it, tab construction, the flash fix,
 the Optimizer opening with no combatant selected, and six on capture:
 the addon template, batched frames, gacha banners, one account per
 session, both regions routed, and reporting only the snapshot this

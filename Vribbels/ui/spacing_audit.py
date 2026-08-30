@@ -43,6 +43,50 @@ from typing import Optional
 
 from PIL import ImageGrab
 
+from game_data.characters import ATTRIBUTE_COLORS
+from game_data.constants import RARITY_BG_COLORS, RARITY_COLORS
+
+
+# ------------------------------------------------------------------ lightness
+
+# How far a blended pixel must sit from the background, in CIE L*, before
+# it counts as something the eye can see.
+#
+# The audit's question is not "is this pixel painted" but "would the eye
+# put the edge here" -- a gap measured to a pixel nobody can see reads as
+# misaligned when it looks fine. Antialiasing puts such pixels at both
+# ends of every string.
+#
+# Fitted against graded judgements of single glyph edges at life size:
+# the columns whose removal was invisible topped out at L* 6.5, and the
+# faintest one whose removal WAS visible sat at 18.9. Anything inside
+# that band gives the same answer, so the value is not delicate; it is
+# set low within it, because discarding real ink would report a
+# misalignment as aligned, and that is the worse direction.
+#
+# Set to 0 to get the old exact-match behaviour back.
+FRINGE_LIGHTNESS = 10.0
+
+# L* is a function of relative luminance alone, and a screenshot holds
+# far fewer distinct colours than pixels, so this is worth caching --
+# is_background runs into the millions per audit.
+_LSTAR_CACHE = {}
+
+
+def lightness(rgb) -> float:
+    """CIE L* of an sRGB triple, 0 (black) to 100 (white)."""
+    got = _LSTAR_CACHE.get(rgb)
+    if got is None:
+        lin = []
+        for channel in rgb:
+            c = channel / 255.0
+            lin.append(c / 12.92 if c <= 0.04045
+                       else ((c + 0.055) / 1.055) ** 2.4)
+        y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+        got = 116 * (y ** (1 / 3)) - 16 if y > 0.008856 else 903.3 * y
+        _LSTAR_CACHE[rgb] = got
+    return got
+
 
 # ------------------------------------------------------------------ geometry
 
@@ -108,6 +152,10 @@ class Capture:
         self.origin = origin              # (x, y) of the image's top-left
         self.background = set(background)
         self.palette = palette
+        # The shades a widget is actually PAINTED in, as opposed to the
+        # blends between them. is_background's lightness test is for
+        # blends only, and this is what holds it there.
+        self._solid = set(palette.values())
         self._px = image.load()
 
     @classmethod
@@ -126,6 +174,19 @@ class Capture:
         image = ImageGrab.grab(bbox).convert("RGB")
         palette = {k: _hex_to_rgb(v) for k, v in colors.items()
                    if isinstance(v, str) and v.startswith("#")}
+        # The palette is not only `COLORS`. Rows in the Memory Fragments
+        # tree are filled by rarity and combatant names are coloured by
+        # element, from tables `COLORS` knows nothing about -- and the
+        # rarity FILLS are within a few L* of the window background,
+        # close enough that is_background's lightness test would read
+        # straight through those rows if it ever judged them. It judges
+        # only pixels absent from this dict, so every shade a widget
+        # paints in has to be in it.
+        for source, prefix in ((RARITY_COLORS, "rarity fg"),
+                               (RARITY_BG_COLORS, "rarity bg"),
+                               (ATTRIBUTE_COLORS, "element")):
+            for key, value in source.items():
+                palette[f"{prefix} {key}"] = _hex_to_rgb(value)
         # `bg_strip` counts as empty space, unlike every other shade in
         # the palette. It is the notebook's own background, and it shows
         # in the top row or two of a tab's box where the client element
@@ -144,15 +205,27 @@ class Capture:
         tolerance covers it. Testing whether the pixel lies BETWEEN two
         known background colours does, exactly and at any width.
 
-        **There is deliberately no near-miss tolerance.** One of ±1 also
-        counted the faint outer column of an antialiased GLYPH as empty,
-        which stopped a right-edge reading two pixels short of the text
-        it was measuring to. A blend of two backgrounds is a fact about
-        the palette; a blend of background and ink is ink.
+        **There is deliberately no near-miss tolerance in RGB.** One of
+        ±1 also counted the faint outer column of an antialiased GLYPH as
+        empty, which stopped a right-edge reading two pixels short of the
+        text it was measuring to. A blend of two backgrounds is a fact
+        about the palette; a blend of background and ink is ink.
 
         It matters for a single pixel because a row counts as painted if
         ANY column in it is, so one seam column at the end of the tab
         row made every tab's first element measure 0.
+
+        **A blend of background and ink is ink, but not always VISIBLE
+        ink.** The last test below drops a blend the eye cannot find --
+        see `FRINGE_LIGHTNESS`. It is reached only by a pixel matching no
+        palette colour exactly, which is what confines it to antialiasing:
+        a control's fill and a border are palette colours, so they stay
+        ink by identity and never meet a threshold. That distinction is
+        load-bearing, because `bg_light` is a SMALLER lightness step from
+        `bg` than the faintest glyph edge -- it is legible in the app
+        because it covers an area, not because any one of its pixels
+        stands out, and a per-pixel test alone would look straight
+        through every control.
         """
         ox, oy = self.origin
         colours = self.background if bg is None else bg
@@ -166,6 +239,11 @@ class Capture:
                 if all(min(a, b) <= p <= max(a, b)
                        for p, a, b in zip(pixel, first, second)):
                     return True
+        if FRINGE_LIGHTNESS and colours and pixel not in self._solid:
+            here = lightness(pixel)
+            if all(abs(here - lightness(c)) < FRINGE_LIGHTNESS
+                   for c in colours):
+                return True
         return False
 
     def contains(self, x: int, y: int) -> bool:
