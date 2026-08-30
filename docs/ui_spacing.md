@@ -323,7 +323,7 @@ they are moved and measured does.
 | `dropdown` | `ttk.Combobox`                         | carries a ~2px text inset a Label does not                                                                                                        |
 | `entry`    | `tk.Entry`                             |                                                                                                                                                   |
 | `tree`     | `ttk.Treeview`                         | internals are style options; no geometry manager reaches inside                                                                                   |
-| `text`     | `tk.Text` / `ScrolledText`             | fill reaches the border, and it is measured inside the fill                                                                                       |
+| `text`     | `tk.Text`, scrolled or not             | fill reaches the border, and it is measured inside the fill                                                                                       |
 | `run`      | a stretch of text INSIDE a Text widget | glyph edges like a `label`, but no geometry manager reaches it: the lever is a pixel tab stop, or `spacing1`/`2`/`3` between lines                |
 
 **The vocabulary governs the SUFFIX only. Rule names stay prose.**
@@ -649,10 +649,11 @@ fill it are separate, and clam ships them as light greys.
 per-orientation; the horizontal and vertical variants inherit from one
 style.
 
-A `scrolledtext.ScrolledText` builds its own `tk.Frame` and
-`tk.Scrollbar` that no constructor keyword reaches, so they keep Tk's
-near-white defaults. `ui/utils/scrolled_text.py` recolours both; see
-`ui_runtime.md`.
+**Every scrollbar in the app is a `ttk.Scrollbar`**, so this one style
+paints all of them. `scrolledtext.ScrolledText` would not be: it builds
+its own `tk.Frame` and `tk.Scrollbar` that no constructor keyword
+reaches, which is why `ui/utils/scrolled_text.py` builds the pair itself
+instead. See `ui_runtime.md`.
 
 ## Column alignment, and what it cannot have both of
 
@@ -987,9 +988,9 @@ background, so the panel fills and the text is still inset.
 contributes space above the first glyph — about 3px at Segoe UI 9, about
 1px at the default fixed font, so fixed-font panels carry a larger
 `pady`. `padx` is needed in full everywhere. `bd` and
-`highlightthickness` matter because Tk's defaults for `Text` /
-`ScrolledText` are 1 each, which adds stray inset and draws a sunken
-border and focus ring in colours the dark theme never set.
+`highlightthickness` matter because Tk's defaults for a `Text` are 1
+each, which adds stray inset and draws a sunken border and focus ring in
+colours the dark theme never set.
 
 **A panel that becomes text-backed must be added to `TEXT_PANELS`** in
 `ui/spacing_registry.py`, which is what makes the audit measure it

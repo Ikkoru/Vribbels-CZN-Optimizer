@@ -1,34 +1,71 @@
 """One scrolled text widget for the whole UI.
 
-`scrolledtext.ScrolledText` is a `tk.Text` that builds its own wrapping
-`tk.Frame` and `tk.Scrollbar` and then borrows the frame's geometry
-methods. Those two are NOT reachable through the constructor: every
-keyword goes to the Text. So the frame keeps Tk's default background --
-system near-white -- and it paints before the Text paints over it, which
-shows as the whole panel flashing white on first display.
+A text panel is a `tk.Text` and a `ttk.Scrollbar` side by side in a
+`ttk.Frame`, with the frame's geometry methods copied onto the Text so
+a caller packs the pair by packing the widget it was handed.
 
-**That is a different fault from the first-map erase** in
-`ui/utils/realize.py`, and the two need separate fixes. Realizing the
-window early cannot help here, because the frame's background genuinely
-IS white; there is nothing to create earlier. Equally, colouring the
-frame does not remove the erase. A ScrolledText needs both, which is why
-neither fix alone made the Capture Log clean.
+**`scrolledtext.ScrolledText` is deliberately not used.** It is the same
+shape, but the frame and scrollbar it builds are `tk` and no constructor
+keyword reaches them: every keyword goes to the Text. So the frame keeps
+Tk's near-white default and paints before the Text covers it, which
+shows as the whole panel flashing white on first display, and the
+scrollbar keeps classic Tk's grey however `TScrollbar` is styled. Both
+were corrected here by hand afterwards. Building the pair from ttk
+answers both at the source: the theme reaches a `ttk.Frame` and a
+`ttk.Scrollbar` directly, and one `TScrollbar` style now paints every
+scrollbar in the app.
 
-The other options are the same corrections every text panel in this app
-makes: `bd` and `highlightthickness` default to 1 each on a Text, adding
-stray inset and drawing a sunken border and focus ring in colours the
-dark theme never set.
+**The map-time erase is a different fault** and still needs
+`ui/utils/realize.py`; the walk there covers these three widgets the way
+it covers every other. What went away is the second, colour half.
 
-`docs/ui_spacing.md` covers where the inset lives on these panels and why
-`padx`/`pady` are not symmetric between them.
+The other options below are the same corrections every text panel in
+this app makes: `bd` and `highlightthickness` default to 1 each on a
+Text, adding stray inset and drawing a sunken border and focus ring in
+colours the dark theme never set.
+
+`docs/ui_spacing.md` covers where the inset lives on these panels and
+why `padx`/`pady` are not symmetric between them.
 """
 
 import tkinter as tk
-from tkinter import scrolledtext
+from tkinter import ttk
+
+
+class _ScrolledText(tk.Text):
+    """A Text and its scrollbar in one frame, addressed as the Text."""
+
+    def __init__(self, master=None, **kw):
+        self.frame = ttk.Frame(master)
+        self.vbar = ttk.Scrollbar(self.frame, orient=tk.VERTICAL)
+        self.vbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        kw["yscrollcommand"] = self.vbar.set
+        tk.Text.__init__(self, self.frame, **kw)
+        # Still the Text's own `pack` at this point, which is what puts
+        # it in the frame. The copy below is what makes the NEXT call
+        # reach the frame instead.
+        self.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.vbar["command"] = self.yview
+
+        # NOT dead code: without this, a caller's `.pack()` packs the
+        # bare Text into the panel and the scrollbar is never placed, so
+        # the frame collapses and nothing shows. Text's own names are
+        # excluded so text methods keep working -- `config` and
+        # `configure` above all, which callers use to set `state`.
+        geometry = (vars(tk.Pack).keys() | vars(tk.Grid).keys()
+                    | vars(tk.Place).keys()) - vars(tk.Text).keys()
+        for name in geometry:
+            if not name.startswith("_") and name not in ("config", "configure"):
+                setattr(self, name, getattr(self.frame, name))
+
+    def __str__(self):
+        """The frame's path, so passing this to Tk addresses the pair."""
+        return str(self.frame)
 
 
 def make_scrolled_text(parent, colors, *, padx=5, pady=4, **kwargs):
-    """A dark-themed `ScrolledText`, wrapper and scrollbar included.
+    """A dark-themed scrolled text, wrapper and scrollbar included.
 
     Args:
         parent: the containing widget.
@@ -45,21 +82,4 @@ def make_scrolled_text(parent, colors, *, padx=5, pady=4, **kwargs):
         padx=padx, pady=pady,
     )
     opts.update(kwargs)
-    widget = scrolledtext.ScrolledText(parent, **opts)
-
-    # NOT optional, and not reachable through the constructor above.
-    # Guarded because both attributes are tkinter implementation detail
-    # rather than public API.
-    try:
-        widget.frame.configure(bg=colors["bg_light"])
-    except (AttributeError, tk.TclError):
-        pass
-    try:
-        widget.vbar.configure(
-            bg=colors["bg_light"],
-            troughcolor=colors["bg"],
-            activebackground=colors["bg_lighter"],
-        )
-    except (AttributeError, tk.TclError):
-        pass
-    return widget
+    return _ScrolledText(parent, **opts)

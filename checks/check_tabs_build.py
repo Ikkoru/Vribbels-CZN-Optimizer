@@ -21,6 +21,12 @@ dead code -- its return value is discarded -- and is the only thing
 stopping a gridful of checkboxes flashing light grey the first time
 their tab is shown. Nothing about losing it is visible from a headless
 run, so the guard is on the source rather than on behaviour.
+
+And it guards the other piece of `ui/utils/` that looks like reflection
+waiting to be deleted: the loop copying a wrapper frame's geometry
+methods onto the Text `make_scrolled_text` returns. Without it a
+caller's `.pack()` packs the bare Text and the scrollbar is never
+placed.
 """
 
 import ast
@@ -52,6 +58,46 @@ def _make_checkbox_forces_its_window():
                 if isinstance(call, ast.Call)
             )
     return False
+
+
+def _scrolled_text_packs_the_pair(root, colors):
+    """Why the caller's `.pack()` has to reach the wrapper, not the Text.
+
+    `make_scrolled_text` hands back the Text, so `.pack()` on it would
+    put the bare Text in the panel and leave the scrollbar unplaced --
+    the wrapper never sized, nothing on screen. What prevents that is a
+    loop copying the wrapper's geometry methods onto the Text, which
+    reads like tidy-up-able reflection and is the whole mechanism.
+
+    Returns a complaint, or None.
+    """
+    import tkinter as tk
+    from tkinter import ttk
+    from ui.utils.scrolled_text import make_scrolled_text
+
+    parent = ttk.Frame(root)
+    widget = make_scrolled_text(parent, colors, height=2)
+    widget.pack(fill=tk.BOTH, expand=True)
+    try:
+        packed = parent.pack_slaves()
+        if len(packed) != 1 or packed[0].winfo_class() != "TFrame":
+            return (
+                "make_scrolled_text's .pack() no longer packs the wrapper "
+                "frame -- the scrollbar goes unplaced and the panel shows "
+                "nothing. See the geometry-method copy in "
+                "ui/utils/scrolled_text.py."
+            )
+        inside = sorted(w.winfo_class() for w in packed[0].winfo_children())
+        if inside != ["TScrollbar", "Text"]:
+            return (
+                f"a scrolled text's wrapper holds {inside} rather than a "
+                "Text and a TScrollbar. Every scrollbar in the app is a "
+                "ttk one so the TScrollbar style paints them all; a tk "
+                "Scrollbar ignores it and paints classic grey."
+            )
+    finally:
+        parent.destroy()
+    return None
 
 
 def run():
@@ -88,6 +134,9 @@ def run():
             shutil.copytree(live, work / "settings")
 
         import czn_optimizer_gui as gui
+        complaint = _scrolled_text_packs_the_pair(root, dict(gui.COLORS))
+        if complaint:
+            failures.append(complaint)
         import ui.tabs as tabs_pkg
         from ui.context import AppContext
         from optimizer.optimizer import GearOptimizer

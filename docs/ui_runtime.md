@@ -103,7 +103,7 @@ Measured, over three rounds of side-by-side repros:
   same fix by accident, and why a tab-by-tab hunt kept coming back
   inconsistent.
 
-### A ScrolledText flashes for a SECOND reason and needs both fixes
+### A ScrolledText flashes for a SECOND reason, which is why the app builds its own
 
 `scrolledtext.ScrolledText` builds its own wrapping `tk.Frame` and
 `tk.Scrollbar`, and neither is reachable through the constructor — every
@@ -112,13 +112,22 @@ paints before the Text covers it.
 
 **Realizing the window early cannot fix that**, because the frame's
 background genuinely IS white; there is nothing to create earlier.
-Equally, colouring the frame does not remove the map-time erase. Both
-corrections live in `ui/utils/scrolled_text.py`, and all three scrolled
-texts go through it.
+Equally, colouring the frame does not remove the map-time erase.
 
-That split is what made the Capture Log look like the walk had failed:
-Gear Score and Setup already coloured their wrappers by hand, Capture
-Log did not, and it was the only one still flashing.
+`ui/utils/scrolled_text.py` answers the colour half at the source: it
+builds the same shape — a Text and a vertical scrollbar in a wrapper,
+with the wrapper's geometry methods copied onto the Text so a caller
+packs the pair by packing what it was handed — out of a `ttk.Frame` and
+a `ttk.Scrollbar`, which the theme reaches directly. All three scrolled
+texts go through it, and the map-time erase is still the walk's job.
+
+Recolouring by hand is what that replaced, and the hand-work is what
+made the Capture Log look like the walk had failed: Gear Score and Setup
+already coloured their wrappers, Capture Log did not, and it was the
+only one still flashing.
+
+A `ttk.Scrollbar` asks for less width than a `tk` one, so moving to it
+widened those three texts and moved their wrap point.
 
 ### The guard
 

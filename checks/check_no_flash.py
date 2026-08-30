@@ -26,12 +26,13 @@ Three failure modes, all of which leave a working, silent program:
    Log went on flashing after the walk in (1) was already fixing
    everything else.
 
-A ScrolledText has a SECOND fault that the walk cannot touch: it builds
-its own `tk.Frame` and `tk.Scrollbar`, neither reachable through the
-constructor, so the frame keeps Tk's near-white default and paints
-before the Text covers it. Realizing a window early cannot fix a
-background that is genuinely white. `ui/utils/scrolled_text.py` is where
-both corrections live together.
+`scrolledtext.ScrolledText` has a SECOND fault that the walk cannot
+touch: it builds its own `tk.Frame` and `tk.Scrollbar`, neither
+reachable through the constructor, so the frame keeps Tk's near-white
+default and paints before the Text covers it. Realizing a window early
+cannot fix a background that is genuinely white. Which is why
+`ui/utils/scrolled_text.py` builds the pair from ttk instead, and why
+nothing may reach for the stdlib class again.
 
 Other classic widgets are built once inside `setup_ui` and are covered
 by the walk in (1) wherever they sit, so there is nothing for a rule to
@@ -133,10 +134,12 @@ def run():
             "winfo_id() that stops the flash.",
         "ScrolledText":
             "Every scrolled text goes through "
-            "ui/utils/scrolled_text.make_scrolled_text -- it darkens the "
-            "wrapping frame and scrollbar the widget builds for itself, "
-            "which no constructor keyword can reach and which paint "
-            "near-white before the Text covers them.",
+            "ui/utils/scrolled_text.make_scrolled_text, which builds the "
+            "wrapping frame and the scrollbar from ttk. The stdlib class "
+            "builds both from tk, where no constructor keyword reaches "
+            "them: the frame paints near-white before the Text covers it, "
+            "and the scrollbar ignores the TScrollbar style every other "
+            "scrollbar in the app takes.",
     }
     for path in sorted(SOURCE_ROOT.rglob("*.py")):
         rel = path.relative_to(SOURCE_ROOT).as_posix()

@@ -367,9 +367,9 @@ class CaptureTab(BaseTab):
         # the line box's leading above the first glyph netted out of it,
         # which is why it differs between text panels in different fonts.
         # The helper carries the dark palette, zeroes Tk's default border
-        # and focus ring, and darkens the wrapping frame and scrollbar
-        # that the ScrolledText builds for itself -- none of which the
-        # constructor can reach. See ui/utils/scrolled_text.py.
+        # and focus ring, and pairs the Text with a ttk scrollbar in a
+        # ttk frame so the theme reaches both. See
+        # ui/utils/scrolled_text.py.
         self.capture_log = make_scrolled_text(
             log_frame, self.colors, height=15, wrap=tk.WORD,
         )

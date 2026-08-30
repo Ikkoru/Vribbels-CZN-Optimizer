@@ -19,8 +19,8 @@ loaded; read them on demand.
   before changing math because it "should" behave differently.
 - **Load-bearing code that looks removable:** `make_checkbox`'s
   `winfo_id()`, the `realize_windows()` walk in `_reveal_window`,
-  `make_scrolled_text`'s recolouring of the wrapper frame and scrollbar,
-  and `OptimizerSettingsManager.load()`'s unknown-key passthrough. All
+  `_ScrolledText`'s copy of the wrapper's geometry methods, and
+  `OptimizerSettingsManager.load()`'s unknown-key passthrough. All
   pinned with a check. See `docs/ui_runtime.md` for the first three.
 - **"Never open a window unasked" means the GUI here** — `zRUN.bat` and
   the spacing audit both need the maintainer at the keyboard.
