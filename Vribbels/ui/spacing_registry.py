@@ -114,6 +114,13 @@ ASCENDER_RISE_14_BOLD = 1
 # same thing with a control beside them.
 DESCENDER_DEPTH_14_BOLD = 4
 
+# The same at Segoe UI 11, which the Capture tab's status line and the
+# Setup Status panel use. STATED at the 14 bold value and not yet
+# measured -- 11 sits between the two sizes that were, and no reading
+# has separated it from either. The entry that consumes it prints the
+# raw ink bottoms beside it, so a verbose run says whether it holds.
+DESCENDER_DEPTH_11 = 4
+
 
 def ink_below_baseline(text: str, bold14: bool = False) -> int:
     """How far `text`'s ink reaches below the baseline.
@@ -824,6 +831,39 @@ def _heading_to_subtitle(heading, subtitle):
         if b is None:
             return None, f"no subtitle starting {subtitle!r}"
         return sa.horizontal_gap(cap, a, b)
+    return resolve
+
+
+def _status_subtext_baseline(status, subtext, status_drop):
+    """Resolver: a Segoe UI 11 status line against the hint beside it.
+
+    The same question as `_heading_subtitle_baseline` for a pair that is
+    not a tab header: `header subtext` covers any subtext sharing a
+    line with the text it belongs to, and the Capture tab's Status panel
+    is the other kind.
+
+    `status_drop` is stated by the caller because the larger line is
+    Segoe UI 11, a size no descender has been measured at -- the tab
+    headings gave 9 and 14 bold and nothing gave 11. The note carries
+    the raw ink bottoms so one verbose run either confirms it or says
+    what it should be.
+    """
+    def resolve(cap, app):
+        tab = sa.current_tab_widget(app)
+        a = sa.find_descendant_text(tab, status)
+        b = sa.find_descendant_text(tab, subtext)
+        if a is None:
+            return None, f"no status line starting {status!r}"
+        if b is None:
+            return None, f"no subtext starting {subtext!r}"
+        top = sa.painted_extent_v(cap, sa.box_of(a), cap.background)
+        bottom = sa.painted_extent_v(cap, sa.box_of(b), cap.background)
+        if top is None or bottom is None:
+            return None, "status or subtext painted nothing"
+        sub_drop = ink_below_baseline(b.cget("text"))
+        note = (f"ink {top[1]}/{bottom[1]}, drop {status_drop}/{sub_drop} "
+                f"(the first is STATED, not measured)")
+        return ((bottom[1] - sub_drop) - (top[1] - status_drop)), note
     return resolve
 
 
@@ -2407,6 +2447,20 @@ def register_all():
             axis="v",
             provisional=False,
         )
+
+    # The rule's other shape: a status line with its hint beside it,
+    # rather than a tab heading with its subtitle. Same question, and the
+    # site the maintainer's eye found -- the hint rode a pixel high.
+    sa.track(
+        name="Status hint: off the status line",
+        tab="Capture",
+        rule=RULE_HEADER_SUBTEXT,
+        target=0,
+        resolve=_status_subtext_baseline("Ready", "Click 'Start Capture'",
+                                         DESCENDER_DEPTH_11),
+        axis="v",
+        provisional=True,
+    )
 
     for tab, title in ALL_NONE_PANELS:
         sa.track(

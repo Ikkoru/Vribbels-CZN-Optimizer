@@ -239,8 +239,13 @@ class CaptureTab(BaseTab):
         self.capture_info_label = ttk.Label(status_row,
                                              text="Click 'Start Capture' to begin",
                                              foreground=self.colors["fg_dim"])
+        # The pady is what seats the hint on the status line: `anchor=S`
+        # aligns the two BOXES, and a Segoe UI 9 box holds less below its
+        # baseline than a Segoe UI 11 one, so without a lift the hint
+        # sits low. It is one pixel less than it looks like it should be
+        # -- 2 put the hint a pixel ABOVE the line rather than on it.
         self.capture_info_label.pack(side=tk.LEFT, anchor=tk.S,
-                                     padx=(10, 0), pady=(0, 2))
+                                     padx=(10, 0), pady=(0, 1))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(2, 6, 5, 5))
@@ -304,7 +309,7 @@ class CaptureTab(BaseTab):
         # Log Settings panel beside it does not get.
         self.debug_checkbox = make_checkbox(
             btn_frame, self.colors, text="Debug WS",
-            variable=self.debug_var, wraplength=40,
+            variable=self.debug_var, wraplength=35,
         )
         # Enable to log every WebSocket message to a websocket_debug_*.jsonl
         # file in the snapshots folder — useful when adding support for new
