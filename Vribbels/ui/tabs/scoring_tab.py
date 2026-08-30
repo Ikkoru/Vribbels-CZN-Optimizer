@@ -45,6 +45,11 @@ STAT_DISPLAY_NAMES = [
 # Sized to fit the longest button label: "Delete Selected Presets" (23 chars).
 BTN_WIDTH = BUTTON_W_LARGE
 
+# What the Stat Weight Configuration panel would carry as its own
+# `padding` if the preset list did not run to its edges. Every child of
+# that panel takes it EXCEPT the list, which is flush by design.
+PANEL_INSET = (3, 5)
+
 # Glyph shown in the icon column for presets currently assigned to >=1
 # character (via CharacterPresetManager). A dedicated Treeview column
 # holds this so it always renders in a fixed-width gutter on the left,
@@ -258,12 +263,14 @@ STAT MIN - MAX ROLLS:
         explain_text.pack(fill=tk.BOTH, expand=True)
 
         # --- Right side: configuration -------------------------------
-        # spacing: border edge -> first non-button element -- panel, label ↔↕
-        # This padding is the lever for the whole panel's left inset --
-        # the stat grid sits flush against it, and so does the status
-        # label below, which the audit measures in its own right.
+        # spacing: unique -- the preset list runs to this panel's edges -- panel, tree ↔↕
+        # NO padding, deliberately. The preset list below fills the panel
+        # to its left, right and bottom borders, and a frame padding
+        # would inset it along with everything else. So the panel's own
+        # inset lives on each of the OTHER children's padx instead --
+        # they carry PANEL_INSET, the list carries nothing.
         config_frame = ttk.LabelFrame(content, text="Stat Weight Configuration",
-                                      padding=(3, 0, 5, 5))
+                                      padding=0)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         config_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
 
@@ -272,13 +279,13 @@ STAT MIN - MAX ROLLS:
             config_frame,
             text="Adjust weights for custom scoring (1.0 = normal)",
             foreground=self.colors["fg_dim"]
-        ).pack(anchor=tk.W, pady=(0, 2))
+        ).pack(anchor=tk.W, padx=PANEL_INSET, pady=(0, 2))
 
         # Top region: stats on the left, button column on the right.
         # Two separate frames so stat rows keep their natural compact spacing
         # without being pushed apart by taller button rows.
         top = ttk.Frame(config_frame)
-        top.pack(fill=tk.X, anchor=tk.W)
+        top.pack(fill=tk.X, anchor=tk.W, padx=PANEL_INSET)
 
         stats_frame = ttk.Frame(top)
         stats_frame.pack(side=tk.LEFT, anchor=tk.N)
@@ -308,7 +315,7 @@ STAT MIN - MAX ROLLS:
             config_frame, text="Applied default weights (all 1.0)",
             foreground=self.colors["fg_dim"], padding=(0, 2, 0, 0)
         )
-        self.weight_status.pack(anchor=tk.W, padx=0, pady=(0, 2))
+        self.weight_status.pack(anchor=tk.W, padx=PANEL_INSET, pady=(0, 2))
 
         # Preset list, fills remaining space and resizes with the window.
         # ttk.Treeview with two data-only columns: a narrow marker gutter on

@@ -1619,6 +1619,41 @@ def _results_title_to_tree():
     return resolve
 
 
+def _list_inset(panel, side):
+    """Resolver: a panel's border -> the preset list inside it.
+
+    The list is located by its Treeview's parent, which is the frame
+    that holds the tree and its scrollbar -- the scrollbar is the
+    rightmost painted thing, so measuring the tree alone would miss the
+    right edge by its width.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, panel)
+        tree = sa.find_descendant_class(frame, "Treeview")
+        if tree is None:
+            return None, f"no Treeview in {panel!r}"
+        return sa.inset_from_frame_edge(cap, frame, tree.master, side)
+    return resolve
+
+
+# The preset list runs to its panel's edges. A zero nothing watches is
+# exactly the kind that quietly regains a padding, so all three sides
+# are tracked -- and the panel's own inset lives on its other children's
+# padx, which the entries above measure in their own right.
+PRESET_LIST_ENTRIES = [
+    ("Gear Score", "preset list: left edge -> list", 0, None,
+     _list_inset("Stat Weight Configuration", "left")),
+    ("Gear Score", "preset list: right edge -> list", 0, None,
+     _list_inset("Stat Weight Configuration", "right")),
+]
+
+# The same three sides, split because a table carries one axis.
+PRESET_LIST_BOTTOM_ENTRIES = [
+    ("Gear Score", "preset list: bottom edge -> list", 0, None,
+     _list_inset("Stat Weight Configuration", "bottom")),
+]
+
+
 # The last two readings, one apiece for their rules.
 RESULTS_TITLE_ENTRIES = [
     ("Optimizer", "Results title -> its tree", 5, None,
@@ -2250,7 +2285,11 @@ def register_all():
             (RULE_CONTENT_FRAME, WINDOW_EDGE_ENTRIES, "h", "rule"),
             (RULE_LABEL_ELEMENT, CELL_LABEL_ENTRIES, "h", None),
             (RULE_TITLE_ELEMENT, RESULTS_TITLE_ENTRIES, "v", "rule"),
-            (RULE_CHECKBOX_PITCH, OPTIONS_TRIO_ENTRIES, "v", "rule")):
+            (RULE_CHECKBOX_PITCH, OPTIONS_TRIO_ENTRIES, "v", "rule"),
+            (RULE_BORDER_EDGE_CONTENT, PRESET_LIST_ENTRIES, "h",
+             "exception"),
+            (RULE_BORDER_EDGE_CONTENT, PRESET_LIST_BOTTOM_ENTRIES, "v",
+             "exception")):
         for tab, name, target, hand, resolve in table:
             sa.track(
                 name=name,
