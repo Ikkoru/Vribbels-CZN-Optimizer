@@ -96,6 +96,19 @@ deriving something, and the refusal names the reason.
 These are exact targets, not floors: a value above target needs bringing
 down as much as one below it needs raising.
 
+**A grid `minsize` is a FLOOR, not a width, and a fixed-width label's
+slack lands on the side its anchor points away from.** Two ways a column
+that looks pinned is not:
+
+- The column still grows to its widest cell, and a `ttk.Label` asks for
+  its ink PLUS the style's inset — 4px here. A floor set to the widest
+  INK is outgrown by the longest label, which then sets its own column
+  while the shorter rows keep the floor. The rows stop lining up and
+  only the longest one's gap looks wrong.
+- `anchor=tk.E` on a `width=` label puts its slack on the LEFT. Where
+  that is the side a rule measures, the slack is in the gap — 4px of a
+  `DEF` label went straight into the distance from its slider.
+
 **A gap to a right-aligned readout is only a distance at its widest
 value.** The Optimizer's percent readouts are fixed-width labels with
 `anchor=tk.E`, so a short value leaves its slack on the LEFT — the side

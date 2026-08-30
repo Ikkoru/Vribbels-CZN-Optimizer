@@ -540,7 +540,7 @@ class InventoryTab(BaseTab):
             # 0 is the minimum on the leading side -- the per-column count
             # width is what keeps short-count columns tight instead.
             cnt.grid(row=row, column=base_col + 1, sticky=tk.W,
-                     padx=(0, 4 if logical_col == len(col_count_widths) - 1 else 3),
+                     padx=(0, 4 if logical_col == len(col_count_widths) - 1 else 2),
                      pady=(top_pad, 0))
             # Clicking the count toggles the checkbox too (the count label
             # isn't part of the Checkbutton's own hit area).

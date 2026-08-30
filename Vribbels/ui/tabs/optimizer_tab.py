@@ -112,6 +112,14 @@ HAL_ALL_STATS = HAL_COLUMN_1 + HAL_COLUMN_2
 DMG_TYPE_LABELS = ("Extra", "Agony", "Fracture")
 DMG_READOUT_WIDEST = "100%"
 
+# What the name column adds to the longest name's INK. A grid minsize is
+# a FLOOR, not a width -- the column still grows to fit its widest cell,
+# and a Label asks for its ink plus the style's own inset. Pinned to the
+# ink alone, the longest name outgrew the floor and set its own column
+# while the shorter rows kept the floor, so the sliders stopped lining
+# up. This clears the widest REQUEST and leaves the rule's gap after it.
+DMG_LABEL_COL_SLACK = 5
+
 
 def _dmg_label_col_px():
     """Pixel width of the damage rows' name column, measured.
@@ -121,7 +129,8 @@ def _dmg_label_col_px():
     """
     import tkinter.font as tkfont
     f = tkfont.nametofont("TkDefaultFont")
-    return max(f.measure(name) for name in DMG_TYPE_LABELS)
+    return (max(f.measure(name) for name in DMG_TYPE_LABELS)
+            + DMG_LABEL_COL_SLACK)
 
 
 def _dmg_readout_col_px():
