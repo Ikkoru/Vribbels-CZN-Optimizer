@@ -281,7 +281,7 @@ class CaptureTab(BaseTab):
         # tab's edge answers to the frame rule on this frame's own pack.
         btn_frame = ttk.Frame(left_col)
         # spacing: content frame -> content frame -- frame, frame ↕
-        btn_frame.pack(fill=tk.X, pady=2)
+        btn_frame.pack(fill=tk.X, pady=(1, 2))
 
         self.capture_start_btn = ttk.Button(btn_frame, text="Start Capture",
                                              command=self.start_capture, width=BUTTON_W_MEDIUM)

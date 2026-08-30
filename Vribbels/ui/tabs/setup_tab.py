@@ -259,7 +259,7 @@ class SetupTab(BaseTab):
         # Button frame
         btn_frame = ttk.Frame(main_frame)
         # spacing: content frame -> content frame -- frame, frame ↕
-        btn_frame.pack(fill=tk.X, pady=2)
+        btn_frame.pack(fill=tk.X, pady=(0, 2))
 
         # spacing: button -> button -- button, button ↔
         # Each button's trailing pad meets the next one's leading pad, so

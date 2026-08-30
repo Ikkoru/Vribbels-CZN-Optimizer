@@ -1440,9 +1440,9 @@ CONTROL_GROUP_ENTRIES = [
 # what sits across the gap is a border on one side and a button's own
 # border on the other, with no text at either end.
 BUTTON_ROW_ABOVE_ENTRIES = [
-    ("Capture", "Server Region -> capture buttons", 4, 5,
+    ("Capture", "Server Region -> capture buttons", 4, None,
      _gap(_panel_at("Server Region"), _by_text("Start Capture"), "v")),
-    ("Setup", "Setup Status -> Check Status row", 4, 6,
+    ("Setup", "Setup Status -> Check Status row", 4, None,
      _gap(_panel_at("Setup Status"), _by_text("Check Status"), "v")),
 ]
 
