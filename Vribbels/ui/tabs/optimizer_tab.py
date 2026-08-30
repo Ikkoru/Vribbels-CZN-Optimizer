@@ -106,13 +106,28 @@ HAL_ALL_STATS = HAL_COLUMN_1 + HAL_COLUMN_2
 # Label column width shared by the Extra / Agony / Fracture sliders, in
 # characters: the longest label plus a character of slack. Sizing all
 # three alike is what leaves their tracks left-aligned.
-# Shared by the three damage rows so their sliders line up. In
-# CHARACTERS, which is Tk's average character width -- "Fracture" is
-# 43px of ink against 6px per character, so 7 is the narrowest that
-# leaves the rule's gap and it is a pixel under the ink. If the word
-# clips, a measured pixel width is the fix (see the Gear Score stat
-# grid, which pins a grid column instead of counting characters).
-DMG_TYPE_LABEL_WIDTH = 7
+# The three damage rows' names, and the widest value their readouts
+# reach. Both columns are pinned to the MEASURED width of these, so the
+# gaps either side of a slider are the rule's and nothing else.
+DMG_TYPE_LABELS = ("Extra", "Agony", "Fracture")
+DMG_READOUT_WIDEST = "100%"
+
+
+def _dmg_label_col_px():
+    """Pixel width of the damage rows' name column, measured.
+
+    Called at build time rather than computed once at import: the font
+    is not resolvable until a Tk root exists.
+    """
+    import tkinter.font as tkfont
+    f = tkfont.nametofont("TkDefaultFont")
+    return max(f.measure(name) for name in DMG_TYPE_LABELS)
+
+
+def _dmg_readout_col_px():
+    """Pixel width of the damage rows' percent readout column."""
+    import tkinter.font as tkfont
+    return tkfont.nametofont("TkDefaultFont").measure(DMG_READOUT_WIDEST)
 
 
 # Element choices for the Unknown-character override dropdown.
@@ -802,15 +817,15 @@ class OptimizerTab(BaseTab):
         # length=120 request only helps when pack can honor it), so
         # dragging skipped roughly every 8th integer. A full-width row
         # gives each track ample travel for every value. A shared
-        # label_width, sized to the longest label, keeps the tracks
-        # left-aligned with each other.
+        # label column, pinned to the longest name's measured width,
+        # keeps the tracks left-aligned with each other.
         ex_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, slider ↕
         ex_row.pack(fill=tk.X, pady=(0, 2))
         self._labeled_slider(
             ex_row, "Extra", self.extra_pct_var,
             on_change=lambda v: self._save_int("extra_pct", v),
-            label_width=DMG_TYPE_LABEL_WIDTH,
+            label_col_px=_dmg_label_col_px(),
         )
         dot_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, slider ↕
@@ -818,7 +833,7 @@ class OptimizerTab(BaseTab):
         self._labeled_slider(
             dot_row, "Agony", self.dot_pct_var,
             on_change=lambda v: self._save_int("dot_pct", v),
-            label_width=DMG_TYPE_LABEL_WIDTH,
+            label_col_px=_dmg_label_col_px(),
         )
         # One slider covers Fracture AND Scorched: the two are
         # mechanically identical, so a share each would score the same.
@@ -831,7 +846,7 @@ class OptimizerTab(BaseTab):
         self._labeled_slider(
             frac_row, "Fracture", self.fracture_pct_var,
             on_change=lambda v: self._save_int("fracture_pct", v),
-            label_width=DMG_TYPE_LABEL_WIDTH,
+            label_col_px=_dmg_label_col_px(),
         )
 
         # Block 2: ATK <-> DEF slider
@@ -851,7 +866,7 @@ class OptimizerTab(BaseTab):
             command=lambda v: self._save_int("atk_def_split", int(float(v))),
         )
         # spacing: label ↔ its element -- label, slider ↔
-        ad_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
+        ad_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 1))
         ad_scale.bind(
             "<MouseWheel>",
             lambda e: self._scale_wheel(
@@ -861,7 +876,10 @@ class OptimizerTab(BaseTab):
         # width=4 + anchor=E keeps "DEF" intact (width 3 clips the "F")
         # while shifting the empty slack to the left, so the gap from
         # "DEF" to the readout matches the other sliders'.
-        ttk.Label(ad_row, text="DEF", width=4, anchor=tk.E).pack(side=tk.LEFT)
+        # anchor=W, not E: this label's slack would otherwise sit on its
+        # LEFT, which is the side the gap from the slider is measured on,
+        # and 4px of it went straight into that gap.
+        ttk.Label(ad_row, text="DEF", width=4, anchor=tk.W).pack(side=tk.LEFT)
         # anchor=E + width=5: ttk.Label's effective text area is width-in-
         # chars minus a couple px of theme padding, and width=4 is just shy
         # of "100%"'s rendered width. anchor=E keeps the glyphs glued to
@@ -941,23 +959,30 @@ class OptimizerTab(BaseTab):
             ).pack(side=tk.LEFT, padx=(0, pad_right))
 
     def _labeled_slider(self, parent, label, var, on_change=None,
-                        label_width=None):
+                        label_col_px=None):
         """Build a labeled slider + readout inside `parent`. Packs LEFT.
 
         on_change(int) is called whenever the slider moves to a new integer
         value. We pass int(float(v)) because ttk.Scale's command receives a
         string-formatted float (e.g. "23.0") even on an integer-bound Scale.
 
-        `label_width` defaults to `len(label) + 1` -- 1 char of slack,
-        matching the ATK/DEF row. Pass an explicit value to override
-        (e.g. to enforce equal column widths across multiple sliders in
-        the same row).
+        `label_col_px` is the pixel width of the name column, shared by
+        every damage row so their sliders line up.
         """
         wrap = ttk.Frame(parent)
         wrap.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        if label_width is None:
-            label_width = len(label) + 1
-        ttk.Label(wrap, text=label, width=label_width).pack(side=tk.LEFT)
+        if label_col_px is None:
+            label_col_px = _dmg_label_col_px()
+        # A grid COLUMN at a measured pixel width, not a `width=` in
+        # characters. Tk sizes a character width from the font's average,
+        # 6px here, and "Fracture" is 43px of ink -- so seven characters
+        # clip it by one and eight overshoot the rule by five. There is no
+        # count that lands on the gap, and no padding anywhere to give the
+        # missing pixel back. Same treatment as the Gear Score stat grid.
+        wrap.grid_columnconfigure(1, weight=1)
+        wrap.grid_columnconfigure(0, minsize=label_col_px)
+        ttk.Label(wrap, text=label, anchor=tk.W).grid(
+            row=0, column=0, sticky="w")
         # length=120 requests a track at least as long as the 0-100 value
         # range (ttk's default request is 100px, and after the thumb's
         # width the drag travel drops below 100px -- so dragging skips
@@ -968,17 +993,23 @@ class OptimizerTab(BaseTab):
             command=lambda v: on_change(int(float(v))) if on_change else None,
         )
         # spacing: label ↔ its element -- label, slider ↔
-        scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(2, 3))
+        # spacing: label ↔ its element -- slider, label ↔
+        # Both sides are the rule: the name on the left and the percent
+        # readout on the right. Each column is pinned to its own text's
+        # width, so what is left here IS the gap.
+        scale.grid(row=0, column=1, sticky="ew", padx=(0, 1))
         # Mouse wheel steps exactly +-1, so every integer is reachable
         # even at window sizes where the rendered track is short.
         scale.bind("<MouseWheel>",
                    lambda e, v=var, cb=on_change: self._scale_wheel(e, v, cb))
-        # anchor=E + width=5 so "100%" doesn't clip inside the label: Tk
-        # sizes a width= in average character widths, which underestimates
-        # what "100%" actually renders to -- by an estimated 1-2px on this
-        # theme, never measured.
-        readout = ttk.Label(wrap, text="0%", width=5, anchor=tk.E)
-        readout.pack(side=tk.LEFT)
+        # anchor=E so the % stays put as digits are added, and the column
+        # pinned to "100%"'s MEASURED width so the box is exactly its
+        # widest value -- a `width=` in characters left 2px of slack that
+        # the gap to the slider could never spend. The readout's gap is
+        # only a distance at 100%; the audit fills it to measure it.
+        wrap.grid_columnconfigure(2, minsize=_dmg_readout_col_px())
+        readout = ttk.Label(wrap, text="0%", anchor=tk.E)
+        readout.grid(row=0, column=2, sticky="e")
         var.trace_add("write",
                       lambda *a, r=readout, v=var: r.config(text=f"{v.get()}%"))
 

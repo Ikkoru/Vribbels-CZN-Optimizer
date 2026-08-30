@@ -518,12 +518,14 @@ class InventoryTab(BaseTab):
             make_checkbox(
                 self.inv_set_frame_inner, self.colors, text=set_name,
                 variable=var, command=self.refresh_inventory, fg=left,
-                # The whole set-to-count gap was this widget's own
-                # internal padx; both grid pads either side of it are
-                # already 0 and Tk rejects a negative one.
-                compact=True,
+                # `padx=0` rather than `compact=True`: the whole
+                # set-to-count gap was this widget's own internal padx,
+                # and compact zeroes pady with it -- which shortened
+                # every row and pushed the All/None row a pixel further
+                # from the block. Only the horizontal half was wanted.
+                padx=0,
             ).grid(row=row, column=base_col, sticky=tk.W,
-                   padx=(2, 0), pady=(top_pad, 0))
+                   padx=(3, 0), pady=(top_pad, 0))
             # The count label gets a fixed width (per-column max, see
             # col_count_widths) with anchor=E so the closing brackets line
             # up right-aligned within the count column.
@@ -538,7 +540,7 @@ class InventoryTab(BaseTab):
             # 0 is the minimum on the leading side -- the per-column count
             # width is what keeps short-count columns tight instead.
             cnt.grid(row=row, column=base_col + 1, sticky=tk.W,
-                     padx=(0, 4 if logical_col == len(col_count_widths) - 1 else 2),
+                     padx=(0, 4 if logical_col == len(col_count_widths) - 1 else 3),
                      pady=(top_pad, 0))
             # Clicking the count toggles the checkbox too (the count label
             # isn't part of the Checkbutton's own hit area).

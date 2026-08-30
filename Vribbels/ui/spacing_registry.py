@@ -1207,7 +1207,7 @@ PAIR_GAP_ENTRIES = [
 LABEL_ELEMENT_ENTRIES = [
     # [Fracture] [====slider====] [nn%] -- the widest of the three damage
     # rows, and the one the shared label width is sized to.
-    ("Optimizer", "Fracture -> its slider", 4, 17,
+    ("Optimizer", "Fracture -> its slider", 4, None,
      lambda app: _group_of("Fracture")(app),
      LABEL_CLASSES + SCALE_CLASSES, 0),
     # A slider's PERCENT READOUT is deliberately absent, on all four
@@ -1223,7 +1223,7 @@ LABEL_ELEMENT_ENTRIES = [
     ("Optimizer", "ATK -> its slider", 4, 7,
      lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
      LABEL_CLASSES + SCALE_CLASSES, 0),
-    ("Optimizer", "slider -> DEF", 4, 10,
+    ("Optimizer", "slider -> DEF", 4, None,
      lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
      LABEL_CLASSES + SCALE_CLASSES, 1),
     ("Optimizer", "Max Flex Slots -> its spinbox", 4, None,
@@ -1232,7 +1232,7 @@ LABEL_ELEMENT_ENTRIES = [
     ("Optimizer", "Force HP/Ego -> its checkboxes", 4, None,
      lambda app: _group_of(FORCE_CAPTION)(app),
      LABEL_CLASSES + CHECKBOX_CLASSES, 0),
-    ("Memory Fragments", "Sets set -> its count", 4, 8,
+    ("Memory Fragments", "Sets set -> its count", 4, 7,
      _tab_attr("inventory_tab_instance", "inv_set_frame_inner"),
      CHECKBOX_CLASSES + LABEL_CLASSES, 0),
 ]
@@ -1243,7 +1243,7 @@ LABEL_ELEMENT_ENTRIES = [
 #
 # (tab, name, target, hand reading, container locator, classes, index)
 READOUT_ENTRIES = [
-    ("Optimizer", "damage slider -> its readout", 4, 8,
+    ("Optimizer", "damage slider -> its readout", 4, None,
      lambda app: _group_of("Fracture")(app),
      LABEL_CLASSES + SCALE_CLASSES, 1),
     # [ATK] [====slider====] [DEF] [nn%] -- the readout is the third gap
