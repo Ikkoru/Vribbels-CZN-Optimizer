@@ -1220,7 +1220,7 @@ LABEL_ELEMENT_ENTRIES = [
     #
     # [ATK] [====slider====] [DEF] [nn%] -- four elements, so DEF is the
     # SECOND gap, not the third. The third is a readout.
-    ("Optimizer", "ATK -> its slider", 4, 7,
+    ("Optimizer", "ATK -> its slider", 4, None,
      lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
      LABEL_CLASSES + SCALE_CLASSES, 0),
     ("Optimizer", "slider -> DEF", 4, None,
@@ -1232,7 +1232,7 @@ LABEL_ELEMENT_ENTRIES = [
     ("Optimizer", "Force HP/Ego -> its checkboxes", 4, None,
      lambda app: _group_of(FORCE_CAPTION)(app),
      LABEL_CLASSES + CHECKBOX_CLASSES, 0),
-    ("Memory Fragments", "Sets set -> its count", 4, 7,
+    ("Memory Fragments", "Sets set -> its count", 4, None,
      _tab_attr("inventory_tab_instance", "inv_set_frame_inner"),
      CHECKBOX_CLASSES + LABEL_CLASSES, 0),
 ]
@@ -1248,17 +1248,17 @@ READOUT_ENTRIES = [
      LABEL_CLASSES + SCALE_CLASSES, 1),
     # [ATK] [====slider====] [DEF] [nn%] -- the readout is the third gap
     # on this row, where the other two have it second.
-    ("Optimizer", "DEF -> its readout", 4, 9,
+    ("Optimizer", "DEF -> its readout", 4, None,
      lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
      LABEL_CLASSES + SCALE_CLASSES, 2),
-    ("Optimizer", "Shielding slider -> its readout", 4, 8,
+    ("Optimizer", "Shielding slider -> its readout", 4, None,
      lambda app: _sibling_before(_group_of(FORCE_CAPTION))(app),
      LABEL_CLASSES + SCALE_CLASSES, 0),
 ]
 
 
 def _debug_neighbours(container, classes, index, limit=4):
-    """TEMPORARY. Measures as usual and dumps the raw edges with it.
+    """Measures as usual and dumps the raw edges with it.
 
     A gap is a number; this says which SIDE of it the pixels are on. For
     each of the leftmost few controls it prints the widget's box and the
@@ -1266,7 +1266,9 @@ def _debug_neighbours(container, classes, index, limit=4):
     either "the left widget's ink stops short of its box" or "the right
     one's starts late" rather than inferred from the total.
 
-    Wired onto one entry at a time and taken off once it has answered.
+    Wired onto one entry at a time through DEBUG_PAIR_GAPS, and taken
+    off once it has answered. It closed the Sets count, whose seven
+    pixels turned out to be six of label lead and one of checkbox.
     """
     inner = _pair_gap(container, classes, index)
 
@@ -1431,6 +1433,17 @@ CONTROL_GROUP_ENTRIES = [
     ("Gear Score", "stat grid -> button column", 16, None,
      _class_block_gap("Stat Weight Configuration",
                       SPINBOX_CLASSES, ("TButton", "Button"))),
+]
+
+# (tab, name, target, hand reading, resolver) for a button row against
+# the panel edge above it. Both are `content frame -> content frame`:
+# what sits across the gap is a border on one side and a button's own
+# border on the other, with no text at either end.
+BUTTON_ROW_ABOVE_ENTRIES = [
+    ("Capture", "Server Region -> capture buttons", 4, 5,
+     _gap(_panel_at("Server Region"), _by_text("Start Capture"), "v")),
+    ("Setup", "Setup Status -> Check Status row", 4, 6,
+     _gap(_panel_at("Setup Status"), _by_text("Check Status"), "v")),
 ]
 
 CONFIG_ROW_ENTRIES = [
@@ -1814,7 +1827,7 @@ def _title_target_and_source(title):
 DEBUG_PANELS = ()
 
 # Pair-gap entries to dump raw edges for on the next run.
-DEBUG_PAIR_GAPS = ("Sets set -> its count",)
+DEBUG_PAIR_GAPS = ()
 
 
 def _debug_panel(title):
@@ -2027,8 +2040,10 @@ def register_all():
                 scenario=scenario,
             )
 
-    for rule, table in ((RULE_CONTROL_GROUP, CONTROL_GROUP_ENTRIES),
-                        (RULE_CONFIG_PANEL_ROW, CONFIG_ROW_ENTRIES)):
+    for rule, table, axis in (
+            (RULE_CONTROL_GROUP, CONTROL_GROUP_ENTRIES, "h"),
+            (RULE_CONFIG_PANEL_ROW, CONFIG_ROW_ENTRIES, "v"),
+            (RULE_CONTENT_FRAME, BUTTON_ROW_ABOVE_ENTRIES, "v")):
         for tab, name, target, hand, resolve in table:
             sa.track(
                 name=name,
@@ -2036,7 +2051,7 @@ def register_all():
                 rule=rule,
                 target=target,
                 resolve=resolve,
-                axis=("h" if rule == RULE_CONTROL_GROUP else "v"),
+                axis=axis,
                 hand=hand,
             )
 
