@@ -329,19 +329,40 @@ def frame_border_edges(cap: Capture, frame) -> tuple:
     reports correctly.
     """
     fb = box_of(frame)
-    mid_y = (fb.top + fb.bottom) // 2
-    mid_x = (fb.left + fb.right) // 2
 
-    def h(x):
-        return cap.contains(x, mid_y) and not cap.is_background(x, mid_y)
+    def probes(low, high):
+        """The frame's middle first, then a spread of other lines.
 
-    def v(y):
-        return cap.contains(mid_x, y) and not cap.is_background(mid_x, y)
+        A scan across the middle is the right one to trust, and it is
+        tried first so a frame that answers there answers exactly as it
+        always did. But a panel can be FILLED across its middle -- the
+        Gear Score preset list runs to three of its borders -- and there
+        the scan finds no background to stop at and walks its cap. The
+        other lines are for that: anywhere the border has background
+        behind it reports the same edge, and one such line is enough.
+        """
+        span = high - low
+        yield (low + high) // 2
+        for frac in (8, 4, 16):
+            yield low + max(1, span // frac)
+            yield high - max(1, span // frac)
 
-    left, l_sat = _painted_run_end(cap, fb.left, fb.right, h, 1)
-    right, r_sat = _painted_run_end(cap, fb.right, fb.left, h, -1)
-    top, t_sat = _painted_run_end(cap, fb.top, fb.bottom, v, 1)
-    bottom, b_sat = _painted_run_end(cap, fb.bottom, fb.top, v, -1)
+    def scan(start, limit, step, along, fixed_low, fixed_high):
+        """The first probe line that finds a real border, else the last."""
+        result = (None, False)
+        for fixed in probes(fixed_low, fixed_high):
+            def painted(i, f=fixed):
+                x, y = (i, f) if along == "h" else (f, i)
+                return cap.contains(x, y) and not cap.is_background(x, y)
+            result = _painted_run_end(cap, start, limit, painted, step)
+            if not result[1]:
+                return result
+        return result
+
+    left, l_sat = scan(fb.left, fb.right, 1, "h", fb.top, fb.bottom)
+    right, r_sat = scan(fb.right, fb.left, -1, "h", fb.top, fb.bottom)
+    top, t_sat = scan(fb.top, fb.bottom, 1, "v", fb.left, fb.right)
+    bottom, b_sat = scan(fb.bottom, fb.top, -1, "v", fb.left, fb.right)
     edges = {
         "left": fb.left - 1 if left is None else left,
         "right": fb.right + 1 if right is None else right,

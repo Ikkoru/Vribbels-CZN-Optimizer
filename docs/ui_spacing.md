@@ -96,6 +96,15 @@ deriving something, and the refusal names the reason.
 These are exact targets, not floors: a value above target needs bringing
 down as much as one below it needs raising.
 
+**A panel whose content runs to its border cannot be measured across
+its middle.** The border scan walks inward from the frame's box looking
+for the first background pixel, and a panel filled edge to edge along
+that line has none — so the scan hits its cap and every reading on that
+panel comes out short by however far it walked. The Gear Score preset
+list running flush to three borders cost the whole panel 3px that way.
+The scan tries the middle first and falls back to other lines, any one
+of which reports the same border where there is background behind it.
+
 **A glyph's ADVANCE and its INK are not the same width, and the
 difference is per string.** `font.measure` returns the advance — what Tk
 reserves to lay the next character out — while the audit reads painted
