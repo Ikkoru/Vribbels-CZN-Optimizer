@@ -254,7 +254,7 @@ class SetupTab(BaseTab):
                 foreground=self.colors["fg_dim"],
                 wraplength=260, justify=tk.LEFT,
                 padding=(0, RESTORE_TEXT_TRIM, 0, RESTORE_TEXT_TRIM),
-            ).grid(row=0, column=1, sticky="w", padx=(8, 0))
+            ).grid(row=0, column=1, sticky="w", padx=(1, 0))
 
         # Button frame
         btn_frame = ttk.Frame(main_frame)

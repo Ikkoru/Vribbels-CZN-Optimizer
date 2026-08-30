@@ -827,6 +827,40 @@ def _heading_to_subtitle(heading, subtitle):
     return resolve
 
 
+def _heading_subtitle_baseline(heading, subtitle):
+    """Resolver: how far the subtitle's baseline sits off the heading's.
+
+    `header subtext` is the one rule that is not a distance. It says the
+    subtitle sits ON the heading's line, so what it asks for is 0 and
+    what has to be measured is an OFFSET rather than a gap.
+
+    Baselines, not ink bottoms. The two strings are different sizes and
+    hold different glyphs, so their ink stops at different depths even
+    when they sit on the same line -- the heading here has no descender
+    and every subtitle does. Each ink bottom is lifted by its own string's
+    descender depth to recover the baseline, the same correction
+    `restate_from_reference` makes horizontally.
+
+    NEGATIVE means the subtitle rides above the heading's line.
+    """
+    def resolve(cap, app):
+        tab = sa.current_tab_widget(app)
+        a = sa.find_descendant_text(tab, heading)
+        b = sa.find_descendant_text(tab, subtitle)
+        if a is None:
+            return None, f"no heading starting {heading!r}"
+        if b is None:
+            return None, f"no subtitle starting {subtitle!r}"
+        top = sa.painted_extent_v(cap, sa.box_of(a), cap.background)
+        bottom = sa.painted_extent_v(cap, sa.box_of(b), cap.background)
+        if top is None or bottom is None:
+            return None, "heading or subtitle painted nothing"
+        head_base = top[1] - ink_below_baseline(a.cget("text"), bold14=True)
+        sub_base = bottom[1] - ink_below_baseline(b.cget("text"))
+        return sub_base - head_base, ""
+    return resolve
+
+
 def _tab_list_to_first_element(text=None, bold14=False):
     """Resolver: the tab strip's bottom -> the first ink on the tab.
 
@@ -1244,6 +1278,12 @@ LABEL_ELEMENT_ENTRIES = [
     ("Memory Fragments", "Sets set -> its count", 4, None,
      _tab_attr("inventory_tab_instance", "inv_set_frame_inner"),
      CHECKBOX_CLASSES + LABEL_CLASSES, 0),
+    # The first of the three Restore Defaults rows. One is enough: the
+    # three are built from one loop with one pad, so a second entry would
+    # report the same lever twice.
+    ("Setup", "Restore Defaults button -> its explanation", 4, None,
+     lambda app: _by_text("Presets")(app).master,
+     ("TButton", "Button") + LABEL_CLASSES, 0),
 ]
 
 # The same rule, measured with every percent slider at 100 so the
@@ -2344,6 +2384,19 @@ def register_all():
             target=14,
             resolve=_heading_to_subtitle(heading, subtitle),
             axis="h",
+            provisional=False,
+        )
+        # The vertical half of the same pair, and a different rule: the
+        # one above is the gap ALONG the header line, this is whether the
+        # subtitle sits on that line at all. Nothing watched it, and the
+        # subtitle rides a pixel high on every tab that has one.
+        sa.track(
+            name=f"{heading} subtitle: off the heading's line",
+            tab=tab,
+            rule=RULE_HEADER_SUBTEXT,
+            target=0,
+            resolve=_heading_subtitle_baseline(heading, subtitle),
+            axis="v",
             provisional=False,
         )
 
