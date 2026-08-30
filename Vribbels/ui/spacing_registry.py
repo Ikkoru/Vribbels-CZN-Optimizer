@@ -1565,10 +1565,11 @@ INDICATOR_ENTRIES = [
 # control where the pair is wrapped in a cell of its own, so the gap is
 # inside the cell and nothing at the grid level can see it.
 CELL_LABEL_ENTRIES = [
-    # An exception, and the marker at the site says why: a text-less
-    # tk.Checkbutton asks for 23px around a 16px indicator, so 7 of
-    # reserved space follows it whatever the padding says.
-    ("Optimizer", "Set Config checkbox -> its label", 7, None,
+    # The piece count is inside the checkbox now, so this measures the
+    # checkbox's text to the set NAME beside it -- an ordinary gap with
+    # an ordinary pad, where it used to be the indicator against a label
+    # across 7px of reserved space nothing could reach.
+    ("Optimizer", "Set Config checkbox -> its label", 4, None,
      _gap_within_cells(_tab_attr("optimizer_tab_instance", "set_grid_frame"),
                        CHECKBOX_CLASSES + LABEL_CLASSES)),
     # Two weight columns, each with its own distance, so each is read
@@ -1977,7 +1978,9 @@ DEBUG_PAIR_GAPS = ()
 # Entries whose target deliberately misses their rule, where the
 # table they live in is otherwise rule-derived. Each one has an
 # `exception` marker at its site saying what stops it.
-EXCEPTION_ENTRIES = {"Set Config checkbox -> its label": "exception"}
+# Nothing needs this today; the Set Config checkbox left it when its
+# piece count moved inside the widget.
+EXCEPTION_ENTRIES = {}
 
 
 def _debug_panel(title):

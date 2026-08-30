@@ -1296,7 +1296,7 @@ class OptimizerTab(BaseTab):
                            padx=(0 if col == 0 else 6, 0),
                            pady=(top_pad, 0))
             pieces_text = f"{sinfo['pieces']}pc"
-            name_text = " " + sinfo["name"]  # leading space separates from "pc"
+            name_text = sinfo["name"]
             elements = sinfo.get("elements", []) or []
             default_fg = self.colors["fg"]
             if len(elements) >= 2:
@@ -1313,36 +1313,31 @@ class OptimizerTab(BaseTab):
             # a coloured label.
             # spacing: border edge -> first non-button element -- panel, checkbox ↔
             # spacing: label ↔ its element -- checkbox, label ↔
-            # spacing: exception -- label ↔ its element -- checkbox, label ↔
-            # The leading pad is this panel's left inset and moves every
-            # checkbox in the grid with it. The TRAILING one is 0 because
-            # there is nothing left to give: a text-less tk.Checkbutton
-            # asks for 23px around a 16px indicator, so 7 of reserved
-            # space follows it whatever the padding says, and the label
-            # beside it has already spent all the negative padding a
-            # ttk.Label has. 7 is where this gap stops, not 4.
-            #
-            # Splitting a checkbox to win the indicator gap therefore
-            # makes it WORSE: 7 here against the 5 a checkbox with its
-            # own text gets. See `make_checkbox`.
+            # The piece count is the CHECKBOX'S OWN TEXT, not a label
+            # beside it. A text-less tk.Checkbutton asks for 23px around
+            # a 16px indicator, so 7px of reserved space follows it that
+            # no padding reaches -- where a checkbox carrying its own
+            # text sits 5 from it. Splitting the two cost 2px and a
+            # widget, and it bought nothing: the indicator already takes
+            # the piece count's colour, so there was never a second
+            # colour needing a second widget.
             cb = make_checkbox(
-                container, self.colors, variable=var, fg=pieces_color,
-                command=self._save_sets_selected,
+                container, self.colors, text=pieces_text, fg=pieces_color,
+                variable=var, command=self._save_sets_selected,
             )
             cb.pack(side=tk.LEFT, padx=(0, 0))
 
-            # The piece count is pulled toward its checkbox: the negative
-            # padding here is all the internal inset a ttk.Label has to
-            # give (taking one more clips the "4").
-            pieces_label = ttk.Label(
-                container, text=pieces_text, foreground=pieces_color,
-                padding=(-2, 0, 0, 0),
-            )
-            pieces_label.pack(side=tk.LEFT)
+            # spacing: label ↔ its element -- checkbox, label ↔
+            # The set NAME does need its own widget: a two-Element set
+            # colours the count and the name differently, and a
+            # Checkbutton draws its text in one colour.
             name_label = ttk.Label(
                 container, text=name_text, foreground=name_color,
             )
-            name_label.pack(side=tk.LEFT)
+            # A pad, not the leading space the name used to carry: a
+            # space is whatever the font makes it and cannot be tuned by
+            # a pixel.
+            name_label.pack(side=tk.LEFT, padx=(2, 0))
 
             # Conditional sets get an effect-share spinbox (0-100, % of
             # this combatant's damage the effect applies to; 0 = effect
@@ -1372,13 +1367,14 @@ class OptimizerTab(BaseTab):
             # fires Leave on the container whenever the pointer crosses
             # onto a child.
             tip_text = sinfo.get("bonus", "")
-            for w in (cb, pieces_label, name_label):
+            for w in (cb, name_label):
                 self._set_tooltip.bind(w, tip_text)
 
             def _toggle(_event=None, v=var):
                 v.set(not v.get())
                 self._save_sets_selected()
-            pieces_label.bind("<Button-1>", _toggle)
+            # Only the name needs wiring back: the count is inside the
+            # checkbox now and toggles it natively.
             name_label.bind("<Button-1>", _toggle)
 
         # 3 columns; the 2-piece sets always start on a fresh row below

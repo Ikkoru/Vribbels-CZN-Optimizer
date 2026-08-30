@@ -19,6 +19,7 @@ from tkinter import font as tkfont, messagebox
 from ..base_tab import BaseTab
 from ..context import AppContext
 from ..utils.button_width import BUTTON_W_LARGE
+from ..utils.label_width import column_px
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 from game_data import STATS
@@ -352,16 +353,22 @@ STAT MIN - MAX ROLLS:
         Lives in its own frame so spacing isn't perturbed by the (taller)
         button column to the right.
         """
-        # One width for every label in the block, so the spinboxes line up
-        # across both columns. LABEL_GAP_PX is the rule's own distance,
-        # measured from the LONGEST label -- every shorter one simply has
-        # more room before its spinbox.
-        LABEL_GAP_PX = 4
-        _lf = tkfont.nametofont("TkDefaultFont")
-        label_col_px = max(
-            _lf.measure(DISPLAY_NAMES.get(k, d))
-            for k, d in STAT_DISPLAY_NAMES
-        ) + LABEL_GAP_PX
+        # One width PER COLUMN, each measured from that column's own
+        # longest label. The two used to share a width, which linked
+        # gaps that answer separately: the longer column's label set the
+        # width and the other one's gap came out however much shorter
+        # its own longest label happened to be.
+        #
+        # LABEL_GAP_PX is on top of what a Label asks for around its ink,
+        # since a minsize is a floor the column still grows past -- see
+        # `ui/utils/label_width.py`.
+        LABEL_GAP_PX = 3
+        label_col_px = [
+            column_px([DISPLAY_NAMES.get(k, d)
+                       for i, (k, d) in enumerate(STAT_DISPLAY_NAMES)
+                       if i % 2 == col], extra=LABEL_GAP_PX)
+            for col in (0, 1)
+        ]
 
         for i, (stat_key, display_name) in enumerate(STAT_DISPLAY_NAMES):
             row, col = i // 2, i % 2
@@ -392,7 +399,7 @@ STAT MIN - MAX ROLLS:
             # nothing can clip the text or seat it off-centre. A pinned
             # frame has to be given a height, and a ttk.Label is taller
             # than its font's line box by however much the style pads it.
-            cell.grid_columnconfigure(0, minsize=label_col_px)
+            cell.grid_columnconfigure(0, minsize=label_col_px[col])
             # spacing: label ↔ its element -- label, spinbox ↔
             ttk.Label(cell, text=label, anchor=tk.W).grid(
                 row=0, column=0, sticky="w")
