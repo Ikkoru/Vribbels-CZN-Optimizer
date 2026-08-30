@@ -855,9 +855,17 @@ def _heading_subtitle_baseline(heading, subtitle):
         bottom = sa.painted_extent_v(cap, sa.box_of(b), cap.background)
         if top is None or bottom is None:
             return None, "heading or subtitle painted nothing"
-        head_base = top[1] - ink_below_baseline(a.cget("text"), bold14=True)
-        sub_base = bottom[1] - ink_below_baseline(b.cget("text"))
-        return sub_base - head_base, ""
+        head_drop = ink_below_baseline(a.cget("text"), bold14=True)
+        sub_drop = ink_below_baseline(b.cget("text"))
+        head_base = top[1] - head_drop
+        sub_base = bottom[1] - sub_drop
+        # The descender depths are the only MODELLED numbers here; the
+        # ink bottoms are measured. So when this row disagrees with the
+        # eye, the disagreement is in one of the two drops, and the note
+        # is what says which.
+        note = (f"ink {top[1]}/{bottom[1]}, drop {head_drop}/{sub_drop}, "
+                f"baseline {head_base}/{sub_base}")
+        return sub_base - head_base, note
     return resolve
 
 

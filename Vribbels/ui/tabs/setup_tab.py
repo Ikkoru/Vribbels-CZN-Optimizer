@@ -256,7 +256,14 @@ class SetupTab(BaseTab):
                 foreground=self.colors["fg_dim"],
                 wraplength=350, justify=tk.LEFT,
                 padding=(0, RESTORE_TEXT_TRIM, 0, RESTORE_TEXT_TRIM),
-            ).grid(row=0, column=1, sticky="w", padx=(2, 0))
+            # This pad answers to the FIRST GLYPH OF EVERY LINE, not just
+            # the first line's: the gap is read to the leftmost ink in the
+            # whole block. Both lines start on a letter whose leading
+            # column of ink is too faint to count, so the pad carries a
+            # pixel it would not need if either line began on a solid
+            # one. Rewrapping the text can therefore move this value --
+            # it did when the explanations gained their line breaks.
+            ).grid(row=0, column=1, sticky="w", padx=(1, 0))
 
         # Button frame
         btn_frame = ttk.Frame(main_frame)
