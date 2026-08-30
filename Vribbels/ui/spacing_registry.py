@@ -1234,10 +1234,10 @@ LABEL_ELEMENT_ENTRIES = [
      LABEL_CLASSES + CHECKBOX_CLASSES, 0),
     # The Optimizer toolbar's status cluster: two rows, each a caption
     # beside the control it names.
-    ("Optimizer", "Ignore MFs below level -> its spinbox", 4, 5,
+    ("Optimizer", "Ignore MFs below level -> its spinbox", 4, None,
      lambda app: _by_text("Ignore MFs below level:")(app).master,
      LABEL_CLASSES + SPINBOX_CLASSES, 0),
-    ("Optimizer", "Ignore off-Element MFs -> its checkbox", 4, 6,
+    ("Optimizer", "Ignore off-Element MFs -> its checkbox", 4, None,
      lambda app: _by_text("Ignore off-Element MFs")(app).master,
      LABEL_CLASSES + CHECKBOX_CLASSES, 0),
 
@@ -1565,7 +1565,10 @@ INDICATOR_ENTRIES = [
 # control where the pair is wrapped in a cell of its own, so the gap is
 # inside the cell and nothing at the grid level can see it.
 CELL_LABEL_ENTRIES = [
-    ("Optimizer", "Set Config checkbox -> its label", 4, 8,
+    # An exception, and the marker at the site says why: a text-less
+    # tk.Checkbutton asks for 23px around a 16px indicator, so 7 of
+    # reserved space follows it whatever the padding says.
+    ("Optimizer", "Set Config checkbox -> its label", 7, None,
      _gap_within_cells(_tab_attr("optimizer_tab_instance", "set_grid_frame"),
                        CHECKBOX_CLASSES + LABEL_CLASSES)),
     # Two weight columns, each with its own distance, so each is read
@@ -1971,6 +1974,11 @@ DEBUG_PANELS = ()
 # Pair-gap entries to dump raw edges for on the next run.
 DEBUG_PAIR_GAPS = ()
 
+# Entries whose target deliberately misses their rule, where the
+# table they live in is otherwise rule-derived. Each one has an
+# `exception` marker at its site saying what stops it.
+EXCEPTION_ENTRIES = {"Set Config checkbox -> its label": "exception"}
+
 
 def _debug_panel(title):
     """Resolver that measures as usual AND dumps its raw coordinates.
@@ -2188,7 +2196,7 @@ def register_all():
             (RULE_CONTENT_FRAME, BUTTON_ROW_ABOVE_ENTRIES, "v", "rule"),
             (RULE_LABEL_ELEMENT, INDICATOR_ENTRIES, "h", "exception"),
             (RULE_CONTENT_FRAME, WINDOW_EDGE_ENTRIES, "h", "rule"),
-            (RULE_LABEL_ELEMENT, CELL_LABEL_ENTRIES, "h", "rule")):
+            (RULE_LABEL_ELEMENT, CELL_LABEL_ENTRIES, "h", None)):
         for tab, name, target, hand, resolve in table:
             sa.track(
                 name=name,
@@ -2198,7 +2206,10 @@ def register_all():
                 resolve=resolve,
                 axis=axis,
                 hand=hand,
-                target_source=source,
+                # None means per-entry: a table can hold one row that
+                # misses its rule beside rows that meet it.
+                target_source=(source if source is not None
+                               else EXCEPTION_ENTRIES.get(name, "rule")),
             )
 
     for tab, name, target, hand, source, resolve in EXPLANATION_ENTRIES:

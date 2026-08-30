@@ -580,7 +580,7 @@ class OptimizerTab(BaseTab):
         minlvl_row.pack(side=tk.TOP, anchor=tk.E, pady=(0, 0))
         # spacing: label ↔ its element -- label, spinbox ↔
         ttk.Label(minlvl_row, text="Ignore MFs below level:",
-                  font=small_font).pack(side=tk.LEFT, padx=(0, 3))
+                  font=small_font).pack(side=tk.LEFT, padx=(0, 2))
         minlvl_spin = tk.Spinbox(
             minlvl_row, from_=0, to=5, increment=1, width=2,
             textvariable=self.min_gear_level_var, font=small_font,
@@ -597,7 +597,7 @@ class OptimizerTab(BaseTab):
         offelem_row.pack(side=tk.TOP, anchor=tk.E, pady=(0, 0))
         # spacing: label ↔ its element -- label, checkbox ↔
         ttk.Label(offelem_row, text="Ignore off-Element MFs",
-                  font=small_font).pack(side=tk.LEFT, padx=(0, 3))
+                  font=small_font).pack(side=tk.LEFT, padx=(0, 1))
         # spacing: exception -- border edge -> first non-button element -- checkbox, frame ↔
         # Sits 13px from the right edge where the rule asks for 5, and
         # where the status text above reads 8 and the spinbox 6. Keeping
@@ -1313,15 +1313,23 @@ class OptimizerTab(BaseTab):
             # a coloured label.
             # spacing: border edge -> first non-button element -- panel, checkbox ↔
             # spacing: label ↔ its element -- checkbox, label ↔
+            # spacing: exception -- label ↔ its element -- checkbox, label ↔
             # The leading pad is this panel's left inset and moves every
-            # checkbox in the grid with it; the trailing pad closes the gap
-            # to the piece count. tk.Checkbutton's own padx applies to both
-            # sides at once, so the asymmetry lives on pack().
+            # checkbox in the grid with it. The TRAILING one is 0 because
+            # there is nothing left to give: a text-less tk.Checkbutton
+            # asks for 23px around a 16px indicator, so 7 of reserved
+            # space follows it whatever the padding says, and the label
+            # beside it has already spent all the negative padding a
+            # ttk.Label has. 7 is where this gap stops, not 4.
+            #
+            # Splitting a checkbox to win the indicator gap therefore
+            # makes it WORSE: 7 here against the 5 a checkbox with its
+            # own text gets. See `make_checkbox`.
             cb = make_checkbox(
                 container, self.colors, variable=var, fg=pieces_color,
                 command=self._save_sets_selected,
             )
-            cb.pack(side=tk.LEFT, padx=(0, 1))
+            cb.pack(side=tk.LEFT, padx=(0, 0))
 
             # The piece count is pulled toward its checkbox: the negative
             # padding here is all the internal inset a ttk.Label has to
