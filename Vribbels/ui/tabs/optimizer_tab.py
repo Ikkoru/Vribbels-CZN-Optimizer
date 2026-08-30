@@ -556,7 +556,7 @@ class OptimizerTab(BaseTab):
         small_font = ("Segoe UI", 9)
         status_cluster = ttk.Frame(toolbar)
         # spacing: control group ↔ control group -- label, label ↔
-        status_cluster.pack(side=tk.RIGHT, padx=(10, 2), anchor=tk.N)
+        status_cluster.pack(side=tk.RIGHT, padx=(10, 0), anchor=tk.N)
         # spacing: border edge -> first non-button element -- label, frame ↔
         # The negative TRAILING padding pulls the glyphs right, toward
         # the rule: a Label's box stops short of its own text where the

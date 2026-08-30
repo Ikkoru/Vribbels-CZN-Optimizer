@@ -1526,10 +1526,10 @@ INDICATOR_ENTRIES = [
 # (tab, name, target, hand reading, resolver) for content that ends at
 # the window's right edge.
 WINDOW_EDGE_ENTRIES = [
-    ("Optimizer", "status cluster -> window edge", 4, 6,
+    ("Optimizer", "status cluster -> window edge", 4, None,
      _to_window_edge(
          lambda app: app.optimizer_tab_instance.status_label.master)),
-    ("Combatants", "Partner -> window edge", 4, 6,
+    ("Combatants", "Partner -> window edge", 4, None,
      _to_window_edge(_panel_at("Partner"))),
 ]
 

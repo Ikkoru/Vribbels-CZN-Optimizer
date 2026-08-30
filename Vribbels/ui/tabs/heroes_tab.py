@@ -636,7 +636,14 @@ class HeroesTab(BaseTab):
         # padx/pady, so its lighter background reaches the frame border.
         partner_frame = ttk.LabelFrame(info_frame, text="Partner", padding=0)
         # spacing: content frame -> content frame -- frame, frame ↔
-        partner_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=2)
+        # spacing: content frame -> content frame -- frame, frame ↔
+        # Asymmetric: the LEADING half is the gap from the Character
+        # panel beside it, and the trailing half was a third pad on
+        # the run out to the window edge -- `columns` and
+        # `hero_detail_container` already spend two each, which is
+        # the whole of that rule's 4.
+        partner_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
+                           padx=(2, 0))
         self._partner_frame = partner_frame  # fixed-size target
         # Right-click on the partner pane (the LabelFrame OR the Text widget
         # inside) opens the "Add confirmed level" dialog for the currently
