@@ -1232,6 +1232,15 @@ LABEL_ELEMENT_ENTRIES = [
     ("Optimizer", "Force HP/Ego -> its checkboxes", 4, None,
      lambda app: _group_of(FORCE_CAPTION)(app),
      LABEL_CLASSES + CHECKBOX_CLASSES, 0),
+    # The Optimizer toolbar's status cluster: two rows, each a caption
+    # beside the control it names.
+    ("Optimizer", "Ignore MFs below level -> its spinbox", 4, 5,
+     lambda app: _by_text("Ignore MFs below level:")(app).master,
+     LABEL_CLASSES + SPINBOX_CLASSES, 0),
+    ("Optimizer", "Ignore off-Element MFs -> its checkbox", 4, 6,
+     lambda app: _by_text("Ignore off-Element MFs")(app).master,
+     LABEL_CLASSES + CHECKBOX_CLASSES, 0),
+
     ("Memory Fragments", "Sets set -> its count", 4, None,
      _tab_attr("inventory_tab_instance", "inv_set_frame_inner"),
      CHECKBOX_CLASSES + LABEL_CLASSES, 0),
@@ -1356,6 +1365,35 @@ def _indicator_gap(container, classes, debug=False):
         if best is None:
             return None, "no checkbox showed an indicator and a glyph"
         return best, ""
+    return resolve
+
+
+def _gap_within_cells(container, classes, index=0, column=None):
+    """Resolver: the gap INSIDE a grid's cells, smallest across them.
+
+    Where a panel wraps each label-and-control pair in a frame, the gap
+    the rule names lives inside those frames and there is nothing at the
+    grid level to measure. This reads each cell in turn and reports the
+    tightest, which is the one whose label is longest -- the reference
+    the rule names, the same as for a column.
+
+    `column` narrows it to one grid column, for a panel whose columns
+    are set apart by different distances and answer separately.
+    """
+    def resolve(cap, app):
+        frame = container(app)
+        gaps = []
+        for cell in frame.winfo_children():
+            info = cell.grid_info()
+            if column is not None and (not info or info["column"] != column):
+                continue
+            found = _neighbour_gaps(cap, cell, classes)
+            if len(found) > index:
+                gaps.append(found[index])
+        if not gaps:
+            where = "" if column is None else f" in column {column}"
+            return None, f"no cell{where} showed that pair"
+        return min(gaps), ""
     return resolve
 
 
@@ -1521,6 +1559,23 @@ INDICATOR_ENTRIES = [
     ("Memory Fragments", "checkbox indicator -> its label", 5, None,
      _indicator_gap(_block_in("Slots", CHECKBOX_CLASSES),
                     CHECKBOX_CLASSES)),
+]
+
+# (tab, name, target, hand reading, resolver) for a label beside its
+# control where the pair is wrapped in a cell of its own, so the gap is
+# inside the cell and nothing at the grid level can see it.
+CELL_LABEL_ENTRIES = [
+    ("Optimizer", "Set Config checkbox -> its label", 4, 8,
+     _gap_within_cells(_tab_attr("optimizer_tab_instance", "set_grid_frame"),
+                       CHECKBOX_CLASSES + LABEL_CLASSES)),
+    # Two weight columns, each with its own distance, so each is read
+    # alone rather than as the smallest of the two.
+    ("Gear Score", "weight column 1 label -> its spinbox", 4, 3,
+     _gap_within_cells(lambda app: _group_of("ATK Flat")(app).master,
+                       LABEL_CLASSES + SPINBOX_CLASSES, column=0)),
+    ("Gear Score", "weight column 2 label -> its spinbox", 4, 1,
+     _gap_within_cells(lambda app: _group_of("ATK Flat")(app).master,
+                       LABEL_CLASSES + SPINBOX_CLASSES, column=1)),
 ]
 
 # (tab, name, target, hand reading, resolver) for content that ends at
@@ -2132,7 +2187,8 @@ def register_all():
             (RULE_CONFIG_PANEL_ROW, CONFIG_ROW_ENTRIES, "v", "rule"),
             (RULE_CONTENT_FRAME, BUTTON_ROW_ABOVE_ENTRIES, "v", "rule"),
             (RULE_LABEL_ELEMENT, INDICATOR_ENTRIES, "h", "exception"),
-            (RULE_CONTENT_FRAME, WINDOW_EDGE_ENTRIES, "h", "rule")):
+            (RULE_CONTENT_FRAME, WINDOW_EDGE_ENTRIES, "h", "rule"),
+            (RULE_LABEL_ELEMENT, CELL_LABEL_ENTRIES, "h", "rule")):
         for tab, name, target, hand, resolve in table:
             sa.track(
                 name=name,
