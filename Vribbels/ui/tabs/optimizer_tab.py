@@ -370,9 +370,10 @@ class OptimizerTab(BaseTab):
         self.ad_readout_label = None
         self.sh_readout_label = None
         self.preset_label = None
-        # Shared hover-tooltip instance for the Set Configuration rows
-        # (one at a time can be visible, so one instance serves all).
-        self._set_tooltip = Tooltip(self.colors)
+        # One hover-tooltip instance for the whole tab: only one tooltip
+        # can be visible at a time, so a second instance would buy
+        # nothing and could leave two on screen at once.
+        self._tooltip = Tooltip(self.colors)
 
     # Convenience accessor -- avoids repeating self.context.optimizer_settings_manager
     @property
@@ -596,17 +597,32 @@ class OptimizerTab(BaseTab):
         # Target 3px.
         offelem_row.pack(side=tk.TOP, anchor=tk.E, pady=(0, 0))
         # spacing: label ↔ its element -- label, checkbox ↔
-        ttk.Label(offelem_row, text="Ignore off-Element MFs",
-                  font=small_font).pack(side=tk.LEFT, padx=(0, 1))
+        offelem_label = ttk.Label(offelem_row, text="Ignore off-Element MFs",
+                                  font=small_font)
+        offelem_label.pack(side=tk.LEFT, padx=(0, 1))
         # spacing: exception -- border edge -> first non-button element -- checkbox, frame ↔
         # Sits 13px from the right edge where the rule asks for 5, and
         # where the status text above reads 8 and the spinbox 6. Keeping
         # it near-centred under the spinbox rather than flush right looks
         # and clicks better, and the click target is the reason it wins.
-        make_checkbox(
+        offelem_cb = make_checkbox(
             offelem_row, self.colors, variable=self.ignore_offelement_var,
             font=small_font, compact=True,
-        ).pack(side=tk.LEFT, padx=(0, 1))
+        )
+        offelem_cb.pack(side=tk.LEFT, padx=(0, 1))
+        # What the filter does NOT touch is the part worth saying: the
+        # name reads as though any off-Element stat is dropped. Bound to
+        # both children rather than the row, the way the Set
+        # Configuration rows are -- Tk fires Leave on a container as the
+        # pointer crosses onto a child.
+        for _w in (offelem_label, offelem_cb):
+            self._tooltip.bind(
+                _w,
+                "Drops Slot V Memory Fragments whose MAIN stat is another "
+                "Element's DMG%. ATK% and HP% main stats always pass, and "
+                "substats are never filtered. No effect on a Combatant "
+                "whose Element is unknown."
+            )
 
         # ---- Body grid ----
         # 3 columns: Stats Comp, Config, Results / Exclude.
@@ -1384,7 +1400,7 @@ class OptimizerTab(BaseTab):
             # onto a child.
             tip_text = sinfo.get("bonus", "")
             for w in (cb, name_label):
-                self._set_tooltip.bind(w, tip_text)
+                self._tooltip.bind(w, tip_text)
 
             def _toggle(_event=None, v=var):
                 v.set(not v.get())
