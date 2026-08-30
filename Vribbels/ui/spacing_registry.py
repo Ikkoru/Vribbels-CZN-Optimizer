@@ -1270,29 +1270,43 @@ def _debug_neighbours(container, classes, index, limit=4):
     """
     inner = _pair_gap(container, classes, index)
 
+    def describe(cap, w, note):
+        box = sa.box_of(w)
+        ink = sa.painted_extent_h(cap, box)
+        try:
+            text = str(w.cget("text"))[:20]
+        except tk.TclError:
+            text = ""
+        if ink is None:
+            print(f"    {note:<6} {w.winfo_class():12} {text:<20} painted nothing")
+            return
+        print(f"    {note:<6} {w.winfo_class():12} {text:<20} "
+              f"box {box.left}..{box.right}  ink {ink[0]}..{ink[1]}  "
+              f"lead {ink[0] - box.left}  trail {box.right - ink[1]}")
+
     def resolve(cap, app):
         frame = container(app)
         kids = [c for c in sa.find_descendants_class(frame, *classes)
                 if c.master is frame]
-        spans = []
+        # The two widgets the reported gap actually runs between: the one
+        # reaching furthest RIGHT in its column, and the one starting
+        # furthest LEFT in the next. Printing the leftmost few instead
+        # just lists one column's rows, which is what they share.
+        cols = {}
         for w in kids:
-            box = sa.box_of(w)
-            ink = sa.painted_extent_h(cap, box)
+            info = w.grid_info()
+            if not info:
+                continue
+            ink = sa.painted_extent_h(cap, sa.box_of(w))
             if ink:
-                spans.append((ink[0], w, box, ink))
-        # By the key alone: two controls can share a left edge, and a
-        # bare sort would fall through to comparing the WIDGETS, which
-        # Tk does not order.
-        spans.sort(key=lambda item: item[0])
-        print(f"  [debug] leftmost {limit} of {len(spans)} in {frame}")
-        for _key, w, box, ink in spans[:limit]:
-            try:
-                text = str(w.cget("text"))[:18]
-            except tk.TclError:
-                text = ""
-            print(f"    {w.winfo_class():12} {text:<18} "
-                  f"box {box.left}..{box.right}  ink {ink[0]}..{ink[1]}  "
-                  f"lead {ink[0] - box.left}  trail {box.right - ink[1]}")
+                cols.setdefault(info["column"], []).append((ink, w))
+        order = sorted(cols)
+        print(f"  [debug] {len(kids)} controls in {len(order)} columns")
+        if index is not None and index + 1 < len(order):
+            left = max(cols[order[index]], key=lambda p: p[0][1])[1]
+            right = min(cols[order[index + 1]], key=lambda p: p[0][0])[1]
+            describe(cap, left, "left")
+            describe(cap, right, "right")
         return inner(cap, app)
     return resolve
 
