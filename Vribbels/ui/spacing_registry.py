@@ -1313,6 +1313,52 @@ def _debug_neighbours(container, classes, index, limit=4):
     return resolve
 
 
+def _indicator_gap(container, classes, debug=False):
+    """Resolver: a checkbox's indicator -> its own label.
+
+    Both live inside ONE widget, so there is no second widget to measure
+    between and no pack or grid pad anywhere near them. What separates
+    them is a stretch of background inside the box, and the painted runs
+    across it are the only way to see it: the first run is the
+    indicator, the second is the label's first glyph.
+
+    Reported from the checkbox whose gap is SMALLEST, on the usual
+    grounds -- every one of these is built by `make_checkbox`, so they
+    should agree, and a spread would itself be the finding.
+
+    `debug` prints the runs for the first few, which is what says
+    whether the distance is Tk's own or something a padding reaches.
+    """
+    def resolve(cap, app):
+        frame = container(app)
+        boxes = sa.find_descendants_class(frame, *classes)
+        if not boxes:
+            return None, f"no {'/'.join(classes)} in that container"
+        best = None
+        shown = 0
+        for w in boxes:
+            runs = sa.painted_runs_h(cap, sa.box_of(w))
+            if len(runs) < 2:
+                continue
+            gap = sa.gap_between(runs[0][1], runs[1][0])
+            if debug and shown < 3:
+                shown += 1
+                try:
+                    text = str(w.cget("text"))[:18]
+                except tk.TclError:
+                    text = ""
+                box = sa.box_of(w)
+                print(f"    {text:<18} box {box.left}..{box.right}  "
+                      f"indicator {runs[0][0]}..{runs[0][1]}  "
+                      f"then {runs[1][0]}..{runs[1][1]}  gap {gap}  "
+                      f"({len(runs)} runs)")
+            best = gap if best is None else min(best, gap)
+        if best is None:
+            return None, "no checkbox showed an indicator and a glyph"
+        return best, ""
+    return resolve
+
+
 def _by_text(prefix):
     """Locator: the widget whose words start with `prefix`."""
     def find(app):
@@ -1444,6 +1490,17 @@ BUTTON_ROW_ABOVE_ENTRIES = [
      _gap(_panel_at("Server Region"), _by_text("Start Capture"), "v")),
     ("Setup", "Setup Status -> Check Status row", 4, None,
      _gap(_panel_at("Setup Status"), _by_text("Check Status"), "v")),
+]
+
+# A checkbox's indicator against its own label. One entry, not one per
+# panel: every checkbox in the app comes from `make_checkbox`, so they
+# should all report the same distance, and a spread between panels would
+# be the finding rather than a set of separate nudges. Dumping its runs
+# while it answers whether the distance is Tk's own.
+INDICATOR_ENTRIES = [
+    ("Memory Fragments", "checkbox indicator -> its label", 4, 5,
+     _indicator_gap(_block_in("Slots", CHECKBOX_CLASSES),
+                    CHECKBOX_CLASSES, debug=True)),
 ]
 
 CONFIG_ROW_ENTRIES = [
@@ -2043,7 +2100,8 @@ def register_all():
     for rule, table, axis in (
             (RULE_CONTROL_GROUP, CONTROL_GROUP_ENTRIES, "h"),
             (RULE_CONFIG_PANEL_ROW, CONFIG_ROW_ENTRIES, "v"),
-            (RULE_CONTENT_FRAME, BUTTON_ROW_ABOVE_ENTRIES, "v")):
+            (RULE_CONTENT_FRAME, BUTTON_ROW_ABOVE_ENTRIES, "v"),
+            (RULE_LABEL_ELEMENT, INDICATOR_ENTRIES, "h")):
         for tab, name, target, hand, resolve in table:
             sa.track(
                 name=name,

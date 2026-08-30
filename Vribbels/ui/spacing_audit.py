@@ -801,6 +801,32 @@ def painted_runs_v(cap: Capture, box: Box, bg=None) -> list:
     return runs
 
 
+def painted_runs_h(cap: Capture, box: Box, bg=None) -> list:
+    """Every painted band in `box`, as (first_col, last_col) pairs.
+
+    The mirror of `painted_runs_v`, for the one gap that lives INSIDE a
+    single widget: a checkbox's indicator against its own label. There
+    is no second widget there to measure between, so the runs across the
+    box are the only thing that separates them -- the first is the
+    indicator, and the second is the label's first glyph.
+    """
+    runs = []
+    start = None
+    for x in range(box.left, box.right + 1):
+        painted = any(
+            cap.contains(x, y) and not cap.is_background(x, y, bg)
+            for y in range(box.top, box.bottom + 1)
+        )
+        if painted and start is None:
+            start = x
+        elif not painted and start is not None:
+            runs.append((start, x - 1))
+            start = None
+    if start is not None:
+        runs.append((start, box.right))
+    return runs
+
+
 # ------------------------------------------------------------------ reporting
 
 # ASCII, not the arrows the markers use: this prints to a cp932 console,
