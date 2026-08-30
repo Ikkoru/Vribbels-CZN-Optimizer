@@ -53,6 +53,7 @@ from ..base_tab import BaseTab
 from ..utils.all_none_row import make_all_none_row
 from ..utils.checkbox import make_checkbox
 from ..utils.label_width import column_px
+from ..utils.tooltip import Tooltip
 from .heroes_tab import compute_fragment_gs
 
 
@@ -140,6 +141,12 @@ class InventoryTab(BaseTab):
         self.inv_sort_col = "potential"
         self.inv_sort_reverse = True
         self.inv_filtered_data = []
+
+        # Hover tooltips for the Sets filter, carrying each set's bonus
+        # description -- the same text the Optimizer's Set Configuration
+        # rows show. Separate from the column-header tooltip below, which
+        # is hand-rolled against a Treeview heading rather than a widget.
+        self._set_tooltip = Tooltip(self.colors)
 
         # Tooltip state for column headers (see _setup_header_tooltips)
         self._tooltip_window = None
@@ -531,7 +538,7 @@ class InventoryTab(BaseTab):
                 elements[0] if elements else None, self.colors["fg"])
             right = ATTRIBUTE_COLORS.get(
                 elements[-1] if elements else None, self.colors["fg"])
-            make_checkbox(
+            cb = make_checkbox(
                 self.inv_set_frame_inner, self.colors, text=set_name,
                 variable=var, command=self.refresh_inventory, fg=left,
                 # `padx=0` rather than `compact=True`: the whole
@@ -540,8 +547,9 @@ class InventoryTab(BaseTab):
                 # every row and pushed the All/None row a pixel further
                 # from the block. Only the horizontal half was wanted.
                 padx=0,
-            ).grid(row=row, column=base_col, sticky=tk.W,
-                   padx=(3, 0), pady=(top_pad, 0))
+            )
+            cb.grid(row=row, column=base_col, sticky=tk.W,
+                    padx=(3, 0), pady=(top_pad, 0))
             # The count label gets a fixed width (per-column max, see
             # col_count_widths) with anchor=E so the closing brackets line
             # up right-aligned within the count column.
@@ -563,6 +571,16 @@ class InventoryTab(BaseTab):
                 "<Button-1>",
                 lambda _e, v=var: (v.set(not v.get()), self.refresh_inventory()),
             )
+            # The set's bonus, as the Optimizer's Set Configuration rows
+            # show it. Bound to the checkbox AND the count, because Tk
+            # fires Leave on a container as the pointer crosses onto a
+            # child, so binding the grid would flicker. Guarded: an
+            # unknown numeric set has no entry in the table and an empty
+            # tooltip is a bare box.
+            tip = (SETS_BY_NAME.get(set_name) or {}).get("bonus", "")
+            if tip:
+                for w in (cb, cnt):
+                    self._set_tooltip.bind(w, tip)
 
         # spacing: checkbox row -> checkbox row (small division) -- checkbox, checkbox ↕
         # What a row on the far side of the division adds ON TOP of the
