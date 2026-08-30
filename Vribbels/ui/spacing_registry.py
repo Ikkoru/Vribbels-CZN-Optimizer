@@ -1584,7 +1584,7 @@ CELL_LABEL_ENTRIES = [
     ("Gear Score", "weight column 1 label -> its spinbox", 4, None,
      _gap_within_cells(lambda app: _group_of("ATK Flat")(app).master,
                        LABEL_CLASSES + SPINBOX_CLASSES, column=0)),
-    ("Gear Score", "weight column 2 label -> its spinbox", 4, 1,
+    ("Gear Score", "weight column 2 label -> its spinbox", 4, None,
      _gap_within_cells(lambda app: _group_of("ATK Flat")(app).master,
                        LABEL_CLASSES + SPINBOX_CLASSES, column=1)),
 ]
@@ -1597,6 +1597,43 @@ WINDOW_EDGE_ENTRIES = [
          lambda app: app.optimizer_tab_instance.status_label.master)),
     ("Combatants", "Partner -> window edge", 4, None,
      _to_window_edge(_panel_at("Partner"))),
+]
+
+def _results_title_to_tree():
+    """Resolver: the Results title's ink -> the results tree below it.
+
+    This panel's title is a labelwidget rather than a `text=`, so there
+    is no LabelFrame title to find it by and the label itself is the top
+    of the gap. Going up two levels from the label reaches the panel,
+    which is how the right tree is found without naming one of the three
+    on this tab.
+    """
+    def resolve(cap, app):
+        label = _by_text("Results")(app)
+        tree = sa.find_descendant_class(label.master.master, "Treeview")
+        if tree is None:
+            return None, "no Treeview under the Results header"
+        return restate_from_reference(
+            *sa.vertical_gap(cap, label, tree),
+            ink_below_baseline(label.cget("text")))
+    return resolve
+
+
+# The last two readings, one apiece for their rules.
+RESULTS_TITLE_ENTRIES = [
+    ("Optimizer", "Results title -> its tree", 5, 6,
+     _results_title_to_tree()),
+]
+
+# The three options checkboxes that sit OUTSIDE any panel, at the right
+# of the Memory Fragments filter row. The last of them wraps onto a
+# second line, so its box is taller than the other two -- the pitch is
+# still read between painted rows, which is what the rule names.
+OPTIONS_TRIO_ENTRIES = [
+    ("Memory Fragments", "options trio: row pitch", 7, 3,
+     lambda cap, app: _row_pitch_in(
+         lambda a: _group_of("Unequipped Only")(a),
+         CHECKBOX_CLASSES)(cap, app)),
 ]
 
 CONFIG_ROW_ENTRIES = [
@@ -1686,7 +1723,12 @@ def _tally(gaps):
 
 
 def _row_pitch(title, classes):
-    """Resolver: the SMALLEST gap between a panel's rows of `classes`.
+    """The pitch of a panel's rows, by the panel's visible title."""
+    return _row_pitch_in(_panel_at(title), classes)
+
+
+def _row_pitch_in(container, classes):
+    """Resolver: the SMALLEST gap between a container's rows of `classes`.
 
     The smallest, not the most common. The pitch rule says every row
     sits at one distance, so the reading that matters is the one
@@ -1702,9 +1744,9 @@ def _row_pitch(title, classes):
     label reaches either edge of these gaps.
     """
     def resolve(cap, app):
-        gaps = _row_gaps(cap, _panel(app, title), classes)
+        gaps = _row_gaps(cap, container(app), classes)
         if not gaps:
-            return None, "fewer than two rows of that kind in the panel"
+            return None, "fewer than two rows of that kind there"
         common = min(gaps)
         # A panel whose rows do not all sit at one pitch is worth
         # saying so about. The value already reports the worst of them,
@@ -2206,7 +2248,9 @@ def register_all():
             (RULE_CONTENT_FRAME, BUTTON_ROW_ABOVE_ENTRIES, "v", "rule"),
             (RULE_LABEL_ELEMENT, INDICATOR_ENTRIES, "h", "exception"),
             (RULE_CONTENT_FRAME, WINDOW_EDGE_ENTRIES, "h", "rule"),
-            (RULE_LABEL_ELEMENT, CELL_LABEL_ENTRIES, "h", None)):
+            (RULE_LABEL_ELEMENT, CELL_LABEL_ENTRIES, "h", None),
+            (RULE_TITLE_ELEMENT, RESULTS_TITLE_ENTRIES, "v", "rule"),
+            (RULE_CHECKBOX_PITCH, OPTIONS_TRIO_ENTRIES, "v", "rule")):
         for tab, name, target, hand, resolve in table:
             sa.track(
                 name=name,
