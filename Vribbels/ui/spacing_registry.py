@@ -1621,7 +1621,7 @@ def _results_title_to_tree():
 
 # The last two readings, one apiece for their rules.
 RESULTS_TITLE_ENTRIES = [
-    ("Optimizer", "Results title -> its tree", 5, 6,
+    ("Optimizer", "Results title -> its tree", 5, None,
      _results_title_to_tree()),
 ]
 
@@ -1630,7 +1630,7 @@ RESULTS_TITLE_ENTRIES = [
 # second line, so its box is taller than the other two -- the pitch is
 # still read between painted rows, which is what the rule names.
 OPTIONS_TRIO_ENTRIES = [
-    ("Memory Fragments", "options trio: row pitch", 7, 3,
+    ("Memory Fragments", "options trio: row pitch", 7, None,
      lambda cap, app: _row_pitch_in(
          lambda a: _group_of("Unequipped Only")(a),
          CHECKBOX_CLASSES)(cap, app)),

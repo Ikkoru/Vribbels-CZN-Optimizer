@@ -1480,7 +1480,7 @@ class OptimizerTab(BaseTab):
         # LabelFrame's padding: the Tight.Borderless style's top padding
         # does not move it. See setup_ui, where the frame is built.
         self.result_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
-                              pady=(2, 0))
+                              pady=(1, 0))
         result_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.result_tree.bind("<<TreeviewSelect>>", self.on_result_select)
 

@@ -325,9 +325,16 @@ class InventoryTab(BaseTab):
         # "Include Uncommon" defaults to OFF, so the list shows only Rare+
         # fragments unless the user opts in.
         self.inv_include_uncommon_var = tk.BooleanVar(value=False)
+        # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
+        # A pad each, and they differ because the rows are not the same
+        # height: the third checkbox wraps onto a second line, so its ink
+        # starts lower inside its own box and the gap above it arrives
+        # part-paid. The rule is about the PAINTED distance, so the
+        # levers have to differ for the rows to read alike.
         make_checkbox(opt_frame, self.colors, text="Include Uncommon",
                       variable=self.inv_include_uncommon_var,
-                      command=self.refresh_inventory).pack(anchor=tk.W)
+                      command=self.refresh_inventory).pack(
+                          anchor=tk.W, pady=(4, 0))
 
         # Restricts the new "Highest GS" column to only consider presets that
         # are currently assigned to characters in the Combatants tab. Useful
@@ -337,7 +344,8 @@ class InventoryTab(BaseTab):
         make_checkbox(opt_frame, self.colors,
                       text="Highest GS/Potential:\nAssigned Presets Only",
                       variable=self.inv_only_assigned_presets_var,
-                      command=self.refresh_inventory).pack(anchor=tk.W)
+                      command=self.refresh_inventory).pack(
+                          anchor=tk.W, pady=(1, 0))
 
         # ----- Treeview ---------------------------------------------------
         tree_frame = ttk.Frame(self.frame)
