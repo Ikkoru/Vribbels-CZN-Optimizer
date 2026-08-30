@@ -920,6 +920,13 @@ def _tab_list_to_first_element(text=None, bold14=False):
     """
     def resolve(cap, app):
         tab = sa.current_tab_widget(app)
+        # The correction below is computed from `text`, so the reading is
+        # only meaningful while that string is the one on screen. Every
+        # caller but Combatants passes a constant; Combatants passes its
+        # placeholder heading, which is replaced the moment a row is
+        # selected. Refusing beats correcting by the wrong ascender.
+        if text and sa.find_descendant_text(tab, text) is None:
+            return None, f"nothing on this tab reads {text!r} any more"
         box = sa.box_of(tab)
         extent = sa.painted_extent_v(cap, box)
         if extent is None:
@@ -949,14 +956,20 @@ def _tab_list_to_first_element(text=None, bold14=False):
 # there for the ascender class above; None where the first thing painted
 # on the tab is not text.
 #
-# COMBATANTS IS ABSENT ON PURPOSE. Its topmost element is the detail
-# pane's heading, whose text is the selected character's name -- so
-# whether the reading is 5 or 6 depends on which row is selected, and an
-# entry whose target changes with the data cannot be tracked.
+# COMBATANTS measures its PLACEHOLDER heading. Its topmost element is
+# the detail pane's heading, which carries the selected combatant's name
+# once there is one -- and a different name is a different ascender
+# correction, so the reading would move with the data. It is trackable
+# because the app starts with nothing selected and a check keeps it that
+# way, which makes `Select a combatant` the string on screen whenever an
+# audit runs. Select a combatant and the row reports that it cannot
+# measure rather than measuring the wrong thing -- see the text check in
+# `_tab_list_to_first_element`.
 TAB_LIST_TARGET = 6
 TAB_LIST_TABS = [
     ("Optimizer", None, False),
     ("Memory Fragments", None, False),
+    ("Combatants", "Select a combatant", True),
     ("Gear Score", "Gear Score Calculation", True),
     ("Capture", "Data Capture", True),
     ("Setup", "First-Time Setup", True),
