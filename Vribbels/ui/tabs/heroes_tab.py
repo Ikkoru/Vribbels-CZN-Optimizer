@@ -148,9 +148,20 @@ GEAR_SUBSTAT_ROWS = 4
 # the widest value per stat and the arithmetic.
 # spacing: label ↔ its element -- run, run ↔
 # spacing: element and its label ↔ element and its label -- run, run ↔
-CHAR_TAB_VAL1 = 50     # right stop: end of the left column's value
-CHAR_TAB_NAME2 = 58    # left stop: start of the right column's label
-CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
+#
+# Both value stops sit a pixel tighter than the arithmetic alone asks
+# for, because both columns' longest values lead with `1` -- and `1` is
+# one of only two digits whose leading column of ink is too faint to
+# see. Eight of the ten start at the same visible column; `1` and `5`
+# look a pixel further right than the rest. A stop placed on the advance
+# leaves those two adrift, so these are placed on the ink instead.
+#
+# Only the VALUE stops move: shifting NAME2 with VAL1 is what keeps the
+# gap BETWEEN the two pairs where it was, and VAL2 takes both pixels
+# because it answers to NAME2 rather than to the panel's left edge.
+CHAR_TAB_VAL1 = 49     # right stop: end of the left column's value
+CHAR_TAB_NAME2 = 57    # left stop: start of the right column's label
+CHAR_TAB_VAL2 = 134    # right stop: end of the right column's value
 
 # Tab stops inside a gear cell, in pixels from the text's left edge. The
 # cell is one Text widget, so its columns are tab stops rather than

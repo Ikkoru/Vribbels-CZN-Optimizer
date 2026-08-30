@@ -253,7 +253,7 @@ class InventoryTab(BaseTab):
 
         # ----- Main Stats filter -----------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=(1, 4, 2, 3))
+        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=(1, 4, 1, 3))
         # spacing: content frame -> content frame -- frame, frame ↔
         main_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 
@@ -555,7 +555,7 @@ class InventoryTab(BaseTab):
             # 0 is the minimum on the leading side -- the per-column count
             # width is what keeps short-count columns tight instead.
             cnt.grid(row=row, column=base_col + 1, sticky=tk.E,
-                     padx=(0, 4 if logical_col == len(col_count_widths) - 1 else 2),
+                     padx=(0, 3 if logical_col == len(col_count_widths) - 1 else 2),
                      pady=(top_pad, 0))
             # Clicking the count toggles the checkbox too (the count label
             # isn't part of the Checkbutton's own hit area).
