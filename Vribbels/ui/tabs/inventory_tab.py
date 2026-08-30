@@ -52,6 +52,7 @@ from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
 from ..base_tab import BaseTab
 from ..utils.all_none_row import make_all_none_row
 from ..utils.checkbox import make_checkbox
+from ..utils.label_width import column_px
 from .heroes_tab import compute_fragment_gs
 
 
@@ -484,12 +485,19 @@ class InventoryTab(BaseTab):
         # char width -- their bracketed numbers sit tight against each
         # column's longest name. The four_names / rest_names slices match
         # the row-major fill order used below (i % ncols).
-        def _col_count_w(c):
+        # In PIXELS, and the label carries no `width=` of its own. A
+        # character count is a multiple of the font's average width and
+        # the text is not, and `anchor=tk.E` put the whole difference on
+        # the LEFT -- which is the side the gap from the set name is
+        # measured on. It was 4 of the 7 that gap used to read.
+        def _col_count_px(c):
             col_sets = four_names[c::ncols] + rest_names[c::ncols]
-            if not col_sets:
-                return 3
-            return max(len(f"({owned_counts.get(n, 0)})") for n in col_sets)
-        col_count_widths = [_col_count_w(c) for c in range(ncols)]
+            texts = [f"({owned_counts.get(n, 0)})" for n in col_sets]
+            return column_px(texts or ["(0)"])
+        col_count_widths = [_col_count_px(c) for c in range(ncols)]
+        for c, px in enumerate(col_count_widths):
+            self.inv_set_frame_inner.grid_columnconfigure(
+                c * 2 + 1, minsize=px)
 
         def _add_set_cell(set_name, row, logical_col, top_pad):
             count = owned_counts.get(set_name, 0)
@@ -530,8 +538,7 @@ class InventoryTab(BaseTab):
             # col_count_widths) with anchor=E so the closing brackets line
             # up right-aligned within the count column.
             cnt = ttk.Label(self.inv_set_frame_inner, text=f"({count})",
-                            foreground=right,
-                            width=col_count_widths[logical_col], anchor=tk.E)
+                            foreground=right, anchor=tk.E)
             # spacing: border edge -> first non-button element -- label, panel ↔
             # spacing: element and its label ↔ element and its label -- label, checkbox ↔
             # The last logical column has no neighbour, so its trailing pad
@@ -539,8 +546,8 @@ class InventoryTab(BaseTab):
             # label's own trailing inset. Tk rejects negative pad values, so
             # 0 is the minimum on the leading side -- the per-column count
             # width is what keeps short-count columns tight instead.
-            cnt.grid(row=row, column=base_col + 1, sticky=tk.W,
-                     padx=(0, 4 if logical_col == len(col_count_widths) - 1 else 2),
+            cnt.grid(row=row, column=base_col + 1, sticky=tk.E,
+                     padx=(1, 4 if logical_col == len(col_count_widths) - 1 else 2),
                      pady=(top_pad, 0))
             # Clicking the count toggles the checkbox too (the count label
             # isn't part of the Checkbutton's own hit area).

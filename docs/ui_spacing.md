@@ -111,8 +111,12 @@ that looks pinned is not:
   beside it visibly shorten going from 99% to 100%. A floor has to clear
   the widest REQUEST, not the widest ink.
 - `anchor=tk.E` on a `width=` label puts its slack on the LEFT. Where
-  that is the side a rule measures, the slack is in the gap — 4px of a
-  `DEF` label went straight into the distance from its slider.
+  that is the side a rule measures, the slack is in the gap. It has cost
+  a `DEF` label 4px against its slider, a percent readout 2 against
+  its own, and a set count 4 against its set name — three panels, one
+  cause. `ui/utils/label_width.py` is the fix and states the conditions;
+  a label pinned by a column must drop its own `width=` or it brings the
+  slack straight back.
 
 **A gap to a right-aligned readout is only a distance at its widest
 value.** The Optimizer's percent readouts are fixed-width labels with

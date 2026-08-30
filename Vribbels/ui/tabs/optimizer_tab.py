@@ -49,6 +49,7 @@ from ui.context import AppContext
 from ui.utils.all_none_row import make_all_none_row
 from ui.utils.button_width import BUTTON_W_SMALL
 from ui.utils.checkbox import make_checkbox
+from ui.utils.label_width import LABEL_REQUEST_INSET
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import (
     combobox_letter_jump, combobox_arrow_nav, bind_popdown_seek,
@@ -126,12 +127,11 @@ DMG_LABEL_COL_SLACK = 5
 # pixel, and not by the same pixel for every string.
 AD_LABEL_COL_SLACK = 6
 
-# What a ttk.Label asks for beyond its ink -- the style's own inset,
-# measured. A readout column pinned to the ink ALONE is outgrown the
-# moment the value reaches its widest, and the column steals those
-# pixels from the slider beside it: the sliders visibly shorten going
-# from 99% to 100%. Clearing the REQUEST is what holds them still.
-LABEL_REQUEST_INSET = 4
+# A readout column pinned to the ink ALONE is outgrown the moment the
+# value reaches its widest, and the column steals those pixels from the
+# slider beside it: the sliders visibly shorten going from 99% to 100%.
+# Clearing the REQUEST is what holds them still -- see label_width, and
+# `_dmg_readout_col_px` below, which adds it.
 
 
 def _name_col_px(names, slack=None):
