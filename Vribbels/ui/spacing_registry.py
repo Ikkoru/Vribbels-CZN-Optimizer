@@ -1280,7 +1280,10 @@ def _debug_neighbours(container, classes, index, limit=4):
             ink = sa.painted_extent_h(cap, box)
             if ink:
                 spans.append((ink[0], w, box, ink))
-        spans.sort()
+        # By the key alone: two controls can share a left edge, and a
+        # bare sort would fall through to comparing the WIDGETS, which
+        # Tk does not order.
+        spans.sort(key=lambda item: item[0])
         print(f"  [debug] leftmost {limit} of {len(spans)} in {frame}")
         for _key, w, box, ink in spans[:limit]:
             try:
