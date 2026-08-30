@@ -114,12 +114,13 @@ ASCENDER_RISE_14_BOLD = 1
 # same thing with a control beside them.
 DESCENDER_DEPTH_14_BOLD = 4
 
-# The same at Segoe UI 11, which the Capture tab's status line and the
-# Setup Status panel use. STATED at the 14 bold value and not yet
-# measured -- 11 sits between the two sizes that were, and no reading
-# has separated it from either. The entry that consumes it prints the
-# raw ink bottoms beside it, so a verbose run says whether it holds.
-DESCENDER_DEPTH_11 = 4
+# Segoe UI 11 -- the Capture tab's status line and the Setup Status
+# panel -- reaches NO deeper than 9 does. Measured off the Capture
+# status pair with the two lines confirmed seated on one line: their ink
+# stopped on the same row, and equal ink over equal baselines is equal
+# depth. So the extra pixel at 14 bold is the WEIGHT and the size
+# together, not size alone, and there is no ramp to interpolate along.
+DESCENDER_DEPTH_11 = DESCENDER_DEPTH
 
 
 def ink_below_baseline(text: str, bold14: bool = False) -> int:
@@ -842,11 +843,10 @@ def _status_subtext_baseline(status, subtext, status_drop):
     line with the text it belongs to, and the Capture tab's Status panel
     is the other kind.
 
-    `status_drop` is stated by the caller because the larger line is
-    Segoe UI 11, a size no descender has been measured at -- the tab
-    headings gave 9 and 14 bold and nothing gave 11. The note carries
-    the raw ink bottoms so one verbose run either confirms it or says
-    what it should be.
+    `status_drop` is passed in because the larger line is Segoe UI 11,
+    which `ink_below_baseline` has no branch for -- it knows 9 and 14
+    bold. The note keeps carrying the raw ink bottoms: they are what
+    established the depth, and they are what would show it moving.
     """
     def resolve(cap, app):
         tab = sa.current_tab_widget(app)
@@ -2459,7 +2459,7 @@ def register_all():
         resolve=_status_subtext_baseline("Ready", "Click 'Start Capture'",
                                          DESCENDER_DEPTH_11),
         axis="v",
-        provisional=True,
+        provisional=False,
     )
 
     for tab, title in ALL_NONE_PANELS:
