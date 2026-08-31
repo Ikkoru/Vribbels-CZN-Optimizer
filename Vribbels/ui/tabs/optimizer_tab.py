@@ -778,10 +778,10 @@ class OptimizerTab(BaseTab):
         # 9 stats + blank + 8 Pot7 rows = 19) so the frame is only as tall
         # as its content; _populate_stats_compare re-syncs the height to
         # the live row count whenever the row set changes.
-        self.stats_tree.column("stat", width=66, stretch=False)
-        self.stats_tree.column("current", width=33, anchor=tk.E, stretch=False)
-        self.stats_tree.column("new", width=33, anchor=tk.E, stretch=False)
-        self.stats_tree.column("diff", width=33, anchor=tk.E, stretch=False)
+        self.stats_tree.column("stat", width=68, stretch=False)
+        self.stats_tree.column("current", width=35, anchor=tk.E, stretch=False)
+        self.stats_tree.column("new", width=35, anchor=tk.E, stretch=False)
+        self.stats_tree.column("diff", width=35, anchor=tk.E, stretch=False)
         self.stats_tree.pack(fill=tk.Y, expand=True)
         # Right-click opens the "Show all stat contributions" menu.
         self.stats_tree.bind("<Button-3>", self._show_stats_context_menu)
@@ -1556,13 +1556,13 @@ class OptimizerTab(BaseTab):
             ("slot",      "Slot",       83),
             ("set",       "Set",       118),
             ("main",      "Main",      92),
-            ("lvl",       "LVL",        22),
+            ("lvl",       "LVL",        24),
             ("sub1",      "Sub1",       87),
             ("sub2",      "Sub2",       87),
             ("sub3",      "Sub3",       87),
             ("sub4",      "Sub4",       87),
             ("gs",        "GS",         40),
-            ("owner",     "Owner",      70),  # stretches
+            ("owner",     "Owner",      67),  # stretches
         ]
         for col, txt, w in col_defs:
             # Text-ish columns are left-aligned; the numeric lvl and gs

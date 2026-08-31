@@ -367,14 +367,14 @@ class InventoryTab(BaseTab):
         self.inv_tree = ttk.Treeview(tree_frame, columns=inv_cols, show="headings", height=25)
 
         # Level sits between Main and the substats as a visual divider --
-        # Main and the four Sub cells render in the same "Name: value"
+        # Main and the four Sub cells render in the same "Name value"
         # shape, so without a break between them the eye reads Main as a
         # fifth substat.
-        for col, txt, w in [("slot", "Slot", 80), ("set", "Set", 140),
-                            ("main", "Main", 90), ("lvl", "Level", 35),
+        for col, txt, w in [("slot", "Slot", 80), ("set", "Set", 130),
+                            ("main", "Main", 60), ("lvl", "Level", 50),
                             ("sub1", "Sub1", 90), ("sub2", "Sub2", 90),
-                            ("sub3", "Sub3", 90), ("sub4", "Sub4", 90), ("gs", "GS", 35),
-                            ("potential", "Potential", 50), ("equipped", "Equipped", 65),
+                            ("sub3", "Sub3", 90), ("sub4", "Sub4", 90), ("gs", "GS", 15),
+                            ("potential", "Potential", 50), ("equipped", "Equipped", 60),
                             ("highest_gs", "Highest GS", 65),
                             ("highest_potential", "Highest Potential", 312)]:
             # Text-ish cells (slot/set/main/subs/equipped) are left-aligned;
