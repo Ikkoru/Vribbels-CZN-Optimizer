@@ -602,6 +602,18 @@ CONTENT_FRAME_ENTRIES = [
      _panel_gap("Setup Status", "Restore Defaults", "h")),
     ("Combatants", "character list -> Equipped Memory Fragments", 4, "h",
      _list_to_panel_gap("Equipped Memory Fragments")),
+    # Four more pairs of panels sitting side by side. The rule's other
+    # thirty-odd marker sites are pads on borderless containers with
+    # nothing painted at either end; these draw an edge each.
+    ("Optimizer", "Important Settings -> Have at least", 4, "h",
+     _panel_gap("Important Settings",
+                "Have at least this much of a stat", "h")),
+    ("Combatants", "Character -> Partner", 4, "h",
+     _panel_gap("Character", "Partner", "h")),
+    ("Gear Score", "How Gear Score Works -> Stat Weight Configuration", 4, "h",
+     _panel_gap("How Gear Score Works", "Stat Weight Configuration", "h")),
+    ("Capture", "Requirements -> Upgrade Log Settings", 4, "h",
+     _panel_gap("Requirements", "Upgrade Log Settings", "h")),
 ]
 
 def _panel_over_label(panel, prefix):
@@ -1264,6 +1276,14 @@ PAIR_GAP_ENTRIES = [
     # tighter, so a panel-wide reading would report it instead.
     ("Capture", "log filter checkboxes", 8, None,
      lambda app: _group_of(FILTER_CHECKBOX)(app), CHECKBOX_CLASSES, None),
+    # The checklist ABOVE those filters, which is the other block in the
+    # same panel and spaced by its own constant.
+    ("Capture", "log preset columns", 8, None,
+     lambda app: app.capture_tab_instance.log_presets_list_frame,
+     CHECKBOX_CLASSES, None),
+    # Slots had no column entry where Main Stats beside it had three.
+    ("Memory Fragments", "Slots checkboxes", 8, None,
+     _block_in("Slots", CHECKBOX_CLASSES), CHECKBOX_CLASSES, None),
 
     # The rule's other half: pairs of UNLIKE controls, where one class
     # list cannot describe both ends.
