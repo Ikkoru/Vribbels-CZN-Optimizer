@@ -1503,10 +1503,10 @@ class OptimizerTab(BaseTab):
             parent, columns=cols, show="headings", height=9,
         )
         widths = {
-            "score": 51, "sets": 127,
-            "atk": 32, "hp": 32, "def": 32,
-            "crate": 33, "cdmg": 49, "element": 40, "extra": 39,
-            "dot": 36, "ego": 24,
+            "score": 49, "sets": 350,
+            "atk": 32, "hp": 34, "def": 34,
+            "crate": 37, "cdmg": 51, "element": 42, "extra": 41,
+            "dot": 38, "ego": 25,
         }
         headings = {
             "score": "Score", "sets": "Sets",
@@ -1555,12 +1555,12 @@ class OptimizerTab(BaseTab):
         col_defs = [
             ("slot",      "Slot",       83),
             ("set",       "Set",       118),
-            ("main",      "Main",      91),
+            ("main",      "Main",      92),
             ("lvl",       "LVL",        22),
-            ("sub1",      "Sub1",       85),
-            ("sub2",      "Sub2",       85),
-            ("sub3",      "Sub3",       85),
-            ("sub4",      "Sub4",       85),
+            ("sub1",      "Sub1",       87),
+            ("sub2",      "Sub2",       87),
+            ("sub3",      "Sub3",       87),
+            ("sub4",      "Sub4",       87),
             ("gs",        "GS",         40),
             ("owner",     "Owner",      70),  # stretches
         ]

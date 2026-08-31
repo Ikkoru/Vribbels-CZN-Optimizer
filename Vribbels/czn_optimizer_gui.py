@@ -518,7 +518,7 @@ class OptimizerGUI:
         self.style.configure("Treeview", background=self.colors["bg_light"],
                              foreground=self.colors["fg"],
                              fieldbackground=self.colors["bg_light"],
-                             padding=0, rowheight=20)
+                             padding=3, rowheight=20)
         # No outline. The border's WIDTH is not a style option -- clam's
         # `Treeview.field` exposes only colours -- so the only way to drop
         # it is a layout with no field element, the same trick
@@ -537,7 +537,7 @@ class OptimizerGUI:
         # borderwidth 0 also flattens the heading: clam's `relief` is
         # `raised`, and a relief with no border width has nothing to draw.
         self.style.configure("Treeview.Heading", background=self.colors["bg_lighter"],
-                             foreground=self.colors["fg"], padding=2,
+                             foreground=self.colors["fg"], padding=3,
                              borderwidth=0)
         self.style.map("Treeview.Heading", background=[("active", self.colors["select"])],
                        foreground=[("active", self.colors["fg"])])
