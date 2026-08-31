@@ -45,6 +45,7 @@ from checks import (                                    # noqa: E402
     check_no_flash,
     check_optimizer_parity,
     check_optimizer_starts_unselected,
+    check_repo_root,
     check_settings_roundtrip,
     check_shipped_defaults,
     check_spacing_markers,
@@ -55,6 +56,7 @@ from checks import (                                    # noqa: E402
 # Cheapest and most locally-caused first, so a broken edit reports
 # against the thing that broke it rather than after a minute of search.
 CHECKS = [
+    check_repo_root,
     check_spacing_markers,
     check_spacing_registry,
     check_fringe_lightness,

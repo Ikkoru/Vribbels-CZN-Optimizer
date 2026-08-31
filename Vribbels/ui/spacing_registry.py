@@ -2079,6 +2079,21 @@ def _first_filled_text(title):
     return find
 
 
+def _display_lines(widget, line):
+    """How many display lines one logical line of a Text occupies.
+
+    More than one means it WRAPPED, and a wrapped line's own rows answer
+    to `spacing2` rather than to the row pitch.
+    """
+    try:
+        got = widget.count(f"{line}.0", f"{line}.end + 1c", "displaylines")
+    except tk.TclError:
+        return 1
+    if isinstance(got, (tuple, list)):
+        got = got[0] if got else 1
+    return max(1, int(got or 1))
+
+
 def _text_line_pitch(locator):
     """Resolver: the SMALLEST gap between painted LINES inside a Text.
 
@@ -2110,10 +2125,17 @@ def _text_line_pitch(locator):
         box = _inside_border(widget)
         origin = sa.box_of(widget).top
         colours = {_widget_fill(widget)}
-        edges, bands = [], []
+        rows, bands = [], []
         count = int(widget.index("end-1c").split(".")[0])
         for n in range(1, count + 1):
             if not widget.get(f"{n}.0", f"{n}.end").strip():
+                continue
+            if _display_lines(widget, n) > 1:
+                # A WRAPPED line is not a row. Its own display lines are
+                # separated by `spacing2` where rows are separated by
+                # `spacing3`, and the set description that wraps here is
+                # prose rather than a row of labels -- so it neither
+                # answers to this rule nor bounds a gap that does.
                 continue
             info = widget.dlineinfo(f"{n}.0")
             if info is None:
@@ -2123,12 +2145,16 @@ def _text_line_pitch(locator):
                           right=box.right, bottom=top + info[3] - 1)
             extent = sa.painted_extent_v(cap, band, colours)
             if extent:
-                edges.append(extent)
+                rows.append((n, extent))
                 bands.append((band.top, band.bottom))
-        if len(edges) < 2:
-            return None, (f"{len(edges)} of {count} lines painted anything "
-                          f"inside rows {box.top}-{box.bottom}")
-        gaps = [sa.gap_between(a[1], b[0]) for a, b in zip(edges, edges[1:])]
+        # Only between lines that were NEIGHBOURS. Skipping a wrapped one
+        # would otherwise leave a gap measured across it.
+        edges = [e for _n, e in rows]
+        gaps = [sa.gap_between(a[1], b[0])
+                for (na, a), (nb, b) in zip(rows, rows[1:]) if nb == na + 1]
+        if not gaps:
+            return None, (f"{len(edges)} unwrapped lines of {count} painted "
+                          f"anything inside rows {box.top}-{box.bottom}")
         # Always reported, not only when they differ: a pitch of 0 says
         # the bands are touching, and whether that is ALL of them or one
         # is the difference between a wrong band and a tight row.

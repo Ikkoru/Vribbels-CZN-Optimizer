@@ -747,7 +747,16 @@ class HeroesTab(BaseTab):
                 # spacing3 is the gap BELOW each line, which is what
                 # separates one row of the cell from the next. spacing1
                 # would add to the top inset above instead.
-                padx=GEAR_CELL_PADX, pady=2, spacing3=4,
+                #
+                # spacing2 is a THIRD gap, and only the set description
+                # ever shows it: it separates the display lines a single
+                # WRAPPED line is broken across, where spacing3 separates
+                # one logical line from the next. Left at Tk's 0 the
+                # description's own rows sat tighter than the rows above
+                # it; this is not the rule's 10 and is not meant to be,
+                # the description being prose rather than a row of
+                # labels.
+                padx=GEAR_CELL_PADX, pady=2, spacing3=4, spacing2=1,
                 # Selectable but never focusable, and no insertion cursor:
                 # the text can be copied, and nothing about it invites
                 # typing into it.
