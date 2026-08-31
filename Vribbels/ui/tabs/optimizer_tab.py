@@ -476,6 +476,7 @@ class OptimizerTab(BaseTab):
             insertbackground=self.colors["fg"],
         )
         level_spin.pack(anchor=tk.W)
+        self._clamp_on_commit(level_spin, self.optimize_for_level_var)
         level_spin.bind("<MouseWheel>", lambda e: self._spinbox_wheel(e, level_spin))
         self.optimize_for_level_var.trace_add(
             "write", lambda *_: self._save_int_safe("optimize_for_level",
@@ -595,6 +596,7 @@ class OptimizerTab(BaseTab):
             insertbackground=self.colors["fg"],
         )
         minlvl_spin.pack(side=tk.LEFT)
+        self._clamp_on_commit(minlvl_spin, self.min_gear_level_var)
         minlvl_spin.bind("<MouseWheel>",
                          lambda e, sp=minlvl_spin: self._spinbox_wheel(e, sp))
         offelem_row = ttk.Frame(status_cluster)
@@ -1174,7 +1176,9 @@ class OptimizerTab(BaseTab):
         # callers may override via spin_width.
         if stat in HAL_STATS_WITH_PCT:
             spin = tk.Spinbox(
-                row, from_=0, to=999.9, increment=1, width=spin_width,
+                row, from_=0,
+                to=100 if stat in HAL_STATS_CAPPED_AT_100 else 999.9,
+                increment=1, width=spin_width,
                 format="%.1f",
                 textvariable=var,
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
@@ -1190,8 +1194,7 @@ class OptimizerTab(BaseTab):
                 insertbackground=self.colors["fg"],
             )
         spin.pack(side=tk.LEFT)
-        if stat in HAL_STATS_CAPPED_AT_100:
-            self._clamp_on_commit(spin, var, 0, 100)
+        self._clamp_on_commit(spin, var)
         if stat in HAL_STATS_WITH_PCT:
             # Wheel steps the %-valued minimums by +-0.1 (the spinbox
             # BUTTONS keep stepping by 1 via increment=1).
@@ -1227,6 +1230,7 @@ class OptimizerTab(BaseTab):
             insertbackground=self.colors["fg"],
         )
         flex_spin.pack(side=tk.LEFT)
+        self._clamp_on_commit(flex_spin, self.max_flex_slots_var)
         flex_spin.bind("<MouseWheel>", lambda e, sp=flex_spin: self._spinbox_wheel(e, sp))
         self.max_flex_slots_var.trace_add(
             "write", lambda *a: self._save_int_safe("max_flex_slots",
@@ -1243,7 +1247,7 @@ class OptimizerTab(BaseTab):
             # spacing: label ↔ its element -- label, spinbox ↔
             ttk.Label(avg_frame, text=label).pack(side=tk.LEFT, padx=(0, 3))
             spin = tk.Spinbox(
-                avg_frame, from_=0, to=9999, increment=1, width=5,
+                avg_frame, from_=-9999, to=9999, increment=1, width=5,
                 textvariable=var,
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
                 buttonbackground=self.colors["bg_lighter"],
@@ -1256,6 +1260,7 @@ class OptimizerTab(BaseTab):
             # the force-main checkbox row).
             pad_right = 0 if idx == len(avg_defs) - 1 else 6
             spin.pack(side=tk.LEFT, padx=(0, pad_right))
+            self._clamp_on_commit(spin, var)
             spin.bind("<MouseWheel>", lambda e, sp=spin: self._spinbox_wheel(e, sp))
             var.trace_add(
                 "write", lambda *a, f=field, v=var: self._save_int_safe(f, v)
@@ -1396,7 +1401,7 @@ class OptimizerTab(BaseTab):
                 pspin.bind(
                     "<MouseWheel>",
                     lambda e, sp=pspin: self._spinbox_wheel(e, sp))
-                self._clamp_on_commit(pspin, pvar, 0, 100)
+                self._clamp_on_commit(pspin, pvar)
                 pvar.trace_add(
                     "write", lambda *_a: self._save_set_effect_pcts())
 
@@ -3661,8 +3666,8 @@ class OptimizerTab(BaseTab):
             spinbox.invoke("buttondown")
         return "break"
 
-    def _clamp_on_commit(self, spin, var, lo, hi):
-        """Hold `var` inside [lo, hi] once the user finishes typing.
+    def _clamp_on_commit(self, spin, var):
+        """Hold `var` inside the spinbox's own range once typing stops.
 
         **A `tk.Spinbox`'s `from_`/`to` bound its BUTTONS and its wheel,
         not its text.** Typed input reaches the variable unchecked in
@@ -3670,22 +3675,33 @@ class OptimizerTab(BaseTab):
         `from_=0, to=100` spinbox -- so the floor needs this as much as
         the ceiling does.
 
-        On commit rather than per keystroke: erasing the field leaves
-        `var.get()` raising `TclError` until a digit arrives, which is
-        the transient state `_save_int_safe` already steps around, and a
-        per-stroke clamp would spend most of its life in it.
+        The bounds are READ OFF THE WIDGET rather than passed in, so
+        each spinbox declares its own range once and this enforces what
+        it declared. A field that should accept negatives says so with
+        its `from_`.
+
+        On commit rather than per keystroke: mid-edit the field passes
+        through states that are not numbers at all -- empty after a
+        select-all, a lone minus sign -- and a per-stroke clamp would
+        spend most of its life fighting them.
 
         The variable is what gets held, not the saved value. Clamping
         only on the way out would leave the field reading 500 while the
         optimizer used 100.
         """
+        state = {}
+        try:
+            state["good"] = var.get()
+        except tk.TclError:
+            state["good"] = spin.cget("from")
+
         def commit(_event=None):
-            self._commit_clamp(spin, var, lo, hi)
+            self._commit_clamp(spin, var, state)
         spin.bind("<FocusOut>", commit, add="+")
         spin.bind("<Return>", commit, add="+")
 
-    def _commit_clamp(self, spin, var, lo, hi):
-        """Hold `var` inside [lo, hi], blinking `spin` if it moved.
+    def _commit_clamp(self, spin, var, state=None):
+        """Hold `var` inside `spin`'s range, blinking it if it moved.
 
         A method rather than the closure above so it can be CALLED. Tk
         will not deliver a key event to an unmapped widget, so nothing
@@ -3693,13 +3709,25 @@ class OptimizerTab(BaseTab):
         whole clamp untestable without the maintainer at the keyboard.
         `checks/check_tabs_build.py` calls this instead.
 
-        Returns whether it clamped.
+        `state` carries the last value that WAS a number. Text that is
+        not one cannot be clamped toward anything, so the field goes
+        back to what it last held rather than to a bound -- which for a
+        field the user has not otherwise touched is the saved value.
+
+        Returns whether it changed anything.
         """
+        lo, hi = float(spin.cget("from")), float(spin.cget("to"))
         try:
             value = var.get()
         except tk.TclError:
-            return False                 # mid-edit; nothing to clamp yet
-        held = min(max(value, lo), hi)
+            if state is None:
+                return False
+            var.set(state["good"])
+            self._blink(spin)
+            return True
+        held = type(value)(min(max(value, lo), hi))
+        if state is not None:
+            state["good"] = held
         if held == value:
             return False
         var.set(held)
@@ -3708,6 +3736,12 @@ class OptimizerTab(BaseTab):
 
     # A clamp that snapped silently would read as the number being
     # accepted. Three quick flashes behind the value say it moved.
+    #
+    # Its own red, not the palette's: `red` is a foreground, chosen to
+    # read as text against the dark background, and a field filled with
+    # it puts the value it is about invisibly on top. This one is dark
+    # enough to keep the digits legible while it flashes.
+    CLAMP_ALERT = "#9b0f1b"
     CLAMP_BLINK_MS = 110
     CLAMP_BLINKS = 3
 
@@ -3715,7 +3749,7 @@ class OptimizerTab(BaseTab):
         """Flash a widget's background between the alert colour and its
         own, ending on its own."""
         normal = self.colors["bg_light"]
-        alert = self.colors["red"]
+        alert = self.CLAMP_ALERT
         last = self.CLAMP_BLINKS * 2 - 1
 
         def step(n):

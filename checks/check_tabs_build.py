@@ -127,13 +127,18 @@ def _percent_fields_are_clamped(tab):
                 return w
         return None
 
-    cases = [("CRate", tab.have_at_least_vars.get("CRate"), True),
-             ("CDmg", tab.have_at_least_vars.get("CDmg"), False)]
+    # One of each shape: a percent capped at 100, a percent that is not
+    # (CDmg runs past it in game), an integer with a small range, and a
+    # field that takes negatives.
+    cases = [("CRate", tab.have_at_least_vars.get("CRate")),
+             ("CDmg", tab.have_at_least_vars.get("CDmg")),
+             ("Max Flex Slots", tab.max_flex_slots_var),
+             ("Avg Card DMG%", tab.avg_card_dmg_pct_var)]
     shares = list(tab.set_effect_pct_vars.items())
     if shares:
-        cases.append((f"set share {shares[0][0]}", shares[0][1], True))
+        cases.append((f"set share {shares[0][0]}", shares[0][1]))
 
-    for label, var, capped in cases:
+    for label, var in cases:
         if var is None:
             failures.append(f"no variable behind {label}; the clamp cannot "
                             f"be checked and may have gone with it")
@@ -142,31 +147,45 @@ def _percent_fields_are_clamped(tab):
         if spin is None:
             failures.append(f"no Spinbox bound to {label}'s variable")
             continue
-        if capped:
-            bound = spin.bind()
-            for seq in ("<Key-Return>", "<FocusOut>"):
-                if seq not in bound:
-                    failures.append(
-                        f"{label}'s spinbox has no {seq} binding, so nothing "
-                        f"clamps what is TYPED into it -- from_/to bound the "
-                        f"buttons only. See _clamp_on_commit."
-                    )
+        bound = spin.bind()
+        for seq in ("<Key-Return>", "<FocusOut>"):
+            if seq not in bound:
+                failures.append(
+                    f"{label}'s spinbox has no {seq} binding, so nothing "
+                    f"clamps what is TYPED into it -- from_/to bound the "
+                    f"buttons only. See _clamp_on_commit."
+                )
         before = var.get()
-        for typed, want in ((500, 100 if capped else 500),
-                            (-7, 0 if capped else -7)):
+        lo, hi = float(spin.cget("from")), float(spin.cget("to"))
+        for typed in (500, -7):
             var.set(typed)
-            if capped:
-                tab._commit_clamp(spin, var, 0, 100)
+            tab._commit_clamp(spin, var)
             got = var.get()
+            want = type(got)(min(max(typed, lo), hi))
             if got != want:
                 failures.append(
                     f"{label} holds {got} after {typed} was entered, not "
-                    f"{want}. " + ("The 0-100 clamp is not holding."
-                                   if capped else
-                                   "This field is deliberately UNCAPPED -- "
-                                   "CDmg and the other percent stats run "
-                                   "past 100 in game.")
+                    f"{want} -- its own declared range is {lo} to {hi}. "
+                    f"The clamp reads from_/to off the widget, so either "
+                    f"it is not wired here or the range is not what the "
+                    f"field means."
                 )
+        # Text that is not a number at all cannot be clamped toward a
+        # bound, so it goes back to the last value the field held.
+        state = {"good": before}
+        spin.delete(0, tk.END)
+        spin.insert(0, "abc")
+        tab._commit_clamp(spin, var, state)
+        try:
+            got = var.get()
+        except tk.TclError:
+            got = "still not a number"
+        if got != before:
+            failures.append(
+                f"{label} holds {got!r} after 'abc' was entered, not the "
+                f"{before} it held before. Non-numeric text has no bound "
+                f"to snap to, so the field has to go back to what it had."
+            )
         var.set(before)
     return failures
 
