@@ -1899,6 +1899,26 @@ def _tally(gaps):
 TEXT_COLUMN_MERGE = 2
 
 
+def _widget_fill(widget):
+    """The colour a Text actually paints behind its own text.
+
+    READ OFF THE WIDGET, not named. An Equipped MF cell is tinted by its
+    fragment's RARITY -- `bg_light` is the wrong answer for every cell
+    but a Normal one -- and a scan told the wrong background calls the
+    cell's own fill INK. That filled every line band edge to edge and
+    left no gap between lines at all, which is what a pitch of 0 with
+    the extents exactly equal to the bands was saying.
+    """
+    try:
+        value = widget.cget("bg")
+    except tk.TclError:
+        return None
+    if isinstance(value, str) and value.startswith("#"):
+        return sa._hex_to_rgb(value)
+    red, green, blue = widget.winfo_rgb(value)
+    return (red >> 8, green >> 8, blue >> 8)
+
+
 def _inside_border(widget):
     """A Text's box, minus whatever it paints around its own content.
 
@@ -1957,8 +1977,7 @@ def _text_columns(cap, box, fill, want=None):
     return columns
 
 
-def _text_column_gap(locator, needles, index=0, from_end=False,
-                     fill="bg_light"):
+def _text_column_gap(locator, needles, index=0, from_end=False):
     """Resolver: the SMALLEST gap at one column boundary of a Text.
 
     A Text's columns are TAB STOPS, so there is no widget on either side
@@ -1995,6 +2014,7 @@ def _text_column_gap(locator, needles, index=0, from_end=False,
             return None, "no text widget there"
         origin = sa.box_of(widget).top
         box = _inside_border(widget)
+        fill = _widget_fill(widget)
         readings = []
         for needle in needles:
             where = widget.search(needle, "1.0", tk.END)
@@ -2008,7 +2028,7 @@ def _text_column_gap(locator, needles, index=0, from_end=False,
                           right=box.right, bottom=top + info[3] - 1)
             line = widget.get(f"{where} linestart", f"{where} lineend")
             fields = [f for f in line.split("	") if f.strip()]
-            columns = _text_columns(cap, band, {cap.palette[fill]},
+            columns = _text_columns(cap, band, {fill},
                                     want=len(fields))
             first = len(columns) - 2 - index if from_end else index
             if first < 0 or first + 1 >= len(columns):
@@ -2059,7 +2079,7 @@ def _first_filled_text(title):
     return find
 
 
-def _text_line_pitch(locator, fill="bg_light"):
+def _text_line_pitch(locator):
     """Resolver: the SMALLEST gap between painted LINES inside a Text.
 
     A Text's rows are not widgets, so `_row_pitch_in` cannot see them:
@@ -2089,7 +2109,7 @@ def _text_line_pitch(locator, fill="bg_light"):
             return None, "no text widget there"
         box = _inside_border(widget)
         origin = sa.box_of(widget).top
-        colours = {cap.palette[fill]}
+        colours = {_widget_fill(widget)}
         edges, bands = [], []
         count = int(widget.index("end-1c").split(".")[0])
         for n in range(1, count + 1):
