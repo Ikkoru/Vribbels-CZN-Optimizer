@@ -2006,16 +2006,18 @@ def _text_column_gap(locator, needles, index=0, from_end=False,
 def _first_filled_text(title):
     """Locator: the first Text in a panel that HAS lines in it.
 
-    The Equipped MF grid is six cells, and a slot with nothing equipped
-    leaves its cell empty -- so the first Text in the panel is not
-    reliably one with rows to measure between. This walks past the empty
-    ones, which is also what makes the entry read the same whichever
-    slots the selected combatant has filled.
+    The Equipped MF grid is six cells, and an unequipped slot renders
+    the single word `Empty` -- content, but with no second row to
+    measure to. So "has text in it" is not the test; "has two lines" is.
+    Walking past those is also what makes the entry read the same
+    whichever slots the selected combatant has filled.
     """
     def find(app):
         frame = _panel(app, title)
         for widget in sa.find_descendants_class(frame, "Text"):
-            if widget.get("1.0", "end-1c").strip():
+            lines = [l for l in widget.get("1.0", "end-1c").splitlines()
+                     if l.strip()]
+            if len(lines) >= 2:
                 return widget
         return None
     return find
@@ -2039,10 +2041,14 @@ def _text_line_pitch(locator, fill="bg_light"):
         widget = locator(app)
         if widget is None:
             return None, "no text widget there"
-        runs = sa.painted_runs_v(cap, _inside_border(widget),
-                                 {cap.palette[fill]})
+        band = _inside_border(widget)
+        runs = sa.painted_runs_v(cap, band, {cap.palette[fill]})
         if len(runs) < 2:
-            return None, "fewer than two painted lines there"
+            lines = len([l for l in widget.get("1.0", "end-1c").splitlines()
+                         if l.strip()])
+            return None, (f"{len(runs)} painted run(s) over rows "
+                          f"{band.top}-{band.bottom}, cols "
+                          f"{band.left}-{band.right}, for {lines} text lines")
         gaps = [sa.gap_between(a[1], b[0]) for a, b in zip(runs, runs[1:])]
         note = "" if len(set(gaps)) == 1 else f"gaps {_tally(gaps)}"
         return min(gaps), note
@@ -2801,6 +2807,19 @@ def register_all():
     # is the one on the row whose value is widest. Which row that is
     # depends on the selected combatant, which is why no single row can
     # be named.
+    #
+    # **THE READING IS ONLY BINDING WHERE THE WIDEST VALUE IS PRESENT**,
+    # and no combatant carries every column's widest. The left pair
+    # needs a FOUR-DIGIT stat: a combatant whose largest is 591 reads 10
+    # against the rule's 4, and the six pixels are the digit that is not
+    # there rather than a gap to nudge. Select one with a stat in the
+    # thousands before reading these rows, and treat a reading taken
+    # without one as a lower bound on the slack, not a distance.
+    #
+    # A scenario could pick that combatant the way `max_readouts` fills
+    # the sliders. It is not written: unlike a slider variable, the
+    # selection drives a repaint of the whole detail pane, and whether
+    # that path is free of writes has not been established.
     #
     # The LEFT pair is read on the four rows that have one. The Element
     # row emits both of the left pair's tabs with nothing between them,
