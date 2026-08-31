@@ -88,7 +88,7 @@ geometry.
 | Parallel/sequential parity            | `checks/check_optimizer_parity.py` — don't re-roll it by hand                                                                        |
 | A settings or defaults-sync change    | Point the managers at a COPY of `Vribbels/settings/` in the scratchpad, never the live folder                                        |
 | Which widgets a change moved          | Build the tabs the `check_tabs_build.py` way, snapshot every row's values before and after, diff                                      |
-| A rendered GAP, in pixels             | `zRUN Spacing Audit Verbose.bat` — 162 registered gaps read off a screenshot. Ask before running one                                  |
+| A rendered GAP, in pixels             | `zRUN Spacing Audit Verbose.bat` — 194 registered gaps read off a screenshot. Ask before running one                                  |
 | Something only the screen shows       | A side-by-side repro in `_tmp/`, for the maintainer to run                                                                            |
 
 Snapshots are the maintainer's captured game data. Read them; never

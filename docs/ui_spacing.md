@@ -461,10 +461,28 @@ another face.
 ### Measured, or not
 
 **A marker says which rule a value answers to, not that the value is on
-target.** 162 gaps are registered against 213 markers, so about three
-in four of the app's deliberate spacing values now have something
-watching them. All but one are on target; that one is the Gear Score
-weight column parked behind the antialiasing question above.
+target.** 194 gaps are registered against 213 markers.
+
+**Counting markers against entries does NOT give a coverage figure**,
+and reading it as one is misleading in both directions. One entry can
+cover several markers: `tab list -> first element` has eleven sites and
+six entries, but every tab is measured — the extra sites are pads on
+outer frames feeding the same six gaps. And a rule can have more
+entries than sites, because entries are generated in loops from tables
+while a marker is written once per lever.
+
+**The one real limit is that some values cannot be measured at all.**
+`content frame -> content frame` has forty sites and twelve entries,
+and the difference is not a backlog: most of its sites are pads on
+BORDERLESS containers, which paint nothing at either end of the gap.
+A screenshot cannot measure a distance between two things that leave no
+pixels. The twelve are the pairs that each draw an edge.
+
+Two kinds of gap that look unmeasurable are not, and have their own
+resolvers: the columns of a Text widget are tab stops with no widget on
+either side (`_text_column_gap` finds the line with `dlineinfo` and
+merges painted bands into words first), and its rows are not widgets
+either (`_text_line_pitch` reads the painted lines).
 
 **Two entries measure to the Capture Log title, one per column above
 it,** and that pair is worth knowing about because it is the only place
