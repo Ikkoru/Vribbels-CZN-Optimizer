@@ -17,7 +17,6 @@ Two conventions worth knowing before adding entries:
   makes a target a plain number rather than one per glyph class.
 """
 
-import re
 import tkinter as tk
 from tkinter import font as tkfont
 
@@ -2001,11 +2000,17 @@ def _text_column_gap(locator, needles, index=0, from_end=False,
         # widest value, and the rest are that plus their own slack.
         #
         # The COLUMN COUNT goes with each, because the merge is a
-        # judgement and a row that came out with more columns than its
-        # neighbours has had one of its values split -- a decimal point
-        # opening a wider gap than TEXT_COLUMN_MERGE allows for would do
-        # it, and then the boundary counted from the end is inside the
-        # value rather than before it.
+        # judgement and a row with more columns than its neighbours has
+        # had a field split -- `Extra%` comes apart where `Crit%` does
+        # not, the gap after a round `a` being wider than after a `t`.
+        #
+        # **A split does not corrupt either reading**, which is why the
+        # threshold is left alone. Counting from the END puts the
+        # boundary after the label's LAST piece, and a label that split
+        # still ends where it ended; counting from the start puts it
+        # after the first field, which is before any split. The count is
+        # reported so a row that reads oddly can be told apart from one
+        # that is simply tight.
         note = " | ".join(f"{g}[{n}c]: {line[:30]}" for g, line, n in readings)
         return readings[0][0], note
     return resolve
@@ -2080,8 +2085,10 @@ def _text_line_pitch(locator, fill="bg_light"):
             return None, (f"{len(edges)} of {count} lines painted anything "
                           f"inside rows {box.top}-{box.bottom}")
         gaps = [sa.gap_between(a[1], b[0]) for a, b in zip(edges, edges[1:])]
-        note = "" if len(set(gaps)) == 1 else f"gaps {_tally(gaps)}"
-        return min(gaps), note
+        # Always reported, not only when they differ: a pitch of 0 says
+        # the bands are touching, and whether that is ALL of them or one
+        # is the difference between a wrong band and a tight row.
+        return min(gaps), f"{len(edges)} lines, gaps {_tally(gaps)}"
     return resolve
 
 
@@ -2385,16 +2392,29 @@ def _widest_stats(app):
     if not rows:
         return
     app._spacing_hero_index = tab.selected_hero_index
+    # The LEFT column's values, measured in pixels. Character count
+    # ranks the wrong thing -- a percentage like `189.4` is five
+    # characters where a four-digit ATK is four, so counting them picks
+    # a combatant whose stats are NARROWER. And the pixels are what the
+    # gap is made of anyway: `1` is not as wide as `8`.
+    #
+    # Only the stat lines, which are the ones with the full set of tab
+    # fields; the Bonus and Sets lines hold numbers too and none of
+    # them sits in this column.
+    font = tkfont.Font(font=tab.hero_char_text.cget("font"))
     best, widest = None, -1
     for index, row in enumerate(rows):
         try:
             text = tab._format_char_text(row["name"])
         except Exception:
             continue
-        longest = max((len(tok) for tok in re.findall(r"[\d.]+", text)),
-                      default=0)
-        if longest > widest:
-            best, widest = index, longest
+        px = 0
+        for line in text.splitlines():
+            fields = line.split("	")
+            if len(fields) >= 4:
+                px = max(px, font.measure(fields[1]))
+        if px > widest:
+            best, widest = index, px
     if best is not None:
         tab.select_hero_row(best)
 
