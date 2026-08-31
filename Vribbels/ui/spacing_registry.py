@@ -1922,8 +1922,23 @@ def _inside_border(widget):
                   bottom=box.bottom - edge)
 
 
-def _text_columns(cap, box, fill):
-    """The painted COLUMNS across one line, letters merged into words."""
+def _text_columns(cap, box, fill, want=None):
+    """The painted COLUMNS across one line, letters merged into words.
+
+    `want` is how many columns the line's own text says there are -- its
+    tab-separated fields. **A distance threshold alone is not enough to
+    find them.** `Extra%` comes apart where `Crit%` does not, the gap
+    after a round `a` being wider than after a `t`, and `15.3%` comes
+    apart at the decimal; raising the threshold far enough to hold those
+    together would swallow the 3px gap this is trying to measure.
+
+    So the count decides. Bands are merged at their SMALLEST gap, one at
+    a time, until there are as many as there are fields -- the tightest
+    pair being the one most likely to be a glyph rather than a column.
+    Left to the threshold alone, a split value put the reading INSIDE
+    it: a label-to-value gap read 3 where the eye saw 11, because what
+    was measured was `15.3` to `%`.
+    """
     runs = sa.painted_runs_h(cap, box, fill)
     if not runs:
         return []
@@ -1933,6 +1948,12 @@ def _text_columns(cap, box, fill):
             columns[-1][1] = last
         else:
             columns.append([first, last])
+    while want and len(columns) > want:
+        gaps = [sa.gap_between(a[1], b[0])
+                for a, b in zip(columns, columns[1:])]
+        at = gaps.index(min(gaps))
+        columns[at][1] = columns[at + 1][1]
+        del columns[at + 1]
     return columns
 
 
@@ -1985,12 +2006,14 @@ def _text_column_gap(locator, needles, index=0, from_end=False,
             top = origin + info[1]
             band = sa.Box(left=box.left, top=top,
                           right=box.right, bottom=top + info[3] - 1)
-            columns = _text_columns(cap, band, {cap.palette[fill]})
+            line = widget.get(f"{where} linestart", f"{where} lineend")
+            fields = [f for f in line.split("	") if f.strip()]
+            columns = _text_columns(cap, band, {cap.palette[fill]},
+                                    want=len(fields))
             first = len(columns) - 2 - index if from_end else index
             if first < 0 or first + 1 >= len(columns):
                 continue
             gap = sa.gap_between(columns[first][1], columns[first + 1][0])
-            line = widget.get(f"{where} linestart", f"{where} lineend")
             readings.append((gap, line.strip(), len(columns)))
         if not readings:
             return None, f"no line with that column, of {list(needles)}"
@@ -2067,7 +2090,7 @@ def _text_line_pitch(locator, fill="bg_light"):
         box = _inside_border(widget)
         origin = sa.box_of(widget).top
         colours = {cap.palette[fill]}
-        edges = []
+        edges, bands = [], []
         count = int(widget.index("end-1c").split(".")[0])
         for n in range(1, count + 1):
             if not widget.get(f"{n}.0", f"{n}.end").strip():
@@ -2081,6 +2104,7 @@ def _text_line_pitch(locator, fill="bg_light"):
             extent = sa.painted_extent_v(cap, band, colours)
             if extent:
                 edges.append(extent)
+                bands.append((band.top, band.bottom))
         if len(edges) < 2:
             return None, (f"{len(edges)} of {count} lines painted anything "
                           f"inside rows {box.top}-{box.bottom}")
@@ -2088,7 +2112,14 @@ def _text_line_pitch(locator, fill="bg_light"):
         # Always reported, not only when they differ: a pitch of 0 says
         # the bands are touching, and whether that is ALL of them or one
         # is the difference between a wrong band and a tight row.
-        return min(gaps), f"{len(edges)} lines, gaps {_tally(gaps)}"
+        note = f"{len(edges)} lines, gaps {_tally(gaps)}"
+        if min(gaps) == 0:
+            # Touching bands mean the extents are filling them, which is
+            # a wrong band rather than a tight row. The first two say
+            # which.
+            note += (f" | bands {bands[:2]} extents {edges[:2]}"
+                     f" fill {sorted(colours)}")
+        return min(gaps), note
     return resolve
 
 
@@ -2369,7 +2400,7 @@ def _restore_readouts(app):
     tab._loading_settings = getattr(app, "_spacing_was_loading", False)
 
 
-def _widest_stats(app):
+def _widest_stats(field):
     """Select the combatant whose stat block holds the widest values.
 
     The Character panel's value stops are RIGHT-aligned, so a short
@@ -2379,6 +2410,12 @@ def _widest_stats(app):
     found rather than named: the tab's own formatter builds each one's
     text without displaying it, and the longest number in it decides.
 
+    **Per COLUMN, because the two do not peak on the same combatant.**
+    The left column holds whole numbers and the right holds percentages,
+    so the one with the widest ATK is not the one with the widest CDMG.
+    `field` is which tab-separated field to rank by: 1 for the left
+    value, 3 for the right.
+
     Same convention as `_max_readouts` filling the sliders, and as
     measuring a column from its longest label.
 
@@ -2387,11 +2424,12 @@ def _widest_stats(app):
     Combatants list repaints a detail pane where the Optimizer's
     combatant box saves per-combatant settings.
     """
-    tab = getattr(app, "heroes_tab_instance", None)
-    rows = getattr(tab, "hero_data_list", None) if tab else None
-    if not rows:
-        return
-    app._spacing_hero_index = tab.selected_hero_index
+    def setup(app):
+        tab = getattr(app, "heroes_tab_instance", None)
+        rows = getattr(tab, "hero_data_list", None) if tab else None
+        if not rows:
+            return
+        app._spacing_hero_index = tab.selected_hero_index
     # The LEFT column's values, measured in pixels. Character count
     # ranks the wrong thing -- a percentage like `189.4` is five
     # characters where a four-digit ATK is four, so counting them picks
@@ -2401,22 +2439,23 @@ def _widest_stats(app):
     # Only the stat lines, which are the ones with the full set of tab
     # fields; the Bonus and Sets lines hold numbers too and none of
     # them sits in this column.
-    font = tkfont.Font(font=tab.hero_char_text.cget("font"))
-    best, widest = None, -1
-    for index, row in enumerate(rows):
-        try:
-            text = tab._format_char_text(row["name"])
-        except Exception:
-            continue
-        px = 0
-        for line in text.splitlines():
-            fields = line.split("	")
-            if len(fields) >= 4:
-                px = max(px, font.measure(fields[1]))
-        if px > widest:
-            best, widest = index, px
-    if best is not None:
-        tab.select_hero_row(best)
+        font = tkfont.Font(font=tab.hero_char_text.cget("font"))
+        best, widest = None, -1
+        for index, row in enumerate(rows):
+            try:
+                text = tab._format_char_text(row["name"])
+            except Exception:
+                continue
+            px = 0
+            for line in text.splitlines():
+                parts = line.split("	")
+                if len(parts) > field:
+                    px = max(px, font.measure(parts[field]))
+            if px > widest:
+                best, widest = index, px
+        if best is not None:
+            tab.select_hero_row(best)
+    return setup
 
 
 def _restore_selection(app):
@@ -2458,7 +2497,10 @@ sa.register_scenario("element_override",
                      _force_element_override,
                      _restore_element_override)
 sa.register_scenario("max_readouts", _max_readouts, _restore_readouts)
-sa.register_scenario("widest_stats", _widest_stats, _restore_selection)
+sa.register_scenario("widest_stats", _widest_stats(1),
+                     _restore_selection)
+sa.register_scenario("widest_pct_stats", _widest_stats(3),
+                     _restore_selection)
 
 
 def _title_target_and_source(title):
@@ -2923,13 +2965,13 @@ def register_all():
     # is what `from_end` is for and why the right pair reads all five.
     CHAR_LEFT_ROWS = ("ATK	", "DEF	", "HP	", "Ego	")
     CHAR_ALL_ROWS = CHAR_LEFT_ROWS + ("Element	",)
-    for _name, _index, _end, _rows, _rule, _target in (
+    for _name, _index, _end, _rows, _rule, _target, _scenario in (
             ("stat -> its value", 0, False, CHAR_LEFT_ROWS,
-             RULE_LABEL_ELEMENT, 4),
+             RULE_LABEL_ELEMENT, 4, "widest_stats"),
             ("value -> the next stat", 1, False, CHAR_LEFT_ROWS,
-             RULE_PAIR_GAP, 8),
+             RULE_PAIR_GAP, 8, "widest_stats"),
             ("second stat -> its value", 0, True, CHAR_ALL_ROWS,
-             RULE_LABEL_ELEMENT, 4)):
+             RULE_LABEL_ELEMENT, 4, "widest_pct_stats")):
         sa.track(
             name=f"Character: {_name}",
             tab="Combatants",
@@ -2940,7 +2982,7 @@ def register_all():
                     _panel(app, "Character"), "Text"),
                 _rows, _index, _end),
             axis="h",
-            scenario="widest_stats",
+            scenario=_scenario,
             provisional=True,
         )
 
