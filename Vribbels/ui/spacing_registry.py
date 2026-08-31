@@ -17,6 +17,7 @@ Two conventions worth knowing before adding entries:
   makes a target a plain number rather than one per glyph class.
 """
 
+import re
 import tkinter as tk
 from tkinter import font as tkfont
 
@@ -1998,7 +1999,14 @@ def _text_column_gap(locator, needles, index=0, from_end=False,
         # Every row is reported, because which one is tightest is the
         # whole question: the rule's distance lives on the row with the
         # widest value, and the rest are that plus their own slack.
-        note = " | ".join(f"{g}: {line[:34]}" for g, line, _n in readings)
+        #
+        # The COLUMN COUNT goes with each, because the merge is a
+        # judgement and a row that came out with more columns than its
+        # neighbours has had one of its values split -- a decimal point
+        # opening a wider gap than TEXT_COLUMN_MERGE allows for would do
+        # it, and then the boundary counted from the end is inside the
+        # value rather than before it.
+        note = " | ".join(f"{g}[{n}c]: {line[:30]}" for g, line, n in readings)
         return readings[0][0], note
     return resolve
 
@@ -2032,6 +2040,16 @@ def _text_line_pitch(locator, fill="bg_light"):
     whatever `spacing3` adds, and only the pixels say what the two come
     to together -- the lever is the added part alone.
 
+    **Line by line, not one scan down the widget.** A run scan over the
+    whole box finds ONE run wherever a line WRAPS: `spacing3` is the
+    space after a logical line, and Tk puts none between the display
+    lines a wrapped one occupies, so their ink touches row to row. An
+    Equipped MF cell ends in a wrapped set description, which merged the
+    whole cell into a single run -- six logical lines over a hundred and
+    fifty rows, and no gap anywhere in them. `dlineinfo` gives each
+    logical line its own band, and the gaps BETWEEN those bands are the
+    pitch the rule means.
+
     Smallest for the same reason the widget version takes it: a division
     between blocks is always the widest gap, so it can never be mistaken
     for the pitch, while a group of rows sitting tighter than the rest
@@ -2041,15 +2059,27 @@ def _text_line_pitch(locator, fill="bg_light"):
         widget = locator(app)
         if widget is None:
             return None, "no text widget there"
-        band = _inside_border(widget)
-        runs = sa.painted_runs_v(cap, band, {cap.palette[fill]})
-        if len(runs) < 2:
-            lines = len([l for l in widget.get("1.0", "end-1c").splitlines()
-                         if l.strip()])
-            return None, (f"{len(runs)} painted run(s) over rows "
-                          f"{band.top}-{band.bottom}, cols "
-                          f"{band.left}-{band.right}, for {lines} text lines")
-        gaps = [sa.gap_between(a[1], b[0]) for a, b in zip(runs, runs[1:])]
+        box = _inside_border(widget)
+        origin = sa.box_of(widget).top
+        colours = {cap.palette[fill]}
+        edges = []
+        count = int(widget.index("end-1c").split(".")[0])
+        for n in range(1, count + 1):
+            if not widget.get(f"{n}.0", f"{n}.end").strip():
+                continue
+            info = widget.dlineinfo(f"{n}.0")
+            if info is None:
+                continue
+            top = origin + info[1]
+            band = sa.Box(left=box.left, top=top,
+                          right=box.right, bottom=top + info[3] - 1)
+            extent = sa.painted_extent_v(cap, band, colours)
+            if extent:
+                edges.append(extent)
+        if len(edges) < 2:
+            return None, (f"{len(edges)} of {count} lines painted anything "
+                          f"inside rows {box.top}-{box.bottom}")
+        gaps = [sa.gap_between(a[1], b[0]) for a, b in zip(edges, edges[1:])]
         note = "" if len(set(gaps)) == 1 else f"gaps {_tally(gaps)}"
         return min(gaps), note
     return resolve
@@ -2332,6 +2362,50 @@ def _restore_readouts(app):
     tab._loading_settings = getattr(app, "_spacing_was_loading", False)
 
 
+def _widest_stats(app):
+    """Select the combatant whose stat block holds the widest values.
+
+    The Character panel's value stops are RIGHT-aligned, so a short
+    value starts further right and leaves a wider gap after its label --
+    the distance that was SET only shows where the widest value is on
+    screen. Which combatant that is depends on the snapshot, so it is
+    found rather than named: the tab's own formatter builds each one's
+    text without displaying it, and the longest number in it decides.
+
+    Same convention as `_max_readouts` filling the sliders, and as
+    measuring a column from its longest label.
+
+    **Selecting is safe to automate here.** `_on_tree_select` leads to
+    `select_hero_row` and `show_hero_details`, and neither writes: the
+    Combatants list repaints a detail pane where the Optimizer's
+    combatant box saves per-combatant settings.
+    """
+    tab = getattr(app, "heroes_tab_instance", None)
+    rows = getattr(tab, "hero_data_list", None) if tab else None
+    if not rows:
+        return
+    app._spacing_hero_index = tab.selected_hero_index
+    best, widest = None, -1
+    for index, row in enumerate(rows):
+        try:
+            text = tab._format_char_text(row["name"])
+        except Exception:
+            continue
+        longest = max((len(tok) for tok in re.findall(r"[\d.]+", text)),
+                      default=0)
+        if longest > widest:
+            best, widest = index, longest
+    if best is not None:
+        tab.select_hero_row(best)
+
+
+def _restore_selection(app):
+    tab = getattr(app, "heroes_tab_instance", None)
+    was = getattr(app, "_spacing_hero_index", None)
+    if tab is not None and was is not None and was >= 0:
+        tab.select_hero_row(was)
+
+
 def _force_element_override(app):
     """Show the Optimizer's Element override frame.
 
@@ -2364,6 +2438,7 @@ sa.register_scenario("element_override",
                      _force_element_override,
                      _restore_element_override)
 sa.register_scenario("max_readouts", _max_readouts, _restore_readouts)
+sa.register_scenario("widest_stats", _widest_stats, _restore_selection)
 
 
 def _title_target_and_source(title):
@@ -2845,6 +2920,7 @@ def register_all():
                     _panel(app, "Character"), "Text"),
                 _rows, _index, _end),
             axis="h",
+            scenario="widest_stats",
             provisional=True,
         )
 
