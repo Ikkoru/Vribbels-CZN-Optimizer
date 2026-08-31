@@ -439,11 +439,17 @@ class HeroesTab(BaseTab):
         # being placed against the other -- so the caption is not a
         # reference, and matching it is not the goal.
         #
+        # Compare CAPITALS with capitals when checking this by eye. This
+        # heading opens on one and carries ascenders further in, and at
+        # 14 bold an ascender stands a pixel above the caps -- so reading
+        # it against a neighbour's capital compares two different heights
+        # and makes the heading look a pixel high when it is level.
+        #
         # One deeper than `make_tab_header`'s, and NOT drift: those
         # headings are bottom-aligned beside a subtitle where this one is
         # top-aligned, so the same correction lands a pixel differently.
         self.hero_detail_name = ttk.Label(
-            title_row, text="Select a combatant", padding=(0, -3, 0, -2),
+            title_row, text="Select a combatant", padding=(0, -4, 0, -2),
             font=("Segoe UI", 14, "bold")
         )
         self.hero_detail_name.pack(side=tk.LEFT, anchor=tk.NW)
