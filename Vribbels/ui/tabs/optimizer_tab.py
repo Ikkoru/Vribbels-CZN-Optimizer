@@ -618,10 +618,9 @@ class OptimizerTab(BaseTab):
         for _w in (offelem_label, offelem_cb):
             self._tooltip.bind(
                 _w,
-                "Drops Slot V Memory Fragments whose MAIN stat is another "
-                "Element's DMG%. ATK% and HP% main stats always pass, and "
-                "substats are never filtered. No effect on a Combatant "
-                "whose Element is unknown."
+                "Drops Slot V MFs whose Element is not the same as the "
+                "character's. ATK% and HP% main stats always pass.\n"
+                "No effect on a Combatant whose Element is unknown."
             )
 
         # ---- Body grid ----

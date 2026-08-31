@@ -18,6 +18,7 @@ Two conventions worth knowing before adding entries:
 """
 
 import tkinter as tk
+from tkinter import font as tkfont
 
 from . import spacing_audit as sa
 
@@ -60,19 +61,6 @@ DESCENDERS = "gjpqy"
 # target.
 PARENTHESES = "()"
 
-# Glyphs that reach ABOVE cap height at Segoe UI 14 bold, the tab
-# headings' font. The rule measures a gap above text to the top of the
-# CAPITALS, so a string holding one of these reads 1px tighter than the
-# rule asks while sitting exactly where it should -- the same shape as a
-# descender reading tighter below.
-#
-# `i` and `l` are measured. The rest are the same typographic class --
-# ascenders and tittles -- and are assumed to behave alike; `t` is NOT
-# one of them, which "Data Capture" reading dead on 6 confirms. At
-# Segoe UI 9 and 11 the whole class tops out level with the capitals and
-# none of this applies.
-ASCENDERS_ABOVE_CAP = "bdfhijkl"
-
 # Characters that never reach above the x-height, plus the punctuation
 # that sits on or below the baseline. A string built only from these has
 # NO cap and NO ascender, so its topmost painted pixel is the x-height
@@ -104,7 +92,6 @@ def reaches_cap_height(text: str) -> bool:
 # target below is a plain number again.
 DESCENDER_DEPTH = 3
 PARENTHESIS_DEPTH = 2
-ASCENDER_RISE_14_BOLD = 1
 
 # A descender at Segoe UI 14 bold, the tab headings' font, reaches a
 # pixel deeper than one at 9. Measured from the three tab headings read
@@ -137,17 +124,6 @@ def ink_below_baseline(text: str, bold14: bool = False) -> int:
         return DESCENDER_DEPTH_14_BOLD if bold14 else DESCENDER_DEPTH
     if any(c in text for c in PARENTHESES):
         return PARENTHESIS_DEPTH
-    return 0
-
-
-def ink_above_caps(text: str, bold14: bool = False) -> int:
-    """How far `text`'s ink reaches above its capitals.
-
-    Only at Segoe UI 14 bold. At 9 and 11 the ascenders top out level
-    with the caps, so every gap above body text needs no correction.
-    """
-    if bold14 and any(c in text for c in ASCENDERS_ABOVE_CAP):
-        return ASCENDER_RISE_14_BOLD
     return 0
 
 
@@ -909,42 +885,65 @@ def _heading_subtitle_baseline(heading, subtitle):
     return resolve
 
 
-def _tab_list_to_first_element(text=None, bold14=False):
+def _tab_list_to_first_element(heading=None):
     """Resolver: the tab strip's bottom -> the first ink on the tab.
 
     The strip has no widget of its own, so the reference is the tab
     frame's box top, which abuts it: `Flush.TNotebook` removed clam's
-    2px client inset, so there is nothing between the two. The other end
-    is whatever paints first anywhere across the tab's width -- a
-    heading's capitals, a panel's border, a list.
+    2px client inset, so there is nothing between the two.
+
+    `heading` names the label the gap ends at, either as a string to
+    find by or as a callable given the app. Where it is None the tab's
+    first element is not text -- a panel's border, a list -- and the
+    scan takes whatever paints first across the whole width.
+
+    **Where it IS text, the scan is narrowed to that label's FIRST
+    GLYPH.** The rule measures to the capitals, and a heading's first
+    character is always one; anything later in the string may be an
+    ascender standing above them, which a full-width scan would find
+    instead. Measuring the first glyph puts the reading on the cap
+    height directly, so no correction is modelled and no table of
+    ascender classes has to stay right. It also frees the reading from
+    the string: the Combatants heading carries whichever combatant is
+    selected, and every one of those starts on a capital too.
     """
     def resolve(cap, app):
         tab = sa.current_tab_widget(app)
-        # The correction below is computed from `text`, so the reading is
-        # only meaningful while that string is the one on screen. Every
-        # caller but Combatants passes a constant; Combatants passes its
-        # placeholder heading, which is replaced the moment a row is
-        # selected. Refusing beats correcting by the wrong ascender.
-        if text and sa.find_descendant_text(tab, text) is None:
-            return None, f"nothing on this tab reads {text!r} any more"
         box = sa.box_of(tab)
-        extent = sa.painted_extent_v(cap, box)
+        if heading is None:
+            extent = sa.painted_extent_v(cap, box)
+            if extent is None:
+                return None, "nothing painted on this tab"
+            gap = sa.gap_between(box.top - 1, extent[0])
+            if gap == 0:
+                # `painted_extent_v` scans EVERY column of a row, so one
+                # stray pixel anywhere across the window's width puts the
+                # first painted row at the tab's own top. Sampling a
+                # single column reported "bg, counted as empty" and
+                # explained nothing; this finds where the ink actually is.
+                return gap, (f"row {box.top}: "
+                             f"{sa._first_painted_x(cap, box, box.top)}")
+            return gap, ""
+
+        label = (heading(app) if callable(heading)
+                 else sa.find_descendant_text(tab, heading))
+        if label is None:
+            return None, f"no heading starting {heading!r}"
+        lbox = sa.box_of(label)
+        ink = sa.painted_extent_h(cap, lbox, cap.background)
+        if ink is None:
+            return None, "the heading painted nothing"
+        text = label.cget("text")
+        if not text:
+            return None, "the heading has no text"
+        advance = tkfont.Font(font=label.cget("font")).measure(text[0])
+        first = sa.Box(left=ink[0], top=lbox.top,
+                       right=min(ink[0] + advance - 1, lbox.right),
+                       bottom=lbox.bottom)
+        extent = sa.painted_extent_v(cap, first, cap.background)
         if extent is None:
-            return None, "nothing painted on this tab"
-        # Restated from the CAPITALS. The scan finds the topmost ink,
-        # which on a 14 bold heading is an ascender standing above the
-        # caps -- so it has eaten into this gap and the rise is added
-        # back, leaving the target the plain 6 for every tab.
-        gap = (sa.gap_between(box.top - 1, extent[0])
-               + ink_above_caps(text or "", bold14))
-        if gap == 0:
-            # `painted_extent_v` scans EVERY column of a row, so one
-            # stray pixel anywhere across the window's width puts the
-            # first painted row at the tab's own top. Sampling a single
-            # column reported "bg, counted as empty" and explained
-            # nothing; this finds where the ink actually is.
-            return gap, f"row {box.top}: {sa._first_painted_x(cap, box, box.top)}"
-        return gap, ""
+            return None, f"the first glyph of {text!r} painted nothing"
+        return sa.gap_between(box.top - 1, extent[0]), ""
     return resolve
 
 
@@ -956,23 +955,23 @@ def _tab_list_to_first_element(text=None, bold14=False):
 # there for the ascender class above; None where the first thing painted
 # on the tab is not text.
 #
-# COMBATANTS measures its PLACEHOLDER heading. Its topmost element is
-# the detail pane's heading, which carries the selected combatant's name
-# once there is one -- and a different name is a different ascender
-# correction, so the reading would move with the data. It is trackable
-# because the app starts with nothing selected and a check keeps it that
-# way, which makes `Select a combatant` the string on screen whenever an
-# audit runs. Select a combatant and the row reports that it cannot
-# measure rather than measuring the wrong thing -- see the text check in
-# `_tab_list_to_first_element`.
+# (tab, the heading the gap ends at). A string is found by its words; a
+# callable is handed the app. None where the tab's first element is not
+# text at all, and the scan takes the whole width.
+#
+# COMBATANTS is found by ATTRIBUTE rather than by words, because its
+# heading carries whichever combatant is selected. The reading does not
+# depend on which -- it is taken from the first glyph, and every name
+# starts on a capital -- but LOCATING the label by a string it only
+# holds while nothing is selected would.
 TAB_LIST_TARGET = 6
 TAB_LIST_TABS = [
-    ("Optimizer", None, False),
-    ("Memory Fragments", None, False),
-    ("Combatants", "Select a combatant", True),
-    ("Gear Score", "Gear Score Calculation", True),
-    ("Capture", "Data Capture", True),
-    ("Setup", "First-Time Setup", True),
+    ("Optimizer", None),
+    ("Memory Fragments", None),
+    ("Combatants", lambda app: app.heroes_tab_instance.hero_detail_name),
+    ("Gear Score", "Gear Score Calculation"),
+    ("Capture", "Data Capture"),
+    ("Setup", "First-Time Setup"),
 ]
 
 
@@ -2314,13 +2313,13 @@ def register_all():
             hand=hand,
         )
 
-    for tab, _text, _bold in TAB_LIST_TABS:
+    for tab, _heading in TAB_LIST_TABS:
         sa.track(
             name=f"{tab}: tab list -> first element",
             tab=tab,
             rule=RULE_TAB_LIST,
             target=_tab_list_target(tab),
-            resolve=_tab_list_to_first_element(_text, _bold),
+            resolve=_tab_list_to_first_element(_heading),
             axis="v",
             provisional=False,
         )
