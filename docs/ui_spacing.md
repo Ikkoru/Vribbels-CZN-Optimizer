@@ -472,11 +472,17 @@ entries than sites, because entries are generated in loops from tables
 while a marker is written once per lever.
 
 **The one real limit is that some values cannot be measured at all.**
-`content frame -> content frame` has forty sites and twelve entries,
-and the difference is not a backlog: most of its sites are pads on
-BORDERLESS containers, which paint nothing at either end of the gap.
-A screenshot cannot measure a distance between two things that leave no
-pixels. The twelve are the pairs that each draw an edge.
+`content frame -> content frame` has forty sites: eighteen are pads on
+a plain `ttk.Frame`, which paints nothing, and a screenshot cannot
+measure a distance between two things that leave no pixels. Seventeen
+are on a `ttk.LabelFrame`, which draws a border and can be measured --
+twelve of those are entries, and the rest are panels whose neighbour on
+the marked side is borderless or absent. Five more do not resolve to a
+constructor in their own file.
+
+Re-derive the split rather than trusting the numbers, since a container
+can change class: group the sites by what each pad's target was built
+as.
 
 Two kinds of gap that look unmeasurable are not, and have their own
 resolvers: the columns of a Text widget are tab stops with no widget on
