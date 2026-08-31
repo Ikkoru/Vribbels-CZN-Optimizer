@@ -876,7 +876,7 @@ class OptimizerTab(BaseTab):
             parent, text="What percent of damage is Extra, Agony, or Fracture/Scorched DMG?",
             font=("Segoe UI", 9), wraplength=376,
             padding=(0, 0, 0, 0),
-        ).pack(anchor=tk.W, pady=(0, 2))
+        ).pack(anchor=tk.W, pady=(0, 1))
 
         # Each damage type gets a FULL row. Side by side, each slider's
         # rendered track fell below ~100px at common window widths (the
@@ -924,7 +924,7 @@ class OptimizerTab(BaseTab):
         ttk.Label(
             parent, text="What percent of damage scales off DEF?",
             font=("Segoe UI", 9), wraplength=350,
-        ).pack(anchor=tk.W, pady=(0, 2))
+        ).pack(anchor=tk.W, pady=(0, 1))
 
         ad_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, label ↕
@@ -975,7 +975,7 @@ class OptimizerTab(BaseTab):
         ttk.Label(
             parent, text="How much value should be given to Shielding & Healing?",
             font=("Segoe UI", 9), wraplength=350,
-        ).pack(anchor=tk.W, pady=(0, 2))
+        ).pack(anchor=tk.W, pady=(0, 1))
 
         sh_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, checkbox ↕
@@ -1254,7 +1254,7 @@ class OptimizerTab(BaseTab):
         ]
         for idx, (label, var, field) in enumerate(avg_defs):
             # spacing: label ↔ its element -- label, spinbox ↔
-            ttk.Label(avg_frame, text=label).pack(side=tk.LEFT, padx=(0, 3))
+            ttk.Label(avg_frame, text=label).pack(side=tk.LEFT, padx=(0, 2))
             spin = tk.Spinbox(
                 avg_frame, from_=-9999, to=9999, increment=1, width=5,
                 textvariable=var,

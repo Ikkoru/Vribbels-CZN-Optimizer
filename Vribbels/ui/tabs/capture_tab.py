@@ -16,7 +16,15 @@ from ..utils.tab_header import make_tab_header
 # Log Preset checkboxes per row, filled left-to-right then down.
 LOG_PRESET_COLUMNS = 6
 
-# Gap between those columns, in pixels.
+# Gap between those columns, in pixels. A FLOOR, not a distance: the
+# columns size to the preset names in them and the names are the user's,
+# so what renders is 8 only where a column holds its widest possible
+# name and more everywhere else. NOT TRACKED for that reason -- the
+# audit compares against a number, and there is no number here.
+#
+# 8 is the point below which names would start to run together, so it is
+# what a column-count determiner would have to respect. There is no such
+# determiner: LOG_PRESET_COLUMNS below is stated.
 LOG_PRESET_COLUMN_GAP = 8
 
 # What the Region readout says before a capture has seen a connection.

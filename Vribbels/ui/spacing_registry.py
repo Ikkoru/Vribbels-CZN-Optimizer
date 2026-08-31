@@ -1276,11 +1276,6 @@ PAIR_GAP_ENTRIES = [
     # tighter, so a panel-wide reading would report it instead.
     ("Capture", "log filter checkboxes", 8, None,
      lambda app: _group_of(FILTER_CHECKBOX)(app), CHECKBOX_CLASSES, None),
-    # The checklist ABOVE those filters, which is the other block in the
-    # same panel and spaced by its own constant.
-    ("Capture", "log preset columns", 8, None,
-     lambda app: app.capture_tab_instance.log_presets_list_frame,
-     CHECKBOX_CLASSES, None),
     # Slots had no column entry where Main Stats beside it had three.
     ("Memory Fragments", "Slots checkboxes", 8, None,
      _block_in("Slots", CHECKBOX_CLASSES), CHECKBOX_CLASSES, None),
@@ -1904,6 +1899,29 @@ def _tally(gaps):
 TEXT_COLUMN_MERGE = 2
 
 
+def _inside_border(widget):
+    """A Text's box, minus whatever it paints around its own content.
+
+    An Equipped MF cell draws a RIDGE relief, so every row of its box
+    holds painted pixels at the left and right borders -- a run scan
+    over the whole box finds ONE run covering the cell and never sees
+    the lines inside it. The insets are read off the widget rather than
+    stated, so a cell that changes its border does not quietly take a
+    resolver with it.
+    """
+    box = sa.box_of(widget)
+    def opt(name):
+        try:
+            return int(widget.cget(name))
+        except (tk.TclError, ValueError):
+            return 0
+    edge = opt("bd") + opt("highlightthickness")
+    return sa.Box(left=box.left + edge + opt("padx"),
+                  top=box.top + edge,
+                  right=box.right - edge - opt("padx"),
+                  bottom=box.bottom - edge)
+
+
 def _text_columns(cap, box, fill):
     """The painted COLUMNS across one line, letters merged into words."""
     runs = sa.painted_runs_h(cap, box, fill)
@@ -1929,7 +1947,11 @@ def _text_column_gap(locator, needle, index=0, fill="bg_light"):
 
     `needle` finds the line by its words rather than by number, so a
     line inserted above it moves the reading with it instead of
-    silently reporting a different row.
+    silently reporting a different row. **Include the TAB** where the
+    words could occur in prose too: `ATK` alone first matches the
+    `Bonus: ATK+39` line, whose four painted bands are the words of a
+    sentence and not columns at all. The note below prints the line it
+    settled on, which is how that was caught.
     """
     def resolve(cap, app):
         widget = locator(app)
@@ -1941,8 +1963,8 @@ def _text_column_gap(locator, needle, index=0, fill="bg_light"):
         info = widget.dlineinfo(where)
         if info is None:
             return None, f"the line holding {needle!r} is not displayed"
-        box = sa.box_of(widget)
-        top = box.top + info[1]
+        box = _inside_border(widget)
+        top = sa.box_of(widget).top + info[1]
         band = sa.Box(left=box.left, top=top,
                       right=box.right, bottom=top + info[3] - 1)
         columns = _text_columns(cap, band, {cap.palette[fill]})
@@ -1997,7 +2019,8 @@ def _text_line_pitch(locator, fill="bg_light"):
         widget = locator(app)
         if widget is None:
             return None, "no text widget there"
-        runs = sa.painted_runs_v(cap, sa.box_of(widget), {cap.palette[fill]})
+        runs = sa.painted_runs_v(cap, _inside_border(widget),
+                                 {cap.palette[fill]})
         if len(runs) < 2:
             return None, "fewer than two painted lines there"
         gaps = [sa.gap_between(a[1], b[0]) for a, b in zip(runs, runs[1:])]
@@ -2445,7 +2468,6 @@ AWAITING_FIRST_READING = {
     "damage caption -> its sliders",
     "DEF caption -> its slider",
     "Shielding caption -> its slider",
-    "log preset columns",
     "Slots checkboxes",
     "Avg Card DMG% -> its spinbox",
 }
@@ -2764,7 +2786,7 @@ def register_all():
             resolve=_text_column_gap(
                 lambda app: sa.find_descendant_class(
                     _panel(app, "Character"), "Text"),
-                "ATK", _index),
+                "ATK	", _index),
             axis="h",
             provisional=True,
         )
