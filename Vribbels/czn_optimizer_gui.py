@@ -518,7 +518,7 @@ class OptimizerGUI:
         self.style.configure("Treeview", background=self.colors["bg_light"],
                              foreground=self.colors["fg"],
                              fieldbackground=self.colors["bg_light"],
-                             padding=3, rowheight=20)
+                             padding=3, rowheight=21)
         # No outline. The border's WIDTH is not a style option -- clam's
         # `Treeview.field` exposes only colours -- so the only way to drop
         # it is a layout with no field element, the same trick
@@ -581,9 +581,10 @@ class OptimizerGUI:
         # Register them before trusting it.
         self.style.configure("Borderless.TLabelframe",
                              labelmargins="0 0 0 2")
-        # spacing: exception -- title above, element below -- title, tree ↕
-        # The Results tree is pulled tighter to its title than the rule,
-        # deliberately.
+        # spacing: title above, element below -- title, tree ↕
+        # NOT an exception, though it reads like one: what this style
+        # replaces is the THEME's default margin, and the rule's 5 is
+        # what it lands on. The entry measures 5 and meets it.
         # labelmargins replaces the theme's default margins outright, so a
         # bottom component of -1 sits well below the theme's default, not
         # 1px below it. The dotted name inherits everything from

@@ -230,7 +230,7 @@ class CaptureTab(BaseTab):
         # spacing: exception -- border edge -> first non-button element -- panel, label ↔↕
         # The LEFT inset deliberately does not meet it, and the panel is
         # left out of the audit for that; see docs/ui_spacing.md.
-        status_frame = ttk.LabelFrame(left_col, text="Status", padding=(5, 1, 5, 3))
+        status_frame = ttk.LabelFrame(left_col, text="Status", padding=(4, 1, 5, 2))
         # spacing: content frame -> content frame -- frame, frame ↕
         # The trailing side feeds the gap down to Server Region's title,
         # which answers to `panel ↕ unrelated label` -- the lever for
@@ -259,7 +259,7 @@ class CaptureTab(BaseTab):
                                      padx=(10, 0), pady=(0, 1))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(2, 6, 5, 5))
+        region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(2, 3, 5, 3))
         # spacing: panel ↕ unrelated label -- panel, title ↕
         # spacing: content frame -> content frame -- frame, frame ↕
         # Asymmetric, because the two sides answer to different rules.

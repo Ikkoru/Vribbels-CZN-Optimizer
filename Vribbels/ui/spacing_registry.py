@@ -2367,11 +2367,6 @@ PANELS = {
 
 # Panels whose left inset is NOT the border-edge rule.
 LEFT_INSET_EXCEPTIONS = {
-    # Confirmed by measurement as deliberate; the border-edge rule does
-    # not apply to this panel's left edge at all, so registering it
-    # would show a permanent red row and train the reader to ignore
-    # them.
-    "Status",
     # The three `Borderless` panels. Two reasons, both disqualifying.
     # There is no border, so the rule has no edge to measure from --
     # and a border scan does not merely fail here, it walks into the
@@ -2402,6 +2397,12 @@ LEFT_INSET_OVERRIDES = {
     # 7 is where its left edge is meant to sit. Tracked at what it is so
     # a drift still shows, rather than left out and unwatched.
     "Setup Status": (RULE_BORDER_EDGE_CONTENT, 7, "exception"),
+    # Capture's own Status panel, for the same reason and at the same
+    # number. It was left OUT rather than tracked, on the grounds that a
+    # permanently red row trains the reader to ignore red -- but an
+    # exception nothing measures cannot be told apart from drift, which
+    # is the worse of the two. Tracked at what it is, like the one above.
+    "Status": (RULE_BORDER_EDGE_CONTENT, 7, "exception"),
 }
 
 

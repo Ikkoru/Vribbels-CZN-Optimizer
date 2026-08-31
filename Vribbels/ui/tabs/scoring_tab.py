@@ -263,7 +263,12 @@ STAT MIN - MAX ROLLS:
         explain_text.pack(fill=tk.BOTH, expand=True)
 
         # --- Right side: configuration -------------------------------
-        # spacing: unique -- the preset list runs to this panel's edges -- panel, tree ↔↕
+        # spacing: exception -- border edge -> first non-button element -- panel, tree ↔↕
+        # An EXCEPTION, not a unique: the border-edge rule applies here
+        # perfectly well and this panel simply does not meet it, which
+        # is what an exception is. Its three zeros are tracked, because
+        # a zero nothing watches is exactly the kind that quietly
+        # regains a padding.
         # NO padding, deliberately. The preset list below fills the panel
         # to its left, right and bottom borders, and a frame padding
         # would inset it along with everything else. So the panel's own

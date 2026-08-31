@@ -393,7 +393,12 @@ class InventoryTab(BaseTab):
                       else tk.CENTER)
             self.inv_tree.heading(col, text=txt, anchor=anchor,
                                   command=lambda c=col.lower(): self.sort_inventory(c))
-            self.inv_tree.column(col, width=w, anchor=anchor)
+            # Highest Potential is the ONLY stretching column, so every
+            # pixel the window gains lands there instead of being shared
+            # out across thirteen columns that were each sized to their
+            # content. Left to Tk's default every column stretches.
+            self.inv_tree.column(col, width=w, anchor=anchor,
+                                 stretch=(col == "highest_potential"))
 
         inv_scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.inv_tree.yview)
         self.inv_tree.configure(yscrollcommand=inv_scroll.set)

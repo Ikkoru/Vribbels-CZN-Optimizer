@@ -502,7 +502,11 @@ class OptimizerTab(BaseTab):
         # doesn't grow with its label; width is synced to top_row's natural
         # reqwidth in _settle_layout_once so the label clips at the
         # cluster's right edge. Height fits one line of the body font.
-        self._toolbar_preset_row = ttk.Frame(left_cluster, height=17)
+        # 18, not 17: a Segoe UI 9 line box is 15px and the label's own
+        # style inset takes the rest, so 17 clipped the descenders off
+        # `Preset:` itself. The row is pinned rather than propagating,
+        # so nothing else reports the clip.
+        self._toolbar_preset_row = ttk.Frame(left_cluster, height=18)
         self._toolbar_preset_row.pack_propagate(False)
         self._toolbar_preset_row.pack(side=tk.TOP, fill=tk.X, anchor=tk.W)
         self.preset_label = ttk.Label(
@@ -589,6 +593,12 @@ class OptimizerTab(BaseTab):
         # different heights whatever this says -- a text row, a spinbox
         # row and a checkbox row seat their content at different insets --
         # so this pair and the pair below carry separate numbers.
+        #
+        # UNIQUE because the cluster has almost no vertical room, not
+        # because no rule could describe it. Given the space this would
+        # be 12 and governed by `config panel row ↕ row`, widened to
+        # cover unrelated bordering rows. The constraint is what makes
+        # it its own case.
         minlvl_row.pack(side=tk.TOP, anchor=tk.E, pady=(0, 0))
         # spacing: label ↔ its element -- label, spinbox ↔
         ttk.Label(minlvl_row, text="Ignore MFs below level:",
@@ -606,8 +616,18 @@ class OptimizerTab(BaseTab):
                          lambda e, sp=minlvl_spin: self._spinbox_wheel(e, sp))
         offelem_row = ttk.Frame(status_cluster)
         # spacing: unique -- between mixed element rows (spinbox -> checkbox) -- spinbox, checkbox ↕
-        # Target 3px.
-        offelem_row.pack(side=tk.TOP, anchor=tk.E, pady=(0, 0))
+        # Target 3px. Genuinely unique: there is not a second
+        # spinbox-row-over-checkbox-row anywhere in the app. Were there,
+        # the pair would want `spinbox row -> spinbox row` and
+        # `checkbox/slider ↕ rows` united into one rule -- and the audit
+        # taught to measure between the rows' LABELS rather than their
+        # controls, which seat at different heights. The two rules being
+        # separate today is what leaves this a one-off.
+        # Shifted 2px left of the row above's right edge, so the two
+        # rows START level. The checkbox already sits further from the
+        # right edge than the rule asks; lining the row up is what that
+        # buys, rather than a compromise between the two.
+        offelem_row.pack(side=tk.TOP, anchor=tk.E, padx=(0, 2), pady=(0, 0))
         # spacing: label ↔ its element -- label, checkbox ↔
         offelem_label = ttk.Label(offelem_row, text="Ignore off-Element MFs",
                                   font=small_font)
