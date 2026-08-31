@@ -1899,6 +1899,64 @@ def _tally(gaps):
                      for g in sorted(set(gaps)))
 
 
+# Painted bands this close together on one line are the same word: a
+# letter-space at these sizes is a pixel or two of background, where the
+# narrowest gap any rule puts BETWEEN columns is four. Merging at this
+# distance is what lets a column be indexed -- without it `10.0%` is
+# three bands and `ATK` is one, and no fixed position means the same
+# thing on two lines.
+TEXT_COLUMN_MERGE = 2
+
+
+def _text_columns(cap, box, fill):
+    """The painted COLUMNS across one line, letters merged into words."""
+    runs = sa.painted_runs_h(cap, box, fill)
+    if not runs:
+        return []
+    columns = [list(runs[0])]
+    for first, last in runs[1:]:
+        if sa.gap_between(columns[-1][1], first) <= TEXT_COLUMN_MERGE:
+            columns[-1][1] = last
+        else:
+            columns.append([first, last])
+    return columns
+
+
+def _text_column_gap(locator, needle, index=0, fill="bg_light"):
+    """Resolver: the gap between two columns on one line of a Text.
+
+    A Text's columns are TAB STOPS, so there is no widget on either side
+    of the gap -- and its lines are not widgets either, so the line has
+    to be found before the columns can be. `dlineinfo` turns a line into
+    the band of rows it occupies, and the columns are read across that
+    band.
+
+    `needle` finds the line by its words rather than by number, so a
+    line inserted above it moves the reading with it instead of
+    silently reporting a different row.
+    """
+    def resolve(cap, app):
+        widget = locator(app)
+        if widget is None:
+            return None, "no text widget there"
+        where = widget.search(needle, "1.0", tk.END)
+        if not where:
+            return None, f"no line holding {needle!r}"
+        info = widget.dlineinfo(where)
+        if info is None:
+            return None, f"the line holding {needle!r} is not displayed"
+        box = sa.box_of(widget)
+        top = box.top + info[1]
+        band = sa.Box(left=box.left, top=top,
+                      right=box.right, bottom=top + info[3] - 1)
+        columns = _text_columns(cap, band, {cap.palette[fill]})
+        if len(columns) < index + 2:
+            return None, (f"{len(columns)} painted columns on the "
+                          f"{needle!r} line, need {index + 2}")
+        return sa.gap_between(columns[index][1], columns[index + 1][0]), ""
+    return resolve
+
+
 def _text_line_pitch(locator, fill="bg_light"):
     """Resolver: the SMALLEST gap between painted LINES inside a Text.
 
@@ -2609,6 +2667,29 @@ def register_all():
         provisional=True,
     )
 
+    # And the other two plain-frame button rows.
+    sa.track(
+        name="Gear Score buttons: button -> button",
+        tab="Gear Score",
+        rule=RULE_BUTTON_GAP,
+        target=4,
+        resolve=_pair_gap(
+            lambda app: _by_text("Apply Current Weights")(app).master,
+            ("TButton", "Button"), 0),
+        axis="h",
+        provisional=True,
+    )
+    sa.track(
+        name="Setup buttons: button -> button",
+        tab="Setup",
+        rule=RULE_BUTTON_GAP,
+        target=4,
+        resolve=_pair_gap(lambda app: _by_text("Check Status")(app).master,
+                          ("TButton", "Button"), 0),
+        axis="h",
+        provisional=True,
+    )
+
     # The toolbar's rightmost group against the help text left of it.
     # `status cluster -> window edge` already watches its far side.
     sa.track(
@@ -2622,6 +2703,31 @@ def register_all():
         axis="h",
         provisional=True,
     )
+
+    # The Character panel's stat block, whose columns are tab stops. Its
+    # `label ↔ its element` and `element and its label ↔ ...` markers
+    # sit on CHAR_TAB_*, and nothing could read them: the audit measures
+    # widgets, and a tab stop has none on either side.
+    #
+    # The ATK line, which holds four columns: a stat, its value, the
+    # second column's stat, and ITS value. So the three gaps across it
+    # are the two rules alternating.
+    for _name, _index, _rule, _target in (
+            ("stat -> its value", 0, RULE_LABEL_ELEMENT, 4),
+            ("value -> the next stat", 1, RULE_PAIR_GAP, 8),
+            ("second stat -> its value", 2, RULE_LABEL_ELEMENT, 4)):
+        sa.track(
+            name=f"Character: {_name}",
+            tab="Combatants",
+            rule=_rule,
+            target=_target,
+            resolve=_text_column_gap(
+                lambda app: sa.find_descendant_class(
+                    _panel(app, "Character"), "Text"),
+                "ATK", _index),
+            axis="h",
+            provisional=True,
+        )
 
     # The one site of `label row -> label row`: the lines inside an
     # Equipped MF gear cell. Its rows are text, not widgets, so the
