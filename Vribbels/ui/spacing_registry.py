@@ -2117,8 +2117,10 @@ def _text_line_pitch(locator, fill="bg_light"):
             # Touching bands mean the extents are filling them, which is
             # a wrong band rather than a tight row. The first two say
             # which.
+            row = bands[0][1]
+            at = sa._first_painted_x(cap, box, row, colours)
             note += (f" | bands {bands[:2]} extents {edges[:2]}"
-                     f" fill {sorted(colours)}")
+                     f" | last row {row} first ink {at}")
         return min(gaps), note
     return resolve
 
@@ -2439,18 +2441,27 @@ def _widest_stats(field):
     # Only the stat lines, which are the ones with the full set of tab
     # fields; the Bonus and Sets lines hold numbers too and none of
     # them sits in this column.
+        # One pass over the whole roster, which is the cost of this
+        # scenario: every selection recomputes that combatant's build
+        # stats. It is a one-off at setup and the audit is already a
+        # screenshot tool, so it is affordable where it would not be in
+        # the app.
+        #
+        # SELECT each in turn and read what was rendered. The stat
+        # values are computed inside `show_hero_details` and returned
+        # nowhere, so there is no way to ask what a combatant's block
+        # would say without showing it -- `_format_char_text` is the
+        # details above the block and holds no stats at all, which is
+        # what this tried first and why it ranked every combatant 0.
         font = tkfont.Font(font=tab.hero_char_text.cget("font"))
         best, widest = None, -1
-        for index, row in enumerate(rows):
-            try:
-                text = tab._format_char_text(row["name"])
-            except Exception:
-                continue
+        for index in range(len(rows)):
+            tab.select_hero_row(index)
             px = 0
-            for line in text.splitlines():
+            for line in tab.hero_char_text.get("1.0", "end-1c").splitlines():
                 parts = line.split("	")
                 if len(parts) > field:
-                    px = max(px, font.measure(parts[field]))
+                    px = max(px, font.measure(parts[field].strip()))
             if px > widest:
                 best, widest = index, px
         if best is not None:
