@@ -2399,6 +2399,35 @@ ELEMENT_ENTRIES = [
 ]
 
 
+# Entries registered but never yet read off a screen. They print yellow,
+# and a name comes out of this set once a run has confirmed it -- so a
+# batch being calibrated is visible at a glance among rows that already
+# were. Their TARGETS come from the rules table, which is a claim about
+# what the gap should be and says nothing about what it is.
+#
+# The entries built by `sa.track` further down state the flag directly;
+# this set is for the ones the tables above generate, whose tuples have
+# no room for it.
+AWAITING_FIRST_READING = {
+    "Have at least this much of a stat: row pitch",
+    "Important Settings: row pitch",
+    "Restore Defaults: row pitch",
+    "Main Stats: row pitch",
+    "Exclude Combatant's MFs: row pitch",
+    "Important Settings -> Have at least",
+    "Character -> Partner",
+    "How Gear Score Works -> Stat Weight Configuration",
+    "Requirements -> Upgrade Log Settings",
+    "damage caption -> its sliders",
+    "DEF caption -> its slider",
+    "Shielding caption -> its slider",
+    "log preset columns",
+    "Slots checkboxes",
+    "Region: -> its readout",
+    "Avg Card DMG% -> its spinbox",
+}
+
+
 def register_all():
     for tab, titles in PANELS.items():
         for title in titles:
@@ -2452,6 +2481,7 @@ def register_all():
             target=target,
             resolve=resolve,
             axis=axis,
+            provisional=name in AWAITING_FIRST_READING,
         )
 
     for tab, name, target, hand, resolve in PANEL_OVER_TEXT_ENTRIES:
@@ -2484,6 +2514,7 @@ def register_all():
             target=target,
             resolve=_row_pitch(title, classes),
             axis="v",
+            provisional=f"{title}: row pitch" in AWAITING_FIRST_READING,
         )
 
     for tab, title, classes in ROW_DIVISION_ENTRIES:
@@ -2525,6 +2556,7 @@ def register_all():
                 axis="h",
                 hand=hand,
                 scenario=scenario,
+                provisional=name in AWAITING_FIRST_READING,
             )
 
     for rule, table, axis, source in (
@@ -2565,6 +2597,7 @@ def register_all():
             axis="v",
             target_source=source,
             hand=hand,
+            provisional=name in AWAITING_FIRST_READING,
         )
 
     for tab, title, side in TEXT_PANEL_EDGES:
