@@ -563,6 +563,11 @@ class OptimizerTab(BaseTab):
         small_font = ("Segoe UI", 9)
         status_cluster = ttk.Frame(toolbar)
         # spacing: control group ↔ control group -- label, label ↔
+        # NOT TRACKED: packed RIGHT, so the distance to the help text on
+        # its left is whatever the toolbar has spare -- 125px at the
+        # window size it was read at. The rule's 16 is a minimum, and the
+        # audit compares against a number. Its OTHER side is a real
+        # distance and is tracked as `status cluster -> window edge`.
         status_cluster.pack(side=tk.RIGHT, padx=(10, 0), anchor=tk.N)
         # spacing: border edge -> first non-button element -- label, frame ↔
         # The negative TRAILING padding pulls the glyphs right, toward
@@ -881,7 +886,11 @@ class OptimizerTab(BaseTab):
         # label column, pinned to the longest name's measured width,
         # keeps the tracks left-aligned with each other.
         ex_row = ttk.Frame(parent)
-        # spacing: config panel row ↕ row -- slider, slider ↕
+        # spacing: checkbox/slider ↕ checkbox/slider rows -- slider, slider ↕
+        # Two slider rows with nothing between them are an ordinary
+        # non-tall pair. The larger `config panel row ↕ row` distance
+        # belongs to the gaps that cross a CAPTION, which is what ends
+        # each block -- see frac_row below.
         ex_row.pack(fill=tk.X, pady=(0, 2))
         self._labeled_slider(
             ex_row, "Extra", self.extra_pct_var,
@@ -889,7 +898,7 @@ class OptimizerTab(BaseTab):
             label_col_px=_dmg_label_col_px(),
         )
         dot_row = ttk.Frame(parent)
-        # spacing: config panel row ↕ row -- slider, slider ↕
+        # spacing: checkbox/slider ↕ checkbox/slider rows -- slider, slider ↕
         dot_row.pack(fill=tk.X, pady=(0, 2))
         self._labeled_slider(
             dot_row, "Agony", self.dot_pct_var,

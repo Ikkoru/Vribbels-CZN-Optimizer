@@ -1364,10 +1364,6 @@ LABEL_ELEMENT_ENTRIES = [
     ("Setup", "Restore Defaults button -> its explanation", 4, None,
      lambda app: _by_text("Presets")(app).master,
      ("TButton", "Button") + LABEL_CLASSES, 0),
-    # A caption and a READOUT rather than a control, but the same rule:
-    # the words on the left name what is on the right.
-    ("Capture", "Region: -> its readout", 4, None,
-     lambda app: _by_text("Region:")(app).master, LABEL_CLASSES, 0),
     # The first of the three averages. Its pad is shared by all three,
     # so one entry reports the lever; the gap BETWEEN the pairs is
     # `Set Config averages` under the other rule.
@@ -1953,8 +1949,34 @@ def _text_column_gap(locator, needle, index=0, fill="bg_light"):
         if len(columns) < index + 2:
             return None, (f"{len(columns)} painted columns on the "
                           f"{needle!r} line, need {index + 2}")
-        return sa.gap_between(columns[index][1], columns[index + 1][0]), ""
+        # The columns are reported because the merge is a JUDGEMENT --
+        # bands closer than TEXT_COLUMN_MERGE are called one word -- and
+        # when this row disagrees with the eye, which bands it joined is
+        # the first thing to look at. The line's text goes with them, so
+        # a column can be matched to the word it came from.
+        line = widget.get(f"{where} linestart", f"{where} lineend")
+        note = (f"cols {[c[0] for c in columns]} "
+                f"widths {[c[1] - c[0] + 1 for c in columns]} | {line}")
+        return sa.gap_between(columns[index][1], columns[index + 1][0]), note
     return resolve
+
+
+def _first_filled_text(title):
+    """Locator: the first Text in a panel that HAS lines in it.
+
+    The Equipped MF grid is six cells, and a slot with nothing equipped
+    leaves its cell empty -- so the first Text in the panel is not
+    reliably one with rows to measure between. This walks past the empty
+    ones, which is also what makes the entry read the same whichever
+    slots the selected combatant has filled.
+    """
+    def find(app):
+        frame = _panel(app, title)
+        for widget in sa.find_descendants_class(frame, "Text"):
+            if widget.get("1.0", "end-1c").strip():
+                return widget
+        return None
+    return find
 
 
 def _text_line_pitch(locator, fill="bg_light"):
@@ -2058,12 +2080,14 @@ ROW_PITCH_ENTRIES = [
     # stands for the other.
     ("Optimizer", "Have at least this much of a stat", RULE_SPINBOX_PITCH,
      SPINBOX_CLASSES, 2),
-    # Important Settings' slider rows. Every one of them carries a
-    # `config panel row ↕ row` marker and none was measured; the tally
-    # is what will say whether they sit at one pitch, since their pack
-    # pads are not all the same number.
-    ("Optimizer", "Important Settings", RULE_CONFIG_PANEL_ROW,
-     SCALE_CLASSES, 12),
+    # Important Settings' slider rows sit at 7, not the 12 their markers
+    # claimed: adjacent slider rows are `checkbox/slider ↕ rows` like any
+    # other non-tall pair, and the 12 belongs to the gaps that cross a
+    # CAPTION, which are tracked separately as row-to-caption. The min is
+    # the pitch and the tally shows those crossings as the divisions
+    # they are.
+    ("Optimizer", "Important Settings", RULE_CHECKBOX_PITCH,
+     SCALE_CLASSES, 7),
     # Restore Defaults stacks three buttons, so its pitch is a
     # button-to-button gap read vertically.
     ("Setup", "Restore Defaults", RULE_BUTTON_GAP,
@@ -2423,7 +2447,6 @@ AWAITING_FIRST_READING = {
     "Shielding caption -> its slider",
     "log preset columns",
     "Slots checkboxes",
-    "Region: -> its readout",
     "Avg Card DMG% -> its spinbox",
 }
 
@@ -2621,6 +2644,20 @@ def register_all():
         provisional=False,
     )
 
+    # `Region:` names a READOUT rather than a control, and at the
+    # distance it sits it reads as a heading with its value beside it
+    # rather than a label against its element.
+    sa.track(
+        name="Region: -> its readout",
+        tab="Capture",
+        rule=RULE_HEADING_ELEMENT,
+        target=14,
+        resolve=_pair_gap(lambda app: _by_text("Region:")(app).master,
+                          LABEL_CLASSES, 0),
+        axis="h",
+        provisional=True,
+    )
+
     for tab, heading, subtitle in TAB_HEADERS:
         sa.track(
             name=f"{heading} -> its subtitle",
@@ -2657,22 +2694,6 @@ def register_all():
                                          DESCENDER_DEPTH_11),
         axis="v",
         provisional=False,
-    )
-
-    # The one site of `checkboxes -> unrelated checkboxes`: Capture's
-    # Upgrade Log mismatch filters below its Log Presets checklist. Two
-    # blocks of checkboxes about different things, which is the whole of
-    # what the rule separates.
-    sa.track(
-        name="log presets -> the mismatch filters",
-        tab="Capture",
-        rule=RULE_UNRELATED_CHECKBOXES,
-        target=20,
-        resolve=_gap(
-            lambda app: app.capture_tab_instance.log_presets_list_frame,
-            _by_text(FILTER_CHECKBOX), "v"),
-        axis="v",
-        provisional=True,
     )
 
     # The toolbar's two buttons. They sit in a plain frame rather than a
@@ -2723,20 +2744,6 @@ def register_all():
         provisional=True,
     )
 
-    # The toolbar's rightmost group against the help text left of it.
-    # `status cluster -> window edge` already watches its far side.
-    sa.track(
-        name="help text -> status cluster",
-        tab="Optimizer",
-        rule=RULE_CONTROL_GROUP,
-        target=16,
-        resolve=_gap(_by_text(OPTIMIZER_HELP_PREFIX),
-                     lambda app: app.optimizer_tab_instance.status_label.master,
-                     "h"),
-        axis="h",
-        provisional=True,
-    )
-
     # The Character panel's stat block, whose columns are tab stops. Its
     # `label ↔ its element` and `element and its label ↔ ...` markers
     # sit on CHAR_TAB_*, and nothing could read them: the audit measures
@@ -2770,9 +2777,8 @@ def register_all():
         tab="Combatants",
         rule=RULE_LABEL_ROW_PITCH,
         target=10,
-        resolve=_text_line_pitch(
-            lambda app: sa.find_descendant_class(
-                _panel(app, "Equipped Memory Fragments"), "Text")),
+        resolve=_text_line_pitch(_first_filled_text(
+            "Equipped Memory Fragments")),
         axis="v",
         provisional=True,
     )

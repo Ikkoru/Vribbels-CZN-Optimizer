@@ -165,8 +165,11 @@ class CaptureTab(BaseTab):
         # toggle does.
         options_frame = ttk.Frame(right_col)
         # spacing: checkboxes -> unrelated checkboxes -- checkbox, checkbox ↕
-        # (from the Log Presets checklist above. No audit entry covers
-        # this rule anywhere yet.)
+        # NOT TRACKED, and cannot usefully be: `side=tk.BOTTOM` pins this
+        # block to the panel's floor, so what sits between it and the
+        # checklist above is whatever height is left over -- 69px at the
+        # window size it was read at. The rule's 20 is a MINIMUM here,
+        # and the audit compares against a number rather than a floor.
         options_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(5, 0))
         options_frame.grid_columnconfigure(1, weight=1)
 
@@ -266,11 +269,14 @@ class CaptureTab(BaseTab):
         # server, so which one the game uses is the game's business --
         # there is nothing for the user to get wrong, and nothing to
         # select. This reports what was observed.
-        # spacing: label ↔ its element -- label, label ↔
-        ttk.Label(region_inner, text="Region:").pack(side=tk.LEFT, padx=(0, 10))
+        # spacing: heading ↔ element -- label, label ↔
+        # A heading with its value beside it, not a label against its
+        # element: at this distance the two read as a pair of blocks
+        # rather than one naming the other.
+        ttk.Label(region_inner, text="Region:").pack(side=tk.LEFT, padx=(0, 8))
 
         self.region_var = tk.StringVar(value=REGION_UNKNOWN)
-        # spacing: label ↔ its element -- label, label ↔
+        # spacing: heading ↔ element -- label, label ↔
         self.detected_label = ttk.Label(
             region_inner,
             textvariable=self.region_var,
