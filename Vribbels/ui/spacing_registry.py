@@ -1344,6 +1344,16 @@ LABEL_ELEMENT_ENTRIES = [
     ("Setup", "Restore Defaults button -> its explanation", 4, None,
      lambda app: _by_text("Presets")(app).master,
      ("TButton", "Button") + LABEL_CLASSES, 0),
+    # A caption and a READOUT rather than a control, but the same rule:
+    # the words on the left name what is on the right.
+    ("Capture", "Region: -> its readout", 4, None,
+     lambda app: _by_text("Region:")(app).master, LABEL_CLASSES, 0),
+    # The first of the three averages. Its pad is shared by all three,
+    # so one entry reports the lever; the gap BETWEEN the pairs is
+    # `Set Config averages` under the other rule.
+    ("Optimizer", "Avg Card DMG% -> its spinbox", 4, None,
+     lambda app: _by_text("Avg Card DMG%")(app).master,
+     LABEL_CLASSES + SPINBOX_CLASSES, 0),
 ]
 
 # The same rule, measured with every percent slider at 100 so the
@@ -1855,6 +1865,33 @@ def _tally(gaps):
     """`0 x4, 1 x2` -- every distinct gap and how many pairs sit at it."""
     return ", ".join(f"{g} x{gaps.count(g)}"
                      for g in sorted(set(gaps)))
+
+
+def _text_line_pitch(locator, fill="bg_light"):
+    """Resolver: the SMALLEST gap between painted LINES inside a Text.
+
+    A Text's rows are not widgets, so `_row_pitch_in` cannot see them:
+    there is nothing to group and nothing to take a box from. What
+    separates one line from the next is the font's own leading plus
+    whatever `spacing3` adds, and only the pixels say what the two come
+    to together -- the lever is the added part alone.
+
+    Smallest for the same reason the widget version takes it: a division
+    between blocks is always the widest gap, so it can never be mistaken
+    for the pitch, while a group of rows sitting tighter than the rest
+    is exactly what this has to report.
+    """
+    def resolve(cap, app):
+        widget = locator(app)
+        if widget is None:
+            return None, "no text widget there"
+        runs = sa.painted_runs_v(cap, sa.box_of(widget), {cap.palette[fill]})
+        if len(runs) < 2:
+            return None, "fewer than two painted lines there"
+        gaps = [sa.gap_between(a[1], b[0]) for a, b in zip(runs, runs[1:])]
+        note = "" if len(set(gaps)) == 1 else f"gaps {_tally(gaps)}"
+        return min(gaps), note
+    return resolve
 
 
 def _row_pitch(title, classes):
@@ -2472,6 +2509,37 @@ def register_all():
                                          DESCENDER_DEPTH_11),
         axis="v",
         provisional=False,
+    )
+
+    # The one site of `checkboxes -> unrelated checkboxes`: Capture's
+    # Upgrade Log mismatch filters below its Log Presets checklist. Two
+    # blocks of checkboxes about different things, which is the whole of
+    # what the rule separates.
+    sa.track(
+        name="log presets -> the mismatch filters",
+        tab="Capture",
+        rule=RULE_UNRELATED_CHECKBOXES,
+        target=20,
+        resolve=_gap(
+            lambda app: app.capture_tab_instance.log_presets_list_frame,
+            _by_text(FILTER_CHECKBOX), "v"),
+        axis="v",
+        provisional=True,
+    )
+
+    # The one site of `label row -> label row`: the lines inside an
+    # Equipped MF gear cell. Its rows are text, not widgets, so the
+    # pitch has to be read off the painted lines.
+    sa.track(
+        name="Equipped MF cell: line pitch",
+        tab="Combatants",
+        rule=RULE_LABEL_ROW_PITCH,
+        target=10,
+        resolve=_text_line_pitch(
+            lambda app: sa.find_descendant_class(
+                _panel(app, "Equipped Memory Fragments"), "Text")),
+        axis="v",
+        provisional=True,
     )
 
     for tab, title in ALL_NONE_PANELS:
