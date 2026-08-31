@@ -1809,6 +1809,18 @@ EXPLANATION_ENTRIES = [
     ("Optimizer", "set explanation -> the set rows", 8, None, "rule",
      _label_over_controls("Set Configuration",
                           "All selected Set and Flex", *CHECKBOX_CLASSES)),
+    # Important Settings' three blocks, each a caption over the sliders
+    # it explains. All three carried the marker and none was measured.
+    ("Optimizer", "damage caption -> its sliders", 8, None, "rule",
+     _label_over_controls("Important Settings",
+                          "What percent of damage is Extra", *SCALE_CLASSES)),
+    ("Optimizer", "DEF caption -> its slider", 8, None, "rule",
+     _label_over_controls("Important Settings",
+                          "What percent of damage scales off DEF",
+                          *SCALE_CLASSES)),
+    ("Optimizer", "Shielding caption -> its slider", 8, None, "rule",
+     _label_over_controls("Important Settings", SHIELD_CAPTION,
+                          *SCALE_CLASSES)),
     ("Gear Score", "weights caption -> the stat grid", 8, None, "rule",
      _label_over_controls("Stat Weight Configuration",
                           "Adjust weights for custom", *SPINBOX_CLASSES)),
@@ -1978,6 +1990,16 @@ ROW_PITCH_ENTRIES = [
     # button-to-button gap read vertically.
     ("Setup", "Restore Defaults", RULE_BUTTON_GAP,
      ("TButton", "Button"), 4),
+    # Main Stats had a row DIVISION entry and no row pitch, so the gap
+    # between its ordinary rows went unread while the wide one between
+    # its blocks was watched.
+    ("Memory Fragments", "Main Stats", RULE_CHECKBOX_PITCH,
+     CHECKBOX_CLASSES, 7),
+    # The exclude list places its rows itself, at `row * row_h`, rather
+    # than letting a geometry manager space them -- so its pitch is the
+    # one in this table that no padding value backs.
+    ("Optimizer", "Exclude Combatant's MFs", RULE_CHECKBOX_PITCH,
+     CHECKBOX_CLASSES, 7),
 ]
 
 # The same rows, measured for their widest gap instead of their usual
