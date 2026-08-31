@@ -485,10 +485,17 @@ can change class: group the sites by what each pad's target was built
 as.
 
 Two kinds of gap that look unmeasurable are not, and have their own
-resolvers: the columns of a Text widget are tab stops with no widget on
-either side (`_text_column_gap` finds the line with `dlineinfo` and
-merges painted bands into words first), and its rows are not widgets
-either (`_text_line_pitch` reads the painted lines).
+resolvers. The columns of a Text widget are tab stops with no widget on
+either side: `_text_column_gap` turns each line into a band of rows with
+`dlineinfo`, merges painted bands closer together than a column gap into
+words, and reports the SMALLEST gap across the rows -- these value stops
+are right-aligned, so a short value leaves a wider gap after its label
+and only the widest row shows the distance that was set. Its rows are
+not widgets either, and `_text_line_pitch` reads the painted lines.
+
+Both inset the box by what the widget paints around its own content: a
+cell with a relief border has painted pixels on every row, so a run scan
+over the whole box finds one run and never sees the lines inside it.
 
 **Two entries measure to the Capture Log title, one per column above
 it,** and that pair is worth knowing about because it is the only place

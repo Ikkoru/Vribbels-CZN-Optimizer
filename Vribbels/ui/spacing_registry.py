@@ -1936,50 +1936,70 @@ def _text_columns(cap, box, fill):
     return columns
 
 
-def _text_column_gap(locator, needle, index=0, fill="bg_light"):
-    """Resolver: the gap between two columns on one line of a Text.
+def _text_column_gap(locator, needles, index=0, from_end=False,
+                     fill="bg_light"):
+    """Resolver: the SMALLEST gap at one column boundary of a Text.
 
     A Text's columns are TAB STOPS, so there is no widget on either side
-    of the gap -- and its lines are not widgets either, so the line has
-    to be found before the columns can be. `dlineinfo` turns a line into
+    of the gap -- and its lines are not widgets either, so each line has
+    to be found before its columns can be. `dlineinfo` turns a line into
     the band of rows it occupies, and the columns are read across that
     band.
 
-    `needle` finds the line by its words rather than by number, so a
-    line inserted above it moves the reading with it instead of
-    silently reporting a different row. **Include the TAB** where the
-    words could occur in prose too: `ATK` alone first matches the
-    `Bonus: ATK+39` line, whose four painted bands are the words of a
-    sentence and not columns at all. The note below prints the line it
-    settled on, which is how that was caught.
+    **Smallest across the lines, not one line's.** These value stops are
+    RIGHT-aligned, so a short value starts further right and leaves a
+    wider gap after the label -- the distance is only the one that was
+    set on the row whose value is widest. Reading a single row reports
+    whatever the selected combatant happens to have: a three-digit ATK
+    read 10 where the rule asks 4, and a four-digit one would have read
+    4. Same reasoning as `_neighbour_gaps` taking the smallest gap a
+    column shows.
+
+    `needles` find the lines by their words rather than by number, so a
+    line inserted above them moves the reading instead of silently
+    changing which row is read. **Include the TAB** where the words
+    could occur in prose too: `ATK` alone first matches the
+    `Bonus: ATK+39` line, whose painted bands are the words of a
+    sentence and not columns at all.
+
+    `from_end` counts the boundary from the RIGHT. A row with no left
+    column -- the Element row emits both of the left pair's tabs and
+    nothing between them -- has two bands where the others have four, so
+    its right-hand pair is at a different index and only the same one
+    counting backwards.
     """
     def resolve(cap, app):
         widget = locator(app)
         if widget is None:
             return None, "no text widget there"
-        where = widget.search(needle, "1.0", tk.END)
-        if not where:
-            return None, f"no line holding {needle!r}"
-        info = widget.dlineinfo(where)
-        if info is None:
-            return None, f"the line holding {needle!r} is not displayed"
+        origin = sa.box_of(widget).top
         box = _inside_border(widget)
-        top = sa.box_of(widget).top + info[1]
-        band = sa.Box(left=box.left, top=top,
-                      right=box.right, bottom=top + info[3] - 1)
-        columns = _text_columns(cap, band, {cap.palette[fill]})
-        if len(columns) < index + 2:
-            return None, (f"{len(columns)} painted columns on the "
-                          f"{needle!r} line, need {index + 2}")
-        # The columns are reported because the merge is a JUDGEMENT --
-        # bands closer than TEXT_COLUMN_MERGE are called one word -- and
-        # when this row disagrees with the eye, which bands it joined is
-        # the first thing to look at. The line's text goes with them, so
-        # a column can be matched to the word it came from.
-        line = widget.get(f"{where} linestart", f"{where} lineend")
-        note = (f"cols {[c[0] for c in columns]} "
-                f"widths {[c[1] - c[0] + 1 for c in columns]} | {line}")
-        return sa.gap_between(columns[index][1], columns[index + 1][0]), note
+        readings = []
+        for needle in needles:
+            where = widget.search(needle, "1.0", tk.END)
+            if not where:
+                continue
+            info = widget.dlineinfo(where)
+            if info is None:
+                continue
+            top = origin + info[1]
+            band = sa.Box(left=box.left, top=top,
+                          right=box.right, bottom=top + info[3] - 1)
+            columns = _text_columns(cap, band, {cap.palette[fill]})
+            first = len(columns) - 2 - index if from_end else index
+            if first < 0 or first + 1 >= len(columns):
+                continue
+            gap = sa.gap_between(columns[first][1], columns[first + 1][0])
+            line = widget.get(f"{where} linestart", f"{where} lineend")
+            readings.append((gap, line.strip(), len(columns)))
+        if not readings:
+            return None, f"no line with that column, of {list(needles)}"
+        readings.sort()
+        # Every row is reported, because which one is tightest is the
+        # whole question: the rule's distance lives on the row with the
+        # widest value, and the rest are that plus their own slack.
+        note = " | ".join(f"{g}: {line[:34]}" for g, line, _n in readings)
+        return readings[0][0], note
     return resolve
 
 
@@ -2771,13 +2791,31 @@ def register_all():
     # sit on CHAR_TAB_*, and nothing could read them: the audit measures
     # widgets, and a tab stop has none on either side.
     #
-    # The ATK line, which holds four columns: a stat, its value, the
-    # second column's stat, and ITS value. So the three gaps across it
-    # are the two rules alternating.
-    for _name, _index, _rule, _target in (
-            ("stat -> its value", 0, RULE_LABEL_ELEMENT, 4),
-            ("value -> the next stat", 1, RULE_PAIR_GAP, 8),
-            ("second stat -> its value", 2, RULE_LABEL_ELEMENT, 4)):
+    # A stat row holds four columns: a stat, its value, the second
+    # column's stat, and ITS value -- so the three gaps across it are
+    # the two rules alternating.
+    #
+    # Every row is read and the tightest reported, because the value
+    # stops are RIGHT-aligned: a short value starts further right and
+    # leaves a wider gap after its label, so the distance that was SET
+    # is the one on the row whose value is widest. Which row that is
+    # depends on the selected combatant, which is why no single row can
+    # be named.
+    #
+    # The LEFT pair is read on the four rows that have one. The Element
+    # row emits both of the left pair's tabs with nothing between them,
+    # so it has two bands where the others have four -- its right-hand
+    # pair is at the same boundary only when counted from the END, which
+    # is what `from_end` is for and why the right pair reads all five.
+    CHAR_LEFT_ROWS = ("ATK	", "DEF	", "HP	", "Ego	")
+    CHAR_ALL_ROWS = CHAR_LEFT_ROWS + ("Element	",)
+    for _name, _index, _end, _rows, _rule, _target in (
+            ("stat -> its value", 0, False, CHAR_LEFT_ROWS,
+             RULE_LABEL_ELEMENT, 4),
+            ("value -> the next stat", 1, False, CHAR_LEFT_ROWS,
+             RULE_PAIR_GAP, 8),
+            ("second stat -> its value", 0, True, CHAR_ALL_ROWS,
+             RULE_LABEL_ELEMENT, 4)):
         sa.track(
             name=f"Character: {_name}",
             tab="Combatants",
@@ -2786,7 +2824,7 @@ def register_all():
             resolve=_text_column_gap(
                 lambda app: sa.find_descendant_class(
                     _panel(app, "Character"), "Text"),
-                "ATK	", _index),
+                _rows, _index, _end),
             axis="h",
             provisional=True,
         )
