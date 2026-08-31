@@ -101,6 +101,11 @@ OPTIMIZER_HELP_TEXT = (
 HAL_COLUMN_1 = ["ATK", "DEF", "HP", "Ego"]
 HAL_COLUMN_2 = ["CRate", "CDmg", "Extra DMG%", "DoT%"]
 HAL_STATS_WITH_PCT = {"CRate", "CDmg", "Extra DMG%", "DoT%"}  # show "%" suffix
+
+# Of those four, the only one a value above 100 is meaningless for.
+# CDmg, Extra DMG% and DoT% all run well past it in game, so they keep
+# the wide range the spinbox is built with.
+HAL_STATS_CAPPED_AT_100 = {"CRate"}
 HAL_ALL_STATS = HAL_COLUMN_1 + HAL_COLUMN_2
 
 
@@ -1185,6 +1190,8 @@ class OptimizerTab(BaseTab):
                 insertbackground=self.colors["fg"],
             )
         spin.pack(side=tk.LEFT)
+        if stat in HAL_STATS_CAPPED_AT_100:
+            self._clamp_on_commit(spin, var, 0, 100)
         if stat in HAL_STATS_WITH_PCT:
             # Wheel steps the %-valued minimums by +-0.1 (the spinbox
             # BUTTONS keep stepping by 1 via increment=1).
@@ -1389,6 +1396,7 @@ class OptimizerTab(BaseTab):
                 pspin.bind(
                     "<MouseWheel>",
                     lambda e, sp=pspin: self._spinbox_wheel(e, sp))
+                self._clamp_on_commit(pspin, pvar, 0, 100)
                 pvar.trace_add(
                     "write", lambda *_a: self._save_set_effect_pcts())
 
@@ -3652,6 +3660,73 @@ class OptimizerTab(BaseTab):
         elif event.delta < 0:
             spinbox.invoke("buttondown")
         return "break"
+
+    def _clamp_on_commit(self, spin, var, lo, hi):
+        """Hold `var` inside [lo, hi] once the user finishes typing.
+
+        **A `tk.Spinbox`'s `from_`/`to` bound its BUTTONS and its wheel,
+        not its text.** Typed input reaches the variable unchecked in
+        both directions -- 500 and -7 both arrive intact through a
+        `from_=0, to=100` spinbox -- so the floor needs this as much as
+        the ceiling does.
+
+        On commit rather than per keystroke: erasing the field leaves
+        `var.get()` raising `TclError` until a digit arrives, which is
+        the transient state `_save_int_safe` already steps around, and a
+        per-stroke clamp would spend most of its life in it.
+
+        The variable is what gets held, not the saved value. Clamping
+        only on the way out would leave the field reading 500 while the
+        optimizer used 100.
+        """
+        def commit(_event=None):
+            self._commit_clamp(spin, var, lo, hi)
+        spin.bind("<FocusOut>", commit, add="+")
+        spin.bind("<Return>", commit, add="+")
+
+    def _commit_clamp(self, spin, var, lo, hi):
+        """Hold `var` inside [lo, hi], blinking `spin` if it moved.
+
+        A method rather than the closure above so it can be CALLED. Tk
+        will not deliver a key event to an unmapped widget, so nothing
+        headless can press Return into a spinbox -- which would leave the
+        whole clamp untestable without the maintainer at the keyboard.
+        `checks/check_tabs_build.py` calls this instead.
+
+        Returns whether it clamped.
+        """
+        try:
+            value = var.get()
+        except tk.TclError:
+            return False                 # mid-edit; nothing to clamp yet
+        held = min(max(value, lo), hi)
+        if held == value:
+            return False
+        var.set(held)
+        self._blink(spin)
+        return True
+
+    # A clamp that snapped silently would read as the number being
+    # accepted. Three quick flashes behind the value say it moved.
+    CLAMP_BLINK_MS = 110
+    CLAMP_BLINKS = 3
+
+    def _blink(self, widget):
+        """Flash a widget's background between the alert colour and its
+        own, ending on its own."""
+        normal = self.colors["bg_light"]
+        alert = self.colors["red"]
+        last = self.CLAMP_BLINKS * 2 - 1
+
+        def step(n):
+            try:
+                widget.config(bg=alert if n % 2 == 0 else normal)
+            except tk.TclError:
+                return                   # the tab went away mid-blink
+            if n < last:
+                self.root.after(self.CLAMP_BLINK_MS, step, n + 1)
+
+        step(0)
 
     def _scale_wheel(self, event, var, on_change=None, lo=0, hi=100):
         """Step a ttk.Scale's IntVar by exactly +-1 on mouse wheel.

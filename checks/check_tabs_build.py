@@ -100,6 +100,77 @@ def _scrolled_text_packs_the_pair(root, colors):
     return None
 
 
+def _percent_fields_are_clamped(tab):
+    """The 0-100 fields must hold a TYPED value in range.
+
+    A `tk.Spinbox`'s `from_`/`to` bound its buttons and its wheel, not
+    its text: 500 and -7 both reach the variable through a `from_=0,
+    to=100` spinbox. Nothing about that is visible until a bad number
+    reaches the optimizer, so it is guarded here.
+
+    The BINDING cannot be exercised -- Tk will not deliver a key event
+    to an unmapped widget -- so this calls the handler the binding calls
+    and checks the wiring separately.
+    """
+    import tkinter as tk
+    failures = []
+
+    def spin_for(var):
+        def walk(w):
+            yield w
+            for c in w.winfo_children():
+                yield from walk(c)
+        name = str(var)
+        for w in walk(tab.get_frame()):
+            if (w.winfo_class() == "Spinbox"
+                    and str(w.cget("textvariable")) == name):
+                return w
+        return None
+
+    cases = [("CRate", tab.have_at_least_vars.get("CRate"), True),
+             ("CDmg", tab.have_at_least_vars.get("CDmg"), False)]
+    shares = list(tab.set_effect_pct_vars.items())
+    if shares:
+        cases.append((f"set share {shares[0][0]}", shares[0][1], True))
+
+    for label, var, capped in cases:
+        if var is None:
+            failures.append(f"no variable behind {label}; the clamp cannot "
+                            f"be checked and may have gone with it")
+            continue
+        spin = spin_for(var)
+        if spin is None:
+            failures.append(f"no Spinbox bound to {label}'s variable")
+            continue
+        if capped:
+            bound = spin.bind()
+            for seq in ("<Key-Return>", "<FocusOut>"):
+                if seq not in bound:
+                    failures.append(
+                        f"{label}'s spinbox has no {seq} binding, so nothing "
+                        f"clamps what is TYPED into it -- from_/to bound the "
+                        f"buttons only. See _clamp_on_commit."
+                    )
+        before = var.get()
+        for typed, want in ((500, 100 if capped else 500),
+                            (-7, 0 if capped else -7)):
+            var.set(typed)
+            if capped:
+                tab._commit_clamp(spin, var, 0, 100)
+            got = var.get()
+            if got != want:
+                failures.append(
+                    f"{label} holds {got} after {typed} was entered, not "
+                    f"{want}. " + ("The 0-100 clamp is not holding."
+                                   if capped else
+                                   "This field is deliberately UNCAPPED -- "
+                                   "CDmg and the other percent stats run "
+                                   "past 100 in game.")
+                )
+        var.set(before)
+    return failures
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -177,18 +248,22 @@ def run():
 
         notebook = ttk.Notebook(root)
         ctx.notebook = notebook
+        built = {}
         for attr in TAB_ATTRS:
             cls = getattr(tabs_pkg, attr, None)
             if cls is None:
                 failures.append(f"{attr} is not exported from ui.tabs")
                 continue
             try:
-                cls(notebook, ctx)
+                built[attr] = cls(notebook, ctx)
             except Exception as e:
                 failures.append(
                     f"{attr} raised while building: "
                     f"{type(e).__name__}: {e}"
                 )
+
+        if "OptimizerTab" in built:
+            failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
     finally:
         try:
             root.destroy()
