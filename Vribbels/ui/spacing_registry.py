@@ -1963,6 +1963,21 @@ ROW_PITCH_ENTRIES = [
      CHECKBOX_CLASSES, 7),
     ("Gear Score", "Stat Weight Configuration", RULE_SPINBOX_PITCH,
      SPINBOX_CLASSES, 2),
+    # The other spinbox grid. Its rows are packed where Gear Score's are
+    # gridded, which is the reason to read both rather than assume one
+    # stands for the other.
+    ("Optimizer", "Have at least this much of a stat", RULE_SPINBOX_PITCH,
+     SPINBOX_CLASSES, 2),
+    # Important Settings' slider rows. Every one of them carries a
+    # `config panel row ↕ row` marker and none was measured; the tally
+    # is what will say whether they sit at one pitch, since their pack
+    # pads are not all the same number.
+    ("Optimizer", "Important Settings", RULE_CONFIG_PANEL_ROW,
+     SCALE_CLASSES, 12),
+    # Restore Defaults stacks three buttons, so its pitch is a
+    # button-to-button gap read vertically.
+    ("Setup", "Restore Defaults", RULE_BUTTON_GAP,
+     ("TButton", "Button"), 4),
 ]
 
 # The same rows, measured for their widest gap instead of their usual
@@ -2524,6 +2539,45 @@ def register_all():
             lambda app: app.capture_tab_instance.log_presets_list_frame,
             _by_text(FILTER_CHECKBOX), "v"),
         axis="v",
+        provisional=True,
+    )
+
+    # The toolbar's two buttons. They sit in a plain frame rather than a
+    # panel, so `_first_button_gap` -- which searches a panel -- has
+    # nothing to search.
+    sa.track(
+        name="Start -> Stop",
+        tab="Optimizer",
+        rule=RULE_BUTTON_GAP,
+        target=4,
+        resolve=_gap(_by_text("Start"), _by_text("Stop"), "h"),
+        axis="h",
+        provisional=True,
+    )
+
+    # Capture's four action buttons, likewise in a plain frame.
+    sa.track(
+        name="capture buttons: button -> button",
+        tab="Capture",
+        rule=RULE_BUTTON_GAP,
+        target=4,
+        resolve=_pair_gap(lambda app: _by_text("Open Snapshots")(app).master,
+                          ("TButton", "Button"), 0),
+        axis="h",
+        provisional=True,
+    )
+
+    # The toolbar's rightmost group against the help text left of it.
+    # `status cluster -> window edge` already watches its far side.
+    sa.track(
+        name="help text -> status cluster",
+        tab="Optimizer",
+        rule=RULE_CONTROL_GROUP,
+        target=16,
+        resolve=_gap(_by_text(OPTIMIZER_HELP_PREFIX),
+                     lambda app: app.optimizer_tab_instance.status_label.master,
+                     "h"),
+        axis="h",
         provisional=True,
     )
 
