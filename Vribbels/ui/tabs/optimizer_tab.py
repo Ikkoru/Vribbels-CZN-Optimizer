@@ -3540,12 +3540,12 @@ class OptimizerTab(BaseTab):
             subs = []
             for s in p.substats[:4]:
                 sub_label = DISPLAY_NAMES.get(s.name, s.name)
-                subs.append(f"{sub_label}: {s.format_value()}")
+                subs.append(f"{sub_label} {s.format_value()}")
             while len(subs) < 4:
                 subs.append("-")
             if p.main_stat:
                 main_label = DISPLAY_NAMES.get(p.main_stat.name, p.main_stat.name)
-                main_str = f"{main_label}: {p.main_stat.format_value()}"
+                main_str = f"{main_label} {p.main_stat.format_value()}"
             else:
                 main_str = "-"
             # The GS column shows the current GS when the MF is at max

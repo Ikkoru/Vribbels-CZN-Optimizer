@@ -2145,13 +2145,22 @@ def _text_line_pitch(locator):
                           right=box.right, bottom=top + info[3] - 1)
             extent = sa.painted_extent_v(cap, band, colours)
             if extent:
-                rows.append((n, extent))
+                rows.append((n, extent, widget.get(f"{n}.0", f"{n}.end")))
                 bands.append((band.top, band.bottom))
         # Only between lines that were NEIGHBOURS. Skipping a wrapped one
         # would otherwise leave a gap measured across it.
-        edges = [e for _n, e in rows]
-        gaps = [sa.gap_between(a[1], b[0])
-                for (na, a), (nb, b) in zip(rows, rows[1:]) if nb == na + 1]
+        #
+        # Restated from the BASELINE, the same as every other gap that
+        # ends at text. The scan finds the upper line's lowest INK, and
+        # a line carrying a descender or a parenthesis reaches further
+        # down than one without -- so its gap reads tighter while
+        # sitting at the same pitch. Uncorrected, this reported `7 x2,
+        # 10 x3` on a cell whose rows are evenly spaced, the 3 being
+        # exactly a descender's depth.
+        edges = [e for _n, e, _t in rows]
+        gaps = [sa.gap_between(a[1], b[0]) + ink_below_baseline(text_a)
+                for (na, a, text_a), (nb, b, _tb) in zip(rows, rows[1:])
+                if nb == na + 1]
         if not gaps:
             return None, (f"{len(edges)} unwrapped lines of {count} painted "
                           f"anything inside rows {box.top}-{box.bottom}")

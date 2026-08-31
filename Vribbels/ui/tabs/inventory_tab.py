@@ -935,18 +935,20 @@ class InventoryTab(BaseTab):
         filtered_sorted = sorted(filtered, key=key_func, reverse=self.inv_sort_reverse)
 
         for f in filtered_sorted[:500]:
-            # Translate stat names through DISPLAY_NAMES and add a space
-            # after the colon (matches the Optimizer tab).
+            # Translate stat names through DISPLAY_NAMES. A stat and its
+            # value are separated by a space alone -- the colon that used
+            # to sit between them read as a label in a cell that is
+            # nothing but labels and values (matches the Optimizer tab).
             subs = []
             for s in f.substats[:4]:
                 sub_label = DISPLAY_NAMES.get(s.name, s.name)
-                subs.append(f"{sub_label}: {s.format_value()}")
+                subs.append(f"{sub_label} {s.format_value()}")
             while len(subs) < 4:
                 subs.append("-")
 
             if f.main_stat:
                 main_label = DISPLAY_NAMES.get(f.main_stat.name, f.main_stat.name)
-                main_str = f"{main_label}: {f.main_stat.format_value()}"
+                main_str = f"{main_label} {f.main_stat.format_value()}"
             else:
                 main_str = "-"
             pot = f"{f.potential_low:.0f}-{f.potential_high:.0f}" if f.potential_low != f.potential_high else "-"
