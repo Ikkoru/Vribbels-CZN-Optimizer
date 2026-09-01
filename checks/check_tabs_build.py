@@ -241,6 +241,52 @@ def _character_card_lines_fit():
     return []
 
 
+def _combatant_selection_survives_a_rebuild(tab):
+    """A rebuilt list must come back to the same combatant.
+
+    `refresh_heroes` clears the tree and rebuilds it, and it runs on
+    every live update -- so upgrading one fragment in game would drop
+    the selection to row 0 and swap the detail pane out from under the
+    reader. It also runs on a re-sort, where landing on row 0 loses the
+    combatant being looked at.
+
+    The restore has to be by NAME. An index kept across the rebuild
+    lands on whoever took that row, which looks like it worked in a
+    roster sorted by name and fails the moment the sort changes.
+
+    Skips itself with no roster: the check needs the maintainer's
+    captured data to have two combatants to move between.
+
+    Returns a list of complaints.
+    """
+    tab.refresh_heroes()
+    names = [h["name"] for h in tab.hero_data_list]
+    if len(names) < 2:
+        return []
+
+    out = []
+    target = names[len(names) // 2]
+    tab.select_hero_row(names.index(target))
+
+    tab.refresh_heroes()
+    got = tab.hero_data_list[tab.selected_hero_index]["name"]
+    if got != target:
+        out.append(
+            f"a rebuild moved the selection from {target!r} to {got!r}. "
+            f"`refresh_heroes` has to read the selected NAME before it "
+            f"clears the list and find it again afterwards."
+        )
+
+    tab.sort_heroes("gs")
+    got = tab.hero_data_list[tab.selected_hero_index]["name"]
+    if got != target:
+        out.append(
+            f"re-sorting moved the selection from {target!r} to {got!r}. "
+            f"Restoring by index rather than by name does exactly this."
+        )
+    return out
+
+
 def _capture_log_colours_its_values(tab):
     """The Upgraded line's parts must each keep their own colour.
 
@@ -453,6 +499,9 @@ def run():
             failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
         failures.extend(_all_none_panels_carry_no_left_padding(built))
         failures.extend(_character_card_lines_fit())
+        if "HeroesTab" in built:
+            failures.extend(
+                _combatant_selection_survives_a_rebuild(built["HeroesTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))

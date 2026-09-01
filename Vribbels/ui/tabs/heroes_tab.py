@@ -882,6 +882,15 @@ class HeroesTab(BaseTab):
 
     def refresh_heroes(self):
         """Refresh the heroes list."""
+        # The selection is restored by NAME, not by index. A rebuild runs
+        # on a live update as well as on a re-sort, and both can move a
+        # combatant to a different row -- so an index kept across one
+        # would land on whoever took that row. Read it before the clear,
+        # which is what drops it.
+        previous = (self.hero_data_list[self.selected_hero_index]["name"]
+                    if 0 <= self.selected_hero_index < len(self.hero_data_list)
+                    else None)
+
         # Clear existing rows. One call, where the hand-rolled list had
         # to destroy every label it had made.
         self.hero_tree.delete(*self.hero_tree.get_children())
@@ -1015,7 +1024,13 @@ class HeroesTab(BaseTab):
                                   tags=(tag,))
 
         if self.hero_data_list:
-            self.select_hero_row(0)
+            # Back to whoever was selected, wherever they ended up. Row 0
+            # only when there was no selection, or the combatant is gone
+            # from the roster.
+            index = next((i for i, h in enumerate(self.hero_data_list)
+                          if h["name"] == previous), 0)
+            self.select_hero_row(index)
+            self.hero_tree.see(str(index))
 
         # Freeze the detail-pane frames to their data-driven max sizes now
         # that the roster is known (self-guards on no data).
