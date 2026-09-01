@@ -666,7 +666,7 @@ class Addon:
         )
 
     def _describe_piece(self, piece_data):
-        """Build human-readable piece description like 'Line of Justice Denial (+3)'."""
+        """Build human-readable piece description like 'Line of Justice Denial +3'."""
         res_id = piece_data.get("res_id", 0)
         level = piece_data.get("level", 0)
         res_str = str(res_id)
@@ -675,8 +675,8 @@ class Addon:
             set_id = int(res_str[4:])
             set_name = SET_NAMES.get(set_id, f"Set{set_id}")
             slot_name = SLOT_NAMES.get(slot_num, f"Slot{slot_num}")
-            return f"{set_name} {slot_name} (+{level})"
-        return f"Piece {piece_data.get('id', '?')} (+{level})"
+            return f"{set_name} {slot_name} +{level}"
+        return f"Piece {piece_data.get('id', '?')} +{level}"
 
     def _apply_piece_delta(self, data):
         """Apply a piece delta update to inventory and log the change."""
@@ -1398,11 +1398,11 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
                     if "[LIVE] Upgraded" in line and "[pid=" in line:
                         self.pending_upgrade_lines.put(line)
                     else:
-                        self.log_callback(f"[proxy] {line}", "info")
+                        self.log_callback(line, "info")
                     if self.live_update_callback:
                         self.live_update_callback()
                 else:
-                    self.log_callback(f"[proxy] {line}", None)
+                    self.log_callback(line, None)
 
                 # Auto-reload on any save (initial capture + deltas)
                 if "Saved:" in line and "Memory Fragments" in line:

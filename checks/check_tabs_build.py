@@ -190,6 +190,57 @@ def _percent_fields_are_clamped(tab):
     return failures
 
 
+def _capture_log_colours_its_values(tab):
+    """The Upgraded line's parts must each keep their own colour.
+
+    Tk breaks a tie between two tags covering one range by the order
+    they were CREATED, latest winning. The whole line already carries a
+    tag when it is inserted, so a per-word tag created EARLIER is
+    silently outranked -- the line goes one flat colour and nothing
+    reports it. That is the failure this holds: the value tags are
+    defined after the four line tags, and must stay there.
+
+    It also pins the two shapes apart. A range's floor is dim and its
+    ceiling is judged against `LOG_VALUE_POOR`; a fragment with no
+    upgrades left prints ONE number, which is a ceiling and must not be
+    read as a floor.
+
+    Returns a list of complaints.
+    """
+    log = tab.capture_log
+    line = ("[LIVE] Upgraded Set Slot IV +3. "
+            "Highest Potential: 21-80 Fast, 15-38 Bulk")
+    single = "[LIVE] Upgraded Set Slot I +5. Highest GS: 82 Fast, 31 Bulk"
+    deleted = "[LIVE] Deleted Set Slot VI +0"
+    for msg in (line, single, deleted):
+        tab.capture_log_msg(msg, "info")
+
+    out = []
+
+    def tag_over(row, needle, text):
+        col = text.index(needle)
+        names = log.tag_names(f"{row}.{col}")
+        return names[-1] if names else None
+
+    for row, text, wanted in (
+        (1, line, {"Upgraded": "event_good", "21": "value_floor",
+                   "80": "value_good", "38": "value_poor"}),
+        (2, single, {"Upgraded": "event_good", "82": "value_good",
+                     "31": "value_poor"}),
+        (3, deleted, {"Deleted": "event_bad"}),
+    ):
+        for needle, expected in wanted.items():
+            got = tag_over(row, needle, text)
+            if got != expected:
+                out.append(
+                    f"in {text!r}, {needle!r} is drawn by tag {got!r}, not "
+                    f"{expected!r}. A value tag has to be created AFTER "
+                    f"the line tags in `setup_ui`, or the line's own tag "
+                    f"outranks it and the whole line goes one colour."
+                )
+    return out
+
+
 def _all_none_panels_carry_no_left_padding(built):
     """Why the four All/None panels must keep 0 on their left.
 
@@ -347,6 +398,9 @@ def run():
         if "OptimizerTab" in built:
             failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
         failures.extend(_all_none_panels_carry_no_left_padding(built))
+        if "CaptureTab" in built:
+            failures.extend(
+                _capture_log_colours_its_values(built["CaptureTab"]))
     finally:
         try:
             root.destroy()

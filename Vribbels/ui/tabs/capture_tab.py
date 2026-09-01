@@ -1,5 +1,6 @@
 """Capture tab for intercepting game data."""
 
+import re
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
@@ -33,6 +34,17 @@ REGION_UNKNOWN = "not detected yet"
 REGION_CONFLICT = (
     "two servers at once -- close one game and capture again"
 )
+
+# At or below this, a fragment's ceiling is not worth reading and is
+# drawn in warning yellow rather than green. A JUDGEMENT, not a
+# threshold anything computes: 40 is where the maintainer stops
+# caring, on a 0-100 Gear Score.
+LOG_VALUE_POOR = 40
+
+# One value in a `Highest ...` list: `21-80` or, where the fragment
+# has no upgrades left, `80`. Anchored on the separator that starts
+# every part, so the digits in a preset NAME are never matched.
+LOG_VALUE_RE = re.compile(r"(?:: |, )(\d+)(?:-(\d+))?")
 
 
 class CaptureTab(BaseTab):
@@ -438,6 +450,69 @@ class CaptureTab(BaseTab):
         self.capture_log.tag_configure("warning", foreground=self.colors["yellow"])
         self.capture_log.tag_configure("info", foreground=self.colors["accent"])
 
+        # Tags for parts of a line rather than the whole of one, and
+        # DELIBERATELY not the four above even where the colour is the
+        # same. Tk resolves a conflict between two tags on one range by
+        # the order they were CREATED, latest winning -- so a word tag
+        # sharing a name with a line tag would be outranked wherever the
+        # line's own tag happened to be newer. Created last, these
+        # always win inside their own span.
+        self.capture_log.tag_configure("event_good",
+                                       foreground=self.colors["green"])
+        self.capture_log.tag_configure("event_bad",
+                                       foreground=self.colors["red"])
+        self.capture_log.tag_configure("value_good",
+                                       foreground=self.colors["green"])
+        self.capture_log.tag_configure("value_poor",
+                                       foreground=self.colors["yellow"])
+        self.capture_log.tag_configure("value_floor",
+                                       foreground=self.colors["yellow_dim"])
+
+    def _colour_log_line(self, start: str, msg: str):
+        """Tag the parts of one log line that carry a verdict.
+
+        Which event it was, and how good each number is -- neither of
+        which the line's own tag can say, because a tag covers the whole
+        insert. See `LOG_VALUE_POOR` for where the yellow starts.
+
+        Values are found by the SEPARATOR in front of them rather than
+        by shape: every part of a `Highest ...` list begins with its
+        number, right after `": "` or `", "`, so a digit inside a preset
+        name is never mistaken for one. A preset named with `, 12` in it
+        would still fool this; nothing else would.
+        """
+        t = self.capture_log
+
+        def span(first, last, tag):
+            t.tag_add(tag, f"{start}+{first}c", f"{start}+{last}c")
+
+        for word, tag in (("Upgraded", "event_good"),
+                          ("Deleted", "event_bad")):
+            at = msg.find(word)
+            if at >= 0:
+                span(at, at + len(word), tag)
+
+        head = msg.find("Highest ")
+        if head < 0:
+            return
+        for m in LOG_VALUE_RE.finditer(msg, head):
+            floor, ceiling = m.group(1), m.group(2)
+            if ceiling is None:
+                # One number: the fragment has no upgrades left, so this
+                # IS the ceiling rather than a range's start.
+                span(m.start(1), m.end(1), self._value_tag(floor))
+                continue
+            span(m.start(1), m.end(1), "value_floor")
+            span(m.start(2), m.end(2), self._value_tag(ceiling))
+
+    @staticmethod
+    def _value_tag(value: str) -> str:
+        try:
+            return ("value_poor" if int(value) <= LOG_VALUE_POOR
+                    else "value_good")
+        except ValueError:
+            return "value_good"
+
     def capture_log_msg(self, msg: str, tag: str = None):
         """Add a message to the capture log.
 
@@ -457,7 +532,9 @@ class CaptureTab(BaseTab):
                 # than kill the calling thread.
                 pass
             return
+        start = self.capture_log.index("end-1c")
         self.capture_log.insert(tk.END, f"{msg}\n", tag)
+        self._colour_log_line(start, msg)
         self.capture_log.see(tk.END)
 
     def log_upgrade_msg(self, msg: str, tag: str = None):
@@ -469,7 +546,9 @@ class CaptureTab(BaseTab):
         t = self.capture_log
         t.mark_set("upg_start", "end-1c")
         t.mark_gravity("upg_start", tk.LEFT)
+        start = t.index("end-1c")
         t.insert(tk.END, f"{msg}\n", tag)
+        self._colour_log_line(start, msg)
         t.mark_set("upg_end", "end-1c")
         t.mark_gravity("upg_end", tk.LEFT)
         self._has_upgrade_marks = True
@@ -486,7 +565,9 @@ class CaptureTab(BaseTab):
         try:
             t.mark_gravity("upg_end", tk.RIGHT)
             t.delete("upg_start", "upg_end")
+            start = t.index("upg_start")
             t.insert("upg_start", f"{msg}\n", tag)
+            self._colour_log_line(start, msg)
             t.mark_gravity("upg_end", tk.LEFT)
         except tk.TclError:
             pass

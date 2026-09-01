@@ -112,6 +112,11 @@ COLORS = {
     "fg": "#cdd6f4", "fg_dim": "#6c7086", "accent": "#89b4fa",
     "green": "#a6e3a1", "red": "#f38ba8", "yellow": "#f9e2af",
     "purple": "#cba6f7", "orange": "#FF8C00", "select": "#3b6ea5",
+    # `yellow` darkened at the same hue, for a value that is present but
+    # is not the one to read -- the FLOOR of a potential range, against
+    # the ceiling beside it. A second foreground rather than a second
+    # weight because the Capture Log is one font throughout.
+    "yellow_dim": "#d4a72c",
 }
 
 
@@ -1072,7 +1077,7 @@ class OptimizerGUI:
                 # log_upgrade_msg (not capture_log_msg): records the line's
                 # extent so Log Presets toggles can rewrite it in place.
                 self.capture_tab_instance.log_upgrade_msg(
-                    f"[proxy] {augmented}", "info"
+                    augmented, "info"
                 )
 
     def _selected_log_presets(self) -> dict:
@@ -1186,6 +1191,31 @@ class OptimizerGUI:
         except (TypeError, ValueError):
             return 0
 
+    @staticmethod
+    def _potentials_phrase(scored) -> str:
+        """`Highest Potential: 21-80 Name, ...`, or the singular form.
+
+        A fragment with no upgrades left scores the same at both ends of
+        its range, so a `21-21` would be reporting a range that cannot
+        move. The phrase says `Highest GS` and prints one number instead.
+
+        The test is the RANGE, not the level: the cap is per rarity --
+        Legendary 5, Epic 4, Rare 3 -- so a level would need the rarity
+        beside it to mean anything, where a collapsed range is the same
+        fact already computed.
+
+        The preset name carries no brackets. It is the only text in the
+        part, so nothing needed separating from anything.
+        """
+        singular = all(low == high for low, high, _ in scored)
+        parts = []
+        for low, high, name in scored:
+            value = (f"{high:.0f}" if singular
+                     else f"{low:.0f}-{high:.0f}")
+            parts.append(f"{value} {name}".rstrip())
+        label = "Highest GS" if singular else "Highest Potential"
+        return f"{label}: " + ", ".join(parts)
+
     def _upgrade_potentials_suffix(self, fragment) -> str:
         """The ". Highest Potential: ..." suffix for an Upgraded log line:
         top 5 presets by max high across the SELECTED assigned presets
@@ -1212,7 +1242,7 @@ class OptimizerGUI:
             weights = {}
             bounds = compute_gs_bounds(weights, exclude_stat=main_name)
             low, high = compute_fragment_potential(fragment, weights, bounds)
-            return f". Highest Potential: {low:.0f}-{high:.0f}"
+            return ". " + self._potentials_phrase([(low, high, "")])
 
         selected = self._selected_log_presets()
         if not selected:
@@ -1237,9 +1267,7 @@ class OptimizerGUI:
         # Sort by high desc -- ties broken by low desc (a tighter high-end
         # with a higher floor is preferable when ceilings tie). Top 5.
         scored.sort(key=lambda t: (-t[1], -t[0]))
-        parts = [f"{low:.0f}-{high:.0f} [{name}]"
-                 for (low, high, name) in scored[:5]]
-        return ". Highest Potential: " + ", ".join(parts)
+        return ". " + self._potentials_phrase(scored[:5])
 
     def recompute_last_upgrade_line(self):
         """Re-render the LAST "[LIVE] Upgraded" capture-log line against
@@ -1253,7 +1281,7 @@ class OptimizerGUI:
             return
         if not hasattr(self, "capture_tab_instance"):
             return
-        text = f"[proxy] {base}{self._upgrade_potentials_suffix(fragment)}"
+        text = f"{base}{self._upgrade_potentials_suffix(fragment)}"
         self.capture_tab_instance.rewrite_last_upgrade_line(text, "info")
 
     def _augment_upgrade_log(self, line: str) -> str:
