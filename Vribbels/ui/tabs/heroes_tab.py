@@ -72,8 +72,9 @@ from game_data import (
     EQUIPMENT_SLOTS, SETS, STATS, RARITY_COLORS, RARITY_BG_COLORS,
     RARITY_STARTING_SUBSTATS, ATTRIBUTE_COLORS,
     get_character_by_name, get_partner, get_partner_stats,
-    get_partner_passive_info
+    get_partner_passive_info, get_potential_stat, get_potential_stat_bonus
 )
+from game_data.constants import DISPLAY_NAMES
 from models import Stat
 from models.memory_fragment import compute_gs_bounds, normalize_gs
 
@@ -1144,16 +1145,31 @@ class HeroesTab(BaseTab):
         # node is levelled, so the block does not change height between
         # combatants.
         #
-        # The bracket holds the node's DESCRIPTOR -- what the node does,
-        # the way the game names it. Nodes 5 and 6 raise a stat that
-        # differs per character, so `(?)` stands in until the descriptors
-        # for the other eight nodes are stored and every line can carry
-        # its own. See docs/game_formulas.md "The potential tree".
+        # The bracket holds what the node RAISES: the stat always, and
+        # the bonus once the node is levelled. The stat is a property of
+        # the character and is known before the node is taken, so an
+        # unlevelled node still names it -- `(?)` is only for a combatant
+        # this build has no entry for. See docs/game_formulas.md "The
+        # potential tree".
+        #
+        # The node NUMBERS the game shows are 5 and 6; the data keys them
+        # 50 and 60, which is what the lookups take.
         potential_lines = []
-        for node, level in ((5, char_info.potential_50_level),
-                            (6, char_info.potential_60_level)):
+        for node, level in ((50, char_info.potential_50_level),
+                            (60, char_info.potential_60_level)):
+            stat, bonus = get_potential_stat_bonus(
+                char_info.res_id, node, level)
+            if stat is None:
+                stat = get_potential_stat(char_info.res_id, node)
+                bonus = None
+            if stat is None:
+                what = "?"
+            else:
+                what = DISPLAY_NAMES.get(stat, stat)
+                if bonus:
+                    what = f"{what} +{bonus:g}%"
             potential_lines.append(
-                f"{CHAR_SUBLIST_INDENT}Node {node}: Lv{level} (?)")
+                f"{CHAR_SUBLIST_INDENT}Node {node // 10}: Lv{level} ({what})")
         potential_lines = potential_lines[:CHAR_POTENTIAL_LINES]
         potential_lines += [""] * (CHAR_POTENTIAL_LINES - len(potential_lines))
         potential_str = "\n".join(potential_lines)

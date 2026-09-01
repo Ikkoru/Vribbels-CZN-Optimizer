@@ -619,6 +619,28 @@ ATTRIBUTE_COLORS = {
 }
 
 
+def get_potential_stat(res_id: int, node: int) -> str | None:
+    """The stat a potential node raises, whatever its level.
+
+    `get_potential_stat_bonus` answers with a VALUE and so needs a level;
+    an unlevelled node has no bonus and it returns nothing. Which stat
+    the node would raise is a property of the character, known before
+    the node is taken, and this is what reports it.
+
+    Args:
+        res_id: Character's res_id
+        node: Node number (50 or 60)
+
+    Returns:
+        The stat name, or None where the character or the node is
+        unknown to this build.
+    """
+    char_data = CHARACTERS.get(res_id)
+    if not isinstance(char_data, dict):
+        return None
+    return char_data.get(f"node_{node}") or None
+
+
 def get_potential_stat_bonus(res_id: int, node: int, level: int) -> tuple[str, float]:
     """
     Get the stat type and bonus value for a potential node at a given level.

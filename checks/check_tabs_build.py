@@ -190,6 +190,57 @@ def _percent_fields_are_clamped(tab):
     return failures
 
 
+def _character_card_lines_fit():
+    """The Character card is a FIXED width, and a long line clips.
+
+    Its panel is sized to `CHAR_CONTENT_PX` and the Text inside carries
+    `wrap=tk.NONE`, so a line that outgrows that width is cut off mid
+    word with nothing reporting it -- no exception, no reflow, just a
+    combatant whose potential node reads `Node 5: Lv3 (CDMG` and stops.
+
+    The line most likely to do it is the potential node's, because its
+    bracket comes from the game data: a stat with a longer display name,
+    or a bonus that reaches three digits, lengthens it without anything
+    in this file changing.
+
+    Returns a list of complaints.
+    """
+    from tkinter import font as tkfont
+    from game_data.characters import (
+        CHARACTERS, get_potential_stat, get_potential_stat_bonus)
+    from game_data.constants import DISPLAY_NAMES
+    from ui.tabs.heroes_tab import CHAR_CONTENT_PX, CHAR_SUBLIST_INDENT
+
+    measure = tkfont.nametofont("TkDefaultFont").measure
+    worst, worst_px = "", 0
+    for res_id, data in CHARACTERS.items():
+        if not isinstance(data, dict):
+            continue
+        for node in (50, 60):
+            for level in range(0, 6):
+                stat, bonus = get_potential_stat_bonus(res_id, node, level)
+                if stat is None:
+                    stat, bonus = get_potential_stat(res_id, node), None
+                if stat is None:
+                    continue
+                what = DISPLAY_NAMES.get(stat, stat)
+                if bonus:
+                    what = f"{what} +{bonus:g}%"
+                line = (f"{CHAR_SUBLIST_INDENT}Node {node // 10}: "
+                        f"Lv{level} ({what})")
+                if measure(line) > worst_px:
+                    worst, worst_px = line, measure(line)
+
+    if worst_px > CHAR_CONTENT_PX:
+        return [
+            f"the Character card's widest potential line is {worst_px}px "
+            f"({worst!r}) against CHAR_CONTENT_PX = {CHAR_CONTENT_PX}. The "
+            f"panel is a fixed width and the Text does not wrap, so this "
+            f"clips silently. Raise CHAR_CONTENT_PX or shorten the bracket."
+        ]
+    return []
+
+
 def _capture_log_colours_its_values(tab):
     """The Upgraded line's parts must each keep their own colour.
 
@@ -401,6 +452,7 @@ def run():
         if "OptimizerTab" in built:
             failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
         failures.extend(_all_none_panels_carry_no_left_padding(built))
+        failures.extend(_character_card_lines_fit())
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))
