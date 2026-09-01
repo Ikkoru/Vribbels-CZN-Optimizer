@@ -1527,7 +1527,7 @@ class OptimizerTab(BaseTab):
             "score": 49, "sets": 350,
             "atk": 32, "hp": 34, "def": 34,
             "crate": 37, "cdmg": 51, "element": 42, "extra": 41,
-            "dot": 38, "ego": 25,
+            "dot": 38, "ego": 26,
         }
         headings = {
             "score": "Score", "sets": "Sets",

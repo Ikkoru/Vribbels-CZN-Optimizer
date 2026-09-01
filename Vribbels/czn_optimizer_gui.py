@@ -525,7 +525,7 @@ class OptimizerGUI:
         self.style.configure("Treeview", background=self.colors["bg_light"],
                              foreground=self.colors["fg"],
                              fieldbackground=self.colors["bg_light"],
-                             padding=(3, 3, 3, 0), rowheight=21)
+                             padding=(2, 0, 2, 0), rowheight=21)
         # No outline. The border's WIDTH is not a style option -- clam's
         # `Treeview.field` exposes only colours -- so the only way to drop
         # it is a layout with no field element, the same trick
