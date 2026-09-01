@@ -1,4 +1,4 @@
-# paused_task.md — what the spacing work has left
+# UI unionization — what the spacing work has left
 
 Scratch file. Everything here either points at where a fact lives or
 gives the command that re-derives it. The finished parts are not

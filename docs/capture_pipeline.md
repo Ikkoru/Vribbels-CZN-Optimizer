@@ -10,12 +10,15 @@ template embedded in `capture/manager.py` parses it and maintains
 `snapshots/memory_fragments_*.json` → the optimizer reads that and
 builds `character_info` → the tabs render from it.
 
-**One payload writes the snapshot at most once.** A login reply carries
-the roster, the inventory and the banner schedule together, and
-`_handle_server_payload` reads each with its own branch -- so a branch
-sets a flag and the save happens once at the end of the handler. It
-writes the whole cache whenever it runs, so a second call in one payload
-adds nothing but a duplicate `Saved:` line.
+**One FRAME writes the snapshot at most once, and the frame is the
+unit rather than the payload.** The client batches its commands
+whenever it has several to send and the server answers in kind, so a
+frame carries a LIST of replies -- and loading into the game sends
+the roster, the inventory and the banner schedule that way. Every
+branch that changes cached data sets `_save_pending`; the single save
+runs after the payload loop in `websocket_message`. `_save_data`
+writes the whole cache whenever it runs, so a second call in one
+frame adds nothing but a duplicate `Saved:` line.
 
 **`capture/manager.py` is the ONLY file in the repo with a strict ASCII
 requirement**: the addon is written out as a generated script, and a

@@ -108,6 +108,15 @@ class Addon:
 
         self.saved_path = None
 
+        # Set by anything that changes the cached data, cleared by
+        # the one save at the end of the frame. **A frame is the
+        # unit, not a payload**: the client batches its commands and
+        # the server answers in kind, so a login reply arrives as
+        # several payloads -- the roster, the inventory, the banner
+        # schedule -- and saving per payload writes the same file
+        # three times and announces it three times.
+        self._save_pending = False
+
         # Account identity of this capture session, from the first
         # `user` record seen. A second, different one means a second
         # game is running: two accounts' data would be merged into one
@@ -326,6 +335,10 @@ class Addon:
             for payload in payloads:
                 self._handle_server_payload(payload, len(content))
 
+            if self._save_pending:
+                self._save_pending = False
+                self._save_data()
+
         except Exception as e:
             self.log_callback(f"Error: {e}")
 
@@ -440,14 +453,6 @@ class Addon:
         # in item_result -- no piece info -- so we identify which
         # pieces were destroyed by matching the response qid to the
         # request we tracked earlier.
-        # ONE payload, ONE save. A login reply carries the roster,
-        # the inventory and the banner schedule at once, and each
-        # branch below used to write the file itself -- so the same
-        # snapshot was written three times and reported three times.
-        # `_save_data` writes the whole cache whenever it runs, so
-        # collapsing them loses nothing but the duplicates.
-        save_needed = False
-
         qid = data.get("qid")
         if (qid is not None and qid in self.pending_disassembles
                 and self.inventory_data
@@ -499,7 +504,7 @@ class Addon:
                     if not self.inventory_data:
                         self.inventory_data = {}
                     self.inventory_data["info_item_piece"] = piece_info
-                    save_needed = True
+                    self._save_pending = True
 
             # Check for character data in new format
             if isinstance(info, dict) and "character" in info:
@@ -507,12 +512,12 @@ class Addon:
                 if not self.character_data:
                     self.character_data = {}
                 self.character_data["info_character"] = char_info
-                save_needed = True
+                self._save_pending = True
 
         # Capture inventory data (Memory Fragments)
         if "piece_items" in data:
             self.inventory_data = data
-            save_needed = True
+            self._save_pending = True
 
         # Capture character data.
         #
@@ -536,7 +541,7 @@ class Addon:
 
         if has_characters:
             self._merge_character_data(data)
-            save_needed = True
+            self._save_pending = True
         elif has_user:
             # A user-record update with no roster attached: patch the
             # cached payload rather than replacing it, or the roster
@@ -545,7 +550,7 @@ class Addon:
                 self.character_data["user"] = data["user"]
             else:
                 self.character_data = data
-            save_needed = True
+            self._save_pending = True
 
         # The lobby reply carries the schedule of every gacha banner,
         # past and upcoming. It arrives batched, alongside no roster and
@@ -555,10 +560,8 @@ class Addon:
         if isinstance(schedules, dict) and isinstance(schedules.get("GACHA"), dict):
             self.gacha_banners = schedules["GACHA"]
             self._report_unknown_units()
-            save_needed = True
+            self._save_pending = True
 
-        if save_needed:
-            self._save_data()
 
     def _report_unknown_units(self):
         """Log any banner naming a res_id this build has no entry for.
@@ -705,7 +708,7 @@ class Addon:
             else:
                 piece_items.append(equipped_piece)
 
-        self._save_data()
+        self._save_pending = True
 
         # Build log message
         desc = self._describe_piece(new_piece)
@@ -756,7 +759,7 @@ class Addon:
         if not added:
             return
 
-        self._save_data()
+        self._save_pending = True
 
         if len(added) == 1:
             desc = self._describe_piece(added[0])
@@ -799,7 +802,7 @@ class Addon:
         if updated_count == 0:
             return
 
-        self._save_data()
+        self._save_pending = True
 
         char_name = CHAR_NAMES.get(char_res_id, f"Character {char_res_id}")
         if updated_count == 1:
@@ -887,7 +890,7 @@ class Addon:
         self.inventory_data["piece_items"] = [
             p for p in piece_items if p.get("id") not in target
         ]
-        self._save_data()
+        self._save_pending = True
 
         if len(removed) == 1:
             desc = self._describe_piece(removed[0])

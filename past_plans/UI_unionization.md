@@ -1,4 +1,4 @@
-# plan.md — Spacing: make it verifiable instead of remembered
+# UI unionization — spacing, made verifiable instead of remembered
 
 ## Why
 

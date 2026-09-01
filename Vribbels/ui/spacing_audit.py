@@ -1193,7 +1193,7 @@ def _print_table(rows, out, verbose=False):
     `manual note` is left empty on purpose. It is the column a hand
     reading goes in when the tool and the eye disagree, which is the
     only way to tell a wrong measurement from a wrong target -- see
-    plan.md 3.0.
+    `TrackedGap.hand`.
     """
     on_target = sum(1 for _n, t, v, *_ in rows
                     if v is not None and v == t)
