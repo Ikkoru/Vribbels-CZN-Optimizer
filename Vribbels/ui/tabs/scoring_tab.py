@@ -401,8 +401,11 @@ STAT MIN - MAX ROLLS:
             # that padding is what puts these labels on target and this
             # side must stay 0. Column 1's leading pad and column 0's
             # trailing pad sum to the gap between the two weight columns.
+            # The pady is ASYMMETRIC for the same reason the HAL
+            # grid's is: a row pair sums both pads, so an odd pitch
+            # has to come off one side.
             cell.grid(row=row, column=col, sticky=tk.W,
-                      padx=(2 if col == 1 else 0, 2), pady=1)
+                      padx=(2 if col == 1 else 0, 2), pady=(1, 2))
 
             # Label uses the canonical DISPLAY_NAMES override (falling
             # back to display_name); trailing colon dropped.

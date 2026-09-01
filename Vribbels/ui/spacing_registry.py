@@ -389,10 +389,6 @@ TEXT_PANEL_EDGES = [
 TEXT_PANEL_EDGE_EXCEPTIONS = {
     ("Capture Log", "top"): 5,
     ("Setup Instructions", "top"): 5,
-    # PREDICTED, not read. This panel's first line carries a
-    # parenthesis, which rises higher than the ascenders the other two
-    # stop at, so the change from ink to capitals may move it further
-    # than their one pixel.
     ("How Gear Score Works", "top"): 5,
 }
 
@@ -2020,36 +2016,59 @@ def _row_gaps(cap, frame, classes):
             for i in range(len(rows) - 1)]
 
 
-def _first_letter_band(cap, widget):
-    """The (left, right) columns the widget's first LETTER occupies.
+def _label_capital_box(cap, widget):
+    """The box of a Label's first CAPITAL, or None if it has none.
 
     The rules measure to the CAPITALS above and the BASELINE below, and
-    a row whose text opens on something else does not offer either. The
-    Setup Status rows read `[OK] Python 3.13` once they have checked:
-    a bracket rises above the cap and drops below the baseline, so a
-    scan over the whole row reports a pitch two overshoots short and
-    changes the moment the panel leaves its `Checking ...` state.
+    a string opening on anything else offers neither. `[OK] Python 3.13`
+    opens on a bracket that rises above the cap AND drops below the
+    baseline, so a scan of the whole row reads two overshoots short --
+    and reads differently again once the panel leaves its `Checking ...`
+    state. `No data loaded` has no bracket and a descender instead.
 
-    Narrowing the scan to one capital is what makes the reading the
-    rule's own reference at BOTH ends, with no glyph correction to model
-    -- the correction tables exist for strings that cannot be narrowed
-    down to a letter.
+    Narrowing the scan to one capital puts both ends of a reading on the
+    rule's own reference with nothing to model. The correction tables
+    are for strings that cannot be narrowed down to a letter.
 
-    The text origin is taken from the row's own leftmost ink rather than
+    The text origin comes from the row's own leftmost ink rather than
     from the style's inset, so nothing here has a Label's internals
     written into it.
     """
     text = str(widget.cget("text"))
-    index = next((i for i, c in enumerate(text) if c.isalpha()), None)
-    if index is None:
+    font = tkfont.Font(font=widget.cget("font") or "TkDefaultFont")
+    span = _capital_span(text, font)
+    if span is None:
         return None
-    extent = sa.painted_extent_h(cap, sa.box_of(widget))
+    box = sa.box_of(widget)
+    extent = sa.painted_extent_h(cap, box)
     if not extent:
         return None
-    font = tkfont.Font(font=widget.cget("font") or "TkDefaultFont")
     origin = extent[0]
-    return (origin + font.measure(text[:index]),
-            origin + font.measure(text[:index + 1]) - 1)
+    return sa.Box(left=origin + span[0], top=box.top,
+                  right=origin + span[1] - 1, bottom=box.bottom)
+
+
+def _gap_below_capitals(above, below):
+    """Resolver: a text row's BASELINE down to what sits under it.
+
+    `_gap` reads the ink, which for text is the descender -- three
+    pixels of overshoot into the gap, and only on the strings that
+    happen to have one. Reading the first capital instead gives the
+    baseline directly, whatever the row says at the time.
+    """
+    def resolve(cap, app):
+        top, bottom = above(app), below(app)
+        band = _label_capital_box(cap, top)
+        if band is None:
+            return None, "no capital in the row above to measure from"
+        extent = sa.painted_extent_v(cap, band)
+        if not extent:
+            return None, "the capital painted nothing"
+        under = sa.painted_extent_v(cap, sa.box_of(bottom))
+        if not under:
+            return None, "nothing painted in the row below"
+        return sa.gap_between(extent[1], under[0]), ""
+    return resolve
 
 
 def _capital_row_pitch(title, classes):
@@ -2063,13 +2082,10 @@ def _capital_row_pitch(title, classes):
         frame = _panel(app, title)
         bands = []
         for widget in sa.find_descendants_class(frame, *classes):
-            band = _first_letter_band(cap, widget)
+            band = _label_capital_box(cap, widget)
             if band is None:
                 continue
-            box = sa.box_of(widget)
-            strip = sa.Box(left=band[0], top=box.top,
-                           right=band[1], bottom=box.bottom)
-            extent = sa.painted_extent_v(cap, strip)
+            extent = sa.painted_extent_v(cap, band)
             if extent:
                 bands.append(extent)
         if len(bands) < 2:
@@ -2510,12 +2526,12 @@ ROW_PITCH_ENTRIES = [
     ("Optimizer", "Set Configuration", RULE_CHECKBOX_PITCH,
      CHECKBOX_CLASSES, 6),
     ("Gear Score", "Stat Weight Configuration", RULE_SPINBOX_PITCH,
-     SPINBOX_CLASSES, 2),
+     SPINBOX_CLASSES, 3),
     # The other spinbox grid. Its rows are packed where Gear Score's are
     # gridded, which is the reason to read both rather than assume one
     # stands for the other.
     ("Optimizer", "Have at least this much of a stat", RULE_SPINBOX_PITCH,
-     SPINBOX_CLASSES, 2),
+     SPINBOX_CLASSES, 3),
     # Important Settings' slider rows sit at 7, not the 12 their markers
     # claimed: adjacent slider rows are `checkbox/slider ↕ rows` like any
     # other non-tall pair, and the 12 belongs to the gaps that cross a
@@ -2564,9 +2580,10 @@ UNIQUE_ENTRIES = [
     # and looks unequal glyph-to-glyph -- which is why the two gaps have
     # separate numbers rather than one pitch.
     ("Optimizer", "status label -> level row",
-     UNIQUE_STATUS_LABEL_SPINBOX, 3,
-     _gap(_sibling_before(_group_of("Ignore MFs below level:")),
-          _group_of("Ignore MFs below level:"), "v")),
+     UNIQUE_STATUS_LABEL_SPINBOX, 6,
+     _gap_below_capitals(
+         _sibling_before(_group_of("Ignore MFs below level:")),
+         _group_of("Ignore MFs below level:"))),
     ("Optimizer", "level row -> off-Element row",
      UNIQUE_STATUS_SPINBOX_CHECKBOX, 2,
      _gap(_group_of("Ignore MFs below level:"),
@@ -2985,17 +3002,11 @@ ELEMENT_ENTRIES = [
 # this set is for the ones the tables above generate, whose tuples have
 # no room for it.
 AWAITING_FIRST_READING = {
-    # What the last run could not settle, and nothing else. Every other
-    # name that sat here has been read off the screen by hand and agreed
-    # with the tool -- keeping them would make the yellow mean "recent"
-    # rather than "unconfirmed", which is the one thing it is for.
-    #
-    # The three below all changed under the maintainer between the
-    # reading and now: two were retargeted to what they render, and one
-    # is read by a different scan than the number it used to carry.
-    "status label -> level row",
-    "level row -> off-Element row",
-    "Setup Status: row pitch",
+    # EMPTY, and that is the state to keep it in. A name goes in here
+    # when an entry is registered at a target the rules table supplies
+    # rather than at a distance somebody has read off the screen, and
+    # comes out again the moment a run confirms it -- so a row printing
+    # yellow is a question, never a regression.
 }
 
 
@@ -3431,7 +3442,7 @@ def register_all():
                 _first_filled_text("Equipped Memory Fragments"), _side,
                 _line),
             axis=_axis,
-            provisional=True,
+            provisional=False,
         )
 
     for tab, title in ALL_NONE_PANELS:

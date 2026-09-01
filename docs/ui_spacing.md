@@ -97,7 +97,7 @@ deriving something, and the refusal names the reason.
 | Between two adjacent buttons                          | 4px                                         | `button -> button`                              |
 | Border edge → internal button                         | 3px, on every edge a button meets           | `border edge -> button`                         |
 | Checkbox block above → its All/None button row below  | 5px                                         | `checkbox block -> All/None row`                |
-| Between spinbox rows                                  | 2px                                         | `spinbox row -> spinbox row`                    |
+| Between spinbox rows                                  | 3px                                         | `spinbox row -> spinbox row`                    |
 | Between non-tall rows (checkboxes, sliders)           | 6px                                         | `checkbox/slider ↕ checkbox/slider rows`        |
 | Between text-only label rows                          | 10px                                        | `label row -> label row`                        |
 | Small division between specific checkbox rows         | 12px                                        | `checkbox row -> checkbox row (small division)` |
@@ -900,17 +900,18 @@ was fails the check rather than sitting unwatched.
 
 | What                                                | Where                                      | Distance | Why not tracked |
 | --------------------------------------------------- | ------------------------------------------ | -------- | --------------- |
-| `between mixed element rows (label -> spinbox)`     | Optimizer toolbar, status cluster           | 3px      | |
+| `between mixed element rows (label -> spinbox)`     | Optimizer toolbar, status cluster           | 6px      | |
 | `between mixed element rows (spinbox -> checkbox)`  | Optimizer toolbar, status cluster           | 2px      | |
 | `Setup Status stands apart on purpose`              | Setup, the four status rows                 | 13px     | |
 | `a button's own internal inset`                     | `TButton` padding, every button in the app  | —        | a widget's own inset, and it sets that widget's SIZE — the widths in `ui/utils/button_width.py` are only true against it. Every `button -> button` and `border edge -> button` reading rides it |
 | `Treeview internals, which are style options`       | every list                                  | —        | style options on a widget that draws its own insides, and no geometry manager reaches between them. See "Spacing inside a Treeview" |
 
-**The first pair is read painted-edge to painted-edge and the eye reads
-one of them differently.** The status text down to the spinbox's top
-BORDER is 3; the same gap text-to-text is 6, because a spinbox seats its
-own digits 3px inside its border. The second pair has a border at both
-ends, so the two readings agree.
+**The first pair is read from the status text's BASELINE**, taken off
+its first capital rather than off its ink -- `No data loaded` has no
+descender and the strings that replace it do, which would move the
+reading by three without anything on screen moving at all. Text to
+text the same gap is 11, the spinbox seating its own digits inside its
+border. The second pair has a border at both ends and no such split.
 
 **The Setup Status pitch is read on the first CAPITAL of each row**, not
 on the row's whole painted extent. Those rows read `[OK] Python 3.13`

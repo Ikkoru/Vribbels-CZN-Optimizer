@@ -595,10 +595,10 @@ class OptimizerTab(BaseTab):
         self.status_label.pack(side=tk.TOP, anchor=tk.E)
         minlvl_row = ttk.Frame(status_cluster)
         # spacing: unique -- between mixed element rows (label -> spinbox) -- label, spinbox ↕
-        # Target 3px, and the number is the PAINTED gap: the status
-        # text's ink down to the spinbox's top BORDER. Read text to
-        # text it is 6, the spinbox seating its own digits 3px inside
-        # its border -- same rendering, two references. The rows are
+        # Target 6px, from the status text's BASELINE down to the
+        # spinbox's top border. Read text to text it is 11, the
+        # spinbox seating its own digits inside its border -- same
+        # rendering, two references. The rows are
         # different heights whatever this says -- a text row, a spinbox
         # row and a checkbox row seat their content at different insets --
         # so this pair and the pair below carry separate numbers.
@@ -1199,7 +1199,10 @@ class OptimizerTab(BaseTab):
                        spin_width=4):
         row = ttk.Frame(parent)
         # spacing: spinbox row -> spinbox row -- spinbox, spinbox ↕
-        row.pack(fill=tk.X, pady=1)
+        # ASYMMETRIC, because a row pair sums BOTH pads: 1 a side
+        # renders 2 and 2 a side would render 4, so the odd pixel
+        # goes on one side alone.
+        row.pack(fill=tk.X, pady=(1, 2))
         # Internal stat key translated to its user-facing label; fixed
         # per-column width so spinboxes align; anchor=tk.W keeps the label
         # text left-justified within that width. No trailing colon.
