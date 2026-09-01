@@ -153,4 +153,35 @@ def run():
             f"first element measure 0 from the tab list."
         )
 
+    # A resolver measuring inside a widget passes that widget's OWN fill
+    # as the background, and the argument is a collection of shades -- so
+    # a bare (r, g, b) is read as three ints. It matches nothing, blends
+    # nothing, and reaches the lightness test holding an int, which
+    # surfaced as "'int' object is not iterable" three frames from
+    # anything that named a colour. It has to fail where the colour is
+    # passed, not where it is unpacked.
+    #
+    # It raises either way -- `zip` over an int does that by itself. What
+    # is checked is that the message NAMES the mistake, because the one
+    # Python produces on its own says "'int' object is not iterable" and
+    # points at a pixel loop.
+    cap = sa.Capture(OnePixel(bg), (0, 0), [bg], palette)
+    try:
+        cap.is_background(0, 0, bg)
+    except TypeError as e:
+        if "is_background" not in str(e):
+            failures.append(
+                f"a bare (r, g, b) background raises {e!r}, which does not "
+                f"say what was passed or what to pass instead. This lands "
+                f"as a one-line 'error:' beside a gap in the audit's "
+                f"table, with no traceback to read."
+            )
+    else:
+        failures.append(
+            "is_background accepted a bare (r, g, b) as its background "
+            "and answered anyway. A single colour where a collection is "
+            "wanted has to raise at the call, or the failure lands deep "
+            "in a scan with no colour in the traceback."
+        )
+
     return failures

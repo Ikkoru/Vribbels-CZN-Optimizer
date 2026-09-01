@@ -321,6 +321,15 @@ TEXT_PANEL_EDGES = [
     ("Gear Score", "How Gear Score Works", "top"),
 ]
 
+# A text panel whose top inset the rule cannot reach. `pady` on a
+# tk.Text clamps at 0 and its LabelFrame carries none, so what is
+# above the first glyph is whatever the face's line box gives -- and
+# this one is set in a size chosen for reading, not for the pixel.
+# Tracked at what it renders so a drift still shows.
+TEXT_PANEL_EDGE_EXCEPTIONS = {
+    ("How Gear Score Works", "top"): 5,
+}
+
 
 def _panel(app, title):
     frame = sa.find_labelframe(sa.current_tab_widget(app), title)
@@ -1945,6 +1954,68 @@ def _row_gaps(cap, frame, classes):
             for i in range(len(rows) - 1)]
 
 
+def _first_letter_band(cap, widget):
+    """The (left, right) columns the widget's first LETTER occupies.
+
+    The rules measure to the CAPITALS above and the BASELINE below, and
+    a row whose text opens on something else does not offer either. The
+    Setup Status rows read `[OK] Python 3.13` once they have checked:
+    a bracket rises above the cap and drops below the baseline, so a
+    scan over the whole row reports a pitch two overshoots short and
+    changes the moment the panel leaves its `Checking ...` state.
+
+    Narrowing the scan to one capital is what makes the reading the
+    rule's own reference at BOTH ends, with no glyph correction to model
+    -- the correction tables exist for strings that cannot be narrowed
+    down to a letter.
+
+    The text origin is taken from the row's own leftmost ink rather than
+    from the style's inset, so nothing here has a Label's internals
+    written into it.
+    """
+    text = str(widget.cget("text"))
+    index = next((i for i, c in enumerate(text) if c.isalpha()), None)
+    if index is None:
+        return None
+    extent = sa.painted_extent_h(cap, sa.box_of(widget))
+    if not extent:
+        return None
+    font = tkfont.Font(font=widget.cget("font") or "TkDefaultFont")
+    origin = extent[0]
+    return (origin + font.measure(text[:index]),
+            origin + font.measure(text[:index + 1]) - 1)
+
+
+def _capital_row_pitch(title, classes):
+    """Resolver: a text panel's row pitch, read on the first capital.
+
+    Same shape as `_row_pitch` and a different scan: that one takes each
+    row's whole painted extent, which is right where a row's top and
+    bottom are a control's edges and wrong where they are glyphs.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, title)
+        bands = []
+        for widget in sa.find_descendants_class(frame, *classes):
+            band = _first_letter_band(cap, widget)
+            if band is None:
+                continue
+            box = sa.box_of(widget)
+            strip = sa.Box(left=band[0], top=box.top,
+                           right=band[1], bottom=box.bottom)
+            extent = sa.painted_extent_v(cap, strip)
+            if extent:
+                bands.append(extent)
+        if len(bands) < 2:
+            return None, "fewer than two rows with a letter in them"
+        bands.sort()
+        gaps = [sa.gap_between(bands[i][1], bands[i + 1][0])
+                for i in range(len(bands) - 1)]
+        note = "" if len(set(gaps)) == 1 else f"gaps {_tally(gaps)}"
+        return min(gaps), note
+    return resolve
+
+
 def _tally(gaps):
     """`0 x4, 1 x2` -- every distinct gap and how many pairs sit at it."""
     return ", ".join(f"{g} x{gaps.count(g)}"
@@ -2021,7 +2092,11 @@ def _text_widget_inset(locator, side):
         widget = locator(app)
         if widget is None:
             return None, "no filled cell there"
-        fill = _widget_fill(widget)
+        # A SET, not the colour: `Capture.is_background` takes a
+        # COLLECTION of background shades and iterates it, so a bare
+        # (r, g, b) is read as three separate colours and the
+        # lightness test is handed an int.
+        fill = {_widget_fill(widget)}
         box = sa.box_of(widget)
         inner = _inside_border(widget)
         # `_inside_border` already steps past `padx`, which is the very
@@ -2120,7 +2195,7 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
             return None, "no text widget there"
         origin = sa.box_of(widget).top
         box = _inside_border(widget)
-        fill = _widget_fill(widget)
+        fill = {_widget_fill(widget)}
         readings = []
         for needle in needles:
             where = widget.search(needle, "1.0", tk.END)
@@ -2408,18 +2483,18 @@ UNIQUE_ENTRIES = [
     # and looks unequal glyph-to-glyph -- which is why the two gaps have
     # separate numbers rather than one pitch.
     ("Optimizer", "status label -> level row",
-     UNIQUE_STATUS_LABEL_SPINBOX, 6,
+     UNIQUE_STATUS_LABEL_SPINBOX, 3,
      _gap(_sibling_before(_group_of("Ignore MFs below level:")),
           _group_of("Ignore MFs below level:"), "v")),
     ("Optimizer", "level row -> off-Element row",
-     UNIQUE_STATUS_SPINBOX_CHECKBOX, 4,
+     UNIQUE_STATUS_SPINBOX_CHECKBOX, 2,
      _gap(_group_of("Ignore MFs below level:"),
           _group_of("Ignore off-Element MFs"), "v")),
     # Setup Status is built to its own numbers on purpose, and its rows
     # sit at a pitch nothing else in the app uses. Tracked so the pitch
     # is held rather than merely intended.
-    ("Setup", "Setup Status: row pitch", UNIQUE_SETUP_STATUS, 11,
-     _row_pitch("Setup Status", LABEL_CLASSES)),
+    ("Setup", "Setup Status: row pitch", UNIQUE_SETUP_STATUS, 13,
+     _capital_row_pitch("Setup Status", LABEL_CLASSES)),
 ]
 
 
@@ -2829,22 +2904,14 @@ ELEMENT_ENTRIES = [
 # this set is for the ones the tables above generate, whose tuples have
 # no room for it.
 AWAITING_FIRST_READING = {
-    "Have at least this much of a stat: row pitch",
-    "Important Settings: row pitch",
-    "Restore Defaults: row pitch",
-    "Main Stats: row pitch",
-    "Exclude Combatant's MFs: row pitch",
-    "Important Settings -> Have at least",
-    "Character -> Partner",
-    "How Gear Score Works -> Stat Weight Configuration",
-    "Requirements -> Upgrade Log Settings",
-    "damage caption -> its sliders",
-    "DEF caption -> its slider",
-    "Shielding caption -> its slider",
-    "Slots checkboxes",
-    "Avg Card DMG% -> its spinbox",
-    "Load Latest -> Debug WS",
-    "Debug WS -> Upgrade Log Settings",
+    # What the last run could not settle, and nothing else. Every other
+    # name that sat here has been read off the screen by hand and agreed
+    # with the tool -- keeping them would make the yellow mean "recent"
+    # rather than "unconfirmed", which is the one thing it is for.
+    #
+    # The three below all changed under the maintainer between the
+    # reading and now: two were retargeted to what they render, and one
+    # is read by a different scan than the number it used to carry.
     "status label -> level row",
     "level row -> off-Element row",
     "Setup Status: row pitch",
@@ -3043,11 +3110,13 @@ def register_all():
         )
 
     for tab, title, side in TEXT_PANEL_EDGES:
+        _wide = TEXT_PANEL_EDGE_EXCEPTIONS.get((title, side))
         sa.track(
             name=f"{title}: {side} edge -> text",
             tab=tab,
             rule=RULE_BORDER_EDGE_CONTENT,
-            target=4,
+            target=4 if _wide is None else _wide,
+            target_source="rule" if _wide is None else "exception",
             resolve=_text_panel_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
             provisional=False,
@@ -3081,7 +3150,7 @@ def register_all():
                                    "hero_detail_name"),
                          _tab_attr("heroes_tab_instance", _attr), "h"),
             axis="h",
-            provisional=True,
+            provisional=False,
         )
 
     # `Region:` names a READOUT rather than a control, and at the
@@ -3095,7 +3164,7 @@ def register_all():
         resolve=_pair_gap(lambda app: _by_text("Region:")(app).master,
                           LABEL_CLASSES, 0),
         axis="h",
-        provisional=True,
+        provisional=False,
     )
 
     for tab, heading, subtitle in TAB_HEADERS:
@@ -3148,7 +3217,7 @@ def register_all():
         target=4,
         resolve=_gap(_by_text("Start"), _by_text("Stop"), "h"),
         axis="h",
-        provisional=True,
+        provisional=False,
     )
 
     # Capture's four action buttons, likewise in a plain frame.
@@ -3160,7 +3229,7 @@ def register_all():
         resolve=_pair_gap(lambda app: _by_text("Open Snapshots")(app).master,
                           ("TButton", "Button"), 0),
         axis="h",
-        provisional=True,
+        provisional=False,
     )
 
     # And the other two plain-frame button rows.
@@ -3173,7 +3242,7 @@ def register_all():
             lambda app: _by_text("Apply Current Weights")(app).master,
             ("TButton", "Button"), 0),
         axis="h",
-        provisional=True,
+        provisional=False,
     )
     sa.track(
         name="Setup buttons: button -> button",
@@ -3183,7 +3252,7 @@ def register_all():
         resolve=_pair_gap(lambda app: _by_text("Check Status")(app).master,
                           ("TButton", "Button"), 0),
         axis="h",
-        provisional=True,
+        provisional=False,
     )
 
     # The Character panel's stat block, whose columns are tab stops. Its
@@ -3240,7 +3309,7 @@ def register_all():
                 _rows, _index, _end),
             axis="h",
             scenario=_scenario,
-            provisional=True,
+            provisional=False,
         )
 
     # The one site of `label row -> label row`: the lines inside an
@@ -3254,7 +3323,7 @@ def register_all():
         resolve=_text_line_pitch(_first_filled_text(
             "Equipped Memory Fragments")),
         axis="v",
-        provisional=True,
+        provisional=False,
     )
 
     # A gear cell's own border against the text inside it. `padx` is the

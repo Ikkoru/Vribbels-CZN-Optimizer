@@ -315,12 +315,13 @@ STEP 2: Verify setup
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
         # which is why it differs between text panels in different fonts.
-        # 2, where the helper's default is 3: Segoe UI Variable Small
-        # carries one more pixel of ascent than Segoe UI at the same
-        # nominal size, and that pixel lands above the first glyph.
+        # 0, where the helper's default is 3: at this face and size
+        # the line box already carries the whole inset above the
+        # first glyph. **There is no lever left below 0** -- read the
+        # top gap again after any font change here.
         instr_text = make_scrolled_text(
             instr_frame, self.colors, height=18, wrap=tk.WORD,
-            font=("Segoe UI Variable Small", 11), pady=2,
+            font=("Segoe UI Variable Small", 11), pady=0,
         )
         instr_text.insert("1.0", instructions)
         instr_text.config(state=tk.DISABLED)

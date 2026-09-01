@@ -112,11 +112,6 @@ HERO_STAT_DISPLAY = {
 GEAR_CELL_W = 401
 GEAR_CELL_H = 163
 
-# How far the set-description text wraps short of the cell's own width.
-# Raise it to pull the wrap in, lower it to let the text run wider. The
-# cell is a fixed size, so this is the only thing that moves the wrap.
-GEAR_SET_WRAP_INSET = 6
-
 # The cell Text widget's own border and horizontal inset. Repeated here
 # rather than read off the widget because the tab stops below are set in
 # `tag_configure` before the cell is mapped, when `winfo_width()` still
@@ -182,7 +177,7 @@ GEAR_TAB_GS = GEAR_TEXT_W // 2   # centre stop: GS and Potential
 # NOT tracked, unlike the left and top: the set description wraps,
 # so the rightmost ink in the cell is whichever wrapped line came
 # closest to the boundary, and that moves with the fragment.
-GEAR_TAB_SLOT = 386      # right stop: the slot name and its level
+GEAR_TAB_SLOT = 387      # right stop: the slot name and its level
 GEAR_TAB_QUALITY = 20    # right stop: a substat's roll-quality percent
 GEAR_TAB_SUB = 26        # left stop: where the substat text starts
 

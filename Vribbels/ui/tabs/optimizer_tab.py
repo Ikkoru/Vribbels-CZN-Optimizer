@@ -595,9 +595,10 @@ class OptimizerTab(BaseTab):
         self.status_label.pack(side=tk.TOP, anchor=tk.E)
         minlvl_row = ttk.Frame(status_cluster)
         # spacing: unique -- between mixed element rows (label -> spinbox) -- label, spinbox ↕
-        # Target 6px, measured painted-edge to painted-edge -- 11 read
-        # between the two rows' TEXT, which is the distance the eye
-        # judges and not the one this number states. The rows are
+        # Target 3px, and the number is the PAINTED gap: the status
+        # text's ink down to the spinbox's top BORDER. Read text to
+        # text it is 6, the spinbox seating its own digits 3px inside
+        # its border -- same rendering, two references. The rows are
         # different heights whatever this says -- a text row, a spinbox
         # row and a checkbox row seat their content at different insets --
         # so this pair and the pair below carry separate numbers.
@@ -624,8 +625,9 @@ class OptimizerTab(BaseTab):
                          lambda e, sp=minlvl_spin: self._spinbox_wheel(e, sp))
         offelem_row = ttk.Frame(status_cluster)
         # spacing: unique -- between mixed element rows (spinbox -> checkbox) -- spinbox, checkbox ↕
-        # Target 4px, painted-edge to painted-edge, for 11 between the
-        # texts. Genuinely unique: there is not a second
+        # Target 2px, painted-edge to painted-edge -- and here the
+        # painted edges ARE what the eye reads, both being borders
+        # rather than glyphs. Genuinely unique: there is not a second
         # spinbox-row-over-checkbox-row anywhere in the app. Were there,
         # the pair would want `spinbox row -> spinbox row` and
         # `checkbox/slider ↕ rows` united into one rule -- and the audit

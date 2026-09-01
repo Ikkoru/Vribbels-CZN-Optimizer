@@ -48,6 +48,12 @@ VALID_SOURCES = ("rule", "exception", "inferred", "unique")
 
 UNIQUES_HEADING = "## The uniques, as a table"
 
+# What a uniques row puts in its Distance column to say "no entry may
+# measure this". An em dash, so a hyphen typed by hand does not pass for
+# it -- the whole point of the mark is that leaving a number out has to
+# be a deliberate act.
+UNTRACKED_MARK = "—"
+
 
 def _rule_targets():
     """{marker: target} for every rule the docs table gives ONE number.
@@ -76,8 +82,8 @@ def _rule_targets():
     return targets
 
 
-def _unique_targets():
-    """{what: target} for every unique the doc's table gives a number.
+def _unique_rows():
+    """The doc's uniques table, as ({what: target}, {what not tracked}).
 
     A `unique` names no rule, so the registry carries the marker's own
     `<what>` in its rule field. This table is the second copy that makes
@@ -85,26 +91,33 @@ def _unique_targets():
     the guard that catches a drifted rule name would have a hole in it
     exactly the shape of a typo.
 
-    Rows whose Distance column is not a plain `<n>px` are deliberate:
-    two of the uniques are a widget's own inset rather than a gap
-    between two elements, so nothing measures them and the registry
-    holds no entry for them either.
+    A row's Distance is either a plain `<n>px`, which says an entry must
+    measure it, or the em dash, which says none may. There is no third
+    reading: a unique that ought to be tracked and quietly never was
+    would otherwise look exactly like one that cannot be, which is the
+    hole this table exists to close.
     """
     doc = io.open(REPO_ROOT / "docs" / "ui_spacing.md",
                   encoding="utf-8").read()
     section = doc.split(UNIQUES_HEADING, 1)
     if len(section) < 2:
-        return None
-    targets = {}
+        return None, None, None
+    targets, untracked, malformed = {}, set(), {}
     for row in section[1].split("\n## ")[0].splitlines():
         cells = [c.strip() for c in row.split("|")]
         if len(cells) < 6:
             continue
         what = re.fullmatch(r"`([^`]+)`", cells[1])
+        if not what:
+            continue
         plain = re.fullmatch(r"(\d+)px", cells[3])
-        if what and plain:
+        if plain:
             targets[what.group(1)] = int(plain.group(1))
-    return targets
+        elif cells[3] == UNTRACKED_MARK:
+            untracked.add(what.group(1))
+        else:
+            malformed[what.group(1)] = cells[3]
+    return targets, untracked, malformed
 
 
 def _unique_whats():
@@ -154,7 +167,7 @@ def run():
              if k.startswith("RULE_") and isinstance(v, str)}
     rule_targets = _rule_targets()
     excepted = _excepted_rules()
-    unique_targets = _unique_targets()
+    unique_targets, untracked, malformed = _unique_rows()
     unique_whats = _unique_whats()
     if unique_targets is None:
         failures.append(
@@ -163,7 +176,41 @@ def run():
             f"without it the rule field accepts any string at all. Update "
             f"UNIQUES_HEADING in checks/check_spacing_registry.py to match "
             f"the doc.")
-        unique_targets = {}
+        unique_targets, untracked, malformed = {}, set(), {}
+
+    measured = {g.rule for g in sa.REGISTRY if g.target_source == "unique"}
+    for what in sorted(unique_whats):
+        if what not in unique_targets and what not in untracked:
+            failures.append(
+                f"the unique {what!r} is marked in the widget code but has "
+                f"no row in the doc's uniques table. Give it a distance and "
+                f"an entry, or the {UNTRACKED_MARK} and a reason -- an "
+                f"unmarked one is indistinguishable from one nobody got "
+                f"round to tracking")
+    for what, cell in sorted(malformed.items()):
+        failures.append(
+            f"the uniques table gives {what!r} a Distance of {cell!r}, "
+            f"which is neither `<n>px` nor {UNTRACKED_MARK}. Prose there "
+            f"reads as a reason and is treated as neither tracked nor "
+            f"deliberately untracked")
+    for what in sorted(set(unique_targets) | untracked):
+        if what not in unique_whats:
+            failures.append(
+                f"the uniques table has a row for {what!r}, which no "
+                f"marker in the widget code spells. Either the marker was "
+                f"reworded or the site is gone")
+    for what, target in sorted(unique_targets.items()):
+        if what not in measured:
+            failures.append(
+                f"the uniques table prices {what!r} at {target}px and "
+                f"nothing measures it. A number no entry reads is a claim "
+                f"about the screen that never gets tested")
+    for what in sorted(untracked):
+        if what in measured:
+            failures.append(
+                f"{what!r} carries {UNTRACKED_MARK} in the uniques table, "
+                f"which says no entry may measure it, and one does. Give "
+                f"the row its distance instead")
 
     seen = {}
     for g in sa.REGISTRY:

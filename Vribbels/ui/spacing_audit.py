@@ -229,6 +229,15 @@ class Capture:
         """
         ox, oy = self.origin
         colours = self.background if bg is None else bg
+        # `bg` is a COLLECTION of shades, and a single (r, g, b) is a
+        # collection of three ints -- which matches nothing, blends
+        # nothing, and reaches the lightness test with an int in hand.
+        # That surfaced as "'int' object is not iterable" from a
+        # resolver, three frames from anything that named a colour.
+        if colours and not isinstance(next(iter(colours)), (tuple, list)):
+            raise TypeError(
+                f"is_background wants a collection of (r, g, b) shades, "
+                f"got {colours!r}. Pass {{colour}}, not colour.")
         pixel = self._px[x - ox, y - oy]
         if pixel in colours:
             return True

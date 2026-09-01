@@ -818,11 +818,20 @@ than a ragged edge.
 ## Setup Status reads at one pitch
 
 Every gap inside the panel — top edge to first row, between rows, last
-row to bottom edge — reads **11px**. The four rows carry no padding of
-their own: a Segoe UI 11 label's line box already contributes 7px above
-its ink and 4 below, which is the whole pitch, so anything added lands
-on top of it. The frame's top and bottom padding are chosen to make the
-first and last gaps match the ones between.
+row to bottom edge — reads **11px to the ink**. The four rows carry no
+padding of their own: a Segoe UI 11 label's line box already contributes
+7px above its ink and 4 below, which is the whole pitch, so anything
+added lands on top of it. The frame's top and bottom padding are chosen
+to make the first and last gaps match the ones between.
+
+**Between the rows the tracked number is 13, not 11**, and the two are
+the same rendering. Those rows read `[OK] Python 3.13` once they have
+checked, and a bracket rises above the cap and drops below the baseline
+— so the ink is not where the rule's references are. The registry reads
+the pitch on each row's first CAPITAL instead, which puts both ends on a
+cap top and a baseline with no glyph correction to model, and which does
+not move when the panel leaves its `Checking ...` state. The gaps to the
+panel's own border are still read from the ink.
 
 **The top gap is an exception to `border edge -> first non-button
 element`**, and unavoidably so: that rule's target is below the 7px the
@@ -856,31 +865,44 @@ toolbar's height rather than a cosmetic choice.
 
 A `unique` names no rule, so nothing derives its number. That used to
 mean nothing could measure it either — the registry's rule field only
-accepted a name this table spells, and a unique has none.
+accepted a name the rules table spells, and a unique has none.
 
 **It takes the marker's own `<what>` now.** `check_spacing_registry`
-accepts a rule string outside the rules table only when some
-`# spacing: unique -- <what> -- ...` in the widget code spells it
-exactly AND the row below gives it the same number. That is the same
+accepts a rule string outside the rules table only when a
+`unique -- <what> -- ...` marker in the widget code spells it exactly
+AND the row below gives it the same number. That is the same
 two-copies-must-agree guarantee a rule name gets, so a typo on either
 side still fails; what it gives up is the rules table being the only
 vocabulary the registry may use.
 
-| What                                                | Where                                      | Distance | Tracked |
-| --------------------------------------------------- | ------------------------------------------ | -------- | ------- |
-| `between mixed element rows (label -> spinbox)`     | Optimizer toolbar, status cluster           | 6px      | yes     |
-| `between mixed element rows (spinbox -> checkbox)`  | Optimizer toolbar, status cluster           | 4px      | yes     |
-| `Setup Status stands apart on purpose`              | Setup, the four status rows                 | 11px     | yes     |
-| `a button's own internal inset`                     | `TButton` padding, every button in the app  | 5 down, 1 across | no |
-| `Treeview internals, which are style options`       | every list                                  | see "Spacing inside a Treeview" | no |
+**Every unique in the code needs a row here.** A row carrying a number
+must have an entry measuring it, and a row carrying **—** must have no
+entry at all — so a unique that ought to be tracked and quietly never
+was fails the check rather than sitting unwatched.
 
-**The last two are not distances between two elements**, which is the
-only thing the audit measures. One sets a widget's SIZE — the button
-widths in `ui/utils/button_width.py` are only true against it — and the
-other is a style option on a widget that draws its own insides. Both
-are watched indirectly: every `button -> button` and `border edge ->
-button` reading rides the first, and the Treeview section records what
-was measured for the second.
+| What                                                | Where                                      | Distance | Why not tracked |
+| --------------------------------------------------- | ------------------------------------------ | -------- | --------------- |
+| `between mixed element rows (label -> spinbox)`     | Optimizer toolbar, status cluster           | 3px      | |
+| `between mixed element rows (spinbox -> checkbox)`  | Optimizer toolbar, status cluster           | 2px      | |
+| `Setup Status stands apart on purpose`              | Setup, the four status rows                 | 13px     | |
+| `a button's own internal inset`                     | `TButton` padding, every button in the app  | —        | a widget's own inset, and it sets that widget's SIZE — the widths in `ui/utils/button_width.py` are only true against it. Every `button -> button` and `border edge -> button` reading rides it |
+| `Treeview internals, which are style options`       | every list                                  | —        | style options on a widget that draws its own insides, and no geometry manager reaches between them. See "Spacing inside a Treeview" |
+
+**The first pair is read painted-edge to painted-edge and the eye reads
+one of them differently.** The status text down to the spinbox's top
+BORDER is 3; the same gap text-to-text is 6, because a spinbox seats its
+own digits 3px inside its border. The second pair has a border at both
+ends, so the two readings agree.
+
+**The Setup Status pitch is read on the first CAPITAL of each row**, not
+on the row's whole painted extent. Those rows read `[OK] Python 3.13`
+once they have checked, and a bracket rises above the cap and drops
+below the baseline — so a whole-row scan reports a pitch two overshoots
+short, and one that changes the moment the panel leaves its
+`Checking ...` state. Narrowing the scan to one letter puts both ends of
+the reading on the rule's own reference with no glyph correction to
+model. The same panel's gaps to its own border are still read from the
+ink, so they are not this number.
 
 ## The unruled rows, as a table
 
