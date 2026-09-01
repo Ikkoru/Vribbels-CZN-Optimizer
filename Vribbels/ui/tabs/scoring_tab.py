@@ -20,6 +20,7 @@ from ..base_tab import BaseTab
 from ..context import AppContext
 from ..utils.button_width import BUTTON_W_LARGE
 from ..utils.label_width import column_px
+from ..utils.type_ahead import attach, find
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 from game_data import STATS
@@ -866,46 +867,33 @@ STAT MIN - MAX ROLLS:
             self.preset_tree.see(selected)
 
     def _on_preset_key(self, event):
-        """Letter-key navigation: pressing 'A' jumps to the next preset
-        starting with 'A' (case-insensitive), cycling at the end of the
-        list. Matches against the preset name (which is also the row's
-        iid), so the marker glyph in the gutter doesn't affect matching.
+        """Type-ahead: a letter jumps to the next preset starting with it,
+        more letters narrow the search, and the same letter again steps to
+        the next match. See `ui/utils/type_ahead.py`.
 
-        Returns 'break' on a successful jump to prevent Tk's default
-        Treeview behavior from also reacting. Falls through (returns None)
-        for non-alphanumeric keys so arrow keys etc. still work.
+        Matches the row's iid, which IS the preset name, so the marker
+        glyph in the gutter never affects a search.
+
+        Returns 'break' on a seek key so Tk's default Treeview behaviour
+        does not also react. Anything else falls through so arrow keys
+        still work.
         """
-        char = event.char
-        if not char or not char.isalnum():
+        hit = attach(self.preset_tree).key(event.char)
+        if hit is None:
             return None  # arrows, ctrl, etc. -- let Tk handle them
-        char_lower = char.lower()
 
-        items = self.preset_tree.get_children()  # tuple of iids (=names)
-        total = len(items)
-        if total == 0:
-            return "break"
+        items = list(self.preset_tree.get_children())  # iids == names
+        selection = self.preset_tree.selection()
+        current = (items.index(selection[0])
+                   if selection and selection[0] in items else -1)
 
-        # Start one past the current selection so repeated presses cycle
-        # through all matches. Wrap to 0 at the end.
-        sel = self.preset_tree.selection()
-        if sel:
-            try:
-                start = (items.index(sel[0]) + 1) % total
-            except ValueError:
-                start = 0
-        else:
-            start = 0
-
-        for offset in range(total):
-            idx = (start + offset) % total
-            iid = items[idx]
-            # iid is the preset name.
-            if iid.lower().startswith(char_lower):
-                self.preset_tree.selection_set(iid)
-                self.preset_tree.focus(iid)
-                self.preset_tree.see(iid)
-                return "break"
-        return "break"  # no match -- still swallow so Tk doesn't try anything
+        index = find(items, *hit, current=current)
+        if index is not None:
+            iid = items[index]
+            self.preset_tree.selection_set(iid)
+            self.preset_tree.focus(iid)
+            self.preset_tree.see(iid)
+        return "break"  # no match -- still swallow so Tk does nothing
 
     def _set_sliders(self, weights: dict):
         """Push a weights dict into the spinbox vars (missing stats default to 1.0)."""

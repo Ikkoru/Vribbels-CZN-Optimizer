@@ -15,55 +15,58 @@ Bind them together -- they are three halves of one behaviour:
 `combobox_letter_jump` and `combobox_arrow_nav` act on the CLOSED combo;
 `bind_popdown_seek` reaches into the open dropdown, which is not a
 registered tkinter widget and has to be bound through Tcl.
+
+Seeking goes through `ui/utils/type_ahead.py`, which is what makes a
+dropdown and a list behave alike: a letter jumps, more letters narrow
+the search, and the same letter again steps to the next match.
 """
 
 import tkinter as tk
 
+from .type_ahead import TypeAhead, attach, find
+
 
 def combobox_letter_jump(event, combobox):
-    """Letter-key navigation on a readonly Combobox: pressing 'A' jumps to
-    the next value starting with 'A' (case-insensitive), cycling at the end.
-    Non-alphanumeric keys fall through (return None) so Tk's default arrow
-    handling still works.
+    """Type-ahead on a CLOSED readonly Combobox.
+
+    A letter jumps to the next value starting with it, more letters
+    narrow the same search, and the same letter again steps to the next
+    match. `ui/utils/type_ahead.py` holds the timing and the rules.
+
+    Keys that are not a seek fall through (return None) so Tk's default
+    arrow handling still works.
 
     Fires <<ComboboxSelected>> on a successful jump so the bound handler
-    (on_hero_select) reacts as if the user picked the entry with the mouse.
+    reacts as if the user picked the entry with the mouse.
 
     Binds to <KeyRelease> instead of <KeyPress>: readonly ttk.Combobox's
     internal handler can swallow KeyPress before our binding sees it on
     some platforms; KeyRelease fires after Tk's default processing.
-
-    
     """
-    char = event.char
-    if not char or not char.isalnum():
+    hit = attach(combobox).key(event.char)
+    if hit is None:
         return None
-    char_lower = char.lower()
 
-    values = list(combobox["values"])
+    values = [str(v) for v in combobox["values"]]
     if not values:
         return "break"
-
-    current = combobox.get()
     try:
-        start = (values.index(current) + 1) % len(values)
+        current = values.index(combobox.get())
     except ValueError:
-        start = 0
+        current = -1
 
-    for offset in range(len(values)):
-        idx = (start + offset) % len(values)
-        if values[idx].lower().startswith(char_lower):
-            combobox.set(values[idx])
-            # readonly Combobox doesn't auto-select the displayed text
-            # after a programmatic set(); force a full selection so the
-            # whole name is highlighted, not just part.
-            try:
-                combobox.selection_clear()
-                combobox.selection_range(0, "end")
-            except tk.TclError:
-                pass
-            combobox.event_generate("<<ComboboxSelected>>")
-            return "break"
+    index = find(values, *hit, current=current)
+    if index is not None:
+        combobox.set(values[index])
+        # readonly Combobox doesn't auto-select the displayed text
+        # after a programmatic set(); force a full selection so the
+        # whole name is highlighted, not just part.
+        try:
+            combobox.selection_clear()
+            combobox.selection_range(0, "end")
+        except tk.TclError:
+            pass
+        combobox.event_generate("<<ComboboxSelected>>")
     return "break"
 
 
@@ -105,18 +108,17 @@ def combobox_arrow_nav(event, combobox, direction):
     return "break"
 
 
-def popdown_listbox_seek(combobox, listbox_path, char):
+def popdown_listbox_seek(combobox, listbox_path, hit):
     """Type-ahead seek inside an OPEN combobox dropdown list.
 
-    Moves the popdown listbox's highlight to the next entry starting with
-    `char` (case-insensitive), cycling. Operates on the listbox via its Tcl
-    path (it isn't a registered tkinter widget). Does NOT commit the value --
-    that happens when the user presses Enter or clicks, same as native
-    behavior; we only move the highlight.
+    `hit` is what `TypeAhead.key` returned. Moves the popdown listbox's
+    highlight and does NOT commit the value -- that happens on Enter or a
+    click, same as native behaviour.
+
+    Operates on the listbox through its Tcl path: the popdown is not a
+    registered tkinter widget, so nothing here can go through `.bind` or
+    a widget method.
     """
-    if not char or not char.isalnum():
-        return
-    char_lower = char.lower()
     tkc = combobox.tk
     try:
         size = int(tkc.call(listbox_path, "size"))
@@ -126,18 +128,17 @@ def popdown_listbox_seek(combobox, listbox_path, char):
         return
     values = [str(tkc.call(listbox_path, "get", i)) for i in range(size)]
     try:
-        cur = int(tkc.call(listbox_path, "index", "active"))
+        current = int(tkc.call(listbox_path, "index", "active"))
     except (tk.TclError, ValueError):
-        cur = 0
-    # Start one past the active entry so repeated presses cycle matches.
-    for offset in range(1, size + 1):
-        idx = (cur + offset) % size
-        if values[idx].lower().startswith(char_lower):
-            tkc.call(listbox_path, "selection", "clear", 0, "end")
-            tkc.call(listbox_path, "selection", "set", idx)
-            tkc.call(listbox_path, "activate", idx)
-            tkc.call(listbox_path, "see", idx)
-            return
+        current = -1
+
+    index = find(values, *hit, current=current)
+    if index is None:
+        return
+    tkc.call(listbox_path, "selection", "clear", 0, "end")
+    tkc.call(listbox_path, "selection", "set", index)
+    tkc.call(listbox_path, "activate", index)
+    tkc.call(listbox_path, "see", index)
 
 
 def bind_popdown_seek(combobox):
@@ -160,13 +161,19 @@ def bind_popdown_seek(combobox):
         return
     listbox_path = f"{popdown}.f.l"
 
+    # The OPEN list keeps its own prefix. It is a different search from
+    # the closed combo's: what is highlighted here has not been committed,
+    # so the two are looking at different current entries.
+    seek = TypeAhead()
+
     def _on_key(char):
-        # Only alnum keys trigger a seek; everything else (arrows, Enter,
-        # Escape) returns "" so Tk's own listbox bindings keep working.
-        if not char or not char.isalnum():
+        # Anything that is not a seek key -- arrows, Enter, Escape --
+        # returns "" so Tk's own listbox bindings keep working.
+        hit = seek.key(char)
+        if hit is None:
             return ""
         try:
-            popdown_listbox_seek(combobox, listbox_path, char)
+            popdown_listbox_seek(combobox, listbox_path, hit)
         except tk.TclError:
             pass
         return "break"

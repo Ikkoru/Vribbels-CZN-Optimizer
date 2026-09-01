@@ -52,6 +52,7 @@ from checks import (                                    # noqa: E402
     check_spacing_markers,
     check_spacing_registry,
     check_tabs_build,
+    check_type_ahead,
 )
 
 # Cheapest and most locally-caused first, so a broken edit reports
@@ -75,6 +76,7 @@ CHECKS = [
     check_no_flash,
     check_optimizer_starts_unselected,
     check_tabs_build,
+    check_type_ahead,
     check_breakdown_reconciles,
     check_optimizer_parity,
 ]

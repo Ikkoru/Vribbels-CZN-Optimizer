@@ -67,6 +67,7 @@ from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import (
     combobox_letter_jump, combobox_arrow_nav, bind_popdown_seek,
 )
+from ui.utils.type_ahead import attach, find
 from game_data import (
     EQUIPMENT_SLOTS, SETS, STATS, RARITY_COLORS, RARITY_BG_COLORS,
     RARITY_STARTING_SUBSTATS, ATTRIBUTE_COLORS,
@@ -1057,34 +1058,23 @@ class HeroesTab(BaseTab):
             return None
 
     def _on_hero_list_key(self, event):
-        """Letter-key navigation: 'A' jumps to the next combatant whose
-        name starts with 'A', cycling at the end. Mirror of the preset
-        listbox handler in scoring_tab.
+        """Type-ahead: a letter jumps to the next combatant starting with
+        it, more letters narrow the search, and the same letter again
+        steps to the next match. See `ui/utils/type_ahead.py`.
 
-        Returns 'break' on a jump so the Treeview does not also act on the
-        key. Non-alphanumeric keys fall through, which is what leaves
-        Up/Down to the Treeview's own bindings.
+        Returns 'break' on a seek key so the Treeview does not also act
+        on it. Anything else falls through, which is what leaves Up/Down
+        to the Treeview's own bindings.
         """
-        char = event.char
-        if not char or not char.isalnum():
+        hit = attach(self.hero_tree).key(event.char)
+        if hit is None:
             return None  # arrows/ctrl/etc. -- let other bindings run
-        char_lower = char.lower()
 
-        total = len(self.hero_data_list)
-        if total == 0:
-            return "break"
-
-        # Start one past the current selection so repeated presses cycle
-        # through all matches. Wrap to 0 at the end.
-        cur = self.selected_hero_index if self.selected_hero_index >= 0 else -1
-        start = (cur + 1) % total
-        for offset in range(total):
-            idx = (start + offset) % total
-            name = self.hero_data_list[idx].get("name", "")
-            if name.lower().startswith(char_lower):
-                self.select_hero_row(idx)
-                return "break"
-        return "break"  # no match -- still swallow so Tk doesn't do anything
+        names = [h.get("name", "") for h in self.hero_data_list]
+        index = find(names, *hit, current=self.selected_hero_index)
+        if index is not None:
+            self.select_hero_row(index)
+        return "break"  # no match -- still swallow so Tk does nothing
 
     def select_hero_row(self, index: int):
         """Select a row and show its combatant.
