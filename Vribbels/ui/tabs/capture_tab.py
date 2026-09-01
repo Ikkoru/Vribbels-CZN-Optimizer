@@ -27,8 +27,26 @@ LOG_PRESET_COLUMNS_FALLBACK = 6
 # audit compares against a number, and there is no number here.
 #
 # 8 is the point below which names would start to run together, which is
-# what makes it the constraint the column count is solved against.
+# what makes it the constraint the column count is solved against. It is
+# a floor the count RESPECTS rather than one the grid enforces: the
+# solver never returns a count the panel cannot hold, so the last column
+# clips against the panel edge before any two names close up.
 LOG_PRESET_COLUMN_GAP = 8
+
+
+def _log_preset_grid_width(widths, columns):
+    """What `columns` columns of these labels take, gaps included.
+
+    Placement is row-major, so column `c` holds `widths[c::columns]` and
+    the grid gives that column its OWN widest member. Summing per column
+    is the whole of it: `max(widths) * columns` reserves room for as
+    many copies of the longest preset name as there are columns, and the
+    names differ by a factor of four -- enough to refuse a layout that
+    fits with a hundred pixels to spare.
+    """
+    per = [max(widths[c::columns]) for c in range(columns)
+           if widths[c::columns]]
+    return sum(per) + max(0, len(per) - 1) * LOG_PRESET_COLUMN_GAP
 
 # What the Region readout says before a capture has seen a connection.
 REGION_UNKNOWN = "not detected yet"
@@ -663,7 +681,7 @@ class CaptureTab(BaseTab):
             made.append((name, cb, var))
 
         columns = self._log_preset_columns(
-            frame, max(cb.winfo_reqwidth() for _n, cb, _v in made))
+            frame, [cb.winfo_reqwidth() for _n, cb, _v in made])
         self._log_preset_columns_shown = columns
 
         # Every column but the LAST absorbs the leftover width. Sizing
@@ -690,17 +708,20 @@ class CaptureTab(BaseTab):
                     pady=(0 if idx < columns else 3, 0))
             self._log_preset_vars[name] = var
 
-    def _log_preset_columns(self, frame, widest):
-        """The most columns whose narrowest still clears the gap.
+    def _log_preset_columns(self, frame, widths):
+        """The most columns these labels fit in, gaps included.
 
         The names in these columns are the USER's presets, so no stated
-        count can be right for everyone: six columns of short names waste
-        the panel, and six of long ones run together. What is fixed is
-        `LOG_PRESET_COLUMN_GAP`, the point below which two names stop
-        reading as two -- so the count is the largest `n` that still
-        leaves it:
+        count can be right for everyone: six columns of short names
+        waste the panel, and six of long ones do not fit in it. What is
+        fixed is `LOG_PRESET_COLUMN_GAP`, the point below which two
+        names stop reading as two -- so the count is the largest `n`
+        whose columns still leave it.
 
-            n * widest + (n - 1) * gap <= available
+        Every `n` is tried rather than stopping at the first that does
+        not fit. What a column costs depends on which names land in it,
+        so the requirement is not monotonic in `n`: a count can fit
+        where a smaller one did not.
 
         This does NOT make the rendered gap a number. The columns take
         what is left over, so anything but the widest name in a column
@@ -720,8 +741,11 @@ class CaptureTab(BaseTab):
             width = frame.winfo_width()
         if width <= 1:
             return LOG_PRESET_COLUMNS_FALLBACK
-        gap = LOG_PRESET_COLUMN_GAP
-        return max(1, (width + gap) // (widest + gap))
+        if not widths:
+            return 1
+        return max((n for n in range(1, len(widths) + 1)
+                    if _log_preset_grid_width(widths, n) <= width),
+                   default=1)
 
     def _reflow_log_presets(self, _event=None):
         """Rebuild the checklist when the width would change its shape.
@@ -733,11 +757,13 @@ class CaptureTab(BaseTab):
         frame = self.log_presets_list_frame
         if frame is None or not self._log_preset_vars:
             return
-        widest = max((w.winfo_reqwidth() for w in frame.winfo_children()),
-                     default=0)
-        if not widest:
+        # Creation order is the order they were placed in, so a child's
+        # index is what decides its column -- reading the widths in this
+        # order is what lets the solver ask what each column costs.
+        widths = [w.winfo_reqwidth() for w in frame.winfo_children()]
+        if not widths:
             return
-        if self._log_preset_columns(frame, widest) != \
+        if self._log_preset_columns(frame, widths) != \
                 getattr(self, "_log_preset_columns_shown", None):
             self.refresh_log_presets()
 

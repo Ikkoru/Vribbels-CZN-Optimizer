@@ -522,9 +522,7 @@ different numbers, and the difference is exactly that pad. Keeping it at
 
 ### What the audit does not reach
 
-Every registered gap is on its target and confirmed against a hand
-reading. What follows is the parts of the app no entry measures, so a
-drift there shows up on screen and nowhere else.
+Every registered gap is on its target, and every one bar the entries in `AWAITING_FIRST_READING` is confirmed against a hand reading. Those print yellow, in the short run as well as the verbose one, until a run agrees with them. What follows is the parts of the app no entry measures, so a drift there shows up on screen and nowhere else.
 
 - **The Optimizer's status label ends 6px from the tab's right edge**,
   where the border rule asks 4 and a Label's own inset has 2 left to
@@ -991,6 +989,7 @@ before editing any spacing value.**
 | A text panel's LabelFrame `padding`                                 | Nothing useful — the inset lives on the `tk.Text`'s own `padx`/`pady`, inside the fill. Frame padding just exposes dark background.                                                                             |
 | `make_checkbox`'s `bd` / `highlightthickness`                       | The requested HEIGHT and WIDTH of every checkbox, by 6px each way — and through that the exclude checklist's row pitch and column flow, computed from `winfo_reqheight()` / `winfo_reqwidth()` rather than set. |
 | A Gear Score stat cell's trailing `padx`                             | Both the gap BETWEEN the two weight columns and the gap out to the button column: the cell's pad sits inside `stats_frame`'s width, so `stat grid -> button column` carries it too. |
+| Memory Fragments' `opt_frame` `pack(padx)` LEADING                   | All four options checkboxes at once — they carry no padding of their own, so this is the only lever on their distance from the Main Stats border. `main_frame`'s trailing pad is 0 to keep it that way; a value there would move the same gap from the other side. |
 
 **"Correct it on the frame or on the first label?" has an answer per
 panel, not a general one.** The four `ELEMENT_ENTRIES` panels split two

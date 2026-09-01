@@ -506,10 +506,21 @@ class HeroesTab(BaseTab):
             value=bool(sm.get(HERO_SHOW_MISSING_KEY, False))
             if sm is not None else False)
         # spacing: control group ↔ control group -- dropdown, checkbox ↔
+        # spacing: border edge -> first non-button element -- tab, checkbox ↕
+        # spacing: border edge -> first non-button element -- checkbox, tab ↔
+        # Its own pady, not the column's: what sits above this checkbox
+        # is the tab's top edge, where above the heading beside it is
+        # the TAB LIST -- two references, two rules, and one pad on
+        # `columns` cannot serve both.
+        #
+        # Nothing buys the RIGHT side. The pad on `columns` and the
+        # checkbox's own inset already make the rule's distance, and
+        # `side=RIGHT` puts the widget against that.
         make_checkbox(title_row, self.colors, text="Show missing characters",
                       variable=self.show_missing_var,
                       command=self._on_show_missing_toggle).pack(
-                          side=tk.RIGHT, anchor=tk.N, padx=(16, 0))
+                          side=tk.RIGHT, anchor=tk.N, padx=(16, 0),
+                          pady=(1, 0))
 
         # Right-aligned vertical group: label on top, combobox below.
         # `expand=True, fill=X` fills the leftover space between the name

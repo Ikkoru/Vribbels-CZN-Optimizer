@@ -95,7 +95,18 @@ class Addon:
             debug_mode: If True, log all WebSocket messages to a .jsonl file
         """
         self.output_dir = output_dir
-        self.log_callback = log_callback or (lambda msg: print(msg, flush=True))
+
+        # Every line goes through a wrapper that remembers the last one,
+        # so the save report can tell whether it would be repeating
+        # itself. See `_save_data`.
+        sink = log_callback or (lambda msg: print(msg, flush=True))
+        self._last_line = None
+
+        def remember(msg, *args, **kwargs):
+            self._last_line = msg
+            sink(msg, *args, **kwargs)
+
+        self.log_callback = remember
         self.inventory_data = None
         self.character_data = None
 
@@ -664,9 +675,19 @@ class Addon:
 
         count = len(self.inventory_data.get("piece_items", []))
         char_count = len(self.character_data.get("characters", [])) if self.character_data else 0
-        self.log_callback(
+        report = (
             f"Saved: {count} Memory Fragments, {char_count} characters -> {self.saved_path.name}"
         )
+
+        # Not twice in a row. Loading into the game sends the inventory
+        # in one frame and the lobby's banner schedule in the next, so
+        # two saves land seconds apart with the same counts in them --
+        # the second carries the banners, which this line does not
+        # report. Suppressed only where it would be the LAST line
+        # repeated: anything logged in between (an upgrade, a delete)
+        # means the save after it is worth confirming, and prints.
+        if report != self._last_line:
+            self.log_callback(report)
 
     def _describe_piece(self, piece_data):
         """Build human-readable piece description like 'Line of Justice Denial +3'."""

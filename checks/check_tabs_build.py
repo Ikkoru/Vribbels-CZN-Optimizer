@@ -191,13 +191,20 @@ def _percent_fields_are_clamped(tab):
 
 
 def _log_preset_columns_leave_the_gap(tab):
-    """The preset checklist must never pack more columns than fit.
+    """The preset checklist packs as many columns as fit, and no more.
 
     The names in it are the USER's presets, so a stated column count is
-    right for one person's presets and wrong for the next: too many, and
-    two names run together with nothing reporting it -- the grid just
-    shrinks its columns. `LOG_PRESET_COLUMN_GAP` is the floor the count
+    right for one person's presets and wrong for the next: too many and
+    the last one clips against the panel edge, too few and a third of
+    the panel is empty. `LOG_PRESET_COLUMN_GAP` is the floor the count
     is solved against.
+
+    A column costs its OWN widest name, so a count that does not fit
+    does not mean a larger one cannot -- which is why the ceiling here
+    is "no larger count fits" rather than "the next one does not".
+    Pricing every column at the longest name in the whole list is the
+    mistake this guards: it refused six columns of names that fit in
+    ninety per cent of the panel.
 
     Checked at several widths rather than the current one, because the
     panel takes whatever the left column does not and the maintainer's
@@ -206,6 +213,17 @@ def _log_preset_columns_leave_the_gap(tab):
     Returns a list of complaints.
     """
     from ui.tabs.capture_tab import LOG_PRESET_COLUMN_GAP
+
+    def need(widths, columns):
+        """What those columns cost -- stated here, not imported.
+
+        Importing the module's own pricing would make this check agree
+        with the solver by construction: both would be wrong together
+        and nothing would say so.
+        """
+        per = [max(widths[c::columns]) for c in range(columns)
+               if widths[c::columns]]
+        return sum(per) + max(0, len(per) - 1) * LOG_PRESET_COLUMN_GAP
 
     class _Width:
         """A frame of a stated width, for the solver alone."""
@@ -221,27 +239,35 @@ def _log_preset_columns_leave_the_gap(tab):
 
     out = []
     gap = LOG_PRESET_COLUMN_GAP
-    for widest in (60, 120, 189, 300):
+    # A uniform list, a spread like a real roster's, and one name far
+    # longer than the rest -- the case where per-column pricing and
+    # widest-times-count differ most.
+    lists = {
+        "uniform": [120] * 12,
+        "spread": [40, 189, 55, 136, 72, 173, 51, 149, 64, 176, 43, 157],
+        "one long": [50] * 11 + [300],
+    }
+    for label, widths in lists.items():
         for width in (150, 320, 640, 1028, 1600):
-            n = tab._log_preset_columns(_Width(width), widest)
-            if n < 1:
-                out.append(f"the solver asked for {n} columns at "
-                           f"width={width}, widest={widest}")
+            n = tab._log_preset_columns(_Width(width), widths)
+            if n < 1 or n > len(widths):
+                out.append(f"the solver asked for {n} columns of "
+                           f"{label} names at width={width}")
                 continue
-            used = n * widest + (n - 1) * gap
+            used = need(widths, n)
             if n > 1 and used > width:
                 out.append(
-                    f"{n} columns of {widest}px need {used}px at a width of "
-                    f"{width}px -- the grid would shrink them and the names "
-                    f"would run together. The count has to leave "
-                    f"{gap}px between columns."
+                    f"{n} columns of {label} names need {used}px at a width "
+                    f"of {width}px. The count has to leave {gap}px between "
+                    f"columns, so the last column clips instead."
                 )
-            room = (n + 1) * widest + n * gap
-            if room <= width:
+            wider = [m for m in range(n + 1, len(widths) + 1)
+                     if need(widths, m) <= width]
+            if wider:
                 out.append(
-                    f"{n} columns of {widest}px at a width of {width}px "
-                    f"wastes a column: {n + 1} would still clear the "
-                    f"{gap}px gap."
+                    f"{n} columns of {label} names at a width of {width}px "
+                    f"wastes the panel: {max(wider)} fit in "
+                    f"{need(widths, max(wider))}px."
                 )
     return out
 

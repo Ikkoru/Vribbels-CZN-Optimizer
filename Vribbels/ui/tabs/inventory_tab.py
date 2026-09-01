@@ -272,7 +272,11 @@ class InventoryTab(BaseTab):
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=(0, 3, 0, 2))
         # spacing: content frame -> content frame -- frame, frame ↔
-        main_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
+        # Trailing 0, so this panel's two sides answer to two rules
+        # without sharing a lever: what follows it is not another panel
+        # but the options column, whose distance from this border is
+        # bought on `opt_frame` below.
+        main_frame.pack(side=tk.LEFT, padx=(2, 0), anchor=tk.N)
 
         self.inv_main_stat_frame_inner = ttk.Frame(main_frame)
         self.inv_main_stat_frame_inner.pack(anchor=tk.W)
@@ -331,8 +335,18 @@ class InventoryTab(BaseTab):
 
         # ----- Options ---------------------------------------------------
         opt_frame = ttk.Frame(filter_frame)
+        # spacing: border edge -> first non-button element -- panel, checkbox ↔
         # spacing: content frame -> content frame -- frame, frame ↔
-        opt_frame.pack(side=tk.LEFT, padx=(1, 2))
+        # LEADING is the lever for every checkbox in this column at
+        # once: they are packed at one anchor with no padding of their
+        # own, so the Main Stats border sees one distance rather than
+        # four. It buys 2 of the 4; the other 2 is the checkbox's own
+        # inset, which no padding reaches.
+        #
+        # TRAILING runs to the window edge, and answers to the other
+        # rule -- the two sides are stated apart so neither nudge moves
+        # the other.
+        opt_frame.pack(side=tk.LEFT, padx=(2, 2))
 
         self.inv_unequipped_var = tk.BooleanVar(value=False)
         make_checkbox(opt_frame, self.colors, text="Unequipped Only",
@@ -344,10 +358,11 @@ class InventoryTab(BaseTab):
         self.inv_include_uncommon_var = tk.BooleanVar(value=False)
         # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
         # A pad each, and they differ because the rows are not the same
-        # height: the third checkbox wraps onto a second line, so its ink
-        # starts lower inside its own box and the gap above it arrives
-        # part-paid. The rule is about the PAINTED distance, so the
-        # levers have to differ for the rows to read alike.
+        # height: a checkbox whose label wraps onto a second line starts
+        # its ink lower inside its own box, so the gap above it arrives
+        # part-paid and takes no pad at all. The rule is about the
+        # PAINTED distance, so the levers have to differ for the rows to
+        # read alike.
         make_checkbox(opt_frame, self.colors, text="Include Uncommon",
                       variable=self.inv_include_uncommon_var,
                       command=self.refresh_inventory).pack(
@@ -358,6 +373,7 @@ class InventoryTab(BaseTab):
         # when many presets exist but only a few are actually in use.
         self.inv_only_assigned_presets_var = tk.BooleanVar(value=False)
         # Two-line label -- text after the colon drops to the second line.
+        # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
         make_checkbox(opt_frame, self.colors,
                       text="Highest GS/Potential:\nAssigned Presets Only",
                       variable=self.inv_only_assigned_presets_var,

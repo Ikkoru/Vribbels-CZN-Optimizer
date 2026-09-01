@@ -26,7 +26,9 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **Combatants tab: a potential node says what it raises.** `Node 5: Lv3 (Crit% +6%)` where it read `(?)`, and `(Crit%)` before the node is taken.
 
-- **The Log Presets checklist fits its columns to the panel.** The column count was fixed at six, which ran long preset names together on a narrow panel and wasted a wide one.
+- **The Log Presets checklist fits its columns to the panel.** The column count was fixed at six, which ran long preset names together on a narrow panel and wasted a wide one. Each column is measured against the names that land in it, so a list of mostly short names gets more columns than one long name would allow.
+
+- **`settings.json` carries every switch the tabs have, each under the section it belongs to.** A setting used to be absent from the file until the first time it was changed, and then appended after the last section rather than inside one.
 
 - **The Capture Log's Upgraded lines read more easily.** The values are coloured: a Highest Potential range shows its floor dimmed and its ceiling green, or yellow where the ceiling is 40 or below, so a fragment worth keeping is visible without reading the numbers. `Upgraded` is green and `Deleted` red. A fragment with no upgrades left reports `Highest GS` and one value rather than a range that cannot move, matching the Memory Fragments tab's two columns. The brackets around preset names and around the upgrade level are gone, and `[proxy]` is left on the lines that are actually about the proxy.
 
@@ -42,7 +44,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **Gear Score weights hold what you type.** A weight typed outside the spinbox's range reached every Gear Score in the app -- the Memory Fragments list, the Combatants totals and the Optimizer's filtering. Negative weights still work; they are how a stat is marked harmful.
 
-- **Loading into the game reports the snapshot save once, not three times.** The login reply carries your roster, your inventory and the banner schedule together, and each was written and announced separately. The file was always the same either way.
+- **Loading into the game reports the snapshot save once.** The login reply carries your roster, your inventory and the banner schedule across two frames, and each part was written and announced separately. A save whose report would repeat the previous line word for word now stays quiet; one that follows an upgrade or a delete still confirms itself.
 
 - **A capture that records nothing now says so.** With the Server Region set to the wrong server the game never passes through the capture proxy, but the program reported the *previous* capture's file as though it had just been written, with a success message. It now tells you nothing was captured and names the likely cause.
 

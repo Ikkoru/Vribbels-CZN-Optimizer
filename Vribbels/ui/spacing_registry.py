@@ -1633,6 +1633,28 @@ def _to_window_edge(locator):
     return resolve
 
 
+def _tab_top_to_widget(locator):
+    """Resolver: the top of the tab body -> a widget's painted top.
+
+    The same line `tab list -> first element` measures from, and a
+    different rule against it. That rule is about what sits under the
+    TAB LIST, and the list stops at the last tab -- a widget out at the
+    right of the row has the body's own top edge above it instead, which
+    is a border edge like any other.
+
+    `Flush.TNotebook` drops clam's client element for the default
+    theme's, which insets nothing, so the body's edge is the frame's
+    box: there is no border of the notebook's own between them.
+    """
+    def resolve(cap, app):
+        box = sa.box_of(sa.current_tab_widget(app))
+        extent = sa.painted_extent_v(cap, sa.box_of(locator(app)))
+        if extent is None:
+            return None, "painted nothing"
+        return sa.gap_between(box.top - 1, extent[0]), ""
+    return resolve
+
+
 def _by_text(prefix):
     """Locator: the widget whose words start with `prefix`."""
     def find(app):
@@ -1731,6 +1753,32 @@ def _class_block_gap(panel, left_classes, right_classes):
                 return None, f"nothing painted for {'/'.join(classes)}"
             edges.append(pick(s[1] if pick is max else s[0] for s in spans))
         return sa.gap_between(edges[0], edges[1]), ""
+    return resolve
+
+
+def _panel_edge_to_column(panel, container, classes):
+    """Resolver: a panel's border -> the column of controls beside it.
+
+    The WIDEST of the column's gaps, and a tally when they disagree.
+    The controls are packed at one anchor inside a frame that carries
+    their whole distance from the panel, so they share an edge by
+    construction -- a row sitting further out is the finding, and the
+    smallest would hide it behind the rows that are right.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, panel)
+        edge = sa.painted_extent_h(cap, sa.box_of(frame))
+        if edge is None:
+            return None, f"{panel!r} painted nothing"
+        gaps = []
+        for widget in sa.find_descendants_class(container(app), *classes):
+            span = sa.painted_extent_h(cap, sa.box_of(widget))
+            if span is not None:
+                gaps.append(sa.gap_between(edge[1], span[0]))
+        if not gaps:
+            return None, f"nothing painted for {'/'.join(classes)}"
+        note = "" if len(set(gaps)) == 1 else f"gaps {_tally(gaps)}"
+        return max(gaps), note
     return resolve
 
 
@@ -1894,15 +1942,39 @@ RESULTS_TITLE_ENTRIES = [
      _results_title_to_tree()),
 ]
 
-# The three options checkboxes that sit OUTSIDE any panel, at the right
-# of the Memory Fragments filter row. The last of them wraps onto a
-# second line, so its box is taller than the other two -- the pitch is
-# still read between painted rows, which is what the rule names.
-OPTIONS_TRIO_ENTRIES = [
-    ("Memory Fragments", "options trio: row pitch", 6, None,
+# The options checkboxes that sit OUTSIDE any panel, at the right of
+# the Memory Fragments filter row. The later ones wrap onto a second
+# line, so their boxes are taller -- the pitch is still read between
+# painted rows, which is what the rule names, and a checkbox added to
+# the column joins this reading without an entry of its own.
+OPTIONS_CHECKBOX_ENTRIES = [
+    ("Memory Fragments", "options checkboxes: row pitch", 6, None,
      lambda cap, app: _row_pitch_in(
          lambda a: _group_of("Unequipped Only")(a),
          CHECKBOX_CLASSES)(cap, app)),
+]
+
+# The same column read HORIZONTALLY, against the Main Stats panel it
+# sits beside. One entry for the four of them: they are packed at one
+# anchor with no padding of their own, so a row further out than the
+# rest is a finding rather than a nudge.
+OPTIONS_EDGE_ENTRIES = [
+    ("Memory Fragments", "Main Stats -> options checkboxes", 4, None,
+     _panel_edge_to_column("Main Stats",
+                           lambda app: _group_of("Unequipped Only")(app),
+                           CHECKBOX_CLASSES)),
+]
+
+# The Combatants checkbox that sits at the top right of its tab, with
+# the tab's own edges on two sides and nothing else near either.
+SHOW_MISSING_ENTRIES = [
+    ("Combatants", "tab edge -> Show missing", 4, None,
+     _tab_top_to_widget(_by_text("Show missing"))),
+]
+
+SHOW_MISSING_RIGHT_ENTRIES = [
+    ("Combatants", "Show missing -> tab edge", 4, None,
+     _to_window_edge(_by_text("Show missing"))),
 ]
 
 CONFIG_ROW_ENTRIES = [
@@ -2981,11 +3053,18 @@ ELEMENT_ENTRIES = [
 # this set is for the ones the tables above generate, whose tuples have
 # no room for it.
 AWAITING_FIRST_READING = {
-    # EMPTY, and that is the state to keep it in. A name goes in here
-    # when an entry is registered at a target the rules table supplies
-    # rather than at a distance somebody has read off the screen, and
-    # comes out again the moment a run confirms it -- so a row printing
-    # yellow is a question, never a regression.
+    # A name goes in here when an entry is registered at a target the
+    # rules table supplies rather than at a distance somebody has read
+    # off the screen, and comes out again the moment a run confirms it
+    # -- so a row printing yellow is a question, never a regression.
+    # EMPTY is the state to return it to.
+    #
+    # These three were nudged in the same edit that registered them, so
+    # there is no reading for any of them yet: the column against Main
+    # Stats went from 5 and the Combatants checkbox from 3.
+    "Main Stats -> options checkboxes",
+    "tab edge -> Show missing",
+    "Show missing -> tab edge",
 }
 
 
@@ -3144,7 +3223,11 @@ def register_all():
             (RULE_CONTENT_FRAME, WINDOW_EDGE_ENTRIES, "h", "rule"),
             (RULE_LABEL_ELEMENT, CELL_LABEL_ENTRIES, "h", None),
             (RULE_TITLE_ELEMENT, RESULTS_TITLE_ENTRIES, "v", "rule"),
-            (RULE_CHECKBOX_PITCH, OPTIONS_TRIO_ENTRIES, "v", "rule"),
+            (RULE_CHECKBOX_PITCH, OPTIONS_CHECKBOX_ENTRIES, "v", "rule"),
+            (RULE_BORDER_EDGE_CONTENT, OPTIONS_EDGE_ENTRIES, "h", "rule"),
+            (RULE_BORDER_EDGE_CONTENT, SHOW_MISSING_ENTRIES, "v", "rule"),
+            (RULE_BORDER_EDGE_CONTENT, SHOW_MISSING_RIGHT_ENTRIES, "h",
+             "rule"),
             (RULE_BORDER_EDGE_CONTENT, PRESET_LIST_ENTRIES, "h",
              "exception"),
             (RULE_BORDER_EDGE_CONTENT, PRESET_LIST_BOTTOM_ENTRIES, "v",
