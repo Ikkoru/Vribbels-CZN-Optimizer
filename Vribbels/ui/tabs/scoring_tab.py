@@ -189,17 +189,14 @@ The Gear Score measures how well a Memory Fragment (MF) rolled.
 These measurements are calculated based on the weights to the right →.
 Change the values based on how important each stat is to your build, then press "Apply Current Weights".
 This program comes with presets for each character, but you may also create and save your own.
-
 These weights affect the Memory Fragments and Combatants tabs. The Optimizer tab is not affected (almost).
 
-WEIGHTS:
-Configure custom weights to emphasize stats you care about.
-For example, if a stat is set at 1.0, setting another stat at 2.0 means you value it twice as much.
-The resulting Gear Score is normalized between 0 and 100. Negative weights are allowed (mark a stat as harmful) — normalization clamps to 0 if scores go below the theoretical floor.
+GS:
+Gear Score is normalized to between 0 and 100. Negative weights are allowed (mark a stat as harmful), but normalization will clamp to 0 if the score goes below the theoretical floor.
 
 PRESETS:
 Save weight configurations as presets and switch between them with double-click, or by pressing the "Apply Selected Preset" button.
-In the Combatants tab, set a default preset for each character. This only affects the Combatants tab, the "Highest GS/Potential: Assigned Presets Only" option, and which MFs are considered by the Optimizer.
+In the Combatants tab, set a default preset for each character. This affects the Combatants tab, Memory Fragment tab's "Highest GS/Potential: Assigned Presets Only" option, Capture tab's Upgrade Log Settings, and which MFs are filtered out by the Optimizer.
 Creating presets for each character is useful for finding and dismantling MFs that no character wants.
 Use the "Highest GS" and "Highest Pot." columns in the Memory Fragments tab for this. These columns use all the presets, so an MF with a low "Highest Pot." would be mediocre for all currently existing characters.
 
@@ -212,7 +209,7 @@ Notes:
  - The Optimizer does not consider bad MFs (to speed up calculations). It uses assigned Presets to know which MFs are bad.
  - In the Combatants tab, total character GS is the sum of equipped MF scores — the max is 600.
  - GS is calculated from substats only — the main stat itself doesn't add to the score. An MF not being able to have a substat that is the same as the main stat is accounted for by the normalization system.
- - 3★ Rare MFs cap below 100 (fewer upgrade rolls than the 4★ ceiling).
+ - Rare MFs cap below 100 (fewer upgrade rolls than that of Legendary MFs).
 
 STAT MIN - MAX ROLLS:
  - Flat ATK:	5 - 8

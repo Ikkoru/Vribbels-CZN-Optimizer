@@ -90,7 +90,7 @@ OPTIMIZER_HELP_TEXT = (
     "The Optimizer finds the six Memory Fragments (MFs) that give the selected "
     "combatant the most damage, healing, and shielding.\nTell Important Settings "
     "how the combatant fights, pick Sets, exclude anyone you don't want stripped, "
-    "then press Start. Click a result to see its pieces and stat changes.\nA wide "
+    "then press Start. Click a result to see its pieces and stat changes.\nA full "
     "search is slow: raise 'Ignore MFs below level', choose Sets, lower Max Flex "
     "Slots, exclude characters' MFs. Doesn't account for unleveled MFs' potential."
 )
