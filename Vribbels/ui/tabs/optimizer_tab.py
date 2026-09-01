@@ -50,6 +50,7 @@ from ui.utils.all_none_row import make_all_none_row
 from ui.utils.button_width import BUTTON_W_SMALL
 from ui.utils.checkbox import make_checkbox
 from ui.utils.label_width import LABEL_REQUEST_INSET
+from ui.utils.spinbox_clamp import clamp_on_commit, commit_clamp
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import (
     combobox_letter_jump, combobox_arrow_nav, bind_popdown_seek,
@@ -3713,100 +3714,14 @@ class OptimizerTab(BaseTab):
         return "break"
 
     def _clamp_on_commit(self, spin, var):
-        """Hold `var` inside the spinbox's own range once typing stops.
-
-        **A `tk.Spinbox`'s `from_`/`to` bound its BUTTONS and its wheel,
-        not its text.** Typed input reaches the variable unchecked in
-        both directions -- 500 and -7 both arrive intact through a
-        `from_=0, to=100` spinbox -- so the floor needs this as much as
-        the ceiling does.
-
-        The bounds are READ OFF THE WIDGET rather than passed in, so
-        each spinbox declares its own range once and this enforces what
-        it declared. A field that should accept negatives says so with
-        its `from_`.
-
-        On commit rather than per keystroke: mid-edit the field passes
-        through states that are not numbers at all -- empty after a
-        select-all, a lone minus sign -- and a per-stroke clamp would
-        spend most of its life fighting them.
-
-        The variable is what gets held, not the saved value. Clamping
-        only on the way out would leave the field reading 500 while the
-        optimizer used 100.
-        """
-        state = {}
-        try:
-            state["good"] = var.get()
-        except tk.TclError:
-            state["good"] = spin.cget("from")
-
-        def commit(_event=None):
-            self._commit_clamp(spin, var, state)
-        spin.bind("<FocusOut>", commit, add="+")
-        spin.bind("<Return>", commit, add="+")
+        """Bind `ui/utils/spinbox_clamp` to one of this tab's spinboxes."""
+        clamp_on_commit(spin, var, self.colors, self.root)
 
     def _commit_clamp(self, spin, var, state=None):
-        """Hold `var` inside `spin`'s range, blinking it if it moved.
-
-        A method rather than the closure above so it can be CALLED. Tk
-        will not deliver a key event to an unmapped widget, so nothing
-        headless can press Return into a spinbox -- which would leave the
-        whole clamp untestable without the maintainer at the keyboard.
-        `checks/check_tabs_build.py` calls this instead.
-
-        `state` carries the last value that WAS a number. Text that is
-        not one cannot be clamped toward anything, so the field goes
-        back to what it last held rather than to a bound -- which for a
-        field the user has not otherwise touched is the saved value.
-
-        Returns whether it changed anything.
-        """
-        lo, hi = float(spin.cget("from")), float(spin.cget("to"))
-        try:
-            value = var.get()
-        except tk.TclError:
-            if state is None:
-                return False
-            var.set(state["good"])
-            self._blink(spin)
-            return True
-        held = type(value)(min(max(value, lo), hi))
-        if state is not None:
-            state["good"] = held
-        if held == value:
-            return False
-        var.set(held)
-        self._blink(spin)
-        return True
-
-    # A clamp that snapped silently would read as the number being
-    # accepted. Three quick flashes behind the value say it moved.
-    #
-    # Its own red, not the palette's: `red` is a foreground, chosen to
-    # read as text against the dark background, and a field filled with
-    # it puts the value it is about invisibly on top. This one is dark
-    # enough to keep the digits legible while it flashes.
-    CLAMP_ALERT = "#9b0f1b"
-    CLAMP_BLINK_MS = 110
-    CLAMP_BLINKS = 3
-
-    def _blink(self, widget):
-        """Flash a widget's background between the alert colour and its
-        own, ending on its own."""
-        normal = self.colors["bg_light"]
-        alert = self.CLAMP_ALERT
-        last = self.CLAMP_BLINKS * 2 - 1
-
-        def step(n):
-            try:
-                widget.config(bg=alert if n % 2 == 0 else normal)
-            except tk.TclError:
-                return                   # the tab went away mid-blink
-            if n < last:
-                self.root.after(self.CLAMP_BLINK_MS, step, n + 1)
-
-        step(0)
+        """The clamp, callable. `checks/check_tabs_build.py` uses this:
+        Tk will not deliver a key event to an unmapped widget, so nothing
+        headless can press Return into a spinbox."""
+        return commit_clamp(spin, var, self.colors, self.root, state)
 
     def _scale_wheel(self, event, var, on_change=None, lo=0, hi=100):
         """Step a ttk.Scale's IntVar by exactly +-1 on mouse wheel.

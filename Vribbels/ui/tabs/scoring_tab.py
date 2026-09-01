@@ -2,7 +2,7 @@
 ScoringTab - Gear scoring configuration interface.
 
 This tab provides controls for configuring how Memory Fragments are scored:
-- Custom stat priority weights (0-5 spinboxes for each stat)
+- Custom stat priority weights, one spinbox per stat
 - Save / load / delete user-defined preset configurations
 - Real-time score recalculation and inventory refresh
 
@@ -20,6 +20,7 @@ from ..base_tab import BaseTab
 from ..context import AppContext
 from ..utils.button_width import BUTTON_W_LARGE
 from ..utils.label_width import column_px
+from ..utils.spinbox_clamp import clamp_on_commit, commit_clamp
 from ..utils.type_ahead import attach, find
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
@@ -431,8 +432,17 @@ STAT MIN - MAX ROLLS:
             var = tk.DoubleVar(value=1.0)
             self.stat_weight_vars[stat_key] = var
 
+            # The range is WIDE because a weight is allowed to be
+            # negative -- that is how a stat is marked harmful, and the
+            # panel's own explanation says so. A `from_` of 0 would make
+            # the clamp below undo every negative weight the moment the
+            # field lost focus.
+            #
+            # It is not unbounded, though: `from_`/`to` are what the
+            # clamp reads, so a field with no range declared has nothing
+            # to hold a typed value inside.
             spin = tk.Spinbox(
-                cell, from_=0.0, to=5.0, increment=0.1, width=5,
+                cell, from_=-99999, to=99999, increment=0.1, width=5,
                 textvariable=var, format="%.1f",
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
                 buttonbackground=self.colors["bg_lighter"],
@@ -442,6 +452,10 @@ STAT MIN - MAX ROLLS:
                 relief=tk.FLAT, bd=1
             )
             spin.grid(row=0, column=1, sticky="w", padx=(0, 2))
+            # A tk.Spinbox's from_/to bound its buttons and its wheel,
+            # never its text: without this a typed 1e9 or `abc` reaches
+            # the weight and every Gear Score in the app with it.
+            clamp_on_commit(spin, var, self.colors, self.root)
             # Mouse-wheel adjustment, same handler as the Optimizer tab.
             # tk.Spinbox doesn't bind <MouseWheel> by default; without this
             # the user has to click the up/down buttons to change values.

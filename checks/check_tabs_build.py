@@ -190,6 +190,80 @@ def _percent_fields_are_clamped(tab):
     return failures
 
 
+def _weight_fields_are_clamped(tab):
+    """A Gear Score weight must hold a TYPED value in range.
+
+    Same exposure as the Optimizer's fields and a worse blast radius: a
+    weight reaches every Gear Score in the app, so a typed 1e9 skews the
+    Memory Fragments list, the Combatants totals and the Optimizer's
+    candidate filter at once.
+
+    The range is deliberately wide rather than 0-5, because a NEGATIVE
+    weight marks a stat harmful and the panel's own text says so -- a
+    clamp that undid those would be worse than none. What it exists for
+    is the far ends and text that is not a number.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.utils.spinbox_clamp import commit_clamp
+
+    def walk(w):
+        yield w
+        for c in w.winfo_children():
+            yield from walk(c)
+
+    out = []
+    stat = next(iter(tab.stat_weight_vars), None)
+    if stat is None:
+        return ["ScoringTab has no stat weight variables at all"]
+    var = tab.stat_weight_vars[stat]
+    spin = next((w for w in walk(tab.get_frame())
+                 if w.winfo_class() == "Spinbox"
+                 and str(w.cget("textvariable")) == str(var)), None)
+    if spin is None:
+        return [f"no Spinbox bound to the {stat} weight"]
+
+    bound = spin.bind()
+    for seq in ("<Key-Return>", "<FocusOut>"):
+        if seq not in bound:
+            out.append(
+                f"the {stat} weight has no {seq} binding, so nothing clamps "
+                f"what is TYPED into it -- from_/to bound the buttons only."
+            )
+    lo, hi = float(spin.cget("from")), float(spin.cget("to"))
+    if lo >= 0:
+        out.append(
+            f"the {stat} weight declares from_={lo}, so the clamp would "
+            f"snap every NEGATIVE weight to it. Marking a stat harmful is "
+            f"a documented feature of this panel."
+        )
+    for typed, want in ((-3.0, -3.0), (1e9, hi), (-1e9, lo)):
+        var.set(typed)
+        commit_clamp(spin, var, tab.colors, tab.root, {"good": 1.0})
+        if var.get() != want:
+            out.append(
+                f"the {stat} weight holds {var.get()} after {typed} was "
+                f"entered, not {want}, against its declared {lo}..{hi}"
+            )
+    state = {"good": 1.0}
+    spin.delete(0, tk.END)
+    spin.insert(0, "abc")
+    commit_clamp(spin, var, tab.colors, tab.root, state)
+    try:
+        got = var.get()
+    except tk.TclError:
+        got = "still not a number"
+    if got != 1.0:
+        out.append(
+            f"the {stat} weight holds {got!r} after 'abc' was entered. Text "
+            f"that is not a number cannot be clamped toward a bound, so the "
+            f"field goes back to what it last held."
+        )
+    var.set(1.0)
+    return out
+
+
 def _character_card_lines_fit():
     """The Character card is a FIXED width, and a long line clips.
 
@@ -499,6 +573,8 @@ def run():
             failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
         failures.extend(_all_none_panels_carry_no_left_padding(built))
         failures.extend(_character_card_lines_fit())
+        if "ScoringTab" in built:
+            failures.extend(_weight_fields_are_clamped(built["ScoringTab"]))
         if "HeroesTab" in built:
             failures.extend(
                 _combatant_selection_survives_a_rebuild(built["HeroesTab"]))
