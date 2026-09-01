@@ -224,10 +224,9 @@ class CaptureTab(BaseTab):
         # spacing: checkboxes -> unrelated checkboxes -- checkbox, checkbox ↕
         # NOT TRACKED, and cannot usefully be: `side=tk.BOTTOM` pins this
         # block to the panel's floor, so what sits between it and the
-        # checklist above is whatever height is left over -- 69px at the
-        # window size it was read at. The rule's 20 is a MINIMUM here,
+        # checklist above is whatever height is left over. The rule's 20 is a MINIMUM here,
         # and the audit compares against a number rather than a floor.
-        options_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(5, 0))
+        options_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(17, 0))
         options_frame.grid_columnconfigure(1, weight=1)
 
         sm = self.context.settings_manager

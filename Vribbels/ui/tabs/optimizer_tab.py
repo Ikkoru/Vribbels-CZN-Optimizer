@@ -2900,10 +2900,9 @@ class OptimizerTab(BaseTab):
                             "No combination of your Memory Fragments "
                             "satisfied the Set Configuration.",
                             "",
-                            "Either a set you picked has too few fragments "
-                            "in one slot, or the sets together need more "
-                            "than 6 slots. Raising Maximum Flex Slots, or "
-                            "picking fewer sets, is usually the fix.",
+                            "Either a set you picked has too few fragments in a "
+                            "slot, or the sets together need more than 6 slots. "
+                            "Raising Maximum Flex Slots is usually the fix.",
                         ]
                         if active:
                             reasons += [
@@ -2914,7 +2913,7 @@ class OptimizerTab(BaseTab):
                             reasons += [
                                 "",
                                 "Candidates per slot: " + ", ".join(
-                                    f"{s}: {slot_counts[s]}"
+                                    f"{slot_counts[s]}"
                                     for s in sorted(slot_counts)
                                 ),
                             ]
