@@ -95,6 +95,13 @@ from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
 # Reconciles bundled defaults in `default_settings/` with the user's
 # `settings/` folder. Must run BEFORE any manager loads.
 from defaults_sync import sync_defaults
+# The Upgrade Log Settings, as a decision rather than as widgets:
+# the Memory Fragments columns can ask the same question the
+# Upgraded line asks, and get the same answer.
+from upgrade_log_filters import (
+    combatant_accepts_main, filter_flags, presets_for_fragment,
+    selected_log_presets,
+)
 
 
 # The dark palette every tab reads through `context.colors`. Module level
@@ -1089,115 +1096,24 @@ class OptimizerGUI:
                 )
 
     def _selected_log_presets(self) -> dict:
-        """Preset name -> the res_ids of the combatants assigned to it
-        whose Log Presets flag is selected (the Capture tab checklist).
-        Assignments to since-deleted presets are skipped. Combatants
-        absent from log_presets.json count as selected (the default).
-
-        Keyed by preset because that's the unit the Upgraded line
-        displays; the res_ids come along so the mismatch filters can ask
-        who actually wants the fragment."""
-        cpm = self.character_preset_manager
-        pm = self.preset_manager
-        lpm = getattr(self, "log_presets_manager", None)
-        if cpm is None or pm is None or cpm.is_corrupted():
-            return {}
-        by_preset: dict = {}
-        for rid, preset in cpm.assignments_by_id.items():
-            if not preset or not pm.has_preset(preset):
-                continue
-            if lpm is None or lpm.is_selected(rid):
-                by_preset.setdefault(preset, []).append(rid)
-        return by_preset
-
-    # Upgrade Log mismatch filters: the settings.json keys behind the
-    # Capture tab's checkboxes. All default on.
-    UPGRADE_LOG_FILTERS = (
-        "upgrade_log_ignore_atkdef_mismatch",
-        "upgrade_log_ignore_element_mismatch",
-        "upgrade_log_ignore_dps_hp",
-        "upgrade_log_ignore_dps_ego",
-    )
+        """Preset name -> the res_ids assigned to it whose Log Presets
+        flag is selected. See `upgrade_log_filters`, which the Memory
+        Fragments columns read through too."""
+        return selected_log_presets(self.character_preset_manager,
+                                    self.preset_manager,
+                                    getattr(self, "log_presets_manager", None))
 
     def _upgrade_log_filter_flags(self) -> dict:
-        """Current state of every Upgrade Log mismatch filter, keyed by
-        its settings.json key. Missing settings (or no SettingsManager)
-        read as on."""
-        sm = getattr(self, "settings_manager", None)
-        if sm is None:
-            return {key: True for key in self.UPGRADE_LOG_FILTERS}
-        return {key: bool(sm.get(key, True))
-                for key in self.UPGRADE_LOG_FILTERS}
+        """Every Upgrade Log mismatch filter's state, keyed by its
+        settings.json key."""
+        return filter_flags(getattr(self, "settings_manager", None))
 
     def _combatant_accepts_main(self, res_id, fragment, flags: dict) -> bool:
-        """Whether `fragment` is plausibly for this combatant, judged
-        only by its MAIN stat. Every test is opt-out (Capture tab); the
-        `flags` dict comes from _upgrade_log_filter_flags.
-
-        Element: an element DMG% main that isn't the combatant's element
-        contributes nothing to their damage. A combatant whose element
-        can't be resolved (unknown character, no Element override) is
-        never filtered -- with no element, no element main is more
-        off-element than another. Matches the optimizer's off-element
-        Slot V candidacy filter.
-
-        ATK/DEF: read off the combatant's ATK/DEF Split, the share of
-        their damage that scales off DEF. 0-33 is ATK-scaling and
-        rejects a DEF% main, 67-100 is DEF-scaling and rejects an ATK%
-        main, and the hybrid band between them accepts both. The test is
-        on the main stat rather than the slot, so it covers ATK% in
-        slots IV, V and VI and DEF% in slot VI.
-
-        DPS: a combatant whose Shielding & Healing weight is 45 or less
-        is treated as a damage dealer, and rejects an HP% main (slots
-        IV, V and VI) and an Ego main (slot VI).
-        """
-        main = fragment.main_stat.name if fragment.main_stat else None
-        if not main:
-            return True
-        osm = getattr(self, "optimizer_settings_manager", None)
-
-        if flags.get("upgrade_log_ignore_element_mismatch") and \
-                main in SLOT5_ELEMENT_MAINS:
-            try:
-                attribute = get_character(int(res_id)).get("attribute", "Unknown")
-            except (TypeError, ValueError):
-                attribute = "Unknown"
-            if attribute == "Unknown":
-                attribute = (osm.get(res_id, "element_override")
-                             if osm is not None else None) or ""
-            if attribute and main != f"{attribute} DMG%":
-                return False
-
-        if flags.get("upgrade_log_ignore_atkdef_mismatch") and \
-                main in ("ATK%", "DEF%") and osm is not None:
-            def_split = self._combatant_setting(osm, res_id, "atk_def_split")
-            if main == "DEF%" and def_split <= 33:
-                return False
-            if main == "ATK%" and def_split >= 67:
-                return False
-
-        dps_filtered_mains = {
-            "HP%": flags.get("upgrade_log_ignore_dps_hp"),
-            "Ego": flags.get("upgrade_log_ignore_dps_ego"),
-        }
-        if dps_filtered_mains.get(main) and osm is not None:
-            heal_weight = self._combatant_setting(
-                osm, res_id, "shielding_healing_weight")
-            if heal_weight <= 45:
-                return False
-
-        return True
-
-    @staticmethod
-    def _combatant_setting(osm, res_id, field: str) -> int:
-        """One of a combatant's 0-100 Important Settings sliders as an
-        int. Anything unreadable reads as 0 -- the same value a combatant
-        with no stored entry gets."""
-        try:
-            return int(osm.get(res_id, field) or 0)
-        except (TypeError, ValueError):
-            return 0
+        """Whether `fragment` is plausibly for this combatant, by its
+        MAIN stat alone. See `upgrade_log_filters`."""
+        return combatant_accepts_main(
+            res_id, fragment, flags,
+            getattr(self, "optimizer_settings_manager", None))
 
     @staticmethod
     def _potentials_phrase(scored) -> str:
@@ -1256,18 +1172,14 @@ class OptimizerGUI:
         if not selected:
             return ""
 
-        flags = self._upgrade_log_filter_flags()
-        if any(flags.values()):
-            selected = {
-                name: rids for name, rids in selected.items()
-                if any(self._combatant_accepts_main(rid, fragment, flags)
-                       for rid in rids)
-            }
-            if not selected:
-                return ""
+        names = presets_for_fragment(
+            fragment, selected, self._upgrade_log_filter_flags(),
+            getattr(self, "optimizer_settings_manager", None))
+        if not names:
+            return ""
 
         scored = []
-        for name in sorted(selected):
+        for name in sorted(names):
             weights = pm.get_preset(name) or {}
             bounds = compute_gs_bounds(weights, exclude_stat=main_name)
             low, high = compute_fragment_potential(fragment, weights, bounds)

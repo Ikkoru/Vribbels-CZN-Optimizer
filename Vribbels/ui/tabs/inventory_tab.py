@@ -55,6 +55,15 @@ from ..utils.checkbox import make_checkbox
 from ..utils.label_width import column_px
 from ..utils.tooltip import Tooltip
 from .heroes_tab import compute_fragment_gs
+from upgrade_log_filters import (
+    filter_flags, presets_for_fragment, selected_log_presets,
+)
+
+
+# Where the Upgrade Log Settings checkbox's state is kept. Its own
+# key rather than one of the `upgrade_log_*` four: those say what
+# the FILTERS do, and this says who reads them.
+INV_USE_LOG_FILTERS_KEY = "inventory_use_upgrade_log_filters"
 
 
 # Display label -> canonical stat name (as stored in main_stat.name).
@@ -133,6 +142,7 @@ class InventoryTab(BaseTab):
         self.inv_unequipped_var = None
         self.inv_include_uncommon_var = None
         self.inv_only_assigned_presets_var = None
+        self.inv_use_log_filters_var = None
 
         # Inventory display state
         self.inv_tree = None
@@ -353,6 +363,21 @@ class InventoryTab(BaseTab):
                       variable=self.inv_only_assigned_presets_var,
                       command=self.refresh_inventory).pack(
                           anchor=tk.W, pady=(0, 0))
+
+        # The same question the Capture tab's Upgraded line asks, asked of
+        # these two columns. Remembered, because it changes what every
+        # score in the list MEANS and re-checking it every launch would
+        # be the common case.
+        sm = self.context.settings_manager
+        self.inv_use_log_filters_var = tk.BooleanVar(
+            value=bool(sm.get(INV_USE_LOG_FILTERS_KEY, False))
+            if sm is not None else False)
+        # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
+        make_checkbox(opt_frame, self.colors,
+                      text="Highest GS/Potential:\nUpgrade Log Settings",
+                      variable=self.inv_use_log_filters_var,
+                      command=self._on_use_log_filters_toggle).pack(
+                          anchor=tk.W, pady=(3, 0))
 
         # ----- Treeview ---------------------------------------------------
         tree_frame = ttk.Frame(self.frame)
@@ -879,6 +904,13 @@ class InventoryTab(BaseTab):
         no_presets = not preset_data
         bounds_cache: dict = {}  # (preset_idx, main_stat_name) -> bounds
 
+        # The Upgrade Log Settings, if the reader asked for them. The
+        # mismatch half is PER FRAGMENT -- it tests the fragment's own
+        # main stat -- so it cannot be folded into `preset_data` and is
+        # applied inside the loop instead. `allowed` is None when the
+        # setting is off, which the loop reads as "every preset".
+        allowed = self._log_filtered_preset_names()
+
         for f in filtered:
             if no_presets:
                 f.highest_preset_gs = 0.0
@@ -904,6 +936,8 @@ class InventoryTab(BaseTab):
             # "preset with max GS" -- one annotation works for both cases.
             best_high_preset = None
             for pi, (pname, weights) in enumerate(preset_data):
+                if allowed is not None and pname not in allowed(f):
+                    continue
                 key = (pi, main_name)
                 if key not in bounds_cache:
                     bounds_cache[key] = compute_gs_bounds(
@@ -918,9 +952,13 @@ class InventoryTab(BaseTab):
                     best_high = high
                     best_low = low
                     best_high_preset = pname
-            f.highest_preset_gs = best_gs
+            # Every preset filtered out: the fragment is one nobody
+            # assigned wants, which is a 0 rather than the -inf the
+            # comparisons started at.
+            f.highest_preset_gs = best_gs if best_gs > float("-inf") else 0.0
             f.highest_preset_potential_low = best_low
-            f.highest_preset_potential_high = best_high
+            f.highest_preset_potential_high = (
+                best_high if best_high > float("-inf") else 0.0)
             f.highest_preset_potential_name = best_high_preset
 
         sort_key_map = {
@@ -1033,6 +1071,42 @@ class InventoryTab(BaseTab):
     # =========================================================================
     # Highest GS — best score across custom (named) presets
     # =========================================================================
+
+    def _log_filtered_preset_names(self):
+        """A callable giving the preset names a fragment survives, or None.
+
+        None when the Upgrade Log Settings checkbox is off, which the
+        caller reads as "every preset" -- distinct from an empty set,
+        which would mean the settings excluded them all.
+
+        A CALLABLE because the mismatch half of those settings tests the
+        fragment's own main stat, so there is no one answer for the list.
+        What can be hoisted out of the loop is hoisted: the selection and
+        the flags are read once here.
+        """
+        if not (self.inv_use_log_filters_var
+                and self.inv_use_log_filters_var.get()):
+            return None
+
+        ctx = self.context
+        selected = selected_log_presets(
+            getattr(ctx, "character_preset_manager", None),
+            getattr(ctx, "preset_manager", None),
+            getattr(ctx, "log_presets_manager", None))
+        flags = filter_flags(getattr(ctx, "settings_manager", None))
+        osm = getattr(ctx, "optimizer_settings_manager", None)
+
+        def allowed(fragment):
+            return set(presets_for_fragment(fragment, selected, flags, osm))
+        return allowed
+
+    def _on_use_log_filters_toggle(self):
+        """Persist the Upgrade Log Settings checkbox, then re-score."""
+        sm = self.context.settings_manager
+        if sm is not None:
+            sm.set(INV_USE_LOG_FILTERS_KEY,
+                   bool(self.inv_use_log_filters_var.get()))
+        self.refresh_inventory()
 
     def _presets_for_highest_gs(self):
         """Resolve the list of presets to consider for the Highest GS column.
