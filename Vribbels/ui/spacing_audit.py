@@ -573,11 +573,14 @@ class TrackedGap:
       "exception" the site deliberately misses the rule, and its call
                   site carries an `exception` marker saying so. The
                   number is a reading of what it is meant to be
+      "unique"   no rule covers the gap. `rule` then holds the marker's
+                 own `<what>`, which the doc's uniques table prices --
+                 see `check_spacing_registry`
       "inferred"  the rule applies and is followed, but its number
-                  cannot be COMPUTED for this case, so it was carried
-                  across from a different panel or an earlier build.
-                  Weaker than a reading and deliberately distinguished
-                  from one. No entry needs this today
+                  cannot be COMPUTED for this case, so it is carried
+                  across from a different panel. Weaker than a reading
+                  and deliberately distinguished from one. No entry
+                  needs this today
 
     The distinction is printed, so an exception's 7 is not later
     "corrected" to 5 by someone applying the rule from memory.

@@ -39,8 +39,8 @@ class Tooltip:
     def bind_tag(self, text_widget, tag, text):
         """Same, for one tagged RANGE inside a Text rather than a widget.
 
-        A Text that draws what used to be several widgets has no separate
-        window to hover, so the hover lives on the tag. The tip still
+        A Text drawing what would otherwise be several widgets has no
+        separate window to hover, so the hover lives on the tag. The tip
         positions against the Text itself, which is close enough for a
         cell-sized widget.
         """

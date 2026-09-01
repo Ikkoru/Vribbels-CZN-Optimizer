@@ -164,15 +164,15 @@ CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
 #
 # The centre stop is DERIVED, not chosen: a centre-aligned stop has to
 # sit at the middle of the text area or the block it carries is not
-# centred. Written as 196 it was 1.5px right of centre and would have
-# drifted further the moment GEAR_CELL_W moved.
+# centred. A stated number is off by whatever GEAR_CELL_W's halves do
+# not divide evenly into, and drifts further the moment it moves.
 GEAR_TAB_GS = GEAR_TEXT_W // 2   # centre stop: GS and Potential
 # spacing: border edge -> first non-button element -- text, run ↔
 # The RIGHT inset, and the only lever on it: `padx` is symmetric,
 # so it sets the left and this stop decides how much further in the
 # widest STATED line ends. It moves with GEAR_TEXT_W -- both edges
 # step inward together when `padx` changes, so a padx of one less
-# needs a stop of one more to leave the slot name where it was.
+# needs a stop of one more to hold the slot name still.
 #
 # NOT tracked, unlike the left and top: the set description wraps,
 # so the rightmost ink in the cell is whichever wrapped line came

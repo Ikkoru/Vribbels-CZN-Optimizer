@@ -36,9 +36,9 @@ doesn't live on individual characters / partners / fragments:
 
 Note on capture-related constants
 =================================
-GAME_HOSTS, GAME_PORT, PROXY_PORT, OUTPUT_DIR, HOSTS_PATH used to live
-here. They've been moved to capture/constants.py because they're
-specifically about the capture pipeline.
+GAME_HOSTS, GAME_PORT, PROXY_PORT, OUTPUT_DIR and HOSTS_PATH live in
+capture/constants.py: they are about the capture pipeline rather than
+about the game's data.
 """
 
 from pathlib import Path

@@ -898,11 +898,14 @@ class OptimizerTab(BaseTab):
         # Block 1: Extra% + DoT% sliders
         # spacing: border edge -> first non-button element -- panel, label ↔
         # spacing: explanation text -> the controls it explains -- label, slider ↕
-        # No leading correction, unlike its siblings' absence of one: the
-        # FRAME carries this panel's inset now, because an ordinary 9pt
-        # Label is what most of the content is. This label used to hold a
-        # -1 and the frame a pixel more, which put this one line on
-        # target and left every other label a pixel out.
+        # The FRAME carries this panel's left inset, because an ordinary
+        # 9pt Label is what most of its content is. Correcting on this
+        # label instead puts this one line on target and leaves every
+        # other label in the panel a pixel out.
+        #
+        # The negative TOP is a different gap: the frame's padding is
+        # already 0 there and the rule asks for less than a label's line
+        # box gives, so the last pixel comes off this label's own inset.
         ttk.Label(
             parent, text="What percent of damage is Extra, Agony, or Fracture/Scorched DMG?",
             font=("Segoe UI", 9), wraplength=376,

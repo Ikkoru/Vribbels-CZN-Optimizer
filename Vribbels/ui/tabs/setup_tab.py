@@ -246,11 +246,10 @@ class SetupTab(BaseTab):
             ).grid(row=0, column=0, sticky="")
             # spacing: label ↔ its element -- button, label ↔
             # The negative vertical padding trims the label's box to its
-            # own line boxes -- two lines of text sit in a box 4px taller
-            # than they need, and that surplus used to make the label the
-            # taller child and push the buttons apart. With it gone the
-            # BUTTON sets the row height, so the row padding above is the
-            # button gap exactly.
+            # own line boxes: two lines of text sit in a box 4px taller
+            # than they need, and that surplus makes the LABEL the taller
+            # child of the row. Trimmed, the BUTTON sets the row height,
+            # so the row padding above is the button gap exactly.
             ttk.Label(
                 row, text=explanation,
                 foreground=self.colors["fg_dim"],

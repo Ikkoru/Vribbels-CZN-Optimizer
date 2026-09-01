@@ -76,14 +76,12 @@ UNIQUE_SETUP_STATUS = "Setup Status stands apart on purpose"
 # which is the only thing this table is about.
 DEEP_BELOW = "gjpqy|"
 
-# One pixel above a descender at Segoe UI 9, measured. Between the two
-# derived classes, which is why titles holding one used to need a hand
-# target.
-# ...and the ones that reach 2px, which is a bracket's depth and a
-# comma's alike. Measured on the Equipped MF cells, whose substat lines
-# hold all three: `q% substat +total (base | +upg, +upg)`. Read with the
-# comma and the pipe missing from these tables, that line's gap came out
-# a pixel tight while every line without one read dead on.
+# The glyphs that drop 2px below the baseline rather than a descender's
+# 3 -- a bracket's depth and a comma's alike. Measured on the Equipped
+# MF cells, whose substat lines hold all three classes at once:
+# `q% substat +total (base | +upg, +upg)`. A line carrying one of these
+# with the table incomplete reads a pixel tight, where a line without
+# one reads dead on.
 SHALLOW_BELOW = "(),"
 
 # Characters that never reach above the x-height, plus the punctuation
@@ -109,12 +107,10 @@ def reaches_cap_height(text: str) -> bool:
 # its CAPITALS. The rules measure to the baseline and the cap; the
 # screen shows ink; these are the difference.
 #
-# They were targets once -- a title with a descender was given 2 where
-# one without was given 5, and a 14 bold heading with an ascender lost a
-# pixel. Four glyph classes spread across two tables, all of them saying
-# the same thing twice: that the tool reads a different reference point
-# than the rules name. Correcting the READING says it once, and every
-# target below is a plain number again.
+# They correct the READING, never the target. Spending them on targets
+# instead says the same thing once per glyph class -- that the tool
+# reads a different reference point than the rules name -- and puts a
+# conditional in every rule's target column.
 DESCENDER_DEPTH = 3
 SHALLOW_DEPTH = 2
 
@@ -359,11 +355,6 @@ def _caption_to_field(prefix):
     return resolve
 
 
-# What phase 4 of plan.md asked for, as measurements rather than nudges.
-# Its list was written before anything could measure, and two of the
-# gaps it named have since been tracked and found ON target -- so the
-# remaining question is only about the edges nothing watches.
-#
 # (tab, name, title, side). BOTTOM is absent everywhere: a text panel's
 # prose stops where it stops, so the space under it is slack rather than
 # an inset. RIGHT is Character only -- Partner puts a scrollbar between
@@ -1818,10 +1809,10 @@ INDICATOR_ENTRIES = [
 # control where the pair is wrapped in a cell of its own, so the gap is
 # inside the cell and nothing at the grid level can see it.
 CELL_LABEL_ENTRIES = [
-    # The piece count is inside the checkbox now, so this measures the
-    # checkbox's text to the set NAME beside it -- an ordinary gap with
-    # an ordinary pad, where it used to be the indicator against a label
-    # across 7px of reserved space nothing could reach.
+    # The piece count is the checkbox's own text, so this measures that
+    # to the set NAME beside it -- an ordinary gap with an ordinary pad,
+    # where a text-less checkbox would put 7px of reserved space in it
+    # that no padding reaches.
     ("Optimizer", "Set Config checkbox -> its label", 5, None,
      _gap_within_cells(_tab_attr("optimizer_tab_instance", "set_grid_frame"),
                        CHECKBOX_CLASSES + LABEL_CLASSES)),
@@ -2468,9 +2459,9 @@ def _row_pitch_in(container, classes):
     furthest from it -- and a division is always the widest gap, so it
     can never be mistaken for the pitch.
 
-    It was the most common once. Three panels kept a whole group of rows
-    4px tighter than the rest and passed anyway, the wrong rows being
-    out-voted by the right ones.
+    The MOST COMMON gap is the wrong answer here: a panel keeping a
+    whole group of rows tighter than the rest passes anyway, the wrong
+    rows being out-voted by the right ones.
 
     No glyph correction: a checkbox row's painted bottom is its
     INDICATOR and a spinbox row's is its border, so no descender in any
@@ -2705,10 +2696,8 @@ LEFT_INSET_OVERRIDES = {
     # a drift still shows, rather than left out and unwatched.
     "Setup Status": (RULE_BORDER_EDGE_CONTENT, 7, "exception"),
     # Capture's own Status panel, for the same reason and at the same
-    # number. It was left OUT rather than tracked, on the grounds that a
-    # permanently red row trains the reader to ignore red -- but an
-    # exception nothing measures cannot be told apart from drift, which
-    # is the worse of the two. Tracked at what it is, like the one above.
+    # number. Tracked rather than left out: an exception nothing
+    # measures cannot be told apart from a drift into one.
     "Status": (RULE_BORDER_EDGE_CONTENT, 7, "exception"),
 }
 

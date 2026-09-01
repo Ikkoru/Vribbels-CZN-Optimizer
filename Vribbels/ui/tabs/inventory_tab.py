@@ -507,9 +507,9 @@ class InventoryTab(BaseTab):
         # the row-major fill order used below (i % ncols).
         # In PIXELS, and the label carries no `width=` of its own. A
         # character count is a multiple of the font's average width and
-        # the text is not, and `anchor=tk.E` put the whole difference on
+        # the text is not, and `anchor=tk.E` puts the whole difference on
         # the LEFT -- which is the side the gap from the set name is
-        # measured on. It was 4 of the 7 that gap used to read.
+        # measured on. A `width=` in characters spends about 4px there.
         def _col_count_px(c):
             col_sets = four_names[c::ncols] + rest_names[c::ncols]
             texts = [f"({owned_counts.get(n, 0)})" for n in col_sets]

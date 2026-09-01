@@ -133,9 +133,10 @@ class CaptureTab(BaseTab):
         # Column 0 takes what its widest child asks and column 1 takes
         # the rest, so that child is what sets the Upgrade Log Settings
         # panel's width: every pixel it gives up is one the panel gains.
-        # There is no minsize -- the one that used to be here entered at
-        # 583, above what the row cost, and stopped binding once the
-        # buttons were standardised.
+        # There is no minsize, and one would have to clear the button
+        # row's own request to do anything at all -- below that it never
+        # binds, and above it the panel beside this column loses width
+        # to a number nothing derives.
         top_columns.grid_columnconfigure(0, weight=0)
         top_columns.grid_columnconfigure(1, weight=1)
 
@@ -348,8 +349,8 @@ class CaptureTab(BaseTab):
         # spacing: border edge -> first non-button element -- button, checkbox ↔
         # spacing: exception -- border edge -> first non-button element -- checkbox, panel ↔
         # A lone non-button after a run of buttons, which is what this
-        # rule is about -- not a second element-and-label pair, which is
-        # the rule it used to carry.
+        # rule is about. Not a second element-and-label pair: there is
+        # no pair here, only the one checkbox.
         #
         # Its OTHER side answers to the same rule and misses it by the
         # widget's own inset, unavoidably. This row is the widest thing

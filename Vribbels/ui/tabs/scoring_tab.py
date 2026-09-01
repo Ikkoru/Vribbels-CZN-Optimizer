@@ -375,10 +375,10 @@ STAT MIN - MAX ROLLS:
         button column to the right.
         """
         # One width PER COLUMN, each measured from that column's own
-        # longest label. The two used to share a width, which linked
-        # gaps that answer separately: the longer column's label set the
-        # width and the other one's gap came out however much shorter
-        # its own longest label happened to be.
+        # longest label. A shared width links two gaps that answer
+        # separately: the longer column's label sets it, and the other
+        # column's gap comes out however much shorter its own longest
+        # label happens to be.
         #
         # LABEL_GAP_PX is on top of what a Label asks for around its ink,
         # since a minsize is a floor the column still grows past -- see
