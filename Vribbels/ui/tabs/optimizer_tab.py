@@ -502,11 +502,12 @@ class OptimizerTab(BaseTab):
         # doesn't grow with its label; width is synced to top_row's natural
         # reqwidth in _settle_layout_once so the label clips at the
         # cluster's right edge. Height fits one line of the body font.
-        # 18, not 17: a Segoe UI 9 line box is 15px and the label's own
-        # style inset takes the rest, so 17 clipped the descenders off
-        # `Preset:` itself. The row is pinned rather than propagating,
-        # so nothing else reports the clip.
-        self._toolbar_preset_row = ttk.Frame(left_cluster, height=18)
+        # 19: a Segoe UI 9 line box is 15px and the label's own style
+        # inset takes more than the 2 that 17 left, so `Preset:` had its
+        # descenders clipped. The row is PINNED rather than propagating,
+        # so nothing about the clip reaches a layout that could report
+        # it -- it has to be read off the screen.
+        self._toolbar_preset_row = ttk.Frame(left_cluster, height=19)
         self._toolbar_preset_row.pack_propagate(False)
         self._toolbar_preset_row.pack(side=tk.TOP, fill=tk.X, anchor=tk.W)
         self.preset_label = ttk.Label(

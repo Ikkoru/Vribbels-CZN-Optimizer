@@ -515,10 +515,17 @@ class OptimizerGUI:
         # `rowheight` is the only vertical spacing a Treeview has, since
         # its rows are contiguous. Below the font's line box (15px at
         # Segoe UI 9) a row clips its own text.
+        #
+        # `padding` is a FOUR-TUPLE so the bottom can differ. It insets
+        # the tree area on every side it is given, and the bottom side
+        # of it is the only thing between the last row and the widget's
+        # edge -- 0 there closes a gap that has no matching one at the
+        # top, where the heading sits instead. It is shared by every
+        # list in the app, so this moves all six.
         self.style.configure("Treeview", background=self.colors["bg_light"],
                              foreground=self.colors["fg"],
                              fieldbackground=self.colors["bg_light"],
-                             padding=3, rowheight=21)
+                             padding=(3, 3, 3, 0), rowheight=21)
         # No outline. The border's WIDTH is not a style option -- clam's
         # `Treeview.field` exposes only colours -- so the only way to drop
         # it is a layout with no field element, the same trick

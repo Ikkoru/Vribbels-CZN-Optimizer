@@ -54,12 +54,20 @@ RULE_CONFIG_PANEL_ROW = "config panel row ↕ row"
 RULE_CONTROL_GROUP = "control group ↔ control group"
 
 
-DESCENDERS = "gjpqy"
+# Glyphs whose ink reaches the FULL descender depth. `|` is not a
+# descender in any typographic sense and reaches exactly as far as one,
+# which is the only thing this table is about.
+DEEP_BELOW = "gjpqy|"
 
 # One pixel above a descender at Segoe UI 9, measured. Between the two
 # derived classes, which is why titles holding one used to need a hand
 # target.
-PARENTHESES = "()"
+# ...and the ones that reach 2px, which is a bracket's depth and a
+# comma's alike. Measured on the Equipped MF cells, whose substat lines
+# hold all three: `q% substat +total (base | +upg, +upg)`. Read with the
+# comma and the pipe missing from these tables, that line's gap came out
+# a pixel tight while every line without one read dead on.
+SHALLOW_BELOW = "(),"
 
 # Characters that never reach above the x-height, plus the punctuation
 # that sits on or below the baseline. A string built only from these has
@@ -91,7 +99,7 @@ def reaches_cap_height(text: str) -> bool:
 # than the rules name. Correcting the READING says it once, and every
 # target below is a plain number again.
 DESCENDER_DEPTH = 3
-PARENTHESIS_DEPTH = 2
+SHALLOW_DEPTH = 2
 
 # A descender at Segoe UI 14 bold, the tab headings' font, reaches a
 # pixel deeper than one at 9. Measured from the three tab headings read
@@ -120,10 +128,10 @@ def ink_below_baseline(text: str, bold14: bool = False) -> int:
     further than body text's. A parenthesis has never been measured at
     that size and no heading holds one, so it keeps the 9pt depth.
     """
-    if any(c in text for c in DESCENDERS):
+    if any(c in text for c in DEEP_BELOW):
         return DESCENDER_DEPTH_14_BOLD if bold14 else DESCENDER_DEPTH
-    if any(c in text for c in PARENTHESES):
-        return PARENTHESIS_DEPTH
+    if any(c in text for c in SHALLOW_BELOW):
+        return SHALLOW_DEPTH
     return 0
 
 
