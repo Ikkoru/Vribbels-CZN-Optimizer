@@ -46,6 +46,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **Loading into the game reports the snapshot save once.** The login reply carries your roster, your inventory and the banner schedule across two frames, and each part was written and announced separately. A save whose report would repeat the previous line word for word now stays quiet; one that follows an upgrade or a delete still confirms itself.
 
+- **A snapshot is never read half-written.** A capture rewrites one file for the whole session, and loading it at the moment it was being saved reported it as corrupt. It is now written beside itself and moved into place, so a read gets either the previous save or the new one.
+
 - **A capture that records nothing now says so.** With the Server Region set to the wrong server the game never passes through the capture proxy, but the program reported the *previous* capture's file as though it had just been written, with a success message. It now tells you nothing was captured and names the likely cause.
 
 - **Nothing flashes light grey when a tab first opens any more.** The checkbox lists were only part of it — the Capture Log, the About tab's link buttons and the Gear Score spinboxes did the same thing, for the same reason. Every tab is now covered, including ones nobody had reported.

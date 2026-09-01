@@ -670,8 +670,16 @@ class Addon:
             "detected_region": self._detect_region(),
         }
 
-        with open(self.saved_path, "w", encoding="utf-8") as f:
+        # Temp file then replace, the way every settings manager writes.
+        # A capture rewrites ONE path for the whole session, and the app
+        # reads that same path -- `Load Latest`, and the checks that
+        # take the newest snapshot. Written in place, a read landing
+        # mid-write gets a truncated file and a JSON error naming a line
+        # number, which reads as corrupt data rather than as a race.
+        tmp = self.saved_path.with_suffix(self.saved_path.suffix + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(save_data, f, indent=2)
+        tmp.replace(self.saved_path)
 
         count = len(self.inventory_data.get("piece_items", []))
         char_count = len(self.character_data.get("characters", [])) if self.character_data else 0
@@ -1626,9 +1634,6 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
         self._session_started_at = None
         self.log_callback(
             "Capture stopped, but nothing was captured: no game traffic "
-            "reached the proxy. The usual cause is the wrong Server "
-            "Region -- the redirect is written for the region you "
-            "selected, so a game on the other one never passes through "
-            "it.",
+            "reached the proxy.",
             "warning")
         return None

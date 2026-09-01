@@ -9,6 +9,11 @@ to find one.
 It also has a strict ASCII requirement. The generated script is written
 from a Windows process whose locale may be cp932 / cp949 / cp1252, and a
 smart quote or em dash in the template would fail to encode.
+
+And it writes the snapshot ATOMICALLY. A capture rewrites one path for
+the whole session while the app reads that same path, so a write in
+place hands a reader a truncated file -- reported as a JSON error at
+some line number, which reads as corrupt data rather than as a race.
 """
 
 import ast
@@ -45,7 +50,38 @@ def run():
             f"encoding=. The snapshot would be written in whatever the "
             f"locale happens to be and read back as something else."
         )
+
+    if not _save_writes_atomically(ADDON_TEMPLATE):
+        failures.append(
+            "_save_data writes the snapshot in place. It has to go to a "
+            "temp file and be replaced in: a capture rewrites one path "
+            "all session, and a read landing mid-write gets a truncated "
+            "file rather than an error saying what happened."
+        )
     return failures
+
+
+def _save_writes_atomically(source):
+    """True when `_save_data` opens a temp path and replaces into the
+    snapshot, rather than opening the snapshot itself."""
+
+    def names(node, attr):
+        return (isinstance(node, ast.Attribute) and node.attr == attr)
+
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.FunctionDef)
+                and node.name == "_save_data"):
+            continue
+        calls = [c for c in ast.walk(node) if isinstance(c, ast.Call)]
+        opens_it = any(
+            isinstance(c.func, ast.Name) and c.func.id == "open"
+            and c.args and names(c.args[0], "saved_path") for c in calls)
+        replaces_it = any(
+            names(c.func, "replace") and c.args
+            and names(c.args[0], "saved_path") for c in calls)
+        return replaces_it and not opens_it
+    return False
 
 
 def _unencoded_text_opens(source):
