@@ -75,11 +75,10 @@ it.
 and `t` is NOT in it. At Segoe UI 9 and 11 the whole class tops out
 level with the capitals, so only the tab headings need the correction.
 
-**Correcting the reading rather than the target is what makes a target
-one number.** It used to be the other way: a title with a descender was
-given 2 where one without was given 5, which said the same fact twice —
-that the tool reads a different reference point than the rules name —
-and left every rule with a conditional in its target column.
+**Correcting the reading rather than the target is what keeps a target
+one number.** A target per glyph class says the same fact twice — that
+the tool reads a different reference point than the rules name — and
+puts a conditional in every rule's target column.
 
 One case has no correction and cannot get one: a string with **no cap
 and no ascender** (`someone`, all lowercase) tops out at the x-height,
@@ -137,20 +136,17 @@ pixels, and a glyph's antialiased edge fades rather than stopping. So
 two strings measured identically can render a pixel apart, and the same
 column formula lands on 4 for one and 5 for another.
 
-It has turned up four times and always as a single pixel: the ATK/DEF
-row's name column needing one more than the damage rows', the two Gear
-Score weight columns landing a pixel apart under one formula, and `4pc`
-sitting a different distance from its indicator than `2pc`.
+It shows up as a single pixel, in whichever column a formula sizes from
+a measured string: the ATK/DEF row's name column wanting one more than
+the damage rows', or `4pc` sitting a different distance from its
+indicator than `2pc`.
 
-**Open: whether the audit should ignore the antialiased fringe of a
-glyph** — count a column as ink only past some threshold, rather than at
-the first pixel that is not exactly background. That would make the ink
-edge agree with the advance and take these pixels off the table
-together. It is a change to what every reading means, so it belongs
-before the rules pass and not during it. Until then, a lone pixel that
-traces to this is PARKED rather than closed with a per-site constant:
-such a constant ties itself to today's strings and the change would
-delete it.
+**`FRINGE_LIGHTNESS` is what closed most of it.** Counting a column as
+ink only past a lightness threshold puts the ink edge where the eye
+puts it, which is usually where the advance is — see "What the audit
+counts as ink". A pixel that survives that is a real difference between
+two strings, and a per-site constant for it would tie a number to
+today's text.
 
 **A grid `minsize` is a FLOOR, not a width, and a fixed-width label's
 slack lands on the side its anchor points away from.** Two ways a column
@@ -452,9 +448,8 @@ another face.
 ### Behaviour worth knowing before editing
 
 - **Every checkbox is a `tk.Checkbutton` from `make_checkbox`**, and
-  `checks/check_no_flash.py` enforces it. The ttk checkbutton styles are
-  gone. Two panels used to build their own and had drifted apart from
-  the rest.
+  `checks/check_no_flash.py` enforces it. A panel building its own
+  drifts from the rest in ways no padding value explains.
 - **The helper's `bd` / `highlightthickness` are a LAYOUT lever**, not
   just a look: they set every checkbox's requested size, and the exclude
   checklist derives its row pitch and column flow from that. See the
@@ -480,28 +475,24 @@ another face.
 ### Measured, or not
 
 **A marker says which rule a value answers to, not that the value is on
-target.** 194 gaps are registered against 213 markers.
+target.**
 
 **Counting markers against entries does NOT give a coverage figure**,
 and reading it as one is misleading in both directions. One entry can
-cover several markers: `tab list -> first element` has eleven sites and
-six entries, but every tab is measured — the extra sites are pads on
-outer frames feeding the same six gaps. And a rule can have more
-entries than sites, because entries are generated in loops from tables
-while a marker is written once per lever.
+cover several markers — `tab list -> first element` measures every tab,
+and its extra sites are pads on outer frames feeding those same gaps.
+And a rule can have more entries than sites, because entries are
+generated in loops from tables while a marker is written once per lever.
 
 **The one real limit is that some values cannot be measured at all.**
-`content frame -> content frame` has forty sites: eighteen are pads on
-a plain `ttk.Frame`, which paints nothing, and a screenshot cannot
-measure a distance between two things that leave no pixels. Seventeen
-are on a `ttk.LabelFrame`, which draws a border and can be measured --
-twelve of those are entries, and the rest are panels whose neighbour on
-the marked side is borderless or absent. Five more do not resolve to a
-constructor in their own file.
+Most of `content frame -> content frame` is pads on a plain `ttk.Frame`,
+which paints nothing, and a screenshot cannot measure a distance between
+two things that leave no pixels. The rest are on a `ttk.LabelFrame`,
+which draws a border and can be measured, except where the neighbour on
+the marked side is borderless or absent.
 
-Re-derive the split rather than trusting the numbers, since a container
-can change class: group the sites by what each pad's target was built
-as.
+Derive that split rather than trusting a count, since a container can
+change class: group the sites by what each pad's target was built as.
 
 Two kinds of gap that look unmeasurable are not, and have their own
 resolvers. The columns of a Text widget are tab stops with no widget on
@@ -525,58 +516,23 @@ with it and leaving the left one where it was. The two entries then read
 different numbers, and the difference is exactly that pad. Keeping it at
 0 is what keeps the columns ending level.
 
-A gap nothing watches has not been checked, whatever its marker says.
-`element and its label ↔ element and its label` and `label ↔ its
-element` each absorbed four separate cases and are the largest groups
-still unregistered, which makes them the likeliest to have been applied
-loosely.
+### What the audit does not reach
 
-### The confirmation backlog
+Every registered gap is on its target and confirmed against a hand
+reading. What follows is the parts of the app no entry measures, so a
+drift there shows up on screen and nowhere else.
 
-Applied but never seen on screen, by tab.
-
-**Every tab** — checkboxes identical everywhere, no focus rectangle, not
-reachable by Tab. Body text Segoe UI 9 (11 for Setup Status and
-Capture's `Ready`).
-
-**Combatants** — the list is a `ttk.Treeview`: eleven columns, each row
-coloured by its Element across its whole width, list background
-`bg_light`. A SELECTED row may lose its Element colour (the shared style
-forces the selected foreground; which wins varies by Tk version). Two
-columns are called `Level` — the combatant's and the partner's.
-Character level reads `61`, not `61/62`. `Character` and `Partner`
-panels are the same size for every combatant. `Sets:` is always three
-lines, `Potential:` always two. Header-click sort, Up/Down and
-letter-jump all still work.
-
-**Memory Fragments** — `Slots` / `Main Stats` / `Sets`: only
-`Prelude to a Hero` and `Beast's Yearning` are two-Element sets, so only
-they split their colouring.
-
-**Optimizer** — status cluster: status text ends 6px from the right edge
-like the spinbox, which was on target when it was set and is two pixels
-wide of the 4 the rule asks for now, with only 2px of a Label's inset
-left to give back; the off-Element checkbox sits at 13px so
-it stays under the spinbox and is easier to click. Its three rows sit
-6px and 4px apart. **It mostly fits the toolbar height after the font
-migration and may want a nudge.** Set Configuration checkboxes are drawn
-in their set's Element colour. Start/Stop sit 6px from the tab's top
-edge, level with the rest of the row. The exclude checklist's row pitch
-is `ROW_PITCH_OFFSET`; 5px was read off the screen at +2 and the
-relation is one for one, so the current +3 is INFERRED to be the rule's
-6 rather than seen.
-
-**Gear Score** — `Stat Weight Configuration`: labels unclipped, text
-vertically centred. Its two spinbox columns are registered one apiece
-and both read the same distance after their longest labels, so the pair
-moves on one lever.
-`How Gear Score Works` is Segoe UI Variable Small with its columns on
-tab stops, not a monospaced font.
-
-**Capture** — `Upgrade Log Settings` preset checkboxes carry their
-combatants' Element colour; every shipped preset resolves to one.
-
-**Setup** — Setup Status lines are Segoe UI 11.
+- **The Optimizer's status label ends 6px from the tab's right edge**,
+  where the border rule asks 4 and a Label's own inset has 2 left to
+  give. The off-Element checkbox below it sits at 13, deliberately: it
+  stays under the spinbox and is easier to click there.
+- **`checkboxes -> unrelated checkboxes` has no entry at all.** Its one
+  site pins its block to a panel's floor, so what sits above it is
+  leftover height rather than a distance. The rule's 20 is a floor
+  there, and the audit compares against a number.
+- **A Treeview's internals**, and a button's own padding: both are
+  `unique`, and the uniques table says why neither is a gap between two
+  elements.
 
 ### Still to decide
 
@@ -881,12 +837,12 @@ toolbar's height rather than a cosmetic choice.
 
 ## The uniques, as a table
 
-A `unique` names no rule, so nothing derives its number. That used to
-mean nothing could measure it either — the registry's rule field only
-accepted a name the rules table spells, and a unique has none.
+A `unique` names no rule, so nothing derives its number — and the
+registry's rule field is what an entry is checked through.
 
-**It takes the marker's own `<what>` now.** `check_spacing_registry`
-accepts a rule string outside the rules table only when a
+**An entry for a unique carries the marker's own `<what>` there.**
+`check_spacing_registry` accepts a rule string outside the rules table
+only when a
 `unique -- <what> -- ...` marker in the widget code spells it exactly
 AND the row below gives it the same number. That is the same
 two-copies-must-agree guarantee a rule name gets, so a typo on either
@@ -1000,10 +956,11 @@ nothing. `checks/check_spacing_registry.py` enforces all of this
 against the targets in the table above, including that a miss has a
 marker somewhere naming the rule it breaks.
 
-**A resolver that matches nothing reports a SKIP, not a failure** — a
-green run and a skipped row look alike. Two entries once looked up
-`"TCheckbutton"` after every checkbox had become a `tk.Checkbutton`, and
-measured nothing for as long as nobody read the run closely.
+**A resolver that matches nothing reports a SKIP, not a failure** — and
+a green run and a skipped row look alike. A class name that no longer
+matches any widget is the way in: an entry looking for
+`"TCheckbutton"` measures nothing at all, quietly, for as long as
+nobody reads the run closely.
 
 ## The ledger: which lever moves what
 
@@ -1015,7 +972,7 @@ before editing any spacing value.**
 | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TLabelframe` `labelmargins`                                        | The title → border gap on EVERY LabelFrame. The `Borderless`, `Tight.Borderless` and `Gear.Borderless` variants set their own and do NOT inherit it.                                                            |
 | A Set Configuration checkbox's `pack(padx=(left, right))`           | Every checkbutton in the set grid — one pack call serves every row. LEADING component is the panel's frame-edge lever; the TRAILING one is 0 and has to stay there, since the widget reserves 7px after its indicator that no padding reaches. |
-| A Set Configuration name label's `pack(padx)`                       | The gap from the piece count, which is the checkbox's own TEXT — so this is the only lever on it. It replaced a leading space in the name string, which was untunable.                                          |
+| A Set Configuration name label's `pack(padx)`                       | The gap from the piece count, which is the checkbox's own TEXT — so this is the only lever on it. A leading space in the name string cannot serve: a space is whatever the font makes it.                       |
 | A LabelFrame's `padding` left                                       | Every element in that panel, not just the first. Four panels track a second element in its own right (`ELEMENT_ENTRIES`), so a frame-level change there breaks as much as it fixes.                             |
 | Capture's `left_col` grid `padx`                                    | The tab header, Status, Server Region, Requirements and the button row together.                                                                                                                                |
 | A Set Configuration row's `container` `pady`                        | The checkbox AND its spinbox — they share one container.                                                                                                                                                        |
@@ -1027,18 +984,17 @@ before editing any spacing value.**
 panel, not a general one.** The four `ELEMENT_ENTRIES` panels split two
 ways:
 
-- **Upgrade Log Settings** corrects on its FIRST LABEL, because its
-  checkbox column is already on target and the frame lever would push
-  it past. It says so at the call site.
+- **Upgrade Log Settings** takes the FRAME for both, its label and its
+  checkbox column reading the same inset. Its TOP is the exception: the
+  frame's padding cannot go below 0 and the rule asks for less than a
+  label's line box gives, so that one pixel comes off the label.
 - **Important Settings** corrects on the FRAME, because an ordinary 9pt
-  Label is what most of its content is. It went the other way once —
-  the frame a pixel wider and a correction on the first label — which
-  put that one line on target and left every other label a pixel out,
-  reported as "some 6, some 7" in a hand reading. The one element that
-  now needs its own pixel is the Shielding & Healing slider: it is the
-  only one starting at the frame's edge rather than after a row label,
-  and a Scale's trough begins at its box edge where a Label's glyphs
-  start inside theirs.
+  Label is what most of its content is. Correcting on the first label
+  instead puts that one line on target and leaves every other label a
+  pixel out. The one element needing its own pixel is the Shielding &
+  Healing slider: it is the only one starting at the frame's edge
+  rather than after a row label, and a Scale's trough begins at its box
+  edge where a Label's glyphs start inside theirs.
 - **Set Configuration** takes the frame lever for both elements, its
   checkboxes riding it with the leading component of their own
   `pack(padx=...)` as the differential.
@@ -1086,8 +1042,8 @@ from the widget's own top edge:
 So identical frame padding puts a 14pt heading several pixels lower than
 a LabelFrame title. Every in-scope 14pt heading carries a negative
 vertical `padding` to cancel it — Capture, Gear Score, Setup, and the
-Combatants detail pane's `Select a combatant` (which phase 3.1's helper
-does NOT cover: it has a control group beside it, not a subtitle).
+Combatants detail pane's `Select a combatant`, which `make_tab_header`
+does NOT build: it has a control group beside it, not a subtitle.
 **Their values have DRIFTED apart, so do not read one as canonical.** A
 tab leading with a plain Label instead (Optimizer) drops its container's
 top pad for the same reason.

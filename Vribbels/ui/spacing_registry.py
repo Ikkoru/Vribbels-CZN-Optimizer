@@ -1826,14 +1826,11 @@ CELL_LABEL_ENTRIES = [
      _gap_within_cells(_tab_attr("optimizer_tab_instance", "set_grid_frame"),
                        CHECKBOX_CLASSES + LABEL_CLASSES)),
     # Two weight columns, each with its own distance, so each is read
-    # alone rather than as the smallest of the two.
-    #
-    # Column 1 sits a pixel wide and is PARKED there, not fudged: both
-    # columns take the same extra on top of their own longest label, so
-    # the pixel is the difference between what `font.measure` reports for
-    # "ATK Flat" and what it renders as. Closing it with a per-column
-    # constant would tie a number to today's stat names, and the
-    # antialiasing question may delete it -- see docs/ui_spacing.md.
+    # alone rather than as the smallest of the two. They ride ONE lever
+    # -- `LABEL_GAP_PX` -- and land on the same number, which is what
+    # says the columns' longest labels render as wide as they measure.
+    # A column reading a pixel wide of its neighbour is that stopping
+    # being true, not a lever that wants splitting.
     ("Gear Score", "weight column 1 label -> its spinbox", 5, None,
      _gap_within_cells(lambda app: _group_of("ATK Flat")(app).master,
                        LABEL_CLASSES + SPINBOX_CLASSES, column=0)),
