@@ -412,16 +412,20 @@ explicit `("Segoe UI", 9)` is the same face the default already gives.
 | Segoe UI                | 9       | 12     | 3       | 15        | body text everywhere, bold included |
 | Segoe UI                | 11      | 16     | 4       | 20        | Setup Status; Capture's `Ready`  |
 | Segoe UI                | 14 bold | 20     | 5       | 25        | the tab headings                 |
-| Segoe UI Variable Small | 9       | 13     | 3       | 16        | Capture Log; Setup Instructions  |
-| Segoe UI Variable Small | 10      | 14     | 3       | 17        | How Gear Score Works             |
+| Segoe UI Variable Small | 11      | 16     | 4       | 20        | Capture Log; Setup Instructions; How Gear Score Works |
+| Segoe UI                | 10      | 13     | 3       | 16        | About only — out of scope |
 | Segoe UI                | 12 bold | 17     | 4       | 21        | About and Materials only — out of scope |
 | Consolas                | 10      | 12     | 3       | 15        | the contributions popup — out of scope |
 
-**Variable Small stands a pixel taller than Segoe UI at the same
-nominal size** — one more of ascent, the same descent — and that pixel
-lands above the first glyph, so a panel switching to it owes its `pady`
-one back. Variable Small **8** is the exact metric twin of Segoe UI 9
-(12/3/15) if a panel ever needs the face without the shift.
+**Variable Small stands a pixel taller than Segoe UI below 11** — one
+more of ascent, the same descent — and that pixel lands above the first
+glyph, so a panel changing size owes its `pady` the difference. At 11
+the two share a line box, and Variable Small **8** is the exact metric
+twin of Segoe UI 9 (12/3/15).
+
+**Its ascenders clear its capitals, where Segoe UI's do not.** That is
+why the three panels set in it read their top inset off the first
+CAPITAL rather than off the line's topmost ink.
 
 A 14 bold heading's ascenders reach above its capitals. Judge it by the
 capitals anyway.
@@ -564,18 +568,18 @@ outer edge to whatever sits beside it.
 
 All six Treeviews take the base `Treeview` style — none passes a
 `style=` — so they move together. `configure_styles` sets: `Treeview`
-padding **0**, `rowheight` **20**, heading padding **2**, heading
-borderwidth **0**, and a layout with no `Treeview.field`, so the widget
-has no outline.
+padding **(2, 0, 2, 0)**, `rowheight` **21**, heading padding **3**,
+heading borderwidth **0**, and a layout with no `Treeview.field`, so
+the widget has no outline.
 
 | Lever                   | What it insets                                                                                                                                                                                                                                                                        | Set to          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| `Treeview.padding`      | the whole tree area — **and every cell's text inset**, see below                                                                                                                                                                                                                      | **0**           |
+| `Treeview.padding`      | the whole tree area — **and every cell's text inset**, see below                                                                                                                                                                                                                      | **(2, 0, 2, 0)** |
 | `Treeview.Cell` padding | the inset from a column's edge to its text, in principle. **Inert here**; not set, deliberately                                                                                                                                                                                       | unset, shadowed |
 | `Treeitem.padding`      | nothing — it draws the TREE column (#0), which `show="headings"` hides                                                                                                                                                                                                                | unset, inert    |
-| `Treeheading.padding`   | one heading cell's content                                                                                                                                                                                                                                                            | **2**           |
+| `Treeheading.padding`   | one heading cell's content                                                                                                                                                                                                                                                            | **3**           |
 | `Treeview.field` border | the widget's outline. Its WIDTH is not a style option (clam exposes only colours), so removing it means replacing the LAYOUT, the way `Flush.TNotebook` does. `fieldbackground` belongs to that element and goes with it; the area below the last row then falls back to `background` | absent          |
-| `Treeview` `rowheight`  | the height of a row                                                                                                                                                                                                                                                                   | **20**          |
+| `Treeview` `rowheight`  | the height of a row                                                                                                                                                                                                                                                                   | **21**          |
 
 Heading borderwidth pairs with `relief`, which the theme sets to
 `raised`: at borderwidth 0 the relief has nothing to draw with, so the

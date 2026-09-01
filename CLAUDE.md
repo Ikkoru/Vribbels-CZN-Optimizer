@@ -37,6 +37,8 @@ loaded; read them on demand.
   `default_settings/normalize/normalize_defaults.py` first and fails if
   `default_settings/` is missing its three JSONs. Workflow:
   `docs/how_to_maintain_default_settings.md`.
+- Checks: `python checks/run_all.py`, or `zRUN Checks.bat` for a window
+  that stays open. Both take the same flags.
 - Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its
   target (`...Verbose.bat` for all rows, `...Freeze.bat` to rewrite the
   baseline). It photographs the screen, so it needs the window
