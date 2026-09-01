@@ -2195,7 +2195,9 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
             return None, "no text widget there"
         origin = sa.box_of(widget).top
         box = _inside_border(widget)
-        fill = {_widget_fill(widget)}
+        # The COLOUR, not a set: the call below wraps it. `{a_set}`
+        # raises before any scan runs.
+        fill = _widget_fill(widget)
         readings = []
         for needle in needles:
             where = widget.search(needle, "1.0", tk.END)

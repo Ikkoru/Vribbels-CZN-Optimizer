@@ -440,6 +440,14 @@ class Addon:
         # in item_result -- no piece info -- so we identify which
         # pieces were destroyed by matching the response qid to the
         # request we tracked earlier.
+        # ONE payload, ONE save. A login reply carries the roster,
+        # the inventory and the banner schedule at once, and each
+        # branch below used to write the file itself -- so the same
+        # snapshot was written three times and reported three times.
+        # `_save_data` writes the whole cache whenever it runs, so
+        # collapsing them loses nothing but the duplicates.
+        save_needed = False
+
         qid = data.get("qid")
         if (qid is not None and qid in self.pending_disassembles
                 and self.inventory_data
@@ -491,7 +499,7 @@ class Addon:
                     if not self.inventory_data:
                         self.inventory_data = {}
                     self.inventory_data["info_item_piece"] = piece_info
-                    self._save_data()
+                    save_needed = True
 
             # Check for character data in new format
             if isinstance(info, dict) and "character" in info:
@@ -499,12 +507,12 @@ class Addon:
                 if not self.character_data:
                     self.character_data = {}
                 self.character_data["info_character"] = char_info
-                self._save_data()
+                save_needed = True
 
         # Capture inventory data (Memory Fragments)
         if "piece_items" in data:
             self.inventory_data = data
-            self._save_data()
+            save_needed = True
 
         # Capture character data.
         #
@@ -528,7 +536,7 @@ class Addon:
 
         if has_characters:
             self._merge_character_data(data)
-            self._save_data()
+            save_needed = True
         elif has_user:
             # A user-record update with no roster attached: patch the
             # cached payload rather than replacing it, or the roster
@@ -537,7 +545,7 @@ class Addon:
                 self.character_data["user"] = data["user"]
             else:
                 self.character_data = data
-            self._save_data()
+            save_needed = True
 
         # The lobby reply carries the schedule of every gacha banner,
         # past and upcoming. It arrives batched, alongside no roster and
@@ -547,6 +555,9 @@ class Addon:
         if isinstance(schedules, dict) and isinstance(schedules.get("GACHA"), dict):
             self.gacha_banners = schedules["GACHA"]
             self._report_unknown_units()
+            save_needed = True
+
+        if save_needed:
             self._save_data()
 
     def _report_unknown_units(self):
