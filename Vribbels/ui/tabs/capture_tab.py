@@ -14,8 +14,11 @@ from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 
 
-# Log Preset checkboxes per row, filled left-to-right then down.
-LOG_PRESET_COLUMNS = 6
+# Log Preset checkboxes per row when the checklist's width is not
+# knowable -- before the frame is realized, and in a headless build. The
+# count is DERIVED from the width everywhere else; see
+# `_log_preset_columns`.
+LOG_PRESET_COLUMNS_FALLBACK = 6
 
 # Gap between those columns, in pixels. A FLOOR, not a distance: the
 # columns size to the preset names in them and the names are the user's,
@@ -23,9 +26,8 @@ LOG_PRESET_COLUMNS = 6
 # name and more everywhere else. NOT TRACKED for that reason -- the
 # audit compares against a number, and there is no number here.
 #
-# 8 is the point below which names would start to run together, so it is
-# what a column-count determiner would have to respect. There is no such
-# determiner: LOG_PRESET_COLUMNS below is stated.
+# 8 is the point below which names would start to run together, which is
+# what makes it the constraint the column count is solved against.
 LOG_PRESET_COLUMN_GAP = 8
 
 # What the Region readout says before a capture has seen a connection.
@@ -75,6 +77,9 @@ class CaptureTab(BaseTab):
         # Log Presets checklist (column 2)
         self.log_presets_list_frame = None
         self._log_preset_vars = {}
+        # The column count currently on screen. A <Configure> rebuild
+        # happens only when the width would change it.
+        self._log_preset_columns_shown = None
         # Upgrade Log mismatch filters (column 2, below the checklist)
         self.ignore_atkdef_var = None
         self.ignore_element_var = None
@@ -242,6 +247,10 @@ class CaptureTab(BaseTab):
 
         self.log_presets_list_frame = ttk.Frame(right_col)
         self.log_presets_list_frame.pack(fill=tk.BOTH, expand=True)
+        # How many columns of presets fit is solved from this frame's
+        # width, so a resize is what changes the answer.
+        self.log_presets_list_frame.bind(
+            "<Configure>", self._reflow_log_presets, add="+")
 
         # Title and subtitle share one line, bottom-aligned (as on the
         # Gear Score tab).
@@ -635,16 +644,13 @@ class CaptureTab(BaseTab):
                           row=0, column=0, sticky=tk.W)
             return
 
-        columns = LOG_PRESET_COLUMNS
-        # Every column but the LAST absorbs the leftover width. Sizing
-        # them all alike instead (weight + uniform) makes the last column
-        # as wide as the widest label in the whole grid, and the distance
-        # from its own label to the panel edge is then that difference
-        # rather than the frame-edge rule's gap.
-        for c in range(columns - 1):
-            frame.grid_columnconfigure(c, weight=1)
-        frame.grid_columnconfigure(columns - 1, weight=0)
-        for idx, name in enumerate(sorted(preset_to_ids)):
+        # Built before they are placed, because the column count is
+        # SOLVED from how wide they turn out to be. A widget's own
+        # `winfo_reqwidth()` is the real answer as soon as it exists;
+        # estimating from font metrics runs a few pixels small per name
+        # and the error is what clips the last column.
+        made = []
+        for name in sorted(preset_to_ids):
             ids = preset_to_ids[name]
             checked = (any(lpm.is_selected(r) for r in ids)
                        if lpm is not None else True)
@@ -654,6 +660,25 @@ class CaptureTab(BaseTab):
                 fg=self._preset_element_colour(ids),
                 command=lambda n=name, v=var: self._on_log_preset_toggle(n, v),
             )
+            made.append((name, cb, var))
+
+        columns = self._log_preset_columns(
+            frame, max(cb.winfo_reqwidth() for _n, cb, _v in made))
+        self._log_preset_columns_shown = columns
+
+        # Every column but the LAST absorbs the leftover width. Sizing
+        # them all alike instead (weight + uniform) makes the last column
+        # as wide as the widest label in the whole grid, and the distance
+        # from its own label to the panel edge is then that difference
+        # rather than the frame-edge rule's gap.
+        for c in range(columns):
+            frame.grid_columnconfigure(c, weight=0 if c == columns - 1 else 1)
+        # Columns a narrower list no longer uses keep their weight and go
+        # on absorbing width, which pulls the visible ones together.
+        for c in range(columns, frame.grid_size()[0]):
+            frame.grid_columnconfigure(c, weight=0, minsize=0)
+
+        for idx, (name, cb, var) in enumerate(made):
             column = idx % columns
             # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
             # Leading pad, so the last column ends at its own label and
@@ -664,6 +689,57 @@ class CaptureTab(BaseTab):
                     padx=(0 if column == 0 else LOG_PRESET_COLUMN_GAP, 0),
                     pady=(0 if idx < columns else 3, 0))
             self._log_preset_vars[name] = var
+
+    def _log_preset_columns(self, frame, widest):
+        """The most columns whose narrowest still clears the gap.
+
+        The names in these columns are the USER's presets, so no stated
+        count can be right for everyone: six columns of short names waste
+        the panel, and six of long ones run together. What is fixed is
+        `LOG_PRESET_COLUMN_GAP`, the point below which two names stop
+        reading as two -- so the count is the largest `n` that still
+        leaves it:
+
+            n * widest + (n - 1) * gap <= available
+
+        This does NOT make the rendered gap a number. The columns take
+        what is left over, so anything but the widest name in a column
+        sits further from its neighbour, which is why nothing tracks it.
+
+        Falls back to a stated count only where the width cannot be had:
+        before the frame is realized, and in a headless build.
+        """
+        width = frame.winfo_width()
+        if width <= 1:
+            # Draining pending geometry gives the TRUE allocated width,
+            # so the count computed here is the final one. Safe only
+            # because the main window is invisible for the whole of
+            # startup -- the drain paints, and painting a half-built
+            # window is what being hidden prevents.
+            frame.update_idletasks()
+            width = frame.winfo_width()
+        if width <= 1:
+            return LOG_PRESET_COLUMNS_FALLBACK
+        gap = LOG_PRESET_COLUMN_GAP
+        return max(1, (width + gap) // (widest + gap))
+
+    def _reflow_log_presets(self, _event=None):
+        """Rebuild the checklist when the width would change its shape.
+
+        Guarded on the COUNT rather than on the width: a resize fires a
+        burst of <Configure>, and rebuilding on each would destroy and
+        recreate every checkbox in the panel several times a drag.
+        """
+        frame = self.log_presets_list_frame
+        if frame is None or not self._log_preset_vars:
+            return
+        widest = max((w.winfo_reqwidth() for w in frame.winfo_children()),
+                     default=0)
+        if not widest:
+            return
+        if self._log_preset_columns(frame, widest) != \
+                getattr(self, "_log_preset_columns_shown", None):
+            self.refresh_log_presets()
 
     def _preset_element_colour(self, res_ids):
         """The shared Element colour of a preset's combatants, or None.

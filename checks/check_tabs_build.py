@@ -190,6 +190,62 @@ def _percent_fields_are_clamped(tab):
     return failures
 
 
+def _log_preset_columns_leave_the_gap(tab):
+    """The preset checklist must never pack more columns than fit.
+
+    The names in it are the USER's presets, so a stated column count is
+    right for one person's presets and wrong for the next: too many, and
+    two names run together with nothing reporting it -- the grid just
+    shrinks its columns. `LOG_PRESET_COLUMN_GAP` is the floor the count
+    is solved against.
+
+    Checked at several widths rather than the current one, because the
+    panel takes whatever the left column does not and the maintainer's
+    window is only one of those widths.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs.capture_tab import LOG_PRESET_COLUMN_GAP
+
+    class _Width:
+        """A frame of a stated width, for the solver alone."""
+
+        def __init__(self, width):
+            self.width = width
+
+        def winfo_width(self):
+            return self.width
+
+        def update_idletasks(self):
+            pass
+
+    out = []
+    gap = LOG_PRESET_COLUMN_GAP
+    for widest in (60, 120, 189, 300):
+        for width in (150, 320, 640, 1028, 1600):
+            n = tab._log_preset_columns(_Width(width), widest)
+            if n < 1:
+                out.append(f"the solver asked for {n} columns at "
+                           f"width={width}, widest={widest}")
+                continue
+            used = n * widest + (n - 1) * gap
+            if n > 1 and used > width:
+                out.append(
+                    f"{n} columns of {widest}px need {used}px at a width of "
+                    f"{width}px -- the grid would shrink them and the names "
+                    f"would run together. The count has to leave "
+                    f"{gap}px between columns."
+                )
+            room = (n + 1) * widest + n * gap
+            if room <= width:
+                out.append(
+                    f"{n} columns of {widest}px at a width of {width}px "
+                    f"wastes a column: {n + 1} would still clear the "
+                    f"{gap}px gap."
+                )
+    return out
+
+
 def _weight_fields_are_clamped(tab):
     """A Gear Score weight must hold a TYPED value in range.
 
@@ -581,6 +637,8 @@ def run():
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))
+            failures.extend(
+                _log_preset_columns_leave_the_gap(built["CaptureTab"]))
     finally:
         try:
             root.destroy()
