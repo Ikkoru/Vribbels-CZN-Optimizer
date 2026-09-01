@@ -562,11 +562,14 @@ class InventoryTab(BaseTab):
                             foreground=right, anchor=tk.E)
             # spacing: border edge -> first non-button element -- label, panel ↔
             # spacing: element and its label ↔ element and its label -- label, checkbox ↔
+            # spacing: label ↔ its element -- checkbox, label ↔
             # The last logical column has no neighbour, so its trailing pad
             # is the one feeding the panel's RIGHT inset, together with the
-            # label's own trailing inset. Tk rejects negative pad values, so
-            # 0 is the minimum on the leading side -- the per-column count
-            # width is what keeps short-count columns tight instead.
+            # label's own trailing inset.
+            #
+            # The LEADING pad is the gap from the set name, and it can
+            # only ever grow it: Tk rejects a negative, so a tighter gap
+            # would have to come off the per-column count width instead.
             cnt.grid(row=row, column=base_col + 1, sticky=tk.E,
                      padx=(1, 3 if logical_col == len(col_count_widths) - 1 else 2),
                      pady=(top_pad, 0))

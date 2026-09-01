@@ -141,9 +141,11 @@ class CaptureTab(BaseTab):
         # The column is as wide as its widest child asks, full stop.
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        # The frame's own padding is NOT the lever for the left inset --
-        # the explanation label below carries that, for the reason given
-        # there.
+        # The label and the checkbox column below it read the same inset
+        # now, so this padding is the lever for both -- it was split
+        # while they differed. The TOP component cannot go below 0 and
+        # the rule asks for less than a label's line box gives, so the
+        # top gap is corrected on that label instead.
         right_col = ttk.LabelFrame(top_columns, text="Upgrade Log Settings",
                                    padding=(2, 0, 2, 3))
         # spacing: tab list -> first element -- tab, panel ↕
@@ -155,9 +157,11 @@ class CaptureTab(BaseTab):
 
         # spacing: border edge -> first non-button element -- panel, label ↔
         # spacing: explanation text -> the controls it explains -- label, checkbox ↕
-        # Corrected on this LABEL rather than on the panel's padding: the
-        # checkboxes below are already on target, and a frame-level shift
-        # would move them off it to bring this one on.
+        # The negative TOP is the panel's top inset, not this label's own
+        # placement: the frame's padding is already 0 there and the rule
+        # asks for one pixel less than a label's line box gives, so the
+        # last pixel has to come out of the label's inset. The trailing
+        # pady is the separate gap down to the checkboxes.
         ttk.Label(
             right_col,
             padding=(0, -1, 0, 0),
