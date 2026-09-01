@@ -423,7 +423,7 @@ class CaptureTab(BaseTab):
         # nominal size, and that pixel lands above the first glyph.
         self.capture_log = make_scrolled_text(
             log_frame, self.colors, height=15, wrap=tk.WORD,
-            font=("Segoe UI Variable Small", 9), pady=2,
+            font=("Segoe UI Variable Small", 11), pady=2,
         )
         self.capture_log.pack(fill=tk.BOTH, expand=True)
 

@@ -320,7 +320,7 @@ STEP 2: Verify setup
         # nominal size, and that pixel lands above the first glyph.
         instr_text = make_scrolled_text(
             instr_frame, self.colors, height=18, wrap=tk.WORD,
-            font=("Segoe UI Variable Small", 9), pady=2,
+            font=("Segoe UI Variable Small", 11), pady=2,
         )
         instr_text.insert("1.0", instructions)
         instr_text.config(state=tk.DISABLED)

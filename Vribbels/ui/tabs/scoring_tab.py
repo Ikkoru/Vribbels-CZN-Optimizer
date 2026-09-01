@@ -237,7 +237,7 @@ STAT MIN - MAX ROLLS:
             # the top gap** -- a Text's `pady` clamps at 0 and the
             # LabelFrame carries none, so the only way further up is a
             # smaller face. Read it after any font change here.
-            font=("Segoe UI Variable Small", 10), pady=0,
+            font=("Segoe UI Variable Small", 11), pady=0,
         )
         # The two aligned groups line up on TAB STOPS rather than on
         # hand-counted spaces, which only work in a monospaced face. Same
