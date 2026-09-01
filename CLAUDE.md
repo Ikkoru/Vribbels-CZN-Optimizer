@@ -52,10 +52,11 @@ GUI; `--list` names them. They cover the invariants that fail QUIETLY:
 optimizer parity, scoring reconciliation, game data, settings
 round-trips, DoT scoring, shipped defaults holding no user state, the
 spacing markers and the spacing registry, the audit's ink test against
-the eye that calibrated it, tab construction, the flash fix, the
-Optimizer opening with no combatant selected, and the capture ones —
+the eye that calibrated it, tab construction, the flash fix, keyboard
+type-ahead, the Optimizer opening with no combatant selected, and the
+capture ones —
 the addon template, batched frames, gacha banners, one account per
-session, both regions routed, one save per payload, and reporting only
+session, both regions routed, one save per FRAME, and reporting only
 the snapshot this session wrote. Checks needing captured data skip
 themselves when `Vribbels/snapshots/` is empty. Parity runs bounded;
 `--full` takes minutes.
@@ -111,6 +112,7 @@ write to `Vribbels/snapshots/` or `Vribbels/settings/`.
 | The executable checks, and how to add one                            | `checks/__init__.py`                       |
 | Optimizer / startup performance history                              | `past_plans/optimizer_performance.md`      |
 | Why the game-data validator checks what it checks                    | `past_plans/game_data_validation.md`       |
+| Why the spacing work took the shape it did, and what is left of it   | `past_plans/UI_unionization.md` and `_extra` |
 
 `past_plans/` is an ARCHIVE and the one exception to the
 no-dates/no-status-tags rule: its dated decisions and `[IMPLEMENTED]`
