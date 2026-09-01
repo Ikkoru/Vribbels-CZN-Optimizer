@@ -2528,9 +2528,14 @@ def _row_pitch_in(container, classes):
     whole group of rows tighter than the rest passes anyway, the wrong
     rows being out-voted by the right ones.
 
-    No glyph correction: a checkbox row's painted bottom is its
-    INDICATOR and a spinbox row's is its border, so no descender in any
-    label reaches either edge of these gaps.
+    No glyph correction, which holds only while every row's painted
+    bottom is its INDICATOR or its border. **A checkbox whose label
+    WRAPS breaks that**: its indicator is centred over two lines, so the
+    second line's text hangs below it and a descender there is what the
+    next gap is measured from -- a reading short of what the eye sees by
+    the depth of a `g`. The Memory Fragments options column is the one
+    place two wrapped checkboxes sit one above the other. The tally in
+    the note is what says so: one straggler among rows that agree.
     """
     def resolve(cap, app):
         gaps = _row_gaps(cap, container(app), classes)
