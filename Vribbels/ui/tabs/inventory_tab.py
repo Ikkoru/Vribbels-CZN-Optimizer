@@ -370,13 +370,13 @@ class InventoryTab(BaseTab):
         # Main and the four Sub cells render in the same "Name value"
         # shape, so without a break between them the eye reads Main as a
         # fifth substat.
-        for col, txt, w in [("slot", "Slot", 80), ("set", "Set", 130),
-                            ("main", "Main", 60), ("lvl", "Level", 50),
-                            ("sub1", "Sub1", 90), ("sub2", "Sub2", 90),
-                            ("sub3", "Sub3", 90), ("sub4", "Sub4", 90), ("gs", "GS", 15),
-                            ("potential", "Potential", 50), ("equipped", "Equipped", 60),
-                            ("highest_gs", "Highest GS", 65),
-                            ("highest_potential", "Highest Potential", 312)]:
+        for col, txt, w in [("slot", "Slot", 90), ("set", "Set", 140),
+                            ("main", "Main", 90), ("lvl", "Level", 60),
+                            ("sub1", "Sub1", 99), ("sub2", "Sub2", 99),
+                            ("sub3", "Sub3", 99), ("sub4", "Sub4", 99), ("gs", "GS", 20),
+                            ("potential", "Potential", 60), ("equipped", "Equipped", 67),
+                            ("highest_gs", "Highest GS", 67),
+                            ("highest_potential", "Highest Potential", 369)]:
             # Text-ish cells (slot/set/main/subs/equipped) are left-aligned;
             # numeric/short columns (lvl, gs, potential, highest_gs) stay
             # centered. highest_potential joins the left-aligned group

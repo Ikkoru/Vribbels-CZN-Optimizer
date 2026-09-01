@@ -1574,7 +1574,7 @@ class OptimizerTab(BaseTab):
         # range like "60-100".
         col_defs = [
             ("slot",      "Slot",       83),
-            ("set",       "Set",       118),
+            ("set",       "Set",       120),
             ("main",      "Main",      92),
             ("lvl",       "LVL",        24),
             ("sub1",      "Sub1",       87),

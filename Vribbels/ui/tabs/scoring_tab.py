@@ -347,7 +347,7 @@ STAT MIN - MAX ROLLS:
         )
         # "marker" is the icon gutter on the left -- narrow, fixed width.
         # "name" takes the rest of the available width.
-        self.preset_tree.column("marker", width=24, minwidth=24, stretch=False, anchor="center")
+        self.preset_tree.column("marker", width=17, minwidth=17, stretch=False, anchor="w")
         self.preset_tree.column("name", width=200, stretch=True, anchor="w")
         scrollbar.config(command=self.preset_tree.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
