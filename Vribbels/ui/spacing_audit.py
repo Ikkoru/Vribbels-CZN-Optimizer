@@ -1194,13 +1194,20 @@ def _print_table(rows, out, verbose=False):
     reading goes in when the tool and the eye disagree, which is the
     only way to tell a wrong measurement from a wrong target -- see
     `TrackedGap.hand`.
+
+    **A PROVISIONAL row prints whether or not it is on target.** Its
+    number came from the rules table rather than from anything that
+    has seen the screen, so a green one is a claim awaiting a reading,
+    not a result -- and the short run is where the maintainer looks.
+    Left to the on-target filter it would be invisible in exactly the
+    run that is meant to surface it.
     """
     on_target = sum(1 for _n, t, v, *_ in rows
                     if v is not None and v == t)
-    shown = rows if verbose else [r for r in rows
-                                  if r[2] is None or r[2] != r[1]]
+    shown = rows if verbose else [
+        r for r in rows if r[6] or r[2] is None or r[2] != r[1]]
     if not shown:
-        out(f"all {len(rows)} gaps on target")
+        out(f"all {len(rows)} gaps on target, none provisional")
         return
 
     body = []

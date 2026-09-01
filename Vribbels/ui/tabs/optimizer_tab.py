@@ -1191,7 +1191,7 @@ class OptimizerTab(BaseTab):
             wraplength=175,  # initial; will be replaced on first <Configure>
         )
         # spacing: explanation text -> the controls it explains -- spinbox, label ↕
-        hal_note.pack(fill=tk.X, expand=False, pady=(1, 0))
+        hal_note.pack(fill=tk.X, expand=False, pady=(0, 0))
         parent.bind(
             "<Configure>",
             lambda e, lbl=hal_note: lbl.config(wraplength=max(175, e.width - 19)),

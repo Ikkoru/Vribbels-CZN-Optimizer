@@ -46,6 +46,14 @@ LOG_VALUE_POOR = 40
 # every part, so the digits in a preset NAME are never matched.
 LOG_VALUE_RE = re.compile(r"(?:: |, )(\d+)(?:-(\d+))?")
 
+# The word that says what happened, and how to read it. `Created` is
+# neither good nor bad -- a fragment arriving is news.
+LOG_EVENT_TAGS = {
+    "Upgraded": "event_good",
+    "Deleted": "event_bad",
+    "Created": "event_new",
+}
+
 
 class CaptureTab(BaseTab):
     """
@@ -468,6 +476,10 @@ class CaptureTab(BaseTab):
                                        foreground=self.colors["yellow"])
         self.capture_log.tag_configure("value_floor",
                                        foreground=self.colors["yellow_dim"])
+        self.capture_log.tag_configure("event_new",
+                                       foreground=self.colors["blue_light"])
+        self.capture_log.tag_configure("preset_name",
+                                       foreground=self.colors["preset"])
 
     def _colour_log_line(self, start: str, msg: str):
         """Tag the parts of one log line that carry a verdict.
@@ -487,8 +499,7 @@ class CaptureTab(BaseTab):
         def span(first, last, tag):
             t.tag_add(tag, f"{start}+{first}c", f"{start}+{last}c")
 
-        for word, tag in (("Upgraded", "event_good"),
-                          ("Deleted", "event_bad")):
+        for word, tag in LOG_EVENT_TAGS.items():
             at = msg.find(word)
             if at >= 0:
                 span(at, at + len(word), tag)
@@ -496,15 +507,24 @@ class CaptureTab(BaseTab):
         head = msg.find("Highest ")
         if head < 0:
             return
-        for m in LOG_VALUE_RE.finditer(msg, head):
+        found = list(LOG_VALUE_RE.finditer(msg, head))
+        for index, m in enumerate(found):
             floor, ceiling = m.group(1), m.group(2)
             if ceiling is None:
                 # One number: the fragment has no upgrades left, so this
                 # IS the ceiling rather than a range's start.
                 span(m.start(1), m.end(1), self._value_tag(floor))
-                continue
-            span(m.start(1), m.end(1), "value_floor")
-            span(m.start(2), m.end(2), self._value_tag(ceiling))
+            else:
+                span(m.start(1), m.end(1), "value_floor")
+                span(m.start(2), m.end(2), self._value_tag(ceiling))
+            # The rest of the part is the preset's name. It ends where
+            # the NEXT part's separator begins rather than at the next
+            # comma, so a name holding one keeps its colour.
+            after = m.end() + 1
+            until = (found[index + 1].start()
+                     if index + 1 < len(found) else len(msg))
+            if after < until:
+                span(after, until, "preset_name")
 
     @staticmethod
     def _value_tag(value: str) -> str:

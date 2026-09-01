@@ -212,7 +212,8 @@ def _capture_log_colours_its_values(tab):
             "Highest Potential: 21-80 Fast, 15-38 Bulk")
     single = "[LIVE] Upgraded Set Slot I +5. Highest GS: 82 Fast, 31 Bulk"
     deleted = "[LIVE] Deleted Set Slot VI +0"
-    for msg in (line, single, deleted):
+    created = "[LIVE] Created Set Slot III +0"
+    for msg in (line, single, deleted, created):
         tab.capture_log_msg(msg, "info")
 
     out = []
@@ -224,10 +225,12 @@ def _capture_log_colours_its_values(tab):
 
     for row, text, wanted in (
         (1, line, {"Upgraded": "event_good", "21": "value_floor",
-                   "80": "value_good", "38": "value_poor"}),
+                   "80": "value_good", "38": "value_poor",
+                   "Fast": "preset_name"}),
         (2, single, {"Upgraded": "event_good", "82": "value_good",
-                     "31": "value_poor"}),
+                     "31": "value_poor", "Bulk": "preset_name"}),
         (3, deleted, {"Deleted": "event_bad"}),
+        (4, created, {"Created": "event_new"}),
     ):
         for needle, expected in wanted.items():
             got = tag_over(row, needle, text)

@@ -117,6 +117,13 @@ COLORS = {
     # the ceiling beside it. A second foreground rather than a second
     # weight because the Capture Log is one font throughout.
     "yellow_dim": "#d4a72c",
+    # `accent` lightened, for a Capture Log event that is neither good
+    # nor bad: a fragment arriving is news rather than a verdict.
+    "blue_light": "#b8d4fd",
+    # The preset NAME in an Upgraded line. Off-white and warm, so it
+    # reads as a label beside the coloured numbers rather than as one
+    # more value to compare.
+    "preset": "#d5d5c1",
 }
 
 

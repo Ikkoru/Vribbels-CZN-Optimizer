@@ -327,7 +327,7 @@ STAT MIN - MAX ROLLS:
         # of the label's own inset.
         self.weight_status = ttk.Label(
             config_frame, text="Applied default weights (all 1.0)",
-            foreground=self.colors["fg_dim"], padding=(0, 1, 0, 0)
+            foreground=self.colors["fg_dim"], padding=(0, 0, 0, 0)
         )
         self.weight_status.pack(anchor=tk.W, padx=PANEL_INSET, pady=(0, 2))
 
