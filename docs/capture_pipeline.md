@@ -10,6 +10,13 @@ template embedded in `capture/manager.py` parses it and maintains
 `snapshots/memory_fragments_*.json` → the optimizer reads that and
 builds `character_info` → the tabs render from it.
 
+**One payload writes the snapshot at most once.** A login reply carries
+the roster, the inventory and the banner schedule together, and
+`_handle_server_payload` reads each with its own branch -- so a branch
+sets a flag and the save happens once at the end of the handler. It
+writes the whole cache whenever it runs, so a second call in one payload
+adds nothing but a duplicate `Saved:` line.
+
 **`capture/manager.py` is the ONLY file in the repo with a strict ASCII
 requirement**: the addon is written out as a generated script, and a
 cp932/cp949 locale cannot encode a smart quote or an em dash into it.
@@ -140,8 +147,12 @@ running.
 
 `[LIVE] Upgraded` lines carry an internal `[pid=N]` marker so the app
 can find the upgraded fragment after the post-upgrade reload and append
-its Highest Potential range; the marker is stripped before the user sees
-it. Lines are queued (`pending_upgrade_lines`) because the fragment has
+what it scores under each preset; the marker is stripped before the user
+sees it. A fragment with upgrades left reports a range under the label
+`Highest Potential`, and one with none reports a single value under
+`Highest GS` -- the same distinction the Memory Fragments tab's two
+columns make. Lines are queued (`pending_upgrade_lines`) because the
+fragment has
 to be re-read from the new snapshot first, and
 `_drain_pending_upgrade_lines` emits them after the reload. The fragment
 object is retained so a later Upgrade Log Settings toggle can re-render

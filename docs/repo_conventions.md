@@ -39,8 +39,8 @@ lands: new features → `### Added`, polish → `### Changed`, bug fixes →
 `### Fixed`.
 
 **Summarize at USER-FACING level**, not implementation detail. "Memory
-Fragments tab: Highest Potential column now shows preset name in
-brackets" — not "refactored `_presets_for_highest_gs` to return tuples".
+Fragments tab: the Highest Potential column names the preset it scored
+under" — not "refactored `_presets_for_highest_gs` to return tuples".
 
 At release, `unreleased` is replaced by a short release name
 (`- Multi-core`), which is also when `version.py` is bumped. Released

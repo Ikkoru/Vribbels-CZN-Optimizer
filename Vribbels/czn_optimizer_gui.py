@@ -612,10 +612,10 @@ class OptimizerGUI:
         # default.
         #
         # The first component -- the title's x offset -- stays 0 like
-        # every other panel's. It carried a 1 to line the title up with
-        # the gear grid, which moved the one thing that was already
-        # right: the grid sits at the content-frame rule's 4px from the
-        # character list, and the nudge is what put the TITLE at 5.
+        # every other panel's. Nudging it to meet the gear grid moves
+        # the one thing that is right: the grid sits at the
+        # content-frame rule's 4px from the character list, so a title
+        # that looks out of line is reporting the PANEL's position.
         self.style.configure("Gear.Borderless.TLabelframe",
                              labelmargins="0 0 0 0")
 

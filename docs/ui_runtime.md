@@ -121,13 +121,14 @@ packs the pair by packing what it was handed — out of a `ttk.Frame` and
 a `ttk.Scrollbar`, which the theme reaches directly. All three scrolled
 texts go through it, and the map-time erase is still the walk's job.
 
-Recolouring by hand is what that replaced, and the hand-work is what
-made the Capture Log look like the walk had failed: Gear Score and Setup
-already coloured their wrappers, Capture Log did not, and it was the
-only one still flashing.
+Recolouring each wrapper by hand does the same job and fails the same
+way every time one is missed: the panel that was skipped is the only one
+that flashes, which reads as the walk having failed rather than as a
+colour nobody set.
 
-A `ttk.Scrollbar` asks for less width than a `tk` one, so moving to it
-widened those three texts and moved their wrap point.
+A `ttk.Scrollbar` asks for less width than a `tk` one, so the three
+texts are that much wider than the same shape built by hand, and their
+wrap points differ accordingly.
 
 ### The guard
 

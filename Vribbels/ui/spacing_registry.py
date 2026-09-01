@@ -592,15 +592,12 @@ def _panel_edge_inset(title, side):
     return resolve
 
 
-# The rule says "5px, all edges" and only the left edges were tracked.
-#
-# These carried hand readings while their resolvers were being
-# calibrated, and the readings earned it: they caught a scan that was
-# measuring panel TITLES, another that stopped inside a spinbox's fill,
-# and a baseline correction applied to checkboxes that have no baseline.
-# All twelve agree with the eye now, so the readings are gone -- see
-# `TrackedGap.hand` for why leaving them would have been worse than
-# never adding them.
+# The rule names all four edges, and a left inset alone does not test a
+# resolver: a scan measuring panel TITLES, one stopping inside a
+# spinbox's fill, and a baseline correction applied to checkboxes that
+# have no baseline all read plausibly on one edge and wrongly on the
+# rest. `TrackedGap.hand` is how a new resolver here is checked against
+# the eye before its numbers are acted on.
 PANEL_EDGES = [
     ("Optimizer", "Important Settings", "top"),
     ("Optimizer", "Important Settings", "right"),
@@ -815,13 +812,9 @@ def _dropdown_over_panel(prefix, panel):
 # nearer element decides which rule applies.
 #
 # The rule runs BOTH ways and one number serves both: a panel over a
-# title, and a heading or header control over a panel. The two shapes
-# were built 7-9 and 11-14 respectively, which is why the ruling was
-# worth taking before any of them moved.
-#
-# The hand column is empty because every reading it held has been
-# nudged past; see `TrackedGap.hand` for why one does not outlive the
-# build it was taken in.
+# title, and a heading or header control over a panel. One number
+# serves both, which is a RULING rather than a measurement: left to
+# their own devices the two shapes build to different distances.
 PANEL_OVER_TEXT_ENTRIES = [
     ("Capture", "Status -> Server Region title", 10, None,
      _panel_gap("Status", "Server Region", "v")),
@@ -1793,12 +1786,12 @@ BUTTON_ROW_TAIL_ENTRIES = [
 # A checkbox's indicator against its own label. One entry, not one per
 # panel: every checkbox in the app comes from `make_checkbox`, so they
 # should all report the same distance, and a spread between panels would
-# be the finding rather than a set of separate nudges. Dumping its runs
-# while it answers whether the distance is Tk's own.
+# be the finding rather than a set of separate nudges.
 #
-# It was an exception at 5 against a rule of 4. The rule moved onto the
-# 5, so it is an ordinary instance now -- one nothing can nudge, which
-# is worth watching for exactly that reason.
+# An ordinary instance of the rule that NOTHING can nudge: Tk spaces an
+# indicator from its own label and no padding reaches between them.
+# Worth watching for exactly that reason -- if it drifts, the rule has
+# to move rather than the app.
 INDICATOR_ENTRIES = [
     ("Memory Fragments", "checkbox indicator -> its label", 5, None,
      _indicator_gap(_block_in("Slots", CHECKBOX_CLASSES),

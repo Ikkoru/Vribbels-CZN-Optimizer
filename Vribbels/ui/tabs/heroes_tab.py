@@ -1570,8 +1570,8 @@ class HeroesTab(BaseTab):
         """Re-do one combatant's Preset and GS cells where they stand.
 
         A preset assignment moves exactly those two, and only for this
-        combatant -- so the whole-list rebuild the caller used to do was
-        visible as the list blinking out and back.
+        combatant. Rebuilding the whole list instead is visible as it
+        blinking out and back.
         """
         for index, hero in enumerate(self.hero_data_list):
             if hero["name"] == hero_name:

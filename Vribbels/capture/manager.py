@@ -171,9 +171,9 @@ class Addon:
         Observed in `server_connect` from the client's SNI, because both
         regions are redirected and the game picks. NOT read from the
         payload: `world_id` is something the CLIENT sends in its auth
-        request, and the server's `user` record has never carried it, so
-        the field this used to read was always absent and this always
-        returned None.
+        request, and the server's `user` record does not carry it -- a
+        reader of that field finds it absent every time and answers
+        None.
         """
         return self.detected_region
 
