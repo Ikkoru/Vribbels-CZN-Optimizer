@@ -408,7 +408,12 @@ class OptimizerTab(BaseTab):
         # where a LabelFrame title (what the Memory Fragments tab leads
         # with) renders flush. Matching frame padding would put this tab's
         # text below every other's. See docs/ui_spacing.md "The rules".
-        toolbar.pack(fill=tk.X, padx=2, pady=(0, 2))
+        # The TRAILING pady is 0, and asymmetric with the sides on
+        # purpose: the preset row below grew by two pixels to stop
+        # clipping its own label, and every frame under the toolbar
+        # moved down with it. This gives those two back where they were
+        # taken from, rather than trimming the row that needs them.
+        toolbar.pack(fill=tk.X, padx=2, pady=(0, 0))
 
         # Stack the Combatant label and dropdown vertically. The toolbar's
         # left cluster (Combatant + LVL + Start + Stop) is wrapped in a
