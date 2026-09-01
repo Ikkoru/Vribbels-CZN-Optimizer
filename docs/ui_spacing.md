@@ -522,7 +522,11 @@ different numbers, and the difference is exactly that pad. Keeping it at
 
 ### What the audit does not reach
 
-Every registered gap is on its target, and every one bar the entries in `AWAITING_FIRST_READING` is confirmed against a hand reading. Those print yellow, in the short run as well as the verbose one, until a run agrees with them. What follows is the parts of the app no entry measures, so a drift there shows up on screen and nowhere else.
+Every registered gap is on its target and confirmed against a hand
+reading. An entry named in `AWAITING_FIRST_READING` is the exception
+and prints yellow, in the short run as well as the verbose one, until a
+run agrees with it. What follows is the parts of the app no entry
+measures, so a drift there shows up on screen and nowhere else.
 
 - **The Optimizer's status label ends 6px from the tab's right edge**,
   where the border rule asks 4 and a Label's own inset has 2 left to

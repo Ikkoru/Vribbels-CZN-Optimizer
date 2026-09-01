@@ -2528,14 +2528,15 @@ def _row_pitch_in(container, classes):
     whole group of rows tighter than the rest passes anyway, the wrong
     rows being out-voted by the right ones.
 
-    No glyph correction, which holds only while every row's painted
-    bottom is its INDICATOR or its border. **A checkbox whose label
-    WRAPS breaks that**: its indicator is centred over two lines, so the
-    second line's text hangs below it and a descender there is what the
-    next gap is measured from -- a reading short of what the eye sees by
-    the depth of a `g`. The Memory Fragments options column is the one
-    place two wrapped checkboxes sit one above the other. The tally in
-    the note is what says so: one straggler among rows that agree.
+    No glyph correction, which rests on every row's painted bottom
+    being its INDICATOR or its border rather than a glyph. A checkbox
+    whose label WRAPS is the case to watch: its text runs past the
+    indicator, so a descender in the lower line could be what the next
+    gap is read from, and that reading would sit short of the baseline
+    the rule wants. Only the Memory Fragments options column stacks two
+    of those, and the value alone cannot say -- it reports the smallest
+    gap, so a wrapped pair reading tight looks the same as the whole
+    column reading tight. **The note's tally is what tells them apart.**
     """
     def resolve(cap, app):
         gaps = _row_gaps(cap, container(app), classes)
@@ -3058,18 +3059,11 @@ ELEMENT_ENTRIES = [
 # this set is for the ones the tables above generate, whose tuples have
 # no room for it.
 AWAITING_FIRST_READING = {
-    # A name goes in here when an entry is registered at a target the
-    # rules table supplies rather than at a distance somebody has read
-    # off the screen, and comes out again the moment a run confirms it
-    # -- so a row printing yellow is a question, never a regression.
-    # EMPTY is the state to return it to.
-    #
-    # These three were nudged in the same edit that registered them, so
-    # there is no reading for any of them yet: the column against Main
-    # Stats went from 5 and the Combatants checkbox from 3.
-    "Main Stats -> options checkboxes",
-    "tab edge -> Show missing",
-    "Show missing -> tab edge",
+    # EMPTY, and that is the state to keep it in. A name goes in here
+    # when an entry is registered at a target the rules table supplies
+    # rather than at a distance somebody has read off the screen, and
+    # comes out again the moment a run confirms it -- so a row printing
+    # yellow is a question, never a regression.
 }
 
 
