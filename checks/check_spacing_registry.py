@@ -17,7 +17,11 @@ What it enforces beyond "it imports":
   * every NAME is unique. Names are the baseline's keys, so a duplicate
     silently drops one entry's reading and reports the other twice.
   * every RULE is one the docs table spells, the same constraint the
-    marker check applies to the widget code.
+    marker check applies to the widget code -- OR, for a gap flagged
+    `target unique`, a string some `# spacing: unique -- <what>` in the
+    widget code spells and the doc's uniques table prices. A unique
+    names no rule, so without that pair it could not be tracked at all;
+    with it, it is checked against two copies exactly as a rule is.
   * a gap flagged `target rule` really is the number the rule
     derives, and one flagged `exception`/`inferred` really is not. The
     flag decides whether a later reader may "correct" the number from
@@ -40,7 +44,9 @@ from ._harness import REPO_ROOT, SOURCE_ROOT, add_source_to_path
 NAME = "spacing registry"
 
 VALID_AXES = ("h", "v")
-VALID_SOURCES = ("rule", "exception", "inferred")
+VALID_SOURCES = ("rule", "exception", "inferred", "unique")
+
+UNIQUES_HEADING = "## The uniques, as a table"
 
 
 def _rule_targets():
@@ -68,6 +74,50 @@ def _rule_targets():
         if marker and plain:
             targets[marker.group(1)] = int(plain.group(1))
     return targets
+
+
+def _unique_targets():
+    """{what: target} for every unique the doc's table gives a number.
+
+    A `unique` names no rule, so the registry carries the marker's own
+    `<what>` in its rule field. This table is the second copy that makes
+    that field checkable -- without it any string at all would pass, and
+    the guard that catches a drifted rule name would have a hole in it
+    exactly the shape of a typo.
+
+    Rows whose Distance column is not a plain `<n>px` are deliberate:
+    two of the uniques are a widget's own inset rather than a gap
+    between two elements, so nothing measures them and the registry
+    holds no entry for them either.
+    """
+    doc = io.open(REPO_ROOT / "docs" / "ui_spacing.md",
+                  encoding="utf-8").read()
+    section = doc.split(UNIQUES_HEADING, 1)
+    if len(section) < 2:
+        return None
+    targets = {}
+    for row in section[1].split("\n## ")[0].splitlines():
+        cells = [c.strip() for c in row.split("|")]
+        if len(cells) < 6:
+            continue
+        what = re.fullmatch(r"`([^`]+)`", cells[1])
+        plain = re.fullmatch(r"(\d+)px", cells[3])
+        if what and plain:
+            targets[what.group(1)] = int(plain.group(1))
+    return targets
+
+
+def _unique_whats():
+    """Every `<what>` a `unique` marker in the widget code spells."""
+    whats = set()
+    for path in glob.glob(str(SOURCE_ROOT / "**" / "*.py"), recursive=True):
+        if "__pycache__" in path or "_capture_addon" in path:
+            continue
+        text = io.open(path, encoding="utf-8", errors="replace").read()
+        for m in re.finditer(r"#\s*spacing:\s*unique -- (.+?)\s*$",
+                             text, re.M):
+            whats.add(m.group(1).rsplit(" -- ", 1)[0])
+    return whats
 
 
 def _excepted_rules():
@@ -104,6 +154,16 @@ def run():
              if k.startswith("RULE_") and isinstance(v, str)}
     rule_targets = _rule_targets()
     excepted = _excepted_rules()
+    unique_targets = _unique_targets()
+    unique_whats = _unique_whats()
+    if unique_targets is None:
+        failures.append(
+            f"docs/ui_spacing.md no longer contains {UNIQUES_HEADING!r}. "
+            f"That table is the second copy of every unique's number; "
+            f"without it the rule field accepts any string at all. Update "
+            f"UNIQUES_HEADING in checks/check_spacing_registry.py to match "
+            f"the doc.")
+        unique_targets = {}
 
     seen = {}
     for g in sa.REGISTRY:
@@ -116,11 +176,40 @@ def run():
         if not isinstance(g.target, int):
             failures.append(
                 f"{g.name!r} has a non-integer target {g.target!r}")
+        # A rule field outside the rules table is allowed for ONE thing:
+        # a `unique`, which by definition has no rule to name. It has to
+        # be spelled by a marker in the widget code AND priced by the
+        # doc's uniques table, so it is checked against two copies just
+        # as a rule name is -- see `_unique_targets`.
         if g.rule not in rules:
+            if g.target_source != "unique":
+                failures.append(
+                    f"{g.name!r} names rule {g.rule!r}, which has no RULE_ "
+                    f"constant -- the marker check compares those against "
+                    f"the docs table, so a rule invented here escapes it. "
+                    f"A gap no rule covers is flagged `target unique`")
+            elif g.rule not in unique_whats:
+                failures.append(
+                    f"{g.name!r} is flagged `target unique` and names "
+                    f"{g.rule!r}, which no `# spacing: unique -- ...` "
+                    f"marker in the widget code spells. A unique with no "
+                    f"site is a string nothing can be greppped back to")
+            elif g.rule not in unique_targets:
+                failures.append(
+                    f"{g.name!r} names unique {g.rule!r}, which has no row "
+                    f"with a plain `<n>px` distance in the doc's uniques "
+                    f"table. That table is what makes this number "
+                    f"checkable; without a row it is unreviewed")
+            elif g.target != unique_targets[g.rule]:
+                failures.append(
+                    f"{g.name!r} carries {g.target} where the doc's uniques "
+                    f"table gives {unique_targets[g.rule]} for {g.rule!r}. "
+                    f"One of the two has drifted")
+        elif g.target_source == "unique":
             failures.append(
-                f"{g.name!r} names rule {g.rule!r}, which has no RULE_ "
-                f"constant -- the marker check compares those against the "
-                f"docs table, so a rule invented here escapes it")
+                f"{g.name!r} is flagged `target unique` but names "
+                f"{g.rule!r}, which IS a rule. A gap a rule covers is on "
+                f"the rule or an `exception` to it, never a unique")
         # Every rule with one number in the docs table is compared
         # against THAT, including the title and tab-list rules. They
         # used to derive a target per string, and this check called the

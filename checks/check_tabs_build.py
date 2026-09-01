@@ -190,6 +190,69 @@ def _percent_fields_are_clamped(tab):
     return failures
 
 
+def _all_none_panels_carry_no_left_padding(built):
+    """Why the four All/None panels must keep 0 on their left.
+
+    `border edge -> button` and `border edge -> first non-button
+    element` are separate rules with different targets, and inside these
+    four panels they answer to separate levers -- `EDGE_PAD` in
+    `ui/utils/all_none_row.py` for the buttons, each block's own padx
+    for the content. A LabelFrame's `padding` insets every child alike,
+    so a non-zero LEFT component there rides both at once and the two
+    rules can no longer be set independently. The last time one moved,
+    all four `All` buttons followed the content a pixel off target.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+
+    wanted = {
+        "InventoryTab": ("Slots", "Sets", "Main Stats"),
+        "OptimizerTab": ("Exclude Combatant's MFs",),
+    }
+    out = []
+    for attr, titles in wanted.items():
+        tab = built.get(attr)
+        if tab is None:
+            continue
+
+        def walk(w):
+            yield w
+            for c in w.winfo_children():
+                yield from walk(c)
+
+        by_title = {}
+        for w in walk(tab.get_frame()):
+            if w.winfo_class() != "TLabelframe":
+                continue
+            try:
+                by_title[str(w.cget("text"))] = w
+            except tk.TclError:
+                pass
+        for title in titles:
+            frame = by_title.get(title)
+            if frame is None:
+                out.append(
+                    f"{attr}: no LabelFrame titled {title!r}. The All/None "
+                    f"unlink check locates panels by their visible title."
+                )
+                continue
+            padding = frame.cget("padding")
+            parts = (padding if isinstance(padding, (tuple, list))
+                     else str(padding).split())
+            left = int(str(parts[0])) if parts else 0
+            if left:
+                out.append(
+                    f"{title!r} carries a left padding of {left}. That "
+                    f"insets its All/None buttons AND its content alike, "
+                    f"so `border edge -> button` and `border edge -> "
+                    f"first non-button element` stop being separately "
+                    f"settable -- put the inset on the block's own padx "
+                    f"and leave this at 0."
+                )
+    return out
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -283,6 +346,7 @@ def run():
 
         if "OptimizerTab" in built:
             failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
+        failures.extend(_all_none_panels_carry_no_left_padding(built))
     finally:
         try:
             root.destroy()

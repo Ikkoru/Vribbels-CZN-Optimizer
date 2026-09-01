@@ -479,21 +479,35 @@ STAT MIN - MAX ROLLS:
         parent.grid_rowconfigure(2, weight=1)
 
         # Row 3, col 1: "Preset Name:" label sits just above the entry.
-        # spacing: explanation text -> the controls it explains -- label, entry ↕
-        # The negative BOTTOM shortens the label's request, which pulls
-        # the entry's row up: pack and grid pads cannot go below 0, so
-        # the gap under a label is only ever reachable from the label's
-        # own inset or the next widget's leading pad, and row 4's pad is
-        # shared with the button beside the entry.
-        ttk.Label(parent, text="Preset Name:", padding=(0, 0, 0, -6)).grid(
+        # The negative BOTTOM does NOT move this gap and cannot: rows 1
+        # and 2 take all the slack, so rows 3-5 are pinned to the frame's
+        # bottom and this label's box bottom is wherever row 4's top is.
+        # What the negative does is slide the TEXT down inside that box,
+        # toward the entry -- which is the whole of its effect here.
+        #
+        # **-5 is the floor**, and it is arithmetic rather than taste: a
+        # ttk.Label insets its content 2px and Segoe UI 9 leaves 3px of
+        # descent below the baseline, so 5px of the box below the ink is
+        # empty. Past that the glyphs themselves are cut off at the box
+        # edge and the gap stops changing, because a Label clips to its
+        # own window -- measured at -6, which cost a pixel of ink and
+        # bought nothing.
+        ttk.Label(parent, text="Preset Name:", padding=(0, 0, 0, -5)).grid(
             row=3, column=1, sticky="sw", padx=2
         )
 
         # Row 4: Save Weights Preset As | preset name entry
+        # spacing: explanation text -> the controls it explains -- label, entry ↕
+        # The LEADING pady is the lever on the gap up to `Preset Name:`,
+        # and it works by shortening the row rather than by moving
+        # anything: rows 3-5 are pinned to the bottom, so a shorter row 4
+        # starts lower and drags row 3's floor -- and the label's ink,
+        # which sits on it -- down with it. The entry beside this button
+        # is centred in the row and stays put.
         ttk.Button(
             parent, text="Save Weights Preset As",
             command=self.on_save_preset, width=BTN_WIDTH
-        ).grid(row=4, column=0, sticky="ew", padx=2, pady=2)
+        ).grid(row=4, column=0, sticky="ew", padx=2, pady=(1, 2))
 
         self.preset_name_var = tk.StringVar()
         tk.Entry(

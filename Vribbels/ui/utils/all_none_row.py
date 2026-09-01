@@ -21,8 +21,18 @@ from .button_width import BUTTON_W_TINY
 # and the render differ by one.
 ROW_GAP = 4
 
-# The leading pad on `All`, feeding its distance from the panel's border.
-EDGE_PAD = 2
+# The leading pad on `All`, and the WHOLE of its distance from the
+# panel's border -- all four panels carry 0 left padding, so nothing
+# else contributes.
+#
+# That is what keeps `border edge -> button` and `border edge -> first
+# non-button element` on separate levers, and they are separate RULES
+# with different targets. A LabelFrame's `padding` insets every child
+# alike, so a non-zero left component there rides both at once: the
+# last time one moved, all four `All` buttons followed the content off
+# their own target. `checks/check_tabs_build.py` fails if a left
+# padding comes back.
+EDGE_PAD = 3
 
 # Half the gap between the two buttons: each spends this on the side
 # facing the other, so the pair sums to twice it.

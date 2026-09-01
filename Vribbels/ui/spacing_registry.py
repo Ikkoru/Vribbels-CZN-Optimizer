@@ -54,6 +54,23 @@ RULE_CONFIG_PANEL_ROW = "config panel row ↕ row"
 RULE_CONTROL_GROUP = "control group ↔ control group"
 
 
+# A `unique` names no rule, so an entry for one carries the marker's own
+# `<what>` in the rule field instead. `check_spacing_registry` accepts a
+# string here only when a `unique -- <what> -- ...` marker in the widget
+# code spells it exactly, and only when the "The uniques" table in
+# `docs/ui_spacing.md` gives it the same number -- the same
+# two-copies-must-agree guarantee the rule names get, rather than a hole
+# in the guard.
+#
+# These constants exist for the same reason the RULE_ ones do: a
+# unique that is registered later cannot invent a second spelling.
+UNIQUE_STATUS_LABEL_SPINBOX = (
+    "between mixed element rows (label -> spinbox)")
+UNIQUE_STATUS_SPINBOX_CHECKBOX = (
+    "between mixed element rows (spinbox -> checkbox)")
+UNIQUE_SETUP_STATUS = "Setup Status stands apart on purpose"
+
+
 # Glyphs whose ink reaches the FULL descender depth. `|` is not a
 # descender in any typographic sense and reaches exactly as far as one,
 # which is the only thing this table is about.
@@ -1702,6 +1719,13 @@ BUTTON_ROW_ABOVE_ENTRIES = [
 BUTTON_ROW_TAIL_ENTRIES = [
     ("Capture", "Load Latest -> Debug WS", 4, None,
      _gap(_by_text("Load Latest"), _by_text("Debug WS"), "h")),
+    # The same checkbox's other side, against the panel that starts the
+    # next column. An EXCEPTION at 6 rather than a miss at 4: the rule's
+    # 4 is there in the two columns' grid padx, and the extra 2 is the
+    # widget's own inset, which cannot be spent without narrowing the
+    # column every panel above it fills. See the call site.
+    ("Capture", "Debug WS -> Upgrade Log Settings", 6, None,
+     _gap(_by_text("Debug WS"), _panel_at("Upgrade Log Settings"), "h")),
 ]
 
 # A checkbox's indicator against its own label. One entry, not one per
@@ -1977,6 +2001,51 @@ def _inside_border(widget):
                   top=box.top + edge,
                   right=box.right - edge - opt("padx"),
                   bottom=box.bottom - edge)
+
+
+def _text_widget_inset(locator, side):
+    """Resolver: a bordered Text's own border -> the ink inside it.
+
+    For a widget that draws its own frame and holds its own inset --
+    an Equipped MF cell, whose RIDGE relief and `padx` are the whole of
+    the gap the border-edge rule names there. No geometry manager
+    reaches between the two, so this is the only way to read it.
+
+    The scan runs INSIDE the border: a relief paints every row at the
+    left and right edges, so a scan over the whole box finds one run
+    covering the cell and never sees the text. The background is read
+    off the widget, because a cell is tinted by its fragment's rarity
+    and `bg_light` is the wrong answer for all but a Normal one.
+    """
+    def resolve(cap, app):
+        widget = locator(app)
+        if widget is None:
+            return None, "no filled cell there"
+        fill = _widget_fill(widget)
+        box = sa.box_of(widget)
+        inner = _inside_border(widget)
+        # `_inside_border` already steps past `padx`, which is the very
+        # thing being measured horizontally -- so the scan box takes its
+        # vertical bounds from it and its horizontal ones from the
+        # border alone.
+        edge = inner.top - box.top
+        scan = sa.Box(left=box.left + edge, top=inner.top,
+                      right=box.right - edge, bottom=inner.bottom)
+        if side in ("left", "right"):
+            extent = sa.painted_extent_h(cap, scan, fill)
+        else:
+            extent = sa.painted_extent_v(cap, scan, fill)
+        if not extent:
+            return None, "nothing painted inside the cell"
+        first, last = extent
+        if side == "left":
+            return sa.gap_between(scan.left - 1, first), ""
+        if side == "right":
+            return sa.gap_between(last, scan.right + 1), ""
+        if side == "top":
+            return sa.gap_between(scan.top - 1, first), ""
+        return sa.gap_between(last, scan.bottom + 1), ""
+    return resolve
 
 
 def _text_columns(cap, box, fill, want=None):
@@ -2324,6 +2393,37 @@ ROW_DIVISION_ENTRIES = [
 ]
 
 
+# (tab, name, what, target, resolver) for the gaps no rule covers. The
+# `what` goes in the entry's rule field, and has to match a `unique`
+# marker in the widget code and a row of the doc's uniques table.
+#
+# The two the app has that are NOT here are a button's own internal
+# inset and a Treeview's, and neither is a distance between two
+# elements: one sets a widget's size and the other is a style option on
+# a widget that draws itself. The doc's table carries both anyway, so
+# the set is readable in one place.
+UNIQUE_ENTRIES = [
+    # The Optimizer toolbar's right-hand stack. Three rows of different
+    # intrinsic heights, so equal row padding measures equal box-to-box
+    # and looks unequal glyph-to-glyph -- which is why the two gaps have
+    # separate numbers rather than one pitch.
+    ("Optimizer", "status label -> level row",
+     UNIQUE_STATUS_LABEL_SPINBOX, 6,
+     _gap(_sibling_before(_group_of("Ignore MFs below level:")),
+          _group_of("Ignore MFs below level:"), "v")),
+    ("Optimizer", "level row -> off-Element row",
+     UNIQUE_STATUS_SPINBOX_CHECKBOX, 4,
+     _gap(_group_of("Ignore MFs below level:"),
+          _group_of("Ignore off-Element MFs"), "v")),
+    # Setup Status is built to its own numbers on purpose, and its rows
+    # sit at a pitch nothing else in the app uses. Tracked so the pitch
+    # is held rather than merely intended.
+    ("Setup", "Setup Status: row pitch", UNIQUE_SETUP_STATUS, 11,
+     _row_pitch("Setup Status", LABEL_CLASSES)),
+]
+
+
+
 def _checkbox_block_to_buttons(title):
     """Resolver: the lowest checkbox in a panel -> its All/None row.
 
@@ -2630,7 +2730,13 @@ DEBUG_PAIR_GAPS = ()
 # `exception` marker at its site saying what stops it.
 # Nothing needs this today; the Set Config checkbox left it when its
 # piece count moved inside the widget.
-EXCEPTION_ENTRIES = {}
+# Entries in a per-entry-source table that MISS their rule on
+# purpose. The table they live in passes `None` for its source, and
+# every name here has an `exception` marker at its call site saying
+# why -- `check_spacing_registry` enforces the pair.
+EXCEPTION_ENTRIES = {
+    "Debug WS -> Upgrade Log Settings": "exception",
+}
 
 
 def _debug_panel(title):
@@ -2738,6 +2844,10 @@ AWAITING_FIRST_READING = {
     "Slots checkboxes",
     "Avg Card DMG% -> its spinbox",
     "Load Latest -> Debug WS",
+    "Debug WS -> Upgrade Log Settings",
+    "status label -> level row",
+    "level row -> off-Element row",
+    "Setup Status: row pitch",
 }
 
 
@@ -2830,6 +2940,22 @@ def register_all():
             provisional=f"{title}: row pitch" in AWAITING_FIRST_READING,
         )
 
+    for tab, name, what, target, resolve in UNIQUE_ENTRIES:
+        sa.track(
+            name=name,
+            tab=tab,
+            rule=what,
+            target=target,
+            resolve=resolve,
+            # Every one of these is vertical today. Stated per entry
+            # rather than defaulted, the way every other table states
+            # it -- a row whose direction is assumed is a row that
+            # cannot be read out of a table of two hundred.
+            axis="v",
+            target_source="unique",
+            provisional=name in AWAITING_FIRST_READING,
+        )
+
     for tab, title, classes in ROW_DIVISION_ENTRIES:
         sa.track(
             name=f"{title}: row division",
@@ -2886,7 +3012,7 @@ def register_all():
             (RULE_BORDER_EDGE_CONTENT, PRESET_LIST_BOTTOM_ENTRIES, "v",
              "exception"),
             (RULE_BORDER_EDGE_CONTENT, BUTTON_ROW_TAIL_ENTRIES, "h",
-             "rule")):
+             None)):
         for tab, name, target, hand, resolve in table:
             sa.track(
                 name=name,
@@ -2936,6 +3062,27 @@ def register_all():
         axis="v",
         provisional=False,
     )
+
+    # The same group read HORIZONTALLY, against the detail pane's
+    # heading. Two entries and not one: the dropdown has a painted
+    # border to measure to and the caption above it has only glyphs, so
+    # one pad cannot put both on the rule -- the caption carries a
+    # negative inset of its own to cancel the difference. Located by
+    # attribute rather than by words, because the heading's words are
+    # the selected combatant's name.
+    for _what, _attr in (("dropdown", "preset_assign_combo"),
+                         ("caption", "preset_assign_label")):
+        sa.track(
+            name=f"Combatants: heading -> preset {_what}",
+            tab="Combatants",
+            rule=RULE_HEADING_ELEMENT,
+            target=14,
+            resolve=_gap(_tab_attr("heroes_tab_instance",
+                                   "hero_detail_name"),
+                         _tab_attr("heroes_tab_instance", _attr), "h"),
+            axis="h",
+            provisional=True,
+        )
 
     # `Region:` names a READOUT rather than a control, and at the
     # distance it sits it reads as a heading with its value beside it
@@ -3109,6 +3256,28 @@ def register_all():
         axis="v",
         provisional=True,
     )
+
+    # A gear cell's own border against the text inside it. `padx` is the
+    # left, `pady` the top.
+    #
+    # RIGHT and BOTTOM are left out, and for one reason: the set
+    # description wraps, so both edges are ragged. A wrapped line ends
+    # within a word of the boundary rather than on it, and the scan
+    # takes the furthest of them -- which makes either side a FLOOR that
+    # moves with the fragment selected, where the audit compares against
+    # a number. `GEAR_TAB_SLOT` is the lever on the right for that
+    # reason: it is the one line whose end is stated.
+    for _side, _axis in (("left", "h"), ("top", "v")):
+        sa.track(
+            name=f"Equipped MF cell: {_side} edge -> text",
+            tab="Combatants",
+            rule=RULE_BORDER_EDGE_CONTENT,
+            target=4,
+            resolve=_text_widget_inset(
+                _first_filled_text("Equipped Memory Fragments"), _side),
+            axis=_axis,
+            provisional=True,
+        )
 
     for tab, title in ALL_NONE_PANELS:
         sa.track(

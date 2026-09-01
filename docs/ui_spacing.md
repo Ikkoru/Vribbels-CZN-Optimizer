@@ -198,25 +198,12 @@ The consequence is real: those pairs were built on the content-frame
 rule's 2+2 pads and read 7, so meeting 10 means a stacked pair's pads
 stop matching a side-by-side one.
 
-**The 10 is one number for two shapes, and that was decided rather than
-observed.** Fourteen sites are registered under the rule. Before any of
-them moved, twelve were measured by hand and not one read 10 — they
-split by shape, cleanly:
-
-| Shape | Sites | Read, before |
-| --- | --- | --- |
-| A panel, then the next panel's title | 7 | 7, 7, 7, 8, 8, 9, 9 |
-| Text — a tab heading, a header control — then a panel | 5 | 11, 11, 12, 12, 14 |
-
-Both directions are the rule as written: it names text beneath a panel,
-and a heading above the first panel on its tab is the same distance seen
-from the other side. The two groups sat either side of the rule's number
-with nothing on it, which is what made "does one number serve both"
-a real question rather than a formality.
-
-It was ruled that one does. All fourteen are on 10, so the rule finally
-has instances — and if the two shapes turn out to want different
-numbers, the evidence for splitting them is the table above.
+**The 10 serves two shapes.** A panel with the next panel's title
+beneath it, and text — a tab heading, a header control — with a panel
+beneath that: the rule names text beneath a panel, and a heading above
+the first panel on its tab is the same distance seen from the other
+side. Fourteen sites are registered under it and all fourteen are on
+10.
 
 ### Markers
 
@@ -242,6 +229,11 @@ with the reason on the lines below — grepping a rule has to surface its
 own exceptions. `unique` has no rule to break; both must name their
 subject precisely enough that grep finds one site and not its neighbour.
 Padding doing genuinely unrelated work stays unmarked.
+
+**A `unique`'s `<what>` is also its key in the registry**, so it is
+spelled in three places rather than two — the marker, "The uniques, as
+a table" below, and the entry that measures it. Precision in naming one
+stopped being a style preference when that happened.
 
 A `TBD` gets a row in "The unruled rows" below, description copied
 verbatim so the two match with grep. They are judged as a set, not one
@@ -396,17 +388,26 @@ marks the boundary.
 
 ## Fonts in use
 
-Body text is **Segoe UI 9** and **Segoe UI 11**, nothing else.
-`TkDefaultFont` is Segoe UI 9 and no ttk style overrides it, so an
+Body text is **Segoe UI 9**; the three panels of running prose are
+**Segoe UI Variable Small**, the optical size Windows draws small text
+at. `TkDefaultFont` is Segoe UI 9 and no ttk style overrides it, so an
 explicit `("Segoe UI", 9)` is the same face the default already gives.
 
-| Face     | Tk pt   | Ascent | Descent | Linespace | Where                                                 |
-| -------- | ------- | ------ | ------- | --------- | ----------------------------------------------------- |
-| Segoe UI | 9       | 12     | 3       | 15        | body text everywhere, bold included                   |
-| Segoe UI | 11      | 16     | 4       | 20        | Setup Status; Capture's `Ready`; How Gear Score Works |
-| Segoe UI | 14 bold | 20     | 5       | 25        | the tab headings                                      |
-| Segoe UI | 12 bold | 17     | 4       | 21        | About and Materials only — out of scope               |
-| Consolas | 10      | 12     | 3       | 15        | the contributions popup — out of scope                |
+| Face                    | Tk pt   | Ascent | Descent | Linespace | Where                            |
+| ----------------------- | ------- | ------ | ------- | --------- | -------------------------------- |
+| Segoe UI                | 9       | 12     | 3       | 15        | body text everywhere, bold included |
+| Segoe UI                | 11      | 16     | 4       | 20        | Setup Status; Capture's `Ready`  |
+| Segoe UI                | 14 bold | 20     | 5       | 25        | the tab headings                 |
+| Segoe UI Variable Small | 9       | 13     | 3       | 16        | Capture Log; Setup Instructions  |
+| Segoe UI Variable Small | 10      | 14     | 3       | 17        | How Gear Score Works             |
+| Segoe UI                | 12 bold | 17     | 4       | 21        | About and Materials only — out of scope |
+| Consolas                | 10      | 12     | 3       | 15        | the contributions popup — out of scope |
+
+**Variable Small stands a pixel taller than Segoe UI at the same
+nominal size** — one more of ascent, the same descent — and that pixel
+lands above the first glyph, so a panel switching to it owes its `pady`
+one back. Variable Small **8** is the exact metric twin of Segoe UI 9
+(12/3/15) if a panel ever needs the face without the shift.
 
 A 14 bold heading's ascenders reach above its capitals. Judge it by the
 capitals anyway.
@@ -551,8 +552,8 @@ relation is one for one, so the current +3 is INFERRED to be the rule's
 vertically centred. Its two spinbox columns are registered one apiece
 and both read the same distance after their longest labels, so the pair
 moves on one lever.
-`How Gear Score Works` is Segoe UI 11 with its columns on tab stops, not
-a monospaced font.
+`How Gear Score Works` is Segoe UI Variable Small with its columns on
+tab stops, not a monospaced font.
 
 **Capture** — `Upgrade Log Settings` preset checkboxes carry their
 combatants' Element colour; every shipped preset resolves to one.
@@ -850,6 +851,36 @@ child does not help: a child's padding moves it INSIDE the row.
 height is set by the taller left-hand cluster. `small_font` there is
 Segoe UI 9 now — the same as `TkDefaultFont` — so it is a lever on the
 toolbar's height rather than a cosmetic choice.
+
+## The uniques, as a table
+
+A `unique` names no rule, so nothing derives its number. That used to
+mean nothing could measure it either — the registry's rule field only
+accepted a name this table spells, and a unique has none.
+
+**It takes the marker's own `<what>` now.** `check_spacing_registry`
+accepts a rule string outside the rules table only when some
+`# spacing: unique -- <what> -- ...` in the widget code spells it
+exactly AND the row below gives it the same number. That is the same
+two-copies-must-agree guarantee a rule name gets, so a typo on either
+side still fails; what it gives up is the rules table being the only
+vocabulary the registry may use.
+
+| What                                                | Where                                      | Distance | Tracked |
+| --------------------------------------------------- | ------------------------------------------ | -------- | ------- |
+| `between mixed element rows (label -> spinbox)`     | Optimizer toolbar, status cluster           | 6px      | yes     |
+| `between mixed element rows (spinbox -> checkbox)`  | Optimizer toolbar, status cluster           | 4px      | yes     |
+| `Setup Status stands apart on purpose`              | Setup, the four status rows                 | 11px     | yes     |
+| `a button's own internal inset`                     | `TButton` padding, every button in the app  | 5 down, 1 across | no |
+| `Treeview internals, which are style options`       | every list                                  | see "Spacing inside a Treeview" | no |
+
+**The last two are not distances between two elements**, which is the
+only thing the audit measures. One sets a widget's SIZE — the button
+widths in `ui/utils/button_width.py` are only true against it — and the
+other is a style option on a widget that draws its own insides. Both
+are watched indirectly: every `button -> button` and `border edge ->
+button` reading rides the first, and the Treeview section records what
+was measured for the second.
 
 ## The unruled rows, as a table
 

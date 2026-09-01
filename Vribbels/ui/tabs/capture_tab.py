@@ -334,16 +334,25 @@ class CaptureTab(BaseTab):
         # file in the snapshots folder — useful when adding support for new
         # packet types (e.g., fragment create/delete).
         # spacing: border edge -> first non-button element -- button, checkbox ↔
+        # spacing: exception -- border edge -> first non-button element -- checkbox, panel ↔
         # A lone non-button after a run of buttons, which is what this
         # rule is about -- not a second element-and-label pair, which is
         # the rule it used to carry.
         #
-        # Its OTHER side is 6px of slack and stays that way: this row is
-        # the widest thing in the left column, so what follows the
-        # checkbox is the column boundary. Two of those pixels are the
-        # widget's own trailing inset, and the other four are the frame
-        # rule's gap to Upgrade Log Settings, spent 2 on each column's
-        # grid padx. Nothing sets it directly and nothing should.
+        # Its OTHER side answers to the same rule and misses it by the
+        # widget's own inset, unavoidably. This row is the widest thing
+        # in `left_col` -- `btn_frame` and `left_col` both request the
+        # same width and the row's parts sum to exactly it -- so the
+        # checkbox's box right edge IS the column edge, and what follows
+        # is 2 + 2 of grid padx out to Upgrade Log Settings' border. That
+        # 4 is the rule. The extra 2 is this widget: `padx=1` a side, and
+        # a pixel of the final `g`'s right sidebearing.
+        #
+        # **Neither of those 2 pixels can be spent.** `padx=0` would
+        # narrow the checkbox, and with it the column, and with THAT the
+        # right border of every panel stacked above -- they all fill X,
+        # so `Requirements -> Upgrade Log Settings` would widen by
+        # exactly what this gap lost.
         self.debug_checkbox.pack(side=tk.LEFT, padx=(2, 0))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
@@ -409,8 +418,12 @@ class CaptureTab(BaseTab):
         # and focus ring, and pairs the Text with a ttk scrollbar in a
         # ttk frame so the theme reaches both. See
         # ui/utils/scrolled_text.py.
+        # 2, where the helper's default is 3: Segoe UI Variable Small
+        # carries one more pixel of ascent than Segoe UI at the same
+        # nominal size, and that pixel lands above the first glyph.
         self.capture_log = make_scrolled_text(
             log_frame, self.colors, height=15, wrap=tk.WORD,
+            font=("Segoe UI Variable Small", 9), pady=2,
         )
         self.capture_log.pack(fill=tk.BOTH, expand=True)
 

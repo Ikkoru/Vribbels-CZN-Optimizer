@@ -122,7 +122,7 @@ GEAR_SET_WRAP_INSET = 6
 # `tag_configure` before the cell is mapped, when `winfo_width()` still
 # reads 1. Keep in step with the `tk.Text(...)` call in show_hero_details.
 GEAR_CELL_BD = 1
-GEAR_CELL_PADX = 5
+GEAR_CELL_PADX = 4
 
 # Width available to the tab stops: the cell minus its border and inset
 # on both sides. Tab stops are measured from the left edge of the text's
@@ -172,8 +172,17 @@ CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
 # centred. Written as 196 it was 1.5px right of centre and would have
 # drifted further the moment GEAR_CELL_W moved.
 GEAR_TAB_GS = GEAR_TEXT_W // 2   # centre stop: GS and Potential
-# spacing: label ↔ its element -- run, run ↔
-GEAR_TAB_SLOT = 385      # right stop: the slot name and its level
+# spacing: border edge -> first non-button element -- text, run ↔
+# The RIGHT inset, and the only lever on it: `padx` is symmetric,
+# so it sets the left and this stop decides how much further in the
+# widest STATED line ends. It moves with GEAR_TEXT_W -- both edges
+# step inward together when `padx` changes, so a padx of one less
+# needs a stop of one more to leave the slot name where it was.
+#
+# NOT tracked, unlike the left and top: the set description wraps,
+# so the rightmost ink in the cell is whichever wrapped line came
+# closest to the boundary, and that moves with the fragment.
+GEAR_TAB_SLOT = 386      # right stop: the slot name and its level
 GEAR_TAB_QUALITY = 20    # right stop: a substat's roll-quality percent
 GEAR_TAB_SUB = 26        # left stop: where the substat text starts
 
@@ -458,12 +467,23 @@ class HeroesTab(BaseTab):
         # `expand=True, fill=X` fills the leftover space between the name
         # and title_row's right edge.
         preset_group = ttk.Frame(title_row)
-        # spacing: heading ↔ element -- heading, label ↔
+        # spacing: heading ↔ element -- heading, dropdown ↔
+        # 11 for a rendered 14: this is a BOX pad and the rule is read
+        # from the heading's last glyph, which stops short of its own
+        # box. The 3 is `Adelheid`'s final `d` -- the combatant the list
+        # opens on -- so a snapshot whose first row ends on a different
+        # letter moves this reading without anything here changing.
         preset_group.pack(side=tk.LEFT, fill=tk.X, expand=True,
-                          padx=(14, 0))
+                          padx=(11, 0))
 
+        # spacing: heading ↔ element -- heading, label ↔
+        # The negative LEADING cancels a ttk.Label's own text inset, so
+        # this caption's GLYPHS start where the dropdown's BORDER does
+        # rather than 2px right of it. Both answer to the same rule and
+        # the two are read separately, because a dropdown has a painted
+        # edge to measure to and text does not.
         self.preset_assign_label = ttk.Label(
-            preset_group,
+            preset_group, padding=(-2, 0, 0, 0),
             text="Assign preset to (no selection) for custom Gear Score:"
         )
         self.preset_assign_label.pack(anchor=tk.W)
@@ -756,7 +776,7 @@ class HeroesTab(BaseTab):
                 # it; this is not the rule's 10 and is not meant to be,
                 # the description being prose rather than a row of
                 # labels.
-                padx=GEAR_CELL_PADX, pady=2, spacing3=4, spacing2=1,
+                padx=GEAR_CELL_PADX, pady=1, spacing3=4, spacing2=1,
                 # Selectable but never focusable, and no insertion cursor:
                 # the text can be copied, and nothing about it invites
                 # typing into it.
@@ -1774,6 +1794,12 @@ class HeroesTab(BaseTab):
                 f"{piece.potential_high:.0f}",
                 ("pot",))
         cell.insert(tk.END, "\t")
+        # spacing: label ↔ its element -- run, run ↔
+        # Two spaces, and they ARE the lever: a Text has no
+        # letter-spacing, so a gap inside one line can only be spent
+        # in space glyphs -- 3px of advance each in Segoe UI 9. Same
+        # constraint as GEAR_GS_POT_GAP, which says so at more
+        # length.
         cell.insert(tk.END, f"{slot_name}  +{piece.level}", ("rarity",))
         cell.tag_add("toprow", line, "end-1c")
 
