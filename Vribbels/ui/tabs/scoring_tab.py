@@ -231,10 +231,12 @@ STAT MIN - MAX ROLLS:
         # which is why it differs between text panels in different fonts.
         explain_text = make_scrolled_text(
             explain_frame, self.colors, height=20, wrap=tk.WORD,
-            # 0, where the 9pt panels take 4: this one is Segoe UI 11
-            # and its line box already contributes the whole inset
-            # above the first glyph. At 4 it read 9 against the
-            # rule's 5.
+            # 0, where the body-size panels take a pad: this face at
+            # this size already contributes the whole inset above the
+            # first glyph, and then some. **There is no lever left on
+            # the top gap** -- a Text's `pady` clamps at 0 and the
+            # LabelFrame carries none, so the only way further up is a
+            # smaller face. Read it after any font change here.
             font=("Segoe UI Variable Small", 10), pady=0,
         )
         # The two aligned groups line up on TAB STOPS rather than on
