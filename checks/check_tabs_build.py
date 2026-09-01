@@ -371,6 +371,92 @@ def _character_card_lines_fit():
     return []
 
 
+def _show_missing_adds_rather_than_replaces(tab):
+    """`Show missing characters` ADDS to the roster, never swaps it.
+
+    Three ways it goes wrong quietly:
+
+    * building the roster from `CHARACTERS` alone instead of unioning
+      with it drops any combatant the capture knows and this build does
+      not -- a release without a table entry yet, which is exactly when
+      the list matters most.
+    * a missing row has no capture data, so every number on it is a
+      placeholder. Showing a real-looking 0 for Level or Affinity reads
+      as an owned combatant at rock bottom.
+    * a new Element in `ATTRIBUTE_COLORS` with no dimmed variant leaves
+      its missing rows on Tk's default foreground, which on this theme
+      is near-invisible.
+
+    Skips itself with no roster.
+
+    Returns a list of complaints.
+    """
+    from game_data.characters import ATTRIBUTE_COLORS
+    from ui.tabs.heroes_tab import HERO_TAG_MISSING, HERO_TAG_UNKNOWN
+
+    out = []
+    for element in list(ATTRIBUTE_COLORS) + [HERO_TAG_UNKNOWN]:
+        if not tab.hero_tree.tag_configure(HERO_TAG_MISSING + element,
+                                           "foreground"):
+            out.append(
+                f"no dimmed row colour for {element!r}. A missing row wears "
+                f"one tag and one colour, so without it the row falls back "
+                f"to the theme's default foreground."
+            )
+
+    if tab.show_missing_var is None:
+        return out + ["HeroesTab has no `Show missing characters` variable"]
+
+    from models.character_info import CharacterInfo
+
+    # A combatant the CAPTURE knows and CHARACTERS does not -- a release
+    # without a table entry yet. Planted rather than hoped for: in a
+    # roster where every owned combatant happens to be in CHARACTERS,
+    # replacing the set and unioning it give the same answer, and the
+    # bug this is about would pass.
+    # ASCII, because it reaches a failure message and those print to
+    # a cp932 console.
+    unknown = "<uncaptured probe>"
+    was = tab.show_missing_var.get()
+    tab.optimizer.character_info[unknown] = CharacterInfo(
+        res_id=0, name=unknown)
+    try:
+        tab.show_missing_var.set(False)
+        tab.refresh_heroes()
+        owned = {h["name"] for h in tab.hero_data_list}
+        if not owned:
+            return out
+
+        tab.show_missing_var.set(True)
+        tab.refresh_heroes()
+        shown = {h["name"] for h in tab.hero_data_list}
+        if not owned <= shown:
+            out.append(
+                f"turning it on DROPPED {sorted(owned - shown)}. The roster "
+                f"is the union of what the capture holds with CHARACTERS, "
+                f"never CHARACTERS alone."
+            )
+        for row in tab.hero_data_list:
+            if not row.get("missing"):
+                continue
+            index = tab.hero_data_list.index(row)
+            values = tab.hero_tree.item(str(index), "values")
+            wrong = [c for c in (4, 5, 6) if values[c] != "-"]
+            if wrong:
+                out.append(
+                    f"{row['name']} is missing but reads "
+                    f"{[values[c] for c in wrong]} for Level/Ego/Affinity. "
+                    f"There is no capture data behind those, so a number "
+                    f"there reads as an owned combatant at rock bottom."
+                )
+            break
+    finally:
+        tab.optimizer.character_info.pop(unknown, None)
+        tab.show_missing_var.set(was)
+        tab.refresh_heroes()
+    return out
+
+
 def _combatant_selection_survives_a_rebuild(tab):
     """A rebuilt list must come back to the same combatant.
 
@@ -634,6 +720,8 @@ def run():
         if "HeroesTab" in built:
             failures.extend(
                 _combatant_selection_survives_a_rebuild(built["HeroesTab"]))
+            failures.extend(
+                _show_missing_adds_rather_than_replaces(built["HeroesTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))

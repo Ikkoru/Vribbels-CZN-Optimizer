@@ -63,11 +63,13 @@ import perf_log
 
 from ui.base_tab import BaseTab
 from ui.context import AppContext
+from ui.utils.checkbox import make_checkbox
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import (
     combobox_letter_jump, combobox_arrow_nav, bind_popdown_seek,
 )
 from ui.utils.type_ahead import attach, find
+from game_data.characters import CHARACTERS
 from game_data import (
     EQUIPMENT_SLOTS, SETS, STATS, RARITY_COLORS, RARITY_BG_COLORS,
     RARITY_STARTING_SUBSTATS, ATTRIBUTE_COLORS,
@@ -259,6 +261,21 @@ HERO_COL_TITLES = ("Combatant", "Grade", "Attribute", "Class", "Level",
 # an explicit foreground rather than inheriting the theme's.
 HERO_TAG_UNKNOWN = "_unknown_element"
 
+# Prefix for the dimmed variant of an Element's row colour, worn by a
+# combatant the user has not obtained. A Treeview tag colours a whole
+# ROW and a row cannot carry two, so a missing row cannot be grey with
+# a coloured Element cell -- it is one colour, and this makes that
+# colour say both things at once.
+HERO_TAG_MISSING = "_missing:"
+
+# How far a missing row's colour is pulled toward the dim foreground.
+# Far enough that a full roster reads as two groups at a glance, near
+# enough that the Element is still the thing the colour says.
+HERO_MISSING_FADE = 0.62
+
+# Where the `Show missing characters` checkbox keeps its state.
+HERO_SHOW_MISSING_KEY = "combatants_show_missing"
+
 
 def _padded_sublist(tokens):
     """Indented lines, one per token, padded to CHAR_SETS_LINES.
@@ -329,6 +346,24 @@ def compute_fragment_gs(
     return normalize_gs(raw, bounds)
 
 
+def _fade(colour: str, toward: str, amount: float) -> str:
+    """`colour` mixed `amount` of the way toward `toward`.
+
+    Mixing rather than dimming: a plain darken pushes every Element
+    toward black and they stop telling each other apart at the bottom.
+    Toward the dim foreground they keep their hue and lose their
+    insistence, which is what a row for something the user does not own
+    should do.
+    """
+    def parts(value):
+        value = value.lstrip("#")
+        return [int(value[i:i + 2], 16) for i in (0, 2, 4)]
+
+    a, b = parts(colour), parts(toward)
+    return "#" + "".join(
+        f"{round(x + (y - x) * amount):02x}" for x, y in zip(a, b))
+
+
 class HeroesTab(BaseTab):
     """Heroes/Combatants list and detail display."""
 
@@ -372,6 +407,9 @@ class HeroesTab(BaseTab):
         # Canvas/List widgets (set in setup_ui)
         self.hero_tree = None
         self.hero_data_list = []
+        # `Show missing characters`, built in setup_ui. None until
+        # then, which refresh_heroes reads as off.
+        self.show_missing_var = None
         self.hero_col_char_widths = None
         self.selected_hero_index = -1
 
@@ -459,6 +497,19 @@ class HeroesTab(BaseTab):
             font=("Segoe UI", 14, "bold")
         )
         self.hero_detail_name.pack(side=tk.LEFT, anchor=tk.NW)
+
+        # Packed FIRST so it takes the right edge, and the preset group
+        # below expands into what is left. Reversing the two would put
+        # the group's leftover width to the right of this instead.
+        sm = self.context.settings_manager
+        self.show_missing_var = tk.BooleanVar(
+            value=bool(sm.get(HERO_SHOW_MISSING_KEY, False))
+            if sm is not None else False)
+        # spacing: control group ↔ control group -- dropdown, checkbox ↔
+        make_checkbox(title_row, self.colors, text="Show missing characters",
+                      variable=self.show_missing_var,
+                      command=self._on_show_missing_toggle).pack(
+                          side=tk.RIGHT, anchor=tk.N, padx=(16, 0))
 
         # Right-aligned vertical group: label on top, combobox below.
         # `expand=True, fill=X` fills the leftover space between the name
@@ -587,8 +638,15 @@ class HeroesTab(BaseTab):
         # their own Element, which is what colours them.
         for element, colour in ATTRIBUTE_COLORS.items():
             self.hero_tree.tag_configure(element, foreground=colour)
+            self.hero_tree.tag_configure(
+                HERO_TAG_MISSING + element,
+                foreground=_fade(colour, self.colors["fg_dim"],
+                                 HERO_MISSING_FADE))
         self.hero_tree.tag_configure(
             HERO_TAG_UNKNOWN, foreground=self.colors["fg"])
+        self.hero_tree.tag_configure(
+            HERO_TAG_MISSING + HERO_TAG_UNKNOWN,
+            foreground=self.colors["fg_dim"])
 
         self.hero_tree.bind("<<TreeviewSelect>>", self._on_tree_select)
         # Windows-Explorer-style letter-jump: press a letter to select the
@@ -880,6 +938,20 @@ class HeroesTab(BaseTab):
             tuple(gear),
         )
 
+    def _on_show_missing_toggle(self):
+        """Persist `Show missing characters`, then rebuild the list."""
+        sm = self.context.settings_manager
+        if sm is not None:
+            sm.set(HERO_SHOW_MISSING_KEY, bool(self.show_missing_var.get()))
+        self.refresh_heroes()
+
+    def _on_show_missing_toggle(self):
+        """Persist `Show missing characters`, then rebuild the list."""
+        sm = self.context.settings_manager
+        if sm is not None:
+            sm.set(HERO_SHOW_MISSING_KEY, bool(self.show_missing_var.get()))
+        self.refresh_heroes()
+
     def refresh_heroes(self):
         """Refresh the heroes list."""
         # The selection is restored by NAME, not by index. A rebuild runs
@@ -908,8 +980,19 @@ class HeroesTab(BaseTab):
             user_text = "No user data available"
         self.user_info_label.config(text=user_text)
 
-        # Get all heroes (from equipped gear or character info)
-        all_heroes = set(self.optimizer.characters.keys()) | set(self.optimizer.character_info.keys())
+        # Every combatant the capture knows about. `optimizer.characters`
+        # holds only those wearing a fragment, which is the smallest of
+        # the three sets and never the roster.
+        owned = (set(self.optimizer.characters.keys())
+                 | set(self.optimizer.character_info.keys()))
+        all_heroes = set(owned)
+        if self.show_missing_var is not None and self.show_missing_var.get():
+            # ...plus everyone in the game the user has not obtained. In
+            # ADDITION to what the list already shows, so a combatant
+            # captured but absent from CHARACTERS -- a release this build
+            # has no entry for -- is still listed.
+            all_heroes |= {c["name"] for c in CHARACTERS.values()
+                           if isinstance(c, dict) and c.get("name")}
 
         # Build hero data for sorting
         for hero in all_heroes:
@@ -962,6 +1045,9 @@ class HeroesTab(BaseTab):
 
             self.hero_data_list.append({
                 "name": hero,
+                # Not in the capture at all: every number on the row is a
+                # placeholder, and its colour says so.
+                "missing": hero not in owned,
                 "grade": grade,
                 "attribute": attribute,
                 "class": hero_class,
@@ -1020,6 +1106,8 @@ class HeroesTab(BaseTab):
             # foreground rather than the theme's default.
             tag = (h["attribute"] if h["attribute"] in ATTRIBUTE_COLORS
                    else HERO_TAG_UNKNOWN)
+            if h.get("missing"):
+                tag = HERO_TAG_MISSING + tag
             self.hero_tree.insert("", tk.END, iid=str(i), values=values,
                                   tags=(tag,))
 
