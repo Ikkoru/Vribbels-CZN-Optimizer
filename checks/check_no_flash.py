@@ -1,16 +1,17 @@
 """The white-flash fix, and the two things that silently undo it.
 
-Opening a tab for the first time used to show its classic Tk widgets as
-blank near-white blocks for a frame -- checkbox grids, the Capture Log,
-the About tab's link buttons. Tk creates a widget's window at first MAP
-and erases it to the system default before painting, so the fix is to
-create every window earlier, while the app is still invisible
-(`ui/utils/realize.py`).
+**Lose any of this and every classic Tk widget flashes as a blank
+near-white block the first time its tab opens** -- checkbox grids, the
+Capture Log, the About tab's link buttons. Tk creates a widget's window
+at first MAP and erases it to the system default before painting, so
+what prevents it is creating every window earlier, while the app is
+still invisible (`ui/utils/realize.py`).
 
-Nothing about losing that is visible from a headless run, and nothing
-about it is visible in a screenshot taken a frame later either -- which
-is why it was mis-diagnosed twice before a side-by-side repro found it.
-So this guards the SOURCE.
+**It is invisible to everything except an eye on a live window.** A
+headless run sees nothing, and neither does a screenshot taken a frame
+later; the symptom lasts one frame and reads as a rendering hiccup
+rather than as a bug with a cause. Expect to mis-diagnose it. So this
+guards the SOURCE.
 
 Three failure modes, all of which leave a working, silent program:
 

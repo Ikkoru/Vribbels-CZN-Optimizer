@@ -27,9 +27,10 @@ What it enforces beyond "it imports":
     flag decides whether a later reader may "correct" the number from
     the rule, so a target that lies about where it came from is worse
     than a wrong number -- it is a wrong number nobody is allowed to
-    question. This has been wrong once: the flag was derived from
-    membership of the overrides table rather than stated, which marked
-    Restore Defaults' perfectly ordinary 3 as a hand reading.
+    question. **State the flag per entry.** Deriving it from membership
+    of a table marks every entry in that table alike, and a panel
+    answering a DIFFERENT rule at that rule's own number is then filed
+    as a hand reading nobody may touch.
   * importing twice does not double the registry, which `register_all`
     would happily do.
 """
@@ -258,12 +259,13 @@ def run():
                 f"{g.rule!r}, which IS a rule. A gap a rule covers is on "
                 f"the rule or an `exception` to it, never a unique")
         # Every rule with one number in the docs table is compared
-        # against THAT, including the title and tab-list rules. They
-        # used to derive a target per string, and this check called the
-        # very function that produced it -- so the comparison could not
-        # fail, whatever either side said. Correcting the reading rather
-        # than the target made both constants, which puts them back
-        # under the table like everything else.
+        # against THAT, including the title and tab-list rules.
+        #
+        # **Never compare a target against the function that produced
+        # it.** A rule deriving its target per string would want that,
+        # and the comparison could not then fail whatever either side
+        # said -- a check that passes by construction. It is the table
+        # this reads, and only the table.
         expected = rule_targets.get(g.rule)
         where = "the docs table gives for that rule"
         if expected is not None and g.target != expected:

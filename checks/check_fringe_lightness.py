@@ -5,17 +5,18 @@ blended pixel at both ends of every string, and a gap measured to a pixel
 nobody can see reads as misaligned when it looks fine -- so the test is
 not "is this painted" but "would the eye put the edge here".
 
-That is a perceptual claim, and it was settled perceptually: a survey
-rendered every character the app can display, each in its own checkbox
-against a fixed reference edge, and the maintainer graded glyph edges at
-life size by whether REMOVING them was noticeable. The pixels below are
-that grading. The columns whose removal was invisible topped out at
-L* 6.5; the faintest whose removal was visible sat at 18.9. Nothing fell
-in between, which is why the threshold is not delicate.
+That is a perceptual claim, so it is settled perceptually: the pixels
+below are a grading of real glyph edges at life size, by whether
+REMOVING one was noticeable. The columns whose removal was invisible
+top out at L* 6.5; the faintest whose removal was visible sits at 18.9.
+Nothing falls in between, which is why the threshold is not delicate.
 
-**This is the only record of that calibration.** The survey lived in
-`_tmp/` and the screenshots it read are gone, so nothing else can
-re-derive these numbers without running the whole exercise again.
+**This is the only record of that calibration, and it cannot be
+re-derived from anything in the repository.** Getting these numbers
+again means rendering every character the app can display, each against
+a fixed reference edge, and grading the edges by eye at life size.
+Treat the list below as measurements, not as a fixture to adjust until
+a threshold passes.
 
 Three things it holds:
 

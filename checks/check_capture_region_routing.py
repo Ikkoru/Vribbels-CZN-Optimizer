@@ -1,12 +1,11 @@
 """Both regions are redirected, and each connection goes to its own.
 
-The Server Region used to pick which hostname got a `127.0.0.1` entry.
-A game on the OTHER region never contacted that hostname, so its traffic
-went straight past the proxy: no capture, no error, and -- until the
-session-file fix -- a success line naming the previous run's snapshot.
+**Redirect one hostname and a game on the other region is invisible.**
+Its traffic never touches the proxy, so there is no capture and no
+error -- and a run that recorded nothing looks like a run that worked.
 
-So both hostnames are redirected now. That only works if each connection
-is then forwarded to its own region's real server, because mitmproxy's
+So both hostnames are redirected. That only works if each connection is
+then forwarded to its own region's real server, because mitmproxy's
 reverse mode has ONE upstream fixed at launch. The addon overrides it
 per connection from the client's SNI.
 

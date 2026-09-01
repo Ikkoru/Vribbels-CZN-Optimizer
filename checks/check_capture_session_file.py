@@ -1,14 +1,15 @@
 """A capture that recorded nothing must not report an older snapshot.
 
 `get_latest_capture()` answers "what is the newest snapshot on disk",
-from any session. `stop_capture` used it to decide what THIS run
-produced, so a capture that saw no traffic announced the previous run's
-file with a success line -- no error, no warning, and a Server Region
-set to the wrong server looked exactly like a working capture.
+from any session, and **it is the wrong question for `stop_capture` to
+ask**: a capture that saw no traffic would announce the PREVIOUS run's
+file with a success line. No error, no warning, and a run that captured
+nothing looking exactly like one that worked. `get_session_capture()`
+asks the right one, against a watermark taken when the session started.
 
 The failure is invisible from the code and expensive to reproduce by
-hand (it needs the proxy, the game and a deliberately wrong region), so
-the watermark is checked directly here instead.
+hand -- it needs the proxy, the game and a deliberately wrong region --
+so the watermark is checked directly here instead.
 """
 
 import tempfile

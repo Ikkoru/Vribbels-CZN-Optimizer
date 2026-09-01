@@ -1,11 +1,10 @@
 """Nothing unexpected may be tracked at the repository root.
 
-Two files called `label` and `unrelated` sat there for a dozen commits
-before anyone noticed. They were shell redirects: a rule name written
-unquoted in a command -- `label row -> label row`, `checkboxes ->
-unrelated checkboxes` -- makes the `>` a redirect and the next word a
-filename. `git add -A` then committed them, and one had captured a
-stray error message on its way past.
+**A rule name typed unquoted into a shell command creates a file.**
+`label row -> label row` and `checkboxes -> unrelated checkboxes` both
+make the `>` a redirect and the next word a filename, so a grep for a
+spacing rule leaves `label` or `unrelated` at the root -- sometimes
+holding a stray error message. `git add -A` then commits it.
 
 That is the shape this directory exists for: silent, and invisible in a
 diff that is scrolled past. Nothing in the program breaks, so nothing
