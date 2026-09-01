@@ -960,6 +960,13 @@ nothing. `checks/check_spacing_registry.py` enforces all of this
 against the targets in the table above, including that a miss has a
 marker somewhere naming the rule it breaks.
 
+**A resolver's pixel path only runs under the audit.** The checks build
+tabs but never take a screenshot, and a locator probe stops at finding
+the widget — so an error in the scanning half survives `compileall`,
+`run_all.py` and a probe, and surfaces as one dead row in a run the
+maintainer had to set up. Writing a copy of the loop to try it out
+proves nothing: a copy is not the code.
+
 **A resolver that matches nothing reports a SKIP, not a failure** — and
 a green run and a skipped row look alike. A class name that no longer
 matches any widget is the way in: an entry looking for
@@ -983,6 +990,7 @@ before editing any spacing value.**
 | The Optimizer's `content` pack `pady`                               | The entire tab, toolbar included.                                                                                                                                                                               |
 | A text panel's LabelFrame `padding`                                 | Nothing useful — the inset lives on the `tk.Text`'s own `padx`/`pady`, inside the fill. Frame padding just exposes dark background.                                                                             |
 | `make_checkbox`'s `bd` / `highlightthickness`                       | The requested HEIGHT and WIDTH of every checkbox, by 6px each way — and through that the exclude checklist's row pitch and column flow, computed from `winfo_reqheight()` / `winfo_reqwidth()` rather than set. |
+| A Gear Score stat cell's trailing `padx`                             | Both the gap BETWEEN the two weight columns and the gap out to the button column: the cell's pad sits inside `stats_frame`'s width, so `stat grid -> button column` carries it too. |
 
 **"Correct it on the frame or on the first label?" has an answer per
 panel, not a general one.** The four `ELEMENT_ENTRIES` panels split two
