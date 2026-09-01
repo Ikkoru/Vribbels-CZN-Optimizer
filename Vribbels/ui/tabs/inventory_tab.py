@@ -377,7 +377,7 @@ class InventoryTab(BaseTab):
                       text="Highest GS/Potential:\nUpgrade Log Settings",
                       variable=self.inv_use_log_filters_var,
                       command=self._on_use_log_filters_toggle).pack(
-                          anchor=tk.W, pady=(3, 0))
+                          anchor=tk.W, pady=(0, 0))
 
         # ----- Treeview ---------------------------------------------------
         tree_frame = ttk.Frame(self.frame)
