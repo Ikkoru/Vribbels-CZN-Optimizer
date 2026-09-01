@@ -53,8 +53,8 @@ optimizer parity, scoring reconciliation, game data, settings
 round-trips, DoT scoring, shipped defaults holding no user state, the
 spacing markers and the spacing registry, the audit's ink test against
 the eye that calibrated it, tab construction, the flash fix, keyboard
-type-ahead, the Optimizer opening with no combatant selected, and the
-capture ones —
+type-ahead, the Upgrade Log filters the Memory Fragments columns share,
+the Optimizer opening with no combatant selected, and the capture ones —
 the addon template, batched frames, gacha banners, one account per
 session, both regions routed, one save per FRAME, and reporting only
 the snapshot this session wrote. Checks needing captured data skip

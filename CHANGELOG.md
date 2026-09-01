@@ -12,7 +12,21 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ## [1.6.0] - unreleased
 
+### Added
+
+- **Combatants tab: `Show missing characters`.** A checkbox at the top right adds every combatant in the game you have not obtained to the list, alongside the ones you have. A missing row is drawn in a faded version of its Element's colour and reads `-` for Level, Ego, Affinity and GS. Remembered.
+
+- **Memory Fragments tab: `Highest GS/Potential: Upgrade Log Settings`.** A second checkbox beside `Assigned Presets Only`. With it on, the two Highest columns judge a fragment the same way the Capture tab's Upgraded lines do -- only the presets ticked in Log Presets, and only those whose combatants can actually use that fragment's main stat. Remembered.
+
 ### Changed
+
+- **Typing more than one letter in a list or dropdown narrows the search**, the way Windows Explorer does. `fe` reaches Fei past Fabien; pressing the same letter again still steps through the entries starting with it. Works in the combatant list, the preset list and both dropdowns, open or closed.
+
+- **The Combatants tab keeps the combatant you are looking at.** Upgrading a fragment in game, or re-sorting the list, used to drop the selection back to the first row.
+
+- **Combatants tab: a potential node says what it raises.** `Node 5: Lv3 (Crit% +6%)` where it read `(?)`, and `(Crit%)` before the node is taken.
+
+- **The Log Presets checklist fits its columns to the panel.** The column count was fixed at six, which ran long preset names together on a narrow panel and wasted a wide one.
 
 - **The Capture Log's Upgraded lines read more easily.** The values are coloured: a Highest Potential range shows its floor dimmed and its ceiling green, or yellow where the ceiling is 40 or below, so a fragment worth keeping is visible without reading the numbers. `Upgraded` is green and `Deleted` red. A fragment with no upgrades left reports `Highest GS` and one value rather than a range that cannot move, matching the Memory Fragments tab's two columns. The brackets around preset names and around the upgrade level are gone, and `[proxy]` is left on the lines that are actually about the proxy.
 
@@ -25,6 +39,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 - **The Combatants tab no longer remembers which combatant was selected.** It opens on the first row. The setting it used for that wrote to disk on every row you moved to.
 
 ### Fixed
+
+- **Gear Score weights hold what you type.** A weight typed outside the spinbox's range reached every Gear Score in the app -- the Memory Fragments list, the Combatants totals and the Optimizer's filtering. Negative weights still work; they are how a stat is marked harmful.
 
 - **Loading into the game reports the snapshot save once, not three times.** The login reply carries your roster, your inventory and the banner schedule together, and each was written and announced separately. The file was always the same either way.
 
