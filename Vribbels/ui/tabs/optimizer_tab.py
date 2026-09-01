@@ -595,7 +595,9 @@ class OptimizerTab(BaseTab):
         self.status_label.pack(side=tk.TOP, anchor=tk.E)
         minlvl_row = ttk.Frame(status_cluster)
         # spacing: unique -- between mixed element rows (label -> spinbox) -- label, spinbox ↕
-        # Target 5px, measured painted-edge to painted-edge. The rows are
+        # Target 6px, measured painted-edge to painted-edge -- 11 read
+        # between the two rows' TEXT, which is the distance the eye
+        # judges and not the one this number states. The rows are
         # different heights whatever this says -- a text row, a spinbox
         # row and a checkbox row seat their content at different insets --
         # so this pair and the pair below carry separate numbers.
@@ -605,7 +607,7 @@ class OptimizerTab(BaseTab):
         # be 12 and governed by `config panel row ↕ row`, widened to
         # cover unrelated bordering rows. The constraint is what makes
         # it its own case.
-        minlvl_row.pack(side=tk.TOP, anchor=tk.E, pady=(0, 0))
+        minlvl_row.pack(side=tk.TOP, anchor=tk.E, pady=(1, 0))
         # spacing: label ↔ its element -- label, spinbox ↔
         ttk.Label(minlvl_row, text="Ignore MFs below level:",
                   font=small_font).pack(side=tk.LEFT, padx=(0, 1))
@@ -622,7 +624,8 @@ class OptimizerTab(BaseTab):
                          lambda e, sp=minlvl_spin: self._spinbox_wheel(e, sp))
         offelem_row = ttk.Frame(status_cluster)
         # spacing: unique -- between mixed element rows (spinbox -> checkbox) -- spinbox, checkbox ↕
-        # Target 3px. Genuinely unique: there is not a second
+        # Target 4px, painted-edge to painted-edge, for 11 between the
+        # texts. Genuinely unique: there is not a second
         # spinbox-row-over-checkbox-row anywhere in the app. Were there,
         # the pair would want `spinbox row -> spinbox row` and
         # `checkbox/slider ↕ rows` united into one rule -- and the audit
@@ -633,7 +636,7 @@ class OptimizerTab(BaseTab):
         # rows START level. The checkbox already sits further from the
         # right edge than the rule asks; lining the row up is what that
         # buys, rather than a compromise between the two.
-        offelem_row.pack(side=tk.TOP, anchor=tk.E, padx=(0, 2), pady=(0, 0))
+        offelem_row.pack(side=tk.TOP, anchor=tk.E, padx=(0, 2), pady=(1, 0))
         # spacing: label ↔ its element -- label, checkbox ↔
         offelem_label = ttk.Label(offelem_row, text="Ignore off-Element MFs",
                                   font=small_font)
