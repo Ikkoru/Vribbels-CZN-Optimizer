@@ -145,7 +145,7 @@ class CaptureTab(BaseTab):
         # the explanation label below carries that, for the reason given
         # there.
         right_col = ttk.LabelFrame(top_columns, text="Upgrade Log Settings",
-                                   padding=(3, 0, 3, 4))
+                                   padding=(2, 0, 2, 3))
         # spacing: tab list -> first element -- tab, panel ↕
         # The pady top lands this LabelFrame's title on the same line as
         # the left column's heading: a LabelFrame title has no internal
@@ -160,11 +160,12 @@ class CaptureTab(BaseTab):
         # would move them off it to bring this one on.
         ttk.Label(
             right_col,
+            padding=(0, -1, 0, 0),
             text="Assigned presets compared in the Upgraded log lines' "
                  "Highest Potential. Checking or unchecking a preset "
                  "excludes it (and re-writes the last Upgraded line).",
             foreground=self.colors["fg_dim"], justify=tk.LEFT,
-        ).pack(anchor=tk.W, padx=(0, 0), pady=(0, 1))
+        ).pack(anchor=tk.W, padx=(0, 0), pady=(0, 0))
 
         # Mismatch filters, bottom-left, two columns. Packed BEFORE the
         # checklist so the checklist's expand=True doesn't swallow the
@@ -198,7 +199,7 @@ class CaptureTab(BaseTab):
             # it, not how its rows sit among themselves.
             ).grid(row=row, column=column, sticky=tk.W,
                    padx=(0, 4) if column == 0 else 0,
-                   pady=(0 if row == 0 else 4, 0))
+                   pady=(0 if row == 0 else 3, 0))
             return var
 
         self.ignore_atkdef_var = _filter_checkbox(
@@ -259,7 +260,7 @@ class CaptureTab(BaseTab):
                                      padx=(10, 0), pady=(0, 1))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(2, 3, 5, 3))
+        region_frame = ttk.LabelFrame(left_col, text="Server Region", padding=(1, 2, 4, 2))
         # spacing: panel ↕ unrelated label -- panel, title ↕
         # spacing: content frame -> content frame -- frame, frame ↕
         # Asymmetric, because the two sides answer to different rules.
@@ -328,15 +329,25 @@ class CaptureTab(BaseTab):
         # Enable to log every WebSocket message to a websocket_debug_*.jsonl
         # file in the snapshots folder — useful when adding support for new
         # packet types (e.g., fragment create/delete).
-        # spacing: element and its label ↔ element and its label -- button, checkbox ↔
-        self.debug_checkbox.pack(side=tk.LEFT, padx=(6, 0))
+        # spacing: border edge -> first non-button element -- button, checkbox ↔
+        # A lone non-button after a run of buttons, which is what this
+        # rule is about -- not a second element-and-label pair, which is
+        # the rule it used to carry.
+        #
+        # Its OTHER side is 6px of slack and stays that way: this row is
+        # the widest thing in the left column, so what follows the
+        # checkbox is the column boundary. Two of those pixels are the
+        # widget's own trailing inset, and the other four are the frame
+        # rule's gap to Upgrade Log Settings, spent 2 on each column's
+        # grid padx. Nothing sets it directly and nothing should.
+        self.debug_checkbox.pack(side=tk.LEFT, padx=(2, 0))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         # Left and right padding match, and the right one only renders
         # while this text is the widest thing in the column: the frame
         # fills the column, so anything past the longest line is slack
         # that no padding here reaches.
-        req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(3, 0, 3, 0))
+        req_frame = ttk.LabelFrame(left_col, text="Requirements", padding=(2, 0, 2, 0))
         # spacing: panel ↕ unrelated label -- button, title ↕
         # ABOVE is the capture button row against this panel's own TITLE:
         # text is what sits across that gap, so the label rule governs
@@ -358,7 +369,12 @@ class CaptureTab(BaseTab):
 - Keep capture running to see live updates as you make changes
 - If you stop the capture, close the game before starting a new capture"""
 
-        ttk.Label(req_frame, text=requirements_text, justify=tk.LEFT).pack(anchor=tk.W)
+        # spacing: border edge -> first non-button element -- panel, label ↔↕
+        # The panel's padding is 0 top and bottom and has to stay
+        # there (see the pack below), so this label's own inset is
+        # the only lever left on either gap.
+        ttk.Label(req_frame, text=requirements_text, justify=tk.LEFT,
+                  padding=(0, -1, 0, -1)).pack(anchor=tk.W)
 
         # spacing: content frame -> content frame -- frame, frame ↔
         # spacing: panel ↕ unrelated label -- panel, title ↕
@@ -521,7 +537,7 @@ class CaptureTab(BaseTab):
             cb.grid(row=idx // columns, column=column,
                     sticky=tk.W,
                     padx=(0 if column == 0 else LOG_PRESET_COLUMN_GAP, 0),
-                    pady=(0 if idx < columns else 4, 0))
+                    pady=(0 if idx < columns else 3, 0))
             self._log_preset_vars[name] = var
 
     def _preset_element_colour(self, res_ids):

@@ -1016,6 +1016,21 @@ TAB_HEADERS = [
     ("Setup", "First-Time Setup", "Complete these steps"),
 ]
 
+# One heading reads a pixel wider than the other two for the same
+# padding, and always will at the current fringe threshold: the three
+# end on different glyphs, and how far a glyph's ink reaches inside its
+# own advance is per glyph. `Data Capture` and `First-Time Setup` end on
+# a curve whose last column the threshold discards; `Gear Score
+# Calculation` ends on a stem, which is solid and counts.
+#
+# Tracked at what it renders rather than nudged: the three headers come
+# from one helper with one set of numbers, so closing this would mean
+# giving that helper a per-tab constant tied to today's headings -- and
+# the gap the eye sees is already the same on all three.
+HEADING_SUBTITLE_EXCEPTIONS = {
+    "Gear Score Calculation": 15,
+}
+
 def _panel_buttons(app, title):
     frame = _panel(app, title)
     return frame, sa.find_descendants_class(frame, "TButton", "Button")
@@ -1324,7 +1339,7 @@ PAIR_GAP_ENTRIES = [
 LABEL_ELEMENT_ENTRIES = [
     # [Fracture] [====slider====] [nn%] -- the widest of the three damage
     # rows, and the one the shared label width is sized to.
-    ("Optimizer", "Fracture -> its slider", 4, None,
+    ("Optimizer", "Fracture -> its slider", 5, None,
      lambda app: _group_of("Fracture")(app),
      LABEL_CLASSES + SCALE_CLASSES, 0),
     # A slider's PERCENT READOUT is deliberately absent, on all four
@@ -1337,40 +1352,40 @@ LABEL_ELEMENT_ENTRIES = [
     #
     # [ATK] [====slider====] [DEF] [nn%] -- four elements, so DEF is the
     # SECOND gap, not the third. The third is a readout.
-    ("Optimizer", "ATK -> its slider", 4, None,
+    ("Optimizer", "ATK -> its slider", 5, None,
      lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
      LABEL_CLASSES + SCALE_CLASSES, 0),
-    ("Optimizer", "slider -> DEF", 4, None,
+    ("Optimizer", "slider -> DEF", 5, None,
      lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
      LABEL_CLASSES + SCALE_CLASSES, 1),
-    ("Optimizer", "Max Flex Slots -> its spinbox", 4, None,
+    ("Optimizer", "Max Flex Slots -> its spinbox", 5, None,
      lambda app: _by_text("Max Flex Slots")(app).master,
      LABEL_CLASSES + SPINBOX_CLASSES, 0),
-    ("Optimizer", "Force HP/Ego -> its checkboxes", 4, None,
+    ("Optimizer", "Force HP/Ego -> its checkboxes", 5, None,
      lambda app: _group_of(FORCE_CAPTION)(app),
      LABEL_CLASSES + CHECKBOX_CLASSES, 0),
     # The Optimizer toolbar's status cluster: two rows, each a caption
     # beside the control it names.
-    ("Optimizer", "Ignore MFs below level -> its spinbox", 4, None,
+    ("Optimizer", "Ignore MFs below level -> its spinbox", 5, None,
      lambda app: _by_text("Ignore MFs below level:")(app).master,
      LABEL_CLASSES + SPINBOX_CLASSES, 0),
-    ("Optimizer", "Ignore off-Element MFs -> its checkbox", 4, None,
+    ("Optimizer", "Ignore off-Element MFs -> its checkbox", 5, None,
      lambda app: _by_text("Ignore off-Element MFs")(app).master,
      LABEL_CLASSES + CHECKBOX_CLASSES, 0),
 
-    ("Memory Fragments", "Sets set -> its count", 4, None,
+    ("Memory Fragments", "Sets set -> its count", 5, None,
      _tab_attr("inventory_tab_instance", "inv_set_frame_inner"),
      CHECKBOX_CLASSES + LABEL_CLASSES, 0),
     # The first of the three Restore Defaults rows. One is enough: the
     # three are built from one loop with one pad, so a second entry would
     # report the same lever twice.
-    ("Setup", "Restore Defaults button -> its explanation", 4, None,
+    ("Setup", "Restore Defaults button -> its explanation", 5, None,
      lambda app: _by_text("Presets")(app).master,
      ("TButton", "Button") + LABEL_CLASSES, 0),
     # The first of the three averages. Its pad is shared by all three,
     # so one entry reports the lever; the gap BETWEEN the pairs is
     # `Set Config averages` under the other rule.
-    ("Optimizer", "Avg Card DMG% -> its spinbox", 4, None,
+    ("Optimizer", "Avg Card DMG% -> its spinbox", 5, None,
      lambda app: _by_text("Avg Card DMG%")(app).master,
      LABEL_CLASSES + SPINBOX_CLASSES, 0),
 ]
@@ -1381,15 +1396,15 @@ LABEL_ELEMENT_ENTRIES = [
 #
 # (tab, name, target, hand reading, container locator, classes, index)
 READOUT_ENTRIES = [
-    ("Optimizer", "damage slider -> its readout", 4, None,
+    ("Optimizer", "damage slider -> its readout", 5, None,
      lambda app: _group_of("Fracture")(app),
      LABEL_CLASSES + SCALE_CLASSES, 1),
     # [ATK] [====slider====] [DEF] [nn%] -- the readout is the third gap
     # on this row, where the other two have it second.
-    ("Optimizer", "DEF -> its readout", 4, None,
+    ("Optimizer", "DEF -> its readout", 5, None,
      lambda app: _sibling_before(_by_text(SHIELD_CAPTION))(app),
      LABEL_CLASSES + SCALE_CLASSES, 2),
-    ("Optimizer", "Shielding slider -> its readout", 4, None,
+    ("Optimizer", "Shielding slider -> its readout", 5, None,
      lambda app: _sibling_before(_group_of(FORCE_CAPTION))(app),
      LABEL_CLASSES + SCALE_CLASSES, 0),
 ]
@@ -1679,11 +1694,25 @@ BUTTON_ROW_ABOVE_ENTRIES = [
      _gap(_panel_at("Setup Status"), _by_text("Check Status"), "v")),
 ]
 
+# (tab, name, target, hand reading, resolver) for a lone non-button at
+# the END of a button row. `border edge -> first non-button element` and
+# not the pair-gap rule it used to carry: `Debug WS` is not a second
+# element-and-label pair, it is the one non-button after a run of
+# buttons, which is what this rule is about.
+BUTTON_ROW_TAIL_ENTRIES = [
+    ("Capture", "Load Latest -> Debug WS", 4, None,
+     _gap(_by_text("Load Latest"), _by_text("Debug WS"), "h")),
+]
+
 # A checkbox's indicator against its own label. One entry, not one per
 # panel: every checkbox in the app comes from `make_checkbox`, so they
 # should all report the same distance, and a spread between panels would
 # be the finding rather than a set of separate nudges. Dumping its runs
 # while it answers whether the distance is Tk's own.
+#
+# It was an exception at 5 against a rule of 4. The rule moved onto the
+# 5, so it is an ordinary instance now -- one nothing can nudge, which
+# is worth watching for exactly that reason.
 INDICATOR_ENTRIES = [
     ("Memory Fragments", "checkbox indicator -> its label", 5, None,
      _indicator_gap(_block_in("Slots", CHECKBOX_CLASSES),
@@ -1698,7 +1727,7 @@ CELL_LABEL_ENTRIES = [
     # checkbox's text to the set NAME beside it -- an ordinary gap with
     # an ordinary pad, where it used to be the indicator against a label
     # across 7px of reserved space nothing could reach.
-    ("Optimizer", "Set Config checkbox -> its label", 4, None,
+    ("Optimizer", "Set Config checkbox -> its label", 5, None,
      _gap_within_cells(_tab_attr("optimizer_tab_instance", "set_grid_frame"),
                        CHECKBOX_CLASSES + LABEL_CLASSES)),
     # Two weight columns, each with its own distance, so each is read
@@ -1710,10 +1739,10 @@ CELL_LABEL_ENTRIES = [
     # "ATK Flat" and what it renders as. Closing it with a per-column
     # constant would tie a number to today's stat names, and the
     # antialiasing question may delete it -- see docs/ui_spacing.md.
-    ("Gear Score", "weight column 1 label -> its spinbox", 4, None,
+    ("Gear Score", "weight column 1 label -> its spinbox", 5, None,
      _gap_within_cells(lambda app: _group_of("ATK Flat")(app).master,
                        LABEL_CLASSES + SPINBOX_CLASSES, column=0)),
-    ("Gear Score", "weight column 2 label -> its spinbox", 4, None,
+    ("Gear Score", "weight column 2 label -> its spinbox", 5, None,
      _gap_within_cells(lambda app: _group_of("ATK Flat")(app).master,
                        LABEL_CLASSES + SPINBOX_CLASSES, column=1)),
 ]
@@ -1794,7 +1823,7 @@ RESULTS_TITLE_ENTRIES = [
 # second line, so its box is taller than the other two -- the pitch is
 # still read between painted rows, which is what the rule names.
 OPTIONS_TRIO_ENTRIES = [
-    ("Memory Fragments", "options trio: row pitch", 7, None,
+    ("Memory Fragments", "options trio: row pitch", 6, None,
      lambda cap, app: _row_pitch_in(
          lambda a: _group_of("Unequipped Only")(a),
          CHECKBOX_CLASSES)(cap, app)),
@@ -1822,39 +1851,39 @@ CONFIG_ROW_ENTRIES = [
 # sits above its controls everywhere except HAL and the Gear Score
 # status line, which sit below theirs.
 EXPLANATION_ENTRIES = [
-    ("Optimizer", "HAL note -> the spinboxes above it", 8, None, "rule",
+    ("Optimizer", "HAL note -> the spinboxes above it", 7, None, "rule",
      _controls_over_label("Have at least this much of a stat",
                           "Input stats as you expect", *SPINBOX_CLASSES)),
-    ("Optimizer", "set explanation -> the set rows", 8, None, "rule",
+    ("Optimizer", "set explanation -> the set rows", 7, None, "rule",
      _label_over_controls("Set Configuration",
                           "All selected Set and Flex", *CHECKBOX_CLASSES)),
     # Important Settings' three blocks, each a caption over the sliders
     # it explains. All three carried the marker and none was measured.
-    ("Optimizer", "damage caption -> its sliders", 8, None, "rule",
+    ("Optimizer", "damage caption -> its sliders", 7, None, "rule",
      _label_over_controls("Important Settings",
                           "What percent of damage is Extra", *SCALE_CLASSES)),
-    ("Optimizer", "DEF caption -> its slider", 8, None, "rule",
+    ("Optimizer", "DEF caption -> its slider", 7, None, "rule",
      _label_over_controls("Important Settings",
                           "What percent of damage scales off DEF",
                           *SCALE_CLASSES)),
-    ("Optimizer", "Shielding caption -> its slider", 8, None, "rule",
+    ("Optimizer", "Shielding caption -> its slider", 7, None, "rule",
      _label_over_controls("Important Settings", SHIELD_CAPTION,
                           *SCALE_CLASSES)),
-    ("Gear Score", "weights caption -> the stat grid", 8, None, "rule",
+    ("Gear Score", "weights caption -> the stat grid", 7, None, "rule",
      _label_over_controls("Stat Weight Configuration",
                           "Adjust weights for custom", *SPINBOX_CLASSES)),
-    ("Gear Score", "Preset Name: -> its entry", 8, None, "rule",
+    ("Gear Score", "Preset Name: -> its entry", 7, None, "rule",
      _label_over_controls("Stat Weight Configuration",
                           "Preset Name:", *ENTRY_CLASSES)),
     # One label, two gaps: the status line sits between the stat grid
     # and the preset list, so moving it trades one against the other.
-    ("Gear Score", "stat grid -> Applied status", 8, None, "rule",
+    ("Gear Score", "stat grid -> Applied status", 7, None, "rule",
      _controls_over_label("Stat Weight Configuration",
                           "Applied ", *SPINBOX_CLASSES)),
-    ("Gear Score", "Applied status -> preset list", 8, None, "rule",
+    ("Gear Score", "Applied status -> preset list", 7, None, "rule",
      _label_over_controls("Stat Weight Configuration",
                           "Applied ", *TREE_CLASSES)),
-    ("Capture", "presets caption -> the checklist", 8, None, "rule",
+    ("Capture", "presets caption -> the checklist", 7, None, "rule",
      _label_over_controls("Upgrade Log Settings",
                           "Assigned presets compared", *CHECKBOX_CLASSES)),
 ]
@@ -2243,18 +2272,18 @@ def _row_division(title, classes):
 # (tab, panel, rule, classes, target).
 ROW_PITCH_ENTRIES = [
     ("Memory Fragments", "Slots", RULE_CHECKBOX_PITCH,
-     CHECKBOX_CLASSES, 7),
+     CHECKBOX_CLASSES, 6),
     ("Memory Fragments", "Sets", RULE_CHECKBOX_PITCH,
-     CHECKBOX_CLASSES, 7),
+     CHECKBOX_CLASSES, 6),
     ("Capture", "Upgrade Log Settings", RULE_CHECKBOX_PITCH,
-     CHECKBOX_CLASSES, 7),
+     CHECKBOX_CLASSES, 6),
     # CHECKBOXES here, not the spinboxes beside them, per the standing
     # exception in docs/ui_spacing.md: only conditional sets carry a
     # spinbox, so consecutive ones can be rows apart and the column has
     # no pitch to measure. Read as spinboxes it came out `0 x5, 9 x1,
     # 42 x1` -- a vote, not a distance.
     ("Optimizer", "Set Configuration", RULE_CHECKBOX_PITCH,
-     CHECKBOX_CLASSES, 7),
+     CHECKBOX_CLASSES, 6),
     ("Gear Score", "Stat Weight Configuration", RULE_SPINBOX_PITCH,
      SPINBOX_CLASSES, 2),
     # The other spinbox grid. Its rows are packed where Gear Score's are
@@ -2269,7 +2298,7 @@ ROW_PITCH_ENTRIES = [
     # the pitch and the tally shows those crossings as the divisions
     # they are.
     ("Optimizer", "Important Settings", RULE_CHECKBOX_PITCH,
-     SCALE_CLASSES, 7),
+     SCALE_CLASSES, 6),
     # Restore Defaults stacks three buttons, so its pitch is a
     # button-to-button gap read vertically.
     ("Setup", "Restore Defaults", RULE_BUTTON_GAP,
@@ -2278,12 +2307,12 @@ ROW_PITCH_ENTRIES = [
     # between its ordinary rows went unread while the wide one between
     # its blocks was watched.
     ("Memory Fragments", "Main Stats", RULE_CHECKBOX_PITCH,
-     CHECKBOX_CLASSES, 7),
+     CHECKBOX_CLASSES, 6),
     # The exclude list places its rows itself, at `row * row_h`, rather
     # than letting a geometry manager space them -- so its pitch is the
     # one in this table that no padding value backs.
     ("Optimizer", "Exclude Combatant's MFs", RULE_CHECKBOX_PITCH,
-     CHECKBOX_CLASSES, 7),
+     CHECKBOX_CLASSES, 6),
 ]
 
 # The same rows, measured for their widest gap instead of their usual
@@ -2388,7 +2417,7 @@ LEFT_INSET_EXCEPTIONS = {
     "Equipped Memory Fragments",
 }
 
-# Panels whose left inset is not the border-edge rule at its 5px. The
+# Panels whose left inset is not the border-edge rule at its 4px. The
 # RULE is stated per entry rather than inferred from membership,
 # because the two entries here are here for opposite reasons and one
 # flag cannot carry both.
@@ -2673,13 +2702,13 @@ def _text_left_inset(title, prefix):
 # (tab, panel, label, target, resolver)
 
 ELEMENT_ENTRIES = [
-    ("Optimizer", "Important Settings", "slider", 5,
+    ("Optimizer", "Important Settings", "slider", 4,
      _class_left_inset("Important Settings", "TScale", "Scale")),
-    ("Optimizer", "Set Configuration", "checkboxes", 5,
+    ("Optimizer", "Set Configuration", "checkboxes", 4,
      _class_left_inset("Set Configuration", *CHECKBOX_CLASSES)),
-    ("Capture", "Upgrade Log Settings", "checkboxes", 5,
+    ("Capture", "Upgrade Log Settings", "checkboxes", 4,
      _class_left_inset("Upgrade Log Settings", *CHECKBOX_CLASSES)),
-    ("Gear Score", "Stat Weight Configuration", "applied preset label", 5,
+    ("Gear Score", "Stat Weight Configuration", "applied preset label", 4,
      _text_left_inset("Stat Weight Configuration", "Applied")),
 ]
 
@@ -2708,6 +2737,7 @@ AWAITING_FIRST_READING = {
     "Shielding caption -> its slider",
     "Slots checkboxes",
     "Avg Card DMG% -> its spinbox",
+    "Load Latest -> Debug WS",
 }
 
 
@@ -2734,7 +2764,7 @@ def register_all():
             if title in LEFT_INSET_EXCEPTIONS:
                 continue
             left_rule, left_target, left_source = LEFT_INSET_OVERRIDES.get(
-                title, (RULE_BORDER_EDGE_CONTENT, 5, "rule"))
+                title, (RULE_BORDER_EDGE_CONTENT, 4, "rule"))
             sa.track(
                 name=f"{title}: left edge -> content",
                 tab=tab,
@@ -2815,7 +2845,7 @@ def register_all():
             name=f"{title}: {side} edge -> content",
             tab=tab,
             rule=RULE_BORDER_EDGE_CONTENT,
-            target=5,
+            target=4,
             resolve=_panel_edge_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
             hand=PANEL_EDGE_HANDS.get((title, side)),
@@ -2846,7 +2876,7 @@ def register_all():
             (RULE_CONTROL_GROUP, CONTROL_GROUP_ENTRIES, "h", "rule"),
             (RULE_CONFIG_PANEL_ROW, CONFIG_ROW_ENTRIES, "v", "rule"),
             (RULE_CONTENT_FRAME, BUTTON_ROW_ABOVE_ENTRIES, "v", "rule"),
-            (RULE_LABEL_ELEMENT, INDICATOR_ENTRIES, "h", "exception"),
+            (RULE_LABEL_ELEMENT, INDICATOR_ENTRIES, "h", "rule"),
             (RULE_CONTENT_FRAME, WINDOW_EDGE_ENTRIES, "h", "rule"),
             (RULE_LABEL_ELEMENT, CELL_LABEL_ENTRIES, "h", None),
             (RULE_TITLE_ELEMENT, RESULTS_TITLE_ENTRIES, "v", "rule"),
@@ -2854,7 +2884,9 @@ def register_all():
             (RULE_BORDER_EDGE_CONTENT, PRESET_LIST_ENTRIES, "h",
              "exception"),
             (RULE_BORDER_EDGE_CONTENT, PRESET_LIST_BOTTOM_ENTRIES, "v",
-             "exception")):
+             "exception"),
+            (RULE_BORDER_EDGE_CONTENT, BUTTON_ROW_TAIL_ENTRIES, "h",
+             "rule")):
         for tab, name, target, hand, resolve in table:
             sa.track(
                 name=name,
@@ -2864,6 +2896,7 @@ def register_all():
                 resolve=resolve,
                 axis=axis,
                 hand=hand,
+                provisional=name in AWAITING_FIRST_READING,
                 # None means per-entry: a table can hold one row that
                 # misses its rule beside rows that meet it.
                 target_source=(source if source is not None
@@ -2888,7 +2921,7 @@ def register_all():
             name=f"{title}: {side} edge -> text",
             tab=tab,
             rule=RULE_BORDER_EDGE_CONTENT,
-            target=5,
+            target=4,
             resolve=_text_panel_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
             provisional=False,
@@ -2919,11 +2952,13 @@ def register_all():
     )
 
     for tab, heading, subtitle in TAB_HEADERS:
+        wide = HEADING_SUBTITLE_EXCEPTIONS.get(heading)
         sa.track(
             name=f"{heading} -> its subtitle",
             tab=tab,
             rule=RULE_HEADING_ELEMENT,
-            target=14,
+            target=14 if wide is None else wide,
+            target_source="rule" if wide is None else "exception",
             resolve=_heading_to_subtitle(heading, subtitle),
             axis="h",
             provisional=False,
@@ -3042,11 +3077,11 @@ def register_all():
     CHAR_ALL_ROWS = CHAR_LEFT_ROWS + ("Element	",)
     for _name, _index, _end, _rows, _rule, _target, _scenario in (
             ("stat -> its value", 0, False, CHAR_LEFT_ROWS,
-             RULE_LABEL_ELEMENT, 4, "widest_stats"),
+             RULE_LABEL_ELEMENT, 5, "widest_stats"),
             ("value -> the next stat", 1, False, CHAR_LEFT_ROWS,
              RULE_PAIR_GAP, 8, "widest_stats"),
             ("second stat -> its value", 0, True, CHAR_ALL_ROWS,
-             RULE_LABEL_ELEMENT, 4, "widest_pct_stats")):
+             RULE_LABEL_ELEMENT, 5, "widest_pct_stats")):
         sa.track(
             name=f"Character: {_name}",
             tab="Combatants",

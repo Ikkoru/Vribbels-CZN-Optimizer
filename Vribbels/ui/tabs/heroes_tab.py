@@ -159,9 +159,9 @@ GEAR_SUBSTAT_ROWS = 4
 # Only the VALUE stops move: shifting NAME2 with VAL1 is what keeps the
 # gap BETWEEN the two pairs where it was, and VAL2 takes both pixels
 # because it answers to NAME2 rather than to the panel's left edge.
-CHAR_TAB_VAL1 = 49     # right stop: end of the left column's value
-CHAR_TAB_NAME2 = 57    # left stop: start of the right column's label
-CHAR_TAB_VAL2 = 134    # right stop: end of the right column's value
+CHAR_TAB_VAL1 = 50     # right stop: end of the left column's value
+CHAR_TAB_NAME2 = 58    # left stop: start of the right column's label
+CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
 
 # Tab stops inside a gear cell, in pixels from the text's left edge. The
 # cell is one Text widget, so its columns are tab stops rather than
@@ -649,7 +649,7 @@ class HeroesTab(BaseTab):
             char_frame, wrap=tk.NONE, height=6,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             font=_default_font(), bd=0, highlightthickness=0,
-            padx=5, pady=2,
+            padx=4, pady=1,
         )
         self.hero_char_text.pack(fill=tk.BOTH, expand=True)
         self.hero_char_text.config(state=tk.DISABLED)
@@ -689,7 +689,7 @@ class HeroesTab(BaseTab):
             partner_text_frame, wrap=tk.WORD, height=6,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             font=("Segoe UI", 9), bd=0, highlightthickness=0,
-            padx=5, pady=2,
+            padx=4, pady=1,
             yscrollcommand=partner_scroll.set,
         )
         partner_scroll.config(command=self.hero_partner_text.yview)
@@ -1335,7 +1335,7 @@ class HeroesTab(BaseTab):
             # a tk.Text's `padx` applies to both sides at once, so
             # trimming there would have taken the left inset off target
             # with it. Narrowing the panel moves the right edge alone.
-            CHAR_PAD_W = PAD_W + 10
+            CHAR_PAD_W = PAD_W + 8
 
             # The stat block's tab stops. Four stops per row: the left
             # value (right-aligned), the right column's name, the right

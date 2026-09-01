@@ -204,7 +204,7 @@ class InventoryTab(BaseTab):
         slot_col.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=(1, 2, 1, 3))
+        slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=(0, 1, 0, 2))
         slot_frame.pack(fill=tk.X)
 
         slot_inner = ttk.Frame(slot_frame)
@@ -227,7 +227,7 @@ class InventoryTab(BaseTab):
                     slot_inner, self.colors, text=slot_name, variable=var,
                     command=lambda n=slot_num: self._on_slot_toggle(n)
                 ).grid(row=row, column=col, sticky=tk.W, padx=2,
-                       pady=(0 if row == 0 else 4, 0))
+                       pady=(0 if row == 0 else 3, 0))
 
         make_all_none_row(slot_frame, self.select_all_slots,
                           self.select_no_slots)
@@ -248,7 +248,7 @@ class InventoryTab(BaseTab):
 
         # ----- Sets filter -----------------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=(1, 2, 0, 3))
+        set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=(0, 1, 0, 2))
         # spacing: content frame -> content frame -- frame, frame ↔
         set_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 
@@ -260,7 +260,7 @@ class InventoryTab(BaseTab):
 
         # ----- Main Stats filter -----------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=(1, 4, 1, 3))
+        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=(0, 3, 0, 2))
         # spacing: content frame -> content frame -- frame, frame ↔
         main_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
 
@@ -282,7 +282,7 @@ class InventoryTab(BaseTab):
         # asserted, not measured. Measure before trusting them.
         ROW_TOP_PAD = {1: 9, 2: 9}
         for row_idx, row_labels in enumerate(MAIN_STAT_LAYOUT):
-            extra_top = 0 if row_idx == 0 else ROW_TOP_PAD.get(row_idx, 4)
+            extra_top = 0 if row_idx == 0 else ROW_TOP_PAD.get(row_idx, 3)
             for col_idx, label in enumerate(row_labels):
                 var = tk.BooleanVar(value=True)
                 self.inv_main_stat_vars[label] = var
@@ -341,7 +341,7 @@ class InventoryTab(BaseTab):
         make_checkbox(opt_frame, self.colors, text="Include Uncommon",
                       variable=self.inv_include_uncommon_var,
                       command=self.refresh_inventory).pack(
-                          anchor=tk.W, pady=(4, 0))
+                          anchor=tk.W, pady=(3, 0))
 
         # Restricts the new "Highest GS" column to only consider presets that
         # are currently assigned to characters in the Combatants tab. Useful
@@ -352,7 +352,7 @@ class InventoryTab(BaseTab):
                       text="Highest GS/Potential:\nAssigned Presets Only",
                       variable=self.inv_only_assigned_presets_var,
                       command=self.refresh_inventory).pack(
-                          anchor=tk.W, pady=(1, 0))
+                          anchor=tk.W, pady=(0, 0))
 
         # ----- Treeview ---------------------------------------------------
         tree_frame = ttk.Frame(self.frame)
@@ -568,7 +568,7 @@ class InventoryTab(BaseTab):
             # 0 is the minimum on the leading side -- the per-column count
             # width is what keeps short-count columns tight instead.
             cnt.grid(row=row, column=base_col + 1, sticky=tk.E,
-                     padx=(0, 3 if logical_col == len(col_count_widths) - 1 else 2),
+                     padx=(1, 3 if logical_col == len(col_count_widths) - 1 else 2),
                      pady=(top_pad, 0))
             # Clicking the count toggles the checkbox too (the count label
             # isn't part of the Checkbutton's own hit area).
@@ -593,14 +593,14 @@ class InventoryTab(BaseTab):
         SET_GROUP_GAP = 9
         for i, set_name in enumerate(four_names):
             _add_set_cell(set_name, i // ncols, i % ncols,
-                          0 if i < ncols else 4)
+                          0 if i < ncols else 3)
         four_rows = (len(four_names) + ncols - 1) // ncols
         for j, set_name in enumerate(rest_names):
             r = four_rows + j // ncols
             # As in the Optimizer's Set Configuration: the division
             # belongs to this group's FIRST row only, and every row
             # after it takes the ordinary pitch.
-            top = SET_GROUP_GAP if j < ncols else 4
+            top = SET_GROUP_GAP if j < ncols else 3
             _add_set_cell(set_name, r, j % ncols, top)
 
         # Also rebuild unknown main-stat checkboxes for the data we just loaded.

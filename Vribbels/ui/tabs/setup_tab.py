@@ -263,7 +263,7 @@ class SetupTab(BaseTab):
             # pixel it would not need if either line began on a solid
             # one. Rewrapping the text can therefore move this value --
             # it did when the explanations gained their line breaks.
-            ).grid(row=0, column=1, sticky="w", padx=(1, 0))
+            ).grid(row=0, column=1, sticky="w", padx=(2, 0))
 
         # Button frame
         btn_frame = ttk.Frame(main_frame)

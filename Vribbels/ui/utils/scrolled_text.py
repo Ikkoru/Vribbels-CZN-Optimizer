@@ -64,7 +64,7 @@ class _ScrolledText(tk.Text):
         return str(self.frame)
 
 
-def make_scrolled_text(parent, colors, *, padx=5, pady=4, **kwargs):
+def make_scrolled_text(parent, colors, *, padx=4, pady=3, **kwargs):
     """A dark-themed scrolled text, wrapper and scrollbar included.
 
     Args:

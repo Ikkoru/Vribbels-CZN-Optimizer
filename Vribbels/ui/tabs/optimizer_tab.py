@@ -124,13 +124,13 @@ DMG_READOUT_WIDEST = "100%"
 # ink alone, the longest name outgrew the floor and set its own column
 # while the shorter rows kept the floor, so the sliders stopped lining
 # up. This clears the widest REQUEST and leaves the rule's gap after it.
-DMG_LABEL_COL_SLACK = 5
+DMG_LABEL_COL_SLACK = 6
 
 # The ATK/DEF row's own floor. Both are calibrated on screen rather than
 # derived, because a string's rendered ink and what `font.measure`
 # reports for it differ by about a pixel, and not by the same pixel for
 # every string -- so the two rows do not necessarily agree.
-AD_LABEL_COL_SLACK = 5
+AD_LABEL_COL_SLACK = 6
 
 # A readout column pinned to the ink ALONE is outgrown the moment the
 # value reaches its widest, and the column steals those pixels from the
@@ -610,7 +610,7 @@ class OptimizerTab(BaseTab):
         minlvl_row.pack(side=tk.TOP, anchor=tk.E, pady=(1, 0))
         # spacing: label ↔ its element -- label, spinbox ↔
         ttk.Label(minlvl_row, text="Ignore MFs below level:",
-                  font=small_font).pack(side=tk.LEFT, padx=(0, 1))
+                  font=small_font).pack(side=tk.LEFT, padx=(0, 2))
         minlvl_spin = tk.Spinbox(
             minlvl_row, from_=0, to=5, increment=1, width=2,
             textvariable=self.min_gear_level_var, font=small_font,
@@ -640,7 +640,7 @@ class OptimizerTab(BaseTab):
         # spacing: label ↔ its element -- label, checkbox ↔
         offelem_label = ttk.Label(offelem_row, text="Ignore off-Element MFs",
                                   font=small_font)
-        offelem_label.pack(side=tk.LEFT, padx=(0, 1))
+        offelem_label.pack(side=tk.LEFT, padx=(0, 2))
         # spacing: exception -- border edge -> first non-button element -- checkbox, frame ↔
         # Sits 13px from the right edge where the rule asks for 5, and
         # where the status text above reads 8 and the spinbox 6. Keeping
@@ -718,7 +718,7 @@ class OptimizerTab(BaseTab):
                                   padx=2, pady=2)
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         exclude_frame = ttk.LabelFrame(
-            self._col2_container, text="Exclude Combatant's MFs", padding=(1, 3, 1, 3)
+            self._col2_container, text="Exclude Combatant's MFs", padding=(0, 2, 0, 2)
         )
         # spacing: panel ↕ unrelated label -- panel, title ↕
         # The whole gap: the Results panel below packs with no pady of
@@ -824,7 +824,7 @@ class OptimizerTab(BaseTab):
         # _update_element_override_visibility based on selected character).
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         self.element_override_frame = ttk.LabelFrame(
-            parent, text="Element override (Unknown character)", padding=4
+            parent, text="Element override (Unknown character)", padding=3
         )
         # spacing: label ↔ its element -- label, dropdown ↔
         ttk.Label(
@@ -856,14 +856,14 @@ class OptimizerTab(BaseTab):
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         important_frame = ttk.LabelFrame(top_row, text="Important Settings",
-                                         padding=(3, 0, 3, 2))
+                                         padding=(2, 0, 2, 1))
         # spacing: content frame -> content frame -- frame, frame ↔
         important_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 2))
         self._build_important_settings(important_frame)
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         have_frame = ttk.LabelFrame(
-            top_row, text="Have at least this much of a stat", padding=(3, 4, 5, 5)
+            top_row, text="Have at least this much of a stat", padding=(2, 3, 4, 4)
         )
         # HAL frame doesn't expand -- it sizes to its natural width so the
         # panel hugs its spinboxes; important_frame has expand=True so it
@@ -880,7 +880,7 @@ class OptimizerTab(BaseTab):
 
         # Set Configuration
         # spacing: border edge -> first non-button element -- panel, label ↔↕
-        set_frame = ttk.LabelFrame(parent, text="Set Configuration", padding=(2, 5, 5, 5))
+        set_frame = ttk.LabelFrame(parent, text="Set Configuration", padding=(1, 4, 4, 4))
         # spacing: content frame -> content frame -- frame, frame ↕
         set_frame.pack(fill=tk.X, pady=(0, 5))
         self._set_frame_ref = set_frame
@@ -904,8 +904,8 @@ class OptimizerTab(BaseTab):
         ttk.Label(
             parent, text="What percent of damage is Extra, Agony, or Fracture/Scorched DMG?",
             font=("Segoe UI", 9), wraplength=376,
-            padding=(0, 0, 0, 0),
-        ).pack(anchor=tk.W, pady=(0, 1))
+            padding=(0, -1, 0, 0),
+        ).pack(anchor=tk.W, pady=(0, 0))
 
         # Each damage type gets a FULL row. Side by side, each slider's
         # rendered track fell below ~100px at common window widths (the
@@ -920,7 +920,7 @@ class OptimizerTab(BaseTab):
         # non-tall pair. The larger `config panel row ↕ row` distance
         # belongs to the gaps that cross a CAPTION, which is what ends
         # each block -- see frac_row below.
-        ex_row.pack(fill=tk.X, pady=(0, 2))
+        ex_row.pack(fill=tk.X, pady=(0, 1))
         self._labeled_slider(
             ex_row, "Extra", self.extra_pct_var,
             on_change=lambda v: self._save_int("extra_pct", v),
@@ -928,7 +928,7 @@ class OptimizerTab(BaseTab):
         )
         dot_row = ttk.Frame(parent)
         # spacing: checkbox/slider ↕ checkbox/slider rows -- slider, slider ↕
-        dot_row.pack(fill=tk.X, pady=(0, 2))
+        dot_row.pack(fill=tk.X, pady=(0, 1))
         self._labeled_slider(
             dot_row, "Agony", self.dot_pct_var,
             on_change=lambda v: self._save_int("dot_pct", v),
@@ -953,7 +953,7 @@ class OptimizerTab(BaseTab):
         ttk.Label(
             parent, text="What percent of damage scales off DEF?",
             font=("Segoe UI", 9), wraplength=350,
-        ).pack(anchor=tk.W, pady=(0, 1))
+        ).pack(anchor=tk.W, pady=(0, 0))
 
         ad_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, label ↕
@@ -975,7 +975,7 @@ class OptimizerTab(BaseTab):
         )
         # spacing: label ↔ its element -- label, slider ↔
         # spacing: label ↔ its element -- slider, label ↔
-        ad_scale.grid(row=0, column=1, sticky="ew", padx=(0, 0))
+        ad_scale.grid(row=0, column=1, sticky="ew", padx=(0, 1))
         ad_scale.bind(
             "<MouseWheel>",
             lambda e: self._scale_wheel(
@@ -1004,7 +1004,7 @@ class OptimizerTab(BaseTab):
         ttk.Label(
             parent, text="How much value should be given to Shielding & Healing?",
             font=("Segoe UI", 9), wraplength=350,
-        ).pack(anchor=tk.W, pady=(0, 1))
+        ).pack(anchor=tk.W, pady=(0, 0))
 
         sh_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, checkbox ↕
@@ -1023,7 +1023,7 @@ class OptimizerTab(BaseTab):
         # the labels do not.
         sh_row.grid_columnconfigure(0, weight=1)
         sh_row.grid_columnconfigure(1, minsize=_dmg_readout_col_px())
-        sh_scale.grid(row=0, column=0, sticky="ew", padx=(1, 0))
+        sh_scale.grid(row=0, column=0, sticky="ew", padx=(1, 1))
         sh_scale.bind(
             "<MouseWheel>",
             lambda e: self._scale_wheel(
@@ -1105,7 +1105,7 @@ class OptimizerTab(BaseTab):
         # Both sides are the rule: the name on the left and the percent
         # readout on the right. Each column is pinned to its own text's
         # width, so what is left here IS the gap.
-        scale.grid(row=0, column=1, sticky="ew", padx=(0, 0))
+        scale.grid(row=0, column=1, sticky="ew", padx=(0, 1))
         # Mouse wheel steps exactly +-1, so every integer is reachable
         # even at window sizes where the rendered track is short.
         scale.bind("<MouseWheel>",
@@ -1186,7 +1186,7 @@ class OptimizerTab(BaseTab):
             wraplength=175,  # initial; will be replaced on first <Configure>
         )
         # spacing: explanation text -> the controls it explains -- spinbox, label ↕
-        hal_note.pack(fill=tk.X, expand=False, pady=(2, 0))
+        hal_note.pack(fill=tk.X, expand=False, pady=(1, 0))
         parent.bind(
             "<Configure>",
             lambda e, lbl=hal_note: lbl.config(wraplength=max(175, e.width - 19)),
@@ -1259,7 +1259,7 @@ class OptimizerTab(BaseTab):
         row1.pack(fill=tk.X, pady=(0, 5))
 
         # spacing: label ↔ its element -- label, spinbox ↔
-        ttk.Label(row1, text="Max Flex Slots").pack(side=tk.LEFT, padx=(0, 2))
+        ttk.Label(row1, text="Max Flex Slots").pack(side=tk.LEFT, padx=(0, 3))
         flex_spin = tk.Spinbox(
             row1, from_=0, to=6, increment=1, width=3,
             textvariable=self.max_flex_slots_var,
@@ -1283,7 +1283,7 @@ class OptimizerTab(BaseTab):
         ]
         for idx, (label, var, field) in enumerate(avg_defs):
             # spacing: label ↔ its element -- label, spinbox ↔
-            ttk.Label(avg_frame, text=label).pack(side=tk.LEFT, padx=(0, 2))
+            ttk.Label(avg_frame, text=label).pack(side=tk.LEFT, padx=(0, 3))
             spin = tk.Spinbox(
                 avg_frame, from_=-9999, to=9999, increment=1, width=5,
                 textvariable=var,
@@ -1313,7 +1313,7 @@ class OptimizerTab(BaseTab):
             "Number = percent of combatant's damage the effect helps; "
             "0 = only the stats count:",
             font=("Segoe UI", 9), wraplength=580,
-        ).pack(anchor=tk.W, pady=(2, 1))
+        ).pack(anchor=tk.W, pady=(2, 0))
 
         self.set_grid_frame = ttk.Frame(parent)
         # spacing: border edge -> first non-button element -- panel, checkbox ↔
@@ -1418,7 +1418,7 @@ class OptimizerTab(BaseTab):
             # A pad, not the leading space the name used to carry: a
             # space is whatever the font makes it and cannot be tuned by
             # a pixel.
-            name_label.pack(side=tk.LEFT, padx=(0, 0))
+            name_label.pack(side=tk.LEFT, padx=(1, 0))
 
             # Conditional sets get an effect-share spinbox (0-100, % of
             # this combatant's damage the effect applies to; 0 = effect
@@ -1467,7 +1467,7 @@ class OptimizerTab(BaseTab):
             # Leading only, so nothing is added above the first row
             # and the panel's top inset stays where it is.
             _add_set_cb(sid, sinfo, i // ncols, i % ncols,
-                        0 if i < ncols else 4)
+                        0 if i < ncols else 3)
         four_rows = (len(four) + ncols - 1) // ncols
         # spacing: checkbox row -> checkbox row (small division) -- checkbox, checkbox ↕
         # What a row on the far side of the division adds ON TOP of the
@@ -1480,7 +1480,7 @@ class OptimizerTab(BaseTab):
             # after it takes the ordinary pitch, not nothing. Leaving it
             # at 0 kept the whole second group 4px tighter than the
             # first, which the pitch reading hid by out-voting it.
-            top = SET_GROUP_GAP if j < ncols else 4
+            top = SET_GROUP_GAP if j < ncols else 3
             _add_set_cb(sid, sinfo, r, c, top)
 
     # ------------------------------------------------ UI: Exclude Gear panel
@@ -1978,7 +1978,7 @@ class OptimizerTab(BaseTab):
         # the rule's 7px. Re-measure after anything that changes the
         # checkbutton's height -- this rule is not in the audit yet, so
         # nothing else will notice.
-        ROW_PITCH_OFFSET = 4
+        ROW_PITCH_OFFSET = 3
         row_h = max(
             (cb.winfo_reqheight() for cb in self._exclude_widgets.values()),
             default=22,

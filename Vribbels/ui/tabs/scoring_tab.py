@@ -48,7 +48,7 @@ BTN_WIDTH = BUTTON_W_LARGE
 # What the Stat Weight Configuration panel would carry as its own
 # `padding` if the preset list did not run to its edges. Every child of
 # that panel takes it EXCEPT the list, which is flush by design.
-PANEL_INSET = (3, 5)
+PANEL_INSET = (2, 5)
 
 # Glyph shown in the icon column for presets currently assigned to >=1
 # character (via CharacterPresetManager). A dedicated Treeview column
@@ -154,6 +154,14 @@ class ScoringTab(BaseTab):
         # Title and subtitle share one line: the subtitle sits to the
         # right of the heading, bottom-aligned so the two read as a single
         # header rather than two stacked blocks.
+        # spacing: exception -- heading ↔ element -- heading, label ↔
+        # This header measures 15 where the other two measure 14, and
+        # always will: `make_tab_header` gives all three one set of
+        # numbers, and the difference is the last glyph of the heading.
+        # `Data Capture` and `First-Time Setup` end on a curve whose
+        # final column of ink the fringe threshold discards; `Gear Score
+        # Calculation` ends on a stem, which is solid and counts. The
+        # rendered gap is the same on all three.
         make_tab_header(main_frame, self.colors, "Gear Score Calculation",
                         "Configure how gear scores are calculated")
 
@@ -283,8 +291,8 @@ STAT MIN - MAX ROLLS:
         ttk.Label(
             config_frame,
             text="Adjust weights for custom scoring (1.0 = normal)",
-            foreground=self.colors["fg_dim"]
-        ).pack(anchor=tk.W, padx=PANEL_INSET, pady=(0, 2))
+            foreground=self.colors["fg_dim"], padding=(0, -1, 0, 0)
+        ).pack(anchor=tk.W, padx=PANEL_INSET, pady=(0, 1))
 
         # Top region: stats on the left, button column on the right.
         # Two separate frames so stat rows keep their natural compact spacing
@@ -311,14 +319,16 @@ STAT MIN - MAX ROLLS:
         self._build_button_column(btn_frame)
 
         # spacing: border edge -> first non-button element -- panel, label ↔
+        # spacing: explanation text -> the controls it explains -- spinbox, label ↕
         # Status label, anchored left so it sits directly below DoT%. Its
         # LEFT inset is a registered audit entry, and comes from
-        # config_frame's padding rather than from here. The negative TOP
-        # is a separate correction: pack's pady cannot go below 0, so any
-        # further lift has to come out of the label's own inset.
+        # config_frame's padding rather than from here. The TOP component
+        # is a separate lever, for the gap up to the stat grid: pack's
+        # pady cannot go below 0, so any lift past that has to come out
+        # of the label's own inset.
         self.weight_status = ttk.Label(
             config_frame, text="Applied default weights (all 1.0)",
-            foreground=self.colors["fg_dim"], padding=(0, 2, 0, 0)
+            foreground=self.colors["fg_dim"], padding=(0, 1, 0, 0)
         )
         self.weight_status.pack(anchor=tk.W, padx=PANEL_INSET, pady=(0, 2))
 
@@ -335,7 +345,7 @@ STAT MIN - MAX ROLLS:
         # carries this frame down with it and only ever moves the gap
         # ABOVE the status line. Corrections to this gap land here.
         list_frame = ttk.Frame(config_frame)
-        list_frame.pack(fill=tk.BOTH, expand=True, pady=(1, 0))
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 0))
 
         scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL)
         self.preset_tree = ttk.Treeview(
@@ -374,7 +384,7 @@ STAT MIN - MAX ROLLS:
         # LABEL_GAP_PX is on top of what a Label asks for around its ink,
         # since a minsize is a floor the column still grows past -- see
         # `ui/utils/label_width.py`.
-        LABEL_GAP_PX = 2
+        LABEL_GAP_PX = 3
         label_col_px = [
             column_px([DISPLAY_NAMES.get(k, d)
                        for i, (k, d) in enumerate(STAT_DISPLAY_NAMES)
@@ -469,7 +479,13 @@ STAT MIN - MAX ROLLS:
         parent.grid_rowconfigure(2, weight=1)
 
         # Row 3, col 1: "Preset Name:" label sits just above the entry.
-        ttk.Label(parent, text="Preset Name:", padding=(0, 0, 0, -5)).grid(
+        # spacing: explanation text -> the controls it explains -- label, entry ↕
+        # The negative BOTTOM shortens the label's request, which pulls
+        # the entry's row up: pack and grid pads cannot go below 0, so
+        # the gap under a label is only ever reachable from the label's
+        # own inset or the next widget's leading pad, and row 4's pad is
+        # shared with the button beside the entry.
+        ttk.Label(parent, text="Preset Name:", padding=(0, 0, 0, -6)).grid(
             row=3, column=1, sticky="sw", padx=2
         )
 

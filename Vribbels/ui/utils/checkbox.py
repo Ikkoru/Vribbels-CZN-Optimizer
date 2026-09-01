@@ -41,12 +41,14 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
         wraplength: wrap the label at this pixel width. Wrapped labels
             are left-justified, so a caller does not have to ask.
     """
-    # spacing: exception -- label ↔ its element -- checkbox, label ↔
-    # A checkbox's indicator sits 5px from its own label, where the rule
-    # asks 4, and nothing here reaches it: the two are inside ONE widget
-    # and Tk spaces them itself. Measured the same 5 on every checkbox
-    # the audit has looked at, which is what says it is Tk's and not a
-    # value someone chose.
+    # spacing: label ↔ its element -- checkbox, label ↔
+    # A checkbox's indicator sits 5px from its own label, which is the
+    # rule's number -- but nothing here reaches it either way: the two
+    # are inside ONE widget and Tk spaces them itself. Measured the same
+    # 5 on every checkbox the audit has looked at, which is what says it
+    # is Tk's and not a value someone chose. The marker is here so a
+    # grep for the rule finds the app's commonest instance of it, not
+    # because there is a lever on this line.
     #
     # Gaining control means splitting every checkbox into a text-less
     # one plus a Label -- the way the Optimizer's Set Configuration rows

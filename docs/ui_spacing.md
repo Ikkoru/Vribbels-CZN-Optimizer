@@ -75,17 +75,17 @@ deriving something, and the refusal names the reason.
 | Content frame → content frame, and → the window edge  | 4px                                         | `content frame -> content frame`                |
 | Tab list above → topmost element of the tab           | 6px                                         | `tab list -> first element`                     |
 | Header subtext                                        | on the header's own line, not stacked below | `header subtext`                                |
-| Border edge → first non-button element inside it      | 5px, all edges                              | `border edge -> first non-button element`       |
+| Border edge → first non-button element inside it      | 4px, all edges                              | `border edge -> first non-button element`       |
 | Between two adjacent buttons                          | 4px                                         | `button -> button`                              |
 | Border edge → internal button                         | 3px, on every edge a button meets           | `border edge -> button`                         |
 | Checkbox block above → its All/None button row below  | 5px                                         | `checkbox block -> All/None row`                |
 | Between spinbox rows                                  | 2px                                         | `spinbox row -> spinbox row`                    |
-| Between non-tall rows (checkboxes, sliders)           | 7px                                         | `checkbox/slider ↕ checkbox/slider rows`        |
+| Between non-tall rows (checkboxes, sliders)           | 6px                                         | `checkbox/slider ↕ checkbox/slider rows`        |
 | Between text-only label rows                          | 10px                                        | `label row -> label row`                        |
 | Small division between specific checkbox rows         | 12px                                        | `checkbox row -> checkbox row (small division)` |
 | Title above, frame below                              | 5px                                         | `title above, element below`                    |
-| Explanation text above/below the controls it explains | 8px                                         | `explanation text -> the controls it explains`  |
-| A label left/right of the element it labels           | 4px                                         | `label ↔ its element`                           |
+| Explanation text above/below the controls it explains | 7px                                         | `explanation text -> the controls it explains`  |
+| A label left/right of the element it labels           | 5px                                         | `label ↔ its element`                           |
 | A heading and the element beside it                   | 14px                                        | `heading ↔ element`                             |
 | Between two label+value pairs, side by side           | 8px                                         | `element and its label ↔ element and its label` |
 | Checkboxes above, UNRELATED checkboxes below          | 20px                                        | `checkboxes -> unrelated checkboxes`            |
@@ -535,21 +535,22 @@ letter-jump all still work.
 they split their colouring.
 
 **Optimizer** — status cluster: status text ends 6px from the right edge
-like the spinbox, which was on target when it was set and is a pixel wide
-of the 5 the rule asks for now; the off-Element checkbox sits at 13px so
+like the spinbox, which was on target when it was set and is two pixels
+wide of the 4 the rule asks for now, with only 2px of a Label's inset
+left to give back; the off-Element checkbox sits at 13px so
 it stays under the spinbox and is easier to click. Its three rows sit
-5px and 3px apart. **It mostly fits the toolbar height after the font
+6px and 4px apart. **It mostly fits the toolbar height after the font
 migration and may want a nudge.** Set Configuration checkboxes are drawn
 in their set's Element colour. Start/Stop sit 6px from the tab's top
 edge, level with the rest of the row. The exclude checklist's row pitch
 is `ROW_PITCH_OFFSET`; 5px was read off the screen at +2 and the
-relation is one for one, so the current +4 is INFERRED to be the rule's
-7 rather than seen.
+relation is one for one, so the current +3 is INFERRED to be the rule's
+6 rather than seen.
 
 **Gear Score** — `Stat Weight Configuration`: labels unclipped, text
-vertically centred. Its two spinbox columns sit 3px and 1px after their
-longest labels, against the rule's 4 — a hand reading, not yet
-registered.
+vertically centred. Its two spinbox columns are registered one apiece
+and both read the same distance after their longest labels, so the pair
+moves on one lever.
 `How Gear Score Works` is Segoe UI 11 with its columns on tab stops, not
 a monospaced font.
 
@@ -730,8 +731,8 @@ old exact-match behaviour.
 
 ## Column alignment, and what it cannot have both of
 
-`label ↔ its element` is 4px, but in a COLUMN of label/value pairs the
-4px is measured from the LONGEST label in the group, and every value
+`label ↔ its element` is 5px, but in a COLUMN of label/value pairs the
+5px is measured from the LONGEST label in the group, and every value
 starts from there — otherwise the values stagger and it stops being a
 column.
 
@@ -744,7 +745,7 @@ speed, so it is ruled as labels, not as prose, and its stops are STATED
 The arithmetic those numbers come from, per column:
 
 ```
-col_width  = max(measure(label) + 4 + measure(widest_value))   # row by row
+col_width  = max(measure(label) + 5 + measure(widest_value))   # row by row
 stop_val1  = col_width(left)                    # right-aligned stop
 stop_name2 = stop_val1 + 8                      # the pair -> pair gap
 stop_val2  = stop_name2 + col_width(right)      # right-aligned stop
@@ -775,7 +776,7 @@ carries both:
 A value that outgrows its entry clips rather than pushing the column, so
 widen it here if one ever does. **Recompute the three stops from this
 table after changing the rows, the body font, or either rule's target.**
-At Segoe UI 9 they come to 50 / 58 / 136.
+At Segoe UI 9 they come to 51 / 59 / 138.
 
 Tab stops are **pixel** offsets, not character counts, so a group can be
 tuned to the pixel. `name_px` is measured in the actual font, which is
@@ -787,9 +788,9 @@ stays constant:**
 - **Right-aligned** (what `Character` does): last digits line up, so
   magnitudes are scannable down the column. The gap from label to the
   value's first glyph then VARIES with the value's length — which is why
-  that panel reads 30px on the left column and 4px on the right. The 4px
+  that panel reads 30px on the left column and 5px on the right. The 5px
   is the gap to where a FULL-WIDTH value would start.
-- **Left-aligned**: every value starts 4px after the longest label, so
+- **Left-aligned**: every value starts 5px after the longest label, so
   the gap is constant and digits no longer line up.
 
 Worth choosing per group: same-width percentages lose nothing by going
@@ -798,16 +799,16 @@ left-aligned; a column mixing `9` and `600` wants its digits lined up.
 | Group                     | Where                                   | Gap now              | Notes                                                    |
 | ------------------------- | --------------------------------------- | -------------------- | -------------------------------------------------------- |
 | Extra, Agony and Fracture | Optimizer, `Important Settings`         | 11px                 | the gap predates the third row and wants remeasuring     |
-| HAL columns 1 and 2       | Optimizer, `Have at Least`              | 4px                  | on target                                                |
-| Set spinboxes             | Optimizer, `Set Configuration`          | 5px                  | takes the 4px, NOT the alignment — see below             |
+| HAL columns 1 and 2       | Optimizer, `Have at Least`              | 5px                  | on target                                                |
+| Set spinboxes             | Optimizer, `Set Configuration`          | 5px                  | takes the 5px, NOT the alignment — see below             |
 | Set MF counts             | Memory Fragments, `Sets`                | 8px                  | aligned per column                                       |
 | Stat roll ranges          | Gear Score, `How Gear Score Works`      | 8px                  | the `STAT MIN - MAX ROLLS` block                         |
 | Weights, left column      | Gear Score, `Stat Weight Configuration` | 12px                 |                                                          |
 | Weights, right column     | Gear Score, `Stat Weight Configuration` | 10px                 | the 2px difference is the rightmost glyph, not a setting |
-| `Stats:` values           | Combatants, `Character`                 | 30px left, 4px right | the right-alignment effect above                         |
+| `Stats:` values           | Combatants, `Character`                 | 30px left, 5px right | the right-alignment effect above                         |
 
 `Set Configuration` is the standing exception to the ALIGNMENT half: its
-spinboxes keep the 4px but are not pulled into a shared column. The
+spinboxes keep the 5px but are not pulled into a shared column. The
 panel is tightly packed, so aligning would put a spinbox nearer a set it
 does not belong to; and only conditional sets have one at all, so the
 column would have holes. Ownership becomes ambiguous, which is worse
