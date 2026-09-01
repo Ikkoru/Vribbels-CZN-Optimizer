@@ -644,10 +644,10 @@ class OptimizerTab(BaseTab):
                                   font=small_font)
         offelem_label.pack(side=tk.LEFT, padx=(0, 2))
         # spacing: exception -- border edge -> first non-button element -- checkbox, frame ↔
-        # Sits 13px from the right edge where the rule asks for 5, and
-        # where the status text above reads 8 and the spinbox 6. Keeping
-        # it near-centred under the spinbox rather than flush right looks
-        # and clicks better, and the click target is the reason it wins.
+        # Sits much further from the right edge than the rule asks, and
+        # than either row above it. Keeping it near-centred under the
+        # spinbox rather than flush right looks and clicks better, and
+        # the click target is the reason it wins.
         offelem_cb = make_checkbox(
             offelem_row, self.colors, variable=self.ignore_offelement_var,
             font=small_font, compact=True,
@@ -1979,13 +1979,12 @@ class OptimizerTab(BaseTab):
         # then understates the true value.
         #
         # A LEVER, not a rendered distance, and one that moves when the
-        # WIDGET does: it sat at -2 while these carried Tk's default
-        # border and focus ring, and routing them through `make_checkbox`
-        # dropped 6px of requested height and took the gap with it.
-        # Measured 5px at +2, and the relation is one for one, so +4 is
-        # the rule's 7px. Re-measure after anything that changes the
-        # checkbutton's height -- this rule is not in the audit yet, so
-        # nothing else will notice.
+        # WIDGET does: the rows are placed against `winfo_reqheight()`,
+        # so anything changing a checkbutton's requested height -- its
+        # `bd`, its `highlightthickness`, its font -- moves the gap by
+        # the same amount without this number changing. The relation to
+        # the rendered gap is one for one, and the audit reads the
+        # result as `Exclude Combatant's MFs: row pitch`.
         ROW_PITCH_OFFSET = 3
         row_h = max(
             (cb.winfo_reqheight() for cb in self._exclude_widgets.values()),
@@ -2038,10 +2037,11 @@ class OptimizerTab(BaseTab):
         # The row count is the ONE thing the content drives (see
         # _build_exclude_gear): size the frame to exactly its rows.
         # One pitch short of `rows * row_h`: the pitch INCLUDES the gap
-        # that follows a row, so reserving it for the last row too leaves
-        # 4px of empty frame under the checklist -- which the All/None
-        # row below then sits on top of its own pad, reading 7 where the
-        # other three panels read 3.
+        # that follows a row, so reserving it for the last row too
+        # leaves a pitch of empty frame under the checklist -- which the
+        # All/None row below then sits below, on top of its own pad, and
+        # a whole pitch further from the block than in the other three
+        # panels.
         self.exclude_heroes_frame.configure(
             height=max(1, len(rows) * row_h - ROW_PITCH_OFFSET))
         self._exclude_partition = rows

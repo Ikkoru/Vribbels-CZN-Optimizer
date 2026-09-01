@@ -595,8 +595,9 @@ class OptimizerGUI:
                              labelmargins="0 0 0 2")
         # spacing: title above, element below -- title, tree ↕
         # NOT an exception, though it reads like one: what this style
-        # replaces is the THEME's default margin, and the rule's 5 is
-        # what it lands on. The entry measures 5 and meets it.
+        # replaces is the THEME's default margin, and `title above,
+        # element below` is what it lands on. The entry measures it and
+        # it meets the rule.
         # labelmargins replaces the theme's default margins outright, so a
         # bottom component of -1 sits well below the theme's default, not
         # 1px below it. The dotted name inherits everything from

@@ -145,16 +145,16 @@ class SetupTab(BaseTab):
         # spacing: exception -- border edge -> first non-button element -- panel, label ↔↕
         # Both directions miss the rule, for two different reasons.
         #
-        # LEFT renders 7 where the rule asks 5, deliberately: this panel
-        # is built to read before anything else on the tab and its left
-        # edge is placed for that. The audit tracks it at 7 rather than
-        # leaving it out, so a drift from 7 still shows.
+        # LEFT misses the rule deliberately: this panel is built to read
+        # before anything else on the tab and its left edge is placed
+        # for that. Tracked at what it is rather than left out, so a
+        # drift from it still shows.
         #
         # TOP is out of reach in any case -- a Segoe UI 11 label's ink
-        # starts 7px below its own box top, so even a padding of 0
-        # renders 7 -- and it is wanted anyway: these four rows read as
-        # one block at a single pitch, so the gap above the first row
-        # matches the gaps between them.
+        # starts well below its own box top, so even a padding of 0
+        # renders more than the rule asks -- and it is wanted anyway:
+        # these four rows read as one block at a single pitch, so the
+        # gap above the first row matches the gaps between them.
         #
         # BOTTOM is larger than it looks because the rows carry no
         # pady of their own -- it supplies the whole pitch under the

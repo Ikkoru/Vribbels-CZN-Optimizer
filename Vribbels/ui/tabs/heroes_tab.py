@@ -1345,11 +1345,11 @@ class HeroesTab(BaseTab):
             # both sides.
             PAD_W = 14   # LabelFrame internal padding + border + slack
             PAD_H = 33   # + title-bar height
-            # 10, not 12: the Character panel's right inset read 7px
-            # against the rule's 5, and this is the only lever on it --
-            # a tk.Text's `padx` applies to both sides at once, so
-            # trimming there would have taken the left inset off target
-            # with it. Narrowing the panel moves the right edge alone.
+            # The Character panel's RIGHT inset, and the only lever on
+            # it: a tk.Text's `padx` applies to both sides at once, so
+            # trimming there takes the left inset off target with it.
+            # Narrowing the panel moves the right edge alone. A LARGER
+            # value here is a narrower panel and a smaller inset.
             CHAR_PAD_W = PAD_W + 8
 
             # The stat block's tab stops. Four stops per row: the left

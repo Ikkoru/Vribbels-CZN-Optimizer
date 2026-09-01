@@ -857,8 +857,8 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
 
     # Text above, a panel below. The three tab headings differ only in
-    # how much container padding stands under them -- Gear Score and
-    # Capture spend 4px and read 12, Setup spends 6 and reads 14.
+    # how much container padding stands under them, Setup spending more
+    # than the other two -- so one target holds three different pads.
     #
     # These three are what measured `DESCENDER_DEPTH_14_BOLD`. Two of
     # them carry a `p` and the third carries no descender at all, so
@@ -873,9 +873,9 @@ PANEL_OVER_TEXT_ENTRIES = [
     ("Setup", "First-Time Setup -> Setup Status title", 10, None,
      _label_over_panel("First-Time Setup", "Setup Status", bold14=True)),
 
-    # The Combatants header band, one entry per column. Both read 11,
-    # from two unrelated constructions -- the left column's label is a
-    # single line over a list, the right column's is the second row of a
+    # The Combatants header band, one entry per column. Two unrelated
+    # constructions on one target: the left column's label is a single
+    # line over a list, the right column's is the second row of a
     # control group over a panel.
     ("Combatants", "user info -> character list", 10, None,
      _user_info_to_list()),
@@ -2248,9 +2248,9 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
     wider gap after the label -- the distance is only the one that was
     set on the row whose value is widest. Reading a single row reports
     whatever the selected combatant happens to have: a three-digit ATK
-    read 10 where the rule asks 4, and a four-digit one would have read
-    4. Same reasoning as `_neighbour_gaps` taking the smallest gap a
-    column shows.
+    leaves a digit's width of slack in the gap, and a four-digit one
+    leaves none. Same reasoning as `_neighbour_gaps` taking the
+    smallest gap a column shows.
 
     `needles` find the lines by their words rather than by number, so a
     line inserted above them moves the reading instead of silently
@@ -3344,11 +3344,11 @@ def register_all():
     #
     # **THE READING IS ONLY BINDING WHERE THE WIDEST VALUE IS PRESENT**,
     # and no combatant carries every column's widest. The left pair
-    # needs a FOUR-DIGIT stat: a combatant whose largest is 591 reads 10
-    # against the rule's 4, and the six pixels are the digit that is not
-    # there rather than a gap to nudge. Select one with a stat in the
-    # thousands before reading these rows, and treat a reading taken
-    # without one as a lower bound on the slack, not a distance.
+    # needs a FOUR-DIGIT stat: with a three-digit one the gap carries a
+    # missing digit's width on top of the distance, and that is slack
+    # rather than something to nudge. Select a combatant with a stat in
+    # the thousands before reading these rows, and treat a reading taken
+    # without one as an upper bound, not a distance.
     #
     # A scenario could pick that combatant the way `max_readouts` fills
     # the sliders. It is not written: unlike a slider variable, the

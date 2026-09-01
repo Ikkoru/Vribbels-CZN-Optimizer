@@ -946,7 +946,7 @@ An ordinary row says nothing there; the two words that appear are:
 
 - **`exception`** — the site deliberately misses the rule, and its call
   site carries an `exception` marker saying so. `Setup Status`' left
-  edge is 7 where the rule asks 5. Every miss is one of these, by
+  edge is one. Every miss is one of these, by
   ruling: a distance that does not answer to its rule is an `exception`
   or a `unique`, never an unexplained number.
 - **`inferred`** — the rule applies and is followed, but its number
