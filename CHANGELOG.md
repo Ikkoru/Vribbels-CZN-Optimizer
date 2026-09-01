@@ -14,6 +14,10 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Changed
 
+- **The Capture Log's Upgraded lines read more easily.** The values are coloured: a Highest Potential range shows its floor dimmed and its ceiling green, or yellow where the ceiling is 40 or below, so a fragment worth keeping is visible without reading the numbers. `Upgraded` is green and `Deleted` red. A fragment with no upgrades left reports `Highest GS` and one value rather than a range that cannot move, matching the Memory Fragments tab's two columns. The brackets around preset names and around the upgrade level are gone, and `[proxy]` is left on the lines that are actually about the proxy.
+
+- **The three panels of running prose are set in Segoe UI Variable Small** — the Capture Log, the Setup instructions and How Gear Score Works.
+
 - **The Server Region is detected, not chosen.** The dropdown is gone. A capture now redirects both servers and forwards each connection to the right one, so whichever region your game uses is captured without you telling it. The Capture tab reports which one it saw, and says so plainly if two games on different servers are running at once.
 
 - **Combatants tab: moving through the character list is faster.** Each Equipped Memory Fragments cell is drawn as one block of text instead of eleven separate widgets, which is most of what the tab had to redraw every time you moved to another combatant. The cells look the same, and their text can now be selected and copied like the Character card's.
@@ -21,6 +25,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 - **The Combatants tab no longer remembers which combatant was selected.** It opens on the first row. The setting it used for that wrote to disk on every row you moved to.
 
 ### Fixed
+
+- **Loading into the game reports the snapshot save once, not three times.** The login reply carries your roster, your inventory and the banner schedule together, and each was written and announced separately. The file was always the same either way.
 
 - **A capture that records nothing now says so.** With the Server Region set to the wrong server the game never passes through the capture proxy, but the program reported the *previous* capture's file as though it had just been written, with a success message. It now tells you nothing was captured and names the likely cause.
 
