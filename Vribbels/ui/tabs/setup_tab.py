@@ -315,6 +315,11 @@ STEP 2: Verify setup
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
         # which is why it differs between text panels in different fonts.
+        # spacing: exception -- border edge -> first non-button element -- panel, text ↕
+        # The TOP misses the rule and cannot reach it: `pady` is at 0,
+        # the LabelFrame carries none, and what is left above the
+        # first CAPITAL is this face's own line box. The only lever
+        # on it is a smaller face.
         # 0, where the helper's default is 3: at this face and size
         # the line box already carries the whole inset above the
         # first glyph. **There is no lever left below 0** -- read the

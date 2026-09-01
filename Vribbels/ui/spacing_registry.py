@@ -248,6 +248,53 @@ def _text_panel_title_gap(title):
     return resolve
 
 
+def _capital_span(text, font):
+    """(start, end) advance offsets of `text`'s first CAPITAL, or None.
+
+    The rules measure to the capitals, and a line's topmost ink is
+    routinely something else -- a bracket, or a lowercase ascender in a
+    face where those clear the caps. Narrowing a scan to one capital is
+    what puts a reading on the rule's own reference with no glyph
+    correction to model.
+    """
+    index = next((i for i, c in enumerate(text) if c.isupper()), None)
+    if index is None:
+        return None
+    return font.measure(text[:index]), font.measure(text[:index + 1])
+
+
+def _first_capital_band(widget):
+    """The box of the first CAPITAL on a Text's first painted line.
+
+    Returns a Box in root coordinates, or None when the line has no
+    capital on it -- a caller then falls back to the whole line and says
+    so, rather than reporting a number taken from a different reference
+    than the one the rule names.
+    """
+    box = sa.box_of(widget)
+    count = int(widget.index("end-1c").split(".")[0])
+    for n in range(1, count + 1):
+        line = widget.get(f"{n}.0", f"{n}.end")
+        if not line.strip():
+            continue
+        info = widget.dlineinfo(f"{n}.0")
+        if info is None:
+            return None
+        font = tkfont.Font(font=widget.cget("font"))
+        span = _capital_span(line, font)
+        if span is None:
+            return None
+        # A wrapped first line puts later characters on a row of their
+        # own, where this offset would land on the wrong one.
+        if span[1] > info[2]:
+            return None
+        left = box.left + info[0] + span[0]
+        return sa.Box(left=left, top=box.top + info[1],
+                      right=box.left + info[0] + span[1] - 1,
+                      bottom=box.top + info[1] + info[3] - 1)
+    return None
+
+
 def _text_panel_inset(title, side="left"):
     """Resolver: frame border -> the prose inside the text widget.
 
@@ -256,11 +303,23 @@ def _text_panel_inset(title, side="left"):
     is no background pixel between the two for a scan to stop at. But
     the same fact gives the answer directly: the text widget abuts the
     border, so the border's inner edge is the widget's own box edge.
+
+    The TOP is read on the first capital rather than on the line's
+    topmost ink. Every other side is read on the ink, because left,
+    right and bottom have no cap-versus-ascender question in them.
     """
     def resolve(cap, app):
         frame, text = _text_of(app, title)
         fill = {cap.palette["bg_light"]}
         box = sa.box_of(text)
+        if side == "top":
+            band = _first_capital_band(text)
+            if band is None:
+                return None, "no capital on the first line to measure to"
+            extent = sa.painted_extent_v(cap, band, fill)
+            if extent is None:
+                return None, "the first capital painted nothing"
+            return sa.gap_between(box.top - 1, extent[0]), ""
         measure = (sa.painted_extent_v if side in ("top", "bottom")
                    else sa.painted_extent_h)
         extent = measure(cap, box, fill)
@@ -268,8 +327,6 @@ def _text_panel_inset(title, side="left"):
             return None, "text widget is empty"
         if side == "left":
             return sa.gap_between(box.left - 1, extent[0]), ""
-        if side == "top":
-            return sa.gap_between(box.top - 1, extent[0]), ""
         # The far edges take the text widget's box as the border's inner
         # edge, the way the near ones do. Confirmed by reading the raw
         # coordinates once: the frame sits exactly 2px outside the text
@@ -321,12 +378,21 @@ TEXT_PANEL_EDGES = [
     ("Gear Score", "How Gear Score Works", "top"),
 ]
 
-# A text panel whose top inset the rule cannot reach. `pady` on a
-# tk.Text clamps at 0 and its LabelFrame carries none, so what is
-# above the first glyph is whatever the face's line box gives -- and
-# this one is set in a size chosen for reading, not for the pixel.
-# Tracked at what it renders so a drift still shows.
+# The text panels whose top inset the rule cannot reach. `pady` on a
+# tk.Text clamps at 0 and their LabelFrames carry none, so what is above
+# the first CAPITAL is whatever the face's line box gives -- and all
+# three are set in a size chosen for reading, not for the pixel.
+# Tracked at what they render so a drift still shows.
+#
+# The two Segoe UI 9 panels (`Character`, `Partner`) are absent because
+# they reach the rule: their `pady` still has room in it.
 TEXT_PANEL_EDGE_EXCEPTIONS = {
+    ("Capture Log", "top"): 5,
+    ("Setup Instructions", "top"): 5,
+    # PREDICTED, not read. This panel's first line carries a
+    # parenthesis, which rises higher than the ascenders the other two
+    # stop at, so the change from ink to capitals may move it further
+    # than their one pixel.
     ("How Gear Score Works", "top"): 5,
 }
 
@@ -2074,7 +2140,7 @@ def _inside_border(widget):
                   bottom=box.bottom - edge)
 
 
-def _text_widget_inset(locator, side):
+def _text_widget_inset(locator, side, line=None):
     """Resolver: a bordered Text's own border -> the ink inside it.
 
     For a widget that draws its own frame and holds its own inset --
@@ -2087,6 +2153,12 @@ def _text_widget_inset(locator, side):
     covering the cell and never sees the text. The background is read
     off the widget, because a cell is tinted by its fragment's rarity
     and `bg_light` is the wrong answer for all but a Normal one.
+
+    `line` restricts the scan to one logical line. The RIGHT edge
+    needs it: a gear cell's set description WRAPS, so the rightmost
+    ink across the whole cell is whichever wrapped line came closest
+    to the boundary -- a floor that moves with the fragment. Line 1
+    ends at a stated tab stop instead, so it is a distance.
     """
     def resolve(cap, app):
         widget = locator(app)
@@ -2106,6 +2178,13 @@ def _text_widget_inset(locator, side):
         edge = inner.top - box.top
         scan = sa.Box(left=box.left + edge, top=inner.top,
                       right=box.right - edge, bottom=inner.bottom)
+        if line is not None:
+            info = widget.dlineinfo(f"{line}.0")
+            if info is None:
+                return None, f"line {line} is not displayed"
+            scan = sa.Box(left=scan.left, top=box.top + info[1],
+                          right=scan.right,
+                          bottom=box.top + info[1] + info[3] - 1)
         if side in ("left", "right"):
             extent = sa.painted_extent_h(cap, scan, fill)
         else:
@@ -3329,23 +3408,28 @@ def register_all():
     )
 
     # A gear cell's own border against the text inside it. `padx` is the
-    # left, `pady` the top.
+    # left and `GEAR_TAB_SLOT` the right, `pady` the top.
     #
-    # RIGHT and BOTTOM are left out, and for one reason: the set
-    # description wraps, so both edges are ragged. A wrapped line ends
-    # within a word of the boundary rather than on it, and the scan
-    # takes the furthest of them -- which makes either side a FLOOR that
-    # moves with the fragment selected, where the audit compares against
-    # a number. `GEAR_TAB_SLOT` is the lever on the right for that
-    # reason: it is the one line whose end is stated.
-    for _side, _axis in (("left", "h"), ("top", "v")):
+    # The RIGHT is read on LINE 1 alone. The set description below it
+    # wraps, so the rightmost ink across the whole cell is whichever
+    # wrapped line came closest to the boundary -- a floor that moves
+    # with the fragment, where the audit compares against a number.
+    # Line 1 ends at a stated stop, so it is a distance: the slot name
+    # and the fragment's upgrade level.
+    #
+    # BOTTOM is left out for the half of that reason that has no fix:
+    # the description stops where it stops, so what is under it is
+    # slack.
+    for _side, _axis, _line in (("left", "h", None), ("top", "v", None),
+                                ("right", "h", 1)):
         sa.track(
             name=f"Equipped MF cell: {_side} edge -> text",
             tab="Combatants",
             rule=RULE_BORDER_EDGE_CONTENT,
             target=4,
             resolve=_text_widget_inset(
-                _first_filled_text("Equipped Memory Fragments"), _side),
+                _first_filled_text("Equipped Memory Fragments"), _side,
+                _line),
             axis=_axis,
             provisional=True,
         )

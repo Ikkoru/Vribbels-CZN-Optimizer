@@ -418,6 +418,11 @@ class CaptureTab(BaseTab):
         # and focus ring, and pairs the Text with a ttk scrollbar in a
         # ttk frame so the theme reaches both. See
         # ui/utils/scrolled_text.py.
+        # spacing: exception -- border edge -> first non-button element -- panel, text ↕
+        # The TOP misses the rule and cannot reach it: `pady` is at 0,
+        # the LabelFrame carries none, and what is left above the
+        # first CAPITAL is this face's own line box. The only lever
+        # on it is a smaller face.
         # 0, where the helper's default is 3: at this face and size
         # the line box already carries the whole inset above the
         # first glyph. **There is no lever left below 0** -- read the

@@ -33,6 +33,24 @@ to contain:
   ascender reaches higher than a cap, ignore it — the capitals are the
   line's top for measuring purposes, whatever paints highest.
 
+**This holds for every vertical distance involving text, with no
+exceptions.** Where a string has no capital at all, the reference below
+it is the baseline of an ordinary non-ascender.
+
+**Two ways to obey it, and the second is better where it is available.**
+The correction tables below restate a reading taken from the ink as one
+taken from the reference — which needs a number per glyph class, per
+face. Narrowing the SCAN to a single capital needs none: both ends of
+the reading land on the reference by construction. `_capital_row_pitch`
+and the text panels' top inset do that, and they do it because their
+strings defeat the tables — `[OK] Python 3.13` opens on a bracket that
+clears the cap AND drops below the baseline, and Segoe UI Variable
+Small's ascenders clear its capitals where Segoe UI's do not.
+
+Prefer narrowing the scan wherever the string can be indexed to a
+capital. Prefer the tables where it cannot — a title found by its own
+words, where the audit has the string but not a font to measure it in.
+
 **The audit sees INK, so it corrects what it sees.** A descender hangs
 below the baseline and a tall ascender clears the capitals, so a raw
 reading is tighter than the rule asks by however far the string's glyphs
