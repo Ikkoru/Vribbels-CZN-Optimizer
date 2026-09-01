@@ -1423,9 +1423,9 @@ class OptimizerTab(BaseTab):
             name_label = ttk.Label(
                 container, text=name_text, foreground=name_color,
             )
-            # A pad, not the leading space the name used to carry: a
-            # space is whatever the font makes it and cannot be tuned by
-            # a pixel.
+            # A pad rather than a leading space in the name string: a
+            # space is whatever the font makes it and cannot be tuned to
+            # the pixel.
             name_label.pack(side=tk.LEFT, padx=(1, 0))
 
             # Conditional sets get an effect-share spinbox (0-100, % of

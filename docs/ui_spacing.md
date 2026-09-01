@@ -835,9 +835,9 @@ two separate `unique` markers rather than one rule. Padding the tallest
 child does not help: a child's padding moves it INSIDE the row.
 
 **The cluster's height is constrained.** It must fit the toolbar, whose
-height is set by the taller left-hand cluster. `small_font` there is
-Segoe UI 9 now — the same as `TkDefaultFont` — so it is a lever on the
-toolbar's height rather than a cosmetic choice.
+height is set by the taller left-hand cluster. `small_font` is what
+these three rows are set in, so it is a lever on the toolbar's height
+rather than a cosmetic choice.
 
 ## The uniques, as a table
 

@@ -1768,9 +1768,9 @@ BUTTON_ROW_ABOVE_ENTRIES = [
 
 # (tab, name, target, hand reading, resolver) for a lone non-button at
 # the END of a button row. `border edge -> first non-button element` and
-# not the pair-gap rule it used to carry: `Debug WS` is not a second
-# element-and-label pair, it is the one non-button after a run of
-# buttons, which is what this rule is about.
+# not the pair-gap rule: `Debug WS` is not a second element-and-label
+# pair, it is the one non-button after a run of buttons, which is
+# what this rule is about.
 BUTTON_ROW_TAIL_ENTRIES = [
     ("Capture", "Load Latest -> Debug WS", 4, None,
      _gap(_by_text("Load Latest"), _by_text("Debug WS"), "h")),

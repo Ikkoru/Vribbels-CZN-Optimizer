@@ -338,10 +338,11 @@ STEP 2: Verify setup
         the answers back. The probing MUST NOT run inline: it shells out
         to external programs, and a blocked `after()` callback stops Tk
         processing events at all, so the whole program locks up with a
-        painted but dead window. That is exactly what used to happen --
-        `python --version` can block forever (see `_run_version`), and
-        because this check is scheduled a second after the tab is built,
-        it took the app down on every launch that hit it.
+        painted but dead window. `python --version` can block forever
+        (see `_run_version`), and this check is scheduled a second after
+        the tab is built -- so probing inline takes the app down on
+        every launch that hits it, before the user has touched
+        anything.
         """
         if self._checking:
             return
