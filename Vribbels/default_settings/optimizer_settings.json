@@ -1,13 +1,45 @@
 {
   "version": 1,
-  "excluded_default_initialized": false,
-  "excluded_gear_chars": [],
-  "exclude_seen_rids": [],
-  "optimize_level_seen": {},
+  "excluded_gear_chars": [
+    "1003",
+    "1004",
+    "1005",
+    "1008",
+    "1009",
+    "1010",
+    "1017",
+    "1018",
+    "1021",
+    "1024",
+    "1027",
+    "1028",
+    "1033",
+    "1039",
+    "1040",
+    "1041",
+    "1049",
+    "1050",
+    "1052",
+    "1055",
+    "1056",
+    "1057",
+    "1060",
+    "1061",
+    "1062",
+    "1069",
+    "30047",
+    "30048",
+    "30075",
+    "30084",
+    "30093",
+    "30097",
+    "30113",
+    "30115"
+  ],
   "characters": {
     "1003": {
       "name_hint": "Nia",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 100,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -114,14 +146,13 @@
       "avg_add_buff_pct": 140,
       "element_override": null,
       "set_effect_pcts": {
-        "26": 100,
-        "18": 10,
+        "28": 28,
         "19": 100
       }
     },
     "1008": {
       "name_hint": "Khalipe",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -154,8 +185,10 @@
       "avg_add_buff_pct": 100,
       "element_override": null,
       "set_effect_pcts": {
+        "12": 80,
+        "23": 10,
         "20": 100,
-        "27": 100,
+        "27": 20,
         "19": 100
       }
     },
@@ -193,8 +226,10 @@
       "avg_add_buff_pct": 75,
       "element_override": null,
       "set_effect_pcts": {
-        "16": 50,
-        "26": 50,
+        "20": 10,
+        "16": 40,
+        "22": 10,
+        "26": 40,
         "19": 100
       }
     },
@@ -364,7 +399,7 @@
     },
     "1024": {
       "name_hint": "Orlea",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 40,
@@ -397,7 +432,7 @@
       "set_effect_pcts": {
         "25": 100,
         "12": 100,
-        "23": 100,
+        "23": 50,
         "19": 100
       }
     },
@@ -446,7 +481,7 @@
     },
     "1028": {
       "name_hint": "Maribell",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -471,8 +506,7 @@
         6,
         7,
         11,
-        19,
-        27
+        19
       ],
       "max_flex_slots": 2,
       "avg_card_dmg_pct": 300,
@@ -482,6 +516,7 @@
       "set_effect_pcts": {
         "6": 100,
         "26": 100,
+        "18": 60,
         "27": 100,
         "19": 100
       }
@@ -520,6 +555,7 @@
       "avg_add_buff_pct": 75,
       "element_override": null,
       "set_effect_pcts": {
+        "28": 28,
         "26": 100,
         "18": 100,
         "19": 100
@@ -527,7 +563,7 @@
     },
     "1039": {
       "name_hint": "Mika",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -563,7 +599,7 @@
     },
     "1040": {
       "name_hint": "Beryl",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 50,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -595,6 +631,7 @@
       "avg_add_buff_pct": 100,
       "element_override": null,
       "set_effect_pcts": {
+        "28": 28,
         "6": 20,
         "25": 100,
         "20": 20,
@@ -642,7 +679,7 @@
     },
     "1043": {
       "name_hint": "Hugo",
-      "optimize_for_level": 60,
+      "optimize_for_level": 62,
       "extra_pct": 90,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -681,7 +718,7 @@
     },
     "1049": {
       "name_hint": "Cassius",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -715,10 +752,11 @@
       "avg_add_buff_pct": 100,
       "element_override": null,
       "set_effect_pcts": {
-        "6": 5,
+        "28": 28,
+        "6": 10,
         "25": 100,
         "12": 100,
-        "23": 100,
+        "23": 30,
         "19": 100
       }
     },
@@ -767,11 +805,11 @@
     },
     "1052": {
       "name_hint": "Narja",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
-      "shielding_healing_weight": 20,
+      "shielding_healing_weight": 33,
       "force_main": {
         "slot4_hp": false,
         "slot5_hp": false,
@@ -799,16 +837,16 @@
       "avg_add_buff_pct": 0,
       "element_override": null,
       "set_effect_pcts": {
-        "6": 30,
+        "6": 10,
         "25": 100,
-        "12": 100,
-        "23": 80,
+        "12": 80,
+        "23": 50,
         "19": 100
       }
     },
     "1056": {
       "name_hint": "Rei",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -885,7 +923,7 @@
     },
     "1060": {
       "name_hint": "Chizuru",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -918,11 +956,12 @@
       "avg_add_buff_pct": 450,
       "element_override": null,
       "set_effect_pcts": {
-        "6": 100,
+        "6": 70,
+        "16": 80,
         "22": 100,
         "26": 100,
         "19": 100,
-        "10": 80
+        "10": 85
       }
     },
     "1061": {
@@ -951,7 +990,8 @@
       "sets_selected": [
         9,
         11,
-        19
+        19,
+        26
       ],
       "max_flex_slots": 2,
       "avg_card_dmg_pct": 140,
@@ -959,6 +999,7 @@
       "avg_add_buff_pct": 100,
       "element_override": null,
       "set_effect_pcts": {
+        "28": 28,
         "6": 20,
         "26": 100,
         "18": 20,
@@ -967,7 +1008,7 @@
     },
     "1062": {
       "name_hint": "Haru",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1006,7 +1047,7 @@
     },
     "1064": {
       "name_hint": "Kayron",
-      "optimize_for_level": 60,
+      "optimize_for_level": 62,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1122,14 +1163,14 @@
       "set_effect_pcts": {
         "6": 10,
         "12": 100,
-        "23": 100,
-        "20": 10,
+        "23": 30,
+        "20": 5,
         "19": 100
       }
     },
     "30084": {
       "name_hint": "Tiphera",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -1152,6 +1193,7 @@
       },
       "sets_selected": [
         7,
+        11,
         25
       ],
       "max_flex_slots": 2,
@@ -1161,14 +1203,16 @@
       "element_override": null,
       "set_effect_pcts": {
         "15": 50,
+        "6": 10,
         "25": 100,
+        "20": 10,
         "27": 100,
         "19": 100
       }
     },
     "30093": {
       "name_hint": "Heidemarie",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 90,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1202,6 +1246,7 @@
       "avg_add_buff_pct": 240,
       "element_override": null,
       "set_effect_pcts": {
+        "28": 28,
         "6": 100,
         "26": 100,
         "19": 100
@@ -1241,15 +1286,16 @@
       "avg_add_buff_pct": 0,
       "element_override": null,
       "set_effect_pcts": {
-        "24": 40,
-        "15": 90,
+        "24": 20,
+        "15": 80,
         "20": 100,
-        "19": 100
+        "19": 100,
+        "10": 20
       }
     },
     "1055": {
       "name_hint": "Adelheid",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -1287,11 +1333,12 @@
         "26": 100,
         "27": 100,
         "19": 100
-      }
+      },
+      "fracture_pct": 0
     },
     "1069": {
       "name_hint": "Tenebria",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1323,9 +1370,10 @@
       "avg_add_buff_pct": 65,
       "element_override": null,
       "set_effect_pcts": {
-        "6": 100,
-        "20": 100,
-        "26": 100,
+        "28": 60,
+        "6": 20,
+        "20": 20,
+        "26": 20,
         "18": 100,
         "19": 100,
         "10": 100
@@ -1333,7 +1381,7 @@
     },
     "30048": {
       "name_hint": "Fei",
-      "optimize_for_level": 60,
+      "optimize_for_level": 61,
       "extra_pct": 30,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1357,7 +1405,8 @@
       "sets_selected": [
         9,
         11,
-        19
+        19,
+        28
       ],
       "max_flex_slots": 2,
       "avg_card_dmg_pct": 100,
@@ -1365,6 +1414,9 @@
       "avg_add_buff_pct": 100,
       "element_override": null,
       "set_effect_pcts": {
+        "28": 100,
+        "16": 60,
+        "22": 10,
         "19": 100
       }
     },
@@ -1400,6 +1452,7 @@
       "max_flex_slots": 2,
       "set_effect_pcts": {
         "28": 100,
+        "6": 15,
         "12": 100,
         "23": 20,
         "29": 75,
@@ -1408,7 +1461,8 @@
       "avg_card_dmg_pct": 144,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 144,
-      "element_override": null
+      "element_override": null,
+      "fracture_pct": 8
     },
     "-1": {
       "name_hint": "Arabella",
@@ -1445,7 +1499,7 @@
       "name_hint": "Arabella",
       "optimize_for_level": 60,
       "extra_pct": 0,
-      "dot_pct": 3,
+      "dot_pct": 0,
       "atk_def_split": 0,
       "shielding_healing_weight": 0,
       "force_main": {
@@ -1470,12 +1524,94 @@
         29
       ],
       "max_flex_slots": 2,
-      "set_effect_pcts": {},
+      "set_effect_pcts": {
+        "6": 25,
+        "12": 25,
+        "23": 20,
+        "29": 100,
+        "19": 100
+      },
       "avg_card_dmg_pct": 72,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 105,
       "element_override": null,
       "fracture_pct": 69
     }
+  },
+  "excluded_default_initialized": true,
+  "exclude_seen_rids": [
+    "-1",
+    "1003",
+    "1004",
+    "1005",
+    "1008",
+    "1009",
+    "1010",
+    "1017",
+    "1018",
+    "1021",
+    "1024",
+    "1027",
+    "1028",
+    "1033",
+    "1039",
+    "1040",
+    "1041",
+    "1043",
+    "1049",
+    "1050",
+    "1052",
+    "1055",
+    "1056",
+    "1057",
+    "1060",
+    "1061",
+    "1062",
+    "1064",
+    "1069",
+    "30047",
+    "30048",
+    "30075",
+    "30084",
+    "30093",
+    "30097",
+    "30113",
+    "30115"
+  ],
+  "optimize_level_seen": {
+    "1003": 61,
+    "1004": 60,
+    "1005": 60,
+    "1008": 61,
+    "1009": 60,
+    "1010": 60,
+    "1017": 60,
+    "1018": 60,
+    "1021": 60,
+    "1024": 61,
+    "1027": 60,
+    "1028": 61,
+    "1033": 60,
+    "1039": 61,
+    "1040": 61,
+    "1041": 60,
+    "1049": 61,
+    "1050": 60,
+    "1052": 61,
+    "1055": 61,
+    "1056": 61,
+    "1057": 60,
+    "1060": 61,
+    "1061": 60,
+    "1062": 61,
+    "1069": 61,
+    "30047": 60,
+    "30048": 61,
+    "30075": 60,
+    "30084": 61,
+    "30093": 61,
+    "30097": 60,
+    "30113": 60,
+    "30115": 60
   }
 }
