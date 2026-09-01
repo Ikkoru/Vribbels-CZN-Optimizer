@@ -235,7 +235,7 @@ STAT MIN - MAX ROLLS:
             # and its line box already contributes the whole inset
             # above the first glyph. At 4 it read 9 against the
             # rule's 5.
-            font=("Segoe UI", 11), pady=0,
+            font=("Segoe UI Variable Small", 10), pady=0,
         )
         # The two aligned groups line up on TAB STOPS rather than on
         # hand-counted spaces, which only work in a monospaced face. Same
