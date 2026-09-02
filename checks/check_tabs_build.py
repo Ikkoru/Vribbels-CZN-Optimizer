@@ -694,6 +694,46 @@ def _every_popup_closes_on_escape():
     return out
 
 
+def _breakdown_text_stays_ascii():
+    """The Stat Contributions block must hold no character Consolas lacks.
+
+    The popup is set in Consolas and sized from it. A character that
+    face has no glyph for is drawn from another at another width -- a
+    check mark and a cross measured 13px against a 7px cell -- so the
+    line is wider than the field reserved for it and is clipped, with
+    nothing reporting it. The width is measured rather than counted for
+    that reason, but the marks were also unreadable at that size, so
+    the text is plain ASCII and this is what keeps it so.
+
+    Reads the string CONSTANTS in `_format_breakdown_text`. The values
+    interpolated into them are numbers and combatant names, which the
+    game supplies.
+
+    Returns a list of complaints.
+    """
+    tree = ast.parse((SOURCE_ROOT / "ui" / "tabs" / "optimizer_tab.py")
+                     .read_text(encoding="utf-8"))
+    out = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.FunctionDef)
+                and node.name == "_format_breakdown_text"):
+            continue
+        for const in ast.walk(node):
+            if (isinstance(const, ast.Constant)
+                    and isinstance(const.value, str)
+                    and not const.value.isascii()):
+                stray = [c for c in const.value if not c.isascii()]
+                out.append(
+                    f"_format_breakdown_text line {const.lineno} holds "
+                    f"{stray!r}, which Consolas may have no glyph for. The "
+                    f"popup sizes itself from that face, so a character "
+                    f"drawn from another one is a line wider than the field "
+                    f"reserved for it."
+                )
+        return out
+    return ["optimizer_tab.py has no _format_breakdown_text to check"]
+
+
 def _popup_sample_drives_its_own_width(root):
     """The audit's contributions sample must be wider than the button row.
 
@@ -827,6 +867,7 @@ def run():
     add_source_to_path()
 
     failures.extend(_every_popup_closes_on_escape())
+    failures.extend(_breakdown_text_stays_ascii())
 
     if not _make_checkbox_forces_its_window():
         failures.append(

@@ -38,6 +38,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The Stat Contributions popup fits its contents.** It was sized to a fixed cap, which left a band of empty panel under a short breakdown. It also opens centred on the main window.
 
+- **The Stat Contributions breakdown marks a present value `Y` and an absent one `-`.** It used a tick and a cross, which the popup's monospace face has no glyph for — so Windows drew them from another font at nearly double the width, pushing the longest lines past the right edge.
+
 - **The Restore Defaults dialogs are spaced like the rest of the app**, and their All/None buttons come from the same helper every other All/None row does.
 
 - **The three panels of running prose are set in Segoe UI Variable Small** — the Capture Log, the Setup instructions and How Gear Score Works.

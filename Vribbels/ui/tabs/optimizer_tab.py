@@ -3287,19 +3287,23 @@ class OptimizerTab(BaseTab):
 
           ATK/DEF/HP:  Base 3, Partner 3, MF% 4, Pot 3, MF Flat 2,
                          Affinity 2, Partner% 4, Set Effect Sum 4,
-                         Equip (apx.) 2, Other = checkmark / cross (width 1)
+                         Equip (apx.) 2, Other = `Y` / `-` (width 1)
           CRate/CDmg:  Base 5, MF Main 4, MF Sub Sum 4, Set Effect Sum 4,
-                         Other 4 (or just the cross when zero)
+                         Other 4 (or a bare `-` when zero)
           Element%, ExtrDMG%, Dot DMG%, Ego:
                        MF Main / MF Sub Sum 4 each, Set Effect Sum 4,
-                         Other 4 (or just the cross when zero)
+                         Other 4 (or a bare `-` when zero)
           xDMG% / +DMG%:  4 (set-effect contributions only; the user's
                          Avg Multi Buff% / Avg Add Buff% fields are
                          deliberately excluded)
 
-        The "0 if cross" rule for Other: when the value is zero, we render
-        a bare cross mark (1 char) rather than a 4-wide padded zero, so the
-        cross stands out vs. legitimate-but-small numeric contributions.
+        The "0 is a dash" rule for Other: a zero renders as one dash
+        rather than a 4-wide padded zero, so it reads as "nothing here"
+        at a glance rather than as a small contribution.
+
+        **ASCII only, and the popup depends on it.** This block is set
+        in Consolas and sized from it, so a character that face has no
+        glyph for is drawn from another at another width.
         """
         def _int(v, w):
             return f"{v:>{w}.0f}"
@@ -3308,16 +3312,16 @@ class OptimizerTab(BaseTab):
             return f"{v:>{w}.1f}"
 
         def _other(v, w):
-            # 4-wide decimal when non-zero; bare cross when zero.
-            return f"{v:>{w}.1f}" if abs(v) > 0.05 else "\u2717"
+            # 4-wide decimal when non-zero; a bare dash when zero.
+            return f"{v:>{w}.1f}" if abs(v) > 0.05 else "-"
 
         def _other_int(v, w):
             # Integer variant of _other (Ego is integer-valued in game
             # data, so its rows render without decimal points).
-            return f"{v:>{w}.0f}" if abs(v) > 0.05 else "\u2717"
+            return f"{v:>{w}.0f}" if abs(v) > 0.05 else "-"
 
         def _flag(present):
-            return "\u2713" if present else "\u2717"
+            return "Y" if present else "-"
 
         which = "optimizer-proposed" if is_proposed else "currently equipped"
         lines = [f"{char}  ({which} build)", ""]
@@ -3465,12 +3469,14 @@ class OptimizerTab(BaseTab):
         # here and the difference is taken back off the window, which is
         # where `_fit_popup`'s two arguments come from.
         #
-        # WIDTH: counting characters assumes every one is a cell wide,
-        # and the breakdown carries check and cross marks that Consolas
-        # has no glyph for -- Tk draws those from a fallback face at
-        # nearly twice the cell, so a line holding one is clipped by the
-        # difference. Measuring in pixels and dividing up covers them,
-        # and over-reserves by whatever the division rounded away.
+        # WIDTH: counting characters would assume every one is a cell
+        # wide, which holds only while every character comes from
+        # Consolas. One that does not is drawn from another face at
+        # another width, and the line is clipped by the difference with
+        # nothing to say so -- `_format_breakdown_text` is ASCII for
+        # that reason and a check holds it there. Measuring covers the
+        # case anyway, and over-reserves by whatever the division up to
+        # a whole cell rounded away.
         face = tkfont.Font(font=("Consolas", 10))
         cell = face.measure("0") or 1
         widest = max((face.measure(line) for line in lines), default=40 * cell)
@@ -3479,15 +3485,15 @@ class OptimizerTab(BaseTab):
 
         # spacing: unique -- monospace columns inside the contributions text -- text, text ↔
         # spacing: border edge -> first non-button element -- text, text ↔↕
-        # spacing: exception -- border edge -> first non-button element -- text, text ↔
-        # `padx` is the whole of the left inset: the first glyph of
-        # these lines starts at its own origin. The RIGHT is `padx`
-        # plus two things it cannot reach. `column_slack` above is the
-        # first -- the widget reserves whole cells and the window gives
-        # the remainder back -- and the second is the last glyph's own
-        # right side bearing, which stops its ink inside its advance by
-        # an amount that is per glyph and that no Tk metric reports.
-        # So that side is tracked as an exception at what it renders.
+        # `padx` is the whole of the left inset. The RIGHT is `padx`
+        # plus whatever the character grid reserved past the last glyph,
+        # which `column_slack` above measures and `_fit_popup` gives
+        # back to the window.
+        #
+        # What is left after that is the last glyph's own right side
+        # bearing -- ink stops inside its advance, by an amount that is
+        # per glyph and that no Tk metric reports. It is 0 for the
+        # glyphs this block ends its lines on.
         #
         # `pady` reaches the top and the bottom at once and the two ends
         # are read differently -- the first line's CAPITAL above, the

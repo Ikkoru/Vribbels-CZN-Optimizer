@@ -225,7 +225,7 @@ Body text is **Segoe UI 9**; the three panels of running prose are **Segoe UI Va
 | Segoe UI Variable Small | 11      | 16     | 4       | 20        | Capture Log; Setup Instructions; How Gear Score Works |
 | Segoe UI                | 10      | 13     | 3       | 16        | About only — out of scope |
 | Segoe UI                | 12 bold | 17     | 4       | 21        | About and Materials only — out of scope |
-| Consolas                | 10      | 12     | 3       | 15        | the contributions popup — out of scope |
+| Consolas                | 10      | 12     | 3       | 15        | the contributions popup, which is ASCII so every character is one 7px cell |
 
 **Variable Small stands a pixel taller than Segoe UI below 11** — one more of ascent, the same descent — and that pixel lands above the first glyph, so a panel changing size owes its `pady` the difference. At 11 the two share a line box, and Variable Small **8** is the exact metric twin of Segoe UI 9 (12/3/15).
 

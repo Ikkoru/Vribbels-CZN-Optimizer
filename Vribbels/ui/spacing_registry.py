@@ -2977,12 +2977,6 @@ DEBUG_PAIR_GAPS = ()
 # why -- `check_spacing_registry` enforces the pair.
 EXCEPTION_ENTRIES = {
     "Debug WS -> Upgrade Log Settings": "exception",
-    # The field is sized in whole CHARACTERS from the text's advances,
-    # and a glyph's ink stops inside its own advance by an amount that
-    # is per glyph. The left inset does not carry it -- the first glyph
-    # of these lines starts at its origin -- so only the right side is
-    # `padx` plus a bearing, and no Tk metric exposes one.
-    "popup: its last column -> text field": "exception",
 }
 
 
@@ -3284,7 +3278,7 @@ POPUP_ENTRIES = [
     # on its own, where the right also carries whatever the character
     # grid reserved past the last glyph. `_fit_popup` takes that back,
     # and this is what says it did.
-    ("contributions popup", "popup: its last column -> text field", 7,
+    ("contributions popup", "popup: its last column -> text field", 4,
      RULE_BORDER_EDGE_CONTENT,
      _text_inset(_audit_window_class("Text"), "right"), "h"),
 
@@ -3338,7 +3332,6 @@ AWAITING_FIRST_READING = {
     "popup: text field -> its first line",
     "popup: its last line -> text field",
     "popup: text field -> its first column",
-    "popup: its last column -> text field",
     "restore: window top -> Restore Missing",
     "restore: Restore heading -> Name heading",
     "restore: Restore heading -> its checkboxes",
