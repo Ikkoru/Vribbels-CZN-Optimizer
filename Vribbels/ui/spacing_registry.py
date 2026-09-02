@@ -3200,6 +3200,27 @@ def _materials_child(part, position):
     return find
 
 
+def _ink_to_box_edge(left, right):
+    """Resolver: a label's painted right edge -> the BOX left edge of the
+    widget beside it.
+
+    For a column of RIGHT-ALIGNED figures. What the rule is about there
+    is the distance to where a full-width value would start, not to
+    where this row's value happens to: the column is held at a reserved
+    width, so a short number leaves a wider gap after the label and
+    that gap is the reservation showing rather than a miss.
+
+    The column's left edge is the value widget's own because the widget
+    fills the column -- `sticky=ew` with the text anchored east.
+    """
+    def resolve(cap, app):
+        span = sa.painted_extent_h(cap, sa.box_of(left(app)))
+        if span is None:
+            return None, "the label painted nothing"
+        return sa.gap_between(span[1], sa.box_of(right(app)).left), ""
+    return resolve
+
+
 def _materials_row_below():
     """Locator: the first icon of the SECOND Element row on Materials.
 
@@ -3319,8 +3340,8 @@ MATERIALS_ENTRIES = [
      _gap(_materials_child(1, 0), _materials_child(1, 1), "h"), "h"),
     # Children 1 and 2 of the figures block are the first line's label
     # and its value; child 0 is the Element's name above them.
-    ("Materials", "Materials: Total: -> its value", 5, RULE_LABEL_ELEMENT,
-     _gap(_materials_child(0, 1), _materials_child(0, 2), "h"), "h"),
+    ("Materials", "Materials: Total: -> its column", 5, RULE_LABEL_ELEMENT,
+     _ink_to_box_edge(_materials_child(0, 1), _materials_child(0, 2)), "h"),
     ("Materials", "Materials: icon row -> icon row", 4, RULE_CONTENT_FRAME,
      _gap(_materials_child(1, 0), _materials_row_below(), "v"), "v"),
 ]

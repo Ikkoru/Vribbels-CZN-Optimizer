@@ -14,6 +14,7 @@ three levels of ambition.
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter import font as tkfont
 from pathlib import Path
 
 from game_data import GROWTH_STONES, ATTRIBUTE_COLORS
@@ -66,7 +67,27 @@ HEADING_GAP = 10        # spacing: panel ↕ unrelated label -- heading, frame �
 # An Element's text block against the icons beside it, and a stat
 # line's label against its value.
 TEXT_TO_ICONS = 5       # spacing: label ↔ its element -- label, frame ↔
-LABEL_TO_VALUE = 5      # spacing: label ↔ its element -- label, label ↔
+# 3 rather than the rule's 5: a ttk.Label's glyphs stop two pixels
+# inside its own box on each side, and this pad starts at the box.
+LABEL_TO_VALUE = 3      # spacing: label ↔ its element -- label, label ↔
+
+# How wide the figures' column is held, in digits. RESERVED rather than
+# fitted: right-aligned values in a column that sizes to its content
+# would move the labels beside them every time a figure gained or lost
+# a digit, and each Element has its own grid, so the five blocks would
+# stop lining up with each other.
+#
+# `100%` is the other thing the column has to hold, and a percent sign
+# is wider than a digit -- so the reservation is the larger of the two
+# rather than the digits alone.
+VALUE_DIGITS = 4
+VALUE_WIDEST = "100%"
+
+# What a ttk.Label adds around its own text, both sides together. Its
+# `minsize` is a box width and the reservation above is an ink width,
+# so one has to be restated as the other. Measured at Segoe UI 9 and
+# constant across every string tried.
+LABEL_INSET_PX = 4
 
 # What a figure reads before any snapshot has been loaded.
 NO_DATA = "-"
@@ -138,6 +159,11 @@ class MaterialsTab(BaseTab):
         """One Element: its name and figures, then its three icons."""
         text = ttk.Frame(row)
         text.pack(side=tk.LEFT, anchor=tk.N)
+        # The figures' column, held at its reserved width. `minsize` is
+        # a floor, so a value wider than the reservation still widens
+        # it -- which is why the reservation covers the widest form the
+        # column can hold rather than four digits alone.
+        text.grid_columnconfigure(1, minsize=self._value_column_px())
 
         name = attribute if stones else "Reserved"
         colour = (ATTRIBUTE_COLORS.get(attribute, self.colors["fg"])
@@ -158,8 +184,15 @@ class MaterialsTab(BaseTab):
             # theirs; the pad is the whole of the gap between them.
             ttk.Label(text, text=label, font=STAT_FONT).grid(
                 row=line, column=0, sticky="e", padx=(0, LABEL_TO_VALUE))
-            value = ttk.Label(text, text=NO_DATA, font=STAT_FONT)
-            value.grid(row=line, column=1, sticky="w")
+            # `sticky=ew` with `anchor=e`: the widget fills the column
+            # and the digits sit at its right. Sticking it east instead
+            # would right-align the WIDGET, which is the same thing to
+            # look at and leaves nothing at the column's left edge --
+            # and that edge is where the label beside it is spaced from,
+            # so it has to be a real one.
+            value = ttk.Label(text, text=NO_DATA, font=STAT_FONT,
+                              anchor=tk.E)
+            value.grid(row=line, column=1, sticky="ew")
             values[label] = value
         if stones:
             self.material_stats[attribute] = values
@@ -192,6 +225,19 @@ class MaterialsTab(BaseTab):
         """
         return tk.Label(parent, bg=self.colors["bg"], fg=self.colors["fg"],
                         bd=0, highlightthickness=0, padx=0, pady=0)
+
+    @staticmethod
+    def _value_column_px():
+        """The reserved width of the figures' column, in pixels.
+
+        Measured rather than stated: a digit's advance is the font's,
+        and the column has to hold `VALUE_DIGITS` of them plus the
+        Label's own inset around them.
+        """
+        font = tkfont.Font(font=STAT_FONT)
+        widest = max(font.measure("0" * VALUE_DIGITS),
+                     font.measure(VALUE_WIDEST))
+        return widest + LABEL_INSET_PX
 
     @staticmethod
     def _res_id_for(attribute, quality):
