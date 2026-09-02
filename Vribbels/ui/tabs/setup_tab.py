@@ -533,7 +533,23 @@ STEP 2: Verify setup
             )
             return
 
-        # ----- Build the dialog -----
+        self._build_restore_dialog(kind, mgr, defaults_path, missing,
+                                   changed, meta)
+
+    def _build_restore_dialog(self, kind, mgr, defaults_path, missing,
+                              changed, meta):
+        """Build and show the dialog for a diff that has been computed.
+
+        Split from `_open_restore_dialog` so the window can be opened
+        with a stated diff. Everything above the split reports a reason
+        it cannot open through `messagebox`, which blocks -- so it is
+        the wrong half to call from anywhere but a button.
+
+        Returns the dialog.
+        """
+        missing_data: dict = {}   # key -> {"restore": BooleanVar, "display": str}
+        changed_data: dict = {}   # key -> see _build_changed_row
+
         dlg = tk.Toplevel(self.frame)
         dlg.title(meta["dialog_title"])
         dlg.transient(self.root)
@@ -553,9 +569,6 @@ STEP 2: Verify setup
         frames_row.grid_columnconfigure(0, weight=1, uniform="halves")
         frames_row.grid_columnconfigure(1, weight=1, uniform="halves")
         frames_row.grid_rowconfigure(0, weight=1)
-
-        missing_data: dict = {}   # key -> {"restore": BooleanVar, "display": str}
-        changed_data: dict = {}   # key -> see _build_changed_row
 
         self._build_missing_frame(frames_row, missing, missing_data)
         self._build_changed_frame(frames_row, changed, changed_data, meta["show_rename"])
@@ -595,6 +608,7 @@ STEP 2: Verify setup
             dlg.geometry(f"{target_w}x{natural_h}+{max(0, x)}+{max(0, y)}")
         except (tk.TclError, AttributeError):
             pass
+        return dlg
 
     # ----- frame builders -----
 

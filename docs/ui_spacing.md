@@ -370,13 +370,22 @@ were — the Stat Contributions popup, the Restore Defaults dialog and
 the hover tooltip — are marked and nudged like anything else. Where a
 new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
 
-**The three windows the app opens over the main one are marked but not
-measured.** The audit captures the main window, so a gap inside a
-`Toplevel` has no reading behind it — every value there is set by rule
-and by construction. What that costs is the thing every other rule has:
-a number nobody has checked against the screen. Bringing them in means
-letting a registry entry name the window it is measured in, and a
-scenario that opens it.
+**A gap inside a window the app opens over the main one names that
+window.** A screenshot covers one window, so `track(window=...)` takes
+a callable returning the widget to photograph, and a scenario opens
+that window first and destroys it after. Ten such gaps are registered,
+across the Stat Contributions popup and the Restore Defaults dialog.
+
+Every one of them is provisional. The audit had no way to reach a popup
+until they existed, so their levers were set from the rules and nothing
+has read what they render.
+
+**Two insets in those windows are still out of reach**: the popup
+Text's own edge to the words inside it, and the tooltip border's to
+its. Both want a scan INSIDE a filled widget, which `_text_panel_inset`
+does for the three prose panels — and does by panel title, so reaching
+these means giving it a locator instead. The tooltip has no measured
+gap at all for that reason, and no scenario.
 
 - **"Title above, element below" measures to the first painted pixel
   below the title, INCLUDING a border.** A LabelFrame's title sits above

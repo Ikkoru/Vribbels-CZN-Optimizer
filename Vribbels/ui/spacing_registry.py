@@ -3058,12 +3058,200 @@ ELEMENT_ENTRIES = [
 # The entries built by `sa.track` further down state the flag directly;
 # this set is for the ones the tables above generate, whose tuples have
 # no room for it.
+# ------------------------------------------------- the windows over the app
+
+# A screenshot covers one window, so the three the app opens over the
+# main one are each read from their own. The scenario opens one and
+# leaves it on the app; `_audit_window` reads it back for `window=`.
+#
+# `AUDIT_WINDOW_ATTR` is the attribute they share, one at a time --
+# only one scenario runs at a time, and a name per window would let a
+# torn-down one be photographed by the next scenario's entries.
+AUDIT_WINDOW_ATTR = "_audit_window"
+
+# What the contributions popup is opened with. Its own text is built
+# from a combatant's gear, and the audit measures the window's chrome
+# rather than the numbers -- but the strings still have to open on
+# CAPITALS, which is where every inset above is read from.
+POPUP_SAMPLE = "\n".join([
+    "Totals",
+    "ATK:  1234",
+    "DEF:   567",
+    "HP:   8901",
+])
+
+# What the Restore Defaults dialog is opened with. Both frames get a
+# row, because an empty one renders `(none missing)` instead of the
+# checkbox column every rule here is measured against.
+RESTORE_SAMPLE_MISSING = [("audit-a", "Alpha"), ("audit-b", "Beta")]
+RESTORE_SAMPLE_CHANGED = [("audit-c", "Gamma")]
+
+def _audit_window(app):
+    """Locator: the window the running scenario opened."""
+    window = getattr(app, AUDIT_WINDOW_ATTR, None)
+    if window is None:
+        raise LookupError("no window open; its scenario did not run")
+    return window
+
+
+def _in_audit_window(prefix):
+    """Locator: a widget inside that window, by the words on it.
+
+    `_by_text` searches the selected TAB, which a popup is not part of
+    -- its widgets hang off a Toplevel of their own.
+    """
+    def find(app):
+        widget = sa.find_descendant_text(_audit_window(app), prefix)
+        if widget is None:
+            raise LookupError(f"no element in the popup starting {prefix!r}")
+        return widget
+    return find
+
+
+def _audit_window_class(*classes):
+    """Locator: the first widget of `classes` in that window."""
+    def find(app):
+        found = sa.find_descendants_class(_audit_window(app), *classes)
+        if not found:
+            raise LookupError(f"no {'/'.join(classes)} in the popup")
+        return found[0]
+    return find
+
+
+def _audit_panel(title):
+    """Locator: a LabelFrame in that window, by its visible title."""
+    def find(app):
+        frame = sa.find_labelframe(_audit_window(app), title)
+        if frame is None:
+            raise LookupError(f"no panel titled {title!r} in the popup")
+        return frame
+    return find
+
+
+def _capture_edge(locator, side):
+    """Resolver: a widget's painted edge -> the edge of its own window.
+
+    The same arithmetic as `_to_window_edge` on all four sides. The
+    capture is a CLIENT area -- no title bar, border or shadow in it --
+    so the window's edge is the first row or column past the image, and
+    the gap is the background between the ink and that.
+
+    Whose window depends on the capture, not on this: a gap registered
+    with `window=` is handed its own popup's image, and the same
+    resolver measures to that popup's edge.
+    """
+    def resolve(cap, app):
+        widget = locator(app)
+        if side in ("left", "right"):
+            span = sa.painted_extent_h(cap, sa.box_of(widget))
+        else:
+            span = sa.painted_extent_v(cap, sa.box_of(widget))
+        if span is None:
+            return None, "painted nothing"
+        left, top = cap.origin
+        right = left + cap.image.size[0]
+        bottom = top + cap.image.size[1]
+        if side == "left":
+            return sa.gap_between(left - 1, span[0]), ""
+        if side == "right":
+            return sa.gap_between(span[1], right), ""
+        if side == "top":
+            return sa.gap_between(top - 1, span[0]), ""
+        return sa.gap_between(span[1], bottom), ""
+    return resolve
+
+
+def _open_contributions_popup(app):
+    setattr(app, AUDIT_WINDOW_ATTR,
+            app.optimizer_tab_instance._show_text_popup(
+                "Stat Contributions (audit)", POPUP_SAMPLE))
+
+
+def _open_restore_dialog(app):
+    from .tabs.setup_tab import _RESTORE_KIND_META
+    tab = app.setup_tab_instance
+    # No manager and no defaults path: those reach the Restore button's
+    # command and nothing presses it. Everything the layout depends on
+    # is in the two lists and the meta.
+    setattr(app, AUDIT_WINDOW_ATTR,
+            tab._build_restore_dialog(
+                "presets", None, None, RESTORE_SAMPLE_MISSING,
+                RESTORE_SAMPLE_CHANGED, _RESTORE_KIND_META["presets"]))
+
+
+def _close_audit_window(app):
+    window = getattr(app, AUDIT_WINDOW_ATTR, None)
+    setattr(app, AUDIT_WINDOW_ATTR, None)
+    if window is None:
+        return
+    try:
+        window.destroy()
+    except tk.TclError:
+        pass
+
+
+for _name, _setup in (("contributions popup", _open_contributions_popup),
+                      ("restore dialog", _open_restore_dialog)):
+    sa.register_scenario(_name, _setup, _close_audit_window)
+
+
+# (scenario, name, target, rule, resolver, axis) for the gaps inside
+# those windows. Every one is set by rule and by construction: the
+# audit had no way to reach a popup until these, so none has been read
+# off a screen.
+#
+# What is NOT here is the inset from a text field's own edge to the
+# words inside it -- the popup's Text, and the tooltip's Label. Those
+# want a scan INSIDE a filled widget, which is what
+# `_text_panel_inset` does for the three prose panels and does by
+# panel title. Reaching them means giving that resolver a locator.
+POPUP_ENTRIES = [
+    ("contributions popup", "popup: window edge -> text field", 4,
+     RULE_CONTENT_FRAME,
+     _capture_edge(_audit_window_class("Text"), "left"), "h"),
+    ("contributions popup", "popup: text field -> window edge", 4,
+     RULE_CONTENT_FRAME,
+     _capture_edge(_audit_window_class("Text"), "right"), "h"),
+    ("contributions popup", "popup: window top -> text field", 4,
+     RULE_CONTENT_FRAME,
+     _capture_edge(_audit_window_class("Text"), "top"), "v"),
+    ("contributions popup", "popup: text field -> Close", 4,
+     RULE_BORDER_EDGE_CONTENT,
+     _gap(_audit_window_class("Text"), _in_audit_window("Close"), "v"), "v"),
+    ("contributions popup", "popup: Close -> window bottom", 4,
+     RULE_CONTENT_FRAME,
+     _capture_edge(_in_audit_window("Close"), "bottom"), "v"),
+
+    ("restore dialog", "restore: window edge -> Restore Missing", 4,
+     RULE_CONTENT_FRAME,
+     _capture_edge(_audit_panel("Restore Missing"), "left"), "h"),
+    ("restore dialog", "restore: Restore Missing -> Replace Changed", 4,
+     RULE_CONTENT_FRAME,
+     _gap(_audit_panel("Restore Missing"),
+          _audit_panel("Replace Changed"), "h"), "h"),
+    ("restore dialog", "restore: Replace Changed -> window edge", 4,
+     RULE_CONTENT_FRAME,
+     _capture_edge(_audit_panel("Replace Changed"), "right"), "h"),
+    ("restore dialog", "restore: Cancel -> window bottom", 4,
+     RULE_CONTENT_FRAME,
+     _capture_edge(_in_audit_window("Cancel"), "bottom"), "v"),
+    ("restore dialog", "restore: Restore -> Cancel", 4, RULE_BUTTON_GAP,
+     _gap(_in_audit_window("Restore "), _in_audit_window("Cancel"), "h"), "h"),
+]
+
+
 AWAITING_FIRST_READING = {
-    # EMPTY, and that is the state to keep it in. A name goes in here
-    # when an entry is registered at a target the rules table supplies
-    # rather than at a distance somebody has read off the screen, and
-    # comes out again the moment a run confirms it -- so a row printing
-    # yellow is a question, never a regression.
+    # A name goes in here when an entry is registered at a target the
+    # rules table supplies rather than at a distance somebody has read
+    # off the screen, and comes out again the moment a run confirms it
+    # -- so a row printing yellow is a question, never a regression.
+    # EMPTY is the state to return it to.
+    #
+    # Every gap inside a window the app opens over the main one. The
+    # audit could not photograph one of those until they were
+    # registered, so their levers were set from the rules and nothing
+    # has checked what they render.
+    *(name for _s, name, *_rest in POPUP_ENTRIES),
 }
 
 
@@ -3248,6 +3436,23 @@ def register_all():
                 target_source=(source if source is not None
                                else EXCEPTION_ENTRIES.get(name, "rule")),
             )
+
+    for scenario, name, target, rule, resolve, axis in POPUP_ENTRIES:
+        sa.track(
+            name=name,
+            # The tab the window is opened FROM. Every gap is measured
+            # against a selected tab, and a popup's parent is the one
+            # its scenario reaches through.
+            tab=("Optimizer" if scenario == "contributions popup"
+                 else "Setup"),
+            rule=rule,
+            target=target,
+            resolve=resolve,
+            axis=axis,
+            scenario=scenario,
+            window=_audit_window,
+            provisional=name in AWAITING_FIRST_READING,
+        )
 
     for tab, name, target, hand, source, resolve in EXPLANATION_ENTRIES:
         sa.track(

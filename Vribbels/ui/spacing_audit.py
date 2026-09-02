@@ -584,6 +584,13 @@ class TrackedGap:
 
     The distinction is printed, so an exception's 7 is not later
     "corrected" to 5 by someone applying the rule from memory.
+
+    `window` names the window the gap is inside, for the three the app
+    opens over the main one. `None` is the main window, which is every
+    gap but those. A screenshot covers ONE window, so a gap in a popup
+    read from the main window's capture is not a wrong number -- it is
+    a reading of whatever the main window happens to have at those
+    coordinates.
     """
     name: str
     tab: str
@@ -596,6 +603,7 @@ class TrackedGap:
     provisional: bool = False
     hand: Optional[int] = None
     couples_with: tuple = field(default_factory=tuple)
+    window: object = None            # app -> the widget to capture
 
 
 REGISTRY: list[TrackedGap] = []
@@ -603,14 +611,23 @@ REGISTRY: list[TrackedGap] = []
 
 def track(name, tab, rule, target, resolve, axis, scenario="default",
           target_source="rule", provisional=False, hand=None,
-          couples_with=()):
+          couples_with=(), window=None):
     """Register one gap. `axis` is required: a row whose direction is
-    not stated cannot be read out of a table of forty."""
+    not stated cannot be read out of a table of forty.
+
+    `window` is a callable taking the app, for a gap inside one of the
+    windows opened over the main one. A gap that names one needs a
+    scenario that opens it: the callable runs during the measuring
+    pass, and a window that is not there yet has nothing to capture.
+    """
     if axis not in ("h", "v"):
         raise ValueError(f"{name}: axis must be 'h' or 'v', got {axis!r}")
+    if window is not None and not callable(window):
+        raise ValueError(f"{name}: window must be a callable taking the app")
     REGISTRY.append(
         TrackedGap(name, tab, rule, target, resolve, axis, scenario,
-                   target_source, provisional, hand, tuple(couples_with)))
+                   target_source, provisional, hand, tuple(couples_with),
+                   window))
 
 
 # ----------------------------------------------------------------- scenarios
@@ -1079,7 +1096,21 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False):
             rows.extend((g.name, g.target, None, f"no scenario {scenario!r}",
                          g.tab, g.axis, g.provisional) for g in gaps)
             continue
-        setup(app)
+        # A scenario that raises used to take the whole run with it,
+        # and the ones opening a window over the app are the likeliest
+        # to: they reach into a tab's own dialog builders, which change
+        # for reasons that have nothing to do with spacing. Its gaps
+        # report the reason instead, and every other scenario still
+        # runs.
+        try:
+            setup(app)
+        except Exception as exc:                          # noqa: BLE001
+            rows.extend((g.name, g.target, None,
+                         f"scenario {scenario!r} failed: "
+                         f"{type(exc).__name__}: {exc}",
+                         g.tab, g.axis, g.provisional) for g in gaps)
+            teardown(app)
+            continue
         app.root.update()
         try:
             rows.extend(_measure_tabs(app, notebook, gaps, scenario))
@@ -1126,8 +1157,23 @@ def _measure_tabs(app, notebook, gaps, scenario):
             continue
         notebook.select(tab_id)
         app.root.update()
-        cap = Capture.of_window(app.root, app.colors)
+        # One capture per window, not per gap. A screenshot costs a
+        # quarter-second settle, and the gaps inside a popup are read
+        # from that popup's own image -- the main window's would report
+        # whatever sits at those coordinates behind it.
+        caps = {None: Capture.of_window(app.root, app.colors)}
         for g in tab_gaps:
+            if g.window is not None and g.window not in caps:
+                try:
+                    caps[g.window] = Capture.of_window(
+                        g.window(app), app.colors)
+                except (tk.TclError, AttributeError) as exc:
+                    caps[g.window] = f"no window to capture: {exc}"
+            cap = caps[None] if g.window is None else caps[g.window]
+            if isinstance(cap, str):
+                rows.append((prefix + g.name, g.target, None, cap,
+                             tab_name, g.axis, g.provisional))
+                continue
             try:
                 value, note = g.resolve(cap, app)
             except tk.TclError as exc:

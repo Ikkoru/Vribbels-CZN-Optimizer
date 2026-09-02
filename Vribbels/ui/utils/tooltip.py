@@ -69,7 +69,7 @@ class Tooltip:
         self._bind_escape(widget)
         try:
             self._after_id = widget.after(
-                self.DELAY_MS, lambda: self._show(widget, text))
+                self.DELAY_MS, lambda: self.show(widget, text))
         except tk.TclError:
             self._after_id = None
 
@@ -84,7 +84,14 @@ class Tooltip:
             return
         self._escape_bound = True
 
-    def _show(self, widget, text):
+    def show(self, widget, text):
+        """Put the tip up now, skipping the delay.
+
+        `schedule` is the one hover uses. This is public for the two
+        callers that already know they want it on screen: itself, once
+        the delay has run, and the spacing audit, which has a window to
+        photograph and no pointer to hover with.
+        """
         self._after_id = None
         try:
             x = widget.winfo_pointerx() + 12

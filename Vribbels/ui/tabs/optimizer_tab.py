@@ -3447,6 +3447,9 @@ class OptimizerTab(BaseTab):
         breakdown grows a row per set bonus, and a fixed size either
         clips a long one or leaves a band of empty panel under a short
         one.
+
+        Returns the window, which is how the spacing audit gets hold of
+        one to photograph.
         """
         lines = text.split("\n")
 
@@ -3489,6 +3492,7 @@ class OptimizerTab(BaseTab):
                    command=top.destroy).pack(pady=(0, 4))
 
         self._fit_popup(top)
+        return top
 
     def _fit_popup(self, top):
         """Size `top` to what it asked for, and centre it on the app.
