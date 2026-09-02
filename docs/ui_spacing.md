@@ -373,19 +373,20 @@ new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
 **A gap inside a window the app opens over the main one names that
 window.** A screenshot covers one window, so `track(window=...)` takes
 a callable returning the widget to photograph, and a scenario opens
-that window first and destroys it after. Ten such gaps are registered,
-across the Stat Contributions popup and the Restore Defaults dialog.
+that window first and destroys it after. Seventeen such gaps are
+registered, across the Stat Contributions popup and the Restore
+Defaults dialog.
 
-Every one of them is provisional. The audit had no way to reach a popup
-until they existed, so their levers were set from the rules and nothing
-has read what they render.
+**Locate a control in one of those by CLASS as well as by words.**
+`Restore ` found the panel titled `Restore Missing` before it found the
+Restore button, and reported the 4px between the buttons as 307 — far
+enough out to be obvious, which was luck rather than design.
 
-**Two insets in those windows are still out of reach**: the popup
-Text's own edge to the words inside it, and the tooltip border's to
-its. Both want a scan INSIDE a filled widget, which `_text_panel_inset`
-does for the three prose panels — and does by panel title, so reaching
-these means giving it a locator instead. The tooltip has no measured
-gap at all for that reason, and no scenario.
+**The tooltip has no measured gap and no scenario.** Its inset is the
+one thing left that wants a scan inside a filled widget with no second
+widget to measure against: the tip window IS the label, so there is no
+pair to read. `_text_inset` reaches the popup's Text because a Text's
+own box edge is the border its prose is inset from; a Label's is not.
 
 - **"Title above, element below" measures to the first painted pixel
   below the title, INCLUDING a border.** A LabelFrame's title sits above

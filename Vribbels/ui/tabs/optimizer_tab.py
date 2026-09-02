@@ -40,6 +40,7 @@ result display; the actual math lives in optimizer.py.
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter import font as tkfont
 import threading
 import queue
 from typing import Optional
@@ -3459,26 +3460,37 @@ class OptimizerTab(BaseTab):
         top.transient(self.root)
         close_on_escape(top)
 
+        # Width in CHARACTERS, from the widest line in PIXELS. Counting
+        # characters assumes every one is a cell wide, and the breakdown
+        # carries check and cross marks that Consolas has no glyph for:
+        # Tk draws those from a fallback face at nearly twice the cell
+        # width, so a line holding one is clipped by the difference.
+        face = tkfont.Font(font=("Consolas", 10))
+        cell = face.measure("0") or 1
+        columns = max((-(-face.measure(line) // cell) for line in lines),
+                      default=40)
+
         # spacing: unique -- monospace columns inside the contributions text -- text, text ↔
         # spacing: border edge -> first non-button element -- text, text ↔↕
-        # `pady` reaches the top and the bottom at once, and the two
-        # ends are read differently: the first line's CAPITAL above, the
-        # last line's BASELINE below. Consolas 10 leaves the same
-        # distance on both -- 3px of line box under the baseline, and 3
-        # between the box top and a capital -- so one value serves.
-        #
         # `highlightthickness` defaults to 1 on a Text and draws a focus
         # ring in a colour this theme never set, on top of adding a
         # pixel to every inset here.
         txt = tk.Text(
             top, wrap=tk.NONE, font=("Consolas", 10),
             bg=self.colors["bg_light"], fg=self.colors["fg"],
-            width=max((len(l) for l in lines), default=40),
-            height=len(lines),
-            bd=0, highlightthickness=0, padx=4, pady=1,
+            width=columns, height=len(lines),
+            bd=0, highlightthickness=0, padx=4, pady=0,
             insertbackground=self.colors["fg"],
         )
         txt.insert("1.0", text)
+        # `pady` reaches the top and the bottom at once, and the two
+        # ends are read differently: the first line's CAPITAL above, the
+        # last line's BASELINE below. Consolas 10 leaves four above a
+        # capital and three below a baseline, so no single `pady` puts
+        # both on the rule -- 0 buys the top, and the last line's own
+        # `spacing3` buys back the pixel the bottom is then short.
+        txt.tag_configure("last line", spacing3=1)
+        txt.tag_add("last line", f"{len(lines)}.0", tk.END)
         txt.config(state=tk.DISABLED)
         # spacing: content frame -> content frame -- frame, text ↔↕
         # spacing: border edge -> first non-button element -- text, button ↕

@@ -292,20 +292,31 @@ def _first_capital_band(widget):
 
 
 def _text_panel_inset(title, side="left"):
-    """Resolver: frame border -> the prose inside the text widget.
+    """Resolver: frame border -> the prose inside the panel's text.
 
-    The border is NOT found by scanning here. These panels are built so
-    the fill reaches the border -- that is the point of them -- so there
-    is no background pixel between the two for a scan to stop at. But
-    the same fact gives the answer directly: the text widget abuts the
-    border, so the border's inner edge is the widget's own box edge.
+    The panel is found by its title; `_text_inset` does the reading.
+    """
+    return _text_inset(lambda app: _text_of(app, title)[1], side)
+
+
+def _text_inset(locator, side="left"):
+    """Resolver: a text widget's own edge -> the prose inside it.
+
+    The border is NOT found by scanning. These widgets are built so the
+    fill reaches the border -- that is the point of them -- so there is
+    no background pixel between the two for a scan to stop at. But the
+    same fact gives the answer directly: the text abuts the border, so
+    the border's inner edge is the widget's own box edge.
 
     The TOP is read on the first capital rather than on the line's
-    topmost ink. Every other side is read on the ink, because left,
-    right and bottom have no cap-versus-ascender question in them.
+    topmost ink. Every other side is read on the ink, because left and
+    right have no cap-versus-ascender question in them -- and the
+    BOTTOM has the matching one, so a string whose last line ends on a
+    descender reads three tighter than the rule wants. The one entry
+    that measures a bottom controls its own text for that reason.
     """
     def resolve(cap, app):
-        frame, text = _text_of(app, title)
+        text = locator(app)
         fill = {cap.palette["bg_light"]}
         box = sa.box_of(text)
         if side == "top":
@@ -3071,8 +3082,14 @@ AUDIT_WINDOW_ATTR = "_audit_window"
 
 # What the contributions popup is opened with. Its own text is built
 # from a combatant's gear, and the audit measures the window's chrome
-# rather than the numbers -- but the strings still have to open on
-# CAPITALS, which is where every inset above is read from.
+# rather than the numbers -- but the strings decide two of the
+# readings, so they are chosen rather than arbitrary:
+#
+#   * the FIRST line opens on a capital, which is where the top inset
+#     is read from.
+#   * the LAST line ends with no descender, so the bottom inset is read
+#     from a baseline. A `g` there would report three tighter than the
+#     rule asks with nothing on screen having moved.
 POPUP_SAMPLE = "\n".join([
     "Totals",
     "ATK:  1234",
@@ -3094,17 +3111,33 @@ def _audit_window(app):
     return window
 
 
-def _in_audit_window(prefix):
+def _in_audit_window(prefix, *classes):
     """Locator: a widget inside that window, by the words on it.
 
     `_by_text` searches the selected TAB, which a popup is not part of
     -- its widgets hang off a Toplevel of their own.
+
+    `classes` narrows the search where the words alone are not enough.
+    The Restore Defaults dialog holds a `Restore` BUTTON and a panel
+    titled `Restore Missing`, and the panel comes first in the tree --
+    which read as a gap of 307 rather than as the wrong widget.
     """
     def find(app):
-        widget = sa.find_descendant_text(_audit_window(app), prefix)
-        if widget is None:
-            raise LookupError(f"no element in the popup starting {prefix!r}")
-        return widget
+        window = _audit_window(app)
+        if not classes:
+            widget = sa.find_descendant_text(window, prefix)
+            if widget is None:
+                raise LookupError(
+                    f"no element in the popup starting {prefix!r}")
+            return widget
+        for widget in sa.find_descendants_class(window, *classes):
+            try:
+                if str(widget.cget("text")).startswith(prefix):
+                    return widget
+            except tk.TclError:
+                continue
+        raise LookupError(
+            f"no {'/'.join(classes)} in the popup starting {prefix!r}")
     return find
 
 
@@ -3217,10 +3250,20 @@ POPUP_ENTRIES = [
      _capture_edge(_audit_window_class("Text"), "top"), "v"),
     ("contributions popup", "popup: text field -> Close", 4,
      RULE_BORDER_EDGE_CONTENT,
-     _gap(_audit_window_class("Text"), _in_audit_window("Close"), "v"), "v"),
+     _gap(_audit_window_class("Text"),
+          _in_audit_window("Close", "TButton"), "v"), "v"),
     ("contributions popup", "popup: Close -> window bottom", 4,
      RULE_CONTENT_FRAME,
-     _capture_edge(_in_audit_window("Close"), "bottom"), "v"),
+     _capture_edge(_in_audit_window("Close", "TButton"), "bottom"), "v"),
+    ("contributions popup", "popup: text field -> its first line", 4,
+     RULE_BORDER_EDGE_CONTENT,
+     _text_inset(_audit_window_class("Text"), "top"), "v"),
+    ("contributions popup", "popup: its last line -> text field", 4,
+     RULE_BORDER_EDGE_CONTENT,
+     _text_inset(_audit_window_class("Text"), "bottom"), "v"),
+    ("contributions popup", "popup: text field -> its first column", 4,
+     RULE_BORDER_EDGE_CONTENT,
+     _text_inset(_audit_window_class("Text"), "left"), "h"),
 
     ("restore dialog", "restore: window edge -> Restore Missing", 4,
      RULE_CONTENT_FRAME,
@@ -3234,9 +3277,28 @@ POPUP_ENTRIES = [
      _capture_edge(_audit_panel("Replace Changed"), "right"), "h"),
     ("restore dialog", "restore: Cancel -> window bottom", 4,
      RULE_CONTENT_FRAME,
-     _capture_edge(_in_audit_window("Cancel"), "bottom"), "v"),
+     _capture_edge(_in_audit_window("Cancel", "TButton"), "bottom"), "v"),
     ("restore dialog", "restore: Restore -> Cancel", 4, RULE_BUTTON_GAP,
-     _gap(_in_audit_window("Restore "), _in_audit_window("Cancel"), "h"), "h"),
+     _gap(_in_audit_window("Restore", "TButton"),
+          _in_audit_window("Cancel", "TButton"), "h"), "h"),
+    ("restore dialog", "restore: window top -> Restore Missing", 4,
+     RULE_CONTENT_FRAME,
+     _capture_edge(_audit_panel("Restore Missing"), "top"), "v"),
+    # The two headings above the two columns. Read heading to heading
+    # rather than checkbox to label: the heading is the wider of the
+    # two and is what sets the column, so it is the edge a pad here
+    # actually moves.
+    ("restore dialog", "restore: Restore heading -> Name heading", 8,
+     RULE_PAIR_GAP,
+     _gap(_in_audit_window("Restore", "TLabel"),
+          _in_audit_window("Name", "TLabel"), "h"), "h"),
+    ("restore dialog", "restore: Restore heading -> its checkboxes", 7,
+     RULE_EXPLANATION,
+     _gap(_in_audit_window("Restore", "TLabel"),
+          _audit_window_class("Checkbutton"), "v"), "v"),
+    ("restore dialog", "restore: Restore Missing row pitch", 6,
+     RULE_CHECKBOX_PITCH,
+     _row_pitch_in(_audit_panel("Restore Missing"), CHECKBOX_CLASSES), "v"),
 ]
 
 
@@ -3247,11 +3309,20 @@ AWAITING_FIRST_READING = {
     # -- so a row printing yellow is a question, never a regression.
     # EMPTY is the state to return it to.
     #
-    # Every gap inside a window the app opens over the main one. The
-    # audit could not photograph one of those until they were
-    # registered, so their levers were set from the rules and nothing
-    # has checked what they render.
-    *(name for _s, name, *_rest in POPUP_ENTRIES),
+    # The gaps inside a window the app opens over the main one that a
+    # run has not confirmed. The rest of `POPUP_ENTRIES` read on target
+    # the first time they were measured.
+    "popup: text field -> its first line",
+    "popup: its last line -> text field",
+    "popup: text field -> its first column",
+    "restore: window top -> Restore Missing",
+    "restore: Restore heading -> Name heading",
+    "restore: Restore heading -> its checkboxes",
+    "restore: Restore Missing row pitch",
+    # Read 307 on its first run: `Restore ` found the panel titled
+    # `Restore Missing` before the button. The gap was 4 all along, and
+    # the resolver has still never produced a reading of it.
+    "restore: Restore -> Cancel",
 }
 
 
