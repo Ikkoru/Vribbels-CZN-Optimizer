@@ -661,7 +661,7 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "Deal 250% Damage. +10% assigned Combatant's Attack Card Damage Amount for each owned buff for 1 turn.",
     },
-    20039: {
+    20038: {
         "name": "Tina",
         "grade": 5,
         "class": "Ranger",
