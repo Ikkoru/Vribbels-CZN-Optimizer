@@ -646,9 +646,133 @@ def _all_none_panels_carry_no_left_padding(built):
     return out
 
 
+def _every_popup_closes_on_escape():
+    """Every window the app opens over the main one answers to Escape.
+
+    A window with no Escape is only noticed by someone who presses it,
+    and pressing it is the first thing anyone tries on a dialog. The
+    `messagebox` ones get it from Windows; the three this app builds
+    itself have to ask.
+
+    Scoped to the CLASS or module holding the `Toplevel`, not to the
+    function: the tooltip wires the key where the focus is rather than
+    on the popup -- a window with `wm_overrideredirect` set never
+    receives a keystroke -- so the call sits in a different method of
+    the same class.
+
+    Returns a list of complaints.
+    """
+    out = []
+    for path in sorted((SOURCE_ROOT / "ui").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        # Innermost class (else the module) for each node, so a
+        # Toplevel can be checked against the scope that would hold the
+        # binding.
+        scope_of = {}
+        for scope in [tree] + [n for n in ast.walk(tree)
+                               if isinstance(n, ast.ClassDef)]:
+            for node in ast.walk(scope):
+                scope_of[node] = scope
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "Toplevel"):
+                continue
+            scope = scope_of.get(node, tree)
+            wired = any(
+                (isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+                 and c.func.id == "close_on_escape")
+                or (isinstance(c, ast.Constant) and c.value == "<Escape>")
+                for c in ast.walk(scope))
+            if not wired:
+                out.append(
+                    f"{path.name} line {node.lineno} opens a Toplevel that "
+                    f"nothing closes on Escape. Call `close_on_escape` on "
+                    f"it -- or, for a window that takes no keyboard focus, "
+                    f"bind the key where the focus is."
+                )
+    return out
+
+
+def _restore_dialog_frames_follow_the_rules(tab, root):
+    """The Restore Defaults dialog's two panels, built without a window.
+
+    Nothing else reaches inside this dialog: it exists only while the
+    user has it open, so `setup_ui` never builds it and a name deleted
+    from under it raises on a click rather than on a launch. The two
+    frame builders take a plain parent, which is what lets them be
+    exercised here -- building the real `Toplevel` would put a window on
+    the maintainer's screen mid-check.
+
+    What it holds them to is the pair of rules that share a lever
+    everywhere else: a LabelFrame `padding` insets its All/None buttons
+    and its content alike, so the left and right components stay 0 and
+    the row comes from `make_all_none_row` rather than being built again
+    by hand.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from tkinter import ttk
+
+    parent = ttk.Frame(root)
+    out = []
+    try:
+        missing_data, changed_data = {}, {}
+        tab._build_missing_frame(
+            parent, [("a", "Alpha"), ("b", "Beta")], missing_data)
+        tab._build_changed_frame(
+            parent, [("c", "Gamma")], changed_data, True)
+
+        panels = [w for w in parent.winfo_children()
+                  if w.winfo_class() == "TLabelframe"]
+        if len(panels) != 2:
+            return [f"the restore dialog built {len(panels)} panels, not 2"]
+
+        for panel in panels:
+            title = str(panel.cget("text"))
+            padding = panel.cget("padding")
+            parts = (padding if isinstance(padding, (tuple, list))
+                     else str(padding).split())
+            sides = [int(str(p)) for p in parts] or [0]
+            left = sides[0]
+            right = sides[2] if len(sides) > 3 else left
+            if left or right:
+                out.append(
+                    f"the restore dialog's {title!r} panel carries "
+                    f"padding {left} left / {right} right. That insets its "
+                    f"All/None buttons and its rows alike, so `border edge "
+                    f"-> button` and `border edge -> first non-button "
+                    f"element` stop being separately settable."
+                )
+            labels = []
+            for child in panel.winfo_children():
+                for w in child.winfo_children():
+                    if w.winfo_class() == "TButton":
+                        labels.append(str(w.cget("text")))
+            if sorted(labels) != ["All", "None"]:
+                out.append(
+                    f"the restore dialog's {title!r} panel holds buttons "
+                    f"{sorted(labels)} rather than one All/None row. Every "
+                    f"such row comes from `make_all_none_row`; a hand-built "
+                    f"one is how the four tab panels drifted apart."
+                )
+    except Exception as e:                                # noqa: BLE001
+        out.append(f"the restore dialog's frames raised while building: "
+                   f"{type(e).__name__}: {e}")
+    finally:
+        try:
+            parent.destroy()
+        except tk.TclError:
+            pass
+    return out
+
+
 def run():
     failures = []
     add_source_to_path()
+
+    failures.extend(_every_popup_closes_on_escape())
 
     if not _make_checkbox_forces_its_window():
         failures.append(
@@ -748,6 +872,9 @@ def run():
                 _combatant_selection_survives_a_rebuild(built["HeroesTab"]))
             failures.extend(
                 _show_missing_adds_rather_than_replaces(built["HeroesTab"]))
+        if "SetupTab" in built:
+            failures.extend(_restore_dialog_frames_follow_the_rules(
+                built["SetupTab"], root))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))

@@ -364,10 +364,19 @@ what is measured to rather than what owns it, and covers both.
 
 ### Scope and standing exceptions
 
-Materials, About, every modal dialog, and transient popups and tooltips
-are **out of scope**. Where that could read as an oversight — a dialog
-built inside an in-scope file — one `# spacing: out of scope -- <why>`
-marks the boundary.
+**Materials and About are out of scope**, and are the whole of it. No
+`# spacing: out of scope` marker is left in the source; the three that
+were — the Stat Contributions popup, the Restore Defaults dialog and
+the hover tooltip — are marked and nudged like anything else. Where a
+new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
+
+**The three windows the app opens over the main one are marked but not
+measured.** The audit captures the main window, so a gap inside a
+`Toplevel` has no reading behind it — every value there is set by rule
+and by construction. What that costs is the thing every other rule has:
+a number nobody has checked against the screen. Bringing them in means
+letting a registry entry name the window it is measured in, and a
+scenario that opens it.
 
 - **"Title above, element below" measures to the first painted pixel
   below the title, INCLUDING a border.** A LabelFrame's title sits above
@@ -867,6 +876,7 @@ was fails the check rather than sitting unwatched.
 | `Setup Status stands apart on purpose`              | Setup, the four status rows                 | 13px     | |
 | `a button's own internal inset`                     | `TButton` padding, every button in the app  | —        | a widget's own inset, and it sets that widget's SIZE — the widths in `ui/utils/button_width.py` are only true against it. Every `button -> button` and `border edge -> button` reading rides it |
 | `Treeview internals, which are style options`       | every list                                  | —        | style options on a widget that draws its own insides, and no geometry manager reaches between them. See "Spacing inside a Treeview" |
+| `monospace columns inside the contributions text`   | Optimizer, the Stat Contributions popup     | —        | the columns are the `f"{value:>5.1f}"` that built the string, in a face where every character advances the same. No padding reaches between them, and changing one means changing a format |
 
 **The first pair is read from the status text's BASELINE**, taken off
 its first capital rather than off its ink -- `No data loaded` has no

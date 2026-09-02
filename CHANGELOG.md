@@ -32,6 +32,14 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The Capture Log's Upgraded lines read more easily.** The values are coloured: a Highest Potential range shows its floor dimmed and its ceiling green, or yellow where the ceiling is 40 or below, so a fragment worth keeping is visible without reading the numbers. `Upgraded` is green and `Deleted` red. A fragment with no upgrades left reports `Highest GS` and one value rather than a range that cannot move, matching the Memory Fragments tab's two columns. The brackets around preset names and around the upgrade level are gone, and `[proxy]` is left on the lines that are actually about the proxy.
 
+- **Escape closes every window the app opens over the main one** — the Stat Contributions popup, the three Restore Defaults dialogs, and a hover tooltip.
+
+- **The Memory Fragments column tooltips match the rest of the app.** The two Highest columns had their own tooltip in classic yellow-on-black; they now use the same dark one the Sets filter and the Combatants gear cells do.
+
+- **The Stat Contributions popup fits its contents.** It was sized to a fixed cap, which left a band of empty panel under a short breakdown. It also opens centred on the main window.
+
+- **The Restore Defaults dialogs are spaced like the rest of the app**, and their All/None buttons come from the same helper every other All/None row does.
+
 - **The three panels of running prose are set in Segoe UI Variable Small** — the Capture Log, the Setup instructions and How Gear Score Works.
 
 - **The Server Region is detected, not chosen.** The dropdown is gone. A capture now redirects both servers and forwards each connection to the right one, so whichever region your game uses is captured without you telling it. The Capture tab reports which one it saw, and says so plainly if two games on different servers are running at once.

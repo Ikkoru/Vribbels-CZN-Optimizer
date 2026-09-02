@@ -49,6 +49,7 @@ from ui.context import AppContext
 from ui.utils.all_none_row import make_all_none_row
 from ui.utils.button_width import BUTTON_W_SMALL
 from ui.utils.checkbox import make_checkbox
+from ui.utils.escape import close_on_escape
 from ui.utils.label_width import LABEL_REQUEST_INSET
 from ui.utils.spinbox_clamp import clamp_on_commit, commit_clamp
 from ui.utils.tooltip import Tooltip
@@ -3436,34 +3437,80 @@ class OptimizerTab(BaseTab):
         return "\n".join(lines)
 
     def _show_text_popup(self, title: str, text: str):
-        """Show `text` in a resizable Toplevel with a monospace Text widget,
-        sized so each line fits without wrapping. The 200-char width cap
-        keeps the wider ATK/DEF/HP lines (including Set Effect Sum) on one
-        line."""
+        """Show `text` in a Toplevel sized to fit it.
+
+        Monospace and `wrap=NONE`: the breakdown's columns are set by
+        the formatting that built the string, so a proportional face or
+        a wrapped line loses the alignment that makes it readable.
+
+        The window fits its content rather than a stated size. A
+        breakdown grows a row per set bonus, and a fixed size either
+        clips a long one or leaves a band of empty panel under a short
+        one.
+        """
+        lines = text.split("\n")
+
         top = tk.Toplevel(self.root)
         top.title(title)
         top.configure(bg=self.colors["bg"])
         top.transient(self.root)
+        close_on_escape(top)
 
-        lines = text.split("\n")
-        max_width = max((len(l) for l in lines), default=40)
-
-        # spacing: out of scope -- a popup window, deferred like the modal
-        # dialogs and the Materials and About tabs.
+        # spacing: unique -- monospace columns inside the contributions text -- text, text ↔
+        # spacing: border edge -> first non-button element -- text, text ↔↕
+        # `pady` reaches the top and the bottom at once, and the two
+        # ends are read differently: the first line's CAPITAL above, the
+        # last line's BASELINE below. Consolas 10 leaves the same
+        # distance on both -- 3px of line box under the baseline, and 3
+        # between the box top and a capital -- so one value serves.
+        #
+        # `highlightthickness` defaults to 1 on a Text and draws a focus
+        # ring in a colour this theme never set, on top of adding a
+        # pixel to every inset here.
         txt = tk.Text(
             top, wrap=tk.NONE, font=("Consolas", 10),
             bg=self.colors["bg_light"], fg=self.colors["fg"],
-            width=min(max_width + 2, 200),
-            height=min(len(lines) + 1, 40),
-            bd=0, padx=10, pady=10,
+            width=max((len(l) for l in lines), default=40),
+            height=len(lines),
+            bd=0, highlightthickness=0, padx=4, pady=1,
             insertbackground=self.colors["fg"],
         )
         txt.insert("1.0", text)
         txt.config(state=tk.DISABLED)
-        txt.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        # spacing: content frame -> content frame -- frame, text ↔↕
+        # spacing: border edge -> first non-button element -- text, button ↕
+        # The trailing `pady` is the second of those: what follows the
+        # text field is the Close button, and the button adds nothing
+        # above itself.
+        txt.pack(fill=tk.BOTH, expand=True, padx=4, pady=(4, 4))
 
+        # spacing: content frame -> content frame -- button, frame ↕
         ttk.Button(top, text="Close", width=BUTTON_W_SMALL,
-                   command=top.destroy).pack(pady=(0, 8))
+                   command=top.destroy).pack(pady=(0, 4))
+
+        self._fit_popup(top)
+
+    def _fit_popup(self, top):
+        """Size `top` to what it asked for, and centre it on the app.
+
+        Capped by the screen. The breakdown is a fixed set of rows and
+        does not reach that, but a window taller than the display would
+        put its Close button off the bottom edge with no way back to it
+        -- Escape aside.
+
+        Setting the geometry at all is what holds the text field's
+        bottom inset: the field is packed `expand=True`, so any height
+        beyond the requested one lands inside it.
+        """
+        top.update_idletasks()
+        width = min(top.winfo_reqwidth(), top.winfo_screenwidth() - 80)
+        height = min(top.winfo_reqheight(), top.winfo_screenheight() - 120)
+        try:
+            x = self.root.winfo_rootx() + (self.root.winfo_width() - width) // 2
+            y = self.root.winfo_rooty() + (self.root.winfo_height() - height) // 2
+        except tk.TclError:
+            x = y = 0
+        top.geometry(f"{width}x{height}+{max(0, x)}+{max(0, y)}")
 
     def _populate_stats_compare(self, current_stats: dict, new_stats: Optional[dict]):
         self.stats_tree.delete(*self.stats_tree.get_children())

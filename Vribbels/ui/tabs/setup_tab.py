@@ -26,9 +26,10 @@ from pathlib import Path
 import sys
 from capture import setup_certificate, open_certificate, find_mitmdump
 from ..base_tab import BaseTab
-from ..utils.button_width import (
-    BUTTON_W_LARGE, BUTTON_W_SMALL, BUTTON_W_TINY)
+from ..utils.all_none_row import make_all_none_row
+from ..utils.button_width import BUTTON_W_LARGE, BUTTON_W_SMALL
 from ..utils.checkbox import make_checkbox
+from ..utils.escape import close_on_escape
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 from defaults_sync import resolve_defaults_dir
@@ -533,19 +534,18 @@ STEP 2: Verify setup
             return
 
         # ----- Build the dialog -----
-        # spacing: out of scope -- a modal dialog, deferred like the
-        # Materials and About tabs. The rules scope to the tabs' own
-        # panels, so nothing below here is measured or marked.
         dlg = tk.Toplevel(self.frame)
         dlg.title(meta["dialog_title"])
         dlg.transient(self.root)
         dlg.grab_set()
+        close_on_escape(dlg)
         try:
             dlg.configure(bg=self.colors["bg"])
         except tk.TclError:
             pass
 
-        outer = ttk.Frame(dlg, padding=10)
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        outer = ttk.Frame(dlg, padding=4)
         outer.pack(fill=tk.BOTH, expand=True)
 
         frames_row = ttk.Frame(outer)
@@ -561,8 +561,12 @@ STEP 2: Verify setup
         self._build_changed_frame(frames_row, changed, changed_data, meta["show_rename"])
 
         # ----- Restore / Cancel -----
+        # spacing: content frame -> content frame -- panel, button ↕
+        # A button row under two panels and inside no panel of its own,
+        # which is the frame rule rather than the border-edge one.
         bottom = ttk.Frame(outer)
-        bottom.pack(fill=tk.X, pady=(10, 0))
+        bottom.pack(fill=tk.X, pady=(4, 0))
+        # spacing: button -> button -- button, button ↔
         ttk.Button(
             bottom, text="Cancel", width=BUTTON_W_SMALL,
             command=dlg.destroy,
@@ -572,7 +576,7 @@ STEP 2: Verify setup
             command=lambda: self._apply_restore_changes(
                 kind, mgr, defaults_path, missing_data, changed_data, dlg,
             ),
-        ).pack(side=tk.RIGHT, padx=(0, 5))
+        ).pack(side=tk.RIGHT, padx=(0, 4))
 
         # Center on the main window AND enforce a minimum dialog width
         # that accounts for the (possibly-hidden) rename entry column.
@@ -602,49 +606,61 @@ STEP 2: Verify setup
         is filled by this function: key -> {"restore": BooleanVar,
         "display": str}.
         """
-        left = ttk.LabelFrame(parent, text="Restore Missing", padding=8)
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
+        # Left and right at 0, the way every panel with an All/None row
+        # under it carries them: a LabelFrame's `padding` insets every
+        # child alike, so a value here would ride both this rule and
+        # `border edge -> button`, which is a different number.
+        left = ttk.LabelFrame(parent, text="Restore Missing",
+                              padding=(0, 1, 0, 2))
+        # spacing: content frame -> content frame -- panel, panel ↔
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 2))
 
         rows = ttk.Frame(left)
         rows.pack(fill=tk.BOTH, expand=True)
 
+        # spacing: title above, element below -- label, checkbox ↕
         # Header row at grid row 0.
         ttk.Label(
             rows, text="Restore",
             font=("Segoe UI", 9, "bold"),
-        ).grid(row=0, column=0, sticky="w", padx=(0, 16), pady=(0, 4))
+        ).grid(row=0, column=0, sticky="w", padx=(2, 16), pady=(0, 5))
         ttk.Label(
             rows, text="Name",
             font=("Segoe UI", 9, "bold"),
-        ).grid(row=0, column=1, sticky="w", pady=(0, 4))
+        ).grid(row=0, column=1, sticky="w", pady=(0, 5))
 
         if not missing:
             ttk.Label(
                 rows, text="(none missing)",
                 foreground=self.colors["fg_dim"],
-            ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(2, 0))
+            ).grid(row=1, column=0, columnspan=2, sticky="w", padx=(2, 0))
         else:
             for i, (key, display) in enumerate(missing):
                 grid_row = i + 1
                 var = tk.BooleanVar(value=True)
                 missing_data[key] = {"restore": var, "display": display}
+                # spacing: label ↔ its element -- checkbox, label ↔
+                # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
+                # The pitch pad is LEADING only, so the first row's gap
+                # upward stays the header's and the last adds nothing
+                # above the All/None row. The trailing `padx` is a
+                # floor: the column takes the width of the wider of the
+                # checkbox and the `Restore` heading above it.
                 make_checkbox(rows, self.colors, variable=var).grid(
-                    row=grid_row, column=0, sticky="w", padx=(0, 16), pady=1,
+                    row=grid_row, column=0, sticky="w", padx=(2, 16),
+                    pady=(0 if i == 0 else 3, 0),
                 )
                 ttk.Label(rows, text=display).grid(
-                    row=grid_row, column=1, sticky="w", pady=1,
+                    row=grid_row, column=1, sticky="w",
+                    pady=(0 if i == 0 else 3, 0),
                 )
 
-        buttons = ttk.Frame(left)
-        buttons.pack(fill=tk.X, pady=(8, 0))
-        ttk.Button(
-            buttons, text="All", width=BUTTON_W_TINY,
-            command=lambda: self._toggle_all(missing_data, "restore", True),
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(
-            buttons, text="None", width=BUTTON_W_TINY,
-            command=lambda: self._toggle_all(missing_data, "restore", False),
-        ).pack(side=tk.LEFT)
+        make_all_none_row(
+            left,
+            lambda: self._toggle_all(missing_data, "restore", True),
+            lambda: self._toggle_all(missing_data, "restore", False),
+        )
 
     def _build_changed_frame(
         self, parent, changed, changed_data: dict, show_rename: bool,
@@ -665,8 +681,11 @@ STEP 2: Verify setup
         with key -> {"replace": BooleanVar, "display": str, plus
         optionally "rename" / "rename_text" / "entry" when show_rename}.
         """
-        right = ttk.LabelFrame(parent, text="Replace Changed", padding=8)
-        right.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
+        right = ttk.LabelFrame(parent, text="Replace Changed",
+                               padding=(0, 1, 0, 2))
+        # spacing: content frame -> content frame -- panel, panel ↔
+        right.grid(row=0, column=1, sticky="nsew", padx=(2, 0))
 
         rows = ttk.Frame(right)
         rows.pack(fill=tk.BOTH, expand=True)
@@ -679,20 +698,21 @@ STEP 2: Verify setup
         if show_rename:
             rows.grid_columnconfigure(3, minsize=220)
 
+        # spacing: title above, element below -- label, checkbox ↕
         # Header row.
         ttk.Label(
             rows, text="Replace",
             font=("Segoe UI", 9, "bold"),
-        ).grid(row=0, column=0, sticky="w", padx=(0, 16), pady=(0, 4))
+        ).grid(row=0, column=0, sticky="w", padx=(2, 16), pady=(0, 5))
         ttk.Label(
             rows, text="Name",
             font=("Segoe UI", 9, "bold"),
-        ).grid(row=0, column=1, sticky="w", padx=(0, 16), pady=(0, 4))
+        ).grid(row=0, column=1, sticky="w", padx=(0, 16), pady=(0, 5))
         if show_rename:
             ttk.Label(
                 rows, text="Also Rename and Keep Current",
                 font=("Segoe UI", 9, "bold"),
-            ).grid(row=0, column=2, columnspan=2, sticky="w", pady=(0, 4))
+            ).grid(row=0, column=2, columnspan=2, sticky="w", pady=(0, 5))
 
         if not changed:
             ttk.Label(
@@ -701,7 +721,7 @@ STEP 2: Verify setup
             ).grid(
                 row=1, column=0,
                 columnspan=4 if show_rename else 2,
-                sticky="w", pady=(2, 0),
+                sticky="w", padx=(2, 0),
             )
         else:
             for i, (key, display) in enumerate(changed):
@@ -715,16 +735,11 @@ STEP 2: Verify setup
                         rows, grid_row, key, display, changed_data,
                     )
 
-        buttons = ttk.Frame(right)
-        buttons.pack(fill=tk.X, pady=(8, 0))
-        ttk.Button(
-            buttons, text="All", width=BUTTON_W_TINY,
-            command=lambda: self._toggle_all(changed_data, "replace", True),
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(
-            buttons, text="None", width=BUTTON_W_TINY,
-            command=lambda: self._toggle_all(changed_data, "replace", False),
-        ).pack(side=tk.LEFT)
+        make_all_none_row(
+            right,
+            lambda: self._toggle_all(changed_data, "replace", True),
+            lambda: self._toggle_all(changed_data, "replace", False),
+        )
 
     def _build_changed_row_simple(
         self, parent_grid, grid_row, key, display, changed_data: dict,

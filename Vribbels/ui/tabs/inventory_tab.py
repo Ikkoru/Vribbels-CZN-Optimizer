@@ -30,9 +30,10 @@ Where to look when you want to change X
                          from the Scoring tab (which owns the applied-
                          weights state) and is called from
                          refresh_inventory, so it tracks every apply.
-  Header tooltips:       _setup_header_tooltips -- custom Toplevel popups
-                         with a 400ms delay; the standard Treeview doesn't
-                         offer header tooltips so we hand-roll them.
+  Header tooltips:       _on_tree_motion arms the shared Tooltip off the
+                         column under the pointer. A Treeview heading is
+                         not a widget, so there is nothing to bind and
+                         the delay is driven by hand.
   Sort direction:        first click on a column defaults to descending
                          except for the "Highest" columns which default
                          to ascending (the use case is finding bad MFs,
@@ -152,15 +153,14 @@ class InventoryTab(BaseTab):
         self.inv_sort_reverse = True
         self.inv_filtered_data = []
 
-        # Hover tooltips for the Sets filter, carrying each set's bonus
-        # description -- the same text the Optimizer's Set Configuration
-        # rows show. Separate from the column-header tooltip below, which
-        # is hand-rolled against a Treeview heading rather than a widget.
+        # Every tip on this tab: the Sets filter's bonus descriptions,
+        # and the two Highest columns' headings. The headings are driven
+        # from `_on_tree_motion` rather than bound, a heading being no
+        # widget, but they are the same tip in the same colours.
         self._set_tooltip = Tooltip(self.colors)
 
-        # Tooltip state for column headers (see _setup_header_tooltips)
-        self._tooltip_window = None
-        self._tooltip_after_id = None
+        # Which heading the pointer was last over, so crossing between
+        # two of them re-arms the delay and staying on one does not.
         self._last_tooltip_col = None
 
         # Frame for set checkboxes (populated dynamically)
@@ -450,7 +450,7 @@ class InventoryTab(BaseTab):
         # tooltip currently; others can be added by extending _column_tooltip_text).
         self._inv_cols = inv_cols
         self.inv_tree.bind("<Motion>", self._on_tree_motion)
-        self.inv_tree.bind("<Leave>", lambda e: self._hide_tooltip())
+        self.inv_tree.bind("<Leave>", lambda e: self._set_tooltip.hide())
 
     # ----- Slot filter ---------------------------------------------------
 
@@ -1174,8 +1174,6 @@ class InventoryTab(BaseTab):
     # Delay before the tooltip appears, in ms. Long enough that just passing
     # over a header doesn't trigger it, short enough that an intentional
     # hover feels responsive.
-    _TOOLTIP_DELAY_MS = 400
-
     def _column_tooltip_text(self, col_id: str):
         """Return tooltip text for the column under the mouse, or None.
 
@@ -1211,11 +1209,16 @@ class InventoryTab(BaseTab):
         return None
 
     def _on_tree_motion(self, event):
-        """Track which header the mouse is over; show/hide tooltip accordingly."""
+        """Track which header the mouse is over; show/hide tooltip accordingly.
+
+        A heading is not a widget, so there is nothing to hand
+        `Tooltip.bind` -- the delay is driven from here instead, off the
+        column the pointer is over.
+        """
         region = self.inv_tree.identify_region(event.x, event.y)
         if region != "heading":
             if self._last_tooltip_col is not None:
-                self._hide_tooltip()
+                self._set_tooltip.hide()
                 self._last_tooltip_col = None
             return
 
@@ -1225,48 +1228,8 @@ class InventoryTab(BaseTab):
 
         # Column changed — drop any existing tooltip and schedule the new one.
         self._last_tooltip_col = col_id
-        self._hide_tooltip()
+        self._set_tooltip.hide()
         text = self._column_tooltip_text(col_id)
         if text is None:
             return
-
-        x_root = event.x_root
-        y_root = event.y_root
-        self._tooltip_after_id = self.frame.after(
-            self._TOOLTIP_DELAY_MS,
-            lambda: self._show_tooltip(x_root, y_root, text),
-        )
-
-    def _show_tooltip(self, x_root: int, y_root: int, text: str):
-        """Pop a small borderless Toplevel near the mouse position."""
-        self._tooltip_after_id = None
-        if self._tooltip_window is not None:
-            return  # already shown (defensive — shouldn't happen)
-        try:
-            tw = tk.Toplevel(self.frame)
-            tw.wm_overrideredirect(True)
-            tw.wm_geometry(f"+{x_root + 12}+{y_root + 18}")
-            tk.Label(
-                tw, text=text, justify=tk.LEFT,
-                background="#ffffe0", foreground="#000000",
-                relief=tk.SOLID, borderwidth=1, padx=6, pady=4,
-                font=("Segoe UI", 9),
-            ).pack()
-            self._tooltip_window = tw
-        except Exception:
-            self._tooltip_window = None
-
-    def _hide_tooltip(self):
-        """Cancel pending tooltip and destroy the current one if any."""
-        if self._tooltip_after_id is not None:
-            try:
-                self.frame.after_cancel(self._tooltip_after_id)
-            except Exception:
-                pass
-            self._tooltip_after_id = None
-        if self._tooltip_window is not None:
-            try:
-                self._tooltip_window.destroy()
-            except Exception:
-                pass
-            self._tooltip_window = None
+        self._set_tooltip.schedule(self.inv_tree, text)
