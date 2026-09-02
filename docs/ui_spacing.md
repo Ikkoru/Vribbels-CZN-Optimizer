@@ -386,6 +386,17 @@ that window first and destroys it after. Eighteen such gaps are
 registered, across the Stat Contributions popup and the Restore
 Defaults dialog.
 
+**A window sized to its content is sized to the WIDEST of its children,
+and the one that expands stretches to whatever wins.** The
+contributions popup's text field lost that race three ways at once: to
+the Close button, to the minimum width a window manager grants a titled
+window, and — in the other direction — to its own character grid
+rounding up. Each puts pixels between the last glyph and the field's
+border that no padding at the site can reach, and the reading then
+describes the winner rather than the inset. A gap measured inside an
+expanding child is only a reading of that child while the child is the
+one setting the size.
+
 **Locate a control in one of those by CLASS as well as by words.**
 `Restore ` found the panel titled `Restore Missing` before it found the
 Restore button, and reported the 4px between the buttons as 307 — far

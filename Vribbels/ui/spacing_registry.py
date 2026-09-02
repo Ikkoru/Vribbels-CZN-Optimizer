@@ -2977,6 +2977,12 @@ DEBUG_PAIR_GAPS = ()
 # why -- `check_spacing_registry` enforces the pair.
 EXCEPTION_ENTRIES = {
     "Debug WS -> Upgrade Log Settings": "exception",
+    # The field is sized in whole CHARACTERS from the text's advances,
+    # and a glyph's ink stops inside its own advance by an amount that
+    # is per glyph. The left inset does not carry it -- the first glyph
+    # of these lines starts at its origin -- so only the right side is
+    # `padx` plus a bearing, and no Tk metric exposes one.
+    "popup: its last column -> text field": "exception",
 }
 
 
@@ -3082,19 +3088,29 @@ AUDIT_WINDOW_ATTR = "_audit_window"
 
 # What the contributions popup is opened with. Its own text is built
 # from a combatant's gear, and the audit measures the window's chrome
-# rather than the numbers -- but the strings decide two of the
-# readings, so they are chosen rather than arbitrary:
+# rather than the numbers -- but the strings decide three readings, so
+# they are chosen rather than arbitrary:
 #
 #   * the FIRST line opens on a capital, which is where the top inset
 #     is read from.
 #   * the LAST line ends with no descender, so the bottom inset is read
 #     from a baseline. A `g` there would report three tighter than the
 #     rule asks with nothing on screen having moved.
+#   * the WIDEST line is wide enough that the TEXT sets the window's
+#     width. Two other things want a say in it -- the Close button's
+#     own width, and the minimum a window manager will give a titled
+#     window at all -- and the text field is packed to expand, so
+#     whichever of the three wins, the field stretches to it. A sample
+#     narrower than either floor reads the stretch rather than the
+#     inset: 38 against a target of 4, with nothing wrong at the site.
+#     `checks/check_tabs_build.py` holds it above the button; the
+#     window manager's floor is not queryable, and a line this length
+#     clears any of them.
 POPUP_SAMPLE = "\n".join([
     "Totals",
-    "ATK:  1234",
-    "DEF:   567",
-    "HP:   8901",
+    "ATK:  1234    Set Effect Sum:   345.6",
+    "DEF:   567    Conditional sets: 789.0",
+    "HP:   8901    Extra DMG:         12.3",
 ])
 
 # What the Restore Defaults dialog is opened with. Both frames get a
@@ -3268,7 +3284,7 @@ POPUP_ENTRIES = [
     # on its own, where the right also carries whatever the character
     # grid reserved past the last glyph. `_fit_popup` takes that back,
     # and this is what says it did.
-    ("contributions popup", "popup: its last column -> text field", 4,
+    ("contributions popup", "popup: its last column -> text field", 7,
      RULE_BORDER_EDGE_CONTENT,
      _text_inset(_audit_window_class("Text"), "right"), "h"),
 
@@ -3531,6 +3547,7 @@ def register_all():
             scenario=scenario,
             window=_audit_window,
             provisional=name in AWAITING_FIRST_READING,
+            target_source=EXCEPTION_ENTRIES.get(name, "rule"),
         )
 
     for tab, name, target, hand, source, resolve in EXPLANATION_ENTRIES:

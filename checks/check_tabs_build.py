@@ -694,6 +694,60 @@ def _every_popup_closes_on_escape():
     return out
 
 
+def _popup_sample_drives_its_own_width(root):
+    """The audit's contributions sample must be wider than the button row.
+
+    The popup's text field is packed to EXPAND, so whichever child asks
+    for the most width sets the window and the field stretches to it.
+    Where that child is the Close button, every horizontal reading
+    inside the field describes the button's width instead of the
+    field's own inset -- and reads as a plain miss at the site, which is
+    the wrong place to look.
+
+    A window manager's minimum width for a titled window is the other
+    floor and cannot be queried; a sample wide enough to clear the
+    button clears that too by a distance.
+
+    Returns a list of complaints.
+    """
+    from tkinter import ttk
+    from tkinter import font as tkfont
+    from ui.spacing_registry import POPUP_SAMPLE
+    from ui.utils.button_width import BUTTON_W_SMALL
+
+    button = ttk.Button(root, text="Close", width=BUTTON_W_SMALL)
+    try:
+        root.update_idletasks()
+        needs = button.winfo_reqwidth()
+    finally:
+        button.destroy()
+
+    face = tkfont.Font(font=("Consolas", 10))
+    lines = POPUP_SAMPLE.split("\n")
+    # The field's own `padx` twice, and its pack pad twice.
+    widest = max(face.measure(line) for line in lines) + 16
+    out = []
+    if widest <= needs:
+        out.append(
+            f"the audit's popup sample is {widest}px wide against a "
+            f"{needs}px button row, so the text field stretches and every "
+            f"horizontal gap measured inside it reads the stretch. Widen "
+            f"POPUP_SAMPLE in ui/spacing_registry.py."
+        )
+    if not lines[0][:1].isupper():
+        out.append(
+            f"the popup sample's first line starts {lines[0][:1]!r}, not a "
+            f"capital. Its top inset is read from the first CAPITAL."
+        )
+    if lines[-1][-1:] in tuple("gjpqy"):
+        out.append(
+            f"the popup sample's last line ends {lines[-1][-1]!r}, a "
+            f"descender. Its bottom inset is read from the baseline, and a "
+            f"descender reports three tighter than the rule asks."
+        )
+    return out
+
+
 def _restore_dialog_frames_follow_the_rules(tab, root):
     """The Restore Defaults dialog's two panels, built without a window.
 
@@ -872,6 +926,7 @@ def run():
                 _combatant_selection_survives_a_rebuild(built["HeroesTab"]))
             failures.extend(
                 _show_missing_adds_rather_than_replaces(built["HeroesTab"]))
+        failures.extend(_popup_sample_drives_its_own_width(root))
         if "SetupTab" in built:
             failures.extend(_restore_dialog_frames_follow_the_rules(
                 built["SetupTab"], root))

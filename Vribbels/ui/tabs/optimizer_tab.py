@@ -3479,10 +3479,15 @@ class OptimizerTab(BaseTab):
 
         # spacing: unique -- monospace columns inside the contributions text -- text, text ↔
         # spacing: border edge -> first non-button element -- text, text ↔↕
-        # `padx` is the whole of the left inset. It is NOT the whole of
-        # the right one: the widget reserves whole cells, so what is
-        # left over after the last glyph lands there. `column_slack`
-        # above is that leftover, and the window gives it back.
+        # spacing: exception -- border edge -> first non-button element -- text, text ↔
+        # `padx` is the whole of the left inset: the first glyph of
+        # these lines starts at its own origin. The RIGHT is `padx`
+        # plus two things it cannot reach. `column_slack` above is the
+        # first -- the widget reserves whole cells and the window gives
+        # the remainder back -- and the second is the last glyph's own
+        # right side bearing, which stops its ink inside its advance by
+        # an amount that is per glyph and that no Tk metric reports.
+        # So that side is tracked as an exception at what it renders.
         #
         # `pady` reaches the top and the bottom at once and the two ends
         # are read differently -- the first line's CAPITAL above, the
