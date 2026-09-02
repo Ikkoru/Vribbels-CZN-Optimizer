@@ -1,9 +1,9 @@
 """Image utility functions for UI components.
 
 The growth-stone assets are 144x144 RGBA, all fifteen of them, and are
-drawn at that size: a resize to anything else costs a resample for no
-gain, and it is what put the shown resolution a step off the stored
-one.
+drawn smaller than that. The difference costs one resample as each icon
+is built, which is the price of the Materials tab fitting three columns
+of three inside a window the other tabs already size.
 
 **The white edge these icons used to show is not in the assets.** Every
 one of them has a transparent outer ring -- no near-white pixel within
@@ -16,13 +16,21 @@ sees it, and the label carries no border of its own.
 
 from PIL import Image, ImageDraw, ImageFont, ImageTk
 
-# The assets' own resolution. Drawing at anything else resamples.
-ICON_SIZE = (144, 144)
+# What the files hold, and what is drawn. They differ, so every icon
+# is resampled once -- LANCZOS, at build time, not per repaint.
+ICON_NATIVE_SIZE = (144, 144)
+ICON_SIZE = (120, 120)
 
-# The quantity badge, in the bottom-right corner.
-BADGE_FONT_PX = 24
-BADGE_MARGIN = 8
-BADGE_PADDING = 4
+# The quantity badge, in the bottom-right corner. Sized against the
+# icon rather than stated, so the badge keeps its proportions when the
+# icon does not: at the native size these are 24, 8 and 4.
+BADGE_FONT_RATIO = 24 / ICON_NATIVE_SIZE[0]
+BADGE_MARGIN_RATIO = 8 / ICON_NATIVE_SIZE[0]
+BADGE_PADDING_RATIO = 4 / ICON_NATIVE_SIZE[0]
+
+# How round the placeholder tile's corners are, as a share of its side.
+# The stone art is drawn to about this.
+PLACEHOLDER_RADIUS_RATIO = 12 / ICON_NATIVE_SIZE[0]
 
 
 def _flattened(img, background):
@@ -47,8 +55,8 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
     Args:
         icon_path: path to the icon image file.
         quantity: the number to draw over it.
-        size: target size. Defaults to the assets' own, which is the
-            only value that does not resample.
+        size: target size. `ICON_NATIVE_SIZE` is the only value that
+            does not resample.
         background: a colour to flatten the icon onto, so nothing is
             left for Tk to composite. None keeps the alpha channel.
 
@@ -63,23 +71,26 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
 
         draw = ImageDraw.Draw(img)
         qty_text = str(quantity)
+        margin = max(1, round(size[0] * BADGE_MARGIN_RATIO))
         try:
-            font = ImageFont.truetype("arial.ttf", BADGE_FONT_PX)
+            font = ImageFont.truetype(
+                "arial.ttf", max(8, round(size[0] * BADGE_FONT_RATIO)))
         except OSError:
             font = ImageFont.load_default()
 
         bbox = draw.textbbox((0, 0), qty_text, font=font)
-        text_x = size[0] - (bbox[2] - bbox[0]) - BADGE_MARGIN
-        text_y = size[1] - (bbox[3] - bbox[1]) - BADGE_MARGIN * 2
+        text_x = size[0] - (bbox[2] - bbox[0]) - margin
+        text_y = size[1] - (bbox[3] - bbox[1]) - margin * 2
 
         # The box is measured AT the text's position rather than at the
         # origin: a glyph's bounding box is not the same shape wherever
         # it is drawn, and boxing the origin's measurements around the
         # drawn text leaves the badge off by the difference.
         placed = draw.textbbox((text_x, text_y), qty_text, font=font)
+        pad = max(1, round(size[0] * BADGE_PADDING_RATIO))
         draw.rectangle(
-            [placed[0] - BADGE_PADDING, placed[1] - BADGE_PADDING,
-             placed[2] + BADGE_PADDING, placed[3] + BADGE_PADDING],
+            [placed[0] - pad, placed[1] - pad,
+             placed[2] + pad, placed[3] + pad],
             fill=(0, 0, 0, 200),
         )
         draw.text((text_x, text_y), qty_text, fill="white", font=font)
@@ -100,7 +111,8 @@ def create_placeholder_icon(size=ICON_SIZE, background=None, outline=None):
         img = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         draw.rounded_rectangle(
-            [0, 0, size[0] - 1, size[1] - 1], radius=12,
+            [0, 0, size[0] - 1, size[1] - 1],
+            radius=max(1, round(size[0] * PLACEHOLDER_RADIUS_RATIO)),
             fill=background, outline=outline, width=1,
         )
         return ImageTk.PhotoImage(_flattened(img, background))

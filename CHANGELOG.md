@@ -24,7 +24,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **Each Element's stones carry their own figures**: the row's holdings as a total in Common-equivalents (a Premium is 9, a Great 3), and that total against three levels of ambition — a best-node build, one that also takes the neutrals, and one that adds nodes 5.1 and 5.2. Every figure is that Element's own; nothing is pooled across rows.
 
-- **The stone icons are drawn at their own resolution and no longer show a pale edge.** They are 144px images that were being resampled to 140, and the edge was the label's own border rather than anything in the image.
+- **The stone icons are smaller, and no longer show a pale edge.** The edge was the label's own border rather than anything in the image.
 
 - **Typing more than one letter in a list or dropdown narrows the search**, the way Windows Explorer does. `fe` reaches Fei past Fabien; pressing the same letter again still steps through the entries starting with it. Works in the combatant list, the preset list and both dropdowns, open or closed.
 
