@@ -3460,18 +3460,41 @@ class OptimizerTab(BaseTab):
         top.transient(self.root)
         close_on_escape(top)
 
-        # Width in CHARACTERS, from the widest line in PIXELS. Counting
-        # characters assumes every one is a cell wide, and the breakdown
-        # carries check and cross marks that Consolas has no glyph for:
-        # Tk draws those from a fallback face at nearly twice the cell
-        # width, so a line holding one is clipped by the difference.
+        # A Text sizes in CHARACTERS and LINES, and neither can say what
+        # this window needs to the pixel. Both options are rounded up
+        # here and the difference is taken back off the window, which is
+        # where `_fit_popup`'s two arguments come from.
+        #
+        # WIDTH: counting characters assumes every one is a cell wide,
+        # and the breakdown carries check and cross marks that Consolas
+        # has no glyph for -- Tk draws those from a fallback face at
+        # nearly twice the cell, so a line holding one is clipped by the
+        # difference. Measuring in pixels and dividing up covers them,
+        # and over-reserves by whatever the division rounded away.
         face = tkfont.Font(font=("Consolas", 10))
         cell = face.measure("0") or 1
-        columns = max((-(-face.measure(line) // cell) for line in lines),
-                      default=40)
+        widest = max((face.measure(line) for line in lines), default=40 * cell)
+        columns = -(-widest // cell)
+        column_slack = columns * cell - widest
 
         # spacing: unique -- monospace columns inside the contributions text -- text, text ↔
         # spacing: border edge -> first non-button element -- text, text ↔↕
+        # `padx` is the whole of the left inset. It is NOT the whole of
+        # the right one: the widget reserves whole cells, so what is
+        # left over after the last glyph lands there. `column_slack`
+        # above is that leftover, and the window gives it back.
+        #
+        # `pady` reaches the top and the bottom at once and the two ends
+        # are read differently -- the first line's CAPITAL above, the
+        # last line's BASELINE below -- and Consolas 10 leaves four
+        # above a capital against three below a baseline. So 0 puts the
+        # top on the rule and leaves the bottom a pixel short, and the
+        # pixel comes from the window rather than from here.
+        #
+        # A per-line `spacing3` does NOT do it: `height` is in LINES and
+        # multiplies the font's linespace, so the widget asks for the
+        # same height whatever the lines inside it are spaced at.
+        #
         # `highlightthickness` defaults to 1 on a Text and draws a focus
         # ring in a colour this theme never set, on top of adding a
         # pixel to every inset here.
@@ -3483,14 +3506,6 @@ class OptimizerTab(BaseTab):
             insertbackground=self.colors["fg"],
         )
         txt.insert("1.0", text)
-        # `pady` reaches the top and the bottom at once, and the two
-        # ends are read differently: the first line's CAPITAL above, the
-        # last line's BASELINE below. Consolas 10 leaves four above a
-        # capital and three below a baseline, so no single `pady` puts
-        # both on the rule -- 0 buys the top, and the last line's own
-        # `spacing3` buys back the pixel the bottom is then short.
-        txt.tag_configure("last line", spacing3=1)
-        txt.tag_add("last line", f"{len(lines)}.0", tk.END)
         txt.config(state=tk.DISABLED)
         # spacing: content frame -> content frame -- frame, text ↔↕
         # spacing: border edge -> first non-button element -- text, button ↕
@@ -3503,24 +3518,35 @@ class OptimizerTab(BaseTab):
         ttk.Button(top, text="Close", width=BUTTON_W_SMALL,
                    command=top.destroy).pack(pady=(0, 4))
 
-        self._fit_popup(top)
+        self._fit_popup(top, trim_width=column_slack, add_height=1)
         return top
 
-    def _fit_popup(self, top):
+    def _fit_popup(self, top, trim_width=0, add_height=0):
         """Size `top` to what it asked for, and centre it on the app.
+
+        **The text field absorbs both corrections**, because it is the
+        only child packed to expand: space the window has over what it
+        asked for lands inside the field, and space it is short comes
+        off the field too. That is what makes a pixel of window a pixel
+        of the field's own inset, which is where the border-edge rule
+        is read.
+
+        `trim_width` takes back what the character grid over-reserved,
+        so the field's right inset is its `padx` and not `padx` plus a
+        part-cell. `add_height` buys the pixel the bottom inset is
+        short, which `pady` cannot buy without spending it on the top
+        as well.
 
         Capped by the screen. The breakdown is a fixed set of rows and
         does not reach that, but a window taller than the display would
         put its Close button off the bottom edge with no way back to it
         -- Escape aside.
-
-        Setting the geometry at all is what holds the text field's
-        bottom inset: the field is packed `expand=True`, so any height
-        beyond the requested one lands inside it.
         """
         top.update_idletasks()
-        width = min(top.winfo_reqwidth(), top.winfo_screenwidth() - 80)
-        height = min(top.winfo_reqheight(), top.winfo_screenheight() - 120)
+        width = min(top.winfo_reqwidth() - trim_width,
+                    top.winfo_screenwidth() - 80)
+        height = min(top.winfo_reqheight() + add_height,
+                     top.winfo_screenheight() - 120)
         try:
             x = self.root.winfo_rootx() + (self.root.winfo_width() - width) // 2
             y = self.root.winfo_rooty() + (self.root.winfo_height() - height) // 2

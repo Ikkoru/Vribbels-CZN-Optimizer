@@ -3264,6 +3264,13 @@ POPUP_ENTRIES = [
     ("contributions popup", "popup: text field -> its first column", 4,
      RULE_BORDER_EDGE_CONTENT,
      _text_inset(_audit_window_class("Text"), "left"), "h"),
+    # The right is NOT the same reading mirrored: `padx` sets the left
+    # on its own, where the right also carries whatever the character
+    # grid reserved past the last glyph. `_fit_popup` takes that back,
+    # and this is what says it did.
+    ("contributions popup", "popup: its last column -> text field", 4,
+     RULE_BORDER_EDGE_CONTENT,
+     _text_inset(_audit_window_class("Text"), "right"), "h"),
 
     ("restore dialog", "restore: window edge -> Restore Missing", 4,
      RULE_CONTENT_FRAME,
@@ -3315,6 +3322,7 @@ AWAITING_FIRST_READING = {
     "popup: text field -> its first line",
     "popup: its last line -> text field",
     "popup: text field -> its first column",
+    "popup: its last column -> text field",
     "restore: window top -> Restore Missing",
     "restore: Restore heading -> Name heading",
     "restore: Restore heading -> its checkboxes",

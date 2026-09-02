@@ -370,10 +370,19 @@ were — the Stat Contributions popup, the Restore Defaults dialog and
 the hover tooltip — are marked and nudged like anything else. Where a
 new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
 
+**A Text sizes in CHARACTERS and LINES, and neither can say what a
+window needs to the pixel.** `width` reserves whole cells, so what is
+left after the last glyph lands on the RIGHT inset and nothing inside
+the widget reaches it; `height` multiplies the font's linespace, so a
+per-line `spacing3` changes what is drawn and not what the widget
+asks for. The contributions popup rounds both up and takes the
+difference off the WINDOW, which its text field absorbs because it is
+the only child packed to expand.
+
 **A gap inside a window the app opens over the main one names that
 window.** A screenshot covers one window, so `track(window=...)` takes
 a callable returning the widget to photograph, and a scenario opens
-that window first and destroys it after. Seventeen such gaps are
+that window first and destroys it after. Eighteen such gaps are
 registered, across the Stat Contributions popup and the Restore
 Defaults dialog.
 
