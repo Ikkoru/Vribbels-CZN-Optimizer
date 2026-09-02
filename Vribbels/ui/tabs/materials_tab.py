@@ -1,128 +1,260 @@
-"""Materials tab for displaying growth stones and items."""
+"""Materials tab: three columns, one of them the growth stones.
+
+The tab is a row of three equal columns, each headed and each holding
+rows of icons with their own text. Only the rightmost has content;
+the other two are placeholders at the same size, so the shape of the
+tab is visible before there is anything to put in them.
+
+A stone row's four figures are derived from THAT ROW's three counts and
+no others. Premium, Great and Common are 9, 3 and 1 of the smallest
+stone, so the total is the row's holdings in Common-equivalents, and
+the three percentages are that total against what a full build costs at
+three levels of ambition.
+"""
 
 import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
+
 from game_data import GROWTH_STONES, ATTRIBUTE_COLORS
 from ..base_tab import BaseTab
-from ..utils.image_utils import create_icon_with_quantity
+from ..utils.image_utils import (
+    create_icon_with_quantity, create_placeholder_icon,
+)
+from ..utils.tab_header import make_heading
+
+
+# The columns, left to right. Only the last has content.
+COLUMN_TITLES = ("Reserved", "Reserved", "Potential Growth Stones")
+
+# Rows are one per Element, columns one per quality, in the order the
+# figures below weight them: the leftmost icon is worth the most.
+ATTRIBUTES = ("Passion", "Instinct", "Void", "Order", "Justice")
+QUALITIES = ("Premium", "Great", "Common")
+
+# What each quality is worth in Common-equivalents. A Great is three
+# Commons and a Premium is three Greats, so a row's total is
+# 9*Premium + 3*Great + Common.
+QUALITY_WEIGHTS = {"Premium": 9, "Great": 3, "Common": 1}
+
+# The Common-equivalent cost of taking one Element's potential nodes to
+# each of three levels. The rows read as increasing ambition, so each
+# denominator is larger than the one above it and the same total scores
+# lower against each in turn.
+#
+# (label, cost). The label ends in the colon the column is aligned on.
+STONE_TARGETS = (
+    ("Max best:", 2887),
+    ("+Neutrals:", 3178),
+    ("+Node 5.1 & 5.2:", 3682),
+)
+
+TOTAL_LABEL = "Total:"
+
+# The stat lines under an Element's name. Small, because they are a
+# readout under a heading rather than content in their own right.
+STAT_FONT = ("Segoe UI", 9)
+NAME_FONT = ("Segoe UI", 12, "bold")
+
+# Between the icons of a row, and between one row of icons and the next.
+ICON_GAP_HALF = 2       # spacing: content frame -> content frame -- frame, frame ↔
+ROW_GAP = 4             # spacing: content frame -> content frame -- frame, frame ↕
+
+# The heading of a column against the first row under it.
+HEADING_GAP = 10        # spacing: panel ↕ unrelated label -- heading, frame ↕
+
+# An Element's text block against the icons beside it, and a stat
+# line's label against its value.
+TEXT_TO_ICONS = 5       # spacing: label ↔ its element -- label, frame ↔
+LABEL_TO_VALUE = 5      # spacing: label ↔ its element -- label, label ↔
+
+# What a figure reads before any snapshot has been loaded.
+NO_DATA = "-"
 
 
 class MaterialsTab(BaseTab):
-    """
-    Materials tab displays growth stones organized by attribute and quality.
-
-    Updates automatically when data is loaded via refresh_materials().
-    """
+    """Growth stones by Element and quality, with their totals."""
 
     def __init__(self, parent, context):
         super().__init__(parent, context)
-        self.material_icons = {}  # res_id -> Label widget mapping
+        self.material_icons = {}     # res_id -> the Label drawing it
+        self.material_stats = {}     # attribute -> {label -> value Label}
+        # Kept alive by hand: a PhotoImage reaches Tk by name, and
+        # nothing on the Tk side owns one, so a placeholder with no
+        # Python reference is collected and the label draws empty.
+        self._placeholders = []
         self.setup_ui()
-        # Render the stone icons immediately (quantity 0) so the tab
-        # isn't a wall of text placeholders before the first capture --
-        # the images are static assets, only the counts need data.
+        # Drawn at once with zero counts, so the tab is icons rather
+        # than a wall of text before the first capture -- the images
+        # are static assets and only the numbers need data.
         self._render_icons({})
+
+    # ------------------------------------------------------------ build
 
     def setup_ui(self):
         """Setup the Materials tab UI."""
-        container = ttk.Frame(self.frame)
-        container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(22, 20))
+        columns = ttk.Frame(self.frame)
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        # spacing: tab list -> first element -- tab, frame ↕
+        # The same pads the other headed tabs carry, because the first
+        # thing under this one is the same 14pt heading they open with.
+        columns.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
+        for index in range(len(COLUMN_TITLES)):
+            # `uniform` is what makes the three EQUAL rather than
+            # merely stretchy: without it a column holding wider
+            # content takes more of the width, weights or no weights.
+            columns.grid_columnconfigure(index, weight=1, uniform="materials")
+        columns.grid_rowconfigure(0, weight=1)
 
-        # Title
-        title_label = ttk.Label(container, text="Growth Stones",
-                                font=("Segoe UI", 14, "bold"))
-        title_label.pack(anchor=tk.W, pady=(0, 15))
+        for index, title in enumerate(COLUMN_TITLES):
+            column = ttk.Frame(columns)
+            column.grid(row=0, column=index, sticky="nsew")
+            self._build_column(column, title,
+                               stones=index == len(COLUMN_TITLES) - 1)
 
-        # Growth stones frame
-        stones_frame = ttk.Frame(container)
-        stones_frame.pack(fill=tk.BOTH, expand=True)
+    def _build_column(self, column, title, *, stones):
+        """One column: a centred heading over a stack of rows.
 
-        # Organize by attribute
-        attributes = ["Passion", "Instinct", "Void", "Order", "Justice"]
-        qualities = ["Premium", "Great", "Common"]
+        `stones` builds the real thing; without it the column gets the
+        same shape in placeholders.
+        """
+        make_heading(column, title).pack(anchor=tk.CENTER)
 
-        for row, attribute in enumerate(attributes):
-            # Attribute label with color
-            attr_label = ttk.Label(
-                stones_frame,
-                text=attribute,
-                font=("Segoe UI", 12, "bold"),
-                foreground=ATTRIBUTE_COLORS.get(attribute, "#FFFFFF")
-            )
-            attr_label.grid(row=row, column=0, sticky=tk.W, padx=(0, 20), pady=10)
+        # `anchor=N` rather than a fill: the rows are centred on the
+        # column and sit at the top of it, so the column's leftover
+        # height falls below them rather than being shared out.
+        rows = ttk.Frame(column)
+        rows.pack(anchor=tk.N, pady=(HEADING_GAP, 0))
 
-            # Create icon placeholder for each quality level
-            for col, quality in enumerate(qualities, start=1):
-                # Find the res_id for this attribute/quality combo
-                res_id = None
-                for rid, (attr, qual, icon_file) in GROWTH_STONES.items():
-                    if attr == attribute and qual == quality:
-                        res_id = rid
-                        break
+        for position, attribute in enumerate(ATTRIBUTES):
+            row = ttk.Frame(rows)
+            # Leading only, so the first row's gap upward stays the
+            # heading's.
+            row.pack(anchor=tk.CENTER,
+                     pady=(0 if position == 0 else ROW_GAP, 0))
+            self._build_row(row, attribute, stones=stones)
 
-                if res_id:
-                    # Placeholder label - will be updated when data loads
-                    placeholder_label = tk.Label(
-                        stones_frame,
-                        text=f"{quality}\n0",
-                        bg=self.colors["bg"],
-                        fg=self.colors["fg"],
-                        font=("Segoe UI", 11)
-                    )
-                    placeholder_label.grid(row=row, column=col, padx=5, pady=5)
+    def _build_row(self, row, attribute, *, stones):
+        """One Element: its name and figures, then its three icons."""
+        text = ttk.Frame(row)
+        text.pack(side=tk.LEFT, anchor=tk.N)
 
-                    # Store reference with res_id for later updates
-                    self.material_icons[res_id] = placeholder_label
+        name = attribute if stones else "Reserved"
+        colour = (ATTRIBUTE_COLORS.get(attribute, self.colors["fg"])
+                  if stones else self.colors["fg_dim"])
+        # Spanning both columns with no sticky, which centres it over
+        # the figures. The columns are left to size to their own
+        # content: giving them weights would split the block evenly and
+        # pull the colons off the value column.
+        ttk.Label(text, text=name, font=NAME_FONT,
+                  foreground=colour).grid(row=0, column=0, columnspan=2)
+
+        values = {}
+        for line, label in enumerate(
+                (TOTAL_LABEL, *(label for label, _cost in STONE_TARGETS)),
+                start=1):
+            # The colons line up because the labels are right-aligned
+            # in their own column and the values left-aligned in
+            # theirs; the pad is the whole of the gap between them.
+            ttk.Label(text, text=label, font=STAT_FONT).grid(
+                row=line, column=0, sticky="e", padx=(0, LABEL_TO_VALUE))
+            value = ttk.Label(text, text=NO_DATA, font=STAT_FONT)
+            value.grid(row=line, column=1, sticky="w")
+            values[label] = value
+        if stones:
+            self.material_stats[attribute] = values
+
+        icons = ttk.Frame(row)
+        icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
+        for position, quality in enumerate(QUALITIES):
+            label = self._make_icon_label(icons)
+            # Half each side, so two neighbours sum to the rule.
+            label.grid(row=0, column=position, padx=ICON_GAP_HALF)
+            if stones:
+                res_id = self._res_id_for(attribute, quality)
+                if res_id is not None:
+                    self.material_icons[res_id] = label
+            else:
+                photo = create_placeholder_icon(
+                    background=self.colors["bg_light"],
+                    outline=self.colors["bg_lighter"])
+                if photo is not None:
+                    label.config(image=photo)
+                    self._placeholders.append(photo)
+
+    def _make_icon_label(self, parent):
+        """A Label carrying nothing of its own around the icon.
+
+        `tk.Label` defaults to a 2px border and a pixel of padding on
+        each side, all of it drawn in whatever the widget's background
+        is -- which is the pale edge these icons had, and which no
+        change to the assets would have removed.
+        """
+        return tk.Label(parent, bg=self.colors["bg"], fg=self.colors["fg"],
+                        bd=0, highlightthickness=0, padx=0, pady=0)
+
+    @staticmethod
+    def _res_id_for(attribute, quality):
+        """The stone table's id for one Element and quality, or None."""
+        for res_id, (attr, qual, _icon) in GROWTH_STONES.items():
+            if attr == attribute and qual == quality:
+                return res_id
+        return None
+
+    # ----------------------------------------------------------- update
 
     def refresh_materials(self):
-        """
-        Update materials display with current inventory data.
+        """Redraw counts and figures from the loaded snapshot.
 
         Called automatically after data loads.
         """
         if not self.optimizer.raw_data:
             return
-
-        # Get items from inventory
         inventory = self.optimizer.raw_data.get("inventory", {})
-        items = inventory.get("items", [])
-
-        # Create dictionary of res_id -> amount
-        item_quantities = {}
-        for item in items:
+        quantities = {}
+        for item in inventory.get("items", []):
             res_id = item.get("res_id")
-            amount = item.get("amount", 0)
             if res_id:
-                item_quantities[res_id] = amount
-
-        self._render_icons(item_quantities)
+                quantities[res_id] = item.get("amount", 0)
+        self._render_icons(quantities)
 
     def _render_icons(self, item_quantities: dict):
-        """(Re)draw every growth-stone label: icon + quantity overlay when
-        the image asset exists, text fallback otherwise. `item_quantities`
-        maps res_id -> owned amount; missing entries render as 0, which is
-        also how the tab looks BEFORE any snapshot is loaded (the images
-        are static assets -- only the counts need captured data).
-        """
-        # Get the path to images folder
-        script_dir = Path(__file__).parent.parent.parent
-        images_dir = script_dir / "images"
+        """(Re)draw every stone icon and every figure beside it.
 
-        # Update each growth stone icon
-        for res_id, label_widget in self.material_icons.items():
+        `item_quantities` maps res_id -> owned amount; a missing entry
+        is 0, which is also how the tab looks before any snapshot is
+        loaded.
+        """
+        images_dir = Path(__file__).parent.parent.parent / "images"
+        for res_id, label in self.material_icons.items():
             if res_id not in GROWTH_STONES:
                 continue
-            attribute, quality, icon_filename = GROWTH_STONES[res_id]
+            _attribute, quality, icon_filename = GROWTH_STONES[res_id]
             quantity = item_quantities.get(res_id, 0)
             icon_path = images_dir / icon_filename
+            photo = (create_icon_with_quantity(
+                str(icon_path), quantity, background=self.colors["bg"])
+                if icon_path.exists() else None)
+            if photo is not None:
+                label.config(image=photo, text="")
+                label.image = photo   # Tk holds no reference of its own
+            else:
+                label.config(text=f"{quality}\n{quantity}", image="")
+        self._render_stats(item_quantities)
 
-            if icon_path.exists():
-                # Create icon with quantity overlay
-                photo = create_icon_with_quantity(str(icon_path), quantity)
-                if photo:
-                    label_widget.config(image=photo, text="")
-                    label_widget.image = photo  # Keep reference to prevent GC
-                    continue
-            # Icon file not found (or failed to build) -- text fallback.
-            label_widget.config(text=f"{quality}\n{quantity}", image="")
+    def _render_stats(self, item_quantities: dict):
+        """The four figures under each Element name.
+
+        Every one is derived from that Element's own three counts. The
+        counts are looked up per row rather than accumulated, so a row
+        cannot pick up a neighbour's holdings.
+        """
+        for attribute, values in self.material_stats.items():
+            total = 0
+            for quality, weight in QUALITY_WEIGHTS.items():
+                res_id = self._res_id_for(attribute, quality)
+                if res_id is not None:
+                    total += weight * item_quantities.get(res_id, 0)
+            values[TOTAL_LABEL].config(text=str(total))
+            for label, cost in STONE_TARGETS:
+                values[label].config(text=f"{100 * total // cost}%")

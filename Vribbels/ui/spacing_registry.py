@@ -1075,6 +1075,10 @@ TAB_LIST_TABS = [
     ("Gear Score", "Gear Score Calculation"),
     ("Capture", "Data Capture"),
     ("Setup", "First-Time Setup"),
+    # The rightmost of three headings, all on one line. Named rather
+    # than left to the width scan because the other two say `Reserved`,
+    # which the Element names in the placeholder columns say as well.
+    ("Materials", "Potential Growth Stones"),
 ]
 
 
@@ -3161,6 +3165,59 @@ def _audit_window_class(*classes):
     return find
 
 
+def _materials_part(index):
+    """Locator: one half of the Materials tab's first Element row.
+
+    Walked up from the Element's NAME rather than read off an attribute
+    stored for the audit: the name is the only text in the row, its
+    parent is the block of figures, and that block's parent holds the
+    two halves in the order they were built -- figures, then icons.
+
+    `Passion` is the first Element and appears once: the placeholder
+    columns name their rows `Reserved`.
+    """
+    def find(app):
+        row = _by_text("Passion")(app).master.master
+        parts = row.winfo_children()
+        if len(parts) <= index:
+            raise LookupError(f"the Materials row has no part {index}")
+        return parts[index]
+    return find
+
+
+def _materials_child(part, position):
+    """Locator: one widget inside a half of that row.
+
+    The icons carry an image and the figures carry two widgets per
+    line, so neither can be found by its words.
+    """
+    def find(app):
+        children = _materials_part(part)(app).winfo_children()
+        if len(children) <= position:
+            raise LookupError(
+                f"Materials row part {part} has no child {position}")
+        return children[position]
+    return find
+
+
+def _materials_row_below():
+    """Locator: the first icon of the SECOND Element row on Materials.
+
+    The row gap is read icon to icon rather than frame to frame. A
+    frame's box is as tall as its tallest child and its painted extent
+    is whatever is in it, so measuring frames would report the distance
+    between whichever parts of two rows happen to reach furthest --
+    where the rule here is about the pictures.
+    """
+    def find(app):
+        rows = _by_text("Passion")(app).master.master.master
+        children = rows.winfo_children()
+        if len(children) < 2:
+            raise LookupError("Materials has fewer than two Element rows")
+        return children[1].winfo_children()[1].winfo_children()[0]
+    return find
+
+
 def _audit_panel(title):
     """Locator: a LabelFrame in that window, by its visible title."""
     def find(app):
@@ -3248,6 +3305,27 @@ for _name, _setup in (("contributions popup", _open_contributions_popup),
 # want a scan INSIDE a filled widget, which is what
 # `_text_panel_inset` does for the three prose panels and does by
 # panel title. Reaching them means giving that resolver a locator.
+# (tab, name, target, rule, resolver, axis) for the Materials tab.
+# Its three columns are built by one function, so a gap read in the
+# stones column is the same gap in the two placeholders beside it.
+MATERIALS_ENTRIES = [
+    ("Materials", "Materials: heading -> its first row", 10,
+     RULE_PANEL_UNRELATED_LABEL,
+     _gap(_by_text("Potential Growth Stones"), _by_text("Passion"), "v"),
+     "v"),
+    ("Materials", "Materials: figures -> its icons", 5, RULE_LABEL_ELEMENT,
+     _gap(_materials_part(0), _materials_part(1), "h"), "h"),
+    ("Materials", "Materials: icon -> icon", 4, RULE_CONTENT_FRAME,
+     _gap(_materials_child(1, 0), _materials_child(1, 1), "h"), "h"),
+    # Children 1 and 2 of the figures block are the first line's label
+    # and its value; child 0 is the Element's name above them.
+    ("Materials", "Materials: Total: -> its value", 5, RULE_LABEL_ELEMENT,
+     _gap(_materials_child(0, 1), _materials_child(0, 2), "h"), "h"),
+    ("Materials", "Materials: icon row -> icon row", 4, RULE_CONTENT_FRAME,
+     _gap(_materials_child(1, 0), _materials_row_below(), "v"), "v"),
+]
+
+
 POPUP_ENTRIES = [
     ("contributions popup", "popup: window edge -> text field", 4,
      RULE_CONTENT_FRAME,
@@ -3326,20 +3404,11 @@ AWAITING_FIRST_READING = {
     # -- so a row printing yellow is a question, never a regression.
     # EMPTY is the state to return it to.
     #
-    # The gaps inside a window the app opens over the main one that a
-    # run has not confirmed. The rest of `POPUP_ENTRIES` read on target
-    # the first time they were measured.
-    "popup: text field -> its first line",
-    "popup: its last line -> text field",
-    "popup: text field -> its first column",
-    "restore: window top -> Restore Missing",
-    "restore: Restore heading -> Name heading",
-    "restore: Restore heading -> its checkboxes",
-    "restore: Restore Missing row pitch",
-    # Read 307 on its first run: `Restore ` found the panel titled
-    # `Restore Missing` before the button. The gap was 4 all along, and
-    # the resolver has still never produced a reading of it.
-    "restore: Restore -> Cancel",
+    # The Materials tab, registered with its rebuild: three columns
+    # where there was one, and every gap in them a lever set from the
+    # rules with nothing having read what it renders.
+    *(name for _tab, name, *_rest in MATERIALS_ENTRIES),
+    "Materials: tab list -> first element",
 }
 
 
@@ -3411,14 +3480,15 @@ def register_all():
         )
 
     for tab, _heading in TAB_LIST_TABS:
+        _name = f"{tab}: tab list -> first element"
         sa.track(
-            name=f"{tab}: tab list -> first element",
+            name=_name,
             tab=tab,
             rule=RULE_TAB_LIST,
             target=_tab_list_target(tab),
             resolve=_tab_list_to_first_element(_heading),
             axis="v",
-            provisional=False,
+            provisional=_name in AWAITING_FIRST_READING,
         )
 
     for tab, title, rule, classes, target in ROW_PITCH_ENTRIES:
@@ -3524,6 +3594,17 @@ def register_all():
                 target_source=(source if source is not None
                                else EXCEPTION_ENTRIES.get(name, "rule")),
             )
+
+    for tab, name, target, rule, resolve, axis in MATERIALS_ENTRIES:
+        sa.track(
+            name=name,
+            tab=tab,
+            rule=rule,
+            target=target,
+            resolve=resolve,
+            axis=axis,
+            provisional=name in AWAITING_FIRST_READING,
+        )
 
     for scenario, name, target, rule, resolve, axis in POPUP_ENTRIES:
         sa.track(

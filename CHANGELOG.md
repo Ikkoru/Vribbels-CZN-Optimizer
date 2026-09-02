@@ -20,6 +20,12 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Changed
 
+- **The Materials tab is three equal columns**, the rightmost holding the growth stones and the other two reserved. `Growth Stones` is now `Potential Growth Stones` and heads its own column.
+
+- **Each Element's stones carry their own figures**: the row's holdings as a total in Common-equivalents (a Premium is 9, a Great 3), and that total against three levels of ambition — a best-node build, one that also takes the neutrals, and one that adds nodes 5.1 and 5.2. Every figure is that Element's own; nothing is pooled across rows.
+
+- **The stone icons are drawn at their own resolution and no longer show a pale edge.** They are 144px images that were being resampled to 140, and the edge was the label's own border rather than anything in the image.
+
 - **Typing more than one letter in a list or dropdown narrows the search**, the way Windows Explorer does. `fe` reaches Fei past Fabien; pressing the same letter again still steps through the entries starting with it. Works in the combatant list, the preset list and both dropdowns, open or closed.
 
 - **The Combatants tab keeps the combatant you are looking at.** Upgrading a fragment in game, or re-sorting the list, used to drop the selection back to the first row.

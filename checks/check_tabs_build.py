@@ -38,9 +38,9 @@ from ._harness import add_source_to_path, SOURCE_ROOT, Skip
 
 NAME = "tabs build"
 
-# About and Materials are static and out of the spacing work's scope, but
-# they are cheap to build and a missing name would break the notebook the
-# same way, so they are here too.
+# About is static and out of the spacing work's scope, but it is cheap
+# to build and a missing name would break the notebook the same way, so
+# it is here too.
 TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
              "HeroesTab", "ScoringTab", "MaterialsTab", "AboutTab")
 

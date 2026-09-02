@@ -40,6 +40,21 @@ SUBTITLE_PAD_BOTTOM = 0
 SUBTITLE_PAD_LEFT = 10
 
 
+def make_heading(parent, title, *, x_trim=0):
+    """A 14pt heading Label, trimmed to its ink. Not packed.
+
+    The heading half of `make_tab_header`, for a heading with no
+    subtitle beside it -- the Materials tab's three column headings.
+    Split out rather than copied: the font and the two pad corrections
+    are the thing this module exists to keep in one place, and a
+    heading built without them sits several pixels low.
+    """
+    return ttk.Label(
+        parent, text=title, font=HEADING_FONT,
+        padding=(x_trim, HEADING_PAD_TOP, 0, HEADING_PAD_BOTTOM),
+    )
+
+
 def make_tab_header(parent, colors, title, subtitle, *, x_trim=0):
     """Build a tab's header row, pack it, and return it.
 
@@ -68,10 +83,7 @@ def make_tab_header(parent, colors, title, subtitle, *, x_trim=0):
     row.pack(fill=tk.X, pady=(0, 0))
 
     # spacing: header subtext -- heading, label ↔
-    ttk.Label(
-        row, text=title, font=HEADING_FONT,
-        padding=(x_trim, HEADING_PAD_TOP, 0, HEADING_PAD_BOTTOM),
-    ).pack(side=tk.LEFT, anchor=tk.S)
+    make_heading(row, title, x_trim=x_trim).pack(side=tk.LEFT, anchor=tk.S)
 
     # spacing: heading ↔ element -- heading, label ↔
     ttk.Label(

@@ -193,7 +193,7 @@ The names that changed when the suffixes went on, since every marker was being r
 
 ### Scope and standing exceptions
 
-**Materials and About are out of scope**, and are the whole of it. No `# spacing: out of scope` marker is left in the source; the three that were — the Stat Contributions popup, the Restore Defaults dialog and the hover tooltip — are marked and nudged like anything else. Where a new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
+**About is out of scope, and is the whole of it.** No `# spacing: out of scope` marker is left in the source; the four that were — the Stat Contributions popup, the Restore Defaults dialog, the hover tooltip and the Materials tab — are marked and nudged like anything else. Where a new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
 
 **A Text sizes in CHARACTERS and LINES, and neither can say what a window needs to the pixel.** `width` reserves whole cells, so what is left after the last glyph lands on the RIGHT inset and nothing inside the widget reaches it; `height` multiplies the font's linespace, so a per-line `spacing3` changes what is drawn and not what the widget asks for. The contributions popup rounds both up and takes the difference off the WINDOW, which its text field absorbs because it is the only child packed to expand.
 
@@ -221,10 +221,10 @@ Body text is **Segoe UI 9**; the three panels of running prose are **Segoe UI Va
 | ----------------------- | ------- | ------ | ------- | --------- | -------------------------------- |
 | Segoe UI                | 9       | 12     | 3       | 15        | body text everywhere, bold included |
 | Segoe UI                | 11      | 16     | 4       | 20        | Setup Status; Capture's `Ready`  |
-| Segoe UI                | 14 bold | 20     | 5       | 25        | the tab headings                 |
+| Segoe UI                | 14 bold | 20     | 5       | 25        | the tab headings, and the Materials tab's three column headings |
 | Segoe UI Variable Small | 11      | 16     | 4       | 20        | Capture Log; Setup Instructions; How Gear Score Works |
 | Segoe UI                | 10      | 13     | 3       | 16        | About only — out of scope |
-| Segoe UI                | 12 bold | 17     | 4       | 21        | About and Materials only — out of scope |
+| Segoe UI                | 12 bold | 17     | 4       | 21        | the About panels' headings, and the Materials tab's Element names |
 | Consolas                | 10      | 12     | 3       | 15        | the contributions popup, which is ASCII so every character is one 7px cell |
 
 **Variable Small stands a pixel taller than Segoe UI below 11** — one more of ascent, the same descent — and that pixel lands above the first glyph, so a panel changing size owes its `pady` the difference. At 11 the two share a line box, and Variable Small **8** is the exact metric twin of Segoe UI 9 (12/3/15).
