@@ -362,6 +362,119 @@ GROWTH_STONES = {
 }
 
 
+# The tables below name the same shape as GROWTH_STONES: a res_id, what
+# distinguishes it inside its family, and the icon file that draws it.
+#
+# **A res_id's own digits carry the family, the group and the tier**, as
+# `FFFF0GT` -- so `3130043` is family 313 (Combatant promotion), group 4
+# and tier 3. The group is the CLASS in the promotion families where it
+# is the Element in the stones above, which is why those have six groups
+# and the stones five.
+#
+# The icon names are the game's own. Two classes are spelled differently
+# there than in game: `defender` draws Vanguard and `psionics` draws
+# Psionic. Nothing in the assets says so -- what settles it is the class
+# digit against the six class names in `characters.py`, plus in-game
+# counts read against the ids.
+
+# Combatant promotion materials - res_id to (class, tier, icon_filename).
+COMBATANT_PROMOTION = {
+    # Striker
+    3130001: ("Striker", "Common", "icon_item_char_ascend_striker_1.png"),
+    3130002: ("Striker", "Advanced", "icon_item_char_ascend_striker_2.png"),
+    3130003: ("Striker", "Premium", "icon_item_char_ascend_striker_3.png"),
+    # Vanguard
+    3130011: ("Vanguard", "Common", "icon_item_char_ascend_defender_1.png"),
+    3130012: ("Vanguard", "Advanced", "icon_item_char_ascend_defender_2.png"),
+    3130013: ("Vanguard", "Premium", "icon_item_char_ascend_defender_3.png"),
+    # Hunter
+    3130021: ("Hunter", "Common", "icon_item_char_ascend_hunter_1.png"),
+    3130022: ("Hunter", "Advanced", "icon_item_char_ascend_hunter_2.png"),
+    3130023: ("Hunter", "Premium", "icon_item_char_ascend_hunter_3.png"),
+    # Ranger
+    3130031: ("Ranger", "Common", "icon_item_char_ascend_ranger_1.png"),
+    3130032: ("Ranger", "Advanced", "icon_item_char_ascend_ranger_2.png"),
+    3130033: ("Ranger", "Premium", "icon_item_char_ascend_ranger_3.png"),
+    # Psionic
+    3130041: ("Psionic", "Common", "icon_item_char_ascend_psionics_1.png"),
+    3130042: ("Psionic", "Advanced", "icon_item_char_ascend_psionics_2.png"),
+    3130043: ("Psionic", "Premium", "icon_item_char_ascend_psionics_3.png"),
+    # Controller
+    3130051: ("Controller", "Common", "icon_item_char_ascend_controller_1.png"),
+    3130052: ("Controller", "Advanced", "icon_item_char_ascend_controller_2.png"),
+    3130053: ("Controller", "Premium", "icon_item_char_ascend_controller_3.png"),
+}
+
+# Partner promotion materials - res_id to (class, tier, icon_filename).
+PARTNER_PROMOTION = {
+    # Striker
+    3140001: ("Striker", "Common", "icon_item_supporter_classup_striker_1.png"),
+    3140002: ("Striker", "Advanced", "icon_item_supporter_classup_striker_2.png"),
+    3140003: ("Striker", "Premium", "icon_item_supporter_classup_striker_3.png"),
+    # Vanguard
+    3140011: ("Vanguard", "Common", "icon_item_supporter_classup_defender_1.png"),
+    3140012: ("Vanguard", "Advanced", "icon_item_supporter_classup_defender_2.png"),
+    3140013: ("Vanguard", "Premium", "icon_item_supporter_classup_defender_3.png"),
+    # Hunter
+    3140021: ("Hunter", "Common", "icon_item_supporter_classup_hunter_1.png"),
+    3140022: ("Hunter", "Advanced", "icon_item_supporter_classup_hunter_2.png"),
+    3140023: ("Hunter", "Premium", "icon_item_supporter_classup_hunter_3.png"),
+    # Ranger
+    3140031: ("Ranger", "Common", "icon_item_supporter_classup_ranger_1.png"),
+    3140032: ("Ranger", "Advanced", "icon_item_supporter_classup_ranger_2.png"),
+    3140033: ("Ranger", "Premium", "icon_item_supporter_classup_ranger_3.png"),
+    # Psionic
+    3140041: ("Psionic", "Common", "icon_item_supporter_classup_psionics_1.png"),
+    3140042: ("Psionic", "Advanced", "icon_item_supporter_classup_psionics_2.png"),
+    3140043: ("Psionic", "Premium", "icon_item_supporter_classup_psionics_3.png"),
+    # Controller
+    3140051: ("Controller", "Common", "icon_item_supporter_classup_controller_1.png"),
+    3140052: ("Controller", "Advanced", "icon_item_supporter_classup_controller_2.png"),
+    3140053: ("Controller", "Premium", "icon_item_supporter_classup_controller_3.png"),
+}
+
+# Levelling materials - res_id to (what it levels, tier, icon_filename).
+EXP_MATERIALS = {
+    # Battle Memory, for Combatants
+    3100001: ("Combatant", "Basic", "icon_item_char_level_materal_1.png"),
+    3100002: ("Combatant", "Advanced", "icon_item_char_level_materal_2.png"),
+    3100003: ("Combatant", "Premium", "icon_item_char_level_materal_3.png"),
+    # Support Data, for Partners
+    3100021: ("Partner", "Basic", "icon_item_supporter_level_materal_1.png"),
+    3100022: ("Partner", "Advanced", "icon_item_supporter_level_materal_2.png"),
+    3100023: ("Partner", "Premium", "icon_item_supporter_level_materal_3.png"),
+}
+
+# Everything else identified so far - res_id to (name, icon_filename).
+# These have no group and no tier: each is one item, and the first
+# three are held as CURRENCIES rather than in the item list.
+NAMED_MATERIALS = {
+    2000001: ("Units", "currency_unit.png"),
+    2100001: ("Universal Tactical Certificate",
+              "currency_combatant_ascend_public.png"),
+    2100002: ("Universal Support Certificate",
+              "currency_supporter_ascend_public.png"),
+    # The all-Element levelling card: a Common Growth Stone of whichever
+    # Element it is spent on, which is what its asset name says.
+    2100003: ("Potential Disk", "icon_item_card_levelup_all_1.png"),
+}
+
+# Named, but with no icon matched to them yet:
+#
+#   2000036  Reason
+#   3000003  Undetermined Ego Crystal
+#   3110001  Eye of Wailing Prodigal
+#   3110004  Shards of Condemnation
+#
+# Seven extracted assets are unclaimed and one of them is likely each
+# of those: `currency_chaos`, `currency_chaos_assault_stamina`,
+# `currency_chaos_delegation_module`, `currency_chaos_week_reward`,
+# `currency_ego_tree_public`, `currency_town_visit` and
+# `icon_item_akcalion_3`. The names are suggestive and nothing more --
+# `currency_chaos_delegation_module` looks like the Time-Limited
+# Command Delegation Module, whose res_id is itself still one of seven.
+
+
 def get_level_from_exp(exp: int, exp_table: list = None) -> int:
     """Convert experience points to level with interpolation between
     the table's checkpoints.
