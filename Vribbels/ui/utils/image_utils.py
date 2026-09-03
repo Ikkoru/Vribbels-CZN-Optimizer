@@ -18,8 +18,8 @@ from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 # What the files hold, and what is drawn. They differ, so every icon
 # is resampled once -- LANCZOS, at build time, not per repaint.
-ICON_NATIVE_SIZE = (144, 144)
-ICON_SIZE = (120, 120)
+ICON_NATIVE_SIZE = (114, 114)
+ICON_SIZE = (114, 114)
 
 # The quantity badge, in the bottom-right corner. Sized against the
 # icon rather than stated, so the badge keeps its proportions when the

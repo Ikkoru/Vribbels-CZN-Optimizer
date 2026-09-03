@@ -361,7 +361,6 @@ GROWTH_STONES = {
     3120053: ("Justice", "Premium", "icon_item_card_levelup_narcissism_3.png"),
 }
 
-
 # The tables below name the same shape as GROWTH_STONES: a res_id, what
 # distinguishes it inside its family, and the icon file that draws it.
 #
@@ -450,30 +449,20 @@ EXP_MATERIALS = {
 # three are held as CURRENCIES rather than in the item list.
 NAMED_MATERIALS = {
     2000001: ("Units", "currency_unit.png"),
-    2100001: ("Universal Tactical Certificate",
-              "currency_combatant_ascend_public.png"),
-    2100002: ("Universal Support Certificate",
-              "currency_supporter_ascend_public.png"),
-    # The all-Element levelling card: a Common Growth Stone of whichever
-    # Element it is spent on, which is what its asset name says.
-    2100003: ("Potential Disk", "icon_item_card_levelup_all_1.png"),
+    2100001: ("Universal Tactical Certificate", "currency_combatant_ascend_public.png"), # Equivalent to Common Manual of any class (Combatant Promotion material)
+    2100002: ("Universal Support Certificate", "currency_supporter_ascend_public.png"),  # Equivalent to Common Certificate of any class (Partner Promotion material)
+    2100003: ("Potential Disk", "icon_item_card_levelup_all_1.png"),                     # Equivalent to Common Growth Stone of any Element (Potential leveling material)
+    2000036: ("Reason", "currency_chaos_assault_stamina.png"), # Used to exchange for Sortie run rewards. Max 9 stored. 3 granted every Sunday 18:00 UTC
+    3000003: ("Undetermined Ego Crystal", "icon_item_card_levelup_all_1.png"), # Used for the final level of specific Potential Nodes
+    3110001: ("Eye of Wailing Prodigal", "icon_item_akcalion_3.png"),          # Used for the final several levels of specific Potential Nodes
+    3110004: ("Shards of Condemnation", "currency_chaos.png"),                 # Used for the final several levels of specific Potential Nodes
 }
 
-# Named, but with no icon matched to them yet:
 #
-#   2000036  Reason
-#   3000003  Undetermined Ego Crystal
-#   3110001  Eye of Wailing Prodigal
-#   3110004  Shards of Condemnation
-#
-# Seven extracted assets are unclaimed and one of them is likely each
-# of those: `currency_chaos`, `currency_chaos_assault_stamina`,
-# `currency_chaos_delegation_module`, `currency_chaos_week_reward`,
-# `currency_ego_tree_public`, `currency_town_visit` and
-# `icon_item_akcalion_3`. The names are suggestive and nothing more --
-# `currency_chaos_delegation_module` looks like the Time-Limited
-# Command Delegation Module, whose res_id is itself still one of seven.
-
+# TODO: find IDs of the following. Keep their comments with them:
+# currency_chaos_delegation_module.png  Time-Limited Command Delegation Module - 14 Days # Used to speed up Chaos runs. Expire 14 days after acquisition.
+# currency_chaos_week_reward.png    Loot Certification Card # Used to exchange for Chaos run rewards. Max 4 stored. 4 granted every Sunday 18:00 UTC
+# currency_town_visit.png   Communication Pass # Used for Counseling and Excursions
 
 def get_level_from_exp(exp: int, exp_table: list = None) -> int:
     """Convert experience points to level with interpolation between
