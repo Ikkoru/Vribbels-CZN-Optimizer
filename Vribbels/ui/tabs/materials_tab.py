@@ -18,9 +18,10 @@ from tkinter import font as tkfont
 from pathlib import Path
 
 from game_data import GROWTH_STONES, ATTRIBUTE_COLORS
+from game_data.constants import item_art
 from ..base_tab import BaseTab
 from ..utils.image_utils import (
-    create_icon_with_quantity, create_placeholder_icon,
+    RARITY_DIR, create_icon_with_quantity, create_placeholder_icon,
 )
 from ..utils.tab_header import make_heading
 
@@ -283,12 +284,20 @@ class MaterialsTab(BaseTab):
         for res_id, label in self.material_icons.items():
             if res_id not in GROWTH_STONES:
                 continue
-            _attribute, quality, icon_filename = GROWTH_STONES[res_id]
+            _attribute, quality, *_rest = GROWTH_STONES[res_id]
             quantity = item_quantities.get(res_id, 0)
-            icon_path = images_dir / icon_filename
+            # Through `item_art` rather than off the row: the tables
+            # disagree about what their first fields mean and a row may
+            # or may not state a rarity, so the art is read by the one
+            # accessor that knows both shapes.
+            art = item_art(res_id)
+            icon_path = images_dir / art.icon if art else None
+            plate = (images_dir / RARITY_DIR / f"bg_item_rarity_{art.rarity}.png"
+                     if art and art.rarity else None)
             photo = (create_icon_with_quantity(
-                str(icon_path), quantity, background=self.colors["bg"])
-                if icon_path.exists() else None)
+                str(icon_path), quantity, background=self.colors["bg"],
+                plate_path=str(plate) if plate and plate.exists() else None)
+                if icon_path and icon_path.exists() else None)
             if photo is not None:
                 label.config(image=photo, text="")
                 label.image = photo   # Tk holds no reference of its own

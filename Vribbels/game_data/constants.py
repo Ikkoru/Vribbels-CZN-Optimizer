@@ -42,6 +42,7 @@ about the game's data.
 """
 
 from pathlib import Path
+from typing import NamedTuple
 
 # The six combatant/partner classes. Characters (characters.py) and
 # partner cards (partners.py) both use these exact strings, and
@@ -459,10 +460,65 @@ NAMED_MATERIALS = {
 }
 
 #
-# TODO: find IDs of the following. Keep their comments with them:
-# currency_chaos_delegation_module.png  Time-Limited Command Delegation Module - 14 Days # Used to speed up Chaos runs. Expire 14 days after acquisition.
-# currency_chaos_week_reward.png    Loot Certification Card # Used to exchange for Chaos run rewards. Max 4 stored. 4 granted every Sunday 18:00 UTC
+# Items held with an EXPIRY rather than as a count - res_id to
+# (name, icon_filename).
+#
+# These live in `inventory.period_items`, not in the item list, and one
+# entry is one copy: three modules are three entries of count 1, each
+# with its own `end_time`. So the number held is the number of entries,
+# and there is no `amount` anywhere to read it from.
+PERIOD_ITEMS = {
+    3920026: ("Time-Limited Command Delegation Module - 14 Days",
+              "currency_chaos_delegation_module.png"),  # Used to speed up Chaos runs. Expire 14 days after acquisition.
+}
+
+# TODO: find the ID of the following. Keep its comment with it:
 # currency_town_visit.png   Communication Pass # Used for Counseling and Excursions
+# Narrowed to 3300002 and 3300007: both held 5 when the maintainer read
+# 5, and neither has moved since. One more reading of a CHANGED count
+# separates them.
+
+
+# Every table above, in the order a lookup should try them. The five
+# differ in what their second field means -- an Element, a class, what
+# a material levels, or nothing at all -- so a caller wanting only the
+# art goes through `item_art` rather than unpacking a row itself.
+ITEM_TABLES = (GROWTH_STONES, COMBATANT_PROMOTION, PARTNER_PROMOTION,
+               EXP_MATERIALS, NAMED_MATERIALS, PERIOD_ITEMS)
+
+
+class ItemArt(NamedTuple):
+    """What draws one item: its icon, and the rarity plate behind it.
+
+    `rarity` is the word in a `bg/bg_item_rarity_<word>.png`, or "" for
+    an item drawn without a plate. A row may state it or leave it off
+    entirely -- which is what keeps adding it to a table a one-row edit
+    rather than a 61-row one.
+    """
+    icon: str
+    rarity: str = ""
+
+
+def item_art(res_id):
+    """The art for an id from any of the item tables, or None.
+
+    Rows are positional tuples of three or four fields and the tables
+    disagree about what the first two mean, so this reads from the END:
+    the icon is the third field everywhere except `NAMED_MATERIALS` and
+    `PERIOD_ITEMS`, where it is the second. Taking the first field that
+    names a `.png` finds it in either shape, and anything after it is
+    the rarity.
+    """
+    for table in ITEM_TABLES:
+        row = table.get(res_id)
+        if row is None:
+            continue
+        for index, field in enumerate(row):
+            if isinstance(field, str) and field.endswith(".png"):
+                rest = row[index + 1:]
+                return ItemArt(field, rest[0] if rest else "")
+        return None
+    return None
 
 def get_level_from_exp(exp: int, exp_table: list = None) -> int:
     """Convert experience points to level with interpolation between

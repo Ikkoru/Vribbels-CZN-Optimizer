@@ -32,6 +32,21 @@ BADGE_PADDING_RATIO = 4 / ICON_NATIVE_SIZE[0]
 # The stone art is drawn to about this.
 PLACEHOLDER_RADIUS_RATIO = 12 / ICON_NATIVE_SIZE[0]
 
+# The rarity plate an icon sits on, as a share of the icon's side. The
+# assets are 101 against the icons' 114, and the two are drawn together
+# -- so the plate is sized from the icon rather than stated, and the
+# pair keeps its proportions at whatever `ICON_SIZE` becomes.
+#
+# 13 pixels apart at the native size, which is ODD: centring leaves one
+# more pixel on one side than the other, and nothing can divide it
+# evenly. The icons carry a transparent border of their own for exactly
+# this reason -- their art is centred inside it the way the game centres
+# it -- so the plate is what gets the uneven split, not the artwork.
+RARITY_PLATE_RATIO = 101 / 114
+
+# Where the rarity plates live, under the images folder.
+RARITY_DIR = "bg"
+
 
 def _flattened(img, background):
     """`img` composited onto an opaque `background`, or as-is without one.
@@ -48,8 +63,30 @@ def _flattened(img, background):
     return flat.convert("RGB")
 
 
+def _plated(icon, plate_path, size):
+    """`icon` over its rarity plate, on a canvas of `size`.
+
+    The plate goes down first and the icon over it, so the icon's
+    transparent border shows the plate through rather than covering it
+    -- which is the whole point of drawing the two together.
+
+    Returns the icon unchanged where there is no plate to draw.
+    """
+    if not plate_path:
+        return icon
+    plate = Image.open(plate_path).convert("RGBA")
+    side = max(1, round(size[0] * RARITY_PLATE_RATIO))
+    plate = plate.resize((side, side), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
+    canvas.alpha_composite(plate, dest=((size[0] - side) // 2,
+                                        (size[1] - side) // 2))
+    canvas.alpha_composite(icon)
+    return canvas
+
+
 def create_icon_with_quantity(icon_path: str, quantity: int,
-                              size=ICON_SIZE, background=None):
+                              size=ICON_SIZE, background=None,
+                              plate_path=None):
     """An icon with its owned quantity in the bottom-right corner.
 
     Args:
@@ -59,6 +96,7 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
             does not resample.
         background: a colour to flatten the icon onto, so nothing is
             left for Tk to composite. None keeps the alpha channel.
+        plate_path: the rarity plate to draw the icon on, or None.
 
     Returns:
         A PhotoImage ready for a Label, or None if the file could not
@@ -68,6 +106,7 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
         img = Image.open(icon_path).convert("RGBA")
         if img.size != tuple(size):
             img = img.resize(tuple(size), Image.Resampling.LANCZOS)
+        img = _plated(img, plate_path, tuple(size))
 
         draw = ImageDraw.Draw(img)
         qty_text = str(quantity)
