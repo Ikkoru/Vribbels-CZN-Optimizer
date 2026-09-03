@@ -61,15 +61,23 @@ NAME_FONT = ("Segoe UI", 12, "bold")
 ICON_GAP_HALF = 2       # spacing: content frame -> content frame -- frame, frame ↔
 ROW_GAP = 4             # spacing: content frame -> content frame -- frame, frame ↕
 
-# The heading of a column against the first row under it.
-HEADING_GAP = 10        # spacing: panel ↕ unrelated label -- heading, frame ↕
+# The heading of a column against the first row under it. 5 for a
+# rendered 10: the row's first ink is an Element name at 12pt bold, and
+# a capital starts that far down its own line box.
+HEADING_GAP = 5         # spacing: panel ↕ unrelated label -- heading, frame ↕
 
 # An Element's text block against the icons beside it, and a stat
-# line's label against its value.
-TEXT_TO_ICONS = 5       # spacing: label ↔ its element -- label, frame ↔
-# 3 rather than the rule's 5: a ttk.Label's glyphs stop two pixels
-# inside its own box on each side, and this pad starts at the box.
-LABEL_TO_VALUE = 3      # spacing: label ↔ its element -- label, label ↔
+# line's label against its value. Both are levers a rendered distance
+# short of the rule, because a ttk.Label's glyphs stop inside its own
+# box and these pads start at the box.
+#
+# The figures' block ends on a RIGHT-ALIGNED value, so what sits
+# between its last digit and the icons is the label's own inset, that
+# digit's right side bearing and this pad together.
+TEXT_TO_ICONS = 1       # spacing: label ↔ its element -- label, frame ↔
+# The four labels all end in a colon, whose ink stops inside its
+# advance -- so the pad is the rule's 5 less that and the box inset.
+LABEL_TO_VALUE = 2      # spacing: label ↔ its element -- label, label ↔
 
 # How wide the figures' column is held, in digits. RESERVED rather than
 # fitted: right-aligned values in a column that sizes to its content

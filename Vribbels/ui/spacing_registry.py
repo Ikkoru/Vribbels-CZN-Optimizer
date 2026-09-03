@@ -3200,6 +3200,50 @@ def _materials_child(part, position):
     return find
 
 
+def _box_gap(first, second, axis):
+    """Resolver: the gap between two widgets' BOXES, not their ink.
+
+    For two pictures. An icon's painted edge is the artist's and not
+    the layout's -- the growth-stone art stops one pixel inside its own
+    right and bottom edges, faintly enough for the fringe test to
+    discard it, so every reading between two of them came back a pixel
+    wide while the pad between them was exact. A drawn placeholder tile
+    beside them, with no such margin, read the pad.
+
+    Nothing is lost by not reading ink here: an icon is a fixed-size
+    image with no font, theme or inset of its own to drift. What can
+    move is the padding, and this reads that.
+    """
+    def resolve(cap, app):
+        a, b = sa.box_of(first(app)), sa.box_of(second(app))
+        if axis == "h":
+            return sa.gap_between(a.right, b.left), ""
+        return sa.gap_between(a.bottom, b.top), ""
+    return resolve
+
+
+def _debug_gap(first, second, axis):
+    """Resolver: `_gap`, and the raw coordinates of both ends with it.
+
+    For a gap the tool and the maintainer's eye disagree about, so the
+    next run says WHICH end is wrong rather than leaving it to be
+    inferred from the total.
+    """
+    inner = _gap(first, second, axis)
+
+    def resolve(cap, app):
+        upper, lower = first(app), second(app)
+        for label, widget in (("upper", upper), ("lower", lower)):
+            box = sa.box_of(widget)
+            extent = (sa.painted_extent_v(cap, box) if axis == "v"
+                      else sa.painted_extent_h(cap, box))
+            print(f"  [debug] {label}: box {box.top}..{box.bottom} "
+                  f"(h {box.height}) ink {extent} "
+                  f"text {str(widget.cget('text'))[:28]!r}")
+        return inner(cap, app)
+    return resolve
+
+
 def _ink_to_box_edge(left, right):
     """Resolver: a label's painted right edge -> the BOX left edge of the
     widget beside it.
@@ -3330,20 +3374,22 @@ for _name, _setup in (("contributions popup", _open_contributions_popup),
 # Its three columns are built by one function, so a gap read in the
 # stones column is the same gap in the two placeholders beside it.
 MATERIALS_ENTRIES = [
+    # Dumping its ends: the tool read 22 where the eye read 15, and
+    # which end is seven pixels out cannot be told from the total.
     ("Materials", "Materials: heading -> its first row", 10,
      RULE_PANEL_UNRELATED_LABEL,
-     _gap(_by_text("Potential Growth Stones"), _by_text("Passion"), "v"),
-     "v"),
+     _debug_gap(_by_text("Potential Growth Stones"), _by_text("Passion"),
+                "v"), "v"),
     ("Materials", "Materials: figures -> its icons", 5, RULE_LABEL_ELEMENT,
      _gap(_materials_part(0), _materials_part(1), "h"), "h"),
     ("Materials", "Materials: icon -> icon", 4, RULE_CONTENT_FRAME,
-     _gap(_materials_child(1, 0), _materials_child(1, 1), "h"), "h"),
+     _box_gap(_materials_child(1, 0), _materials_child(1, 1), "h"), "h"),
     # Children 1 and 2 of the figures block are the first line's label
     # and its value; child 0 is the Element's name above them.
     ("Materials", "Materials: Total: -> its column", 5, RULE_LABEL_ELEMENT,
      _ink_to_box_edge(_materials_child(0, 1), _materials_child(0, 2)), "h"),
     ("Materials", "Materials: icon row -> icon row", 4, RULE_CONTENT_FRAME,
-     _gap(_materials_child(1, 0), _materials_row_below(), "v"), "v"),
+     _box_gap(_materials_child(1, 0), _materials_row_below(), "v"), "v"),
 ]
 
 
