@@ -62,10 +62,17 @@ NAME_FONT = ("Segoe UI", 12, "bold")
 ICON_GAP_HALF = 2       # spacing: content frame -> content frame -- frame, frame ↔
 ROW_GAP = 4             # spacing: content frame -> content frame -- frame, frame ↕
 
-# The heading of a column against the first row under it. 5 for a
-# rendered 10: the row's first ink is an Element name at 12pt bold, and
-# a capital starts that far down its own line box.
-HEADING_GAP = 5         # spacing: panel ↕ unrelated label -- heading, frame ↕
+# The heading of a column against the first row under it, and the trim
+# that goes with it. The gap runs from the heading's BASELINE to the
+# Element name's CAPITAL, and three things sit in it: five rows of
+# heading box below the baseline, this pad, and seven rows of name box
+# above the capital.
+#
+# The first is taken back here rather than by a bigger pad, because the
+# name's seven cannot be: trimming the NAME's box would lift the whole
+# figures block off the icons beside it, which are top-aligned with it.
+HEADING_GAP = 3         # spacing: panel ↕ unrelated label -- heading, frame ↕
+HEADING_TRIM = -5
 
 # An Element's text block against the icons beside it, and a stat
 # line's label against its value. Both are levers a rendered distance
@@ -73,8 +80,12 @@ HEADING_GAP = 5         # spacing: panel ↕ unrelated label -- heading, frame �
 # box and these pads start at the box.
 #
 # The figures' block ends on a RIGHT-ALIGNED value, so what sits
-# between its last digit and the icons is the label's own inset, that
-# digit's right side bearing and this pad together.
+# between its last digit and the icons' BOX is the label's own inset,
+# that digit's right side bearing and this pad together.
+#
+# The icons' box and not their art: every icon carries a transparent
+# border so that its art is centred the way the game centres it, and
+# the border is part of the icon rather than part of the gap.
 TEXT_TO_ICONS = 1       # spacing: label ↔ its element -- label, frame ↔
 # The four labels all end in a colon, whose ink stops inside its
 # advance -- so the pad is the rule's 5 less that and the box inset.
@@ -148,7 +159,8 @@ class MaterialsTab(BaseTab):
         `stones` builds the real thing; without it the column gets the
         same shape in placeholders.
         """
-        make_heading(column, title).pack(anchor=tk.CENTER)
+        make_heading(column, title,
+                     bottom_trim=HEADING_TRIM).pack(anchor=tk.CENTER)
 
         # `anchor=N` rather than a fill: the rows are centred on the
         # column and sit at the top of it, so the column's leftover

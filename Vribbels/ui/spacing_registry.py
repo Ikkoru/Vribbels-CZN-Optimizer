@@ -3227,7 +3227,13 @@ def _debug_gap(first, second, axis):
 
     For a gap the tool and the maintainer's eye disagree about, so the
     next run says WHICH end is wrong rather than leaving it to be
-    inferred from the total.
+    inferred from the total. Swap it in for a `_gap`, read the dump,
+    swap it back -- `DEBUG_PANELS` and `DEBUG_PAIR_GAPS` are the same
+    tool for the two resolvers that take a name rather than a pair.
+
+    NOT dead code between uses. It answered the Materials heading gap
+    in one run: both ends turned out to be on their references and the
+    seventeen was the render, which no total could have said.
     """
     inner = _gap(first, second, axis)
 
@@ -3374,14 +3380,21 @@ for _name, _setup in (("contributions popup", _open_contributions_popup),
 # Its three columns are built by one function, so a gap read in the
 # stones column is the same gap in the two placeholders beside it.
 MATERIALS_ENTRIES = [
-    # Dumping its ends: the tool read 22 where the eye read 15, and
-    # which end is seven pixels out cannot be told from the total.
+    # Both ends are text and both were on their references: the dump
+    # read the heading's ink stopping at its baseline and the name's
+    # starting at its capital, which is what the rule asks for. The 17
+    # between them was the render, not the reading.
     ("Materials", "Materials: heading -> its first row", 10,
      RULE_PANEL_UNRELATED_LABEL,
-     _debug_gap(_by_text("Potential Growth Stones"), _by_text("Passion"),
-                "v"), "v"),
+     _gap(_by_text("Potential Growth Stones"), _by_text("Passion"), "v"),
+     "v"),
+    # Ink at the text's end, BOX at the icons'. Every icon carries a
+    # transparent border so that its art is centred the way the game
+    # centres it -- so its painted edge is the artist's convention and
+    # its box is where the layout put it. Read to the ink, this came
+    # back six wide with the pad exact.
     ("Materials", "Materials: figures -> its icons", 5, RULE_LABEL_ELEMENT,
-     _gap(_materials_part(0), _materials_part(1), "h"), "h"),
+     _ink_to_box_edge(_materials_part(0), _materials_part(1)), "h"),
     ("Materials", "Materials: icon -> icon", 4, RULE_CONTENT_FRAME,
      _box_gap(_materials_child(1, 0), _materials_child(1, 1), "h"), "h"),
     # Children 1 and 2 of the figures block are the first line's label

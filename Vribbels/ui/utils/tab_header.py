@@ -40,7 +40,7 @@ SUBTITLE_PAD_BOTTOM = 0
 SUBTITLE_PAD_LEFT = 10
 
 
-def make_heading(parent, title, *, x_trim=0):
+def make_heading(parent, title, *, x_trim=0, bottom_trim=0):
     """A 14pt heading Label, trimmed to its ink. Not packed.
 
     The heading half of `make_tab_header`, for a heading with no
@@ -48,10 +48,18 @@ def make_heading(parent, title, *, x_trim=0):
     Split out rather than copied: the font and the two pad corrections
     are the thing this module exists to keep in one place, and a
     heading built without them sits several pixels low.
+
+    `bottom_trim` takes FURTHER pixels off the bottom, for a heading
+    whose gap downward is spent here rather than by the panel beneath
+    it. `HEADING_PAD_BOTTOM` leaves five rows of box under the
+    baseline; a trim past that puts the box's bottom above the ink,
+    where the audit's scan -- which reads inside the box -- would stop
+    short of the baseline and report a gap that is not there.
     """
     return ttk.Label(
         parent, text=title, font=HEADING_FONT,
-        padding=(x_trim, HEADING_PAD_TOP, 0, HEADING_PAD_BOTTOM),
+        padding=(x_trim, HEADING_PAD_TOP, 0,
+                 HEADING_PAD_BOTTOM + bottom_trim),
     )
 
 
