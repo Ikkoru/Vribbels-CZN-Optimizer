@@ -292,8 +292,8 @@ class MaterialsTab(BaseTab):
             # accessor that knows both shapes.
             art = item_art(res_id)
             icon_path = images_dir / art.icon if art else None
-            plate = (images_dir / RARITY_DIR / f"bg_item_rarity_{art.rarity}.png"
-                     if art and art.rarity else None)
+            plate = (images_dir / RARITY_DIR / art.plate
+                     if art and art.plate else None)
             photo = (create_icon_with_quantity(
                 str(icon_path), quantity, background=self.colors["bg"],
                 plate_path=str(plate) if plate and plate.exists() else None)

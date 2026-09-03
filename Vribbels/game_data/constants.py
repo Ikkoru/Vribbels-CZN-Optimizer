@@ -457,6 +457,7 @@ NAMED_MATERIALS = {
     3000003: ("Undetermined Ego Crystal", "icon_item_card_levelup_all_1.png"), # Used for the final level of specific Potential Nodes
     3110001: ("Eye of Wailing Prodigal", "icon_item_akcalion_3.png"),          # Used for the final several levels of specific Potential Nodes
     3110004: ("Shards of Condemnation", "currency_chaos.png"),                 # Used for the final several levels of specific Potential Nodes
+    2000027: ("Loot Certification Card", "currency_chaos_week_reward.png"),     # Used to exchange for Chaos run rewards. Max 4 stored. 4 granted every Sunday 18:00 UTC
 }
 
 #
@@ -474,9 +475,57 @@ PERIOD_ITEMS = {
 
 # TODO: find the ID of the following. Keep its comment with it:
 # currency_town_visit.png   Communication Pass # Used for Counseling and Excursions
-# Narrowed to 3300002 and 3300007: both held 5 when the maintainer read
-# 5, and neither has moved since. One more reading of a CHANGED count
-# separates them.
+#
+# Narrowed to 3300002 and 3300007, and stuck there. Both held 5 when
+# the maintainer read 5; both STILL hold 5 in the capture taken after
+# they read 4, and only two ids moved at all between those two captures
+# (Units and 2000002). Six other ids hold 4 and every one of them has
+# held 4 across the last six captures.
+#
+# So the spend is not in a snapshot yet. A capture taken while the
+# count reads 4 settles it in one reading.
+
+
+# Item rarity, rarest last, mapped to the plate that draws it. Two of
+# the five are spelled differently by the assets than by the game --
+# `legend` draws Legendary and `unique` draws Mythic -- which is why
+# the tables carry the game's word and this turns it into a filename.
+#
+# NOT the same vocabulary as RARITY_COLORS further up: that is Memory
+# Fragments, four grades starting at Normal, against five here.
+RARITY_PLATES = {
+    "Common": "common",
+    "Uncommon": "uncommon",
+    "Rare": "rare",
+    "Legendary": "legend",
+    "Mythic": "unique",
+}
+
+# What a TIER word is worth as a rarity. Every shaped table states a
+# tier in its second field, so a stone, a manual and a battle memory of
+# the same tier plate alike and none of the 57 rows has to say so.
+#
+# Uncommon is absent deliberately: no item in these tables is one.
+TIER_RARITY = {
+    "Common": "Common",
+    "Basic": "Common",
+    "Great": "Rare",
+    "Advanced": "Rare",
+    "Premium": "Legendary",
+}
+
+# The items with no tier for the table above to read, by name.
+NAME_RARITY = {
+    "Units": "Common",
+    "Universal Tactical Certificate": "Legendary",
+    "Universal Support Certificate": "Legendary",
+    "Potential Disk": "Legendary",
+    "Reason": "Legendary",
+    "Eye of Wailing Prodigal": "Legendary",
+    "Shards of Condemnation": "Legendary",
+    "Undetermined Ego Crystal": "Mythic",
+    "Time-Limited Command Delegation Module - 14 Days": "Mythic",
+}
 
 
 # Every table above, in the order a lookup should try them. The five
@@ -488,36 +537,52 @@ ITEM_TABLES = (GROWTH_STONES, COMBATANT_PROMOTION, PARTNER_PROMOTION,
 
 
 class ItemArt(NamedTuple):
-    """What draws one item: its icon, and the rarity plate behind it.
+    """What draws one item: its icon, and the plate behind it.
 
-    `rarity` is the word in a `bg/bg_item_rarity_<word>.png`, or "" for
-    an item drawn without a plate. A row may state it or leave it off
-    entirely -- which is what keeps adding it to a table a one-row edit
-    rather than a 61-row one.
+    `rarity` is the game's word, which `RARITY_PLATES` turns into a
+    filename. "" where nothing names one.
     """
     icon: str
     rarity: str = ""
+
+    @property
+    def plate(self):
+        """The plate's filename, or "" for an item with no rarity."""
+        word = RARITY_PLATES.get(self.rarity)
+        return f"bg_item_rarity_{word}.png" if word else ""
 
 
 def item_art(res_id):
     """The art for an id from any of the item tables, or None.
 
-    Rows are positional tuples of three or four fields and the tables
-    disagree about what the first two mean, so this reads from the END:
-    the icon is the third field everywhere except `NAMED_MATERIALS` and
-    `PERIOD_ITEMS`, where it is the second. Taking the first field that
-    names a `.png` finds it in either shape, and anything after it is
-    the rarity.
+    The icon is the first field naming a `.png`; what comes before it
+    says what the item is, and what comes after it -- if anything --
+    states a rarity outright.
+
+    **A row states its rarity only where nothing can derive it.** A
+    shaped row carries a TIER, and `TIER_RARITY` prices every tier
+    word; a named row carries a NAME, and `NAME_RARITY` prices those.
+    So adding a rarity to a table is adding a word to one of those two
+    rather than editing 61 rows, and a row that does state one wins
+    over both.
     """
     for table in ITEM_TABLES:
         row = table.get(res_id)
         if row is None:
             continue
-        for index, field in enumerate(row):
-            if isinstance(field, str) and field.endswith(".png"):
-                rest = row[index + 1:]
-                return ItemArt(field, rest[0] if rest else "")
-        return None
+        icons = [i for i, field in enumerate(row)
+                 if isinstance(field, str) and field.endswith(".png")]
+        if not icons:
+            return None
+        at = icons[0]
+        after = row[at + 1:]
+        if after:
+            rarity = after[0]
+        elif at >= 2:
+            rarity = TIER_RARITY.get(row[1], "")
+        else:
+            rarity = NAME_RARITY.get(row[0], "")
+        return ItemArt(row[at], rarity)
     return None
 
 def get_level_from_exp(exp: int, exp_table: list = None) -> int:
