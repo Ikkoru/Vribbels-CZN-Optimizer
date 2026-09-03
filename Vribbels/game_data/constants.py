@@ -340,25 +340,25 @@ UPGRADES_PER_RARITY = {2: 0, 3: 2, 4: 4}
 # Growth Stone items - maps res_id to (attribute, quality, icon_filename)
 GROWTH_STONES = {
     # Passion stones
-    3120001: ("Passion", "Common", "growth_stone_passion_common.png"),
-    3120002: ("Passion", "Great", "growth_stone_passion_great.png"),
-    3120003: ("Passion", "Premium", "growth_stone_passion_premium.png"),
+    3120001: ("Passion", "Common", "icon_item_card_levelup_love_1.png"),
+    3120002: ("Passion", "Great", "icon_item_card_levelup_love_2.png"),
+    3120003: ("Passion", "Premium", "icon_item_card_levelup_love_3.png"),
     # Instinct stones
-    3120011: ("Instinct", "Common", "growth_stone_instinct_common.png"),
-    3120012: ("Instinct", "Great", "growth_stone_instinct_great.png"),
-    3120013: ("Instinct", "Premium", "growth_stone_instinct_premium.png"),
+    3120011: ("Instinct", "Common", "icon_item_card_levelup_instinct_1.png"),
+    3120012: ("Instinct", "Great", "icon_item_card_levelup_instinct_2.png"),
+    3120013: ("Instinct", "Premium", "icon_item_card_levelup_instinct_3.png"),
     # Void stones
-    3120021: ("Void", "Common", "growth_stone_void_common.png"),
-    3120022: ("Void", "Great", "growth_stone_void_great.png"),
-    3120023: ("Void", "Premium", "growth_stone_void_premium.png"),
+    3120021: ("Void", "Common", "icon_item_card_levelup_creed_1.png"),
+    3120022: ("Void", "Great", "icon_item_card_levelup_creed_2.png"),
+    3120023: ("Void", "Premium", "icon_item_card_levelup_creed_3.png"),
     # Order stones
-    3120031: ("Order", "Common", "growth_stone_order_common.png"),
-    3120032: ("Order", "Great", "growth_stone_order_great.png"),
-    3120033: ("Order", "Premium", "growth_stone_order_premium.png"),
+    3120031: ("Order", "Common", "icon_item_card_levelup_norms_1.png"),
+    3120032: ("Order", "Great", "icon_item_card_levelup_norms_2.png"),
+    3120033: ("Order", "Premium", "icon_item_card_levelup_norms_3.png"),
     # Justice stones
-    3120051: ("Justice", "Common", "growth_stone_justice_common.png"),
-    3120052: ("Justice", "Great", "growth_stone_justice_great.png"),
-    3120053: ("Justice", "Premium", "growth_stone_justice_premium.png"),
+    3120051: ("Justice", "Common", "icon_item_card_levelup_narcissism_1.png"),
+    3120052: ("Justice", "Great", "icon_item_card_levelup_narcissism_2.png"),
+    3120053: ("Justice", "Premium", "icon_item_card_levelup_narcissism_3.png"),
 }
 
 
