@@ -3271,6 +3271,44 @@ def _ink_to_box_edge(left, right):
     return resolve
 
 
+# How an ICON's edge is read, for every gap that ends at one.
+#
+#   "box"  the transparent border each icon carries counts as part of
+#          the icon. The game centres its art inside one, so the border
+#          is the artist's convention and the box is where the layout
+#          put it.
+#   "ink"  the outermost painted pixel instead -- with a rarity plate
+#          drawn that is the PLATE's edge, or a piece of art's own
+#          where one reaches past its plate.
+#
+# BOTH ARE KEPT and this switches every icon gap at once. `box` reads
+# the layout; `ink` reads what the eye lands on, and the two differ by
+# whatever margin the assets carry.
+ICON_EDGE = "box"
+
+
+def _icon_gap(first, second, axis):
+    """Resolver: between two icons, by whichever edge `ICON_EDGE` names."""
+    by_box, by_ink = _box_gap(first, second, axis), _gap(first, second, axis)
+
+    def resolve(cap, app):
+        return (by_box if ICON_EDGE == "box" else by_ink)(cap, app)
+    return resolve
+
+
+def _text_to_icon_gap(text, icons):
+    """Resolver: a text block's ink -> an icon block, the same two ways.
+
+    The near end is ink either way: it is a label, and a label has no
+    border to read instead.
+    """
+    by_box, by_ink = _ink_to_box_edge(text, icons), _gap(text, icons, "h")
+
+    def resolve(cap, app):
+        return (by_box if ICON_EDGE == "box" else by_ink)(cap, app)
+    return resolve
+
+
 def _materials_row_below():
     """Locator: the first icon of the SECOND Element row on Materials.
 
@@ -3394,15 +3432,20 @@ MATERIALS_ENTRIES = [
     # its box is where the layout put it. Read to the ink, this came
     # back six wide with the pad exact.
     ("Materials", "Materials: figures -> its icons", 5, RULE_LABEL_ELEMENT,
-     _ink_to_box_edge(_materials_part(0), _materials_part(1)), "h"),
+     _text_to_icon_gap(_materials_part(0), _materials_part(1)), "h"),
     ("Materials", "Materials: icon -> icon", 4, RULE_CONTENT_FRAME,
-     _box_gap(_materials_child(1, 0), _materials_child(1, 1), "h"), "h"),
+     _icon_gap(_materials_child(1, 0), _materials_child(1, 1), "h"), "h"),
     # Children 1 and 2 of the figures block are the first line's label
     # and its value; child 0 is the Element's name above them.
     ("Materials", "Materials: Total: -> its column", 5, RULE_LABEL_ELEMENT,
      _ink_to_box_edge(_materials_child(0, 1), _materials_child(0, 2)), "h"),
     ("Materials", "Materials: icon row -> icon row", 4, RULE_CONTENT_FRAME,
-     _box_gap(_materials_child(1, 0), _materials_row_below(), "v"), "v"),
+     _icon_gap(_materials_child(1, 0), _materials_row_below(), "v"), "v"),
+    # The row name against the first figure under it. Text to text, so
+    # the reading runs baseline to capital with no icon in it.
+    ("Materials", "Materials: row name -> its figures", 10,
+     RULE_LABEL_ROW_PITCH,
+     _gap(_by_text("Passion"), _materials_child(0, 1), "v"), "v"),
 ]
 
 
@@ -3484,11 +3527,10 @@ AWAITING_FIRST_READING = {
     # -- so a row printing yellow is a question, never a regression.
     # EMPTY is the state to return it to.
     #
-    # The Materials tab, registered with its rebuild: three columns
-    # where there was one, and every gap in them a lever set from the
-    # rules with nothing having read what it renders.
-    *(name for _tab, name, *_rest in MATERIALS_ENTRIES),
-    "Materials: tab list -> first element",
+    # The Materials tab's other five read on target once its columns
+    # settled; these two have not been read since they last moved.
+    "Materials: figures -> its icons",
+    "Materials: row name -> its figures",
 }
 
 

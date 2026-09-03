@@ -476,14 +476,17 @@ PERIOD_ITEMS = {
 # TODO: find the ID of the following. Keep its comment with it:
 # currency_town_visit.png   Communication Pass # Used for Counseling and Excursions. Max 5 stored. 5 granted every day at 18:00 UTC
 #
-# Narrowed to 3300002 and 3300007, and stuck there. Both held 5 when
-# the maintainer read 5; both STILL hold 5 in the capture taken after
-# they read 4, and only two ids moved at all between those two captures
-# (Units and 2000002). Six other ids hold 4 and every one of them has
-# held 4 across the last six captures.
+# NOT IN THE SNAPSHOT AT ALL, on the evidence of a debug capture taken
+# while one was spent. The `town / run_visit` reply carries what the
+# visit GAVE -- a gift item and 50000 Units -- and debits nothing: no
+# negative `diff` appears anywhere in the log, and no id in items or
+# currencies went down between the captures either side of it.
 #
-# So the spend is not in a snapshot yet. A capture taken while the
-# count reads 4 settles it in one reading.
+# `char_visits` is a per-combatant visit history and `town_visit_info`
+# a 34-slot daily board, neither of them a balance of anything. So the
+# count the game shows is either derived client-side or sent on a
+# screen a capture has not opened. Reading it needs a different lead
+# than diffing counts.
 
 
 # Item rarity, rarest last, mapped to the plate that draws it. Two of

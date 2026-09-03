@@ -93,6 +93,7 @@ class SettingsManager:
         ("optimizer_ignore_offelement", True),
         ("inventory_use_upgrade_log_filters", False),
         ("combatants_show_missing", False),
+        ("materials_include_generic", False),
         ("#4", "_Memory_"),
         ("first_launch_done", False),
         ("update_last_checked", ""),
