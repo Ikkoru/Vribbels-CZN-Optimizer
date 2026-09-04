@@ -473,6 +473,18 @@ PERIOD_ITEMS = {
               "currency_chaos_delegation_module.png"),  # Used to speed up Chaos runs. Expire 14 days after acquisition.
 }
 
+# TODO: `Great Rift Weekly Score` is NOT IN THE SNAPSHOT either. The
+# server sends it and the addon does not keep it -- the debug log has
+# it under two paths of one `disaster` payload, both reading the same
+# figure today:
+#
+#   /disaster_boss_rank_entities/disaster_s04/disaster_s04_rank_01/week_total_score
+#   /disaster_boss_rank_entities/disaster_s04/disaster_s04_rank_01/best_score
+#
+# `week_total_score` is the one the name matches; `best_score` sharing
+# its value is what a first week looks like, not evidence. Reaching
+# either means the addon storing `disaster_boss_rank_entities`.
+
 # TODO: find the ID of the following. Keep its comment with it:
 # currency_town_visit.png   Communication Pass # Used for Counseling and Excursions. Max 5 stored. 5 granted every day at 18:00 UTC
 #

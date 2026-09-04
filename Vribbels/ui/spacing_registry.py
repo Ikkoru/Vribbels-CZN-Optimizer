@@ -3326,10 +3326,12 @@ def _smallest_gap(pairs, axis):
         readings.sort()
         smallest = readings[0][0]
         at = [label for value, label in readings if value == smallest]
-        spread = {value for value, _label in readings}
         note = f"{len(readings)} pairs, smallest at {', '.join(at[:3])}"
-        if len(spread) > 1:
-            note += f"; widest {max(spread)}"
+        if readings[-1][0] != smallest:
+            # The widest by NAME as well: a spread is one row to look
+            # at or a whole column, and the number alone cannot say
+            # which.
+            note += f"; widest {readings[-1][0]} at {readings[-1][1]}"
         return smallest, note
     return resolve
 
@@ -3377,10 +3379,15 @@ def _materials_walk(app):
 
 
 def _materials_icon_pairs(app):
-    """Every pair of icons that sit next to each other in a row."""
+    """Every pair of icons that sit next to each other in a row.
+
+    Numbered within the row: a row has two such pairs and naming only
+    the row leaves the note saying the same thing twice.
+    """
     for title, index, _text, labels in _materials_walk(app):
-        for first, second in zip(labels, labels[1:]):
-            yield f"{title} row {index}", first, second
+        for position, (first, second) in enumerate(zip(labels, labels[1:])):
+            yield (f"{title} row {index} icons {position}-{position + 1}",
+                   first, second)
 
 
 def _materials_row_pairs(app):
@@ -3395,14 +3402,31 @@ def _materials_row_pairs(app):
         previous = (title, index, labels[0])
 
 
-def _materials_name_pairs(app):
-    """Each row's name against the first figure under it."""
-    for title, index, text, _labels in _materials_walk(app):
-        if text is None:
-            continue
-        children = text.winfo_children()
-        if len(children) >= 2:
-            yield f"{title} row {index}", children[0], children[1]
+def _materials_name_gap():
+    """Resolver: one row's name against the first figure under it.
+
+    ONE pair, not the smallest of nineteen: every row is built by the
+    same call with the same pads, so the rows cannot differ -- and the
+    reading that looked like a spread was the NAMES differing. A `g` in
+    `Vanguard` reaches below the baseline the rule measures from, and
+    the rows whose names have one read three tighter.
+
+    Corrected here rather than dodged by choosing a name without one:
+    the names are the game's and a future class could carry any glyph.
+    """
+    def resolve(cap, app):
+        for _title, _index, text, _labels in _materials_walk(app):
+            if text is None:
+                continue
+            children = text.winfo_children()
+            if len(children) < 2:
+                continue
+            name = children[0]
+            return restate_from_reference(
+                *sa.vertical_gap(cap, name, children[1]),
+                ink_below_baseline(str(name.cget("text"))))
+        return None, "no row with a name and a figure under it"
+    return resolve
 
 
 def _materials_row_below():
@@ -3541,7 +3565,7 @@ MATERIALS_ENTRIES = [
     # the reading runs baseline to capital with no icon in it.
     ("Materials", "Materials: row name -> its figures", 10,
      RULE_LABEL_ROW_PITCH,
-     _smallest_gap(_materials_name_pairs, "v"), "v"),
+     _materials_name_gap(), "v"),
 ]
 
 

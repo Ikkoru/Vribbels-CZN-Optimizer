@@ -111,9 +111,11 @@ COLUMNS = (
            2100002, LEVEL_TARGETS,
            ("Support Data", EXP_MATERIALS, "Partner",
             ("Premium", "Advanced", "Basic"), EXP_TARGETS)),
+    # No LEVEL_TARGETS here: a level is a Combatant's or a
+    # Partner's, and a potential node has none.
     Column("stones", "Potential Growth Stones", ELEMENT_ORDER,
            GROWTH_STONES, ("Premium", "Great", "Common"),
-           2100003, LEVEL_TARGETS + STONE_TARGETS),
+           2100003, STONE_TARGETS),
 )
 
 # The stat lines under a row's name. Small, because they are a readout
@@ -123,7 +125,10 @@ NAME_FONT = ("Segoe UI", 12, "bold")
 
 # Between the icons of a row, and between one row of icons and the next.
 ICON_GAP_HALF = 2       # spacing: content frame -> content frame -- frame, frame ↔
-ROW_GAP = 4             # spacing: content frame -> content frame -- frame, frame ↕
+# 2 for a rendered 4 while `ICON_EDGE` reads INK: an icon's art
+# stops inside its own box top and bottom, so two of the four sit
+# inside the icons rather than between them.
+ROW_GAP = 2             # spacing: content frame -> content frame -- frame, frame ↕
 
 # The heading of a column against the first row under it. The gap runs
 # from the heading's BASELINE to the row name's CAPITAL, and three
@@ -247,6 +252,7 @@ class MaterialsTab(BaseTab):
         rows = ttk.Frame(column)
         rows.pack(anchor=tk.N, pady=(HEADING_GAP, 0))
 
+        text_width, label_width = self._text_block_px(spec)
         for position, name in enumerate(spec.names):
             row = ttk.Frame(rows)
             # Leading only, so the first row's gap upward stays the
@@ -254,12 +260,12 @@ class MaterialsTab(BaseTab):
             row.pack(anchor=tk.CENTER,
                      pady=(0 if position == 0 else ROW_GAP, 0))
             self._build_row(row, index, name, spec.table, spec.tiers,
-                            spec.targets, TIER_WEIGHTS)
+                            spec.targets, TIER_WEIGHTS, label_width)
 
         self._column_generics[index] = spec.generic
         generic_row = ttk.Frame(rows)
         generic_row.pack(anchor=tk.CENTER, pady=(ROW_GAP, 0))
-        self._build_generic_row(generic_row, index, spec)
+        self._build_generic_row(generic_row, index, spec, text_width)
 
         if spec.levelling:
             name, table, group, tiers, targets = spec.levelling
@@ -269,10 +275,10 @@ class MaterialsTab(BaseTab):
             # below it, and inventing a pattern would put a number
             # under a label that nobody has priced.
             self._build_row(row, index, group, table, tiers, targets,
-                            None, label=name)
+                            None, label_width, label=name)
 
     def _build_row(self, row, index, name, table, tiers, targets,
-                   weights, label=None):
+                   weights, label_width, label=None):
         """One class, Element or material: its name, figures, icons.
 
         `weights` prices a tier in bottom-tier equivalents; None
@@ -288,6 +294,9 @@ class MaterialsTab(BaseTab):
         # it -- which is why the reservation covers the widest form the
         # column can hold rather than four digits alone.
         text.grid_columnconfigure(1, minsize=self._value_column_px())
+        # And the label column at the column's own width, so every row
+        # in it reserves the same block and their icons line up.
+        text.grid_columnconfigure(0, minsize=label_width)
 
         # Spanning both columns with no sticky, which centres it over
         # the figures. The columns are left to size to their own
@@ -332,7 +341,7 @@ class MaterialsTab(BaseTab):
             if res_id is not None:
                 self.material_icons[res_id] = label
 
-    def _build_generic_row(self, row, index, spec):
+    def _build_generic_row(self, row, index, spec, text_width):
         """The column's stand-in item, under its last row.
 
         The icon goes in the LAST icon column, under the bottom
@@ -341,9 +350,22 @@ class MaterialsTab(BaseTab):
         frames of an icon's width, so the icon lands under that
         tier rather than at the row's left edge.
         """
+        # Stands in for the figures block the data rows carry, so this
+        # row is as wide as they are and centres to the same place.
+        ttk.Frame(row, width=text_width, height=1).pack(
+            side=tk.LEFT, anchor=tk.N)
+
         icons = ttk.Frame(row)
-        icons.pack(side=tk.LEFT, anchor=tk.N)
+        icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
         last = len(spec.tiers) - 1
+        # Every cell the width an ICON's cell takes -- its own width
+        # and the pad on both sides. A narrower cell would pull the
+        # icon after it left of the tier it stands in for, which is the
+        # column it has to sit under; `minsize` is a floor and a
+        # checkbox does not reach it on its own.
+        for position in range(last + 1):
+            icons.grid_columnconfigure(
+                position, minsize=ICON_SIZE[0] + 2 * ICON_GAP_HALF)
         for position in range(last):
             if position == last - 1:
                 # spacing: label ↔ its element -- checkbox, frame ↔
@@ -375,6 +397,41 @@ class MaterialsTab(BaseTab):
         """
         return tk.Label(parent, bg=self.colors["bg"], fg=self.colors["fg"],
                         bd=0, highlightthickness=0, padx=0, pady=0)
+
+    @staticmethod
+    def _text_block_px(spec):
+        """(the whole figures block, its label column) for one column.
+
+        COMPUTED, not measured. Every row in a column has to reserve
+        the same width or its icons land in a different place from the
+        row above -- the rows are centred, so a narrower one is centred
+        on less. Measuring the built rows cannot do it: a frame reports
+        a requested width of 1 until Tk has processed the geometry, and
+        forcing that mid-build means painting a half-built window.
+
+        The widest of two things: the label column plus the reserved
+        value column, and the row NAME above them, which spans both.
+        """
+        stat = tkfont.Font(font=STAT_FONT)
+        name_font = tkfont.Font(font=NAME_FONT)
+        figures = [TOTAL_LABEL] + [word for word, _cost in spec.targets]
+        names = list(spec.names)
+        if spec.levelling:
+            label, _table, _group, _tiers, targets = spec.levelling
+            figures += [word for word, _cost in targets]
+            names.append(label)
+        labels = max(stat.measure(word) for word in figures) + LABEL_INSET_PX
+        widest_name = (max(name_font.measure(word) for word in names)
+                       + LABEL_INSET_PX)
+        value = MaterialsTab._value_column_px()
+        # The pad between label and value belongs to the LABEL column:
+        # it is that widget's `padx`, so grid counts it as content
+        # there rather than adding it to the row. Computing the block
+        # as `labels + pad + value` and the column as `block - pad -
+        # value` looks like the same arithmetic and leaves the two two
+        # pixels apart -- which is a row of icons two pixels out.
+        label_column = max(labels + LABEL_TO_VALUE, widest_name - value)
+        return label_column + value, label_column
 
     @staticmethod
     def _value_column_px():

@@ -776,6 +776,36 @@ def _materials_rows_each_register(tab):
                     f"{key} carries figures {list(values)}, not {wanted}"
                 )
 
+    # Rows are CENTRED in their column, so a row that reserves less
+    # width than its neighbours is centred on less and its icons land
+    # left of the tier column they belong under. The generic row had no
+    # figures block at all and sat 52px out that way.
+    holders = tab.get_frame().winfo_children()
+    for column in (holders[0].winfo_children() if holders else ()):
+        parts = column.winfo_children()
+        if len(parts) < 2:
+            continue
+        title = str(parts[0].cget("text"))
+        widths, leads = set(), set()
+        for row in parts[1].winfo_children():
+            halves = row.winfo_children()
+            if not halves:
+                continue
+            widths.add(row.winfo_reqwidth())
+            leads.add(sum(h.winfo_reqwidth() for h in halves[:-1]))
+        if len(widths) > 1:
+            out.append(
+                f"{title!r} has rows of {sorted(widths)} width. They are "
+                f"centred, so a narrower one puts its icons left of the "
+                f"column above it."
+            )
+        if len(leads) > 1:
+            out.append(
+                f"{title!r} has rows whose icons start at {sorted(leads)}. "
+                f"Every row reserves the same figures block so that they "
+                f"line up; see `_text_block_px`."
+            )
+
     variables = {id(var) for var in tab.include_generic_vars.values()}
     if len(variables) != len(COLUMNS):
         out.append(
