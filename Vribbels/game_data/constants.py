@@ -482,20 +482,29 @@ PERIOD_ITEMS = {
 # its value is what a first week looks like, not evidence. Reaching
 # either means the addon storing `disaster_boss_rank_entities`.
 
-# TODO: find the ID of the following. Keep its comment with it:
-# currency_town_visit.png   Communication Pass # Used for Counseling and Excursions. Max 5 stored. 5 granted every day at 18:00 UTC
+# The Communication Pass -- `currency_town_visit.png`, used for
+# Counseling and Excursions -- HAS NO ID. It is not an item and not a
+# currency: a debug capture taken while one was spent shows the
+# `town / run_visit` reply carrying what the visit GAVE and debiting
+# nothing, with no negative `diff` anywhere and no id moving between
+# the captures either side of it.
 #
-# NOT IN THE SNAPSHOT AT ALL, on the evidence of a debug capture taken
-# while one was spent. The `town / run_visit` reply carries what the
-# visit GAVE -- a gift item and 50000 Units -- and debits nothing: no
-# negative `diff` appears anywhere in the log, and no id in items or
-# currencies went down between the captures either side of it.
+# **The count is DERIVED, not stored.** It is the daily allowance less
+# what has been spent today:
 #
-# `char_visits` is a per-combatant visit history and `town_visit_info`
-# a 34-slot daily board, neither of them a balance of anything. So the
-# count the game shows is either derived client-side or sent on a
-# screen a capture has not opened. Reading it needs a different lead
-# than diffing counts.
+#   5 - characters.town_data.day_changeable_data.use_town_visit_count
+#
+# Read against two readings off the screen: 0 spent showed 5 passes and
+# 1 spent showed 4. The counter agrees with the `town_visit_info`
+# board's own visited flags in every snapshot, and
+# `town_visit_reset_time` beside it is when it goes back to 0 -- 18:00
+# UTC, which is when the game says the allowance is granted.
+
+# TODO: name the twenty ARCHIVE GIFT items, res_id 3300001-3300020.
+# What they are is settled: `characters.archive_gift_data` is keyed by
+# combatant and lists exactly these ids in its `item_id_list`, with
+# `reward_received_item_id_list` saying which have been handed over.
+# What is missing is each one's NAME and icon, which no payload spells.
 
 
 # Item rarity, rarest last, mapped to the plate that draws it. Two of
