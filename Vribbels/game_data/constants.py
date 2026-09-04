@@ -459,10 +459,12 @@ NAMED_MATERIALS = {
 # Items held with an EXPIRY rather than as a count - res_id to
 # (name, icon_filename).
 #
-# These live in `inventory.period_items`, not in the item list, and one
-# entry is one copy: three modules are three entries of count 1, each
-# with its own `end_time`. So the number held is the number of entries,
-# and there is no `amount` anywhere to read it from.
+# These live in `inventory.period_items`, not in the item list, and are
+# nested one level deeper than everything else: the entry is the ITEM
+# and its `value` lists the COPIES, one per copy with its own
+# `end_time`. So the number held is the length of that inner list, and
+# there is no `amount` anywhere to read it from. `period_items.held` is
+# what knows the shape.
 PERIOD_ITEMS = {
     3920026: ("Time-Limited Command Delegation Module - 14 Days",
               "currency_chaos_delegation_module.png"),  # Used to speed up Chaos runs. Expire 14 days after acquisition.

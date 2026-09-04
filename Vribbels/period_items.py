@@ -1,10 +1,11 @@
 """Items held with an expiry, read out of a snapshot.
 
 **A period item is not counted, it is listed.** Where an ordinary item
-is one entry carrying an `amount`, a period item is one entry PER COPY
-carrying an `end_time` -- three Command Delegation Modules are three
-entries of count 1, expiring at three different moments. So the number
-held is the number of entries, and nothing in the snapshot states it.
+is one entry carrying an `amount`, a period item is one entry per ITEM
+whose `value` lists the COPIES -- three Command Delegation Modules are
+one entry holding three, each of count 1 and each with its own
+`end_time`. So the number held is the length of that inner list, one
+level deeper than a reader expects, and nothing states it.
 
 `end_time` is epoch SECONDS, UTC. The game shows a local time, so a
 reading taken off the screen is the maintainer's offset away from what
