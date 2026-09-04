@@ -179,10 +179,16 @@ COLUMNS = (
 
 # The far-right column holds tiles and nothing else -- no heading, no
 # names, no figures -- reserving the shape a fourth family would take.
-# Three tiles wide like the columns beside it, and as many rows as the
-# tallest of them, so the block reads as a rectangle rather than as a
-# short column at the end of three long ones.
-RESERVED_TILES = 3
+# As many rows as the tallest column beside it, so the block ends level
+# with them rather than short.
+#
+# ONE tile wide, and that is a width the tab cannot spare more of: the
+# three real columns want 467 each at the current `ICON_SIZE` and the
+# tab has 1542, which leaves 141 for this column. A second tile would
+# take the four past the window and grid would clip the third icon off
+# every row. Widening the tiles here means narrowing the icons, or a
+# wider window.
+RESERVED_TILES = 1
 RESERVED_ROWS = max(len(spec.names) + 1 + (1 if spec.levelling else 0)
                     for spec in COLUMNS)
 
@@ -292,11 +298,17 @@ class MaterialsTab(BaseTab):
         # thing under this one is the same 14pt heading they open with.
         columns.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
         last = len(COLUMNS)
-        for index in range(last + 1):
+        for index in range(last):
             # `uniform` is what makes them EQUAL rather than merely
             # stretchy: without it a column holding wider content takes
             # more of the width, weights or no weights.
             columns.grid_columnconfigure(index, weight=1, uniform="materials")
+        # The reserved column is NOT in that group. Four equal columns
+        # would each be a quarter of the width, which is less than the
+        # three real ones ask for -- and grid answers that by clipping
+        # them. Out of the group it takes its own width and leaves the
+        # rest to be shared three ways.
+        columns.grid_columnconfigure(last, weight=0)
         columns.grid_rowconfigure(0, weight=1)
 
         for index, spec in enumerate(COLUMNS):
