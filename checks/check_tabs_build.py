@@ -355,47 +355,87 @@ def _character_card_lines_fit():
     word with nothing reporting it -- no exception, no reflow, just a
     combatant whose potential node reads `Node 5: Lv3 (CDMG` and stops.
 
-    The line most likely to do it is the potential node's, because its
-    bracket comes from the game data: a stat with a longer display name,
-    or a bonus that reaches three digits, lengthens it without anything
-    in this file changing.
+    The line most likely to do it is a potential node's, because its
+    third column comes from the game data: a stat with a longer display
+    name, a bonus reaching three digits, or a character whose node is
+    worded differently lengthens it without anything in this file
+    changing.
+
+    **A node line is tab-stopped, so its width is its last STOP plus
+    what follows, not the sum of its words.** Two things follow from
+    that, and this checks both: the line has to fit the panel, and each
+    column has to fit BEFORE the next stop -- a column that runs past
+    one does not overlap, it pushes the rest of the line right, and the
+    block's alignment goes with it.
 
     Returns a list of complaints.
     """
     from tkinter import font as tkfont
     from game_data.characters import (
-        CHARACTERS, get_potential_stat, get_potential_stat_bonus)
+        CHARACTERS, POTENTIAL_NODES, get_potential_node_does,
+        get_potential_stat, get_potential_stat_bonus)
     from game_data.constants import DISPLAY_NAMES
-    from ui.tabs.heroes_tab import CHAR_CONTENT_PX, CHAR_SUBLIST_INDENT
+    from ui.tabs.heroes_tab import (
+        CHAR_CONTENT_PX, CHAR_NODE_TAB_DESC, CHAR_NODE_TAB_LEVEL,
+        CHAR_NODE_TAKEN, CHAR_NODE_UNTAKEN, CHAR_SUBLIST_INDENT)
 
     measure = tkfont.nametofont("TkDefaultFont").measure
-    worst, worst_px = "", 0
+    out = []
+    widest = {"label": ("", 0), "level": ("", 0), "does": ("", 0)}
+
+    def consider(column, text):
+        if text and measure(text) > widest[column][1]:
+            widest[column] = (text, measure(text))
+
+    for node in POTENTIAL_NODES:
+        consider("label", f"{CHAR_SUBLIST_INDENT}Node {node.shown}:")
+        consider("level", CHAR_NODE_TAKEN if node.max_level == 1
+                 else f"Lv{node.max_level}")
+        consider("level", CHAR_NODE_UNTAKEN)
+
     for res_id, data in CHARACTERS.items():
         if not isinstance(data, dict):
             continue
-        for node in (50, 60):
-            for level in range(0, 6):
-                stat, bonus = get_potential_stat_bonus(res_id, node, level)
+        for node in POTENTIAL_NODES:
+            if not node.stat:
+                consider("does", get_potential_node_does(res_id, node))
+                continue
+            for level in range(0, node.max_level + 1):
+                stat, bonus = get_potential_stat_bonus(
+                    res_id, node.wire, level)
                 if stat is None:
-                    stat, bonus = get_potential_stat(res_id, node), None
+                    stat, bonus = get_potential_stat(res_id, node.wire), None
                 if stat is None:
                     continue
                 what = DISPLAY_NAMES.get(stat, stat)
                 if bonus:
                     what = f"{what} +{bonus:g}%"
-                line = (f"{CHAR_SUBLIST_INDENT}Node {node // 10}: "
-                        f"Lv{level} ({what})")
-                if measure(line) > worst_px:
-                    worst, worst_px = line, measure(line)
+                consider("does", what)
 
-    if worst_px > CHAR_CONTENT_PX:
-        return [
-            f"the Character card's widest potential line is {worst_px}px "
-            f"({worst!r}) against CHAR_CONTENT_PX = {CHAR_CONTENT_PX}. The "
-            f"panel is a fixed width and the Text does not wrap, so this "
-            f"clips silently. Raise CHAR_CONTENT_PX or shorten the bracket."
-        ]
-    return []
+    for column, stop, nxt, what in (
+            ("label", 0, CHAR_NODE_TAB_LEVEL, "the level column's stop"),
+            ("level", CHAR_NODE_TAB_LEVEL, CHAR_NODE_TAB_DESC,
+             "the description column's stop")):
+        text, width = widest[column]
+        if stop + width > nxt:
+            out.append(
+                f"the node block's {column} column reaches "
+                f"{stop + width}px ({text!r}) against {what} at {nxt}. A "
+                f"column that passes its next stop pushes the rest of the "
+                f"line right instead of overlapping, so that line alone "
+                f"comes out of the block's columns."
+            )
+
+    text, width = widest["does"]
+    if CHAR_NODE_TAB_DESC + width > CHAR_CONTENT_PX:
+        out.append(
+            f"the Character card's widest node line is "
+            f"{CHAR_NODE_TAB_DESC + width}px ({text!r} at the description "
+            f"stop) against CHAR_CONTENT_PX = {CHAR_CONTENT_PX}. The panel "
+            f"is a fixed width and the Text does not wrap, so this clips "
+            f"silently. Raise CHAR_CONTENT_PX or shorten the wording."
+        )
+    return out
 
 
 def _show_missing_adds_rather_than_replaces(tab):
@@ -858,44 +898,42 @@ def _materials_rows_each_register(tab):
                 f"number."
             )
 
-    # Rows are CENTRED in their column, so a row that reserves less
-    # width than its neighbours is centred on less and its icons land
-    # left of the tier column they belong under. The generic row had no
-    # figures block at all and sat 52px out that way.
+    # What makes a column's icons line up is that every row is pinned
+    # by its RIGHT edge, since every row ends in its icons. Centred
+    # instead, a row reserving a different width is centred on less or
+    # more and its icons land off the tier column above -- the generic
+    # row had no figures block at all and sat 52px out that way, and
+    # three rows now differ in width on purpose.
     holders = tab.get_frame().winfo_children()
-    by_title = {spec.title: spec for spec in COLUMNS}
+    from ui.tabs.materials_tab import ICON_GAP_HALF, ICON_SIZE
+    cell = ICON_SIZE[0] + 2 * ICON_GAP_HALF
     for column in (holders[0].winfo_children() if holders else ()):
         parts = column.winfo_children()
         if len(parts) < 2:
             continue
         title = str(parts[0].cget("text"))
-        spec = by_title.get(title)
-        widths, leads = set(), set()
-        for row in parts[1].winfo_children():
+        for position, row in enumerate(parts[1].winfo_children()):
             halves = row.winfo_children()
             if not halves:
                 continue
-            widths.add(row.winfo_reqwidth())
-            icons = [w for w in halves[-1].winfo_children()
-                     if w.winfo_class() == "Label"]
-            # A SPECIALS row carries more icons than the column has
-            # tiers, and starts that much further left on purpose. Its
-            # right edge still lines up, which is what `widths` checks.
-            if spec is not None and len(icons) > len(spec.tiers):
-                continue
-            leads.add(sum(h.winfo_reqwidth() for h in halves[:-1]))
-        if len(widths) > 1:
-            out.append(
-                f"{title!r} has rows of {sorted(widths)} width. They are "
-                f"centred, so a narrower one puts its icons left of the "
-                f"column above it."
-            )
-        if len(leads) > 1:
-            out.append(
-                f"{title!r} has rows whose icons start at {sorted(leads)}. "
-                f"Every row reserves the same figures block so that they "
-                f"line up; see `_text_block_px`."
-            )
+            if str(row.pack_info().get("anchor")) != "e":
+                out.append(
+                    f"{title!r} row {position} is anchored "
+                    f"{row.pack_info().get('anchor')!r}, not 'e'. The rows "
+                    f"are pinned by the right edge because that is where "
+                    f"their icons are; anchored any other way, a row of a "
+                    f"different width puts its icons off the column."
+                )
+            # And each row's icon half has to be a whole number of icon
+            # cells wide, or the icons inside it sit off the tier
+            # columns even with the row itself in the right place.
+            span = halves[-1].winfo_reqwidth()
+            if span % cell:
+                out.append(
+                    f"{title!r} row {position} has an icon block {span}px "
+                    f"wide, which is not a multiple of an icon cell's "
+                    f"{cell}px."
+                )
 
     # The gaps ACROSS the block have to stay equal, and what keeps them
     # equal is where the tab's leftover width goes. Given to the content

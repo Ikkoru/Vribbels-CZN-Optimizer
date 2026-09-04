@@ -140,12 +140,28 @@ COMBATANT_EXP_TARGETS = _exp_targets(CHARACTER_EXP_TABLE, (50, 60, 61))
 PARTNER_EXP_TARGETS = _exp_targets(PARTNER_EXP_TABLE, (50, 60))
 
 
-# Materials that level a potential node and are not Growth Stones, by
-# res_id. `None` reserves a tile for one that has no id yet.
+# The ADVANCED potential materials, left to right as the row draws
+# them: Eye of Wailing Prodigal, Shards of Condemnation, Undetermined
+# Ego Crystal. Each levels a node without being a Growth Stone.
+ADVANCED_ITEMS = (3110001, 3110004, 3000003)
+ADVANCED_LABEL = "Advanced"
+
+# (label, one cost per item above, in that order) for each target.
 #
-# In res_id order, which is not known to be the order the game's own
-# screen uses -- nothing captured says what that order is.
-POTENTIAL_SPECIALS = (3000003, 3110001, 3110004, None)
+# **Every cost is None until somebody prices it**, which reads `-`. The
+# three do not substitute for each other and the column's Potential
+# Disk substitutes for none of them, so each is held against its own
+# stock and nothing here is summed with anything.
+ADVANCED_TARGETS = (
+    ("Best:", (None, None, None)),
+    ("+Node 5.1:", (None, None, None)),
+    ("+Node 5.2:", (None, None, None)),
+)
+
+# A row of bare tiles under the Advanced one, reserving the shape a
+# fourth family of potential material would take. Every one is a
+# placeholder: nothing is drawn there yet.
+POTENTIAL_SPECIALS = (None, None, None, None)
 
 
 class Column(NamedTuple):
@@ -157,10 +173,10 @@ class Column(NamedTuple):
     different questions about the same level number. Empty for a
     column with no such material.
 
-    `specials` is a row of bare icons under a BLANK one, for items that
-    belong to the column's subject without belonging to any of its
-    rows. It carries no figures: each is its own item and there is
-    nothing to total them into.
+    `advanced` is a row whose figures are THREE columns wide -- one per
+    item beside it, each held against its own stock. `specials` is a
+    row of bare icons with no figures at all, reserving the shape a
+    further family would take.
     """
     key: str
     title: str
@@ -170,6 +186,7 @@ class Column(NamedTuple):
     generic: int
     targets: tuple
     levelling: tuple = ()
+    advanced: tuple = ()
     specials: tuple = ()
 
 
@@ -188,7 +205,8 @@ COLUMNS = (
     # Partner's, and a potential node has none.
     Column("stones", "Potential Growth Stones", ELEMENT_ORDER,
            GROWTH_STONES, ("Premium", "Great", "Common"),
-           2100003, STONE_TARGETS, specials=POTENTIAL_SPECIALS),
+           2100003, STONE_TARGETS, advanced=ADVANCED_ITEMS,
+           specials=POTENTIAL_SPECIALS),
 )
 
 # The far-right column holds tiles and nothing else -- no heading, no
@@ -290,6 +308,10 @@ class MaterialsTab(BaseTab):
         self.material_icons = {}     # res_id -> the Label drawing it
         # (column index, row name) -> (value labels, targets, table, tiers)
         self.material_stats = {}
+        # column index -> ({label: [one value Label per item]}, res_ids)
+        # for the Advanced row, whose figures are three columns wide
+        # and so do not fit `material_stats`.
+        self.advanced_stats = {}
         self._column_generics = {}   # column index -> generic res_id
         self.include_generic_vars = {}   # column index -> its BooleanVar
         # The last counts drawn, so the checkbox can redraw the figures
@@ -369,41 +391,44 @@ class MaterialsTab(BaseTab):
         rows.pack(anchor=tk.N, pady=(HEADING_GAP, 0))
 
         text_width, label_width = self._text_block_px(spec)
-        for position, name in enumerate(spec.names):
+
+        def add_row(first=False):
+            """The next row down, right-anchored.
+
+            **`anchor=E`, not CENTER.** Every row ends in its icons and
+            what has to line up is those, so the right edges are what
+            the rows are pinned by -- which lets a row needing more
+            room than its neighbours take it on the LEFT, where there
+            is nothing to disturb. Two rows do: the specials row runs
+            an icon wider, and the Advanced row's figures are three
+            columns instead of one.
+            """
             row = ttk.Frame(rows)
-            # Leading only, so the first row's gap upward stays the
-            # heading's.
-            row.pack(anchor=tk.CENTER,
-                     pady=(0 if position == 0 else ROW_GAP, 0))
-            self._build_row(row, index, name, spec.table, spec.tiers,
-                            spec.targets, TIER_WEIGHTS, label_width)
+            row.pack(anchor=tk.E, pady=(0 if first else ROW_GAP, 0))
+            return row
+
+        for position, name in enumerate(spec.names):
+            self._build_row(add_row(first=position == 0), index, name,
+                            spec.table, spec.tiers, spec.targets,
+                            TIER_WEIGHTS, label_width)
 
         self._column_generics[index] = spec.generic
-        generic_row = ttk.Frame(rows)
-        generic_row.pack(anchor=tk.CENTER, pady=(ROW_GAP, 0))
-        self._build_generic_row(generic_row, index, spec, text_width)
+        self._build_generic_row(add_row(), index, spec, text_width)
 
         if spec.levelling:
             name, table, group, tiers, targets = spec.levelling
-            row = ttk.Frame(rows)
-            row.pack(anchor=tk.CENTER, pady=(ROW_GAP, 0))
             # `EXP_WEIGHTS`, not `TIER_WEIGHTS`: an EXP material is not
             # three of the tier below it, and the two families spell
             # their tiers alike.
-            self._build_row(row, index, group, table, tiers, targets,
+            self._build_row(add_row(), index, group, table, tiers, targets,
                             EXP_WEIGHTS, label_width, label=name,
                             takes_generic=False)
 
+        if spec.advanced:
+            self._build_advanced_row(add_row(), index, spec)
+
         if spec.specials:
-            # A blank row of an icon's height, so the specials land
-            # level with the bottom row of the columns beside this one:
-            # those carry a generic AND a levelling row where this one
-            # carries only the generic.
-            ttk.Frame(rows, height=ICON_SIZE[1], width=1).pack(
-                anchor=tk.CENTER, pady=(ROW_GAP, 0))
-            row = ttk.Frame(rows)
-            row.pack(anchor=tk.CENTER, pady=(ROW_GAP, 0))
-            self._build_specials_row(row, spec, text_width)
+            self._build_specials_row(add_row(), spec, text_width)
 
     def _build_row(self, row, index, name, table, tiers, targets,
                    weights, label_width, label=None, takes_generic=True):
@@ -476,20 +501,64 @@ class MaterialsTab(BaseTab):
             if res_id is not None:
                 self.material_icons[res_id] = label
 
-    def _build_specials_row(self, row, spec, text_width):
-        """A column's odd materials, in a row of bare icons.
+    def _build_advanced_row(self, row, index, spec):
+        """The materials that level a node without being a stone.
 
-        One icon MORE than a data row carries, so the row starts an
-        icon's width further left -- inside the space the figures block
-        takes above it. Right-aligned with the icons rather than
-        centred, so its last tile sits under the bottom tier the way
-        the generic's does.
+        Its figures are THREE columns, one per item beside it and in
+        the same left-to-right order, because none of the three stands
+        in for another -- each reads against its own stock. That makes
+        the block wider than any other row's, which is what the rows'
+        right-anchoring is for: the extra comes off the LEFT and the
+        icons still line up.
+
+        The label column is this row's OWN width rather than the
+        column's: its labels are shorter than `+Node 5.1 & 5.2:` above,
+        and holding it to that width would push the block wider still
+        for no reason.
         """
-        cell = ICON_SIZE[0] + 2 * ICON_GAP_HALF
-        lead = text_width + (len(spec.tiers) - len(spec.specials)) * cell
-        ttk.Frame(row, width=max(0, lead), height=1).pack(
-            side=tk.LEFT, anchor=tk.N)
+        text = ttk.Frame(row)
+        text.pack(side=tk.LEFT, anchor=tk.N)
+        stat = tkfont.Font(font=STAT_FONT)
+        value_px = self._value_column_px()
+        text.grid_columnconfigure(
+            0, minsize=max(stat.measure(word) for word, _costs
+                           in ADVANCED_TARGETS) + LABEL_INSET_PX)
+        for position in range(len(spec.advanced)):
+            text.grid_columnconfigure(1 + position, minsize=value_px)
 
+        span = 1 + len(spec.advanced)
+        ttk.Label(text, text=ADVANCED_LABEL, font=NAME_FONT,
+                  foreground=self.colors["fg"],
+                  padding=(0, NAME_PAD_TOP, 0, NAME_PAD_BOTTOM),
+                  ).grid(row=0, column=0, columnspan=span)
+
+        values = {}
+        for line, (word, _costs) in enumerate(ADVANCED_TARGETS, start=1):
+            ttk.Label(text, text=word, font=STAT_FONT).grid(
+                row=line, column=0, sticky="e", padx=(0, LABEL_TO_VALUE))
+            values[word] = []
+            for position in range(len(spec.advanced)):
+                value = ttk.Label(text, text=NO_DATA, font=STAT_FONT,
+                                  anchor=tk.E)
+                value.grid(row=line, column=1 + position, sticky="ew")
+                values[word].append(value)
+        self.advanced_stats[index] = (values, spec.advanced)
+
+        icons = ttk.Frame(row)
+        icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
+        for position, res_id in enumerate(spec.advanced):
+            label = self._make_icon_label(icons)
+            label.grid(row=0, column=position, padx=ICON_GAP_HALF)
+            self.material_icons[res_id] = label
+
+    def _build_specials_row(self, row, spec, text_width):
+        """A column's reserved tiles, in a row of their own.
+
+        One icon MORE than a data row carries, so the row runs an
+        icon's width wider -- and being right-anchored like every other
+        row, that width comes off the left, where the figures block
+        would otherwise be.
+        """
         icons = ttk.Frame(row)
         icons.pack(side=tk.LEFT, anchor=tk.N)
         for position, res_id in enumerate(spec.specials):
@@ -745,3 +814,14 @@ class MaterialsTab(BaseTab):
                 # nobody has given is a number with nothing behind it.
                 values[label].config(
                     text=NO_DATA if not cost else f"{100 * total // cost}%")
+
+        for values, res_ids in self.advanced_stats.values():
+            for label, costs in ADVANCED_TARGETS:
+                for cell, res_id, cost in zip(values[label], res_ids, costs):
+                    # Each against its OWN stock. Nothing is summed
+                    # here: the three do not substitute for each other,
+                    # so a total across them would price a swap that
+                    # cannot be made.
+                    held = item_quantities.get(res_id, 0)
+                    cell.config(text=NO_DATA if not cost
+                                else f"{100 * held // cost}%")

@@ -119,6 +119,17 @@ def run():
             f"would read `-` with nothing to say why."
         )
 
+    # The same shape of loss, for the one payload carrying the Great
+    # Rift weekly score. Nothing reads it yet -- I14 -- so a snapshot
+    # missing it would go unnoticed until somebody came to build that.
+    if not _template_saves(ADDON_TEMPLATE, "disaster_boss_rank_entities"):
+        failures.append(
+            "ADDON_TEMPLATE's save_data does not carry "
+            "'disaster_boss_rank_entities'. It is the only thing the game "
+            "sends that holds the Great Rift weekly score, and the frame "
+            "it arrives in is otherwise dropped whole."
+        )
+
     return failures
 
 

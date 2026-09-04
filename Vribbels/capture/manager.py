@@ -123,6 +123,10 @@ class Addon:
         # a frame with no inventory in it never saves by itself.
         self.char_visits = None
 
+        # The Great Rift standings, season -> rank slot -> record. The
+        # weekly score is in there and in nothing else the game sends.
+        self.disaster_ranks = None
+
         self.saved_path = None
 
         # Set by anything that changes the cached data, cleared by
@@ -591,6 +595,15 @@ class Addon:
             self.char_visits = data["char_visits"]
             self._save_pending = True
 
+        # The Great Rift standings, keyed by season and then by rank
+        # slot. This is where the weekly score lives -- nothing else
+        # carries it -- and the frame it arrives in holds a dozen other
+        # disaster records the snapshot does not want, so it is picked
+        # out by name and kept aside like the two above.
+        if isinstance(data.get("disaster_boss_rank_entities"), dict):
+            self.disaster_ranks = data["disaster_boss_rank_entities"]
+            self._save_pending = True
+
 
     def _report_unknown_units(self):
         """Log any banner naming a res_id this build has no entry for.
@@ -686,6 +699,7 @@ class Addon:
             "characters": self.character_data,
             "gacha_banners": self.gacha_banners,
             "char_visits": self.char_visits,
+            "disaster_boss_rank_entities": self.disaster_ranks,
             "detected_region": self._detect_region(),
         }
 

@@ -164,6 +164,28 @@ CHAR_TAB_VAL1 = 50     # right stop: end of the left column's value
 CHAR_TAB_NAME2 = 58    # left stop: start of the right column's label
 CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
 
+# Tab stops for the node block, on the same principle and in their own
+# TAG: a Text carries one set of stops, and the stat block above has
+# its own. Three columns -- the node's name, its level or whether it is
+# taken, and what it does -- so two stops, both LEFT ones.
+#
+# Left, where the stat block's value stops are right: those columns
+# hold numbers to compare down the column, and these hold words to read
+# across. So the ink correction the value stops carry does not apply
+# here -- what a left stop places is the START of the next column, and
+# no leading `1` is involved.
+#
+# Each is the previous column's widest entry plus the rule: the widest
+# label is a node whose name carries a decimal point, and the widest
+# level is a two-digit `Lv`.
+# spacing: label ↔ its element -- run, run ↔
+CHAR_NODE_TAB_LEVEL = 61   # left stop: start of the level column
+# spacing: label ↔ its element -- run, run ↔
+CHAR_NODE_TAB_DESC = 90    # left stop: start of the description column
+
+# The tag those stops live on, and what marks the lines that take it.
+CHAR_NODE_TAG = "nodes"
+
 # Tab stops inside a gear cell, in pixels from the text's left edge. The
 # cell is one Text widget, so its columns are tab stops rather than
 # packed frames, and these are the only levers on them.
@@ -254,9 +276,13 @@ CHAR_EXTRA_INSET = 4       # spacing: border edge -> first non-button element --
 # the entry finds.
 
 # The widest line the details block renders: the node 5.1 line for the
-# one character whose wording is her own, `  Node 5.1: Y (Archetypes
-# Improved)`. The combatant's NAME is not in this panel at all -- it is
-# the heading above -- so nothing here scales with it.
+# one character whose wording is her own, `Archetypes Improved` in the
+# third column. The combatant's NAME is not in this panel at all -- it
+# is the heading above -- so nothing here scales with it.
+#
+# A tab-stopped line is its last stop plus the widest thing after it,
+# not the sum of its words: `dlineinfo` is what measures one, and
+# `_character_card_lines_fit` is what holds this number to it.
 #
 # Two traps, both of which have caught a reader already. The widest by
 # CHARACTER COUNT and the widest in PIXELS are different strings, and the
@@ -266,7 +292,7 @@ CHAR_EXTRA_INSET = 4       # spacing: border edge -> first non-button element --
 #
 # Re-measure rather than reason: format every combatant's card and take
 # max(measure(line)).
-CHAR_CONTENT_PX = 190
+CHAR_CONTENT_PX = 203
 # Six fixed lines and the `Potential:` heading among them, then one per
 # node, then "Sets:" + its lines, then "Stats:" + one per stat row.
 CHAR_TOTAL_LINES = 6 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5
@@ -1351,15 +1377,21 @@ class HeroesTab(BaseTab):
     def _format_node_line(self, char_info, node):
         """One node's line in the Character panel.
 
-        Three shapes, and which one a node gets is a property of the
-        node rather than of the combatant -- so the block keeps its
-        height and its columns whoever is selected:
+        THREE COLUMNS, separated by tabs and ruled by the stops on
+        `CHAR_NODE_TAG`: the node's name, its level or whether it is
+        taken, and what it does. A node with nothing to say in the
+        third column emits no tab for it, so the line ends at its
+        level rather than at a stop.
+
+        Which shape the middle column takes is a property of the NODE
+        rather than of the combatant, so the block keeps its columns
+        whoever is selected:
 
         * a node that only unlocks reads `Y` or `-`;
-        * a STAT node reads its level and what it raises, which is per
-          character and known before the node is taken -- so even an
-          unlevelled one names its stat, and `(?)` means this build has
-          no entry for the combatant at all;
+        * a STAT node reads its level, and its third column is what it
+          raises -- per character, and known before the node is taken,
+          so even an unlevelled one names its stat. `?` there means
+          this build has no entry for the combatant at all;
         * every other node reads its level and what it improves.
         """
         level = char_info.potential_nodes.get(node.wire, 0)
@@ -1377,16 +1409,17 @@ class HeroesTab(BaseTab):
                 does = DISPLAY_NAMES.get(stat, stat)
                 if bonus:
                     does = f"{does} +{bonus:g}%"
+            shown = f"Lv{level}"
         elif node.max_level == 1:
             # `Y` and `-`, not a tick and a cross: the panels this app
             # draws are read in fonts whose glyph coverage a check
             # enforces, and those two are not in all of them.
-            tail = f" ({does})" if does else ""
-            return (f"{CHAR_SUBLIST_INDENT}Node {node.shown}: "
-                    f"{CHAR_NODE_TAKEN if level else CHAR_NODE_UNTAKEN}{tail}")
+            shown = CHAR_NODE_TAKEN if level else CHAR_NODE_UNTAKEN
+        else:
+            shown = f"Lv{level}"
 
-        return (f"{CHAR_SUBLIST_INDENT}Node {node.shown}: Lv{level}"
-                + (f" ({does})" if does else ""))
+        line = f"{CHAR_SUBLIST_INDENT}Node {node.shown}:\t{shown}"
+        return f"{line}\t{does}" if does else line
 
     def _build_extra_info(self, panel):
         """The Extra Info block on the floor of the Character panel.
@@ -1669,6 +1702,16 @@ class HeroesTab(BaseTab):
                     CHAR_TAB_VAL1, "right", CHAR_TAB_NAME2, "left",
                     CHAR_TAB_VAL2, "right",
                 ))
+                # The node block's columns, on a TAG of their own. A
+                # Text carries one set of stops for the whole widget
+                # and the stat block above already owns those; a tag's
+                # own `tabs` is what lets two blocks in one widget be
+                # ruled differently.
+                self.hero_char_text.tag_configure(
+                    CHAR_NODE_TAG, tabs=(
+                        CHAR_NODE_TAB_LEVEL, "left",
+                        CHAR_NODE_TAB_DESC, "left",
+                    ))
             except (AttributeError, tk.TclError):
                 pass
             # STATED, not measured. Every line in this panel is now a fixed
@@ -1835,8 +1878,17 @@ class HeroesTab(BaseTab):
 
         self.hero_char_text.config(state=tk.NORMAL)
         self.hero_char_text.delete("1.0", tk.END)
-        self.hero_char_text.insert(
-            "1.0", self._format_character_card(hero_name, stat_values))
+        card = self._format_character_card(hero_name, stat_values)
+        self.hero_char_text.insert("1.0", card)
+        # The node lines take their own tab stops. Tagged by what they
+        # SAY rather than by line number: the block's position moves
+        # with anything added above it, and a stale number would rule
+        # the wrong lines without erroring.
+        prefix = f"{CHAR_SUBLIST_INDENT}Node "
+        for number, line in enumerate(card.split("\n"), start=1):
+            if line.startswith(prefix):
+                self.hero_char_text.tag_add(
+                    CHAR_NODE_TAG, f"{number}.0", f"{number}.end")
         self.hero_char_text.config(state=tk.DISABLED)
         self._update_extra_info(hero_name)
 

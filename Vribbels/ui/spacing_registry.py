@@ -3749,6 +3749,12 @@ AWAITING_FIRST_READING = {
     # distance there to read, only whatever the cells had spare.
     "Materials: window edge -> first column",
     "Materials: reserved column -> window edge",
+    # The node block's two stops are set from the arithmetic -- widest
+    # column plus the rule -- and both ends of each gap are text, whose
+    # ink stops inside its own advance by an amount only a reading
+    # gives.
+    "Character: node -> its level",
+    "Character: node level -> what it does",
 }
 
 
@@ -4178,6 +4184,33 @@ def register_all():
             axis="h",
             scenario=_scenario,
             provisional=False,
+        )
+
+    # The same panel's NODE block, three columns on stops of their own
+    # -- a tag's `tabs`, because a Text carries one set for the whole
+    # widget and the stat block above owns those.
+    #
+    # Both stops are LEFT ones, so the gap that was SET is on the row
+    # whose PRECEDING column is widest and the rows are named for that:
+    # the labels with a decimal point, and the levels that reach two
+    # digits. Every one of those rows is always present, unlike the
+    # stat block's widest values, so no scenario has to arrange them.
+    for _name, _index, _rows in (
+            ("node -> its level", 0,
+             ("  Node 3.1:\t", "  Node 5.1:\t", "  Node 5.2:\t")),
+            ("node level -> what it does", 1,
+             ("  Node 2:\t", "  Node 3:\t", "  Node 4:\t"))):
+        sa.track(
+            name=f"Character: {_name}",
+            tab="Combatants",
+            rule=RULE_LABEL_ELEMENT,
+            target=5,
+            resolve=_text_column_gap(
+                lambda app: sa.find_descendant_class(
+                    _panel(app, "Character"), "Text"),
+                _rows, _index, False),
+            axis="h",
+            provisional=f"Character: {_name}" in AWAITING_FIRST_READING,
         )
 
     # The one site of `label row -> label row`: the lines inside an
