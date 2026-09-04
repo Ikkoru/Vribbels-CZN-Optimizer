@@ -224,25 +224,24 @@ CHAR_SUBLIST_INDENT = "  "
 CHAR_EXTRA_HEADING = "Extra Info:"
 # Its rows, in order. One for now; the block exists in this shape so
 # the second one is a line here rather than a layout.
-CHAR_EXTRA_ROWS = ("Excursions:",)
+CHAR_EXTRA_ROWS = ("Excursion Types:",)
 # How many digits the value column holds. RESERVED, not fitted: a
 # right-aligned value in a column that sizes to its content moves its
 # label every time the number gains a digit.
 CHAR_EXTRA_DIGITS = 4
-# What a ttk.Label adds around its own text, both sides together: the
-# reservation above is an ink width and `minsize` is a box width, so
-# one has to be restated as the other.
-CHAR_LABEL_INSET = 4
-# What a value reads when no snapshot has reached the block. NOT `0`,
+# What a value reads when no snapshot has reached the block. NOT `0/7`,
 # which is what a combatant who has been on no excursion reads.
 CHAR_EXTRA_NO_DATA = "-"
-# A label against its value. A lever short of the rule, a ttk.Label's
-# glyphs stopping inside its own box at both ends of the gap.
+# A label against its value. Its widgets are `tk.Label`s stripped of
+# border and padding, so a pad here is the rendered distance between
+# the two boxes -- and the rule's own 5 less the side bearings the
+# colon and the first digit each carry inside their advance.
 CHAR_EXTRA_LABEL_GAP = 2   # spacing: label ↔ its element -- label, label ↔
-# The block's own left inset, matching the Text above it. Two short of
-# the panel's, because a Text's `padx` places its glyphs exactly where
-# a Label's box goes and the Label's glyphs start inside that.
-CHAR_EXTRA_INSET = 2       # spacing: border edge -> first non-button element -- panel, label ↔
+# The block's own inset from the panel border, left and bottom, and
+# the same distance the Text above it holds through its `padx`. The
+# labels carry no border or padding of their own, so this is where the
+# glyphs land.
+CHAR_EXTRA_INSET = 4       # spacing: border edge -> first non-button element -- panel, label ↔
 # NOT TRACKED: the audit reads this panel's inset off the TEXT widget,
 # which is the first thing in it and the one every other tab's entry
 # measures. Both are set from the same rule; only one can be the one
@@ -1362,33 +1361,53 @@ class HeroesTab(BaseTab):
         The label column is left to size to its own content and the
         value column held at the reservation: giving both weights would
         split the block evenly and pull the values off their column.
+
+        `tk` widgets and not `ttk`, so that every one of them can be
+        given the panel's lighter background by name. The Text above
+        paints `bg_light` over the whole of its own area; a ttk widget
+        beside it takes the theme's colour instead and the foot of the
+        panel reads as a darker strip.
         """
         font = _default_font()
-        block = ttk.Frame(panel)
-        # The Text above carries a pady of its own and this pays the
-        # same distance at the other end of the panel.
-        block.pack(side=tk.BOTTOM, fill=tk.X,
-                   padx=(CHAR_EXTRA_INSET, 0), pady=(0, 1))
+        block = tk.Frame(panel, bg=self.colors["bg_light"])
+        # NO pads on the pack, so the lighter background reaches every
+        # edge of the panel the way the Text's does. The insets live on
+        # the grid cells inside instead; a pad here would leave a strip
+        # of the panel's own darker colour along that edge.
+        block.pack(side=tk.BOTTOM, fill=tk.X)
         block.grid_columnconfigure(
-            1, minsize=font.measure("0" * CHAR_EXTRA_DIGITS) + CHAR_LABEL_INSET)
+            1, minsize=font.measure("0" * CHAR_EXTRA_DIGITS))
 
-        ttk.Label(block, text=CHAR_EXTRA_HEADING, font=font,
-                  padding=0).grid(row=0, column=0, columnspan=2, sticky="w")
+        def text(**kwargs):
+            """A Label carrying nothing of its own around its words.
+
+            `tk.Label` defaults to a 2px border and a pixel of padding
+            per side, all drawn in the widget's own background -- which
+            would put a lighter halo around every word here.
+            """
+            return tk.Label(block, font=font, bg=self.colors["bg_light"],
+                            fg=self.colors["fg"], bd=0, highlightthickness=0,
+                            padx=0, pady=0, **kwargs)
+
+        text(text=CHAR_EXTRA_HEADING).grid(
+            row=0, column=0, columnspan=2, sticky="w",
+            padx=(CHAR_EXTRA_INSET, 0))
 
         indent = font.measure(CHAR_SUBLIST_INDENT)
+        last = len(CHAR_EXTRA_ROWS)
         self._extra_info_values = {}
         for line, label in enumerate(CHAR_EXTRA_ROWS, start=1):
-            ttk.Label(block, text=label, font=font, padding=0).grid(
-                row=line, column=0, sticky="w",
-                padx=(indent, CHAR_EXTRA_LABEL_GAP))
+            floor = (0, CHAR_EXTRA_INSET) if line == last else (0, 0)
+            text(text=label).grid(
+                row=line, column=0, sticky="w", pady=floor,
+                padx=(CHAR_EXTRA_INSET + indent, CHAR_EXTRA_LABEL_GAP))
             # `sticky=ew` with `anchor=e`: the widget fills the reserved
             # column and the digits sit at its right. Sticking it east
             # instead right-aligns the WIDGET, which looks the same and
             # leaves nothing at the column's left edge -- and that edge
             # is what the label beside it is spaced from.
-            value = ttk.Label(block, text=CHAR_EXTRA_NO_DATA, font=font,
-                              anchor=tk.E, padding=0)
-            value.grid(row=line, column=1, sticky="ew")
+            value = text(text=CHAR_EXTRA_NO_DATA, anchor=tk.E)
+            value.grid(row=line, column=1, sticky="ew", pady=floor)
             self._extra_info_values[label] = value
 
     def _update_extra_info(self, hero_name):
@@ -1397,6 +1416,9 @@ class HeroesTab(BaseTab):
         A snapshot the excursion board never reached reads `-`, where a
         combatant with no row on a board that DID arrive reads 0: the
         server sends the board whole, so an absent row is a count.
+
+        The denominator is how many visit types the board knows of, not
+        a stated 7 -- see `excursions.type_total`.
         """
         if not getattr(self, "_extra_info_values", None):
             return
@@ -1405,8 +1427,9 @@ class HeroesTab(BaseTab):
         if char_info is None or not board:
             shown = CHAR_EXTRA_NO_DATA
         else:
-            shown = str(board.get(char_info.res_id, 0))
-        self._extra_info_values["Excursions:"].config(text=shown)
+            shown = (f"{board.get(char_info.res_id, 0)}"
+                     f"/{excursions.type_total(self.optimizer.raw_data)}")
+        self._extra_info_values["Excursion Types:"].config(text=shown)
 
     def _format_stats_text(self, stat_values: dict) -> str:
         """Build the two-column build-stat block for the Character card.

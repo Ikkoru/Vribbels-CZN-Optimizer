@@ -140,6 +140,14 @@ COMBATANT_EXP_TARGETS = _exp_targets(CHARACTER_EXP_TABLE, (50, 60, 61))
 PARTNER_EXP_TARGETS = _exp_targets(PARTNER_EXP_TABLE, (50, 60))
 
 
+# Materials that level a potential node and are not Growth Stones, by
+# res_id. `None` reserves a tile for one that has no id yet.
+#
+# In res_id order, which is not known to be the order the game's own
+# screen uses -- nothing captured says what that order is.
+POTENTIAL_SPECIALS = (3000003, 3110001, 3110004, None)
+
+
 class Column(NamedTuple):
     """One column of the tab.
 
@@ -148,6 +156,11 @@ class Column(NamedTuple):
     kind, with its own tiers and its own targets, since the two answer
     different questions about the same level number. Empty for a
     column with no such material.
+
+    `specials` is a row of bare icons under a BLANK one, for items that
+    belong to the column's subject without belonging to any of its
+    rows. It carries no figures: each is its own item and there is
+    nothing to total them into.
     """
     key: str
     title: str
@@ -157,6 +170,7 @@ class Column(NamedTuple):
     generic: int
     targets: tuple
     levelling: tuple = ()
+    specials: tuple = ()
 
 
 COLUMNS = (
@@ -174,7 +188,7 @@ COLUMNS = (
     # Partner's, and a potential node has none.
     Column("stones", "Potential Growth Stones", ELEMENT_ORDER,
            GROWTH_STONES, ("Premium", "Great", "Common"),
-           2100003, STONE_TARGETS),
+           2100003, STONE_TARGETS, specials=POTENTIAL_SPECIALS),
 )
 
 # The far-right column holds tiles and nothing else -- no heading, no
@@ -297,34 +311,44 @@ class MaterialsTab(BaseTab):
         # The same pads the other headed tabs carry, because the first
         # thing under this one is the same 14pt heading they open with.
         columns.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
-        last = len(COLUMNS)
-        for index in range(last):
-            # `uniform` is what makes them EQUAL rather than merely
-            # stretchy: without it a column holding wider content takes
-            # more of the width, weights or no weights.
-            columns.grid_columnconfigure(index, weight=1, uniform="materials")
-        # The reserved column is NOT in that group. Four equal columns
-        # would each be a quarter of the width, which is less than the
-        # three real ones ask for -- and grid answers that by clipping
-        # them. Out of the group it takes its own width and leaves the
-        # rest to be shared three ways.
-        columns.grid_columnconfigure(last, weight=0)
+        # Content in the EVEN grid columns, an empty expanding one
+        # between each pair. Where the tab's leftover width goes is the
+        # whole of this arrangement: shared out inside the content
+        # cells it lands unequally -- the widest column keeps the least
+        # -- and the gaps across the block then run 31, 19 and 5. Given
+        # instead to three spacers of one uniform group it lands as
+        # three EQUAL gaps, with the block flush against both edges.
+        #
+        # No widget in a spacer. An empty grid column still takes its
+        # share as long as its index falls inside the range the content
+        # columns span, and a frame there would show up in every walk
+        # of this tab's children.
+        for index in range(len(COLUMNS) + 1):
+            columns.grid_columnconfigure(2 * index, weight=0)
+        for index in range(len(COLUMNS)):
+            # spacing: content frame -> content frame -- frame, frame ↔
+            # NOT TRACKED: the distance is whatever the tab has spare
+            # divided three ways, so it moves with the window. The
+            # audit compares against a number; what is fixed here is
+            # that the three are equal, which `check_tabs_build` holds.
+            columns.grid_columnconfigure(
+                2 * index + 1, weight=1, uniform="materials")
         columns.grid_rowconfigure(0, weight=1)
+
+        # One image for every blank tile on the tab: the art is the
+        # same empty square wherever it appears and carries no count,
+        # so there is nothing to draw per tile. Built before the
+        # columns because a column's specials row uses it too.
+        self._reserved_tile = create_placeholder_icon(
+            background=self.colors["bg"], outline=self.colors["fg_dim"])
 
         for index, spec in enumerate(COLUMNS):
             column = ttk.Frame(columns)
-            # The first column's frame shrinks to its own content and
-            # sits at the WEST of its cell, so the block starts at the
-            # tab's left edge rather than centred in a share of the
-            # width; the reserved column below does the same at the
-            # EAST. `sticky` and not a pad: the distance being closed
-            # is the cell's leftover width, which no padding knows.
-            column.grid(row=0, column=index,
-                        sticky="nsw" if index == 0 else "nsew")
+            column.grid(row=0, column=2 * index, sticky="nsew")
             self._build_column(column, index, spec)
 
         reserved = ttk.Frame(columns)
-        reserved.grid(row=0, column=last, sticky="nse")
+        reserved.grid(row=0, column=2 * len(COLUMNS), sticky="nsew")
         self._build_reserved_column(reserved)
 
     def _build_column(self, column, index, spec):
@@ -369,6 +393,17 @@ class MaterialsTab(BaseTab):
             self._build_row(row, index, group, table, tiers, targets,
                             EXP_WEIGHTS, label_width, label=name,
                             takes_generic=False)
+
+        if spec.specials:
+            # A blank row of an icon's height, so the specials land
+            # level with the bottom row of the columns beside this one:
+            # those carry a generic AND a levelling row where this one
+            # carries only the generic.
+            ttk.Frame(rows, height=ICON_SIZE[1], width=1).pack(
+                anchor=tk.CENTER, pady=(ROW_GAP, 0))
+            row = ttk.Frame(rows)
+            row.pack(anchor=tk.CENTER, pady=(ROW_GAP, 0))
+            self._build_specials_row(row, spec, text_width)
 
     def _build_row(self, row, index, name, table, tiers, targets,
                    weights, label_width, label=None, takes_generic=True):
@@ -441,6 +476,31 @@ class MaterialsTab(BaseTab):
             if res_id is not None:
                 self.material_icons[res_id] = label
 
+    def _build_specials_row(self, row, spec, text_width):
+        """A column's odd materials, in a row of bare icons.
+
+        One icon MORE than a data row carries, so the row starts an
+        icon's width further left -- inside the space the figures block
+        takes above it. Right-aligned with the icons rather than
+        centred, so its last tile sits under the bottom tier the way
+        the generic's does.
+        """
+        cell = ICON_SIZE[0] + 2 * ICON_GAP_HALF
+        lead = text_width + (len(spec.tiers) - len(spec.specials)) * cell
+        ttk.Frame(row, width=max(0, lead), height=1).pack(
+            side=tk.LEFT, anchor=tk.N)
+
+        icons = ttk.Frame(row)
+        icons.pack(side=tk.LEFT, anchor=tk.N)
+        for position, res_id in enumerate(spec.specials):
+            label = self._make_icon_label(icons)
+            label.grid(row=0, column=position, padx=ICON_GAP_HALF)
+            if res_id is None:
+                if self._reserved_tile is not None:
+                    label.config(image=self._reserved_tile)
+            else:
+                self.material_icons[res_id] = label
+
     def _build_reserved_column(self, column):
         """The far-right column: tiles, and nothing else.
 
@@ -449,6 +509,9 @@ class MaterialsTab(BaseTab):
         its title off the first child, so a column with no title stays
         out of their way by having no heading at all rather than by a
         special case in each of them.
+
+        Its tiles share `_reserved_tile` with the specials rows, which
+        is why that image is built before any column.
 
         The tiles still line up with the icons beside them, and the
         leading pad is what does it: the height a heading takes plus
@@ -461,10 +524,6 @@ class MaterialsTab(BaseTab):
 
         rows = ttk.Frame(column)
         rows.pack(anchor=tk.N, pady=(top, 0))
-        # One image for every tile: the art is the same blank square
-        # and carries no count, so there is nothing to draw per tile.
-        self._reserved_tile = create_placeholder_icon(
-            background=self.colors["bg"], outline=self.colors["fg_dim"])
         for line in range(RESERVED_ROWS):
             row = ttk.Frame(rows)
             row.pack(anchor=tk.CENTER, pady=(0 if line == 0 else ROW_GAP, 0))

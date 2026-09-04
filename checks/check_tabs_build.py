@@ -796,17 +796,26 @@ def _materials_rows_each_register(tab):
     # left of the tier column they belong under. The generic row had no
     # figures block at all and sat 52px out that way.
     holders = tab.get_frame().winfo_children()
+    by_title = {spec.title: spec for spec in COLUMNS}
     for column in (holders[0].winfo_children() if holders else ()):
         parts = column.winfo_children()
         if len(parts) < 2:
             continue
         title = str(parts[0].cget("text"))
+        spec = by_title.get(title)
         widths, leads = set(), set()
         for row in parts[1].winfo_children():
             halves = row.winfo_children()
             if not halves:
                 continue
             widths.add(row.winfo_reqwidth())
+            icons = [w for w in halves[-1].winfo_children()
+                     if w.winfo_class() == "Label"]
+            # A SPECIALS row carries more icons than the column has
+            # tiers, and starts that much further left on purpose. Its
+            # right edge still lines up, which is what `widths` checks.
+            if spec is not None and len(icons) > len(spec.tiers):
+                continue
             leads.add(sum(h.winfo_reqwidth() for h in halves[:-1]))
         if len(widths) > 1:
             out.append(
@@ -820,6 +829,34 @@ def _materials_rows_each_register(tab):
                 f"Every row reserves the same figures block so that they "
                 f"line up; see `_text_block_px`."
             )
+
+    # The gaps ACROSS the block have to stay equal, and what keeps them
+    # equal is where the tab's leftover width goes. Given to the content
+    # cells it lands unequally -- the widest column keeps the least --
+    # and the gaps ran 31, 19 and 5 that way. So: content columns take
+    # no weight, and the odd columns between them share one uniform
+    # group. Checked as configuration because the geometry that would
+    # show it needs a mapped window.
+    if holders:
+        grid = holders[0]
+        wanted = 2 * len(COLUMNS) + 1
+        for index in range(wanted):
+            weight = int(grid.grid_columnconfigure(index)["weight"])
+            uniform = str(grid.grid_columnconfigure(index)["uniform"] or "")
+            spacer = index % 2 == 1
+            if spacer and (weight != 1 or not uniform):
+                out.append(
+                    f"Materials grid column {index} sits between two of the "
+                    f"block's columns and is weight {weight}, uniform "
+                    f"{uniform!r}. It has to take an equal share of the "
+                    f"leftover width or the gaps across the block go uneven."
+                )
+            if not spacer and weight != 0:
+                out.append(
+                    f"Materials grid column {index} holds content and is "
+                    f"weight {weight}. Leftover width given to a content "
+                    f"cell is absorbed inside it, unequally."
+                )
 
     variables = {id(var) for var in tab.include_generic_vars.values()}
     if len(variables) != len(COLUMNS):

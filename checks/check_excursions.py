@@ -1,4 +1,4 @@
-"""The excursion count is a list inside a string, and a missing row is 0.
+"""Town visits: a list inside a string, a missing row, a derived pass.
 
 Two silent failures, both of which draw a plausible number.
 
@@ -13,9 +13,15 @@ zero would draw 0 for every combatant on a snapshot taken before the
 addon stored one. The panel tells those two apart and this pins which
 is which.
 
-The third thing here is the capture end: nothing downstream can show a
-board the addon does not save, and `ADDON_TEMPLATE` is a string literal
-that `compileall` cannot see.
+The Communication Pass is a third: it has no id and no balance, so its
+count is the daily allowance less what today has spent. A snapshot that
+does not carry the counter has to read as UNKNOWN -- treated as zero
+spent it would report a full allowance, which is a number nobody could
+tell from a real one.
+
+The fourth is the capture end: nothing downstream can show a board the
+addon does not save, and `ADDON_TEMPLATE` is a string literal that
+`compileall` cannot see.
 
 No Tk and no snapshot -- the shapes are synthesised here.
 """
@@ -70,6 +76,41 @@ def run():
             f"drawing a panel, where an exception is a blank tab."
         )
 
+    # The denominator is read off the board, not stated: a type added
+    # to the game has to show up once anyone goes through it.
+    wide = {ex.BOARD_FIELD: [
+        {"res_id": 1, ex.INDEXES_FIELD: "[1,2,3]"},
+        {"res_id": 2, ex.INDEXES_FIELD: "[1,2,3,4,5,6,7,8]"},
+    ]}
+    if ex.type_total(wide) != 8:
+        failures.append(
+            f"a board reaching index 8 gave a total of "
+            f"{ex.type_total(wide)}. Every combatant would be read "
+            f"against the wrong denominator and each one would look "
+            f"complete."
+        )
+    if ex.type_total({}) != ex.VISIT_TYPES:
+        failures.append("a snapshot with no board did not fall back to "
+                        "VISIT_TYPES")
+
+    # The Communication Pass: an allowance less what today has spent.
+    for spent, left in ((0, ex.DAILY_PASSES), (1, ex.DAILY_PASSES - 1),
+                        (ex.DAILY_PASSES, 0), (ex.DAILY_PASSES + 3, 0)):
+        got = ex.passes_left(_town(spent))
+        if got != left:
+            failures.append(
+                f"{spent} visits spent gave {got} passes left, not {left}."
+            )
+    for missing, what in (({}, "an empty snapshot"),
+                          ({"characters": {}}, "no town_data"),
+                          (_town("five"), "a non-numeric counter")):
+        if ex.passes_left(missing) is not None:
+            failures.append(
+                f"{what} produced a pass count. Nothing carries the pass "
+                f"itself, so a snapshot that does not say has to read as "
+                f"unknown rather than as a full allowance."
+            )
+
     # The addon has to save it, or none of the above ever sees data.
     if not _template_saves(ADDON_TEMPLATE, ex.BOARD_FIELD):
         failures.append(
@@ -79,6 +120,12 @@ def run():
         )
 
     return failures
+
+
+def _town(spent):
+    """A snapshot carrying just the daily visit counter."""
+    return {"characters": {"town_data": {
+        "day_changeable_data": {"use_town_visit_count": spent}}}}
 
 
 def _template_saves(source, field):
