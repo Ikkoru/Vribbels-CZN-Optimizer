@@ -3284,7 +3284,7 @@ def _ink_to_box_edge(left, right):
 # BOTH ARE KEPT and this switches every icon gap at once. `box` reads
 # the layout; `ink` reads what the eye lands on, and the two differ by
 # whatever margin the assets carry.
-ICON_EDGE = "box"
+ICON_EDGE = "ink"
 
 
 def _icon_gap(first, second, axis):
