@@ -175,7 +175,7 @@ STAT_FONT = ("Segoe UI", 9)
 NAME_FONT = ("Segoe UI", 12, "bold")
 
 # Between the icons of a row, and between one row of icons and the next.
-ICON_GAP_HALF = 2       # spacing: content frame -> content frame -- frame, frame ↔
+ICON_GAP_HALF = 0       # spacing: content frame -> content frame -- frame, frame ↔
 # 2 for a rendered 4 while `ICON_EDGE` reads INK: an icon's art
 # stops inside its own box top and bottom, so two of the four sit
 # inside the icons rather than between them.
@@ -192,7 +192,7 @@ ROW_GAP = 2             # spacing: content frame -> content frame -- frame, fram
 # `HEADING_PAD_BOTTOM` takes the box under the font's linespace and Tk
 # clips the glyphs. So the pad goes to its floor and the rest comes off
 # the NAME's box instead.
-HEADING_GAP = 0         # spacing: panel ↕ unrelated label -- heading, frame ↕
+HEADING_GAP = 6         # spacing: panel ↕ unrelated label -- heading, frame ↕
 
 # The row name's own box, above its capital and below its baseline. The
 # top is the heading gap's last two pixels; taking them here lifts the
@@ -218,7 +218,7 @@ NAME_PAD_BOTTOM = -1    # spacing: label row -> label row -- label, label ↕
 TEXT_TO_ICONS = 0       # spacing: label ↔ its element -- label, frame ↔
 # The labels all end in a colon, whose ink stops inside its advance --
 # so the pad is the rule's 5 less that and the box inset.
-LABEL_TO_VALUE = 2      # spacing: label ↔ its element -- label, label ↔
+LABEL_TO_VALUE = 0      # spacing: label ↔ its element -- label, label ↔
 
 # The generic row's checkbox against the icon beside it.
 GENERIC_TO_CHECKBOX = 5  # spacing: label ↔ its element -- frame, checkbox ↔
@@ -229,11 +229,11 @@ GENERIC_TO_CHECKBOX = 5  # spacing: label ↔ its element -- frame, checkbox ↔
 # a digit, and each row has its own grid, so the blocks would stop
 # lining up with each other.
 #
-# `100%` is the other thing the column has to hold, and a percent sign
+# `400%` is the other thing the column has to hold, and a percent sign
 # is wider than a digit -- so the reservation is the larger of the two
 # rather than the digits alone.
 VALUE_DIGITS = 4
-VALUE_WIDEST = "100%"
+VALUE_WIDEST = "400%"
 
 # What a ttk.Label adds around its own text, both sides together. Its
 # `minsize` is a box width and the reservation above is an ink width,
