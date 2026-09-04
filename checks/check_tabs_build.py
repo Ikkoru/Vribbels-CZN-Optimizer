@@ -734,6 +734,59 @@ def _breakdown_text_stays_ascii():
     return ["optimizer_tab.py has no _format_breakdown_text to check"]
 
 
+def _materials_rows_each_register(tab):
+    """Every Materials row must own a figures block, and its own.
+
+    The blocks are keyed by (column, row name) and filled in a loop
+    whose variable once SHADOWED the row's name parameter -- so every
+    row registered under the last figure's label instead, the keys
+    collided, and nineteen rows became five. Nothing raised: the tab
+    built, the icons drew, and only the rows that happened to win a key
+    ever updated their numbers.
+
+    Also holds each checkbox to its OWN column. One variable shared
+    across the three would move all of them together, which reads as
+    working until you own different amounts of the three generics.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs.materials_tab import COLUMNS, TOTAL_LABEL
+
+    out = []
+    want = sum(len(spec.names) + (1 if spec.levelling else 0)
+               for spec in COLUMNS)
+    if len(tab.material_stats) != want:
+        out.append(
+            f"the Materials tab registered {len(tab.material_stats)} figure "
+            f"blocks for {want} rows. Keys are (column, row name) and a "
+            f"collision loses a row silently -- it still draws, it just "
+            f"stops updating."
+        )
+
+    for spec_index, spec in enumerate(COLUMNS):
+        for name in spec.names:
+            key = (spec_index, name)
+            if key not in tab.material_stats:
+                out.append(f"no figures registered for {key}")
+                continue
+            values = tab.material_stats[key][0]
+            wanted = [TOTAL_LABEL] + [word for word, _cost in spec.targets]
+            if list(values) != wanted:
+                out.append(
+                    f"{key} carries figures {list(values)}, not {wanted}"
+                )
+
+    variables = {id(var) for var in tab.include_generic_vars.values()}
+    if len(variables) != len(COLUMNS):
+        out.append(
+            f"the {len(COLUMNS)} `Add to totals` checkboxes share "
+            f"{len(variables)} variable(s). A column's generic stands in "
+            f"for that column's bottom tier and no other's, so one switch "
+            f"per column is the whole point of them."
+        )
+    return out
+
+
 def _popup_sample_drives_its_own_width(root):
     """The audit's contributions sample must be wider than the button row.
 
@@ -968,6 +1021,9 @@ def run():
             failures.extend(
                 _show_missing_adds_rather_than_replaces(built["HeroesTab"]))
         failures.extend(_popup_sample_drives_its_own_width(root))
+        if "MaterialsTab" in built:
+            failures.extend(
+                _materials_rows_each_register(built["MaterialsTab"]))
         if "SetupTab" in built:
             failures.extend(_restore_dialog_frames_follow_the_rules(
                 built["SetupTab"], root))

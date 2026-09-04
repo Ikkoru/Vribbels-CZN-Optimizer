@@ -21,8 +21,11 @@ from tkinter import ttk
 from tkinter import font as tkfont
 from pathlib import Path
 
+from typing import NamedTuple
+
 from game_data import (
-    ATTRIBUTE_COLORS, COMBATANT_PROMOTION, GROWTH_STONES, PARTNER_PROMOTION,
+    ATTRIBUTE_COLORS, COMBATANT_PROMOTION, EXP_MATERIALS, GROWTH_STONES,
+    PARTNER_PROMOTION,
 )
 from game_data.constants import item_art
 from ..base_tab import BaseTab
@@ -33,10 +36,15 @@ from ..utils.image_utils import (
 from ..utils.tab_header import make_heading
 
 
-# Where the checkbox's state is kept. NOT `combatants_show_missing`,
-# which the Combatants tab's own checkbox already owns -- sharing the
-# key would tie two unrelated switches together.
-INCLUDE_GENERIC_KEY = "materials_include_generic"
+# Where each column's checkbox state is kept, by the column's own key.
+# NOT `combatants_show_missing`, which the Combatants tab's checkbox
+# already owns -- sharing it would tie two unrelated switches together.
+#
+# One key per column rather than one for all three: a column's generic
+# stands in for that column's bottom tier and nothing else, so the
+# three switches answer three separate questions.
+def include_generic_key(column_key):
+    return f"materials_include_generic_{column_key}"
 
 # The six classes, in the order the game lists them. NOT the order of
 # their res_id group digits, which runs Striker, Vanguard, Hunter,
@@ -63,18 +71,49 @@ STONE_TARGETS = (
 
 TOTAL_LABEL = "Total:"
 
-# (title, row names, the table to read, tiers left to right, the
-# generic item's res_id, the figures under the total). One per column,
-# left to right. The promotion columns show a total alone: nothing
-# prices a full set of promotions the way the stone targets price a
-# full set of nodes.
+# (label, cost). **A cost of None is a figure nobody has priced yet**:
+# the row is built and reads `-` until one is given, rather than being
+# left out and having to be threaded back through the layout later.
+LEVEL_TARGETS = (("Level 50:", None), ("Level 60:", None))
+EXP_TARGETS = LEVEL_TARGETS + (("Level 61:", None),)
+
+
+class Column(NamedTuple):
+    """One column of the tab.
+
+    `levelling` is the extra row under the generic -- the EXP material
+    for that column's kind, which has its own tiers and its own
+    figures. None for a column with no such material.
+
+    `weights` is what a tier is worth in bottom-tier equivalents, or
+    None where nothing has said: the EXP materials do NOT follow the
+    promotion families' 9/3/1, so their figures read `-` rather than a
+    number derived from the wrong pattern.
+    """
+    key: str
+    title: str
+    names: tuple
+    table: dict
+    tiers: tuple
+    generic: int
+    targets: tuple
+    levelling: tuple = ()
+
+
 COLUMNS = (
-    ("Combatant Upgrade Material", CLASS_ORDER, COMBATANT_PROMOTION,
-     ("Premium", "Advanced", "Common"), 2100001, ()),
-    ("Partner Upgrade Material", CLASS_ORDER, PARTNER_PROMOTION,
-     ("Premium", "Advanced", "Common"), 2100002, ()),
-    ("Potential Growth Stones", ELEMENT_ORDER, GROWTH_STONES,
-     ("Premium", "Great", "Common"), 2100003, STONE_TARGETS),
+    Column("combatant", "Combatant Upgrade Material", CLASS_ORDER,
+           COMBATANT_PROMOTION, ("Premium", "Advanced", "Common"),
+           2100001, LEVEL_TARGETS,
+           ("Battle Memory", EXP_MATERIALS, "Combatant",
+            ("Premium", "Advanced", "Basic"), EXP_TARGETS)),
+    Column("partner", "Partner Upgrade Material", CLASS_ORDER,
+           PARTNER_PROMOTION, ("Premium", "Advanced", "Common"),
+           2100002, LEVEL_TARGETS,
+           ("Support Data", EXP_MATERIALS, "Partner",
+            ("Premium", "Advanced", "Basic"), EXP_TARGETS)),
+    Column("stones", "Potential Growth Stones", ELEMENT_ORDER,
+           GROWTH_STONES, ("Premium", "Great", "Common"),
+           2100003, LEVEL_TARGETS + STONE_TARGETS),
 )
 
 # The stat lines under a row's name. Small, because they are a readout
@@ -86,18 +125,24 @@ NAME_FONT = ("Segoe UI", 12, "bold")
 ICON_GAP_HALF = 2       # spacing: content frame -> content frame -- frame, frame ↔
 ROW_GAP = 4             # spacing: content frame -> content frame -- frame, frame ↕
 
-# The heading of a column against the first row under it, and the trim
-# that goes with it. The gap runs from the heading's BASELINE to the
-# row name's CAPITAL, and three things sit in it: five rows of heading
-# box below the baseline, this pad, and seven rows of name box above
-# the capital.
+# The heading of a column against the first row under it. The gap runs
+# from the heading's BASELINE to the row name's CAPITAL, and three
+# things sit in it: five rows of heading box below the baseline, this
+# pad, and seven rows of name box above the capital.
 #
-# The first is taken back here rather than by a bigger pad, because the
-# name's seven cannot be: trimming the NAME's box would lift the whole
-# figures block off the icons beside it, which are top-aligned with it.
-HEADING_GAP = 3         # spacing: panel ↕ unrelated label -- heading, frame ↕
-HEADING_TRIM = -5
+# **The heading's five cannot be trimmed away.** Two of these three
+# titles carry descenders -- `Upgrade` has a `p` and a `g` -- and the
+# box below the baseline is what draws them: a `bottom_trim` past
+# `HEADING_PAD_BOTTOM` takes the box under the font's linespace and Tk
+# clips the glyphs. So the pad goes to its floor and the rest comes off
+# the NAME's box instead.
+HEADING_GAP = 0         # spacing: panel ↕ unrelated label -- heading, frame ↕
 
+# The row name's own box, above its capital and below its baseline. The
+# top is the heading gap's last two pixels; taking them here lifts the
+# figures block two off the icons beside it, which is the smallest
+# disturbance of the three places the distance could come from.
+NAME_PAD_TOP = -2
 # A row's name against the first figure under it. A lever one short of
 # the rule, the name's box ending past its own baseline.
 NAME_PAD_BOTTOM = -1    # spacing: label row -> label row -- label, label ↕
@@ -153,7 +198,7 @@ class MaterialsTab(BaseTab):
         # (column index, row name) -> (value labels, targets, table, tiers)
         self.material_stats = {}
         self._column_generics = {}   # column index -> generic res_id
-        self.include_generic_var = None
+        self.include_generic_vars = {}   # column index -> its BooleanVar
         # The last counts drawn, so the checkbox can redraw the figures
         # without a snapshot being reloaded under it.
         self._quantities = {}
@@ -167,11 +212,6 @@ class MaterialsTab(BaseTab):
 
     def setup_ui(self):
         """Setup the Materials tab UI."""
-        sm = self.context.settings_manager
-        self.include_generic_var = tk.BooleanVar(
-            value=bool(sm.get(INCLUDE_GENERIC_KEY, False))
-            if sm is not None else False)
-
         columns = ttk.Frame(self.frame)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
@@ -191,10 +231,15 @@ class MaterialsTab(BaseTab):
             self._build_column(column, index, spec)
 
     def _build_column(self, column, index, spec):
-        """One column: a centred heading, its rows, then its generic."""
-        title, names, table, tiers, generic, targets = spec
-        make_heading(column, title,
-                     bottom_trim=HEADING_TRIM).pack(anchor=tk.CENTER)
+        """One column: a heading, its rows, its generic, its levelling."""
+        sm = self.context.settings_manager
+        self.include_generic_vars[index] = tk.BooleanVar(
+            value=bool(sm.get(include_generic_key(spec.key), False))
+            if sm is not None else False)
+
+        # No `bottom_trim`: see HEADING_GAP. These titles have
+        # descenders and the box below the baseline is what draws them.
+        make_heading(column, spec.title).pack(anchor=tk.CENTER)
 
         # `anchor=N` rather than a fill: the rows are centred on the
         # column and sit at the top of it, so the column's leftover
@@ -202,21 +247,40 @@ class MaterialsTab(BaseTab):
         rows = ttk.Frame(column)
         rows.pack(anchor=tk.N, pady=(HEADING_GAP, 0))
 
-        for position, name in enumerate(names):
+        for position, name in enumerate(spec.names):
             row = ttk.Frame(rows)
             # Leading only, so the first row's gap upward stays the
             # heading's.
             row.pack(anchor=tk.CENTER,
                      pady=(0 if position == 0 else ROW_GAP, 0))
-            self._build_row(row, index, name, table, tiers, targets)
+            self._build_row(row, index, name, spec.table, spec.tiers,
+                            spec.targets, TIER_WEIGHTS)
 
-        self._column_generics[index] = generic
+        self._column_generics[index] = spec.generic
         generic_row = ttk.Frame(rows)
         generic_row.pack(anchor=tk.CENTER, pady=(ROW_GAP, 0))
-        self._build_generic_row(generic_row, generic, len(tiers))
+        self._build_generic_row(generic_row, index, spec)
 
-    def _build_row(self, row, index, name, table, tiers, targets):
-        """One class or Element: its name and figures, then its icons."""
+        if spec.levelling:
+            name, table, group, tiers, targets = spec.levelling
+            row = ttk.Frame(rows)
+            row.pack(anchor=tk.CENTER, pady=(ROW_GAP, 0))
+            # No weights: an EXP material is not three of the tier
+            # below it, and inventing a pattern would put a number
+            # under a label that nobody has priced.
+            self._build_row(row, index, group, table, tiers, targets,
+                            None, label=name)
+
+    def _build_row(self, row, index, name, table, tiers, targets,
+                   weights, label=None):
+        """One class, Element or material: its name, figures, icons.
+
+        `weights` prices a tier in bottom-tier equivalents; None
+        means nothing has, and every figure in the row reads `-`.
+
+        `label` overrides the heading, for a row whose group name
+        is not what the user calls it.
+        """
         text = ttk.Frame(row)
         text.pack(side=tk.LEFT, anchor=tk.N)
         # The figures' column, held at its reserved width. `minsize` is
@@ -229,18 +293,21 @@ class MaterialsTab(BaseTab):
         # the figures. The columns are left to size to their own
         # content: giving them weights would split the block evenly and
         # pull the colons off the value column.
-        ttk.Label(text, text=name, font=NAME_FONT,
+        ttk.Label(text, text=label or name, font=NAME_FONT,
                   foreground=ATTRIBUTE_COLORS.get(name, self.colors["fg"]),
-                  padding=(0, 0, 0, NAME_PAD_BOTTOM),
+                  padding=(0, NAME_PAD_TOP, 0, NAME_PAD_BOTTOM),
                   ).grid(row=0, column=0, columnspan=2)
 
         values = {}
-        for line, label in enumerate(
+        # `figure`, not `label`: the parameter of that name is the
+        # row's heading, and a loop variable shadowing it registered
+        # every row under the last figure's name instead of its own.
+        for line, figure in enumerate(
                 (TOTAL_LABEL, *(word for word, _cost in targets)), start=1):
             # The colons line up because the labels are right-aligned
             # in their own column and the values left-aligned in
             # theirs; the pad is the whole of the gap between them.
-            ttk.Label(text, text=label, font=STAT_FONT).grid(
+            ttk.Label(text, text=figure, font=STAT_FONT).grid(
                 row=line, column=0, sticky="e", padx=(0, LABEL_TO_VALUE))
             # `sticky=ew` with `anchor=e`: the widget fills the column
             # and the digits sit at its right. Sticking it east instead
@@ -251,8 +318,9 @@ class MaterialsTab(BaseTab):
             value = ttk.Label(text, text=NO_DATA, font=STAT_FONT,
                               anchor=tk.E)
             value.grid(row=line, column=1, sticky="ew")
-            values[label] = value
-        self.material_stats[(index, name)] = (values, targets, table, tiers)
+            values[figure] = value
+        self.material_stats[(index, label or name)] = (
+            values, targets, table, name, tiers, weights)
 
         icons = ttk.Frame(row)
         icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
@@ -264,31 +332,38 @@ class MaterialsTab(BaseTab):
             if res_id is not None:
                 self.material_icons[res_id] = label
 
-    def _build_generic_row(self, row, res_id, tier_count):
+    def _build_generic_row(self, row, index, spec):
         """The column's stand-in item, under its last row.
 
-        Placed in the LAST icon column, under the tier it substitutes
-        for, with the checkbox beside it. The columns before it are
-        held open by empty frames of an icon's width, so the icon lands
-        under the bottom tier rather than at the row's left edge.
+        The icon goes in the LAST icon column, under the bottom
+        tier it substitutes for, and the checkbox sits immediately
+        left of it. The cells before them are held open by empty
+        frames of an icon's width, so the icon lands under that
+        tier rather than at the row's left edge.
         """
         icons = ttk.Frame(row)
         icons.pack(side=tk.LEFT, anchor=tk.N)
-        for position in range(tier_count):
-            if position < tier_count - 1:
-                ttk.Frame(icons, width=ICON_SIZE[0], height=1).grid(
-                    row=0, column=position, padx=ICON_GAP_HALF)
+        last = len(spec.tiers) - 1
+        for position in range(last):
+            if position == last - 1:
+                # spacing: label ↔ its element -- checkbox, frame ↔
+                # Pushed against the icon rather than centred in
+                # its own cell, so it reads as belonging to that
+                # icon rather than to the row.
+                make_checkbox(
+                    icons, self.colors, text="Add to totals",
+                    variable=self.include_generic_vars[index],
+                    command=lambda i=index:
+                        self._on_include_generic_toggle(i),
+                ).grid(row=0, column=position, sticky="e",
+                       padx=(ICON_GAP_HALF, GENERIC_TO_CHECKBOX))
                 continue
-            label = self._make_icon_label(icons)
-            label.grid(row=0, column=position, padx=ICON_GAP_HALF)
-            self.material_icons[res_id] = label
+            ttk.Frame(icons, width=ICON_SIZE[0], height=1).grid(
+                row=0, column=position, padx=ICON_GAP_HALF)
 
-        # spacing: label ↔ its element -- frame, checkbox ↔
-        make_checkbox(
-            row, self.colors, text="Add to totals",
-            variable=self.include_generic_var,
-            command=self._on_include_generic_toggle,
-        ).pack(side=tk.LEFT, anchor=tk.N, padx=(GENERIC_TO_CHECKBOX, 0))
+        label = self._make_icon_label(icons)
+        label.grid(row=0, column=last, padx=ICON_GAP_HALF)
+        self.material_icons[spec.generic] = label
 
     def _make_icon_label(self, parent):
         """A Label carrying nothing of its own around the icon.
@@ -324,11 +399,12 @@ class MaterialsTab(BaseTab):
 
     # ----------------------------------------------------------- update
 
-    def _on_include_generic_toggle(self):
-        """Remember the checkbox and redraw the figures under it."""
+    def _on_include_generic_toggle(self, index):
+        """Remember one column's checkbox and redraw its figures."""
         sm = self.context.settings_manager
         if sm is not None:
-            sm.set(INCLUDE_GENERIC_KEY, bool(self.include_generic_var.get()))
+            sm.set(include_generic_key(COLUMNS[index].key),
+                   bool(self.include_generic_vars[index].get()))
         self._render_stats(self._quantities)
 
     def refresh_materials(self):
@@ -398,20 +474,29 @@ class MaterialsTab(BaseTab):
         it to each row counts it once per row rather than once. That is
         what the checkbox is for and why it is off by default.
         """
-        include = bool(self.include_generic_var
-                       and self.include_generic_var.get())
-        for (index, name), (values, targets, table, tiers) in \
-                self.material_stats.items():
+        for key, row in self.material_stats.items():
+            index, _shown = key
+            values, targets, table, group, tiers, weights = row
+            if weights is None:
+                # Nothing prices this row's tiers, so nothing here can
+                # be a number. See `Column.weights`.
+                for value in values.values():
+                    value.config(text=NO_DATA)
+                continue
             total = 0
             for tier in tiers:
-                res_id = self._res_id_for(table, name, tier)
+                res_id = self._res_id_for(table, group, tier)
                 if res_id is not None:
-                    total += (TIER_WEIGHTS.get(tier, 1)
+                    total += (weights.get(tier, 1)
                               * item_quantities.get(res_id, 0))
-            if include:
+            var = self.include_generic_vars.get(index)
+            if var is not None and var.get():
                 generic = self._column_generics.get(index)
                 if generic is not None:
                     total += item_quantities.get(generic, 0)
             values[TOTAL_LABEL].config(text=str(total))
             for label, cost in targets:
-                values[label].config(text=f"{100 * total // cost}%")
+                # An unpriced target reads `-`: a percentage of a cost
+                # nobody has given is a number with nothing behind it.
+                values[label].config(
+                    text=NO_DATA if not cost else f"{100 * total // cost}%")

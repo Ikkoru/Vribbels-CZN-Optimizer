@@ -3296,6 +3296,44 @@ def _icon_gap(first, second, axis):
     return resolve
 
 
+def _smallest_gap(pairs, axis):
+    """Resolver: the SMALLEST gap among many, and which pair it was.
+
+    One entry over a whole tab's worth of a rule rather than one entry
+    per instance. The smallest is the reading that matters -- it is the
+    one furthest from a target every pair is supposed to meet -- and
+    the note names the pair it came from, so a single straggler among
+    twenty is a row to look at rather than a number to wonder about.
+
+    `pairs(app)` yields (label, first widget, second widget). An icon
+    end is read by `ICON_EDGE` like any other.
+    """
+    def resolve(cap, app):
+        readings = []
+        for label, first, second in pairs(app):
+            if ICON_EDGE == "box":
+                a, b = sa.box_of(first), sa.box_of(second)
+                value = (sa.gap_between(a.right, b.left) if axis == "h"
+                         else sa.gap_between(a.bottom, b.top))
+            else:
+                value, _note = (sa.horizontal_gap(cap, first, second)
+                                if axis == "h"
+                                else sa.vertical_gap(cap, first, second))
+            if value is not None:
+                readings.append((value, label))
+        if not readings:
+            return None, "nothing to measure"
+        readings.sort()
+        smallest = readings[0][0]
+        at = [label for value, label in readings if value == smallest]
+        spread = {value for value, _label in readings}
+        note = f"{len(readings)} pairs, smallest at {', '.join(at[:3])}"
+        if len(spread) > 1:
+            note += f"; widest {max(spread)}"
+        return smallest, note
+    return resolve
+
+
 def _text_to_icon_gap(text, icons):
     """Resolver: a text block's ink -> an icon block, the same two ways.
 
@@ -3307,6 +3345,64 @@ def _text_to_icon_gap(text, icons):
     def resolve(cap, app):
         return (by_box if ICON_EDGE == "box" else by_ink)(cap, app)
     return resolve
+
+
+def _materials_walk(app):
+    """(column title, row index, text frame, icon labels) for every row.
+
+    Walked from the tab rather than found by words: a row's icons carry
+    an image and nothing else, and the three columns repeat their class
+    names, so no string picks one out. The shape is
+    tab > columns > column > [heading, rows] > row > [text, icons],
+    and a row missing either half is skipped rather than guessed at.
+    """
+    tab = sa.current_tab_widget(app)
+    holders = tab.winfo_children()
+    if not holders:
+        return
+    for column in holders[0].winfo_children():
+        parts = column.winfo_children()
+        if len(parts) < 2:
+            continue
+        title = str(parts[0].cget("text"))
+        for index, row in enumerate(parts[1].winfo_children()):
+            halves = row.winfo_children()
+            if not halves:
+                continue
+            icons = halves[-1]
+            labels = [w for w in icons.winfo_children()
+                      if w.winfo_class() == "Label"]
+            text = halves[0] if len(halves) > 1 else None
+            yield title, index, text, labels
+
+
+def _materials_icon_pairs(app):
+    """Every pair of icons that sit next to each other in a row."""
+    for title, index, _text, labels in _materials_walk(app):
+        for first, second in zip(labels, labels[1:]):
+            yield f"{title} row {index}", first, second
+
+
+def _materials_row_pairs(app):
+    """The first icon of each row against the first of the next."""
+    previous = None
+    for title, index, _text, labels in _materials_walk(app):
+        if not labels:
+            previous = None
+            continue
+        if previous is not None and previous[0] == title:
+            yield f"{title} rows {previous[1]}-{index}", previous[2], labels[0]
+        previous = (title, index, labels[0])
+
+
+def _materials_name_pairs(app):
+    """Each row's name against the first figure under it."""
+    for title, index, text, _labels in _materials_walk(app):
+        if text is None:
+            continue
+        children = text.winfo_children()
+        if len(children) >= 2:
+            yield f"{title} row {index}", children[0], children[1]
 
 
 def _materials_row_below():
@@ -3434,18 +3530,18 @@ MATERIALS_ENTRIES = [
     ("Materials", "Materials: figures -> its icons", 5, RULE_LABEL_ELEMENT,
      _text_to_icon_gap(_materials_part(0), _materials_part(1)), "h"),
     ("Materials", "Materials: icon -> icon", 4, RULE_CONTENT_FRAME,
-     _icon_gap(_materials_child(1, 0), _materials_child(1, 1), "h"), "h"),
+     _smallest_gap(_materials_icon_pairs, "h"), "h"),
     # Children 1 and 2 of the figures block are the first line's label
     # and its value; child 0 is the Element's name above them.
     ("Materials", "Materials: Total: -> its column", 5, RULE_LABEL_ELEMENT,
      _ink_to_box_edge(_materials_child(0, 1), _materials_child(0, 2)), "h"),
     ("Materials", "Materials: icon row -> icon row", 4, RULE_CONTENT_FRAME,
-     _icon_gap(_materials_child(1, 0), _materials_row_below(), "v"), "v"),
+     _smallest_gap(_materials_row_pairs, "v"), "v"),
     # The row name against the first figure under it. Text to text, so
     # the reading runs baseline to capital with no icon in it.
     ("Materials", "Materials: row name -> its figures", 10,
      RULE_LABEL_ROW_PITCH,
-     _gap(_by_text("Passion"), _materials_child(0, 1), "v"), "v"),
+     _smallest_gap(_materials_name_pairs, "v"), "v"),
 ]
 
 
