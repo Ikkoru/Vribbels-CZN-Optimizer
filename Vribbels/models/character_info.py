@@ -27,6 +27,11 @@ class CharacterInfo:
     partner_limit_break: int = 0
     # Potential node data
     potential_node_ids: list[int] = field(default_factory=list)
+    # {wire node number: level} for every node the capture carries.
+    # The two below are the STAT nodes, kept as their own fields
+    # because the scoring path reads them on every combo and a dict
+    # lookup per combo is not what that loop is for.
+    potential_nodes: dict[int, int] = field(default_factory=dict)
     potential_50_level: int = 0
     potential_60_level: int = 0
 

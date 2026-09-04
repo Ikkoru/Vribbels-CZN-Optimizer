@@ -22,11 +22,16 @@ Potential nodes
 ===============
 
 The tree has TEN nodes, wire-numbered 10, 20, 30, 31, 40, 50, 51, 52,
-60, 70. **Only `node_50` and `node_60` are stored**, because only those
-two raise a STAT; the rest improve card effects or unlock a one-off, and
-the build score does not model them. Node 7 (`70`) can also move a stat,
-per character, and is not encoded yet. Full table, including which
-in-game node each wire number is: `docs/game_formulas.md` §1.
+60, 70. `POTENTIAL_NODES` below is the whole tree -- display order,
+both numberings, maxima and descriptions -- and every node's level is
+kept and shown.
+
+**Only `node_50` and `node_60` carry a STAT**, though; the rest improve
+card effects or unlock a one-off, and the build score does not model
+them, so a CHARACTERS entry names a stat for those two alone. Node 7
+(`70`) can also move a stat, per character, and is not encoded yet.
+Full table, including which in-game node each wire number is:
+`docs/game_formulas.md` §1.
 
 `POTENTIAL_STAT_VALUES` gives the FIVE bonus magnitudes for the two stat
 nodes. **The tuple positions are strength tiers, NOT character levels** —
@@ -54,6 +59,8 @@ fallback for unknown res_ids returned by `get_character` /
 canonical list of the five attributes, and the launch-time data check
 validates `attribute` against them.
 """
+
+from typing import NamedTuple
 
 # Default character data for unknown characters
 DEFAULT_CHARACTER = {
@@ -617,6 +624,61 @@ ATTRIBUTE_COLORS = {
     "Order": "#2ECC71",     # Green
     "Justice": "#3498DB",   # Blue
 }
+
+
+class PotentialNode(NamedTuple):
+    """One node of the potential tree.
+
+    `shown` is the number the GAME prints and `wire` the one a snapshot
+    encodes; the two DISAGREE, and `docs/game_formulas.md` §1 is the
+    canonical table of both.
+
+    `does` is the line's parenthetical, empty where the node's name
+    says enough on its own. `stat` marks the two whose effect is per
+    character and read out of `POTENTIAL_STAT_VALUES` instead.
+    """
+    shown: str
+    wire: int
+    max_level: int
+    does: str = ""
+    stat: bool = False
+
+
+# The tree, in the order the Combatants tab lists it.
+#
+# ONE list: the order, the numbering, the maxima and the descriptions
+# all come from here, so re-ordering the display is re-ordering this
+# tuple and nothing else. The descriptions live in code rather than in
+# a doc on purpose -- a second copy of a string the UI already shows is
+# what goes stale.
+POTENTIAL_NODES = (
+    PotentialNode("1",   10, 1),
+    PotentialNode("2",   20, 10, "Basic Cards"),
+    PotentialNode("3",   30, 10, "Neutral Cards"),
+    PotentialNode("3.1", 31, 1,  "Basics Improved"),
+    PotentialNode("4",   40, 10, "Signature Cards"),
+    PotentialNode("5",   50, 5,  stat=True),
+    PotentialNode("5.1", 51, 1,  "Basics Improved"),
+    PotentialNode("5.2", 52, 1,  "Divine Epiphany%"),
+    PotentialNode("6",   60, 5,  stat=True),
+    PotentialNode("7",   70, 1,  "Conditional Stat Up"),
+)
+
+# The most a combatant's nodes can sum to, which is what a "42/45"
+# reading counts against. Summed rather than stated: a node added to
+# the tuple above moves it.
+POTENTIAL_MAX_TOTAL = sum(node.max_level for node in POTENTIAL_NODES)
+
+# Nodes one character words differently. Tiphera's 5.1 improves her
+# Archetype cards where every other character's improves the Basics.
+POTENTIAL_NODE_OVERRIDES = {
+    30084: {51: "Archetypes Improved"},   # Tiphera
+}
+
+
+def get_potential_node_does(res_id: int, node) -> str:
+    """The parenthetical for one node on one character."""
+    return POTENTIAL_NODE_OVERRIDES.get(res_id, {}).get(node.wire, node.does)
 
 
 def get_potential_stat(res_id: int, node: int) -> str | None:

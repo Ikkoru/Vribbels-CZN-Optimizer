@@ -75,7 +75,8 @@ from game_data import (
     EQUIPMENT_SLOTS, SETS, STATS, RARITY_COLORS, RARITY_BG_COLORS,
     RARITY_STARTING_SUBSTATS, ATTRIBUTE_COLORS,
     get_character_by_name, get_partner, get_partner_stats,
-    get_partner_passive_info, get_potential_stat, get_potential_stat_bonus
+    get_partner_passive_info, get_potential_stat, get_potential_stat_bonus,
+    get_potential_node_does, POTENTIAL_NODES, POTENTIAL_MAX_TOTAL,
 )
 from game_data.constants import DISPLAY_NAMES
 from models import Stat
@@ -204,11 +205,16 @@ CHAR_WIDTH_CEDED = 19
 # Six slots hold at most three 2-piece sets, or two sets plus a Flex
 # token -- three lines either way.
 CHAR_SETS_LINES = 3
-# One per potential node the program tracks. Nodes 5 and 6 are the two
-# carrying stats; the rest are parsed and dropped (see
-# docs/game_formulas.md "The potential tree"), so listing them here waits
-# on them being stored.
-CHAR_POTENTIAL_LINES = 2
+# One per node of the potential tree, so the block's height does not
+# move between combatants. `POTENTIAL_NODES` is the list; padding to
+# its length rather than stating a number keeps the two together.
+CHAR_POTENTIAL_LINES = len(POTENTIAL_NODES)
+
+# What a node that only unlocks reads, taken and untaken. Letters, not
+# a tick and a cross: the glyphs are not in every face this app draws
+# in, and a check holds the panels to ASCII for that reason.
+CHAR_NODE_TAKEN = "Y"
+CHAR_NODE_UNTAKEN = "-"
 # Shared by the set names and the potential nodes, so the two blocks read
 # as the same kind of list.
 CHAR_SUBLIST_INDENT = "  "
@@ -247,22 +253,23 @@ CHAR_EXTRA_INSET = 4       # spacing: border edge -> first non-button element --
 # measures. Both are set from the same rule; only one can be the one
 # the entry finds.
 
-# The widest line the details block renders: the Affinity BONUS line,
-# `  Bonus: ATK+39, DEF+12, HP+36`, at 175px. The combatant's NAME is not
-# in this panel at all -- it is the heading above -- so nothing here
-# scales with it.
+# The widest line the details block renders: the node 5.1 line for the
+# one character whose wording is her own, `  Node 5.1: Y (Archetypes
+# Improved)`. The combatant's NAME is not in this panel at all -- it is
+# the heading above -- so nothing here scales with it.
 #
 # Two traps, both of which have caught a reader already. The widest by
 # CHARACTER COUNT and the widest in PIXELS are different strings, and the
 # pixel one is what matters. And the obvious candidate is not the widest:
-# the Grade / element / class line tops out at 156px, well short of the
-# bonus figures, which grow with Affinity level.
+# the Grade / element / class line tops out at 156px, well short of a
+# node line.
 #
 # Re-measure rather than reason: format every combatant's card and take
 # max(measure(line)).
-CHAR_CONTENT_PX = 180
-# Details block + "Sets:" + its lines + "Stats:" + one per stat row.
-CHAR_TOTAL_LINES = 8 + 1 + CHAR_SETS_LINES + 1 + 5
+CHAR_CONTENT_PX = 190
+# Six fixed lines and the `Potential:` heading among them, then one per
+# node, then "Sets:" + its lines, then "Stats:" + one per stat row.
+CHAR_TOTAL_LINES = 6 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5
 
 # Character-list column widths, in PIXELS. A tk.Label's `width` counts
 # CHARACTERS, which is only a width in a monospaced font -- these are
@@ -282,15 +289,16 @@ CHAR_TOTAL_LINES = 8 + 1 + CHAR_SETS_LINES + 1 + 5
 #
 # Preset is last and stretches, so its number is a minimum in the other
 # sense as well: it also takes the leftover width.
-HERO_COL_PX = [67, 37, 58, 59, 32, 26, 45, 24, 66, 32, 180]
+HERO_COL_PX = [67, 37, 58, 59, 32, 42, 26, 45, 24, 66, 32, 180]
 
 # Treeview column ids, and the heading each shows. The id IS the sort
 # key, so a heading click needs no lookup table.
-HERO_COL_IDS = ("name", "grade", "attribute", "class", "level",
+HERO_COL_IDS = ("name", "grade", "attribute", "class", "level", "nodes",
                 "ego", "affinity", "gs", "partner", "partner_level",
                 "preset")
 HERO_COL_TITLES = ("Combatant", "Grade", "Attribute", "Class", "Level",
-                   "Ego", "Affinity", "GS", "Partner", "Level", "Preset")
+                   "Nodes", "Ego", "Affinity", "GS", "Partner", "Level",
+                   "Preset")
 
 # Tag for a row whose Element the program does not know, so it still gets
 # an explicit foreground rather than inheriting the theme's.
@@ -974,7 +982,11 @@ class HeroesTab(BaseTab):
             (
                 name, ci.res_id, ci.level, ci.max_level, ci.limit_break,
                 ci.exp, ci.friendship_index,
-                ci.potential_50_level, ci.potential_60_level,
+                # Every node, not the two stat ones: the list's Nodes
+                # column and the panel's ten lines both read the whole
+                # tree, and a node taken during a live capture has to
+                # move them.
+                tuple(sorted(ci.potential_nodes.items())),
                 ci.partner_id, ci.partner_res_id, ci.partner_name,
                 ci.partner_level, ci.partner_max_level,
                 ci.partner_limit_break,
@@ -1071,6 +1083,7 @@ class HeroesTab(BaseTab):
             if char_info:
                 level = char_info.level
                 max_level = char_info.max_level
+                nodes = sum(char_info.potential_nodes.values())
                 ego = char_info.limit_break
                 affinity = char_info.friendship_index
                 res_id = char_info.res_id
@@ -1095,6 +1108,7 @@ class HeroesTab(BaseTab):
             else:
                 level = 0
                 max_level = 0
+                nodes = 0
                 ego = 0
                 affinity = 0
                 res_id = 0
@@ -1113,6 +1127,10 @@ class HeroesTab(BaseTab):
                 "class": hero_class,
                 "level": level,
                 "max_level": max_level,
+                # Summed node levels. The NUMBER, not the `42/45` the
+                # cell shows -- a sort on the string would order 9
+                # after 42.
+                "nodes": nodes,
                 "ego": ego,
                 "affinity": affinity,
                 "gs": gs,
@@ -1138,6 +1156,7 @@ class HeroesTab(BaseTab):
             "attribute": lambda h: h["attribute"],
             "class": lambda h: h["class"],
             "level": lambda h: h["level"],
+            "nodes": lambda h: h["nodes"],
             "ego": lambda h: h["ego"],
             "affinity": lambda h: h["affinity"],
             "gs": lambda h: h["gs"],
@@ -1157,8 +1176,11 @@ class HeroesTab(BaseTab):
             gs_str = f"{h['gs']:.0f}" if h['gs'] > 0 else "-"
             affinity_str = (str(h["affinity"]) if h["max_level"] > 0 else "-")
 
+            nodes_str = (f"{h['nodes']}/{POTENTIAL_MAX_TOTAL}"
+                         if h["max_level"] > 0 else "-")
+
             values = (h["name"], f"{h['grade']}*", h["attribute"], h["class"],
-                      level_str, ego_str, affinity_str, gs_str,
+                      level_str, nodes_str, ego_str, affinity_str, gs_str,
                       h["partner_name_part"], h["partner_level_part"],
                       h["preset"])
             # The row's Element tag is what colours it. An Element the
@@ -1308,35 +1330,11 @@ class HeroesTab(BaseTab):
         header_tail = (attribute if hero_class == attribute
                        else f"{attribute}  |  {hero_class}")
 
-        # One line per tracked node, in the same shape whether or not the
-        # node is levelled, so the block does not change height between
-        # combatants.
-        #
-        # The bracket holds what the node RAISES: the stat always, and
-        # the bonus once the node is levelled. The stat is a property of
-        # the character and is known before the node is taken, so an
-        # unlevelled node still names it -- `(?)` is only for a combatant
-        # this build has no entry for. See docs/game_formulas.md "The
-        # potential tree".
-        #
-        # The node NUMBERS the game shows are 5 and 6; the data keys them
-        # 50 and 60, which is what the lookups take.
-        potential_lines = []
-        for node, level in ((50, char_info.potential_50_level),
-                            (60, char_info.potential_60_level)):
-            stat, bonus = get_potential_stat_bonus(
-                char_info.res_id, node, level)
-            if stat is None:
-                stat = get_potential_stat(char_info.res_id, node)
-                bonus = None
-            if stat is None:
-                what = "?"
-            else:
-                what = DISPLAY_NAMES.get(stat, stat)
-                if bonus:
-                    what = f"{what} +{bonus:g}%"
-            potential_lines.append(
-                f"{CHAR_SUBLIST_INDENT}Node {node // 10}: Lv{level} ({what})")
+        # One line per node of the tree, in the same shape whether or
+        # not the node is levelled, so the block does not change height
+        # between combatants. `POTENTIAL_NODES` is the order.
+        potential_lines = [self._format_node_line(char_info, node)
+                           for node in POTENTIAL_NODES]
         potential_lines = potential_lines[:CHAR_POTENTIAL_LINES]
         potential_lines += [""] * (CHAR_POTENTIAL_LINES - len(potential_lines))
         potential_str = "\n".join(potential_lines)
@@ -1349,6 +1347,46 @@ class HeroesTab(BaseTab):
             f"  Bonus: ATK+{fb[0]}, DEF+{fb[1]}, HP+{fb[2]}\n"
             f"Potential:\n{potential_str}"
         )
+
+    def _format_node_line(self, char_info, node):
+        """One node's line in the Character panel.
+
+        Three shapes, and which one a node gets is a property of the
+        node rather than of the combatant -- so the block keeps its
+        height and its columns whoever is selected:
+
+        * a node that only unlocks reads `Y` or `-`;
+        * a STAT node reads its level and what it raises, which is per
+          character and known before the node is taken -- so even an
+          unlevelled one names its stat, and `(?)` means this build has
+          no entry for the combatant at all;
+        * every other node reads its level and what it improves.
+        """
+        level = char_info.potential_nodes.get(node.wire, 0)
+        does = get_potential_node_does(char_info.res_id, node)
+
+        if node.stat:
+            stat, bonus = get_potential_stat_bonus(
+                char_info.res_id, node.wire, level)
+            if stat is None:
+                stat = get_potential_stat(char_info.res_id, node.wire)
+                bonus = None
+            if stat is None:
+                does = "?"
+            else:
+                does = DISPLAY_NAMES.get(stat, stat)
+                if bonus:
+                    does = f"{does} +{bonus:g}%"
+        elif node.max_level == 1:
+            # `Y` and `-`, not a tick and a cross: the panels this app
+            # draws are read in fonts whose glyph coverage a check
+            # enforces, and those two are not in all of them.
+            tail = f" ({does})" if does else ""
+            return (f"{CHAR_SUBLIST_INDENT}Node {node.shown}: "
+                    f"{CHAR_NODE_TAKEN if level else CHAR_NODE_UNTAKEN}{tail}")
+
+        return (f"{CHAR_SUBLIST_INDENT}Node {node.shown}: Lv{level}"
+                + (f" ({does})" if does else ""))
 
     def _build_extra_info(self, panel):
         """The Extra Info block on the floor of the Character panel.
@@ -1645,7 +1683,14 @@ class HeroesTab(BaseTab):
             # <Configure>, and it walked every combatant's formatted card
             # to re-derive numbers that no longer move.
             char_W = CHAR_CONTENT_PX + CHAR_PAD_W + 4 - CHAR_WIDTH_CEDED
-            row_h = CHAR_TOTAL_LINES * line_default + PAD_H
+            # The Extra Info block sits on the panel's floor and takes
+            # its height off the Text above it. Left out of this, the
+            # panel is sized for the card alone and the block eats the
+            # last lines of it -- which looks like a card that stops
+            # early rather than like a panel that is too short.
+            extra_h = ((1 + len(CHAR_EXTRA_ROWS)) * line_default
+                       + CHAR_EXTRA_INSET)
+            row_h = CHAR_TOTAL_LINES * line_default + PAD_H + extra_h
 
             def _fix(frame, w, h):
                 frame.configure(width=int(w), height=int(h))

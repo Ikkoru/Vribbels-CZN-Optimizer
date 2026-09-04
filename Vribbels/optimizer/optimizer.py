@@ -337,6 +337,7 @@ class GearOptimizer:
                 partner_level=partner_level, partner_ascend=partner_ascend,
                 partner_max_level=partner_max_level, partner_limit_break=partner_limit_break,
                 potential_node_ids=list(potential_nodes.keys()),
+                potential_nodes=potential_nodes,
                 potential_50_level=potential_50_level,
                 potential_60_level=potential_60_level,
             )

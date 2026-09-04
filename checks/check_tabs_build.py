@@ -30,6 +30,7 @@ placed.
 """
 
 import ast
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -734,6 +735,72 @@ def _breakdown_text_stays_ascii():
     return ["optimizer_tab.py has no _format_breakdown_text to check"]
 
 
+def _hero_columns_line_up(tab):
+    """The combatant list's three column tuples, and its sort map.
+
+    `zip` pairs ids with titles and widths and STOPS at the shortest,
+    so a column added to one tuple and not the others is dropped in
+    silence -- the tree still builds, with one fewer column than it has
+    values to put in.
+
+    A sort key missing from the map is the same shape of failure: the
+    lookup falls back to sorting by name, and a heading click then does
+    nothing that looks like nothing.
+
+    And every row's values have to be as long as the id tuple, or the
+    cells shift left of the headings from the gap onward.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs.heroes_tab import (
+        HERO_COL_IDS, HERO_COL_PX, HERO_COL_TITLES,
+    )
+
+    out = []
+    lengths = {"ids": len(HERO_COL_IDS), "titles": len(HERO_COL_TITLES),
+               "widths": len(HERO_COL_PX)}
+    if len(set(lengths.values())) != 1:
+        out.append(
+            f"the combatant list's column tuples are {lengths}. They are "
+            f"zipped together, so the extra entries are dropped without a "
+            f"word."
+        )
+
+    tree = getattr(tab, "hero_tree", None)
+    if tree is not None:
+        if tuple(str(c) for c in tree["columns"]) != tuple(HERO_COL_IDS):
+            out.append(
+                f"the tree carries columns {tree['columns']}, not "
+                f"{HERO_COL_IDS}"
+            )
+        rows = tree.get_children()
+        if rows:
+            values = tree.item(rows[0])["values"]
+            if len(values) != len(HERO_COL_IDS):
+                out.append(
+                    f"a row carries {len(values)} values for "
+                    f"{len(HERO_COL_IDS)} columns. Every cell after the "
+                    f"missing one sits under the wrong heading."
+                )
+
+    # The sort map is built inside refresh_heroes, so it is read here
+    # off the source rather than off an object.
+    source = (SOURCE_ROOT / "ui" / "tabs" / "heroes_tab.py").read_text(
+        encoding="utf-8")
+    block = source.split("sort_key_map = {", 1)
+    if len(block) == 2:
+        mapped = set(re.findall(r'"([a-z_]+)":\s*lambda',
+                                block[1].split("}", 1)[0]))
+        for col in HERO_COL_IDS:
+            if col not in mapped:
+                out.append(
+                    f"column {col!r} has no entry in sort_key_map, so "
+                    f"clicking its heading sorts by name instead -- which "
+                    f"looks like a heading that does not sort."
+                )
+    return out
+
+
 def _materials_rows_each_register(tab):
     """Every Materials row must own a figures block, and its own.
 
@@ -1102,6 +1169,8 @@ def run():
                 _combatant_selection_survives_a_rebuild(built["HeroesTab"]))
             failures.extend(
                 _show_missing_adds_rather_than_replaces(built["HeroesTab"]))
+            failures.extend(
+                _hero_columns_line_up(built["HeroesTab"]))
         failures.extend(_popup_sample_drives_its_own_width(root))
         if "MaterialsTab" in built:
             failures.extend(

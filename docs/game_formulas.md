@@ -45,7 +45,7 @@ Final_CDmg  = Base_CDmg + Sum(CDmg_contributions)    # base default = 125
 
 ### The potential tree
 
-Ten nodes; the program stores levels for **two**, because only two feed the stat formulas. A snapshot carries all ten, and **the numbering on the wire does not match the numbering in the game.**
+Ten nodes, and **the numbering on the wire does not match the numbering in the game.** The program keeps all ten and shows all ten; only two feed the stat formulas, and those two are the ones the scoring path reads.
 
 | In game  | On the wire | Max level | What it does                                                  | Reaches Final stats? |
 | -------- | ----------- | --------- | ------------------------------------------------------------- | -------------------- |
@@ -60,9 +60,11 @@ Ten nodes; the program stores levels for **two**, because only two feed the stat
 | Node 6   | `60`        | 5         | One stat, per `POTENTIAL_STAT_VALUES`                         | **yes**              |
 | Node 7   | `70`        | 1         | A conditional stat bonus, gated on a per-character stat check | only when modelled   |
 
-Max levels total **45**, which is what a "node levels out of max" display counts against.
+Max levels total **45**, which is what the Combatants tab's `Nodes` column counts against. It is summed from `POTENTIAL_NODES` rather than stated, so this table and that one cannot drift apart on it.
 
-`characters.py` stores `node_50` and `node_60` only. `game_data.parse_potential_node_ids` returns every node it finds and `CharacterInfo` keeps `potential_50_level` / `potential_60_level`; the other eight are parsed and dropped. **Deliberate, not an oversight** — the card-effect nodes change card magnitudes, which the build score does not model.
+`CharacterInfo.potential_nodes` holds every node's level; `potential_50_level` / `potential_60_level` repeat the two STAT nodes as their own fields, because the scoring path reads them per combo and that loop is not the place for a dict lookup. `characters.py` still stores a stat for `node_50` and `node_60` only — **deliberate, not an oversight**: the card-effect nodes change card magnitudes, which the build score does not model, so they are displayed and not scored.
+
+`POTENTIAL_NODES` in `game_data/characters.py` is the one list carrying the display order, both numberings, the maxima and the per-node descriptions. The descriptions live there rather than here on purpose: a second copy of a string the UI already shows is what goes stale.
 
 - **Node 4 is not a stat node**, despite sitting between two that are. Its levels run to 10 while `POTENTIAL_STAT_VALUES` holds five tiers and `get_potential_stat_bonus` rejects `level > 5`, so treating it as one silently returns zero.
 - **Node 7 is the only other node that can move a stat.** Its bonus and unlock condition are unique per character and not yet in `characters.py`.
