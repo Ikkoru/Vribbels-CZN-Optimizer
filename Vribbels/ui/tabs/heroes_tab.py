@@ -59,6 +59,7 @@ from tkinter import ttk, messagebox
 from tkinter import font as tkfont
 from typing import Optional
 
+import excursions
 import perf_log
 
 from ui.base_tab import BaseTab
@@ -211,6 +212,41 @@ CHAR_POTENTIAL_LINES = 2
 # Shared by the set names and the potential nodes, so the two blocks read
 # as the same kind of list.
 CHAR_SUBLIST_INDENT = "  "
+
+# The Extra Info block at the foot of the Character panel. It is a grid
+# of Labels rather than more lines in the Text above it, because a Text
+# cannot bottom-align its own content: the only way to do it there is
+# to pad the top with blank lines to a fixed height, and that height
+# then has to be recounted every time a row is added or removed.
+#
+# Its heading, so the block reads as the same kind of list as `Sets:`
+# and `Potential:` above it.
+CHAR_EXTRA_HEADING = "Extra Info:"
+# Its rows, in order. One for now; the block exists in this shape so
+# the second one is a line here rather than a layout.
+CHAR_EXTRA_ROWS = ("Excursions:",)
+# How many digits the value column holds. RESERVED, not fitted: a
+# right-aligned value in a column that sizes to its content moves its
+# label every time the number gains a digit.
+CHAR_EXTRA_DIGITS = 4
+# What a ttk.Label adds around its own text, both sides together: the
+# reservation above is an ink width and `minsize` is a box width, so
+# one has to be restated as the other.
+CHAR_LABEL_INSET = 4
+# What a value reads when no snapshot has reached the block. NOT `0`,
+# which is what a combatant who has been on no excursion reads.
+CHAR_EXTRA_NO_DATA = "-"
+# A label against its value. A lever short of the rule, a ttk.Label's
+# glyphs stopping inside its own box at both ends of the gap.
+CHAR_EXTRA_LABEL_GAP = 2   # spacing: label ↔ its element -- label, label ↔
+# The block's own left inset, matching the Text above it. Two short of
+# the panel's, because a Text's `padx` places its glyphs exactly where
+# a Label's box goes and the Label's glyphs start inside that.
+CHAR_EXTRA_INSET = 2       # spacing: border edge -> first non-button element -- panel, label ↔
+# NOT TRACKED: the audit reads this panel's inset off the TEXT widget,
+# which is the first thing in it and the one every other tab's entry
+# measures. Both are set from the same rule; only one can be the one
+# the entry finds.
 
 # The widest line the details block renders: the Affinity BONUS line,
 # `  Bonus: ATK+39, DEF+12, HP+36`, at 175px. The combatant's NAME is not
@@ -740,6 +776,14 @@ class HeroesTab(BaseTab):
         self.hero_char_text.pack(fill=tk.BOTH, expand=True)
         self.hero_char_text.config(state=tk.DISABLED)
 
+        # Packed BOTTOM and packed AFTER the Text: pack hands each child
+        # a slab of its requested size in packing order and only then
+        # shares the leftover among the ones that expand, so the Text
+        # keeps everything the block does not take and the block sits on
+        # the panel's floor. A row added here therefore grows UPWARD,
+        # into that leftover, rather than pushing the card down.
+        self._build_extra_info(char_frame)
+
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border.
         partner_frame = ttk.LabelFrame(info_frame, text="Partner", padding=0)
@@ -942,11 +986,17 @@ class HeroesTab(BaseTab):
             (f.equipped_to, getattr(f, "id", 0) or 0, f.slot_num, f.level)
             for f in self.optimizer.fragments if f.equipped_to
         )
+        # The Extra Info block reads the excursion board, which is not
+        # in CharacterInfo and so is not in `chars` above. Left out, an
+        # excursion taken during a live capture would leave the count
+        # showing its old value with nothing to say it had moved.
+        board = tuple(sorted(excursions.counts(self.optimizer.raw_data).items()))
         return (
             (u.nickname, u.level, u.login_total, u.login_continuous,
              u.login_highest_continuous),
             tuple(chars),
             tuple(gear),
+            board,
         )
 
     def _on_show_missing_toggle(self):
@@ -1236,6 +1286,10 @@ class HeroesTab(BaseTab):
     def _format_char_text(self, hero_name: str) -> str:
         """Build the Character-frame text for `hero_name`.
 
+        The Extra Info block at the foot of the panel is NOT part of
+        this string: it is a grid of Labels outside the Text, so that
+        it can sit on the panel's floor. See `_build_extra_info`.
+
         Extracted from show_hero_details so the fixed-size computation can
         measure the exact string that will be displayed. Returns the
         "No character data available" placeholder when the character has no
@@ -1296,6 +1350,63 @@ class HeroesTab(BaseTab):
             f"  Bonus: ATK+{fb[0]}, DEF+{fb[1]}, HP+{fb[2]}\n"
             f"Potential:\n{potential_str}"
         )
+
+    def _build_extra_info(self, panel):
+        """The Extra Info block on the floor of the Character panel.
+
+        A heading and one row per fact, each row a label and a value
+        right-aligned in a column reserved to `CHAR_EXTRA_DIGITS`. The
+        widgets are built once and re-labelled per combatant, so
+        selecting one does not rebuild them.
+
+        The label column is left to size to its own content and the
+        value column held at the reservation: giving both weights would
+        split the block evenly and pull the values off their column.
+        """
+        font = _default_font()
+        block = ttk.Frame(panel)
+        # The Text above carries a pady of its own and this pays the
+        # same distance at the other end of the panel.
+        block.pack(side=tk.BOTTOM, fill=tk.X,
+                   padx=(CHAR_EXTRA_INSET, 0), pady=(0, 1))
+        block.grid_columnconfigure(
+            1, minsize=font.measure("0" * CHAR_EXTRA_DIGITS) + CHAR_LABEL_INSET)
+
+        ttk.Label(block, text=CHAR_EXTRA_HEADING, font=font,
+                  padding=0).grid(row=0, column=0, columnspan=2, sticky="w")
+
+        indent = font.measure(CHAR_SUBLIST_INDENT)
+        self._extra_info_values = {}
+        for line, label in enumerate(CHAR_EXTRA_ROWS, start=1):
+            ttk.Label(block, text=label, font=font, padding=0).grid(
+                row=line, column=0, sticky="w",
+                padx=(indent, CHAR_EXTRA_LABEL_GAP))
+            # `sticky=ew` with `anchor=e`: the widget fills the reserved
+            # column and the digits sit at its right. Sticking it east
+            # instead right-aligns the WIDGET, which looks the same and
+            # leaves nothing at the column's left edge -- and that edge
+            # is what the label beside it is spaced from.
+            value = ttk.Label(block, text=CHAR_EXTRA_NO_DATA, font=font,
+                              anchor=tk.E, padding=0)
+            value.grid(row=line, column=1, sticky="ew")
+            self._extra_info_values[label] = value
+
+    def _update_extra_info(self, hero_name):
+        """Fill the Extra Info block for one combatant.
+
+        A snapshot the excursion board never reached reads `-`, where a
+        combatant with no row on a board that DID arrive reads 0: the
+        server sends the board whole, so an absent row is a count.
+        """
+        if not getattr(self, "_extra_info_values", None):
+            return
+        char_info = self.optimizer.character_info.get(hero_name)
+        board = excursions.counts(self.optimizer.raw_data)
+        if char_info is None or not board:
+            shown = CHAR_EXTRA_NO_DATA
+        else:
+            shown = str(board.get(char_info.res_id, 0))
+        self._extra_info_values["Excursions:"].config(text=shown)
 
     def _format_stats_text(self, stat_values: dict) -> str:
         """Build the two-column build-stat block for the Character card.
@@ -1659,6 +1770,7 @@ class HeroesTab(BaseTab):
         self.hero_char_text.insert(
             "1.0", self._format_character_card(hero_name, stat_values))
         self.hero_char_text.config(state=tk.DISABLED)
+        self._update_extra_info(hero_name)
 
     # ----- Per-character preset helpers ----------------------------------
 

@@ -117,6 +117,12 @@ class Addon:
         # from the day its banner opens.
         self.gacha_banners = None
 
+        # One row per combatant that has been on an excursion, from a
+        # frame that carries nothing else the snapshot wants. Kept on
+        # its own like the banners and written out with the next save:
+        # a frame with no inventory in it never saves by itself.
+        self.char_visits = None
+
         self.saved_path = None
 
         # Set by anything that changes the cached data, cleared by
@@ -573,6 +579,18 @@ class Addon:
             self._report_unknown_units()
             self._save_pending = True
 
+        # The excursion board's reply: one row per combatant that has
+        # been taken on one, carrying which of the visits it has
+        # experienced. It arrives in its own frame with a reset record
+        # and nothing else, so it is kept aside like the banners.
+        #
+        # Replaced whole rather than merged: the reply is the board,
+        # every row of it, and a combatant with no row has been on no
+        # excursion -- which is a reading, not a gap to preserve.
+        if isinstance(data.get("char_visits"), list):
+            self.char_visits = data["char_visits"]
+            self._save_pending = True
+
 
     def _report_unknown_units(self):
         """Log any banner naming a res_id this build has no entry for.
@@ -667,6 +685,7 @@ class Addon:
             "inventory": self.inventory_data,
             "characters": self.character_data,
             "gacha_banners": self.gacha_banners,
+            "char_visits": self.char_visits,
             "detected_region": self._detect_region(),
         }
 
