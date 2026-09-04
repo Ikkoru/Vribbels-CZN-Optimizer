@@ -50,6 +50,12 @@ paused_task.md
 # bat is the build DEFINITION and is tracked, the .spec is its output.
 *.spec
 
+# Tcl/Tk's library, unpacked out of the interpreter's own zips by
+# `build_tcl/prepare_tcl_data.py` so PyInstaller can bundle it. A copy
+# of the installed Python's files, rebuilt every run.
+Vribbels/build_tcl/_tcl_data/
+Vribbels/build_tcl/_tk_data/
+
 # I'm normal
 .old/
 _tmp/
