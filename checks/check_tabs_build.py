@@ -775,6 +775,21 @@ def _materials_rows_each_register(tab):
                 out.append(
                     f"{key} carries figures {list(values)}, not {wanted}"
                 )
+            if not tab.material_stats[key][6]:
+                out.append(
+                    f"{key} is a promotion row that refuses the column's "
+                    f"generic. Its stand-in IS that family's bottom tier, "
+                    f"so the checkbox has nothing left to do."
+                )
+        if spec.levelling and tab.material_stats.get(
+                (spec_index, spec.levelling[0]), (None,) * 7)[6]:
+            out.append(
+                f"the {spec.key} column's EXP row takes the generic into "
+                f"its total. A Certificate raises a level ceiling and buys "
+                f"no exp, so the checkbox would inflate a figure that has "
+                f"nothing to do with it -- and it would still look like a "
+                f"number."
+            )
 
     # Rows are CENTRED in their column, so a row that reserves less
     # width than its neighbours is centred on less and its icons land

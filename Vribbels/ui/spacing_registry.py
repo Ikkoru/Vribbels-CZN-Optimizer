@@ -1648,6 +1648,25 @@ def _to_window_edge(locator):
     return resolve
 
 
+def _from_window_edge(locator):
+    """Resolver: the window's left edge -> a widget's painted left.
+
+    The mirror of `_to_window_edge`, and it exists for the same reason
+    that one is right-only: nothing used to START at the window. The
+    Materials tab's first column does, its cell holding it west rather
+    than centring it.
+
+    The last column BEFORE the capture is the edge, the capture being
+    the client area with nothing outside it.
+    """
+    def resolve(cap, app):
+        span = sa.painted_extent_h(cap, sa.box_of(locator(app)))
+        if span is None:
+            return None, "painted nothing"
+        return sa.gap_between(cap.origin[0] - 1, span[0]), ""
+    return resolve
+
+
 def _tab_top_to_widget(locator):
     """Resolver: the top of the tab body -> a widget's painted top.
 
@@ -1886,14 +1905,18 @@ CELL_LABEL_ENTRIES = [
                        LABEL_CLASSES + SPINBOX_CLASSES, column=1)),
 ]
 
-# (tab, name, target, hand reading, resolver) for content that ends at
-# the window's right edge.
+# (tab, name, target, hand reading, resolver) for content that meets
+# the window's edge -- at the right, and on the Materials tab at the
+# left as well.
 WINDOW_EDGE_ENTRIES = [
     ("Optimizer", "status cluster -> window edge", 4, None,
      _to_window_edge(
          lambda app: app.optimizer_tab_instance.status_label.master)),
     ("Combatants", "Partner -> window edge", 4, None,
      _to_window_edge(_panel_at("Partner"))),
+    # The Materials tab's two ends are window-edge gaps as well, and
+    # they live in MATERIALS_ENTRIES instead -- their locator is one of
+    # that tab's, defined further down than this table is.
 ]
 
 def _results_title_to_tree():
@@ -3173,8 +3196,7 @@ def _materials_part(index):
     parent is the block of figures, and that block's parent holds the
     two halves in the order they were built -- figures, then icons.
 
-    `Passion` is the first Element and appears once: the placeholder
-    columns name their rows `Reserved`.
+    `Passion` is the first Element and appears once.
     """
     def find(app):
         row = _by_text("Passion")(app).master.master
@@ -3182,6 +3204,21 @@ def _materials_part(index):
         if len(parts) <= index:
             raise LookupError(f"the Materials row has no part {index}")
         return parts[index]
+    return find
+
+
+def _materials_column(position):
+    """Locator: one whole column of the Materials tab, by position.
+
+    -1 is the reserved column at the far right, which holds tiles and
+    no words at all -- so it can be reached by position and by nothing
+    else.
+    """
+    def find(app):
+        holders = sa.current_tab_widget(app).winfo_children()
+        if not holders:
+            raise LookupError("the Materials tab has no columns")
+        return holders[0].winfo_children()[position]
     return find
 
 
@@ -3611,6 +3648,17 @@ MATERIALS_ENTRIES = [
     ("Materials", "Materials: row name -> its figures", 10,
      RULE_LABEL_ROW_PITCH,
      _materials_name_gap(), "v"),
+    # Both ends of the block against the window. Its first and last
+    # columns are held to their cells' OUTER edges rather than centred
+    # in them, so these two are what that `sticky` buys.
+    #
+    # Ink at both ends, and not the same kind of ink: the first
+    # column's leftmost paint is a glyph inside a Label's own inset,
+    # where a reserved tile's outline is drawn at its box edge.
+    ("Materials", "Materials: window edge -> first column", 4,
+     RULE_CONTENT_FRAME, _from_window_edge(_materials_column(0)), "h"),
+    ("Materials", "Materials: reserved column -> window edge", 4,
+     RULE_CONTENT_FRAME, _to_window_edge(_materials_column(-1)), "h"),
 ]
 
 
@@ -3696,6 +3744,11 @@ AWAITING_FIRST_READING = {
     # settled; these two have not been read since they last moved.
     "Materials: figures -> its icons",
     "Materials: row name -> its figures",
+    # Neither end of the block has ever been read: until the first and
+    # last columns were held to their cells' outer edges there was no
+    # distance there to read, only whatever the cells had spare.
+    "Materials: window edge -> first column",
+    "Materials: reserved column -> window edge",
 }
 
 

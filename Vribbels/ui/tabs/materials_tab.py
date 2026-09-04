@@ -18,9 +18,16 @@ different numbers, which is why the two carry separate targets.
 
 **Each column ends in a GENERIC item** -- one that stands in for the
 bottom tier of any row in its column. It sits under the last row in the
-rightmost icon position, beside a checkbox that adds its count to every
-row's total. Off by default: the stock is shared between the rows, so
-adding it to each of them counts it once per row rather than once.
+rightmost icon position, beside a checkbox that adds its count to the
+promotion rows' totals. Off by default: the stock is shared between the
+rows, so adding it to each of them counts it once per row rather than
+once. The EXP row is never one of them -- a Certificate raises a
+ceiling and buys no exp.
+
+A fourth column at the far right holds placeholder tiles and nothing
+else, reserving the shape a fourth family would take. It and the first
+column sit at their cells' outer edges rather than centred in them, so
+the block spans the window instead of floating inside it.
 """
 
 import tkinter as tk
@@ -39,6 +46,7 @@ from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
 from ..utils.image_utils import (
     ICON_SIZE, RARITY_DIR, create_icon_with_quantity,
+    create_placeholder_icon,
 )
 from ..utils.tab_header import make_heading
 
@@ -169,6 +177,15 @@ COLUMNS = (
            2100003, STONE_TARGETS),
 )
 
+# The far-right column holds tiles and nothing else -- no heading, no
+# names, no figures -- reserving the shape a fourth family would take.
+# Three tiles wide like the columns beside it, and as many rows as the
+# tallest of them, so the block reads as a rectangle rather than as a
+# short column at the end of three long ones.
+RESERVED_TILES = 3
+RESERVED_ROWS = max(len(spec.names) + 1 + (1 if spec.levelling else 0)
+                    for spec in COLUMNS)
+
 # The stat lines under a row's name. Small, because they are a readout
 # under a heading rather than content in their own right.
 STAT_FONT = ("Segoe UI", 9)
@@ -274,17 +291,29 @@ class MaterialsTab(BaseTab):
         # The same pads the other headed tabs carry, because the first
         # thing under this one is the same 14pt heading they open with.
         columns.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
-        for index in range(len(COLUMNS)):
-            # `uniform` is what makes the three EQUAL rather than
-            # merely stretchy: without it a column holding wider
-            # content takes more of the width, weights or no weights.
+        last = len(COLUMNS)
+        for index in range(last + 1):
+            # `uniform` is what makes them EQUAL rather than merely
+            # stretchy: without it a column holding wider content takes
+            # more of the width, weights or no weights.
             columns.grid_columnconfigure(index, weight=1, uniform="materials")
         columns.grid_rowconfigure(0, weight=1)
 
         for index, spec in enumerate(COLUMNS):
             column = ttk.Frame(columns)
-            column.grid(row=0, column=index, sticky="nsew")
+            # The first column's frame shrinks to its own content and
+            # sits at the WEST of its cell, so the block starts at the
+            # tab's left edge rather than centred in a share of the
+            # width; the reserved column below does the same at the
+            # EAST. `sticky` and not a pad: the distance being closed
+            # is the cell's leftover width, which no padding knows.
+            column.grid(row=0, column=index,
+                        sticky="nsw" if index == 0 else "nsew")
             self._build_column(column, index, spec)
+
+        reserved = ttk.Frame(columns)
+        reserved.grid(row=0, column=last, sticky="nse")
+        self._build_reserved_column(reserved)
 
     def _build_column(self, column, index, spec):
         """One column: a heading, its rows, its generic, its levelling."""
@@ -326,16 +355,22 @@ class MaterialsTab(BaseTab):
             # three of the tier below it, and the two families spell
             # their tiers alike.
             self._build_row(row, index, group, table, tiers, targets,
-                            EXP_WEIGHTS, label_width, label=name)
+                            EXP_WEIGHTS, label_width, label=name,
+                            takes_generic=False)
 
     def _build_row(self, row, index, name, table, tiers, targets,
-                   weights, label_width, label=None):
+                   weights, label_width, label=None, takes_generic=True):
         """One class, Element or material: its name, figures, icons.
 
         `weights` prices this row's tiers in bottom-tier equivalents.
         It comes from the caller rather than a lookup here because the
         promotion and EXP families share tier words and disagree about
         what they are worth.
+
+        `takes_generic` says whether the column's checkbox can add its
+        stand-in to this row. The generic substitutes for a PROMOTION
+        family's bottom tier and buys no exp at all, so the EXP row
+        never takes it however the checkbox is set.
 
         `label` overrides the heading, for a row whose group name
         is not what the user calls it.
@@ -382,7 +417,7 @@ class MaterialsTab(BaseTab):
             value.grid(row=line, column=1, sticky="ew")
             values[figure] = value
         self.material_stats[(index, label or name)] = (
-            values, targets, table, name, tiers, weights)
+            values, targets, table, name, tiers, weights, takes_generic)
 
         icons = ttk.Frame(row)
         icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
@@ -393,6 +428,39 @@ class MaterialsTab(BaseTab):
             res_id = self._res_id_for(table, name, tier)
             if res_id is not None:
                 self.material_icons[res_id] = label
+
+    def _build_reserved_column(self, column):
+        """The far-right column: tiles, and nothing else.
+
+        ONE child, not two. Both the spacing audit and
+        `check_tabs_build` walk a column as `[heading, rows]` and read
+        its title off the first child, so a column with no title stays
+        out of their way by having no heading at all rather than by a
+        special case in each of them.
+
+        The tiles still line up with the icons beside them, and the
+        leading pad is what does it: the height a heading takes plus
+        the gap under one, read off a heading built and dropped rather
+        than restated here as a number.
+        """
+        probe = make_heading(column, "")
+        top = probe.winfo_reqheight() + HEADING_GAP
+        probe.destroy()
+
+        rows = ttk.Frame(column)
+        rows.pack(anchor=tk.N, pady=(top, 0))
+        # One image for every tile: the art is the same blank square
+        # and carries no count, so there is nothing to draw per tile.
+        self._reserved_tile = create_placeholder_icon(
+            background=self.colors["bg"], outline=self.colors["fg_dim"])
+        for line in range(RESERVED_ROWS):
+            row = ttk.Frame(rows)
+            row.pack(anchor=tk.CENTER, pady=(0 if line == 0 else ROW_GAP, 0))
+            for position in range(RESERVED_TILES):
+                label = self._make_icon_label(row)
+                if self._reserved_tile is not None:
+                    label.config(image=self._reserved_tile)
+                label.grid(row=0, column=position, padx=ICON_GAP_HALF)
 
     def _build_generic_row(self, row, index, spec, text_width):
         """The column's stand-in item, under its last row.
@@ -579,14 +647,16 @@ class MaterialsTab(BaseTab):
         looked up per row rather than accumulated, so a row cannot pick
         up a neighbour's holdings.
 
-        The generic item is the exception, and only when the checkbox
-        asks for it: its stock is shared across the column, so adding
-        it to each row counts it once per row rather than once. That is
-        what the checkbox is for and why it is off by default.
+        The generic item is the exception, and only on a row that takes
+        it and only when the checkbox asks: its stock is shared across
+        the column, so adding it to each row counts it once per row
+        rather than once. That is what the checkbox is for and why it
+        is off by default. The EXP row never takes it -- a Certificate
+        raises a ceiling and buys no exp.
         """
         for key, row in self.material_stats.items():
             index, _shown = key
-            values, targets, table, group, tiers, weights = row
+            values, targets, table, group, tiers, weights, takes = row
             total = 0
             for tier in tiers:
                 res_id = self._res_id_for(table, group, tier)
@@ -594,7 +664,7 @@ class MaterialsTab(BaseTab):
                     total += (weights.get(tier, 1)
                               * item_quantities.get(res_id, 0))
             var = self.include_generic_vars.get(index)
-            if var is not None and var.get():
+            if takes and var is not None and var.get():
                 generic = self._column_generics.get(index)
                 if generic is not None:
                     total += item_quantities.get(generic, 0)
