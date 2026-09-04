@@ -164,7 +164,7 @@ NAME_PAD_BOTTOM = -1    # spacing: label row -> label row -- label, label ↕
 # The icons' box and not their art: every icon carries a transparent
 # border so that its art is centred the way the game centres it, and
 # the border is part of the icon rather than part of the gap.
-TEXT_TO_ICONS = 3       # spacing: label ↔ its element -- label, frame ↔
+TEXT_TO_ICONS = 0       # spacing: label ↔ its element -- label, frame ↔
 # The labels all end in a colon, whose ink stops inside its advance --
 # so the pad is the rule's 5 less that and the box inset.
 LABEL_TO_VALUE = 2      # spacing: label ↔ its element -- label, label ↔
