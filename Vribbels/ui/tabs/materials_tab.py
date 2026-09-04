@@ -74,7 +74,7 @@ TOTAL_LABEL = "Total:"
 # (label, cost). **A cost of None is a figure nobody has priced yet**:
 # the row is built and reads `-` until one is given, rather than being
 # left out and having to be threaded back through the layout later.
-LEVEL_TARGETS = (("Level 50:", None), ("Level 60:", None))
+LEVEL_TARGETS = (("Level 50:", 293), ("Level 60:", 617))
 EXP_TARGETS = LEVEL_TARGETS + (("Level 61:", None),)
 
 

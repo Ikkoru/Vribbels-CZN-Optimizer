@@ -80,10 +80,7 @@ CLASSES = (
 #               (720000, 60) -- all max-level heroes in May 11 snapshot
 #               (778200, 61) -- Amir, level 61 (confirmed checkpoint)
 #
-# Every checkpoint below is read from the game. Estimated round-number
-# checkpoints were tried for the levels under 40 and were far enough off
-# to matter, so nothing here is interpolated -- add a real reading rather
-# than a plausible one.
+# Every checkpoint below was read from the game. Do not interpolate
 CHARACTER_EXP_TABLE = [
     (0, 1),       (100, 2),     (200, 3),     (400, 4),     (600, 5),
     (900, 6),     (1300, 7),    (1700, 8),    (2200, 9),    (2800, 10),
@@ -93,13 +90,11 @@ CHARACTER_EXP_TABLE = [
     (31100, 26),  (36400, 27),  (42300, 28),  (48800, 29),  (56000, 30),
     (63900, 31),  (72000, 32),  (80300, 33),  (88800, 34),  (97500, 35),
     (106400, 36), (115500, 37), (124800, 38), (134300, 39), (144000, 40),
-    (154800, 41), (167100, 42), (180900, 43), (196200, 44),
-    (213000, 45), (231400, 46), (251300, 47), (272700, 48), (295600, 49),
-    (320000, 50),
-    (346000, 51), (374900, 52), (407100, 53), (442400, 54),
-    (480800, 55), (522400, 56), (567100, 57), (614900, 58),
-    (665900, 59),
-    (720000, 60), (778200, 61),
+    (154800, 41), (167100, 42), (180900, 43), (196200, 44), (213000, 45),
+    (231400, 46), (251300, 47), (272700, 48), (295600, 49), (320000, 50),
+    (346000, 51), (374900, 52), (407100, 53), (442400, 54), (480800, 55),
+    (522400, 56), (567100, 57), (614900, 58), (665900, 59), (720000, 60),
+    (778200, 61),
 ]
 
 # Partner card exp table (separate progression from heroes).
