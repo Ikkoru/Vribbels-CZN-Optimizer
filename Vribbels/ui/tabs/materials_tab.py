@@ -5,9 +5,16 @@ headed column of rows and each row an item's name, its figures, and its
 three tiers as icons. The leftmost icon of a row is the most valuable
 one, which is what the weights below count in.
 
-A row's figures are derived from THAT ROW's three counts and no others.
-The top tier is worth nine of the bottom and the middle three, so the
-total is the row's holdings in bottom-tier equivalents.
+A row's figures are derived from THAT ROW's three counts and no others:
+each tier is priced in bottom-tier equivalents and the three summed.
+The pricing is the ROW's, not the tab's -- a promotion family runs
+9/3/1 and an EXP material 20/5/1, and both spell their top tier
+`Premium`.
+
+**A `Level 50:` figure means one of two things.** On a promotion row it
+is the cost of unlocking that level ceiling; on an EXP row it is the
+cost of the levelling itself. Different items, different tables and
+different numbers, which is why the two carry separate targets.
 
 **Each column ends in a GENERIC item** -- one that stands in for the
 bottom tier of any row in its column. It sits under the last row in the
@@ -24,8 +31,8 @@ from pathlib import Path
 from typing import NamedTuple
 
 from game_data import (
-    ATTRIBUTE_COLORS, COMBATANT_PROMOTION, EXP_MATERIALS, GROWTH_STONES,
-    PARTNER_PROMOTION,
+    ATTRIBUTE_COLORS, CHARACTER_EXP_TABLE, COMBATANT_PROMOTION,
+    EXP_MATERIALS, GROWTH_STONES, PARTNER_EXP_TABLE, PARTNER_PROMOTION,
 )
 from game_data.constants import item_art
 from ..base_tab import BaseTab
@@ -53,9 +60,23 @@ CLASS_ORDER = ("Striker", "Vanguard", "Ranger", "Hunter", "Psionic",
                "Controller")
 ELEMENT_ORDER = ("Passion", "Instinct", "Void", "Order", "Justice")
 
-# What each tier is worth in bottom-tier equivalents. Keyed by tier
-# word, because the three families spell their middle tier differently.
+# What each tier of a PROMOTION family is worth in bottom-tier
+# equivalents. Keyed by tier word, because the three families spell
+# their middle tier differently.
 TIER_WEIGHTS = {"Premium": 9, "Great": 3, "Advanced": 3, "Common": 1}
+
+# What one EXP material is worth. The game states these by RARITY --
+# Common 100, Rare 500, Legendary 2000 -- and `TIER_RARITY` is what
+# pairs those words with the tiers named here.
+EXP_PER_TIER = {"Basic": 100, "Advanced": 500, "Premium": 2000}
+
+# The same in bottom-tier equivalents, which is what every figure on
+# the tab counts in. SEPARATE from `TIER_WEIGHTS` and not a rewording
+# of it: `Premium` is worth nine of its family's bottom tier on a
+# promotion row and twenty on an EXP row, so one table keyed by tier
+# word would price one of the two wrong and nothing would say so.
+EXP_WEIGHTS = {tier: exp // EXP_PER_TIER["Basic"]
+               for tier, exp in EXP_PER_TIER.items()}
 
 # The Common-equivalent cost of taking one Element's potential nodes to
 # each of three levels. The rows read as increasing ambition, so each
@@ -71,24 +92,54 @@ STONE_TARGETS = (
 
 TOTAL_LABEL = "Total:"
 
+# The Common-equivalent cost of PROMOTING one Combatant or Partner far
+# enough to raise its level ceiling. `Level 50:` here reads "unlock the
+# ability to level to 50" and prices Manuals or Certificates; the cost
+# of the levelling itself is the EXP row's, below.
+#
 # (label, cost). **A cost of None is a figure nobody has priced yet**:
 # the row is built and reads `-` until one is given, rather than being
 # left out and having to be threaded back through the layout later.
-LEVEL_TARGETS = (("Level 50:", 293), ("Level 60:", 617))
-EXP_TARGETS = LEVEL_TARGETS + (("Level 61:", None),)
+PROMOTION_TARGETS = (("Level 50:", 293), ("Level 60:", 617))
+
+
+def _exp_targets(table, levels):
+    """(label, cost) per level, in bottom-tier EXP materials.
+
+    Derived from the exp table rather than stated: the cost of taking
+    one Combatant or Partner to a level IS that level's cumulative exp,
+    and the only conversion is what the bottom tier is worth. So a
+    corrected checkpoint moves the target with it.
+
+    Rounded UP, no material being divisible. A level the table does not
+    document costs None so that the tab still builds; that reads as an
+    unpriced target when it means the level does not exist for this
+    kind, so `check_materials_targets` names any column relying on it.
+    """
+    per = EXP_PER_TIER["Basic"]
+    by_level = {level: exp for exp, level in table}
+    return tuple(
+        (f"Level {level}:",
+         -(-by_level[level] // per) if level in by_level else None)
+        for level in levels
+    )
+
+
+# **A Partner has no level 61.** The row exists for Combatants because
+# `CHARACTER_EXP_TABLE` documents a level-61 checkpoint, and is absent
+# for Partners because `PARTNER_EXP_TABLE` ends at 60.
+COMBATANT_EXP_TARGETS = _exp_targets(CHARACTER_EXP_TABLE, (50, 60, 61))
+PARTNER_EXP_TARGETS = _exp_targets(PARTNER_EXP_TABLE, (50, 60))
 
 
 class Column(NamedTuple):
     """One column of the tab.
 
-    `levelling` is the extra row under the generic -- the EXP material
-    for that column's kind, which has its own tiers and its own
-    figures. None for a column with no such material.
-
-    `weights` is what a tier is worth in bottom-tier equivalents, or
-    None where nothing has said: the EXP materials do NOT follow the
-    promotion families' 9/3/1, so their figures read `-` rather than a
-    number derived from the wrong pattern.
+    `targets` prices this column's PROMOTION rows; `levelling` is the
+    extra row under the generic -- the EXP material for that column's
+    kind, with its own tiers and its own targets, since the two answer
+    different questions about the same level number. Empty for a
+    column with no such material.
     """
     key: str
     title: str
@@ -103,15 +154,15 @@ class Column(NamedTuple):
 COLUMNS = (
     Column("combatant", "Combatant Upgrade Material", CLASS_ORDER,
            COMBATANT_PROMOTION, ("Premium", "Advanced", "Common"),
-           2100001, LEVEL_TARGETS,
+           2100001, PROMOTION_TARGETS,
            ("Battle Memory", EXP_MATERIALS, "Combatant",
-            ("Premium", "Advanced", "Basic"), EXP_TARGETS)),
+            ("Premium", "Advanced", "Basic"), COMBATANT_EXP_TARGETS)),
     Column("partner", "Partner Upgrade Material", CLASS_ORDER,
            PARTNER_PROMOTION, ("Premium", "Advanced", "Common"),
-           2100002, LEVEL_TARGETS,
+           2100002, PROMOTION_TARGETS,
            ("Support Data", EXP_MATERIALS, "Partner",
-            ("Premium", "Advanced", "Basic"), EXP_TARGETS)),
-    # No LEVEL_TARGETS here: a level is a Combatant's or a
+            ("Premium", "Advanced", "Basic"), PARTNER_EXP_TARGETS)),
+    # No PROMOTION_TARGETS here: a level is a Combatant's or a
     # Partner's, and a potential node has none.
     Column("stones", "Potential Growth Stones", ELEMENT_ORDER,
            GROWTH_STONES, ("Premium", "Great", "Common"),
@@ -271,18 +322,20 @@ class MaterialsTab(BaseTab):
             name, table, group, tiers, targets = spec.levelling
             row = ttk.Frame(rows)
             row.pack(anchor=tk.CENTER, pady=(ROW_GAP, 0))
-            # No weights: an EXP material is not three of the tier
-            # below it, and inventing a pattern would put a number
-            # under a label that nobody has priced.
+            # `EXP_WEIGHTS`, not `TIER_WEIGHTS`: an EXP material is not
+            # three of the tier below it, and the two families spell
+            # their tiers alike.
             self._build_row(row, index, group, table, tiers, targets,
-                            None, label_width, label=name)
+                            EXP_WEIGHTS, label_width, label=name)
 
     def _build_row(self, row, index, name, table, tiers, targets,
                    weights, label_width, label=None):
         """One class, Element or material: its name, figures, icons.
 
-        `weights` prices a tier in bottom-tier equivalents; None
-        means nothing has, and every figure in the row reads `-`.
+        `weights` prices this row's tiers in bottom-tier equivalents.
+        It comes from the caller rather than a lookup here because the
+        promotion and EXP families share tier words and disagree about
+        what they are worth.
 
         `label` overrides the heading, for a row whose group name
         is not what the user calls it.
@@ -534,12 +587,6 @@ class MaterialsTab(BaseTab):
         for key, row in self.material_stats.items():
             index, _shown = key
             values, targets, table, group, tiers, weights = row
-            if weights is None:
-                # Nothing prices this row's tiers, so nothing here can
-                # be a number. See `Column.weights`.
-                for value in values.values():
-                    value.config(text=NO_DATA)
-                continue
             total = 0
             for tier in tiers:
                 res_id = self._res_id_for(table, group, tier)
