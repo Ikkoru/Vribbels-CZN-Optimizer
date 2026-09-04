@@ -3402,6 +3402,51 @@ def _materials_row_pairs(app):
         previous = (title, index, labels[0])
 
 
+def _materials_text_pairs(app):
+    """Each row's figures block against the icons beside it.
+
+    A generic row's leading half is a bare spacer holding the width the
+    figures take, with nothing painted in it -- so it is skipped here
+    rather than at measuring time, where it would be counted in the
+    note's tally and then dropped for painting nothing.
+    """
+    for title, index, text, labels in _materials_walk(app):
+        if text is not None and text.winfo_children() and labels:
+            yield f"{title} row {index}", text, labels[0].master
+
+
+def _smallest_text_gap(pairs):
+    """Resolver: the smallest of many text-to-icon gaps, and which.
+
+    The near end is always INK -- a figures block is text and has no
+    border to read instead -- and the far end follows `ICON_EDGE` like
+    every other icon edge.
+    """
+    def resolve(cap, app):
+        readings = []
+        for label, text, icons in pairs(app):
+            span = sa.painted_extent_h(cap, sa.box_of(text))
+            if span is None:
+                continue
+            if ICON_EDGE == "box":
+                value = sa.gap_between(span[1], sa.box_of(icons).left)
+            else:
+                other = sa.painted_extent_h(cap, sa.box_of(icons))
+                if other is None:
+                    continue
+                value = sa.gap_between(span[1], other[0])
+            readings.append((value, label))
+        if not readings:
+            return None, "no row with figures beside icons"
+        readings.sort()
+        at = [label for value, label in readings if value == readings[0][0]]
+        note = f"{len(readings)} pairs, smallest at {', '.join(at[:3])}"
+        if readings[-1][0] != readings[0][0]:
+            note += f"; widest {readings[-1][0]} at {readings[-1][1]}"
+        return readings[0][0], note
+    return resolve
+
+
 def _materials_name_gap():
     """Resolver: one row's name against the first figure under it.
 
@@ -3552,7 +3597,7 @@ MATERIALS_ENTRIES = [
     # its box is where the layout put it. Read to the ink, this came
     # back six wide with the pad exact.
     ("Materials", "Materials: figures -> its icons", 5, RULE_LABEL_ELEMENT,
-     _text_to_icon_gap(_materials_part(0), _materials_part(1)), "h"),
+     _smallest_text_gap(_materials_text_pairs), "h"),
     ("Materials", "Materials: icon -> icon", 4, RULE_CONTENT_FRAME,
      _smallest_gap(_materials_icon_pairs, "h"), "h"),
     # Children 1 and 2 of the figures block are the first line's label
