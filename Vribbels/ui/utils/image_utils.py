@@ -5,13 +5,13 @@ drawn smaller than that. The difference costs one resample as each icon
 is built, which is the price of the Materials tab fitting three columns
 of three inside a window the other tabs already size.
 
-**The white edge these icons used to show is not in the assets.** Every
-one of them has a transparent outer ring -- no near-white pixel within
-four of any border -- so what showed was the widget's own: `tk.Label`
-defaults to `borderwidth=2` and `padx`/`pady` of 1, and an RGBA image
-composites against whatever is behind it. Both are answered here and at
-the call site: the icon is flattened onto the panel colour before Tk
-sees it, and the label carries no border of its own.
+**A pale edge around one of these icons is the WIDGET's, not the
+asset's.** Every one of them has a transparent outer ring -- no
+near-white pixel within four of any border. What draws such an edge is
+`tk.Label`, which defaults to `borderwidth=2` and `padx`/`pady` of 1,
+and an RGBA image composited against whatever is behind it. Both are
+answered here and at the call site: the icon is flattened onto the
+panel colour before Tk sees it, and the label carries no border.
 """
 
 from PIL import Image, ImageDraw, ImageFont, ImageTk

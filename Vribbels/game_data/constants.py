@@ -645,12 +645,10 @@ def get_level_from_exp(exp: int, exp_table: list = None) -> int:
 def get_partner_level_from_exp(exp: int) -> int:
     """Convert partner card experience to level via PARTNER_EXP_TABLE.
 
-    Note: a previous version short-circuited exp < 4000 to a linear
-    formula (~180 exp/level). That shortcut predated our firm low-end
-    data (Douglas at exp=100 = level 2, Zatera at exp=1800 = level 10),
-    both of which the linear formula gets wrong. The table now covers
-    every level we have data for, so a straight table lookup is correct
-    across the full exp range.
+    A straight table lookup across the whole exp range. **The low end
+    is not linear** -- a shortcut of about 180 exp per level below 4000
+    contradicts two confirmed readings, Douglas at exp=100 being level
+    2 and Zatera at exp=1800 being level 10.
     """
     return get_level_from_exp(exp, PARTNER_EXP_TABLE)
 

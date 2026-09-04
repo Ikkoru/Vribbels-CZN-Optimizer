@@ -1,15 +1,18 @@
-"""Materials tab: three columns of upgrade material.
+"""Materials tab: upgrade material by class and Element.
 
-Combatant promotion, Partner promotion and potential growth, each a
-headed column of rows and each row an item's name, its figures, and its
-three tiers as icons. The leftmost icon of a row is the most valuable
-one, which is what the weights below count in.
+Three headed columns -- Combatant promotion, Partner promotion,
+potential growth -- and a fourth at the far right holding placeholder
+tiles, reserving the shape another family would take. The first and
+last sit at their cells' outer edges rather than centred, so the block
+spans the window; the leftover width goes to spacers between the
+columns, which is what keeps the gaps across it equal.
 
-A row's figures are derived from THAT ROW's three counts and no others:
-each tier is priced in bottom-tier equivalents and the three summed.
-The pricing is the ROW's, not the tab's -- a promotion family runs
-9/3/1 and an EXP material 20/5/1, and both spell their top tier
-`Premium`.
+A data row is a name, its figures, and its three tiers as icons, the
+leftmost the most valuable. Its figures come from THAT ROW's three
+counts and no others: each tier priced in bottom-tier equivalents and
+the three summed. **The pricing is the ROW's, not the tab's** -- a
+promotion family runs 9/3/1 and an EXP material 20/5/1, and both spell
+their top tier `Premium`.
 
 **A `Level 50:` figure means one of two things.** On a promotion row it
 is the cost of unlocking that level ceiling; on an EXP row it is the
@@ -24,10 +27,12 @@ rows, so adding it to each of them counts it once per row rather than
 once. The EXP row is never one of them -- a Certificate raises a
 ceiling and buys no exp.
 
-A fourth column at the far right holds placeholder tiles and nothing
-else, reserving the shape a fourth family would take. It and the first
-column sit at their cells' outer edges rather than centred in them, so
-the block spans the window instead of floating inside it.
+Three kinds of row depart from that shape: the EXP row under each
+promotion column's generic, the stones column's ADVANCED row -- whose
+figures are three columns wide, its three items never substituting for
+each other -- and the reserved row of icons under that. Rows are
+pinned by their RIGHT edge for that reason: every row ends in its
+icons, so one needing more room takes it on the left.
 """
 
 import tkinter as tk
@@ -413,9 +418,9 @@ class MaterialsTab(BaseTab):
         # descenders and the box below the baseline is what draws them.
         make_heading(column, spec.title).pack(anchor=tk.CENTER)
 
-        # `anchor=N` rather than a fill: the rows are centred on the
-        # column and sit at the top of it, so the column's leftover
-        # height falls below them rather than being shared out.
+        # `anchor=N` rather than a fill: the rows sit at the top of the
+        # column, so its leftover height falls below them rather than
+        # being shared out between them.
         rows = ttk.Frame(column)
         rows.pack(anchor=tk.N, pady=(HEADING_GAP, 0))
 
@@ -457,7 +462,7 @@ class MaterialsTab(BaseTab):
             self._build_advanced_row(add_row(), index, spec)
 
         if spec.specials:
-            self._build_specials_row(add_row(), spec, text_width)
+            self._build_specials_row(add_row(), spec)
 
     def _build_row(self, row, index, name, table, tiers, targets,
                    weights, label_width, label=None, takes_generic=True):
@@ -580,7 +585,7 @@ class MaterialsTab(BaseTab):
             label.grid(row=0, column=position, padx=ICON_GAP_HALF)
             self.material_icons[res_id] = label
 
-    def _build_specials_row(self, row, spec, text_width):
+    def _build_specials_row(self, row, spec):
         """A column's reserved tiles, in a row of their own.
 
         One icon MORE than a data row carries, so the row runs an
@@ -641,7 +646,8 @@ class MaterialsTab(BaseTab):
         tier rather than at the row's left edge.
         """
         # Stands in for the figures block the data rows carry, so this
-        # row is as wide as they are and centres to the same place.
+        # row is as wide as they are and its icon lands under the tier
+        # it substitutes for.
         ttk.Frame(row, width=text_width, height=1).pack(
             side=tk.LEFT, anchor=tk.N)
 
@@ -692,11 +698,10 @@ class MaterialsTab(BaseTab):
     def _text_block_px(spec):
         """(the whole figures block, its label column) for one column.
 
-        COMPUTED, not measured. Every row in a column has to reserve
-        the same width or its icons land in a different place from the
-        row above -- the rows are centred, so a narrower one is centred
-        on less. Measuring the built rows cannot do it: a frame reports
-        a requested width of 1 until Tk has processed the geometry, and
+        COMPUTED, not measured. Rows are right-anchored, so a block
+        of the wrong width moves its row's icons off the tier columns
+        above. Measuring the built rows cannot do it: a frame reports a
+        requested width of 1 until Tk has processed the geometry, and
         forcing that mid-build means painting a half-built window.
 
         The widest of two things: the label column plus the reserved

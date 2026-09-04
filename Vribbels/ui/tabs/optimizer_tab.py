@@ -1330,9 +1330,9 @@ class OptimizerTab(BaseTab):
         # spacing: border edge -> first non-button element -- panel, checkbox ↔
         # The panel's own left padding is a pixel short for a checkbox.
         # It has to serve two kinds of first element: the text rows above,
-        # whose glyphs carry an antialiased edge the audit no longer
-        # counts, and these indicators, which are hard-edged and carry
-        # none. Equal padding puts them a pixel apart to the eye, so the
+        # whose glyphs carry an antialiased edge the audit does not
+        # count as ink, and these indicators, which are hard-edged and
+        # carry none. Equal padding puts them a pixel apart to the eye, so the
         # grid buys the difference back here. Whole-frame rather than a
         # pad on grid column 0: the columns size to their widest set name
         # and the widest sits in the LAST one, where its spinbox clips

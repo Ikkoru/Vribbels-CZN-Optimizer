@@ -530,11 +530,11 @@ class TrackedGap:
     (value, note).
 
     `target` lives on the entry rather than being looked up from the
-    rule. It no longer differs between two panels obeying one rule --
-    the reading is corrected to the baseline and the cap before it
-    arrives, so the glyphs in a title do not change what its gap should
-    be -- but an entry that answers to a different rule, or misses its
-    own, still carries its own number.
+    rule. Two panels obeying one rule share its number -- a reading is
+    corrected to the baseline and the cap before it arrives, so the
+    glyphs in a title do not change what its gap should be -- but an
+    entry answering a different rule, or missing its own, carries a
+    number the rule does not give.
 
     `axis` is the direction the gap runs in, printed so a table of
     forty rows can be read for one direction at a time. It matches the
@@ -1096,12 +1096,12 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False):
             rows.extend((g.name, g.target, None, f"no scenario {scenario!r}",
                          g.tab, g.axis, g.provisional) for g in gaps)
             continue
-        # A scenario that raises used to take the whole run with it,
-        # and the ones opening a window over the app are the likeliest
-        # to: they reach into a tab's own dialog builders, which change
-        # for reasons that have nothing to do with spacing. Its gaps
-        # report the reason instead, and every other scenario still
-        # runs.
+        # A scenario that raises reports the reason against its own
+        # gaps and leaves every other scenario running. The ones
+        # opening a window over the app are the likeliest to raise:
+        # they reach into a tab's own dialog builders, which change for
+        # reasons that have nothing to do with spacing, and an
+        # uncaught one would cost the whole run.
         try:
             setup(app)
         except Exception as exc:                          # noqa: BLE001

@@ -19,4 +19,21 @@ Run them from the repo root:
 Checks that need the maintainer's captured data skip themselves, with a
 reason, when `Vribbels/snapshots/` is empty -- so this stays runnable on
 a fresh clone.
+
+## Adding one
+
+A module here needs two names: `NAME`, the line `run_all.py` prints,
+and `run()`, returning a list of complaint strings -- empty for a pass.
+Call `add_source_to_path()` from `._harness` before importing anything
+under `Vribbels/`, raise `Skip("reason")` where the check cannot run,
+and add the module to `run_all.py` twice: once to the import block and
+once to `CHECKS`, which is ordered cheapest first.
+
+**A complaint says what broke, what it costs, and where to look.** The
+reader is meeting the invariant for the first time, and a check that
+only names a mismatch leaves them to rediscover why it matters.
+
+**Prove a new check FAILS before trusting it.** Break the thing it
+guards, watch it report, put it back. A check that has never failed is
+an untested claim.
 """

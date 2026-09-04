@@ -20,17 +20,26 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Changed
 
-- **The Materials tab is three equal columns**, the rightmost holding the growth stones and the other two reserved. `Growth Stones` is now `Potential Growth Stones` and heads its own column.
+- **The Materials tab counts your upgrade material.** Three headed columns — Combatant Upgrade Material and Partner Upgrade Material by class, Potential Growth Stones by Element — and a fourth of blank tiles reserving room for a family still to come.
 
-- **Each Element's stones carry their own figures**: the row's holdings as a total in Common-equivalents (a Premium is 9, a Great 3), and that total against three levels of ambition — a best-node build, one that also takes the neutrals, and one that adds nodes 5.1 and 5.2. Every figure is that Element's own; nothing is pooled across rows.
+- **Each row carries its own figures**: the row's holdings as a total in bottom-tier equivalents (in a promotion family a Premium is 9 and an Advanced 3), and that total against what a target costs. Every figure is that row's own; nothing is pooled across rows.
 
-- **The stone icons are smaller, and no longer show a pale edge.** The edge was the label's own border rather than anything in the image.
+  - A class row scores against promoting far enough to level to 50 and to 60. An Element's stones score against three levels of ambition — a best-node build, one that also takes the neutrals, and one that adds nodes 5.1 and 5.2.
+  - Under each promotion column, a **Battle Memory** or **Support Data** row scores against the exp needed to reach level 50, 60 and — for a Combatant, who alone has one — 61.
+  - Under the stones, an **Advanced** row for the three materials that level a node without being a stone. Each is counted against its own requirement, accumulated down the rows; none of them substitutes for another.
+  - Each column ends in a **generic** item that stands in for its bottom tier, with a checkbox that adds it to that column's promotion totals. Off by default, because the one stock is shared between the rows.
+
+- **Combatants tab: a `Nodes` column**, a combatant's potential node levels summed against the maximum.
+
+- **The material icons sit on a plate in their rarity's colour, and show no pale edge.** The edge was the label's own border rather than anything in the image.
 
 - **Typing more than one letter in a list or dropdown narrows the search**, the way Windows Explorer does. `fe` reaches Fei past Fabien; pressing the same letter again still steps through the entries starting with it. Works in the combatant list, the preset list and both dropdowns, open or closed.
 
 - **The Combatants tab keeps the combatant you are looking at.** Upgrading a fragment in game, or re-sorting the list, used to drop the selection back to the first row.
 
-- **Combatants tab: a potential node says what it raises.** `Node 5: Lv3 (Crit% +6%)` where it read `(?)`, and `(Crit%)` before the node is taken.
+- **Combatants tab: the `Character` panel lists every potential node**, not just the two carrying stats, in three columns — the node, its level or whether it is taken, and what it does. A stat node names its stat before it is taken as well as after.
+
+- **Combatants tab: an `Extra Info` block at the foot of the `Character` panel**, reading `Excursion Types` out of the excursion board. It needs a capture taken since this release; older snapshots read `-`.
 
 - **The Log Presets checklist fits its columns to the panel.** The column count was fixed at six, which ran long preset names together on a narrow panel and wasted a wide one. Each column is measured against the names that land in it, so a list of mostly short names gets more columns than one long name would allow.
 
@@ -57,6 +66,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 - **The Combatants tab no longer remembers which combatant was selected.** It opens on the first row. The setting it used for that wrote to disk on every row you moved to.
 
 ### Fixed
+
+- **The built program starts on Python 3.14.** Its Tcl/Tk keeps its library inside a DLL, which the build tool cannot see into, so the executable died on its first line with a missing-data-directory error. The build now supplies the library itself.
 
 - **Gear Score weights hold what you type.** A weight typed outside the spinbox's range reached every Gear Score in the app -- the Memory Fragments list, the Combatants totals and the Optimizer's filtering. Negative weights still work; they are how a stat is marked harmful.
 

@@ -36,6 +36,25 @@ Only the names in that module's docstring table reach the formulas — the five 
 
 Where each value lands: `game_formulas.md` §5.
 
+## The item tables in `constants.py`
+
+Six tables name every item the Materials tab draws, and `ITEM_TABLES` is the tuple of them. Two shapes:
+
+- **Shaped** rows are `(group, tier, icon)` — the group is a class for a promotion family and an Element for growth stones, and `TIER_RARITY` prices the tier word into a rarity.
+- **Named** rows are `(name, icon)`, for items belonging to no family. `NAME_RARITY` prices those.
+
+`item_art(res_id)` is the one accessor that knows both shapes: it takes the icon as the first field ending `.png`, reads a rarity stated after it, and otherwise derives one. **Read art through it, never off a row** — the tables disagree about what their leading fields mean.
+
+A rarity that no table prices costs a whole family its plates at once, and the only symptom is icons drawn with no background. `checks/check_item_art.py` is what catches that, along with a filename naming a file that is not there.
+
+**A res_id's shape is `FFFF0GT`** — family, group, tier. The group digit is the CLASS in a promotion family (0 Striker, 1 Vanguard, 2 Hunter, 3 Ranger, 4 Psionic, 5 Controller) and the ELEMENT in a growth stone. The asset filenames disagree with the game's words in two places: `defender` draws Vanguard and `psionics` draws Psionic.
+
+## `POTENTIAL_NODES` in `characters.py`
+
+The whole potential tree in one tuple — display order, the game's numbering, the wire's, the maxima, and what each node does. `POTENTIAL_MAX_TOTAL` sums the maxima, which is what the Combatants tab's `Nodes` column counts against.
+
+**The two numberings disagree** and `game_formulas.md` §1 is the table of both. Per-character wording lives in `POTENTIAL_NODE_OVERRIDES`; a stat node states none, its line being built from the stat instead.
+
 ## Finding a newly released unit's res_id
 
 A capture is ownership-scoped, so a unit you do not have appears nowhere — hence the negative placeholder keys. Two exceptions:

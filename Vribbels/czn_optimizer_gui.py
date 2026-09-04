@@ -450,8 +450,8 @@ class OptimizerGUI:
         # Colouring the ring to match the button hides it without changing
         # any geometry, where focusthickness=0 would reflow the label.
         #
-        # The trade is the same one the checkboxes made: keyboard focus is
-        # no longer visible on a button.
+        # The cost, and the same one the checkboxes pay: keyboard focus
+        # is invisible on a button.
         self.style.configure("TButton", focuscolor=self.colors["bg_light"])
         self.style.configure("TCombobox", fieldbackground=self.colors["bg_lighter"], background=self.colors["bg_lighter"],
                              foreground=self.colors["fg"], selectbackground=self.colors["select"],

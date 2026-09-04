@@ -157,9 +157,9 @@ GEAR_SUBSTAT_ROWS = 4
 # look a pixel further right than the rest. A stop placed on the advance
 # leaves those two adrift, so these are placed on the ink instead.
 #
-# Only the VALUE stops move: shifting NAME2 with VAL1 is what keeps the
-# gap BETWEEN the two pairs where it was, and VAL2 takes both pixels
-# because it answers to NAME2 rather than to the panel's left edge.
+# The correction belongs to the VALUE stops, and NAME2 moves with VAL1
+# to hold the gap between the two pairs; VAL2 takes both pixels because
+# it answers to NAME2 rather than to the panel's left edge.
 CHAR_TAB_VAL1 = 50     # right stop: end of the left column's value
 CHAR_TAB_NAME2 = 58    # left stop: start of the right column's label
 CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
@@ -1664,10 +1664,10 @@ class HeroesTab(BaseTab):
             # so the right and bottom padding read like the top and left.
             # Both edges answer to `border edge -> first non-button element`;
             # the bottom shows the usual descender spread. Targets live in
-            # docs/ui_spacing.md, not here. CHAR_PAD_W adds to PAD_W rather
-            # than subtracting from it: the Character frame's own padding
-            # is now 0, and its inset comes from the Text widget's padx on
-            # both sides.
+            # docs/ui_spacing.md, not here. CHAR_PAD_W adds to PAD_W
+            # rather than subtracting from it: the Character frame
+            # carries no padding of its own, its inset coming from the
+            # Text widget's padx on both sides.
             PAD_W = 14   # LabelFrame internal padding + border + slack
             PAD_H = 33   # + title-bar height
             # The Character panel's RIGHT inset, and the only lever on
@@ -1714,17 +1714,17 @@ class HeroesTab(BaseTab):
                     ))
             except (AttributeError, tk.TclError):
                 pass
-            # STATED, not measured. Every line in this panel is now a fixed
-            # shape: the details block is a constant set of lines, Sets and
-            # Potential pad themselves to CHAR_SETS_LINES and
-            # CHAR_POTENTIAL_LINES, and the stat block sits on stated tab
-            # stops (CHAR_TAB_*). The only thing left that
-            # varied with the data was the widest combatant name, and
-            # CHAR_NAME_PX states that.
+            # STATED, not measured. Every line in this panel is a fixed
+            # shape: the details block is a constant set of lines, Sets
+            # and Potential pad themselves to CHAR_SETS_LINES and
+            # CHAR_POTENTIAL_LINES, and both the stat block and the node
+            # block sit on stated tab stops.
             #
-            # Measuring instead is what made resizing slow: this runs from
-            # <Configure>, and it walked every combatant's formatted card
-            # to re-derive numbers that no longer move.
+            # **Do not measure them here.** This runs from <Configure>,
+            # so measuring walks every combatant's formatted card on
+            # every resize, to arrive at numbers that do not move with
+            # the data. `check_tabs_build` is where the stated widths
+            # are held to what the panel actually renders.
             char_W = CHAR_CONTENT_PX + CHAR_PAD_W + 4 - CHAR_WIDTH_CEDED
             # The Extra Info block sits on the panel's floor and takes
             # its height off the Text above it. Left out of this, the

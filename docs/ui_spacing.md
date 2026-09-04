@@ -189,11 +189,11 @@ The names that changed when the suffixes went on, since every marker was being r
 | `text label row -> text label row`                          | `label row -> label row`                  | `text` means a Text widget in the vocabulary; this rule means a row holding only a label                              |
 | `overarching tab control element group ↔ OTC element group` | `control group ↔ control group`           | It applies inside a panel too, not only tab-wide. Also 54 characters to 29, which is what keeps the suffix affordable |
 
-`panel edge` was considered for the first two and dropped. The border measured to belongs to a LabelFrame at 36 of the 39 sites, so the name would have been right most of the time — but the three it is wrong about (the Optimizer toolbar's preset label, status label and off-Element checkbox) measure to a plain frame's content edge, where there is no panel and no painted border at all. `border edge` names what is measured to rather than what owns it, and covers both.
+**Do not rename `border edge` to `panel edge`.** Most of what those two rules measure to is a LabelFrame's border, but three sites — the Optimizer toolbar's preset label, status label and off-Element checkbox — measure to a plain frame's content edge, where there is no panel and no painted border at all. `border edge` names what is measured to rather than what owns it, and covers both.
 
 ### Scope and standing exceptions
 
-**About is out of scope, and is the whole of it.** No `# spacing: out of scope` marker is left in the source; the four that were — the Stat Contributions popup, the Restore Defaults dialog, the hover tooltip and the Materials tab — are marked and nudged like anything else. Where a new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
+**About is out of scope, and is the whole of it.** The Stat Contributions popup, the Restore Defaults dialog, the hover tooltip and the Materials tab are all in, marked and nudged like anything else, and no `# spacing: out of scope` marker remains in the source. Where a new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
 
 **A Text sizes in CHARACTERS and LINES, and neither can say what a window needs to the pixel.** `width` reserves whole cells, so what is left after the last glyph lands on the RIGHT inset and nothing inside the widget reaches it; `height` multiplies the font's linespace, so a per-line `spacing3` changes what is drawn and not what the widget asks for. The contributions popup rounds both up and takes the difference off the WINDOW, which its text field absorbs because it is the only child packed to expand.
 
@@ -405,7 +405,16 @@ The widest value each stat can hold, as the STRING rather than a character count
 | DoT%       | `99.9%`  |
 | Element    | `99.9%`  |
 
-A value that outgrows its entry clips rather than pushing the column, so widen it here if one ever does. **Recompute the three stops from this table after changing the rows, the body font, or either rule's target.** At Segoe UI 9 they come to 51 / 59 / 138.
+A value that outgrows its entry clips rather than pushing the column, so widen it here if one ever does. **Recompute the three stops from this table after changing the rows, the body font, or either rule's target.** At Segoe UI 9 the arithmetic gives 51 / 59 / 138, and the constants sit a pixel tighter: both columns' longest values lead with `1`, whose leading column of ink is too faint to see, so the stops are placed on the ink instead of on the advance. `NAME2` moves with `VAL1` to hold the pair gap, and `VAL2` takes both pixels because it is measured from `NAME2`.
+
+The same panel's NODE block is a second tab-stopped group, on a TAG of its own — a Text carries one set of stops for the whole widget. Three columns, and the middle one right-aligned like the stat block's values so the levels line up on their last digit:
+
+```
+stop_level = max(measure(label) + measure(value))  + 5   # row by row
+stop_desc  = stop_level + 5                              # left-aligned
+```
+
+**A right stop is placed at the widest label-and-value PAIR across the real rows**, not at the two maxima added together: a value of width `v` starts at the stop less `v`, so what has to clear the label is that row's own pair. The widest pair is a node whose name carries a decimal point beside a one-character `Y`; the two-digit levels sit on shorter names. `checks/check_tabs_build.py` holds both stops to what the rows measure.
 
 Tab stops are **pixel** offsets, not character counts, so a group can be tuned to the pixel. `name_px` is measured in the actual font, which is what survives a font change.
 
@@ -426,6 +435,7 @@ Worth choosing per group: same-width percentages lose nothing by going left-alig
 | Weights, left column      | Gear Score, `Stat Weight Configuration` | 12px                 |                                                          |
 | Weights, right column     | Gear Score, `Stat Weight Configuration` | 10px                 | the 2px difference is the rightmost glyph, not a setting |
 | `Stats:` values           | Combatants, `Character`                 | 30px left, 5px right | the right-alignment effect above                         |
+| `Potential:` columns      | Combatants, `Character`                 | 5px both             | level right-aligned, description left                    |
 
 `Set Configuration` is the standing exception to the ALIGNMENT half: its spinboxes keep the 5px but are not pulled into a shared column. The panel is tightly packed, so aligning would put a spinbox nearer a set it does not belong to; and only conditional sets have one at all, so the column would have holes. Ownership becomes ambiguous, which is worse than a ragged edge.
 

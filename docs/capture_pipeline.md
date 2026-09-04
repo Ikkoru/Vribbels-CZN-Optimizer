@@ -56,6 +56,20 @@ The addon keeps the schedule on `self.gacha_banners` and `_save_data` writes it 
 
 `checks/check_capture_banners.py` builds the addon through `_generate_addon_script` rather than from the template alone, so it also catches a global the template reads and the generator stops supplying.
 
+## Three payloads are kept aside and written out later
+
+The banner schedule is one of three that arrive in a frame carrying no roster and no inventory. `_save_data` returns early without `inventory_data`, so each is held on the addon and written by whatever save comes next:
+
+| Attribute        | Wire key                        | Snapshot key                    | What it is                                            |
+| ---------------- | ------------------------------- | ------------------------------- | ------------------------------------------------------ |
+| `gacha_banners`  | `event_schedules.GACHA`         | `gacha_banners`                 | every banner, past and upcoming                       |
+| `char_visits`    | `char_visits`                   | `char_visits`                   | the excursion board, one row per combatant that has been on one |
+| `disaster_ranks` | `disaster_boss_rank_entities`   | `disaster_boss_rank_entities`   | Great Rift standings; the only carrier of the weekly score |
+
+Each is replaced whole rather than merged: the reply IS the board, so a row's absence is a reading. `excursions.py` reads the second, nothing reads the third yet.
+
+**A Communication Pass is in none of them, because it is in nothing.** Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.
+
 ## The proxy's upstream must never be a loopback address
 
 mitmdump runs in reverse-proxy mode with the game server's IP as its upstream and its own listen port as the destination port, so a loopback upstream makes the proxy its own upstream: every request is forwarded back into it, one new client connection per hop, until the log is thousands of lines of `GET https://127.0.0.1:13701/api/` and nothing has reached either the game or the snapshot.
