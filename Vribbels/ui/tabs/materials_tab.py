@@ -148,16 +148,44 @@ ADVANCED_LABEL = "Advanced"
 
 # (label, one cost per item above, in that order) for each target.
 #
-# **Every cost is None until somebody prices it**, which reads `-`. The
-# three do not substitute for each other and the column's Potential
-# Disk substitutes for none of them, so each is held against its own
-# stock and nothing here is summed with anything.
+# **A row states what THAT STEP alone costs.** What the row reports is
+# the running total from the top down -- see `advanced_costs` -- since
+# reaching `+Node 5.2` means having paid for everything above it.
+#
+# `None` is a step needing none of that item. It adds nothing to the
+# running total, and is not the same as an unpriced figure: every step
+# here is priced.
+#
+# The three items never mix. Each column accumulates its OWN item and
+# is read against that item's own stock, because none of the three
+# substitutes for another and the column's Potential Disk substitutes
+# for none of them.
 ADVANCED_TARGETS = (
     ("Max best:", (4, 6, 2)),
     ("+Neutrals:", (8, None, None)),
     ("+Node 5.1:", (None, 2, None)),
     ("+Node 5.2:", (4, 2, None)),
 )
+
+
+def advanced_costs():
+    """`ADVANCED_TARGETS` with each item's costs accumulated downward.
+
+    Per ITEM and never across them: a column's running total is its own
+    item's, so `+Node 5.2` reads what that item costs to reach node 5.2
+    having already paid for everything above.
+
+    A running total of 0 means the item is not wanted up to there at
+    all, which the row reads as `-` -- there is no ratio to take.
+    """
+    running = [0] * len(ADVANCED_ITEMS)
+    out = []
+    for label, costs in ADVANCED_TARGETS:
+        running = [total + (cost or 0)
+                   for total, cost in zip(running, costs)]
+        out.append((label, tuple(running)))
+    return tuple(out)
+
 
 # A row of bare tiles under the Advanced one, reserving the shape a
 # fourth family of potential material would take. Every one is a
@@ -817,12 +845,12 @@ class MaterialsTab(BaseTab):
                     text=NO_DATA if not cost else f"{100 * total // cost}%")
 
         for values, res_ids in self.advanced_stats.values():
-            for label, costs in ADVANCED_TARGETS:
+            for label, costs in advanced_costs():
                 for cell, res_id, cost in zip(values[label], res_ids, costs):
-                    # Each against its OWN stock. Nothing is summed
-                    # here: the three do not substitute for each other,
-                    # so a total across them would price a swap that
-                    # cannot be made.
+                    # Each against its OWN stock, and against the cost
+                    # ACCUMULATED down its own column. Nothing crosses
+                    # between items: a total across them would price a
+                    # swap that cannot be made.
                     held = item_quantities.get(res_id, 0)
                     cell.config(text=NO_DATA if not cost
                                 else f"{100 * held // cost}%")

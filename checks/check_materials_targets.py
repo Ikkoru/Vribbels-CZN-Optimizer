@@ -108,4 +108,64 @@ def run():
                     f"level {level}."
                 )
 
+    failures.extend(_advanced_accumulates_per_item())
     return failures
+
+
+def _advanced_accumulates_per_item():
+    """The Advanced row's costs run DOWN a column and never across one.
+
+    Two ways it draws a plausible wrong number:
+
+    * a row states what that STEP alone costs, and what it reports is
+      the running total from the top. Reporting the step alone makes a
+      later row look cheaper than an earlier one, which reads as a
+      target being easier rather than as a bug.
+    * the three items do not substitute for each other, so a total
+      taken across them would price a swap that cannot be made. Summed
+      that way every column reads the same figure, which looks like
+      three items costing alike.
+
+    `None` is a step needing none of that item, adding nothing -- not
+    an unpriced figure, which the tab has no way left to show here.
+    """
+    from ui.tabs.materials_tab import (
+        ADVANCED_ITEMS, ADVANCED_TARGETS, advanced_costs,
+    )
+
+    out = []
+    running = advanced_costs()
+    if [label for label, _ in running] != [label for label, _ in
+                                           ADVANCED_TARGETS]:
+        out.append("advanced_costs() dropped or reordered a target row")
+        return out
+
+    for position, res_id in enumerate(ADVANCED_ITEMS):
+        totals = [costs[position] for _label, costs in running]
+        own = [costs[position] or 0 for _label, costs in ADVANCED_TARGETS]
+        wanted = [sum(own[:n + 1]) for n in range(len(own))]
+        if totals != wanted:
+            out.append(
+                f"item {res_id}'s column runs {totals}, where its own "
+                f"steps {own} accumulate to {wanted}. A row reports what "
+                f"reaching it costs, everything above it included."
+            )
+        if any(a > b for a, b in zip(totals, totals[1:])):
+            out.append(
+                f"item {res_id}'s column falls from one row to the next: "
+                f"{totals}. A later target cannot cost less than an "
+                f"earlier one it contains."
+            )
+
+    # Cross-contamination shows as columns that cannot be told apart.
+    # The costs differ per item today, so identical columns mean one
+    # item's total reached another's.
+    columns = {tuple(costs[p] for _l, costs in running)
+               for p in range(len(ADVANCED_ITEMS))}
+    if len(columns) == 1 and len(ADVANCED_ITEMS) > 1:
+        out.append(
+            "every Advanced column reports the same totals. The three "
+            "items are priced separately, so one figure across all of "
+            "them means a total crossed between items."
+        )
+    return out

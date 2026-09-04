@@ -4190,11 +4190,14 @@ def register_all():
     # -- a tag's `tabs`, because a Text carries one set for the whole
     # widget and the stat block above owns those.
     #
-    # Both stops are LEFT ones, so the gap that was SET is on the row
-    # whose PRECEDING column is widest and the rows are named for that:
-    # the labels with a decimal point, and the levels that reach two
-    # digits. Every one of those rows is always present, unlike the
-    # stat block's widest values, so no scenario has to arrange them.
+    # The level stop is a RIGHT one, so the first gap is the set
+    # distance only on the row with the widest LABEL AND VALUE
+    # TOGETHER: the three nodes whose name carries a decimal point,
+    # when taken. All three untaken, the reading carries the two pixels
+    # between `Y` and `-` as slack -- an upper bound, not a miss.
+    #
+    # The second gap is exact on every row, every level ending on the
+    # stop the description is measured from.
     for _name, _index, _rows in (
             ("node -> its level", 0,
              ("  Node 3.1:\t", "  Node 5.1:\t", "  Node 5.2:\t")),

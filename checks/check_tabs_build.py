@@ -363,10 +363,14 @@ def _character_card_lines_fit():
 
     **A node line is tab-stopped, so its width is its last STOP plus
     what follows, not the sum of its words.** Two things follow from
-    that, and this checks both: the line has to fit the panel, and each
-    column has to fit BEFORE the next stop -- a column that runs past
-    one does not overlap, it pushes the rest of the line right, and the
-    block's alignment goes with it.
+    that, and this checks both: the line has to fit the panel, and no
+    column may reach past the next stop -- a column that does is not
+    overlapped, it pushes the rest of the line right, and the block's
+    alignment goes with it on that line alone.
+
+    The level stop is a RIGHT one, so the pair that has to clear it is
+    a REAL ROW's label and value together -- not the widest label and
+    the widest value, which sit on different rows.
 
     Returns a list of complaints.
     """
@@ -381,17 +385,22 @@ def _character_card_lines_fit():
 
     measure = tkfont.nametofont("TkDefaultFont").measure
     out = []
-    widest = {"label": ("", 0), "level": ("", 0), "does": ("", 0)}
+    widest = {"does": ("", 0)}
+    pair = ("", 0)
 
     def consider(column, text):
         if text and measure(text) > widest[column][1]:
             widest[column] = (text, measure(text))
 
     for node in POTENTIAL_NODES:
-        consider("label", f"{CHAR_SUBLIST_INDENT}Node {node.shown}:")
-        consider("level", CHAR_NODE_TAKEN if node.max_level == 1
-                 else f"Lv{node.max_level}")
-        consider("level", CHAR_NODE_UNTAKEN)
+        label = f"{CHAR_SUBLIST_INDENT}Node {node.shown}:"
+        levels = ((CHAR_NODE_TAKEN, CHAR_NODE_UNTAKEN)
+                  if node.max_level == 1
+                  else tuple(str(v) for v in range(node.max_level + 1)))
+        for level in levels:
+            width = measure(label) + measure(level)
+            if width > pair[1]:
+                pair = (f"{label}{level}", width)
 
     for res_id, data in CHARACTERS.items():
         if not isinstance(data, dict):
@@ -412,19 +421,21 @@ def _character_card_lines_fit():
                     what = f"{what} +{bonus:g}%"
                 consider("does", what)
 
-    for column, stop, nxt, what in (
-            ("label", 0, CHAR_NODE_TAB_LEVEL, "the level column's stop"),
-            ("level", CHAR_NODE_TAB_LEVEL, CHAR_NODE_TAB_DESC,
-             "the description column's stop")):
-        text, width = widest[column]
-        if stop + width > nxt:
-            out.append(
-                f"the node block's {column} column reaches "
-                f"{stop + width}px ({text!r}) against {what} at {nxt}. A "
-                f"column that passes its next stop pushes the rest of the "
-                f"line right instead of overlapping, so that line alone "
-                f"comes out of the block's columns."
-            )
+    if pair[1] > CHAR_NODE_TAB_LEVEL:
+        out.append(
+            f"the node block's widest name-and-level row is {pair[1]}px "
+            f"({pair[0]!r}) against the level column's right stop at "
+            f"{CHAR_NODE_TAB_LEVEL}. A row that does not fit before its "
+            f"stop pushes the rest of the line right instead of "
+            f"overlapping, so that line alone comes out of the columns."
+        )
+    if CHAR_NODE_TAB_DESC <= CHAR_NODE_TAB_LEVEL:
+        out.append(
+            f"the description stop is at {CHAR_NODE_TAB_DESC}, not past "
+            f"the level column's right stop at {CHAR_NODE_TAB_LEVEL}. "
+            f"Every level ends on that stop, so a description starting at "
+            f"or before it is pushed right on every line."
+        )
 
     text, width = widest["does"]
     if CHAR_NODE_TAB_DESC + width > CHAR_CONTENT_PX:

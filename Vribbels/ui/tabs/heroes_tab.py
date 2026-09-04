@@ -164,24 +164,25 @@ CHAR_TAB_VAL1 = 50     # right stop: end of the left column's value
 CHAR_TAB_NAME2 = 58    # left stop: start of the right column's label
 CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
 
-# Tab stops for the node block, on the same principle and in their own
-# TAG: a Text carries one set of stops, and the stat block above has
-# its own. Three columns -- the node's name, its level or whether it is
-# taken, and what it does -- so two stops, both LEFT ones.
+# Tab stops for the node block, on the same principle as the stat
+# block's and in their own TAG: a Text carries one set of stops for the
+# whole widget, and the stat block owns those. Three columns -- the
+# node's name, its level or whether it is taken, and what it does.
 #
-# Left, where the stat block's value stops are right: those columns
-# hold numbers to compare down the column, and these hold words to read
-# across. So the ink correction the value stops carry does not apply
-# here -- what a left stop places is the START of the next column, and
-# no leading `1` is involved.
+# The level stop is a RIGHT one, like the stat block's values, so the
+# levels line up on their last digit. The description stop is a LEFT
+# one, its column holding words rather than numbers.
 #
-# Each is the previous column's widest entry plus the rule: the widest
-# label is a node whose name carries a decimal point, and the widest
-# level is a two-digit `Lv`.
+# A right stop is placed at the widest LABEL-PLUS-VALUE across the real
+# rows plus the rule, not at the two maxima added together: a value of
+# width `v` starts at the stop less `v`, so what has to clear the label
+# is that row's own pair. The widest pair is a node whose name carries
+# a decimal point beside a one-character `Y`, and the two-digit levels
+# sit on shorter names.
 # spacing: label ↔ its element -- run, run ↔
-CHAR_NODE_TAB_LEVEL = 61   # left stop: start of the level column
+CHAR_NODE_TAB_LEVEL = 68   # right stop: end of the level column
 # spacing: label ↔ its element -- run, run ↔
-CHAR_NODE_TAB_DESC = 90    # left stop: start of the description column
+CHAR_NODE_TAB_DESC = 73    # left stop: start of the description column
 
 # The tag those stops live on, and what marks the lines that take it.
 CHAR_NODE_TAG = "nodes"
@@ -292,7 +293,7 @@ CHAR_EXTRA_INSET = 4       # spacing: border edge -> first non-button element --
 #
 # Re-measure rather than reason: format every combatant's card and take
 # max(measure(line)).
-CHAR_CONTENT_PX = 203
+CHAR_CONTENT_PX = 186
 # Six fixed lines and the `Potential:` heading among them, then one per
 # node, then "Sets:" + its lines, then "Stats:" + one per stat row.
 CHAR_TOTAL_LINES = 5 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5
@@ -1408,14 +1409,14 @@ class HeroesTab(BaseTab):
                 does = DISPLAY_NAMES.get(stat, stat)
                 if bonus:
                     does = f"{does} +{bonus:g}%"
-            shown = f"Lv{level}"
+            shown = str(level)
         elif node.max_level == 1:
             # `Y` and `-`, not a tick and a cross: the panels this app
             # draws are read in fonts whose glyph coverage a check
             # enforces, and those two are not in all of them.
             shown = CHAR_NODE_TAKEN if level else CHAR_NODE_UNTAKEN
         else:
-            shown = f"Lv{level}"
+            shown = str(level)
 
         line = f"{CHAR_SUBLIST_INDENT}Node {node.shown}:\t{shown}"
         return f"{line}\t{does}" if does else line
@@ -1708,7 +1709,7 @@ class HeroesTab(BaseTab):
                 # ruled differently.
                 self.hero_char_text.tag_configure(
                     CHAR_NODE_TAG, tabs=(
-                        CHAR_NODE_TAB_LEVEL, "left",
+                        CHAR_NODE_TAB_LEVEL, "right",
                         CHAR_NODE_TAB_DESC, "left",
                     ))
             except (AttributeError, tk.TclError):
