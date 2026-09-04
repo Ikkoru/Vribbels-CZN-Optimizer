@@ -116,7 +116,7 @@ HERO_STAT_DISPLAY = {
 # Calibrated against the longest set description currently in the game --
 # a longer one clips rather than growing the cell.
 GEAR_CELL_W = 401
-GEAR_CELL_H = 163
+GEAR_CELL_H = 150
 
 # The cell Text widget's own border and horizontal inset. Repeated here
 # rather than read off the widget because the tab stops below are set in
@@ -295,7 +295,7 @@ CHAR_EXTRA_INSET = 4       # spacing: border edge -> first non-button element --
 CHAR_CONTENT_PX = 203
 # Six fixed lines and the `Potential:` heading among them, then one per
 # node, then "Sets:" + its lines, then "Stats:" + one per stat row.
-CHAR_TOTAL_LINES = 6 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5
+CHAR_TOTAL_LINES = 5 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5
 
 # Character-list column widths, in PIXELS. A tk.Label's `width` counts
 # CHARACTERS, which is only a width in a monospaced font -- these are
@@ -1366,8 +1366,7 @@ class HeroesTab(BaseTab):
         potential_str = "\n".join(potential_lines)
 
         return (
-            f"Grade: {grade}*  |  {header_tail}\n"
-            f"Level: {char_info.level}/{char_info.max_level}\n"
+            f"{char_info.level}/{char_info.max_level}  |  {grade}*  |  {header_tail}\n"
             f"Ego Manifestation: E{char_info.limit_break}\n"
             f"Affinity Lv: {char_info.friendship_index}\n"
             f"  Bonus: ATK+{fb[0]}, DEF+{fb[1]}, HP+{fb[2]}\n"

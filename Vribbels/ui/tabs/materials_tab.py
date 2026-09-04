@@ -153,9 +153,10 @@ ADVANCED_LABEL = "Advanced"
 # Disk substitutes for none of them, so each is held against its own
 # stock and nothing here is summed with anything.
 ADVANCED_TARGETS = (
-    ("Best:", (None, None, None)),
-    ("+Node 5.1:", (None, None, None)),
-    ("+Node 5.2:", (None, None, None)),
+    ("Max best:", (4, 6, 2)),
+    ("+Neutrals:", (8, None, None)),
+    ("+Node 5.1:", (None, 2, None)),
+    ("+Node 5.2:", (4, 2, None)),
 )
 
 # A row of bare tiles under the Advanced one, reserving the shape a
