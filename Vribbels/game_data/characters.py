@@ -672,7 +672,7 @@ POTENTIAL_MAX_TOTAL = sum(node.max_level for node in POTENTIAL_NODES)
 # Nodes one character words differently. Tiphera's 5.1 improves her
 # Archetype cards where every other character's improves the Basics.
 POTENTIAL_NODE_OVERRIDES = {
-    30084: {51: "Archetypes Improved"},   # Tiphera
+    30084: {51: "Archetypes +10%"},   # Tiphera
 }
 
 
