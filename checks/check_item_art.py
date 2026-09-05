@@ -30,9 +30,15 @@ def run():
     failures = []
 
     # Every rarity word anyone can produce has a plate, and the plate
-    # is on disk.
+    # is on disk. The Materials tab's reserved tiles are drawn from one
+    # too, and from a rarity NO item table prices -- so nothing else
+    # here would reach it.
+    from ui.tabs.materials_tab import RESERVED_RARITY
+
     for source, words in (("TIER_RARITY", set(TIER_RARITY.values())),
-                          ("NAME_RARITY", set(NAME_RARITY.values()))):
+                          ("NAME_RARITY", set(NAME_RARITY.values())),
+                          ("the Materials tab's reserved tiles",
+                           {RESERVED_RARITY})):
         for word in sorted(words):
             plate = RARITY_PLATES.get(word)
             if plate is None:

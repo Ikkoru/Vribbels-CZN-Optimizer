@@ -296,6 +296,16 @@ def run():
                     f"claiming to be a reading cannot be corrected from the "
                     f"rule by a later reader -- do not spend that on a number "
                     f"the rule already gives")
+        # A scenario nobody registered costs the gap its reading: the
+        # audit prints `no scenario <name>` in the value column and
+        # moves on, so the row is still there and still looks like a
+        # row. `None` is the one that gets there by accident, from a
+        # `.get` whose default was left off.
+        if g.scenario != "default" and g.scenario not in sa.SCENARIOS:
+            failures.append(
+                f"{g.name!r} names scenario {g.scenario!r}, which nothing "
+                f"registered. The gap goes unmeasured and reports the "
+                f"missing scenario where its distance would be.")
         key = (g.name, g.scenario)
         if key in seen:
             failures.append(

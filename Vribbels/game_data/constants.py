@@ -558,6 +558,18 @@ ITEM_TABLES = (GROWTH_STONES, COMBATANT_PROMOTION, PARTNER_PROMOTION,
                EXP_MATERIALS, NAMED_MATERIALS, PERIOD_ITEMS)
 
 
+def rarity_plate(rarity):
+    """The plate filename for a rarity word, or "" if none names one.
+
+    Two of the five words are spelled differently by the assets than by
+    the game, which `RARITY_PLATES` is what holds -- so a caller that
+    has a rarity and wants a file comes through here rather than
+    building the name itself.
+    """
+    word = RARITY_PLATES.get(rarity)
+    return f"bg_item_rarity_{word}.png" if word else ""
+
+
 class ItemArt(NamedTuple):
     """What draws one item: its icon, and the plate behind it.
 
@@ -570,8 +582,7 @@ class ItemArt(NamedTuple):
     @property
     def plate(self):
         """The plate's filename, or "" for an item with no rarity."""
-        word = RARITY_PLATES.get(self.rarity)
-        return f"bg_item_rarity_{word}.png" if word else ""
+        return rarity_plate(self.rarity)
 
 
 def item_art(res_id):

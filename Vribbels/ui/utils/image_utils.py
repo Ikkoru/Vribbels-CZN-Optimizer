@@ -28,10 +28,6 @@ BADGE_FONT_RATIO = 24 / ICON_NATIVE_SIZE[0]
 BADGE_MARGIN_RATIO = 8 / ICON_NATIVE_SIZE[0]
 BADGE_PADDING_RATIO = 4 / ICON_NATIVE_SIZE[0]
 
-# How round the placeholder tile's corners are, as a share of its side.
-# The stone art is drawn to about this.
-PLACEHOLDER_RADIUS_RATIO = 12 / ICON_NATIVE_SIZE[0]
-
 # The rarity plate an icon sits on, as a share of the icon's side. The
 # assets are 101 against the icons' 114, and the two are drawn together
 # -- so the plate is sized from the icon rather than stated, and the
@@ -139,22 +135,23 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
         return None
 
 
-def create_placeholder_icon(size=ICON_SIZE, background=None, outline=None):
-    """A blank tile the size and shape of a real icon.
+def create_plate_icon(plate_path, size=ICON_SIZE, background=None):
+    """A rarity plate with nothing on it, at an icon's size.
 
-    For a column of the Materials tab that has nothing to show yet: it
-    holds the layout at the size the real icons take, and reads as an
-    empty slot rather than as an icon that failed to load.
+    For a RESERVED tile: it holds the space and the shape a real item
+    would take, drawn from the same plate asset the real icons sit on
+    rather than from a rectangle of this module's own -- so a tile and
+    an icon are one thing in two states rather than two drawings that
+    have to be kept looking alike.
+
+    That also puts its outer pixels where an icon's are. Both are
+    transparent out to the same margin, so a gap either side of a tile
+    measures the same as a gap either side of an icon.
     """
     try:
-        img = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
-        draw.rounded_rectangle(
-            [0, 0, size[0] - 1, size[1] - 1],
-            radius=max(1, round(size[0] * PLACEHOLDER_RADIUS_RATIO)),
-            fill=background, outline=outline, width=1,
-        )
-        return ImageTk.PhotoImage(_flattened(img, background))
+        blank = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
+        return ImageTk.PhotoImage(
+            _flattened(_plated(blank, plate_path, tuple(size)), background))
     except Exception as e:
-        print(f"Error creating placeholder icon: {e}")
+        print(f"Error creating plate icon: {e}")
         return None

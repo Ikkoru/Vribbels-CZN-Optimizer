@@ -446,7 +446,46 @@ def _character_card_lines_fit():
             f"is a fixed width and the Text does not wrap, so this clips "
             f"silently. Raise CHAR_CONTENT_PX or shorten the wording."
         )
+
+    # The DETAILS line takes the widest-line title back whenever no
+    # node's wording runs longer, and it is built from a combatant's
+    # element and class -- so a combination the tables carry but the
+    # account does not own would clip on the day it is obtained, with
+    # nothing before then to say so. Measured over every pair in
+    # CHARACTERS, not over the roster.
+    line, width = _widest_details_line(measure)
+    if width > CHAR_CONTENT_PX:
+        out.append(
+            f"the Character card's widest details line is {width}px "
+            f"({line!r}) against CHAR_CONTENT_PX = {CHAR_CONTENT_PX}. That "
+            f"combatant's card clips as soon as one is obtained -- the "
+            f"panel is a fixed width and the Text does not wrap."
+        )
     return out
+
+
+def _widest_details_line(measure):
+    """(line, px) for the widest first line any combatant can render.
+
+    Its shape is `<level>  |  <grade>*  |  <element>  |  <class>`, with
+    the element alone where the two words match -- which is what an
+    entry the tables do not place looks like, and is narrower.
+
+    The level is `61/62`, the widest a two-part level can be at the
+    promotion cap.
+    """
+    from game_data.characters import CHARACTERS
+
+    best = ("", 0)
+    for data in CHARACTERS.values():
+        if not isinstance(data, dict):
+            continue
+        element, klass = data.get("attribute"), data.get("class")
+        tail = element if klass == element else f"{element}  |  {klass}"
+        line = f"61/62  |  {data.get('grade')}*  |  {tail}"
+        if measure(line) > best[1]:
+            best = (line, measure(line))
+    return best
 
 
 def _show_missing_adds_rather_than_replaces(tab):

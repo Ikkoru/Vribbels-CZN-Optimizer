@@ -217,30 +217,19 @@ GEAR_TAB_SUB = 26        # left stop: where the substat text starts
 # spacing: element and its label ↔ element and its label -- run, run ↔
 GEAR_GS_POT_GAP = "  "
 
-# Width the Character panel gives up to the Partner panel beside it.
-# They share a row, so what one does not take, the other gets.
-#
-# **Tuned against the WIDEST card in the roster**, which is the only one
-# whose right inset is the distance the rule asks for -- every narrower
-# card leaves the difference as slack, and reading one of those reports
-# the slack. Ceding more than this clips the widest card's longest line,
-# silently and mid-word, the Text not wrapping.
-CHAR_WIDTH_CEDED = 19
+# The Character panel's own border and the Text's horizontal inset,
+# repeated here for the same reason the gear cell's are: the panel is
+# sized before it is mapped, when `winfo_width()` still reads 1. Keep
+# in step with the LabelFrame and the `tk.Text(...)` call in setup_ui.
+CHAR_PANEL_BD = 2
+CHAR_TEXT_PADX = 4
 
-# spacing: border edge -> first non-button element -- panel, text ↔↕
-# What a ttk LabelFrame spends on itself, so the right and bottom
-# insets read like the top and left. Both edges answer to `border edge
-# -> first non-button element`; the bottom shows the usual descender
-# spread. Targets live in docs/ui_spacing.md, not here.
-PANEL_PAD_W = 14   # LabelFrame internal padding + border + slack
-PANEL_PAD_H = 33   # + title-bar height
-
-# The Character panel's RIGHT inset, and the only lever on it: a
-# tk.Text's `padx` applies to both sides at once, so trimming there
-# takes the left inset off target with it. Widening the panel moves the
-# right edge alone, so a LARGER value here is a wider panel and a
-# bigger inset.
-CHAR_PAD_W = PANEL_PAD_W + 8
+# spacing: border edge -> first non-button element -- panel, text ↕
+# What a ttk LabelFrame spends on itself vertically, so the bottom
+# inset reads like the top. It answers to `border edge -> first
+# non-button element`, and shows the usual descender spread. Targets
+# live in docs/ui_spacing.md, not here.
+PANEL_PAD_H = 33   # internal padding + border + title-bar height
 
 # Lines the Character panel always reserves under each heading, filled
 # with blanks when there is less to say, so its height is the same for
@@ -297,27 +286,32 @@ CHAR_EXTRA_INSET = 4       # spacing: border edge -> first non-button element --
 # measures. Both are set from the same rule; only one can be the one
 # the entry finds.
 
-# The widest line the details block renders: the node 5.1 line for the
-# one character whose wording is her own, `Archetypes Improved` in the
-# third column. The combatant's NAME is not in this panel at all -- it
-# is the heading above -- so nothing here scales with it.
+# The widest line the card renders, which the panel is sized for. The
+# combatant's NAME is not in this panel at all -- it is the heading
+# above -- so nothing here scales with it.
 #
 # A tab-stopped line is its last stop plus the widest thing after it,
-# not the sum of its words: `dlineinfo` is what measures one, and
-# `_character_card_lines_fit` is what holds this number to it.
+# not the sum of its words: `dlineinfo` is what measures one.
 #
 # Two traps, both of which have caught a reader already. The widest by
-# CHARACTER COUNT and the widest in PIXELS are different strings, and the
-# pixel one is what matters. And the obvious candidate is not the widest:
-# the Grade / element / class line tops out at 156px, well short of a
-# node line.
+# CHARACTER COUNT and the widest in PIXELS are different strings, and
+# the pixel one is what matters. And WHICH LINE wins moves with the
+# wordings: the details line `61/62  |  4*  |  Instinct  |  Controller`
+# takes it back whenever no node's third column runs longer.
 #
-# Re-measure rather than reason: format every combatant's card and take
-# max(measure(line)).
-CHAR_CONTENT_PX = 186
+# `_character_card_lines_fit` holds this number to both -- the node
+# wordings, and every element/class pair the tables can produce, which
+# is what says a combatant nobody owns yet would clip.
+CHAR_CONTENT_PX = 177
 
-# The panel's fixed width.
-CHAR_PANEL_W = CHAR_CONTENT_PX + CHAR_PAD_W + 4 - CHAR_WIDTH_CEDED
+# spacing: border edge -> first non-button element -- panel, text ↔
+# The panel's fixed width, and NOTHING SPARE in it: its widest line,
+# the Text's inset on both sides, and the LabelFrame's border on both.
+# The Text does not wrap, so a pixel taken off here clips the widest
+# card's longest line, silently and mid-word -- which is what taking
+# any of this width for the Partner panel beside it did.
+CHAR_PANEL_W = (CHAR_CONTENT_PX + 2 * CHAR_TEXT_PADX
+                + 2 * CHAR_PANEL_BD)
 # Six fixed lines and the `Potential:` heading among them, then one per
 # node, then "Sets:" + its lines, then "Stats:" + one per stat row.
 CHAR_TOTAL_LINES = 5 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5

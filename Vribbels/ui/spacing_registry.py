@@ -1656,6 +1656,22 @@ def _to_window_edge(locator):
     return resolve
 
 
+def _box_to_window_edge(locator):
+    """Resolver: a widget's BOX right edge -> the window's.
+
+    For content whose outermost pixels are transparent. A reserved tile
+    is a rarity plate on an icon-sized canvas, so its art stops inside
+    its own box exactly as every icon's does -- and reading the ink
+    there measures the artwork's margin rather than what the layout
+    was asked for.
+    """
+    def resolve(cap, app):
+        box = sa.box_of(locator(app))
+        return sa.gap_between(box.right,
+                              cap.origin[0] + cap.image.size[0]), ""
+    return resolve
+
+
 def _from_window_edge(locator):
     """Resolver: the window's left edge -> a widget's painted left.
 
@@ -3698,13 +3714,15 @@ MATERIALS_ENTRIES = [
     # columns are held to their cells' OUTER edges rather than centred
     # in them, so these two are what that `sticky` buys.
     #
-    # Ink at both ends, and not the same kind of ink: the first
-    # column's leftmost paint is a glyph inside a Label's own inset,
-    # where a reserved tile's outline is drawn at its box edge.
+    # The two ends are not read the same way. The first column's
+    # leftmost paint is a glyph inside a Label's own inset, which is
+    # ink. The reserved column ends in a TILE, whose plate stops inside
+    # its own box the way every icon's art does -- so its box is what
+    # the layout placed and its ink is the artist's margin.
     ("Materials", "Materials: window edge -> first column", 4,
      RULE_CONTENT_FRAME, _from_window_edge(_materials_column(0)), "h"),
     ("Materials", "Materials: reserved column -> window edge", 4,
-     RULE_CONTENT_FRAME, _to_window_edge(_materials_column(-1)), "h"),
+     RULE_CONTENT_FRAME, _box_to_window_edge(_materials_column(-1)), "h"),
 ]
 
 
@@ -4030,7 +4048,10 @@ def register_all():
             target_source="rule" if _wide is None else "exception",
             resolve=_text_panel_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
-            scenario=TEXT_PANEL_EDGE_SCENARIOS.get((title, side)),
+            # `.get` with the DEFAULT spelled out: `track`'s own
+            # default is the string, and passing None instead leaves
+            # the gap looking for a scenario nobody registered.
+            scenario=TEXT_PANEL_EDGE_SCENARIOS.get((title, side), "default"),
             provisional=False,
         )
 

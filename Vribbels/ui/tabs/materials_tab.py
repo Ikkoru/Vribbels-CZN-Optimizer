@@ -46,12 +46,11 @@ from game_data import (
     ATTRIBUTE_COLORS, CHARACTER_EXP_TABLE, COMBATANT_PROMOTION,
     EXP_MATERIALS, GROWTH_STONES, PARTNER_EXP_TABLE, PARTNER_PROMOTION,
 )
-from game_data.constants import item_art
+from game_data.constants import item_art, rarity_plate
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
 from ..utils.image_utils import (
-    ICON_SIZE, RARITY_DIR, create_icon_with_quantity,
-    create_placeholder_icon,
+    ICON_SIZE, RARITY_DIR, create_icon_with_quantity, create_plate_icon,
 )
 from ..utils.tab_header import make_heading
 
@@ -194,8 +193,13 @@ def advanced_costs():
 
 # A row of bare tiles under the Advanced one, reserving the shape a
 # fourth family of potential material would take. Every one is a
-# placeholder: nothing is drawn there yet.
+# reserved tile: nothing is drawn there yet.
 POTENTIAL_SPECIALS = (None, None, None, None)
+
+# What a reserved tile is drawn as: a rarity plate with nothing on it.
+# UNCOMMON because no item table prices anything at that rarity, so a
+# plate in it cannot be read as a real item whose icon failed to load.
+RESERVED_RARITY = "Uncommon"
 
 
 class Column(NamedTuple):
@@ -394,12 +398,14 @@ class MaterialsTab(BaseTab):
                 2 * index + 1, weight=1, uniform="materials")
         columns.grid_rowconfigure(0, weight=1)
 
-        # One image for every blank tile on the tab: the art is the
-        # same empty square wherever it appears and carries no count,
-        # so there is nothing to draw per tile. Built before the
-        # columns because a column's specials row uses it too.
-        self._reserved_tile = create_placeholder_icon(
-            background=self.colors["bg"], outline=self.colors["fg_dim"])
+        # One image for every reserved tile on the tab: the art is the
+        # same empty plate wherever it appears and carries no count, so
+        # there is nothing to draw per tile. Built before the columns
+        # because a column's specials row uses it too.
+        self._reserved_tile = create_plate_icon(
+            str(Path(__file__).parent.parent.parent / "images" / RARITY_DIR
+                / rarity_plate(RESERVED_RARITY)),
+            background=self.colors["bg"])
 
         for index, spec in enumerate(COLUMNS):
             column = ttk.Frame(columns)
