@@ -352,11 +352,12 @@ NAME_FONT = ("Segoe UI", 12, "bold")
 CORNER_FONT_PX = round(NAME_FONT[1] * 96 / 72)
 
 # Between the icons of a row, and between one row of icons and the next.
+# Levers a rendered distance short of the rule while `ICON_EDGE` reads
+# INK: an icon's art stops inside its own box on every side, so part of
+# each gap sits inside the icons rather than between them -- and how
+# much differs per asset and per axis, so the two are tuned apart.
 ICON_GAP_HALF = 0       # spacing: content frame -> content frame -- frame, frame ↔
-# 2 for a rendered 4 while `ICON_EDGE` reads INK: an icon's art
-# stops inside its own box top and bottom, so two of the four sit
-# inside the icons rather than between them.
-ROW_GAP = 2             # spacing: content frame -> content frame -- frame, frame ↕
+ROW_GAP = 3             # spacing: content frame -> content frame -- frame, frame ↕
 
 # The heading of a column against the first row under it. The gap runs
 # from the heading's BASELINE to the row name's CAPITAL, and three

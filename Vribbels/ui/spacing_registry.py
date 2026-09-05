@@ -631,11 +631,6 @@ PANEL_EDGES = [
     ("Capture", "Upgrade Log Settings", "bottom"),
     ("Capture", "Upgrade Log Settings", "right"),
     ("Gear Score", "Stat Weight Configuration", "top"),
-    # The Character panel's FLOOR, which is the Extra Info block's last
-    # row rather than the card's Text -- the block sits under it and is
-    # what the border meets. Its own right and top edges are read by
-    # `TEXT_PANEL_EDGES` instead, those being the Text's.
-    ("Combatants", "Character", "bottom"),
 ]
 
 # Hand readings for PANEL_EDGES rows that have not been nudged yet.
@@ -3338,7 +3333,7 @@ def _debug_gap(first, second, axis):
     return resolve
 
 
-def _ink_to_box_edge(left, right):
+def _ink_to_box_edge(left, right, fill=None):
     """Resolver: a label's painted right edge -> the BOX left edge of the
     widget beside it.
 
@@ -3350,12 +3345,47 @@ def _ink_to_box_edge(left, right):
 
     The column's left edge is the value widget's own because the widget
     fills the column -- `sticky=ew` with the text anchored east.
+
+    `fill` names the palette colour the pair sits ON, for one inside a
+    block that paints a ground of its own. The scan counts anything
+    that is not the BACKGROUND as ink, so without it that ground is the
+    first thing it finds and the reading is the block, not the words.
     """
     def resolve(cap, app):
-        span = sa.painted_extent_h(cap, sa.box_of(left(app)))
+        ground = {cap.palette[fill]} if fill else None
+        span = sa.painted_extent_h(cap, sa.box_of(left(app)), ground)
         if span is None:
             return None, "the label painted nothing"
         return sa.gap_between(span[1], sa.box_of(right(app)).left), ""
+    return resolve
+
+
+def _panel_floor_to_ink(title, locator, fill=None):
+    """Resolver: one widget's lowest ink -> a panel's bottom border.
+
+    `_panel_edge_inset` scans the panel's whole INTERIOR, which is
+    right where that interior is bare. It is wrong where something in
+    it paints a ground of its own: the scan stops at that fill and
+    reports nothing between it and the border. So this names the widget
+    whose words the border is measured to, and `fill` is the ground
+    they sit on.
+
+    Restated to the BASELINE like every other bottom gap, a string
+    ending on a descender otherwise reading short by its depth.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, title)
+        edges, saturated = _border_inner_edges(cap, frame)
+        note = ("border scan hit its cap; interior may be filled"
+                if saturated else "")
+        widget = locator(app)
+        ground = {cap.palette[fill]} if fill else None
+        extent = sa.painted_extent_v(cap, sa.box_of(widget), ground)
+        if extent is None:
+            return None, "that widget painted nothing"
+        return restate_from_reference(
+            sa.gap_between(extent[1], edges["bottom"]), note,
+            ink_below_baseline(str(widget.cget("text"))))
     return resolve
 
 
@@ -3818,6 +3848,7 @@ AWAITING_FIRST_READING = {
     # `Panel.TLabel` whose inset the style strips -- so the pad beside
     # it is the whole distance and nothing has confirmed that.
     "Character: Excursion Types -> its count",
+    "Character: bottom edge -> content",
 }
 
 
@@ -4253,18 +4284,37 @@ def register_all():
             provisional=False,
         )
 
-    # The Extra Info block's one row, under the card. Both ends are
-    # `ttk.Label`s stripped of border and padding by `Panel.TLabel`, so
-    # this reads box to box and glyph to glyph at once.
+    # The Extra Info block's one row, under the card, and the panel's
+    # FLOOR beneath it. Both read against `bg_light`: the block paints
+    # that colour edge to edge, and a scan told only the tab's own
+    # background finds the block itself before it finds any words.
+    #
+    # The row's value is RIGHT-ALIGNED in a column reserved four digits
+    # wide, so the gap after its label is measured to that column's
+    # edge rather than to the digits -- which sit as far right as their
+    # own width leaves them.
     sa.track(
         name="Character: Excursion Types -> its count",
         tab="Combatants",
         rule=RULE_LABEL_ELEMENT,
         target=5,
-        resolve=_gap(lambda app: _extra_info_pair(app)[0],
-                     lambda app: _extra_info_pair(app)[1], "h"),
+        resolve=_ink_to_box_edge(lambda app: _extra_info_pair(app)[0],
+                                 lambda app: _extra_info_pair(app)[1],
+                                 fill="bg_light"),
         axis="h",
         provisional="Character: Excursion Types -> its count"
+        in AWAITING_FIRST_READING,
+    )
+    sa.track(
+        name="Character: bottom edge -> content",
+        tab="Combatants",
+        rule=RULE_BORDER_EDGE_CONTENT,
+        target=4,
+        resolve=_panel_floor_to_ink(
+            "Character", lambda app: _extra_info_pair(app)[1],
+            fill="bg_light"),
+        axis="v",
+        provisional="Character: bottom edge -> content"
         in AWAITING_FIRST_READING,
     )
 

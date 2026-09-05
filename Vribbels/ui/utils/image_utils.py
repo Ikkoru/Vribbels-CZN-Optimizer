@@ -1,9 +1,9 @@
 """Image utility functions for UI components.
 
-The growth-stone assets are 144x144 RGBA, all fifteen of them, and are
-drawn smaller than that. The difference costs one resample as each icon
-is built, which is the price of the Materials tab fitting three columns
-of three inside a window the other tabs already size.
+Every icon asset is `ICON_NATIVE_SIZE` RGBA and is drawn at
+`ICON_SIZE`. Keep the two equal: they differ only while the assets are
+being resized, and any difference costs one LANCZOS resample per icon
+as the Materials tab builds.
 
 **A pale edge around one of these icons is the WIDGET's, not the
 asset's.** Every one of them has a transparent outer ring -- no
@@ -45,16 +45,20 @@ BADGE_PADDING_RATIO = 4 / ICON_NATIVE_SIZE[0]
 CORNER_MARGIN_RATIO = 4 / ICON_NATIVE_SIZE[0]
 CORNER_PADDING_RATIO = 3 / ICON_NATIVE_SIZE[0]
 
-# The rarity plate an icon sits on, as a share of the icon's side. The
-# assets are 101 against the icons' 112, and the two are drawn together
-# -- so the plate is sized from the icon rather than stated, and the
-# pair keeps its proportions at whatever `ICON_SIZE` becomes.
+# The rarity plate an icon sits on, as a share of the icon's WIDTH.
+# `_plated` reads `size[0]` and the plate assets are square, so the
+# denominator is the icon's width and not its height -- against the
+# height the plate would come out a pixel small.
 #
-# 11 pixels apart at the native size, which is ODD: centring leaves one
-# more pixel on one side than the other, and nothing can divide it
-# evenly. The icons carry a transparent border of their own for exactly
-# this reason -- their art is centred inside it the way the game centres
-# it -- so the plate is what gets the uneven split, not the artwork.
+# Sized from the icon rather than stated, so the pair keeps its
+# proportions at whatever `ICON_SIZE` becomes.
+#
+# **Centring divides what is left over, and an ODD remainder cannot be
+# split evenly** -- one side gets the extra pixel. Which axis that
+# falls on moves with the icon's shape, so it is not a thing to write
+# down. What absorbs it is the icons' own transparent border: their art
+# is centred inside that the way the game centres it, so the plate
+# takes the uneven split and the artwork does not.
 RARITY_PLATE_RATIO = 101 / 112
 
 # Where the rarity plates live, under the images folder.
