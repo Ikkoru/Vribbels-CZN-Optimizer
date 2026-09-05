@@ -99,7 +99,7 @@ EXP_WEIGHTS = {tier: exp // EXP_PER_TIER["Basic"]
 # (label, cost). The label ends in the colon the column is aligned on.
 STONE_TARGETS = (
     ("Max best:", 2887),
-    ("+Neutrals:", 3178),
+    ("+Neutral:", 3178),
     ("+Node 5.1 & 5.2:", 3682),
 )
 
@@ -167,9 +167,9 @@ ADVANCED_LABEL = "Advanced"
 # for none of them.
 ADVANCED_TARGETS = (
     ("Max best:", (4, 6, 2)),
-    ("+Neutrals:", (8, None, None)),
-    ("+Node 5.1:", (None, 2, None)),
-    ("+Node 5.2:", (4, 2, None)),
+    ("+Neutral:", (8, None, None)),
+    ("+5.1:", (None, 2, None)),
+    ("+5.2:", (4, 2, None)),
 )
 
 
