@@ -457,8 +457,8 @@ NAMED_MATERIALS = {
     # what says so, and the rarity beside it is what draws in its
     # place. That rarity is a display choice rather than the game's
     # word: neither is priced anywhere a capture reaches.
-    2000004: ("Crystals", "", "Mythic"),                     # 160 to a pull
-    2000010: ("Signal Amplification Anchor", "", "Mythic"),  # one pull each
+    2000004: ("Crystals", "currency_paid_crystal.png", "Mythic"),                                     # 160 to a pull
+    2000010: ("Signal Amplification Anchor", "currency_gacha_ticket_rateup_supporter.png", "Mythic"), # one pull each
 }
 
 #

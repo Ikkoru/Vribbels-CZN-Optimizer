@@ -82,7 +82,7 @@ def include_generic_key(column_key):
 # Ranger, Psionic, Controller -- Hunter and Ranger swap.
 CLASS_ORDER = ("Striker", "Vanguard", "Ranger", "Hunter", "Psionic",
                "Controller")
-ELEMENT_ORDER = ("Passion", "Instinct", "Void", "Order", "Justice")
+ELEMENT_ORDER = ("Passion", "Justice", "Order", "Instinct", "Void")
 
 # What each tier of a PROMOTION family is worth in bottom-tier
 # equivalents. Keyed by tier word, because the three families spell
@@ -277,7 +277,7 @@ RESERVED_ITEMS = (2000001, 2000027, 2000036, None)
 # The caption is drawn over the icon's top-left corner.
 MODULE_ITEM = 3920026
 MODULE_BUCKETS = (
-    (24, "<24h!!!"),
+    (24, "<24h!"),
     (48, "<2 days"),
     (72, "<3 days"),
     (None, "3+ days"),
