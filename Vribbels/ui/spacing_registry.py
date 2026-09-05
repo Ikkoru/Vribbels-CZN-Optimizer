@@ -631,6 +631,11 @@ PANEL_EDGES = [
     ("Capture", "Upgrade Log Settings", "bottom"),
     ("Capture", "Upgrade Log Settings", "right"),
     ("Gear Score", "Stat Weight Configuration", "top"),
+    # The Character panel's FLOOR, which is the Extra Info block's last
+    # row rather than the card's Text -- the block sits under it and is
+    # what the border meets. Its own right and top edges are read by
+    # `TEXT_PANEL_EDGES` instead, those being the Text's.
+    ("Combatants", "Character", "bottom"),
 ]
 
 # Hand readings for PANEL_EDGES rows that have not been nudged yet.
@@ -1653,22 +1658,6 @@ def _to_window_edge(locator):
         if span is None:
             return None, "painted nothing"
         return sa.gap_between(span[1], cap.origin[0] + cap.image.size[0]), ""
-    return resolve
-
-
-def _box_to_window_edge(locator):
-    """Resolver: a widget's BOX right edge -> the window's.
-
-    For content whose outermost pixels are transparent. A reserved tile
-    is a rarity plate on an icon-sized canvas, so its art stops inside
-    its own box exactly as every icon's does -- and reading the ink
-    there measures the artwork's margin rather than what the layout
-    was asked for.
-    """
-    def resolve(cap, app):
-        box = sa.box_of(locator(app))
-        return sa.gap_between(box.right,
-                              cap.origin[0] + cap.image.size[0]), ""
     return resolve
 
 
@@ -3714,16 +3703,31 @@ MATERIALS_ENTRIES = [
     # columns are held to their cells' OUTER edges rather than centred
     # in them, so these two are what that `sticky` buys.
     #
-    # The two ends are not read the same way. The first column's
-    # leftmost paint is a glyph inside a Label's own inset, which is
-    # ink. The reserved column ends in a TILE, whose plate stops inside
-    # its own box the way every icon's art does -- so its box is what
-    # the layout placed and its ink is the artist's margin.
+    # INK at both ends, which is what the eye meets. They are not the
+    # same kind of ink: the first column's leftmost paint is a glyph
+    # inside a Label's own inset, and the reserved column's rightmost
+    # is the dark box behind an icon's quantity, which reaches further
+    # right than any of the artwork.
     ("Materials", "Materials: window edge -> first column", 4,
      RULE_CONTENT_FRAME, _from_window_edge(_materials_column(0)), "h"),
     ("Materials", "Materials: reserved column -> window edge", 4,
-     RULE_CONTENT_FRAME, _box_to_window_edge(_materials_column(-1)), "h"),
+     RULE_CONTENT_FRAME, _to_window_edge(_materials_column(-1)), "h"),
 ]
+
+
+def _extra_info_pair(app):
+    """Locator pair: the Extra Info row's label and its value.
+
+    Found by the label's words and then by grid position, the value
+    carrying digits that change with the snapshot and so matching no
+    string. Both are in the block under the Character card's Text.
+    """
+    label = _by_text("Excursion Types:")(app)
+    row = label.grid_info()["row"]
+    for widget in label.master.grid_slaves(row=row, column=1):
+        return label, widget
+    raise LookupError("the Excursion Types row has no value beside it")
+
 
 
 POPUP_ENTRIES = [
@@ -3810,6 +3814,10 @@ AWAITING_FIRST_READING = {
     "Materials: window edge -> first column",
     "Materials: reserved column -> window edge",
     "Character: node -> its level",
+    # Never read: the block it measures is new, and its label is a
+    # `Panel.TLabel` whose inset the style strips -- so the pad beside
+    # it is the whole distance and nothing has confirmed that.
+    "Character: Excursion Types -> its count",
 }
 
 
@@ -4244,6 +4252,21 @@ def register_all():
             scenario=_scenario,
             provisional=False,
         )
+
+    # The Extra Info block's one row, under the card. Both ends are
+    # `ttk.Label`s stripped of border and padding by `Panel.TLabel`, so
+    # this reads box to box and glyph to glyph at once.
+    sa.track(
+        name="Character: Excursion Types -> its count",
+        tab="Combatants",
+        rule=RULE_LABEL_ELEMENT,
+        target=5,
+        resolve=_gap(lambda app: _extra_info_pair(app)[0],
+                     lambda app: _extra_info_pair(app)[1], "h"),
+        axis="h",
+        provisional="Character: Excursion Types -> its count"
+        in AWAITING_FIRST_READING,
+    )
 
     # The same panel's NODE block, three columns on stops of their own
     # -- a tag's `tabs`, because a Text carries one set for the whole

@@ -439,9 +439,16 @@ class OptimizerGUI:
         # first MAP, so one built into a tab nobody has opened yet shows
         # its background and no glyphs the first time that tab is
         # shown. `ui_runtime.md` has the measurements; ttk never does it.
+        #
+        # `borderwidth=0` is not cosmetic: TLabel's layout wraps the
+        # text in a `Label.border` of 1 and a `Label.padding` of 1, so
+        # a label is 4px taller and 4px wider than its own line. Every
+        # pad measured to those glyphs would carry the difference, and
+        # `padding=0` on the widget does not reach the border.
         self.style.configure("Panel.TLabel",
                              background=self.colors["bg_light"],
-                             foreground=self.colors["fg"])
+                             foreground=self.colors["fg"],
+                             borderwidth=0)
         # spacing: unique -- a button's own internal inset -- button, text ↕
         # Only the VERTICAL half is decided here, and it stays 5 so the
         # height every button row is built around does not move.

@@ -21,12 +21,29 @@ from PIL import Image, ImageDraw, ImageFont, ImageTk
 ICON_NATIVE_SIZE = (114, 114)
 ICON_SIZE = (114, 114)
 
-# The quantity badge, in the bottom-right corner. Sized against the
-# icon rather than stated, so the badge keeps its proportions when the
-# icon does not: at the native size these are 24, 8 and 4.
+# The two things drawn OVER an icon: its owned quantity in the
+# bottom-right corner, and a caption in the top-left. Each has the same
+# three levers, and they are separate so one can be moved without the
+# other.
+#
+# * FONT   -- how big the words are.
+# * MARGIN -- how far the words sit from the icon's own edges. The
+#             quantity takes a second one for its bottom edge, that
+#             corner reading tighter than the side at equal values.
+# * PAD    -- how much dark box there is around the words.
+#
+# All of them are shares of the icon's side rather than pixel counts,
+# so the pair keeps its proportions at whatever `ICON_SIZE` becomes.
+# At the native size the quantity's are 24, 8, 16 and 4.
 BADGE_FONT_RATIO = 24 / ICON_NATIVE_SIZE[0]
 BADGE_MARGIN_RATIO = 8 / ICON_NATIVE_SIZE[0]
+BADGE_BOTTOM_RATIO = 16 / ICON_NATIVE_SIZE[0]
 BADGE_PADDING_RATIO = 4 / ICON_NATIVE_SIZE[0]
+
+# The caption's, which the CALLER sizes the font of -- it matches a Tk
+# font this module cannot see. At the native size these are 8 and 4.
+CORNER_MARGIN_RATIO = 8 / ICON_NATIVE_SIZE[0]
+CORNER_PADDING_RATIO = 4 / ICON_NATIVE_SIZE[0]
 
 # The rarity plate an icon sits on, as a share of the icon's side. The
 # assets are 101 against the icons' 114, and the two are drawn together
@@ -86,20 +103,19 @@ def _plated(icon, plate_path, size):
     return canvas
 
 
-def _badged(draw, text, at, font, size, corner):
-    """Draw `text` in a dark box, anchored at one corner of the icon.
-
-    `at` is (x, y) for a top-left anchor; `corner` says which corner
-    the pair is pushed into, which is what turns the same measurement
-    into a bottom-right badge or a top-left caption.
+def _badged(draw, text, at, font, pad):
+    """Draw `text` in a dark box, its top-left corner at `at`.
 
     The box is measured AT the text's position rather than at the
     origin: a glyph's bounding box is not the same shape wherever it is
     drawn, and boxing the origin's measurements around the drawn text
-    leaves the badge off by the difference.
+    leaves the box off by the difference.
+
+    **The box is what reaches furthest**, by `pad` past the glyphs on
+    every side -- so it, and not the artwork, is what a gap measured to
+    an icon's painted edge stops at.
     """
     placed = draw.textbbox(at, text, font=font)
-    pad = max(1, round(size[0] * BADGE_PADDING_RATIO))
     draw.rectangle([placed[0] - pad, placed[1] - pad,
                     placed[2] + pad, placed[3] + pad], fill=(0, 0, 0, 200))
     draw.text(at, text, fill="white", font=font)
@@ -142,7 +158,8 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
 
         draw = ImageDraw.Draw(img)
         qty_text = str(quantity)
-        margin = max(1, round(size[0] * BADGE_MARGIN_RATIO))
+        side = max(1, round(size[0] * BADGE_MARGIN_RATIO))
+        floor = max(1, round(size[0] * BADGE_BOTTOM_RATIO))
         try:
             font = ImageFont.truetype(
                 "arial.ttf", max(8, round(size[0] * BADGE_FONT_RATIO)))
@@ -151,9 +168,9 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
 
         bbox = draw.textbbox((0, 0), qty_text, font=font)
         _badged(draw, qty_text,
-                (size[0] - (bbox[2] - bbox[0]) - margin,
-                 size[1] - (bbox[3] - bbox[1]) - margin * 2),
-                font, size, "se")
+                (size[0] - (bbox[2] - bbox[0]) - side,
+                 size[1] - (bbox[3] - bbox[1]) - floor),
+                font, max(1, round(size[0] * BADGE_PADDING_RATIO)))
 
         if corner_text:
             try:
@@ -161,7 +178,9 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
                                              max(8, corner_font_px))
             except OSError:
                 caption = font
-            _badged(draw, corner_text, (margin, margin), caption, size, "nw")
+            edge = max(1, round(size[0] * CORNER_MARGIN_RATIO))
+            _badged(draw, corner_text, (edge, edge), caption,
+                    max(1, round(size[0] * CORNER_PADDING_RATIO)))
         return ImageTk.PhotoImage(_flattened(img, background))
     except Exception as e:
         print(f"Error creating icon: {e}")

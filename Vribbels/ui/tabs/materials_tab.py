@@ -1,11 +1,11 @@
 """Materials tab: upgrade material by class and Element.
 
 Three headed columns -- Combatant promotion, Partner promotion,
-potential growth -- and a fourth at the far right holding placeholder
-tiles, reserving the shape another family would take. The first and
-last sit at their cells' outer edges rather than centred, so the block
-spans the window; the leftover width goes to spacers between the
-columns, which is what keeps the gaps across it equal.
+potential growth -- and a fourth at the far right carrying one item per
+row and no words. The first and last sit at their cells' outer edges
+rather than centred, so the block spans the window; the leftover width
+goes to spacers between the columns, which is what keeps the gaps
+across it equal.
 
 A data row is a name, its figures, and its three tiers as icons, the
 leftmost the most valuable. Its figures come from THAT ROW's three
@@ -460,12 +460,13 @@ class MaterialsTab(BaseTab):
         columns = ttk.Frame(self.frame)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
-        # ASYMMETRIC, because the two edges meet different things. On
-        # the left the block starts with a row's TEXT, whose glyphs
-        # begin inside a Label's own inset; on the right it ends with a
-        # reserved tile, whose outline is drawn at its box edge. Same
-        # rule, and the pad that satisfies it differs by the inset.
-        columns.pack(fill=tk.BOTH, expand=True, padx=(1, 4), pady=(0, 2))
+        # 1 for a rendered 4 at both edges, and the two get there
+        # differently. On the left the block starts with a row's TEXT,
+        # whose glyphs begin inside a Label's own inset; on the right
+        # it ends with an ICON, whose furthest-right paint is the dark
+        # box behind its quantity -- see `BADGE_MARGIN_RATIO`, which is
+        # what would move it.
+        columns.pack(fill=tk.BOTH, expand=True, padx=1, pady=(0, 2))
         # Content in the EVEN grid columns, an empty expanding one
         # between each pair. Where the tab's leftover width goes is the
         # whole of this arrangement: shared out inside the content
@@ -755,6 +756,10 @@ class MaterialsTab(BaseTab):
         probe.destroy()
 
         rows = ttk.Frame(column)
+        # NOT TRACKED, and not a rule's distance: it is the height of a
+        # heading this column does not have, so that its rows land level
+        # with the rows beside it. `HEADING_GAP` is the part of it that
+        # answers to a rule, and carries the marker.
         rows.pack(anchor=tk.N, pady=(top, 0))
         self.module_labels = []
 
