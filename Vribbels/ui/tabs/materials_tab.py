@@ -47,8 +47,16 @@ last four rows all draw the Command Delegation Module, each showing
 the copies expiring inside its own window -- a period item's copies
 are listed with their expiries rather than counted, so no single
 number would say what is worth using today.
+
+Two of its items instead count down to the WEEKLY RESET, which nothing
+in a snapshot states: weekly stock is spent against a deadline the
+clock knows and the item does not. Those captions appear inside the
+last three days and only where there is enough left to be worth
+spending. **Everything clock-dependent on the tab is redrawn on a
+timer**, which is why the drawing of it is split out from the rest.
 """
 
+import math
 import time
 import tkinter as tk
 from tkinter import ttk
@@ -63,6 +71,7 @@ from game_data import (
 )
 from game_data.constants import item_art, rarity_plate
 import period_items
+import weekly_reset
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
 from ..utils.image_utils import (
@@ -235,6 +244,23 @@ def _module_buckets(expiries, now):
     return counts
 
 
+def reset_caption(hours):
+    """What a reset-keyed caption says with `hours` left, and its colour.
+
+    `("", None)` outside the last window: the caption is absent rather
+    than blank, so an icon three days from the reset draws as any other
+    icon does.
+
+    The hours are rounded UP inside the last window, `<7h!` meaning
+    fewer than seven remain. Rounding down would promise an hour that
+    is already spent.
+    """
+    for limit, words, colour in RESET_CAPTIONS:
+        if hours < limit:
+            return words or f"<{math.ceil(hours)}h!", colour
+    return "", None
+
+
 def gacha_pulls(quantities):
     """What the gacha currencies come to in PULLS.
 
@@ -281,6 +307,40 @@ GACHA_TARGETS = (
 # The reserved column, top to bottom. `None` is a row still reserved,
 # which draws the plate alone.
 RESERVED_ITEMS = (2000001, 2000027, 2000036, None)
+
+# Which of them count down to the WEEKLY RESET, and the holding at or
+# below which that caption stays away. Nothing in a snapshot dates
+# these -- weekly stock is spent against a deadline the clock knows --
+# so `weekly_reset` is the whole of what they are read against.
+#
+# (res_id, floor). The floor is what makes the caption worth showing:
+# a Card nobody holds cannot be spent, and Reason is spent in sevens.
+RESET_ITEMS = ((2000027, 0), (2000036, 6))
+
+# What such a caption says with that many hours left, and the colour it
+# says it in. The FIRST window the countdown is under wins; past the
+# last there is no caption at all, a reset three days out not being
+# news.
+#
+# (hours, words, colour). Words of None count the hours into the
+# caption instead, which is the only window where an hour matters.
+RESET_CAPTIONS = (
+    (24, None, "red"),
+    (48, "<2 days", "orange"),
+    (72, "<3 days", None),
+)
+
+# The module windows worth a colour, by caption, and only where a copy
+# actually falls in one: an empty window is not urgent.
+MODULE_URGENT = {"<24h!": "red", "<2 days": "orange"}
+
+# How long the clock-dependent icons may go unredrawn. The wake is
+# aimed at the countdown's next whole hour rather than polled, and
+# these two bound it -- the floor against a clock that jumps, the
+# ceiling so that a module copy crossing a window is at worst this
+# stale. Seconds.
+TICK_FLOOR = 60
+TICK_CEILING = 3600
 
 # Under them, the Command Delegation Module split by how soon a copy
 # expires. **The windows do not overlap**: a copy is counted in the
@@ -398,27 +458,24 @@ HEADING_GAP = 0         # spacing: panel ↕ unrelated label -- heading, frame �
 # name's line box already ends past its own baseline -- and one that
 # CANNOT go negative, unlike the padding this replaced: a Text's line
 # box is the floor for the gap under it.
-NAME_GAP_BELOW = 0      # spacing: label row -> label row -- run, run ↕
+NAME_GAP_BELOW = 3      # spacing: label row -> label row -- run, run ↕
 
-# A row's text block against the icons beside it, and a stat line's
-# label against its value. Both are levers a rendered distance short of
-# the rule, because a ttk.Label's glyphs stop inside its own box and
-# these pads start at the box.
-#
-# The figures' block ends on a RIGHT-ALIGNED value, so the gap after it
-# is the SMALLEST across the rows -- a value narrower than the reserved
-# column starts further right and leaves the difference as slack.
+# A row's text block against the icons beside it. A lever a rendered
+# distance short of the rule: the block's last paint is its widest
+# value, and a narrower value on the row being read starts further
+# right and leaves the reservation showing.
 #
 # The icons' box and not their art: every icon carries a transparent
 # border so that its art is centred the way the game centres it, and
 # the border is part of the icon rather than part of the gap.
-TEXT_TO_ICONS = 2       # spacing: label ↔ its element -- label, frame ↔
-# What separates a label from its value, added into the block's width
-# rather than set as a pad: the value column is a right-aligned TAB
-# STOP now, so what lies between the two is the reservation the stop
-# leaves. The labels all end in a colon, whose ink stops inside its own
-# advance, which is why this is a rendered distance short of the rule.
-LABEL_TO_VALUE = 2      # spacing: label ↔ its element -- run, run ↔
+TEXT_TO_ICONS = 4       # spacing: label ↔ its element -- label, frame ↔
+# What separates a label from its value. Both columns are RIGHT-ALIGNED
+# tab stops -- the labels end on their colons and the values on their
+# last digit -- so this is the whole of the distance between the two
+# and it is the same on every line. A rendered distance short of the
+# rule because a colon's ink stops inside its own advance, and because
+# a value narrower than the reservation starts further right.
+LABEL_TO_VALUE = 6      # spacing: label ↔ its element -- run, run ↔
 
 # The generic row's checkbox against the icon beside it.
 GENERIC_TO_CHECKBOX = 5  # spacing: label ↔ its element -- frame, checkbox ↔
@@ -435,11 +492,15 @@ GENERIC_TO_CHECKBOX = 5  # spacing: label ↔ its element -- frame, checkbox ↔
 VALUE_DIGITS = 4
 VALUE_WIDEST = "400%"
 
-# What a ttk.Label adds around its own text, both sides together. Its
-# `minsize` is a box width and the reservation above is an ink width,
-# so one has to be restated as the other. Measured at Segoe UI 9 and
-# constant across every string tried.
-LABEL_INSET_PX = 4
+# The narrowest a Text will draw a TAB, whatever stop follows it.
+#
+# **NOT slack, and not removable.** The label column is a right-aligned
+# stop with nothing in front of it, so the widest label needs this much
+# room before it or Tk abandons the alignment for that line alone and
+# starts the words here instead -- which pushes that one colon past the
+# column every other label ends on. Read off a rendered block; it is
+# Tk's floor rather than a distance this tab chose.
+TAB_FLOOR_PX = 3
 
 # What a figure reads before any snapshot has been loaded.
 NO_DATA = "-"
@@ -475,6 +536,7 @@ class MaterialsTab(BaseTab):
         # than a wall of text before the first capture -- the images
         # are static assets and only the numbers need data.
         self._render_icons({})
+        self._schedule_expiry_tick()
 
     # ------------------------------------------------------------ build
 
@@ -483,12 +545,13 @@ class MaterialsTab(BaseTab):
         columns = ttk.Frame(self.frame)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
-        # 1 for a rendered 4 at both edges, and the two get there
-        # differently. On the left the block starts with a row's TEXT,
-        # whose glyphs begin inside a Label's own inset; on the right
-        # it ends with an ICON, whose furthest-right paint is the dark
-        # box behind its quantity -- see `BADGE_MARGIN_RATIO`, which is
-        # what would move it.
+        # A lever short of the rule at both edges, and the two get
+        # there differently. On the left the block starts with a row's
+        # figures, whose widest label is held one `TAB_FLOOR_PX` in
+        # from the block's own edge; on the right it ends with an ICON,
+        # whose furthest paint is whichever reaches further -- the
+        # artwork, or the bordered box behind its quantity, which
+        # `BADGE_MARGIN_RATIO` is what would move.
         columns.pack(fill=tk.BOTH, expand=True, padx=1, pady=(0, 2))
         # Content in the EVEN grid columns, an empty expanding one
         # between each pair. Where the tab's leftover width goes is the
@@ -607,9 +670,9 @@ class MaterialsTab(BaseTab):
         is not what the user calls it.
         """
         # The name, the `Total:` line, then one line per target.
+        block = label_width + LABEL_TO_VALUE + self._value_column_px()
         figures = self._figures_block(
-            row, label_width + self._value_column_px(),
-            2 + len(targets), (label_width + self._value_column_px(),),
+            row, block, 2 + len(targets), (label_width, block),
             ATTRIBUTE_COLORS.get(name, self.colors["fg"]), label or name)
         self.material_stats[(index, label or name)] = (
             figures, targets, table, name, tiers, weights, takes_generic)
@@ -639,9 +702,11 @@ class MaterialsTab(BaseTab):
         where the name line is set in another. So it goes in a frame
         fixed to the pixel with its propagation off, and fills it.
 
-        `stops` are the right edges of the value columns, in pixels
-        from the block's left. Right-aligned, so the digits line up
-        down the column whatever their width.
+        `stops` are the right edges of the block's columns, in pixels
+        from its left: the LABEL column first, then one per value
+        column. All right-aligned, which is what puts the colons in a
+        line and the digits in another whatever their widths -- and it
+        is why every figure line starts with a tab.
         """
         holder = tk.Frame(row, width=width_px,
                           height=self._block_height_px(lines),
@@ -702,12 +767,17 @@ class MaterialsTab(BaseTab):
         `rows` is (label, values) per line, the values already
         formatted. Written whole rather than patched line by line --
         a Text has no per-line assignment, and the block is small.
+
+        **Every figure line opens with a tab.** The label column is a
+        right-aligned stop like the value columns are, and a stop only
+        aligns what follows a tab -- so the label needs one in front of
+        it or it starts at the left edge and the colons go ragged.
         """
         text.config(state=tk.NORMAL)
         text.delete("1.0", tk.END)
         text.insert("1.0", text.name, "name")
         for label, values in rows:
-            line = LINE_SEP + COLUMN_SEP.join((label, *values))
+            line = LINE_SEP + COLUMN_SEP + COLUMN_SEP.join((label, *values))
             text.insert(tk.END, line, "figure")
         text.config(state=tk.DISABLED)
 
@@ -728,10 +798,11 @@ class MaterialsTab(BaseTab):
         """
         stat = tkfont.Font(font=STAT_FONT)
         value_px = self._value_column_px()
-        labels = max(stat.measure(word) for word, _costs
-                     in ADVANCED_TARGETS) + LABEL_INSET_PX
-        stops = tuple(labels + value_px * (n + 1)
-                      for n in range(len(spec.advanced)))
+        labels = max(stat.measure(word)
+                     for word, _costs in ADVANCED_TARGETS) + TAB_FLOOR_PX
+        stops = (labels,) + tuple(
+            labels + LABEL_TO_VALUE + value_px * (n + 1)
+            for n in range(len(spec.advanced)))
         figures = self._figures_block(
             row, stops[-1], 1 + len(ADVANCED_TARGETS), stops,
             self.colors["fg"], ADVANCED_LABEL)
@@ -753,12 +824,11 @@ class MaterialsTab(BaseTab):
         through `_build_row`, whose totals are in an item's own units.
         """
         stat = tkfont.Font(font=STAT_FONT)
-        labels = max(stat.measure(word) for word, _p, _t
-                     in GACHA_TARGETS) + LABEL_INSET_PX
+        labels = max(stat.measure(word)
+                     for word, _p, _t in GACHA_TARGETS) + TAB_FLOOR_PX
+        block = labels + LABEL_TO_VALUE + self._value_column_px()
         self.gacha_figures = self._figures_block(
-            row, labels + self._value_column_px(),
-            1 + 1 + len(GACHA_TARGETS),
-            (labels + self._value_column_px(),),
+            row, block, 1 + 1 + len(GACHA_TARGETS), (labels, block),
             self.colors["fg"], GACHA_LABEL)
 
         # A tooltip per LABEL, not per value: the words are what it
@@ -887,7 +957,7 @@ class MaterialsTab(BaseTab):
 
     @staticmethod
     def _text_block_px(spec):
-        """(the whole figures block, its label column) for one column.
+        """(the whole figures block, its label stop) for one column.
 
         COMPUTED, not measured. Rows are right-anchored, so a block
         of the wrong width moves its row's icons off the tier columns
@@ -895,8 +965,14 @@ class MaterialsTab(BaseTab):
         requested width of 1 until Tk has processed the geometry, and
         forcing that mid-build means painting a half-built window.
 
-        The widest of two things: the label column plus the reserved
-        value column, and the row NAME above them, which spans both.
+        Both returns are TAB STOPS: the labels end on the first and the
+        values on the second, which is the block's own right edge.
+
+        The block is the wider of two things -- the labels, the gap and
+        the reserved value column, or the row NAME above them, which
+        spans both. Where the name is what widens it, the extra goes to
+        the LABEL side, so the two columns stay against the right edge
+        with the name centred over them.
         """
         stat = tkfont.Font(font=STAT_FONT)
         name_font = tkfont.Font(font=NAME_FONT)
@@ -906,31 +982,25 @@ class MaterialsTab(BaseTab):
             label, _table, _group, _tiers, targets = spec.levelling
             figures += [word for word, _cost in targets]
             names.append(label)
-        labels = max(stat.measure(word) for word in figures) + LABEL_INSET_PX
-        widest_name = (max(name_font.measure(word) for word in names)
-                       + LABEL_INSET_PX)
         value = MaterialsTab._value_column_px()
-        # The pad between label and value belongs to the LABEL column:
-        # it is that widget's `padx`, so grid counts it as content
-        # there rather than adding it to the row. Computing the block
-        # as `labels + pad + value` and the column as `block - pad -
-        # value` looks like the same arithmetic and leaves the two two
-        # pixels apart -- which is a row of icons two pixels out.
-        label_column = max(labels + LABEL_TO_VALUE, widest_name - value)
-        return label_column + value, label_column
+        widest_name = max(name_font.measure(word) for word in names)
+        label_stop = max(max(stat.measure(word) for word in figures)
+                         + TAB_FLOOR_PX,
+                         widest_name - LABEL_TO_VALUE - value)
+        return label_stop + LABEL_TO_VALUE + value, label_stop
 
     @staticmethod
     def _value_column_px():
         """The reserved width of the figures' column, in pixels.
 
         Measured rather than stated: a digit's advance is the font's,
-        and the column has to hold `VALUE_DIGITS` of them plus the
-        Label's own inset around them.
+        and the column has to hold `VALUE_DIGITS` of them. An advance
+        and nothing else -- the figures are runs inside a Text, which
+        puts no inset of its own around them the way a Label did.
         """
         font = tkfont.Font(font=STAT_FONT)
-        widest = max(font.measure("0" * VALUE_DIGITS),
-                     font.measure(VALUE_WIDEST))
-        return widest + LABEL_INSET_PX
+        return max(font.measure("0" * VALUE_DIGITS),
+                   font.measure(VALUE_WIDEST))
 
     @staticmethod
     def _res_id_for(table, group, tier):
@@ -987,20 +1057,63 @@ class MaterialsTab(BaseTab):
         loaded.
         """
         self._quantities = item_quantities
+        timed = {res_id for res_id, _floor in RESET_ITEMS}
         for res_id, label in self.material_icons.items():
-            self._draw_icon(label, res_id, item_quantities.get(res_id, 0))
-
-        # The module's copies, split by how soon each expires. One
-        # `now` for every bucket: reading the clock per row could put
-        # a copy in two windows or in none.
-        counts = _module_buckets(self._expiries.get(MODULE_ITEM, ()),
-                                 time.time())
-        for (label, _hours, caption), held in zip(self.module_labels, counts):
-            self._draw_icon(label, MODULE_ITEM, held, caption)
-
+            if res_id not in timed:
+                self._draw_icon(label, res_id, item_quantities.get(res_id, 0))
+        self._draw_timed_icons()
         self._render_stats(item_quantities)
 
-    def _draw_icon(self, label, res_id, quantity, caption=""):
+    def _draw_timed_icons(self):
+        """Every icon whose words depend on the clock, at one `now`.
+
+        One reading for all of them: taken per icon, a copy could land
+        in two of the module's windows or in none.
+        """
+        now = time.time()
+        counts = _module_buckets(self._expiries.get(MODULE_ITEM, ()), now)
+        for (label, _hours, caption), held in zip(self.module_labels, counts):
+            urgent = MODULE_URGENT.get(caption) if held else None
+            self._draw_icon(label, MODULE_ITEM, held, caption,
+                            self.colors[urgent] if urgent else None)
+
+        left = weekly_reset.hours_left(now)
+        for res_id, floor in RESET_ITEMS:
+            label = self.material_icons.get(res_id)
+            if label is None:
+                continue
+            held = self._quantities.get(res_id, 0)
+            # Under the floor there is nothing to spend before the
+            # reset, so the countdown is not news and no caption is
+            # drawn at all.
+            caption, colour = (("", None) if held <= floor
+                               else reset_caption(left))
+            self._draw_icon(label, res_id, held, caption,
+                            self.colors[colour] if colour else None)
+
+    def _schedule_expiry_tick(self):
+        """Redraw the clock-dependent icons when one would next change.
+
+        Aimed at the countdown's next whole HOUR rather than polled:
+        that is the soonest any of these captions changes, and hitting
+        it costs one wake an hour. A module copy crossing one of its
+        windows is up to `TICK_CEILING` stale, which is the trade named
+        in `MODULE_BUCKETS` -- the row it belongs in is the same row
+        either way, and only the count moves.
+        """
+        wait = (weekly_reset.next_reset(time.time()) - time.time()) % 3600
+        self.frame.after(int(max(TICK_FLOOR, min(TICK_CEILING, wait)) * 1000),
+                         self._on_expiry_tick)
+
+    def _on_expiry_tick(self):
+        """Redraw, then aim the next wake."""
+        if not self.frame.winfo_exists():
+            return
+        self._draw_timed_icons()
+        self._schedule_expiry_tick()
+
+    def _draw_icon(self, label, res_id, quantity, caption="",
+                   caption_fill=None):
         """One item's icon, its count, and any words over its corner.
 
         Through `item_art` rather than off a table row: the tables
@@ -1023,7 +1136,8 @@ class MaterialsTab(BaseTab):
             str(icon_path) if icon_path else "", quantity,
             background=self.colors["bg"],
             plate_path=str(plate) if plate and plate.exists() else None,
-            corner_text=caption, corner_font_px=CORNER_FONT_PX)
+            corner_text=caption, corner_font_px=CORNER_FONT_PX,
+            corner_fill=caption_fill)
             if drawable else None)
         if photo is not None:
             label.config(image=photo, text="")

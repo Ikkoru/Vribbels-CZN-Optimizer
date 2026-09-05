@@ -3739,15 +3739,17 @@ MATERIALS_ENTRIES = [
      _smallest_text_gap(_materials_text_pairs), "h"),
     ("Materials", "Materials: icon -> icon", 4, RULE_CONTENT_FRAME,
      _smallest_gap(_materials_icon_pairs, "h"), "h"),
-    # A figures block's label and value are runs inside one Text now,
+    # A figures block's label and its value are runs inside one Text,
     # so the gap between them is a TAB STOP's, read the way the
-    # Character panel's stat columns are. The stop is RIGHT-aligned, so
-    # the smallest reading across the lines is the one that was set --
-    # a short value starts further right and leaves the reservation
-    # showing after its label.
+    # Character panel's stat columns are. BOTH stops are right-aligned,
+    # which puts every colon in the block at one x -- so the smallest
+    # reading across the lines is the line whose VALUE is widest, and
+    # it reaches the lever only where a value fills the reservation.
+    # Every line the block draws is a needle for that reason.
     ("Materials", "Materials: label -> its value", 5, RULE_LABEL_ELEMENT,
      _text_column_gap(_materials_figures_text,
-                      ("Total:	", "Max best:	", "+Neutral:	"), 0),
+                      ("Total:	", "Max best:	",
+                       "+Neutral:	", "+Node 5.1 & 5.2:	"), 0),
      "h"),
     ("Materials", "Materials: icon row -> icon row", 4, RULE_CONTENT_FRAME,
      _smallest_gap(_materials_row_pairs, "v"), "v"),
@@ -3865,18 +3867,15 @@ AWAITING_FIRST_READING = {
     # -- so a row printing yellow is a question, never a regression.
     # EMPTY is the state to return it to.
     #
-    # The Materials tab's other five read on target once its columns
-    # settled; these two have not been read since they last moved.
+    # The Materials tab's five. Its figures are painted LINES and TAB
+    # STOPS rather than widgets and its icons carry their own overlays,
+    # so both ends of every one of these gaps is a rendered edge -- and
+    # none has been confirmed on a screen since it last moved.
     "Materials: figures -> its icons",
-    # Rewritten when the figures became one Text per row: their
-    # resolvers read painted LINES and TAB STOPS where they read
-    # widgets, and nothing has confirmed the three against a screen.
-    "Materials: heading -> its first row",
     "Materials: label -> its value",
     "Materials: row name -> its figures",
     "Materials: window edge -> first column",
     "Materials: reserved column -> window edge",
-    "Character: node -> its level",
     # Never read: the block it measures is new, and its label is a
     # `Panel.TLabel` whose inset the style strips -- so the pad beside
     # it is the whole distance and nothing has confirmed that.

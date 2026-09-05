@@ -275,7 +275,7 @@ CHAR_EXTRA_NO_DATA = "-"
 # border and padding, so a pad here is the rendered distance between
 # the two boxes -- and the rule's own 5 less the side bearings the
 # colon and the first digit each carry inside their advance.
-CHAR_EXTRA_LABEL_GAP = 2   # spacing: label ↔ its element -- label, label ↔
+CHAR_EXTRA_LABEL_GAP = 4   # spacing: label ↔ its element -- label, label ↔
 # The block's own inset from the panel border on the LEFT, the same
 # distance the Text above it holds through its `padx`. Its labels are
 # stripped of border and padding by `Panel.TLabel`, so this is where
@@ -284,7 +284,7 @@ CHAR_EXTRA_INSET = 4       # spacing: border edge -> first non-button element --
 # And at the FLOOR, where the rule measures to the last row's BASELINE
 # and the label's box goes on past it by the font's descent. A lever
 # that much short of the rule for exactly that reason.
-CHAR_EXTRA_FLOOR = 1       # spacing: border edge -> first non-button element -- panel, label ↕
+CHAR_EXTRA_FLOOR = 2       # spacing: border edge -> first non-button element -- panel, label ↕
 # NOT TRACKED: the audit reads this panel's inset off the TEXT widget,
 # which is the first thing in it and the one every other tab's entry
 # measures. Both are set from the same rule; only one can be the one

@@ -907,7 +907,8 @@ def _materials_rows_each_register(tab):
 
     Returns a list of complaints.
     """
-    from ui.tabs.materials_tab import COLUMNS, TOTAL_LABEL
+    from ui.tabs.materials_tab import (
+        COLUMNS, COLUMN_SEP, TOTAL_LABEL)
 
     out = []
     want = sum(len(spec.names) + (1 if spec.levelling else 0)
@@ -926,11 +927,12 @@ def _materials_rows_each_register(tab):
             if key not in tab.material_stats:
                 out.append(f"no figures registered for {key}")
                 continue
-            # A block is ONE Text now, so its figures are read off its
-            # lines rather than off a dict of widgets -- the label is
-            # everything before the line's first tab.
+            # A block is ONE Text, so its figures are read off its lines
+            # rather than off a dict of widgets. Every column in it is a
+            # right-aligned tab stop, the label's included, so the line
+            # OPENS with a tab and the label is the field after it.
             figures = tab.material_stats[key][0]
-            drawn = [line.split("	")[0] for line
+            drawn = [line.split(COLUMN_SEP)[1] for line
                      in figures.get("2.0", "end-1c").splitlines()]
             wanted = [TOTAL_LABEL] + [word for word, _cost in spec.targets]
             if drawn != wanted:
