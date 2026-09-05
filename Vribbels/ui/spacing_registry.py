@@ -394,6 +394,14 @@ TEXT_PANEL_EDGE_EXCEPTIONS = {
     ("How Gear Score Works", "top"): 5,
 }
 
+# A far edge on a FIXED-width panel is the set distance only where the
+# widest content is on screen -- every other selection leaves the
+# difference as slack. The near edges need no scenario: the text starts
+# at the widget's own inset whatever it says.
+TEXT_PANEL_EDGE_SCENARIOS = {
+    ("Character", "right"): "widest_card",
+}
+
 
 def _panel(app, title):
     frame = sa.find_labelframe(sa.current_tab_widget(app), title)
@@ -2930,6 +2938,43 @@ def _widest_stats(field):
     return setup
 
 
+def _widest_card(app):
+    """Select the combatant whose Character card renders widest.
+
+    The panel is a FIXED width sized for the widest card in the
+    roster, so its right inset is the distance that was SET on that
+    card alone -- every other one leaves the difference as slack, and
+    a reading taken on one is an upper bound. Which combatant that is
+    depends on the snapshot, so it is found rather than named.
+
+    Read off `dlineinfo` rather than by adding word widths: two of the
+    card's blocks are tab-stopped, so a line's width is its last stop
+    plus what follows it.
+
+    Selecting is safe to automate -- see `_widest_stats`.
+    """
+    tab = getattr(app, "heroes_tab_instance", None)
+    rows = getattr(tab, "hero_data_list", None) if tab else None
+    if not rows:
+        return
+    app._spacing_hero_index = tab.selected_hero_index
+    text = tab.hero_char_text
+    best, widest = None, -1
+    for index in range(len(rows)):
+        tab.select_hero_row(index)
+        text.update_idletasks()
+        last = int(text.index("end-1c").split(".")[0])
+        px = 0
+        for line in range(1, last + 1):
+            info = text.dlineinfo(f"{line}.0")
+            if info:
+                px = max(px, info[2])
+        if px > widest:
+            best, widest = index, px
+    if best is not None:
+        tab.select_hero_row(best)
+
+
 def _restore_selection(app):
     tab = getattr(app, "heroes_tab_instance", None)
     was = getattr(app, "_spacing_hero_index", None)
@@ -2973,6 +3018,7 @@ sa.register_scenario("widest_stats", _widest_stats(1),
                      _restore_selection)
 sa.register_scenario("widest_pct_stats", _widest_stats(3),
                      _restore_selection)
+sa.register_scenario("widest_card", _widest_card, _restore_selection)
 
 
 def _title_target_and_source(title):
@@ -3743,18 +3789,9 @@ AWAITING_FIRST_READING = {
     # The Materials tab's other five read on target once its columns
     # settled; these two have not been read since they last moved.
     "Materials: figures -> its icons",
-    "Materials: row name -> its figures",
-    # Neither end of the block has ever been read: until the first and
-    # last columns were held to their cells' outer edges there was no
-    # distance there to read, only whatever the cells had spare.
     "Materials: window edge -> first column",
     "Materials: reserved column -> window edge",
-    # The node block's two stops are set from the arithmetic -- widest
-    # column plus the rule -- and both ends of each gap are text, whose
-    # ink stops inside its own advance by an amount only a reading
-    # gives.
     "Character: node -> its level",
-    "Character: node level -> what it does",
 }
 
 
@@ -3993,6 +4030,7 @@ def register_all():
             target_source="rule" if _wide is None else "exception",
             resolve=_text_panel_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
+            scenario=TEXT_PANEL_EDGE_SCENARIOS.get((title, side)),
             provisional=False,
         )
 

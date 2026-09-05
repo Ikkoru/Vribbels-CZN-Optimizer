@@ -180,9 +180,9 @@ CHAR_TAB_VAL2 = 136    # right stop: end of the right column's value
 # a decimal point beside a one-character `Y`, and the two-digit levels
 # sit on shorter names.
 # spacing: label ↔ its element -- run, run ↔
-CHAR_NODE_TAB_LEVEL = 68   # right stop: end of the level column
+CHAR_NODE_TAB_LEVEL = 67   # right stop: end of the level column
 # spacing: label ↔ its element -- run, run ↔
-CHAR_NODE_TAB_DESC = 73    # left stop: start of the description column
+CHAR_NODE_TAB_DESC = 72    # left stop: start of the description column
 
 # The tag those stops live on, and what marks the lines that take it.
 CHAR_NODE_TAG = "nodes"
@@ -219,7 +219,28 @@ GEAR_GS_POT_GAP = "  "
 
 # Width the Character panel gives up to the Partner panel beside it.
 # They share a row, so what one does not take, the other gets.
+#
+# **Tuned against the WIDEST card in the roster**, which is the only one
+# whose right inset is the distance the rule asks for -- every narrower
+# card leaves the difference as slack, and reading one of those reports
+# the slack. Ceding more than this clips the widest card's longest line,
+# silently and mid-word, the Text not wrapping.
 CHAR_WIDTH_CEDED = 19
+
+# spacing: border edge -> first non-button element -- panel, text ↔↕
+# What a ttk LabelFrame spends on itself, so the right and bottom
+# insets read like the top and left. Both edges answer to `border edge
+# -> first non-button element`; the bottom shows the usual descender
+# spread. Targets live in docs/ui_spacing.md, not here.
+PANEL_PAD_W = 14   # LabelFrame internal padding + border + slack
+PANEL_PAD_H = 33   # + title-bar height
+
+# The Character panel's RIGHT inset, and the only lever on it: a
+# tk.Text's `padx` applies to both sides at once, so trimming there
+# takes the left inset off target with it. Widening the panel moves the
+# right edge alone, so a LARGER value here is a wider panel and a
+# bigger inset.
+CHAR_PAD_W = PANEL_PAD_W + 8
 
 # Lines the Character panel always reserves under each heading, filled
 # with blanks when there is less to say, so its height is the same for
@@ -294,6 +315,9 @@ CHAR_EXTRA_INSET = 4       # spacing: border edge -> first non-button element --
 # Re-measure rather than reason: format every combatant's card and take
 # max(measure(line)).
 CHAR_CONTENT_PX = 186
+
+# The panel's fixed width.
+CHAR_PANEL_W = CHAR_CONTENT_PX + CHAR_PAD_W + 4 - CHAR_WIDTH_CEDED
 # Six fixed lines and the `Potential:` heading among them, then one per
 # node, then "Sets:" + its lines, then "Stats:" + one per stat row.
 CHAR_TOTAL_LINES = 5 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5
@@ -1658,25 +1682,6 @@ class HeroesTab(BaseTab):
             # GEAR_CELL_H here.
             cell_w, cell_h = GEAR_CELL_W, GEAR_CELL_H
 
-            # ----- Content maxima -> OUTER frame sizes (generous pad) -----
-            # spacing: border edge -> first non-button element -- panel, text ↔↕
-            # PAD_W / PAD_H approximate the ttk LabelFrame theme overhead
-            # so the right and bottom padding read like the top and left.
-            # Both edges answer to `border edge -> first non-button element`;
-            # the bottom shows the usual descender spread. Targets live in
-            # docs/ui_spacing.md, not here. CHAR_PAD_W adds to PAD_W
-            # rather than subtracting from it: the Character frame
-            # carries no padding of its own, its inset coming from the
-            # Text widget's padx on both sides.
-            PAD_W = 14   # LabelFrame internal padding + border + slack
-            PAD_H = 33   # + title-bar height
-            # The Character panel's RIGHT inset, and the only lever on
-            # it: a tk.Text's `padx` applies to both sides at once, so
-            # trimming there takes the left inset off target with it.
-            # Narrowing the panel moves the right edge alone. A LARGER
-            # value here is a narrower panel and a smaller inset.
-            CHAR_PAD_W = PAD_W + 8
-
             # The stat block's tab stops. Four stops per row: the left
             # value (right-aligned), the right column's name, the right
             # value (right-aligned), and nothing after. A right-aligned
@@ -1725,7 +1730,7 @@ class HeroesTab(BaseTab):
             # every resize, to arrive at numbers that do not move with
             # the data. `check_tabs_build` is where the stated widths
             # are held to what the panel actually renders.
-            char_W = CHAR_CONTENT_PX + CHAR_PAD_W + 4 - CHAR_WIDTH_CEDED
+            char_W = CHAR_PANEL_W
             # The Extra Info block sits on the panel's floor and takes
             # its height off the Text above it. Left out of this, the
             # panel is sized for the card alone and the block eats the
@@ -1733,7 +1738,7 @@ class HeroesTab(BaseTab):
             # early rather than like a panel that is too short.
             extra_h = ((1 + len(CHAR_EXTRA_ROWS)) * line_default
                        + CHAR_EXTRA_INSET)
-            row_h = CHAR_TOTAL_LINES * line_default + PAD_H + extra_h
+            row_h = CHAR_TOTAL_LINES * line_default + PANEL_PAD_H + extra_h
 
             def _fix(frame, w, h):
                 frame.configure(width=int(w), height=int(h))

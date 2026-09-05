@@ -281,7 +281,7 @@ ROW_GAP = 2             # spacing: content frame -> content frame -- frame, fram
 # `HEADING_PAD_BOTTOM` takes the box under the font's linespace and Tk
 # clips the glyphs. So the pad goes to its floor and the rest comes off
 # the NAME's box instead.
-HEADING_GAP = 6         # spacing: panel ↕ unrelated label -- heading, frame ↕
+HEADING_GAP = 0         # spacing: panel ↕ unrelated label -- heading, frame ↕
 
 # The row name's own box, above its capital and below its baseline. The
 # top is the heading gap's last two pixels; taking them here lifts the
@@ -297,17 +297,17 @@ NAME_PAD_BOTTOM = -1    # spacing: label row -> label row -- label, label ↕
 # the rule, because a ttk.Label's glyphs stop inside its own box and
 # these pads start at the box.
 #
-# The figures' block ends on a RIGHT-ALIGNED value, so what sits
-# between its last digit and the icons' BOX is the label's own inset,
-# that digit's right side bearing and this pad together.
+# The figures' block ends on a RIGHT-ALIGNED value, so the gap after it
+# is the SMALLEST across the rows -- a value narrower than the reserved
+# column starts further right and leaves the difference as slack.
 #
 # The icons' box and not their art: every icon carries a transparent
 # border so that its art is centred the way the game centres it, and
 # the border is part of the icon rather than part of the gap.
-TEXT_TO_ICONS = 0       # spacing: label ↔ its element -- label, frame ↔
+TEXT_TO_ICONS = 2       # spacing: label ↔ its element -- label, frame ↔
 # The labels all end in a colon, whose ink stops inside its advance --
 # so the pad is the rule's 5 less that and the box inset.
-LABEL_TO_VALUE = 0      # spacing: label ↔ its element -- label, label ↔
+LABEL_TO_VALUE = 2      # spacing: label ↔ its element -- label, label ↔
 
 # The generic row's checkbox against the icon beside it.
 GENERIC_TO_CHECKBOX = 5  # spacing: label ↔ its element -- frame, checkbox ↔
@@ -364,9 +364,12 @@ class MaterialsTab(BaseTab):
         columns = ttk.Frame(self.frame)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
-        # The same pads the other headed tabs carry, because the first
-        # thing under this one is the same 14pt heading they open with.
-        columns.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
+        # ASYMMETRIC, because the two edges meet different things. On
+        # the left the block starts with a row's TEXT, whose glyphs
+        # begin inside a Label's own inset; on the right it ends with a
+        # reserved tile, whose outline is drawn at its box edge. Same
+        # rule, and the pad that satisfies it differs by the inset.
+        columns.pack(fill=tk.BOTH, expand=True, padx=(1, 4), pady=(0, 2))
         # Content in the EVEN grid columns, an empty expanding one
         # between each pair. Where the tab's leftover width goes is the
         # whole of this arrangement: shared out inside the content
