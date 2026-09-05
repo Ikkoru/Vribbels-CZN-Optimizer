@@ -68,6 +68,18 @@ def run():
                     f"`.png`, so `item_art` cannot find its icon."
                 )
                 continue
+            if not art.icon:
+                # An item whose art is not in the repo yet draws its
+                # PLATE alone. Without a rarity there is no plate
+                # either, so the tile draws nothing at all -- an empty
+                # square that reads as a reserved one.
+                if not art.rarity:
+                    failures.append(
+                        f"res_id {res_id} states no icon and no rarity, so "
+                        f"its tile draws nothing. An item awaiting art "
+                        f"needs a rarity for its plate to stand in."
+                    )
+                continue
             if not (images / art.icon).exists():
                 failures.append(
                     f"res_id {res_id} names {art.icon!r}, which is not in "

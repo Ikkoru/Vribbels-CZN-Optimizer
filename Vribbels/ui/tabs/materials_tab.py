@@ -27,14 +27,24 @@ rows, so adding it to each of them counts it once per row rather than
 once. The EXP row is never one of them -- a Certificate raises a
 ceiling and buys no exp.
 
-Three kinds of row depart from that shape: the EXP row under each
-promotion column's generic, the stones column's ADVANCED row -- whose
-figures are three columns wide, its three items never substituting for
-each other -- and the reserved row of icons under that. Rows are
-pinned by their RIGHT edge for that reason: every row ends in its
-icons, so one needing more room takes it on the left.
+Three kinds of row depart from that shape, and all of them count
+something other than one item's holdings. The EXP row under each
+promotion column's generic is priced in its own material. The stones
+column's ADVANCED row is three figure columns wide, one per item, none
+of the three substituting for another. Its GACHA row counts PULLS,
+which is neither of its currencies' own unit.
+
+Rows are pinned by their RIGHT edge for that reason: every row ends in
+its icons, so one needing more room takes it on the left.
+
+**The reserved column carries one item per row and no words.** Its
+last four rows all draw the Command Delegation Module, each showing
+the copies expiring inside its own window -- a period item's copies
+are listed with their expiries rather than counted, so no single
+number would say what is worth using today.
 """
 
+import time
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
@@ -47,12 +57,14 @@ from game_data import (
     EXP_MATERIALS, GROWTH_STONES, PARTNER_EXP_TABLE, PARTNER_PROMOTION,
 )
 from game_data.constants import item_art, rarity_plate
+import period_items
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
 from ..utils.image_utils import (
     ICON_SIZE, RARITY_DIR, create_icon_with_quantity, create_plate_icon,
 )
 from ..utils.tab_header import make_heading
+from ..utils.tooltip import Tooltip
 
 
 # Where each column's checkbox state is kept, by the column's own key.
@@ -191,15 +203,85 @@ def advanced_costs():
     return tuple(out)
 
 
-# A row of bare tiles under the Advanced one, reserving the shape a
-# fourth family of potential material would take. Every one is a
-# reserved tile: nothing is drawn there yet.
-POTENTIAL_SPECIALS = (None, None, None, None)
+def _module_buckets(expiries, now):
+    """How many copies fall in each of `MODULE_BUCKETS`, and none twice.
+
+    A copy is counted in the FIRST window it falls inside, so the
+    counts sum to what is held. One already past its expiry lands in
+    the soonest window, which is where a copy needing attention
+    belongs.
+    """
+    counts = [0] * len(MODULE_BUCKETS)
+    for end in expiries:
+        hours = (end - now) / 3600
+        for index, (limit, _caption) in enumerate(MODULE_BUCKETS):
+            if limit is None or hours < limit:
+                counts[index] += 1
+                break
+    return counts
+
+
+def gacha_pulls(quantities):
+    """What the gacha currencies come to in PULLS.
+
+    Each item's holding buys whole pulls on its own before the two are
+    added: 159 Crystals and one Anchor is one pull, not one and a bit,
+    because a part-paid pull buys nothing.
+    """
+    return sum(quantities.get(res_id, 0) // per
+               for res_id, per in zip(GACHA_ITEMS, GACHA_PER_PULL))
+
+
+def _rounded_percent(part, whole):
+    """`part` as a percentage of `whole`, half away from zero.
+
+    Python's own `round` goes to even, which reports 50.5 as 50 and
+    51.5 as 52 -- a spreadsheet takes both up, and these figures are
+    read beside one.
+    """
+    return int(100 * part / whole + 0.5) if whole else 0
+
 
 # What a reserved tile is drawn as: a rarity plate with nothing on it.
 # UNCOMMON because no item table prices anything at that rarity, so a
 # plate in it cannot be read as a real item whose icon failed to load.
 RESERVED_RARITY = "Uncommon"
+
+# The gacha currencies, left to right beside their figures, under the
+# Growth Stones column's Advanced row.
+GACHA_ITEMS = (2000004, 2000010)
+GACHA_LABEL = "Gacha Pulls"
+
+# What one pull costs in each, same order. An Anchor IS a pull;
+# Crystals buy whole ones, so each item's share floors before they are
+# added -- 159 Crystals and an Anchor is one pull, not one and a bit.
+GACHA_PER_PULL = (160, 1)
+
+# (label, pulls it takes, what its tooltip says). The figure is the
+# share of that many pulls the holdings cover.
+GACHA_TARGETS = (
+    ("Decent luck:", 64, "64 pulls and win the 50/50"),
+    ("Poor luck:", 128, "128 pulls"),
+)
+
+# The reserved column, top to bottom. `None` is a row still reserved,
+# which draws the plate alone.
+RESERVED_ITEMS = (2000001, 2000027, 2000036, None)
+
+# Under them, the Command Delegation Module split by how soon a copy
+# expires. **The windows do not overlap**: a copy is counted in the
+# first it falls inside and no other, so the four rows sum to what is
+# held rather than each containing the ones above it.
+#
+# (hours, caption), the last taking everything past the one before it.
+# The caption is drawn over the icon's top-left corner.
+MODULE_ITEM = 3920026
+MODULE_BUCKETS = (
+    (24, "<24h!!!"),
+    (48, "<2 days"),
+    (72, "<3 days"),
+    (None, "3+ days"),
+)
 
 
 class Column(NamedTuple):
@@ -211,10 +293,10 @@ class Column(NamedTuple):
     different questions about the same level number. Empty for a
     column with no such material.
 
-    `advanced` is a row whose figures are THREE columns wide -- one per
-    item beside it, each held against its own stock. `specials` is a
-    row of bare icons with no figures at all, reserving the shape a
-    further family would take.
+    `advanced` is a row whose figures are THREE columns wide -- one
+    per item beside it, each held against its own stock. `gacha` is a
+    row of currencies whose figures count PULLS rather than the items
+    themselves.
     """
     key: str
     title: str
@@ -225,7 +307,7 @@ class Column(NamedTuple):
     targets: tuple
     levelling: tuple = ()
     advanced: tuple = ()
-    specials: tuple = ()
+    gacha: tuple = ()
 
 
 COLUMNS = (
@@ -244,21 +326,19 @@ COLUMNS = (
     Column("stones", "Potential Growth Stones", ELEMENT_ORDER,
            GROWTH_STONES, ("Premium", "Great", "Common"),
            2100003, STONE_TARGETS, advanced=ADVANCED_ITEMS,
-           specials=POTENTIAL_SPECIALS),
+           gacha=GACHA_ITEMS),
 )
 
-# The far-right column holds tiles and nothing else -- no heading, no
-# names, no figures -- reserving the shape a fourth family would take.
-# As many rows as the tallest column beside it, so the block ends level
-# with them rather than short.
+# The far-right column carries one icon per row and no words -- no
+# heading, no names, no figures. **ONE icon wide, and that is a width
+# the tab cannot spare more of**: the three real columns take what
+# they need and this gets the remainder, so a second icon here would
+# push the four past the window and grid would clip the last icon off
+# every row. Widening it means narrowing the icons, or a wider window.
 #
-# ONE tile wide, and that is a width the tab cannot spare more of: the
-# three real columns want 467 each at the current `ICON_SIZE` and the
-# tab has 1542, which leaves 141 for this column. A second tile would
-# take the four past the window and grid would clip the third icon off
-# every row. Widening the tiles here means narrowing the icons, or a
-# wider window.
-RESERVED_TILES = 1
+# Its rows are `RESERVED_ITEMS` then `MODULE_BUCKETS`, and the two
+# together come to as many rows as the tallest column beside it, so
+# the block ends level with them rather than short.
 RESERVED_ROWS = max(len(spec.names) + 1 + (1 if spec.levelling else 0)
                     for spec in COLUMNS)
 
@@ -266,6 +346,10 @@ RESERVED_ROWS = max(len(spec.names) + 1 + (1 if spec.levelling else 0)
 # under a heading rather than content in their own right.
 STAT_FONT = ("Segoe UI", 9)
 NAME_FONT = ("Segoe UI", 12, "bold")
+
+# A caption's size in PIXELS, which is what PIL takes where `NAME_FONT`
+# states points. 96dpi is what Tk assumes on Windows.
+CORNER_FONT_PX = round(NAME_FONT[1] * 96 / 72)
 
 # Between the icons of a row, and between one row of icons and the next.
 ICON_GAP_HALF = 0       # spacing: content frame -> content frame -- frame, frame ↔
@@ -355,6 +439,14 @@ class MaterialsTab(BaseTab):
         # The last counts drawn, so the checkbox can redraw the figures
         # without a snapshot being reloaded under it.
         self._quantities = {}
+        # Every copy's expiry, by res_id. Period items carry no amount
+        # -- their copies are listed -- so the counts on the reserved
+        # column come from here rather than from the item list.
+        self._expiries = {}
+        # One instance for the whole tab, which is how every other tab
+        # uses it: the hover state belongs to the pointer, not to a
+        # widget.
+        self._tooltip = Tooltip(self.colors)
         self.setup_ui()
         # Drawn at once with zero counts, so the tab is icons rather
         # than a wall of text before the first capture -- the images
@@ -470,8 +562,8 @@ class MaterialsTab(BaseTab):
         if spec.advanced:
             self._build_advanced_row(add_row(), index, spec)
 
-        if spec.specials:
-            self._build_specials_row(add_row(), spec)
+        if spec.gacha:
+            self._build_gacha_row(add_row(), spec)
 
     def _build_row(self, row, index, name, table, tiers, targets,
                    weights, label_width, label=None, takes_generic=True):
@@ -594,27 +686,53 @@ class MaterialsTab(BaseTab):
             label.grid(row=0, column=position, padx=ICON_GAP_HALF)
             self.material_icons[res_id] = label
 
-    def _build_specials_row(self, row, spec):
-        """A column's reserved tiles, in a row of their own.
+    def _build_gacha_row(self, row, spec):
+        """The gacha currencies, and what they come to in PULLS.
 
-        One icon MORE than a data row carries, so the row runs an
-        icon's width wider -- and being right-anchored like every other
-        row, that width comes off the left, where the figures block
-        would otherwise be.
+        Its figures count something neither item is: a pull costs 160
+        of one or 1 of the other, so the block totals what the two buy
+        rather than how many are held. That is why it does not go
+        through `_build_row`, whose totals are in an item's own units.
         """
+        text = ttk.Frame(row)
+        text.pack(side=tk.LEFT, anchor=tk.N)
+        stat = tkfont.Font(font=STAT_FONT)
+        text.grid_columnconfigure(1, minsize=self._value_column_px())
+        text.grid_columnconfigure(
+            0, minsize=max(stat.measure(word) for word, _p, _t
+                           in GACHA_TARGETS) + LABEL_INSET_PX)
+
+        ttk.Label(text, text=GACHA_LABEL, font=NAME_FONT,
+                  foreground=self.colors["fg"],
+                  padding=(0, NAME_PAD_TOP, 0, NAME_PAD_BOTTOM),
+                  ).grid(row=0, column=0, columnspan=2)
+
+        self.gacha_values = {}
+        rows = ((TOTAL_LABEL, ""),
+                *((word, tip) for word, _pulls, tip in GACHA_TARGETS))
+        for line, (word, tip) in enumerate(rows, start=1):
+            label = ttk.Label(text, text=word, font=STAT_FONT)
+            label.grid(row=line, column=0, sticky="e",
+                       padx=(0, LABEL_TO_VALUE))
+            if tip:
+                # On the LABEL, not the value: the words are what the
+                # tooltip explains, and a value column reserved four
+                # digits wide is mostly empty to hover over.
+                self._tooltip.bind(label, tip)
+            value = ttk.Label(text, text=NO_DATA, font=STAT_FONT,
+                              anchor=tk.E)
+            value.grid(row=line, column=1, sticky="ew")
+            self.gacha_values[word] = value
+
         icons = ttk.Frame(row)
-        icons.pack(side=tk.LEFT, anchor=tk.N)
-        for position, res_id in enumerate(spec.specials):
+        icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
+        for position, res_id in enumerate(spec.gacha):
             label = self._make_icon_label(icons)
             label.grid(row=0, column=position, padx=ICON_GAP_HALF)
-            if res_id is None:
-                if self._reserved_tile is not None:
-                    label.config(image=self._reserved_tile)
-            else:
-                self.material_icons[res_id] = label
+            self.material_icons[res_id] = label
 
     def _build_reserved_column(self, column):
-        """The far-right column: tiles, and nothing else.
+        """The far-right column: one item per row, and no words beside.
 
         ONE child, not two. Both the spacing audit and
         `check_tabs_build` walk a column as `[heading, rows]` and read
@@ -622,13 +740,15 @@ class MaterialsTab(BaseTab):
         out of their way by having no heading at all rather than by a
         special case in each of them.
 
-        Its tiles share `_reserved_tile` with the specials rows, which
-        is why that image is built before any column.
-
-        The tiles still line up with the icons beside them, and the
+        Its rows still line up with the icons beside them, and the
         leading pad is what does it: the height a heading takes plus
         the gap under one, read off a heading built and dropped rather
         than restated here as a number.
+
+        The four MODULE rows all draw the same item and cannot go in
+        `material_icons`, which is keyed by res_id -- each shows a
+        different slice of the same holding, so they are kept in their
+        own list against the window each counts.
         """
         probe = make_heading(column, "")
         top = probe.winfo_reqheight() + HEADING_GAP
@@ -636,14 +756,27 @@ class MaterialsTab(BaseTab):
 
         rows = ttk.Frame(column)
         rows.pack(anchor=tk.N, pady=(top, 0))
-        for line in range(RESERVED_ROWS):
+        self.module_labels = []
+
+        def add(line):
             row = ttk.Frame(rows)
             row.pack(anchor=tk.CENTER, pady=(0 if line == 0 else ROW_GAP, 0))
-            for position in range(RESERVED_TILES):
-                label = self._make_icon_label(row)
+            label = self._make_icon_label(row)
+            label.grid(row=0, column=0, padx=ICON_GAP_HALF)
+            return label
+
+        line = 0
+        for res_id in RESERVED_ITEMS:
+            label = add(line)
+            if res_id is None:
                 if self._reserved_tile is not None:
                     label.config(image=self._reserved_tile)
-                label.grid(row=0, column=position, padx=ICON_GAP_HALF)
+            else:
+                self.material_icons[res_id] = label
+            line += 1
+        for hours, caption in MODULE_BUCKETS:
+            self.module_labels.append((add(line), hours, caption))
+            line += 1
 
     def _build_generic_row(self, row, index, spec, text_width):
         """The column's stand-in item, under its last row.
@@ -791,6 +924,10 @@ class MaterialsTab(BaseTab):
                 quantities[int(key)] = record.get("amount", 0)
             except (TypeError, ValueError):
                 continue
+        # Period items carry no amount at all -- their copies are
+        # LISTED, each with its own expiry -- so they come through
+        # `period_items` rather than either source above.
+        self._expiries = period_items.held(inventory)
         self._render_icons(quantities)
 
     def _render_icons(self, item_quantities: dict):
@@ -801,27 +938,49 @@ class MaterialsTab(BaseTab):
         loaded.
         """
         self._quantities = item_quantities
-        images_dir = Path(__file__).parent.parent.parent / "images"
         for res_id, label in self.material_icons.items():
-            quantity = item_quantities.get(res_id, 0)
-            # Through `item_art` rather than off a table row: the
-            # tables disagree about what their first fields mean and a
-            # row may or may not state a rarity, so the art is read by
-            # the one accessor that knows every shape.
-            art = item_art(res_id)
-            icon_path = images_dir / art.icon if art else None
-            plate = (images_dir / RARITY_DIR / art.plate
-                     if art and art.plate else None)
-            photo = (create_icon_with_quantity(
-                str(icon_path), quantity, background=self.colors["bg"],
-                plate_path=str(plate) if plate and plate.exists() else None)
-                if icon_path and icon_path.exists() else None)
-            if photo is not None:
-                label.config(image=photo, text="")
-                label.image = photo   # Tk holds no reference of its own
-            else:
-                label.config(text=str(quantity), image="")
+            self._draw_icon(label, res_id, item_quantities.get(res_id, 0))
+
+        # The module's copies, split by how soon each expires. One
+        # `now` for every bucket: reading the clock per row could put
+        # a copy in two windows or in none.
+        counts = _module_buckets(self._expiries.get(MODULE_ITEM, ()),
+                                 time.time())
+        for (label, _hours, caption), held in zip(self.module_labels, counts):
+            self._draw_icon(label, MODULE_ITEM, held, caption)
+
         self._render_stats(item_quantities)
+
+    def _draw_icon(self, label, res_id, quantity, caption=""):
+        """One item's icon, its count, and any words over its corner.
+
+        Through `item_art` rather than off a table row: the tables
+        disagree about what their first fields mean and a row may or
+        may not state a rarity, so the art is read by the one accessor
+        that knows every shape.
+
+        An item whose art is not in the repo draws its PLATE alone and
+        still carries its count -- `item_art` gives it an empty icon
+        name, which is not the same as an id no table knows.
+        """
+        images_dir = Path(__file__).parent.parent.parent / "images"
+        art = item_art(res_id)
+        icon_path = images_dir / art.icon if art and art.icon else None
+        plate = (images_dir / RARITY_DIR / art.plate
+                 if art and art.plate else None)
+        drawable = art is not None and (icon_path is None
+                                        or icon_path.exists())
+        photo = (create_icon_with_quantity(
+            str(icon_path) if icon_path else "", quantity,
+            background=self.colors["bg"],
+            plate_path=str(plate) if plate and plate.exists() else None,
+            corner_text=caption, corner_font_px=CORNER_FONT_PX)
+            if drawable else None)
+        if photo is not None:
+            label.config(image=photo, text="")
+            label.image = photo       # Tk holds no reference of its own
+        else:
+            label.config(text=str(quantity), image="")
 
     def _render_stats(self, item_quantities: dict):
         """The figures under each row's name.
@@ -857,6 +1016,15 @@ class MaterialsTab(BaseTab):
                 # nobody has given is a number with nothing behind it.
                 values[label].config(
                     text=NO_DATA if not cost else f"{100 * total // cost}%")
+
+        # The gacha block counts PULLS, which is neither currency's own
+        # unit -- see `gacha_pulls`.
+        if getattr(self, "gacha_values", None):
+            pulls = gacha_pulls(item_quantities)
+            self.gacha_values[TOTAL_LABEL].config(text=str(pulls))
+            for label, needed, _tip in GACHA_TARGETS:
+                self.gacha_values[label].config(
+                    text=f"{_rounded_percent(pulls, needed)}%")
 
         for values, res_ids in self.advanced_stats.values():
             for label, costs in advanced_costs():

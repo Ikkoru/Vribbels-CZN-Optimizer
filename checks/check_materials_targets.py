@@ -109,7 +109,90 @@ def run():
                 )
 
     failures.extend(_advanced_accumulates_per_item())
+    failures.extend(_module_windows_partition())
+    failures.extend(_gacha_counts_pulls())
     return failures
+
+
+def _module_windows_partition():
+    """The expiry windows split the module's copies, and never share one.
+
+    Four rows draw the same item, each showing the copies expiring
+    inside its own window. Overlapping windows put a copy on two rows
+    and the column reads as more than is held; a gap between them
+    loses one and it reads as fewer. Either way every row still shows
+    a number.
+
+    The last window has no limit, so a copy months out has somewhere to
+    land -- without that, `3+ days` would read 0 forever.
+    """
+    from ui.tabs.materials_tab import MODULE_BUCKETS, _module_buckets
+
+    out = []
+    limits = [hours for hours, _caption in MODULE_BUCKETS]
+    if limits[-1] is not None:
+        out.append(
+            f"the module's last window stops at {limits[-1]}h. A copy past "
+            f"it is counted nowhere, so the rows come to less than is held."
+        )
+    if any(a is None or b is None or a >= b
+           for a, b in zip(limits, limits[1:-1] + [None])
+           if b is not None):
+        out.append(f"the module's windows do not increase: {limits}")
+
+    # One copy per hour out to a week, plus one already expired: every
+    # one has to land in exactly one row.
+    now = 1_000_000
+    copies = [now - 60] + [now + h * 3600 for h in range(0, 24 * 7)]
+    counts = _module_buckets(copies, now)
+    if sum(counts) != len(copies):
+        out.append(
+            f"{len(copies)} copies were counted {sum(counts)} times across "
+            f"{counts}. A copy belongs to exactly one window."
+        )
+    if counts[0] < 1:
+        out.append("an already-expired copy landed in no window; it belongs "
+                   "in the soonest, which is where attention is needed")
+    return out
+
+
+def _gacha_counts_pulls():
+    """The gacha block counts PULLS, and each currency floors on its own.
+
+    A part-paid pull buys nothing, so the two holdings cannot be added
+    and then divided -- 159 Crystals and one Anchor is one pull. Doing
+    it the other way reports a pull the account cannot spend.
+    """
+    from ui.tabs.materials_tab import (
+        GACHA_ITEMS, GACHA_PER_PULL, GACHA_TARGETS, gacha_pulls,
+    )
+
+    out = []
+    if len(GACHA_ITEMS) != len(GACHA_PER_PULL):
+        out.append(
+            f"{len(GACHA_ITEMS)} gacha currencies against "
+            f"{len(GACHA_PER_PULL)} prices; they are zipped, so the extra "
+            f"is dropped without a word."
+        )
+    crystals, anchors = GACHA_ITEMS
+    per = GACHA_PER_PULL[0]
+    got = gacha_pulls({crystals: per - 1, anchors: 1})
+    if got != 1:
+        out.append(
+            f"{per - 1} Crystals and one Anchor came to {got} pulls, not 1. "
+            f"Each currency buys whole pulls before the two are added."
+        )
+    if gacha_pulls({crystals: per * 3, anchors: 2}) != 5:
+        out.append("three pulls of Crystals and two Anchors did not come "
+                   "to five pulls")
+    for _label, needed, tip in GACHA_TARGETS:
+        if str(needed) not in tip:
+            out.append(
+                f"a target of {needed} pulls has the tooltip {tip!r}, which "
+                f"does not say that number. The tooltip is the only place "
+                f"the figure's denominator is written down."
+            )
+    return out
 
 
 def _advanced_accumulates_per_item():

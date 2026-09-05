@@ -1464,19 +1464,19 @@ class HeroesTab(BaseTab):
         # the grid cells inside instead; a pad here would leave a strip
         # of the panel's own darker colour along that edge.
         block.pack(side=tk.BOTTOM, fill=tk.X)
+        self._extra_info_block = block
         block.grid_columnconfigure(
             1, minsize=font.measure("0" * CHAR_EXTRA_DIGITS))
 
         def text(**kwargs):
             """A Label carrying nothing of its own around its words.
 
-            `tk.Label` defaults to a 2px border and a pixel of padding
-            per side, all drawn in the widget's own background -- which
-            would put a lighter halo around every word here.
+            `padding=0`: a ttk.Label's own inset would otherwise land
+            between the value column's edge and its digits, where the
+            pads beside it are measured to the glyphs.
             """
-            return tk.Label(block, font=font, bg=self.colors["bg_light"],
-                            fg=self.colors["fg"], bd=0, highlightthickness=0,
-                            padx=0, pady=0, **kwargs)
+            return ttk.Label(block, font=font, style="Panel.TLabel",
+                             padding=0, **kwargs)
 
         text(text=CHAR_EXTRA_HEADING).grid(
             row=0, column=0, columnspan=2, sticky="w",
@@ -1730,8 +1730,14 @@ class HeroesTab(BaseTab):
             # panel is sized for the card alone and the block eats the
             # last lines of it -- which looks like a card that stops
             # early rather than like a panel that is too short.
-            extra_h = ((1 + len(CHAR_EXTRA_ROWS)) * line_default
-                       + CHAR_EXTRA_INSET)
+            # ASKED FOR, not derived from the font: a ttk.Label's own
+            # inset is a style's to decide and is not the linespace, so
+            # a height built from `line_default` runs short and the
+            # block takes the difference off the card above it.
+            extra_h = self._extra_info_block.winfo_reqheight()
+            if extra_h <= 1:                  # geometry not processed yet
+                extra_h = ((1 + len(CHAR_EXTRA_ROWS)) * line_default
+                           + CHAR_EXTRA_INSET)
             row_h = CHAR_TOTAL_LINES * line_default + PANEL_PAD_H + extra_h
 
             def _fix(frame, w, h):

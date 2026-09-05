@@ -43,6 +43,12 @@ RARITY_PLATE_RATIO = 101 / 114
 # Where the rarity plates live, under the images folder.
 RARITY_DIR = "bg"
 
+# The face a corner caption is drawn in. Segoe UI Bold, so a caption
+# over an icon reads as the same voice as the row names beside it --
+# which Tk names by family and PIL by file. The caller states the pixel
+# size, Tk's point size not being one this module can convert.
+CORNER_FONT_FILE = "segoeuib.ttf"
+
 
 def _flattened(img, background):
     """`img` composited onto an opaque `background`, or as-is without one.
@@ -80,28 +86,58 @@ def _plated(icon, plate_path, size):
     return canvas
 
 
+def _badged(draw, text, at, font, size, corner):
+    """Draw `text` in a dark box, anchored at one corner of the icon.
+
+    `at` is (x, y) for a top-left anchor; `corner` says which corner
+    the pair is pushed into, which is what turns the same measurement
+    into a bottom-right badge or a top-left caption.
+
+    The box is measured AT the text's position rather than at the
+    origin: a glyph's bounding box is not the same shape wherever it is
+    drawn, and boxing the origin's measurements around the drawn text
+    leaves the badge off by the difference.
+    """
+    placed = draw.textbbox(at, text, font=font)
+    pad = max(1, round(size[0] * BADGE_PADDING_RATIO))
+    draw.rectangle([placed[0] - pad, placed[1] - pad,
+                    placed[2] + pad, placed[3] + pad], fill=(0, 0, 0, 200))
+    draw.text(at, text, fill="white", font=font)
+
+
 def create_icon_with_quantity(icon_path: str, quantity: int,
                               size=ICON_SIZE, background=None,
-                              plate_path=None):
+                              plate_path=None, corner_text="",
+                              corner_font_px=0):
     """An icon with its owned quantity in the bottom-right corner.
 
     Args:
-        icon_path: path to the icon image file.
+        icon_path: path to the icon image file, or "" for an item whose
+            art is not in the repo yet -- its plate is drawn alone, and
+            the quantity still lands on it.
         quantity: the number to draw over it.
         size: target size. `ICON_NATIVE_SIZE` is the only value that
             does not resample.
         background: a colour to flatten the icon onto, so nothing is
             left for Tk to composite. None keeps the alpha channel.
         plate_path: the rarity plate to draw the icon on, or None.
+        corner_text: words for the TOP-LEFT corner, where the quantity
+            takes the bottom-right. "" draws none.
+        corner_font_px: pixel size for those words. Passed in rather
+            than derived, so the caller can match a Tk font this module
+            cannot see.
 
     Returns:
         A PhotoImage ready for a Label, or None if the file could not
         be read.
     """
     try:
-        img = Image.open(icon_path).convert("RGBA")
-        if img.size != tuple(size):
-            img = img.resize(tuple(size), Image.Resampling.LANCZOS)
+        if icon_path:
+            img = Image.open(icon_path).convert("RGBA")
+            if img.size != tuple(size):
+                img = img.resize(tuple(size), Image.Resampling.LANCZOS)
+        else:
+            img = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
         img = _plated(img, plate_path, tuple(size))
 
         draw = ImageDraw.Draw(img)
@@ -114,21 +150,18 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
             font = ImageFont.load_default()
 
         bbox = draw.textbbox((0, 0), qty_text, font=font)
-        text_x = size[0] - (bbox[2] - bbox[0]) - margin
-        text_y = size[1] - (bbox[3] - bbox[1]) - margin * 2
+        _badged(draw, qty_text,
+                (size[0] - (bbox[2] - bbox[0]) - margin,
+                 size[1] - (bbox[3] - bbox[1]) - margin * 2),
+                font, size, "se")
 
-        # The box is measured AT the text's position rather than at the
-        # origin: a glyph's bounding box is not the same shape wherever
-        # it is drawn, and boxing the origin's measurements around the
-        # drawn text leaves the badge off by the difference.
-        placed = draw.textbbox((text_x, text_y), qty_text, font=font)
-        pad = max(1, round(size[0] * BADGE_PADDING_RATIO))
-        draw.rectangle(
-            [placed[0] - pad, placed[1] - pad,
-             placed[2] + pad, placed[3] + pad],
-            fill=(0, 0, 0, 200),
-        )
-        draw.text((text_x, text_y), qty_text, fill="white", font=font)
+        if corner_text:
+            try:
+                caption = ImageFont.truetype(CORNER_FONT_FILE,
+                                             max(8, corner_font_px))
+            except OSError:
+                caption = font
+            _badged(draw, corner_text, (margin, margin), caption, size, "nw")
         return ImageTk.PhotoImage(_flattened(img, background))
     except Exception as e:
         print(f"Error creating icon: {e}")

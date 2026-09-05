@@ -453,6 +453,12 @@ NAMED_MATERIALS = {
     3000003: ("Undetermined Ego Crystal", "icon_item_card_levelup_all_1.png"), # Used for the final level of specific Potential Nodes
     3110001: ("Eye of Wailing Prodigal", "icon_item_akcalion_3.png"),          # Used for the final several levels of specific Potential Nodes
     3110004: ("Shards of Condemnation", "currency_chaos.png"),                 # Used for the final several levels of specific Potential Nodes
+    # The two gacha currencies. NO ART YET -- the empty icon field is
+    # what says so, and the rarity beside it is what draws in its
+    # place. That rarity is a display choice rather than the game's
+    # word: neither is priced anywhere a capture reaches.
+    2000004: ("Crystals", "", "Mythic"),                     # 160 to a pull
+    2000010: ("Signal Amplification Anchor", "", "Mythic"),  # one pull each
 }
 
 #
@@ -592,6 +598,11 @@ def item_art(res_id):
     says what the item is, and what comes after it -- if anything --
     states a rarity outright.
 
+    **An icon of `""` is an item with no art yet**, and the caller
+    draws its plate alone. That is not the same as an id no table
+    names, which is None -- one is known and undrawn, the other is not
+    known at all, and a tile in the first case still carries a count.
+
     **A row states its rarity only where nothing can derive it.** A
     shaped row carries a TIER, and `TIER_RARITY` prices every tier
     word; a named row carries a NAME, and `NAME_RARITY` prices those.
@@ -604,7 +615,8 @@ def item_art(res_id):
         if row is None:
             continue
         icons = [i for i, field in enumerate(row)
-                 if isinstance(field, str) and field.endswith(".png")]
+                 if isinstance(field, str)
+                 and (field.endswith(".png") or field == "")]
         if not icons:
             return None
         at = icons[0]

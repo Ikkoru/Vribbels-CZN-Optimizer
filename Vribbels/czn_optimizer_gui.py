@@ -430,6 +430,18 @@ class OptimizerGUI:
         )
         self.style.configure("TFrame", background=self.colors["bg"])
         self.style.configure("TLabel", background=self.colors["bg"], foreground=self.colors["fg"])
+        # For a label sitting on a panel's lighter fill rather than on
+        # the tab's own background -- the Character panel's Extra Info
+        # block, beside a Text painted `bg_light` edge to edge.
+        #
+        # A `ttk` label and not a `tk` one with the colour set by hand:
+        # a classic widget's window is erased to the system default at
+        # first MAP, so one built into a tab nobody has opened yet shows
+        # its background and no glyphs the first time that tab is
+        # shown. `ui_runtime.md` has the measurements; ttk never does it.
+        self.style.configure("Panel.TLabel",
+                             background=self.colors["bg_light"],
+                             foreground=self.colors["fg"])
         # spacing: unique -- a button's own internal inset -- button, text ↕
         # Only the VERTICAL half is decided here, and it stays 5 so the
         # height every button row is built around does not move.
