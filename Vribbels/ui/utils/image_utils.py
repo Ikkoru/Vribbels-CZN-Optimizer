@@ -18,8 +18,8 @@ from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 # What the files hold, and what is drawn. They differ, so every icon
 # is resampled once -- LANCZOS, at build time, not per repaint.
-ICON_NATIVE_SIZE = (114, 114)
-ICON_SIZE = (114, 114)
+ICON_NATIVE_SIZE = (112, 113)
+ICON_SIZE = (112, 113)
 
 # The two things drawn OVER an icon: its owned quantity in the
 # bottom-right corner, and a caption in the top-left. Each has the same
@@ -37,25 +37,25 @@ ICON_SIZE = (114, 114)
 # At the native size the quantity's are 24, 8, 16 and 4.
 BADGE_FONT_RATIO = 24 / ICON_NATIVE_SIZE[0]
 BADGE_MARGIN_RATIO = 8 / ICON_NATIVE_SIZE[0]
-BADGE_BOTTOM_RATIO = 16 / ICON_NATIVE_SIZE[0]
+BADGE_BOTTOM_RATIO = 14 / ICON_NATIVE_SIZE[0]
 BADGE_PADDING_RATIO = 4 / ICON_NATIVE_SIZE[0]
 
 # The caption's, which the CALLER sizes the font of -- it matches a Tk
 # font this module cannot see. At the native size these are 8 and 4.
-CORNER_MARGIN_RATIO = 8 / ICON_NATIVE_SIZE[0]
-CORNER_PADDING_RATIO = 4 / ICON_NATIVE_SIZE[0]
+CORNER_MARGIN_RATIO = 4 / ICON_NATIVE_SIZE[0]
+CORNER_PADDING_RATIO = 3 / ICON_NATIVE_SIZE[0]
 
 # The rarity plate an icon sits on, as a share of the icon's side. The
-# assets are 101 against the icons' 114, and the two are drawn together
+# assets are 101 against the icons' 112, and the two are drawn together
 # -- so the plate is sized from the icon rather than stated, and the
 # pair keeps its proportions at whatever `ICON_SIZE` becomes.
 #
-# 13 pixels apart at the native size, which is ODD: centring leaves one
+# 11 pixels apart at the native size, which is ODD: centring leaves one
 # more pixel on one side than the other, and nothing can divide it
 # evenly. The icons carry a transparent border of their own for exactly
 # this reason -- their art is centred inside it the way the game centres
 # it -- so the plate is what gets the uneven split, not the artwork.
-RARITY_PLATE_RATIO = 101 / 114
+RARITY_PLATE_RATIO = 101 / 112
 
 # Where the rarity plates live, under the images folder.
 RARITY_DIR = "bg"
