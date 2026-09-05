@@ -8,9 +8,14 @@ goes to spacers between the columns, which is what keeps the gaps
 across it equal.
 
 A data row is a name, its figures, and its three tiers as icons, the
-leftmost the most valuable. Its figures come from THAT ROW's three
-counts and no others: each tier priced in bottom-tier equivalents and
-the three summed. **The pricing is the ROW's, not the tab's** -- a
+leftmost the most valuable. **The figures are ONE Text**, not a label
+per number: they were most of the tab's widgets, and a tab switch
+re-runs the geometry managers over every widget on the page. Its
+columns are tab stops and its rows are lines -- the same move the
+Combatants tab's gear cells already made.
+
+A row's figures come from THAT ROW's three counts and no others: each
+tier priced in bottom-tier equivalents and the three summed. **The pricing is the ROW's, not the tab's** -- a
 promotion family runs 9/3/1 and an EXP material 20/5/1, and both spell
 their top tier `Premium`.
 
@@ -203,6 +208,15 @@ def advanced_costs():
     return tuple(out)
 
 
+def _gacha_tag(label):
+    """The Text tag one gacha label's tooltip is bound to.
+
+    Derived from the label rather than listed, so a target added to
+    `GACHA_TARGETS` carries its tooltip with it.
+    """
+    return "tip_" + label.strip(":").replace(" ", "_").lower()
+
+
 def _module_buckets(expiries, now):
     """How many copies fall in each of `MODULE_BUCKETS`, and none twice.
 
@@ -342,6 +356,13 @@ COLUMNS = (
 RESERVED_ROWS = max(len(spec.names) + 1 + (1 if spec.levelling else 0)
                     for spec in COLUMNS)
 
+# What separates one figure line from the next, and a label from its
+# value, inside a figures block. Named because a Text's columns ARE its
+# tabs and its lines ARE its newlines -- so these two characters are
+# structure rather than punctuation.
+LINE_SEP = "\n"
+COLUMN_SEP = "\t"
+
 # The stat lines under a row's name. Small, because they are a readout
 # under a heading rather than content in their own right.
 STAT_FONT = ("Segoe UI", 9)
@@ -372,14 +393,12 @@ ROW_GAP = 3             # spacing: content frame -> content frame -- frame, fram
 # the NAME's box instead.
 HEADING_GAP = 0         # spacing: panel ↕ unrelated label -- heading, frame ↕
 
-# The row name's own box, above its capital and below its baseline. The
-# top is the heading gap's last two pixels; taking them here lifts the
-# figures block two off the icons beside it, which is the smallest
-# disturbance of the three places the distance could come from.
-NAME_PAD_TOP = -2
-# A row's name against the first figure under it. A lever one short of
-# the rule, the name's box ending past its own baseline.
-NAME_PAD_BOTTOM = -1    # spacing: label row -> label row -- label, label ↕
+# A row's name against the first figure under it, as `spacing3` on the
+# name's line. A lever a rendered distance short of the rule -- the
+# name's line box already ends past its own baseline -- and one that
+# CANNOT go negative, unlike the padding this replaced: a Text's line
+# box is the floor for the gap under it.
+NAME_GAP_BELOW = 0      # spacing: label row -> label row -- run, run ↕
 
 # A row's text block against the icons beside it, and a stat line's
 # label against its value. Both are levers a rendered distance short of
@@ -394,9 +413,12 @@ NAME_PAD_BOTTOM = -1    # spacing: label row -> label row -- label, label ↕
 # border so that its art is centred the way the game centres it, and
 # the border is part of the icon rather than part of the gap.
 TEXT_TO_ICONS = 2       # spacing: label ↔ its element -- label, frame ↔
-# The labels all end in a colon, whose ink stops inside its advance --
-# so the pad is the rule's 5 less that and the box inset.
-LABEL_TO_VALUE = 2      # spacing: label ↔ its element -- label, label ↔
+# What separates a label from its value, added into the block's width
+# rather than set as a pad: the value column is a right-aligned TAB
+# STOP now, so what lies between the two is the reservation the stop
+# leaves. The labels all end in a colon, whose ink stops inside its own
+# advance, which is why this is a rendered distance short of the rule.
+LABEL_TO_VALUE = 2      # spacing: label ↔ its element -- run, run ↔
 
 # The generic row's checkbox against the icon beside it.
 GENERIC_TO_CHECKBOX = 5  # spacing: label ↔ its element -- frame, checkbox ↔
@@ -584,49 +606,13 @@ class MaterialsTab(BaseTab):
         `label` overrides the heading, for a row whose group name
         is not what the user calls it.
         """
-        text = ttk.Frame(row)
-        text.pack(side=tk.LEFT, anchor=tk.N)
-        # The figures' column, held at its reserved width. `minsize` is
-        # a floor, so a value wider than the reservation still widens
-        # it -- which is why the reservation covers the widest form the
-        # column can hold rather than four digits alone.
-        text.grid_columnconfigure(1, minsize=self._value_column_px())
-        # And the label column at the column's own width, so every row
-        # in it reserves the same block and their icons line up.
-        text.grid_columnconfigure(0, minsize=label_width)
-
-        # Spanning both columns with no sticky, which centres it over
-        # the figures. The columns are left to size to their own
-        # content: giving them weights would split the block evenly and
-        # pull the colons off the value column.
-        ttk.Label(text, text=label or name, font=NAME_FONT,
-                  foreground=ATTRIBUTE_COLORS.get(name, self.colors["fg"]),
-                  padding=(0, NAME_PAD_TOP, 0, NAME_PAD_BOTTOM),
-                  ).grid(row=0, column=0, columnspan=2)
-
-        values = {}
-        # `figure`, not `label`: the parameter of that name is the
-        # row's heading, and a loop variable shadowing it registered
-        # every row under the last figure's name instead of its own.
-        for line, figure in enumerate(
-                (TOTAL_LABEL, *(word for word, _cost in targets)), start=1):
-            # The colons line up because the labels are right-aligned
-            # in their own column and the values left-aligned in
-            # theirs; the pad is the whole of the gap between them.
-            ttk.Label(text, text=figure, font=STAT_FONT).grid(
-                row=line, column=0, sticky="e", padx=(0, LABEL_TO_VALUE))
-            # `sticky=ew` with `anchor=e`: the widget fills the column
-            # and the digits sit at its right. Sticking it east instead
-            # would right-align the WIDGET, which is the same thing to
-            # look at and leaves nothing at the column's left edge --
-            # and that edge is where the label beside it is spaced from,
-            # so it has to be a real one.
-            value = ttk.Label(text, text=NO_DATA, font=STAT_FONT,
-                              anchor=tk.E)
-            value.grid(row=line, column=1, sticky="ew")
-            values[figure] = value
+        # The name, the `Total:` line, then one line per target.
+        figures = self._figures_block(
+            row, label_width + self._value_column_px(),
+            2 + len(targets), (label_width + self._value_column_px(),),
+            ATTRIBUTE_COLORS.get(name, self.colors["fg"]), label or name)
         self.material_stats[(index, label or name)] = (
-            values, targets, table, name, tiers, weights, takes_generic)
+            figures, targets, table, name, tiers, weights, takes_generic)
 
         icons = ttk.Frame(row)
         icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
@@ -637,6 +623,93 @@ class MaterialsTab(BaseTab):
             res_id = self._res_id_for(table, name, tier)
             if res_id is not None:
                 self.material_icons[res_id] = label
+
+    def _figures_block(self, row, width_px, lines, stops, colour, name):
+        """One row's figures as a SINGLE Text, sized to the pixel.
+
+        Every figure used to be its own Label -- nine or more per row,
+        and most of the tab's widgets. A tab switch re-runs the geometry
+        managers over every one of them, which was most of what a switch
+        to this tab cost; one Text per row is the same reading for a
+        fraction of the layout. Same move the Combatants tab's gear
+        cells already made.
+
+        A Text sizes in CHARACTERS and LINES, neither of which is this
+        block's width, and its `height` multiplies ONE font's linespace
+        where the name line is set in another. So it goes in a frame
+        fixed to the pixel with its propagation off, and fills it.
+
+        `stops` are the right edges of the value columns, in pixels
+        from the block's left. Right-aligned, so the digits line up
+        down the column whatever their width.
+        """
+        holder = tk.Frame(row, width=width_px,
+                          height=self._block_height_px(lines),
+                          bg=self.colors["bg"])
+        holder.pack_propagate(False)
+        holder.pack(side=tk.LEFT, anchor=tk.N)
+
+        text = tk.Text(
+            holder, wrap=tk.NONE, bd=0, highlightthickness=0,
+            padx=0, pady=0, bg=self.colors["bg"], fg=self.colors["fg"],
+            font=STAT_FONT,
+            # Selectable but never focusable, and no insertion cursor:
+            # the figures can be copied, and nothing about them invites
+            # typing.
+            takefocus=0, insertwidth=0, cursor="arrow",
+            tabs=tuple(x for stop in stops for x in (stop, "right")),
+        )
+        text.pack(fill=tk.BOTH, expand=True)
+        # spacing: label row -> label row -- run, run ↕
+        # The gap under the row NAME, which was that label's own bottom
+        # padding. `spacing3` is the only lever for it in a Text, and
+        # unlike a padding it cannot go negative -- so the name's line
+        # box is the floor here rather than something to trim past.
+        text.tag_configure("name", font=NAME_FONT, foreground=colour,
+                           justify=tk.CENTER, spacing3=NAME_GAP_BELOW)
+        text.tag_configure("figure", font=STAT_FONT)
+        text.name = name
+        return text
+
+    @staticmethod
+    def _block_height_px(lines):
+        """A figures block's height: its name line, then its figures.
+
+        Measured rather than multiplied by one linespace, the name
+        being set in a larger face than the figures under it.
+        """
+        return (tkfont.Font(font=NAME_FONT).metrics("linespace")
+                + NAME_GAP_BELOW
+                + (lines - 1) * tkfont.Font(font=STAT_FONT)
+                .metrics("linespace"))
+
+    @staticmethod
+    def _tag_label(text, label, tag):
+        """Put `tag` over one line's LABEL, wherever that line sits.
+
+        Re-applied after every fill: rewriting a Text drops the tags
+        with the characters they were on, so a tooltip bound to one
+        would stop answering after the first refresh.
+        """
+        where = text.search(label, "1.0", tk.END)
+        if where:
+            text.tag_add(tag, where, f"{where}+{len(label)}c")
+
+    @staticmethod
+    def _fill_figures(text, rows):
+        """Rewrite a block: its name, then one line per figure.
+
+        `rows` is (label, values) per line, the values already
+        formatted. Written whole rather than patched line by line --
+        a Text has no per-line assignment, and the block is small.
+        """
+        text.config(state=tk.NORMAL)
+        text.delete("1.0", tk.END)
+        text.insert("1.0", text.name, "name")
+        for label, values in rows:
+            line = LINE_SEP + COLUMN_SEP.join((label, *values))
+            text.insert(tk.END, line, "figure")
+        text.config(state=tk.DISABLED)
 
     def _build_advanced_row(self, row, index, spec):
         """The materials that level a node without being a stone.
@@ -653,33 +726,16 @@ class MaterialsTab(BaseTab):
         and holding it to that width would push the block wider still
         for no reason.
         """
-        text = ttk.Frame(row)
-        text.pack(side=tk.LEFT, anchor=tk.N)
         stat = tkfont.Font(font=STAT_FONT)
         value_px = self._value_column_px()
-        text.grid_columnconfigure(
-            0, minsize=max(stat.measure(word) for word, _costs
-                           in ADVANCED_TARGETS) + LABEL_INSET_PX)
-        for position in range(len(spec.advanced)):
-            text.grid_columnconfigure(1 + position, minsize=value_px)
-
-        span = 1 + len(spec.advanced)
-        ttk.Label(text, text=ADVANCED_LABEL, font=NAME_FONT,
-                  foreground=self.colors["fg"],
-                  padding=(0, NAME_PAD_TOP, 0, NAME_PAD_BOTTOM),
-                  ).grid(row=0, column=0, columnspan=span)
-
-        values = {}
-        for line, (word, _costs) in enumerate(ADVANCED_TARGETS, start=1):
-            ttk.Label(text, text=word, font=STAT_FONT).grid(
-                row=line, column=0, sticky="e", padx=(0, LABEL_TO_VALUE))
-            values[word] = []
-            for position in range(len(spec.advanced)):
-                value = ttk.Label(text, text=NO_DATA, font=STAT_FONT,
-                                  anchor=tk.E)
-                value.grid(row=line, column=1 + position, sticky="ew")
-                values[word].append(value)
-        self.advanced_stats[index] = (values, spec.advanced)
+        labels = max(stat.measure(word) for word, _costs
+                     in ADVANCED_TARGETS) + LABEL_INSET_PX
+        stops = tuple(labels + value_px * (n + 1)
+                      for n in range(len(spec.advanced)))
+        figures = self._figures_block(
+            row, stops[-1], 1 + len(ADVANCED_TARGETS), stops,
+            self.colors["fg"], ADVANCED_LABEL)
+        self.advanced_stats[index] = (figures, spec.advanced)
 
         icons = ttk.Frame(row)
         icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
@@ -696,35 +752,22 @@ class MaterialsTab(BaseTab):
         rather than how many are held. That is why it does not go
         through `_build_row`, whose totals are in an item's own units.
         """
-        text = ttk.Frame(row)
-        text.pack(side=tk.LEFT, anchor=tk.N)
         stat = tkfont.Font(font=STAT_FONT)
-        text.grid_columnconfigure(1, minsize=self._value_column_px())
-        text.grid_columnconfigure(
-            0, minsize=max(stat.measure(word) for word, _p, _t
-                           in GACHA_TARGETS) + LABEL_INSET_PX)
+        labels = max(stat.measure(word) for word, _p, _t
+                     in GACHA_TARGETS) + LABEL_INSET_PX
+        self.gacha_figures = self._figures_block(
+            row, labels + self._value_column_px(),
+            1 + 1 + len(GACHA_TARGETS),
+            (labels + self._value_column_px(),),
+            self.colors["fg"], GACHA_LABEL)
 
-        ttk.Label(text, text=GACHA_LABEL, font=NAME_FONT,
-                  foreground=self.colors["fg"],
-                  padding=(0, NAME_PAD_TOP, 0, NAME_PAD_BOTTOM),
-                  ).grid(row=0, column=0, columnspan=2)
-
-        self.gacha_values = {}
-        rows = ((TOTAL_LABEL, ""),
-                *((word, tip) for word, _pulls, tip in GACHA_TARGETS))
-        for line, (word, tip) in enumerate(rows, start=1):
-            label = ttk.Label(text, text=word, font=STAT_FONT)
-            label.grid(row=line, column=0, sticky="e",
-                       padx=(0, LABEL_TO_VALUE))
-            if tip:
-                # On the LABEL, not the value: the words are what the
-                # tooltip explains, and a value column reserved four
-                # digits wide is mostly empty to hover over.
-                self._tooltip.bind(label, tip)
-            value = ttk.Label(text, text=NO_DATA, font=STAT_FONT,
-                              anchor=tk.E)
-            value.grid(row=line, column=1, sticky="ew")
-            self.gacha_values[word] = value
+        # A tooltip per LABEL, not per value: the words are what it
+        # explains, and a value column reserved four digits wide is
+        # mostly empty to hover over. Bound to a TAG rather than a
+        # widget, the labels being runs of text inside one Text.
+        for word, _pulls, tip in GACHA_TARGETS:
+            self.gacha_figures.tag_configure(_gacha_tag(word))
+            self._tooltip.bind_tag(self.gacha_figures, _gacha_tag(word), tip)
 
         icons = ttk.Frame(row)
         icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
@@ -1004,7 +1047,7 @@ class MaterialsTab(BaseTab):
         """
         for key, row in self.material_stats.items():
             index, _shown = key
-            values, targets, table, group, tiers, weights, takes = row
+            figures, targets, table, group, tiers, weights, takes = row
             total = 0
             for tier in tiers:
                 res_id = self._res_id_for(table, group, tier)
@@ -1016,29 +1059,36 @@ class MaterialsTab(BaseTab):
                 generic = self._column_generics.get(index)
                 if generic is not None:
                     total += item_quantities.get(generic, 0)
-            values[TOTAL_LABEL].config(text=str(total))
-            for label, cost in targets:
-                # An unpriced target reads `-`: a percentage of a cost
-                # nobody has given is a number with nothing behind it.
-                values[label].config(
-                    text=NO_DATA if not cost else f"{100 * total // cost}%")
+            # An unpriced target reads `-`: a percentage of a cost
+            # nobody has given is a number with nothing behind it.
+            self._fill_figures(figures, [
+                (TOTAL_LABEL, (str(total),)),
+                *((label, (NO_DATA if not cost
+                           else f"{100 * total // cost}%",))
+                  for label, cost in targets),
+            ])
 
         # The gacha block counts PULLS, which is neither currency's own
         # unit -- see `gacha_pulls`.
-        if getattr(self, "gacha_values", None):
+        if getattr(self, "gacha_figures", None) is not None:
             pulls = gacha_pulls(item_quantities)
-            self.gacha_values[TOTAL_LABEL].config(text=str(pulls))
-            for label, needed, _tip in GACHA_TARGETS:
-                self.gacha_values[label].config(
-                    text=f"{_rounded_percent(pulls, needed)}%")
+            self._fill_figures(self.gacha_figures, [
+                (TOTAL_LABEL, (str(pulls),)),
+                *((label, (f"{_rounded_percent(pulls, needed)}%",))
+                  for label, needed, _tip in GACHA_TARGETS),
+            ])
+            for label, _needed, _tip in GACHA_TARGETS:
+                self._tag_label(self.gacha_figures, label, _gacha_tag(label))
 
-        for values, res_ids in self.advanced_stats.values():
-            for label, costs in advanced_costs():
-                for cell, res_id, cost in zip(values[label], res_ids, costs):
-                    # Each against its OWN stock, and against the cost
-                    # ACCUMULATED down its own column. Nothing crosses
-                    # between items: a total across them would price a
-                    # swap that cannot be made.
-                    held = item_quantities.get(res_id, 0)
-                    cell.config(text=NO_DATA if not cost
-                                else f"{100 * held // cost}%")
+        for figures, res_ids in self.advanced_stats.values():
+            # Each against its OWN stock, and against the cost
+            # ACCUMULATED down its own column. Nothing crosses between
+            # items: a total across them would price a swap that cannot
+            # be made.
+            self._fill_figures(figures, [
+                (label, tuple(
+                    NO_DATA if not cost
+                    else f"{100 * item_quantities.get(res_id, 0) // cost}%"
+                    for res_id, cost in zip(res_ids, costs)))
+                for label, costs in advanced_costs()
+            ])

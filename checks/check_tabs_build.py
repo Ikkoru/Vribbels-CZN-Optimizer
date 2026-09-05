@@ -926,11 +926,16 @@ def _materials_rows_each_register(tab):
             if key not in tab.material_stats:
                 out.append(f"no figures registered for {key}")
                 continue
-            values = tab.material_stats[key][0]
+            # A block is ONE Text now, so its figures are read off its
+            # lines rather than off a dict of widgets -- the label is
+            # everything before the line's first tab.
+            figures = tab.material_stats[key][0]
+            drawn = [line.split("	")[0] for line
+                     in figures.get("2.0", "end-1c").splitlines()]
             wanted = [TOTAL_LABEL] + [word for word, _cost in spec.targets]
-            if list(values) != wanted:
+            if drawn != wanted:
                 out.append(
-                    f"{key} carries figures {list(values)}, not {wanted}"
+                    f"{key} carries figures {drawn}, not {wanted}"
                 )
             if not tab.material_stats[key][6]:
                 out.append(

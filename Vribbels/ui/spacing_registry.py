@@ -3234,23 +3234,45 @@ def _audit_window_class(*classes):
     return find
 
 
+# Which of the tab's columns the Growth Stones are, counting from the
+# left. By POSITION and not by its heading's words: a row's figures are
+# now one Text, so the Element names are text INSIDE a widget and no
+# scan for a widget whose words start `Passion` can find them.
+STONES_COLUMN = 2
+
+
+def _materials_rows(app):
+    """Locator: the frame holding one column's rows."""
+    parts = _materials_column(STONES_COLUMN)(app).winfo_children()
+    if len(parts) < 2:
+        raise LookupError("the stones column has no rows under its heading")
+    return parts[1]
+
+
 def _materials_part(index):
     """Locator: one half of the Materials tab's first Element row.
 
-    Walked up from the Element's NAME rather than read off an attribute
-    stored for the audit: the name is the only text in the row, its
-    parent is the block of figures, and that block's parent holds the
-    two halves in the order they were built -- figures, then icons.
-
-    `Passion` is the first Element and appears once.
+    A row holds its two halves in the order they were built -- figures,
+    then icons.
     """
     def find(app):
-        row = _by_text("Passion")(app).master.master
-        parts = row.winfo_children()
+        parts = _materials_rows(app).winfo_children()[0].winfo_children()
         if len(parts) <= index:
             raise LookupError(f"the Materials row has no part {index}")
         return parts[index]
     return find
+
+
+def _materials_figures_text(app):
+    """Locator: the Text inside the first Element row's figures block.
+
+    The block is a frame fixed to the pixel with a Text filling it --
+    see `_figures_block` -- so the words are one level in.
+    """
+    inside = _materials_part(0)(app).winfo_children()
+    if not inside:
+        raise LookupError("the figures block holds no text widget")
+    return inside[0]
 
 
 def _materials_column(position):
@@ -3265,21 +3287,6 @@ def _materials_column(position):
         if not holders:
             raise LookupError("the Materials tab has no columns")
         return holders[0].winfo_children()[position]
-    return find
-
-
-def _materials_child(part, position):
-    """Locator: one widget inside a half of that row.
-
-    The icons carry an image and the figures carry two widgets per
-    line, so neither can be found by its words.
-    """
-    def find(app):
-        children = _materials_part(part)(app).winfo_children()
-        if len(children) <= position:
-            raise LookupError(
-                f"Materials row part {part} has no child {position}")
-        return children[position]
     return find
 
 
@@ -3568,27 +3575,41 @@ def _smallest_text_gap(pairs):
 def _materials_name_gap():
     """Resolver: one row's name against the first figure under it.
 
-    ONE pair, not the smallest of nineteen: every row is built by the
-    same call with the same pads, so the rows cannot differ -- and the
-    reading that looked like a spread was the NAMES differing. A `g` in
-    `Vanguard` reaches below the baseline the rule measures from, and
-    the rows whose names have one read three tighter.
+    Both are LINES of one Text now, so the gap is between two painted
+    bands rather than between two widgets -- `dlineinfo` is what gives
+    each line its own band.
 
+    ONE row, not the smallest of nineteen: every row is built by the
+    same call with the same spacing, so the rows cannot differ -- and
+    the reading that looked like a spread was the NAMES differing. A
+    `g` in `Vanguard` reaches below the baseline the rule measures
+    from, and the rows whose names have one read three tighter.
     Corrected here rather than dodged by choosing a name without one:
     the names are the game's and a future class could carry any glyph.
     """
     def resolve(cap, app):
-        for _title, _index, text, _labels in _materials_walk(app):
-            if text is None:
-                continue
-            children = text.winfo_children()
-            if len(children) < 2:
-                continue
-            name = children[0]
-            return restate_from_reference(
-                *sa.vertical_gap(cap, name, children[1]),
-                ink_below_baseline(str(name.cget("text"))))
-        return None, "no row with a name and a figure under it"
+        widget = _materials_figures_text(app)
+        origin = sa.box_of(widget).top
+        bands = []
+        for line in (1, 2):
+            info = widget.dlineinfo(f"{line}.0")
+            if info is None:
+                return None, "the figures block has not been laid out"
+            bands.append((origin + info[1], origin + info[1] + info[3]))
+        box = _inside_border(widget)
+        colours = {_widget_fill(widget)}
+        first = sa.painted_extent_v(
+            cap, sa.Box(box.left, bands[0][0], box.right, bands[0][1]),
+            colours)
+        second = sa.painted_extent_v(
+            cap, sa.Box(box.left, bands[1][0], box.right, bands[1][1]),
+            colours)
+        if first is None or second is None:
+            return None, "a line of the figures block painted nothing"
+        name = widget.get("1.0", "1.end")
+        return restate_from_reference(
+            sa.gap_between(first[1], second[0]), "",
+            ink_below_baseline(str(name)))
     return resolve
 
 
@@ -3602,8 +3623,7 @@ def _materials_row_below():
     where the rule here is about the pictures.
     """
     def find(app):
-        rows = _by_text("Passion")(app).master.master.master
-        children = rows.winfo_children()
+        children = _materials_rows(app).winfo_children()
         if len(children) < 2:
             raise LookupError("Materials has fewer than two Element rows")
         return children[1].winfo_children()[1].winfo_children()[0]
@@ -3707,7 +3727,8 @@ MATERIALS_ENTRIES = [
     # between them was the render, not the reading.
     ("Materials", "Materials: heading -> its first row", 10,
      RULE_PANEL_UNRELATED_LABEL,
-     _gap(_by_text("Potential Growth Stones"), _by_text("Passion"), "v"),
+     _gap(lambda app: _materials_column(STONES_COLUMN)(app)
+          .winfo_children()[0], _materials_figures_text, "v"),
      "v"),
     # Ink at the text's end, BOX at the icons'. Every icon carries a
     # transparent border so that its art is centred the way the game
@@ -3718,10 +3739,16 @@ MATERIALS_ENTRIES = [
      _smallest_text_gap(_materials_text_pairs), "h"),
     ("Materials", "Materials: icon -> icon", 4, RULE_CONTENT_FRAME,
      _smallest_gap(_materials_icon_pairs, "h"), "h"),
-    # Children 1 and 2 of the figures block are the first line's label
-    # and its value; child 0 is the Element's name above them.
-    ("Materials", "Materials: Total: -> its column", 5, RULE_LABEL_ELEMENT,
-     _ink_to_box_edge(_materials_child(0, 1), _materials_child(0, 2)), "h"),
+    # A figures block's label and value are runs inside one Text now,
+    # so the gap between them is a TAB STOP's, read the way the
+    # Character panel's stat columns are. The stop is RIGHT-aligned, so
+    # the smallest reading across the lines is the one that was set --
+    # a short value starts further right and leaves the reservation
+    # showing after its label.
+    ("Materials", "Materials: label -> its value", 5, RULE_LABEL_ELEMENT,
+     _text_column_gap(_materials_figures_text,
+                      ("Total:	", "Max best:	", "+Neutral:	"), 0),
+     "h"),
     ("Materials", "Materials: icon row -> icon row", 4, RULE_CONTENT_FRAME,
      _smallest_gap(_materials_row_pairs, "v"), "v"),
     # The row name against the first figure under it. Text to text, so
@@ -3841,6 +3868,12 @@ AWAITING_FIRST_READING = {
     # The Materials tab's other five read on target once its columns
     # settled; these two have not been read since they last moved.
     "Materials: figures -> its icons",
+    # Rewritten when the figures became one Text per row: their
+    # resolvers read painted LINES and TAB STOPS where they read
+    # widgets, and nothing has confirmed the three against a screen.
+    "Materials: heading -> its first row",
+    "Materials: label -> its value",
+    "Materials: row name -> its figures",
     "Materials: window edge -> first column",
     "Materials: reserved column -> window edge",
     "Character: node -> its level",
