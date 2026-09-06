@@ -477,7 +477,7 @@ class CaptureTab(BaseTab):
         # top gap again after any font change here.
         self.capture_log = make_scrolled_text(
             log_frame, self.colors, height=15, wrap=tk.WORD,
-            font=("Segoe UI Variable Small", 11), pady=px(0),
+            font=("Segoe UI Variable Small", 11), pady=0,
         )
         self.capture_log.pack(fill=tk.BOTH, expand=True)
 

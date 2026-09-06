@@ -1004,6 +1004,95 @@ def _level_stepper_offers_auto(tab):
     return out
 
 
+def _setup_columns_hold_their_shape(tab):
+    """The Setup tab's two columns, and what each is pinned to.
+
+    The LEFT column is fixed to what the instructions need to read
+    unwrapped, and `Setup Status`, the buttons and `Setup Instructions`
+    all take that width. The RIGHT takes the rest, and its three panels
+    share one width and one x.
+
+    **None of that survives a stray `fill` or a lost
+    `pack_propagate`.** A column that resumes sizing to its children
+    still LOOKS laid out -- the panels are all still there, at widths
+    nobody chose -- so the pinning is checked here rather than on a
+    screen.
+
+    Structural, because rendered geometry needs a mapped window: the
+    configured width, the propagation flag, and which panels sit in
+    which column. Returns a list of complaints.
+    """
+    from ui.scaling import px
+    from ui.tabs.setup_tab import INSTRUCTIONS, SetupTab
+
+    out = []
+
+    def panels_in(widget, found=None):
+        found = {} if found is None else found
+        for child in widget.winfo_children():
+            if child.winfo_class() == "TLabelframe":
+                found[child.cget("text")] = child
+            panels_in(child, found)
+        return found
+
+    # main_frame -> [header..., columns]; the columns frame is the one
+    # holding two plain frames and nothing else.
+    columns = None
+    for frame in tab.get_frame().winfo_children():
+        for child in frame.winfo_children():
+            kids = child.winfo_children()
+            if (len(kids) == 2
+                    and all(k.winfo_class() == "TFrame" for k in kids)
+                    and panels_in(child)):
+                columns = child
+    if columns is None:
+        return ["the Setup tab has no two-column frame; the layout that "
+                "pins Setup Instructions' width has gone."]
+
+    left, right = columns.winfo_children()
+    want = px(SetupTab._instructions_width())
+    if int(left.cget("width")) != want:
+        out.append(
+            f"the Setup tab's left column is {left.cget('width')}px wide, "
+            f"not the {want} the instructions need. That width is what "
+            f"keeps the block from wrapping, and a wrapped line is not a "
+            f"crash -- it just reads wrong.")
+    left_panels = set(panels_in(left))
+    right_panels = list(panels_in(right))
+    if left_panels != {"Setup Status", "Setup Instructions"}:
+        out.append(
+            f"the Setup tab's left column holds {sorted(left_panels)}, not "
+            f"Setup Status and Setup Instructions. Those two share the "
+            f"column's fixed width; anything else in there is pinned to a "
+            f"width chosen for something it is not.")
+    if set(right_panels) != {"Restore Defaults", "Update Status", "Settings"}:
+        out.append(
+            f"the Setup tab's right column holds {sorted(right_panels)}, "
+            f"not Restore Defaults, Update Status and Settings. The three "
+            f"are stacked so they share one width and one x.")
+
+    text = None
+    for widget in _descendants(tab.get_frame()):
+        if (widget.winfo_class() == "Text"
+                and str(widget.cget("wrap")) == "word"):
+            text = widget
+    if text is not None:
+        lines = len(INSTRUCTIONS.splitlines())
+        if int(text.cget("height")) != lines:
+            out.append(
+                f"the instructions are {lines} lines and their Text asks "
+                f"for {text.cget('height')}. The panel is meant to end "
+                f"where the text does -- a taller one leaves dead space "
+                f"and a shorter one hides a line behind a scrollbar.")
+    return out
+
+
+def _descendants(widget):
+    yield widget
+    for child in widget.winfo_children():
+        yield from _descendants(child)
+
+
 def _materials_figures_fit(tab):
     """No figures block may draw past the frame it is pinned inside.
 
@@ -1450,6 +1539,8 @@ def run():
         if "SetupTab" in built:
             failures.extend(_restore_dialog_frames_follow_the_rules(
                 built["SetupTab"], root))
+            failures.extend(
+                _setup_columns_hold_their_shape(built["SetupTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))

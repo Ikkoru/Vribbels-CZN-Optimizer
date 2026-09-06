@@ -493,12 +493,13 @@ A `unique` names no rule, so nothing derives its number — and the registry's r
 
 ## The unruled rows, as a table
 
-**Empty.** Every deliberate spacing value now names a rule, an exception, or a `unique`. `checks/check_spacing_markers.py` compares this section against the `# spacing: TBD -- ...` markers in the code, so a row here with no site — or a site with no row — fails.
-
-The form, for when the next one appears:
+`checks/check_spacing_markers.py` compares this section against the `# spacing: TBD -- ...` markers in the code, so a row here with no site — or a site with no row — fails.
 
 | Description | Location | Rule/Question |
 | ----------- | -------- | ------------- |
+| the Update Status verdict under its two readings | `ui/update_check.py`, `VERDICT_GAP` | A one-line status readout under a pair of label rows. The rows above it are not an explanation of it, so `explanation text -> the controls it explains` does not apply, and it is not a label ROW pitch either — the rows above carry no pady at all, their line boxes supplying the pitch. Does a status line under a block of readings want a rule of its own, or the label-row pitch? |
+| the Check Now button under the Update Status verdict | `ui/update_check.py`, `BUTTON_GAP` | Nothing in the table rules on a button under a label. `border edge -> button` is the only button rule with a vertical sense and it measures to a panel edge, not to a neighbour. |
+| one Settings row under another's explanation | `ui/tabs/setup_tab.py`, `SETTINGS_ROW_GAP` | A dropdown row under the previous row's explanation text. `explanation text -> the controls it explains` covers the gap ABOVE the explanation; this is the one below it, back up to the next control. |
 
 ## Checking spacing
 

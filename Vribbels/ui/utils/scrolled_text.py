@@ -65,15 +65,17 @@ class _ScrolledText(tk.Text):
         return str(self.frame)
 
 
-def make_scrolled_text(parent, colors, *, padx=px(4), pady=px(3), **kwargs):
+def make_scrolled_text(parent, colors, *, padx=4, pady=3, **kwargs):
     """A dark-themed scrolled text, wrapper and scrollbar included.
 
     Args:
         parent: the containing widget.
         colors: the palette dict every tab carries as `self.colors`.
-        padx / pady: the text's own inset. `pady` differs between panels
-            because the font's line box already contributes space above
-            the first glyph -- see `docs/ui_spacing.md`.
+        padx / pady: the text's own inset, UNSCALED -- `px` is applied
+            below, so a caller passes the 100% distance. `pady` differs
+            between panels because the font's line box already
+            contributes space above the first glyph -- see
+            `docs/ui_spacing.md`.
         **kwargs: passed to the Text (`height`, `wrap`, `font`, ...).
     """
     opts = dict(

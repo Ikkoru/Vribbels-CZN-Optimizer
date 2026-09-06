@@ -1,11 +1,28 @@
-"""Setup tab for first-time configuration and prerequisite checking.
+"""Setup & Settings: first-time configuration, and the app's own switches.
 
-Also hosts the "Restore Defaults" panel (right of "Setup Status") and
-its modal dialogs (`Restore Default Presets`, `Restore Default Combatant
-Presets`, `Restore Default Combatant Settings`) for restoring missing
-defaults and replacing changed defaults at per-entry granularity. See
+TWO COLUMNS, and the split is what the widths mean. The LEFT is fixed
+to what the instructions need to read without wrapping -- `Setup
+Status`, the two setup buttons and `Setup Instructions` all take that
+width, so the column has one edge down its whole length. Everything
+left over goes to the RIGHT, where `Restore Defaults`, `Update Status`
+and `Settings` stack at one width and one x.
+
+`Setup Instructions` is as tall as its text and no taller: it is a
+fixed block that never grows, so a panel sized to hold it exactly is
+the whole of it.
+
+Also hosts the "Restore Defaults" panel and its modal dialogs
+(`Restore Default Presets`, `Restore Default Combatant Presets`,
+`Restore Default Combatant Settings`) for restoring missing defaults
+and replacing changed defaults at per-entry granularity. See
 `_open_restore_dialog` and the helpers it calls (`_compute_diffs`,
 `_apply_restore_changes`).
+
+The `Settings` panel holds what the program does rather than what the
+game holds: the UI scale and the optimizer's worker count. **Both take
+effect on the next launch** -- the scale is read before any widget
+exists and the worker count is read when a run starts -- which is why
+each says so beside itself.
 
 The three "kinds" of restore share a generalized dialog (grid-laid-out
 rows with stable column positions) and differ only in:
@@ -17,6 +34,7 @@ rows with stable column positions) and differ only in:
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter import font as tkfont
 import json
 import copy
 import subprocess
@@ -34,6 +52,8 @@ from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 from defaults_sync import resolve_defaults_dir
 from ui.scaling import px
+from ui import scaling
+from ui.update_check import UpdateStatus
 
 
 _RENAME_PLACEHOLDER = "Rename current preset to..."
@@ -54,6 +74,57 @@ _RENAME_PLACEHOLDER = "Rename current preset to..."
 RESTORE_ROW_GAP = 4     # spacing: button -> button -- button, button ↕
 RESTORE_EDGE_PAD = 3    # spacing: border edge -> button -- panel, button ↔↕
 RESTORE_TEXT_TRIM = -2  # spacing: button -> button -- button, button ↕
+
+# The face the instructions are set in, and what a panel adds around a
+# text block of that face. The width of the LEFT COLUMN is computed
+# from the two -- see `_instructions_width` -- so a wrap in the
+# instructions means one of these is short rather than that the text
+# needs rewriting.
+INSTRUCTIONS_FONT = ("Segoe UI Variable Small", 11)
+INSTRUCTIONS_PAD = 4    # spacing: border edge -> first non-button element -- panel, text ↔
+
+# What a LabelFrame, a scrollbar and the Text's own inset cost around
+# the widest line. MEASURED once and written down rather than derived:
+# a ttk border is the theme's and a scrollbar's width is the theme's
+# too, and neither is readable before the widgets exist.
+INSTRUCTIONS_CHROME = 34
+
+# The Settings panel. Its rows are a label and a control, and the two
+# columns line up under each other.
+SETTINGS_PAD = 4        # spacing: border edge -> first non-button element -- panel, label ↔↕
+SETTINGS_LABEL_GAP = 5  # spacing: label ↔ its element -- label, dropdown ↔
+SETTINGS_NOTE_GAP = 2   # spacing: explanation text -> the controls it explains -- dropdown, label ↕
+SETTINGS_ROW_GAP = 6    # spacing: TBD -- one Settings row under another's explanation
+
+# What the scale dropdown is worth, and what a change to it needs.
+SCALE_NOTE = "Applies on the next launch."
+
+# The instructions, as a module constant: the LEFT COLUMN's width is
+# computed from their widest line before any widget exists, so they
+# cannot be built inside the function that lays them out.
+INSTRUCTIONS = """STEP 1: Generate and install certificate
+  - Click "Generate & Install Cert" button
+  - When the certificate dialog opens:
+    1. Click "Install Certificate"
+    2. Select "Local Machine"
+    3. Click Next
+    4. Select "Place all certificates in the following store"
+    5. Click Browse and select "Trusted Root Certification Authorities"
+    6. Click OK, Next, then Finish
+
+STEP 2: Verify setup
+  - Click "Check Status" to verify all components are ready
+  - All items should show green checkmarks [OK]"""
+
+# The optimizer's worker count. `Auto` is 0 in settings and `Off` is 1
+# -- the optimizer takes the sequential path at one worker -- so the
+# dropdown's words are mapped rather than parsed.
+WORKERS_AUTO = "Auto"
+WORKERS_OFF = "Off"
+WORKERS_WARNING = (
+    "Leave this on Auto unless you know what you are doing.\n"
+    "Turning it Off makes the Optimizer MUCH slower."
+)
 
 
 # -------- per-kind metadata for the generalized restore dialog --------
@@ -118,6 +189,21 @@ class SetupTab(BaseTab):
     # UI construction
     # ====================================================================
 
+    @staticmethod
+    def _instructions_width():
+        """The pixel width the instructions need to read unwrapped.
+
+        The widest line in the block, plus what a panel puts around a
+        text of that face. COMPUTED rather than measured off the built
+        widgets: the left column is fixed to this and its children fill
+        it, so nothing can be read back until after the size is already
+        decided.
+        """
+        font = tkfont.Font(font=INSTRUCTIONS_FONT)
+        widest = max(font.measure(line)
+                     for line in INSTRUCTIONS.splitlines() or [""])
+        return widest + 2 * INSTRUCTIONS_PAD + INSTRUCTIONS_CHROME
+
     def setup_ui(self):
         """Setup the Setup tab UI."""
         main_frame = ttk.Frame(self.frame)
@@ -126,12 +212,10 @@ class SetupTab(BaseTab):
         main_frame.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((0, 2)))
 
         make_tab_header(
-            main_frame, self.colors, "First-Time Setup",
+            main_frame, self.colors, "Setup & Settings",
             "Complete these steps before using the capture feature")
 
-        # Top row: Setup Status (left) and Restore Defaults (right)
-        # side-by-side in equal-width columns.
-        top_row = ttk.Frame(main_frame)
+        columns = ttk.Frame(main_frame)
         # spacing: panel ↕ unrelated label -- heading, panel ↕
         # spacing: content frame -> content frame -- frame, frame ↕
         # Asymmetric, because the two sides answer to different rules.
@@ -140,10 +224,32 @@ class SetupTab(BaseTab):
         # than the two other headed tabs -- so the leading side gives it
         # back rather than the shared header helper losing a pixel the
         # others need.
-        top_row.pack(fill=tk.X, pady=px((0, 2)))
-        top_row.grid_columnconfigure(0, weight=1, uniform="halves")
-        top_row.grid_columnconfigure(1, weight=1, uniform="halves")
+        columns.pack(fill=tk.BOTH, expand=True, pady=px((0, 2)))
 
+        # The LEFT column is fixed to what the instructions need; the
+        # RIGHT takes everything else. A frame with its propagation off
+        # is what pins a pixel width -- children would otherwise size it
+        # -- and the whole column is pinned rather than each panel in
+        # it, so the three share one edge without three copies of the
+        # number.
+        left = ttk.Frame(columns, width=px(self._instructions_width()))
+        left.pack_propagate(False)
+        left.pack(side=tk.LEFT, fill=tk.Y)
+        right = ttk.Frame(columns)
+        right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self._build_status(left)
+        self._build_setup_buttons(left)
+        self._build_instructions(left)
+        self._build_restore(right)
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        UpdateStatus(right, self.colors, self.root,
+                     self.context.settings_manager).panel.pack(
+                         fill=tk.X, padx=px(2), pady=px((0, 2)))
+        self._build_settings(right)
+
+    def _build_status(self, parent):
+        """Setup Status: the four prerequisites, live."""
         # spacing: exception -- border edge -> first non-button element -- panel, label ↔↕
         # Both directions miss the rule, for two different reasons.
         #
@@ -161,53 +267,97 @@ class SetupTab(BaseTab):
         # BOTTOM is larger than it looks because the rows carry no
         # pady of their own -- it supplies the whole pitch under the
         # last row where the others split it between two neighbours.
-        status_frame = ttk.LabelFrame(top_row, text="Setup Status",
+        status_frame = ttk.LabelFrame(parent, text="Setup Status",
                                       padding=px((4, 4, 5, 7)))
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        status_frame.grid(row=0, column=0, sticky="nsew", padx=px(2), pady=px(2))
+        status_frame.pack(fill=tk.X, padx=px(2), pady=px(2))
 
         # spacing: unique -- Setup Status stands apart on purpose -- label, label ↕
         # This panel is the first thing a new user sees, and the one
         # place a troubleshooter reads whether the four prerequisites
         # are live. So it is deliberately not built to the app's
-        # defaults: Segoe UI 11 rather than 9, a pitch of its own, and
-        # a size that matches Restore Defaults beside it. The larger
-        # font is also why its padding values differ from every other
-        # panel's while its border-edge TARGET does not -- a Segoe UI
-        # 11 glyph starts further inside its box than a 9 does.
+        # defaults: Segoe UI 11 rather than 9, and a pitch of its own.
+        # The larger font is also why its padding values differ from
+        # every other panel's while its border-edge TARGET does not --
+        # a Segoe UI 11 glyph starts further inside its box than a 9.
         #
         # The rows carry no pady: a Segoe UI 11 label's own line box
         # already contributes 7px above its ink and 4 below, which is
         # the whole pitch. Anything added here lands on top of that.
-        # The frame's top and bottom padding make the first and last
-        # gaps match; docs/ui_spacing.md records what they read.
-        self.python_status = ttk.Label(status_frame, text="Checking Python...",
-                                        font=("Segoe UI", 11))
-        self.python_status.pack(anchor=tk.W)
+        for attr, text in (("python_status", "Checking Python..."),
+                           ("mitmproxy_status", "Checking mitmproxy..."),
+                           ("cert_status", "Checking certificate..."),
+                           ("admin_status", "Checking admin rights...")):
+            label = ttk.Label(status_frame, text=text,
+                              font=("Segoe UI", 11))
+            label.pack(anchor=tk.W)
+            setattr(self, attr, label)
 
-        self.mitmproxy_status = ttk.Label(status_frame, text="Checking mitmproxy...",
-                                           font=("Segoe UI", 11))
-        self.mitmproxy_status.pack(anchor=tk.W)
+    def _build_setup_buttons(self, parent):
+        """The two actions Setup Status is read against."""
+        btn_frame = ttk.Frame(parent)
+        # spacing: content frame -> content frame -- frame, frame ↕
+        btn_frame.pack(fill=tk.X, pady=px((0, 2)))
 
-        self.cert_status = ttk.Label(status_frame, text="Checking certificate...",
-                                      font=("Segoe UI", 11))
-        self.cert_status.pack(anchor=tk.W)
+        # spacing: button -> button -- button, button ↔
+        # Each button's trailing pad meets the next one's leading pad, so
+        # the pair sums to the gap between them. The button rule reaches
+        # no further here: it is `border edge -> internal button`, and
+        # these sit in a plain frame rather than inside a panel, so the
+        # leading pad answers to the frame rule and matches main_frame's
+        # own.
+        ttk.Button(btn_frame, text="Check Status", command=self.check_status,
+                   width=BUTTON_W_LARGE).pack(side=tk.LEFT, padx=px((2, 2)))
+        ttk.Button(btn_frame, text="Generate & Install Cert",
+                   command=self.setup_cert, width=BUTTON_W_LARGE).pack(
+                       side=tk.LEFT, padx=px((2, 5)))
 
-        self.admin_status = ttk.Label(status_frame, text="Checking admin rights...",
-                                       font=("Segoe UI", 11))
-        self.admin_status.pack(anchor=tk.W)
+    def _build_instructions(self, parent):
+        """Setup Instructions, as tall as its text and no taller."""
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        # This padx and main_frame's own sum to the gap from the window
+        # edge, matching every other bordered panel. The frame itself
+        # carries no padding, so the text widget's own background reaches
+        # the border; the text inset lives on the Text's padx/pady.
+        instr_frame = ttk.LabelFrame(parent, text="Setup Instructions",
+                                     padding=px(0))
+        instr_frame.pack(fill=tk.X, padx=px(2), pady=px((0, 2)))
 
-        # Restore Defaults panel: three [button + explanation] rows.
+        # spacing: border edge -> first non-button element -- panel, text ↔↕
+        # The panel's inset sits here rather than on the LabelFrame,
+        # inside the text widget's own lighter background. The pady has
+        # the line box's leading above the first glyph netted out of it,
+        # which is why it differs between text panels in different fonts.
+        # spacing: exception -- border edge -> first non-button element -- panel, text ↕
+        # The TOP misses the rule and cannot reach it: `pady` is at 0,
+        # the LabelFrame carries none, and what is left above the
+        # first CAPITAL is this face's own line box. The only lever
+        # on it is a smaller face.
+        #
+        # **`height` is the LINE COUNT, so the panel ends where the
+        # text does.** The block is fixed and the column is as wide as
+        # its widest line, so nothing wraps and a display line is a
+        # logical one.
+        instr_text = make_scrolled_text(
+            instr_frame, self.colors, height=len(INSTRUCTIONS.splitlines()),
+            wrap=tk.WORD, font=INSTRUCTIONS_FONT, pady=0,
+        )
+        instr_text.insert("1.0", INSTRUCTIONS)
+        instr_text.config(state=tk.DISABLED)
+        instr_text.pack(fill=tk.BOTH, expand=True)
+
+    def _build_restore(self, parent):
+        """Restore Defaults: three [button + explanation] rows."""
         # spacing: border edge -> button -- panel, button ↔↕
         # Every edge whose neighbour is a button carries the button
         # rule -- top, left and bottom. The right is slack, the panel
         # being stretched wider than its text.
         restore_frame = ttk.LabelFrame(
-            top_row, text="Restore Defaults",
+            parent, text="Restore Defaults",
             padding=px((RESTORE_EDGE_PAD, RESTORE_EDGE_PAD, 5,
-                     RESTORE_EDGE_PAD)))
+                        RESTORE_EDGE_PAD)))
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        restore_frame.grid(row=0, column=1, sticky="nsew", padx=px(2), pady=px(2))
+        restore_frame.pack(fill=tk.X, padx=px(2), pady=px(2))
 
         button_specs = [
             (
@@ -266,72 +416,104 @@ class SetupTab(BaseTab):
             # it did when the explanations gained their line breaks.
             ).grid(row=0, column=1, sticky="w", padx=px((2, 0)))
 
-        # Button frame
-        btn_frame = ttk.Frame(main_frame)
-        # spacing: content frame -> content frame -- frame, frame ↕
-        btn_frame.pack(fill=tk.X, pady=px((0, 2)))
-
-        # spacing: button -> button -- button, button ↔
-        # Each button's trailing pad meets the next one's leading pad, so
-        # the pair sums to the gap between them. The button rule reaches
-        # no further here: it is `border edge -> internal button`, and
-        # these sit in a plain frame rather than inside a panel, so the
-        # leading pad answers to the frame rule and matches main_frame's
-        # own.
-        ttk.Button(btn_frame, text="Check Status",
-                   command=self.check_status, width=BUTTON_W_LARGE).pack(side=tk.LEFT, padx=px((2, 2)))
-        ttk.Button(btn_frame, text="Generate & Install Cert",
-                   command=self.setup_cert, width=BUTTON_W_LARGE).pack(side=tk.LEFT, padx=px((2, 5)))
-
+    def _build_settings(self, parent):
+        """Settings: the program's own switches, both restart-scoped."""
+        settings_frame = ttk.LabelFrame(parent, text="Settings",
+                                        padding=px(SETTINGS_PAD))
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        # This padx and main_frame's own sum to the gap from the window
-        # edge, matching every other bordered panel. The frame itself
-        # carries no padding, so the text widget's own background reaches
-        # the border; the text inset lives on the Text's padx/pady.
-        instr_frame = ttk.LabelFrame(main_frame, text="Setup Instructions",
-                                     padding=px(0))
-        # spacing: panel ↕ unrelated label -- button, title ↕
-        # The leading side carries the whole gap from the Check Status
-        # button row down to this panel's title: the button row's own
-        # trailing pad is shared with the run up to the top row, so the
-        # correction lands here where nothing else reads it.
-        instr_frame.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((5, 2)))
+        settings_frame.pack(fill=tk.X, padx=px(2), pady=px((0, 2)))
 
-        instructions = """STEP 1: Generate and install certificate
-  - Click "Generate & Install Cert" button
-  - When the certificate dialog opens:
-    1. Click "Install Certificate"
-    2. Select "Local Machine"
-    3. Click Next
-    4. Select "Place all certificates in the following store"
-    5. Click Browse and select "Trusted Root Certification Authorities"
-    6. Click OK, Next, then Finish
+        sm = self.context.settings_manager
 
-STEP 2: Verify setup
-  - Click "Check Status" to verify all components are ready
-  - All items should show green checkmarks [OK]"""
+        # ---- UI scale ------------------------------------------------
+        scale_row = ttk.Frame(settings_frame)
+        scale_row.pack(fill=tk.X, anchor=tk.W)
+        ttk.Label(scale_row, text="UI scale:").pack(side=tk.LEFT)
+        self.ui_scale_var = tk.StringVar(
+            value=(sm.get("ui_scale", scaling.DEFAULT_SCALE)
+                   if sm is not None else scaling.DEFAULT_SCALE))
+        scale_box = ttk.Combobox(
+            scale_row, textvariable=self.ui_scale_var, state="readonly",
+            values=list(scaling.SCALE_CHOICES),
+            width=max(len(word) for word in scaling.SCALE_CHOICES) + 1)
+        # spacing: label ↔ its element -- label, dropdown ↔
+        scale_box.pack(side=tk.LEFT, padx=px((SETTINGS_LABEL_GAP, 0)))
+        self.ui_scale_var.trace_add(
+            "write", lambda *_: self._save_setting("ui_scale",
+                                                   self.ui_scale_var.get()))
+        # spacing: explanation text -> the controls it explains -- dropdown, label ↕
+        ttk.Label(settings_frame, text=SCALE_NOTE,
+                  foreground=self.colors["fg_dim"]).pack(
+                      anchor=tk.W, pady=px((SETTINGS_NOTE_GAP, 0)))
 
-        # spacing: border edge -> first non-button element -- panel, text ↔↕
-        # The panel's inset sits here rather than on the LabelFrame,
-        # inside the text widget's own lighter background. The pady has
-        # the line box's leading above the first glyph netted out of it,
-        # which is why it differs between text panels in different fonts.
-        # spacing: exception -- border edge -> first non-button element -- panel, text ↕
-        # The TOP misses the rule and cannot reach it: `pady` is at 0,
-        # the LabelFrame carries none, and what is left above the
-        # first CAPITAL is this face's own line box. The only lever
-        # on it is a smaller face.
-        # 0, where the helper's default is 3: at this face and size
-        # the line box already carries the whole inset above the
-        # first glyph. **There is no lever left below 0** -- read the
-        # top gap again after any font change here.
-        instr_text = make_scrolled_text(
-            instr_frame, self.colors, height=18, wrap=tk.WORD,
-            font=("Segoe UI Variable Small", 11), pady=px(0),
-        )
-        instr_text.insert("1.0", instructions)
-        instr_text.config(state=tk.DISABLED)
-        instr_text.pack(fill=tk.BOTH, expand=True)
+        # ---- optimizer workers ---------------------------------------
+        workers_row = ttk.Frame(settings_frame)
+        workers_row.pack(fill=tk.X, anchor=tk.W, pady=px((SETTINGS_ROW_GAP, 0)))
+        # RED, and the warning under it too: this is the one setting on
+        # the tab that makes the program worse if it is touched without
+        # a reason.
+        ttk.Label(workers_row, text="Optimizer cores:",
+                  foreground=self.colors["red"]).pack(side=tk.LEFT)
+        self.workers_var = tk.StringVar(
+            value=self._workers_word(sm.get("optimizer_workers", 0)
+                                     if sm is not None else 0))
+        choices = self._workers_choices()
+        workers_box = ttk.Combobox(
+            workers_row, textvariable=self.workers_var, state="readonly",
+            values=choices, width=max(len(word) for word in choices) + 1)
+        # spacing: label ↔ its element -- label, dropdown ↔
+        workers_box.pack(side=tk.LEFT, padx=px((SETTINGS_LABEL_GAP, 0)))
+        self.workers_var.trace_add("write", lambda *_: self._save_workers())
+        # spacing: explanation text -> the controls it explains -- dropdown, label ↕
+        ttk.Label(settings_frame, text=WORKERS_WARNING,
+                  foreground=self.colors["red"], justify=tk.LEFT).pack(
+                      anchor=tk.W, pady=px((SETTINGS_NOTE_GAP, 0)))
+
+    @staticmethod
+    def _workers_choices():
+        """`Auto`, `Off`, then every core count worth picking.
+
+        **`1` is not offered**: the optimizer takes its sequential path
+        at one worker, which is what `Off` already says, and two words
+        for one behaviour is a question a user should not have to
+        answer.
+        """
+        import os
+        cores = os.cpu_count() or 1
+        return [WORKERS_AUTO, WORKERS_OFF] + [str(n)
+                                              for n in range(2, cores + 1)]
+
+    @staticmethod
+    def _workers_word(stored):
+        """The dropdown word for a stored `optimizer_workers` value."""
+        try:
+            value = int(stored)
+        except (TypeError, ValueError):
+            return WORKERS_AUTO
+        if value <= 0:
+            return WORKERS_AUTO
+        if value == 1:
+            return WORKERS_OFF
+        return str(value)
+
+    def _save_workers(self):
+        """Persist the dropdown's word as the number it means."""
+        word = self.workers_var.get()
+        if word == WORKERS_AUTO:
+            self._save_setting("optimizer_workers", 0)
+        elif word == WORKERS_OFF:
+            self._save_setting("optimizer_workers", 1)
+        else:
+            try:
+                self._save_setting("optimizer_workers", int(word))
+            except ValueError:
+                return
+
+    def _save_setting(self, key, value):
+        """Write one setting, where there is a manager to write to."""
+        sm = self.context.settings_manager
+        if sm is not None:
+            sm.set(key, value)
 
     def check_status(self):
         """Refresh the Setup Status panel.
