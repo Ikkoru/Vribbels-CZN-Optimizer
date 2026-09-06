@@ -64,6 +64,7 @@ Extracts Memory Fragment inventory and character data from game API responses.
 import json
 import gzip
 import zlib
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Callable
@@ -137,6 +138,12 @@ class Addon:
         # schedule -- and saving per payload writes the same file
         # three times and announces it three times.
         self._save_pending = False
+
+        # The qids whose drops have already been applied. A drop
+        # list carries deltas rather than totals, so applying one
+        # twice doubles it; a short ring is enough, a retransmit
+        # arriving right after the frame it repeats.
+        self._applied_drops = deque(maxlen=64)
 
         # Account identity of this capture session, from the first
         # `user` record seen. A second, different one means a second
@@ -595,18 +602,25 @@ class Addon:
             self.char_visits = data["char_visits"]
             self._save_pending = True
 
-        # What the server says you just received: clearing a stage,
-        # spending a Communication Pass, opening anything. Items and
-        # currencies both, each carrying the record the cache already
-        # holds for that id.
+        # What the server says your holdings now are. THREE keys carry
+        # the same envelope -- a gain, a spend, and a use all report the
+        # item's whole record -- so they are applied by one handler
+        # rather than three that would drift apart.
         #
         # **Nothing else on the wire updates an item count.** The
         # inventory arrives once, at login, and every later change is
         # one of these -- so without this branch the Materials tab
         # reads whatever was true when the game was started, with no
         # save, no log line and nothing to say it went stale.
-        if isinstance(data.get("add_result"), dict):
-            self._apply_add_result(data["add_result"])
+        for key in ("add_result", "item_result", "dec_result"):
+            if isinstance(data.get(key), dict):
+                self._apply_totals(data[key], spent=key == "dec_result")
+
+        # A stage's rewards, which are the exception: a LIST of drops
+        # with no record and no total, so they are added rather than
+        # written in. See `_apply_drops`.
+        if isinstance(data.get("drop_item_result"), list):
+            self._apply_drops(data["drop_item_result"], qid)
 
         # The Great Rift standings, keyed by season and then by rank
         # slot. This is where the weekly score lives -- nothing else
@@ -618,13 +632,14 @@ class Addon:
             self._save_pending = True
 
 
-    def _apply_add_result(self, result):
-        """Apply an "you received" record to the cached counts.
+    def _apply_totals(self, result, spent=False):
+        """Apply a record that states what a holding NOW IS.
 
         Shape: {"items": {res_id: entry}, "currency": {res_id: entry}},
         each entry carrying `doc` -- the item's whole record, in the
-        same shape the cache already holds -- and `diff`, how much of
-        it is new.
+        same shape the cache already holds -- and `diff`, how much of it
+        moved. `add_result`, `item_result` and `dec_result` all use it;
+        `spent` only picks the word for the log.
 
         **`doc.amount` is the total, not the change.** It is written in
         rather than added to, so a frame seen twice cannot double a
@@ -636,10 +651,8 @@ class Addon:
         wants. An id not yet held is appended: a first pickup has no
         entry to update.
         """
+        moved = []
         items = result.get("items")
-        currencies = result.get("currency")
-        gained = []
-
         if isinstance(items, dict) and self.inventory_data is not None:
             held = self.inventory_data.setdefault("items", [])
             if isinstance(held, list):
@@ -647,15 +660,11 @@ class Addon:
                     doc = entry.get("doc") if isinstance(entry, dict) else None
                     if not isinstance(doc, dict) or "res_id" not in doc:
                         continue
-                    for index, row in enumerate(held):
-                        if isinstance(row, dict) and row.get("res_id") == doc["res_id"]:
-                            held[index] = doc
-                            break
-                    else:
-                        held.append(doc)
-                    gained.append((doc["res_id"], entry.get("diff")))
+                    self._replace_item(held, doc)
+                    moved.append((doc["res_id"], entry.get("diff")))
                     self._save_pending = True
 
+        currencies = result.get("currency")
         if isinstance(currencies, dict) and self.character_data is not None:
             held = self.character_data.setdefault("currencies", {})
             if isinstance(held, dict):
@@ -664,16 +673,97 @@ class Addon:
                     if not isinstance(doc, dict) or "res_id" not in doc:
                         continue
                     held[str(doc["res_id"])] = doc
-                    gained.append((doc["res_id"], entry.get("diff")))
+                    moved.append((doc["res_id"], entry.get("diff")))
                     self._save_pending = True
 
-        if not gained:
+        if moved:
+            self.log_callback("[LIVE] %s %s"
+                              % ("Spent" if spent else "Received",
+                                 self._describe_amounts(moved)))
+
+    def _replace_item(self, held, doc):
+        """Put `doc` in the cached item list, by res_id."""
+        for index, row in enumerate(held):
+            if isinstance(row, dict) and row.get("res_id") == doc["res_id"]:
+                held[index] = doc
+                break
+        else:
+            held.append(doc)
+
+    def _apply_drops(self, drops, qid):
+        """Apply a stage's rewards, which arrive as DELTAS.
+
+        Every other envelope states what a holding now is. This one
+        does not: it is the drop list the results screen shows, one
+        entry per drop with the amount that drop gave, so a x6 run
+        sends six entries for the same item and the total is their sum.
+        There is no record and no `amount` to write in, which leaves
+        adding as the only option.
+
+        **Adding is what makes a repeat dangerous**, so the qid is
+        remembered and a frame already applied is skipped. That is the
+        same guard the disassemble path uses, for the same reason.
+
+        An id the currencies already hold is a currency -- Units arrive
+        this way -- and everything else is an item.
+        """
+        if qid is not None:
+            if qid in self._applied_drops:
+                return
+            self._applied_drops.append(qid)
+
+        totals = {}
+        for row in drops:
+            if not isinstance(row, dict):
+                continue
+            res_id, amount = row.get("id"), row.get("amount")
+            if res_id is None or not isinstance(amount, int):
+                continue
+            totals[res_id] = totals.get(res_id, 0) + amount
+        if not totals:
             return
+
+        currencies = (self.character_data or {}).get("currencies")
+        currencies = currencies if isinstance(currencies, dict) else {}
+        held = None
+        if self.inventory_data is not None:
+            held = self.inventory_data.setdefault("items", [])
+            if not isinstance(held, list):
+                held = None
+
+        applied = []
+        for res_id, amount in totals.items():
+            key = str(res_id)
+            if key in currencies and isinstance(currencies[key], dict):
+                record = dict(currencies[key])
+                record["amount"] = record.get("amount", 0) + amount
+                currencies[key] = record
+            elif held is not None:
+                for index, row in enumerate(held):
+                    if isinstance(row, dict) and row.get("res_id") == res_id:
+                        record = dict(row)
+                        record["amount"] = record.get("amount", 0) + amount
+                        held[index] = record
+                        break
+                else:
+                    held.append({"res_id": res_id, "amount": amount})
+            else:
+                continue
+            applied.append((res_id, amount))
+            self._save_pending = True
+
+        if applied:
+            self.log_callback("[LIVE] Received %s"
+                              % self._describe_amounts(applied))
+
+    @staticmethod
+    def _describe_amounts(moved):
+        """`(res_id, diff)` pairs as words, named where this build can."""
         words = []
-        for res_id, diff in gained:
+        for res_id, diff in moved:
             name = ITEM_NAMES.get(res_id, str(res_id))
-            words.append(f"{name} +{diff}" if diff else name)
-        self.log_callback(f"[LIVE] Received {', '.join(words)}")
+            words.append("%s %+d" % (name, diff) if diff else name)
+        return ", ".join(words)
 
     def _report_unknown_units(self):
         """Log any banner naming a res_id this build has no entry for.
@@ -1406,10 +1496,21 @@ class CaptureManager:
             from game_data.partners import PARTNERS
 
             # Every item this build can name, for the log line a reward
-            # writes. Partial by nature -- the table names what has been
-            # identified -- and an id it does not carry logs as itself.
+            # writes. Partial by nature -- the tables name what has been
+            # identified -- and an id neither carries logs as itself.
+            #
+            # The stones' name is BUILT from their row rather than
+            # listed: the table holds the Element and the tier and the
+            # game spells the pair this way round. The promotion and
+            # EXP families are left as ids, their in-game wording not
+            # being recorded anywhere yet.
+            from game_data import GROWTH_STONES
             from game_data.constants import NAMED_MATERIALS
             item_names = {rid: entry[0] for rid, entry in NAMED_MATERIALS.items()}
+            item_names.update({
+                rid: f"{row[1]} Growth Stone of {row[0]}"
+                for rid, row in GROWTH_STONES.items()
+            })
 
             char_names = {rid: c["name"] for rid, c in CHARACTERS.items() if c is not None}
             set_names = {sid: s["name"] for sid, s in SETS.items()}

@@ -70,18 +70,28 @@ Each is replaced whole rather than merged: the reply IS the board, so a row's ab
 
 **A Communication Pass is in none of them, because it is in nothing.** Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.
 
-## The item counts arrive once, and change through `add_result`
+## The item counts arrive once, and change through four keys
 
-`inventory.items` and `characters.currencies` come down in the login burst and never again. Every later change to either — a stage cleared, a pass spent, a box opened — rides on the reply to whatever earned it, under `add_result`:
+`inventory.items` and `characters.currencies` come down in the login burst and never again. Every later change to either rides on the reply to whatever caused it, in one of two shapes.
+
+**Three keys state what a holding NOW IS** — `add_result` (a gain), `item_result` (a use), `dec_result` (a spend). One envelope between them:
 
 ```
-{"items":    {"<res_id>": {"doc": {..., "res_id": 3300013, "amount": 50, ...}, "diff": 1}},
- "currency": {"<res_id>": {"doc": {..., "res_id": 2000001, "amount": 710439, ...}, "diff": 50000}}}
+{"items":    {"<res_id>": {"doc": {..., "res_id": 3120013, "amount": 146, ...}, "diff": 10}},
+ "currency": {"<res_id>": {"doc": {..., "res_id": 2000002, "amount": 55, ...},  "diff": -100}}}
 ```
 
-`doc` is the item's whole record in the shape the cache already holds, and **`doc.amount` is the TOTAL, not the change** — so `_apply_add_result` writes it in rather than adding `diff` to what is cached, and a frame arriving twice cannot double a count. Items are a list keyed by `res_id` and currencies a dict keyed by the same id as a string; an id not yet held is appended.
+`doc` is the item's whole record in the shape the cache already holds, and **`doc.amount` is the TOTAL, not the change** — so `_apply_totals` writes it in rather than adding `diff`, and a frame arriving twice cannot double a count. Items are a list keyed by `res_id` and currencies a dict keyed by the same id as a string; an id not yet held is appended.
 
-Without that branch nothing on the wire moves an item count: the Materials tab reads what the account had at login, no save is triggered, and no line reaches the Capture Log — a capture that has gone stale looks exactly like one where nothing has happened. `checks/check_capture_rewards.py` drives it.
+**`drop_item_result` is the exception**: a stage's rewards, as a LIST with one entry per drop and no record at all —
+
+```
+[{"id": 3120012, "amount": 2, "cur_drop_count": 1}, {"id": 3120012, "amount": 3, "cur_drop_count": 2}, ...]
+```
+
+so a x6 run sends six entries for the same item and the total is their sum. Nothing states what the holding becomes, which leaves `_apply_drops` adding — and **adding is what makes a repeat dangerous**, so the frame's `qid` is remembered and one already applied is skipped. An id the currencies already hold is a currency (Units drop this way); everything else is an item.
+
+Without these branches nothing on the wire moves an item count: the Materials tab reads what the account had at login, no save is triggered, and no line reaches the Capture Log — a capture that has gone stale looks exactly like one where nothing has happened. `checks/check_capture_rewards.py` drives all four keys.
 
 ## The proxy's upstream must never be a loopback address
 

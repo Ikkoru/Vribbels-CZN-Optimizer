@@ -1,18 +1,23 @@
 """What the game gives you has to reach the cached counts.
 
 The inventory arrives ONCE, in the login burst. Every later change to an
-item or a currency comes as an `add_result` record on the reply to
-whatever earned it -- a stage cleared, a pass spent, a box opened. A
-capture that does not read those keeps serving the counts the account
-had when the game was started: the Materials tab reads a stale number,
-no snapshot is written, and no line reaches the Capture Log, so nothing
-anywhere says the figures stopped moving.
+item or a currency rides on the reply to whatever caused it, and there
+are TWO shapes of that:
 
-`doc.amount` is the item's whole record and the TOTAL it now stands at,
-not the change -- so it is written in rather than added to, and a frame
-seen twice cannot double a count. That is the other thing checked here,
-because a `+= diff` reading of the same payload is right until the day a
-frame repeats.
+  * `add_result`, `item_result` and `dec_result` state what a holding
+    NOW IS -- `doc` is the item's whole record and `doc.amount` the
+    total, not the change. Written in rather than added to, so a frame
+    seen twice cannot double a count.
+  * `drop_item_result` is a stage's rewards, and states only what each
+    drop GAVE: a list with one entry per drop, no record and no total,
+    so a x6 run sends six entries for one item. Adding is the only
+    option, which is why the qid is remembered -- a repeat would
+    double it.
+
+A capture that reads neither keeps serving the counts the account had
+when the game was started: the Materials tab reads a stale number, no
+snapshot is written, and no line reaches the Capture Log, so nothing
+anywhere says the figures stopped moving.
 
 Driven through `_generate_addon_script` rather than the template alone:
 the log line names items through a table the generator injects, and a
@@ -164,5 +169,76 @@ def run():
                 "an item picked up for the first time was dropped: it has "
                 "no row in the cached list to replace, so it has to be "
                 "appended rather than skipped.")
+
+        # A SPEND, which is the same envelope under another key.
+        addon.websocket_message(_Flow(_Message(json.dumps({
+            "res": "ok", "qid": 44,
+            "dec_result": {"currency": {str(CURRENCY_ID): {
+                "doc": {"res_id": CURRENCY_ID, "amount": 610439},
+                "diff": -100000}}},
+        }))))
+        currencies = addon.character_data.get("currencies", {})
+        if currencies.get(str(CURRENCY_ID), {}).get("amount") != 610439:
+            failures.append(
+                f"a spend left the currency at "
+                f"{currencies.get(str(CURRENCY_ID), {}).get('amount')} "
+                f"rather than 610439. `dec_result` carries the same "
+                f"envelope as a gain and has to be applied the same way, "
+                f"or every count drifts upward across a session.")
+
+        # And a STAGE's rewards, which are deltas rather than totals:
+        # one entry per drop, the same item appearing once per run.
+        log.clear()
+        addon.websocket_message(_Flow(_Message(json.dumps({
+            "res": "ok", "qid": 45,
+            "drop_item_result": [
+                {"id": ITEM_ID, "amount": 2, "cur_drop_count": 1},
+                {"id": ITEM_ID, "amount": 3, "cur_drop_count": 2},
+                {"id": CURRENCY_ID, "amount": 7000, "cur_drop_count": 1},
+            ],
+        }))))
+        held = {row.get("res_id"): row.get("amount")
+                for row in addon.inventory_data.get("items", [])
+                if isinstance(row, dict)}
+        currencies = addon.character_data.get("currencies", {})
+        if held.get(ITEM_ID) != 55:
+            failures.append(
+                f"a stage's drops left the item at {held.get(ITEM_ID)} "
+                f"rather than 55 -- 50 held plus the 2 and 3 of two "
+                f"drops. A drop list states what each drop GAVE and "
+                f"never a total, so the entries have to be summed onto "
+                f"what is cached.")
+        if currencies.get(str(CURRENCY_ID), {}).get("amount") != 617439:
+            failures.append(
+                f"a drop of currency left "
+                f"{currencies.get(str(CURRENCY_ID), {}).get('amount')} "
+                f"rather than 617439. Units drop from stages like any "
+                f"item but are held among the CURRENCIES, so a drop has "
+                f"to look there before it looks at the item list.")
+        if not any("Received" in line for line in log):
+            failures.append(
+                f"a stage's drops wrote nothing to the Capture Log; it "
+                f"logged {log}.")
+
+        # The same drop frame again -- a retransmit. Deltas double where
+        # totals cannot, so the qid is what has to stop it.
+        addon.websocket_message(_Flow(_Message(json.dumps({
+            "res": "ok", "qid": 45,
+            "drop_item_result": [
+                {"id": ITEM_ID, "amount": 2, "cur_drop_count": 1},
+                {"id": ITEM_ID, "amount": 3, "cur_drop_count": 2},
+                {"id": CURRENCY_ID, "amount": 7000, "cur_drop_count": 1},
+            ],
+        }))))
+        held = {row.get("res_id"): row.get("amount")
+                for row in addon.inventory_data.get("items", [])
+                if isinstance(row, dict)}
+        if held.get(ITEM_ID) != 55:
+            failures.append(
+                f"a repeated drop frame took the item to "
+                f"{held.get(ITEM_ID)}. Nothing in a drop list says what "
+                f"the holding now is, so a second application cannot be "
+                f"corrected by the next frame -- the qid guard is the "
+                f"only thing between a retransmit and a doubled count.")
 
     return failures

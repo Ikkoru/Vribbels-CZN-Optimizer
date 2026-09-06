@@ -445,6 +445,12 @@ EXP_MATERIALS = {
 # three are held as CURRENCIES rather than in the item list.
 NAMED_MATERIALS = {
     2000001: ("Units", "currency_unit.png"),
+    # Stamina. Read off a capture of a stage entry: a x6 run debited
+    # exactly 100 and left 55 of the 155 the account had, and the
+    # recovery item that had put it there credited 60. `add_max` on the
+    # record is 80, which is the natural cap rather than the ceiling.
+    # NO ART YET -- `currency_chaos_assault_stamina.png` is Reason's.
+    2000002: ("Aether", "", "Mythic"),
     2100001: ("Universal Tactical Certificate", "currency_combatant_ascend_public.png"), # Equivalent to Common Manual of any class (Combatant Promotion material)
     2100002: ("Universal Support Certificate", "currency_supporter_ascend_public.png"),  # Equivalent to Common Certificate of any class (Partner Promotion material)
     2100003: ("Potential Disk", "currency_ego_tree_public.png"),                         # Equivalent to Common Growth Stone of any Element (Potential leveling material)
