@@ -1,0 +1,32 @@
+res_id	where	amount	Name	Type	Name Candidate	Type Candidate / Description	Note
+2000002	currencies	87	Aether				
+2000007	currencies	21	Clockwork of Time	In-game Dice reroll resource			Max 25 stored. 25 recharged daily
+2000011	currencies	597	Moment of the Radiant Hero	Shop Currency			
+2000012	currencies	268	Moment of the Radiant Traveler	Shop Currency			
+2000014	currencies	1	Tear of God				
+2000016	currencies	114	Rescue Anchor	Gacha Currency			
+2000018	currencies	40	Research Notes	City upgrade currency			
+2000020	currencies	240	Zeronium	Shop Currency			
+2000024	currencies	332	Prism Film	Shop Currency			
+2000032	currencies	7520	Crystal of Discord	Shop Currency			
+3000005	items	40643	Chaos Orb	Zero System worthless currency			
+3000008	items	55	Tactical Data	Sortie Currency			
+3200001	items	3230	Particles of Memory	Crafting material for Memory Fragments			
+3200002	items	45	Core of Memory	Crafting material for Memory Fragments			
+3210001	items	6660	Traces of Memory	Crafting material for Memory Fragments			
+3210002	items	21	Multidimensional Alignment Material	Crafting material for Memory Fragments			
+3300006	items	9	Locket Necklace of Memories	Gift Item			
+3300007	items	5	Excellent Merit Badge	Gift Item			
+3300008	items	33	Lucky Sachet	Gift Item			
+3300011	items	11	Carefully Handwritten Letter	Gift Item			
+3300013	items	52	Cute Rabbit Doll	Gift Item			
+3300016	items	8	Handmade Wooden Doll	Gift Item			
+3300018	items	14	A Not So Boring Wait	Gift Item			
+3300019	items	18	Midsummer Night Fireworks	Gift Item			
+3300020	items	21	Limited Edition Teddy Bear	Gift Item			
+3920007	items	3559	Black Mass	Sortie Currency			
+3920014	items	12	Core of Annihilation	Save Data Edit			
+3920015	items	25	Colorless Core	Save Data Edit			
+3920022	items	31	Abyssal Core	Save Data Edit			
+3920031	items	29622	Seasonal Event Currency (name may be variable)	Seasonal Event			Check if the ID is the same for each seasonal event
+3930004	items	43	Core of Mutation	Save Data Edit			
