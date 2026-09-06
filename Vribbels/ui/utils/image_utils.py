@@ -64,13 +64,13 @@ PLATE_NATIVE_SIZE = round(ICON_NATIVE_SIZE[0] * RARITY_PLATE_RATIO)
 # inside the frame; they stay separate levers so one can be moved
 # alone.
 BADGE_FONT_RATIO = 24 / PLATE_NATIVE_SIZE
-BADGE_MARGIN_RATIO = 2 / PLATE_NATIVE_SIZE
-BADGE_PADDING_RATIO = 4 / PLATE_NATIVE_SIZE
+BADGE_MARGIN_RATIO = 0 / PLATE_NATIVE_SIZE
+BADGE_PADDING_RATIO = 3 / PLATE_NATIVE_SIZE
 
 # The caption's, which the CALLER sizes the font of -- it matches a Tk
 # font this module cannot see.
-CORNER_MARGIN_RATIO = 2 / PLATE_NATIVE_SIZE
-CORNER_PADDING_RATIO = 4 / PLATE_NATIVE_SIZE
+CORNER_MARGIN_RATIO = 0 / PLATE_NATIVE_SIZE
+CORNER_PADDING_RATIO = 2 / PLATE_NATIVE_SIZE
 
 # What a caption's box is measured against VERTICALLY, in place of the
 # caption's own ink. These words are read as a row down the column, and
@@ -83,7 +83,7 @@ CAPTION_BAND = "24h"
 # border is translucent, so it reads as an edge over both a dark icon
 # and a bright one without being a line in its own right.
 BADGE_FILL = (0, 0, 0, 200)
-BADGE_BORDER = (128, 128, 128, 128)
+BADGE_BORDER = (0, 0, 0, 180)
 BADGE_TEXT = (255, 255, 255, 255)
 
 # The face a corner caption is drawn in. Segoe UI Bold, so a caption
