@@ -451,6 +451,11 @@ NAMED_MATERIALS = {
     # record is 80, which is the natural cap rather than the ceiling.
     # NO ART YET -- `currency_chaos_assault_stamina.png` is Reason's.
     2000002: ("Aether", "", "Mythic"),
+    # One of the two Aether recovery items. The other is `Aether Bean
+    # Powder`, whose res_id is still UNKNOWN: the account holds none, so
+    # it appears in no capture and cannot be diffed for. It will show up
+    # in `items_id_unknown.tsv` the first time one is acquired.
+    2000014: ("Tear of God", "", "Legendary"),
     2100001: ("Universal Tactical Certificate", "currency_combatant_ascend_public.png"), # Equivalent to Common Manual of any class (Combatant Promotion material)
     2100002: ("Universal Support Certificate", "currency_supporter_ascend_public.png"),  # Equivalent to Common Certificate of any class (Partner Promotion material)
     2100003: ("Potential Disk", "currency_ego_tree_public.png"),                         # Equivalent to Common Growth Stone of any Element (Potential leveling material)
