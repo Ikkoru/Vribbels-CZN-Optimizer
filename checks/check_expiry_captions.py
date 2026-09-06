@@ -116,7 +116,7 @@ def run():
                 f"be suppressed.")
 
     # --- the box behind the words -------------------------------------
-    size = iu.ICON_SIZE
+    size = iu.icon_size()
     frame = iu._frame_rect(size, True)
     span = frame[2] - frame[0] + 1
     pad = max(1, round(span * iu.BADGE_PADDING_RATIO))

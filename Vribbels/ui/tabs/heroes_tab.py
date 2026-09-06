@@ -1471,7 +1471,8 @@ class HeroesTab(BaseTab):
         block.pack(side=tk.BOTTOM, fill=tk.X)
         self._extra_info_block = block
         block.grid_columnconfigure(
-            1, minsize=px(font.measure("0" * CHAR_EXTRA_DIGITS)))
+            # MEASURED, so already scaled -- see `ui/scaling.py`.
+            1, minsize=font.measure("0" * CHAR_EXTRA_DIGITS))
 
         def text(**kwargs):
             """A Label carrying nothing of its own around its words.
@@ -1795,10 +1796,10 @@ class HeroesTab(BaseTab):
                     # the pixel size goes on the grid cell and the widget
                     # is left to fill it.
                     cell.configure(width=1, height=1)
-                gear_grid.grid_columnconfigure(0, minsize=px(int(cell_w)))
-                gear_grid.grid_columnconfigure(1, minsize=px(int(cell_w)))
+                gear_grid.grid_columnconfigure(0, minsize=int(cell_w))
+                gear_grid.grid_columnconfigure(1, minsize=int(cell_w))
                 for _r in (0, 1, 2):
-                    gear_grid.grid_rowconfigure(_r, minsize=px(int(cell_h)))
+                    gear_grid.grid_rowconfigure(_r, minsize=int(cell_h))
                 for _c in (0, 1):
                     gear_grid.columnconfigure(_c, weight=0)
                 for _r in (0, 1, 2):

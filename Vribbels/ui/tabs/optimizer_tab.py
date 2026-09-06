@@ -1018,8 +1018,8 @@ class OptimizerTab(BaseTab):
         # no character count sits on the gap. See `_dmg_label_col_px`.
         ad_row.grid_columnconfigure(1, weight=1)
         ad_row.grid_columnconfigure(
-            0, minsize=px(_name_col_px(("ATK", "DEF"), AD_LABEL_COL_SLACK)))
-        ad_row.grid_columnconfigure(3, minsize=px(_dmg_readout_col_px()))
+            0, minsize=_name_col_px(("ATK", "DEF"), AD_LABEL_COL_SLACK))
+        ad_row.grid_columnconfigure(3, minsize=_dmg_readout_col_px())
         ttk.Label(ad_row, text="ATK", anchor=tk.W).grid(
             row=0, column=0, sticky="w")
         ad_scale = ttk.Scale(
@@ -1076,7 +1076,7 @@ class OptimizerTab(BaseTab):
         # where a Label's glyphs start inside theirs, so it needs a pixel
         # the labels do not.
         sh_row.grid_columnconfigure(0, weight=1)
-        sh_row.grid_columnconfigure(1, minsize=px(_dmg_readout_col_px()))
+        sh_row.grid_columnconfigure(1, minsize=_dmg_readout_col_px())
         sh_scale.grid(row=0, column=0, sticky="ew", padx=px((1, 1)))
         sh_scale.bind(
             "<MouseWheel>",
@@ -1142,7 +1142,7 @@ class OptimizerTab(BaseTab):
         # count that lands on the gap, and no padding anywhere to give the
         # missing pixel back. Same treatment as the Gear Score stat grid.
         wrap.grid_columnconfigure(1, weight=1)
-        wrap.grid_columnconfigure(0, minsize=px(label_col_px))
+        wrap.grid_columnconfigure(0, minsize=label_col_px)
         ttk.Label(wrap, text=label, anchor=tk.W).grid(
             row=0, column=0, sticky="w")
         # length=120 requests a track at least as long as the 0-100 value
@@ -1169,7 +1169,7 @@ class OptimizerTab(BaseTab):
         # widest value -- a `width=` in characters left 2px of slack that
         # the gap to the slider could never spend. The readout's gap is
         # only a distance at 100%; the audit fills it to measure it.
-        wrap.grid_columnconfigure(2, minsize=px(_dmg_readout_col_px()))
+        wrap.grid_columnconfigure(2, minsize=_dmg_readout_col_px())
         readout = ttk.Label(wrap, text="0%", anchor=tk.E)
         readout.grid(row=0, column=2, sticky="e")
         var.trace_add("write",

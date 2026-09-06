@@ -1135,8 +1135,8 @@ def _materials_rows_each_register(tab):
     # row had no figures block at all and sat 52px out that way, and
     # three rows now differ in width on purpose.
     holders = tab.get_frame().winfo_children()
-    from ui.tabs.materials_tab import ICON_GAP_HALF, ICON_SIZE
-    cell = ICON_SIZE[0] + 2 * ICON_GAP_HALF
+    from ui.tabs.materials_tab import ICON_GAP_HALF, icon_size
+    cell = icon_size()[0] + 2 * ICON_GAP_HALF
     for column in (holders[0].winfo_children() if holders else ()):
         parts = column.winfo_children()
         if len(parts) < 2:

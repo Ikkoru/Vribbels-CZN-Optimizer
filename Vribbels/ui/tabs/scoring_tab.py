@@ -426,7 +426,7 @@ STAT MIN - MAX ROLLS:
             # nothing can clip the text or seat it off-centre. A pinned
             # frame has to be given a height, and a ttk.Label is taller
             # than its font's line box by however much the style pads it.
-            cell.grid_columnconfigure(0, minsize=px(label_col_px[col]))
+            cell.grid_columnconfigure(0, minsize=label_col_px[col])
             # spacing: label ↔ its element -- label, spinbox ↔
             ttk.Label(cell, text=label, anchor=tk.W).grid(
                 row=0, column=0, sticky="w")

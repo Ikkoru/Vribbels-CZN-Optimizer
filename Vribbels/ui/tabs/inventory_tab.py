@@ -557,9 +557,13 @@ class InventoryTab(BaseTab):
             texts = [f"({owned_counts.get(n, 0)})" for n in col_sets]
             return column_px(texts or ["(0)"])
         col_count_widths = [_col_count_px(c) for c in range(ncols)]
-        for c, px in enumerate(col_count_widths):
+        # NOT through `px()`: `column_px` MEASURES the text, so the
+        # width has already grown with the font scaling. And not named
+        # `px` either -- that shadows the scaling helper this module
+        # imports, and the shadow only raises when this runs.
+        for c, count_width in enumerate(col_count_widths):
             self.inv_set_frame_inner.grid_columnconfigure(
-                c * 2 + 1, minsize=px(px))
+                c * 2 + 1, minsize=count_width)
 
         def _add_set_cell(set_name, row, logical_col, top_pad):
             count = owned_counts.get(set_name, 0)

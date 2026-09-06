@@ -31,7 +31,17 @@ from ui.scaling import px
 # There is no art larger than `ICON_NATIVE_SIZE` in the repo, which is
 # what makes 200% the only scale the icons survive. See T15.
 ICON_NATIVE_SIZE = (112, 113)
-ICON_SIZE = scaling.px(ICON_NATIVE_SIZE)
+
+
+def icon_size():
+    """The drawn size at the ACTIVE scale.
+
+    **A function, not a constant.** The scale is fixed in `main` and
+    this module is imported before that runs, so a constant computed at
+    import time would hold the 100% size for every run -- and the icons
+    would stay native while everything around them doubled.
+    """
+    return scaling.px(ICON_NATIVE_SIZE)
 
 # The rarity plate an icon sits on, as a share of the icon's WIDTH.
 # `_plate_side` reads `size[0]` and the plate assets are square, so the
@@ -238,7 +248,7 @@ def _badged(img, text, origin, font, pad, band=None, fill=BADGE_TEXT):
 
 
 def create_icon_with_quantity(icon_path: str, quantity: int,
-                              size=ICON_SIZE, background=None,
+                              size=None, background=None,
                               plate_path=None, corner_text="",
                               corner_font_px=0, corner_fill=None):
     """An icon with its owned quantity in the bottom-right corner.
@@ -265,6 +275,7 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
         A PhotoImage ready for a Label, or None if the file could not
         be read.
     """
+    size = icon_size() if size is None else size
     try:
         if icon_path:
             img = Image.open(icon_path).convert("RGBA")
@@ -311,7 +322,7 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
         return None
 
 
-def create_plate_icon(plate_path, size=ICON_SIZE, background=None):
+def create_plate_icon(plate_path, size=None, background=None):
     """A rarity plate with nothing on it, at an icon's size.
 
     For a RESERVED tile: it holds the space and the shape a real item
@@ -324,6 +335,7 @@ def create_plate_icon(plate_path, size=ICON_SIZE, background=None):
     transparent out to the same margin, so a gap either side of a tile
     measures the same as a gap either side of an icon.
     """
+    size = icon_size() if size is None else size
     try:
         blank = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
         return ImageTk.PhotoImage(

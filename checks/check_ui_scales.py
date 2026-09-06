@@ -11,17 +11,21 @@ So the tabs are built twice, once at each scale, and every geometry
 option that carries pixels is compared. A pad that is not exactly
 double at 200% is either unwrapped or wrapped twice.
 
-**A pad is not always exactly double**, and the range is what makes
-this readable. A hardcoded distance doubles exactly. One built partly
-from a MEASURED font metric grows by whatever the font grew by, which
-is not 2 -- Segoe UI 9's linespace goes 15 to 32 -- because hinting
-rounds each size to whole pixels. So the band runs from twice to the
-font's own ratio, and both ends are failures worth catching: below it
-is a `px()` that was never applied, above it is one applied to a
-measurement that had already scaled itself.
+**A distance is not always exactly double**, so the test is not "did
+it double". A hardcoded one does; a MEASURED one -- a font width, a
+`winfo_reqheight` -- grows by whatever the font grew by, which is under
+two because hinting rounds each size to whole pixels. Demanding double
+of those would be a wall of false alarms.
 
-One pad is exempt outright, in `MEASURED`, for being a widget's own
-height rather than a chosen distance.
+What is unambiguous is each failure's own signature:
+
+* a `px()` that was never applied leaves the value **exactly equal**,
+  because nothing else in the app is scale-independent;
+* a `px()` applied to something already scaled puts it **past the
+  font's own ratio**, since it multiplies a grown value again.
+
+So those two are what get flagged, and everything between them is a
+distance that scaled by some honest amount.
 
 **`width` and `height` are NOT compared.** They are characters on an
 Entry, Spinbox, Combobox, Button and Label, lines on a Text, rows on a
@@ -31,6 +35,7 @@ would demand doubling from the ones the font already carries.
 Skips itself where Tk cannot open a display.
 """
 
+import ast
 import math
 import shutil
 import tempfile
@@ -47,18 +52,77 @@ PIXEL_OPTIONS = ("padx", "pady", "ipadx", "ipady")
 TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
              "HeroesTab", "ScoringTab", "MaterialsTab", "AboutTab")
 
-# The one pad that is a WIDGET's own requested height rather than a
-# distance anyone chose: the Materials tab's reserved column has no
-# heading, and pads its rows down by the height of the heading it does
-# not have so they land level with the columns beside it. That height
-# scales by whatever a ttk.Label scales by -- part font, part theme
-# element -- which is under two, and no `px()` is involved either way.
-#
-# Keyed by tree path, so a restructure that moves it reports rather
-# than silently keeping the exception.
-MEASURED = {
-    "MaterialsTab/TFrame[0]/TFrame[3]/TFrame[0]:pack_info:pady",
-}
+
+def _shadowed_helper():
+    """No module may bind `px` to anything but the scaling helper.
+
+    A local called `px` shadows the import for the rest of its scope,
+    and the failure is a `TypeError: 'int' object is not callable` that
+    waits for that code to RUN -- so a helper reached only when a
+    snapshot loads, or a panel repopulates, gets through every build
+    the checks do. One did: a loop variable in `populate_set_filters`.
+
+    Source-level for exactly that reason: it needs no code path.
+    Returns a list of complaints.
+    """
+    out = []
+    for path in sorted((SOURCE_ROOT / "ui").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        imports = any(
+            isinstance(node, ast.ImportFrom)
+            and node.module in ("ui.scaling", "scaling", "..scaling")
+            and any(alias.name == "px" for alias in node.names)
+            for node in ast.walk(tree))
+        if not imports:
+            continue
+        for node in ast.walk(tree):
+            targets = []
+            if isinstance(node, (ast.Assign, ast.For, ast.comprehension)):
+                targets = ([node.target] if hasattr(node, "target")
+                           else node.targets)
+            elif isinstance(node, ast.arguments):
+                targets = [ast.Name(id=a.arg) for a in
+                           node.posonlyargs + node.args + node.kwonlyargs]
+            for target in targets:
+                for name in ast.walk(target):
+                    if isinstance(name, ast.Name) and name.id == "px":
+                        out.append(
+                            f"{path.name} binds the name `px` at line "
+                            f"{getattr(name, 'lineno', node.lineno)}, "
+                            f"shadowing the scaling helper it imports. "
+                            f"Every `px(...)` after it in that scope "
+                            f"raises `'int' object is not callable` -- "
+                            f"when it RUNS, which for a populate-on-load "
+                            f"helper is not during any check that only "
+                            f"builds the tabs.")
+    return out
+
+
+def _minsizes(widget, out, path=""):
+    """Every grid row/column `minsize` under `widget`, keyed by path.
+
+    Separate from `_distances` because a minsize belongs to the
+    CONTAINER's grid rather than to any child, so it appears in no
+    child's `grid_info()` -- and it is pixels like a pad is.
+    """
+    for index, child in enumerate(widget.winfo_children()):
+        here = f"{path}/{child.winfo_class()}[{index}]"
+        try:
+            columns, rows = child.grid_size()
+        except Exception:                   # not a grid container
+            columns = rows = 0
+        for axis, count, getter in (("col", columns, "grid_columnconfigure"),
+                                    ("row", rows, "grid_rowconfigure")):
+            for slot in range(count):
+                try:
+                    info = getattr(child, getter)(slot)
+                except Exception:
+                    continue
+                value = _numbers(info.get("minsize", 0))
+                if value and value != (0,):
+                    out[f"{here}:{axis}{slot}:minsize"] = value
+        _minsizes(child, out, here)
+    return out
 
 
 def _numbers(value):
@@ -167,6 +231,7 @@ def _build(scale, work):
         for attr in TAB_ATTRS:
             tab = getattr(tabs_pkg, attr)(notebook, context)
             _distances(tab.get_frame(), found, attr)
+            _minsizes(tab.get_frame(), found, attr)
     finally:
         try:
             root.destroy()
@@ -192,6 +257,8 @@ def run():
         # A COPY: building a tab is not reliably read-only.
         shutil.copytree(live, work / "settings")
 
+    failures.extend(_shadowed_helper())
+
     single = _build("100%", work)
     double = _build("200%", work)
     ratio = _font_ratio()
@@ -212,21 +279,22 @@ def run():
         if key not in double:
             continue
         was, now = value, double[key]
-        if not was or key in MEASURED:
+        if not was:
             continue
         if len(was) != len(now) or any(
-                b and not (b * 2 <= a <= math.ceil(b * ratio))
+                b and (a == b or a > math.ceil(b * ratio))
                 for a, b in zip(now, was)):
             wrong.append((key, was, now))
 
     if wrong:
         shown = ", ".join(f"{key} {was}->{now}" for key, was, now in wrong[:4])
         failures.append(
-            f"{len(wrong)} distance(s) did not double at 200%: {shown}. "
-            f"A pad left at its 100% value is half the size of its "
-            f"neighbours on a scaled screen, and the spacing audit runs "
-            f"at 100% only -- so nothing else looks at this. Wrap the "
-            f"value in `px()` at the geometry call (never on the "
-            f"constant); see `ui/scaling.py`.")
+            f"{len(wrong)} distance(s) did not scale at 200%: {shown}. "
+            f"An UNCHANGED one never went through `px()` and is half the "
+            f"size of its neighbours on a scaled screen; one past the "
+            f"font's own ratio ({ratio:.2f}x) went through it twice, "
+            f"having already grown with the font. The spacing audit runs "
+            f"at 100% only, so nothing else looks at either. See "
+            f"`ui/scaling.py`.")
 
     return failures

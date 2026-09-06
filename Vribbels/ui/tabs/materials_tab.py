@@ -75,7 +75,7 @@ import weekly_reset
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
 from ..utils.image_utils import (
-    ICON_SIZE, RARITY_DIR, create_icon_with_quantity, create_plate_icon,
+    RARITY_DIR, create_icon_with_quantity, create_plate_icon, icon_size,
 )
 from ..utils.tab_header import make_heading
 from ..utils.tooltip import Tooltip
@@ -938,7 +938,8 @@ class MaterialsTab(BaseTab):
         # checkbox does not reach it on its own.
         for position in range(last + 1):
             icons.grid_columnconfigure(
-                position, minsize=px(ICON_SIZE[0] + 2 * ICON_GAP_HALF))
+                # `icon_size` is already scaled; only the gap is not.
+                position, minsize=icon_size()[0] + px(2 * ICON_GAP_HALF))
         for position in range(last):
             if position == last - 1:
                 # spacing: label ↔ its element -- checkbox, frame ↔
@@ -953,7 +954,7 @@ class MaterialsTab(BaseTab):
                 ).grid(row=0, column=position, sticky="e",
                        padx=px((ICON_GAP_HALF, GENERIC_TO_CHECKBOX)))
                 continue
-            ttk.Frame(icons, width=ICON_SIZE[0], height=1).grid(
+            ttk.Frame(icons, width=icon_size()[0], height=1).grid(
                 row=0, column=position, padx=px(ICON_GAP_HALF))
 
         label = self._make_icon_label(icons)
