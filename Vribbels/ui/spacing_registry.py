@@ -2317,6 +2317,11 @@ def _text_widget_inset(locator, side, line=None):
     return resolve
 
 
+# What separates a figures line's fields. A Text's columns ARE
+# its tabs, so this is structure rather than punctuation.
+COLUMN_TAB = chr(9)
+
+
 def _text_columns(cap, box, fill, want=None):
     """The painted COLUMNS across one line, letters merged into words.
 
@@ -2432,6 +2437,63 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
         # reported so a row that reads oddly can be told apart from one
         # that is simply tight.
         note = " | ".join(f"{g}[{n}c]: {line[:30]}" for g, line, n in readings)
+        return readings[0][0], note
+    return resolve
+
+
+def _materials_value_column(needles):
+    """Resolver: a figures label's ink to its VALUE COLUMN's left edge.
+
+    Not to the digits. The column reserves `VALUE_DIGITS` and the value
+    is right-aligned inside it, so a three-character figure starts a
+    character further right and leaves the difference showing -- read to
+    the digits, this gap reports whatever numbers the account happens to
+    hold rather than the distance `LABEL_TO_VALUE` sets.
+
+    The column's edge is not painted, so it comes from the widget: the
+    value stop minus the reservation, both of which the tab computes.
+    Ink on one side and a known coordinate on the other, the way
+    `_ink_to_box_edge` reads a field.
+
+    Smallest across the lines, which after the labels became a
+    right-aligned stop of their own should be every line alike -- they
+    differ only by the last glyph's own bearing.
+    """
+    def resolve(cap, app):
+        from ui.tabs.materials_tab import MaterialsTab
+
+        widget = _materials_figures_text(app)
+        if widget is None:
+            return None, "no text widget there"
+        stops = [int(x) for x in widget.cget("tabs") if str(x).isdigit()]
+        if len(stops) < 2:
+            return None, f"the block declares {len(stops)} stops, not two"
+        edge = stops[1] - MaterialsTab._value_column_px()
+        origin = sa.box_of(widget).top
+        box = _inside_border(widget)
+        fill = _widget_fill(widget)
+        readings = []
+        for needle in needles:
+            where = widget.search(needle, "1.0", tk.END)
+            if not where:
+                continue
+            info = widget.dlineinfo(where)
+            if info is None:
+                continue
+            top = origin + info[1]
+            band = sa.Box(left=box.left, top=top,
+                          right=box.right, bottom=top + info[3] - 1)
+            line = widget.get(f"{where} linestart", f"{where} lineend")
+            fields = [f for f in line.split(COLUMN_TAB) if f.strip()]
+            columns = _text_columns(cap, band, {fill}, want=len(fields))
+            if not columns:
+                continue
+            readings.append((sa.gap_between(columns[0][1], box.left + edge),
+                             line.strip()))
+        if not readings:
+            return None, f"no line of {list(needles)} is drawn"
+        readings.sort()
+        note = " | ".join(f"{g}: {line[:30]}" for g, line in readings)
         return readings[0][0], note
     return resolve
 
@@ -3740,16 +3802,13 @@ MATERIALS_ENTRIES = [
     ("Materials", "Materials: icon -> icon", 4, RULE_CONTENT_FRAME,
      _smallest_gap(_materials_icon_pairs, "h"), "h"),
     # A figures block's label and its value are runs inside one Text,
-    # so the gap between them is a TAB STOP's, read the way the
-    # Character panel's stat columns are. BOTH stops are right-aligned,
-    # which puts every colon in the block at one x -- so the smallest
-    # reading across the lines is the line whose VALUE is widest, and
-    # it reaches the lever only where a value fills the reservation.
-    # Every line the block draws is a needle for that reason.
+    # so the gap between them is a TAB STOP's. Read to the value
+    # COLUMN's edge rather than to the digits -- see
+    # `_materials_value_column`, which is what keeps the reading off
+    # the account's own numbers.
     ("Materials", "Materials: label -> its value", 5, RULE_LABEL_ELEMENT,
-     _text_column_gap(_materials_figures_text,
-                      ("Total:	", "Max best:	",
-                       "+Neutral:	", "+Node 5.1 & 5.2:	"), 0),
+     _materials_value_column(("Total:	", "Max best:	",
+                              "+Neutral:	", "+Node 5.1 & 5.2:	")),
      "h"),
     ("Materials", "Materials: icon row -> icon row", 4, RULE_CONTENT_FRAME,
      _smallest_gap(_materials_row_pairs, "v"), "v"),

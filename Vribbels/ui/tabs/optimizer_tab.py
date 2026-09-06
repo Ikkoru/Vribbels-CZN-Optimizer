@@ -184,6 +184,18 @@ ELEMENT_CHOICES = ["", "Passion", "Order", "Justice", "Void", "Instinct"]
 # tooltip says and what `_resolve_effective_level` does.
 LEVEL_AUTO = "Auto"
 LEVEL_CHOICES = (LEVEL_AUTO, "60", "61", "62")
+
+# How wide the stepper is drawn, in PIXELS -- `width` counts characters
+# and this has to land on one.
+#
+# **Below this the words run under the buttons.** A Spinbox lays its
+# text out in what is left after the button strip, and right-justifies
+# it there only while it fits; narrower than that the text is pinned at
+# the left inset and its tail goes under the arrows. At this width the
+# longest of `LEVEL_CHOICES` fits with Tk's own single pixel between
+# its last glyph and the buttons, which is the whole of the gap
+# available -- a Spinbox carries no padding option to widen it with.
+LEVEL_SPIN_W = 41
 LEVEL_TOOLTIP = ("Characters below level 60 are optimized as though "
                  "they were level 60")
 
@@ -496,14 +508,23 @@ class OptimizerTab(BaseTab):
         # not a number and has to be one of the stops the buttons walk.
         # `wrap` stays off, so stepping down from 60 reaches Auto and
         # stops there rather than coming back round at 62.
+        # A Spinbox sizes in CHARACTERS and this one has to land on a
+        # pixel, so it goes in a frame fixed to `LEVEL_SPIN_W` with its
+        # propagation off and fills it -- the same move the Materials
+        # figures blocks make.
+        level_holder = tk.Frame(level_frame, width=LEVEL_SPIN_W,
+                                bg=self.colors["bg"])
+        level_holder.pack_propagate(False)
+        level_holder.pack(anchor=tk.W)
         level_spin = tk.Spinbox(
-            level_frame, values=LEVEL_CHOICES, width=4, justify=tk.RIGHT,
+            level_holder, values=LEVEL_CHOICES, width=4, justify=tk.RIGHT,
             textvariable=self.optimize_for_level_var,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             buttonbackground=self.colors["bg_lighter"],
             insertbackground=self.colors["fg"],
         )
-        level_spin.pack(anchor=tk.W)
+        level_holder.config(height=level_spin.winfo_reqheight())
+        level_spin.pack(fill=tk.BOTH, expand=True)
         # NOT `_clamp_on_commit`: that one reads `from`/`to` off the
         # widget, and a spinbox declaring `values` has neither -- both
         # come back 0, so it would snap every level to zero.

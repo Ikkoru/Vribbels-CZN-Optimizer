@@ -469,13 +469,19 @@ NAME_GAP_BELOW = 3      # spacing: label row -> label row -- run, run ↕
 # border so that its art is centred the way the game centres it, and
 # the border is part of the icon rather than part of the gap.
 TEXT_TO_ICONS = 4       # spacing: label ↔ its element -- label, frame ↔
-# What separates a label from its value. Both columns are RIGHT-ALIGNED
-# tab stops -- the labels end on their colons and the values on their
-# last digit -- so this is the whole of the distance between the two
-# and it is the same on every line. A rendered distance short of the
-# rule because a colon's ink stops inside its own advance, and because
-# a value narrower than the reservation starts further right.
-LABEL_TO_VALUE = 6      # spacing: label ↔ its element -- run, run ↔
+# What separates a label from its VALUE COLUMN. Both columns are
+# RIGHT-ALIGNED tab stops -- the labels end on their colons and the
+# values on their last digit -- so this is the whole of the distance
+# between the label and the column's left edge, and it is the same on
+# every line.
+#
+# **The column's edge, not the digits.** The column reserves
+# `VALUE_DIGITS`, and a value narrower than that starts further right
+# and leaves the difference showing -- so a distance measured to the
+# digits would read whatever this account's numbers happen to be. A
+# rendered distance short of the rule because a colon's ink stops
+# inside its own advance.
+LABEL_TO_VALUE = 4      # spacing: label ↔ its element -- run, run ↔
 
 # The generic row's checkbox against the icon beside it.
 GENERIC_TO_CHECKBOX = 5  # spacing: label ↔ its element -- frame, checkbox ↔
@@ -545,14 +551,14 @@ class MaterialsTab(BaseTab):
         columns = ttk.Frame(self.frame)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
-        # A lever short of the rule at both edges, and the two get
-        # there differently. On the left the block starts with a row's
-        # figures, whose widest label is held one `TAB_FLOOR_PX` in
-        # from the block's own edge; on the right it ends with an ICON,
-        # whose furthest paint is whichever reaches further -- the
-        # artwork, or the bordered box behind its quantity, which
-        # `BADGE_MARGIN_RATIO` is what would move.
-        columns.pack(fill=tk.BOTH, expand=True, padx=1, pady=(0, 2))
+        # A lever short of the rule at both edges, and ASYMMETRIC
+        # because the two edges are different things. On the left the
+        # block starts with a row's figures, whose widest label is held
+        # one `TAB_FLOOR_PX` in from the block's own edge; on the right
+        # it ends with an ICON, whose furthest paint is whichever
+        # reaches further -- the artwork, or the bordered box behind its
+        # quantity, which `BADGE_MARGIN_RATIO` is what would move.
+        columns.pack(fill=tk.BOTH, expand=True, padx=(3, 2), pady=(0, 2))
         # Content in the EVEN grid columns, an empty expanding one
         # between each pair. Where the tab's leftover width goes is the
         # whole of this arrangement: shared out inside the content
