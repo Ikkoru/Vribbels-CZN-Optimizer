@@ -75,6 +75,17 @@ LOG_EVENT_TAGS = {
     "Created": "event_new",
 }
 
+# An item the tables cannot name, in a `Received ...` or `Spent ...`
+# line: the addon writes its res_id where a name would go. Anchored on
+# what FOLLOWS -- a space and a signed amount -- so an amount is never
+# mistaken for an id and a name containing digits is never matched.
+#
+# **Marked so it can be filled in.** Every one of these is a row of
+# `docs/items_id_unknown.tsv` that a capture has just put a name's
+# worth of context beside; the colour is there to say which line to
+# take to the dump.
+LOG_UNKNOWN_ITEM_RE = re.compile(r"\b(\d{4,})(?= [+-]\d)")
+
 
 class CaptureTab(BaseTab):
     """
@@ -507,6 +518,10 @@ class CaptureTab(BaseTab):
                                        foreground=self.colors["blue_light"])
         self.capture_log.tag_configure("preset_name",
                                        foreground=self.colors["preset"])
+        # Dark yellow, not the warning yellow: an unnamed id is a note
+        # to self rather than something going wrong.
+        self.capture_log.tag_configure("item_unknown",
+                                       foreground=self.colors["yellow_dim"])
 
     def _colour_log_line(self, start: str, msg: str):
         """Tag the parts of one log line that carry a verdict.
@@ -514,6 +529,9 @@ class CaptureTab(BaseTab):
         Which event it was, and how good each number is -- neither of
         which the line's own tag can say, because a tag covers the whole
         insert. See `LOG_VALUE_POOR` for where the yellow starts.
+
+        An item the tables cannot name is marked too, so a capture that
+        hands over a new id says which one -- see `LOG_UNKNOWN_ITEM_RE`.
 
         Values are found by the SEPARATOR in front of them rather than
         by shape: every part of a `Highest ...` list begins with its
@@ -530,6 +548,9 @@ class CaptureTab(BaseTab):
             at = msg.find(word)
             if at >= 0:
                 span(at, at + len(word), tag)
+
+        for match in LOG_UNKNOWN_ITEM_RE.finditer(msg):
+            span(match.start(1), match.end(1), "item_unknown")
 
         head = msg.find("Highest ")
         if head < 0:

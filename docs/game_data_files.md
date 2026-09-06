@@ -59,7 +59,9 @@ A rarity that no table prices costs a whole family its plates at once, and the o
 
 The last two share their hand-added columns (`Name`, `Type`, `Name Candidate`, …), so a row crosses between them by gaining or losing its `Name` without anything being retyped. **The script owns the leftmost columns and nothing else** — everything typed to the right of them is read back and rewritten untouched, and it refuses to write at all if the header has moved under it.
 
-An id is only in the program's sense of "known" when a table names it. `RECORDED_ONLY` in `constants.py` is for the ones a table names purely so the identification survives — `item_art` answers for them, no tab reaches one — and the dump keeps those on the worklist.
+An id is only in the program's sense of "known" when an ITEM table names it. **`RECORDED_NAMES` is not one** — it is a plain id→name map for items the program can name and does nothing else with, kept out of `ITEM_TABLES` on purpose: there is no art for them and no rarity anyone has established, and a rarity `NAME_RARITY` cannot price costs a whole family its plates. `RECORDED_ONLY` is its key set, which is what keeps those ids on the worklist rather than promoting them.
+
+It is where an identification reaches the RUNNING program: the capture generator merges it into the addon's `ITEM_NAMES`, so a Capture Log line reads `Traces of Memory +40` rather than `3210001 +40`. An id in neither stays a number there, and the Capture Log paints it dark yellow — that colour is a note that the line has just put a capture's worth of context beside a row of `items_id_unknown.tsv`. Keep `RECORDED_NAMES` in step with the worklist by hand; `checks/check_capture_rewards.py` holds it against the addon.
 
 **An id is named by spending some and diffing two captures**, which is why the amount column exists: a dump that has lost its counts cannot be compared against the next one.
 

@@ -390,7 +390,7 @@ TEXT_PANEL_EDGES = [
     ("Combatants", "Character", "right"),
     ("Combatants", "Partner", "top"),
     ("Capture", "Capture Log", "top"),
-    ("Setup", "Setup Instructions", "top"),
+    ("Setup & Settings", "Setup Instructions", "top"),
     ("Gear Score", "How Gear Score Works", "top"),
 ]
 
@@ -715,7 +715,7 @@ CONTENT_FRAME_ENTRIES = [
     # Nothing vertical belongs here. Stacked panels put the lower
     # one's TITLE across the gap, and the nearest element decides which
     # rule applies -- see PANEL_OVER_TEXT_ENTRIES.
-    ("Setup", "Setup Status -> Restore Defaults", 4, "h",
+    ("Setup & Settings", "Setup Status -> Restore Defaults", 4, "h",
      _panel_gap("Setup Status", "Restore Defaults", "h")),
     ("Combatants", "character list -> Equipped Memory Fragments", 4, "h",
      _list_to_panel_gap("Equipped Memory Fragments")),
@@ -871,7 +871,7 @@ PANEL_OVER_TEXT_ENTRIES = [
     # entirely and reports the whole distance across it.
     ("Capture", "capture buttons -> Requirements title", 10, None,
      _button_over_panel("Start Capture", "Requirements")),
-    ("Setup", "Setup buttons -> Setup Instructions title", 10, None,
+    ("Setup & Settings", "Setup buttons -> Setup Instructions title", 10, None,
      _button_over_panel("Check Status", "Setup Instructions")),
 
     # BOTH columns of the Capture tab's top grid, against the same
@@ -903,7 +903,7 @@ PANEL_OVER_TEXT_ENTRIES = [
                        bold14=True)),
     ("Capture", "Data Capture -> Status title", 10, None,
      _label_over_panel("Data Capture", "Status", bold14=True)),
-    ("Setup", "Setup & Settings -> Setup Status title", 10, None,
+    ("Setup & Settings", "Setup & Settings -> Setup Status title", 10, None,
      _label_over_panel("Setup & Settings", "Setup Status", bold14=True)),
 
     # The Combatants header band, one entry per column. Two unrelated
@@ -1096,7 +1096,7 @@ TAB_LIST_TABS = [
     ("Combatants", lambda app: app.heroes_tab_instance.hero_detail_name),
     ("Gear Score", "Gear Score Calculation"),
     ("Capture", "Data Capture"),
-    ("Setup", "Setup & Settings"),
+    ("Setup & Settings", "Setup & Settings"),
     # The rightmost of three headings, all on one line. Named rather
     # than left to the width scan because the other two say `Reserved`,
     # which the Element names in the placeholder columns say as well.
@@ -1122,7 +1122,7 @@ def _tab_list_target(tab: str) -> int:
 TAB_HEADERS = [
     ("Capture", "Data Capture", "Capture game data"),
     ("Gear Score", "Gear Score Calculation", "Configure how gear scores"),
-    ("Setup", "Setup & Settings", "Complete these steps"),
+    ("Setup & Settings", "Setup & Settings", "Complete these steps"),
 ]
 
 # One heading reads a pixel wider than the other two for the same
@@ -1488,7 +1488,7 @@ LABEL_ELEMENT_ENTRIES = [
     # The first of the three Restore Defaults rows. One is enough: the
     # three are built from one loop with one pad, so a second entry would
     # report the same lever twice.
-    ("Setup", "Restore Defaults button -> its explanation", 5, None,
+    ("Setup & Settings", "Restore Defaults button -> its explanation", 5, None,
      lambda app: _by_text("Presets")(app).master,
      ("TButton", "Button") + LABEL_CLASSES, 0),
     # The first of the three averages. Its pad is shared by all three,
@@ -1866,7 +1866,7 @@ CONTROL_GROUP_ENTRIES = [
 BUTTON_ROW_ABOVE_ENTRIES = [
     ("Capture", "Server Region -> capture buttons", 4, None,
      _gap(_panel_at("Server Region"), _by_text("Start Capture"), "v")),
-    ("Setup", "Setup Status -> Check Status row", 4, None,
+    ("Setup & Settings", "Setup Status -> Check Status row", 4, None,
      _gap(_panel_at("Setup Status"), _by_text("Check Status"), "v")),
 ]
 
@@ -2739,7 +2739,7 @@ ROW_PITCH_ENTRIES = [
      SCALE_CLASSES, 6),
     # Restore Defaults stacks three buttons, so its pitch is a
     # button-to-button gap read vertically.
-    ("Setup", "Restore Defaults", RULE_BUTTON_GAP,
+    ("Setup & Settings", "Restore Defaults", RULE_BUTTON_GAP,
      ("TButton", "Button"), 4),
     # Main Stats had a row DIVISION entry and no row pitch, so the gap
     # between its ordinary rows went unread while the wide one between
@@ -2788,7 +2788,7 @@ UNIQUE_ENTRIES = [
     # Setup Status is built to its own numbers on purpose, and its rows
     # sit at a pitch nothing else in the app uses. Tracked so the pitch
     # is held rather than merely intended.
-    ("Setup", "Setup Status: row pitch", UNIQUE_SETUP_STATUS, 13,
+    ("Setup & Settings", "Setup Status: row pitch", UNIQUE_SETUP_STATUS, 13,
      _capital_row_pitch("Setup Status", LABEL_CLASSES)),
 ]
 
@@ -2873,7 +2873,7 @@ PANELS = {
     # are carried over from the About tab unmeasured and carry a TBD
     # marker, so registering a rule against them would report a drift
     # from a target nobody has agreed.
-    "Setup": ["Setup Status", "Restore Defaults", "Setup Instructions",
+    "Setup & Settings": ["Setup Status", "Restore Defaults", "Setup Instructions",
               "Update Status", "Settings", "Links"],
 }
 
@@ -4171,7 +4171,7 @@ def register_all():
             # against a selected tab, and a popup's parent is the one
             # its scenario reaches through.
             tab=("Optimizer" if scenario == "contributions popup"
-                 else "Setup"),
+                 else "Setup & Settings"),
             rule=rule,
             target=target,
             resolve=resolve,
@@ -4336,7 +4336,7 @@ def register_all():
     )
     sa.track(
         name="Setup buttons: button -> button",
-        tab="Setup",
+        tab="Setup & Settings",
         rule=RULE_BUTTON_GAP,
         target=4,
         resolve=_pair_gap(lambda app: _by_text("Check Status")(app).master,
@@ -4421,7 +4421,7 @@ def register_all():
             name=("Update Status: label -> its value"
                   if _label.startswith("Latest") else
                   "Settings: label -> its dropdown"),
-            tab="Setup",
+            tab="Setup & Settings",
             rule=RULE_LABEL_ELEMENT,
             target=5,
             resolve=_ink_to_box_edge(

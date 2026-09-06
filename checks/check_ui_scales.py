@@ -50,7 +50,7 @@ NAME = "every distance doubles at 200%"
 PIXEL_OPTIONS = ("padx", "pady", "ipadx", "ipady")
 
 TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
-             "HeroesTab", "ScoringTab", "MaterialsTab", "AboutTab")
+             "HeroesTab", "ScoringTab", "MaterialsTab")
 
 
 def _shadowed_helper():

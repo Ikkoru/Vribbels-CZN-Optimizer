@@ -43,7 +43,7 @@ NAME = "tabs build"
 # to build and a missing name would break the notebook the same way, so
 # it is here too.
 TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
-             "HeroesTab", "ScoringTab", "MaterialsTab", "AboutTab")
+             "HeroesTab", "ScoringTab", "MaterialsTab")
 
 
 def _make_checkbox_forces_its_window():

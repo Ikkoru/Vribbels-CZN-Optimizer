@@ -3,13 +3,17 @@
 Two separate things, and both have to be right or the window is wrong on
 a high-DPI screen.
 
-**Windows must be told to leave the window alone.** A process that has
-not declared DPI awareness is drawn at 96dpi and then BITMAP-STRETCHED
-onto a scaled monitor -- the right apparent size and every glyph soft,
-because it is an upscale of a render rather than a render. Declaring
-per-monitor awareness turns that off; the window is then drawn in real
-device pixels and is crisp, and how large it comes out is entirely this
-module's business.
+**Windows is told this process is aware at the SYSTEM DPI.** Undeclared,
+every window is drawn at 96dpi and bitmap-stretched onto any scaled
+monitor -- soft everywhere, including the one the program is developed
+on. Declared, it is drawn in real device pixels at the system DPI and
+is crisp there; a monitor at a different DPI still gets a stretch, and
+the window keeps one PHYSICAL size across all of them.
+
+**Not PER-MONITOR awareness**, which was tried and taken back out:
+`declare_dpi_awareness` says why. In short, it makes Windows resize the
+window on every drag across a DPI boundary and there is no cheap way
+to refuse.
 
 **Tk does not adapt to per-monitor DPI**, in any version. It reports one
 scaling for every screen and does not follow a window dragged between
@@ -117,90 +121,26 @@ def declare_dpi_awareness():
     Returns what happened, for the caller to log.
     """
     try:
-        # PROCESS_PER_MONITOR_DPI_AWARE. v1 rather than v2: Tk follows
-        # no per-monitor change either way, and v2's non-client scaling
-        # would leave the title bar disagreeing with the window.
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        return "per-monitor"
+        # **SYSTEM, not per-monitor.** Per-monitor awareness makes
+        # Windows send `WM_DPICHANGED` when the window is dragged to a
+        # differently-scaled screen, and its default handling RESIZES
+        # the window to the rectangle that message suggests -- a 100%
+        # window comes out twice the size on a 200% monitor. Tk offers
+        # no hook for that message, and undoing the resize from
+        # outside is a fight: a poll that puts the size back gets it
+        # re-applied, and the window oscillates.
+        #
+        # System awareness sends no such message and resizes nothing.
+        # The window keeps one PHYSICAL size on every screen, which is
+        # what dragging one between monitors should do; Windows
+        # bitmap-scales it on a screen whose DPI differs from the
+        # system's, so it is soft there and crisp everywhere at the
+        # system DPI. Tk follows no per-monitor DPI in any case, so
+        # per-monitor awareness bought nothing it does not take back.
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        return "system"
     except Exception as exc:            # noqa: BLE001 -- not Windows, or refused
         return f"not declared ({exc})"
-
-
-# How often the window's own DPI is looked at, and how many ticks a
-# restore is repeated for. **POLLED, not evented**: a `<Configure>`
-# binding fired for the drag and did not hold the size, so whatever
-# Windows does to the window it does after Tk has been told about it.
-# A tick that runs afterwards can put the size back; one that runs
-# during cannot.
-DPI_POLL_MS = 120
-DPI_SETTLE_TICKS = 4
-
-
-def hold_size_across_monitors(root):
-    """Keep the window the size it was when it crosses a DPI boundary.
-
-    A per-monitor-aware window DRAGGED onto a differently-scaled screen
-    gets `WM_DPICHANGED` with a suggested rectangle, and Windows'
-    default handling applies it -- so a 100% window moved onto a 200%
-    monitor comes out twice the size. Nothing about that is this
-    program's scale setting, which is fixed for the run and changes
-    only on a restart.
-
-    So the window's own DPI is watched, and the size put back for a few
-    ticks after it changes. The position is left alone: where the
-    window was dragged to is the user's answer, and only its size is
-    the OS's.
-
-    **The restore repeats.** One tick is not enough -- the resize can
-    arrive in pieces as the drag settles, and a single put-back lands
-    before the last of them.
-
-    **A MAXIMIZED window is left alone.** Windows resizing it to fill
-    the new screen is right, and putting a size back would restore it
-    out of its maximized state.
-    """
-    try:
-        user32 = ctypes.windll.user32
-        user32.GetDpiForWindow.restype = ctypes.c_uint
-    except Exception:                       # noqa: BLE001 -- not Windows
-        return
-
-    def dpi():
-        try:
-            return user32.GetDpiForWindow(root.winfo_id())
-        except Exception:                   # noqa: BLE001
-            return 0
-
-    def measured():
-        width, height = root.winfo_width(), root.winfo_height()
-        return (width, height) if width > 1 and height > 1 else None
-
-    state = {"size": measured(), "dpi": dpi(), "settle": 0}
-
-    def tick():
-        if not root.winfo_exists():
-            return
-        try:
-            zoomed = root.state() == "zoomed"
-        except Exception:                   # noqa: BLE001
-            zoomed = False
-        now = dpi()
-        if zoomed:
-            state["dpi"], state["settle"] = now, 0
-        elif now and now != state["dpi"]:
-            state["dpi"] = now
-            state["settle"] = DPI_SETTLE_TICKS
-        elif state["settle"]:
-            state["settle"] -= 1
-            if state["size"] and measured() != state["size"]:
-                width, height = state["size"]
-                root.geometry("%dx%d+%d+%d"
-                              % (width, height, root.winfo_x(), root.winfo_y()))
-        else:
-            state["size"] = measured() or state["size"]
-        root.after(DPI_POLL_MS, tick)
-
-    root.after(DPI_POLL_MS, tick)
 
 
 def apply_font_scaling(root):

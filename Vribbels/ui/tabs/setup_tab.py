@@ -97,15 +97,22 @@ INSTRUCTIONS_CHROME = 23
 
 # The Settings panel. Its rows are a label and a control, and the two
 # columns line up under each other.
-SETTINGS_PAD = 4        # spacing: border edge -> first non-button element -- panel, label ↔↕
-SETTINGS_LABEL_GAP = 5  # spacing: label ↔ its element -- label, dropdown ↔
+# (left, top, right, bottom). Levers short of the rule -- see
+# `update_check.PANEL_PAD`, which carries the same correction for the
+# same reason. Left is the only side read off a screen.
+SETTINGS_PAD = (1, -1, 1, 1)  # spacing: border edge -> first non-button element -- panel, label ↔↕
+SETTINGS_LABEL_GAP = 2  # spacing: label ↔ its element -- label, dropdown ↔
 SETTINGS_NOTE_GAP = 2   # spacing: explanation text -> the controls it explains -- dropdown, label ↕
-SETTINGS_ROW_GAP = 6    # spacing: TBD -- one Settings row under another's explanation
+SETTINGS_ROW_GAP = 7    # spacing: config panel row ↕ row -- label, dropdown ↕
 
 # The Links panel's own inset. Its children are flat `tk.Button`s whose
 # painted edge is their fill rather than a border, which is why the
 # non-button rule is the one that matches.
-LINKS_PAD = 4           # spacing: border edge -> first non-button element -- panel, button ↔↕
+LINKS_PAD = 2           # spacing: border edge -> first non-button element -- panel, button ↔↕
+
+# The leading pad both bottom panels start from, before either is
+# pushed down to meet the other. See `link_bottom_heights`.
+BOTTOM_ROW_GAP = 5      # spacing: panel ↕ unrelated label -- panel, title ↕
 
 # What the scale dropdown is worth, and what a change to it needs.
 SCALE_NOTE = "Applies on the next launch."
@@ -266,12 +273,14 @@ class SetupTab(BaseTab):
         # bottom edge across a row nothing else in the tab has.
         self._build_links(left)
         self._build_app_info(right)
-        # ON IDLE, not now: a panel's own requested height is not
-        # known until the geometry manager has been round its
-        # children, and reading it here gives every one of them the
-        # same wrong answer. The window is hidden while the tab is
-        # built, so nothing is seen at the natural heights first.
-        self.frame.after_idle(self.link_bottom_heights)
+        # ON FIRST MAP, not now and not on idle. Two readings are
+        # needed and neither exists yet: a panel's own requested height
+        # comes from the geometry manager having been round its
+        # children, and its POSITION comes from the notebook page being
+        # laid out -- which happens the first time the tab is looked
+        # at. On idle, both panels still report a y of 3 and the row
+        # never moves.
+        self.frame.bind("<Map>", self._on_first_map, add="+")
 
     def _build_status(self, parent):
         """Setup Status: the four prerequisites, live."""
@@ -513,7 +522,8 @@ class SetupTab(BaseTab):
         # `fill=X`, never `expand`: the height is the one `_link_heights`
         # sets, and an expanding panel would stretch to whatever its own
         # column has left -- which is a different amount on each side.
-        self._links_panel.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
+        self._links_panel.pack(fill=tk.X, padx=px(2),
+                               pady=px((BOTTOM_ROW_GAP, 2)))
 
         for text, url in (
                 ("View Releases on GitHub", RELEASES_HTML_URL),
@@ -555,7 +565,8 @@ class SetupTab(BaseTab):
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
         # `fill=X`, never `expand` -- see `_build_links`.
-        self._app_info_panel.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
+        self._app_info_panel.pack(fill=tk.X, padx=px(2),
+                                  pady=px((BOTTOM_ROW_GAP, 2)))
 
         version = current_version()
         ttk.Label(self._app_info_panel,
@@ -569,12 +580,24 @@ class SetupTab(BaseTab):
                        "optimization tool",
                   font=("Segoe UI", 9)).pack()
 
-    def link_bottom_heights(self):
-        """Hold Links and Application Information to the taller one.
+    def _on_first_map(self, _event=None):
+        """Link the bottom row, once, the first time the tab is shown."""
+        if getattr(self, "_bottom_row_linked", False):
+            return
+        self._bottom_row_linked = True
+        self.link_bottom_heights()
 
-        They sit on one row and hold unrelated content, so left alone
-        each ends where its own text does and the row has a ragged
-        bottom edge.
+    def link_bottom_heights(self):
+        """Line Links and Application Information up, top and bottom.
+
+        They close the two columns and hold unrelated content, so left
+        alone each starts where its own column's stack ends and stops
+        where its own text does -- two edges out of four ragged.
+
+        **`Links` decides the HEIGHT** and the lower of the two tops
+        decides the Y: the panel that has further to fall is the one
+        neither can rise above, and matching it is the only way both
+        edges line up without either being clipped.
 
         **Propagation is turned off AFTER the measurement, not before.**
         A frame with propagation already off reports its `height`
@@ -588,11 +611,36 @@ class SetupTab(BaseTab):
         panels = (self._links_panel, self._app_info_panel)
         for panel in panels:
             panel.pack_propagate(True)
+            panel.pack_configure(pady=px((BOTTOM_ROW_GAP, 2)))
         self.frame.update_idletasks()
-        tallest = max(panel.winfo_reqheight() for panel in panels)
+
+        height = self._links_panel.winfo_reqheight()
         for panel in panels:
-            panel.configure(height=tallest)
+            panel.configure(height=height)
             panel.pack_propagate(False)
+
+        # Now the tops. Both start from the same leading pad, so
+        # whichever sits lower does so because the stack above it is
+        # taller -- and the difference is what the other has to be
+        # pushed down by.
+        #
+        # **Compared in ROOT coordinates.** `winfo_y` is relative to a
+        # widget's own parent, and these two have different parents:
+        # one column each. Their `y` values are not on the same scale
+        # and comparing them puts the row wherever the two stacks
+        # happen to differ.
+        self.frame.update_idletasks()
+        tops = [panel.winfo_rooty() for panel in panels]
+        if len(set(tops)) > 1:
+            # Equal tops mean the tab has not been laid out yet -- both
+            # read the same placeholder -- and there is nothing to
+            # align. The heights above are still worth setting, so this
+            # half is skipped rather than the whole call.
+            lowest = max(tops)
+            for panel, top in zip(panels, tops):
+                panel.pack_configure(
+                    pady=(px(BOTTOM_ROW_GAP) + lowest - top, px(2)))
+            self.frame.update_idletasks()
 
     @staticmethod
     def _workers_choices():

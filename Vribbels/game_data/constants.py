@@ -445,17 +445,6 @@ EXP_MATERIALS = {
 # three are held as CURRENCIES rather than in the item list.
 NAMED_MATERIALS = {
     2000001: ("Units", "currency_unit.png"),
-    # Stamina. Read off a capture of a stage entry: a x6 run debited
-    # exactly 100 and left 55 of the 155 the account had, and the
-    # recovery item that had put it there credited 60. `add_max` on the
-    # record is 80, which is the natural cap rather than the ceiling.
-    # NO ART YET -- `currency_chaos_assault_stamina.png` is Reason's.
-    2000002: ("Aether", "", "Mythic"),
-    # One of the two Aether recovery items. The other is `Aether Bean
-    # Powder`, whose res_id is still UNKNOWN: the account holds none, so
-    # it appears in no capture and cannot be diffed for. It will show up
-    # in `items_id_unknown.tsv` the first time one is acquired.
-    2000014: ("Tear of God", "", "Legendary"),
     2100001: ("Universal Tactical Certificate", "currency_combatant_ascend_public.png"), # Equivalent to Common Manual of any class (Combatant Promotion material)
     2100002: ("Universal Support Certificate", "currency_supporter_ascend_public.png"),  # Equivalent to Common Certificate of any class (Partner Promotion material)
     2100003: ("Potential Disk", "currency_ego_tree_public.png"),                         # Equivalent to Common Growth Stone of any Element (Potential leveling material)
@@ -472,17 +461,62 @@ NAMED_MATERIALS = {
     2000010: ("Signal Amplification Anchor", "currency_gacha_ticket_rateup_supporter.png", "Mythic"), # one pull each
 }
 
-# Ids one of the tables above NAMES for the record and that nothing in
-# the program draws, counts or prices. `item_art` answers for them like
-# any other id; no tab reaches one.
+# Ids the program can NAME and does nothing else with. Not an item
+# table: there is no art for them and no rarity anyone has established,
+# so `item_art` must not answer for them -- a rarity it cannot price
+# costs a whole family its plates, which `check_item_art` is there to
+# catch.
 #
-# `docs/items_id_dump.py` reads this to keep them on its worklist:
-# knowing what an id IS is not the same as the program using it, and
-# `docs/items_id_known.tsv` is the file that says what is used.
-RECORDED_ONLY = frozenset({
-    2000002,        # Aether
-    2000014,        # Tear of God
-})
+# **This is where an identification survives.** The dumps are the place
+# one is worked out and `docs/items_id_known_not_in_program.tsv` is the
+# worklist, but a name only reaches the running program from here --
+# which is what lets a Capture Log line say `Traces of Memory +40`
+# rather than `3210001 +40`.
+#
+# Kept in step with that TSV by hand. `docs/items_id_dump.py` reads the
+# keys to keep these ids ON the worklist rather than promoting them:
+# knowing what an id IS is not the same as the program using it.
+#
+# Two Aether facts worth keeping: a x6 stage entry debited exactly 100
+# and left 55 of the 155 the account had, and `add_max` on its record
+# is 80, which is the natural cap rather than the ceiling. The other
+# recovery item, `Aether Bean Powder`, has no res_id yet -- the account
+# holds none, so no capture carries it.
+RECORDED_NAMES = {
+    2000002: "Aether",
+    2000007: "Clockwork of Time",
+    2000011: "Moment of the Radiant Hero",
+    2000012: "Moment of the Radiant Traveler",
+    2000014: "Tear of God",
+    2000016: "Rescue Anchor",
+    2000018: "Research Notes",
+    2000020: "Zeronium",
+    2000024: "Prism Film",
+    2000032: "Crystal of Discord",
+    3000005: "Chaos Orb",
+    3000008: "Tactical Data",
+    3200001: "Particles of Memory",
+    3200002: "Core of Memory",
+    3210001: "Traces of Memory",
+    3210002: "Multidimensional Alignment Material",
+    3300006: "Locket Necklace of Memories",
+    3300007: "Excellent Merit Badge",
+    3300008: "Lucky Sachet",
+    3300011: "Carefully Handwritten Letter",
+    3300013: "Cute Rabbit Doll",
+    3300016: "Handmade Wooden Doll",
+    3300018: "A Not So Boring Wait",
+    3300019: "Midsummer Night Fireworks",
+    3300020: "Limited Edition Teddy Bear",
+    3920007: "Black Mass",
+    3920014: "Core of Annihilation",
+    3920015: "Colorless Core",
+    3920022: "Abyssal Core",
+    3920031: "Seasonal Event Currency (name may be variable)",
+    3930004: "Core of Mutation",
+}
+
+RECORDED_ONLY = frozenset(RECORDED_NAMES)
 
 #
 # Items held with an EXPIRY rather than as a count - res_id to

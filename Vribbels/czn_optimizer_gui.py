@@ -86,7 +86,7 @@ from optimizer import GearOptimizer
 # same set.
 from optimizer.optimizer import SLOT5_ELEMENT_MAINS
 from config import AppConfig
-from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, AboutTab
+from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab
 from ui.utils.button_width import BUTTON_PAD_X
 from ui import scaling
 from ui.scaling import px
@@ -185,10 +185,6 @@ class OptimizerGUI:
         self.root.title("Vribbels CZN Optimizer (Ikkoru)")
         self.root.geometry("%dx%d" % (px(1550), px(1000)))
         self.root.minsize(px(1300), px(800))
-        # Windows resizes a per-monitor-aware window dragged across a
-        # DPI boundary. The scale is this program's own setting and
-        # changes only on a restart, so the size is held.
-        scaling.hold_size_across_monitors(self.root)
 
         self.colors = dict(COLORS)
 
@@ -841,20 +837,16 @@ class OptimizerGUI:
         # with no snapshot to load.
         self.inventory_tab_instance.refresh_active_preset_label()
 
-        self.about_tab_instance = AboutTab(self.notebook, self.app_context)
-        self.about_tab = self.about_tab_instance.get_frame()
-
         # ---- Add tabs to notebook in display order ----
         # Optimizer | Memory Fragments | Gear Score | Combatants | Materials |
-        #   Capture | Setup | About
+        #   Capture | Setup & Settings
         self.notebook.add(self.optimizer_tab, text="Optimizer")
         self.notebook.add(self.inventory_tab, text="Memory Fragments")
         self.notebook.add(self.scoring_tab, text="Gear Score")
         self.notebook.add(self.heroes_tab, text="Combatants")
         self.notebook.add(self.materials_tab, text="Materials")
         self.notebook.add(self.capture_tab, text="Capture")
-        self.notebook.add(self.setup_tab, text="Setup")
-        self.notebook.add(self.about_tab, text="About")
+        self.notebook.add(self.setup_tab, text="Setup & Settings")
 
         # First-launch default: switch to the Setup tab so the user lands
         # on the proxy/cert installation flow before trying to use the

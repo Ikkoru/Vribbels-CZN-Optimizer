@@ -241,4 +241,33 @@ def run():
                 f"corrected by the next frame -- the qid guard is the "
                 f"only thing between a retransmit and a doubled count.")
 
+    # Every id the program can NAME has to reach the log line, or the
+    # user reads a res_id where a name belongs -- and an id it CANNOT
+    # name has to stay a number, because the Capture Log marks those
+    # for the dump. Both come from one injected table.
+    from capture.manager import CaptureManager
+    from game_data import GROWTH_STONES
+    from game_data.constants import NAMED_MATERIALS, RECORDED_NAMES
+
+    with tempfile.TemporaryDirectory() as tmp:
+        manager = CaptureManager(Path(tmp), log_callback=lambda *_a, **_k: None)
+        script = manager._generate_addon_script().read_text(encoding="utf-8")
+        namespace = {}
+        for line in script.splitlines():
+            if line.startswith("ITEM_NAMES = "):
+                exec(line, namespace)
+        names = namespace.get("ITEM_NAMES", {})
+
+    for table, what in ((NAMED_MATERIALS, "a named material"),
+                        (GROWTH_STONES, "a growth stone"),
+                        (RECORDED_NAMES, "a recorded name")):
+        missing = sorted(set(table) - set(names))
+        if missing:
+            failures.append(
+                f"{len(missing)} id(s) the tables name are missing from the "
+                f"addon's `ITEM_NAMES`, e.g. {missing[0]} ({what}). The log "
+                f"line falls back to the res_id for those, which is the "
+                f"marking the Capture Log reserves for ids nobody has "
+                f"identified -- so a known item reads as an unknown one.")
+
     return failures

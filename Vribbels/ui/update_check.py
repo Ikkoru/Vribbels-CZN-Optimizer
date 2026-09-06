@@ -54,21 +54,22 @@ RELEASES_HTML_URL = f"https://github.com/{GITHUB_REPO}/releases"
 # it drains an empty queue and re-arms.
 POLL_MS = 100
 
-# The panel's own inset, and the gap from a label to the value beside
-# it.
-PANEL_PAD = 4        # spacing: border edge -> first non-button element -- panel, label ↔↕
-LABEL_TO_VALUE = 5   # spacing: label ↔ its element -- label, label ↔
+# The panel's own inset, as (left, top, right, bottom). Levers a
+# rendered distance short of the rule -- a ttk.Label's glyphs start
+# inside its own box, which is 3 on the left and 5 above. Only the LEFT
+# and TOP have been read off a screen; the other two carry the left's
+# value for want of a reading of their own.
+PANEL_PAD = (1, -1, 1, 1)   # spacing: border edge -> first non-button element -- panel, label ↔↕
 
-# The verdict is one more text-only row under two others, so it takes
-# the label-row pitch. A lever short of the rule: the two rows above it
-# carry no pady at all, their own line boxes supplying the pitch
-# between them, and this one starts from that same box.
-VERDICT_GAP = 6      # spacing: label row -> label row -- label, label ↕
+# A label against the value beside it. Three short of the rule, which
+# is the two labels' insets meeting.
+LABEL_TO_VALUE = 2   # spacing: label ↔ its element -- label, label ↔
 
-# The button under it has no rule. `border edge -> button` is the only
-# button rule with a vertical sense and it measures to a panel edge,
-# not to a neighbour.
-BUTTON_GAP = 6       # spacing: TBD -- the Check Now button under the Update Status verdict
+# Between every pair of rows inside the panel -- the two readings, the
+# verdict under them, and the button under that. One pitch for all of
+# it, so the panel reads as a block rather than as three things that
+# happen to be stacked.
+ROW_PITCH = 6        # spacing: config panel row ↕ row -- label, label ↕
 
 
 def version_core(version: str) -> str:
@@ -165,31 +166,34 @@ class UpdateStatus:
         # A grid, so the two values line up under each other however
         # long their labels are.
         rows.grid_columnconfigure(1, weight=1)
-        # The two rows carry no pady: a Label's own line box already
-        # supplies the pitch between them, the same way Setup Status'
-        # four rows do.
         ttk.Label(rows, text="Latest version:").grid(
             row=0, column=0, sticky="w")
         self.latest_label = ttk.Label(rows, text="")
         # spacing: label ↔ its element -- label, label ↔
         self.latest_label.grid(row=0, column=1, sticky="w",
                                padx=px((LABEL_TO_VALUE, 0)))
+        # spacing: config panel row ↕ row -- label, label ↕
+        # On the whole row, both cells: a grid pad set on one column
+        # only would leave the other's baseline where it was.
         ttk.Label(rows, text="Last checked:").grid(
-            row=1, column=0, sticky="w")
+            row=1, column=0, sticky="w", pady=px((ROW_PITCH, 0)))
         self.checked_label = ttk.Label(rows, text="")
         # spacing: label ↔ its element -- label, label ↔
         self.checked_label.grid(row=1, column=1, sticky="w",
-                                padx=px((LABEL_TO_VALUE, 0)))
+                                padx=px((LABEL_TO_VALUE, 0)),
+                                pady=px((ROW_PITCH, 0)))
 
         # `tk.Label`, not ttk: the verdict is coloured per state and a
         # ttk style would need one style per colour.
         self.verdict = tk.Label(self.panel, text="", bg=colors["bg"],
                                 fg=colors["fg_dim"], font=("Segoe UI", 9))
-        self.verdict.pack(anchor=tk.W, pady=px((VERDICT_GAP, 0)))
+        # spacing: config panel row ↕ row -- label, label ↕
+        self.verdict.pack(anchor=tk.W, pady=px((ROW_PITCH, 0)))
 
         self.button = ttk.Button(self.panel, text="Check Now",
                                  command=self.check_now)
-        self.button.pack(anchor=tk.W, pady=px((BUTTON_GAP, 0)))
+        # spacing: config panel row ↕ row -- label, button ↕
+        self.button.pack(anchor=tk.W, pady=px((ROW_PITCH, 0)))
 
         self.root.after(POLL_MS, self._drain)
         # Shortly after, so the tab is built before its labels move.
