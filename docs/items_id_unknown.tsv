@@ -6,8 +6,8 @@ res_id	where	amount	Name	Type	Name Candidate	Type Candidate / Description	Note
 2000017	currencies	0					
 2000021	currencies	0					
 2000022	currencies	3					
-2000023	currencies	57			Prism Lens	Gacha Currency - Animated Card	Alt: Policy Point | Shop Ark Currency
-2000031	currencies	12			Prism Lens	Gacha Currency - Animated Card	Alt: Policy Point | Shop Ark Currency
+2000023	currencies	57	Prism Lens	Gacha Currency - Animated Card			
+2000031	currencies	12	Policy Point	Shop Ark Currency			
 2000033	currencies	3					
 2000034	currencies	0					
 2000048	currencies	0					
@@ -25,7 +25,7 @@ res_id	where	amount	Name	Type	Name Candidate	Type Candidate / Description	Note
 3300017	items	6		Gift Item			
 3310005	items	0					
 3310006	items	0					
-3310007	items	0					
+3310007	items	0	Special Grade Policy Report	Ark - Policy			
 3920004	items	0					
 3920005	items	0					
 3920013	items	4			Core of the Reverse	Save Data Edit	
