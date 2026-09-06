@@ -40,9 +40,6 @@
   "Exclude Combatant's MFs: title -> first element": 5,
   "Exclude Combatant's MFs: top edge -> content": 4,
   "Exclude checkboxes": 8,
-  "First-Time Setup -> Setup Status title": 10,
-  "First-Time Setup -> its subtitle": 14,
-  "First-Time Setup subtitle: off the heading's line": 0,
   "Force HP/Ego -> its checkboxes": 5,
   "Force HP/Ego checkboxes": 8,
   "Fracture -> its slider": 5,
@@ -234,5 +231,8 @@
   "weight column 1 label -> its spinbox": 5,
   "weight column 2 label -> its spinbox": 5,
   "weight columns": 8,
-  "weights caption -> the stat grid": 7
+  "weights caption -> the stat grid": 7,
+  "Setup & Settings -> Setup Status title": 10,
+  "Setup & Settings -> its subtitle": 14,
+  "Setup & Settings subtitle: off the heading's line": 0
 }

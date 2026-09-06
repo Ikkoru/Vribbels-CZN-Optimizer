@@ -1059,17 +1059,35 @@ def _setup_columns_hold_their_shape(tab):
             f"crash -- it just reads wrong.")
     left_panels = set(panels_in(left))
     right_panels = list(panels_in(right))
-    if left_panels != {"Setup Status", "Setup Instructions"}:
+    if left_panels != {"Setup Status", "Setup Instructions", "Links"}:
         out.append(
             f"the Setup tab's left column holds {sorted(left_panels)}, not "
-            f"Setup Status and Setup Instructions. Those two share the "
-            f"column's fixed width; anything else in there is pinned to a "
-            f"width chosen for something it is not.")
-    if set(right_panels) != {"Restore Defaults", "Update Status", "Settings"}:
+            f"Setup Status, Setup Instructions and Links. Those three "
+            f"share the column's fixed width; anything else in there is "
+            f"pinned to a width chosen for something it is not.")
+    if set(right_panels) != {"Restore Defaults", "Update Status", "Settings",
+                             "Application Information"}:
         out.append(
             f"the Setup tab's right column holds {sorted(right_panels)}, "
-            f"not Restore Defaults, Update Status and Settings. The three "
-            f"are stacked so they share one width and one x.")
+            f"not Restore Defaults, Update Status, Settings and "
+            f"Application Information. The four are stacked so they share "
+            f"one width and one x.")
+
+    # The two bottom panels are held to ONE height, so the row they
+    # make ends on a straight edge. The linking runs on an idle
+    # callback the build never reaches, so it is called here -- it is
+    # idempotent, and calling it is what makes the reading mean
+    # anything.
+    tab.link_bottom_heights()
+    heights = {name: int(panels_in(columns)[name].cget("height"))
+               for name in ("Links", "Application Information")
+               if name in panels_in(columns)}
+    if len(heights) == 2 and len(set(heights.values())) != 1:
+        out.append(
+            f"Links and Application Information are {heights} tall. They "
+            f"sit on one row and are pinned to the taller of the two, so "
+            f"a mismatch is a `_link_heights` that no longer runs -- and "
+            f"a ragged bottom edge is the only symptom.")
 
     text = None
     for widget in _descendants(tab.get_frame()):

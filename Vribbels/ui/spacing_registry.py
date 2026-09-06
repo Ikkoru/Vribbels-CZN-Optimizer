@@ -903,8 +903,8 @@ PANEL_OVER_TEXT_ENTRIES = [
                        bold14=True)),
     ("Capture", "Data Capture -> Status title", 10, None,
      _label_over_panel("Data Capture", "Status", bold14=True)),
-    ("Setup", "First-Time Setup -> Setup Status title", 10, None,
-     _label_over_panel("First-Time Setup", "Setup Status", bold14=True)),
+    ("Setup", "Setup & Settings -> Setup Status title", 10, None,
+     _label_over_panel("Setup & Settings", "Setup Status", bold14=True)),
 
     # The Combatants header band, one entry per column. Two unrelated
     # constructions on one target: the left column's label is a single
@@ -1096,7 +1096,7 @@ TAB_LIST_TABS = [
     ("Combatants", lambda app: app.heroes_tab_instance.hero_detail_name),
     ("Gear Score", "Gear Score Calculation"),
     ("Capture", "Data Capture"),
-    ("Setup", "First-Time Setup"),
+    ("Setup", "Setup & Settings"),
     # The rightmost of three headings, all on one line. Named rather
     # than left to the width scan because the other two say `Reserved`,
     # which the Element names in the placeholder columns say as well.
@@ -1122,7 +1122,7 @@ def _tab_list_target(tab: str) -> int:
 TAB_HEADERS = [
     ("Capture", "Data Capture", "Capture game data"),
     ("Gear Score", "Gear Score Calculation", "Configure how gear scores"),
-    ("Setup", "First-Time Setup", "Complete these steps"),
+    ("Setup", "Setup & Settings", "Complete these steps"),
 ]
 
 # One heading reads a pixel wider than the other two for the same
@@ -2512,6 +2512,22 @@ def _materials_value_column(needles):
     return resolve
 
 
+def _next_sibling(widget):
+    """The widget packed or gridded directly after `widget`.
+
+    For a label-and-its-element pair built as two children of one row:
+    the pair is found by the LABEL's text, which is the stable half,
+    and the element beside it is whatever comes next.
+    """
+    if widget is None:
+        raise LookupError("no widget to take a sibling of")
+    children = widget.master.winfo_children()
+    at = children.index(widget)
+    if at + 1 >= len(children):
+        raise LookupError("that widget has nothing after it")
+    return children[at + 1]
+
+
 def _first_filled_text(title):
     """Locator: the first Text in a panel that HAS lines in it.
 
@@ -2853,7 +2869,12 @@ PANELS = {
         "Capture Log",
         "Upgrade Log Settings",
     ],
-    "Setup": ["Setup Status", "Restore Defaults", "Setup Instructions"],
+    # `Application Information` is deliberately absent: its internals
+    # are carried over from the About tab unmeasured and carry a TBD
+    # marker, so registering a rule against them would report a drift
+    # from a target nobody has agreed.
+    "Setup": ["Setup Status", "Restore Defaults", "Setup Instructions",
+              "Update Status", "Settings", "Links"],
 }
 
 # Panels whose left inset is NOT the border-edge rule.
@@ -4390,6 +4411,26 @@ def register_all():
     # wide, so the gap after its label is measured to that column's
     # edge rather than to the digits -- which sit as far right as their
     # own width leaves them.
+    # The two label-and-element pairs on Setup & Settings. Registered
+    # HERE rather than in a module-level list because their resolver is
+    # defined further down the file than the lists are -- and both are
+    # found by the LABEL's text, the element beside it being whichever
+    # child comes next.
+    for _label in ("Latest version:", "UI scale:"):
+        sa.track(
+            name=("Update Status: label -> its value"
+                  if _label.startswith("Latest") else
+                  "Settings: label -> its dropdown"),
+            tab="Setup",
+            rule=RULE_LABEL_ELEMENT,
+            target=5,
+            resolve=_ink_to_box_edge(
+                _by_text(_label),
+                lambda app, w=_label: _next_sibling(_by_text(w)(app))),
+            axis="h",
+            provisional=True,
+        )
+
     sa.track(
         name="Character: Excursion Types -> its count",
         tab="Combatants",

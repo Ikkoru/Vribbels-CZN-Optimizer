@@ -497,8 +497,9 @@ A `unique` names no rule, so nothing derives its number — and the registry's r
 
 | Description | Location | Rule/Question |
 | ----------- | -------- | ------------- |
-| the Update Status verdict under its two readings | `ui/update_check.py`, `VERDICT_GAP` | A one-line status readout under a pair of label rows. The rows above it are not an explanation of it, so `explanation text -> the controls it explains` does not apply, and it is not a label ROW pitch either — the rows above carry no pady at all, their line boxes supplying the pitch. Does a status line under a block of readings want a rule of its own, or the label-row pitch? |
 | the Check Now button under the Update Status verdict | `ui/update_check.py`, `BUTTON_GAP` | Nothing in the table rules on a button under a label. `border edge -> button` is the only button rule with a vertical sense and it measures to a panel edge, not to a neighbour. |
+| the Links panel's own button styling and pitch | `ui/tabs/setup_tab.py`, `_link_button` | Flat `tk.Button`s with their own `padx`/`pady`, packed `fill=X` at a pitch of 2. Carried over from the About tab unchanged. A flat button's painted edge is its fill rather than a border, so `button -> button` may not be the rule that applies. |
+| the Application Information panel's internal format | `ui/tabs/setup_tab.py`, `_build_app_info` | A centred stack at three font sizes with a padding of 15 around it, carried over from the About tab unchanged. Nothing in the table rules on a centred block, and its paddings were never measured. |
 | one Settings row under another's explanation | `ui/tabs/setup_tab.py`, `SETTINGS_ROW_GAP` | A dropdown row under the previous row's explanation text. `explanation text -> the controls it explains` covers the gap ABOVE the explanation; this is the one below it, back up to the next control. |
 
 ## Checking spacing

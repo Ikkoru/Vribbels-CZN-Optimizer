@@ -11,6 +11,10 @@ and `Settings` stack at one width and one x.
 fixed block that never grows, so a panel sized to hold it exactly is
 the whole of it.
 
+The last row is `Links` and `Application Information`, one in each
+column, held to ONE height. Both came off the About tab, which is now
+a pointer at this one.
+
 Also hosts the "Restore Defaults" panel and its modal dialogs
 (`Restore Default Presets`, `Restore Default Combatant Presets`,
 `Restore Default Combatant Settings`) for restoring missing defaults
@@ -40,6 +44,7 @@ import copy
 import subprocess
 import ctypes
 import threading
+import webbrowser
 from pathlib import Path
 import sys
 from capture import setup_certificate, open_certificate, find_mitmdump
@@ -53,7 +58,8 @@ from ..utils.tab_header import make_tab_header
 from defaults_sync import resolve_defaults_dir
 from ui.scaling import px
 from ui import scaling
-from ui.update_check import UpdateStatus
+from ui.update_check import (
+    GITHUB_REPO, RELEASES_HTML_URL, UpdateStatus, current_version)
 
 
 _RENAME_PLACEHOLDER = "Rename current preset to..."
@@ -87,7 +93,7 @@ INSTRUCTIONS_PAD = 4    # spacing: border edge -> first non-button element -- pa
 # the widest line. MEASURED once and written down rather than derived:
 # a ttk border is the theme's and a scrollbar's width is the theme's
 # too, and neither is readable before the widgets exist.
-INSTRUCTIONS_CHROME = 34
+INSTRUCTIONS_CHROME = 23
 
 # The Settings panel. Its rows are a label and a control, and the two
 # columns line up under each other.
@@ -95,6 +101,11 @@ SETTINGS_PAD = 4        # spacing: border edge -> first non-button element -- pa
 SETTINGS_LABEL_GAP = 5  # spacing: label ↔ its element -- label, dropdown ↔
 SETTINGS_NOTE_GAP = 2   # spacing: explanation text -> the controls it explains -- dropdown, label ↕
 SETTINGS_ROW_GAP = 6    # spacing: TBD -- one Settings row under another's explanation
+
+# The Links panel's own inset. Its children are flat `tk.Button`s whose
+# painted edge is their fill rather than a border, which is why the
+# non-button rule is the one that matches.
+LINKS_PAD = 4           # spacing: border edge -> first non-button element -- panel, button ↔↕
 
 # What the scale dropdown is worth, and what a change to it needs.
 SCALE_NOTE = "Applies on the next launch."
@@ -242,11 +253,25 @@ class SetupTab(BaseTab):
         self._build_setup_buttons(left)
         self._build_instructions(left)
         self._build_restore(right)
-        # spacing: content frame -> content frame -- frame, frame ↔↕
-        UpdateStatus(right, self.colors, self.root,
-                     self.context.settings_manager).panel.pack(
-                         fill=tk.X, padx=px(2), pady=px((0, 2)))
+        # spacing: content frame -> content frame -- frame, frame ↔
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        self.update_status = UpdateStatus(
+            right, self.colors, self.root, self.context.settings_manager)
+        self.update_status.panel.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
         self._build_settings(right)
+
+        # The last row of each column, and the two are held to ONE
+        # height. They carry unrelated content and would otherwise end
+        # at whatever their own text reached, which reads as a ragged
+        # bottom edge across a row nothing else in the tab has.
+        self._build_links(left)
+        self._build_app_info(right)
+        # ON IDLE, not now: a panel's own requested height is not
+        # known until the geometry manager has been round its
+        # children, and reading it here gives every one of them the
+        # same wrong answer. The window is hidden while the tab is
+        # built, so nothing is seen at the natural heights first.
+        self.frame.after_idle(self.link_bottom_heights)
 
     def _build_status(self, parent):
         """Setup Status: the four prerequisites, live."""
@@ -297,7 +322,7 @@ class SetupTab(BaseTab):
         """The two actions Setup Status is read against."""
         btn_frame = ttk.Frame(parent)
         # spacing: content frame -> content frame -- frame, frame ↕
-        btn_frame.pack(fill=tk.X, pady=px((0, 2)))
+        btn_frame.pack(fill=tk.X, pady=px((2, 2)))
 
         # spacing: button -> button -- button, button ↔
         # Each button's trailing pad meets the next one's leading pad, so
@@ -321,7 +346,10 @@ class SetupTab(BaseTab):
         # the border; the text inset lives on the Text's padx/pady.
         instr_frame = ttk.LabelFrame(parent, text="Setup Instructions",
                                      padding=px(0))
-        instr_frame.pack(fill=tk.X, padx=px(2), pady=px((0, 2)))
+        # spacing: panel ↕ unrelated label -- button, title ↕
+        # The leading side carries the whole run from the button row
+        # down to this panel's title.
+        instr_frame.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
 
         # spacing: border edge -> first non-button element -- panel, text ↔↕
         # The panel's inset sits here rather than on the LabelFrame,
@@ -421,7 +449,8 @@ class SetupTab(BaseTab):
         settings_frame = ttk.LabelFrame(parent, text="Settings",
                                         padding=px(SETTINGS_PAD))
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        settings_frame.pack(fill=tk.X, padx=px(2), pady=px((0, 2)))
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        settings_frame.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
 
         sm = self.context.settings_manager
 
@@ -468,6 +497,102 @@ class SetupTab(BaseTab):
         ttk.Label(settings_frame, text=WORKERS_WARNING,
                   foreground=self.colors["red"], justify=tk.LEFT).pack(
                       anchor=tk.W, pady=px((SETTINGS_NOTE_GAP, 0)))
+
+    def _build_links(self, parent):
+        """Links: outward buttons, in the left column's width."""
+        # spacing: border edge -> first non-button element -- panel, button ↔↕
+        # Every child here is a button, so the panel's own inset is the
+        # button rule -- but the vocabulary's `border edge -> button` is
+        # 3 and these are `tk.Button`s drawn flat rather than ttk ones
+        # with a border, so the edge the eye meets is the fill's. The
+        # non-button rule is what matches what is drawn.
+        self._links_panel = ttk.LabelFrame(parent, text="Links",
+                                           padding=px(LINKS_PAD))
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        # `fill=X`, never `expand`: the height is the one `_link_heights`
+        # sets, and an expanding panel would stretch to whatever its own
+        # column has left -- which is a different amount on each side.
+        self._links_panel.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
+
+        for text, url in (
+                ("View Releases on GitHub", RELEASES_HTML_URL),
+                ("Report an Issue", f"https://github.com/{GITHUB_REPO}/issues"),
+                ("Documentation", f"https://github.com/{GITHUB_REPO}#readme")):
+            self._link_button(text, lambda u=url: webbrowser.open(u))
+
+        def show_donation_message():
+            messagebox.showinfo(
+                "Support Development",
+                "Currently not accepting donations.\n\n"
+                "If you wish to instead donate to the original creator of "
+                "this project, feel free to do so at:\n"
+                "https://ko-fi.com/H2H21PHYKW"
+            )
+
+        self._link_button("Support Development", show_donation_message)
+
+    def _link_button(self, text, command):
+        """One flat link button, in the Links panel."""
+        # spacing: TBD -- the Links panel's own button styling and pitch
+        # Kept as it was on the About tab: a flat `tk.Button` with its
+        # own padding, filling the panel's width. Only the panel's inset
+        # answers to a rule so far.
+        tk.Button(
+            self._links_panel, text=text, command=command,
+            bg=self.colors["bg_lighter"], fg=self.colors["accent"],
+            font=("Segoe UI", 9), relief=tk.FLAT,
+            padx=px(10), pady=px(5), cursor="hand2", anchor="w",
+        ).pack(fill=tk.X, pady=px(2))
+
+    def _build_app_info(self, parent):
+        """Application Information: what this build is."""
+        # spacing: TBD -- the Application Information panel's internal format
+        # Carried over from the About tab unchanged: a centred stack at
+        # three font sizes, with paddings nothing has ruled on.
+        self._app_info_panel = ttk.LabelFrame(
+            parent, text="Application Information", padding=px(15))
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        # `fill=X`, never `expand` -- see `_build_links`.
+        self._app_info_panel.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
+
+        version = current_version()
+        ttk.Label(self._app_info_panel,
+                  text="Vribbels CZN Optimizer (Ikkoru)",
+                  font=("Segoe UI", 12, "bold")).pack(pady=px((0, 5)))
+        ttk.Label(self._app_info_panel,
+                  text=f"Version {version}" if version else "Version Unknown",
+                  font=("Segoe UI", 14, "bold")).pack(pady=px((5, 5)))
+        ttk.Label(self._app_info_panel,
+                  text="A Fribbels-inspired gear management and "
+                       "optimization tool",
+                  font=("Segoe UI", 9)).pack()
+
+    def link_bottom_heights(self):
+        """Hold Links and Application Information to the taller one.
+
+        They sit on one row and hold unrelated content, so left alone
+        each ends where its own text does and the row has a ragged
+        bottom edge.
+
+        **Propagation is turned off AFTER the measurement, not before.**
+        A frame with propagation already off reports its `height`
+        option as its requested height -- 1, by default -- so measuring
+        first gives every panel the same wrong answer.
+
+        Idempotent, and public because a check calls it: a build that
+        never reaches an idle callback would otherwise measure the
+        panels before they were linked.
+        """
+        panels = (self._links_panel, self._app_info_panel)
+        for panel in panels:
+            panel.pack_propagate(True)
+        self.frame.update_idletasks()
+        tallest = max(panel.winfo_reqheight() for panel in panels)
+        for panel in panels:
+            panel.configure(height=tallest)
+            panel.pack_propagate(False)
 
     @staticmethod
     def _workers_choices():

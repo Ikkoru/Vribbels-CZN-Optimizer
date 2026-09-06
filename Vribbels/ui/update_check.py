@@ -59,11 +59,15 @@ POLL_MS = 100
 PANEL_PAD = 4        # spacing: border edge -> first non-button element -- panel, label ↔↕
 LABEL_TO_VALUE = 5   # spacing: label ↔ its element -- label, label ↔
 
-# The verdict under the two readings, and the button under the verdict.
-# Neither pair is in the rules table: a status line is a label but the
-# thing above it is a label ROW rather than an explanation, and nothing
-# yet rules on a button under a label.
-VERDICT_GAP = 6      # spacing: TBD -- the Update Status verdict under its two readings
+# The verdict is one more text-only row under two others, so it takes
+# the label-row pitch. A lever short of the rule: the two rows above it
+# carry no pady at all, their own line boxes supplying the pitch
+# between them, and this one starts from that same box.
+VERDICT_GAP = 6      # spacing: label row -> label row -- label, label ↕
+
+# The button under it has no rule. `border edge -> button` is the only
+# button rule with a vertical sense and it measures to a panel edge,
+# not to a neighbour.
 BUTTON_GAP = 6       # spacing: TBD -- the Check Now button under the Update Status verdict
 
 

@@ -126,6 +126,16 @@ def declare_dpi_awareness():
         return f"not declared ({exc})"
 
 
+# How often the window's own DPI is looked at, and how many ticks a
+# restore is repeated for. **POLLED, not evented**: a `<Configure>`
+# binding fired for the drag and did not hold the size, so whatever
+# Windows does to the window it does after Tk has been told about it.
+# A tick that runs afterwards can put the size back; one that runs
+# during cannot.
+DPI_POLL_MS = 120
+DPI_SETTLE_TICKS = 4
+
+
 def hold_size_across_monitors(root):
     """Keep the window the size it was when it crosses a DPI boundary.
 
@@ -136,19 +146,18 @@ def hold_size_across_monitors(root):
     program's scale setting, which is fixed for the run and changes
     only on a restart.
 
-    So the size is remembered and put back whenever the DPI UNDER the
-    window changes. The position is left alone: where the window was
-    dragged to is the user's answer, and only its size is the OS's.
+    So the window's own DPI is watched, and the size put back for a few
+    ticks after it changes. The position is left alone: where the
+    window was dragged to is the user's answer, and only its size is
+    the OS's.
 
-    **The event has to be filtered to the root.** A toplevel's pathname
-    is in the bind tags of every widget under it, so a `<Configure>`
-    bound here fires for each of the hundreds of child widgets too, and
-    an unfiltered handler would take a child's geometry for the
-    window's.
+    **The restore repeats.** One tick is not enough -- the resize can
+    arrive in pieces as the drag settles, and a single put-back lands
+    before the last of them.
 
-    A move made by `geometry()` does not go through this at all --
-    Windows sends no DPI change for one -- which is why the drag is the
-    only way to see it.
+    **A MAXIMIZED window is left alone.** Windows resizing it to fill
+    the new screen is right, and putting a size back would restore it
+    out of its maximized state.
     """
     try:
         user32 = ctypes.windll.user32
@@ -163,29 +172,35 @@ def hold_size_across_monitors(root):
             return 0
 
     def measured():
-        """The window's size, or None before Tk has laid it out."""
         width, height = root.winfo_width(), root.winfo_height()
         return (width, height) if width > 1 and height > 1 else None
 
-    # Seeded here as well as from the events, for a window that is
-    # already settled when this is called: nothing configures it again,
-    # so nothing would ever record a size to put back.
-    state = {"size": measured(), "dpi": dpi()}
+    state = {"size": measured(), "dpi": dpi(), "settle": 0}
 
-    def on_configure(event):
-        if event.widget is not root:
+    def tick():
+        if not root.winfo_exists():
             return
+        try:
+            zoomed = root.state() == "zoomed"
+        except Exception:                   # noqa: BLE001
+            zoomed = False
         now = dpi()
-        if now and now != state["dpi"]:
+        if zoomed:
+            state["dpi"], state["settle"] = now, 0
+        elif now and now != state["dpi"]:
             state["dpi"] = now
-            if state["size"]:
+            state["settle"] = DPI_SETTLE_TICKS
+        elif state["settle"]:
+            state["settle"] -= 1
+            if state["size"] and measured() != state["size"]:
                 width, height = state["size"]
-                root.geometry("%dx%d+%d+%d" % (width, height,
-                                               root.winfo_x(), root.winfo_y()))
-            return
-        state["size"] = measured() or state["size"]
+                root.geometry("%dx%d+%d+%d"
+                              % (width, height, root.winfo_x(), root.winfo_y()))
+        else:
+            state["size"] = measured() or state["size"]
+        root.after(DPI_POLL_MS, tick)
 
-    root.bind("<Configure>", on_configure, add="+")
+    root.after(DPI_POLL_MS, tick)
 
 
 def apply_font_scaling(root):
