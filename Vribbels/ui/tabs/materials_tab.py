@@ -800,8 +800,15 @@ class MaterialsTab(BaseTab):
         value_px = self._value_column_px()
         labels = max(stat.measure(word)
                      for word, _costs in ADVANCED_TARGETS) + TAB_FLOOR_PX
+        # One tab floor between each pair of value columns as well as
+        # in front of the labels. A stop exactly a reservation past the
+        # one before it leaves no room for the tab that reaches it, so
+        # Tk pushes that column right -- and the overshoot ACCUMULATES
+        # across the three, taking the last one off the end of a block
+        # sized from the stops.
         stops = (labels,) + tuple(
-            labels + LABEL_TO_VALUE + value_px * (n + 1)
+            labels + LABEL_TO_VALUE + value_px
+            + n * (value_px + TAB_FLOOR_PX)
             for n in range(len(spec.advanced)))
         figures = self._figures_block(
             row, stops[-1], 1 + len(ADVANCED_TARGETS), stops,

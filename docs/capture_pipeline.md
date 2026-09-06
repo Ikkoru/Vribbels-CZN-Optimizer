@@ -70,6 +70,19 @@ Each is replaced whole rather than merged: the reply IS the board, so a row's ab
 
 **A Communication Pass is in none of them, because it is in nothing.** Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.
 
+## The item counts arrive once, and change through `add_result`
+
+`inventory.items` and `characters.currencies` come down in the login burst and never again. Every later change to either — a stage cleared, a pass spent, a box opened — rides on the reply to whatever earned it, under `add_result`:
+
+```
+{"items":    {"<res_id>": {"doc": {..., "res_id": 3300013, "amount": 50, ...}, "diff": 1}},
+ "currency": {"<res_id>": {"doc": {..., "res_id": 2000001, "amount": 710439, ...}, "diff": 50000}}}
+```
+
+`doc` is the item's whole record in the shape the cache already holds, and **`doc.amount` is the TOTAL, not the change** — so `_apply_add_result` writes it in rather than adding `diff` to what is cached, and a frame arriving twice cannot double a count. Items are a list keyed by `res_id` and currencies a dict keyed by the same id as a string; an id not yet held is appended.
+
+Without that branch nothing on the wire moves an item count: the Materials tab reads what the account had at login, no save is triggered, and no line reaches the Capture Log — a capture that has gone stale looks exactly like one where nothing has happened. `checks/check_capture_rewards.py` drives it.
+
 ## The proxy's upstream must never be a loopback address
 
 mitmdump runs in reverse-proxy mode with the game server's IP as its upstream and its own listen port as the destination port, so a loopback upstream makes the proxy its own upstream: every request is forwarded back into it, one new client connection per hop, until the log is thousands of lines of `GET https://127.0.0.1:13701/api/` and nothing has reached either the game or the snapshot.

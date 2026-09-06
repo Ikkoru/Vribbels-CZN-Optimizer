@@ -595,6 +595,19 @@ class Addon:
             self.char_visits = data["char_visits"]
             self._save_pending = True
 
+        # What the server says you just received: clearing a stage,
+        # spending a Communication Pass, opening anything. Items and
+        # currencies both, each carrying the record the cache already
+        # holds for that id.
+        #
+        # **Nothing else on the wire updates an item count.** The
+        # inventory arrives once, at login, and every later change is
+        # one of these -- so without this branch the Materials tab
+        # reads whatever was true when the game was started, with no
+        # save, no log line and nothing to say it went stale.
+        if isinstance(data.get("add_result"), dict):
+            self._apply_add_result(data["add_result"])
+
         # The Great Rift standings, keyed by season and then by rank
         # slot. This is where the weekly score lives -- nothing else
         # carries it -- and the frame it arrives in holds a dozen other
@@ -604,6 +617,63 @@ class Addon:
             self.disaster_ranks = data["disaster_boss_rank_entities"]
             self._save_pending = True
 
+
+    def _apply_add_result(self, result):
+        """Apply an "you received" record to the cached counts.
+
+        Shape: {"items": {res_id: entry}, "currency": {res_id: entry}},
+        each entry carrying `doc` -- the item's whole record, in the
+        same shape the cache already holds -- and `diff`, how much of
+        it is new.
+
+        **`doc.amount` is the total, not the change.** It is written in
+        rather than added to, so a frame seen twice cannot double a
+        count and a frame missed cannot leave one short.
+
+        Items live in a LIST keyed by res_id and currencies in a DICT
+        keyed by the same id as a string; both are replaced whole,
+        because the record that arrives is the record the snapshot
+        wants. An id not yet held is appended: a first pickup has no
+        entry to update.
+        """
+        items = result.get("items")
+        currencies = result.get("currency")
+        gained = []
+
+        if isinstance(items, dict) and self.inventory_data is not None:
+            held = self.inventory_data.setdefault("items", [])
+            if isinstance(held, list):
+                for entry in items.values():
+                    doc = entry.get("doc") if isinstance(entry, dict) else None
+                    if not isinstance(doc, dict) or "res_id" not in doc:
+                        continue
+                    for index, row in enumerate(held):
+                        if isinstance(row, dict) and row.get("res_id") == doc["res_id"]:
+                            held[index] = doc
+                            break
+                    else:
+                        held.append(doc)
+                    gained.append((doc["res_id"], entry.get("diff")))
+                    self._save_pending = True
+
+        if isinstance(currencies, dict) and self.character_data is not None:
+            held = self.character_data.setdefault("currencies", {})
+            if isinstance(held, dict):
+                for entry in currencies.values():
+                    doc = entry.get("doc") if isinstance(entry, dict) else None
+                    if not isinstance(doc, dict) or "res_id" not in doc:
+                        continue
+                    held[str(doc["res_id"])] = doc
+                    gained.append((doc["res_id"], entry.get("diff")))
+                    self._save_pending = True
+
+        if not gained:
+            return
+        words = []
+        for res_id, diff in gained:
+            name = ITEM_NAMES.get(res_id, str(res_id))
+            words.append(f"{name} +{diff}" if diff else name)
+        self.log_callback(f"[LIVE] Received {', '.join(words)}")
 
     def _report_unknown_units(self):
         """Log any banner naming a res_id this build has no entry for.
@@ -1335,6 +1405,12 @@ class CaptureManager:
             from game_data.constants import EQUIPMENT_SLOTS
             from game_data.partners import PARTNERS
 
+            # Every item this build can name, for the log line a reward
+            # writes. Partial by nature -- the table names what has been
+            # identified -- and an id it does not carry logs as itself.
+            from game_data.constants import NAMED_MATERIALS
+            item_names = {rid: entry[0] for rid, entry in NAMED_MATERIALS.items()}
+
             char_names = {rid: c["name"] for rid, c in CHARACTERS.items() if c is not None}
             set_names = {sid: s["name"] for sid, s in SETS.items()}
             slot_names = {k: v.split(" ", 1)[1] if " " in v else v for k, v in EQUIPMENT_SLOTS.items()}
@@ -1359,6 +1435,7 @@ class CaptureManager:
 OUTPUT_DIR = Path(r"{self.output_folder.absolute()}")
 DICT_PATH = {dict_path_str}
 CHAR_NAMES = {char_names}
+ITEM_NAMES = {item_names}
 SET_NAMES = {set_names}
 SLOT_NAMES = {slot_names}
 KNOWN_UNIT_IDS = {known_unit_ids}

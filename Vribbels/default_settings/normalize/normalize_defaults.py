@@ -13,9 +13,9 @@ What it does, all of it idempotent:
    `optimize_level_seen`.
 2. Sets `excluded_default_initialized` to false, so the first run seeds
    the exclude lists itself.
-3. Sets every combatant's `optimize_for_level` to 60, which is what
-   makes the Optimizer tab's numbers match the in-game stat sheet out
-   of the box.
+3. Sets every combatant's `optimize_for_level` to Auto, which reads
+   the combatant's own level rather than whichever one the
+   maintainer happened to be optimizing at.
 
 It also puts the top-level keys in a fixed order, with `characters`
 last, so the file reads as a short header over a long body. Keys it does
@@ -41,7 +41,9 @@ TARGET = Path(__file__).resolve().parents[1] / "optimizer_settings.json"
 EMPTY_LIST_KEYS = ("excluded_gear_chars", "exclude_seen_rids")
 EMPTY_DICT_KEYS = ("optimize_level_seen",)
 
-DEFAULT_OPTIMIZE_LEVEL = 60
+# AUTO, which the file stores as null: a shipped level is the
+# maintainer's, and Auto is nobody's.
+DEFAULT_OPTIMIZE_LEVEL = None
 
 # Everything not named here is sorted in just before `characters`.
 KEY_ORDER = (
@@ -92,7 +94,7 @@ def normalize(data: dict) -> list:
     if levelled:
         changed.append(
             f"optimize_for_level: {len(levelled)} combatant(s) set to "
-            f"{DEFAULT_OPTIMIZE_LEVEL}"
+            f"{DEFAULT_OPTIMIZE_LEVEL if DEFAULT_OPTIMIZE_LEVEL is not None else 'Auto'}"
         )
 
     return changed

@@ -891,6 +891,179 @@ def _hero_columns_line_up(tab):
     return out
 
 
+def _level_stepper_offers_auto(tab):
+    """AUTO must be reachable, storable, and safe from the level sync.
+
+    `Auto` stores as None, which the optimizer already reads as "take
+    the combatant's own level". Three things can quietly take it away
+    and none of them raises:
+
+    * a stepper built from `from_`/`to` again, which has no room for a
+      word and so drops the stop entirely;
+    * the generic clamp, which reads `from`/`to` off the widget -- both
+      0 on a `values` spinbox -- and would snap every level to zero;
+    * `_sync_optimize_level`, which writes the observed level into the
+      entry. Running that over an Auto entry turns the default into a
+      choice nobody made, on the first load, for every combatant.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs.optimizer_tab import LEVEL_AUTO, LEVEL_CHOICES
+    from optimizer_settings_manager import _fresh_character_settings
+
+    out = []
+
+    def walk(w):
+        yield w
+        for c in w.winfo_children():
+            yield from walk(c)
+
+    name = str(tab.optimize_for_level_var)
+    spin = next((w for w in walk(tab.get_frame())
+                 if w.winfo_class() == "Spinbox"
+                 and str(w.cget("textvariable")) == name), None)
+    if spin is None:
+        return ["no Spinbox bound to the Optimize for LVL variable"]
+
+    values = tuple(str(v) for v in spin.cget("values"))
+    if values != tuple(LEVEL_CHOICES):
+        out.append(
+            f"the level stepper offers {values}, not {tuple(LEVEL_CHOICES)}. "
+            f"AUTO has to be one of its stops: it is not a number, so a "
+            f"stepper bounded by from_/to cannot reach it at all.")
+    elif str(spin.cget("wrap")) not in ("0", "false", "False"):
+        out.append(
+            "the level stepper wraps, so stepping below 60 comes back "
+            "round at 62 instead of stopping on Auto.")
+    else:
+        tab.optimize_for_level_var.set(LEVEL_CHOICES[1])
+        spin.invoke("buttondown")
+        if tab.optimize_for_level_var.get() != LEVEL_AUTO:
+            out.append(
+                f"stepping one below {LEVEL_CHOICES[1]} reached "
+                f"{tab.optimize_for_level_var.get()!r} rather than "
+                f"{LEVEL_AUTO!r}, which is the only way into Auto from the "
+                f"buttons -- there is no level under 60 to type.")
+
+    # The clamp, called rather than typed: Tk delivers no key event to
+    # an unmapped widget.
+    for typed, want in (("55", LEVEL_AUTO), ("99", LEVEL_CHOICES[-1]),
+                        ("nonsense", LEVEL_CHOICES[2])):
+        tab.optimize_for_level_var.set(LEVEL_CHOICES[2])
+        tab._commit_level_clamp()
+        tab.optimize_for_level_var.set(typed)
+        tab._commit_level_clamp()
+        got = tab.optimize_for_level_var.get()
+        if got != want:
+            out.append(
+                f"typing {typed!r} into the level stepper left {got!r}, "
+                f"not {want!r}. `values` bounds the buttons and the wheel "
+                f"only -- typed text reaches the variable unchecked, and "
+                f"the optimizer then reads a level nobody offered.")
+
+    if _fresh_character_settings("probe")["optimize_for_level"] is not None:
+        out.append(
+            "a fresh character entry carries a LEVEL rather than None, so "
+            "Auto is not the default it is meant to be.")
+
+    # The sync, over an entry on Auto.
+    if tab.opt_settings is not None:
+        probe_rid, probe_name = "999999", "_probe_combatant_"
+        characters = tab.opt_settings.data.setdefault("characters", {})
+        kept_entry = characters.get(probe_rid)
+        kept_info = tab.optimizer.character_info.get(probe_name)
+        seen = tab.opt_settings.data.setdefault("optimize_level_seen", {})
+        kept_seen = seen.get(probe_rid)
+        try:
+            characters[probe_rid] = _fresh_character_settings(probe_name)
+            tab.optimizer.character_info[probe_name] = type(
+                "_Info", (), {"level": 62})()
+            seen.pop(probe_rid, None)
+            tab._sync_optimize_level(probe_rid, probe_name)
+            after = characters[probe_rid]["optimize_for_level"]
+            if after is not None:
+                out.append(
+                    f"the level sync wrote {after!r} over an entry on Auto. "
+                    f"Following the combatant's level is what Auto already "
+                    f"does, and the entry is the DEFAULT -- so this fires "
+                    f"on the first load for every new combatant and no "
+                    f"stepper ever reads Auto again.")
+        finally:
+            if kept_entry is None:
+                characters.pop(probe_rid, None)
+            else:
+                characters[probe_rid] = kept_entry
+            if kept_info is None:
+                tab.optimizer.character_info.pop(probe_name, None)
+            else:
+                tab.optimizer.character_info[probe_name] = kept_info
+            if kept_seen is None:
+                seen.pop(probe_rid, None)
+            else:
+                seen[probe_rid] = kept_seen
+    return out
+
+
+def _materials_figures_fit(tab):
+    """No figures block may draw past the frame it is pinned inside.
+
+    A block is a frame fixed to the pixel with its propagation off, so
+    a column that lands too far right is CLIPPED rather than making the
+    frame wider -- and a clipped figure looks like a shorter one, which
+    is not a state the eye can tell apart from the truth.
+
+    Two things push a column right, and both are silent. A stop exactly
+    one reservation past the one before it leaves no room for the tab
+    that reaches it, so Tk starts the text a tab floor further along
+    and the overshoot ACCUMULATES across a row of columns. And a value
+    wider than the reservation -- a five-digit total against four
+    digits of column -- takes the same path on its own.
+
+    Simulated from the fonts rather than measured off the screen: the
+    pen starts at zero, each field is right-aligned to its stop unless
+    that would put it less than a tab floor past the field before it.
+
+    A value is measured at the WIDER of what it draws and what its
+    column reserves, so the structural case is caught with no snapshot
+    loaded -- every figure reads `-` before one arrives, and a row of
+    dashes fits inside a layout that a row of `400%` would not.
+    Returns a list of complaints.
+    """
+    from tkinter import font as tkfont
+    from ui.tabs.materials_tab import (
+        COLUMN_SEP, MaterialsTab, STAT_FONT, TAB_FLOOR_PX)
+
+    out = []
+    stat = tkfont.Font(font=STAT_FONT)
+    reserved = MaterialsTab._value_column_px()
+    blocks = [(key, row[0]) for key, row in tab.material_stats.items()]
+    blocks += [(("advanced", index), figures)
+               for index, (figures, _ids) in tab.advanced_stats.items()]
+    if getattr(tab, "gacha_figures", None) is not None:
+        blocks.append((("gacha",), tab.gacha_figures))
+
+    for key, text in blocks:
+        width = int(text.master.cget("width"))
+        stops = [int(x) for x in text.cget("tabs") if str(x).isdigit()]
+        for line in text.get("2.0", "end-1c").splitlines():
+            pen = 0
+            for index, field in enumerate(line.split(COLUMN_SEP)[1:]):
+                span = stat.measure(field)
+                if index:
+                    span = max(span, reserved)
+                stop = stops[index] if index < len(stops) else width
+                pen = max(stop - span, pen + TAB_FLOOR_PX) + span
+            if pen > width:
+                out.append(
+                    f"{key} draws {line.strip()!r} out to {pen}px inside a "
+                    f"{width}px block, so its last column is clipped by "
+                    f"{pen - width}px. Either a stop sits less than a tab "
+                    f"floor past the one before it, or a figure is wider "
+                    f"than the column reserved for it -- a fixed-width "
+                    f"holder cannot grow to take either.")
+    return out
+
+
 def _materials_rows_each_register(tab):
     """Every Materials row must own a figures block, and its own.
 
@@ -1255,6 +1428,8 @@ def run():
 
         if "OptimizerTab" in built:
             failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
+            failures.extend(
+                _level_stepper_offers_auto(built["OptimizerTab"]))
         failures.extend(_all_none_panels_carry_no_left_padding(built))
         failures.extend(_character_card_lines_fit())
         if "ScoringTab" in built:
@@ -1270,6 +1445,8 @@ def run():
         if "MaterialsTab" in built:
             failures.extend(
                 _materials_rows_each_register(built["MaterialsTab"]))
+            failures.extend(
+                _materials_figures_fit(built["MaterialsTab"]))
         if "SetupTab" in built:
             failures.extend(_restore_dialog_frames_follow_the_rules(
                 built["SetupTab"], root))

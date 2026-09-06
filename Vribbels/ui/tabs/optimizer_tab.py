@@ -52,7 +52,7 @@ from ui.utils.button_width import BUTTON_W_SMALL
 from ui.utils.checkbox import make_checkbox
 from ui.utils.escape import close_on_escape
 from ui.utils.label_width import LABEL_REQUEST_INSET
-from ui.utils.spinbox_clamp import clamp_on_commit, commit_clamp
+from ui.utils.spinbox_clamp import blink, clamp_on_commit, commit_clamp
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import (
     combobox_letter_jump, combobox_arrow_nav, bind_popdown_seek,
@@ -173,6 +173,19 @@ def _dmg_readout_col_px():
 
 # Element choices for the Unknown-character override dropdown.
 ELEMENT_CHOICES = ["", "Passion", "Order", "Justice", "Void", "Instinct"]
+
+# What the "Optimize for LVL" stepper offers, in the order it steps.
+# **AUTO is first, so stepping BELOW 60 lands on it** -- which is the
+# only way into it from the buttons, there being no level under 60 to
+# type. It stores as None; every level under it stores as itself.
+#
+# The band is 60..62 because that is what the stat tables cover, and a
+# combatant below 60 is read at 60 either way -- which is what the
+# tooltip says and what `_resolve_effective_level` does.
+LEVEL_AUTO = "Auto"
+LEVEL_CHOICES = (LEVEL_AUTO, "60", "61", "62")
+LEVEL_TOOLTIP = ("Characters below level 60 are optimized as though "
+                 "they were level 60")
 
 
 # Force-main checkbox definitions. Each entry: (settings key, label, slot).
@@ -312,7 +325,9 @@ class OptimizerTab(BaseTab):
         self.avg_add_buff_pct_var = tk.IntVar(value=0)
 
         # --- Per-character UI vars (toolbar level stepper) ---
-        self.optimize_for_level_var = tk.IntVar(value=62)
+        # A StringVar, not an IntVar: `Auto` is one of the values it
+        # holds and an IntVar cannot carry it.
+        self.optimize_for_level_var = tk.StringVar(value=LEVEL_AUTO)
 
         # --- Global UI vars (Excluded gear) ---
         # Keyed by hero name (display string); the save callback converts
@@ -474,21 +489,30 @@ class OptimizerTab(BaseTab):
         # spacing: control group ↔ control group -- dropdown, label ↔
         level_frame.pack(side=tk.LEFT, padx=(11, 0), anchor=tk.N)
         # spacing: title above, element below -- label, spinbox ↕
-        ttk.Label(level_frame, text="Optimize for LVL:",
-                  padding=(-2, 0, 0, 0)).pack(anchor=tk.W)
+        level_label = ttk.Label(level_frame, text="Optimize for LVL:",
+                                padding=(-2, 0, 0, 0))
+        level_label.pack(anchor=tk.W)
+        # `values`, not `from_`/`to`: the list carries `Auto`, which is
+        # not a number and has to be one of the stops the buttons walk.
+        # `wrap` stays off, so stepping down from 60 reaches Auto and
+        # stops there rather than coming back round at 62.
         level_spin = tk.Spinbox(
-            level_frame, from_=60, to=62, increment=1, width=3,
+            level_frame, values=LEVEL_CHOICES, width=4, justify=tk.RIGHT,
             textvariable=self.optimize_for_level_var,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             buttonbackground=self.colors["bg_lighter"],
             insertbackground=self.colors["fg"],
         )
         level_spin.pack(anchor=tk.W)
-        self._clamp_on_commit(level_spin, self.optimize_for_level_var)
+        # NOT `_clamp_on_commit`: that one reads `from`/`to` off the
+        # widget, and a spinbox declaring `values` has neither -- both
+        # come back 0, so it would snap every level to zero.
+        self._clamp_level_on_commit(level_spin)
         level_spin.bind("<MouseWheel>", lambda e: self._spinbox_wheel(e, level_spin))
+        self._tooltip.bind(level_spin, LEVEL_TOOLTIP)
+        self._tooltip.bind(level_label, LEVEL_TOOLTIP)
         self.optimize_for_level_var.trace_add(
-            "write", lambda *_: self._save_int_safe("optimize_for_level",
-                                                       self.optimize_for_level_var))
+            "write", lambda *_: self._save_optimize_for_level())
 
         self.start_button = ttk.Button(self._toolbar_top_row, text="Start",
                                        width=BUTTON_W_SMALL,
@@ -2178,23 +2202,25 @@ class OptimizerTab(BaseTab):
             self.opt_settings._write()
 
     def _sync_optimize_level(self, res_id, name: str) -> None:
-        """Keep a combatant's "Optimize for LVL" in step with their real
+        """Keep an EXPLICIT "Optimize for LVL" in step with the real
         level, without overriding a deliberate choice.
 
-        The setting defaults to 60 so the tab's numbers match the in-game
-        stat sheet. When a combatant is levelled past the highest level the
-        program has seen for them, the intent is almost always to optimize
-        for the new level, so the setting follows -- ONCE. The highest
-        observed level lives in the top-level `optimize_level_seen` map, and
-        that's what makes it a one-time bump rather than a standing
-        override: once recorded, a user who dials the level back down keeps
-        it on every later load, because their actual level no longer exceeds
-        what was already seen.
+        **An entry on Auto is left alone.** Following the combatant's
+        level is the whole of what Auto does, so writing a number over
+        it would turn the default into a choice nobody made -- and it
+        is the default, so that would happen to every new entry on its
+        first load.
 
-        On the FIRST sync for a combatant (nothing recorded yet) the setting
-        is initialised from their actual level rather than left as-is, so
-        entries still carrying the old default of 62 line up with the game
-        as well.
+        For a numbered entry: when a combatant is levelled past the
+        highest level the program has seen for them, the intent is
+        almost always to optimize for the new level, so the setting
+        follows -- ONCE. The highest observed level lives in the
+        top-level `optimize_level_seen` map, and that is what makes it a
+        one-time bump rather than a standing override: once recorded, a
+        user who dials the level back down keeps it on every later load,
+        because their actual level no longer exceeds what was seen. A
+        numbered entry with nothing recorded yet is initialised from the
+        actual level rather than left as-is.
 
         Clamped to 60..62, the band the stat tables cover -- a combatant
         below 60 is evaluated at 60 regardless (see
@@ -2212,6 +2238,8 @@ class OptimizerTab(BaseTab):
         rid_str = str(res_id)
         entry = self.opt_settings.data.get("characters", {}).get(rid_str)
         if not isinstance(entry, dict):
+            return
+        if entry.get("optimize_for_level") is None:
             return
         seen_map = self.opt_settings.data.setdefault("optimize_level_seen", {})
         prev_seen = seen_map.get(rid_str)
@@ -2262,7 +2290,11 @@ class OptimizerTab(BaseTab):
 
         self._loading_settings = True
         try:
-            self.optimize_for_level_var.set(s.get("optimize_for_level", 62))
+            # None -- a fresh entry, or one deliberately on Auto -- is
+            # the stepper's own first stop rather than a level.
+            level = s.get("optimize_for_level")
+            self.optimize_for_level_var.set(
+                LEVEL_AUTO if level is None else str(level))
             self.extra_pct_var.set(s.get("extra_pct", 0))
             self.dot_pct_var.set(s.get("dot_pct", 0))
             self.fracture_pct_var.set(s.get("fracture_pct", 0))
@@ -2323,6 +2355,27 @@ class OptimizerTab(BaseTab):
         except tk.TclError:
             return
         self._save_int(field, value)
+
+    def _save_optimize_for_level(self):
+        """Persist the level stepper, `Auto` storing as None.
+
+        None is what the whole program already reads as "work it out
+        from the combatant's own level" -- see
+        `GearOptimizer._resolve_effective_level` -- so the word only
+        exists in the stepper and never in the file.
+
+        Mid-edit text is not saved. The field passes through states
+        that are neither a level nor `Auto` on the way to one, and the
+        commit clamp is what resolves those.
+        """
+        text = self.optimize_for_level_var.get().strip()
+        if text == LEVEL_AUTO:
+            self._save_str("optimize_for_level", None)
+            return
+        try:
+            self._save_int("optimize_for_level", int(text))
+        except ValueError:
+            return
 
     def _save_str(self, field: str, value):
         if self._loading_settings or self._current_res_id is None:
@@ -3150,7 +3203,12 @@ class OptimizerTab(BaseTab):
         character's "Optimize for LVL" stepper value. Falls back to the
         UI var, then None (which lets calculate_build_stats resolve its
         own default). Kept in one place so every Stats Comparison /
-        breakdown consumer reads the same level."""
+        breakdown consumer reads the same level.
+
+        **None is the answer for Auto**, not a missing one: it is what
+        `_resolve_effective_level` takes to mean "read the combatant's
+        own level", so the stepper's first stop and an unset entry
+        resolve through the same path."""
         if self.opt_settings is not None and self._current_res_id is not None:
             try:
                 s = self.opt_settings.get_character_data(self._current_res_id)
@@ -3158,8 +3216,9 @@ class OptimizerTab(BaseTab):
             except Exception:
                 pass
         try:
-            return self.optimize_for_level_var.get()
-        except tk.TclError:
+            text = self.optimize_for_level_var.get().strip()
+            return None if text == LEVEL_AUTO else int(text)
+        except (tk.TclError, ValueError):
             return None
 
     def _character_attribute(self, char_name: str) -> str:
@@ -3815,6 +3874,49 @@ class OptimizerTab(BaseTab):
     def _clamp_on_commit(self, spin, var):
         """Bind `ui/utils/spinbox_clamp` to one of this tab's spinboxes."""
         clamp_on_commit(spin, var, self.colors, self.root)
+
+    def _clamp_level_on_commit(self, spin):
+        """Hold the level stepper to one of `LEVEL_CHOICES`.
+
+        Typed text reaches a Spinbox's variable unchecked -- `values`
+        bounds the buttons and the wheel, not the field -- so `55` and
+        `hello` both arrive intact and the optimizer reads a level
+        nobody offered.
+
+        A number snaps into the band, and one under it becomes AUTO:
+        that is where a step below 60 already goes, so typing it lands
+        in the same place. Text that is not a number goes back to what
+        the field last held, there being nothing to snap it toward.
+
+        The handler is kept on the tab as well as bound, for the same
+        reason `_commit_clamp` is: Tk will not deliver a key event to
+        an unmapped widget, so a clamp reachable only through its
+        binding is one nothing headless can exercise.
+        """
+        var = self.optimize_for_level_var
+        state = {"good": var.get()}
+
+        def commit(_event=None):
+            text = var.get().strip()
+            if text in LEVEL_CHOICES:
+                state["good"] = text
+                return False
+            try:
+                level = int(float(text))
+            except ValueError:
+                snapped = state["good"]
+            else:
+                snapped = (LEVEL_AUTO if level < int(LEVEL_CHOICES[1])
+                           else str(min(level, int(LEVEL_CHOICES[-1]))))
+            var.set(snapped)
+            state["good"] = snapped
+            blink(spin, self.root, self.colors["bg_light"])
+            return True
+
+        self._commit_level_clamp = commit
+        spin.bind("<FocusOut>", commit, add="+")
+        spin.bind("<Return>", commit, add="+")
+        return commit
 
     def _commit_clamp(self, spin, var, state=None):
         """The clamp, callable. `checks/check_tabs_build.py` uses this:

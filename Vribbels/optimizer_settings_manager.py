@@ -34,7 +34,7 @@ File format (version 1)
       "characters": {
         "1017": {
           "name_hint": "Amir",                   # cosmetic, not a lookup key
-          "optimize_for_level": 60,              # 60/61/62
+          "optimize_for_level": null,            # null = Auto, else 60/61/62
           "extra_pct": 0,                        # 0-100, share that is Extra DMG
           "dot_pct": 0,                          # 0-100, share that is Agony
           "fracture_pct": 0,                     # 0-100, share that is Fracture/Scorched
@@ -63,11 +63,16 @@ final value minus partner passives and conditional set contributions.
 Canonical: `docs/game_formulas.md` §8. Builds failing any minimum are
 dropped from results.
 
-`optimize_for_level` defaults to 60 so the tab's numbers match the
-in-game stat sheet out of the box. `optimize_level_seen` records the
-highest level each character has been observed at, which is what makes a
-level-up raise `optimize_for_level` ONCE rather than overriding a
-deliberate lower choice on every load. See
+**`optimize_for_level` of None is AUTO**, and is what a fresh entry
+carries: read the combatant's own level, floored at 60 and capped at
+62. A number there is a deliberate choice and is used as given.
+`GearOptimizer._resolve_effective_level` is where None becomes a level.
+
+`optimize_level_seen` records the highest level each character has been
+observed at, which is what makes a level-up raise an EXPLICIT
+`optimize_for_level` once rather than overriding a deliberate lower
+choice on every load. An entry on Auto is left alone -- following the
+level is what Auto already does. See
 `OptimizerTab._sync_optimize_level`.
 """
 
@@ -94,7 +99,9 @@ def _conditional_set_ids() -> list:
 # the nested dicts/lists so each character has its own mutable state.
 DEFAULT_CHARACTER_SETTINGS: dict = {
     "name_hint": "",
-    "optimize_for_level": 60,
+    # None is AUTO: follow the combatant's own level. See the
+    # module docstring.
+    "optimize_for_level": None,
     "extra_pct": 0,
     "dot_pct": 0,
     "fracture_pct": 0,

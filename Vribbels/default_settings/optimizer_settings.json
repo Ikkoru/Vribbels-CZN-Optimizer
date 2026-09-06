@@ -7,7 +7,7 @@
   "characters": {
     "1003": {
       "name_hint": "Nia",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 100,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -43,7 +43,7 @@
     },
     "1004": {
       "name_hint": "Luke",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -82,7 +82,7 @@
     },
     "1005": {
       "name_hint": "Selena",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 100,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -120,7 +120,7 @@
     },
     "1008": {
       "name_hint": "Khalipe",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -162,7 +162,7 @@
     },
     "1009": {
       "name_hint": "Tressa",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 69,
       "atk_def_split": 0,
@@ -203,7 +203,7 @@
     },
     "1010": {
       "name_hint": "Magna",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -243,7 +243,7 @@
     },
     "1017": {
       "name_hint": "Amir",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -284,7 +284,7 @@
     },
     "1018": {
       "name_hint": "Rin",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -326,7 +326,7 @@
     },
     "1021": {
       "name_hint": "Lucas",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -367,7 +367,7 @@
     },
     "1024": {
       "name_hint": "Orlea",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 40,
@@ -406,7 +406,7 @@
     },
     "1027": {
       "name_hint": "Mei Lin",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -449,7 +449,7 @@
     },
     "1028": {
       "name_hint": "Maribell",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -491,7 +491,7 @@
     },
     "1033": {
       "name_hint": "Veronica",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 100,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -531,7 +531,7 @@
     },
     "1039": {
       "name_hint": "Mika",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -567,7 +567,7 @@
     },
     "1040": {
       "name_hint": "Beryl",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 50,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -608,7 +608,7 @@
     },
     "1041": {
       "name_hint": "Renoa",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 90,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -647,7 +647,7 @@
     },
     "1043": {
       "name_hint": "Hugo",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 90,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -686,7 +686,7 @@
     },
     "1049": {
       "name_hint": "Cassius",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -730,7 +730,7 @@
     },
     "1050": {
       "name_hint": "Owen",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -773,7 +773,7 @@
     },
     "1052": {
       "name_hint": "Narja",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -814,7 +814,7 @@
     },
     "1056": {
       "name_hint": "Rei",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -851,7 +851,7 @@
     },
     "1057": {
       "name_hint": "Yuki",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -891,7 +891,7 @@
     },
     "1060": {
       "name_hint": "Chizuru",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -934,7 +934,7 @@
     },
     "1061": {
       "name_hint": "Diana",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 80,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -976,7 +976,7 @@
     },
     "1062": {
       "name_hint": "Haru",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1015,7 +1015,7 @@
     },
     "1064": {
       "name_hint": "Kayron",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1055,7 +1055,7 @@
     },
     "30047": {
       "name_hint": "Nine",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -1096,7 +1096,7 @@
     },
     "30075": {
       "name_hint": "Sereniel",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1138,7 +1138,7 @@
     },
     "30084": {
       "name_hint": "Tiphera",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -1180,7 +1180,7 @@
     },
     "30093": {
       "name_hint": "Heidemarie",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 90,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1222,7 +1222,7 @@
     },
     "30097": {
       "name_hint": "Rita",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1263,7 +1263,7 @@
     },
     "1055": {
       "name_hint": "Adelheid",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 100,
@@ -1306,7 +1306,7 @@
     },
     "1069": {
       "name_hint": "Tenebria",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1349,7 +1349,7 @@
     },
     "30048": {
       "name_hint": "Fei",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 30,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1390,7 +1390,7 @@
     },
     "30113": {
       "name_hint": "Hilde",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 80,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1434,7 +1434,7 @@
     },
     "-1": {
       "name_hint": "Arabella",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,
@@ -1465,7 +1465,7 @@
     },
     "30115": {
       "name_hint": "Arabella",
-      "optimize_for_level": 60,
+      "optimize_for_level": null,
       "extra_pct": 0,
       "dot_pct": 0,
       "atk_def_split": 0,

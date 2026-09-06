@@ -142,14 +142,18 @@ def run():
                     f"four edges rather than {pad} on each. A box measured "
                     f"anywhere but the text's own ink puts the digits off "
                     f"centre inside it, and nothing raises.")
-            if (origin[0] + box[2] + 1 > frame[2]
-                    or origin[1] + box[3] + 1 > frame[3]):
+            corner = (frame[2] - (origin[0] + box[2]),
+                      frame[3] - (origin[1] + box[3]))
+            if corner != (margin, margin):
                 failures.append(
-                    f"the quantity {text!r} and its border reach past the "
-                    f"plate. Every overlay is placed against the PLATE and "
-                    f"not the canvas, the canvas being the taller of the "
-                    f"two -- one hanging over the frame is a margin taken "
-                    f"from the wrong rect.")
+                    f"the quantity {text!r} boxes to {corner} from the "
+                    f"plate's bottom-right rather than {margin} on both. "
+                    f"Every overlay is placed against the PLATE and not "
+                    f"the canvas, the canvas being the taller of the two "
+                    f"-- a margin taken from the wrong rect lands at a "
+                    f"different distance on each axis. (The 1px border "
+                    f"rides outside the box, so at a margin of 0 it is "
+                    f"the plate's own edge pixel.)")
 
     caption_font = None
     try:
