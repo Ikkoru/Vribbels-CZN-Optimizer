@@ -83,19 +83,39 @@ class SettingsManager:
         ("optimizer_workers", 0),
         ("#2", "_Debug Settings_"),
         ("debug_perf_log", False),
+        # Grouped by the TAB that owns the control, in the order the
+        # tabs themselves run. Someone reading the file to find a
+        # switch knows which tab they set it on, and nothing else about
+        # it -- so that is what the order answers. Gear Score owns none
+        # of these, which is why it is absent rather than empty.
         ("#3", "_Settings with UI_"),
-        ("server_region", "global"),
+        # Optimizer
         ("optimizer_min_gear_level", 4),
+        ("optimizer_ignore_offelement", True),
+        # Memory Fragments
+        ("inventory_use_upgrade_log_filters", False),
+        # Combatants
+        ("combatants_show_missing", False),
+        # Materials
+        ("materials_include_generic_combatant", False),
+        ("materials_include_generic_partner", False),
+        ("materials_include_generic_stones", False),
+        # Capture
+        ("server_region", "global"),
         ("upgrade_log_ignore_atkdef_mismatch", True),
         ("upgrade_log_ignore_element_mismatch", True),
         ("upgrade_log_ignore_dps_hp", True),
         ("upgrade_log_ignore_dps_ego", True),
-        ("optimizer_ignore_offelement", True),
-        ("inventory_use_upgrade_log_filters", False),
-        ("combatants_show_missing", False),
-        ("materials_include_generic_combatant", False),
-        ("materials_include_generic_partner", False),
-        ("materials_include_generic_stones", False),
+        # Setup
+        #
+        # The UI scale is read before `tk.Tk()` and before this manager
+        # exists -- `czn_optimizer_gui._saved_ui_scale` reads the file
+        # directly -- so this entry is what MATERIALISES the key for a
+        # user to find. The default is `ui.scaling.DEFAULT_SCALE`,
+        # spelled again because importing it here would pull `ui/` in
+        # through `settings_manager`, which `ui/` itself imports.
+        # `checks/check_ui_scales.py` holds the two together.
+        ("ui_scale", "100%"),
         ("#4", "_Memory_"),
         ("first_launch_done", False),
         ("update_last_checked", ""),

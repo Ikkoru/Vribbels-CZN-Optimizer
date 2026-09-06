@@ -126,6 +126,68 @@ def declare_dpi_awareness():
         return f"not declared ({exc})"
 
 
+def hold_size_across_monitors(root):
+    """Keep the window the size it was when it crosses a DPI boundary.
+
+    A per-monitor-aware window DRAGGED onto a differently-scaled screen
+    gets `WM_DPICHANGED` with a suggested rectangle, and Windows'
+    default handling applies it -- so a 100% window moved onto a 200%
+    monitor comes out twice the size. Nothing about that is this
+    program's scale setting, which is fixed for the run and changes
+    only on a restart.
+
+    So the size is remembered and put back whenever the DPI UNDER the
+    window changes. The position is left alone: where the window was
+    dragged to is the user's answer, and only its size is the OS's.
+
+    **The event has to be filtered to the root.** A toplevel's pathname
+    is in the bind tags of every widget under it, so a `<Configure>`
+    bound here fires for each of the hundreds of child widgets too, and
+    an unfiltered handler would take a child's geometry for the
+    window's.
+
+    A move made by `geometry()` does not go through this at all --
+    Windows sends no DPI change for one -- which is why the drag is the
+    only way to see it.
+    """
+    try:
+        user32 = ctypes.windll.user32
+        user32.GetDpiForWindow.restype = ctypes.c_uint
+    except Exception:                       # noqa: BLE001 -- not Windows
+        return
+
+    def dpi():
+        try:
+            return user32.GetDpiForWindow(root.winfo_id())
+        except Exception:                   # noqa: BLE001
+            return 0
+
+    def measured():
+        """The window's size, or None before Tk has laid it out."""
+        width, height = root.winfo_width(), root.winfo_height()
+        return (width, height) if width > 1 and height > 1 else None
+
+    # Seeded here as well as from the events, for a window that is
+    # already settled when this is called: nothing configures it again,
+    # so nothing would ever record a size to put back.
+    state = {"size": measured(), "dpi": dpi()}
+
+    def on_configure(event):
+        if event.widget is not root:
+            return
+        now = dpi()
+        if now and now != state["dpi"]:
+            state["dpi"] = now
+            if state["size"]:
+                width, height = state["size"]
+                root.geometry("%dx%d+%d+%d" % (width, height,
+                                               root.winfo_x(), root.winfo_y()))
+            return
+        state["size"] = measured() or state["size"]
+
+    root.bind("<Configure>", on_configure, add="+")
+
+
 def apply_font_scaling(root):
     """Scale every font by the active factor.
 

@@ -6,6 +6,10 @@ combatant that has been taken on one, and the server sends the board
 WHOLE. So a combatant with no row has seen none -- that is a reading,
 not a hole to leave blank.
 
+**A row states no maximum.** The count printed beside it is a BOUND
+this module supplies -- `ceiling` -- because nothing on the wire says
+how many types a given combatant can reach.
+
 **The count is a list inside a string.** Each row's
 `experienced_normal_visit_indexes` holds JSON text, `"[1,2,3,4,5,6,7]"`,
 not a list -- reading it the ordinary way gets a string whose `len` is
@@ -33,10 +37,31 @@ BOARD_FIELD = "char_visits"
 INDEXES_FIELD = "experienced_normal_visit_indexes"
 RES_ID_FIELD = "res_id"
 
-# How many normal visit types the game has, where no board says
-# otherwise. The board itself is the better answer and `type_total`
-# reads it; this is what a snapshot with no board falls back to.
+# How many normal visit types every combatant has. Guaranteed: no
+# combatant has fewer, and this is the denominator all but a handful
+# are read against.
 VISIT_TYPES = 7
+
+# **Nothing in a snapshot states a combatant's MAXIMUM.** A board row
+# carries the indexes experienced, a reward flag, an order field and a
+# version, and no ceiling anywhere -- so a combatant past `VISIT_TYPES`
+# can only be read as being past it, never as being some way through a
+# known total.
+#
+# What the game grants beyond seven is granted a few combatants at a
+# time, so the denominator is written as a bound rather than a number:
+# `10+` for anyone over seven, since ten is as far as the extras are
+# known to go, `11` where a count has actually reached eleven, and `??`
+# past that, which is a combatant the game has taken somewhere this
+# table does not describe.
+#
+# (count above which it applies, what to print). Read top down; the
+# first row the count clears wins.
+VISIT_CEILINGS = (
+    (11, "??"),
+    (10, "11"),
+    (VISIT_TYPES, "10+"),
+)
 
 # Communication Passes granted per day, and where the day's spending
 # is kept. The allowance is the game's own number; the counter beside
@@ -69,14 +94,26 @@ def counts(raw_data):
     return out
 
 
-def type_total(raw_data):
-    """How many normal visit types the board knows of.
+def ceiling(count):
+    """What to print after the slash for a combatant on `count`.
 
-    The largest index any combatant has experienced, which is the
-    denominator every combatant is read against. Taken off the board
-    rather than stated so that a type added to the game shows up the
-    moment anyone goes through it; `VISIT_TYPES` is the fallback for a
-    snapshot carrying no board at all.
+    PER COMBATANT, and a bound rather than a total -- see
+    `VISIT_CEILINGS` for why there is no number to print. Seven for
+    everyone the extras have not reached, which is almost everyone.
+    """
+    for above, shown in VISIT_CEILINGS:
+        if count > above:
+            return shown
+    return str(VISIT_TYPES)
+
+
+def experienced(raw_data):
+    """The highest index the WHOLE board names, or `VISIT_TYPES`.
+
+    Not a denominator: it says how far the game's own numbering has
+    been seen to run, which is a different question from what any one
+    combatant is working towards. Kept because it is the only reading
+    of the type list a snapshot allows at all.
     """
     board = (raw_data or {}).get(BOARD_FIELD)
     seen = 0

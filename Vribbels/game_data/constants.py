@@ -472,6 +472,19 @@ NAMED_MATERIALS = {
     2000010: ("Signal Amplification Anchor", "currency_gacha_ticket_rateup_supporter.png", "Mythic"), # one pull each
 }
 
+# Ids one of the tables above NAMES for the record and that nothing in
+# the program draws, counts or prices. They are in a table because the
+# item dumps live outside the repo -- `_tmp/` is not committed -- so a
+# table is the only place an identification survives.
+#
+# `item_art` answers for them like any other id; no tab reaches one.
+# `_tmp/items_id_dump.py` reads this to keep them on its worklist:
+# knowing what an id IS is not the same as the program using it.
+RECORDED_ONLY = frozenset({
+    2000002,        # Aether
+    2000014,        # Tear of God
+})
+
 #
 # Items held with an EXPIRY rather than as a count - res_id to
 # (name, icon_filename).

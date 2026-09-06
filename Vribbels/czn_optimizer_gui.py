@@ -185,6 +185,10 @@ class OptimizerGUI:
         self.root.title("Vribbels CZN Optimizer (Ikkoru)")
         self.root.geometry("%dx%d" % (px(1550), px(1000)))
         self.root.minsize(px(1300), px(800))
+        # Windows resizes a per-monitor-aware window dragged across a
+        # DPI boundary. The scale is this program's own setting and
+        # changes only on a restart, so the size is held.
+        scaling.hold_size_across_monitors(self.root)
 
         self.colors = dict(COLORS)
 

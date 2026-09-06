@@ -76,20 +76,35 @@ def run():
             f"drawing a panel, where an exception is a blank tab."
         )
 
-    # The denominator is read off the board, not stated: a type added
-    # to the game has to show up once anyone goes through it.
+    # **The denominator is PER COMBATANT and is not read off the
+    # board.** One combatant reaching index 8 says nothing about what
+    # anyone else can reach, and a board-wide maximum would put every
+    # other combatant against a denominator they cannot get to -- 34
+    # rows reading 7/8 for a total nobody has.
     wide = {ex.BOARD_FIELD: [
         {"res_id": 1, ex.INDEXES_FIELD: "[1,2,3]"},
         {"res_id": 2, ex.INDEXES_FIELD: "[1,2,3,4,5,6,7,8]"},
     ]}
-    if ex.type_total(wide) != 8:
+    counted = ex.counts(wide)
+    if ex.ceiling(counted[1]) != str(ex.VISIT_TYPES):
         failures.append(
-            f"a board reaching index 8 gave a total of "
-            f"{ex.type_total(wide)}. Every combatant would be read "
-            f"against the wrong denominator and each one would look "
-            f"complete."
+            f"a combatant on 3 of the seven everyone has reads against "
+            f"{ex.ceiling(counted[1])}. Another combatant's extras must "
+            f"not move this one's denominator -- nothing in a snapshot "
+            f"states a maximum, so the seven is the only figure that "
+            f"applies to everybody."
         )
-    if ex.type_total({}) != ex.VISIT_TYPES:
+    for count, want in ((0, "7"), (7, "7"), (8, "10+"), (10, "10+"),
+                        (11, "11"), (12, "??"), (40, "??")):
+        if ex.ceiling(count) != want:
+            failures.append(
+                f"a count of {count} reads against {ex.ceiling(count)}, "
+                f"not {want}. The ceilings are BOUNDS, read top down, "
+                f"and a count past the last of them is a combatant the "
+                f"table does not describe -- which has to say so rather "
+                f"than pick the nearest number."
+            )
+    if ex.experienced({}) != ex.VISIT_TYPES:
         failures.append("a snapshot with no board did not fall back to "
                         "VISIT_TYPES")
 

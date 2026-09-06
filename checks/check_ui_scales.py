@@ -259,6 +259,26 @@ def run():
 
     failures.extend(_shadowed_helper())
 
+    # The key has to be in `LAYOUT` or it never appears in
+    # settings.json: the file is materialised from that list, and a key
+    # only ever written when something SETS it would leave a user with
+    # no scale to edit and no sign that one exists.
+    from settings_manager import SettingsManager
+    from ui import scaling
+    layout = dict(SettingsManager.LAYOUT)
+    if "ui_scale" not in layout:
+        failures.append(
+            "`ui_scale` is not in `SettingsManager.LAYOUT`, so it never "
+            "appears in settings.json -- the file is materialised from "
+            "that list and nothing else writes the key until the scale "
+            "is changed, which cannot be done without the key.")
+    elif layout["ui_scale"] != scaling.DEFAULT_SCALE:
+        failures.append(
+            f"`LAYOUT` defaults `ui_scale` to {layout['ui_scale']!r} and "
+            f"`scaling.DEFAULT_SCALE` is {scaling.DEFAULT_SCALE!r}. The "
+            f"two are spelled separately -- importing one into the other "
+            f"is circular -- so they have to be held together here.")
+
     single = _build("100%", work)
     double = _build("200%", work)
     ratio = _font_ratio()

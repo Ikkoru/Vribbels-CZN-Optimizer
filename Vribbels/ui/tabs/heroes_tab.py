@@ -1516,8 +1516,10 @@ class HeroesTab(BaseTab):
         combatant with no row on a board that DID arrive reads 0: the
         server sends the board whole, so an absent row is a count.
 
-        The denominator is how many visit types the board knows of, not
-        a stated 7 -- see `excursions.type_total`.
+        The denominator is PER COMBATANT and is a bound rather than a
+        total: no snapshot states a maximum, so a combatant past the
+        seven everyone has reads against the furthest the extras are
+        known to go. See `excursions.ceiling`.
         """
         if not getattr(self, "_extra_info_values", None):
             return
@@ -1526,8 +1528,8 @@ class HeroesTab(BaseTab):
         if char_info is None or not board:
             shown = CHAR_EXTRA_NO_DATA
         else:
-            shown = (f"{board.get(char_info.res_id, 0)}"
-                     f"/{excursions.type_total(self.optimizer.raw_data)}")
+            count = board.get(char_info.res_id, 0)
+            shown = f"{count}/{excursions.ceiling(count)}"
         self._extra_info_values["Excursion Types:"].config(text=shown)
 
     def _format_stats_text(self, stat_values: dict) -> str:
