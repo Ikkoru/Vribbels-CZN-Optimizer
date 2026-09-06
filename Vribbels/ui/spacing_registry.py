@@ -3940,20 +3940,12 @@ AWAITING_FIRST_READING = {
     # -- so a row printing yellow is a question, never a regression.
     # EMPTY is the state to return it to.
     #
-    # The Materials tab's five. Its figures are painted LINES and TAB
-    # STOPS rather than widgets and its icons carry their own overlays,
-    # so both ends of every one of these gaps is a rendered edge -- and
-    # none has been confirmed on a screen since it last moved.
-    "Materials: figures -> its icons",
-    "Materials: label -> its value",
-    "Materials: row name -> its figures",
-    "Materials: window edge -> first column",
-    "Materials: reserved column -> window edge",
-    # Never read: the block it measures is new, and its label is a
-    # `Panel.TLabel` whose inset the style strips -- so the pad beside
-    # it is the whole distance and nothing has confirmed that.
+    # The reading is on target and the audit agrees with it, but the
+    # eye has not confirmed WHICH edge it stops at: the value sits on
+    # a `Panel.TLabel` whose inset the style strips, so the pad beside
+    # it is the whole distance and there is nothing else in the gap to
+    # tell one reading from another.
     "Character: Excursion Types -> its count",
-    "Character: bottom edge -> content",
 }
 
 
