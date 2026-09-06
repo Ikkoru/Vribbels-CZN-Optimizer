@@ -8,7 +8,7 @@ as the Materials tab builds.
 **A pale edge around one of these icons is the WIDGET's, not the
 asset's.** Every one of them has a transparent outer ring -- no
 near-white pixel within four of any border. What draws such an edge is
-`tk.Label`, which defaults to `borderwidth=2` and `padx`/`pady` of 1,
+`tk.Label`, which defaults to a 2px border and a pixel of padding,
 and an RGBA image composited against whatever is behind it. Both are
 answered here and at the call site: the icon is flattened onto the
 panel colour before Tk sees it, and the label carries no border.
@@ -16,10 +16,22 @@ panel colour before Tk sees it, and the label carries no border.
 
 from PIL import Image, ImageDraw, ImageFont, ImageTk
 
-# What the files hold, and what is drawn. They differ, so every icon
-# is resampled once -- LANCZOS, at build time, not per repaint.
+from .. import scaling
+from ui.scaling import px
+
+# What the files hold, and what is drawn.
+#
+# **The drawn size is the native one times the UI scale**, and the
+# resample that gets there is NEAREST rather than LANCZOS: at a whole
+# multiple nearest neighbour is exact -- every source pixel becomes a
+# square of identical pixels and nothing is invented -- where LANCZOS
+# would blur an upscale it cannot add detail to. At 100% the two sizes
+# are equal and no resample happens at all.
+#
+# There is no art larger than `ICON_NATIVE_SIZE` in the repo, which is
+# what makes 200% the only scale the icons survive. See T15.
 ICON_NATIVE_SIZE = (112, 113)
-ICON_SIZE = (112, 113)
+ICON_SIZE = scaling.px(ICON_NATIVE_SIZE)
 
 # The rarity plate an icon sits on, as a share of the icon's WIDTH.
 # `_plate_side` reads `size[0]` and the plate assets are square, so the
@@ -108,6 +120,19 @@ def _flattened(img, background):
     return flat.convert("RGB")
 
 
+def _resample(source, target):
+    """Which filter takes `source` to `target`.
+
+    NEAREST where the target is a whole multiple of the source, which
+    is exact: each pixel becomes a square of copies and the art keeps
+    its edges. LANCZOS otherwise, where there is a fraction to
+    interpolate and nearest neighbour would drop or repeat rows.
+    """
+    whole = all(t % s == 0 and t >= s for s, t in zip(source, target))
+    return (Image.Resampling.NEAREST if whole
+            else Image.Resampling.LANCZOS)
+
+
 def _plate_side(size):
     """The side of the rarity plate drawn on a canvas of `size`."""
     return max(1, round(size[0] * RARITY_PLATE_RATIO))
@@ -144,7 +169,7 @@ def _plated(icon, plate_path, size):
         return icon
     plate = Image.open(plate_path).convert("RGBA")
     side = _plate_side(size)
-    plate = plate.resize((side, side), Image.Resampling.LANCZOS)
+    plate = plate.resize((side, side), _resample(plate.size, (side, side)))
     canvas = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
     canvas.alpha_composite(plate, dest=((size[0] - side) // 2,
                                         (size[1] - side) // 2))
@@ -244,7 +269,7 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
         if icon_path:
             img = Image.open(icon_path).convert("RGBA")
             if img.size != tuple(size):
-                img = img.resize(tuple(size), Image.Resampling.LANCZOS)
+                img = img.resize(tuple(size), _resample(img.size, size))
         else:
             img = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
         img = _plated(img, plate_path, tuple(size))

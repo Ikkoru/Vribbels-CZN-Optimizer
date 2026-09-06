@@ -81,6 +81,7 @@ from game_data import (
 from game_data.constants import DISPLAY_NAMES
 from models import Stat
 from models.memory_fragment import compute_gs_bounds, normalize_gs
+from ui.scaling import px
 
 
 # UI label shown when a character has no preset assigned (default 1.0 weights).
@@ -526,7 +527,7 @@ class HeroesTab(BaseTab):
         columns = ttk.Frame(self.frame)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
-        columns.pack(fill=tk.BOTH, expand=True, padx=2, pady=(1, 2))
+        columns.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((1, 2)))
         # The 6:8 weight split gives the left character-list column ~43%
         # of the content width (widened to fit the Partner column). Tk grid
         # weights are proportional, so the exact pixel split tracks the
@@ -554,7 +555,7 @@ class HeroesTab(BaseTab):
             text="No data loaded",
             font=("Segoe UI", 9),
             foreground=self.colors["fg"],
-            padding=(0, 0, 0, 0),
+            padding=px((0, 0, 0, 0)),
             anchor="w"
         )
         # anchor=NW pins it to the top-left of the subframe so it stays
@@ -565,7 +566,7 @@ class HeroesTab(BaseTab):
         # Col 1 header: Combatant name + preset dropdown.
         title_row = ttk.Frame(right_column)
         # spacing: content frame -> content frame -- frame, frame ↔
-        title_row.pack(fill=tk.X, padx=(4, 0))
+        title_row.pack(fill=tk.X, padx=px((4, 0)))
 
         # spacing: tab list -> first element -- tab, heading ↕
         # The top padding cancels the 14pt font's internal leading, and
@@ -585,7 +586,7 @@ class HeroesTab(BaseTab):
         # headings are bottom-aligned beside a subtitle where this one is
         # top-aligned, so the same correction lands a pixel differently.
         self.hero_detail_name = ttk.Label(
-            title_row, text="Select a combatant", padding=(0, -4, 0, -2),
+            title_row, text="Select a combatant", padding=px((0, -4, 0, -2)),
             font=("Segoe UI", 14, "bold")
         )
         self.hero_detail_name.pack(side=tk.LEFT, anchor=tk.NW)
@@ -611,8 +612,8 @@ class HeroesTab(BaseTab):
         make_checkbox(title_row, self.colors, text="Show missing characters",
                       variable=self.show_missing_var,
                       command=self._on_show_missing_toggle).pack(
-                          side=tk.RIGHT, anchor=tk.N, padx=(16, 0),
-                          pady=(1, 0))
+                          side=tk.RIGHT, anchor=tk.N, padx=px((16, 0)),
+                          pady=px((1, 0)))
 
         # Right-aligned vertical group: label on top, combobox below.
         # `expand=True, fill=X` fills the leftover space between the name
@@ -625,7 +626,7 @@ class HeroesTab(BaseTab):
         # opens on -- so a snapshot whose first row ends on a different
         # letter moves this reading without anything here changing.
         preset_group.pack(side=tk.LEFT, fill=tk.X, expand=True,
-                          padx=(11, 0))
+                          padx=px((11, 0)))
 
         # spacing: heading ↔ element -- heading, label ↔
         # The negative LEADING cancels a ttk.Label's own text inset, so
@@ -634,7 +635,7 @@ class HeroesTab(BaseTab):
         # the two are read separately, because a dropdown has a painted
         # edge to measure to and text does not.
         self.preset_assign_label = ttk.Label(
-            preset_group, padding=(-2, 0, 0, 0),
+            preset_group, padding=px((-2, 0, 0, 0)),
             text="Assign preset to (no selection) for custom Gear Score:"
         )
         self.preset_assign_label.pack(anchor=tk.W)
@@ -698,7 +699,7 @@ class HeroesTab(BaseTab):
         # answers to the label rule; it is larger than the sides for that
         # reason and not because of the nesting. The bottom pad is the
         # tab's own bottom margin, shared with the container below.
-        hero_list_container.pack(fill=tk.BOTH, expand=True, padx=2, pady=(5, 2))
+        hero_list_container.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((5, 2)))
 
         # The character list is a Treeview: ONE widget that draws its own
         # rows, where the hand-rolled version was a label per cell -- 374
@@ -764,7 +765,7 @@ class HeroesTab(BaseTab):
         # The top pad carries the drop from the preset dropdown in
         # title_row to the Character panel's title, which is a control
         # over a panel; it matches the list column's beside it.
-        hero_detail_container.pack(fill=tk.BOTH, expand=True, padx=2, pady=(5, 2))
+        hero_detail_container.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((5, 2)))
         self.hero_detail_container = hero_detail_container  # for width-clamp lookups
 
         # Debounce handle for resize-triggered combobox geometry recompute.
@@ -789,18 +790,18 @@ class HeroesTab(BaseTab):
         # Character and Partner panels' bottom borders to the Equipped
         # Memory Fragments title beneath them; the rest is on that
         # frame's own leading pady, which is where corrections go.
-        info_frame.pack(fill=tk.BOTH, expand=True, pady=2)
+        info_frame.pack(fill=tk.BOTH, expand=True, pady=px(2))
 
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border --
         # the same construction as the Partner frame below.
-        char_frame = ttk.LabelFrame(info_frame, text="Character", padding=0)
+        char_frame = ttk.LabelFrame(info_frame, text="Character", padding=px(0))
         # spacing: content frame -> content frame -- frame, frame ↔
         # Leading 0, not 2: this panel's left edge already carries
         # hero_detail_container's 2 plus the LabelFrame's own border, which
         # together overshot the rule. The trailing half is untouched, so
         # the gap to the Partner panel beside it is unchanged.
-        char_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 2))
+        char_frame.pack(side=tk.LEFT, fill=tk.Y, padx=px((0, 2)))
         self._char_frame = char_frame  # fixed-size target
 
         # ONE Text widget holds the whole card: the character details, the
@@ -826,8 +827,8 @@ class HeroesTab(BaseTab):
         self.hero_char_text = tk.Text(
             char_frame, wrap=tk.NONE, height=6,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
-            font=_default_font(), bd=0, highlightthickness=0,
-            padx=4, pady=1,
+            font=_default_font(), bd=0, highlightthickness=px(0),
+            padx=px(4), pady=px(1),
         )
         self.hero_char_text.pack(fill=tk.BOTH, expand=True)
         self.hero_char_text.config(state=tk.DISABLED)
@@ -842,7 +843,7 @@ class HeroesTab(BaseTab):
 
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border.
-        partner_frame = ttk.LabelFrame(info_frame, text="Partner", padding=0)
+        partner_frame = ttk.LabelFrame(info_frame, text="Partner", padding=px(0))
         # spacing: content frame -> content frame -- frame, frame ↔
         # spacing: content frame -> content frame -- frame, frame ↔
         # Asymmetric: the LEADING half is the gap from the Character
@@ -851,7 +852,7 @@ class HeroesTab(BaseTab):
         # `hero_detail_container` already spend two each, which is
         # the whole of that rule's 4.
         partner_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
-                           padx=(2, 0))
+                           padx=px((2, 0)))
         self._partner_frame = partner_frame  # fixed-size target
         # Right-click on the partner pane (the LabelFrame OR the Text widget
         # inside) opens the "Add confirmed level" dialog for the currently
@@ -874,8 +875,8 @@ class HeroesTab(BaseTab):
         self.hero_partner_text = tk.Text(
             partner_text_frame, wrap=tk.WORD, height=6,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
-            font=("Segoe UI", 9), bd=0, highlightthickness=0,
-            padx=4, pady=1,
+            font=("Segoe UI", 9), bd=0, highlightthickness=px(0),
+            padx=px(4), pady=px(1),
             yscrollcommand=partner_scroll.set,
         )
         partner_scroll.config(command=self.hero_partner_text.yview)
@@ -886,7 +887,7 @@ class HeroesTab(BaseTab):
         # actually renders) routes to the same handler as the parent frame.
 
         gear_outer_frame = ttk.LabelFrame(
-            hero_detail_container, text="Equipped Memory Fragments", padding=0,
+            hero_detail_container, text="Equipped Memory Fragments", padding=px(0),
             style="Gear.Borderless.TLabelframe")
         # spacing: panel ↕ unrelated label -- panel, title ↕
         # The leading component carries the larger share of the gap from
@@ -899,7 +900,7 @@ class HeroesTab(BaseTab):
         # column, so anything here would stack on hero_detail_container's
         # own bottom pad and lift the panel above the character list
         # beside it, whose canvas sits flush against the container edge.
-        gear_outer_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+        gear_outer_frame.pack(fill=tk.BOTH, expand=True, pady=px((5, 0)))
         self._gear_outer_frame = gear_outer_frame  # fixed-size target
 
         self.gear_cells = {}
@@ -925,7 +926,7 @@ class HeroesTab(BaseTab):
             cell = tk.Text(
                 gear_grid, font=("Segoe UI", 9), wrap=tk.WORD,
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
-                relief=tk.RIDGE, bd=GEAR_CELL_BD, highlightthickness=0,
+                relief=tk.RIDGE, bd=GEAR_CELL_BD, highlightthickness=px(0),
                 # spacing: border edge -> first non-button element -- text, run ↔↕
                 # padx is symmetric, so it sets the LEFT inset and part of
                 # the right one; GEAR_TAB_SLOT carries the rest.
@@ -942,7 +943,7 @@ class HeroesTab(BaseTab):
                 # it; this is not the rule's 10 and is not meant to be,
                 # the description being prose rather than a row of
                 # labels.
-                padx=GEAR_CELL_PADX, pady=1, spacing3=4, spacing2=1,
+                padx=px(GEAR_CELL_PADX), pady=px(1), spacing3=4, spacing2=1,
                 # Selectable but never focusable, and no insertion cursor:
                 # the text can be copied, and nothing about it invites
                 # typing into it.
@@ -958,8 +959,8 @@ class HeroesTab(BaseTab):
             # trailing space inside the frame, which left the bottom row
             # of cells short of the panel's bottom edge. Rows above keep
             # both halves, so the gap BETWEEN rows is unchanged.
-            cell.grid(row=row, column=col, padx=(0, 4),
-                      pady=(2, 2) if row < 2 else (2, 0), sticky="nsew")
+            cell.grid(row=row, column=col, padx=px((0, 4)),
+                      pady=px((2, 2) if row < 2 else (2, 0)), sticky="nsew")
 
             # Colours. `rarity` is the only one re-set per render -- it
             # carries the fragment's rarity, which the slot name and the
@@ -1470,21 +1471,21 @@ class HeroesTab(BaseTab):
         block.pack(side=tk.BOTTOM, fill=tk.X)
         self._extra_info_block = block
         block.grid_columnconfigure(
-            1, minsize=font.measure("0" * CHAR_EXTRA_DIGITS))
+            1, minsize=px(font.measure("0" * CHAR_EXTRA_DIGITS)))
 
         def text(**kwargs):
             """A Label carrying nothing of its own around its words.
 
             `padding=0`: a ttk.Label's own inset would otherwise land
-            between the value column's edge and its digits, where the
+            between the value column's edge and its digits)), where the
             pads beside it are measured to the glyphs.
             """
             return ttk.Label(block, font=font, style="Panel.TLabel",
-                             padding=0, **kwargs)
+                             padding=px(0), **kwargs)
 
         text(text=CHAR_EXTRA_HEADING).grid(
             row=0, column=0, columnspan=2, sticky="w",
-            padx=(CHAR_EXTRA_INSET, 0))
+            padx=px((CHAR_EXTRA_INSET, 0)))
 
         indent = font.measure(CHAR_SUBLIST_INDENT)
         last = len(CHAR_EXTRA_ROWS)
@@ -1492,15 +1493,19 @@ class HeroesTab(BaseTab):
         for line, label in enumerate(CHAR_EXTRA_ROWS, start=1):
             floor = (0, CHAR_EXTRA_FLOOR) if line == last else (0, 0)
             text(text=label).grid(
-                row=line, column=0, sticky="w", pady=floor,
-                padx=(CHAR_EXTRA_INSET + indent, CHAR_EXTRA_LABEL_GAP))
+                row=line, column=0, sticky="w", pady=px(floor),
+                # `indent` is MEASURED off the font and so is
+                # already scaled; only the two constants go
+                # through `px`.
+                padx=(px(CHAR_EXTRA_INSET) + indent,
+                      px(CHAR_EXTRA_LABEL_GAP)))
             # `sticky=ew` with `anchor=e`: the widget fills the reserved
             # column and the digits sit at its right. Sticking it east
             # instead right-aligns the WIDGET, which looks the same and
             # leaves nothing at the column's left edge -- and that edge
             # is what the label beside it is spaced from.
             value = text(text=CHAR_EXTRA_NO_DATA, anchor=tk.E)
-            value.grid(row=line, column=1, sticky="ew", pady=floor)
+            value.grid(row=line, column=1, sticky="ew", pady=px(floor))
             self._extra_info_values[label] = value
 
     def _update_extra_info(self, hero_name):
@@ -1678,7 +1683,7 @@ class HeroesTab(BaseTab):
             # the game. A longer one clips rather than growing the cell,
             # so if a set is added and its description runs off, raise
             # GEAR_CELL_H here.
-            cell_w, cell_h = GEAR_CELL_W, GEAR_CELL_H
+            cell_w, cell_h = px(GEAR_CELL_W), px(GEAR_CELL_H)
 
             # The stat block's tab stops. Four stops per row: the left
             # value (right-aligned), the right column's name, the right
@@ -1728,7 +1733,7 @@ class HeroesTab(BaseTab):
             # every resize, to arrive at numbers that do not move with
             # the data. `check_tabs_build` is where the stated widths
             # are held to what the panel actually renders.
-            char_W = CHAR_PANEL_W
+            char_W = px(CHAR_PANEL_W)
             # The Extra Info block sits on the panel's floor and takes
             # its height off the Text above it. Left out of this, the
             # panel is sized for the card alone and the block eats the
@@ -1790,10 +1795,10 @@ class HeroesTab(BaseTab):
                     # the pixel size goes on the grid cell and the widget
                     # is left to fill it.
                     cell.configure(width=1, height=1)
-                gear_grid.grid_columnconfigure(0, minsize=int(cell_w))
-                gear_grid.grid_columnconfigure(1, minsize=int(cell_w))
+                gear_grid.grid_columnconfigure(0, minsize=px(int(cell_w)))
+                gear_grid.grid_columnconfigure(1, minsize=px(int(cell_w)))
                 for _r in (0, 1, 2):
-                    gear_grid.grid_rowconfigure(_r, minsize=int(cell_h))
+                    gear_grid.grid_rowconfigure(_r, minsize=px(int(cell_h)))
                 for _c in (0, 1):
                     gear_grid.columnconfigure(_c, weight=0)
                 for _r in (0, 1, 2):

@@ -14,10 +14,12 @@ palette any more, which is what this module exists to supply.
 
 Asymmetric padding is the one thing `tk.Checkbutton` cannot express --
 its `padx` applies to both sides. Where a lever needs one side only, use
-the geometry manager: `cb.pack(padx=(left, right))`.
+the geometry manager: `cb.pack(padx=px((left, right)))` -- `px` because
+every distance in this app goes through it. See `ui/scaling.py`.
 """
 
 import tkinter as tk
+from ui.scaling import px
 
 
 def make_checkbox(parent, colors, *, text="", variable=None, command=None,
@@ -66,7 +68,7 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
         # paints the dotted rectangle around the label. These filters are
         # clicked, never tabbed to, so nothing is lost -- but note that
         # this does remove them from the keyboard tab order.
-        highlightthickness=0, bd=0, takefocus=0,
+        highlightthickness=px(0), bd=0, takefocus=0,
         # Themed even though the ring above is off: it defaults to
         # SystemButtonFace, and that is the one near-white value left on
         # a widget whose every other colour comes from the palette.
@@ -75,7 +77,7 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
     if command is not None:
         opts["command"] = command
     if compact:
-        opts.update(padx=0, pady=0)
+        opts.update(padx=px(0), pady=px(0))
     if wraplength is not None:
         # justify with it, always. A wrapped label is the only way this
         # widget gets a second line, and tk.Checkbutton centres its lines

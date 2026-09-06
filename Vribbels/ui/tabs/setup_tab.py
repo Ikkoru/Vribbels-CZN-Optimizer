@@ -33,6 +33,7 @@ from ..utils.escape import close_on_escape
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 from defaults_sync import resolve_defaults_dir
+from ui.scaling import px
 
 
 _RENAME_PLACEHOLDER = "Rename current preset to..."
@@ -122,7 +123,7 @@ class SetupTab(BaseTab):
         main_frame = ttk.Frame(self.frame)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(0, 2))
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((0, 2)))
 
         make_tab_header(
             main_frame, self.colors, "First-Time Setup",
@@ -139,7 +140,7 @@ class SetupTab(BaseTab):
         # than the two other headed tabs -- so the leading side gives it
         # back rather than the shared header helper losing a pixel the
         # others need.
-        top_row.pack(fill=tk.X, pady=(0, 2))
+        top_row.pack(fill=tk.X, pady=px((0, 2)))
         top_row.grid_columnconfigure(0, weight=1, uniform="halves")
         top_row.grid_columnconfigure(1, weight=1, uniform="halves")
 
@@ -161,9 +162,9 @@ class SetupTab(BaseTab):
         # pady of their own -- it supplies the whole pitch under the
         # last row where the others split it between two neighbours.
         status_frame = ttk.LabelFrame(top_row, text="Setup Status",
-                                      padding=(4, 4, 5, 7))
+                                      padding=px((4, 4, 5, 7)))
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        status_frame.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
+        status_frame.grid(row=0, column=0, sticky="nsew", padx=px(2), pady=px(2))
 
         # spacing: unique -- Setup Status stands apart on purpose -- label, label ↕
         # This panel is the first thing a new user sees, and the one
@@ -203,10 +204,10 @@ class SetupTab(BaseTab):
         # being stretched wider than its text.
         restore_frame = ttk.LabelFrame(
             top_row, text="Restore Defaults",
-            padding=(RESTORE_EDGE_PAD, RESTORE_EDGE_PAD, 5,
-                     RESTORE_EDGE_PAD))
+            padding=px((RESTORE_EDGE_PAD, RESTORE_EDGE_PAD, 5,
+                     RESTORE_EDGE_PAD)))
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        restore_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
+        restore_frame.grid(row=0, column=1, sticky="nsew", padx=px(2), pady=px(2))
 
         button_specs = [
             (
@@ -235,7 +236,7 @@ class SetupTab(BaseTab):
             # frame's own bottom padding is the only thing between the
             # last button and the edge.
             row.pack(fill=tk.X, anchor=tk.NW,
-                     pady=(0 if index == 0 else RESTORE_ROW_GAP, 0))
+                     pady=px((0 if index == 0 else RESTORE_ROW_GAP, 0)))
             row.grid_columnconfigure(1, weight=1)
 
             # grid, not pack: `sticky` is what centres each child in the
@@ -254,8 +255,8 @@ class SetupTab(BaseTab):
             ttk.Label(
                 row, text=explanation,
                 foreground=self.colors["fg_dim"],
-                wraplength=350, justify=tk.LEFT,
-                padding=(0, RESTORE_TEXT_TRIM, 0, RESTORE_TEXT_TRIM),
+                wraplength=px(350), justify=tk.LEFT,
+                padding=px((0, RESTORE_TEXT_TRIM, 0, RESTORE_TEXT_TRIM)),
             # This pad answers to the FIRST GLYPH OF EVERY LINE, not just
             # the first line's: the gap is read to the leftmost ink in the
             # whole block. Both lines start on a letter whose leading
@@ -263,12 +264,12 @@ class SetupTab(BaseTab):
             # pixel it would not need if either line began on a solid
             # one. Rewrapping the text can therefore move this value --
             # it did when the explanations gained their line breaks.
-            ).grid(row=0, column=1, sticky="w", padx=(2, 0))
+            ).grid(row=0, column=1, sticky="w", padx=px((2, 0)))
 
         # Button frame
         btn_frame = ttk.Frame(main_frame)
         # spacing: content frame -> content frame -- frame, frame ↕
-        btn_frame.pack(fill=tk.X, pady=(0, 2))
+        btn_frame.pack(fill=tk.X, pady=px((0, 2)))
 
         # spacing: button -> button -- button, button ↔
         # Each button's trailing pad meets the next one's leading pad, so
@@ -278,9 +279,9 @@ class SetupTab(BaseTab):
         # leading pad answers to the frame rule and matches main_frame's
         # own.
         ttk.Button(btn_frame, text="Check Status",
-                   command=self.check_status, width=BUTTON_W_LARGE).pack(side=tk.LEFT, padx=(2, 2))
+                   command=self.check_status, width=BUTTON_W_LARGE).pack(side=tk.LEFT, padx=px((2, 2)))
         ttk.Button(btn_frame, text="Generate & Install Cert",
-                   command=self.setup_cert, width=BUTTON_W_LARGE).pack(side=tk.LEFT, padx=(2, 5))
+                   command=self.setup_cert, width=BUTTON_W_LARGE).pack(side=tk.LEFT, padx=px((2, 5)))
 
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # This padx and main_frame's own sum to the gap from the window
@@ -288,13 +289,13 @@ class SetupTab(BaseTab):
         # carries no padding, so the text widget's own background reaches
         # the border; the text inset lives on the Text's padx/pady.
         instr_frame = ttk.LabelFrame(main_frame, text="Setup Instructions",
-                                     padding=0)
+                                     padding=px(0))
         # spacing: panel ↕ unrelated label -- button, title ↕
         # The leading side carries the whole gap from the Check Status
         # button row down to this panel's title: the button row's own
         # trailing pad is shared with the run up to the top row, so the
         # correction lands here where nothing else reads it.
-        instr_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(5, 2))
+        instr_frame.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((5, 2)))
 
         instructions = """STEP 1: Generate and install certificate
   - Click "Generate & Install Cert" button
@@ -326,7 +327,7 @@ STEP 2: Verify setup
         # top gap again after any font change here.
         instr_text = make_scrolled_text(
             instr_frame, self.colors, height=18, wrap=tk.WORD,
-            font=("Segoe UI Variable Small", 11), pady=0,
+            font=("Segoe UI Variable Small", 11), pady=px(0),
         )
         instr_text.insert("1.0", instructions)
         instr_text.config(state=tk.DISABLED)
@@ -565,7 +566,7 @@ STEP 2: Verify setup
         # to is a LabelFrame TITLE rather than a border: the title's own
         # line box already holds most of the distance, so the same 4
         # here would render as 7.
-        outer = ttk.Frame(dlg, padding=(4, 1, 4, 4))
+        outer = ttk.Frame(dlg, padding=px((4, 1, 4, 4)))
         outer.pack(fill=tk.BOTH, expand=True)
 
         frames_row = ttk.Frame(outer)
@@ -582,7 +583,7 @@ STEP 2: Verify setup
         # A button row under two panels and inside no panel of its own,
         # which is the frame rule rather than the border-edge one.
         bottom = ttk.Frame(outer)
-        bottom.pack(fill=tk.X, pady=(4, 0))
+        bottom.pack(fill=tk.X, pady=px((4, 0)))
         # spacing: button -> button -- button, button ↔
         ttk.Button(
             bottom, text="Cancel", width=BUTTON_W_SMALL,
@@ -593,7 +594,7 @@ STEP 2: Verify setup
             command=lambda: self._apply_restore_changes(
                 kind, mgr, defaults_path, missing_data, changed_data, dlg,
             ),
-        ).pack(side=tk.RIGHT, padx=(0, 4))
+        ).pack(side=tk.RIGHT, padx=px((0, 4)))
 
         # Center on the main window AND enforce a minimum dialog width
         # that accounts for the (possibly-hidden) rename entry column.
@@ -631,9 +632,9 @@ STEP 2: Verify setup
         # `border edge -> button`, which is a different number.
         # spacing: border edge -> button -- panel, button ↕
         left = ttk.LabelFrame(parent, text="Restore Missing",
-                              padding=(0, 0, 0, 3))
+                              padding=px((0, 0, 0, 3)))
         # spacing: content frame -> content frame -- panel, panel ↔
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 2))
+        left.grid(row=0, column=0, sticky="nsew", padx=px((0, 2)))
 
         rows = ttk.Frame(left)
         rows.pack(fill=tk.BOTH, expand=True)
@@ -646,17 +647,17 @@ STEP 2: Verify setup
         ttk.Label(
             rows, text="Restore",
             font=("Segoe UI", 9, "bold"),
-        ).grid(row=0, column=0, sticky="w", padx=(2, 4), pady=(0, 0))
+        ).grid(row=0, column=0, sticky="w", padx=px((2, 4)), pady=px((0, 0)))
         ttk.Label(
             rows, text="Name",
             font=("Segoe UI", 9, "bold"),
-        ).grid(row=0, column=1, sticky="w", pady=(0, 0))
+        ).grid(row=0, column=1, sticky="w", pady=px((0, 0)))
 
         if not missing:
             ttk.Label(
                 rows, text="(none missing)",
                 foreground=self.colors["fg_dim"],
-            ).grid(row=1, column=0, columnspan=2, sticky="w", padx=(2, 0))
+            ).grid(row=1, column=0, columnspan=2, sticky="w", padx=px((2, 0)))
         else:
             for i, (key, display) in enumerate(missing):
                 grid_row = i + 1
@@ -673,12 +674,12 @@ STEP 2: Verify setup
                 # sit under the heading's first letter with a band of
                 # empty column to their right.
                 make_checkbox(rows, self.colors, variable=var).grid(
-                    row=grid_row, column=0, sticky="e", padx=(2, 4),
-                    pady=(0 if i == 0 else 3, 0),
+                    row=grid_row, column=0, sticky="e", padx=px((2, 4)),
+                    pady=px((0 if i == 0 else 3, 0)),
                 )
                 ttk.Label(rows, text=display).grid(
                     row=grid_row, column=1, sticky="w",
-                    pady=(0 if i == 0 else 3, 0),
+                    pady=px((0 if i == 0 else 3, 0)),
                 )
 
         make_all_none_row(
@@ -709,9 +710,9 @@ STEP 2: Verify setup
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         # spacing: border edge -> button -- panel, button ↕
         right = ttk.LabelFrame(parent, text="Replace Changed",
-                               padding=(0, 0, 0, 3))
+                               padding=px((0, 0, 0, 3)))
         # spacing: content frame -> content frame -- panel, panel ↔
-        right.grid(row=0, column=1, sticky="nsew", padx=(2, 0))
+        right.grid(row=0, column=1, sticky="nsew", padx=px((2, 0)))
 
         rows = ttk.Frame(right)
         rows.pack(fill=tk.BOTH, expand=True)
@@ -722,23 +723,23 @@ STEP 2: Verify setup
         # time any Rename checkbox is ticked. 220px fits the 26-char
         # Entry plus breathing room.
         if show_rename:
-            rows.grid_columnconfigure(3, minsize=220)
+            rows.grid_columnconfigure(3, minsize=px(220))
 
         # spacing: explanation text -> the controls it explains -- label, checkbox ↕
         # spacing: element and its label ↔ element and its label -- label, label ↔
         ttk.Label(
             rows, text="Replace",
             font=("Segoe UI", 9, "bold"),
-        ).grid(row=0, column=0, sticky="w", padx=(2, 4), pady=(0, 0))
+        ).grid(row=0, column=0, sticky="w", padx=px((2, 4)), pady=px((0, 0)))
         ttk.Label(
             rows, text="Name",
             font=("Segoe UI", 9, "bold"),
-        ).grid(row=0, column=1, sticky="w", padx=(0, 4), pady=(0, 0))
+        ).grid(row=0, column=1, sticky="w", padx=px((0, 4)), pady=px((0, 0)))
         if show_rename:
             ttk.Label(
                 rows, text="Also Rename and Keep Current",
                 font=("Segoe UI", 9, "bold"),
-            ).grid(row=0, column=2, columnspan=2, sticky="w", pady=(0, 0))
+            ).grid(row=0, column=2, columnspan=2, sticky="w", pady=px((0, 0)))
 
         if not changed:
             ttk.Label(
@@ -747,7 +748,7 @@ STEP 2: Verify setup
             ).grid(
                 row=1, column=0,
                 columnspan=4 if show_rename else 2,
-                sticky="w", padx=(2, 0),
+                sticky="w", padx=px((2, 0)),
             )
         else:
             for i, (key, display) in enumerate(changed):
@@ -781,12 +782,12 @@ STEP 2: Verify setup
         # those two gaps answer to their own rules.
         make_checkbox(parent_grid, self.colors,
                       variable=replace_var).grid(
-            row=grid_row, column=0, sticky="e", padx=(2, 4),
-            pady=(0 if grid_row == 1 else 3, 0),
+            row=grid_row, column=0, sticky="e", padx=px((2, 4)),
+            pady=px((0 if grid_row == 1 else 3, 0)),
         )
         ttk.Label(parent_grid, text=display).grid(
-            row=grid_row, column=1, sticky="w", padx=(0, 4),
-            pady=(0 if grid_row == 1 else 3, 0),
+            row=grid_row, column=1, sticky="w", padx=px((0, 4)),
+            pady=px((0 if grid_row == 1 else 3, 0)),
         )
         changed_data[key] = {
             "replace": replace_var,
@@ -809,16 +810,16 @@ STEP 2: Verify setup
         pitch = (0 if grid_row == 1 else 3, 0)
         make_checkbox(parent_grid, self.colors,
                       variable=replace_var).grid(
-            row=grid_row, column=0, sticky="e", padx=(2, 4), pady=pitch,
+            row=grid_row, column=0, sticky="e", padx=px((2, 4)), pady=px(pitch),
         )
         ttk.Label(parent_grid, text=display).grid(
-            row=grid_row, column=1, sticky="w", padx=(0, 4), pady=pitch,
+            row=grid_row, column=1, sticky="w", padx=px((0, 4)), pady=px(pitch),
         )
         rename_cb = make_checkbox(parent_grid, self.colors,
                                   variable=rename_var)
         # spacing: label ↔ its element -- checkbox, entry ↔
         rename_cb.grid(
-            row=grid_row, column=2, sticky="w", padx=(0, 5), pady=pitch,
+            row=grid_row, column=2, sticky="w", padx=px((0, 5)), pady=px(pitch),
         )
 
         rename_entry = tk.Entry(
@@ -830,7 +831,7 @@ STEP 2: Verify setup
             relief=tk.FLAT,
             width=26,
         )
-        rename_entry.grid(row=grid_row, column=3, sticky="w", pady=pitch)
+        rename_entry.grid(row=grid_row, column=3, sticky="w", pady=px(pitch))
         rename_text_var.set(_RENAME_PLACEHOLDER)
         # Hide via grid_remove (NOT grid_forget / pack): grid_remove
         # preserves the cell's grid options so a later grid() call

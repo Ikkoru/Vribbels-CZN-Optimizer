@@ -59,6 +59,7 @@ from .heroes_tab import compute_fragment_gs
 from upgrade_log_filters import (
     filter_flags, presets_for_fragment, selected_log_presets,
 )
+from ui.scaling import px
 
 
 # Where the Upgrade Log Settings checkbox's state is kept. Its own
@@ -204,17 +205,17 @@ class InventoryTab(BaseTab):
         # across two nesting levels. The filter LabelFrames still get half
         # from here and half from slot_col/set_frame/main_frame/opt_frame
         # below.
-        filter_frame.pack(fill=tk.X, padx=2, pady=(3, 2))
+        filter_frame.pack(fill=tk.X, padx=px(2), pady=px((3, 2)))
 
         # ----- Slots filter -----------------------------------------------
         # The Slots frame shares a vertical column with the active-preset
         # label so the label sits directly beneath it.
         slot_col = ttk.Frame(filter_frame)
         # spacing: content frame -> content frame -- frame, frame ↔
-        slot_col.pack(side=tk.LEFT, padx=2, anchor=tk.N)
+        slot_col.pack(side=tk.LEFT, padx=px(2), anchor=tk.N)
 
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=(0, 1, 0, 2))
+        slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=px((0, 1, 0, 2)))
         slot_frame.pack(fill=tk.X)
 
         slot_inner = ttk.Frame(slot_frame)
@@ -236,8 +237,8 @@ class InventoryTab(BaseTab):
                 make_checkbox(
                     slot_inner, self.colors, text=slot_name, variable=var,
                     command=lambda n=slot_num: self._on_slot_toggle(n)
-                ).grid(row=row, column=col, sticky=tk.W, padx=2,
-                       pady=(0 if row == 0 else 3, 0))
+                ).grid(row=row, column=col, sticky=tk.W, padx=px(2),
+                       pady=px((0 if row == 0 else 3, 0)))
 
         make_all_none_row(slot_frame, self.select_all_slots,
                           self.select_no_slots)
@@ -249,18 +250,18 @@ class InventoryTab(BaseTab):
         self.active_preset_label = ttk.Label(
             slot_col, text="Preset: Default",
             foreground=self.colors["fg_dim"],
-            wraplength=205, justify=tk.LEFT,
+            wraplength=px(205), justify=tk.LEFT,
         )
         # spacing: panel ↕ unrelated label -- panel, label ↕
         # The leading pad is the whole lever: the trailing side has
         # nothing below it in this column.
-        self.active_preset_label.pack(anchor=tk.W, pady=(5, 0))
+        self.active_preset_label.pack(anchor=tk.W, pady=px((5, 0)))
 
         # ----- Sets filter -----------------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=(0, 1, 0, 2))
+        set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=px((0, 1, 0, 2)))
         # spacing: content frame -> content frame -- frame, frame ↔
-        set_frame.pack(side=tk.LEFT, padx=2, anchor=tk.N)
+        set_frame.pack(side=tk.LEFT, padx=px(2), anchor=tk.N)
 
         self.inv_set_frame_inner = ttk.Frame(set_frame)
         self.inv_set_frame_inner.pack()
@@ -270,13 +271,13 @@ class InventoryTab(BaseTab):
 
         # ----- Main Stats filter -----------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=(0, 3, 0, 2))
+        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=px((0, 3, 0, 2)))
         # spacing: content frame -> content frame -- frame, frame ↔
         # Trailing 0, so this panel's two sides answer to two rules
         # without sharing a lever: what follows it is not another panel
         # but the options column, whose distance from this border is
         # bought on `opt_frame` below.
-        main_frame.pack(side=tk.LEFT, padx=(2, 0), anchor=tk.N)
+        main_frame.pack(side=tk.LEFT, padx=px((2, 0)), anchor=tk.N)
 
         self.inv_main_stat_frame_inner = ttk.Frame(main_frame)
         self.inv_main_stat_frame_inner.pack(anchor=tk.W)
@@ -309,7 +310,7 @@ class InventoryTab(BaseTab):
                 # left inset is measured from, so the column gap has to
                 # be bought on the trailing side alone.
                 cb.grid(row=row_idx, column=col_idx, sticky=tk.W,
-                        padx=(2, 2), pady=(extra_top, 0))
+                        padx=px((2, 2)), pady=px((extra_top, 0)))
                 self.inv_main_stat_checks[label] = cb
 
         # Reserve a row below the layout for unknown main stats. Hidden until
@@ -346,7 +347,7 @@ class InventoryTab(BaseTab):
         # TRAILING runs to the window edge, and answers to the other
         # rule -- the two sides are stated apart so neither nudge moves
         # the other.
-        opt_frame.pack(side=tk.LEFT, padx=(2, 2))
+        opt_frame.pack(side=tk.LEFT, padx=px((2, 2)))
 
         self.inv_unequipped_var = tk.BooleanVar(value=False)
         make_checkbox(opt_frame, self.colors, text="Unequipped Only",
@@ -366,7 +367,7 @@ class InventoryTab(BaseTab):
         make_checkbox(opt_frame, self.colors, text="Include Uncommon",
                       variable=self.inv_include_uncommon_var,
                       command=self.refresh_inventory).pack(
-                          anchor=tk.W, pady=(3, 0))
+                          anchor=tk.W, pady=px((3, 0)))
 
         # Restricts the new "Highest GS" column to only consider presets that
         # are currently assigned to characters in the Combatants tab. Useful
@@ -378,7 +379,7 @@ class InventoryTab(BaseTab):
                       text="Highest GS/Potential:\nAssigned Presets Only",
                       variable=self.inv_only_assigned_presets_var,
                       command=self.refresh_inventory).pack(
-                          anchor=tk.W, pady=(0, 0))
+                          anchor=tk.W, pady=px((0, 0)))
 
         # The same question the Capture tab's Upgraded line asks, asked of
         # these two columns. Remembered, because it changes what every
@@ -393,7 +394,7 @@ class InventoryTab(BaseTab):
                       text="Highest GS/Potential:\nUpgrade Log Settings",
                       variable=self.inv_use_log_filters_var,
                       command=self._on_use_log_filters_toggle).pack(
-                          anchor=tk.W, pady=(0, 0))
+                          anchor=tk.W, pady=px((0, 0)))
 
         # ----- Treeview ---------------------------------------------------
         tree_frame = ttk.Frame(self.frame)
@@ -401,7 +402,7 @@ class InventoryTab(BaseTab):
         # Twice the other tabs' value, because the Treeview is packed
         # directly inside with no padding of its own: this frame supplies
         # the whole edge gap rather than half of it.
-        tree_frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=(2, 4))
+        tree_frame.pack(fill=tk.BOTH, expand=True, padx=px(4), pady=px((2, 4)))
 
         inv_cols = ("slot", "set", "main", "lvl", "sub1", "sub2", "sub3", "sub4",
                     "gs", "potential", "equipped", "highest_gs", "highest_potential")
@@ -558,7 +559,7 @@ class InventoryTab(BaseTab):
         col_count_widths = [_col_count_px(c) for c in range(ncols)]
         for c, px in enumerate(col_count_widths):
             self.inv_set_frame_inner.grid_columnconfigure(
-                c * 2 + 1, minsize=px)
+                c * 2 + 1, minsize=px(px))
 
         def _add_set_cell(set_name, row, logical_col, top_pad):
             count = owned_counts.get(set_name, 0)
@@ -587,15 +588,15 @@ class InventoryTab(BaseTab):
             cb = make_checkbox(
                 self.inv_set_frame_inner, self.colors, text=set_name,
                 variable=var, command=self.refresh_inventory, fg=left,
-                # `padx=0` rather than `compact=True`: the whole
+                # `padx=0` rather than `compact=True`: the whole)
                 # set-to-count gap was this widget's own internal padx,
                 # and compact zeroes pady with it -- which shortened
                 # every row and pushed the All/None row a pixel further
                 # from the block. Only the horizontal half was wanted.
-                padx=0,
+                padx=px(0),
             )
             cb.grid(row=row, column=base_col, sticky=tk.W,
-                    padx=(3, 0), pady=(top_pad, 0))
+                    padx=px((3, 0)), pady=px((top_pad, 0)))
             # The count label gets a fixed width (per-column max, see
             # col_count_widths) with anchor=E so the closing brackets line
             # up right-aligned within the count column.
@@ -612,8 +613,8 @@ class InventoryTab(BaseTab):
             # only ever grow it: Tk rejects a negative, so a tighter gap
             # would have to come off the per-column count width instead.
             cnt.grid(row=row, column=base_col + 1, sticky=tk.E,
-                     padx=(1, 3 if logical_col == len(col_count_widths) - 1 else 2),
-                     pady=(top_pad, 0))
+                     padx=px((1, 3 if logical_col == len(col_count_widths) - 1 else 2)),
+                     pady=px((top_pad, 0)))
             # Clicking the count toggles the checkbox too (the count label
             # isn't part of the Checkbutton's own hit area).
             cnt.bind(
@@ -711,7 +712,7 @@ class InventoryTab(BaseTab):
             # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
             # Matches the grid above it -- this row is the same block,
             # built later because its stats come from the data.
-            cb.grid(row=0, column=col_idx, sticky=tk.W, padx=(2, 2))
+            cb.grid(row=0, column=col_idx, sticky=tk.W, padx=px((2, 2)))
             self.inv_unknown_main_stat_checks[canonical] = cb
 
         # Back into the grid only when it holds something. NOT dead code:

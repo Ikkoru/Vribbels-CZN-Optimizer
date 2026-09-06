@@ -60,6 +60,7 @@ from checks import (                                    # noqa: E402
     check_spacing_registry,
     check_tabs_build,
     check_type_ahead,
+    check_ui_scales,
     check_upgrade_log_filters,
 )
 
@@ -92,6 +93,7 @@ CHECKS = [
     check_expiry_captions,
     check_tabs_build,
     check_type_ahead,
+    check_ui_scales,
     check_upgrade_log_filters,
     check_breakdown_reconciles,
     check_optimizer_parity,

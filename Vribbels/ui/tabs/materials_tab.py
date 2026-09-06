@@ -79,6 +79,7 @@ from ..utils.image_utils import (
 )
 from ..utils.tab_header import make_heading
 from ..utils.tooltip import Tooltip
+from ui.scaling import px
 
 
 # Where each column's checkbox state is kept, by the column's own key.
@@ -558,7 +559,7 @@ class MaterialsTab(BaseTab):
         # it ends with an ICON, whose furthest paint is whichever
         # reaches further -- the artwork, or the bordered box behind its
         # quantity, which `BADGE_MARGIN_RATIO` is what would move.
-        columns.pack(fill=tk.BOTH, expand=True, padx=(3, 2), pady=(0, 2))
+        columns.pack(fill=tk.BOTH, expand=True, padx=px((3, 2)), pady=px((0, 2)))
         # Content in the EVEN grid columns, an empty expanding one
         # between each pair. Where the tab's leftover width goes is the
         # whole of this arrangement: shared out inside the content
@@ -616,7 +617,7 @@ class MaterialsTab(BaseTab):
         # column, so its leftover height falls below them rather than
         # being shared out between them.
         rows = ttk.Frame(column)
-        rows.pack(anchor=tk.N, pady=(HEADING_GAP, 0))
+        rows.pack(anchor=tk.N, pady=px((HEADING_GAP, 0)))
 
         text_width, label_width = self._text_block_px(spec)
 
@@ -632,7 +633,7 @@ class MaterialsTab(BaseTab):
             columns instead of one.
             """
             row = ttk.Frame(rows)
-            row.pack(anchor=tk.E, pady=(0 if first else ROW_GAP, 0))
+            row.pack(anchor=tk.E, pady=px((0 if first else ROW_GAP, 0)))
             return row
 
         for position, name in enumerate(spec.names):
@@ -684,11 +685,11 @@ class MaterialsTab(BaseTab):
             figures, targets, table, name, tiers, weights, takes_generic)
 
         icons = ttk.Frame(row)
-        icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
+        icons.pack(side=tk.LEFT, anchor=tk.N, padx=px((TEXT_TO_ICONS, 0)))
         for position, tier in enumerate(tiers):
             label = self._make_icon_label(icons)
             # Half each side, so two neighbours sum to the rule.
-            label.grid(row=0, column=position, padx=ICON_GAP_HALF)
+            label.grid(row=0, column=position, padx=px(ICON_GAP_HALF))
             res_id = self._res_id_for(table, name, tier)
             if res_id is not None:
                 self.material_icons[res_id] = label
@@ -721,8 +722,8 @@ class MaterialsTab(BaseTab):
         holder.pack(side=tk.LEFT, anchor=tk.N)
 
         text = tk.Text(
-            holder, wrap=tk.NONE, bd=0, highlightthickness=0,
-            padx=0, pady=0, bg=self.colors["bg"], fg=self.colors["fg"],
+            holder, wrap=tk.NONE, bd=0, highlightthickness=px(0),
+            padx=px(0), pady=px(0), bg=self.colors["bg"], fg=self.colors["fg"],
             font=STAT_FONT,
             # Selectable but never focusable, and no insertion cursor:
             # the figures can be copied, and nothing about them invites
@@ -822,10 +823,10 @@ class MaterialsTab(BaseTab):
         self.advanced_stats[index] = (figures, spec.advanced)
 
         icons = ttk.Frame(row)
-        icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
+        icons.pack(side=tk.LEFT, anchor=tk.N, padx=px((TEXT_TO_ICONS, 0)))
         for position, res_id in enumerate(spec.advanced):
             label = self._make_icon_label(icons)
-            label.grid(row=0, column=position, padx=ICON_GAP_HALF)
+            label.grid(row=0, column=position, padx=px(ICON_GAP_HALF))
             self.material_icons[res_id] = label
 
     def _build_gacha_row(self, row, spec):
@@ -853,10 +854,10 @@ class MaterialsTab(BaseTab):
             self._tooltip.bind_tag(self.gacha_figures, _gacha_tag(word), tip)
 
         icons = ttk.Frame(row)
-        icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
+        icons.pack(side=tk.LEFT, anchor=tk.N, padx=px((TEXT_TO_ICONS, 0)))
         for position, res_id in enumerate(spec.gacha):
             label = self._make_icon_label(icons)
-            label.grid(row=0, column=position, padx=ICON_GAP_HALF)
+            label.grid(row=0, column=position, padx=px(ICON_GAP_HALF))
             self.material_icons[res_id] = label
 
     def _build_reserved_column(self, column):
@@ -887,14 +888,16 @@ class MaterialsTab(BaseTab):
         # heading this column does not have, so that its rows land level
         # with the rows beside it. `HEADING_GAP` is the part of it that
         # answers to a rule, and carries the marker.
+        # NOT through `px`: `top` is a MEASURED height, and a
+        # measurement of a scaled font is already scaled.
         rows.pack(anchor=tk.N, pady=(top, 0))
         self.module_labels = []
 
         def add(line):
             row = ttk.Frame(rows)
-            row.pack(anchor=tk.CENTER, pady=(0 if line == 0 else ROW_GAP, 0))
+            row.pack(anchor=tk.CENTER, pady=px((0 if line == 0 else ROW_GAP, 0)))
             label = self._make_icon_label(row)
-            label.grid(row=0, column=0, padx=ICON_GAP_HALF)
+            label.grid(row=0, column=0, padx=px(ICON_GAP_HALF))
             return label
 
         line = 0
@@ -926,7 +929,7 @@ class MaterialsTab(BaseTab):
             side=tk.LEFT, anchor=tk.N)
 
         icons = ttk.Frame(row)
-        icons.pack(side=tk.LEFT, anchor=tk.N, padx=(TEXT_TO_ICONS, 0))
+        icons.pack(side=tk.LEFT, anchor=tk.N, padx=px((TEXT_TO_ICONS, 0)))
         last = len(spec.tiers) - 1
         # Every cell the width an ICON's cell takes -- its own width
         # and the pad on both sides. A narrower cell would pull the
@@ -935,7 +938,7 @@ class MaterialsTab(BaseTab):
         # checkbox does not reach it on its own.
         for position in range(last + 1):
             icons.grid_columnconfigure(
-                position, minsize=ICON_SIZE[0] + 2 * ICON_GAP_HALF)
+                position, minsize=px(ICON_SIZE[0] + 2 * ICON_GAP_HALF))
         for position in range(last):
             if position == last - 1:
                 # spacing: label ↔ its element -- checkbox, frame ↔
@@ -948,13 +951,13 @@ class MaterialsTab(BaseTab):
                     command=lambda i=index:
                         self._on_include_generic_toggle(i),
                 ).grid(row=0, column=position, sticky="e",
-                       padx=(ICON_GAP_HALF, GENERIC_TO_CHECKBOX))
+                       padx=px((ICON_GAP_HALF, GENERIC_TO_CHECKBOX)))
                 continue
             ttk.Frame(icons, width=ICON_SIZE[0], height=1).grid(
-                row=0, column=position, padx=ICON_GAP_HALF)
+                row=0, column=position, padx=px(ICON_GAP_HALF))
 
         label = self._make_icon_label(icons)
-        label.grid(row=0, column=last, padx=ICON_GAP_HALF)
+        label.grid(row=0, column=last, padx=px(ICON_GAP_HALF))
         self.material_icons[spec.generic] = label
 
     def _make_icon_label(self, parent):
@@ -966,7 +969,7 @@ class MaterialsTab(BaseTab):
         change to the assets would have removed.
         """
         return tk.Label(parent, bg=self.colors["bg"], fg=self.colors["fg"],
-                        bd=0, highlightthickness=0, padx=0, pady=0)
+                        bd=0, highlightthickness=px(0), padx=px(0), pady=px(0))
 
     @staticmethod
     def _text_block_px(spec):

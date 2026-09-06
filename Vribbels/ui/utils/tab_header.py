@@ -19,6 +19,7 @@ despite the size difference.
 
 import tkinter as tk
 from tkinter import ttk
+from ui.scaling import px
 
 HEADING_FONT = ("Segoe UI", 14, "bold")
 
@@ -58,8 +59,8 @@ def make_heading(parent, title, *, x_trim=0, bottom_trim=0):
     """
     return ttk.Label(
         parent, text=title, font=HEADING_FONT,
-        padding=(x_trim, HEADING_PAD_TOP, 0,
-                 HEADING_PAD_BOTTOM + bottom_trim),
+        padding=px((x_trim, HEADING_PAD_TOP, 0,
+                 HEADING_PAD_BOTTOM + bottom_trim)),
     )
 
 
@@ -88,7 +89,7 @@ def make_tab_header(parent, colors, title, subtitle, *, x_trim=0):
     # headings is the first panel on its tab, and that panel's own
     # leading pad already spends the whole distance. A pad here would
     # stack on top of it, on three tabs at once.
-    row.pack(fill=tk.X, pady=(0, 0))
+    row.pack(fill=tk.X, pady=px((0, 0)))
 
     # spacing: header subtext -- heading, label ↔
     make_heading(row, title, x_trim=x_trim).pack(side=tk.LEFT, anchor=tk.S)
@@ -96,7 +97,7 @@ def make_tab_header(parent, colors, title, subtitle, *, x_trim=0):
     # spacing: heading ↔ element -- heading, label ↔
     ttk.Label(
         row, text=subtitle, foreground=colors["fg_dim"],
-        padding=(0, 0, 0, SUBTITLE_PAD_BOTTOM),
-    ).pack(side=tk.LEFT, anchor=tk.S, padx=(SUBTITLE_PAD_LEFT, 0))
+        padding=px((0, 0, 0, SUBTITLE_PAD_BOTTOM)),
+    ).pack(side=tk.LEFT, anchor=tk.S, padx=px((SUBTITLE_PAD_LEFT, 0)))
 
     return row

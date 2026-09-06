@@ -7,6 +7,7 @@ of which a themed widget does for free.
 """
 
 import tkinter as tk
+from ui.scaling import px
 
 
 class Tooltip:
@@ -108,9 +109,9 @@ class Tooltip:
             tk.Label(
                 tip, text=text, justify=tk.LEFT,
                 bg=self.colors["bg_lighter"], fg=self.colors["fg"],
-                relief=tk.SOLID, borderwidth=1,
-                font=("Segoe UI", 9), wraplength=self.WRAP_PX,
-                padx=4, pady=4,
+                relief=tk.SOLID, borderwidth=px(1),
+                font=("Segoe UI", 9), wraplength=px(self.WRAP_PX),
+                padx=px(4), pady=px(4),
             ).pack()
             self._tip = tip
         except tk.TclError:

@@ -48,6 +48,7 @@ from datetime import datetime
 
 from ui.base_tab import BaseTab
 from ui.context import AppContext
+from ui.scaling import px
 
 
 # GitHub releases endpoint for this fork. Replace the slug if the fork
@@ -187,25 +188,25 @@ class AboutTab(BaseTab):
     def setup_ui(self):
         """Build the About tab UI."""
         main_container = ttk.Frame(self.frame)
-        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(22, 20))
+        main_container.pack(fill=tk.BOTH, expand=True, padx=px(20), pady=px((22, 20)))
 
         # ===== APPLICATION INFO SECTION =====
-        info_section = ttk.LabelFrame(main_container, text="Application Information", padding=15)
-        info_section.pack(fill=tk.X, pady=(0, 15))
+        info_section = ttk.LabelFrame(main_container, text="Application Information", padding=px(15))
+        info_section.pack(fill=tk.X, pady=px((0, 15)))
 
         app_name = ttk.Label(
             info_section,
             text="Vribbels CZN Optimizer (Ikkoru)",
             font=("Segoe UI", 12, "bold")
         )
-        app_name.pack(pady=(0, 5))
+        app_name.pack(pady=px((0, 5)))
 
         version_text = (f"Version {self._current_version}"
                         if self._current_version else "Version Unknown")
         version_label = ttk.Label(
             info_section, text=version_text, font=("Segoe UI", 14, "bold")
         )
-        version_label.pack(pady=(5, 5))
+        version_label.pack(pady=px((5, 5)))
 
         desc_label = ttk.Label(
             info_section,
@@ -215,23 +216,23 @@ class AboutTab(BaseTab):
         desc_label.pack()
 
         # ===== UPDATE STATUS SECTION =====
-        update_section = ttk.LabelFrame(main_container, text="Update Status", padding=15)
-        update_section.pack(fill=tk.X, pady=(0, 15))
+        update_section = ttk.LabelFrame(main_container, text="Update Status", padding=px(15))
+        update_section.pack(fill=tk.X, pady=px((0, 15)))
 
         latest_frame = ttk.Frame(update_section)
-        latest_frame.pack(fill=tk.X, pady=2)
+        latest_frame.pack(fill=tk.X, pady=px(2))
         ttk.Label(latest_frame, text="Latest version:").pack(side=tk.LEFT)
         self.latest_version_label = ttk.Label(latest_frame, text="")
-        self.latest_version_label.pack(side=tk.LEFT, padx=(5, 0))
+        self.latest_version_label.pack(side=tk.LEFT, padx=px((5, 0)))
 
         check_frame = ttk.Frame(update_section)
-        check_frame.pack(fill=tk.X, pady=2)
+        check_frame.pack(fill=tk.X, pady=px(2))
         ttk.Label(check_frame, text="Last checked:").pack(side=tk.LEFT)
         self.last_check_label = ttk.Label(check_frame, text="")
-        self.last_check_label.pack(side=tk.LEFT, padx=(5, 0))
+        self.last_check_label.pack(side=tk.LEFT, padx=px((5, 0)))
 
         status_frame = ttk.Frame(update_section)
-        status_frame.pack(fill=tk.X, pady=(10, 5))
+        status_frame.pack(fill=tk.X, pady=px((10, 5)))
         self.status_label = tk.Label(
             status_frame, text="", font=("Segoe UI", 10),
             bg=self.colors["bg"], fg=self.colors["fg_dim"],
@@ -239,14 +240,14 @@ class AboutTab(BaseTab):
         self.status_label.pack(side=tk.LEFT)
 
         btn_frame = ttk.Frame(update_section)
-        btn_frame.pack(fill=tk.X, pady=(10, 0))
+        btn_frame.pack(fill=tk.X, pady=px((10, 0)))
         self.check_btn = ttk.Button(
             btn_frame, text="Check Now", command=self.check_now
         )
         self.check_btn.pack(side=tk.LEFT)
 
         # ===== LINKS SECTION =====
-        links_section = ttk.LabelFrame(main_container, text="Links", padding=15)
+        links_section = ttk.LabelFrame(main_container, text="Links", padding=px(15))
         links_section.pack(fill=tk.X)
 
         links = [
@@ -260,9 +261,9 @@ class AboutTab(BaseTab):
                 command=lambda u=url: webbrowser.open(u),
                 bg=self.colors["bg_lighter"], fg=self.colors["accent"],
                 font=("Segoe UI", 9), relief=tk.FLAT,
-                padx=10, pady=5, cursor="hand2", anchor="w",
+                padx=px(10), pady=px(5), cursor="hand2", anchor="w",
             )
-            link_btn.pack(fill=tk.X, pady=2)
+            link_btn.pack(fill=tk.X, pady=px(2))
 
         def show_donation_message():
             from tkinter import messagebox
@@ -278,9 +279,9 @@ class AboutTab(BaseTab):
             command=show_donation_message,
             bg=self.colors["bg_lighter"], fg=self.colors["accent"],
             font=("Segoe UI", 9), relief=tk.FLAT,
-            padx=10, pady=5, cursor="hand2", anchor="w",
+            padx=px(10), pady=px(5), cursor="hand2", anchor="w",
         )
-        support_btn.pack(fill=tk.X, pady=2)
+        support_btn.pack(fill=tk.X, pady=px(2))
 
     # ----- check flow -----
 

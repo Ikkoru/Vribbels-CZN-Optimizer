@@ -88,6 +88,8 @@ from optimizer.optimizer import SLOT5_ELEMENT_MAINS
 from config import AppConfig
 from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, AboutTab
 from ui.utils.button_width import BUTTON_PAD_X
+from ui import scaling
+from ui.scaling import px
 # Used to augment "[LIVE] Upgraded" log lines with the post-upgrade
 # Highest Pot. range across all currently-defined presets (see
 # _drain_pending_upgrade_lines below).
@@ -168,6 +170,10 @@ class OptimizerGUI:
         self.config = None
 
         self.root = tk.Tk()
+        # Before any widget: a font resolves its size once, and every
+        # distance this app computes from a font metric follows from
+        # that. See `ui/scaling.py`.
+        scaling.apply_font_scaling(self.root)
         # Hide the window before anything else touches it. tk.Tk() maps the
         # window immediately, so without this the user watches an empty
         # white frame for as long as construction + auto_load take, and
@@ -177,8 +183,8 @@ class OptimizerGUI:
         # and _reveal_window() (end of __init__) shows it once, complete.
         self._hide_until_ready()
         self.root.title("Vribbels CZN Optimizer (Ikkoru)")
-        self.root.geometry("1550x1000")
-        self.root.minsize(1300, 800)
+        self.root.geometry("%dx%d" % (px(1550), px(1000)))
+        self.root.minsize(px(1300), px(800))
 
         self.colors = dict(COLORS)
 
@@ -461,7 +467,7 @@ class OptimizerGUI:
         # to notice.
         self.style.configure("TButton", background=self.colors["bg_light"],
                              foreground=self.colors["fg"],
-                             padding=(BUTTON_PAD_X, 5))
+                             padding=px((BUTTON_PAD_X, 5)))
         self.style.map("TButton", background=[("active", self.colors["bg_lighter"])])
         # A focused ttk.Button paints a dotted ring inside its border, and
         # something has to hold focus the moment a tab is first shown --
@@ -524,7 +530,7 @@ class OptimizerGUI:
                 borderwidth=0)
         except tk.TclError:
             pass
-        self.style.configure("TNotebook.Tab", background=self.colors["bg_light"], foreground=self.colors["fg"], padding=[10, 5])
+        self.style.configure("TNotebook.Tab", background=self.colors["bg_light"], foreground=self.colors["fg"], padding=px([10, 5]))
         self.style.map("TNotebook.Tab", background=[("selected", self.colors["bg_lighter"])])
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↔↕
         # rather than anything a geometry manager can reach
@@ -563,7 +569,7 @@ class OptimizerGUI:
         self.style.configure("Treeview", background=self.colors["bg_light"],
                              foreground=self.colors["fg"],
                              fieldbackground=self.colors["bg_light"],
-                             padding=(2, 0, 2, 0), rowheight=21)
+                             padding=px((2, 0, 2, 0)), rowheight=px(21))
         # No outline. The border's WIDTH is not a style option -- clam's
         # `Treeview.field` exposes only colours -- so the only way to drop
         # it is a layout with no field element, the same trick
@@ -582,7 +588,7 @@ class OptimizerGUI:
         # borderwidth 0 also flattens the heading: clam's `relief` is
         # `raised`, and a relief with no border width has nothing to draw.
         self.style.configure("Treeview.Heading", background=self.colors["bg_lighter"],
-                             foreground=self.colors["fg"], padding=3,
+                             foreground=self.colors["fg"], padding=px(3),
                              borderwidth=0)
         self.style.map("Treeview.Heading", background=[("active", self.colors["select"])],
                        foreground=[("active", self.colors["fg"])])
@@ -1391,7 +1397,31 @@ def _acquire_single_instance_lock():
         return None
 
 
+def _saved_ui_scale():
+    """The UI scale from settings, without building a manager for it.
+
+    `main` needs this before `tk.Tk()` and the app's own
+    `SettingsManager` is created hundreds of lines later, so the file is
+    read directly. Anything unreadable is the default -- a scale is not
+    worth failing to start over.
+    """
+    try:
+        with open(_user_data_dir() / "settings" / "settings.json",
+                  encoding="utf-8") as handle:
+            return json.load(handle).get("ui_scale", scaling.DEFAULT_SCALE)
+    except Exception:                       # missing, unreadable, malformed
+        return scaling.DEFAULT_SCALE
+
+
 def main():
+    # BEFORE any Tk root, including the single-instance warning's. DPI
+    # awareness is a property of the PROCESS and the first window fixes
+    # it, and the UI scale has to be set before a widget takes its
+    # padding. Both are read here rather than in OptimizerGUI, whose
+    # settings manager does not exist until well after `tk.Tk()`.
+    scaling.declare_dpi_awareness()
+    scaling.set_scale(_saved_ui_scale())
+
     # Single-instance check must happen BEFORE any Tk root is created --
     # creating a Tk root before deciding to exit causes an empty flicker
     # window. We hold the returned socket as a module-level reference so

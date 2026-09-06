@@ -15,6 +15,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from .button_width import BUTTON_W_TINY
+from ui.scaling import px
 
 # Between the checkbox block above and this row. 4, not the rule's 5:
 # a checkbox's painted bottom sits a pixel below its box's, so the lever
@@ -58,12 +59,12 @@ def make_all_none_row(parent, on_all, on_none, *, width=BUTTON_WIDTH):
     """
     row = ttk.Frame(parent)
     # spacing: checkbox block -> All/None row -- checkbox, button ↕
-    row.pack(fill=tk.X, pady=(ROW_GAP, 0))
+    row.pack(fill=tk.X, pady=px((ROW_GAP, 0)))
 
     # spacing: border edge -> button -- panel, button ↔
     # spacing: button -> button -- button, button ↔
     ttk.Button(row, text="All", width=width, command=on_all).pack(
-        side=tk.LEFT, padx=(EDGE_PAD, HALF_BUTTON_GAP))
+        side=tk.LEFT, padx=px((EDGE_PAD, HALF_BUTTON_GAP)))
     ttk.Button(row, text="None", width=width, command=on_none).pack(
-        side=tk.LEFT, padx=(HALF_BUTTON_GAP, 0))
+        side=tk.LEFT, padx=px((HALF_BUTTON_GAP, 0)))
     return row

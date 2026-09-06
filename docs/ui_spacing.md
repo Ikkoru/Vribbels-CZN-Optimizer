@@ -213,6 +213,19 @@ The names that changed when the suffixes went on, since every marker was being r
 - **Setup Status misses the border-edge rule on BOTH axes**, and is tracked at what it actually is rather than left out: 7px on the left because the panel is placed to read before anything else on the tab, 7px on top because a Segoe UI 11 label's ink starts that far down its own box and a padding of 0 cannot claw it back.
 - A **spinbox row** is the only single-row element tall enough to want its own target. A **slider row** takes the checkbox row's target deliberately, so the two can be split later without unpicking anything. Buttons are not single-row and answer to `button -> button`.
 
+## The UI scale, and what the audit can see of it
+
+Every hardcoded distance in the UI passes through `px()` from `ui/scaling.py`, which multiplies it by the active scale — 1 at 100%, 2 at 200%. Fonts scale separately, through Tk's own point-to-pixel ratio, and everything the app COMPUTES from a font metric follows from that for free.
+
+Two rules, and the second is the one that bites:
+
+- **`px` on the geometry call, never on the constant.** A distance built from parts is scaled once at the end; scaling each addend rounds each one and the sum lands elsewhere. At 200% nothing rounds, so this costs nothing today and is what the fractional steps in T15 would need.
+- **A MEASURED distance never goes through `px`.** `font.measure(...)`, `winfo_reqheight()`, a Text's `dlineinfo` — all already grew with the font. A pad mixing the two wraps its hardcoded half alone: `px(INSET) + indent`.
+
+**The audit runs at 100% only.** Its targets are physical pixels, so at 200% every gap reads double and the whole run is red for no reason. What watches the scaled window instead is `checks/check_ui_scales.py`: it builds every tab at both scales and compares each pad, failing one that did not grow (a missed `px`) and one that grew twice (a `px` on a measurement). One pad is exempt by name there, being a widget's own requested height rather than a distance anyone chose.
+
+Icons double by NEAREST NEIGHBOUR, which is exact at a whole multiple — every source pixel becomes a square of copies. There is no art larger than 112x113 in the repo, which is what makes 200% the only scale they survive.
+
 ## Fonts in use
 
 Body text is **Segoe UI 9**; the three panels of running prose are **Segoe UI Variable Small**, the optical size Windows draws small text at. `TkDefaultFont` is Segoe UI 9 and no ttk style overrides it, so an explicit `("Segoe UI", 9)` is the same face the default already gives.
