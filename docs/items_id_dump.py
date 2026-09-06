@@ -2,7 +2,7 @@
 
 Run after a capture to re-read what the newest snapshot holds:
 
-    python _tmp/items_id_dump.py
+    python docs/items_id_dump.py
 
 Three files, and which one an id lands in says what is left to do with
 it:
@@ -36,6 +36,8 @@ import json
 import sys
 from pathlib import Path
 
+# The repo root, one level up from `docs/`. The dumps are written
+# beside this script.
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "Vribbels"))
 

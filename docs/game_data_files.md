@@ -47,6 +47,22 @@ Six tables name every item the Materials tab draws, and `ITEM_TABLES` is the tup
 
 A rarity that no table prices costs a whole family its plates at once, and the only symptom is icons drawn with no background. `checks/check_item_art.py` is what catches that, along with a filename naming a file that is not there.
 
+### Which ids are known, and which are still to identify
+
+`docs/items_id_dump.py` rewrites three tables from the newest snapshot, and which one an id lands in says what is left to do with it:
+
+| file | means |
+| ---- | ----- |
+| `items_id_known.tsv` | a table names it and the program USES it |
+| `items_id_known_not_in_program.tsv` | identified, and the program does nothing with it — **the worklist** |
+| `items_id_unknown.tsv` | not identified; where it came from and what it reads, for diffing against the next capture |
+
+The last two share their hand-added columns (`Name`, `Type`, `Name Candidate`, …), so a row crosses between them by gaining or losing its `Name` without anything being retyped. **The script owns the leftmost columns and nothing else** — everything typed to the right of them is read back and rewritten untouched, and it refuses to write at all if the header has moved under it.
+
+An id is only in the program's sense of "known" when a table names it. `RECORDED_ONLY` in `constants.py` is for the ones a table names purely so the identification survives — `item_art` answers for them, no tab reaches one — and the dump keeps those on the worklist.
+
+**An id is named by spending some and diffing two captures**, which is why the amount column exists: a dump that has lost its counts cannot be compared against the next one.
+
 **A res_id's shape is `FFFF0GT`** — family, group, tier. The group digit is the CLASS in a promotion family (0 Striker, 1 Vanguard, 2 Hunter, 3 Ranger, 4 Psionic, 5 Controller) and the ELEMENT in a growth stone. The asset filenames disagree with the game's words in two places: `defender` draws Vanguard and `psionics` draws Psionic.
 
 ## `POTENTIAL_NODES` in `characters.py`

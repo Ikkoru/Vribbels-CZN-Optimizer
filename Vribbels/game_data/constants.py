@@ -473,13 +473,12 @@ NAMED_MATERIALS = {
 }
 
 # Ids one of the tables above NAMES for the record and that nothing in
-# the program draws, counts or prices. They are in a table because the
-# item dumps live outside the repo -- `_tmp/` is not committed -- so a
-# table is the only place an identification survives.
+# the program draws, counts or prices. `item_art` answers for them like
+# any other id; no tab reaches one.
 #
-# `item_art` answers for them like any other id; no tab reaches one.
-# `_tmp/items_id_dump.py` reads this to keep them on its worklist:
-# knowing what an id IS is not the same as the program using it.
+# `docs/items_id_dump.py` reads this to keep them on its worklist:
+# knowing what an id IS is not the same as the program using it, and
+# `docs/items_id_known.tsv` is the file that says what is used.
 RECORDED_ONLY = frozenset({
     2000002,        # Aether
     2000014,        # Tear of God
