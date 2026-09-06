@@ -84,6 +84,17 @@ DEEP_BELOW = "gjpqy|"
 # one reads dead on.
 SHALLOW_BELOW = "(),"
 
+# And the one that drops a single pixel. Measured on the `Excursion
+# Types: 7/7` row, where the slash sits exactly a pixel under the `E`
+# beside it -- so a gap read to that string's ink came back one short
+# of the baseline the rule names.
+#
+# **A glyph added here moves every reading whose string holds it**, and
+# only the shallowest class it belongs to counts: a string with a
+# descender in it is already corrected by the deeper table and adding
+# to this one changes nothing for it.
+SLIGHT_BELOW = "/"
+
 # Characters that never reach above the x-height, plus the punctuation
 # that sits on or below the baseline. A string built only from these has
 # NO cap and NO ascender, so its topmost painted pixel is the x-height
@@ -113,6 +124,7 @@ def reaches_cap_height(text: str) -> bool:
 # conditional in every rule's target column.
 DESCENDER_DEPTH = 3
 SHALLOW_DEPTH = 2
+SLIGHT_DEPTH = 1
 
 # A descender at Segoe UI 14 bold, the tab headings' font, reaches a
 # pixel deeper than one at 9. Measured from the three tab headings read
@@ -145,6 +157,8 @@ def ink_below_baseline(text: str, bold14: bool = False) -> int:
         return DESCENDER_DEPTH_14_BOLD if bold14 else DESCENDER_DEPTH
     if any(c in text for c in SHALLOW_BELOW):
         return SHALLOW_DEPTH
+    if any(c in text for c in SLIGHT_BELOW):
+        return SLIGHT_DEPTH
     return 0
 
 

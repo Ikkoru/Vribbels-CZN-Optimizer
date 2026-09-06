@@ -284,7 +284,7 @@ CHAR_EXTRA_INSET = 4       # spacing: border edge -> first non-button element --
 # And at the FLOOR, where the rule measures to the last row's BASELINE
 # and the label's box goes on past it by the font's descent. A lever
 # that much short of the rule for exactly that reason.
-CHAR_EXTRA_FLOOR = 2       # spacing: border edge -> first non-button element -- panel, label ↕
+CHAR_EXTRA_FLOOR = 1       # spacing: border edge -> first non-button element -- panel, label ↕
 # NOT TRACKED: the audit reads this panel's inset off the TEXT widget,
 # which is the first thing in it and the one every other tab's entry
 # measures. Both are set from the same rule; only one can be the one
