@@ -330,6 +330,26 @@ score = (1 - heal_share) × (D / D_ref) + heal_share × (S / S_ref)
 
 Implementation: `core.compute_score_components` (D, S), `core.trim_blend` (greedy-ref), `core.build_greedy_refs`, `core.display_blend` plus the post-merge rescale in `optimizer.optimize`. `core.compute_score` keeps a legacy scalar `(1-h)·D + h·S` for callers outside the optimizer; `optimizer.reblend_results_for_display` re-applies the display blend when a cached results list is re-mapped after an equip/upgrade.
 
+### Substat tiebreaker
+
+The blend above prices damage, shielding and healing and nothing else, so a substat that feeds none of them — Ego, HP on a pure-ATK build — is worth exactly zero to it. Two builds identical in damage rank in fragment-id order however much or little of those they carry.
+
+A last term gives them a price that cannot buy the ranking:
+
+```
+raw(fragment) = Σ over substats of (value / max_roll) × weight × 10   ← _raw_substat_score, the Gear Score's own sum
+T             = Σ over the build's six fragments of raw(fragment) / T_ref
+T_ref         = 6 × the largest raw() among this run's candidates       ← per-run constant, so T ∈ [0, 1]
+
+score = blend + SUBSTAT_TIEBREAK × T
+```
+
+`weight` is the character's assigned preset's Gear Score weight for that stat, 1.0 where the preset names none — so the term reads the substats through the same weights the Gear Score column does, and a stat weighted 0 contributes nothing.
+
+**`SUBSTAT_TIEBREAK` bounds the whole term**, which is the point of it: `T ≤ 1`, so the term is at most `SUBSTAT_TIEBREAK` and **any build ahead on the blend by more than that stays ahead**. It orders builds the blend cannot separate and nothing else. `checks/check_optimizer_parity.py` holds that bound.
+
+`T_ref` is a per-run constant like `D_ref`/`S_ref`, so the term is parallel-safe on the same argument. It rides in `stats["_T"]` beside `_D`/`_S`, which is what lets `reblend_results_for_display` reproduce a run's score without the candidate lists.
+
 ### Hard constraint: "Have at least this much"
 
 Eight per-character minimums (ATK, DEF, HP, Ego, CRate, CDmg, Extra%, DoT%), all HARD: builds missing ANY are excluded. If no combination satisfies them the optimizer returns an empty list and the UI must surface that.

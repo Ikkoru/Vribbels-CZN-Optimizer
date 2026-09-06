@@ -1142,6 +1142,15 @@ class GearOptimizer:
                 )
                 d, s = core.compute_score_components(gear, stats, sp, attribute)
                 stats["_D"], stats["_S"] = d, s
+                # The substat term rides forward rather than being
+                # recomputed: its ceiling was read off the run's
+                # candidate lists, which are gone by now. An upgrade
+                # moves the numerator by one roll out of a six-fragment
+                # total, and the whole term is bounded by
+                # `core.SUBSTAT_TIEBREAK` -- so carrying it is wrong by
+                # far less than the column's last digit, where dropping
+                # it would re-order builds the run had separated.
+                stats["_T"] = old_stats.get("_T", 0.0)
                 rebuilt.append((gear, None, stats))
             except Exception:
                 rebuilt.append((gear, old_score, old_stats))
@@ -1158,6 +1167,7 @@ class GearOptimizer:
                 continue
             scored.append((gear, core.display_blend(
                 stats.get("_D", 0.0), stats.get("_S", 0.0), sp, d_ref, s_ref,
+                stats.get("_T", 0.0),
             ), stats))
         # Rescale so the current top row reads 100, preserving the tab's
         # existing row order (index identity matters for selection
@@ -1350,6 +1360,14 @@ class GearOptimizer:
             slot_candidates, ctx["char_static"], ctx["set_effect_shares"],
             ctx["score_pre"], ctx["attribute"],
         )
+        # The substat tiebreaker's per-run constants, on `score_pre` so
+        # that they reach the workers with everything else the score
+        # needs. Built here rather than in `build_score_precompute`
+        # because the ceiling is read off the candidate lists, which do
+        # not exist that early. Weights are the character's preset's --
+        # absent, every substat counts alike.
+        ctx["score_pre"]["substats"] = core.build_substat_totals(
+            slot_candidates, slot_filter_weights or {})
 
         # ---- Parallel dispatch ----
         # Above the size threshold and with more than one configured
@@ -1428,7 +1446,7 @@ class GearOptimizer:
             for gear, _trim, stats in results:
                 disp = core.display_blend(
                     stats.get("_D", 0.0), stats.get("_S", 0.0),
-                    ctx["score_pre"], d_ref, s_ref,
+                    ctx["score_pre"], d_ref, s_ref, stats.get("_T", 0.0),
                 )
                 rescored.append((gear, disp, stats))
             # Sort by the display score (same deterministic tie-break),

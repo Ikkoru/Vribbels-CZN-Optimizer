@@ -86,6 +86,25 @@ def run(full=False):
                 f"({len(par)} vs {len(seq)} results). The deterministic "
                 f"tie-break or the merge has drifted."
             )
+        # The substat tiebreaker's whole guarantee is that it is
+        # BOUNDED: `_T` in [0, 1] means the term can move a score by at
+        # most `SUBSTAT_TIEBREAK`, so a build ahead on the blend by more
+        # than that stays ahead. A ceiling read off the wrong thing --
+        # one fragment's total rather than six, a list that lost its
+        # widest candidate -- lifts `_T` past 1 and the term starts
+        # buying places, which no ordering here would look wrong for.
+        loose = [st.get("_T") for _g, _s, st in par
+                 if not 0.0 <= (st.get("_T") or 0.0) <= 1.0]
+        if loose:
+            failures.append(
+                f"{name}: {len(loose)} result(s) carry a substat term "
+                f"outside [0, 1] (e.g. {loose[0]}). The term is bounded "
+                f"by its per-run ceiling and `core.SUBSTAT_TIEBREAK` "
+                f"bounds what it is worth -- past 1 it can overtake a "
+                f"build that is genuinely better. See "
+                f"core.build_substat_totals."
+            )
+
         for counter in ("total_combinations", "passed_set_reqs",
                         "passed_have_at_least"):
             if stats_par.get(counter) != stats_seq.get(counter):

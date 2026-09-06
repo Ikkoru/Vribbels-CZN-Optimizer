@@ -48,14 +48,26 @@ term, S is the shield/heal term. Two blends exist:
     results, then all scores are rescaled so the top row reads 100. See
     optimizer.optimize's post-merge re-blend.
 
+Both blends then add SUBSTAT_TIEBREAK * substat_term(...), which prices
+the substats the damage and shield/heal terms cannot see -- Ego, HP on
+a build that scales off neither. The term is bounded into [0, 1] by a
+per-run ceiling, so SUBSTAT_TIEBREAK bounds what it is worth outright
+and a build ahead on the blend by more than that stays ahead. See
+build_substat_totals and docs/game_formulas.md §8.
+
 evaluate_combo returns (status, score, stats): on COMBO_OK, score is
 the trim_blend scalar (greedy refs) that gates trimming and the
 tie-break, and the raw (D, S) components ride inside stats under the
-"_D" / "_S" keys for the parent-side display re-blend. The result-tuple
-shape (gear, score, stats) is therefore unchanged.
+"_D" / "_S" keys -- with the substat term under "_T" -- for the
+parent-side display re-blend. The result-tuple shape (gear, score,
+stats) is therefore unchanged.
 """
 
 from game_data import SETS, SLOT_ORDER, SET_STAT_NAME_MAP
+# The Gear Score's own weighted substat sum. The substat tiebreaker
+# prices a build through it rather than through a second reading of the
+# same substats, so a preset's weights mean one thing across the app.
+from models.memory_fragment import _raw_substat_score
 
 # SET_STAT_NAME_MAP is defined in game_data/sets.py, beside the `stat`
 # values it maps, and re-exported here (and by optimizer.py) under the
@@ -660,7 +672,58 @@ def compute_score_components(gear: list, stats: dict, sp: dict,
     return (damage_norm, shield_heal_score)
 
 
-def trim_blend(components: tuple, sp: dict, gref: dict) -> float:
+# How much of the score the substat term can be worth, at its very
+# largest. The blend it is added to reads about 1.0 for the best build
+# in a run, so this is a share of that.
+#
+# **It is a BOUND, not a scale.** `substat_term` returns at most 1, so
+# the term is at most this -- which is what makes the guarantee
+# statable: a build ahead on the blend by more than this stays ahead,
+# whatever either of them carries in substats. Raising it past the gaps
+# between real builds would let substats buy the ranking, which is the
+# one thing this must not do. See docs/game_formulas.md §8.
+SUBSTAT_TIEBREAK = 1e-4
+
+
+def build_substat_totals(slot_candidates: dict, weights: dict) -> dict:
+    """Per-run substat totals: {"totals": {id: raw}, "ref": divisor}.
+
+    `raw` is the Gear Score's own weighted substat sum for one
+    fragment, so the term prices substats through the same weights the
+    Gear Score column shows. Computed once per candidate rather than
+    per combo: there are thousands of the first and millions of the
+    second.
+
+    The divisor is six times the largest of them, which is the most any
+    build of six can total -- so the term it feeds lands in [0, 1] and
+    `SUBSTAT_TIEBREAK` bounds it outright. A per-run constant, like the
+    greedy refs, which is what keeps it parallel-safe.
+    """
+    totals = {}
+    for candidates in slot_candidates.values():
+        for fragment in candidates or ():
+            if fragment.id not in totals:
+                totals[fragment.id] = _raw_substat_score(fragment, weights)
+    return {"totals": totals,
+            "ref": max(6.0 * max(totals.values(), default=0.0), 1e-9)}
+
+
+def substat_term(piece_ids, sp: dict) -> float:
+    """This build's substat total as a share of the run's ceiling.
+
+    0.0 where the run carries no totals -- every caller outside
+    `optimize()` scores without the candidate lists, and a term nobody
+    can reproduce would make those numbers disagree with the run's.
+    """
+    substats = sp.get("substats")
+    if not substats:
+        return 0.0
+    totals = substats["totals"]
+    return sum(totals.get(pid, 0.0) for pid in piece_ids) / substats["ref"]
+
+
+def trim_blend(components: tuple, sp: dict, gref: dict,
+               term: float = 0.0) -> float:
     """In-flight trim score: percent-normalized blend of (D, S) against
     the per-run GREEDY references. A per-run constant divisor pair, so
     it's safe for the parallel/sequential trim and the deterministic
@@ -669,12 +732,19 @@ def trim_blend(components: tuple, sp: dict, gref: dict) -> float:
 
     heal_share = 0 -> pure damage (D/D_ref); heal_share = 1 -> pure
     shield/heal (S/S_ref); in between, weighted blend.
+
+    `term` is `substat_term`'s reading for this build, bounded into the
+    score by `SUBSTAT_TIEBREAK`. It rides here as well as in the
+    display blend so that trimming keeps the builds the display would
+    rank -- a build kept only by the term is one the display would put
+    ahead too.
     """
     d, s = components
     d_ref = gref["D"]
     s_ref = gref["S"]
     h = sp["heal_share"]
-    return (1.0 - h) * (d / d_ref) + h * (s / s_ref)
+    return ((1.0 - h) * (d / d_ref) + h * (s / s_ref)
+            + SUBSTAT_TIEBREAK * term)
 
 
 def build_greedy_refs(slot_candidates: dict, char_static: dict,
@@ -719,15 +789,20 @@ def build_greedy_refs(slot_candidates: dict, char_static: dict,
 
 
 def display_blend(d: float, s: float, sp: dict, d_ref: float,
-                  s_ref: float) -> float:
+                  s_ref: float, term: float = 0.0) -> float:
     """The un-rescaled display blend for one result against the run's
     true max-D / max-S references: (1-h)*D/D_ref + h*S/S_ref. optimize()
     applies this to every surviving result then divides the whole column
     by the top result's value (x100) so the top row reads 100 at any
     slider position (order-preserving). Refs are floored by the caller.
+
+    `term` adds the substat tiebreaker, bounded by `SUBSTAT_TIEBREAK`.
+    It goes in BEFORE the rescale, so the column's top row still reads
+    100 and the term keeps its size relative to everything under it.
     """
     h = sp["heal_share"]
-    return (1.0 - h) * (d / d_ref) + h * (s / s_ref)
+    return ((1.0 - h) * (d / d_ref) + h * (s / s_ref)
+            + SUBSTAT_TIEBREAK * term)
 
 
 def compute_score(gear: list, stats: dict, sp: dict, attribute: str) -> float:
@@ -799,9 +874,12 @@ def evaluate_combo(combo, ctx: dict):
     components = compute_score_components(
         list(combo), stats, ctx["score_pre"], ctx["attribute"]
     )
-    trim_score = trim_blend(components, ctx["score_pre"], ctx["gref"])
-    # Carry the raw components for the parent-side display re-blend.
+    term = substat_term(piece_ids, ctx["score_pre"])
+    trim_score = trim_blend(components, ctx["score_pre"], ctx["gref"], term)
+    # Carry the raw components and the substat term for the parent-side
+    # display re-blend, which has the results but not the candidates.
     stats["_D"], stats["_S"] = components
+    stats["_T"] = term
     return (COMBO_OK, trim_score, stats)
 
 
