@@ -33,10 +33,13 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
 
+from datetime import datetime, timezone
+
 import excursions
 import item_amounts
 import period_items
 import shop_stock
+import weekly_reset
 from game_data.constants import item_names
 
 from ..base_tab import BaseTab
@@ -140,7 +143,7 @@ COLUMNS = (
         ("activity", "Activity (Dailies)", "100/100 Unclaimed"),
         ("supply_daily", "Arkhianon Supply", "3/3"),
         ("excursions", "Excursions", "5/5"),
-        ("chaos_delegation", "Chaos Delegation", None),
+        ("chaos_delegation", "Chaos Delegation", "Go run!"),
         ("other_daily", "Other Events", None),
     ), ()),
     ("Weekly", (
@@ -272,6 +275,21 @@ PASS_LEVEL_FULL = 70
 SIMULATION_FIELD = "stage_limit_entities"
 SIMULATION_STAGE = "content_boss"
 SIMULATION_RUNS = 3
+
+# Today's Chaos Delegation. **There is no balance to read**: the free
+# daily entry is granted and spent in the same transaction, so the
+# currency's `amount` sits at 0 either way and only `total_use_amount`
+# moves. What says whether it went today is `last_update` -- the moment
+# that currency last changed -- against the day's own reset.
+#
+# Evidence, from one capture and on both sides of the boundary: at
+# login it read 13:14 UTC against an 18:00 reset (not used today), and
+# after entering a chaos stage 19:51 (used).
+DELEGATION_CURRENCY = 2000048
+DELEGATION_PATH = ("characters", "currencies", str(DELEGATION_CURRENCY),
+                   "last_update")
+DELEGATION_TODO = "Go run!"
+DELEGATION_DONE = "Done"
 
 # The Basin of Hyperspace. Its progress is its OBJECTIVES, not its
 # stages: `mission_seasson_entities` (the game's own spelling) holds
@@ -597,6 +615,17 @@ def _readings(raw, now=None, claimed=False):
     else:
         out["coffee"] = (NO_DATA, UNKNOWN)
 
+    # Today's Chaos Delegation, off when its currency last moved. The
+    # daily boundary is the weekly one's hour on any day, so the reset
+    # BEFORE now is what a stamp is measured against.
+    used = _dig(raw, DELEGATION_PATH)
+    if _is_count(used):
+        today = used >= _last_daily_reset(now)
+        out["chaos_delegation"] = (DELEGATION_DONE if today
+                                   else DELEGATION_TODO, _done(today))
+    else:
+        out["chaos_delegation"] = (NO_DATA, UNKNOWN)
+
     # Communication Passes left today. Not an item and not a currency --
     # `excursions.passes_left` says why that reading is the only one a
     # snapshot allows.
@@ -718,6 +747,19 @@ def _readings(raw, now=None, claimed=False):
         else:
             out[key] = ("%d/%d" % (stock, limit), _done(stock == 0))
     return out
+
+
+def _last_daily_reset(now):
+    """The 18:00 UTC boundary before `now`, epoch seconds.
+
+    The same hour the week turns on, which is why `weekly_reset` owns
+    it -- `RESET_HOUR` is the one number, and correcting the game's
+    reset time stays one edit.
+    """
+    at = datetime.fromtimestamp(now, timezone.utc).replace(
+        hour=weekly_reset.RESET_HOUR, minute=0, second=0, microsecond=0)
+    stamp = at.timestamp()
+    return stamp if stamp <= now else stamp - 24 * 3600
 
 
 def _basin(raw):

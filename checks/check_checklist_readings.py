@@ -66,6 +66,8 @@ def run():
         ACTIVITY_FULL, CHAOS_CURRENCY, COFFEE_DONE, COFFEE_TODO,
         columns_for,
         ACTIVITY_CLAIMED, ACTIVITY_UNCLAIMED,
+        DELEGATION_CURRENCY, DELEGATION_DONE, DELEGATION_TODO,
+        _last_daily_reset,
         DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
         MODULE_WINDOWS, NO_DATA,
         SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
@@ -253,6 +255,35 @@ def run():
             f"with no modules held the two rows read "
             f"{out['modules_soon']!r} and {out['modules_week']!r}, not "
             f"zero against the window's own bound, in green.")
+
+    # --- today's Chaos Delegation ------------------------------------
+    # No balance to read: the free entry is granted and spent in one
+    # transaction, so `amount` is 0 either way and `last_update` is
+    # what says whether it went today.
+    reset = _last_daily_reset(now)
+    for stamp, want, state in ((reset + HOUR, DELEGATION_DONE, DONE),
+                               (reset - HOUR, DELEGATION_TODO, TODO),
+                               (None, NO_DATA, UNKNOWN)):
+        raw = _snapshot()
+        if stamp is not None:
+            raw.setdefault("characters", {})["currencies"] = {
+                str(DELEGATION_CURRENCY): {"last_update": int(stamp)}}
+        got = _readings(raw, now)["chaos_delegation"]
+        if got != (want, state):
+            failures.append(
+                f"a delegation stamp of {stamp!r} against a reset of "
+                f"{reset!r} reads {got!r}, not {(want, state)!r}. The "
+                f"row is whether the currency moved since the day's own "
+                f"18:00 UTC boundary.")
+    # Exactly ON the boundary counts as today: the reset is when the
+    # day begins, not the last moment of the one before.
+    raw = _snapshot()
+    raw.setdefault("characters", {})["currencies"] = {
+        str(DELEGATION_CURRENCY): {"last_update": int(reset)}}
+    if _readings(raw, now)["chaos_delegation"] != (DELEGATION_DONE, DONE):
+        failures.append(
+            "a delegation used exactly at the reset reads as not used. "
+            "The reset opens the day it belongs to.")
 
     # --- the Basin, and which season it reports --------------------
     # Two seasons at once and one figure on screen, so the row takes
