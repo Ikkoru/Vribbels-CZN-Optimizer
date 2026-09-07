@@ -19,7 +19,9 @@ it:
 
 The last two share their columns, and a row moves between them by
 gaining or losing its `Name` -- so a hand-typed identification is never
-retyped and never lost.
+retyped and never lost. **An id can be in both at once**, and their
+cells are merged one at a time with a filled cell always beating a
+blank: taking either row whole would destroy whatever the other held.
 
 The amount column is what makes an id identifiable at all: an item is
 named by spending some and diffing two captures, so a dump that has
@@ -44,7 +46,8 @@ sys.path.insert(0, str(ROOT / "Vribbels"))
 import period_items                         # noqa: E402
 from game_data.constants import (            # noqa: E402
     COMBATANT_PROMOTION, EXP_MATERIALS, GROWTH_STONES, NAMED_MATERIALS,
-    PARTNER_PROMOTION, PERIOD_ITEMS, RECORDED_ONLY, item_art,
+    PARTNER_PROMOTION, PERIOD_ITEMS, RECORDED_NAMES, RECORDED_ONLY,
+    item_art,
 )
 
 OUT = Path(__file__).resolve().parent
@@ -259,14 +262,16 @@ def main():
     for res_id in [r for r in kept if r in used]:
         del kept[res_id]
 
-    # A table's name fills the worklist's `Name` for a recorded-only
-    # id, so the file reads the same whether the identification came
-    # from a table or from a hand.
+    # **`RECORDED_NAMES` fills the worklist's `Name`.** It is the
+    # program's copy of exactly these identifications, so a name typed
+    # here and copied across cannot be lost by a later run -- the run
+    # puts it back. `table_names` cannot serve: a recorded-only id is
+    # in no item table, so it holds nothing for one.
     if at is not None:
         for res_id in RECORDED_ONLY & set(rest):
             cells = kept.setdefault(res_id, [""] * len(extra))
             if not cells[at].strip():
-                cells[at] = table_names.get(res_id, "")
+                cells[at] = RECORDED_NAMES.get(res_id, "")
 
     named_ids = {r for r in set(rest) | set(kept) if identified(r)}
     write(OUT / "items_id_known_not_in_program.tsv", UNKNOWN_OWNED,
@@ -297,11 +302,28 @@ def _shared_tail(first, second, owned):
             f"them would land under the wrong headings. Reconcile them "
             f"first.")
     extra = extra or other_extra
-    merged = dict(other_kept)
-    merged.update(kept)
     width = len(extra)
-    return extra, {res_id: (cells + [""] * width)[:width]
-                   for res_id, cells in merged.items()}
+
+    # **Merged CELL BY CELL, and a blank never wins.** An id can be in
+    # both files at once -- a row typed into the worklist while the
+    # dump still had it under unknown -- and taking one row whole then
+    # destroys whatever the other held. Which file a cell came from
+    # says nothing about whether it is worth keeping; whether it is
+    # empty does.
+    merged = {}
+    for source in (other_kept, kept):
+        for res_id, cells in source.items():
+            cells = (list(cells) + [""] * width)[:width]
+            have = merged.setdefault(res_id, [""] * width)
+            for index, cell in enumerate(cells):
+                if cell.strip() and not have[index].strip():
+                    have[index] = cell
+                elif (cell.strip() and have[index].strip()
+                        and cell.strip() != have[index].strip()):
+                    print(f"  {res_id} is in both dumps with different "
+                          f"{extra[index]!r}: {have[index]!r} kept, "
+                          f"{cell!r} dropped")
+    return extra, merged
 
 
 def _shaped_name(family, group, tier):

@@ -135,9 +135,14 @@ def remaining(product_id, define, raw_data, now):
     limit = define.get("limit_count")
     if not isinstance(limit, int) or limit <= 0:
         return None, None
+    # **No row means nothing bought.** `shop_list` carries a row only
+    # once a product has been bought from at least once, so an absent
+    # one is a full shelf rather than an unknown -- and reading it as
+    # unknown drew a dash beside every product the account has never
+    # touched.
     row = stock(raw_data).get(product_id)
     if not isinstance(row, dict):
-        return None, limit
+        return (limit, limit) if stock(raw_data) else (None, limit)
     count = row.get("count")
     if not isinstance(count, int) or isinstance(count, bool):
         return None, limit

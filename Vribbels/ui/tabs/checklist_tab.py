@@ -262,11 +262,17 @@ COFFEE_DONE = "Tasty~"
 # only one of the twelve has been identified, so the weekly row counts
 # EXP instead, which needs no id at all.
 PASS_FIELD = "season_pass_entity"
+PASS_LIST_FIELD = "season_pass_entities"
 PASS_MISSION_FIELD = "mission_entities"
-PASS_DAILY = ("pass_mission_008_01", "pass_mission_008_02",
-              "pass_mission_008_04")
+PASS_MISSION_PREFIX = "pass_mission"
 PASS_WEEK_EXP_FULL = 10000
 PASS_LEVEL_FULL = 70
+
+# How many daily missions the pass hands out. **Not derivable**: the
+# game issues a mission lazily, so the rows carrying today's
+# `issued_time` are the ones handed out SO FAR and counting them
+# understates the day. Read off the game's own screen.
+PASS_DAILY_COUNT = 6
 
 # The stage whose per-period run limit IS the Simulation Challenges,
 # and how many runs a week allows. Same shape as a shop row: `count` is
@@ -677,20 +683,26 @@ def _readings(raw, now=None, claimed=False):
     # The Arkhianon Supply, three ways. A mission's `complete_time` is
     # set when its reward is CLAIMED, so a finished-but-unclaimed
     # mission still reads as work left -- which it is.
+    # A DAILY mission is one the pass issued since the day's own reset,
+    # which is what tells it from a weekly without an id list -- and an
+    # id list would not survive the season number changing anyway.
     missions = raw.get(PASS_MISSION_FIELD)
     if isinstance(missions, dict):
-        claimed = sum(1 for res_id in PASS_DAILY
-                      if (missions.get(res_id) or {}).get("complete_time"))
-        out["supply_daily"] = ("%d/%d" % (claimed, len(PASS_DAILY)),
-                               _done(claimed == len(PASS_DAILY)))
+        since = _last_daily_reset(now)
+        claimed = sum(1 for res_id, row in missions.items()
+                      if str(res_id).startswith(PASS_MISSION_PREFIX)
+                      and _is_count(row.get("issued_time"))
+                      and row["issued_time"] >= since
+                      and row.get("complete_time"))
+        out["supply_daily"] = ("%d/%d" % (claimed, PASS_DAILY_COUNT),
+                               _done(claimed >= PASS_DAILY_COUNT))
     else:
-        out["supply_daily"] = ("%s/%d" % (NO_DATA, len(PASS_DAILY)), UNKNOWN)
+        out["supply_daily"] = ("%s/%d" % (NO_DATA, PASS_DAILY_COUNT), UNKNOWN)
 
     # The week's EXP and the pass's level, both off the pass's own
     # record. EXP rather than a mission count, because only one of the
     # twelve weekly missions has been identified.
-    record = raw.get(PASS_FIELD)
-    record = record if isinstance(record, dict) else {}
+    record = _live_pass(raw)
     week_exp = record.get("week_exp")
     if _is_count(week_exp):
         out["supply_weekly"] = (
@@ -760,6 +772,28 @@ def _last_daily_reset(now):
         hour=weekly_reset.RESET_HOUR, minute=0, second=0, microsecond=0)
     stamp = at.timestamp()
     return stamp if stamp <= now else stamp - 24 * 3600
+
+
+def _live_pass(raw):
+    """The Arkhianon Supply's own record, or {}.
+
+    Two shapes: a claim reply sends the ONE live pass as
+    `season_pass_entity`, and the login burst sends every pass the
+    account has played as a LIST. Past passes sit at their full 70 and
+    10000, so taking the wrong one reads as a finished week -- the live
+    one is the latest `week_id`.
+    """
+    record = raw.get(PASS_FIELD)
+    if isinstance(record, dict) and record:
+        return record
+    live = None
+    for row in raw.get(PASS_LIST_FIELD) or []:
+        if not isinstance(row, dict):
+            continue
+        week = row.get("week_id") or 0
+        if live is None or week >= live[0]:
+            live = (week, row)
+    return live[1] if live else {}
 
 
 def _basin(raw):

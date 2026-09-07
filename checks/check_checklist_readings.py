@@ -67,6 +67,7 @@ def run():
         columns_for,
         ACTIVITY_CLAIMED, ACTIVITY_UNCLAIMED,
         DELEGATION_CURRENCY, DELEGATION_DONE, DELEGATION_TODO,
+        PASS_DAILY_COUNT,
         _last_daily_reset,
         DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
         MODULE_WINDOWS, NO_DATA,
@@ -285,6 +286,60 @@ def run():
             "a delegation used exactly at the reset reads as not used. "
             "The reset opens the day it belongs to.")
 
+    # --- the Arkhianon Supply, three ways -----------------------------
+    # A DAILY mission is one the pass ISSUED since the day's reset --
+    # there is no id list, and one would not survive the season number
+    # changing. The denominator is stated: the game issues a mission
+    # lazily, so counting the issued rows understates the day.
+    reset = _last_daily_reset(now)
+    raw = _snapshot()
+    raw["mission_entities"] = {
+        # Two issued today, one of them claimed.
+        "pass_mission_008_01": {"issued_time": int(reset + HOUR),
+                                "complete_time": int(reset + 2 * HOUR)},
+        "pass_mission_008_02": {"issued_time": int(reset + HOUR),
+                                "complete_time": 0},
+        # Issued YESTERDAY and claimed: last day's, not this one's.
+        "pass_mission_008_03": {"issued_time": int(reset - HOUR),
+                                "complete_time": int(reset - HOUR)},
+        # Not a pass mission at all.
+        "content_01_01_01": {"issued_time": int(reset + HOUR),
+                             "complete_time": int(reset + HOUR)},
+    }
+    got = _readings(raw, now)["supply_daily"]
+    if got != (f"1/{PASS_DAILY_COUNT}", TODO):
+        failures.append(
+            f"the daily Arkhianon row reads {got!r}, not "
+            f"1/{PASS_DAILY_COUNT} in red. It counts pass missions "
+            f"ISSUED since the day's reset and CLAIMED -- yesterday's, "
+            f"and anything that is not a pass mission, are not it.")
+
+    # The pass's own record comes in two shapes, and past passes sit at
+    # their full 70 and 10000 -- so the wrong one reads as a finished
+    # week. The live one is the latest `week_id`.
+    raw = _snapshot()
+    raw["season_pass_entities"] = [
+        {"res_id": "season_pass_006", "week_id": 182, "week_exp": 10000,
+         "free_reward_rank": 70},
+        {"res_id": "season_pass_008", "week_id": 193, "week_exp": 6500,
+         "free_reward_rank": 46},
+    ]
+    for key, want in (("supply_weekly", ("6500/10000", TODO)),
+                      ("supply_season", ("46/70", TODO))):
+        got = _readings(raw, now)[key]
+        if got != want:
+            failures.append(
+                f"{key} reads {got!r}, not {want!r}. A finished past pass "
+                f"is in the same list and sits at its full figure.")
+    # The singular field wins where a claim has just sent it.
+    raw["season_pass_entity"] = {"week_id": 193, "week_exp": 8000,
+                                 "free_reward_rank": 50}
+    if _readings(raw, now)["supply_weekly"] != ("8000/10000", TODO):
+        failures.append(
+            "the singular `season_pass_entity` does not win over the "
+            "login's list. A claim sends the one live pass under it, "
+            "and that is the fresher reading.")
+
     # --- the Basin, and which season it reports --------------------
     # Two seasons at once and one figure on screen, so the row takes
     # the LEAST complete: a fresh season beside a finished one is work
@@ -356,7 +411,7 @@ def run():
             f"not {cap}/{cap}. Its tally is last period's, so nothing "
             f"has been bought since the shelf refilled.")
 
-    # No `shop_list` at all: a dash, never a zero.
+    # No `shop_list` AT ALL is a dash: the field never arrived.
     raw = _snapshot()
     raw["shop_res_data"] = {"shop_town": {product: {
         "product_link_item_id": 3310006, "product_count": 1,
@@ -367,6 +422,18 @@ def run():
             f"with no shop_list the row reads {got!r}, not a dash. A "
             f"snapshot that never carried the field and a shop with "
             f"nothing left are different answers.")
+
+    # **A shop_list that arrived WITHOUT this product is a full shelf.**
+    # A row appears only once something has been bought from it, so an
+    # absent one says nothing has -- and reading it as unknown drew a
+    # dash beside every product the account has never touched.
+    raw["shop_list"] = {"town_shop_goods_099": {"count": 1,
+                                                "reset_time": int(now)}}
+    got = _readings(raw, now)[key]
+    if got != (f"{cap}/{cap}", TODO):
+        failures.append(
+            f"a product absent from a shop_list that DID arrive reads "
+            f"{got!r}, not {cap}/{cap}. No row means nothing bought.")
 
     # A MONTHLY product has no boundary without the wire's own
     # `month_start`, so it reads a dash rather than guessing one.
