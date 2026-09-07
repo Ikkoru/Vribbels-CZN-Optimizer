@@ -60,3 +60,8 @@ Five `limit_type` values across every shop, and which Checklist column each land
 | `LIMIT_BENEFIT` | none yet — 6 products, unexamined | 6 |
 
 **A product whose item no table names shows its res_id**, the same marking the Capture Log uses: a number on screen is an invitation to identify it, where a blank would be a bug nobody can see.
+
+## What `content_*` is
+
+**The Basin of Hyperspace's objectives**, three per stage, arriving with the reply to `hyperspace/get_list` — not story records. `mission_seasson_entities` (the game's own spelling) holds them per Basin season and `season_entities` the stages; the Checklist reads the scored tally as the Basin's progress. `missions_id_dump.py` skips the family for that reason: thirty rows nobody annotates.
+

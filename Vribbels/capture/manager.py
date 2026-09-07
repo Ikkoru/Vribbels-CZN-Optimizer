@@ -168,6 +168,11 @@ class Addon:
         self.season_passes = None
         self.shop_definitions = None
 
+        # The Basin of Hyperspace: its stages, and the objectives whose
+        # tally is what the game shows as its progress.
+        self.basin_stages = None
+        self.basin_missions = None
+
         self.saved_path = None
 
         # Set by anything that changes the cached data, cleared by
@@ -755,6 +760,18 @@ class Addon:
         # began -- a shop row's own `count` is stale until the first
         # purchase of the period, so the boundary is what tells one
         # from the other.
+        # The Basin of Hyperspace, whose progress is its OBJECTIVES:
+        # `mission_seasson_entities` (the game's own spelling) holds
+        # them per Basin season, and `season_entities` the stages. Both
+        # arrive with the reply to `hyperspace/get_list` and nowhere
+        # else, so they are kept aside like the boards above.
+        if isinstance(data.get("mission_seasson_entities"), dict):
+            self.basin_missions = data["mission_seasson_entities"]
+            self._save_pending = True
+        if isinstance(data.get("season_entities"), dict):
+            self.basin_stages = data["season_entities"]
+            self._save_pending = True
+
         if isinstance(data.get("shop_res_data"), dict):
             self.shop_definitions = data["shop_res_data"]
             self._save_pending = True
@@ -1044,6 +1061,8 @@ class Addon:
             "stage_limit_entities": self.stage_limits or None,
             "season_pass_entities": self.season_passes,
             "shop_res_data": self.shop_definitions,
+            "season_entities": self.basin_stages,
+            "mission_seasson_entities": self.basin_missions,
             "detected_region": self._detect_region(),
         }
 

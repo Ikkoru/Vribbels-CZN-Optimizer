@@ -156,7 +156,7 @@ COLUMNS = (
     ("Monthly", (), ("shop_town", "shop_gacha_dup", "shop_hyperspace",
                      "shop_chaos", "shop_exchange_product")),
     ("Other", (
-        ("basin", "Basin of Hyperspace (21 days)", None),
+        ("basin", "Basin of Hyperspace (21 days)", "99/99"),
         ("matrix", "Zero System Chaos Matrix (84? days)", None),
         ("supply_season", "Arkhianon Supply (42? days)", "70/70"),
         ("seasonal_event_other", "Seasonal Event (21 + 21 + 21 days)", None),
@@ -272,6 +272,16 @@ PASS_LEVEL_FULL = 70
 SIMULATION_FIELD = "stage_limit_entities"
 SIMULATION_STAGE = "content_boss"
 SIMULATION_RUNS = 3
+
+# The Basin of Hyperspace. Its progress is its OBJECTIVES, not its
+# stages: `mission_seasson_entities` (the game's own spelling) holds
+# them per Basin season, and a scored row is one done.
+#
+# **Two seasons run at once**, and the game shows one figure. The row
+# reports the LEAST complete of them -- the one with work left -- so a
+# fresh season shows through beside a finished one. With all of them
+# done every choice reads the same.
+BASIN_FIELD = "mission_seasson_entities"
 
 # The Great Rift's weekly score. The standings nest season -> rank
 # slot -> record, and the threshold that pays out rides in the same
@@ -685,6 +695,15 @@ def _readings(raw, now=None, claimed=False):
         out["simulation"] = ("%d/%d" % (left, SIMULATION_RUNS),
                              _done(left == 0))
 
+    # The Basin of Hyperspace: objectives done, out of the season's own
+    # total. Nothing states the total, so it is how many the season
+    # holds -- which is the same figure the game shows.
+    done, total = _basin(raw)
+    if total is None:
+        out["basin"] = (NO_DATA, UNKNOWN)
+    else:
+        out["basin"] = ("%d/%d" % (done, total), _done(done >= total))
+
     # The shops, one sub-row per product. `-` where the field cannot be
     # read honestly -- see `shop_stock.remaining`.
     for key, product_id, define in _shop_rows(raw):
@@ -699,6 +718,26 @@ def _readings(raw, now=None, claimed=False):
         else:
             out[key] = ("%d/%d" % (stock, limit), _done(stock == 0))
     return out
+
+
+def _basin(raw):
+    """(objectives done, objectives in the season), or (0, None).
+
+    The LEAST complete season, which is the one with work left. Ties go
+    to whichever sorts last, so two finished seasons read the same
+    either way.
+    """
+    seasons = raw.get(BASIN_FIELD)
+    best = None
+    for name in sorted(seasons or {}) if isinstance(seasons, dict) else ():
+        rows = seasons[name]
+        if not isinstance(rows, dict) or not rows:
+            continue
+        done = sum(1 for row in rows.values()
+                   if isinstance(row, dict) and row.get("score"))
+        if best is None or done - len(rows) <= best[0] - best[1]:
+            best = (done, len(rows))
+    return best if best else (0, None)
 
 
 def _great_rift(raw):

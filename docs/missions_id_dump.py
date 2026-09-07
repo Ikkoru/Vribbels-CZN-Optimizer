@@ -74,10 +74,11 @@ OWNED = ("key", "res_id", "family", "score", "complete_time", "issued_time",
 # What replaces a season number in a `key`.
 SEASON = "*"
 
-# Families this file does not track. `content_*` are one-off STORY
-# completion records -- `content_01_01_01` is chapter 1, stage 1,
-# objective 1 -- so they are already done, never move, and are not
-# recurring tasks. Thirty of them drowned the real rows.
+# Families this file does not track. `content_*` are the BASIN OF
+# HYPERSPACE's objectives -- they arrive with `hyperspace/get_list`,
+# three per stage, and the Checklist reads their tally as the Basin's
+# progress rather than naming them one by one. Thirty of them drowned
+# the rows worth annotating.
 SKIP_FAMILIES = ("content",)
 
 # Written into a file that does not exist yet, and never again -- the

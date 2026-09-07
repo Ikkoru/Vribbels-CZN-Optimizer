@@ -254,6 +254,36 @@ def run():
             f"{out['modules_soon']!r} and {out['modules_week']!r}, not "
             f"zero against the window's own bound, in green.")
 
+    # --- the Basin, and which season it reports --------------------
+    # Two seasons at once and one figure on screen, so the row takes
+    # the LEAST complete: a fresh season beside a finished one is work
+    # left, and reporting the finished one would hide it.
+    def basin(*seasons):
+        raw = _snapshot()
+        raw["mission_seasson_entities"] = {
+            f"hyperspace_02_{i}": {
+                f"content_{i}_{n:02d}": {"score": 1 if n <= done else 0}
+                for n in range(1, total + 1)}
+            for i, (done, total) in enumerate(seasons)}
+        return _readings(raw, now)["basin"]
+
+    got = basin((26, 26))
+    if got != ("26/26", DONE):
+        failures.append(
+            f"a finished Basin season reads {got!r}, not ('26/26', "
+            f"{DONE!r}). A scored objective is a done one.")
+    got = basin((26, 26), (3, 26))
+    if got != ("3/26", TODO):
+        failures.append(
+            f"with a finished season beside a fresh one the Basin reads "
+            f"{got!r}, not ('3/26', {TODO!r}). The row takes the LEAST "
+            f"complete, or the season with work left disappears behind "
+            f"the one without.")
+    got = _readings(_snapshot(), now)["basin"]
+    if got != (NO_DATA, UNKNOWN):
+        failures.append(
+            f"with no Basin data the row reads {got!r}, not a dash.")
+
     # --- the shop sub-rows, and the STALE tally -----------------------
     # Built from a snapshot carrying a shop DEFINITION, since that is
     # where the cap and the period now come from.
