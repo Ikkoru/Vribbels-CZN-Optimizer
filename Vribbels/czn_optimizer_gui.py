@@ -86,7 +86,7 @@ from optimizer import GearOptimizer
 # same set.
 from optimizer.optimizer import SLOT5_ELEMENT_MAINS
 from config import AppConfig
-from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab
+from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, ChecklistTab
 from ui.utils.button_width import BUTTON_PAD_X
 from ui import scaling
 from ui.scaling import px
@@ -809,6 +809,9 @@ class OptimizerGUI:
         self.materials_tab_instance = MaterialsTab(self.notebook, self.app_context)
         self.materials_tab = self.materials_tab_instance.get_frame()
 
+        self.checklist_tab_instance = ChecklistTab(self.notebook, self.app_context)
+        self.checklist_tab = self.checklist_tab_instance.get_frame()
+
         self.heroes_tab_instance = HeroesTab(self.notebook, self.app_context)
         self.heroes_tab = self.heroes_tab_instance.get_frame()
 
@@ -839,12 +842,14 @@ class OptimizerGUI:
 
         # ---- Add tabs to notebook in display order ----
         # Optimizer | Memory Fragments | Gear Score | Combatants | Materials |
-        #   Capture | Setup & Settings
+        #   Capture | Setup & Settings, with Checklist between
+        #   Materials and Capture
         self.notebook.add(self.optimizer_tab, text="Optimizer")
         self.notebook.add(self.inventory_tab, text="Memory Fragments")
         self.notebook.add(self.scoring_tab, text="Gear Score")
         self.notebook.add(self.heroes_tab, text="Combatants")
         self.notebook.add(self.materials_tab, text="Materials")
+        self.notebook.add(self.checklist_tab, text="Checklist")
         self.notebook.add(self.capture_tab, text="Capture")
         self.notebook.add(self.setup_tab, text="Setup & Settings")
 
@@ -1415,8 +1420,9 @@ def main():
     # it, and the UI scale has to be set before a widget takes its
     # padding. Both are read here rather than in OptimizerGUI, whose
     # settings manager does not exist until well after `tk.Tk()`.
-    scaling.declare_dpi_awareness()
+    # The scale FIRST: which awareness to declare depends on it.
     scaling.set_scale(_saved_ui_scale())
+    scaling.declare_dpi_awareness()
 
     # Single-instance check must happen BEFORE any Tk root is created --
     # creating a Tk root before deciding to exit causes an empty flicker

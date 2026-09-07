@@ -128,6 +128,16 @@ class Addon:
         # weekly score is in there and in nothing else the game sends.
         self.disaster_ranks = None
 
+        # What the recurring tasks stand at: the day's and week's
+        # activity points, the season pass's own record, and every
+        # mission row seen this session keyed by its res_id. MERGED
+        # rather than replaced -- the login burst and a pass claim each
+        # send a DIFFERENT set under one key, so a wholesale replace
+        # loses whichever arrived first.
+        self.point_entity = None
+        self.season_pass = None
+        self.missions = {}
+
         self.saved_path = None
 
         # Set by anything that changes the cached data, cleared by
@@ -622,6 +632,28 @@ class Addon:
         if isinstance(data.get("drop_item_result"), list):
             self._apply_drops(data["drop_item_result"], qid)
 
+        # What the recurring tasks stand at. Three keys, kept aside like
+        # the board above because each arrives in a frame carrying no
+        # roster and no inventory.
+        #
+        # `point_entity` is the DAILY and WEEKLY activity totals, and
+        # arrives with the reply to a Daily "Claim All".
+        # `season_pass_entity` is the Arkhianon Supply's own rank and
+        # exp, and `mission_entities` the per-mission state -- which
+        # comes in TWO shapes: the login burst sends the `content_*`
+        # achievements and a pass claim sends `pass_mission_*` rows
+        # carrying `complete_time`. Both are kept; the shape is told
+        # apart by the keys on a row, not by which frame it came in.
+        if isinstance(data.get("point_entity"), dict):
+            self.point_entity = data["point_entity"]
+            self._save_pending = True
+        if isinstance(data.get("season_pass_entity"), dict):
+            self.season_pass = data["season_pass_entity"]
+            self._save_pending = True
+        if isinstance(data.get("mission_entities"), list):
+            self._merge_missions(data["mission_entities"])
+            self._save_pending = True
+
         # The Great Rift standings, keyed by season and then by rank
         # slot. This is where the weekly score lives -- nothing else
         # carries it -- and the frame it arrives in holds a dozen other
@@ -765,6 +797,17 @@ class Addon:
             words.append("%s %+d" % (name, diff) if diff else name)
         return ", ".join(words)
 
+    def _merge_missions(self, rows):
+        """Fold mission rows into the cache, keyed by res_id.
+
+        Two different sets arrive under one key -- the login burst's
+        `content_*` achievements and a pass claim's `pass_mission_*`
+        rows -- so replacing would keep only whichever came last.
+        """
+        for row in rows:
+            if isinstance(row, dict) and row.get("res_id") is not None:
+                self.missions[str(row["res_id"])] = row
+
     def _report_unknown_units(self):
         """Log any banner naming a res_id this build has no entry for.
 
@@ -860,6 +903,13 @@ class Addon:
             "gacha_banners": self.gacha_banners,
             "char_visits": self.char_visits,
             "disaster_boss_rank_entities": self.disaster_ranks,
+            # What the recurring tasks stand at. Nothing reads these
+            # yet -- the Checklist tab is labels so far -- and they are
+            # written now so that a capture taken before anyone needs
+            # them already carries the history.
+            "point_entity": self.point_entity,
+            "season_pass_entity": self.season_pass,
+            "mission_entities": self.missions or None,
             "detected_region": self._detect_region(),
         }
 

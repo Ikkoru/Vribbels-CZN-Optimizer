@@ -3,17 +3,16 @@
 Two separate things, and both have to be right or the window is wrong on
 a high-DPI screen.
 
-**Windows is told this process is aware at the SYSTEM DPI.** Undeclared,
-every window is drawn at 96dpi and bitmap-stretched onto any scaled
-monitor -- soft everywhere, including the one the program is developed
-on. Declared, it is drawn in real device pixels at the system DPI and
-is crisp there; a monitor at a different DPI still gets a stretch, and
-the window keeps one PHYSICAL size across all of them.
+**What Windows is told depends on the SCALE.** Undeclared, every window
+is drawn at 96dpi and bitmap-stretched onto any scaled monitor -- soft
+everywhere, including the one the program is developed on. Declared, it
+is drawn in real device pixels.
 
-**Not PER-MONITOR awareness**, which was tried and taken back out:
-`declare_dpi_awareness` says why. In short, it makes Windows resize the
-window on every drag across a DPI boundary and there is no cheap way
-to refuse.
+Which declaration is right is not the same at both scales, and
+`declare_dpi_awareness` is where that is argued: SYSTEM awareness at
+100%, so the window keeps one physical size and a drag resizes
+nothing; PER-MONITOR at 200%, so Windows does not double text this
+program has already doubled.
 
 **Tk does not adapt to per-monitor DPI**, in any version. It reports one
 scaling for every screen and does not follow a window dragged between
@@ -110,35 +109,44 @@ def px(distance):
     return distance * _factor
 
 
-def declare_dpi_awareness():
-    """Ask Windows to stop scaling this process's windows.
+# What each scale asks Windows for. PROCESS_SYSTEM_DPI_AWARE is 1 and
+# PROCESS_PER_MONITOR_DPI_AWARE is 2; see `declare_dpi_awareness` for
+# why the choice follows the scale.
+AWARENESS_BY_FACTOR = {1: (1, "system"), 2: (2, "per-monitor")}
 
-    Before Tk opens its connection: awareness is a property of the
-    process and the first window fixes it. Failing is not fatal -- the
-    program then draws the way it always did, bitmap-stretched on a
-    scaled screen -- so this reports rather than raises.
+
+def declare_dpi_awareness():
+    """Tell Windows how much of the scaling this process is doing.
+
+    **The answer depends on the UI scale**, because the two available
+    ones each get one thing right and Tk cannot bridge them: it follows
+    no per-monitor DPI in any version, so a window dragged between
+    screens keeps whatever metrics it was built with.
+
+    * At 100% -- SYSTEM awareness. Windows bitmap-scales the window on
+      a screen whose DPI differs from the system's, so it keeps ONE
+      PHYSICAL SIZE everywhere and is crisp at the system DPI. It
+      sends no `WM_DPICHANGED` and resizes nothing, which is what
+      stops a drag from doubling the window.
+    * At 200% -- PER-MONITOR awareness. The text is already doubled by
+      this program, and a system-aware window would have Windows
+      double it AGAIN on a 200% screen. Per-monitor awareness turns
+      that second scaling off. The cost is the `WM_DPICHANGED` that
+      comes with it: a drag across a DPI boundary resizes the window's
+      frame, which no cheap mechanism refuses -- a poll that puts the
+      size back gets it re-applied and the two oscillate.
+
+    Before Tk opens its connection, and after `set_scale`: awareness is
+    a property of the PROCESS and the first window fixes it. Failing is
+    not fatal -- the program then draws the way it always did -- so this
+    reports rather than raises.
 
     Returns what happened, for the caller to log.
     """
+    level, word = AWARENESS_BY_FACTOR.get(_factor, (1, "system"))
     try:
-        # **SYSTEM, not per-monitor.** Per-monitor awareness makes
-        # Windows send `WM_DPICHANGED` when the window is dragged to a
-        # differently-scaled screen, and its default handling RESIZES
-        # the window to the rectangle that message suggests -- a 100%
-        # window comes out twice the size on a 200% monitor. Tk offers
-        # no hook for that message, and undoing the resize from
-        # outside is a fight: a poll that puts the size back gets it
-        # re-applied, and the window oscillates.
-        #
-        # System awareness sends no such message and resizes nothing.
-        # The window keeps one PHYSICAL size on every screen, which is
-        # what dragging one between monitors should do; Windows
-        # bitmap-scales it on a screen whose DPI differs from the
-        # system's, so it is soft there and crisp everywhere at the
-        # system DPI. Tk follows no per-monitor DPI in any case, so
-        # per-monitor awareness bought nothing it does not take back.
-        ctypes.windll.shcore.SetProcessDpiAwareness(1)
-        return "system"
+        ctypes.windll.shcore.SetProcessDpiAwareness(level)
+        return word
     except Exception as exc:            # noqa: BLE001 -- not Windows, or refused
         return f"not declared ({exc})"
 

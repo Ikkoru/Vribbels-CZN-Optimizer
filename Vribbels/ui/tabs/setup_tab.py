@@ -64,6 +64,30 @@ from ui.update_check import (
 
 _RENAME_PLACEHOLDER = "Rename current preset to..."
 
+
+def _pady_pair(value):
+    """A pack `pady` as (leading, trailing), whatever shape it is in.
+
+    Tk hands one back as an int, a two-tuple, or a space-separated
+    string depending on how it was set -- and a reader that assumed one
+    of those would drop the other half of an asymmetric pad.
+    """
+    if isinstance(value, (tuple, list)):
+        pair = list(value)
+    else:
+        pair = str(value).split()
+    numbers = []
+    for part in pair:
+        try:
+            numbers.append(int(part))
+        except (TypeError, ValueError):
+            numbers.append(0)
+    if not numbers:
+        return 0, 0
+    if len(numbers) == 1:
+        return numbers[0], numbers[0]
+    return numbers[0], numbers[1]
+
 # Restore Defaults panel geometry.
 #
 # The explanation beside each button wraps to two lines, and a Label's
@@ -100,7 +124,7 @@ INSTRUCTIONS_CHROME = 23
 # (left, top, right, bottom). Levers short of the rule -- see
 # `update_check.PANEL_PAD`, which carries the same correction for the
 # same reason. Left is the only side read off a screen.
-SETTINGS_PAD = (1, -1, 1, 1)  # spacing: border edge -> first non-button element -- panel, label ↔↕
+SETTINGS_PAD = (1, 3, 1, -1)  # spacing: border edge -> first non-button element -- panel, label ↔↕
 SETTINGS_LABEL_GAP = 2  # spacing: label ↔ its element -- label, dropdown ↔
 SETTINGS_NOTE_GAP = 2   # spacing: explanation text -> the controls it explains -- dropdown, label ↕
 SETTINGS_ROW_GAP = 7    # spacing: config panel row ↕ row -- label, dropdown ↕
@@ -108,7 +132,12 @@ SETTINGS_ROW_GAP = 7    # spacing: config panel row ↕ row -- label, dropdown �
 # The Links panel's own inset. Its children are flat `tk.Button`s whose
 # painted edge is their fill rather than a border, which is why the
 # non-button rule is the one that matches.
-LINKS_PAD = 2           # spacing: border edge -> first non-button element -- panel, button ↔↕
+# (left, top, right, bottom). The sides and the ends need different
+# levers: a flat button's painted edge is its FILL, which reaches
+# its box on every side, so the horizontal pair is the rule itself
+# while the vertical pair is two short -- the buttons' own `pady`
+# supplies the rest.
+LINKS_PAD = (4, 2, 4, 2)  # spacing: border edge -> first non-button element -- panel, button ↔↕
 
 # The leading pad both bottom panels start from, before either is
 # pushed down to meet the other. See `link_bottom_heights`.
@@ -353,8 +382,8 @@ class SetupTab(BaseTab):
         # edge, matching every other bordered panel. The frame itself
         # carries no padding, so the text widget's own background reaches
         # the border; the text inset lives on the Text's padx/pady.
-        instr_frame = ttk.LabelFrame(parent, text="Setup Instructions",
-                                     padding=px(0))
+        instr_frame = self._instr_frame = ttk.LabelFrame(
+            parent, text="Setup Instructions", padding=px(0))
         # spacing: panel ↕ unrelated label -- button, title ↕
         # The leading side carries the whole run from the button row
         # down to this panel's title.
@@ -455,8 +484,8 @@ class SetupTab(BaseTab):
 
     def _build_settings(self, parent):
         """Settings: the program's own switches, both restart-scoped."""
-        settings_frame = ttk.LabelFrame(parent, text="Settings",
-                                        padding=px(SETTINGS_PAD))
+        settings_frame = self._settings_frame = ttk.LabelFrame(
+            parent, text="Settings", padding=px(SETTINGS_PAD))
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
         settings_frame.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
@@ -585,7 +614,45 @@ class SetupTab(BaseTab):
         if getattr(self, "_bottom_row_linked", False):
             return
         self._bottom_row_linked = True
+        self.align_columns()
         self.link_bottom_heights()
+
+    def align_columns(self):
+        """Line the two columns' panel edges up across the tab.
+
+        Three edges are matched, and each is a panel pushed DOWN to
+        meet one that already sits lower -- nothing is ever pulled up,
+        because a panel's top is its own stack's height and there is
+        no room above it:
+
+        * `Setup Instructions` and `Update Status` share a top;
+        * `Setup Instructions` and `Settings` share a bottom;
+        * `Links` and `Application Information` share both.
+
+        **In ROOT coordinates.** `winfo_y` is relative to a widget's
+        own parent and these panels have two different ones, a column
+        each, so their `y` values are not on the same scale.
+
+        Idempotent, and public because a check calls it. Does nothing
+        useful before the tab has been laid out -- see `_on_first_map`.
+        """
+        self.frame.update_idletasks()
+        pairs = ((self._instr_frame, self.update_status.panel, "top"),
+                 (self._instr_frame, self._settings_frame, "bottom"))
+        for first, second, edge in pairs:
+            self.frame.update_idletasks()
+            if edge == "top":
+                behind = first.winfo_rooty() - second.winfo_rooty()
+                mover, other = (second, first) if behind > 0 else (first, second)
+            else:
+                behind = ((first.winfo_rooty() + first.winfo_height())
+                          - (second.winfo_rooty() + second.winfo_height()))
+                mover, other = (second, first) if behind > 0 else (first, second)
+            if not behind:
+                continue
+            pad = mover.pack_info().get("pady")
+            lead, trail = _pady_pair(pad)
+            mover.pack_configure(pady=(lead + abs(behind), trail))
 
     def link_bottom_heights(self):
         """Line Links and Application Information up, top and bottom.

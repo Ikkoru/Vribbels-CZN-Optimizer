@@ -145,7 +145,6 @@
   "Setup Status: title -> first element": 5,
   "Setup buttons -> Setup Instructions title": 10,
   "Setup buttons: button -> button": 4,
-  "Setup: tab list -> first element": 6,
   "Shielding caption -> its slider": 7,
   "Shielding row -> Force HP/Ego row": 12,
   "Show missing -> tab edge": 4,
@@ -234,5 +233,6 @@
   "weights caption -> the stat grid": 7,
   "Setup & Settings -> Setup Status title": 10,
   "Setup & Settings -> its subtitle": 14,
-  "Setup & Settings subtitle: off the heading's line": 0
+  "Setup & Settings subtitle: off the heading's line": 0,
+  "Setup & Settings: tab list -> first element": 6
 }

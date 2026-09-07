@@ -61,6 +61,14 @@ POLL_MS = 100
 # value for want of a reading of their own.
 PANEL_PAD = (1, -1, 1, 1)   # spacing: border edge -> first non-button element -- panel, label ↔↕
 
+# The Check Now button against the panel's LEFT and BOTTOM edges.
+# A different rule from the labels' -- 3 rather than 4 -- and a
+# different reading of the same padding: a ttk.Button's box edge IS
+# its border, where a Label's box starts outside its glyphs, so the
+# inset that renders 4 for a label renders 1 for the button. This
+# is what makes up the difference.
+BUTTON_INSET = 2     # spacing: border edge -> button -- panel, button ↔↕
+
 # A label against the value beside it. Three short of the rule, which
 # is the two labels' insets meeting.
 LABEL_TO_VALUE = 2   # spacing: label ↔ its element -- label, label ↔
@@ -193,7 +201,9 @@ class UpdateStatus:
         self.button = ttk.Button(self.panel, text="Check Now",
                                  command=self.check_now)
         # spacing: config panel row ↕ row -- label, button ↕
-        self.button.pack(anchor=tk.W, pady=px((ROW_PITCH, 0)))
+        # spacing: border edge -> button -- panel, button ↔↕
+        self.button.pack(anchor=tk.W, padx=px((BUTTON_INSET, 0)),
+                         pady=px((ROW_PITCH, BUTTON_INSET)))
 
         self.root.after(POLL_MS, self._drain)
         # Shortly after, so the tab is built before its labels move.
