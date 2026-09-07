@@ -24,6 +24,7 @@ from tkinter import ttk
 from tkinter import font as tkfont
 
 from ..base_tab import BaseTab
+from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_heading
 from ui.scaling import px
 
@@ -109,6 +110,26 @@ HEADING_GAP = 0         # spacing: panel ↕ unrelated label -- heading, frame �
 # holder is fixed and the Text fills it.
 TEXT_INSET = 2
 
+# ---- the mission listing, TEMPORARY --------------------------------
+#
+# Every mission the capture carries, with what it reports, so the ids
+# can be read off the screen and written into `docs/missions_id.tsv`.
+# **Delete this block and its four constants once the missions are
+# identified**; the rows above are what the tab is for.
+DEBUG_MISSIONS = True
+DEBUG_TITLE = "Mission ids (temporary)"
+DEBUG_ROWS = 12         # visible lines; the rest scroll
+DEBUG_COLS = 40         # characters, which is the widest line plus room
+DEBUG_FONT = ("Consolas", 9)
+
+# The field the missions arrive under, and what a row says when it has
+# been finished. A `content_*` row never carries `complete_time` at
+# all, so the two readings are not "done" and "not done" -- they are
+# "reported done" and "said nothing".
+MISSION_FIELD = "mission_entities"
+DONE = "done"
+NOT_DONE = "-"
+
 
 class ChecklistTab(BaseTab):
     """The recurring-task columns."""
@@ -117,6 +138,8 @@ class ChecklistTab(BaseTab):
         super().__init__(parent, context)
         # (Text, rows) per column heading, for the refresh to rewrite.
         self.column_texts = {}
+        # The temporary mission listing, or None while it is switched off.
+        self.mission_text = None
         self.setup_ui()
         # Drawn once with nothing, so the tab is its rows rather than a
         # blank before the first capture.
@@ -126,7 +149,19 @@ class ChecklistTab(BaseTab):
 
     def setup_ui(self):
         """Build the Checklist tab UI."""
+        # **Created before anything else on the tab.** The audit reaches
+        # the columns through the tab's FIRST CHILD, and `winfo_children`
+        # is in creation order -- so a block built ahead of this one
+        # takes that position and every Checklist entry skips, silently.
+        # `checks/check_tabs_build.py` holds it there.
         columns = ttk.Frame(self.frame)
+
+        # Packed before the columns, which is a separate order: pack
+        # hands each widget its requested size in turn and only then
+        # gives the leftover to whatever expands.
+        if DEBUG_MISSIONS:
+            self._build_mission_list()
+
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
         columns.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((0, 2)))
@@ -190,6 +225,18 @@ class ChecklistTab(BaseTab):
         text.tag_configure("alert", foreground=self.colors["red"])
         self.column_texts[title] = (text, rows)
 
+    def _build_mission_list(self):
+        """The temporary mission listing, bottom left. See DEBUG_MISSIONS."""
+        # spacing: out of scope -- a temporary listing of mission ids, deleted once they are identified
+        block = ttk.Frame(self.frame)
+        block.pack(side=tk.BOTTOM, anchor=tk.W, padx=px(4), pady=px((0, 4)))
+        ttk.Label(block, text=DEBUG_TITLE,
+                  foreground=self.colors["fg_dim"]).pack(anchor=tk.W)
+        self.mission_text = make_scrolled_text(
+            block, self.colors, width=DEBUG_COLS, height=DEBUG_ROWS,
+            wrap=tk.NONE, font=DEBUG_FONT, takefocus=0)
+        self.mission_text.pack(anchor=tk.W)
+
     @staticmethod
     def _block_height(rows):
         """A column's height: its rows and the pitch between them.
@@ -223,6 +270,32 @@ class ChecklistTab(BaseTab):
         for text, rows in self.column_texts.values():
             self._fill(text, rows,
                        {ACTIVITY_ROW: reading} if ACTIVITY_ROW in rows else {})
+        if self.mission_text is not None:
+            self._fill_missions(raw.get(MISSION_FIELD))
+
+    def _fill_missions(self, missions):
+        """Rewrite the temporary mission listing. See DEBUG_MISSIONS.
+
+        Takes either shape the field comes in: the addon's cache, keyed
+        by res_id, or a bare list off the wire.
+        """
+        rows = missions.values() if isinstance(missions, dict) else missions
+        lines = []
+        for row in rows or ():
+            if not isinstance(row, dict) or not row.get("res_id"):
+                continue
+            res_id = str(row["res_id"])
+            lines.append((_family(res_id), res_id,
+                          "%-24s %8s  %s" % (
+                              res_id, row.get("score", ""),
+                              DONE if row.get("complete_time") else NOT_DONE)))
+        lines.sort()
+        body = (LINE_SEP.join(line for _, _, line in lines) if lines
+                else "no missions in this snapshot")
+        self.mission_text.config(state=tk.NORMAL)
+        self.mission_text.delete("1.0", tk.END)
+        self.mission_text.insert(tk.END, body)
+        self.mission_text.config(state=tk.DISABLED)
 
     @staticmethod
     def _fill(text, rows, readings):
@@ -249,6 +322,22 @@ class ChecklistTab(BaseTab):
 # punctuation.
 LINE_SEP = "\n"
 COLUMN_SEP = "\t"
+
+
+def _family(res_id):
+    """The id's leading words, which is the set it belongs to.
+
+    Groups the listing the way `docs/missions_id_dump.py` groups the
+    file it is read into. Split at the first NUMBERED segment: the
+    numbers are the mission within its set, and how many of them an id
+    carries varies between sets.
+    """
+    parts = []
+    for part in res_id.split("_"):
+        if part.isdigit():
+            break
+        parts.append(part)
+    return "_".join(parts) or res_id
 
 
 def _widest_value():

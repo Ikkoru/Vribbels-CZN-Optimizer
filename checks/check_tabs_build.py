@@ -1005,6 +1005,40 @@ def _level_stepper_offers_auto(tab):
     return out
 
 
+def _checklist_columns_come_first(tab):
+    """The Checklist tab's columns frame must be its FIRST child.
+
+    `ui/spacing_registry.py` reaches all four Checklist entries through
+    `winfo_children()[0]`, which is CREATION order. Anything built on
+    the tab ahead of the columns takes that slot, and the audit then
+    reports four skips -- which reads like a green run, since a
+    resolver that matches nothing is not a failure.
+
+    The temporary mission listing is what makes this worth pinning: it
+    is packed above the columns in the pack order and has to be created
+    after them.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs.checklist_tab import COLUMNS as CHECKLIST_COLUMNS
+
+    children = tab.get_frame().winfo_children()
+    if not children:
+        return ["the Checklist tab built no children at all"]
+    first = children[0]
+    columns = [child for child in first.winfo_children()
+               if child.winfo_class() in ("TFrame", "Frame")]
+    if len(columns) != len(CHECKLIST_COLUMNS):
+        return [
+            f"the Checklist tab's first child holds {len(columns)} column "
+            f"frame(s), not {len(CHECKLIST_COLUMNS)}. The audit reaches "
+            f"every Checklist gap through that child, and a resolver that "
+            f"finds nothing SKIPS rather than failing -- so the four "
+            f"entries would go quiet with the run still green."
+        ]
+    return []
+
+
 def _setup_columns_hold_their_shape(tab):
     """The Setup & Settings tab's two columns, and what each is pinned to.
 
@@ -1560,6 +1594,9 @@ def run():
                 built["SetupTab"], root))
             failures.extend(
                 _setup_columns_hold_their_shape(built["SetupTab"]))
+        if "ChecklistTab" in built:
+            failures.extend(
+                _checklist_columns_come_first(built["ChecklistTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))

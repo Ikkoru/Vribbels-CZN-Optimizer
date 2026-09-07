@@ -4081,13 +4081,18 @@ AWAITING_FIRST_READING = {
     "Checklist: row -> row",
     "Checklist: window edge -> first column",
     "Checklist: last column -> window edge",
-    # The resolver reads 0 and the eye reads 5, with no explanation for
-    # the difference. `PANEL_EDGE_HANDS` carries the eye's number.
+    # The resolver reads 0 where the eye reads 5. `PANEL_EDGE_HANDS`
+    # carries the eye's number.
+    #
+    # **The suspect is the panel's own -1 top padding**, which puts the
+    # first child a pixel INSIDE the border: `_panel_edge_inset` scans
+    # from the border's inner edge down, so content overlapping that
+    # edge reads as ink at distance 0. The sibling panel whose top pad
+    # is positive reads correctly. To settle it, set
+    # `update_check.PANEL_PAD`'s top component to 0 and re-run -- a
+    # resolver that then reports 6 was being confused by the overlap,
+    # and one still reporting 0 was not.
     "Update Status: top edge -> content",
-    # The panel's bottom pad cannot reach the rule from either side: at
-    # -1 the gap reads 5, and the -2 that would close it clips the
-    # warning text. Held at -1 until the panel is measured again.
-    "Settings: bottom edge -> content",
 }
 
 
