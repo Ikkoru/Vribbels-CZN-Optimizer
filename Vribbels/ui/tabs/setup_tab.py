@@ -128,6 +128,13 @@ INSTRUCTIONS_CHROME = 23
 # is short enough to cut the content.
 SETTINGS_PAD = (1, 4, 1, -1)  # spacing: border edge -> first non-button element -- panel, dropdown ↔↕
 SETTINGS_LABEL_GAP = 2  # spacing: label ↔ its element -- label, dropdown ↔
+
+# What the LAST line in the panel gives back to its own bottom gap. A
+# `ttk.Label` carries about two pixels of inset below its glyphs, and a
+# negative `padding` hands them back by shrinking the box rather than
+# by moving the text -- which is the lever a frame padding cannot be
+# here, `SETTINGS_PAD`'s own bottom clipping the descender instead.
+SETTINGS_LAST_TRIM = -1  # spacing: border edge -> first non-button element -- panel, label ↕
 SETTINGS_NOTE_GAP = 2   # spacing: explanation text -> the controls it explains -- dropdown, label ↕
 SETTINGS_ROW_GAP = 7    # spacing: config panel row ↕ row -- label, dropdown ↕
 
@@ -567,7 +574,8 @@ class SetupTab(BaseTab):
         self.workers_var.trace_add("write", lambda *_: self._save_workers())
         # spacing: explanation text -> the controls it explains -- dropdown, label ↕
         ttk.Label(settings_frame, text=WORKERS_WARNING,
-                  foreground=self.colors["red"], justify=tk.LEFT).pack(
+                  foreground=self.colors["red"], justify=tk.LEFT,
+                  padding=px((0, 0, 0, SETTINGS_LAST_TRIM))).pack(
                       anchor=tk.W, pady=px((SETTINGS_NOTE_GAP, 0)))
 
     def _build_links(self, parent):

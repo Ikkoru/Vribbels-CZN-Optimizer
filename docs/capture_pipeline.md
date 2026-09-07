@@ -68,7 +68,7 @@ The banner schedule is one of three that arrive in a frame carrying no roster an
 
 Each is replaced whole rather than merged: the reply IS the board, so a row's absence is a reading. `excursions.py` reads the second, nothing reads the third yet.
 
-Three more join them, for what the recurring tasks stand at. The Checklist tab reads `day_point` off the first; the other two are captured so a snapshot taken before anything needs them already carries the history:
+Three more join them, for what the recurring tasks stand at. The Checklist tab reads `day_point` off the first and lists the third; the pass record is captured so a snapshot taken before anything needs it already carries the history:
 
 | Attribute | Wire key | What it is |
 | --------- | -------- | ---------- |

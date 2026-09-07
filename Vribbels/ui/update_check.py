@@ -56,10 +56,14 @@ POLL_MS = 100
 
 # The panel's own inset, as (left, top, right, bottom). Levers a
 # rendered distance short of the rule -- a ttk.Label's glyphs start
-# inside its own box, which is 3 on the left and 5 above. Only the LEFT
-# and TOP have been read off a screen; the other two carry the left's
-# value for want of a reading of their own.
-PANEL_PAD = (1, -1, 1, 1)   # spacing: border edge -> first non-button element -- panel, label ↔↕
+# inside its own box, which is 3 on the left and 6 above.
+#
+# **A negative TOP is safe here and a negative bottom would not be.**
+# It pulls the first row's own frame into the border, and the glyphs in
+# that frame sit two pixels further in again, so nothing is cut. The
+# same trick on a bottom edge cuts a descender -- see
+# `setup_tab.SETTINGS_PAD`.
+PANEL_PAD = (1, -2, 1, 1)   # spacing: border edge -> first non-button element -- panel, label ↔↕
 
 # The Check Now button against the panel's LEFT and BOTTOM edges.
 # A different rule from the labels' -- 3 rather than 4 -- and a

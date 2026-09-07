@@ -657,7 +657,10 @@ PANEL_EDGES = [
     # children are anchored west -- so what is on the right of them is
     # the window's leftover width, not a distance. `Links` does have
     # one: its buttons fill the panel, and its column is pinned.
-    ("Setup & Settings", "Update Status", "top"),
+    # `Update Status`' TOP is not here: its first child is a frame the
+    # panel's negative top padding pulls into the border, which the
+    # interior scan stops at. It is registered against the label
+    # instead, in `register_all`.
     ("Setup & Settings", "Update Status", "bottom"),
     ("Setup & Settings", "Settings", "top"),
     ("Setup & Settings", "Settings", "bottom"),
@@ -677,12 +680,7 @@ PANEL_EDGE_RULES = {
 # Hand readings for PANEL_EDGES rows the resolver and the eye disagree
 # on. Keyed by (panel, side) rather than carried in the table, because
 # every other row in it reads the same both ways.
-PANEL_EDGE_HANDS = {
-    # The resolver reads 0 here and the eye reads 5, on a panel whose
-    # other edges it reads correctly. Until that is explained the
-    # number to act on is the hand one, and the entry stays provisional.
-    ("Update Status", "top"): 5,
-}
+PANEL_EDGE_HANDS = {}
 
 
 def _panel_gap(first, second, axis):
@@ -3547,6 +3545,34 @@ def _panel_floor_to_ink(title, locator, fill=None):
     return resolve
 
 
+def _panel_ceiling_to_capital(title, locator):
+    """Resolver: a panel's top border -> a named widget's CAPITAL.
+
+    The mirror of `_panel_floor_to_ink`, and it exists for two reasons
+    at once. `_panel_edge_inset` scans the whole INTERIOR, so on a
+    panel whose first child is a frame pulled into the border by a
+    negative padding it stops at that frame and reports 0. And it reads
+    the topmost INK, where the rule's reference above is the cap
+    height -- an ascender clears a capital in some faces.
+
+    Naming the widget answers both: the scan runs to one letter, on the
+    rule's own reference.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, title)
+        edges, saturated = _border_inner_edges(cap, frame)
+        note = ("border scan hit its cap; interior may be filled"
+                if saturated else "")
+        band = _label_capital_box(cap, locator(app))
+        if band is None:
+            return None, "no capital in that widget to measure to"
+        extent = sa.painted_extent_v(cap, band)
+        if not extent:
+            return None, "the capital painted nothing"
+        return sa.gap_between(edges["top"], extent[0]), note
+    return resolve
+
+
 # How an ICON's edge is read, for every gap that ends at one.
 #
 #   "box"  the transparent border each icon carries counts as part of
@@ -4081,18 +4107,16 @@ AWAITING_FIRST_READING = {
     "Checklist: row -> row",
     "Checklist: window edge -> first column",
     "Checklist: last column -> window edge",
-    # The resolver reads 0 where the eye reads 5. `PANEL_EDGE_HANDS`
-    # carries the eye's number.
+    # Both were read at 5 by eye against a target of 4, and both are
+    # nudged by a pixel this turn on a lever nothing has measured yet:
+    # Update Status' panel padding, and a negative `padding` on the
+    # last line inside Settings.
     #
-    # **The suspect is the panel's own -1 top padding**, which puts the
-    # first child a pixel INSIDE the border: `_panel_edge_inset` scans
-    # from the border's inner edge down, so content overlapping that
-    # edge reads as ink at distance 0. The sibling panel whose top pad
-    # is positive reads correctly. To settle it, set
-    # `update_check.PANEL_PAD`'s top component to 0 and re-run -- a
-    # resolver that then reports 6 was being confused by the overlap,
-    # and one still reporting 0 was not.
+    # Update Status' top also changed RESOLVER -- the interior scan
+    # reported 0 against that hand reading of 5, so it reads to the
+    # label's capital now.
     "Update Status: top edge -> content",
+    "Settings: bottom edge -> content",
 }
 
 
@@ -4560,6 +4584,22 @@ def register_all():
                 lambda app, w=_label: _next_sibling(_by_text(w)(app))),
             axis="h",
         )
+
+    # Update Status' top border against the first thing under it. Read
+    # to the LABEL rather than by scanning the interior -- the panel's
+    # negative top padding pulls the row frame into the border, and a
+    # scan stops there and reports 0.
+    sa.track(
+        name="Update Status: top edge -> content",
+        tab="Setup & Settings",
+        rule=RULE_BORDER_EDGE_CONTENT,
+        target=4,
+        resolve=_panel_ceiling_to_capital("Update Status",
+                                          _by_text("Latest version:")),
+        axis="v",
+        provisional="Update Status: top edge -> content"
+        in AWAITING_FIRST_READING,
+    )
 
     # Update Status' three rows. One rule, and three separate levers in
     # `update_check` -- the four widgets are boxed differently and each

@@ -1,15 +1,17 @@
 """Checklist tab: what resets, and how often.
 
 Four headed columns, one per reset period, each listing the things that
-come back on it. Most rows are LABELS ONLY: what they are waiting for
+come back on it. Some rows are LABELS ONLY: what they are waiting for
 is completion status, and the capture carries the first pieces of it --
 `point_entity` for the daily and weekly activity totals,
 `mission_entities` for a per-mission `complete_time`, and
 `season_pass_entity` for the Arkhianon Supply's rank. See
 `docs/capture_pipeline.md`.
 
-One row reads a value: the day's activity total, out of a hundred, in
-the alert colour where the day is not finished.
+The rows that DO read a value get it from `_readings`, one place, keyed
+by the row's own key rather than by its words -- two rows share the
+words `Delegation Module` and differ only in the deadline they count
+to.
 
 The columns are built the way the Materials tab's are: content in the
 EVEN grid columns with an empty expanding one between each pair, so the
@@ -19,9 +21,15 @@ the geometry managers over every widget on the page, and forty labels
 is forty of them.
 """
 
+import time
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
+
+import excursions
+import item_amounts
+import period_items
+import weekly_reset
 
 from ..base_tab import BaseTab
 from ..utils.scrolled_text import make_scrolled_text
@@ -33,56 +41,78 @@ from ui.scaling import px
 # game: the wording is the game's own where it has one, and `$hop`
 # marks a shop tab rather than a currency.
 #
+# A row is `(key, label, widest)`. The KEY is what `_readings` answers
+# to and is unique across the tab -- `Delegation Module` appears twice
+# and `Nono's Shop` in two columns, so the words cannot serve. `widest`
+# is the longest reading that row can show, which is what the column
+# reserves room for; `None` is a row that shows none.
+#
 # **A column's rows are its own.** `Arkhianon Supply` appears under
 # three headings because it resets three ways -- a daily set of
 # missions, a weekly set, and the pass itself -- and they are three
 # different things to check rather than one row repeated.
 COLUMNS = (
     ("Daily", (
-        "Coffee",
-        "Activity (Dailies)",
-        "Arkhianon Supply",
-        "Dates",
-        "Delegation",
-        "Other Events",
+        ("coffee", "Coffee", None),
+        ("activity", "Activity (Dailies)", "100/100"),
+        ("supply_daily", "Arkhianon Supply", None),
+        ("excursions", "Excursions", "5/5"),
+        ("chaos_delegation", "Chaos Delegation", None),
+        ("other_daily", "Other Events", None),
     )),
     ("Weekly", (
-        "Nono's Shop",
-        "$hop - Memory Archive - Traveler",
-        "Arkhianon Supply",
-        "Simulation Challenges",
-        "Chaos & Sortie Currency",
-        "Seasonal Event(s)",
-        "Seasonal Shop",
-        "Seasonal Accumulated Score",
+        ("nono_weekly", "Nono's Shop", None),
+        ("archive_weekly", "$hop - Memory Archive - Traveler", None),
+        ("supply_weekly", "Arkhianon Supply", None),
+        ("simulation", "Simulation Challenges", None),
+        ("chaos_currency", "Chaos Currency", "99"),
+        ("modules_today", "Delegation Module", "99 expiring today!"),
+        ("modules_week", "Delegation Module", "99 expiring this week"),
+        ("sortie_currency", "Sortie Currency", "99/9"),
+        ("seasonal_event", "Seasonal Event(s)", None),
+        ("seasonal_shop", "Seasonal Shop", None),
+        # The Great Rift standings are this row's source:
+        # `disaster_boss_rank_entities`, the only carrier of the weekly
+        # score. Nothing reads it yet -- see `game_data/constants.py`,
+        # which records that the addon does not keep it.
+        ("seasonal_score", "Seasonal Accumulated Score", None),
     )),
     ("Monthly", (
-        "Nono's Shop",
-        "$hop - Memory Archive - Traveler",
-        "$hop - Zeronium Shop",
-        "$hop - Blackhorn Trade",
-        "$hop - Exchange Shop - Prism Module",
+        ("nono_monthly", "Nono's Shop", None),
+        ("archive_monthly", "$hop - Memory Archive - Traveler", None),
+        ("zeronium", "$hop - Zeronium Shop", None),
+        ("blackhorn", "$hop - Blackhorn Trade", None),
+        ("prism", "$hop - Exchange Shop - Prism Module", None),
     )),
     ("Other", (
-        "Basin of Hyperspace (21 days)",
-        "Zero System Chaos Matrix (84? days)",
-        "Arkhianon Supply (42? days)",
-        "Seasonal Event (21 + 21 + 21 days)",
-        "Sortie (21 days)",
-        "Other Events",
+        ("basin", "Basin of Hyperspace (21 days)", None),
+        ("matrix", "Zero System Chaos Matrix (84? days)", None),
+        ("supply_season", "Arkhianon Supply (42? days)", None),
+        ("seasonal_event_other", "Seasonal Event (21 + 21 + 21 days)", None),
+        ("sortie_other", "Sortie (21 days)", None),
+        ("other_events_other", "Other Events", None),
     )),
 )
 
 # The rows' face. The headings use the shared helper's own.
 ROW_FONT = ("Segoe UI", 9)
 
-# The one row that reads a value so far, and what it is read against.
 # `point_entity.day_point` is the day's ACTIVITY total and a hundred is
 # a full day; anything short is drawn in the alert colour, which is the
-# whole of what the row says today.
-ACTIVITY_ROW = "Activity (Dailies)"
+# whole of what that row says.
 ACTIVITY_FULL = 100
 POINT_FIELD = "point_entity"
+
+# The two weekly currencies, and the cap the game states for the second.
+# The Card states one too -- four -- but a row that only ever reads
+# `0`..`4` says as much without it, where Reason is spent in sevens and
+# the ceiling is what says whether a run is affordable.
+CHAOS_CURRENCY = 2000027        # Loot Certification Card
+SORTIE_CURRENCY = 2000036       # Reason
+SORTIE_CAP = 9
+
+# The period item the two module rows count copies of.
+MODULE_ITEM = 3920026           # Time-Limited Command Delegation Module
 
 # What a value reads before any snapshot has reached the tab. NOT `0`,
 # which is what an untouched day reads: nothing claimed and nothing
@@ -114,7 +144,7 @@ TEXT_INSET = 2
 #
 # Every mission the capture carries, with what it reports, so the ids
 # can be read off the screen and written into `docs/missions_id.tsv`.
-# **Delete this block and its four constants once the missions are
+# **Delete this block and its five constants once the missions are
 # identified**; the rows above are what the tab is for.
 DEBUG_MISSIONS = True
 DEBUG_TITLE = "Mission ids (temporary)"
@@ -193,12 +223,13 @@ class ChecklistTab(BaseTab):
 
         font = tkfont.Font(font=ROW_FONT)
         # The words, plus a column reserved for the widest reading any
-        # row can show. RESERVED rather than fitted: a column that
-        # sized to its content would move every row's words the moment
-        # a figure gained a digit.
-        labels = max(font.measure(row) for row in rows) + TEXT_INSET
-        stop = labels + LABEL_TO_VALUE
-        holder = tk.Frame(parent, width=stop + font.measure(_widest_value()),
+        # row in this column can show. RESERVED rather than fitted: a
+        # column that sized to its content would move every row's words
+        # the moment a figure gained a digit.
+        labels = max(font.measure(label) for _key, label, _w in rows)
+        stop = labels + TEXT_INSET + LABEL_TO_VALUE
+        widest = max([font.measure(w) for _k, _l, w in rows if w] or [0])
+        holder = tk.Frame(parent, width=stop + widest,
                           height=self._block_height(len(rows)),
                           bg=self.colors["bg"])
         holder.pack_propagate(False)
@@ -221,7 +252,7 @@ class ChecklistTab(BaseTab):
         text.pack(fill=tk.BOTH, expand=True)
         # spacing: label row -> label row -- run, run ↕
         text.tag_configure("row", spacing1=px(ROW_PITCH))
-        # The colour is the whole of what a short reading says.
+        # The colour is the whole of what an unfinished reading says.
         text.tag_configure("alert", foreground=self.colors["red"])
         self.column_texts[title] = (text, rows)
 
@@ -253,25 +284,33 @@ class ChecklistTab(BaseTab):
     def refresh_checklist(self):
         """Redraw every reading from the loaded snapshot.
 
-        Called automatically after data loads. A snapshot with no
-        `point_entity` -- one taken before the capture kept it -- reads
-        `-`: nothing claimed and nothing recorded are different answers
-        and a zero would say the first.
+        Called automatically after data loads.
         """
         if not self.column_texts:
             return
         raw = getattr(self.optimizer, "raw_data", None) or {}
-        point = raw.get(POINT_FIELD)
-        day = point.get("day_point") if isinstance(point, dict) else None
-        if isinstance(day, int) and not isinstance(day, bool):
-            reading = ("%d/%d" % (day, ACTIVITY_FULL), day != ACTIVITY_FULL)
-        else:
-            reading = ("%s/%d" % (NO_DATA, ACTIVITY_FULL), False)
+        readings = _readings(raw)
         for text, rows in self.column_texts.values():
-            self._fill(text, rows,
-                       {ACTIVITY_ROW: reading} if ACTIVITY_ROW in rows else {})
+            self._fill(text, rows, readings)
         if self.mission_text is not None:
             self._fill_missions(raw.get(MISSION_FIELD))
+
+    @staticmethod
+    def _fill(text, rows, readings):
+        """Rewrite one column: its rows, and any reading beside one.
+
+        Written whole rather than patched line by line -- a Text has no
+        per-line assignment, and the block is small.
+        """
+        text.config(state=tk.NORMAL)
+        text.delete("1.0", tk.END)
+        for index, (key, label, _widest) in enumerate(rows):
+            value, alert = readings.get(key, (None, False))
+            text.insert(tk.END, (LINE_SEP if index else "") + label, "row")
+            if value is not None:
+                text.insert(tk.END, COLUMN_SEP + value,
+                            ("row", "alert") if alert else "row")
+        text.config(state=tk.DISABLED)
 
     def _fill_missions(self, missions):
         """Rewrite the temporary mission listing. See DEBUG_MISSIONS.
@@ -297,24 +336,6 @@ class ChecklistTab(BaseTab):
         self.mission_text.insert(tk.END, body)
         self.mission_text.config(state=tk.DISABLED)
 
-    @staticmethod
-    def _fill(text, rows, readings):
-        """Rewrite one column: its rows, and any reading beside one.
-
-        `readings` maps a row's words to (value, alert). Written whole
-        rather than patched line by line -- a Text has no per-line
-        assignment, and the block is small.
-        """
-        text.config(state=tk.NORMAL)
-        text.delete("1.0", tk.END)
-        for index, row in enumerate(rows):
-            value, alert = readings.get(row, (None, False))
-            text.insert(tk.END, (LINE_SEP if index else "") + row, "row")
-            if value is not None:
-                text.insert(tk.END, COLUMN_SEP + value,
-                            ("row", "alert") if alert else "row")
-        text.config(state=tk.DISABLED)
-
 
 # What separates one row from the next, and a row from its value.
 # Named because a Text's columns ARE its tabs and its rows ARE its
@@ -322,6 +343,67 @@ class ChecklistTab(BaseTab):
 # punctuation.
 LINE_SEP = "\n"
 COLUMN_SEP = "\t"
+
+
+def _readings(raw, now=None):
+    """{row key: (text, alert)} for every row that shows a value.
+
+    One place for all of them, and pure but for the clock, so the whole
+    set can be exercised from a snapshot without a window. `now` is
+    epoch seconds, defaulting to the real clock.
+
+    A row whose source is missing reads `-` rather than `0`: nothing
+    claimed and nothing recorded are different answers.
+    """
+    now = time.time() if now is None else now
+    amounts = item_amounts.held(raw)
+    expiries = period_items.held(raw.get("inventory") or {}).get(
+        MODULE_ITEM, ())
+
+    out = {}
+
+    # The day's ACTIVITY total. The one row whose colour is its whole
+    # message: short of a hundred is a day not finished.
+    point = raw.get(POINT_FIELD)
+    day = point.get("day_point") if isinstance(point, dict) else None
+    if _is_count(day):
+        out["activity"] = ("%d/%d" % (day, ACTIVITY_FULL),
+                           day != ACTIVITY_FULL)
+    else:
+        out["activity"] = ("%s/%d" % (NO_DATA, ACTIVITY_FULL), False)
+
+    # Communication Passes left today. Not an item and not a currency --
+    # `excursions.passes_left` says why that reading is the only one a
+    # snapshot allows.
+    left = excursions.passes_left(raw)
+    out["excursions"] = (
+        "%s/%d" % (NO_DATA if left is None else left, excursions.DAILY_PASSES),
+        False)
+
+    out["chaos_currency"] = ("%d" % amounts.get(CHAOS_CURRENCY, 0), False)
+    out["sortie_currency"] = (
+        "%d/%d" % (amounts.get(SORTIE_CURRENCY, 0), SORTIE_CAP), False)
+
+    # The modules, by the deadline each copy has to be used before.
+    # **The two windows NEST**: everything expiring today also expires
+    # this week, so the second count includes the first. That is what
+    # the two lines say, and it is the opposite of the Materials tab's
+    # module buckets, which partition.
+    today = _expiring_by(expiries, weekly_reset.next_daily_reset(now))
+    week = _expiring_by(expiries, weekly_reset.next_reset(now))
+    out["modules_today"] = ("%d expiring today!" % today, today > 0)
+    out["modules_week"] = ("%d expiring this week" % week, False)
+    return out
+
+
+def _expiring_by(expiries, deadline):
+    """How many copies expire at or before `deadline`, epoch seconds."""
+    return sum(1 for end in expiries if end <= deadline)
+
+
+def _is_count(value):
+    """True for a plain int. `bool` is an int and is not a count."""
+    return isinstance(value, int) and not isinstance(value, bool)
 
 
 def _family(res_id):
@@ -338,13 +420,3 @@ def _family(res_id):
             break
         parts.append(part)
     return "_".join(parts) or res_id
-
-
-def _widest_value():
-    """The widest reading any row can show.
-
-    Stated rather than derived: the only value so far is an activity
-    total out of a hundred, and a column reserved for the widest form
-    it can take does not move when the figure does.
-    """
-    return "%d/%d" % (ACTIVITY_FULL, ACTIVITY_FULL)

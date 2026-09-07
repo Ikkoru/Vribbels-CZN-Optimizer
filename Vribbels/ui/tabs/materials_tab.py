@@ -71,6 +71,7 @@ from game_data import (
 )
 from game_data.constants import item_art, rarity_plate
 import period_items
+import item_amounts
 import weekly_reset
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
@@ -1042,26 +1043,15 @@ class MaterialsTab(BaseTab):
         """
         if not self.optimizer.raw_data:
             return
-        inventory = self.optimizer.raw_data.get("inventory", {})
-        quantities = {}
-        for item in inventory.get("items", []):
-            res_id = item.get("res_id")
-            if res_id:
-                quantities[res_id] = item.get("amount", 0)
-        # The three generic items are CURRENCIES, which a snapshot
-        # keeps apart from its item list -- so a column's stand-in
-        # reads 0 from `items` alone however many are held.
-        currencies = (self.optimizer.raw_data.get("characters")
-                      or {}).get("currencies") or {}
-        for key, record in currencies.items():
-            try:
-                quantities[int(key)] = record.get("amount", 0)
-            except (TypeError, ValueError):
-                continue
+        # Items and currencies together: the three generic materials
+        # are currencies, which a snapshot keeps apart from its item
+        # list. `item_amounts` is what reads both.
+        quantities = item_amounts.held(self.optimizer.raw_data)
         # Period items carry no amount at all -- their copies are
         # LISTED, each with its own expiry -- so they come through
         # `period_items` rather than either source above.
-        self._expiries = period_items.held(inventory)
+        self._expiries = period_items.held(
+            self.optimizer.raw_data.get("inventory", {}))
         self._render_icons(quantities)
 
     def _render_icons(self, item_quantities: dict):
