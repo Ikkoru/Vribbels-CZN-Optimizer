@@ -331,7 +331,7 @@ class SetupTab(BaseTab):
         # pady of their own -- it supplies the whole pitch under the
         # last row where the others split it between two neighbours.
         status_frame = ttk.LabelFrame(parent, text="Setup Status",
-                                      padding=px((4, 4, 5, 7)))
+                                      padding=px((4, 5, 5, 6)))
         # spacing: content frame -> content frame -- frame, frame ↔↕
         status_frame.pack(fill=tk.X, padx=px(2), pady=px(2))
 
@@ -600,12 +600,12 @@ class SetupTab(BaseTab):
         version = current_version()
         ttk.Label(self._app_info_panel,
                   text="Vribbels CZN Optimizer (Ikkoru)",
-                  font=("Segoe UI", 12, "bold")).pack(pady=px((0, 5)))
+                  font=("Segoe UI", 14, "bold")).pack(pady=px((10, 5)))
         ttk.Label(self._app_info_panel,
-                  text=f"Version {version}" if version else "Version Unknown",
-                  font=("Segoe UI", 14, "bold")).pack(pady=px((5, 5)))
+                  text=f"{version}" if version else "Version Unknown",
+                  font=("Segoe UI", 14, "bold")).pack(pady=px((0, 5)))
         ttk.Label(self._app_info_panel,
-                  text="A Fribbels-inspired gear management and "
+                  text="A fork of a Fribbels-inspired gear management and "
                        "optimization tool",
                   font=("Segoe UI", 9)).pack()
 
