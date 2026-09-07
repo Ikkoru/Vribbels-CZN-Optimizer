@@ -837,10 +837,9 @@ def get_character_by_name(name: str) -> dict:
 def get_character_stats_at_level(char_data: dict, level: int) -> dict:
     """Return effective (base_atk, base_def, base_hp) at the given level.
 
-    For level <= 60: returns the level-60 base stats unchanged. The
-    optimizer has always used these as its working baseline, so this is
-    the safe default for any consumer that doesn't explicitly opt in to
-    higher levels.
+    For level <= 60: returns the level-60 base stats unchanged. Those
+    are the optimizer's working baseline, and the default for any
+    consumer that does not explicitly ask for a higher level.
 
     For level >= 61: adds `level_61_bonus` from char_data (and
     `level_62_bonus` if level >= 62 and the key exists) on top of base.

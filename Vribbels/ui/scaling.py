@@ -59,7 +59,7 @@ DEFAULT_SCALE = "100%"
 # The window a fresh launch opens, and the smallest it may be
 # dragged to. At 100%, in device pixels -- `px` is what puts them
 # at the active scale. Here rather than in the GUI module because
-# the Setup tab's `Window Size` button restores the same number
+# the Setup & Settings tab's `Window Size` button restores the same number
 # and two copies of it would drift.
 WINDOW_W, WINDOW_H = 1550, 1000
 WINDOW_MIN_W, WINDOW_MIN_H = 1300, 800
@@ -79,9 +79,9 @@ _factor = 1
 def parse(word):
     """The factor a choice word is worth: `200%` -> 2.
 
-    Anything unrecognised is 1. A settings file carrying a scale this
-    build no longer offers should draw at the size everything is
-    measured at rather than refuse to start.
+    Anything unrecognised is 1: a settings file carrying a scale this
+    build does not offer draws at the size everything is measured at
+    rather than stopping the launch.
     """
     try:
         return max(1, int(str(word).strip().rstrip("%")) // 100)

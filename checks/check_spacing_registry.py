@@ -31,8 +31,8 @@ What it enforces beyond "it imports":
     of a table marks every entry in that table alike, and a panel
     answering a DIFFERENT rule at that rule's own number is then filed
     as a hand reading nobody may touch.
-  * importing twice does not double the registry, which `register_all`
-    would happily do.
+  * importing twice does not double the registry, which a second
+    `register_all` call otherwise does.
 """
 
 import glob

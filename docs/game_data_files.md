@@ -17,7 +17,7 @@ Every threshold is a named constant in that file's RULES block, ordered by data 
 
 Vocabularies are deliberately NOT duplicated in the validator: `CLASSES` (constants.py), `ATTRIBUTE_COLORS` and `POTENTIAL_STAT_VALUES` (characters.py), `PARTNER_STAT_NAMES` and `PARTNER_CLASS_STATS` (partners.py), `SET_STAT_NAME_MAP` and `SET_CARD_MULT_STATS` (sets.py) are each the single source of truth, carry an "ADD A NEWLY-RELEASED ... HERE" comment, and widen the checks automatically when extended.
 
-**When a new KIND of data is added — a new field or a new table — ask the maintainer whether it needs a verifier and what the rule should be. Do not infer bounds from the current values.** Rules derived that way have twice been contradicted by data already in the files.
+**When a new KIND of data is added — a new field or a new table — ask the maintainer whether it needs a verifier and what the rule should be. Do not infer bounds from the current values.** Rules derived that way have been contradicted by data already in the files.
 
 ## `partners.py` stat vocabulary is exact-match
 
@@ -59,9 +59,9 @@ A rarity that no table prices costs a whole family its plates at once, and the o
 
 The last two share their hand-added columns (`Name`, `Type`, `Name Candidate`, …), so a row crosses between them by gaining or losing its `Name` without anything being retyped. **The script owns the leftmost columns and nothing else** — everything typed to the right of them is read back and rewritten untouched, and it refuses to write at all if the header has moved under it.
 
-An id is only in the program's sense of "known" when an ITEM table names it. **`RECORDED_NAMES` is not one** — it is a plain id→name map for items the program can name and does nothing else with, kept out of `ITEM_TABLES` on purpose: there is no art for them and no rarity anyone has established, and a rarity `NAME_RARITY` cannot price costs a whole family its plates. `RECORDED_ONLY` is its key set, which is what keeps those ids on the worklist rather than promoting them.
+An id counts as "known" to the program only when an ITEM table names it. **`RECORDED_NAMES` is not one of those tables** — it is a plain id→name map, kept out of `ITEM_TABLES` because those items have no art and no established rarity. `RECORDED_ONLY` is its key set, and that is what keeps its ids on the worklist rather than promoting them.
 
-It is where an identification reaches the RUNNING program: the capture generator merges it into the addon's `ITEM_NAMES`, so a Capture Log line reads `Traces of Memory +40` rather than `3210001 +40`. An id in neither stays a number there, and the Capture Log paints it dark yellow — that colour is a note that the line has just put a capture's worth of context beside a row of `items_id_unknown.tsv`. Keep `RECORDED_NAMES` in step with the worklist by hand; `checks/check_capture_rewards.py` holds it against the addon.
+`RECORDED_NAMES` is where an identification reaches the RUNNING program: the capture generator merges it into the addon's `ITEM_NAMES`, so a Capture Log line reads `Traces of Memory +40` rather than `3210001 +40`. An id in neither stays a number there, and the Capture Log paints it dark yellow — that colour is a note that the line has just put a capture's worth of context beside a row of `items_id_unknown.tsv`. Keep `RECORDED_NAMES` in step with the worklist by hand; `checks/check_capture_rewards.py` holds it against the addon.
 
 **An id is named by spending some and diffing two captures**, which is why the amount column exists: a dump that has lost its counts cannot be compared against the next one.
 

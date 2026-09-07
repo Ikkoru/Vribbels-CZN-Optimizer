@@ -2,7 +2,7 @@
 
 **Lose any of this and every classic Tk widget flashes as a blank
 near-white block the first time its tab opens** -- checkbox grids, the
-Capture Log, the About tab's link buttons. Tk creates a widget's window
+Capture Log, the Links panel's buttons. Tk creates a widget's window
 at first MAP and erases it to the system default before painting, so
 what prevents it is creating every window earlier, while the app is
 still invisible (`ui/utils/realize.py`).

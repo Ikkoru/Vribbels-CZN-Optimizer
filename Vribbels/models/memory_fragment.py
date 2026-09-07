@@ -30,7 +30,7 @@ top-weighted stat could never reach 100 even with perfect rolls.
 `compute_gs_bounds(exclude_stat=...)`; `bounds_for_fragment` is the
 wrapper that passes the main stat's name.
 
-Consequences worth knowing:
+Consequences:
 
 - Every fragment can in theory reach 100, relative to its own main-stat
   constraint.

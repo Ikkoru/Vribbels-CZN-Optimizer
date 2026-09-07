@@ -8,7 +8,7 @@ You need Windows and the STOVE client.
 
 1. Download the latest release from the [Releases page](https://github.com/Ikkoru/Vribbels-CZN-Optimizer/releases).
 2. Run `Vribbels_CZN_Optimizer_Ikkoru.exe`.
-3. Open the **Setup** tab and click **Generate & Install Cert**.
+3. Open the **Setup & Settings** tab and click **Generate & Install Cert**.
 
 ## Capturing your data
 
@@ -38,7 +38,7 @@ In the results, scores run 0–100 with the run's best build at 100. `(E)` marks
 
 - **Gear Score** weights are per-combatant presets. Assign them on the **Combatants** tab, edit the weights on the **Gear Score** tab.
 - **Double-click** or select a preset and press Apply in the **Gear Score** tab to change the GS and Potential values in the **Memory Fragments** tab. Useful for finding good MFs to level and bad MFs to dismantle.
-- **The optimizer uses every CPU core.** If that causes trouble, close the program and change `optimizer_workers` in `settings/settings.json`.
+- **The optimizer uses every CPU core.** Change that with **Optimizer cores** in the **Setup & Settings** tab's Settings panel. It applies on the next launch.
 - **Affinity, potential nodes and Partner bonuses** are all counted in the stats the optimizer scores.
 - **The Combatants tab lists every potential node**, and its `Nodes` column is a combatant's node levels summed against the maximum.
 - **The Materials tab** counts your promotion and levelling material by class, and your growth stones by Element. Each row's figures are that row's own holdings in bottom-tier equivalents, then what share that is of what a target costs.

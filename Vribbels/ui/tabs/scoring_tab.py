@@ -619,7 +619,7 @@ STAT MIN - MAX ROLLS:
 
     def refresh_presets(self):
         """Stable public entry point for OTHER tabs to redraw the preset
-        list (e.g. the Setup tab after a Restore Defaults changes
+        list (e.g. the Setup & Settings tab after a Restore Defaults changes
         presets.json underneath us). Delegates to refresh_preset_list;
         keep THIS name stable even if the internal redraw method is ever
         renamed -- external callers depend on it.

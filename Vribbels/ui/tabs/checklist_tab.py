@@ -1,15 +1,15 @@
 """Checklist tab: what resets, and how often.
 
 Four headed columns, one per reset period, each listing the things that
-come back on it. Most rows are LABELS ONLY so far -- what they are
-waiting for is completion status, and the capture carries the first
-pieces of it: `point_entity` for the daily and weekly activity totals,
+come back on it. Most rows are LABELS ONLY: what they are waiting for
+is completion status, and the capture carries the first pieces of it --
+`point_entity` for the daily and weekly activity totals,
 `mission_entities` for a per-mission `complete_time`, and
 `season_pass_entity` for the Arkhianon Supply's rank. See
 `docs/capture_pipeline.md`.
 
-One row reads a value today: the day's activity total, out of a
-hundred, in the alert colour where the day is not finished.
+One row reads a value: the day's activity total, out of a hundred, in
+the alert colour where the day is not finished.
 
 The columns are built the way the Materials tab's are: content in the
 EVEN grid columns with an empty expanding one between each pair, so the

@@ -684,8 +684,8 @@ def _all_none_panels_carry_no_left_padding(built):
     `ui/utils/all_none_row.py` for the buttons, each block's own padx
     for the content. A LabelFrame's `padding` insets every child alike,
     so a non-zero LEFT component there rides both at once and the two
-    rules can no longer be set independently. The last time one moved,
-    all four `All` buttons followed the content a pixel off target.
+    rules cannot be set independently -- all four `All` buttons follow
+    the content off target.
 
     Returns a list of complaints.
     """
@@ -1006,7 +1006,7 @@ def _level_stepper_offers_auto(tab):
 
 
 def _setup_columns_hold_their_shape(tab):
-    """The Setup tab's two columns, and what each is pinned to.
+    """The Setup & Settings tab's two columns, and what each is pinned to.
 
     The LEFT column is fixed to what the instructions need to read
     unwrapped, and `Setup Status`, the buttons and `Setup Instructions`
@@ -1047,14 +1047,14 @@ def _setup_columns_hold_their_shape(tab):
                     and panels_in(child)):
                 columns = child
     if columns is None:
-        return ["the Setup tab has no two-column frame; the layout that "
+        return ["the Setup & Settings tab has no two-column frame; the layout that "
                 "pins Setup Instructions' width has gone."]
 
     left, right = columns.winfo_children()
     want = px(SetupTab._instructions_width())
     if int(left.cget("width")) != want:
         out.append(
-            f"the Setup tab's left column is {left.cget('width')}px wide, "
+            f"the Setup & Settings tab's left column is {left.cget('width')}px wide, "
             f"not the {want} the instructions need. That width is what "
             f"keeps the block from wrapping, and a wrapped line is not a "
             f"crash -- it just reads wrong.")
@@ -1062,14 +1062,14 @@ def _setup_columns_hold_their_shape(tab):
     right_panels = list(panels_in(right))
     if left_panels != {"Setup Status", "Setup Instructions", "Links"}:
         out.append(
-            f"the Setup tab's left column holds {sorted(left_panels)}, not "
+            f"the Setup & Settings tab's left column holds {sorted(left_panels)}, not "
             f"Setup Status, Setup Instructions and Links. Those three "
             f"share the column's fixed width; anything else in there is "
             f"pinned to a width chosen for something it is not.")
     if set(right_panels) != {"Restore Defaults", "Update Status", "Settings",
                              "Application Information"}:
         out.append(
-            f"the Setup tab's right column holds {sorted(right_panels)}, "
+            f"the Setup & Settings tab's right column holds {sorted(right_panels)}, "
             f"not Restore Defaults, Update Status, Settings and "
             f"Application Information. The four are stacked so they share "
             f"one width and one x.")

@@ -21,7 +21,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 
 ## Headless verification
 
-**Run `python checks/run_all.py` before handing work over.** ~15s, no GUI; `--list` names them. They cover the invariants that fail QUIETLY: optimizer parity, scoring reconciliation, game data, settings round-trips, DoT scoring, shipped defaults holding no user state, the spacing markers and the spacing registry, the audit's ink test against the eye that calibrated it, the Materials tab's two pricings of a level number, the excursion count's list-inside-a-string, the potential tree's two numberings, the weekly-reset countdown and the boxes its captions sit in, every distance doubling at 200%, tab construction, the flash fix, keyboard type-ahead, the Upgrade Log filters the Memory Fragments columns share, the Optimizer opening with no combatant selected, the Setup tab's two columns holding their shape, and the capture ones — the addon template, batched frames, gacha banners, one account per session, both regions routed, one save per FRAME, rewards reaching the cached counts, and reporting only the snapshot this session wrote. Checks needing captured data skip themselves when `Vribbels/snapshots/` is empty. Parity runs bounded; `--full` takes minutes.
+**Run `python checks/run_all.py` before handing work over.** ~15s, no GUI. They cover the invariants that fail QUIETLY: optimizer scoring and parity, game data, settings round-trips, the capture pipeline, the spacing markers and registry, and the UI's own construction and geometry at both scales. `--list` names every one — read that rather than a copy of it here. Checks needing captured data skip themselves when `Vribbels/snapshots/` is empty. Parity runs bounded; `--full` takes minutes.
 
 **Add a check whenever you fix something that failed silently** — that is what the directory is for. `checks/__init__.py` says how.
 
@@ -76,7 +76,7 @@ Version string: `Vribbels/version.py`, bumped ONLY at release — dev builds kee
 ## Layout
 
 - Python 3, Tkinter UI, mitmproxy for capture.
-- Source root `Vribbels/`; main GUI `czn_optimizer_gui.py`; tabs in `ui/tabs/{about,capture,heroes,inventory,materials,optimizer,scoring,setup}_tab.py`.
+- Source root `Vribbels/`; main GUI `czn_optimizer_gui.py`; tabs in `ui/tabs/{capture,checklist,heroes,inventory,materials,optimizer,scoring,setup}_tab.py`.
 - Optimizer engine: `optimizer/optimizer.py` (wrappers, run context, dispatch), pure per-combo math in `optimizer/core.py`, multiprocessing in `optimizer/parallel.py`.
 - Game data tables in `game_data/`; dataclasses in `models/`.
 - Shared widget helpers in `ui/utils/`. Every checkbox comes from `checkbox.py` and every scrolled text from `scrolled_text.py`; a check enforces both.

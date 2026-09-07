@@ -4,7 +4,7 @@ Each entry here is one row of the rules table in
 `docs/ui_spacing.md`, bound to the panel it applies to. Importing
 this module registers them; `spacing_audit.run_audit` measures them.
 
-Two conventions worth knowing before adding entries:
+Two conventions for adding entries:
 
 * **Panels are named by their visible title**, not by attribute. See
   `docs/ui_spacing.md` "Checking spacing" for why, and for what
@@ -1719,10 +1719,9 @@ def _to_window_edge(locator):
 def _from_window_edge(locator):
     """Resolver: the window's left edge -> a widget's painted left.
 
-    The mirror of `_to_window_edge`, and it exists for the same reason
-    that one is right-only: nothing used to START at the window. The
-    Materials tab's first column does, its cell holding it west rather
-    than centring it.
+    The mirror of `_to_window_edge`. One column in the app starts at
+    the window edge -- the Materials tab's first, its cell holding it
+    west rather than centring it.
 
     The last column BEFORE the capture is the edge, the capture being
     the client area with nothing outside it.
@@ -2925,10 +2924,9 @@ PANELS = {
         "Capture Log",
         "Upgrade Log Settings",
     ],
-    # `Application Information` is deliberately absent: its internals
-    # are carried over from the About tab unmeasured and carry a TBD
-    # marker, so registering a rule against them would report a drift
-    # from a target nobody has agreed.
+    # `Application Information` is deliberately absent: its content is
+    # centred in a height `Links` decides, so no edge of it is a
+    # distance. It carries a `unique` marker instead.
     "Setup & Settings": ["Setup Status", "Restore Defaults", "Setup Instructions",
               "Update Status", "Settings", "Links"],
 }

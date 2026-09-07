@@ -45,7 +45,7 @@ discussion):
   - Renamed default entry: appears as a new key -> user gets both the
     old and new versions. Manual cleanup.
   - Changed default VALUES for a key the user has: not propagated (the
-    user's version wins). The Setup tab's Restore Defaults dialog is
+    user's version wins). The Setup & Settings tab's Restore Defaults dialog is
     the intended way to pick these up.
   - Corrupted user file: merge skips it; the owning manager quarantines
     it during its own load().
@@ -73,7 +73,7 @@ def resolve_defaults_dir(base_dir: Path) -> Path:
     """Directory holding the bundled defaults.
 
     Frozen build: inside `_MEIPASS` (read-only). Dev: `<base>/default_settings`.
-    Shared by startup sync and the Setup tab's Restore Defaults dialog.
+    Shared by startup sync and the Setup & Settings tab's Restore Defaults dialog.
     """
     if getattr(sys, "frozen", False):
         bundle_root = Path(getattr(sys, "_MEIPASS", base_dir))

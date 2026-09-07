@@ -697,12 +697,10 @@ class MaterialsTab(BaseTab):
     def _figures_block(self, row, width_px, lines, stops, colour, name):
         """One row's figures as a SINGLE Text, sized to the pixel.
 
-        Every figure used to be its own Label -- nine or more per row,
-        and most of the tab's widgets. A tab switch re-runs the geometry
-        managers over every one of them, which was most of what a switch
-        to this tab cost; one Text per row is the same reading for a
-        fraction of the layout. Same move the Combatants tab's gear
-        cells already made.
+        One Text per row, not a Label per figure. A tab switch re-runs
+        the geometry managers over every widget on the page, and nine or
+        more labels a row is most of them. The Combatants tab's gear
+        cells are built the same way.
 
         A Text sizes in CHARACTERS and LINES, neither of which is this
         block's width, and its `height` multiplies ONE font's linespace

@@ -289,7 +289,7 @@ class OptimizerGUI:
         # while the window is invisible, so that opening a tab for the
         # first time has nothing left to erase. Drop this and every
         # classic Tk widget in the app -- checkbox grids, the Capture
-        # Log, the About tab's link buttons -- flashes near-white for a
+        # Log, the Links panel's buttons -- flashes near-white for a
         # frame the first time its tab is shown. See ui/utils/realize.py
         # for the mechanism and for what was measured to establish it.
         # The walk is the point; the log line is only evidence it reached
@@ -826,7 +826,7 @@ class OptimizerGUI:
         # Set cross-tab refs BEFORE ScoringTab is created — it uses both at init.
         self.app_context.inventory_tab = self.inventory_tab_instance
         self.app_context.heroes_tab = self.heroes_tab_instance
-        # Setup tab's Restore Defaults flow refreshes the Optimizer tab
+        # Setup & Settings tab's Restore Defaults flow refreshes the Optimizer tab
         # through this ref after restoring per-combatant settings.
         self.app_context.optimizer_tab = self.optimizer_tab_instance
 
@@ -855,7 +855,7 @@ class OptimizerGUI:
         self.notebook.add(self.capture_tab, text="Capture")
         self.notebook.add(self.setup_tab, text="Setup & Settings")
 
-        # First-launch default: switch to the Setup tab so the user lands
+        # First-launch default: switch to the Setup & Settings tab so the user lands
         # on the proxy/cert installation flow before trying to use the
         # rest of the app (which is useless without captured data). The
         # "first_launch_done" flag in settings.json is set after this
@@ -1010,8 +1010,8 @@ class OptimizerGUI:
             # refreshes both itself, so doing it here too rebuilt each of
             # them twice per load -- and the first pass rendered with the
             # previous scores anyway, since the re-score happens inside
-            # apply_active_weights. (The live-update path has always relied
-            # on apply_active_weights alone for the same reason.)
+            # apply_active_weights. The live-update path relies on
+            # apply_active_weights alone for the same reason.
             self.inventory_tab_instance.populate_set_filters()
             self.materials_tab_instance.refresh_materials()
             self.checklist_tab_instance.refresh_checklist()

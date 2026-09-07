@@ -1816,7 +1816,8 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
             raise CaptureError(
                 "mitmdump not found.\n\n"
                 "Please ensure mitmproxy is installed and accessible.\n"
-                "Run 'pip install mitmproxy' in a terminal, or check the Setup tab."
+                "Run 'pip install mitmproxy' in a terminal, or check the "
+                "Setup & Settings tab."
             )
 
         # Build mitmdump command

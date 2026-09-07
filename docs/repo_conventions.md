@@ -27,4 +27,4 @@ At release, `unreleased` is replaced by a short release name (`- Multi-core`), w
 
 ## Keeping the settings docs in step
 
-Any change to `defaults_sync.py` or the manager APIs lands in `docs/settings_architecture.md` (mechanism) and, if it changes what the maintainer DOES, `docs/how_to_maintain_default_settings.md` (workflow). The split is deliberate — resist restating either in the other.
+Any change to `defaults_sync.py` or the manager APIs lands in `docs/settings_architecture.md` (mechanism) and, if it changes what the maintainer DOES, `docs/how_to_maintain_default_settings.md` (workflow). Don't restate either in the other.

@@ -6,7 +6,7 @@ Read before adding to the startup path or doing work off the UI thread. Layout a
 
 A blocked callback stops Tk processing events entirely: the window stays painted but dead, Windows serves a cached taskbar thumbnail, Aero Peek shows bare desktop, and the thumbnail's close button does nothing.
 
-Both startup prerequisite checks are split for this reason — the Setup tab's `check_status` and the Capture tab's `check_capture_prerequisites` hand the work to a worker (`_probe_prerequisites` / `_probe_capture_prerequisites`) and collect the answer through a main-thread poll (`_poll_probe` / `_poll_capture_prerequisites`).
+Both startup prerequisite checks are split for this reason — the Setup & Settings tab's `check_status` and the Capture tab's `check_capture_prerequisites` hand the work to a worker (`_probe_prerequisites` / `_probe_capture_prerequisites`) and collect the answer through a main-thread poll (`_poll_probe` / `_poll_capture_prerequisites`).
 
 External calls carry `timeout=`, `stdin=DEVNULL` and `CREATE_NO_WINDOW`; without the last a console window flashes over the UI. **A timeout alone is not enough**: a killed child's grandchildren can hold the inherited pipe open past it. That is what makes `python --version` hang forever on a machine without Python, where bare `python` hits the Microsoft Store's app-execution alias, opens the Store and never closes the pipe.
 
@@ -20,7 +20,7 @@ The pattern that works, used by both prerequisite probes and by `_report_data_pr
 
 ## Diagnosing an unresponsive window
 
-`debug_perf_log` in `settings/settings.json` also arms a hang watchdog: `_start_hang_watchdog` dumps every thread's stack to `settings/hang_traceback.txt` every 30s. **First thing to reach for on any "window is up but unresponsive" report** — it names the blocking call outright, which reasoning from symptoms reliably fails to do.
+`debug_perf_log` in `settings/settings.json` also arms a hang watchdog: `_start_hang_watchdog` dumps every thread's stack to `settings/hang_traceback.txt` every 30s. **First thing to reach for on any "window is up but unresponsive" report**: it names the blocking call outright.
 
 ## The main window is hidden for the whole of startup
 
@@ -40,12 +40,12 @@ Tk defers creating a widget's Win32 window until first MAP, and a window created
 
 **`make_checkbox` makes the same call per widget, and that is not redundant.** Three panels rebuild their checkboxes after startup — Capture's log presets, Memory Fragments' Sets and its unknown main stats — long after the walk has run. Both callers are needed.
 
-Measured, over three rounds of side-by-side repros:
+What the flash is and is not:
 
 - Classic `tk.*` widgets flash on first map; `ttk` widgets never do. The walk covers both anyway — a list of "which classes flash" is a thing to get wrong later.
 - Not the parent (a `tk.Frame` with an explicit `bg` flashed too) and not the indicator (`indicatoron=0` flashed too).
 - The blocks are BLANK, which is what says the area is ERASED rather than painted wrong.
-- The Optimizer tab never flashed, because `_reveal_window` already gives its page a mapped layout pass while the window is hidden — the same fix by accident, and why a tab-by-tab hunt kept coming back inconsistent.
+- The Optimizer tab never flashes: `_reveal_window` already gives its page a mapped layout pass while the window is hidden. A tab-by-tab hunt therefore reads as inconsistent.
 
 ### A ScrolledText flashes for a SECOND reason, which is why the app builds its own
 
@@ -55,7 +55,7 @@ Measured, over three rounds of side-by-side repros:
 
 `ui/utils/scrolled_text.py` answers the colour half at the source: it builds the same shape — a Text and a vertical scrollbar in a wrapper, with the wrapper's geometry methods copied onto the Text so a caller packs the pair by packing what it was handed — out of a `ttk.Frame` and a `ttk.Scrollbar`, which the theme reaches directly. All three scrolled texts go through it, and the map-time erase is still the walk's job.
 
-Recolouring each wrapper by hand does the same job and fails the same way every time one is missed: the panel that was skipped is the only one that flashes, which reads as the walk having failed rather than as a colour nobody set.
+**A wrapper recoloured by hand instead reads as a walk failure when one is missed**: only the skipped panel flashes.
 
 A `ttk.Scrollbar` asks for less width than a `tk` one, so the three texts are that much wider than the same shape built by hand, and their wrap points differ accordingly.
 
@@ -69,7 +69,7 @@ The admin prompt uses `MessageBoxW` via `_win_message`. It runs before `Optimize
 
 ## The Optimizer tab builds into an unmapped `content` frame
 
-`setup_ui` packs it as its very last statement. Belt-and-braces with the hidden window, and it keeps the tab atomic if it is ever rebuilt after startup. Don't parent new top-level tab sections to `self.frame`; use `content`.
+`setup_ui` packs it as its very last statement. Redundant with the hidden window, and it keeps the tab atomic if it is ever rebuilt after startup. Don't parent new top-level tab sections to `self.frame`; use `content`.
 
 ## The exclude checklist's flow layout must not create widgets per re-flow
 

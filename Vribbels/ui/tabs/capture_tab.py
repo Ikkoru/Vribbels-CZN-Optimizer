@@ -435,7 +435,7 @@ class CaptureTab(BaseTab):
         req_frame.pack(fill=tk.X, pady=px((3, 0)))
 
         requirements_text = """- Run as Administrator (required for hosts file modification)
-- Certificate installed (see Setup tab)
+- Certificate installed (see Setup & Settings tab)
 - Game must be closed before starting capture
 - Start capture, then launch the game and load into the main menu
 - Keep capture running to see live updates as you make changes
@@ -940,14 +940,15 @@ class CaptureTab(BaseTab):
             self.capture_log_msg(f"[OK] mitmproxy version {status.mitmproxy_version}", "success")
         else:
             self.capture_log_msg("[X] mitmproxy not found!", "error")
-            self.capture_log_msg("  See Setup tab", "info")
+            self.capture_log_msg("  See Setup & Settings tab", "info")
             self.capture_start_btn.config(state=tk.DISABLED)
             return
 
         if status.has_certificate:
             self.capture_log_msg("[OK] Certificate found", "success")
         else:
-            self.capture_log_msg("[!] Certificate not found - see Setup tab", "warning")
+            self.capture_log_msg("[!] Certificate not found - see Setup & Settings tab",
+                                 "warning")
 
         self.capture_log_msg("Resolving game servers...")
         if ips:

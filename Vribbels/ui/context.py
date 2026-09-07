@@ -72,7 +72,7 @@ class AppContext:
     inventory_tab: Optional['InventoryTab'] = None
     heroes_tab: Optional['HeroesTab'] = None
     scoring_tab: Optional['ScoringTab'] = None
-    # Used by the Setup tab's Restore Defaults flow to refresh the
+    # Used by the Setup & Settings tab's Restore Defaults flow to refresh the
     # Optimizer tab's displayed per-combatant settings after a restore.
     # Optional -- callers must check for None.
     optimizer_tab: Optional['OptimizerTab'] = None

@@ -141,8 +141,8 @@ def compute_build_stats(gear: list, cs: dict,
     `set_effect_shares` is the per-conditional-set effect share dict
     ({int set_id: float 0..1}, see parse_set_effect_shares); None/empty
     means no conditional set effect touches Final stats. Returns the
-    exact dict shape calculate_build_stats has always returned,
-    including the underscore-prefixed scoring internals.
+    exact dict shape calculate_build_stats returns, underscore-prefixed
+    scoring internals included.
     """
     # ----- Memory Fragment (substats + main stats) -----------------------
     # Sum % and flat contributions from the 6 fragments. Set bonuses are
@@ -480,8 +480,8 @@ def build_score_precompute(settings: dict) -> dict:
     per-character settings dict, once per run. Consumed by
     compute_score."""
     extra_share = settings.get("extra_pct", 0) / 100.0
-    # `dot_pct` is the AGONY share -- the DoT type the program has always
-    # modelled, before the game gave the others names. Fracture and
+    # `dot_pct` is the AGONY share -- the one DoT type the program
+    # models under that name. Fracture and
     # Scorched share `fracture_pct` between them: they are mechanically
     # identical, so a share each would score identically. See docs §3.4.
     dot_share = settings.get("dot_pct", 0) / 100.0

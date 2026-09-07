@@ -2,8 +2,8 @@
 
 A panel plus its own background thread, in one place because the two
 are one feature: the widgets exist to show what the check found, and
-the check exists to fill them. It is built by whichever tab hosts it --
-the About tab keeps only the links to the same repo.
+the check exists to fill them. The hosting tab builds it and packs
+`.panel`; everything else is armed here.
 
 How the check works
 ===================

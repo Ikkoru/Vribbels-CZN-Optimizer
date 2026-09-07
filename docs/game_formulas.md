@@ -179,7 +179,7 @@ Agony is what the settings key `dot_pct` names. Fracture and Scorched are mechan
 
 **Agony keeps `Base_Multiplier`.** Only the buff terms are removed. Scaling Agony by anything further — the reference build's crit and card multiplier, say — inflates it against the other types by exactly that factor.
 
-**Where the shares come from, and why it matters.** The Important Settings shares are read off the combatant's **DECK**, not off damage numbers: add up the DMG% of each source over a turn — cards, Extra Attacks, DoT procs — and take each type's fraction. Only a deck change moves them, where a reading taken from damage numbers moves on every gear change.
+**Where the shares come from.** The Important Settings shares are read off the combatant's **DECK**, not off damage numbers: add up the DMG% of each source over a turn — cards, Extra Attacks, DoT procs — and take each type's fraction. Only a deck change moves them, where a reading taken from damage numbers moves on every gear change.
 
 That makes each share a fraction of **base coefficients**, before ATK, crit, buffs and the mechanic multipliers. So each type's term must carry its own full multiplier stack, `(1 + DoT%)` and `(1 + Extra%)` included — not double-counted, because the share never contained them. A combatant declaring 50% Agony is saying half their raw coefficient output is Agony, **not** half their damage.
 
@@ -346,7 +346,7 @@ score = blend + SUBSTAT_TIEBREAK × T
 
 `weight` is the character's assigned preset's Gear Score weight for that stat, 1.0 where the preset names none — so the term reads the substats through the same weights the Gear Score column does, and a stat weighted 0 contributes nothing.
 
-**`SUBSTAT_TIEBREAK` bounds the whole term**, which is the point of it: `T ≤ 1`, so the term is at most `SUBSTAT_TIEBREAK` and **any build ahead on the blend by more than that stays ahead**. It orders builds the blend cannot separate and nothing else. `checks/check_optimizer_parity.py` holds that bound.
+**`SUBSTAT_TIEBREAK` bounds the whole term**: `T ≤ 1`, so the term is at most `SUBSTAT_TIEBREAK` and **any build ahead on the blend by more than that stays ahead**. It orders builds the blend cannot separate and nothing else. `checks/check_optimizer_parity.py` holds that bound.
 
 `T_ref` is a per-run constant like `D_ref`/`S_ref`, so the term is parallel-safe on the same argument. It rides in `stats["_T"]` beside `_D`/`_S`, which is what lets `reblend_results_for_display` reproduce a run's score without the candidate lists.
 

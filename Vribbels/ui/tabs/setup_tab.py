@@ -1,39 +1,29 @@
 """Setup & Settings: first-time configuration, and the app's own switches.
 
 TWO COLUMNS, and the split is what the widths mean. The LEFT is fixed
-to what the instructions need to read without wrapping -- `Setup
-Status`, the two setup buttons and `Setup Instructions` all take that
-width, so the column has one edge down its whole length. Everything
-left over goes to the RIGHT, where `Restore Defaults`, `Update Status`
-and `Settings` stack at one width and one x.
+to what the instructions need to read without wrapping, so `Setup
+Status`, the two setup buttons and `Setup Instructions` share one edge
+down the column's whole length. Everything left over goes to the RIGHT,
+where `Restore Defaults`, `Update Status` and `Settings` stack at one
+width and one x. The last row is `Links` and `Application Information`,
+one in each column, held to ONE height.
 
-`Setup Instructions` is as tall as its text and no taller: it is a
-fixed block that never grows, so a panel sized to hold it exactly is
-the whole of it.
-
-The last row is `Links` and `Application Information`, one in each
-column, held to ONE height. Both came off the About tab, which is now
-a pointer at this one.
-
-Also hosts the "Restore Defaults" panel and its modal dialogs
-(`Restore Default Presets`, `Restore Default Combatant Presets`,
-`Restore Default Combatant Settings`) for restoring missing defaults
-and replacing changed defaults at per-entry granularity. See
-`_open_restore_dialog` and the helpers it calls (`_compute_diffs`,
-`_apply_restore_changes`).
+`Setup Instructions` is as tall as its text and no taller: a fixed
+block that never grows, so a panel sized to hold it exactly holds all
+of it.
 
 The `Settings` panel holds what the program does rather than what the
 game holds: the UI scale and the optimizer's worker count. **Both take
 effect on the next launch** -- the scale is read before any widget
-exists and the worker count is read when a run starts -- which is why
-each says so beside itself.
+exists and the worker count when a run starts -- which is why each says
+so beside itself.
 
-The three "kinds" of restore share a generalized dialog (grid-laid-out
-rows with stable column positions) and differ only in:
-  - which file under `default_settings/` is the source of truth
-  - how missing / changed is computed (key choice + diff function)
-  - how a restoration is applied (which manager call to make)
-  - whether the right frame shows a Rename column (only kind=="presets")
+`Restore Defaults` opens one modal per defaultable file, restoring
+missing defaults and replacing changed ones at per-entry granularity.
+The three kinds share `_open_restore_dialog` and differ in four things:
+which file under `default_settings/` is the source, how missing and
+changed are computed, which manager call applies a restoration, and
+whether the right frame shows a Rename column (presets only).
 """
 
 import tkinter as tk
@@ -221,17 +211,10 @@ _RESTORE_KIND_META = {
 
 
 class SetupTab(BaseTab):
-    """
-    Setup tab for configuring prerequisites before using capture feature.
+    """The Setup & Settings tab. See the module docstring for the layout.
 
-    Displays status of:
-    - Python installation
-    - mitmproxy installation
-    - Certificate generation
-    - Administrator privileges
-
-    Also hosts the "Restore Defaults" panel with three buttons, one per
-    defaultable file.
+    `Setup Status` reports the four capture prerequisites: Python,
+    mitmproxy, the certificate, and administrator privileges.
     """
 
     def __init__(self, parent, context):
@@ -274,7 +257,7 @@ class SetupTab(BaseTab):
         return widest + 2 * INSTRUCTIONS_PAD + INSTRUCTIONS_CHROME
 
     def setup_ui(self):
-        """Setup the Setup tab UI."""
+        """Build the tab: two columns, and the row that closes them."""
         main_frame = ttk.Frame(self.frame)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
@@ -625,9 +608,8 @@ class SetupTab(BaseTab):
     def _link_button(self, text, command):
         """One flat link button, in the Links panel."""
         # spacing: TBD -- the Links panel's own button styling and pitch
-        # Kept as it was on the About tab: a flat `tk.Button` with its
-        # own padding, filling the panel's width. Only the panel's inset
-        # answers to a rule so far.
+        # A flat `tk.Button` with its own padding, filling the panel's
+        # width. Only the panel's inset answers to a rule so far.
         tk.Button(
             self._links_panel, text=text, command=command,
             bg=self.colors["bg_lighter"], fg=self.colors["accent"],

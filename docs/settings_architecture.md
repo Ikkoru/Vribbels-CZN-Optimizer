@@ -1,6 +1,6 @@
 # Settings architecture
 
-Read before touching any `*_manager.py`, `defaults_sync.py`, or the Setup tab's Restore Defaults panel. Runtime behaviour only — the maintainer side (what ships, how it is regenerated) is `how_to_maintain_default_settings.md`.
+Read before touching any `*_manager.py`, `defaults_sync.py`, or the Setup & Settings tab's Restore Defaults panel. Runtime behaviour only — the maintainer side (what ships, how it is regenerated) is `how_to_maintain_default_settings.md`.
 
 ## Where state lives
 
@@ -54,7 +54,7 @@ Keyed by `str(res_id)`, NOT by name; `name_hints` exists purely for readability 
 
 ## Restore Defaults
 
-Three buttons on the Setup tab, one per defaultable file, all opening a generalized modal (`_open_restore_dialog(kind)` in `setup_tab.py`, dispatched via `_RESTORE_KIND_META`). It brings back deleted defaults and picks up updated values at per-entry granularity, **overriding the tombstone gate** that normally suppresses re-adds.
+Three buttons on the Setup & Settings tab, one per defaultable file, all opening a generalized modal (`_open_restore_dialog(kind)` in `setup_tab.py`, dispatched via `_RESTORE_KIND_META`). It brings back deleted defaults and picks up updated values at per-entry granularity, **overriding the tombstone gate** that normally suppresses re-adds.
 
 Two frames: "Restore Missing" (defaults the user has not taken) and "Replace Changed" (same key, different value), each row with a checkbox defaulting to checked. The Presets kind also gets a Rename column, so the user can keep their customized version under a new name while accepting the default under the original; rename text must be non-empty and must not collide with an existing preset or another rename in the same dialog.
 
@@ -73,7 +73,7 @@ The dialog does NOT update the tombstone sidecar — it mutates the user's file 
 
 After Restore, `_refresh_dependent_tabs(kind)` fires the cross-tab refresh: `presets` / `character_preset` → `heroes_tab.refresh_heroes()` plus a scoring-tab list refresh; `optimizer_settings` → `optimizer_tab.refresh_after_load()`.
 
-## Manager behaviour worth knowing
+## Manager behaviour
 
 - `OptimizerSettingsManager.ensure_character` updates `name_hint` automatically when called with a non-empty new name that differs from the stored one, so captured-but-unknown combatants get a proper name once `CHARACTERS` is updated.
 - `CharacterPresetManager` caches the name↔id lookup tables lazily and keeps them for the manager's lifetime. If game data ever reloads at runtime (it does not today), call `invalidate_name_cache()`.

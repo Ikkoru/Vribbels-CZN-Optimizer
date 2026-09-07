@@ -84,17 +84,17 @@ That scenario writes to the app's own variables, and is only safe because no com
 
 **Moving a label's ink down does not close the gap below it.** Anything spent above a packed widget — a leading `pady`, or internal TOP padding, which grows its box downward — drops the ink and drops everything packed after it by the same amount. The gap above changes; the gap below is untouched. Reaching a gap BELOW text takes the label's trailing pad, the next widget's leading pad, or a negative BOTTOM padding.
 
-This bites where one label carries an entry on each side of it, because the two gaps look like they trade against each other and they do not. Assuming they did cost a run.
+This bites where one label carries an entry on each side of it: the two gaps look like they trade against each other and do not.
 
-### Which rule wins — PROXIMITY, and this is untested
+### Which rule wins — PROXIMITY
 
-**Where two rules could govern one gap, the nearer element decides.** Report every case that turns up, so the ruling gets tested against more than the one that prompted it.
+**Where two rules could govern one gap, the nearer element decides.** Only one case has been tested against; report others as they turn up.
 
-Two stacked panels are the case that prompted it. Side by side, both ends of the gap are borders and `content frame -> content frame` governs. Stacked, the lower panel's topmost ink is its TITLE, drawn above its own border — so what sits across the gap is text, the text rule is nearer, and `panel ↕ unrelated label` governs at 10px. That title belongs to the panel BELOW, so relative to the panel above it is unrelated text, exactly what the rule describes.
+Two panels are that case. Side by side, both ends of the gap are borders and `content frame -> content frame` governs. Stacked, the lower panel's topmost ink is its TITLE, drawn above its own border — so what sits across the gap is text, the text rule is nearer, and `panel ↕ unrelated label` governs at 10px. That title belongs to the panel BELOW, so relative to the panel above it is unrelated text.
 
-The consequence is real: those pairs were built on the content-frame rule's 2+2 pads and read 7, so meeting 10 means a stacked pair's pads stop matching a side-by-side one.
+**A stacked pair's pads therefore do not match a side-by-side pair's**: the content-frame rule's 2+2 renders 7, and 10 needs more.
 
-**The 10 serves two shapes.** A panel with the next panel's title beneath it, and text — a tab heading, a header control — with a panel beneath that: the rule names text beneath a panel, and a heading above the first panel on its tab is the same distance seen from the other side. Fourteen sites are registered under it and all fourteen are on 10.
+**The 10 serves two shapes**: a panel with the next panel's title beneath it, and text — a tab heading, a header control — with a panel beneath it. A heading above the first panel on its tab is the same distance seen from the other side.
 
 ### Markers
 
@@ -112,7 +112,7 @@ The **Marker** column is the canonical spelling, in both directions: the widget 
 
 `exception` names the rule it breaks, in the Marker column's spelling, with the reason on the lines below — grepping a rule has to surface its own exceptions. `unique` has no rule to break; both must name their subject precisely enough that grep finds one site and not its neighbour. Padding doing genuinely unrelated work stays unmarked.
 
-**A `unique`'s `<what>` is also its key in the registry**, so it is spelled in three places rather than two — the marker, "The uniques, as a table" below, and the entry that measures it. Precision in naming one stopped being a style preference when that happened.
+**A `unique`'s `<what>` is also its key in the registry**, so it is spelled in three places rather than two: the marker, "The uniques, as a table" below, and the entry that measures it. All three must match exactly.
 
 A `TBD` gets a row in "The unruled rows" below, description copied verbatim so the two match with grep. They are judged as a set, not one at a time.
 
@@ -128,7 +128,7 @@ Every marker carries a suffix naming the two elements and the orientation of the
 # spacing: unique -- <what> -- <elements> <↔, ↕ or ↔↕>
 ```
 
-**Why:** it makes a rule SPLIT cheap — if `label ↔ its element` ever needs separating by orientation, the instances are already tagged — and it makes the set of sites obeying a rule greppable instead of listed by hand, which is the duplication that kept going stale.
+The suffix makes the sites obeying a rule greppable instead of listed by hand, and it makes a rule SPLIT cheap: if `label ↔ its element` ever needs separating by orientation, the instances are already tagged.
 
 The elements are written in layout order — top-to-bottom for `↕`, left-to-right for `↔`. Three conventions make it work rather than decay:
 
@@ -136,9 +136,9 @@ The elements are written in layout order — top-to-bottom for `↕`, left-to-ri
 - **A lever that acts in both directions is written `↔↕`.** A frame's `padding`, a `ttk` style inset and a symmetric `padx`+`pady` all reach every edge at once; one arrow would drop the site out of the other arrow's grep.
 - **The element words come from a fixed vocabulary**, below, and the check rejects anything outside it. Free text splits `checkbox` from `checkbutton` from `cb` and the searchability is gone.
 
-Line length grows to about 95 characters at worst. The one-line rule wins over the margin, as always.
+Line length grows to about 95 characters at worst. The one-line rule wins over the margin.
 
-**Anchor an orientation grep to the end of the line.** Five rule NAMES carry an arrow of their own, so an unanchored `grep "↔"` returns those sites too whatever their actual orientation — 59 of the markers have an arrow on both sides of the ` -- `.
+**Anchor an orientation grep to the end of the line.** Five rule NAMES carry an arrow of their own, so an unanchored `grep "↔"` returns those sites too whatever their actual orientation.
 
 | Want                                 | Grep     |
 | ------------------------------------ | -------- |
@@ -152,7 +152,7 @@ Every marker ends with its arrow, `unique` included — which is why that form p
 
 ### The element vocabulary
 
-Two names differ only when the elements have a **different lever or a different reference edge**. How we talk about them does not matter; how they are moved and measured does.
+Two names differ only when the elements have a **different lever or a different reference edge**.
 
 | Term       | Is                                     | Why it is its own type                                                                                                                            |
 | ---------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -172,45 +172,38 @@ Two names differ only when the elements have a **different lever or a different 
 | `text`     | `tk.Text`, scrolled or not             | fill reaches the border, and it is measured inside the fill                                                                                       |
 | `run`      | a stretch of text INSIDE a Text widget | glyph edges like a `label`, but no geometry manager reaches it: the lever is a pixel tab stop, or `spacing1`/`2`/`3` between lines                |
 
-**The vocabulary governs the SUFFIX only. Rule names stay prose.** Three rule names use a vocabulary word in a wider sense, all of them older than the vocabulary:
+**The vocabulary governs the SUFFIX only. Rule names stay prose.** Three rule names use a vocabulary word in a wider sense:
 
 - `content frame -> content frame` covers panels as well as frames, and buttons that sit outside a panel.
 - `explanation text` means prose in a Label, not a `text` widget.
-- `panel ↕ unrelated label` means any TEXT beneath a panel, a `title` as much as a `label`. The distinction between the two did not exist when the rule was written.
+- `panel ↕ unrelated label` means any TEXT beneath a panel, a `title` as much as a `label`.
 
-### Rule renames
-
-The names that changed when the suffixes went on, since every marker was being rewritten anyway:
-
-| Was                                                         | Is                                        | Why                                                                                                                   |
-| ----------------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `frame edge -> first non-button element`                    | `border edge -> first non-button element` | The rule needs a visible border to measure to, and `frame` is the vocabulary's word for the container that has none   |
-| `frame edge -> button`                                      | `border edge -> button`                   | same                                                                                                                  |
-| `text label row -> text label row`                          | `label row -> label row`                  | `text` means a Text widget in the vocabulary; this rule means a row holding only a label                              |
-| `overarching tab control element group ↔ OTC element group` | `control group ↔ control group`           | It applies inside a panel too, not only tab-wide. Also 54 characters to 29, which is what keeps the suffix affordable |
+### Naming a rule
 
 **Do not rename `border edge` to `panel edge`.** Most of what those two rules measure to is a LabelFrame's border, but three sites — the Optimizer toolbar's preset label, status label and off-Element checkbox — measure to a plain frame's content edge, where there is no panel and no painted border at all. `border edge` names what is measured to rather than what owns it, and covers both.
 
+A rule name is spelled in three places (this table, a `RULE_*` constant, every marker), so a rename means rewriting every marker that carries it. Keep names short enough that the suffix still fits on one line.
+
 ### Scope and standing exceptions
 
-**About is out of scope, and is the whole of it.** The Stat Contributions popup, the Restore Defaults dialog, the hover tooltip and the Materials tab are all in, marked and nudged like anything else, and no `# spacing: out of scope` marker remains in the source. Where a new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
+**Nothing in the app is out of scope.** Every tab, the Stat Contributions popup, the Restore Defaults dialog and the hover tooltip are all marked and nudged alike, and no `# spacing: out of scope` marker remains in the source. Where a new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
 
 **A Text sizes in CHARACTERS and LINES, and neither can say what a window needs to the pixel.** `width` reserves whole cells, so what is left after the last glyph lands on the RIGHT inset and nothing inside the widget reaches it; `height` multiplies the font's linespace, so a per-line `spacing3` changes what is drawn and not what the widget asks for. The contributions popup rounds both up and takes the difference off the WINDOW, which its text field absorbs because it is the only child packed to expand.
 
-**A gap inside a window the app opens over the main one names that window.** A screenshot covers one window, so `track(window=...)` takes a callable returning the widget to photograph, and a scenario opens that window first and destroys it after. Eighteen such gaps are registered, across the Stat Contributions popup and the Restore Defaults dialog.
+**A gap inside a window the app opens over the main one names that window.** A screenshot covers one window, so `track(window=...)` takes a callable returning the widget to photograph, and a scenario opens that window first and destroys it after. The Stat Contributions popup and the Restore Defaults dialog are the two.
 
-**A window sized to its content is sized to the WIDEST of its children, and the one that expands stretches to whatever wins.** The contributions popup's text field lost that race three ways at once: to the Close button, to the minimum width a window manager grants a titled window, and — in the other direction — to its own character grid rounding up. Each puts pixels between the last glyph and the field's border that no padding at the site can reach, and the reading then describes the winner rather than the inset. A gap measured inside an expanding child is only a reading of that child while the child is the one setting the size.
+**A window sized to its content is sized to the WIDEST of its children, and the one that expands stretches to whatever wins.** Three things beat the contributions popup's text field to it: the Close button, the minimum width a window manager grants a titled window, and the field's own character grid rounding up. Each puts pixels between the last glyph and the field's border that no padding at the site can reach. **A gap measured inside an expanding child is a reading of that child only while the child sets the size.**
 
-**Locate a control in one of those by CLASS as well as by words.** `Restore ` found the panel titled `Restore Missing` before it found the Restore button, and reported the 4px between the buttons as 307 — far enough out to be obvious, which was luck rather than design.
+**Locate a control in one of those by CLASS as well as by words.** `Restore ` finds the panel titled `Restore Missing` before it finds the Restore button, and reports the 4px between the buttons as 307.
 
 **The tooltip has no measured gap and no scenario.** Its inset is the one thing left that wants a scan inside a filled widget with no second widget to measure against: the tip window IS the label, so there is no pair to read. `_text_inset` reaches the popup's Text because a Text's own box edge is the border its prose is inset from; a Label's is not.
 
 - **"Title above, element below" measures to the first painted pixel below the title, INCLUDING a border.** A LabelFrame's title sits above its own top border, so that border is usually what the rule measures to. The border-to-content gap is a separate measurement; adding the two gives a number two or three times the target.
 - **Slack is left alone.** Where a frame is stretched larger than its content, the far edges have space nothing put there (`Character`'s bottom, `Requirements`' right).
-- **A button row in a plain `ttk.Frame` is not the button rule's business.** That rule is `border edge -> internal button` — a panel's border against a button inside it. Capture and Setup's button rows and the Optimizer's Start/Stop sit in no panel, so their offset answers to `content frame -> content frame` and only the distance between the buttons is `button -> button`.
+- **A button row in a plain `ttk.Frame` is not the button rule's business.** That rule is `border edge -> internal button` — a panel's border against a button inside it. Capture's and Setup & Settings' button rows and the Optimizer's Start/Stop sit in no panel, so their offset answers to `content frame -> content frame` and only the distance between the buttons is `button -> button`.
 - **Set Configuration rows carry a spinbox beside each checkbox**, so row-pitch rules are measured between the CHECKBOXES. Measured as spinboxes the panel reports `0 x5, 9 x1, 42 x1` — they sit flush, and only conditional sets carry one at all, so consecutive spinboxes can be rows apart and the column has no pitch to read.
-- **Capture's Status panel is exempt on its LEFT edge** and is excluded from the audit for that reason.
-- **Setup Status misses the border-edge rule on BOTH axes**, and is tracked at what it actually is rather than left out: 7px on the left because the panel is placed to read before anything else on the tab, 7px on top because a Segoe UI 11 label's ink starts that far down its own box and a padding of 0 cannot claw it back.
+- **Capture's Status panel misses the border-edge rule on its LEFT**, for the same reason and at the same 7px as Setup Status. Both are tracked at what they are: an exception nothing measures cannot be told apart from a drift into one.
+- **Setup Status misses the border-edge rule on BOTH axes**: 7px on the left because the panel is placed to read before anything else on the tab, 7px on top because a Segoe UI 11 label's ink starts that far down its own box and a padding of 0 cannot claw it back.
 - A **spinbox row** is the only single-row element tall enough to want its own target. A **slider row** takes the checkbox row's target deliberately, so the two can be split later without unpicking anything. Buttons are not single-row and answer to `button -> button`.
 
 ## The UI scale, and what the audit can see of it
@@ -219,7 +212,7 @@ Every hardcoded distance in the UI passes through `px()` from `ui/scaling.py`, w
 
 Two rules, and the second is the one that bites:
 
-- **`px` on the geometry call, never on the constant.** A distance built from parts is scaled once at the end; scaling each addend rounds each one and the sum lands elsewhere. At 200% nothing rounds, so this costs nothing today and is what the fractional steps in T15 would need.
+- **`px` on the geometry call, never on the constant.** A distance built from parts is scaled once at the end; scaling each addend rounds each one and the sum lands elsewhere. At 200% nothing rounds, so this costs nothing today; a fractional scale would need it.
 - **A MEASURED distance never goes through `px`.** `font.measure(...)`, `winfo_reqheight()`, a Text's `dlineinfo` — all already grew with the font. A pad mixing the two wraps its hardcoded half alone: `px(INSET) + indent`.
 
 **The audit runs at 100% only.** Its targets are physical pixels, so at 200% every gap reads double and the whole run is red for no reason. What watches the scaled window instead is `checks/check_ui_scales.py`: it builds every tab at both scales and compares each pad, failing one that did not grow (a missed `px`) and one that grew twice (a `px` on a measurement). One pad is exempt by name there, being a widget's own requested height rather than a distance anyone chose.
@@ -234,10 +227,9 @@ Body text is **Segoe UI 9**; the three panels of running prose are **Segoe UI Va
 | ----------------------- | ------- | ------ | ------- | --------- | -------------------------------- |
 | Segoe UI                | 9       | 12     | 3       | 15        | body text everywhere, bold included |
 | Segoe UI                | 11      | 16     | 4       | 20        | Setup Status; Capture's `Ready`  |
-| Segoe UI                | 14 bold | 20     | 5       | 25        | the tab headings, and the Materials tab's three column headings |
+| Segoe UI                | 14 bold | 20     | 5       | 25        | the tab headings, the Materials tab's three column headings, Application Information's first two lines |
 | Segoe UI Variable Small | 11      | 16     | 4       | 20        | Capture Log; Setup Instructions; How Gear Score Works |
-| Segoe UI                | 10      | 13     | 3       | 16        | About only — out of scope |
-| Segoe UI                | 12 bold | 17     | 4       | 21        | the About panels' headings, and the Materials tab's Element names |
+| Segoe UI                | 12 bold | 17     | 4       | 21        | the Materials tab's Element names |
 | Consolas                | 10      | 12     | 3       | 15        | the contributions popup, which is ASCII so every character is one 7px cell |
 
 **Variable Small stands a pixel taller than Segoe UI below 11** — one more of ascent, the same descent — and that pixel lands above the first glyph, so a panel changing size owes its `pady` the difference. At 11 the two share a line box, and Variable Small **8** is the exact metric twin of Segoe UI 9 (12/3/15).
@@ -259,9 +251,7 @@ A 14 bold heading's ascenders reach above its capitals. Judge it by the capitals
 
 So a value ending in `4` reads 1px tighter than the same gap ending in `0`, with no padding having changed. Segoe UI 9 only — re-measure for another face.
 
-## Where the spacing work stands
-
-### Behaviour worth knowing before editing
+## Widget behaviour that moves spacing
 
 - **Every checkbox is a `tk.Checkbutton` from `make_checkbox`**, and `checks/check_no_flash.py` enforces it. A panel building its own drifts from the rest in ways no padding value explains.
 - **The helper's `bd` / `highlightthickness` are a LAYOUT lever**, not just a look: they set every checkbox's requested size, and the exclude checklist derives its row pitch and column flow from that. See the ledger.
@@ -270,36 +260,31 @@ So a value ending in `4` reads 1px tighter than the same gap ending in `0`, with
 - **Element colouring** reaches: Set Configuration indicators; Capture's Log Presets (only where every combatant assigned to the preset shares one Element — a preset spanning two, or covering an unknown combatant, stays on the default foreground); Memory Fragments' five elemental Main Stat filters; and Memory Fragments' Sets, where a two-Element set colours its NAME with the first and its COUNT with the second.
 - **Gear cells put the slot name on the main stat's row**, right-aligned against the main stat's left, so a cell reserves one bold line rather than two.
 
-### Measured, or not
+### What can be measured
 
 **A marker says which rule a value answers to, not that the value is on target.**
 
-**Counting markers against entries does NOT give a coverage figure**, and reading it as one is misleading in both directions. One entry can cover several markers — `tab list -> first element` measures every tab, and its extra sites are pads on outer frames feeding those same gaps. And a rule can have more entries than sites, because entries are generated in loops from tables while a marker is written once per lever.
+**Markers and entries do not count against each other.** One entry can cover several markers (`tab list -> first element` measures every tab, and its extra sites are pads on outer frames feeding those same gaps), and a rule can have more entries than sites, because entries are generated in loops from tables while a marker is written once per lever. Neither ratio is a coverage figure.
 
-**The one real limit is that some values cannot be measured at all.** Most of `content frame -> content frame` is pads on a plain `ttk.Frame`, which paints nothing, and a screenshot cannot measure a distance between two things that leave no pixels. The rest are on a `ttk.LabelFrame`, which draws a border and can be measured, except where the neighbour on the marked side is borderless or absent.
-
-Derive that split rather than trusting a count, since a container can
-change class: group the sites by what each pad's target was built as.
+**Some values cannot be measured at all.** Most of `content frame -> content frame` is pads on a plain `ttk.Frame`, which paints nothing, and a screenshot cannot measure between two things that leave no pixels. The rest are on a `ttk.LabelFrame`, which draws a border, except where the neighbour on the marked side is borderless or absent. Group the sites by what each pad's target was BUILT as, since a container can change class.
 
 Two kinds of gap that look unmeasurable are not, and have their own resolvers. The columns of a Text widget are tab stops with no widget on either side: `_text_column_gap` turns each line into a band of rows with `dlineinfo`, merges painted bands closer together than a column gap into words, and reports the SMALLEST gap across the rows -- these value stops are right-aligned, so a short value leaves a wider gap after its label and only the widest row shows the distance that was set. Its rows are not widgets either, and `_text_line_pitch` reads the painted lines.
 
 Both inset the box by what the widget paints around its own content: a cell with a relief border has painted pixels on every row, so a run scan over the whole box finds one run and never sees the lines inside it.
 
-**Two entries measure to the Capture Log title, one per column above it,** and that pair is worth knowing about because it is the only place the ledger watches an ALIGNMENT. `left_col` is the taller of the two columns, so its height is the grid row's, and whatever pad sits below its last panel pushes the row down — carrying the right column's border with it and leaving the left one where it was. The two entries then read different numbers, and the difference is exactly that pad. Keeping it at 0 is what keeps the columns ending level.
+**Two entries measure to the Capture Log title, one per column above it** — the only place the ledger watches an ALIGNMENT. `left_col` is the taller of the two columns, so its height is the grid row's, and whatever pad sits below its last panel pushes the row down — carrying the right column's border with it and leaving the left one where it was. The two entries then read different numbers, and the difference is exactly that pad. Keeping it at 0 is what keeps the columns ending level.
 
 ### What the audit does not reach
 
-Every registered gap is on its target and confirmed against a hand reading. An entry named in `AWAITING_FIRST_READING` is the exception and prints yellow, in the short run as well as the verbose one, until a run agrees with it. What follows is the parts of the app no entry measures, so a drift there shows up on screen and nowhere else.
+An entry named in `AWAITING_FIRST_READING` prints yellow, in the short run as well as the verbose one, until a run agrees with it. Everything else is on target and confirmed against a hand reading. What follows is the parts of the app no entry measures at all, so a drift there shows up on screen and nowhere else.
 
 - **The Optimizer's status label ends 6px from the tab's right edge**, where the border rule asks 4 and a Label's own inset has 2 left to give. The off-Element checkbox below it sits at 13, deliberately: it stays under the spinbox and is easier to click there.
 - **`checkboxes -> unrelated checkboxes` has no entry at all.** Its one site pins its block to a panel's floor, so what sits above it is leftover height rather than a distance. The rule's 20 is a floor there, and the audit compares against a number.
 - **A Treeview's internals**, and a button's own padding: both are `unique`, and the uniques table says why neither is a gap between two elements.
 
-### Still to decide
+### Two rulings worth reading before re-opening them
 
-**Nothing is unruled.** Every deliberate spacing value names a rule, an exception or a `unique`; `grep -rho "# spacing: TBD" Vribbels --include="*.py"` returns nothing, and the check fails if it stops being true.
-
-**The `Character` panel is a COLLECTION OF LABELS**, settled. It is one Text widget holding a details block, a Sets line and two columns of build stats, but the Text is a drawing-speed choice rather than what the content is: every stat name and value is a `label ↔ its element` pair, and the two columns sit at `element and its label ↔ element and its label` from each other. Its tab stops are STATED for that reason, like the gear cell's.
+**The `Character` panel is a COLLECTION OF LABELS.** It is one Text widget holding a details block, a Sets line and two columns of build stats, but the Text is a drawing-speed choice rather than what the content is: every stat name and value is a `label ↔ its element` pair, and the two columns sit at `element and its label ↔ element and its label` from each other. Its tab stops are STATED for that reason, like the gear cell's.
 
 `How Gear Score Works` goes the other way — it is meant to read as ordinary prose, so no distance rule reaches inside it.
 
@@ -482,7 +467,7 @@ A `unique` names no rule, so nothing derives its number — and the registry's r
 | --------------------------------------------------- | ------------------------------------------ | -------- | --------------- |
 | `between mixed element rows (label -> spinbox)`     | Optimizer toolbar, status cluster           | 6px      | |
 | `between mixed element rows (spinbox -> checkbox)`  | Optimizer toolbar, status cluster           | 2px      | |
-| `Setup Status stands apart on purpose`              | Setup, the four status rows                 | 13px     | |
+| `Setup Status stands apart on purpose`              | Setup & Settings, the four status rows      | 13px     | |
 | `a button's own internal inset`                     | `TButton` padding, every button in the app  | —        | a widget's own inset, and it sets that widget's SIZE — the widths in `ui/utils/button_width.py` are only true against it. Every `button -> button` and `border edge -> button` reading rides it |
 | `Treeview internals, which are style options`       | every list                                  | —        | style options on a widget that draws its own insides, and no geometry manager reaches between them. See "Spacing inside a Treeview" |
 | `monospace columns inside the contributions text`   | Optimizer, the Stat Contributions popup     | —        | the columns are the `f"{value:>5.1f}"` that built the string, in a face where every character advances the same. No padding reaches between them, and changing one means changing a format |
@@ -498,7 +483,7 @@ A `unique` names no rule, so nothing derives its number — and the registry's r
 
 | Description | Location | Rule/Question |
 | ----------- | -------- | ------------- |
-| the Links panel's own button styling and pitch | `ui/tabs/setup_tab.py`, `_link_button` | Flat `tk.Button`s with their own `padx`/`pady`, packed `fill=X` at a pitch of 2. Carried over from the About tab unchanged. A flat button's painted edge is its fill rather than a border, so `button -> button` may not be the rule that applies. |
+| the Links panel's own button styling and pitch | `ui/tabs/setup_tab.py`, `_link_button` | Flat `tk.Button`s with their own `padx`/`pady`, packed `fill=X` at a pitch of 2. A flat button's painted edge is its fill rather than a border, so `button -> button` may not be the rule that applies. |
 
 ## Checking spacing
 
@@ -512,14 +497,14 @@ Some panels exist only in one app state (the Optimizer's Element override frame,
 
 **The content-frame rule is measured BOX to box, alone among the rules.** It is the one target defined by the pads that produce it rather than by pixels on screen, and a painted reading gets the vertical case wrong: a LabelFrame's title is drawn above its border and inside its box, so a scan for the lower panel's first painted pixel finds the title's glyphs and adds that title's leading to the gap. It read 7 where the pads give 4. Horizontally the two agree, since a border starts at the box edge.
 
-**A row that is registered but not yet confirmed by a hand reading prints in dark yellow.** The flag is `provisional=True` on the entry; it comes off once a reading agrees, and the next batch takes it. So a table of sixty rows says at a glance which ones nobody has checked yet.
+**A row that is registered but not yet confirmed by a hand reading prints in dark yellow.** The flag is `provisional=True` on the entry, or its name in `AWAITING_FIRST_READING`; it comes off once a reading agrees. In a table of hundreds of rows that is what says which ones nobody has checked.
 
 **The `axis` column is `<>` or `^v`, not the arrows the markers use.** The audit prints to a cp932 console, where a single non-ASCII character raises `UnicodeEncodeError` before the table reaches the screen.
 
 **The note column names a row that is not simply following its rule.** An ordinary row says nothing there; the two words that appear are:
 
 - **`exception`** — the site deliberately misses the rule, and its call site carries an `exception` marker saying so. `Setup Status`' left edge is one. Every miss is one of these, by ruling: a distance that does not answer to its rule is an `exception` or a `unique`, never an unexplained number.
-- **`inferred`** — the rule applies and is followed, but its number cannot be COMPUTED for this case, so it was carried across from elsewhere. Nothing needs this today. The parenthesis class was the last one and it derives now.
+- **`inferred`** — the rule applies and is followed, but its number cannot be COMPUTED for this case, so it is carried across from elsewhere. No entry uses it today.
 
 A target following a DIFFERENT rule is neither: `Restore Defaults` answers `border edge -> button` at that rule's own 3, so it says nothing. `checks/check_spacing_registry.py` enforces all of this against the targets in the table above, including that a miss has a marker somewhere naming the rule it breaks.
 
@@ -579,11 +564,11 @@ If a reading looks wrong in one of these shapes, suspect the tool:
 | 9pt `ttk.Label`  | ~2                           |
 | 14pt `ttk.Label` | ~5                           |
 
-So identical frame padding puts a 14pt heading several pixels lower than a LabelFrame title. Every in-scope 14pt heading carries a negative vertical `padding` to cancel it — Capture, Gear Score, Setup, and the Combatants detail pane's `Select a combatant`, which `make_tab_header` does NOT build: it has a control group beside it, not a subtitle. **Their values have DRIFTED apart, so do not read one as canonical.** A tab leading with a plain Label instead (Optimizer) drops its container's top pad for the same reason.
+So identical frame padding puts a 14pt heading several pixels lower than a LabelFrame title. Every 14pt heading carries a negative vertical `padding` to cancel it — Capture, Gear Score, Setup & Settings, and the Combatants detail pane's `Select a combatant`, which `make_tab_header` does NOT build: it has a control group beside it, not a subtitle. **Their values have DRIFTED apart, so do not read one as canonical.** A tab leading with a plain Label instead (Optimizer) drops its container's top pad for the same reason.
 
 ### Negative padding
 
-A caption packed `anchor=W` above a `ttk.Combobox` or `tk.Spinbox` sits ~2px RIGHT of the field's text and needs `padding=(-2, 0, 0, 0)` on the Label. Note the direction — the opposite reading has been "corrected" with positive `padx` twice, making it worse both times. `style.lookup("TCombobox", "padding")` is a false lead: it reports one element's contribution, not the widget's total text offset.
+A caption packed `anchor=W` above a `ttk.Combobox` or `tk.Spinbox` sits ~2px RIGHT of the field's text and needs `padding=(-2, 0, 0, 0)` on the Label. Note the direction: the opposite reading gets "corrected" with a positive `padx`, which moves the caption further from the field. `style.lookup("TCombobox", "padding")` is a false lead: it reports one element's contribution, not the widget's total text offset.
 
 The correction goes on the widget because pack's `padx` **cannot be negative** (`bad pad value "-2": must be positive screen distance`). Negative `padding` shrinks the Label's requested width and shifts the glyphs within it.
 

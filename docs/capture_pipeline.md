@@ -68,17 +68,19 @@ The banner schedule is one of three that arrive in a frame carrying no roster an
 
 Each is replaced whole rather than merged: the reply IS the board, so a row's absence is a reading. `excursions.py` reads the second, nothing reads the third yet.
 
-Three more join them, for what the recurring tasks stand at. Nothing reads these yet either — the Checklist tab is labels so far — and they are captured now so a snapshot taken before anyone needs them already carries the history:
+Three more join them, for what the recurring tasks stand at. The Checklist tab reads `day_point` off the first; the other two are captured so a snapshot taken before anything needs them already carries the history:
 
 | Attribute | Wire key | What it is |
 | --------- | -------- | ---------- |
 | `point_entity` | `point_entity` | the day's and week's ACTIVITY totals — `{"day_id": 1345, "week_id": 147, "day_point": 100, "week_point": 0}`, arriving with the reply to a Daily "Claim All" |
-| `season_pass` | `season_pass_entity` | the Arkhianon Supply's own record: `res_id` (`season_pass_008`), `grade`, `exp`, `free_reward_rank`, `pay_reward_rank` |
+| `season_pass` | `season_pass_entity` | the Arkhianon Supply's own record: `res_id` (`season_pass_<season>`), `grade`, `exp`, `free_reward_rank`, `pay_reward_rank` |
 | `missions` | `mission_entities` | per-mission state, keyed by `res_id` |
 
-**`mission_entities` arrives in TWO shapes under one key**, which is why it is the only one of the three that is MERGED rather than replaced. The login burst sends 30 `content_01_01_01`-style achievement rows carrying only a `score`; a pass claim sends `pass_mission_008_NN` rows carrying `pass_id`, `week_id`, `issued_time` and — the useful part — **`complete_time`**. A wholesale replace keeps only whichever arrived last.
+**`mission_entities` arrives in TWO shapes under one key**, which is why it is the only one of the three that is MERGED rather than replaced. The login burst sends `content_01_01_01`-style achievement rows carrying only a `score`; a pass claim sends `pass_mission_<season>_NN` rows carrying `pass_id`, `week_id`, `issued_time` and — the useful part — **`complete_time`**. A wholesale replace keeps only whichever arrived last.
 
-`docs/missions_id_dump.py` writes `docs/missions_id.tsv` from whichever capture last carried them, for annotating by hand. It reads the newest SNAPSHOT that holds missions and falls back to the newest WebSocket debug log, because a session that claimed nothing saves none and the addon's cache does not survive one.
+**A pass mission's id carries the SEASON**, which increments: the seven `pass_mission_008_NN` rows a claim sent are the Arkhianon Supply's daily and weekly missions, and season 9 renumbers every one of them.
+
+`docs/missions_id_dump.py` writes `docs/missions_id.tsv` from whichever capture last carried them, for annotating by hand. It reads the newest SNAPSHOT that holds missions and falls back to the newest WebSocket debug log, because a session that claimed nothing saves none and the addon's cache does not survive one. Its rows are keyed on the id with the season replaced by `*`, so a hand-typed name survives the season turning over.
 
 **A Communication Pass is in none of them, because it is in nothing.** Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.
 

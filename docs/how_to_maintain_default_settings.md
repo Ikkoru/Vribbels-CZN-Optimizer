@@ -1,6 +1,6 @@
 # Maintaining `default_settings/`
 
-Maintainer workflow: what ships, what to hand-edit before a release, and how to get out of trouble. How it WORKS at runtime — merge stages, tombstone gate, manager APIs, the Restore Defaults dialog — is `settings_architecture.md`, and this file deliberately does not restate it.
+Maintainer workflow: what ships, what to hand-edit before a release, and how to get out of trouble. How it WORKS at runtime — merge stages, tombstone gate, manager APIs, the Restore Defaults dialog — is `settings_architecture.md`, not restated here.
 
 ## Before a release
 
@@ -27,6 +27,6 @@ Deleting the three from `default_settings/` and running the program copies your 
 
 ## Getting a user unstuck
 
-**Point them at Restore Defaults first.** The Setup tab's panel has one button per shipped file, each opening a dialog listing what they are missing and what differs from defaults. It bypasses the tombstone gate, which makes it the sanctioned way back to a deleted or changed default.
+**Point them at Restore Defaults first.** The Setup & Settings tab's panel has one button per shipped file, each opening a dialog listing what they are missing and what differs from defaults. It bypasses the tombstone gate, which makes it the sanctioned way back to a deleted or changed default.
 
 Deleting `settings/.defaults_sync.json` also works but is worse: two runs rather than one, and to pull back a CHANGED value they must also delete their own copy of that entry. Only if the dialog cannot reach the case.
