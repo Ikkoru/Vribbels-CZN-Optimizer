@@ -4,9 +4,10 @@ Run after a capture that claimed something:
 
     python docs/missions_id_dump.py
 
-**A mission's id is a string, not a number** -- `content_01_01_01`,
-`pass_mission_008_01` -- and its leading words say which SET it belongs
-to. The dump groups by that, so a set reads as a block.
+**A mission's id is a string, not a number** -- `pass_mission_008_01`,
+`daily_achieve_004` -- and its leading words say which SET it belongs
+to. The dump groups by that, so a set reads as a block, and
+`SKIP_FAMILIES` is what keeps the sets nobody tracks out.
 
 **A pass mission's id carries the SEASON, and the season increments.**
 `pass_mission_008_01` becomes `pass_mission_009_01` when season 9
@@ -72,6 +73,12 @@ OWNED = ("key", "res_id", "family", "score", "complete_time", "issued_time",
 
 # What replaces a season number in a `key`.
 SEASON = "*"
+
+# Families this file does not track. `content_*` are one-off STORY
+# completion records -- `content_01_01_01` is chapter 1, stage 1,
+# objective 1 -- so they are already done, never move, and are not
+# recurring tasks. Thirty of them drowned the real rows.
+SKIP_FAMILIES = ("content",)
 
 # Written into a file that does not exist yet, and never again -- the
 # hand-added columns are read back off the header from then on. They
@@ -139,9 +146,12 @@ def _collect(payload, into):
             if field == FIELD:
                 rows = value.values() if isinstance(value, dict) else value
                 for row in rows or ():
-                    if isinstance(row, dict) and row.get("res_id"):
-                        into[key_of(str(row["res_id"]),
-                                    row.get("pass_id"))] = _row_values(row)
+                    if not isinstance(row, dict) or not row.get("res_id"):
+                        continue
+                    res_id = str(row["res_id"])
+                    if family_of(res_id) in SKIP_FAMILIES:
+                        continue
+                    into[key_of(res_id, row.get("pass_id"))] = _row_values(row)
             else:
                 _collect(value, into)
     elif isinstance(payload, list):

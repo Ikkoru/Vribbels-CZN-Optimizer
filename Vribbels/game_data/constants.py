@@ -528,6 +528,33 @@ RECORDED_NAMES = {
 
 RECORDED_ONLY = frozenset(RECORDED_NAMES)
 
+
+def item_names():
+    """{res_id: display name} for every item this build can name.
+
+    **A shaped row's name is BUILT from its fields**, and each family
+    spells it a different way round -- `Great Growth Stone of Passion`
+    against `Advanced Battle Memory`. A caller reading `row[0]` gets
+    the GROUP (`Combatant`, `Passion`) rather than a name, which is the
+    trap this exists to close.
+
+    `RECORDED_NAMES` goes on last, so an identification made by hand
+    wins over anything derived.
+    """
+    names = {rid: row[0] for rid, row in NAMED_MATERIALS.items()}
+    names.update({rid: row[0] for rid, row in PERIOD_ITEMS.items()})
+    names.update({rid: f"{row[1]} Growth Stone of {row[0]}"
+                  for rid, row in GROWTH_STONES.items()})
+    names.update({rid: f"{row[1]} {row[0]} Manual"
+                  for rid, row in COMBATANT_PROMOTION.items()})
+    names.update({rid: f"{row[1]} {row[0]} Certificate"
+                  for rid, row in PARTNER_PROMOTION.items()})
+    names.update({rid: "%s %s" % (row[1], "Battle Memory"
+                                  if row[0] == "Combatant" else "Support Data")
+                  for rid, row in EXP_MATERIALS.items()})
+    names.update(RECORDED_NAMES)
+    return names
+
 #
 # Items held with an EXPIRY rather than as a count - res_id to
 # (name, icon_filename).

@@ -1705,34 +1705,12 @@ class CaptureManager:
             # The stones' name is BUILT from their row rather than
             # listed: the table holds the Element and the tier and the
             # game spells the pair this way round. The promotion and
-            # EXP families are left as ids, their in-game wording not
-            # being recorded anywhere yet.
-            from game_data import (COMBATANT_PROMOTION, EXP_MATERIALS,
-                                   GROWTH_STONES, PARTNER_PROMOTION)
-            from game_data.constants import (NAMED_MATERIALS, PERIOD_ITEMS,
-                                             RECORDED_NAMES)
-            item_names = {rid: entry[0] for rid, entry in NAMED_MATERIALS.items()}
-            item_names.update({rid: entry[0]
-                               for rid, entry in PERIOD_ITEMS.items()})
-            # A shaped row's name is BUILT from its two fields, the
-            # game spelling each family this way round.
-            item_names.update({
-                rid: f"{row[1]} Growth Stone of {row[0]}"
-                for rid, row in GROWTH_STONES.items()})
-            item_names.update({
-                rid: f"{row[1]} {row[0]} Manual"
-                for rid, row in COMBATANT_PROMOTION.items()})
-            item_names.update({
-                rid: f"{row[1]} {row[0]} Certificate"
-                for rid, row in PARTNER_PROMOTION.items()})
-            item_names.update({
-                rid: "%s %s" % (row[1], "Battle Memory" if row[0] == "Combatant"
-                                else "Support Data")
-                for rid, row in EXP_MATERIALS.items()})
-            # And the ones the program can only NAME -- see
-            # `RECORDED_NAMES`. A log line saying `Traces of Memory +40`
-            # is the whole point of that table.
-            item_names.update(RECORDED_NAMES)
+            from game_data.constants import item_names as build_item_names
+            # Every id this build can name, shaped rows spelled out --
+            # `game_data.constants.item_names` owns that, and the
+            # Checklist's shop rows read the same map. A log line
+            # saying `Traces of Memory +40` is the whole point of it.
+            item_names = build_item_names()
 
             char_names = {rid: c["name"] for rid, c in CHARACTERS.items() if c is not None}
             set_names = {sid: s["name"] for sid, s in SETS.items()}

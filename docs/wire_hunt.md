@@ -45,12 +45,18 @@ Which prefix is which shop, all established by buying one and reading the produc
 
 For a shop, buy one: the request carries `product_id` and the reply carries `dec_result` (what it cost) and `add_result` (what it gave), so one purchase names the product, its price and its item at once.
 
-## What the shop rows show meanwhile
+## The shop rows are read off the wire
 
-The Checklist draws `<left to buy>/<per-period max>` from `shop_stock.PRODUCTS`, a HAND-WRITTEN table, and `-` for any product not in it. **The per-period MAX is nowhere on the wire** — only `count` is — so every maximum has to be read off the game's own screen and typed in. **A product with no row in that table gets no row on the tab**, so what is missing stays visible.
+`shop_res_data` carries every product's item, count, per-period cap, period, price and display order, so the Checklist builds its shop rows from the snapshot and nothing is hand-written. `Vribbels/shop_stock.py` is the write-up.
 
-## What is still missing entirely
+Five `limit_type` values across every shop, and which Checklist column each lands in:
 
-**Nothing carries a shop product's NAME or its per-period MAX.** Both are hand-typed into `shop_stock.PRODUCTS`; `shop_res_data` carries prices and product ids but neither of those.
+| `limit_type` | Column | Count |
+| ------------ | ------ | ----- |
+| `LIMIT_WEEK` | Weekly | 26 |
+| `LIMIT_MONTH` | Monthly | 64 |
+| `LIMIT_ACCOUNT` | Other — a LIFETIME cap that never refreshes; the whole Sortie shop, and the Blackhorn 400 | 261 |
+| `NONE` | none — no cap, so nothing counts down and nothing finishes | 130 |
+| `LIMIT_BENEFIT` | none yet — 6 products, unexamined | 6 |
 
-**Nothing carries a shop's PERIOD** either. Weekly, monthly and never-resetting are hand-marked in the same table.
+**A product whose item no table names shows its res_id**, the same marking the Capture Log uses: a number on screen is an invitation to identify it, where a blank would be a bug nobody can see.

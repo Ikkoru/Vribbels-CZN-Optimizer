@@ -63,7 +63,8 @@ def run():
     add_source_to_path()
     import excursions
     from ui.tabs.checklist_tab import (
-        ACTIVITY_FULL, CHAOS_CURRENCY, COFFEE_DONE, COFFEE_TODO, COLUMNS,
+        ACTIVITY_FULL, CHAOS_CURRENCY, COFFEE_DONE, COFFEE_TODO,
+        columns_for,
         ACTIVITY_CLAIMED, ACTIVITY_UNCLAIMED,
         DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
         MODULE_WINDOWS, NO_DATA,
@@ -85,7 +86,7 @@ def run():
     week = now + MODULE_WINDOWS[1][0]
 
     # --- every keyed reading belongs to a row, and vice versa ---------
-    keyed = {key for _title, rows in COLUMNS
+    keyed = {key for _title, rows in columns_for(_snapshot())
              for key, _label, widest in rows if widest}
     produced = set(_readings(_snapshot(), now))
     if produced != keyed:
@@ -254,85 +255,82 @@ def run():
             f"zero against the window's own bound, in green.")
 
     # --- the shop sub-rows, and the STALE tally -----------------------
+    # Built from a snapshot carrying a shop DEFINITION, since that is
+    # where the cap and the period now come from.
     import shop_stock
-    product = "town_shop_goods_005"      # weekly, confirmed by a purchase
-    if product not in shop_stock.PRODUCTS:
+    product, cap = "town_shop_goods_005", 1
+    key = "shop:" + product
+    started = shop_stock.period_start("weekly", {}, now)
+
+    def shop(count, touched, limit_type="LIMIT_WEEK", month=None):
+        raw = _snapshot()
+        raw["shop_res_data"] = {"shop_town": {product: {
+            "product_link_item_id": 3310006, "product_count": 1,
+            "limit_count": cap, "limit_type": limit_type, "sort": 5}}}
+        raw["shop_list"] = {product: {"count": count, "reset_time": touched,
+                                      "total_count": 5}}
+        if month is not None:
+            raw["month_start"] = month
+        return _readings(raw, now)[key]
+
+    got = shop(0, int(started) + HOUR)
+    if got != (f"{cap}/{cap}", TODO):
         failures.append(
-            f"{product!r} is not in shop_stock.PRODUCTS, so the cases "
-            f"below read nothing. It is one of the products a captured "
-            f"purchase confirmed.")
-    else:
-        limit = shop_stock.PRODUCTS[product][1]
-        key = "shop:" + product
-        started = shop_stock.period_start("weekly", _snapshot(), now)
+            f"a shop row with nothing bought this period reads {got!r}, "
+            f"not {cap}/{cap} in red. `count` is the purchases MADE, so "
+            f"what is left is the cap less it.")
+    got = shop(cap, int(started) + HOUR)
+    if got != (f"0/{cap}", DONE):
+        failures.append(
+            f"a shop row bought out reads {got!r}, not 0 in green.")
 
-        def shop(count, touched):
-            raw = _snapshot()
-            raw["shop_list"] = {product: {"count": count,
-                                          "reset_time": touched,
-                                          "total_count": 5}}
-            return _readings(raw, now)[key]
+    # **The stale tally.** `count` is reset LAZILY -- a row nobody has
+    # bought from since the period rolled still carries the previous
+    # period's number. Read straight it draws a refilled shop as empty,
+    # which is what put 0/20 on a full shelf.
+    got = shop(cap, int(started) - HOUR)
+    if got != (f"{cap}/{cap}", TODO):
+        failures.append(
+            f"a row last touched BEFORE the period began reads {got!r}, "
+            f"not {cap}/{cap}. Its tally is last period's, so nothing "
+            f"has been bought since the shelf refilled.")
 
-        got = shop(0, started + HOUR)
-        if got != (f"{limit}/{limit}", TODO):
-            failures.append(
-                f"a shop row with nothing bought this period reads "
-                f"{got!r}, not {limit}/{limit} in red. `count` is the "
-                f"purchases MADE, so what is left is the limit less it.")
-        got = shop(limit, started + HOUR)
-        if got != (f"0/{limit}", DONE):
-            failures.append(
-                f"a shop row bought out reads {got!r}, not 0 in green.")
+    # No `shop_list` at all: a dash, never a zero.
+    raw = _snapshot()
+    raw["shop_res_data"] = {"shop_town": {product: {
+        "product_link_item_id": 3310006, "product_count": 1,
+        "limit_count": cap, "limit_type": "LIMIT_WEEK", "sort": 5}}}
+    got = _readings(raw, now)[key]
+    if got != (f"{NO_DATA}/{cap}", UNKNOWN):
+        failures.append(
+            f"with no shop_list the row reads {got!r}, not a dash. A "
+            f"snapshot that never carried the field and a shop with "
+            f"nothing left are different answers.")
 
-        # **The stale tally.** `count` is reset LAZILY -- a row nobody
-        # has bought from since the period rolled still carries the
-        # previous period's number. Read straight it draws a refilled
-        # shop as empty, which is what put 0/20 on a full shelf.
-        got = shop(limit, started - HOUR)
-        if got != (f"{limit}/{limit}", TODO):
-            failures.append(
-                f"a row last touched BEFORE the period began reads "
-                f"{got!r}, not {limit}/{limit}. Its tally is last "
-                f"period's, so nothing has been bought from it since "
-                f"the shelf refilled.")
+    # A MONTHLY product has no boundary without the wire's own
+    # `month_start`, so it reads a dash rather than guessing one.
+    got = shop(1, now, "LIMIT_MONTH")
+    if got != (f"{NO_DATA}/{cap}", UNKNOWN):
+        failures.append(
+            f"a monthly row with no `month_start` reads {got!r}, not a "
+            f"dash. The month rolls at 18:00 UTC on the LAST day, so "
+            f"there is no boundary to compute without the wire saying.")
+    got = shop(1, now, "LIMIT_MONTH", month=int(now - DAY))
+    if got != (f"0/{cap}", DONE):
+        failures.append(
+            f"a monthly row with `month_start` reads {got!r}, not 0/{cap}.")
 
-        # No shop_list at all: a dash, never a zero. An unread field and
-        # a bought-out shop are different answers.
-        got = _readings(_snapshot(), now)[key]
-        if got != (f"{NO_DATA}/{limit}", UNKNOWN):
-            failures.append(
-                f"with no shop_list the row reads {got!r}, not a dash. A "
-                f"snapshot that never carried the field and a shop with "
-                f"nothing left are different answers.")
-
-        # A MONTHLY product has no boundary without the wire's own
-        # `month_start`, so it reads a dash rather than guessing one.
-        monthly = [pid for pid, (_n, cap, per)
-                   in shop_stock.PRODUCTS.items()
-                   if per == "monthly" and cap]
-        if not monthly:
-            failures.append(
-                "shop_stock.PRODUCTS holds no monthly product with a cap, "
-                "so the month_start case below reads nothing.")
-        else:
-            pid = monthly[0]
-            cap = shop_stock.PRODUCTS[pid][1]
-            raw = _snapshot()
-            raw["shop_list"] = {pid: {"count": 1, "reset_time": now,
-                                      "total_count": 1}}
-            got = _readings(raw, now)["shop:" + pid]
-            if got != (f"{NO_DATA}/{cap}", UNKNOWN):
-                failures.append(
-                    f"a monthly row with no `month_start` reads {got!r}, "
-                    f"not a dash. The month rolls at 18:00 UTC on the "
-                    f"LAST day of the month, so there is no boundary to "
-                    f"compute without the wire saying.")
-            raw["month_start"] = int(now - DAY)
-            got = _readings(raw, now)["shop:" + pid]
-            if got != (f"{cap - 1}/{cap}", TODO):
-                failures.append(
-                    f"a monthly row with `month_start` reads {got!r}, "
-                    f"not {cap - 1}/{cap}.")
+    # A product with NO cap is not a row at all: nothing counts down.
+    raw = _snapshot()
+    raw["shop_res_data"] = {"shop_town": {"town_shop_goods_010": {
+        "product_link_item_id": 2000001, "product_count": 4000,
+        "limit_count": -1, "limit_type": "NONE", "sort": 14}}}
+    if any(key.startswith("shop:") for _t, rows in columns_for(raw)
+           for key, _l, _w in rows):
+        failures.append(
+            "an uncapped product got a Checklist row. There is nothing "
+            "to count down and nothing to finish, so it is not a "
+            "checklist entry.")
 
     # --- the ids the rows read ----------------------------------------
     # **Against the NAME, not against the constant.** Every assertion

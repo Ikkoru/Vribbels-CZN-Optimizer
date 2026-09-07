@@ -8,6 +8,12 @@ is completion status, and the capture carries the first pieces of it --
 `season_pass_entity` for the Arkhianon Supply's rank. See
 `docs/capture_pipeline.md`.
 
+**A shop's rows are read off the wire, not written here.**
+`shop_res_data` carries every product's item, cap, period, price and
+display order, so a column's shop rows are rebuilt from the snapshot
+whenever the set changes -- a product the game adds appears with no
+edit. `shop_stock` is what reads it.
+
 The rows that DO read a value get it from `_readings`, one place, keyed
 by the row's own key rather than by its words -- two rows share the
 words `Delegation Module` and differ only in the deadline they count
@@ -31,9 +37,9 @@ import excursions
 import item_amounts
 import period_items
 import shop_stock
+from game_data.constants import item_names
 
 from ..base_tab import BaseTab
-from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_heading
 from ui.scaling import px
 
@@ -58,8 +64,10 @@ from ui.scaling import px
 
 # What a shop sub-row's key is built from: the prefix, then the product
 # id. The id has to be recoverable from the key, since that is what
-# `_readings` looks the product up by.
+# `_readings` looks the product up by. A shop's own heading row takes
+# the second prefix, so the two cannot collide.
 SHOP_KEY_PREFIX = "shop:"
+SHOP_HEAD_PREFIX = "shophead:"
 
 # How far a shop's products are indented under the shop's own row.
 SHOP_INDENT = 27        # spacing: unique -- a shop's products under the shop -- run, run ↔
@@ -74,26 +82,58 @@ DONE, TODO, UNKNOWN = "done", "todo", None
 NO_LIMIT = "unlimited"
 
 
-def _shop_products(prefix, period):
+def shop_rows(category, period, raw):
     """The sub-rows for one shop's products in one period.
 
-    `(key, label, widest)` per product. Read from
-    `shop_stock.PRODUCTS` rather than listed here: that table
-    is where an identification lands, and a product gaining a name or a
-    period should not also need a row typed out.
-
-    **This is INCOMPLETE by design.** Only products that table names
-    appear; the rest are in `docs/wire_hunt.tsv` waiting to be
-    identified, so a shop's row set grows as they are.
+    `(key, label, widest)` per product, straight off the wire: the
+    shop's own `sort` gives the order, `limit_count` the reserve, and
+    the item the product gives its name. Nothing is hand-written any
+    more -- a product the game adds appears the next time the login
+    burst is captured.
     """
-    return tuple(
-        (SHOP_KEY_PREFIX + product_id, name,
-         "%d/%d" % (limit, limit) if limit else NO_LIMIT)
-        for product_id, (name, limit, its_period)
-        in sorted(shop_stock.PRODUCTS.items())
-        if its_period == period and product_id.rsplit("_", 1)[0] == prefix)
+    out = []
+    for product_id, define in shop_stock.products(category, period, raw):
+        limit = define.get("limit_count")
+        out.append((SHOP_KEY_PREFIX + product_id,
+                    product_label(define),
+                    "%d/%d" % (limit, limit)))
+    return tuple(out)
 
 
+def product_label(define):
+    """What to call a product: the item it gives, and how many.
+
+    `x1` is left off, being the common case and no information. An item
+    no table names falls back to its id, which is the same marking the
+    Capture Log uses -- a number on screen is an invitation to identify
+    it, where a blank is a bug nobody can see.
+    """
+    res_id = define.get("product_link_item_id")
+    name = ITEM_NAMES.get(res_id) or str(res_id)
+    count = define.get("product_count")
+    return name if count in (1, None) else "%s x%s" % (name, count)
+
+
+# Every id the build can name, built once. A shaped row's name is
+# SPELLED OUT there -- reading `row[0]` off a table gives the group
+# (`Combatant`, `Passion`), not a name.
+ITEM_NAMES = item_names()
+
+
+# The columns, as a skeleton. Each is `(heading, rows, shops)`: `rows`
+# are the fixed ones and `shops` names the shop categories whose
+# products are folded in, each under a heading of its own.
+#
+# A row is `(key, label, widest)`. The KEY is what `_readings` answers
+# to and is unique across the tab -- `Delegation Module` appears twice
+# and `Nono's Shop` in two columns, so the words cannot serve. `widest`
+# is the longest reading that row can show, which is what the column
+# reserves room for; `None` is a row that shows none.
+#
+# **A column's rows are its own.** `Arkhianon Supply` appears under
+# three headings because it resets three ways -- a daily set of
+# missions, a weekly set, and the pass itself -- and they are three
+# different things to check rather than one row repeated.
 COLUMNS = (
     ("Daily", (
         ("coffee", "Coffee", "Go drink!"),
@@ -102,12 +142,8 @@ COLUMNS = (
         ("excursions", "Excursions", "5/5"),
         ("chaos_delegation", "Chaos Delegation", None),
         ("other_daily", "Other Events", None),
-    )),
+    ), ()),
     ("Weekly", (
-        ("nono_weekly", "Nono's Shop", None),
-    ) + _shop_products("town_shop_goods", "weekly") + (
-        ("archive_weekly", "$hop - Memory Archive - Traveler", None),
-    ) + _shop_products("gacha_duplicate_legend", "weekly") + (
         ("supply_weekly", "Arkhianon Supply", "10000/10000"),
         ("simulation", "Simulation Challenges", "3/3"),
         ("chaos_currency", "Chaos Currency", "99"),
@@ -115,20 +151,10 @@ COLUMNS = (
         ("modules_week", "Delegation Module", "99 expiring within 7 days"),
         ("sortie_currency", "Sortie Currency", "99/9"),
         ("seasonal_event", "Seasonal Event(s)", None),
-        ("seasonal_shop", "Seasonal Shop", None),
         ("seasonal_score", "Seasonal Accumulated Score", "300000+/300000"),
-    )),
-    ("Monthly", (
-        ("nono_monthly", "Nono's Shop", None),
-    ) + _shop_products("town_shop_goods", "monthly") + (
-        ("archive_monthly", "$hop - Memory Archive - Traveler", None),
-    ) + _shop_products("gacha_duplicate_legend", "monthly") + (
-        ("zeronium", "$hop - Zeronium Shop", None),
-    ) + _shop_products("hyperspace", "monthly") + (
-        ("blackhorn", "$hop - Blackhorn Trade", None),
-    ) + _shop_products("chaos", "none") + (
-        ("prism", "$hop - Exchange Shop - Prism Module", None),
-    ) + _shop_products("card_factor", "none")),
+    ), ("shop_town", "shop_gacha_dup", "shop_disaster")),
+    ("Monthly", (), ("shop_town", "shop_gacha_dup", "shop_hyperspace",
+                     "shop_chaos", "shop_exchange_product")),
     ("Other", (
         ("basin", "Basin of Hyperspace (21 days)", None),
         ("matrix", "Zero System Chaos Matrix (84? days)", None),
@@ -136,8 +162,35 @@ COLUMNS = (
         ("seasonal_event_other", "Seasonal Event (21 + 21 + 21 days)", None),
         ("sortie_other", "Sortie (21 days)", None),
         ("other_events_other", "Other Events", None),
-    )),
+    ), ("shop_assault",)),
 )
+
+# Which period each column's shop products are taken from.
+PERIOD_BY_COLUMN = {"Weekly": "weekly", "Monthly": "monthly",
+                    "Other": "account"}
+
+
+def columns_for(raw):
+    """The four columns' rows for one snapshot.
+
+    The shop rows are rebuilt from the wire every time, so a product
+    the game adds or a cap it changes reaches the tab with no edit.
+    """
+    out = []
+    for title, fixed, shops in COLUMNS:
+        rows = list(fixed)
+        period = PERIOD_BY_COLUMN.get(title)
+        # **The shop's own heading goes in whether or not its products
+        # do.** A snapshot from before `shop_res_data` was captured
+        # knows no products, and a column that emptied itself would
+        # read as a broken tab rather than as data not yet arrived.
+        for category in shops if period else ():
+            rows.append((SHOP_HEAD_PREFIX + category,
+                         shop_stock.SHOPS.get(category, category), None))
+            rows.extend(shop_rows(category, period, raw))
+        out.append((title, tuple(rows)))
+    return tuple(out)
+
 
 # The rows' face. The headings use the shared helper's own.
 ROW_FONT = ("Segoe UI", 9)
@@ -259,25 +312,6 @@ HEADING_GAP = 0         # spacing: panel ↕ unrelated label -- heading, frame �
 # holder is fixed and the Text fills it.
 TEXT_INSET = 2
 
-# ---- the mission listing, TEMPORARY --------------------------------
-#
-# Every mission the capture carries, with what it reports, so the ids
-# can be read off the screen and written into `docs/missions_id.tsv`.
-# **Delete this block and its five constants once the missions are
-# identified**; the rows above are what the tab is for.
-DEBUG_MISSIONS = True
-DEBUG_TITLE = "Mission ids (temporary)"
-DEBUG_ROWS = 12         # visible lines; the rest scroll
-DEBUG_COLS = 40         # characters, which is the widest line plus room
-DEBUG_FONT = ("Consolas", 9)
-
-# The field the missions arrive under, and what a row says when it has
-# been finished. A `content_*` row never carries `complete_time` at
-# all, so the two readings are not "done" and "not done" -- they are
-# "reported done" and "said nothing".
-MISSION_FIELD = "mission_entities"
-DONE = "done"
-NOT_DONE = "-"
 
 
 class ChecklistTab(BaseTab):
@@ -285,8 +319,11 @@ class ChecklistTab(BaseTab):
 
     def __init__(self, parent, context):
         super().__init__(parent, context)
-        # (Text, rows) per column heading, for the refresh to rewrite.
+        # (Text, rows) per column heading, for the refresh to rewrite,
+        # and the row set they were built for. A snapshot that changes
+        # the set -- a shop gaining a product -- rebuilds them.
         self.column_texts = {}
+        self._built_signature = None
         # The day the Activities reward was last seen being claimed, and
         # what the Crystal balance read on the previous refresh. See
         # `ACTIVITY_CLAIM_ITEM`: the claim is inferred from its payout
@@ -294,8 +331,6 @@ class ChecklistTab(BaseTab):
         # as it happens and remembered.
         self._activity_claimed_day = None
         self._crystals = None
-        # The temporary mission listing, or None while it is switched off.
-        self.mission_text = None
         self.setup_ui()
         # Drawn once with nothing, so the tab is its rows rather than a
         # blank before the first capture.
@@ -330,12 +365,6 @@ class ChecklistTab(BaseTab):
         # `checks/check_tabs_build.py` holds it there.
         columns = ttk.Frame(self.frame)
 
-        # Packed before the columns, which is a separate order: pack
-        # hands each widget its requested size in turn and only then
-        # gives the leftover to whatever expands.
-        if DEBUG_MISSIONS:
-            self._build_mission_list()
-
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
         columns.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((0, 2)))
@@ -356,15 +385,42 @@ class ChecklistTab(BaseTab):
                                          uniform="checklist")
         columns.grid_rowconfigure(0, weight=1)
 
-        for index, (title, rows) in enumerate(COLUMNS):
+        # One frame per column, EMPTY. What goes in them depends on the
+        # snapshot -- a shop's products are read off the wire -- so the
+        # contents are built on the first refresh and rebuilt whenever
+        # the row set changes. The frames themselves never move: the
+        # audit reaches a column through its position among these.
+        self._column_frames = []
+        for index in range(len(COLUMNS)):
             column = ttk.Frame(columns)
             column.grid(row=0, column=2 * index, sticky="nsew")
-            self._build_column(column, title, rows)
+            self._column_frames.append(column)
+
+    def _rebuild_columns(self, raw):
+        """(Re)build every column's heading and rows for one snapshot.
+
+        Only when the row set actually changed: a rebuild destroys and
+        recreates four Texts, and the ordinary case is a refresh where
+        nothing but the numbers moved.
+        """
+        built = columns_for(raw)
+        signature = tuple((title, tuple(key for key, _l, _w in rows))
+                          for title, rows in built)
+        if signature == self._built_signature:
+            return
+        self._built_signature = signature
+        self.column_texts = {}
+        for frame, (title, rows) in zip(self._column_frames, built):
+            for child in frame.winfo_children():
+                child.destroy()
+            self._build_column(frame, title, rows)
 
     def _build_column(self, parent, title, rows):
         """One heading and the rows under it."""
         make_heading(parent, title).pack(anchor=tk.CENTER)
 
+        if not rows:
+            return
         font = tkfont.Font(font=ROW_FONT)
         # The words, plus a column reserved for the widest reading any
         # row in this column can show. RESERVED rather than fitted: a
@@ -412,18 +468,6 @@ class ChecklistTab(BaseTab):
         text.tag_configure(TODO, foreground=self.colors["red"])
         self.column_texts[title] = (text, rows)
 
-    def _build_mission_list(self):
-        """The temporary mission listing, bottom left. See DEBUG_MISSIONS."""
-        # spacing: out of scope -- a temporary listing of mission ids, deleted once they are identified
-        block = ttk.Frame(self.frame)
-        block.pack(side=tk.BOTTOM, anchor=tk.W, padx=px(4), pady=px((0, 4)))
-        ttk.Label(block, text=DEBUG_TITLE,
-                  foreground=self.colors["fg_dim"]).pack(anchor=tk.W)
-        self.mission_text = make_scrolled_text(
-            block, self.colors, width=DEBUG_COLS, height=DEBUG_ROWS,
-            wrap=tk.NONE, font=DEBUG_FONT, takefocus=0)
-        self.mission_text.pack(anchor=tk.W)
-
     @staticmethod
     def _block_height(rows):
         """A column's height: its rows and the pitch between them.
@@ -445,14 +489,11 @@ class ChecklistTab(BaseTab):
 
         Called automatically after data loads.
         """
-        if not self.column_texts:
-            return
         raw = getattr(self.optimizer, "raw_data", None) or {}
+        self._rebuild_columns(raw)
         readings = _readings(raw, claimed=self._activity_claim(raw))
         for text, rows in self.column_texts.values():
             self._fill(text, rows, readings)
-        if self.mission_text is not None:
-            self._fill_missions(raw.get(MISSION_FIELD))
 
     def _activity_claim(self, raw):
         """Whether today's Activities reward has been taken.
@@ -499,29 +540,6 @@ class ChecklistTab(BaseTab):
                             line + ((state,) if state else ()))
         text.config(state=tk.DISABLED)
 
-    def _fill_missions(self, missions):
-        """Rewrite the temporary mission listing. See DEBUG_MISSIONS.
-
-        Takes either shape the field comes in: the addon's cache, keyed
-        by res_id, or a bare list off the wire.
-        """
-        rows = missions.values() if isinstance(missions, dict) else missions
-        lines = []
-        for row in rows or ():
-            if not isinstance(row, dict) or not row.get("res_id"):
-                continue
-            res_id = str(row["res_id"])
-            lines.append((_family(res_id), res_id,
-                          "%-24s %8s  %s" % (
-                              res_id, row.get("score", ""),
-                              DONE if row.get("complete_time") else NOT_DONE)))
-        lines.sort()
-        body = (LINE_SEP.join(line for _, _, line in lines) if lines
-                else "no missions in this snapshot")
-        self.mission_text.config(state=tk.NORMAL)
-        self.mission_text.delete("1.0", tk.END)
-        self.mission_text.insert(tk.END, body)
-        self.mission_text.config(state=tk.DISABLED)
 
 
 # What separates one row from the next, and a row from its value.
@@ -669,12 +687,13 @@ def _readings(raw, now=None, claimed=False):
 
     # The shops, one sub-row per product. `-` where the field cannot be
     # read honestly -- see `shop_stock.remaining`.
-    for key, product_id in _shop_rows():
-        stock, limit = shop_stock.remaining(product_id, raw, now)
+    for key, product_id, define in _shop_rows(raw):
+        stock, limit = shop_stock.remaining(product_id, define, raw, now)
         if limit is None:
             # No cap: it can always be bought, so nothing counts down
-            # and nothing is finished.
-            out[key] = (NO_LIMIT, UNKNOWN)
+            # and nothing is finished. Such a product gets no ROW
+            # either -- this is only here for a reading asked of one.
+            continue
         elif stock is None:
             out[key] = ("%s/%d" % (NO_DATA, limit), UNKNOWN)
         else:
@@ -716,11 +735,16 @@ def _great_rift(raw):
                                      else GREAT_RIFT_TARGET)
 
 
-def _shop_rows():
-    """[(row key, product id)] for every shop sub-row on the tab."""
-    return [(key, key.split(":", 1)[1])
-            for _title, rows in COLUMNS for key, _label, _w in rows
-            if key.startswith(SHOP_KEY_PREFIX)]
+def _shop_rows(raw):
+    """[(row key, product id, definition)] for every shop sub-row."""
+    out = []
+    for category, defines in shop_stock.definitions(raw).items():
+        if category not in shop_stock.SHOPS:
+            continue
+        for product_id, define in defines.items():
+            if isinstance(define, dict):
+                out.append((SHOP_KEY_PREFIX + product_id, product_id, define))
+    return out
 
 
 def _expiring_by(expiries, deadline):
@@ -750,19 +774,3 @@ def _dig(node, path):
             return None
         node = node.get(key)
     return node
-
-
-def _family(res_id):
-    """The id's leading words, which is the set it belongs to.
-
-    Groups the listing the way `docs/missions_id_dump.py` groups the
-    file it is read into. Split at the first NUMBERED segment: the
-    numbers are the mission within its set, and how many of them an id
-    carries varies between sets.
-    """
-    parts = []
-    for part in res_id.split("_"):
-        if part.isdigit():
-            break
-        parts.append(part)
-    return "_".join(parts) or res_id

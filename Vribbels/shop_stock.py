@@ -1,13 +1,22 @@
-"""What a snapshot says about each shop product, and what is left to buy.
+"""What each shop sells, and what is left to buy of it.
 
-`shop_list` is one row per product id: `{count, reset_time,
-total_count}`. All three are settled, by a capture that bought the same
-product twice in separate purchases and read the shop's own figure
+Two payloads, and both are needed:
+
+* **`shop_res_data`** is the shop's own DEFINITIONS, one per product:
+  what item it gives (`product_link_item_id`) and how many
+  (`product_count`), the per-period cap (`limit_count`), which period
+  (`limit_type`), the price (`price_link_item_id`, `price_count`), and
+  the shop's display order (`sort`). Sent once at login.
+* **`shop_list`** is what the ACCOUNT has done with them, one row per
+  product: `{count, reset_time, total_count}`.
+
+All three of a row's fields are settled, by a capture that bought the
+same product twice in separate purchases and read the shop's own figure
 either side:
 
 * **`count` is how many were bought in the CURRENT PERIOD**, so what is
-  left is `max - count`. Two purchases of `town_shop_goods_014` took it
-  0 -> 1 -> 2 while the shop read 20/20 -> 19/20 -> 18/20.
+  left is `limit_count - count`. Two purchases of `town_shop_goods_014`
+  took it 0 -> 1 -> 2 while the shop read 20/20 -> 19/20 -> 18/20.
 * **`total_count` counts UP for the life of the account**, +1 per unit.
 * **`reset_time` is written on every PURCHASE**, not on the period
   boundary. It is the last time `count` moved.
@@ -22,86 +31,89 @@ shop as empty.
 
 `period_start` is what tells the two apart. The weekly boundary comes
 from `weekly_reset`; the monthly one is on the wire as `month_start`,
-which the snapshot carries.
-
-Nothing on the wire says which products reset weekly and which monthly,
-or what a product's per-period MAX is, so `PRODUCTS` below is
-hand-written from the game's own screens.
+because the month rolls at 18:00 UTC on the LAST day and cannot be
+derived from a date.
 
 No Tk and no managers: this takes the snapshot dict and returns data.
 """
 
 import weekly_reset
 
-FIELD = "shop_list"
+DEFINITIONS_FIELD = "shop_res_data"
+STOCK_FIELD = "shop_list"
 MONTH_START_FIELD = "month_start"
 
-# Product id prefix -> the shop it belongs to. Established by buying
-# something in each and reading the product id off the request.
+# The wire's shop category -> what the game calls it. **A shop absent
+# here gets no rows**, which is what keeps the tab to the shops the
+# maintainer tracks rather than every product table the login sends.
 SHOPS = {
-    "town_shop_goods": "Nono's Shop",
-    "gacha_duplicate_legend": "$hop - Memory Archive - Traveler",
-    "hyperspace": "$hop - Zeronium Shop",
-    "chaos": "$hop - Blackhorn Trade",
-    "card_factor": "$hop - Exchange Shop - Prism Module",
-    "season_pass": "Seasonal Shop",
+    "shop_town": "Nono's Shop",
+    "shop_gacha_dup": "$hop - Memory Archive - Traveler",
+    "shop_hyperspace": "$hop - Zeronium Shop",
+    "shop_chaos": "$hop - Blackhorn Trade",
+    "shop_exchange_product": "$hop - Exchange Shop - Prism Module",
+    "shop_disaster": "Seasonal Shop",
+    "shop_assault": "Sortie - Chaos Analysis Lab",
 }
 
-# What each product is, how many of it a period allows, and which
-# period, as `(name, per period, period)`.
+# The wire's `limit_type` -> which Checklist column the product belongs
+# in. **`NONE` is absent on purpose**: a product with no cap has nothing
+# to count down and nothing to finish, so it is not a checklist row.
 #
-# **Hand-written and INCOMPLETE.** Every row here was established by
-# buying one and reading what arrived, or by matching the shop's own
-# figure against `count`; the products nobody has bought are not here
-# and get no row on the Checklist, so what is missing stays visible.
-#
-# `period` is `weekly`, `monthly`, or `none` for a product with a
-# lifetime cap that never refills.
-PRODUCTS = {
-    # Nono's Shop, bought with Policy Point (2000031).
-    "town_shop_goods_003": ("Research Notes", 35, "weekly"),
-    "town_shop_goods_005": ("A-Grade Policy Report", 1, "weekly"),
-    "town_shop_goods_006": ("B-Grade Policy Report", 2, "weekly"),
-    "town_shop_goods_007": ("Exquisite Slice of Cake", 3, "weekly"),
-    "town_shop_goods_008": ("Sweet Choconilla", 3, "weekly"),
-    "town_shop_goods_009": ("Unit", 40, "weekly"),
-    "town_shop_goods_014": ("Traces of Memory", 20, "weekly"),
-    # Zeronium Shop, bought with Zeronium (2000020).
-    "hyperspace_10": ("Advanced Battle Memory", 10, "monthly"),
-    # Blackhorn Trade, bought with Crystal of Discord (2000032). A
-    # LIFETIME cap: its `reset_time` has not moved since 2025.
-    "chaos_22": ("Advanced Battle Memory", 400, "none"),
-    # Prism Module exchange, bought with Prism Film (2000024).
-    "card_factor_2": ("Prism Lens", None, "none"),
+# `LIMIT_ACCOUNT` is a LIFETIME cap that never refreshes -- the Sortie
+# shop is all of it, and the Blackhorn 400 -- so it sits under Other
+# rather than under a period.
+PERIOD_BY_LIMIT = {
+    "LIMIT_WEEK": "weekly",
+    "LIMIT_MONTH": "monthly",
+    "LIMIT_ACCOUNT": "account",
 }
 
-# Which boundary a period's `count` is measured from. `none` never
-# resets, so its tally is a lifetime one and always current.
-PERIODS = ("weekly", "monthly", "none")
+# How long each period runs, for a `count` old enough to be last
+# period's. `account` never rolls, so its tally is always current.
+NEVER_ROLLS = ("account",)
 
 
-def rows(raw_data):
-    """{product id: the row} for every product a snapshot carries."""
-    out = (raw_data or {}).get(FIELD)
+def definitions(raw_data):
+    """{category: {product id: definition}} from a snapshot."""
+    out = (raw_data or {}).get(DEFINITIONS_FIELD)
     return out if isinstance(out, dict) else {}
 
 
-def products_of(shop_prefix, raw_data):
-    """Every product id under one shop, sorted by id."""
-    return sorted(key for key in rows(raw_data)
-                  if key.rsplit("_", 1)[0] == shop_prefix)
+def stock(raw_data):
+    """{product id: the account's row} from a snapshot."""
+    out = (raw_data or {}).get(STOCK_FIELD)
+    return out if isinstance(out, dict) else {}
+
+
+def products(category, period, raw_data):
+    """[(product id, definition)] in one shop and one period, in order.
+
+    Sorted by the shop's own `sort`, which is the order the game lists
+    them in. A product with no cap is left out: `PERIOD_BY_LIMIT` has
+    no entry for `NONE`.
+    """
+    rows = []
+    for product_id, define in definitions(raw_data).get(category, {}).items():
+        if not isinstance(define, dict):
+            continue
+        limit = define.get("limit_count")
+        if PERIOD_BY_LIMIT.get(define.get("limit_type")) != period:
+            continue
+        if not isinstance(limit, int) or limit <= 0:
+            continue
+        rows.append((product_id, define))
+    return sorted(rows, key=lambda pair: (pair[1].get("sort", 0), pair[0]))
 
 
 def period_start(period, raw_data, now):
     """When the current period began, epoch seconds, or None.
 
-    `none` has no boundary: the tally is a lifetime one, so anything
-    before now counts and 0 serves. The monthly boundary is the wire's
-    own `month_start`; without it there is no honest answer, because
-    the month rolls at 18:00 UTC on the LAST day of the month rather
-    than at midnight on the first.
+    A period that never rolls has no boundary, so 0 serves -- every
+    tally is current. The monthly boundary is the wire's own
+    `month_start`; without it there is no honest answer.
     """
-    if period == "none":
+    if period in NEVER_ROLLS:
         return 0
     if period == "weekly":
         # The reset BEFORE now: `next_reset` looks forward.
@@ -110,56 +122,39 @@ def period_start(period, raw_data, now):
     return start if isinstance(start, int) else None
 
 
-def remaining(product_id, raw_data, now):
-    """(left to buy, per-period max), or (None, max) where it cannot say.
+def remaining(product_id, define, raw_data, now):
+    """(left to buy, cap), or (None, cap) where it cannot say.
 
     None is a reading, not a failure. Three ways to get one: the
-    product is not in `PRODUCTS`, the snapshot never carried its row,
-    or the row's `count` is STALE -- last touched before the current
-    period began, which says nothing about what has been bought since.
+    snapshot never carried the product's row, the row's `count` is not
+    a number, or the boundary its period is measured from is unknown.
 
-    A product with no cap reads (None, None): it is unlimited, and a
-    subtraction from nothing is not a number.
+    A `count` last touched BEFORE the period began is not stale data to
+    reject -- it is last period's tally, which says the shelf is full.
     """
-    named = PRODUCTS.get(product_id)
-    if named is None:
+    limit = define.get("limit_count")
+    if not isinstance(limit, int) or limit <= 0:
         return None, None
-    _name, limit, period = named
-    row = rows(raw_data).get(product_id)
-    if limit is None or not isinstance(row, dict):
+    row = stock(raw_data).get(product_id)
+    if not isinstance(row, dict):
         return None, limit
     count = row.get("count")
     if not isinstance(count, int) or isinstance(count, bool):
         return None, limit
-    started = period_start(period, raw_data, now)
+    started = period_start(
+        PERIOD_BY_LIMIT.get(define.get("limit_type")), raw_data, now)
     if started is None:
         return None, limit
-    # A time, so a float is as good as an int -- but NOT a bool, which
-    # is an int and would compare as 0 or 1 against an epoch second.
     touched = row.get("reset_time")
     if _is_time(touched) and touched < started:
-        # Nobody has bought from it since the period rolled, so the
-        # tally is last period's and the shelf is full.
         return limit, limit
     return max(0, limit - count), limit
 
 
 def _is_time(value):
-    """True for something that can be compared against an epoch second.
+    """True for something comparable against an epoch second.
 
     A float counts; `bool` does not, being an int that would compare as
     0 or 1 against a timestamp and mark every row stale.
     """
     return isinstance(value, (int, float)) and not isinstance(value, bool)
-
-
-def label(product_id):
-    """What to call a product: its name, or its id where none is known."""
-    named = PRODUCTS.get(product_id)
-    return named[0] if named else product_id
-
-
-def period_of(product_id):
-    """`weekly`, `monthly`, `none`, or None where nothing says."""
-    named = PRODUCTS.get(product_id)
-    return named[2] if named else None
