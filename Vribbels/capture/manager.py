@@ -138,6 +138,12 @@ class Addon:
         self.season_pass = None
         self.missions = {}
 
+        # Every shop product seen this session, keyed by product id.
+        # MERGED for the same reason the missions are: the login burst
+        # sends the whole `shop_list` and a purchase sends ONE product
+        # back under `shop_entity`, so a replace would drop the rest.
+        self.shop_products = {}
+
         self.saved_path = None
 
         # Set by anything that changes the cached data, cleared by
@@ -654,6 +660,22 @@ class Addon:
             self._merge_missions(data["mission_entities"])
             self._save_pending = True
 
+        # The shops' own per-product rows: what has been bought this
+        # period, when it was last bought, and the lifetime total. TWO
+        # SHAPES again -- `shop_list` is every product at login and
+        # `shop_entity` is the one just bought -- so both fold into one
+        # cache rather than replacing it.
+        shop_list = data.get("shop_list")
+        if isinstance(shop_list, dict):
+            for product_id, row in shop_list.items():
+                if isinstance(row, dict):
+                    self.shop_products[str(product_id)] = row
+            self._save_pending = True
+        shop_entity = data.get("shop_entity")
+        if isinstance(shop_entity, dict) and shop_entity.get("res_id"):
+            self.shop_products[str(shop_entity["res_id"])] = shop_entity
+            self._save_pending = True
+
         # The Great Rift standings, keyed by season and then by rank
         # slot. This is where the weekly score lives -- nothing else
         # carries it -- and the frame it arrives in holds a dozen other
@@ -903,13 +925,14 @@ class Addon:
             "gacha_banners": self.gacha_banners,
             "char_visits": self.char_visits,
             "disaster_boss_rank_entities": self.disaster_ranks,
-            # What the recurring tasks stand at. Nothing reads these
-            # yet -- the Checklist tab is labels so far -- and they are
-            # written now so that a capture taken before anyone needs
-            # them already carries the history.
+            # What the recurring tasks stand at. The Checklist tab
+            # reads the first and the last; the rest are written so a
+            # capture taken before anything needs them already carries
+            # the history.
             "point_entity": self.point_entity,
             "season_pass_entity": self.season_pass,
             "mission_entities": self.missions or None,
+            "shop_list": self.shop_products or None,
             "detected_region": self._detect_region(),
         }
 

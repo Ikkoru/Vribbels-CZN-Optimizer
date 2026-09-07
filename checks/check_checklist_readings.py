@@ -29,15 +29,20 @@ HOUR = 3600
 DAY = 24 * HOUR
 
 
-def _snapshot(amounts=(), expiries=(), day_point=None, spent=None):
+def _snapshot(amounts=(), expiries=(), day_point=None, spent=None,
+              coffee=None, rift=()):
     """A snapshot holding exactly what a case needs and nothing else."""
     characters = {}
     if amounts:
         characters["currencies"] = {str(res_id): {"amount": amount}
                                     for res_id, amount in amounts}
+    day = {}
     if spent is not None:
-        characters["town_data"] = {
-            "day_changeable_data": {"use_town_visit_count": spent}}
+        day["use_town_visit_count"] = spent
+    if coffee is not None:
+        day["is_coffee_possible"] = coffee
+    if day:
+        characters["town_data"] = {"day_changeable_data": day}
     raw = {"inventory": {"period_items": [
         {"res_id": 3920026,
          "value": [{"end_time": end} for end in expiries]}]}}
@@ -45,6 +50,12 @@ def _snapshot(amounts=(), expiries=(), day_point=None, spent=None):
         raw["characters"] = characters
     if day_point is not None:
         raw["point_entity"] = {"day_point": day_point}
+    if rift:
+        raw["disaster_boss_rank_entities"] = {
+            f"season_{i}": {f"slot_{i}": {
+                "score_week_id": week, "week_total_score": score,
+                "week_total_score_reward": target}}
+            for i, (week, score, target) in enumerate(rift)}
     return raw
 
 
@@ -52,8 +63,9 @@ def run():
     add_source_to_path()
     import excursions
     from ui.tabs.checklist_tab import (
-        CHAOS_CURRENCY, COLUMNS, MODULE_ITEM, MODULE_WINDOWS, SORTIE_CAP,
-        SORTIE_CURRENCY, ACTIVITY_FULL, NO_DATA, _readings,
+        ACTIVITY_FULL, CHAOS_CURRENCY, COFFEE_DONE, COFFEE_TODO, COLUMNS,
+        DONE, GREAT_RIFT_TARGET, MODULE_ITEM, MODULE_WINDOWS, NO_DATA,
+        SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
     )
 
     failures = []
@@ -61,7 +73,7 @@ def run():
 
     # --- the two windows the cases are written against ----------------
     if len(MODULE_WINDOWS) != 2 or (MODULE_WINDOWS[0][0]
-                                    >= MODULE_WINDOWS[1][0]):
+                                    >= MODULE_WINDOWS[1][0]):  # noqa: E129
         failures.append(
             f"MODULE_WINDOWS is {MODULE_WINDOWS!r}. The cases below read "
             f"two windows, the tighter first, and the nesting they check "
@@ -103,17 +115,54 @@ def run():
             f"{out['chaos_currency'][0]!r}, not '0'.")
 
     # --- the day's activity, and its colour ---------------------------
-    for point, want, alert in ((ACTIVITY_FULL, f"{ACTIVITY_FULL}/"
-                                f"{ACTIVITY_FULL}", False),
-                               (40, f"40/{ACTIVITY_FULL}", True),
-                               (None, f"{NO_DATA}/{ACTIVITY_FULL}", False)):
+    for point, want, state in ((ACTIVITY_FULL, f"{ACTIVITY_FULL}/"
+                                f"{ACTIVITY_FULL}", DONE),
+                               (40, f"40/{ACTIVITY_FULL}", TODO),
+                               (None, f"{NO_DATA}/{ACTIVITY_FULL}", UNKNOWN)):
         got = _readings(_snapshot(day_point=point), now)["activity"]
-        if got != (want, alert):
+        if got != (want, state):
             failures.append(
                 f"a day_point of {point!r} reads {got!r}, not "
-                f"{(want, alert)!r}. The colour is the whole of what that "
+                f"{(want, state)!r}. The colour is the whole of what that "
                 f"row says, and a full day drawn red is as wrong as a "
                 f"short one drawn plain.")
+
+    # --- today's coffee, which INVERTS the field it reads --------------
+    for possible, want, state in ((True, COFFEE_TODO, TODO),
+                                  (False, COFFEE_DONE, DONE),
+                                  (None, NO_DATA, UNKNOWN)):
+        got = _readings(_snapshot(coffee=possible), now)["coffee"]
+        if got != (want, state):
+            failures.append(
+                f"is_coffee_possible={possible!r} reads {got!r}, not "
+                f"{(want, state)!r}. The field is a CAPABILITY: true "
+                f"means the coffee is still there to drink, so the row "
+                f"says the opposite of what the field does.")
+
+    # --- the Great Rift, and picking the LIVE season ------------------
+    # Two seasons, the older carrying the higher score and a higher
+    # threshold. The live one is the later WEEK, not the bigger number.
+    rift = ((180, 999999, 500000), (193, 120000, 300000))
+    got = _readings(_snapshot(rift=rift), now)["seasonal_score"]
+    if got != ("120000/300000", TODO):
+        failures.append(
+            f"the Great Rift row reads {got!r}, not "
+            f"('120000/300000', {TODO!r}). Past seasons keep their rows "
+            f"and carry higher totals AND different thresholds, so the "
+            f"live one is the latest score_week_id.")
+    # Over the threshold, the display caps and the row goes green.
+    got = _readings(_snapshot(rift=((193, 1396064, 300000),)),
+                    now)["seasonal_score"]
+    if got != ("300000/300000", DONE):
+        failures.append(
+            f"a score past the threshold reads {got!r}, not "
+            f"('300000/300000', {DONE!r}). The figure runs to seven "
+            f"digits and the row is about clearing the threshold.")
+    got = _readings(_snapshot(), now)["seasonal_score"]
+    if got != (f"{NO_DATA}/{GREAT_RIFT_TARGET}", UNKNOWN):
+        failures.append(
+            f"with no standings the Great Rift row reads {got!r}, not "
+            f"a dash against the stand-in threshold.")
 
     # --- passes left today --------------------------------------------
     allowance = excursions.DAILY_PASSES
@@ -121,7 +170,16 @@ def run():
                         (2, f"{allowance - 2}/{allowance}"),
                         (allowance, f"0/{allowance}"),
                         (None, f"{NO_DATA}/{allowance}")):
-        got = _readings(_snapshot(spent=spent), now)["excursions"][0]
+        # Green only where every pass is spent: a pass left over is an
+        # excursion not taken.
+        got, state = _readings(_snapshot(spent=spent), now)["excursions"]
+        want_state = (UNKNOWN if spent is None
+                      else DONE if spent >= allowance else TODO)
+        if state != want_state:
+            failures.append(
+                f"{spent!r} passes spent is drawn {state!r}, not "
+                f"{want_state!r}. A pass left over is an excursion not "
+                f"taken, which is the row's whole message.")
         if got != want:
             failures.append(
                 f"{spent!r} passes spent reads {got!r}, not {want!r}. The "
@@ -131,29 +189,31 @@ def run():
     # --- the modules, and the nesting ---------------------------------
     # One copy in each of: inside the tight window, between the two, and
     # past both. So the first row is 1 and the second 2.
-    raw = _snapshot(expiries=(soon - HOUR, week - HOUR, week + DAY))
+    # One copy 6 hours out, one 3 days out, one past both windows. The
+    # tight row counts 1 and says SIX hours -- the number in the words
+    # is the longest a counted copy has left, not the window.
+    raw = _snapshot(expiries=(now + 6 * HOUR, now + 3 * DAY, week + DAY))
     out = _readings(raw, now)
-    if out["modules_soon"][0] != "1 expiring within 24h!":
+    if out["modules_soon"] != ("1 expiring within 6h!", TODO):
         failures.append(
-            f"the tight module row reads {out['modules_soon'][0]!r}, not "
-            f"'1 expiring within 24h!'. One of the three copies falls "
-            f"inside {MODULE_WINDOWS[0][0]}s of now.")
-    if out["modules_week"][0] != "2 expiring within 7 days":
+            f"the tight module row reads {out['modules_soon']!r}, not "
+            f"('1 expiring within 6h!', {TODO!r}). The window bounds what "
+            f"is COUNTED; the words say how long the last of them has.")
+    if out["modules_week"] != ("2 expiring within 3 days", TODO):
         failures.append(
-            f"the wide module row reads {out['modules_week'][0]!r}, not "
-            f"'2 expiring within 7 days'. The windows NEST -- a copy "
-            f"inside 24 hours is inside seven days -- so the wider count "
-            f"includes the tighter one.")
-    if not out["modules_soon"][1]:
+            f"the wide module row reads {out['modules_week']!r}, not "
+            f"('2 expiring within 3 days', {TODO!r}). The windows NEST -- "
+            f"a copy inside 24 hours is inside seven days -- so the wider "
+            f"count includes the tighter one, and its number is the "
+            f"furthest out of the two.")
+
+    # Rounded UP, so a copy is never promised time it has spent.
+    out = _readings(_snapshot(expiries=(now + 90 * 60,)), now)
+    if out["modules_soon"][0] != "1 expiring within 2h!":
         failures.append(
-            "a copy inside 24 hours is not drawn in the alert colour. The "
-            "row's own words end in an exclamation mark; without the "
-            "colour it reads like every other row.")
-    if out["modules_week"][1]:
-        failures.append(
-            "the seven-day row is drawn in the alert colour. Only the "
-            "tighter window is urgent; colouring both leaves nothing to "
-            "tell them apart.")
+            f"a copy 90 minutes out reads {out['modules_soon'][0]!r}, not "
+            f"'1 expiring within 2h!'. Rounding down promises an hour "
+            f"that is already spent.")
 
     # A copy landing exactly ON a boundary is inside it.
     out = _readings(_snapshot(expiries=(soon,)), now)
@@ -162,14 +222,48 @@ def run():
             f"a copy expiring exactly 24 hours out reads "
             f"{out['modules_soon'][0]!r}. `within` includes the boundary.")
 
-    # Nothing held is 0 in both rows, and neither is coloured.
+    # Nothing held: the window's own bound stands in for a longest that
+    # does not exist, and both rows are GREEN -- there is nothing to use.
     out = _readings(_snapshot(), now)
-    if (out["modules_soon"] != ("0 expiring within 24h!", False)
-            or out["modules_week"] != ("0 expiring within 7 days", False)):
+    if (out["modules_soon"] != ("0 expiring within 24h!", DONE)
+            or out["modules_week"] != ("0 expiring within 7 days", DONE)):
         failures.append(
             f"with no modules held the two rows read "
             f"{out['modules_soon']!r} and {out['modules_week']!r}, not "
-            f"zero and unalerted.")
+            f"zero against the window's own bound, in green.")
+
+    # --- the shop sub-rows --------------------------------------------
+    import shop_stock
+    product = "town_shop_goods_005"
+    if product not in shop_stock.PRODUCTS:
+        failures.append(
+            f"{product!r} is not in shop_stock.PRODUCTS, so the case "
+            f"below reads nothing. It is one of the two products a "
+            f"captured purchase confirmed.")
+    else:
+        limit = shop_stock.PRODUCTS[product][1]
+        key = "shop:" + product
+        raw = _snapshot()
+        raw["shop_list"] = {product: {"count": 0, "total_count": 5}}
+        got = _readings(raw, now)[key]
+        if got != (f"{limit}/{limit}", TODO):
+            failures.append(
+                f"a shop row with nothing bought reads {got!r}, not "
+                f"({limit}/{limit} in red). `count` is the purchases "
+                f"MADE, so the stock left is the limit less it.")
+        raw["shop_list"] = {product: {"count": limit, "total_count": 5}}
+        got = _readings(raw, now)[key]
+        if got != (f"0/{limit}", DONE):
+            failures.append(
+                f"a shop row bought out reads {got!r}, not 0 in green.")
+        # No shop_list at all: a dash, never a zero. An unread field and
+        # a bought-out shop are different answers.
+        got = _readings(_snapshot(), now)[key]
+        if got != (f"{NO_DATA}/{limit}", UNKNOWN):
+            failures.append(
+                f"with no shop_list the row reads {got!r}, not a dash. A "
+                f"snapshot that never carried the field and a shop with "
+                f"nothing left are different answers.")
 
     # --- the ids the rows read ----------------------------------------
     # **Against the NAME, not against the constant.** Every assertion

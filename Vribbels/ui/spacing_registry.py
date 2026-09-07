@@ -3572,6 +3572,26 @@ def _panel_ceiling_to_capital(title, locator):
     return resolve
 
 
+def _panel_left_to_ink(title, locator):
+    """Resolver: a panel's LEFT border -> a named widget's leftmost ink.
+
+    The horizontal companion to `_panel_ceiling_to_capital`, and here
+    for the same reason: `_left_inset` reads the panel's FIRST child,
+    which is right for the panel as a whole and says nothing about a
+    later row that insets itself differently.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, title)
+        edges, saturated = _border_inner_edges(cap, frame)
+        note = ("border scan hit its cap; interior may be filled"
+                if saturated else "")
+        extent = sa.painted_extent_h(cap, sa.box_of(locator(app)))
+        if extent is None:
+            return None, "that widget painted nothing"
+        return sa.gap_between(edges["left"], extent[0]), note
+    return resolve
+
+
 # How an ICON's edge is read, for every gap that ends at one.
 #
 #   "box"  the transparent border each icon carries counts as part of
@@ -4111,7 +4131,7 @@ AWAITING_FIRST_READING = {
     # nothing at all. The correction moved onto the labels; neither
     # number has been read since.
     "Update Status: top edge -> content",
-    "Update Status: bottom edge -> content",
+    "Update Status: left edge -> verdict",
     "Settings: bottom edge -> content",
 }
 
@@ -4594,6 +4614,22 @@ def register_all():
                                           _by_text("Latest version:")),
         axis="v",
         provisional="Update Status: top edge -> content"
+        in AWAITING_FIRST_READING,
+    )
+
+    # The verdict line's left inset. Not covered by the panel's own
+    # `left edge -> content`, which reads the row above it: this is a
+    # `tk.Label` where those are `ttk.Label`s, and it insets its own
+    # text by a pixel they do not.
+    sa.track(
+        name="Update Status: left edge -> verdict",
+        tab="Setup & Settings",
+        rule=RULE_BORDER_EDGE_CONTENT,
+        target=4,
+        resolve=_panel_left_to_ink("Update Status",
+                                   _update_status("verdict")),
+        axis="h",
+        provisional="Update Status: left edge -> verdict"
         in AWAITING_FIRST_READING,
     )
 

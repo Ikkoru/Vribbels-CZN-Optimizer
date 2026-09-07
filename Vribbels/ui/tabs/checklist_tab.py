@@ -21,6 +21,7 @@ the geometry managers over every widget on the page, and forty labels
 is forty of them.
 """
 
+import math
 import time
 import tkinter as tk
 from tkinter import ttk
@@ -29,6 +30,7 @@ from tkinter import font as tkfont
 import excursions
 import item_amounts
 import period_items
+import shop_stock
 
 from ..base_tab import BaseTab
 from ..utils.scrolled_text import make_scrolled_text
@@ -50,9 +52,42 @@ from ui.scaling import px
 # three headings because it resets three ways -- a daily set of
 # missions, a weekly set, and the pass itself -- and they are three
 # different things to check rather than one row repeated.
+# What a shop sub-row's key is built from: the prefix, then the product
+# id. The id has to be recoverable from the key, since that is what
+# `_readings` looks the product up by.
+SHOP_KEY_PREFIX = "shop:"
+
+# How far a shop's products are indented under the shop's own row.
+SHOP_INDENT = 27        # spacing: unique -- a shop's products under the shop -- run, run ↔
+
+# What a value says about the row it sits on. GREEN is nothing left to
+# do, RED is something left, and a row whose source a snapshot cannot
+# answer for is neither.
+DONE, TODO, UNKNOWN = "done", "todo", None
+
+
+def _shop_products(prefix, period):
+    """The sub-rows for one shop's products in one period.
+
+    `(key, indented label, widest)` per product, indentation and all.
+    Read from `shop_stock.PRODUCTS` rather than listed here: that table
+    is where an identification lands, and a product gaining a name or a
+    period should not also need a row typed out.
+
+    **This is INCOMPLETE by design.** Only products that table names
+    appear; the rest are in `docs/wire_hunt.tsv` waiting to be
+    identified, so a shop's row set grows as they are.
+    """
+    return tuple(
+        (SHOP_KEY_PREFIX + product_id, name, "%d/%d" % (limit, limit))
+        for product_id, (name, limit, its_period)
+        in sorted(shop_stock.PRODUCTS.items())
+        if its_period == period and product_id.rsplit("_", 1)[0] == prefix)
+
+
 COLUMNS = (
     ("Daily", (
-        ("coffee", "Coffee", None),
+        ("coffee", "Coffee", "Go drink!"),
         ("activity", "Activity (Dailies)", "100/100"),
         ("supply_daily", "Arkhianon Supply", None),
         ("excursions", "Excursions", "5/5"),
@@ -61,6 +96,7 @@ COLUMNS = (
     )),
     ("Weekly", (
         ("nono_weekly", "Nono's Shop", None),
+    ) + _shop_products("town_shop_goods", "weekly") + (
         ("archive_weekly", "$hop - Memory Archive - Traveler", None),
         ("supply_weekly", "Arkhianon Supply", None),
         ("simulation", "Simulation Challenges", None),
@@ -70,14 +106,11 @@ COLUMNS = (
         ("sortie_currency", "Sortie Currency", "99/9"),
         ("seasonal_event", "Seasonal Event(s)", None),
         ("seasonal_shop", "Seasonal Shop", None),
-        # The Great Rift standings are this row's source:
-        # `disaster_boss_rank_entities`, the only carrier of the weekly
-        # score. Nothing reads it yet -- see `game_data/constants.py`,
-        # which records that the addon does not keep it.
-        ("seasonal_score", "Seasonal Accumulated Score", None),
+        ("seasonal_score", "Seasonal Accumulated Score", "300000/300000"),
     )),
     ("Monthly", (
         ("nono_monthly", "Nono's Shop", None),
+    ) + _shop_products("town_shop_goods", "monthly") + (
         ("archive_monthly", "$hop - Memory Archive - Traveler", None),
         ("zeronium", "$hop - Zeronium Shop", None),
         ("blackhorn", "$hop - Blackhorn Trade", None),
@@ -114,10 +147,32 @@ SORTIE_CAP = 9
 # windows they count it in. ROLLING, from the moment the tab is drawn
 # -- not to the game's next reset. A copy expires on the stamp it
 # carries, fourteen days after it was acquired, and no reset moves it.
+#
+# `(span in seconds, row key, words, unit, what the words divide by)`.
+# The words take (how many, how long the last of them has, the unit),
+# so a row reads `2 expiring within 6h!` where both copies are due
+# today -- the window bounds what is counted, the words say what is
+# actually about to go.
 MODULE_ITEM = 3920026           # Time-Limited Command Delegation Module
-MODULE_WINDOWS = ((24 * 3600, "modules_soon", "%d expiring within 24h!"),
-                  (7 * 24 * 3600, "modules_week",
-                   "%d expiring within 7 days"))
+MODULE_WINDOWS = (
+    (24 * 3600, "modules_soon", "%d expiring within %d%s!", "h", 3600),
+    (7 * 24 * 3600, "modules_week", "%d expiring within %d %s", "days",
+     24 * 3600),
+)
+
+# Today's coffee: a CAPABILITY, so the row inverts it. The two words
+# are the whole of what that row says.
+COFFEE_PATH = ("characters", "town_data", "day_changeable_data",
+               "is_coffee_possible")
+COFFEE_TODO = "Go drink!"
+COFFEE_DONE = "Tasty~"
+
+# The Great Rift's weekly score. The standings nest season -> rank
+# slot -> record, and the threshold that pays out rides in the same
+# record -- `GREAT_RIFT_TARGET` is only what stands in when it does not.
+GREAT_RIFT_FIELD = "disaster_boss_rank_entities"
+GREAT_RIFT_TARGET = 300000
+
 
 # What a value reads before any snapshot has reached the tab. NOT `0`,
 # which is what an untouched day reads: nothing claimed and nothing
@@ -180,6 +235,24 @@ class ChecklistTab(BaseTab):
         # blank before the first capture.
         self.refresh_checklist()
 
+        # And again whenever the tab is shown. Both load paths already
+        # call the refresh, so this catches only the case where one of
+        # them did not run -- and the cost of a redraw nobody needed is
+        # four small Texts rewritten while the user is looking at them.
+        notebook = getattr(self.context, "notebook", None)
+        if notebook is not None:
+            notebook.bind("<<NotebookTabChanged>>",
+                          self._on_tab_changed, add="+")
+
+    def _on_tab_changed(self, _event=None):
+        """Redraw when this tab becomes the visible one."""
+        try:
+            current = self.notebook.nametowidget(self.notebook.select())
+        except (tk.TclError, KeyError):
+            return
+        if current is self.frame:
+            self.refresh_checklist()
+
     # ------------------------------------------------------------ build
 
     def setup_ui(self):
@@ -231,7 +304,12 @@ class ChecklistTab(BaseTab):
         # row in this column can show. RESERVED rather than fitted: a
         # column that sized to its content would move every row's words
         # the moment a figure gained a digit.
-        labels = max(font.measure(label) for _key, label, _w in rows)
+        #
+        # A shop's products are indented under it, so their labels
+        # reach further right than their words alone say.
+        labels = max(font.measure(label) + (px(SHOP_INDENT)
+                                            if _is_shop(key) else 0)
+                     for key, label, _w in rows)
         stop = labels + TEXT_INSET + LABEL_TO_VALUE
         widest = max([font.measure(w) for _k, _l, w in rows if w] or [0])
         holder = tk.Frame(parent, width=stop + widest,
@@ -257,8 +335,15 @@ class ChecklistTab(BaseTab):
         text.pack(fill=tk.BOTH, expand=True)
         # spacing: label row -> label row -- run, run ↕
         text.tag_configure("row", spacing1=px(ROW_PITCH))
-        # The colour is the whole of what an unfinished reading says.
-        text.tag_configure("alert", foreground=self.colors["red"])
+        # A shop's products, indented under the shop's own row. In
+        # PIXELS, on the line: a run of spaces is whatever the font
+        # makes it, and this is a distance.
+        # spacing: unique -- a shop's products under the shop -- run, run ↔
+        text.tag_configure("indent", lmargin1=px(SHOP_INDENT))
+        # Green is nothing left to do on that row, red is something
+        # left. A row a snapshot cannot answer for takes neither.
+        text.tag_configure(DONE, foreground=self.colors["green"])
+        text.tag_configure(TODO, foreground=self.colors["red"])
         self.column_texts[title] = (text, rows)
 
     def _build_mission_list(self):
@@ -281,8 +366,11 @@ class ChecklistTab(BaseTab):
         Text sizes in LINES and this block is pinned in pixels, so the
         two have to be reconciled somewhere.
         """
-        return (rows * tkfont.Font(font=ROW_FONT).metrics("linespace")
-                + (rows - 1) * px(ROW_PITCH))
+        # `rows` pitches, not `rows - 1`: `spacing1` is drawn above
+        # EVERY line including the first, so a block sized for the gaps
+        # BETWEEN rows is one pitch short and clips its last line.
+        return rows * (tkfont.Font(font=ROW_FONT).metrics("linespace")
+                       + px(ROW_PITCH))
 
     # ----------------------------------------------------------- update
 
@@ -310,11 +398,12 @@ class ChecklistTab(BaseTab):
         text.config(state=tk.NORMAL)
         text.delete("1.0", tk.END)
         for index, (key, label, _widest) in enumerate(rows):
-            value, alert = readings.get(key, (None, False))
-            text.insert(tk.END, (LINE_SEP if index else "") + label, "row")
+            value, state = readings.get(key, (None, UNKNOWN))
+            line = ("row", "indent") if _is_shop(key) else ("row",)
+            text.insert(tk.END, (LINE_SEP if index else "") + label, line)
             if value is not None:
                 text.insert(tk.END, COLUMN_SEP + value,
-                            ("row", "alert") if alert else "row")
+                            line + ((state,) if state else ()))
         text.config(state=tk.DISABLED)
 
     def _fill_missions(self, missions):
@@ -367,15 +456,23 @@ def _readings(raw, now=None):
 
     out = {}
 
-    # The day's ACTIVITY total. The one row whose colour is its whole
-    # message: short of a hundred is a day not finished.
+    # The day's ACTIVITY total.
     point = raw.get(POINT_FIELD)
     day = point.get("day_point") if isinstance(point, dict) else None
     if _is_count(day):
         out["activity"] = ("%d/%d" % (day, ACTIVITY_FULL),
-                           day != ACTIVITY_FULL)
+                           _done(day >= ACTIVITY_FULL))
     else:
-        out["activity"] = ("%s/%d" % (NO_DATA, ACTIVITY_FULL), False)
+        out["activity"] = ("%s/%d" % (NO_DATA, ACTIVITY_FULL), UNKNOWN)
+
+    # Today's coffee. **The field is a CAPABILITY, so the row inverts
+    # it**: `is_coffee_possible` true means one is still going begging.
+    possible = _dig(raw, COFFEE_PATH)
+    if isinstance(possible, bool):
+        out["coffee"] = (COFFEE_TODO if possible else COFFEE_DONE,
+                         _done(not possible))
+    else:
+        out["coffee"] = (NO_DATA, UNKNOWN)
 
     # Communication Passes left today. Not an item and not a currency --
     # `excursions.passes_left` says why that reading is the only one a
@@ -383,21 +480,96 @@ def _readings(raw, now=None):
     left = excursions.passes_left(raw)
     out["excursions"] = (
         "%s/%d" % (NO_DATA if left is None else left, excursions.DAILY_PASSES),
-        False)
+        UNKNOWN if left is None else _done(left == 0))
 
-    out["chaos_currency"] = ("%d" % amounts.get(CHAOS_CURRENCY, 0), False)
-    out["sortie_currency"] = (
-        "%d/%d" % (amounts.get(SORTIE_CURRENCY, 0), SORTIE_CAP), False)
+    # Both weekly currencies are things to SPEND, so a holding is work
+    # left rather than a stock to be pleased about.
+    cards = amounts.get(CHAOS_CURRENCY, 0)
+    out["chaos_currency"] = ("%d" % cards, _done(cards == 0))
+    reason = amounts.get(SORTIE_CURRENCY, 0)
+    out["sortie_currency"] = ("%d/%d" % (reason, SORTIE_CAP),
+                              _done(reason == 0))
+
+    # The Great Rift's weekly score against the threshold that pays.
+    # **Capped in the DISPLAY**, because the figure runs to seven digits
+    # and the row is about whether the threshold is cleared.
+    score, target = _great_rift(raw)
+    if score is None:
+        out["seasonal_score"] = ("%s/%d" % (NO_DATA, target), UNKNOWN)
+    else:
+        out["seasonal_score"] = ("%d/%d" % (min(score, target), target),
+                                 _done(score >= target))
 
     # The modules, by how long each copy has left. **The two windows
     # NEST**: everything inside 24 hours is inside seven days, so the
     # second count includes the first. That is what the two lines say,
     # and it is the opposite of the Materials tab's module buckets,
-    # which partition. Only the tighter one is coloured.
-    for index, (span, key, words) in enumerate(MODULE_WINDOWS):
-        count = _expiring_by(expiries, now + span)
-        out[key] = (words % count, count > 0 and index == 0)
+    # which partition.
+    #
+    # The number in the WORDS is the longest any counted copy has left,
+    # not the window itself -- three copies all due in six hours read
+    # `within 6h!` rather than `within 24h!`. Rounded UP, so a copy is
+    # never promised time it has already spent. With none counted there
+    # is no longest, and the window's own bound stands in.
+    for span, key, words, unit, divisor in MODULE_WINDOWS:
+        inside = [end for end in expiries if end <= now + span]
+        edge = (max(inside) - now) if inside else span
+        out[key] = (words % (len(inside),
+                             max(1, math.ceil(edge / divisor)), unit),
+                    _done(not inside))
+
+    # The shops, one sub-row per product. `-` where the field cannot be
+    # read honestly -- see `shop_stock.remaining`.
+    for key, product_id in _shop_rows():
+        stock, limit = shop_stock.remaining(product_id, raw)
+        if limit is None:
+            out[key] = (NO_DATA, UNKNOWN)
+        elif stock is None:
+            out[key] = ("%s/%d" % (NO_DATA, limit), UNKNOWN)
+        else:
+            out[key] = ("%d/%d" % (stock, limit), _done(stock == 0))
     return out
+
+
+def _great_rift(raw):
+    """(this week's score, the threshold that pays it out).
+
+    The standings nest season -> rank slot -> record, and every season
+    the account has played keeps its row -- so the live one is picked
+    by the LATEST `score_week_id`, not by the biggest score. Past
+    seasons carry higher totals than the current week does, and their
+    thresholds differ too: the older ones ask 500000 where this one
+    asks 300000.
+
+    The threshold rides in the chosen row; `GREAT_RIFT_TARGET` stands
+    in only where it does not.
+    """
+    seasons = raw.get(GREAT_RIFT_FIELD)
+    live = None
+    for slots in (seasons or {}).values() if isinstance(seasons, dict) else ():
+        for row in (slots or {}).values() if isinstance(slots, dict) else ():
+            if not isinstance(row, dict) or not _is_count(
+                    row.get("week_total_score")):
+                continue
+            # Latest week first, then the higher score of that week's
+            # rank slots -- the account holds one row per slot and they
+            # report the same week differently.
+            rank = (row.get("score_week_id") or 0, row["week_total_score"])
+            if live is None or rank > live[0]:
+                live = (rank, row)
+    if live is None:
+        return None, GREAT_RIFT_TARGET
+    row = live[1]
+    target = row.get("week_total_score_reward")
+    return row["week_total_score"], (target if _is_count(target)
+                                     else GREAT_RIFT_TARGET)
+
+
+def _shop_rows():
+    """[(row key, product id)] for every shop sub-row on the tab."""
+    return [(key, key.split(":", 1)[1])
+            for _title, rows in COLUMNS for key, _label, _w in rows
+            if key.startswith(SHOP_KEY_PREFIX)]
 
 
 def _expiring_by(expiries, deadline):
@@ -408,6 +580,25 @@ def _expiring_by(expiries, deadline):
 def _is_count(value):
     """True for a plain int. `bool` is an int and is not a count."""
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_shop(key):
+    """True for a row that is one shop product under its shop."""
+    return key.startswith(SHOP_KEY_PREFIX)
+
+
+def _done(finished):
+    """`DONE` or `TODO`, which is what a value's colour comes from."""
+    return DONE if finished else TODO
+
+
+def _dig(node, path):
+    """The value at a path of dict keys, or None where it is not there."""
+    for key in path:
+        if not isinstance(node, dict):
+            return None
+        node = node.get(key)
+    return node
 
 
 def _family(res_id):

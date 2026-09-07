@@ -134,7 +134,7 @@ SETTINGS_LABEL_GAP = 2  # spacing: label ↔ its element -- label, dropdown ↔
 # negative `padding` hands them back by shrinking the box rather than
 # by moving the text. This is where the correction has to live: the
 # panel's own padding cannot go negative without eating its border.
-SETTINGS_LAST_TRIM = -2  # spacing: border edge -> first non-button element -- panel, label ↕
+SETTINGS_LAST_TRIM = -1  # spacing: border edge -> first non-button element -- panel, label ↕
 SETTINGS_NOTE_GAP = 2   # spacing: explanation text -> the controls it explains -- dropdown, label ↕
 SETTINGS_ROW_GAP = 7    # spacing: config panel row ↕ row -- label, dropdown ↕
 

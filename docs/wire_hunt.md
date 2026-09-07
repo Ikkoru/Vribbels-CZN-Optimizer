@@ -36,8 +36,12 @@ Everything else is a suspect. A field whose value happens to equal a small numbe
 
 Product ids seen so far: `town_shop_goods_*` is Nono's Shop, `gacha_duplicate_legend_*` the Memory Archive Traveler exchange, `chaos_*` / `disaster_s0*_*` / `hyperspace_*` / `assault_shop_product_*` / `season_pass_*` the rest.
 
+## What the shop rows show meanwhile
+
+The Checklist draws `<left to buy>/<per-period max>` from `shop_stock.PRODUCTS`, a HAND-WRITTEN table, and `-` for any product not in it. Only `town_shop_goods_005` and `_006` are backed by a captured purchase; the rest were matched by the stock figure read off the game against the row's `count`, which is suggestive and not proof. **A product with no row in that table gets no row on the tab**, so what is missing is visible rather than silently dropped.
+
 ## What is still missing entirely
 
-**The Great Rift weekly score reaches the wire and the addon does not keep it.** `disaster_boss_rank_entities` is cached, so the score IS in the snapshot; nothing reads it yet. See `game_data/constants.py`.
+**Nothing carries a shop product's NAME.** `shop_res_data` names products and prices; the mapping from product id to the item it sells has only been made where a purchase was captured.
 
 **Nothing carries a shop's PERIOD.** `shop_res_data` names products and prices; which of them reset weekly and which monthly has not been found, and the Checklist's Monthly column needs it.

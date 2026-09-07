@@ -71,7 +71,7 @@ PANEL_PAD = (1, 0, 1, 1)    # spacing: border edge -> first non-button element -
 # `padding` hands them back by shrinking the box rather than by moving
 # the text. Both of the row's labels carry it: the row is as tall as
 # the taller of them, so trimming one alone changes nothing.
-ROW_TOP_TRIM = -2    # spacing: border edge -> first non-button element -- panel, label ↕
+ROW_TOP_TRIM = -1    # spacing: border edge -> first non-button element -- panel, label ↕
 
 # The Check Now button against the panel's LEFT and BOTTOM edges.
 # A different rule from the labels' -- 3 rather than 4 -- and a
@@ -211,8 +211,14 @@ class UpdateStatus:
 
         # `tk.Label`, not ttk: the verdict is coloured per state and a
         # ttk style would need one style per colour.
+        #
+        # **`padx=0` is a LEVER, not tidiness.** A `tk.Label` insets its
+        # own text by one pixel where a `ttk.Label` does not, so this row
+        # sits a pixel right of the two above it on the same panel pad.
+        # spacing: border edge -> first non-button element -- panel, label ↔
         self.verdict = tk.Label(self.panel, text="", bg=colors["bg"],
-                                fg=colors["fg_dim"], font=("Segoe UI", 9))
+                                fg=colors["fg_dim"], font=("Segoe UI", 9),
+                                padx=px(0))
         # spacing: config panel row ↕ row -- label, label ↕
         self.verdict.pack(anchor=tk.W, pady=px((PITCH_VERDICT, 0)))
 
