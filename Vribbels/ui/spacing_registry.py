@@ -646,27 +646,43 @@ PANEL_EDGES = [
     ("Capture", "Upgrade Log Settings", "right"),
     ("Gear Score", "Stat Weight Configuration", "top"),
     # The three Setup & Settings panels whose internals came into scope
-    # with the tab's restructure. The generic loop already reads each
-    # one's LEFT edge; these are the other three.
+    # with the tab's restructure.
     #
     # `Settings`' TOP stops at the UI scale DROPDOWN rather than at the
     # label beside it -- a combobox is the taller of the pair, and every
     # edge rule runs to whatever comes nearest the border.
+    #
+    # **Neither Update Status' nor Settings' RIGHT edge is here.** Both
+    # panels pack `fill=X` into a column that expands, and their
+    # children are anchored west -- so what is on the right of them is
+    # the window's leftover width, not a distance. `Links` does have
+    # one: its buttons fill the panel, and its column is pinned.
     ("Setup & Settings", "Update Status", "top"),
-    ("Setup & Settings", "Update Status", "right"),
     ("Setup & Settings", "Update Status", "bottom"),
     ("Setup & Settings", "Settings", "top"),
-    ("Setup & Settings", "Settings", "right"),
     ("Setup & Settings", "Settings", "bottom"),
     ("Setup & Settings", "Links", "top"),
     ("Setup & Settings", "Links", "right"),
     ("Setup & Settings", "Links", "bottom"),
 ]
 
-# Hand readings for PANEL_EDGES rows that have not been nudged yet.
-# Keyed by (panel, side) rather than carried in the table, because every
-# other row in it has been on target for long enough to have none.
-PANEL_EDGE_HANDS = {}
+# PANEL_EDGES rows whose edge answers to a different rule, as
+# (rule, target). The generic loop's own pair is the content rule at 4.
+PANEL_EDGE_RULES = {
+    # The lowest thing in Update Status is the Check Now button, so the
+    # BUTTON rule applies rather than the one for text.
+    ("Update Status", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
+}
+
+# Hand readings for PANEL_EDGES rows the resolver and the eye disagree
+# on. Keyed by (panel, side) rather than carried in the table, because
+# every other row in it reads the same both ways.
+PANEL_EDGE_HANDS = {
+    # The resolver reads 0 here and the eye reads 5, on a panel whose
+    # other edges it reads correctly. Until that is explained the
+    # number to act on is the hand one, and the entry stays provisional.
+    ("Update Status", "top"): 5,
+}
 
 
 def _panel_gap(first, second, axis):
@@ -2128,10 +2144,10 @@ EXPLANATION_ENTRIES = [
     # explains. Measured to the DROPDOWN rather than to the label
     # beside it: a combobox paints lower than a label on the same row,
     # so it is what the gap actually starts from.
-    ("Setup & Settings", "UI scale dropdown -> its note", 7, None, "rule",
+    ("Setup & Settings", "Settings: UI scale dropdown -> its note", 7, None, "rule",
      _controls_over_label("Settings", "Applies on the next launch",
                           *COMBOBOX_CLASSES)),
-    ("Setup & Settings", "cores dropdown -> its warning", 7, None, "rule",
+    ("Setup & Settings", "Settings: cores dropdown -> its warning", 7, None, "rule",
      _controls_over_label("Settings", "Leave this on Auto",
                           *COMBOBOX_CLASSES)),
 ]
@@ -4067,27 +4083,13 @@ AWAITING_FIRST_READING = {
     "Checklist: row -> row",
     "Checklist: window edge -> first column",
     "Checklist: last column -> window edge",
-    # The Setup & Settings internals that came into scope with the tab's
-    # restructure. Three of them were nudged off a hand reading this
-    # turn -- Update Status' rows sat at 16, 17 and 12, and Settings'
-    # top and bottom at 3 and 5 -- and the levers behind them were set
-    # from that arithmetic rather than from a run. The rest have never
-    # been read at all.
-    "Update Status: version row -> checked row",
-    "Update Status: checked row -> verdict",
-    "Update Status: verdict -> Check Now",
+    # The resolver reads 0 and the eye reads 5, with no explanation for
+    # the difference. `PANEL_EDGE_HANDS` carries the eye's number.
     "Update Status: top edge -> content",
-    "Update Status: right edge -> content",
-    "Update Status: bottom edge -> content",
-    "Settings: scale note -> cores row",
-    "Settings: top edge -> content",
-    "Settings: right edge -> content",
+    # The panel's bottom pad cannot reach the rule from either side: at
+    # -1 the gap reads 5, and the -2 that would close it clips the
+    # warning text. Held at -1 until the panel is measured again.
     "Settings: bottom edge -> content",
-    "UI scale dropdown -> its note",
-    "cores dropdown -> its warning",
-    "Links: top edge -> content",
-    "Links: right edge -> content",
-    "Links: bottom edge -> content",
 }
 
 
@@ -4209,11 +4211,13 @@ def register_all():
 
     for tab, title, side in PANEL_EDGES:
         _name = f"{title}: {side} edge -> content"
+        _rule, _target = PANEL_EDGE_RULES.get(
+            (title, side), (RULE_BORDER_EDGE_CONTENT, 4))
         sa.track(
             name=_name,
             tab=tab,
-            rule=RULE_BORDER_EDGE_CONTENT,
-            target=4,
+            rule=_rule,
+            target=_target,
             resolve=_panel_edge_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
             hand=PANEL_EDGE_HANDS.get((title, side)),
@@ -4552,7 +4556,6 @@ def register_all():
                 _by_text(_label),
                 lambda app, w=_label: _next_sibling(_by_text(w)(app))),
             axis="h",
-            provisional=True,
         )
 
     # Update Status' three rows. One rule, and three separate levers in

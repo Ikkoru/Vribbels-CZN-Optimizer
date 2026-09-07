@@ -8,11 +8,20 @@ Run after a capture that claimed something:
 `pass_mission_008_01` -- and its leading words say which SET it belongs
 to. The dump groups by that, so a set reads as a block.
 
+**A pass mission's id carries the SEASON, and the season increments.**
+`pass_mission_008_01` becomes `pass_mission_009_01` when season 9
+opens, and keying the file on the raw id would strand every hand-typed
+name on a row nothing writes to again. Rows are keyed on `key`
+instead -- the id with its season replaced by `*` -- so one row per
+mission survives every season, and `res_id` says which season last
+filled it.
+
 The columns this script owns:
 
 | column          | wire field      | what it says                        |
 | --------------- | --------------- | ----------------------------------- |
-| `res_id`        | `res_id`        | the mission                         |
+| `key`           | -               | the id with its season as `*`       |
+| `res_id`        | `res_id`        | the mission, as last seen           |
 | `family`        | -               | the id's leading words              |
 | `score`         | `score`         | progress; its scale is per mission  |
 | `complete_time` | `complete_time` | **when it was finished**, or blank  |
@@ -51,8 +60,11 @@ OUT = Path(__file__).resolve().parent
 # The key both sources carry them under, and the columns this script
 # owns.
 FIELD = "mission_entities"
-OWNED = ("res_id", "family", "score", "complete_time", "issued_time",
+OWNED = ("key", "res_id", "family", "score", "complete_time", "issued_time",
          "week_id", "pass_id")
+
+# What replaces a season number in a `key`.
+SEASON = "*"
 
 # Written into a file that does not exist yet, and never again -- the
 # hand-added columns are read back off the header from then on. They
@@ -76,10 +88,28 @@ def family_of(res_id):
     return "_".join(parts) or res_id
 
 
+def key_of(res_id, pass_id):
+    """The id with its season generalised: `pass_mission_*_01`.
+
+    The season is not guessed from the id's shape. It is the number the
+    row's own `pass_id` carries -- `season_pass_008` -> `008` -- and
+    only a segment equal to that is replaced, so a mission whose number
+    happens to match its chapter is left alone. A row with no pass keeps
+    its id.
+    """
+    season = str(pass_id or "").rsplit("_", 1)[-1]
+    if not season.isdigit():
+        return res_id
+    return "_".join(SEASON if part == season else part
+                    for part in res_id.split("_"))
+
+
 def _row_values(row):
-    """One mission's owned cells, in `OWNED` order after the id."""
+    """One mission's owned cells, in `OWNED` order after the key."""
+    res_id = str(row.get("res_id", ""))
     return (
-        family_of(str(row.get("res_id", ""))),
+        res_id,
+        family_of(res_id),
         row.get("score", ""),
         row.get("complete_time", ""),
         row.get("issued_time", ""),
@@ -98,12 +128,13 @@ def _collect(payload, into):
     the login burst's bare score for the same mission.
     """
     if isinstance(payload, dict):
-        for key, value in payload.items():
-            if key == FIELD:
+        for field, value in payload.items():
+            if field == FIELD:
                 rows = value.values() if isinstance(value, dict) else value
                 for row in rows or ():
                     if isinstance(row, dict) and row.get("res_id"):
-                        into[str(row["res_id"])] = _row_values(row)
+                        into[key_of(str(row["res_id"]),
+                                    row.get("pass_id"))] = _row_values(row)
             else:
                 _collect(value, into)
     elif isinstance(payload, list):
@@ -146,7 +177,7 @@ def from_debug_logs():
 
 
 def read_existing(path):
-    """(user column names, {res_id: their values}) from a file on disk."""
+    """(user column names, {key: their values}) from a file on disk."""
     if not path.exists():
         return [], {}
     lines = path.read_text(encoding="utf-8").splitlines()
@@ -187,11 +218,11 @@ def main():
     extra, kept = read_existing(path)
     if not path.exists():
         extra = list(SEED)
-    # By set, then by id inside it, so a set reads as a block rather
+    # By set, then by key inside it, so a set reads as a block rather
     # than being scattered by one alphabetical order over everything.
     order = sorted(set(rows) | set(kept),
-                   key=lambda res_id: (rows.get(res_id, (family_of(res_id),))[0],
-                                       res_id))
+                   key=lambda k: (rows[k][1] if k in rows else family_of(k),
+                                  k))
     # A mission this capture did not carry keeps its row and its
     # hand-typed cells; the columns this script owns go blank for it,
     # because a stale `complete_time` reads exactly like a current one.
@@ -208,12 +239,12 @@ def main():
             handle.write("\t".join(str(cell) for cell in
                                    [res_id, *values, *tail]) + "\n")
 
-    families = sorted({rows[res_id][0] for res_id in rows})
+    families = sorted({row[1] for row in rows.values()})
     print(f"from {source}")
     print(f"{path.name}: {len(order)} rows, {len(extra)} hand-added columns"
           + (f", {len(gone)} not in this capture" if gone else ""))
     print("  sets: " + ", ".join(
-        f"{family} x{sum(1 for r in rows.values() if r[0] == family)}"
+        f"{family} x{sum(1 for r in rows.values() if r[1] == family)}"
         for family in families))
 
 

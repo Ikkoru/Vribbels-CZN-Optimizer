@@ -131,7 +131,12 @@ INSTRUCTIONS_CHROME = 23
 # same reason. **The TOP is measured to the DROPDOWN, not to the label
 # beside it**: a combobox is the taller of the pair and the rules run
 # to whatever comes nearest the edge.
-SETTINGS_PAD = (1, 4, 1, -2)  # spacing: border edge -> first non-button element -- panel, dropdown ↔↕
+#
+# **The BOTTOM cannot reach the rule.** At -1 it renders 5; -2 renders
+# 4 by CLIPPING the warning text's last line rather than by moving it,
+# so -1 is where it stays. A ttk padding stops being a distance once it
+# is short enough to cut the content.
+SETTINGS_PAD = (1, 4, 1, -1)  # spacing: border edge -> first non-button element -- panel, dropdown ↔↕
 SETTINGS_LABEL_GAP = 2  # spacing: label ↔ its element -- label, dropdown ↔
 SETTINGS_NOTE_GAP = 2   # spacing: explanation text -> the controls it explains -- dropdown, label ↕
 SETTINGS_ROW_GAP = 7    # spacing: config panel row ↕ row -- label, dropdown ↕
