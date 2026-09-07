@@ -160,6 +160,14 @@ class Addon:
         # Per-stage run limits, keyed by stage id.
         self.stage_limits = {}
 
+        # Every pass the account has played, and the shops' own product
+        # DEFINITIONS -- what each sells, its cap, its period, its
+        # price and the shop's display order. Sent once at login, and
+        # the only thing that says what a product's per-period maximum
+        # is: a `shop_list` row carries the tally and nothing else.
+        self.season_passes = None
+        self.shop_definitions = None
+
         self.saved_path = None
 
         # Set by anything that changes the cached data, cleared by
@@ -672,9 +680,29 @@ class Addon:
         if isinstance(data.get("season_pass_entity"), dict):
             self.season_pass = data["season_pass_entity"]
             self._save_pending = True
+        # At login it is a LIST of every pass the account has played,
+        # the live one among them. Kept whole: which is live is a
+        # reading, and the caller makes it.
+        if isinstance(data.get("season_pass_entities"), list):
+            self.season_passes = data["season_pass_entities"]
+            self._save_pending = True
         if isinstance(data.get("mission_entities"), list):
             self._merge_missions(data["mission_entities"])
             self._save_pending = True
+        # **At LOGIN the pass missions arrive somewhere else entirely**,
+        # nested as `season_pass_missions[<pass id>][<mission id>]`
+        # rather than in the flat `mission_entities` list -- which is
+        # why a snapshot held the 30 `content_*` achievements and none
+        # of the twenty-odd pass rows.
+        pass_missions = data.get("season_pass_missions")
+        if isinstance(pass_missions, dict):
+            for group in pass_missions.values():
+                if isinstance(group, dict):
+                    self._merge_missions(
+                        [row for row in group.values()
+                         if isinstance(row, dict)])
+            self._save_pending = True
+
         # And ONE row, singular, when a mission's reward is claimed --
         # which is the frame that sets its `complete_time`. Without
         # this the cache keeps the row as it was before the claim, so
@@ -727,6 +755,10 @@ class Addon:
         # began -- a shop row's own `count` is stale until the first
         # purchase of the period, so the boundary is what tells one
         # from the other.
+        if isinstance(data.get("shop_res_data"), dict):
+            self.shop_definitions = data["shop_res_data"]
+            self._save_pending = True
+
         if isinstance(data.get("month_start"), int):
             self.month_start = data["month_start"]
             self._save_pending = True
@@ -1010,6 +1042,8 @@ class Addon:
             "month_start": self.month_start,
             "month_end": self.month_end,
             "stage_limit_entities": self.stage_limits or None,
+            "season_pass_entities": self.season_passes,
+            "shop_res_data": self.shop_definitions,
             "detected_region": self._detect_region(),
         }
 

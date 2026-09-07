@@ -491,6 +491,7 @@ RECORDED_NAMES = {
     2000016: "Rescue Anchor",
     2000018: "Research Notes",
     2000020: "Zeronium",
+    2000022: "Special Security Code",
     2000023: "Prism Lens",
     2000024: "Prism Film",
     2000031: "Policy Point",
@@ -501,6 +502,8 @@ RECORDED_NAMES = {
     3200002: "Core of Memory",
     3210001: "Traces of Memory",
     3210002: "Multidimensional Alignment Material",
+    3300001: "Sweet Choconilla",
+    3300002: "Exquisite Slice of Cake",
     3300006: "Locket Necklace of Memories",
     3300007: "Excellent Merit Badge",
     3300008: "Lucky Sachet",
@@ -517,9 +520,11 @@ RECORDED_NAMES = {
     3920014: "Core of Annihilation",
     3920015: "Colorless Core",
     3920022: "Abyssal Core",
-    3920031: "Seasonal Event Currency (name may be variable)",
+    3920031: "Seasonal Event Currency",
     3930004: "Core of Mutation",
+    5210001: "Prism Module - Masterpiece",
 }
+
 
 RECORDED_ONLY = frozenset(RECORDED_NAMES)
 

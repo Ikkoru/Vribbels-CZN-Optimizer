@@ -1,0 +1,42 @@
+shop location	shop	shop subtype	res_id	name	cost	limit	limit type	note	product_id	gives
+Ark	Nono's Shop		3210002	Multidimensional Alignment Material	1000	1	Monthly	Nono's Shop currency = Policy Points	town_shop_goods_001	Multidimensional Alignment Material x1
+Ark	Nono's Shop		2000022	Special Security Code	20	1	Weekly		town_shop_goods_002	? x1
+Ark	Nono's Shop		2000018	Research Notes	10	35	Weekly		town_shop_goods_003	Research Notes x1
+Ark	Nono's Shop		3310007	Special Grade Policy Report	40	1	Weekly		town_shop_goods_004	Special Grade Policy Report x1
+Ark	Nono's Shop		3310006	A-Grade Policy Report	30	1	Weekly		town_shop_goods_005	A-Grade Policy Report x1
+Ark	Nono's Shop		3310005	B-Grade Policy Report	20	2	Weekly		town_shop_goods_006	B-Grade Policy Report x1
+Ark	Nono's Shop		3210001	Traces of Memory	20	20	Weekly		town_shop_goods_014	Traces of Memory x10
+Ark	Nono's Shop		3200002	Core of Memory	20	20	Weekly		town_shop_goods_013	Core of Memory x1
+Ark	Nono's Shop		3100002	Advanced Battle Memory	10	20	Weekly		town_shop_goods_011	? x5
+Ark	Nono's Shop		3100022	Advanced Support Data	10	20	Weekly		town_shop_goods_012	? x5
+Ark	Nono's Shop		3300002	Exquisite Slice of Cake	40	3	Weekly		town_shop_goods_007	? x1
+Ark	Nono's Shop		3300001	Sweet Choconilla	25	3	Weekly		town_shop_goods_008	? x1
+Ark	Nono's Shop		2000001	Unit	5	40	Weekly		town_shop_goods_009	Units x4000
+Ark	Nono's Shop		2000001	Unit	20	-	-	- means limitless	town_shop_goods_010	Units x4000
+Shop	Memory Archive	Traveler	2000010	Signal Amplification Anchor	150	5	Monthly	Traveler currency = Moment of the Radiant Traveler	gacha_duplicate_legend_1	Signal Amplification Anchor x1
+Shop	Memory Archive	Traveler	2000016	Rescue Anchor	150	5	Monthly		gacha_duplicate_legend_2	Rescue Anchor x1
+Shop	Memory Archive	Traveler	3920022	Abyssal Core	40	10	Monthly		gacha_duplicate_legend_15	Abyssal Core x1
+Shop	Memory Archive	Traveler	3920015	Colorless Core	25	10	Monthly		gacha_duplicate_legend_16	Colorless Core x1
+Shop	Memory Archive	Traveler	3120002	Great Growth Stone of Passion	12	100	Monthly		gacha_duplicate_legend_3	Passion x1
+Shop	Memory Archive	Traveler	3120032	Great Growth Stone of Order	12	100	Monthly		gacha_duplicate_legend_4	Order x1
+Shop	Memory Archive	Traveler	3120012	Great Growth Stone of Instinct	12	100	Monthly		gacha_duplicate_legend_5	Instinct x1
+Shop	Memory Archive	Traveler	3120022	Great Growth Stone of Void	12	100	Monthly		gacha_duplicate_legend_6	Void x1
+Shop	Memory Archive	Traveler	3120052	Great Growth Stone of Justice	12	100	Monthly		gacha_duplicate_legend_7	Justice x1
+Shop	Memory Archive	Traveler	3100002	Advanced Battle Memory	6	80	Monthly		gacha_duplicate_legend_8	? x2
+Shop	Memory Archive	Traveler	3100022	Advanced Support Data	5	80	Monthly		gacha_duplicate_legend_9	? x2
+Shop	Memory Archive	Traveler	3300002	Exquisite Slice of Cake	40	3	Weekly		gacha_duplicate_legend_13	? x1
+Shop	Memory Archive	Traveler	3300001	Sweet Choconilla	20	10	Weekly		gacha_duplicate_legend_14	? x1
+Shop	Memory Archive	Traveler	3200001	Particles of Memory	5	80	Monthly		gacha_duplicate_legend_10	Particles of Memory x1
+Shop	Memory Archive	Traveler	2000001	Unit	30	40	Monthly		gacha_duplicate_legend_11	Units x15000
+Shop	Memory Archive	Traveler	2000001	Unit	60	-	-		gacha_duplicate_legend_12	Units x15000
+Shop	Zeronium Shop		3000003	Undetermined Ego Crystal	100	1	Monthly	Zeronium Shop currency = Zeronium	hyperspace_1	Undetermined Ego Crystal x1
+Shop	Zeronium Shop		2000023	Prism Lens	30	5	Monthly		hyperspace_2	Prism Lens x1
+Shop	Zeronium Shop		3210002	Multidimensional Alignment Material	100	1	Monthly		hyperspace_3	Multidimensional Alignment Material x1
+Shop	Zeronium Shop		3100002	Advanced Battle Memory	20	10	Monthly		hyperspace_10	? x2
+Shop	Zeronium Shop		3100022	Advanced Support Data	20	10	Monthly		hyperspace_11	? x2
+Shop	Zeronium Shop		2000001	Unit	20	-	-		hyperspace_12	Units x8000
+Shop	Blackhorn Trade		2000016	Rescue Anchor	600	5	Monthly	Blackhorn Trade currency = Crystal of Discord	chaos_01	Rescue Anchor x1
+Shop	Exchange Shop	Prism Module	2000023	Prism Lens	10	20	Monthly	Prism Module currency = Prism Film	card_factor_1	Prism Lens x1
+Shop	Exchange Shop	Prism Module	5210001	Prism Module - Masterpiece	600	1	Monthly		card_factor_3	? x1
+Seasonal Event	Supply Store	1st Supply		Tear of God	-	1	Weekly	Free		
+Sortie	Chaos Analysis Lab		todo					Chaos Analysis Lab currency = Black Mass		

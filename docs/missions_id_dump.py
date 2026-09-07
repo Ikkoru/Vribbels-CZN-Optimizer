@@ -28,6 +28,7 @@ The columns this script owns:
 | `issued_time`   | `issued_time`   | when the game handed it out         |
 | `week_id`       | `week_id`       | which week it belongs to            |
 | `pass_id`       | `pass_id`       | the season pass, where it is one    |
+| `seen`          | -               | the capture the row above came from |
 
 `complete_time` is the useful one: a row carrying it is done. A row
 that never carries it is either untouched or of a kind that does not
@@ -39,6 +40,12 @@ the right of them is read back and written out again untouched, in the
 same order, so a mission named by hand survives the next run. It
 refuses to write at all if the header has moved under it, because every
 hand-typed cell would shift by the difference.
+
+**A row the current capture does not carry KEEPS what it had**, with
+`seen` saying which capture that came from. The file is an accumulating
+record: one capture holds the login burst's rows and another holds a
+claim's, so blanking what is missing throws away readings the next run
+may not get back.
 
 **Two sources, and the newest snapshot is usually not one of them.**
 `mission_entities` reaches the wire only on a claim, and the addon's
@@ -61,7 +68,7 @@ OUT = Path(__file__).resolve().parent
 # owns.
 FIELD = "mission_entities"
 OWNED = ("key", "res_id", "family", "score", "complete_time", "issued_time",
-         "week_id", "pass_id")
+         "week_id", "pass_id", "seen")
 
 # What replaces a season number in a `key`.
 SEASON = "*"
@@ -177,12 +184,16 @@ def from_debug_logs():
 
 
 def read_existing(path):
-    """(user column names, {key: their values}) from a file on disk."""
+    """(user columns, {key: their cells}, {key: its owned cells}).
+
+    The third is what lets a row the current capture does not carry keep
+    what the last one gave it.
+    """
     if not path.exists():
-        return [], {}
+        return [], {}, {}
     lines = path.read_text(encoding="utf-8").splitlines()
     if not lines:
-        return [], {}
+        return [], {}, {}
     header = lines[0].split("\t")
     if header[:len(OWNED)] != list(OWNED):
         raise SystemExit(
@@ -191,7 +202,7 @@ def read_existing(path):
             f"into a neighbouring column. Reconcile the header first."
         )
     extra = header[len(OWNED):]
-    kept = {}
+    kept, before = {}, {}
     for line in lines[1:]:
         if not line.strip():
             continue
@@ -200,7 +211,9 @@ def read_existing(path):
             continue
         tail = cells[len(OWNED):]
         kept[cells[0]] = tail + [""] * (len(extra) - len(tail))
-    return extra, kept
+        owned = cells[1:len(OWNED)]
+        before[cells[0]] = owned + [""] * (len(OWNED) - 1 - len(owned))
+    return extra, kept, before
 
 
 def main():
@@ -215,7 +228,7 @@ def main():
         )
 
     path = OUT / "missions_id.tsv"
-    extra, kept = read_existing(path)
+    extra, kept, before = read_existing(path)
     if not path.exists():
         extra = list(SEED)
     # By set, then by key inside it, so a set reads as a block rather
@@ -223,26 +236,30 @@ def main():
     order = sorted(set(rows) | set(kept),
                    key=lambda k: (rows[k][1] if k in rows else family_of(k),
                                   k))
-    # A mission this capture did not carry keeps its row and its
-    # hand-typed cells; the columns this script owns go blank for it,
-    # because a stale `complete_time` reads exactly like a current one.
+    # **A mission this capture did not carry KEEPS what it had**, and
+    # `seen` says which capture that was. The file accumulates: one
+    # capture holds the login burst's rows and another holds a claim's,
+    # so blanking what is absent throws away a reading nothing else
+    # will supply.
     blank = [""] * (len(OWNED) - 1)
     gone = []
     with path.open("w", encoding="utf-8", newline="\n") as handle:
         handle.write("\t".join(list(OWNED) + extra) + "\n")
-        for res_id in order:
-            values = rows.get(res_id)
+        for key in order:
+            values = rows.get(key)
             if values is None:
-                values = blank
-                gone.append(res_id)
-            tail = kept.get(res_id, [""] * len(extra))
+                values = before.get(key) or blank
+                gone.append(key)
+            else:
+                values = list(values) + [source]
+            tail = kept.get(key, [""] * len(extra))
             handle.write("\t".join(str(cell) for cell in
-                                   [res_id, *values, *tail]) + "\n")
+                                   [key, *values, *tail]) + "\n")
 
     families = sorted({row[1] for row in rows.values()})
     print(f"from {source}")
     print(f"{path.name}: {len(order)} rows, {len(extra)} hand-added columns"
-          + (f", {len(gone)} not in this capture" if gone else ""))
+          + (f", {len(gone)} kept from an earlier capture" if gone else ""))
     print("  sets: " + ", ".join(
         f"{family} x{sum(1 for r in rows.values() if r[1] == family)}"
         for family in families))

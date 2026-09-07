@@ -1,16 +1,16 @@
 res_id	family	group	tier	rarity	name	icon	amount	where
-2000001	named			Common	Units	currency_unit.png	2274069	currencies
-2000004	named			Mythic	Crystals	currency_paid_crystal.png	10811	currencies
+2000001	named			Common	Units	currency_unit.png	2378893	currencies
+2000004	named			Mythic	Crystals	currency_paid_crystal.png	11021	currencies
 2000010	named			Mythic	Signal Amplification Anchor	currency_gacha_ticket_rateup_supporter.png	87	currencies
-2000027	named			Legendary	Loot Certification Card	currency_chaos_week_reward.png	2	currencies
+2000027	named			Legendary	Loot Certification Card	currency_chaos_week_reward.png	0	currencies
 2000036	named			Legendary	Reason	currency_chaos_assault_stamina.png	9	currencies
-2100001	named			Legendary	Universal Tactical Certificate	currency_combatant_ascend_public.png	199	currencies
+2100001	named			Legendary	Universal Tactical Certificate	currency_combatant_ascend_public.png	259	currencies
 2100002	named			Legendary	Universal Support Certificate	currency_supporter_ascend_public.png	97	currencies
 2100003	named			Legendary	Potential Disk	currency_ego_tree_public.png	198	currencies
 3000003	named			Mythic	Undetermined Ego Crystal	icon_item_card_levelup_all_1.png	12	items
 3100001	EXP material	Combatant	Basic	Common	Basic Battle Memory	icon_item_char_level_materal_1.png	3	items
-3100002	EXP material	Combatant	Advanced	Rare	Advanced Battle Memory	icon_item_char_level_materal_2.png	126	items
-3100003	EXP material	Combatant	Premium	Legendary	Premium Battle Memory	icon_item_char_level_materal_3.png	352	items
+3100002	EXP material	Combatant	Advanced	Rare	Advanced Battle Memory	icon_item_char_level_materal_2.png	146	items
+3100003	EXP material	Combatant	Premium	Legendary	Premium Battle Memory	icon_item_char_level_materal_3.png	360	items
 3100021	EXP material	Partner	Basic	Common	Basic Support Data	icon_item_supporter_level_materal_1.png	1778	items
 3100022	EXP material	Partner	Advanced	Rare	Advanced Support Data	icon_item_supporter_level_materal_2.png	206	items
 3100023	EXP material	Partner	Premium	Legendary	Premium Support Data	icon_item_supporter_level_materal_3.png	245	items

@@ -11,7 +11,7 @@ res_id	where	amount	Name	Type	Name Candidate	Type Candidate / Description	Note
 2000048	currencies	0					
 3000009	items	0					
 3300001	items	3		Gift Item			
-3300002	items	9		Gift Item			
+3300002	items	9	Exquisite Slice of Cake	Gift Item			
 3300003	items	4		Gift Item			
 3300004	items	6		Gift Item			
 3300005	items	7		Gift Item			

@@ -64,6 +64,7 @@ def run():
     import excursions
     from ui.tabs.checklist_tab import (
         ACTIVITY_FULL, CHAOS_CURRENCY, COFFEE_DONE, COFFEE_TODO, COLUMNS,
+        ACTIVITY_CLAIMED, ACTIVITY_UNCLAIMED,
         DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
         MODULE_WINDOWS, NO_DATA,
         SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
@@ -116,17 +117,26 @@ def run():
             f"{out['chaos_currency'][0]!r}, not '0'.")
 
     # --- the day's activity, and its colour ---------------------------
-    for point, want, state in ((ACTIVITY_FULL, f"{ACTIVITY_FULL}/"
-                                f"{ACTIVITY_FULL}", DONE),
-                               (40, f"40/{ACTIVITY_FULL}", TODO),
+    # **A full day is not a claimed day.** `day_point` reads 100 the
+    # moment the last activity lands, and the rewards sit there
+    # unclaimed -- so the row stays red until the claim is seen.
+    full = f"{ACTIVITY_FULL}/{ACTIVITY_FULL}{ACTIVITY_UNCLAIMED}"
+    for point, want, state in ((ACTIVITY_FULL, full, TODO),
+                               (40, f"40/{ACTIVITY_FULL}"
+                                f"{ACTIVITY_UNCLAIMED}", TODO),
                                (None, f"{NO_DATA}/{ACTIVITY_FULL}", UNKNOWN)):
         got = _readings(_snapshot(day_point=point), now)["activity"]
         if got != (want, state):
             failures.append(
                 f"a day_point of {point!r} reads {got!r}, not "
-                f"{(want, state)!r}. The colour is the whole of what that "
-                f"row says, and a full day drawn red is as wrong as a "
-                f"short one drawn plain.")
+                f"{(want, state)!r}. A full day whose rewards are still "
+                f"sitting there is work left, not work done.")
+    got = _readings(_snapshot(day_point=ACTIVITY_FULL), now,
+                    claimed=True)["activity"]
+    if got != (ACTIVITY_CLAIMED, DONE):
+        failures.append(
+            f"a claimed day reads {got!r}, not "
+            f"({ACTIVITY_CLAIMED!r}, {DONE!r}).")
 
     # --- today's coffee, which INVERTS the field it reads --------------
     for possible, want, state in ((True, COFFEE_TODO, TODO),

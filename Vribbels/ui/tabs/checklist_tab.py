@@ -97,7 +97,7 @@ def _shop_products(prefix, period):
 COLUMNS = (
     ("Daily", (
         ("coffee", "Coffee", "Go drink!"),
-        ("activity", "Activity (Dailies)", "100/100"),
+        ("activity", "Activity (Dailies)", "100/100 Unclaimed"),
         ("supply_daily", "Arkhianon Supply", "3/3"),
         ("excursions", "Excursions", "5/5"),
         ("chaos_delegation", "Chaos Delegation", None),
@@ -147,6 +147,22 @@ ROW_FONT = ("Segoe UI", 9)
 # whole of what that row says.
 ACTIVITY_FULL = 100
 POINT_FIELD = "point_entity"
+
+# **`day_point` is the points EARNED, not the reward claimed.** It
+# already read 100 before Claim All and did not move when the rewards
+# landed, so a full day and a CLAIMED day are two readings and only the
+# first is on the wire.
+#
+# Until the claim flag is found, the claim is inferred from its
+# payout: the day's rewards are 60 Crystals, so a Crystal gain of
+# exactly that on a day already at 100 is taken as the claim. **A
+# GUESS, and a coarse one** -- 60 Crystals from anywhere else on a full
+# day reads the same. `docs/wire_hunt.tsv` carries the hunt for the
+# real flag.
+ACTIVITY_CLAIM_ITEM = 2000004        # Crystal
+ACTIVITY_CLAIM_PAYOUT = 60
+ACTIVITY_UNCLAIMED = " Unclaimed"
+ACTIVITY_CLAIMED = "All Claimed"
 
 # The two weekly currencies, and the cap the game states for the second.
 # The Card states one too -- four -- but a row that only ever reads
@@ -271,6 +287,13 @@ class ChecklistTab(BaseTab):
         super().__init__(parent, context)
         # (Text, rows) per column heading, for the refresh to rewrite.
         self.column_texts = {}
+        # The day the Activities reward was last seen being claimed, and
+        # what the Crystal balance read on the previous refresh. See
+        # `ACTIVITY_CLAIM_ITEM`: the claim is inferred from its payout
+        # because nothing on the wire states it, so it has to be caught
+        # as it happens and remembered.
+        self._activity_claimed_day = None
+        self._crystals = None
         # The temporary mission listing, or None while it is switched off.
         self.mission_text = None
         self.setup_ui()
@@ -425,11 +448,38 @@ class ChecklistTab(BaseTab):
         if not self.column_texts:
             return
         raw = getattr(self.optimizer, "raw_data", None) or {}
-        readings = _readings(raw)
+        readings = _readings(raw, claimed=self._activity_claim(raw))
         for text, rows in self.column_texts.values():
             self._fill(text, rows, readings)
         if self.mission_text is not None:
             self._fill_missions(raw.get(MISSION_FIELD))
+
+    def _activity_claim(self, raw):
+        """Whether today's Activities reward has been taken.
+
+        **Inferred from the payout**, because nothing on the wire says.
+        A Crystal balance that rises by exactly the day's reward while
+        the day is already full is taken as the claim, and the day it
+        happened on is remembered so the row does not revert on the
+        next refresh. A new `day_id` clears it.
+
+        Returns False until a rise is actually seen, so a session that
+        starts after the claim reads `Unclaimed` until the next one.
+        That is the cost of not having the flag.
+        """
+        point = raw.get(POINT_FIELD)
+        point = point if isinstance(point, dict) else {}
+        day_id, day = point.get("day_id"), point.get("day_point")
+        if self._activity_claimed_day != day_id:
+            self._activity_claimed_day = None
+        crystals = item_amounts.held(raw).get(ACTIVITY_CLAIM_ITEM)
+        before, self._crystals = self._crystals, crystals
+        if (self._activity_claimed_day is None
+                and _is_count(day) and day >= ACTIVITY_FULL
+                and _is_count(before) and _is_count(crystals)
+                and crystals - before == ACTIVITY_CLAIM_PAYOUT):
+            self._activity_claimed_day = day_id
+        return self._activity_claimed_day is not None
 
     @staticmethod
     def _fill(text, rows, readings):
@@ -482,7 +532,7 @@ LINE_SEP = "\n"
 COLUMN_SEP = "\t"
 
 
-def _readings(raw, now=None):
+def _readings(raw, now=None, claimed=False):
     """{row key: (text, alert)} for every row that shows a value.
 
     One place for all of them, and pure but for the clock, so the whole
@@ -499,14 +549,16 @@ def _readings(raw, now=None):
 
     out = {}
 
-    # The day's ACTIVITY total.
+    # The day's ACTIVITY total, and whether its rewards were taken.
     point = raw.get(POINT_FIELD)
     day = point.get("day_point") if isinstance(point, dict) else None
-    if _is_count(day):
-        out["activity"] = ("%d/%d" % (day, ACTIVITY_FULL),
-                           _done(day >= ACTIVITY_FULL))
-    else:
+    if not _is_count(day):
         out["activity"] = ("%s/%d" % (NO_DATA, ACTIVITY_FULL), UNKNOWN)
+    elif claimed:
+        out["activity"] = (ACTIVITY_CLAIMED, DONE)
+    else:
+        out["activity"] = ("%d/%d%s" % (day, ACTIVITY_FULL,
+                                        ACTIVITY_UNCLAIMED), TODO)
 
     # Today's coffee. **The field is a CAPABILITY, so the row inverts
     # it**: `is_coffee_possible` true means one is still going begging.
