@@ -3817,6 +3817,59 @@ for _name, _setup in (("contributions popup", _open_contributions_popup),
 # (tab, name, target, rule, resolver, axis) for the Materials tab.
 # Its three columns are built by one function, so a gap read in the
 # stones column is the same gap in the two placeholders beside it.
+def _checklist_column(position):
+    """Locator: one column of the Checklist tab, by position.
+
+    The tab is a single frame of columns in the EVEN grid slots, the
+    odd ones being empty spacers -- so a column's index is twice its
+    position, and -1 is the last of them.
+    """
+    def find(app):
+        holders = sa.current_tab_widget(app).winfo_children()
+        if not holders:
+            raise LookupError("the Checklist tab has no columns")
+        columns = [child for child in holders[0].winfo_children()]
+        return columns[position]
+    return find
+
+
+def _checklist_text(app):
+    """Locator: the Text inside the first Checklist column.
+
+    The rows are one Text per column inside a frame fixed to the pixel,
+    so the words are one level in.
+    """
+    inside = _checklist_column(0)(app).winfo_children()
+    if len(inside) < 2:
+        raise LookupError("the Checklist column has no rows block")
+    holder = inside[1].winfo_children()
+    if not holder:
+        raise LookupError("the rows block holds no text widget")
+    return holder[0]
+
+
+# (tab, name, target, rule, resolver, axis) for the Checklist tab. Its
+# four columns are built by one function, so a gap read in the first is
+# the same gap in the other three.
+CHECKLIST_ENTRIES = [
+    # The heading against the first row under it. Text to text, so the
+    # reading runs baseline to capital.
+    ("Checklist", "Checklist: heading -> its first row", 10,
+     RULE_PANEL_UNRELATED_LABEL,
+     _gap(lambda app: _checklist_column(0)(app).winfo_children()[0],
+          _checklist_text, "v"), "v"),
+    # And between the rows, which are LINES rather than widgets.
+    ("Checklist", "Checklist: row -> row", 10, RULE_LABEL_ROW_PITCH,
+     _text_line_pitch(_checklist_text), "v"),
+    # Both ends of the block against the window. The first and last
+    # columns sit at their cells' outer edges rather than centred, so
+    # these two are what that arrangement buys.
+    ("Checklist", "Checklist: window edge -> first column", 4,
+     RULE_CONTENT_FRAME, _from_window_edge(_checklist_column(0)), "h"),
+    ("Checklist", "Checklist: last column -> window edge", 4,
+     RULE_CONTENT_FRAME, _to_window_edge(_checklist_column(-1)), "h"),
+]
+
 MATERIALS_ENTRIES = [
     # Both ends are text and both were on their references: the dump
     # read the heading's ink stopping at its baseline and the name's
@@ -3967,6 +4020,13 @@ AWAITING_FIRST_READING = {
     # it is the whole distance and there is nothing else in the gap to
     # tell one reading from another.
     "Character: Excursion Types -> its count",
+    # The Checklist tab is new and nothing on it has been read off a
+    # screen. Every one of its four is registered at the rules table's
+    # own number rather than at a measured distance.
+    "Checklist: heading -> its first row",
+    "Checklist: row -> row",
+    "Checklist: window edge -> first column",
+    "Checklist: last column -> window edge",
 }
 
 
@@ -4153,7 +4213,8 @@ def register_all():
                                else EXCEPTION_ENTRIES.get(name, "rule")),
             )
 
-    for tab, name, target, rule, resolve, axis in MATERIALS_ENTRIES:
+    for tab, name, target, rule, resolve, axis in (MATERIALS_ENTRIES
+                                                  + CHECKLIST_ENTRIES):
         sa.track(
             name=name,
             tab=tab,
