@@ -576,6 +576,7 @@ Limits:
 
 - A Label has about **2px of internal inset to give back**; at -3 the text is drawn outside its box and the leading glyph clips. When more is needed, take the rest from the widget on the other side — the Set Configuration checkbox's `pack(padx=(1, 1))` trims its trailing side.
 - Negative `padding` works on `ttk.Label` and other ttk widgets but is **ignored on `ttk.Frame`** — the child does not move.
+- **Never negative on a `ttk.LabelFrame`.** Past 0 it eats its own BORDER on that side rather than the space inside it, so the panel loses the edge every border rule is measured to. The audit does not fail on that: `_border_inner_edges` finds no edge, and every gap in the panel reports a wild number or `nothing painted inside the panel`. Put the correction on the child label instead — `update_check.ROW_TOP_TRIM` and `setup_tab.SETTINGS_LAST_TRIM` are the two that do.
 - `tk.Label`'s `pady` clamps at 0, so it gives back at most the 1px it adds by default. For more, use a `ttk.Label`; the theme's default background already matches `colors["bg"]`, so only `foreground` needs carrying over.
 
 ### Text-backed panels

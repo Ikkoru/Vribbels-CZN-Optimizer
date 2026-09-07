@@ -657,10 +657,9 @@ PANEL_EDGES = [
     # children are anchored west -- so what is on the right of them is
     # the window's leftover width, not a distance. `Links` does have
     # one: its buttons fill the panel, and its column is pinned.
-    # `Update Status`' TOP is not here: its first child is a frame the
-    # panel's negative top padding pulls into the border, which the
-    # interior scan stops at. It is registered against the label
-    # instead, in `register_all`.
+    # `Update Status`' TOP is not here: it reads to the first label's
+    # capital rather than to whatever the interior scan meets first,
+    # and is registered in `register_all`.
     ("Setup & Settings", "Update Status", "bottom"),
     ("Setup & Settings", "Settings", "top"),
     ("Setup & Settings", "Settings", "bottom"),
@@ -4107,15 +4106,12 @@ AWAITING_FIRST_READING = {
     "Checklist: row -> row",
     "Checklist: window edge -> first column",
     "Checklist: last column -> window edge",
-    # Both were read at 5 by eye against a target of 4, and both are
-    # nudged by a pixel this turn on a lever nothing has measured yet:
-    # Update Status' panel padding, and a negative `padding` on the
-    # last line inside Settings.
-    #
-    # Update Status' top also changed RESOLVER -- the interior scan
-    # reported 0 against that hand reading of 5, so it reads to the
-    # label's capital now.
+    # Both panels had a negative padding eating their own border, which
+    # is what made one report -99 and the other's neighbours report
+    # nothing at all. The correction moved onto the labels; neither
+    # number has been read since.
     "Update Status: top edge -> content",
+    "Update Status: bottom edge -> content",
     "Settings: bottom edge -> content",
 }
 
@@ -4586,9 +4582,9 @@ def register_all():
         )
 
     # Update Status' top border against the first thing under it. Read
-    # to the LABEL rather than by scanning the interior -- the panel's
-    # negative top padding pulls the row frame into the border, and a
-    # scan stops there and reports 0.
+    # to the LABEL rather than by scanning the interior: the row above
+    # it is a frame, which paints the panel's own ground, so a scan
+    # meets the first ROW rather than the first WORDS.
     sa.track(
         name="Update Status: top edge -> content",
         tab="Setup & Settings",

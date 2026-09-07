@@ -122,19 +122,19 @@ INSTRUCTIONS_CHROME = 23
 # beside it**: a combobox is the taller of the pair and the rules run
 # to whatever comes nearest the edge.
 #
-# **The BOTTOM cannot reach the rule.** At -1 it renders 5; -2 renders
-# 4 by CLIPPING the warning text's last line rather than by moving it,
-# so -1 is where it stays. A ttk padding stops being a distance once it
-# is short enough to cut the content.
-SETTINGS_PAD = (1, 4, 1, -1)  # spacing: border edge -> first non-button element -- panel, dropdown ↔↕
+# **NEVER NEGATIVE.** A `ttk.LabelFrame` shrunk past 0 on a side eats
+# its own BORDER there rather than the space inside it, so the panel
+# loses the edge the rule measures to. The bottom correction goes on
+# the last LABEL instead -- `SETTINGS_LAST_TRIM`.
+SETTINGS_PAD = (1, 4, 1, 0)  # spacing: border edge -> first non-button element -- panel, dropdown ↔↕
 SETTINGS_LABEL_GAP = 2  # spacing: label ↔ its element -- label, dropdown ↔
 
 # What the LAST line in the panel gives back to its own bottom gap. A
 # `ttk.Label` carries about two pixels of inset below its glyphs, and a
 # negative `padding` hands them back by shrinking the box rather than
-# by moving the text -- which is the lever a frame padding cannot be
-# here, `SETTINGS_PAD`'s own bottom clipping the descender instead.
-SETTINGS_LAST_TRIM = -1  # spacing: border edge -> first non-button element -- panel, label ↕
+# by moving the text. This is where the correction has to live: the
+# panel's own padding cannot go negative without eating its border.
+SETTINGS_LAST_TRIM = -2  # spacing: border edge -> first non-button element -- panel, label ↕
 SETTINGS_NOTE_GAP = 2   # spacing: explanation text -> the controls it explains -- dropdown, label ↕
 SETTINGS_ROW_GAP = 7    # spacing: config panel row ↕ row -- label, dropdown ↕
 

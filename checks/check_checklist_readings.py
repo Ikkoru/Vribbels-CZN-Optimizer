@@ -7,10 +7,10 @@ smaller figure, not an error; and the passes-left reading is a
 subtraction from an allowance, so an off-by-one is a number that still
 looks like a number.
 
-The two module rows NEST -- a copy expiring before today's reset also
-expires before the week's -- which is the opposite of the Materials
-tab's buckets, where a copy falls in one window only. Reversing that
-by accident leaves both rows populated and neither obviously wrong.
+The two module rows NEST -- a copy inside 24 hours is inside seven
+days -- which is the opposite of the Materials tab's buckets, where a
+copy falls in one window only. Reversing that by accident leaves both
+rows populated and neither obviously wrong.
 
 Driven from a built snapshot with the clock passed in, so nothing here
 depends on captured data or on the hour it runs at.
@@ -22,10 +22,8 @@ from ._harness import add_source_to_path
 
 NAME = "checklist readings"
 
-# A Monday 10:00:00 UTC. The daily reset after it is that day's 18:00
-# and the weekly one is the coming Sunday; the run confirms both before
-# using them, so a corrected reset hour fails here rather than silently
-# re-aiming every case.
+# Any moment will do -- the module windows roll from `now` -- but a
+# stated one keeps the cases readable. A Monday 10:00 UTC.
 MONDAY_MORNING = 1789380000
 HOUR = 3600
 DAY = 24 * HOUR
@@ -52,32 +50,25 @@ def _snapshot(amounts=(), expiries=(), day_point=None, spent=None):
 
 def run():
     add_source_to_path()
-    import weekly_reset
     import excursions
     from ui.tabs.checklist_tab import (
-        CHAOS_CURRENCY, COLUMNS, MODULE_ITEM, SORTIE_CAP, SORTIE_CURRENCY,
-        ACTIVITY_FULL, NO_DATA, _readings,
+        CHAOS_CURRENCY, COLUMNS, MODULE_ITEM, MODULE_WINDOWS, SORTIE_CAP,
+        SORTIE_CURRENCY, ACTIVITY_FULL, NO_DATA, _readings,
     )
-    from datetime import datetime, timezone
 
     failures = []
     now = MONDAY_MORNING
 
-    # --- the clock the cases are written against ----------------------
-    at = datetime.fromtimestamp(now, timezone.utc)
-    if (at.weekday(), at.hour, at.minute) != (0, 10, 0):
+    # --- the two windows the cases are written against ----------------
+    if len(MODULE_WINDOWS) != 2 or (MODULE_WINDOWS[0][0]
+                                    >= MODULE_WINDOWS[1][0]):
         failures.append(
-            f"MONDAY_MORNING is {at.isoformat()}, not a Monday 10:00 UTC. "
-            f"Every case below is an offset from it.")
+            f"MODULE_WINDOWS is {MODULE_WINDOWS!r}. The cases below read "
+            f"two windows, the tighter first, and the nesting they check "
+            f"only means something in that shape.")
         return failures
-    today = weekly_reset.next_daily_reset(now)
-    week = weekly_reset.next_reset(now)
-    if not now < today < week:
-        failures.append(
-            f"the daily reset ({today}) does not fall between now ({now}) "
-            f"and the weekly one ({week}), so the nesting these cases "
-            f"check cannot be read.")
-        return failures
+    soon = now + MODULE_WINDOWS[0][0]
+    week = now + MODULE_WINDOWS[1][0]
 
     # --- every keyed reading belongs to a row, and vice versa ---------
     keyed = {key for _title, rows in COLUMNS
@@ -138,44 +129,46 @@ def run():
                 f"off-by-one is still a plausible number.")
 
     # --- the modules, and the nesting ---------------------------------
-    # One copy in each of: before today's reset, between the two resets,
-    # and after the week's. So `today` is 1 and `week` is 2.
-    raw = _snapshot(expiries=(today - HOUR, week - HOUR, week + DAY))
+    # One copy in each of: inside the tight window, between the two, and
+    # past both. So the first row is 1 and the second 2.
+    raw = _snapshot(expiries=(soon - HOUR, week - HOUR, week + DAY))
     out = _readings(raw, now)
-    if out["modules_today"][0] != "1 expiring today!":
+    if out["modules_soon"][0] != "1 expiring within 24h!":
         failures.append(
-            f"the module row for today reads "
-            f"{out['modules_today'][0]!r}, not '1 expiring today!'. One "
-            f"of the three copies falls before {today}.")
-    if out["modules_week"][0] != "2 expiring this week":
+            f"the tight module row reads {out['modules_soon'][0]!r}, not "
+            f"'1 expiring within 24h!'. One of the three copies falls "
+            f"inside {MODULE_WINDOWS[0][0]}s of now.")
+    if out["modules_week"][0] != "2 expiring within 7 days":
         failures.append(
-            f"the module row for the week reads "
-            f"{out['modules_week'][0]!r}, not '2 expiring this week'. The "
-            f"windows NEST -- a copy expiring before today's reset also "
-            f"expires before the week's -- so the week's count includes "
-            f"the day's.")
-    if not out["modules_today"][1]:
+            f"the wide module row reads {out['modules_week'][0]!r}, not "
+            f"'2 expiring within 7 days'. The windows NEST -- a copy "
+            f"inside 24 hours is inside seven days -- so the wider count "
+            f"includes the tighter one.")
+    if not out["modules_soon"][1]:
         failures.append(
-            "a copy expiring today is not drawn in the alert colour. The "
+            "a copy inside 24 hours is not drawn in the alert colour. The "
             "row's own words end in an exclamation mark; without the "
             "colour it reads like every other row.")
-
-    # A copy landing exactly ON a deadline is inside it: the reset is
-    # when the item stops being spendable, not the last moment it is.
-    out = _readings(_snapshot(expiries=(today,)), now)
-    if out["modules_today"][0] != "1 expiring today!":
+    if out["modules_week"][1]:
         failures.append(
-            f"a copy expiring exactly at the daily reset reads "
-            f"{out['modules_today'][0]!r}. It expires AT the deadline, so "
-            f"it is inside the window, not past it.")
+            "the seven-day row is drawn in the alert colour. Only the "
+            "tighter window is urgent; colouring both leaves nothing to "
+            "tell them apart.")
+
+    # A copy landing exactly ON a boundary is inside it.
+    out = _readings(_snapshot(expiries=(soon,)), now)
+    if out["modules_soon"][0] != "1 expiring within 24h!":
+        failures.append(
+            f"a copy expiring exactly 24 hours out reads "
+            f"{out['modules_soon'][0]!r}. `within` includes the boundary.")
 
     # Nothing held is 0 in both rows, and neither is coloured.
     out = _readings(_snapshot(), now)
-    if (out["modules_today"] != ("0 expiring today!", False)
-            or out["modules_week"] != ("0 expiring this week", False)):
+    if (out["modules_soon"] != ("0 expiring within 24h!", False)
+            or out["modules_week"] != ("0 expiring within 7 days", False)):
         failures.append(
             f"with no modules held the two rows read "
-            f"{out['modules_today']!r} and {out['modules_week']!r}, not "
+            f"{out['modules_soon']!r} and {out['modules_week']!r}, not "
             f"zero and unalerted.")
 
     # --- the ids the rows read ----------------------------------------

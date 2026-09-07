@@ -29,7 +29,6 @@ from tkinter import font as tkfont
 import excursions
 import item_amounts
 import period_items
-import weekly_reset
 
 from ..base_tab import BaseTab
 from ..utils.scrolled_text import make_scrolled_text
@@ -66,8 +65,8 @@ COLUMNS = (
         ("supply_weekly", "Arkhianon Supply", None),
         ("simulation", "Simulation Challenges", None),
         ("chaos_currency", "Chaos Currency", "99"),
-        ("modules_today", "Delegation Module", "99 expiring today!"),
-        ("modules_week", "Delegation Module", "99 expiring this week"),
+        ("modules_soon", "Delegation Module", "99 expiring within 24h!"),
+        ("modules_week", "Delegation Module", "99 expiring within 7 days"),
         ("sortie_currency", "Sortie Currency", "99/9"),
         ("seasonal_event", "Seasonal Event(s)", None),
         ("seasonal_shop", "Seasonal Shop", None),
@@ -111,8 +110,14 @@ CHAOS_CURRENCY = 2000027        # Loot Certification Card
 SORTIE_CURRENCY = 2000036       # Reason
 SORTIE_CAP = 9
 
-# The period item the two module rows count copies of.
+# The period item the two module rows count copies of, and the two
+# windows they count it in. ROLLING, from the moment the tab is drawn
+# -- not to the game's next reset. A copy expires on the stamp it
+# carries, fourteen days after it was acquired, and no reset moves it.
 MODULE_ITEM = 3920026           # Time-Limited Command Delegation Module
+MODULE_WINDOWS = ((24 * 3600, "modules_soon", "%d expiring within 24h!"),
+                  (7 * 24 * 3600, "modules_week",
+                   "%d expiring within 7 days"))
 
 # What a value reads before any snapshot has reached the tab. NOT `0`,
 # which is what an untouched day reads: nothing claimed and nothing
@@ -384,15 +389,14 @@ def _readings(raw, now=None):
     out["sortie_currency"] = (
         "%d/%d" % (amounts.get(SORTIE_CURRENCY, 0), SORTIE_CAP), False)
 
-    # The modules, by the deadline each copy has to be used before.
-    # **The two windows NEST**: everything expiring today also expires
-    # this week, so the second count includes the first. That is what
-    # the two lines say, and it is the opposite of the Materials tab's
-    # module buckets, which partition.
-    today = _expiring_by(expiries, weekly_reset.next_daily_reset(now))
-    week = _expiring_by(expiries, weekly_reset.next_reset(now))
-    out["modules_today"] = ("%d expiring today!" % today, today > 0)
-    out["modules_week"] = ("%d expiring this week" % week, False)
+    # The modules, by how long each copy has left. **The two windows
+    # NEST**: everything inside 24 hours is inside seven days, so the
+    # second count includes the first. That is what the two lines say,
+    # and it is the opposite of the Materials tab's module buckets,
+    # which partition. Only the tighter one is coloured.
+    for index, (span, key, words) in enumerate(MODULE_WINDOWS):
+        count = _expiring_by(expiries, now + span)
+        out[key] = (words % count, count > 0 and index == 0)
     return out
 
 

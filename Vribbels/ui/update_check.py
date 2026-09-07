@@ -56,14 +56,22 @@ POLL_MS = 100
 
 # The panel's own inset, as (left, top, right, bottom). Levers a
 # rendered distance short of the rule -- a ttk.Label's glyphs start
-# inside its own box, which is 3 on the left and 6 above.
+# inside its own box, which is 3 on the left.
 #
-# **A negative TOP is safe here and a negative bottom would not be.**
-# It pulls the first row's own frame into the border, and the glyphs in
-# that frame sit two pixels further in again, so nothing is cut. The
-# same trick on a bottom edge cuts a descender -- see
-# `setup_tab.SETTINGS_PAD`.
-PANEL_PAD = (1, -2, 1, 1)   # spacing: border edge -> first non-button element -- panel, label ↔↕
+# **NEVER NEGATIVE.** A `ttk.LabelFrame` shrunk past 0 on a side eats
+# its own BORDER on that side, not the space inside it -- the panel
+# loses the edge every rule here is measured to, and the audit's border
+# scan then reports nonsense for every gap in the panel rather than
+# failing. The vertical correction goes on the first row's labels, as
+# `ROW_TOP_TRIM` below.
+PANEL_PAD = (1, 0, 1, 1)    # spacing: border edge -> first non-button element -- panel, label ↔↕
+
+# What the FIRST ROW gives back to the gap above it. A `ttk.Label`
+# carries about two pixels of inset above its glyphs, and a negative
+# `padding` hands them back by shrinking the box rather than by moving
+# the text. Both of the row's labels carry it: the row is as tall as
+# the taller of them, so trimming one alone changes nothing.
+ROW_TOP_TRIM = -2    # spacing: border edge -> first non-button element -- panel, label ↕
 
 # The Check Now button against the panel's LEFT and BOTTOM edges.
 # A different rule from the labels' -- 3 rather than 4 -- and a
@@ -182,9 +190,11 @@ class UpdateStatus:
         # A grid, so the two values line up under each other however
         # long their labels are.
         rows.grid_columnconfigure(1, weight=1)
-        ttk.Label(rows, text="Latest version:").grid(
+        # spacing: border edge -> first non-button element -- panel, label ↕
+        trim = px((0, ROW_TOP_TRIM, 0, 0))
+        ttk.Label(rows, text="Latest version:", padding=trim).grid(
             row=0, column=0, sticky="w")
-        self.latest_label = ttk.Label(rows, text="")
+        self.latest_label = ttk.Label(rows, text="", padding=trim)
         # spacing: label ↔ its element -- label, label ↔
         self.latest_label.grid(row=0, column=1, sticky="w",
                                padx=px((LABEL_TO_VALUE, 0)))
