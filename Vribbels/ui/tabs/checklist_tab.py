@@ -69,6 +69,10 @@ SHOP_INDENT = 27        # spacing: unique -- a shop's products under the shop --
 # answer for is neither.
 DONE, TODO, UNKNOWN = "done", "todo", None
 
+# What a shop product with no per-period cap reads. It can always be
+# bought, so there is nothing to count down and nothing to finish.
+NO_LIMIT = "unlimited"
+
 
 def _shop_products(prefix, period):
     """The sub-rows for one shop's products in one period.
@@ -83,7 +87,8 @@ def _shop_products(prefix, period):
     identified, so a shop's row set grows as they are.
     """
     return tuple(
-        (SHOP_KEY_PREFIX + product_id, name, "%d/%d" % (limit, limit))
+        (SHOP_KEY_PREFIX + product_id, name,
+         "%d/%d" % (limit, limit) if limit else NO_LIMIT)
         for product_id, (name, limit, its_period)
         in sorted(shop_stock.PRODUCTS.items())
         if its_period == period and product_id.rsplit("_", 1)[0] == prefix)
@@ -93,7 +98,7 @@ COLUMNS = (
     ("Daily", (
         ("coffee", "Coffee", "Go drink!"),
         ("activity", "Activity (Dailies)", "100/100"),
-        ("supply_daily", "Arkhianon Supply", None),
+        ("supply_daily", "Arkhianon Supply", "3/3"),
         ("excursions", "Excursions", "5/5"),
         ("chaos_delegation", "Chaos Delegation", None),
         ("other_daily", "Other Events", None),
@@ -102,8 +107,9 @@ COLUMNS = (
         ("nono_weekly", "Nono's Shop", None),
     ) + _shop_products("town_shop_goods", "weekly") + (
         ("archive_weekly", "$hop - Memory Archive - Traveler", None),
-        ("supply_weekly", "Arkhianon Supply", None),
-        ("simulation", "Simulation Challenges", None),
+    ) + _shop_products("gacha_duplicate_legend", "weekly") + (
+        ("supply_weekly", "Arkhianon Supply", "10000/10000"),
+        ("simulation", "Simulation Challenges", "3/3"),
         ("chaos_currency", "Chaos Currency", "99"),
         ("modules_soon", "Delegation Module", "99 expiring within 24h!"),
         ("modules_week", "Delegation Module", "99 expiring within 7 days"),
@@ -116,14 +122,17 @@ COLUMNS = (
         ("nono_monthly", "Nono's Shop", None),
     ) + _shop_products("town_shop_goods", "monthly") + (
         ("archive_monthly", "$hop - Memory Archive - Traveler", None),
+    ) + _shop_products("gacha_duplicate_legend", "monthly") + (
         ("zeronium", "$hop - Zeronium Shop", None),
+    ) + _shop_products("hyperspace", "monthly") + (
         ("blackhorn", "$hop - Blackhorn Trade", None),
+    ) + _shop_products("chaos", "none") + (
         ("prism", "$hop - Exchange Shop - Prism Module", None),
-    )),
+    ) + _shop_products("card_factor", "none")),
     ("Other", (
         ("basin", "Basin of Hyperspace (21 days)", None),
         ("matrix", "Zero System Chaos Matrix (84? days)", None),
-        ("supply_season", "Arkhianon Supply (42? days)", None),
+        ("supply_season", "Arkhianon Supply (42? days)", "70/70"),
         ("seasonal_event_other", "Seasonal Event (21 + 21 + 21 days)", None),
         ("sortie_other", "Sortie (21 days)", None),
         ("other_events_other", "Other Events", None),
@@ -170,6 +179,30 @@ COFFEE_PATH = ("characters", "town_data", "day_changeable_data",
                "is_coffee_possible")
 COFFEE_TODO = "Go drink!"
 COFFEE_DONE = "Tasty~"
+
+# The Arkhianon Supply. Its own record carries the pass level and the
+# week's EXP; the missions are rows in `mission_entities`, and a row's
+# `complete_time` is set when its REWARD IS CLAIMED, not when the task
+# is finished -- which is what a checklist wants to know.
+#
+# The three daily ids were established by claiming them one at a time
+# and reading the id off the request. **The weekly set is not here**:
+# only one of the twelve has been identified, so the weekly row counts
+# EXP instead, which needs no id at all.
+PASS_FIELD = "season_pass_entity"
+PASS_MISSION_FIELD = "mission_entities"
+PASS_DAILY = ("pass_mission_008_01", "pass_mission_008_02",
+              "pass_mission_008_04")
+PASS_WEEK_EXP_FULL = 10000
+PASS_LEVEL_FULL = 70
+
+# The stage whose per-period run limit IS the Simulation Challenges,
+# and how many runs a week allows. Same shape as a shop row: `count` is
+# the runs TAKEN and `reset_time` is when it last moved, so it goes
+# stale across a reset the same way.
+SIMULATION_FIELD = "stage_limit_entities"
+SIMULATION_STAGE = "content_boss"
+SIMULATION_RUNS = 3
 
 # The Great Rift's weekly score. The standings nest season -> rank
 # slot -> record, and the threshold that pays out rides in the same
@@ -532,12 +565,64 @@ def _readings(raw, now=None):
                              max(1, math.ceil(edge / divisor)), unit),
                     _done(not inside))
 
+    # The Arkhianon Supply, three ways. A mission's `complete_time` is
+    # set when its reward is CLAIMED, so a finished-but-unclaimed
+    # mission still reads as work left -- which it is.
+    missions = raw.get(PASS_MISSION_FIELD)
+    if isinstance(missions, dict):
+        claimed = sum(1 for res_id in PASS_DAILY
+                      if (missions.get(res_id) or {}).get("complete_time"))
+        out["supply_daily"] = ("%d/%d" % (claimed, len(PASS_DAILY)),
+                               _done(claimed == len(PASS_DAILY)))
+    else:
+        out["supply_daily"] = ("%s/%d" % (NO_DATA, len(PASS_DAILY)), UNKNOWN)
+
+    # The week's EXP and the pass's level, both off the pass's own
+    # record. EXP rather than a mission count, because only one of the
+    # twelve weekly missions has been identified.
+    record = raw.get(PASS_FIELD)
+    record = record if isinstance(record, dict) else {}
+    week_exp = record.get("week_exp")
+    if _is_count(week_exp):
+        out["supply_weekly"] = (
+            "%d/%d" % (min(week_exp, PASS_WEEK_EXP_FULL), PASS_WEEK_EXP_FULL),
+            _done(week_exp >= PASS_WEEK_EXP_FULL))
+    else:
+        out["supply_weekly"] = ("%s/%d" % (NO_DATA, PASS_WEEK_EXP_FULL),
+                                UNKNOWN)
+    level = record.get("free_reward_rank")
+    if _is_count(level):
+        out["supply_season"] = ("%d/%d" % (min(level, PASS_LEVEL_FULL),
+                                           PASS_LEVEL_FULL),
+                                _done(level >= PASS_LEVEL_FULL))
+    else:
+        out["supply_season"] = ("%s/%d" % (NO_DATA, PASS_LEVEL_FULL), UNKNOWN)
+
+    # Simulation Challenges: the runs LEFT this week. Stale across a
+    # reset the same way a shop row is, and read through the same
+    # boundary.
+    stage = (raw.get(SIMULATION_FIELD) or {}).get(SIMULATION_STAGE)         if isinstance(raw.get(SIMULATION_FIELD), dict) else None
+    left = None
+    if isinstance(stage, dict) and _is_count(stage.get("count")):
+        started = shop_stock.period_start("weekly", raw, now)
+        touched = stage.get("reset_time")
+        stale = isinstance(touched, int) and touched < started
+        left = SIMULATION_RUNS if stale else max(
+            0, SIMULATION_RUNS - stage["count"])
+    if left is None:
+        out["simulation"] = ("%s/%d" % (NO_DATA, SIMULATION_RUNS), UNKNOWN)
+    else:
+        out["simulation"] = ("%d/%d" % (left, SIMULATION_RUNS),
+                             _done(left == 0))
+
     # The shops, one sub-row per product. `-` where the field cannot be
     # read honestly -- see `shop_stock.remaining`.
     for key, product_id in _shop_rows():
-        stock, limit = shop_stock.remaining(product_id, raw)
+        stock, limit = shop_stock.remaining(product_id, raw, now)
         if limit is None:
-            out[key] = (NO_DATA, UNKNOWN)
+            # No cap: it can always be bought, so nothing counts down
+            # and nothing is finished.
+            out[key] = (NO_LIMIT, UNKNOWN)
         elif stock is None:
             out[key] = ("%s/%d" % (NO_DATA, limit), UNKNOWN)
         else:

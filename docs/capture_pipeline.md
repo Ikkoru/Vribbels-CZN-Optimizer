@@ -82,6 +82,20 @@ Three more join them, for what the recurring tasks stand at. The Checklist tab r
 
 `docs/missions_id_dump.py` writes `docs/missions_id.tsv` from whichever capture last carried them, for annotating by hand. It reads the newest SNAPSHOT that holds missions and falls back to the newest WebSocket debug log, because a session that claimed nothing saves none and the addon's cache does not survive one. Its rows are keyed on the id with the season replaced by `*`, so a hand-typed name survives the season turning over.
 
+Six more join them, all merged rather than replaced for the same reason:
+
+| Attribute | Wire key | What it is |
+| --------- | -------- | ---------- |
+| `shop_products` | `shop_list`, `shop_entity` | one row per shop product; `shop_list` is all of them at login and `shop_entity` is the one just bought |
+| `stage_limits` | `stage_limit_entities` | per-stage run limits. `content_boss` is the Simulation Challenges |
+| `month_start` / `month_end` | `month_start`, `month_end` | when the month rolls, which is 18:00 UTC on the LAST day and cannot be computed |
+
+**Two payloads arrive at the TOP LEVEL where the cache holds them nested.** `day_changeable_data` (the coffee flag, the excursion count) belongs under `characters.town_data`, and `new_char_visit` is one row of the `char_visits` board. Ordering a coffee or running an excursion sends each on its own, so without merging them the cache keeps whatever the login said and the Checklist reads a stale flag all session.
+
+**`mission_entity`, singular, is the claim.** A mission's `complete_time` is set when its REWARD IS CLAIMED, not when the task is finished, and the frame that sets it sends that one row rather than the list.
+
+**The snapshot's temp-file replace can be refused.** Windows returns `[WinError 5] Access is denied` while another process holds the destination open — the app reading it, an indexer, an antivirus. `_save_data` retries; a save that still cannot land says so and leaves the previous snapshot intact.
+
 **A Communication Pass is in none of them, because it is in nothing.** Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.
 
 ## The item counts arrive once, and change through four keys

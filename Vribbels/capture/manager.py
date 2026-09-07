@@ -63,6 +63,7 @@ Extracts Memory Fragment inventory and character data from game API responses.
 
 import json
 import gzip
+import time
 import zlib
 from collections import deque
 from datetime import datetime
@@ -74,6 +75,13 @@ try:
     HAS_ZSTD = True
 except ImportError:
     HAS_ZSTD = False
+
+# How many times a snapshot's temp-file replace is retried, and how long
+# to wait between tries. Windows refuses the rename while any other
+# process holds the destination open, which the app itself does every
+# time it reads the snapshot -- a transient state, not a failure.
+SAVE_REPLACE_TRIES = 5
+SAVE_REPLACE_WAIT = 0.2
 
 
 class Addon:
@@ -143,6 +151,14 @@ class Addon:
         # sends the whole `shop_list` and a purchase sends ONE product
         # back under `shop_entity`, so a replace would drop the rest.
         self.shop_products = {}
+
+        # When the current MONTH began and ends, epoch seconds. Sent
+        # once at login and nowhere else.
+        self.month_start = None
+        self.month_end = None
+
+        # Per-stage run limits, keyed by stage id.
+        self.stage_limits = {}
 
         self.saved_path = None
 
@@ -659,6 +675,64 @@ class Addon:
         if isinstance(data.get("mission_entities"), list):
             self._merge_missions(data["mission_entities"])
             self._save_pending = True
+        # And ONE row, singular, when a mission's reward is claimed --
+        # which is the frame that sets its `complete_time`. Without
+        # this the cache keeps the row as it was before the claim, so
+        # a mission claimed during the session still reads unclaimed.
+        if isinstance(data.get("mission_entity"), dict):
+            self._merge_missions([data["mission_entity"]])
+            self._save_pending = True
+
+        # What limits a stage to N runs a period: `content_boss` is the
+        # Simulation Challenges. Same shape as a shop row and the same
+        # lazy reset -- `count` is the runs TAKEN this period and
+        # `reset_time` is when it last moved.
+        if isinstance(data.get("stage_limit_entities"), dict):
+            for res_id, row in data["stage_limit_entities"].items():
+                if isinstance(row, dict):
+                    self.stage_limits[str(res_id)] = row
+            self._save_pending = True
+
+        # **The town's own daily block arrives on its own**, at the top
+        # level of a reply -- ordering a coffee, running an excursion,
+        # or asking `check_day_changeable_data` -- where the cache
+        # holds it nested under `characters`. Nothing merged it, so the
+        # coffee flag and the excursion count stayed at whatever the
+        # login said for the whole session.
+        day_data = data.get("day_changeable_data")
+        if isinstance(day_data, dict) and isinstance(self.character_data,
+                                                     dict):
+            town = self.character_data.setdefault("town_data", {})
+            if isinstance(town, dict):
+                town["day_changeable_data"] = day_data
+                self._save_pending = True
+
+        # And so does one excursion board row, after a visit. The board
+        # is a LIST keyed by res_id, so the row replaces its own rather
+        # than the whole board.
+        visit = data.get("new_char_visit")
+        if isinstance(visit, dict) and visit.get("res_id") is not None:
+            if not isinstance(self.char_visits, list):
+                self.char_visits = []
+            for index, row in enumerate(self.char_visits):
+                if isinstance(row, dict) and row.get("res_id") == visit["res_id"]:
+                    self.char_visits[index] = visit
+                    break
+            else:
+                self.char_visits.append(visit)
+            self._save_pending = True
+
+        # The month the shops' monthly products reset on. Sent once, at
+        # login, and the only thing that says when a monthly period
+        # began -- a shop row's own `count` is stale until the first
+        # purchase of the period, so the boundary is what tells one
+        # from the other.
+        if isinstance(data.get("month_start"), int):
+            self.month_start = data["month_start"]
+            self._save_pending = True
+        if isinstance(data.get("month_end"), int):
+            self.month_end = data["month_end"]
+            self._save_pending = True
 
         # The shops' own per-product rows: what has been bought this
         # period, when it was last bought, and the lifetime total. TWO
@@ -933,6 +1007,9 @@ class Addon:
             "season_pass_entity": self.season_pass,
             "mission_entities": self.missions or None,
             "shop_list": self.shop_products or None,
+            "month_start": self.month_start,
+            "month_end": self.month_end,
+            "stage_limit_entities": self.stage_limits or None,
             "detected_region": self._detect_region(),
         }
 
@@ -945,7 +1022,26 @@ class Addon:
         tmp = self.saved_path.with_suffix(self.saved_path.suffix + ".tmp")
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(save_data, f, indent=2)
-        tmp.replace(self.saved_path)
+
+        # **The replace can be REFUSED on Windows** with
+        # `[WinError 5] Access is denied` while another process holds
+        # the destination open -- the app reading it, an indexer, an
+        # antivirus scanning what was just written. It is transient, so
+        # it is retried rather than reported: a save that gives up
+        # leaves the previous snapshot on disk and a `.tmp` beside it,
+        # and the capture carries on as if nothing was lost.
+        for attempt in range(SAVE_REPLACE_TRIES):
+            try:
+                tmp.replace(self.saved_path)
+                break
+            except PermissionError:
+                if attempt == SAVE_REPLACE_TRIES - 1:
+                    self.log_callback(
+                        f"Could not replace {self.saved_path.name}: it is "
+                        f"open in another program. The capture is still "
+                        f"running; the next save will try again.")
+                    return
+                time.sleep(SAVE_REPLACE_WAIT)
 
         count = len(self.inventory_data.get("piece_items", []))
         char_count = len(self.character_data.get("characters", [])) if self.character_data else 0

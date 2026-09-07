@@ -29,7 +29,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from ._harness import add_source_to_path
+from ._harness import add_source_to_path, REPO_ROOT
 
 NAME = "capture applies rewards"
 
@@ -269,5 +269,42 @@ def run():
                 f"line falls back to the res_id for those, which is the "
                 f"marking the Capture Log reserves for ids nobody has "
                 f"identified -- so a known item reads as an unknown one.")
+
+    # --- and every identification on the WORKLIST reaches the program --
+    # `docs/items_id_known_not_in_program.tsv` is where an id gets its
+    # name by hand. Nothing copies that into `RECORDED_NAMES`, so a
+    # name typed there and not here leaves the Capture Log printing the
+    # res_id -- which is the marking reserved for ids nobody has
+    # identified at all.
+    worklist = REPO_ROOT / "docs" / "items_id_known_not_in_program.tsv"
+    if worklist.exists():
+        rows = worklist.read_text(encoding="utf-8").splitlines()
+        header = rows[0].split("	")
+        if "Name" not in header:
+            failures.append(
+                f"{worklist.name} has no `Name` column, so the check "
+                f"below cannot read the identifications out of it.")
+        else:
+            column = header.index("Name")
+            for line in rows[1:]:
+                cells = line.split("	")
+                if len(cells) <= column or not cells[column].strip():
+                    continue
+                try:
+                    res_id = int(cells[0])
+                except ValueError:
+                    continue
+                name = cells[column].strip()
+                known = RECORDED_NAMES.get(res_id)
+                if known is None:
+                    failures.append(
+                        f"{worklist.name} names {res_id} "
+                        f"{name!r} and RECORDED_NAMES does not carry it. "
+                        f"The Capture Log will print the number.")
+                elif known != name:
+                    failures.append(
+                        f"{worklist.name} calls {res_id} {name!r} where "
+                        f"RECORDED_NAMES calls it {known!r}. One of the "
+                        f"two is out of date and nothing says which.")
 
     return failures

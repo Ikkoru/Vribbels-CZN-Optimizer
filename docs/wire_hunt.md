@@ -26,22 +26,31 @@ Everything else is a suspect. A field whose value happens to equal a small numbe
 
 ## Reading the shop rows
 
-`shop_list` is 222 rows keyed by product id, each `{count, reset_time, total_count}`. Three things are established:
+Settled — `Vribbels/shop_stock.py` is the canonical write-up and the code that acts on it. In short: `count` is how many were bought in the CURRENT period, `total_count` is the lifetime tally, `reset_time` is when `count` last moved, and `count` is reset **lazily** so a row untouched since the period rolled still carries the previous period's number.
 
-- **`total_count` counts UP, for the life of the account.** Buying one moved it by exactly one, twice.
-- **`reset_time` is written on every purchase**, not on the shop's period boundary: it came back as the server time of the buy in all three purchases.
-- **`count` is NOT the stock remaining.** It survived a purchase unchanged twice, and one row read 5 before a purchase and 1 after.
+Which prefix is which shop, all established by buying one and reading the product id off the request:
 
-**What `count` IS remains open**, and it is the field the Checklist needs. The reading that fits every row so far is "purchases made in the current period, reset LAZILY on the next interaction" — under it, a row untouched since last month carries last month's tally and the client works out the stock from `reset_time` against the shop's own period. That is a hypothesis with one supporting observation, not a finding. **What would settle it**: capture a shop row's `count` immediately before and after a period rolls over without buying anything.
+| Prefix | Shop |
+| ------ | ---- |
+| `town_shop_goods_*` | Nono's Shop |
+| `gacha_duplicate_legend_*` | Memory Archive — Traveler |
+| `hyperspace_*` | Zeronium Shop — **not** the Basin, which is `hyperspace_entities` |
+| `chaos_*` | Blackhorn Trade |
+| `card_factor_*` | Exchange Shop — Prism Module |
+| `season_pass_*` | Seasonal Shop |
 
-Product ids seen so far: `town_shop_goods_*` is Nono's Shop, `gacha_duplicate_legend_*` the Memory Archive Traveler exchange, `chaos_*` / `disaster_s0*_*` / `hyperspace_*` / `assault_shop_product_*` / `season_pass_*` the rest.
+## Identifying a mission or a shop product
+
+**`mission_condition` is the fast route.** Any reply to an action that progressed a mission carries it, naming every mission touched, grouped by kind (`season_pass_mission`, `daily_achievement`, `achievement`, `accumulate_condition`, `disaster_achievement`) and each with a `condition_type` — `CAFE_DRINK`, `VISIT`, `DAILY_LOGIN`, `CLEAR_INGAME_CONTENTS__ID`. One action names its own missions, so a single deliberate action identifies them without a diff.
+
+For a shop, buy one: the request carries `product_id` and the reply carries `dec_result` (what it cost) and `add_result` (what it gave), so one purchase names the product, its price and its item at once.
 
 ## What the shop rows show meanwhile
 
-The Checklist draws `<left to buy>/<per-period max>` from `shop_stock.PRODUCTS`, a HAND-WRITTEN table, and `-` for any product not in it. Only `town_shop_goods_005` and `_006` are backed by a captured purchase; the rest were matched by the stock figure read off the game against the row's `count`, which is suggestive and not proof. **A product with no row in that table gets no row on the tab**, so what is missing is visible rather than silently dropped.
+The Checklist draws `<left to buy>/<per-period max>` from `shop_stock.PRODUCTS`, a HAND-WRITTEN table, and `-` for any product not in it. **The per-period MAX is nowhere on the wire** — only `count` is — so every maximum has to be read off the game's own screen and typed in. **A product with no row in that table gets no row on the tab**, so what is missing stays visible.
 
 ## What is still missing entirely
 
-**Nothing carries a shop product's NAME.** `shop_res_data` names products and prices; the mapping from product id to the item it sells has only been made where a purchase was captured.
+**Nothing carries a shop product's NAME or its per-period MAX.** Both are hand-typed into `shop_stock.PRODUCTS`; `shop_res_data` carries prices and product ids but neither of those.
 
-**Nothing carries a shop's PERIOD.** `shop_res_data` names products and prices; which of them reset weekly and which monthly has not been found, and the Checklist's Monthly column needs it.
+**Nothing carries a shop's PERIOD** either. Weekly, monthly and never-resetting are hand-marked in the same table.
