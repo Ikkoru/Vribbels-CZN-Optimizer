@@ -64,7 +64,8 @@ def run():
     import excursions
     from ui.tabs.checklist_tab import (
         ACTIVITY_FULL, CHAOS_CURRENCY, COFFEE_DONE, COFFEE_TODO, COLUMNS,
-        DONE, GREAT_RIFT_TARGET, MODULE_ITEM, MODULE_WINDOWS, NO_DATA,
+        DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
+        MODULE_WINDOWS, NO_DATA,
         SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
     )
 
@@ -150,14 +151,24 @@ def run():
             f"('120000/300000', {TODO!r}). Past seasons keep their rows "
             f"and carry higher totals AND different thresholds, so the "
             f"live one is the latest score_week_id.")
-    # Over the threshold, the display caps and the row goes green.
+    # Over the threshold, the display caps AND says it capped.
     got = _readings(_snapshot(rift=((193, 1396064, 300000),)),
+                    now)["seasonal_score"]
+    if got != (f"300000{GREAT_RIFT_OVER}/300000", DONE):
+        failures.append(
+            f"a score past the threshold reads {got!r}, not "
+            f"('300000{GREAT_RIFT_OVER}/300000', {DONE!r}). The figure "
+            f"runs to seven digits and the row is about clearing the "
+            f"threshold, so it caps -- and the sign is what stops a "
+            f"capped reading looking like one that landed on the bar.")
+    # Landing EXACTLY on it takes no sign, and is still done.
+    got = _readings(_snapshot(rift=((193, 300000, 300000),)),
                     now)["seasonal_score"]
     if got != ("300000/300000", DONE):
         failures.append(
-            f"a score past the threshold reads {got!r}, not "
-            f"('300000/300000', {DONE!r}). The figure runs to seven "
-            f"digits and the row is about clearing the threshold.")
+            f"a score exactly on the threshold reads {got!r}, not "
+            f"('300000/300000', {DONE!r}). Nothing is over, so nothing "
+            f"is capped.")
     got = _readings(_snapshot(), now)["seasonal_score"]
     if got != (f"{NO_DATA}/{GREAT_RIFT_TARGET}", UNKNOWN):
         failures.append(

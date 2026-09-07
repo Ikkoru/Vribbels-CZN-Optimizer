@@ -4126,13 +4126,6 @@ AWAITING_FIRST_READING = {
     "Checklist: row -> row",
     "Checklist: window edge -> first column",
     "Checklist: last column -> window edge",
-    # Both panels had a negative padding eating their own border, which
-    # is what made one report -99 and the other's neighbours report
-    # nothing at all. The correction moved onto the labels; neither
-    # number has been read since.
-    "Update Status: top edge -> content",
-    "Update Status: left edge -> verdict",
-    "Settings: bottom edge -> content",
 }
 
 

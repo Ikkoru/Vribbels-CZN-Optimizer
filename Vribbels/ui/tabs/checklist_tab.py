@@ -52,6 +52,10 @@ from ui.scaling import px
 # three headings because it resets three ways -- a daily set of
 # missions, a weekly set, and the pass itself -- and they are three
 # different things to check rather than one row repeated.
+#
+# The three constants below come first because `_shop_products` builds
+# part of that table and reads them.
+
 # What a shop sub-row's key is built from: the prefix, then the product
 # id. The id has to be recoverable from the key, since that is what
 # `_readings` looks the product up by.
@@ -69,8 +73,8 @@ DONE, TODO, UNKNOWN = "done", "todo", None
 def _shop_products(prefix, period):
     """The sub-rows for one shop's products in one period.
 
-    `(key, indented label, widest)` per product, indentation and all.
-    Read from `shop_stock.PRODUCTS` rather than listed here: that table
+    `(key, label, widest)` per product. Read from
+    `shop_stock.PRODUCTS` rather than listed here: that table
     is where an identification lands, and a product gaining a name or a
     period should not also need a row typed out.
 
@@ -106,7 +110,7 @@ COLUMNS = (
         ("sortie_currency", "Sortie Currency", "99/9"),
         ("seasonal_event", "Seasonal Event(s)", None),
         ("seasonal_shop", "Seasonal Shop", None),
-        ("seasonal_score", "Seasonal Accumulated Score", "300000/300000"),
+        ("seasonal_score", "Seasonal Accumulated Score", "300000+/300000"),
     )),
     ("Monthly", (
         ("nono_monthly", "Nono's Shop", None),
@@ -172,6 +176,12 @@ COFFEE_DONE = "Tasty~"
 # record -- `GREAT_RIFT_TARGET` is only what stands in when it does not.
 GREAT_RIFT_FIELD = "disaster_boss_rank_entities"
 GREAT_RIFT_TARGET = 300000
+
+# What a score PAST the threshold reads as. The figure runs to seven
+# digits where the row is about clearing a bar, so it is capped -- and
+# the sign is what keeps a capped reading from being mistaken for one
+# that landed exactly on it.
+GREAT_RIFT_OVER = "+"
 
 
 # What a value reads before any snapshot has reached the tab. NOT `0`,
@@ -492,12 +502,16 @@ def _readings(raw, now=None):
 
     # The Great Rift's weekly score against the threshold that pays.
     # **Capped in the DISPLAY**, because the figure runs to seven digits
-    # and the row is about whether the threshold is cleared.
+    # and the row is about whether the threshold is cleared. A capped
+    # reading carries `GREAT_RIFT_OVER` so it cannot be read as a score
+    # that landed exactly on the bar.
     score, target = _great_rift(raw)
     if score is None:
         out["seasonal_score"] = ("%s/%d" % (NO_DATA, target), UNKNOWN)
     else:
-        out["seasonal_score"] = ("%d/%d" % (min(score, target), target),
+        over = GREAT_RIFT_OVER if score > target else ""
+        out["seasonal_score"] = ("%d%s/%d" % (min(score, target), over,
+                                              target),
                                  _done(score >= target))
 
     # The modules, by how long each copy has left. **The two windows
