@@ -105,6 +105,11 @@ RESTORE_ROW_GAP = 4     # spacing: button -> button -- button, button ↕
 RESTORE_EDGE_PAD = 3    # spacing: border edge -> button -- panel, button ↔↕
 RESTORE_TEXT_TRIM = -2  # spacing: button -> button -- button, button ↕
 
+# The first column of Restore Defaults against the second. The first
+# column's own width is its widest explanation, so this is the whole of
+# the distance between the two.
+RESTORE_COLUMN_GAP = 8  # spacing: control group ↔ control group -- label, button ↔
+
 # The face the instructions are set in, and what a panel adds around a
 # text block of that face. The width of the LEFT COLUMN is computed
 # from the two -- see `_instructions_width` -- so a wrap in the
@@ -123,8 +128,10 @@ INSTRUCTIONS_CHROME = 23
 # columns line up under each other.
 # (left, top, right, bottom). Levers short of the rule -- see
 # `update_check.PANEL_PAD`, which carries the same correction for the
-# same reason. Left is the only side read off a screen.
-SETTINGS_PAD = (1, 3, 1, -1)  # spacing: border edge -> first non-button element -- panel, label ↔↕
+# same reason. **The TOP is measured to the DROPDOWN, not to the label
+# beside it**: a combobox is the taller of the pair and the rules run
+# to whatever comes nearest the edge.
+SETTINGS_PAD = (1, 4, 1, -2)  # spacing: border edge -> first non-button element -- panel, dropdown ↔↕
 SETTINGS_LABEL_GAP = 2  # spacing: label ↔ its element -- label, dropdown ↔
 SETTINGS_NOTE_GAP = 2   # spacing: explanation text -> the controls it explains -- dropdown, label ↕
 SETTINGS_ROW_GAP = 7    # spacing: config panel row ↕ row -- label, dropdown ↕
@@ -142,6 +149,16 @@ LINKS_PAD = (4, 2, 4, 2)  # spacing: border edge -> first non-button element -- 
 # The leading pad both bottom panels start from, before either is
 # pushed down to meet the other. See `link_bottom_heights`.
 BOTTOM_ROW_GAP = 5      # spacing: panel ↕ unrelated label -- panel, title ↕
+
+# Application Information's two numbers. The panel's own inset is a
+# FLOOR rather than a distance -- its content is centred in a height
+# `Links` decides, so the inset is only what would be left if that
+# height ever collapsed onto the block. The line gap is the pitch of the
+# centred stack, and it is the same above every line but the first, so
+# the block stays symmetric and centring it actually centres it.
+# spacing: unique -- the Application Information stack is centred in its panel -- label, label ↕
+APP_INFO_FLOOR = 4
+APP_INFO_LINE_GAP = 5
 
 # What the scale dropdown is worth, and what a change to it needs.
 SCALE_NOTE = "Applies on the next launch."
@@ -444,8 +461,26 @@ class SetupTab(BaseTab):
                 "optimizer_settings",
             ),
         ]
+        # TWO columns. The first is the [button + explanation] rows; the
+        # second starts where the LONGEST explanation ends, so nothing
+        # in it can ever overlap the words to its left however they
+        # rewrap. Measured off the explanations rather than stated:
+        # rewrapping one is what would move the boundary, and a number
+        # written down here would not follow it.
+        rows = ttk.Frame(restore_frame)
+        rows.pack(side=tk.LEFT, anchor=tk.NW)
+        second = ttk.Frame(restore_frame)
+        # spacing: control group ↔ control group -- label, button ↔
+        second.pack(side=tk.LEFT, anchor=tk.NW,
+                    padx=px((RESTORE_COLUMN_GAP, 0)))
+
+        # The window's own size is a default like any other, and this
+        # is the panel that puts defaults back.
+        ttk.Button(second, text="Window Size", width=BUTTON_W_LARGE,
+                   command=self._restore_window_size).pack(anchor=tk.NW)
+
         for index, (label, explanation, kind) in enumerate(button_specs):
-            row = ttk.Frame(restore_frame)
+            row = ttk.Frame(rows)
             # spacing: button -> button -- button, button ↕
             # The gap goes on the LEADING edge of every row after the
             # first, so the last row adds nothing below itself and the
@@ -481,6 +516,17 @@ class SetupTab(BaseTab):
             # one. Rewrapping the text can therefore move this value --
             # it did when the explanations gained their line breaks.
             ).grid(row=0, column=1, sticky="w", padx=px((2, 0)))
+
+    def _restore_window_size(self):
+        """Put the window back to the size a fresh launch gives it.
+
+        The POSITION is left alone: where the window sits is the user's
+        answer and only its size is what this restores. `px` because
+        the default is stated at 100% and the window is drawn at the
+        active scale -- see `ui/scaling.py`.
+        """
+        self.root.geometry("%dx%d" % (px(scaling.WINDOW_W),
+                                     px(scaling.WINDOW_H)))
 
     def _build_settings(self, parent):
         """Settings: the program's own switches, both restart-scoped."""
@@ -585,29 +631,44 @@ class SetupTab(BaseTab):
         ).pack(fill=tk.X, pady=px(2))
 
     def _build_app_info(self, parent):
-        """Application Information: what this build is."""
-        # spacing: TBD -- the Application Information panel's internal format
-        # Carried over from the About tab unchanged: a centred stack at
-        # three font sizes, with paddings nothing has ruled on.
+        """Application Information: what this build is, centred.
+
+        Three lines at two faces, sitting in the middle of the panel on
+        both axes -- which is why nothing in it answers to an edge rule.
+        The panel's height is `Links`' rather than its own content's
+        (see `link_bottom_heights`), so the distance from the block to
+        any of the four borders is half of whatever that leaves over.
+        """
+        # spacing: unique -- the Application Information stack is centred in its panel -- panel, label ↔↕
         self._app_info_panel = ttk.LabelFrame(
-            parent, text="Application Information", padding=px(15))
+            parent, text="Application Information",
+            padding=px(APP_INFO_FLOOR))
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
         # `fill=X`, never `expand` -- see `_build_links`.
         self._app_info_panel.pack(fill=tk.X, padx=px(2),
                                   pady=px((BOTTOM_ROW_GAP, 2)))
 
+        # The stack, in a frame of its own. `expand` is what centres it:
+        # the leftover height goes to the frame's cavity and the frame
+        # sits in the middle of it, which a label packed straight into
+        # the panel cannot do -- three of them would each take a third
+        # of the slack and the block would spread rather than move.
+        block = ttk.Frame(self._app_info_panel)
+        block.pack(expand=True)
+
         version = current_version()
-        ttk.Label(self._app_info_panel,
-                  text="Vribbels CZN Optimizer (Ikkoru)",
-                  font=("Segoe UI", 14, "bold")).pack(pady=px((10, 5)))
-        ttk.Label(self._app_info_panel,
-                  text=f"{version}" if version else "Version Unknown",
-                  font=("Segoe UI", 14, "bold")).pack(pady=px((0, 5)))
-        ttk.Label(self._app_info_panel,
-                  text="A fork of a Fribbels-inspired gear management and "
-                       "optimization tool",
-                  font=("Segoe UI", 9)).pack()
+        # No leading or trailing pad: a block centred by its cavity is
+        # only centred while its own padding is symmetric, and a pad on
+        # one end offsets it by that much.
+        for text, face, lead in (
+                ("Vribbels CZN Optimizer (Ikkoru)", ("Segoe UI", 14, "bold"),
+                 0),
+                (version if version else "Version Unknown",
+                 ("Segoe UI", 14, "bold"), APP_INFO_LINE_GAP),
+                ("A fork of a Fribbels-inspired gear management and "
+                 "optimization tool", ("Segoe UI", 9), APP_INFO_LINE_GAP)):
+            ttk.Label(block, text=text, font=face).pack(pady=px((lead, 0)))
 
     def _on_first_map(self, _event=None):
         """Link the bottom row, once, the first time the tab is shown."""

@@ -183,8 +183,10 @@ class OptimizerGUI:
         # and _reveal_window() (end of __init__) shows it once, complete.
         self._hide_until_ready()
         self.root.title("Vribbels CZN Optimizer (Ikkoru)")
-        self.root.geometry("%dx%d" % (px(1550), px(1000)))
-        self.root.minsize(px(1300), px(800))
+        self.root.geometry("%dx%d" % (px(scaling.WINDOW_W),
+                                     px(scaling.WINDOW_H)))
+        self.root.minsize(px(scaling.WINDOW_MIN_W),
+                          px(scaling.WINDOW_MIN_H))
 
         self.colors = dict(COLORS)
 
@@ -1012,6 +1014,7 @@ class OptimizerGUI:
             # on apply_active_weights alone for the same reason.)
             self.inventory_tab_instance.populate_set_filters()
             self.materials_tab_instance.refresh_materials()
+            self.checklist_tab_instance.refresh_checklist()
 
             # Re-score fragments using the currently-active scoring weights
             # (preset or custom), so loading fresh data doesn't wipe them out.
@@ -1066,6 +1069,7 @@ class OptimizerGUI:
                     self.optimizer_tab_instance.refresh_after_load()
                     self.inventory_tab_instance.populate_set_filters()
                     self.materials_tab_instance.refresh_materials()
+                    self.checklist_tab_instance.refresh_checklist()
                     # apply_active_weights re-scores and refreshes the
                     # Memory Fragments tab, and the Combatants tab unless
                     # told the latter has nothing new to show. An

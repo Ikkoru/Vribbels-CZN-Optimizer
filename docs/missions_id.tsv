@@ -1,0 +1,38 @@
+res_id	family	score	complete_time	issued_time	week_id	pass_id	Name	Notes
+content_01_01_01	content	1						
+content_01_01_02	content	1						
+content_01_01_03	content	1						
+content_01_02_01	content	1						
+content_01_02_02	content	1						
+content_01_02_03	content	1						
+content_01_03_01	content	1						
+content_01_03_02	content	1						
+content_01_03_03	content	1						
+content_01_04_01	content	1						
+content_01_04_02	content	1						
+content_01_04_03	content	1						
+content_01_05_01	content	1						
+content_01_05_02	content	1						
+content_01_05_03	content	1						
+content_01_06_01	content	1						
+content_01_06_02	content	1						
+content_01_06_03	content	1						
+content_01_07_01	content	1						
+content_01_07_02	content	1						
+content_01_07_03	content	1						
+content_01_08_01	content	1						
+content_01_08_02	content	1						
+content_01_08_03	content	1						
+content_01_09_01	content	1						
+content_01_09_02	content	1						
+content_01_09_03	content	1						
+content_01_10_01	content	1						
+content_01_10_02	content	1						
+content_01_10_03	content	1						
+pass_mission_008_01	pass_mission	1	1788741240	1788727086	0	season_pass_008		
+pass_mission_008_03	pass_mission	1	1788741240	1788729520	0	season_pass_008		
+pass_mission_008_04	pass_mission	130000	1788741240	1788728876	0	season_pass_008		
+pass_mission_008_05	pass_mission	8	1788741240	1788729052	0	season_pass_008		
+pass_mission_008_06	pass_mission	190	1788741240	1788729052	0	season_pass_008		
+pass_mission_008_09	pass_mission	1	1788741240	1788729052	0	season_pass_008		
+pass_mission_008_10	pass_mission	3	1788741240	1788729052	0	season_pass_008		

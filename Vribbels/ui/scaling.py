@@ -56,6 +56,14 @@ import ctypes
 SCALE_CHOICES = ("100%", "200%")
 DEFAULT_SCALE = "100%"
 
+# The window a fresh launch opens, and the smallest it may be
+# dragged to. At 100%, in device pixels -- `px` is what puts them
+# at the active scale. Here rather than in the GUI module because
+# the Setup tab's `Window Size` button restores the same number
+# and two copies of it would drift.
+WINDOW_W, WINDOW_H = 1550, 1000
+WINDOW_MIN_W, WINDOW_MIN_H = 1300, 800
+
 # Tk states font sizes in POINTS and Windows draws in pixels at 96 to
 # the inch. That ratio is what `tk scaling` holds.
 POINTS_TO_PIXELS = 96 / 72

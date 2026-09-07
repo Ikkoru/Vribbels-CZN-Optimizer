@@ -73,11 +73,15 @@ BUTTON_INSET = 2     # spacing: border edge -> button -- panel, button ↔↕
 # is the two labels' insets meeting.
 LABEL_TO_VALUE = 2   # spacing: label ↔ its element -- label, label ↔
 
-# Between every pair of rows inside the panel -- the two readings, the
-# verdict under them, and the button under that. One pitch for all of
-# it, so the panel reads as a block rather than as three things that
-# happen to be stacked.
-ROW_PITCH = 6        # spacing: config panel row ↕ row -- label, label ↕
+# The three gaps down the panel: the two readings, the verdict under
+# them, and the button under that. **One rule, three levers.** The four
+# widgets are boxed differently -- two `ttk.Label`s in a grid, then a
+# `tk.Label` at a face of its own, then a `ttk.Button` -- and each box
+# carries a different amount of its own slack into the gap below it, so
+# one number renders as three distances.
+PITCH_READINGS = 2   # spacing: config panel row ↕ row -- label, label ↕
+PITCH_VERDICT = 1    # spacing: config panel row ↕ row -- label, label ↕
+PITCH_BUTTON = 6     # spacing: config panel row ↕ row -- label, button ↕
 
 
 def version_core(version: str) -> str:
@@ -184,26 +188,26 @@ class UpdateStatus:
         # On the whole row, both cells: a grid pad set on one column
         # only would leave the other's baseline where it was.
         ttk.Label(rows, text="Last checked:").grid(
-            row=1, column=0, sticky="w", pady=px((ROW_PITCH, 0)))
+            row=1, column=0, sticky="w", pady=px((PITCH_READINGS, 0)))
         self.checked_label = ttk.Label(rows, text="")
         # spacing: label ↔ its element -- label, label ↔
         self.checked_label.grid(row=1, column=1, sticky="w",
                                 padx=px((LABEL_TO_VALUE, 0)),
-                                pady=px((ROW_PITCH, 0)))
+                                pady=px((PITCH_READINGS, 0)))
 
         # `tk.Label`, not ttk: the verdict is coloured per state and a
         # ttk style would need one style per colour.
         self.verdict = tk.Label(self.panel, text="", bg=colors["bg"],
                                 fg=colors["fg_dim"], font=("Segoe UI", 9))
         # spacing: config panel row ↕ row -- label, label ↕
-        self.verdict.pack(anchor=tk.W, pady=px((ROW_PITCH, 0)))
+        self.verdict.pack(anchor=tk.W, pady=px((PITCH_VERDICT, 0)))
 
         self.button = ttk.Button(self.panel, text="Check Now",
                                  command=self.check_now)
         # spacing: config panel row ↕ row -- label, button ↕
         # spacing: border edge -> button -- panel, button ↔↕
         self.button.pack(anchor=tk.W, padx=px((BUTTON_INSET, 0)),
-                         pady=px((ROW_PITCH, BUTTON_INSET)))
+                         pady=px((PITCH_BUTTON, BUTTON_INSET)))
 
         self.root.after(POLL_MS, self._drain)
         # Shortly after, so the tab is built before its labels move.

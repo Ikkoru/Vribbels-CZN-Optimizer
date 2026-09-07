@@ -1,12 +1,15 @@
 """Checklist tab: what resets, and how often.
 
 Four headed columns, one per reset period, each listing the things that
-come back on it. **Labels only so far** -- nothing here reads a
-snapshot yet. What it is waiting for is completion status, and the
-capture already carries the first pieces of that: `point_entity` for
-the daily and weekly activity totals, `mission_entities` for a
-per-mission `complete_time`, and `season_pass_entity` for the
-Arkhianon Supply's rank. See `docs/capture_pipeline.md`.
+come back on it. Most rows are LABELS ONLY so far -- what they are
+waiting for is completion status, and the capture carries the first
+pieces of it: `point_entity` for the daily and weekly activity totals,
+`mission_entities` for a per-mission `complete_time`, and
+`season_pass_entity` for the Arkhianon Supply's rank. See
+`docs/capture_pipeline.md`.
+
+One row reads a value today: the day's activity total, out of a
+hundred, in the alert colour where the day is not finished.
 
 The columns are built the way the Materials tab's are: content in the
 EVEN grid columns with an empty expanding one between each pair, so the
@@ -72,11 +75,28 @@ COLUMNS = (
 # The rows' face. The headings use the shared helper's own.
 ROW_FONT = ("Segoe UI", 9)
 
+# The one row that reads a value so far, and what it is read against.
+# `point_entity.day_point` is the day's ACTIVITY total and a hundred is
+# a full day; anything short is drawn in the alert colour, which is the
+# whole of what the row says today.
+ACTIVITY_ROW = "Activity (Dailies)"
+ACTIVITY_FULL = 100
+POINT_FIELD = "point_entity"
+
+# What a value reads before any snapshot has reached the tab. NOT `0`,
+# which is what an untouched day reads: nothing claimed and nothing
+# recorded are different answers.
+NO_DATA = "-"
+
 # What separates one row from the next, as `spacing1` on every line
 # after the first. A lever a rendered distance short of the rule: a
 # Text line's own box already carries part of the pitch, and unlike a
 # padding this cannot go negative.
 ROW_PITCH = 4           # spacing: label row -> label row -- run, run ↕
+
+# A row's words against its value, which is a left TAB STOP. A lever
+# short of the rule, the words stopping inside their own advance.
+LABEL_TO_VALUE = 6      # spacing: label ↔ its element -- run, run ↔
 
 # The heading of a column against the first row under it. The gap runs
 # from the heading's BASELINE to the row's CAPITAL, with the heading's
@@ -95,7 +115,14 @@ class ChecklistTab(BaseTab):
 
     def __init__(self, parent, context):
         super().__init__(parent, context)
+        # (Text, rows) per column heading, for the refresh to rewrite.
+        self.column_texts = {}
         self.setup_ui()
+        # Drawn once with nothing, so the tab is its rows rather than a
+        # blank before the first capture.
+        self.refresh_checklist()
+
+    # ------------------------------------------------------------ build
 
     def setup_ui(self):
         """Build the Checklist tab UI."""
@@ -120,7 +147,6 @@ class ChecklistTab(BaseTab):
                                          uniform="checklist")
         columns.grid_rowconfigure(0, weight=1)
 
-        self.column_texts = {}
         for index, (title, rows) in enumerate(COLUMNS):
             column = ttk.Frame(columns)
             column.grid(row=0, column=2 * index, sticky="nsew")
@@ -131,8 +157,13 @@ class ChecklistTab(BaseTab):
         make_heading(parent, title).pack(anchor=tk.CENTER)
 
         font = tkfont.Font(font=ROW_FONT)
-        width = max(font.measure(row) for row in rows) + TEXT_INSET
-        holder = tk.Frame(parent, width=width,
+        # The words, plus a column reserved for the widest reading any
+        # row can show. RESERVED rather than fitted: a column that
+        # sized to its content would move every row's words the moment
+        # a figure gained a digit.
+        labels = max(font.measure(row) for row in rows) + TEXT_INSET
+        stop = labels + LABEL_TO_VALUE
+        holder = tk.Frame(parent, width=stop + font.measure(_widest_value()),
                           height=self._block_height(len(rows)),
                           bg=self.colors["bg"])
         holder.pack_propagate(False)
@@ -147,13 +178,17 @@ class ChecklistTab(BaseTab):
             # the rows can be copied, and nothing about them invites
             # typing.
             takefocus=0, insertwidth=px(0), cursor="arrow",
+            # A LEFT stop: a row's reading sits beside its own words
+            # rather than at the block's far edge, where it would read
+            # as belonging to the column instead of to the row.
+            tabs=(stop,),
         )
         text.pack(fill=tk.BOTH, expand=True)
         # spacing: label row -> label row -- run, run ↕
         text.tag_configure("row", spacing1=px(ROW_PITCH))
-        text.insert("1.0", "\n".join(rows), "row")
-        text.config(state=tk.DISABLED)
-        self.column_texts[title] = text
+        # The colour is the whole of what a short reading says.
+        text.tag_configure("alert", foreground=self.colors["red"])
+        self.column_texts[title] = (text, rows)
 
     @staticmethod
     def _block_height(rows):
@@ -165,3 +200,62 @@ class ChecklistTab(BaseTab):
         """
         return (rows * tkfont.Font(font=ROW_FONT).metrics("linespace")
                 + (rows - 1) * px(ROW_PITCH))
+
+    # ----------------------------------------------------------- update
+
+    def refresh_checklist(self):
+        """Redraw every reading from the loaded snapshot.
+
+        Called automatically after data loads. A snapshot with no
+        `point_entity` -- one taken before the capture kept it -- reads
+        `-`: nothing claimed and nothing recorded are different answers
+        and a zero would say the first.
+        """
+        if not self.column_texts:
+            return
+        raw = getattr(self.optimizer, "raw_data", None) or {}
+        point = raw.get(POINT_FIELD)
+        day = point.get("day_point") if isinstance(point, dict) else None
+        if isinstance(day, int) and not isinstance(day, bool):
+            reading = ("%d/%d" % (day, ACTIVITY_FULL), day != ACTIVITY_FULL)
+        else:
+            reading = ("%s/%d" % (NO_DATA, ACTIVITY_FULL), False)
+        for text, rows in self.column_texts.values():
+            self._fill(text, rows,
+                       {ACTIVITY_ROW: reading} if ACTIVITY_ROW in rows else {})
+
+    @staticmethod
+    def _fill(text, rows, readings):
+        """Rewrite one column: its rows, and any reading beside one.
+
+        `readings` maps a row's words to (value, alert). Written whole
+        rather than patched line by line -- a Text has no per-line
+        assignment, and the block is small.
+        """
+        text.config(state=tk.NORMAL)
+        text.delete("1.0", tk.END)
+        for index, row in enumerate(rows):
+            value, alert = readings.get(row, (None, False))
+            text.insert(tk.END, (LINE_SEP if index else "") + row, "row")
+            if value is not None:
+                text.insert(tk.END, COLUMN_SEP + value,
+                            ("row", "alert") if alert else "row")
+        text.config(state=tk.DISABLED)
+
+
+# What separates one row from the next, and a row from its value.
+# Named because a Text's columns ARE its tabs and its rows ARE its
+# newlines -- so these two characters are structure rather than
+# punctuation.
+LINE_SEP = "\n"
+COLUMN_SEP = "\t"
+
+
+def _widest_value():
+    """The widest reading any row can show.
+
+    Stated rather than derived: the only value so far is an activity
+    total out of a hundred, and a column reserved for the widest form
+    it can take does not move when the figure does.
+    """
+    return "%d/%d" % (ACTIVITY_FULL, ACTIVITY_FULL)

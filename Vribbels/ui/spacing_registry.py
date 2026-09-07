@@ -645,6 +645,22 @@ PANEL_EDGES = [
     ("Capture", "Upgrade Log Settings", "bottom"),
     ("Capture", "Upgrade Log Settings", "right"),
     ("Gear Score", "Stat Weight Configuration", "top"),
+    # The three Setup & Settings panels whose internals came into scope
+    # with the tab's restructure. The generic loop already reads each
+    # one's LEFT edge; these are the other three.
+    #
+    # `Settings`' TOP stops at the UI scale DROPDOWN rather than at the
+    # label beside it -- a combobox is the taller of the pair, and every
+    # edge rule runs to whatever comes nearest the border.
+    ("Setup & Settings", "Update Status", "top"),
+    ("Setup & Settings", "Update Status", "right"),
+    ("Setup & Settings", "Update Status", "bottom"),
+    ("Setup & Settings", "Settings", "top"),
+    ("Setup & Settings", "Settings", "right"),
+    ("Setup & Settings", "Settings", "bottom"),
+    ("Setup & Settings", "Links", "top"),
+    ("Setup & Settings", "Links", "right"),
+    ("Setup & Settings", "Links", "bottom"),
 ]
 
 # Hand readings for PANEL_EDGES rows that have not been nudged yet.
@@ -1372,7 +1388,21 @@ def _tab_attr(instance, attr):
     return find
 
 
+def _update_status(attr):
+    """Locator: one of the Update Status panel's own widgets.
+
+    The verdict cannot be found by its words -- it says whatever the
+    last check found, and one of its states is the empty string, which
+    `find_descendant_text` would match against every label on the tab.
+    The button is reached the same way so the pair reads as one.
+    """
+    def find(app):
+        return getattr(app.setup_tab_instance.update_status, attr)
+    return find
+
+
 LABEL_CLASSES = ("TLabel", "Label")
+COMBOBOX_CLASSES = ("TCombobox",)
 SCALE_CLASSES = ("TScale",)
 
 # Cells of a grid, for the two panels that wrap each label-and-control
@@ -2094,6 +2124,16 @@ EXPLANATION_ENTRIES = [
     ("Capture", "presets caption -> the checklist", 7, None, "rule",
      _label_over_controls("Upgrade Log Settings",
                           "Assigned presets compared", *CHECKBOX_CLASSES)),
+    # The Settings panel's two notes, each under the dropdown it
+    # explains. Measured to the DROPDOWN rather than to the label
+    # beside it: a combobox paints lower than a label on the same row,
+    # so it is what the gap actually starts from.
+    ("Setup & Settings", "UI scale dropdown -> its note", 7, None, "rule",
+     _controls_over_label("Settings", "Applies on the next launch",
+                          *COMBOBOX_CLASSES)),
+    ("Setup & Settings", "cores dropdown -> its warning", 7, None, "rule",
+     _controls_over_label("Settings", "Leave this on Auto",
+                          *COMBOBOX_CLASSES)),
 ]
 
 
@@ -4027,6 +4067,27 @@ AWAITING_FIRST_READING = {
     "Checklist: row -> row",
     "Checklist: window edge -> first column",
     "Checklist: last column -> window edge",
+    # The Setup & Settings internals that came into scope with the tab's
+    # restructure. Three of them were nudged off a hand reading this
+    # turn -- Update Status' rows sat at 16, 17 and 12, and Settings'
+    # top and bottom at 3 and 5 -- and the levers behind them were set
+    # from that arithmetic rather than from a run. The rest have never
+    # been read at all.
+    "Update Status: version row -> checked row",
+    "Update Status: checked row -> verdict",
+    "Update Status: verdict -> Check Now",
+    "Update Status: top edge -> content",
+    "Update Status: right edge -> content",
+    "Update Status: bottom edge -> content",
+    "Settings: scale note -> cores row",
+    "Settings: top edge -> content",
+    "Settings: right edge -> content",
+    "Settings: bottom edge -> content",
+    "UI scale dropdown -> its note",
+    "cores dropdown -> its warning",
+    "Links: top edge -> content",
+    "Links: right edge -> content",
+    "Links: bottom edge -> content",
 }
 
 
@@ -4147,14 +4208,16 @@ def register_all():
         )
 
     for tab, title, side in PANEL_EDGES:
+        _name = f"{title}: {side} edge -> content"
         sa.track(
-            name=f"{title}: {side} edge -> content",
+            name=_name,
             tab=tab,
             rule=RULE_BORDER_EDGE_CONTENT,
             target=4,
             resolve=_panel_edge_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
             hand=PANEL_EDGE_HANDS.get((title, side)),
+            provisional=_name in AWAITING_FIRST_READING,
         )
 
     for rule, table, scenario in (
@@ -4491,6 +4554,48 @@ def register_all():
             axis="h",
             provisional=True,
         )
+
+    # Update Status' three rows. One rule, and three separate levers in
+    # `update_check` -- the four widgets are boxed differently and each
+    # carries a different amount of its own slack into the gap below it.
+    #
+    # Read from the row above's BASELINE, off its first capital: the
+    # verdict says `Up to date` or `Check failed: ...` depending on what
+    # the last check found, and reading its whole extent would move with
+    # the string rather than with anything on screen.
+    for _what, _above, _below in (
+            ("version row -> checked row",
+             _by_text("Latest version:"), _by_text("Last checked:")),
+            ("checked row -> verdict",
+             _by_text("Last checked:"), _update_status("verdict")),
+            ("verdict -> Check Now",
+             _update_status("verdict"), _update_status("button"))):
+        _name = f"Update Status: {_what}"
+        sa.track(
+            name=_name,
+            tab="Setup & Settings",
+            rule=RULE_CONFIG_PANEL_ROW,
+            target=12,
+            resolve=_gap_below_capitals(_above, _below),
+            axis="v",
+            provisional=_name in AWAITING_FIRST_READING,
+        )
+
+    # The one gap down the Settings panel that crosses from one setting
+    # to the next. Its lower end is the ROW, not the label on it: the
+    # combobox in it paints higher than the words beside it.
+    sa.track(
+        name="Settings: scale note -> cores row",
+        tab="Setup & Settings",
+        rule=RULE_CONFIG_PANEL_ROW,
+        target=12,
+        resolve=_gap_below_capitals(
+            _by_text("Applies on the next launch"),
+            _group_of("Optimizer cores:")),
+        axis="v",
+        provisional="Settings: scale note -> cores row"
+        in AWAITING_FIRST_READING,
+    )
 
     sa.track(
         name="Character: Excursion Types -> its count",

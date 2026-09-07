@@ -56,6 +56,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | `capture/`, snapshot parsing, char-vs-partner classification         | `docs/capture_pipeline.md`                 |
 | `game_data/*.py`, the launch-time validator, stat vocabularies       | `docs/game_data_files.md`                  |
 | Which item res_ids are known, used, or still to identify              | `docs/items_id_dump.py` and its three TSVs |
+| Which mission res_ids are known, and which set each belongs to        | `docs/missions_id_dump.py` and `docs/missions_id.tsv` |
 | Tk threading, startup, display quirks                                | `docs/ui_runtime.md`                       |
 | Panel layout, spacing rules, the ledger, ttk styles                  | `docs/ui_spacing.md`                       |
 | `tasks.md` / `plan.md` / CHANGELOG conventions                       | `docs/repo_conventions.md`                 |

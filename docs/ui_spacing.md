@@ -486,6 +486,7 @@ A `unique` names no rule, so nothing derives its number — and the registry's r
 | `a button's own internal inset`                     | `TButton` padding, every button in the app  | —        | a widget's own inset, and it sets that widget's SIZE — the widths in `ui/utils/button_width.py` are only true against it. Every `button -> button` and `border edge -> button` reading rides it |
 | `Treeview internals, which are style options`       | every list                                  | —        | style options on a widget that draws its own insides, and no geometry manager reaches between them. See "Spacing inside a Treeview" |
 | `monospace columns inside the contributions text`   | Optimizer, the Stat Contributions popup     | —        | the columns are the `f"{value:>5.1f}"` that built the string, in a face where every character advances the same. No padding reaches between them, and changing one means changing a format |
+| `the Application Information stack is centred in its panel` | Setup & Settings, the bottom row's right panel | — | the block sits in the middle of the panel on both axes, so its distance to each of the four borders is half of whatever the panel has spare — and the panel's height is `Links`' rather than its own content's. There is no distance to hold. The 5px between its three lines rides the same marker: they are set at two faces, and no row-pitch rule spans those |
 
 **The first pair is read from the status text's BASELINE**, taken off its first capital rather than off its ink -- `No data loaded` has no descender and the strings that replace it do, which would move the reading by three without anything on screen moving at all. Text to text the same gap is 11, the spinbox seating its own digits inside its border. The second pair has a border at both ends and no such split.
 
@@ -498,7 +499,6 @@ A `unique` names no rule, so nothing derives its number — and the registry's r
 | Description | Location | Rule/Question |
 | ----------- | -------- | ------------- |
 | the Links panel's own button styling and pitch | `ui/tabs/setup_tab.py`, `_link_button` | Flat `tk.Button`s with their own `padx`/`pady`, packed `fill=X` at a pitch of 2. Carried over from the About tab unchanged. A flat button's painted edge is its fill rather than a border, so `button -> button` may not be the rule that applies. |
-| the Application Information panel's internal format | `ui/tabs/setup_tab.py`, `_build_app_info` | A centred stack at three font sizes with a padding of 15 around it, carried over from the About tab unchanged. Nothing in the table rules on a centred block, and its paddings were never measured. |
 
 ## Checking spacing
 
