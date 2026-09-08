@@ -1,14 +1,24 @@
 key	res_id	family	score	complete_time	issued_time	week_id	pass_id	seen	Name	Notes
-pass_mission_*_01	pass_mission_008_01	pass_mission	1	1788741240	1788727086	0	season_pass_008	websocket_debug_20260907_013232.jsonl	Log into the game	Daily
-pass_mission_*_03	pass_mission_008_03	pass_mission	1	1788741240	1788729520	0	season_pass_008	websocket_debug_20260907_013232.jsonl	Approve Ark City Policies 1 time(s)	Daily
-pass_mission_*_04	pass_mission_008_04	pass_mission	130000	1788741240	1788728876	0	season_pass_008	websocket_debug_20260907_013232.jsonl	Obtain 12000 Unit(s)	Daily
-pass_mission_*_05	pass_mission_008_05	pass_mission	8	1788741240	1788729052	0	season_pass_008	websocket_debug_20260907_013232.jsonl	Complete Simulation 5 time(s)	Daily
-pass_mission_*_06	pass_mission_008_06	pass_mission	190	1788741240	1788729052	0	season_pass_008	websocket_debug_20260907_013232.jsonl	Use 120 Aether	Daily
-pass_mission_*_09	pass_mission_008_09	pass_mission	1	1788741240	1788729052	0	season_pass_008	websocket_debug_20260907_013232.jsonl		
-pass_mission_*_10	pass_mission_008_10	pass_mission	3	1788741240	1788729052	0	season_pass_008	websocket_debug_20260907_013232.jsonl		
-pass_mission_*_02									Go on Ark City Excursions 1 time(s)	Daily
-pass_mission_*_08									Order food 3 time(s) at the Ark City [Starshine Diner]	Weekly
-pass_mission_*_12									Clear Unknown Spot 20 time(s)	Weekly
-pass_mission_*_15									Complete Chaos 3 times	Weekly
-pass_mission_*_16									Use 900 Aether	Weekly
-pass_mission_*_17									Use 1500 Aether	Weekly
+pass_mission_*_01	pass_mission_008_01	pass_mission	1	1788811757	1788810345	0	season_pass_008	memory_fragments_20260908_165201.json	Log into the game	Daily
+pass_mission_*_02	pass_mission_008_02	pass_mission	1	1788811776	1788810518	0	season_pass_008	memory_fragments_20260908_165201.json	Go on Ark City Excursions 1 time(s)	Daily
+pass_mission_*_03	pass_mission_008_03	pass_mission	1	1788833232	1788833193	0	season_pass_008	memory_fragments_20260908_165201.json	Approve Ark City Policies 1 time(s)	Daily
+pass_mission_*_04	pass_mission_008_04	pass_mission	30000	1788811794	1788810518	0	season_pass_008	memory_fragments_20260908_165201.json	Obtain 12000 Unit(s)	Daily
+pass_mission_*_05	pass_mission_008_05	pass_mission	5	1788833146	1788832959	0	season_pass_008	memory_fragments_20260908_165201.json	Complete Simulation 5 time(s)	Daily
+pass_mission_*_06	pass_mission_008_06	pass_mission	200	1788833163	1788832959	0	season_pass_008	memory_fragments_20260908_165201.json	Use 120 Aether	Daily
+pass_mission_*_07	pass_mission_008_07	pass_mission	2	0	1788729508	0	season_pass_008	memory_fragments_20260908_165201.json		
+pass_mission_*_08	pass_mission_008_08	pass_mission	3	1788833392	1788833305	0	season_pass_008	memory_fragments_20260908_165201.json	Order food 3 time(s) at the Ark City [Starshine Diner]	Weekly
+pass_mission_*_09	pass_mission_008_09	pass_mission	1	1788741240	1788729052	0	season_pass_008	memory_fragments_20260908_165201.json		
+pass_mission_*_10	pass_mission_008_10	pass_mission	3	1788741240	1788729052	0	season_pass_008	memory_fragments_20260908_165201.json		
+pass_mission_*_11	pass_mission_008_11	pass_mission	8	1788791175	1788786934	0	season_pass_008	memory_fragments_20260908_165201.json		
+pass_mission_*_12	pass_mission_008_12	pass_mission	20	1788791175	1788786882	0	season_pass_008	memory_fragments_20260908_165201.json	Clear Unknown Spot 20 time(s)	Weekly
+pass_mission_*_13	pass_mission_008_13	pass_mission	1	1788790166	1788787785	0	season_pass_008	memory_fragments_20260908_165201.json		
+pass_mission_*_14	pass_mission_008_14	pass_mission	2	1788791175	1788787785	0	season_pass_008	memory_fragments_20260908_165201.json		
+pass_mission_*_15	pass_mission_008_15	pass_mission	3	1788811840	1788787785	0	season_pass_008	memory_fragments_20260908_165201.json	Complete Chaos 3 times	Weekly
+pass_mission_*_16	pass_mission_008_16	pass_mission	590	0	1788729052	0	season_pass_008	memory_fragments_20260908_165201.json	Use 900 Aether	Weekly
+pass_mission_*_17	pass_mission_008_17	pass_mission	590	0	1788729052	0	season_pass_008	memory_fragments_20260908_165201.json	Use 1500 Aether	Weekly
+pass_mission_*_18	pass_mission_008_18	pass_mission	1	0	1787935150	0	season_pass_008	memory_fragments_20260908_165201.json		
+pass_mission_*_19	pass_mission_008_19	pass_mission	1	1787876159	1787866875	0	season_pass_008	memory_fragments_20260908_165201.json		
+pass_mission_*_20	pass_mission_008_20	pass_mission	1	1787786625	1787784443	0	season_pass_008	memory_fragments_20260908_165201.json		
+pass_mission_*_21	pass_mission_008_21	pass_mission	1	1787152155	1787151452	0	season_pass_008	memory_fragments_20260908_165201.json		
+pass_mission_*_22	pass_mission_008_22	pass_mission	1	1787876159	1787871559	0	season_pass_008	memory_fragments_20260908_165201.json		
+pass_mission_*_23	pass_mission_008_23	pass_mission	3000	1787276035	1787152163	0	season_pass_008	memory_fragments_20260908_165201.json		

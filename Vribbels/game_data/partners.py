@@ -971,6 +971,27 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "Gain 1 AP\n3 Paralytic Poison to all enemies\nParalytic Poison: When attacked by a card of the assigned Combatant, 1 Fracture\nAt the end of the turn decrease Paralytic Poison by 1",
     },
+    -1: {
+        "name": "Emilie",
+        "grade": 5,
+        "class": "Psionic",
+        "passive_name": "As My Mistress Wishes",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen Fracture is inflicted through a card of the assigned Combatant, +{PostFracCrit%}% to Critical Chance and increase Damage Amount of ally Fracture and Scorched by {FracScorDMG%}% (cannot stack).",
+        "values": {
+            "ATK%": (16, 18, 20, 22, 24),
+            "PostFracCrit%": (10, 13, 15, 18, 20),
+            "FracScorDMG%": (15, 19, 23, 27, 30),
+        },
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
+        "stats_conditional": {
+            "CRate": (10, 13, 15, 18, 20),  # After Fracture is applied (max 1 stack)
+        },
+        "ego_name": "For My Mistress",
+        "ego_cost": 2,
+        "ego_desc": "300% Damage\n2 Sensory Deprivation\n\nSensory Deprivation: Increase Damage Amount taken from the assigned Combatant's DoT effects by 20%\nAt the end of the turn, decrease Sensory Deprivation by 1",
+    },
     # TODO: replace key with real res_id when known. The duplicate shop
     # names this one by its selector item, 4500012, and no message maps
     # that item to a res_id -- see docs/game_data_files.md.

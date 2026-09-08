@@ -1,6 +1,6 @@
 res_id	where	amount	Name	Type	Note
-2000002	currencies	190	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
-2000007	currencies	15	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
+2000002	currencies	169	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
+2000007	currencies	5	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
 2000011	currencies	597	Moment of the Radiant Hero	Shop Currency	
 2000012	currencies	118	Moment of the Radiant Traveler	Shop Currency	
 2000014	currencies	0	Tear of God	Stamina Recovery	
@@ -10,13 +10,13 @@ res_id	where	amount	Name	Type	Note
 2000022	currencies	3	Special Security Code	Trauma Code Unlock Item	Max 3 stored
 2000023	currencies	58	Prism Lens	Gacha Currency - Animated Card	
 2000024	currencies	312	Prism Film	Shop Currency	
-2000031	currencies	49	Policy Point	Ark - Shop Currency	
+2000031	currencies	157	Policy Point	Ark - Shop Currency	
 2000032	currencies	8320	Crystal of Discord	Shop Currency	
 3000005	items	40850	Chaos Orb	Zero System Currency	Worthless
-3000008	items	55	Tactical Data	Sortie Currency	
+3000008	items	18	Tactical Data	Sortie Currency	
 3200001	items	3712	Particles of Memory	Crafting Material for Memory Fragments	
 3200002	items	63	Core of Memory	Crafting Material for Memory Fragments	
-3210001	items	7024	Traces of Memory	Crafting Material for Memory Fragments	
+3210001	items	7028	Traces of Memory	Crafting Material for Memory Fragments	
 3210002	items	22	Multidimensional Alignment Material	Crafting Material for Memory Fragments	
 3300001	items	3	Sweet Choconilla	Gift Item	
 3300002	items	9	Exquisite Slice of Cake	Gift Item	
@@ -25,20 +25,20 @@ res_id	where	amount	Name	Type	Note
 3300008	items	33	Lucky Sachet	Gift Item	
 3300011	items	14	Carefully Handwritten Letter	Gift Item	
 3300013	items	52	Cute Rabbit Doll	Gift Item	
-3300016	items	8	Handmade Wooden Doll	Gift Item	
+3300016	items	9	Handmade Wooden Doll	Gift Item	
 3300018	items	14	A Not So Boring Wait	Gift Item	
 3300019	items	18	Midsummer Night Fireworks	Gift Item	
 3300020	items	21	Limited Edition Teddy Bear	Gift Item	
 3310005	items	0	B-Grade Policy Report	Ark - Policy	
 3310006	items	0	A-Grade Policy Report	Ark - Policy	
 3310007	items	0	Special Grade Policy Report	Ark - Policy	
-3920007	items	3559	Black Mass	Sortie Currency	
+3920007	items	5465	Black Mass	Sortie Currency	
 3920013	items	4	Core of the Reverse	Save Data Edit	
 3920014	items	12	Core of Annihilation	Save Data Edit	
 3920015	items	25	Colorless Core	Save Data Edit	
 3920022	items	31	Abyssal Core	Save Data Edit	
 3920023	items	4	Core of Archetype	Save Data Edit	Core of Archetype | Save Data Edit
-3920024	items	4	Core of Potential	Save Data Edit	Core of Potential | Save Data Edit
+3920024	items	5	Core of Potential	Save Data Edit	Core of Potential | Save Data Edit
 3920029	items	3	Core of Variables	Save Data Edit	Core of Variables | Save Data Edit
 3920030	items	1	Core of Phase	Save Data Edit	Core of Phase | Save Data Edit
 3920031	items	39712	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable
