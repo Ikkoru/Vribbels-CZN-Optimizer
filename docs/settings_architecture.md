@@ -13,6 +13,7 @@ User state in `Vribbels/settings/` (gitignored); shipped defaults in `Vribbels/d
 | `optimizer_settings.json` | Yes              | Per-combatant optimizer config keyed by `str(res_id)`, plus the top-level keys below                     |
 | `settings.json`           | No               | Flat key-value user state: server region, worker count, optimizer filters, upgrade-log filters, `debug_perf_log`, last selections, update timestamps. **Canonical key order and defaults are `SettingsManager.LAYOUT`** — add new keys there so `apply_layout` materializes them into the file |
 | `log_presets.json`        | No               | Capture-tab Log Presets flags: res_id → bool. Absent id = selected                                       |
+| `checklist.json`          | No               | Checklist shop products the user tracks: product id → bool. Absent id takes `ChecklistManager.DEFAULTS`, then `DEFAULT_TRACKED`                |
 | `perf_log.txt`            | No               | Diagnostics (`perf_log.py`), written only while `debug_perf_log` is true. Not settings; safe to delete   |
 
 `config.json` is legacy. `SettingsManager.apply_layout` absorbs values from either historical location for keys not already in `settings.json`; the file is then left on disk and ignored. Consumers read through `context.config` — `AppConfig` (config.py), an attribute view over `SettingsManager` whose property setters persist immediately.
