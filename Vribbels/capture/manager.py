@@ -136,6 +136,10 @@ class Addon:
         # weekly score is in there and in nothing else the game sends.
         self.disaster_ranks = None
 
+        # One row per Galactic Disaster season, carrying that season's
+        # weekly chaos score.
+        self.disaster_seasons = None
+
         # What the recurring tasks stand at: the day's and week's
         # activity points, the season pass's own record, and every
         # mission row seen this session keyed by its res_id. MERGED
@@ -818,6 +822,12 @@ class Addon:
         if isinstance(data.get("disaster_boss_rank_entities"), dict):
             self.disaster_ranks = data["disaster_boss_rank_entities"]
             self._save_pending = True
+        # And the season's own row, which carries the WEEKLY CHAOS
+        # score. A different record from the standings above, arriving
+        # in the same frame.
+        if isinstance(data.get("disaster_entities"), list):
+            self.disaster_seasons = data["disaster_entities"]
+            self._save_pending = True
 
 
     def _apply_totals(self, result, spent=False):
@@ -1059,6 +1069,7 @@ class Addon:
             "gacha_banners": self.gacha_banners,
             "char_visits": self.char_visits,
             "disaster_boss_rank_entities": self.disaster_ranks,
+            "disaster_entities": self.disaster_seasons,
             # What the recurring tasks stand at. The Checklist tab
             # reads the first and the last; the rest are written so a
             # capture taken before anything needs them already carries

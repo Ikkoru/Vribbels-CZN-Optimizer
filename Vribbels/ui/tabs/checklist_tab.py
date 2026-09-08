@@ -89,6 +89,29 @@ CHECKBOX_OVERHEAD = 23
 # answer for is neither.
 DONE, TODO, UNKNOWN = "done", "todo", None
 
+# A countdown's own colours, by how long is left. Nothing to do with
+# whether the row's work is done -- a finished content still runs out.
+# (hours under which it applies, the state). Read top down.
+SOON, WARN, LATER = "soon", "warn", "later"
+COUNTDOWN_STATES = ((24, SOON), (72, WARN), (None, LATER))
+
+# What a countdown segment says before its time.
+ENDS_IN = "Ends in "
+
+# Two spaces between a row's value and its countdown, so the two read
+# as separate answers rather than one sentence.
+SEGMENT_GAP = "  "
+
+# The widest a countdown can render, for the columns that reserve room
+# for one. BUILT from the words it is made of rather than typed out, so
+# a change to either cannot leave the reserve behind.
+WIDEST_COUNTDOWN = ENDS_IN + "99 days"
+
+
+def with_countdown(widest):
+    """A reserve wide enough for `widest` and a countdown beside it."""
+    return widest + SEGMENT_GAP + WIDEST_COUNTDOWN
+
 # What an UNTRACKED shop product's reading is drawn in: the dim colour
 # explanation text uses. Red and green say what is left to do, and a
 # product the user is not tracking has nothing to say either way.
@@ -107,10 +130,7 @@ COUNTDOWNS = {
     "basin": "HYPER_SPACE_SEASON",
     "matrix": "ZERO_REWARD_LIST",
     "supply_season": "SEASON_PASS",
-    # `EVENT_SCHEDULE` is NOT here. It holds several unrelated events
-    # at once -- a policy event, a stock event and the seasonal one --
-    # and nothing in the window says which is which, so taking the
-    # soonest picks whichever happens to end first.
+    "galactic_disaster": "DISASTER_SEASON",
     "shophead:shop_assault/none": "ASSAULT_SCHEDULE",
 }
 
@@ -143,6 +163,23 @@ def shop_rows(shop, period, raw):
     return tuple(out)
 
 
+def event_rows(raw, now=None):
+    """`(key, id, widest)` for every event running now, soonest first.
+
+    Read straight off `event_schedules`: an event the game adds turns
+    up with no edit, and one that ends drops out. The ORDER is by
+    deadline, which is what a checklist is about.
+    """
+    now = time.time() if now is None else now
+    found = []
+    for group in EVENT_GROUPS:
+        name, window = schedules.live(group, raw, now)
+        if name:
+            found.append((window["end_time"], name))
+    return tuple((EVENT_KEY_PREFIX + name, name, WIDEST_COUNTDOWN)
+                 for _end, name in sorted(found))
+
+
 def product_label(define):
     """What to call a product: the item it gives, and how many.
 
@@ -163,9 +200,27 @@ def product_label(define):
 ITEM_NAMES = item_names()
 
 
-# The columns, as a skeleton. Each is `(heading, rows, shops)`: `rows`
-# are the fixed ones and `shops` names the shop categories whose
-# products are folded in, each under a heading of its own.
+# What the Other column's trailing block of live events is headed, and
+# where its rows come from. **The wire names an event by its ID and
+# nothing else** -- `event_summer_01`, `event_schedule_policy_005` --
+# so that is what the rows read. A display name would have to come
+# from a localisation table the client already holds and the server
+# never sends.
+EVENTS_HEADING = "Events"
+EVENT_GROUPS = ("EVENT_SCHEDULE", "EVENT_COMBATANT_TRIAL",
+                "EVENT_NODELIST_PAGE", "EVENT_DAILY_CHECK",
+                "EVENT_RHYTHM_GAME", "EVENT_ARENA", "EVENT_OVERCLOCK",
+                "EVENT_TRAUMA_CODE", "EVENT_DISASTER_MARBLE",
+                "EVENT_OPERATION")
+
+# What an event row's key is built from.
+EVENT_KEY_PREFIX = "event:"
+
+
+# The columns, as a skeleton. Each is `(heading, rows, shops, events)`:
+# `rows` are the fixed ones, `shops` names the shop screens whose
+# products are folded in under a heading each, and `events` is a
+# trailing heading of every live event (or None for no such block).
 #
 # A row is `(key, label, widest)`. The KEY is what `_readings` answers
 # to and is unique across the tab -- `Delegation Module` appears twice
@@ -184,8 +239,7 @@ COLUMNS = (
         ("supply_daily", "Arkhianon Supply", "3/3"),
         ("excursions", "Excursions", "5/5"),
         ("chaos_delegation", "Chaos Delegation", "Go run!"),
-        ("other_daily", "Other Events", None),
-    ), ()),
+    ), (), None),
     ("Weekly", (
         ("supply_weekly", "Arkhianon Supply", "10000/10000"),
         ("simulation", "Simulation Challenges", "3/3"),
@@ -193,23 +247,23 @@ COLUMNS = (
         ("modules_soon", "Delegation Module", "99 expiring within 24h!"),
         ("modules_week", "Delegation Module", "99 expiring within 7 days"),
         ("sortie_currency", "Sortie Currency", "99/9"),
-        ("seasonal_event", "Seasonal Event(s)", None),
+        ("chaos_progress", "Galactic Disaster - Chaos", "8000/8000"),
         ("seasonal_score", "Seasonal Accumulated Score", "300000+/300000"),
     ), (("shop_town", "none"),
         ("shop_gacha_dup", "shop_gacha_dup_legend"),
-        ("shop_disaster", "shop_disaster_1"))),
+        ("shop_disaster", "shop_disaster_1")), None),
     ("Monthly", (), (("shop_town", "none"),
                      ("shop_gacha_dup", "shop_gacha_dup_legend"),
                      ("shop_hyperspace", "none"),
                      ("shop_chaos", "none"),
-                     ("shop_exchange_product", "shop_card_factor"))),
+                     ("shop_exchange_product", "shop_card_factor")), None),
     ("Other", (
-        ("basin", "Basin of Hyperspace", "99/99, 99 days"),
-        ("matrix", "Zero System Chaos Matrix", "99 days"),
-        ("supply_season", "Arkhianon Supply", "70/70, 99 days"),
-        ("seasonal_event_other", "Seasonal Event", None),
-        ("other_events_other", "Other Events", None),
-    ), (("shop_assault", "none"),)),
+        ("basin", "Basin of Hyperspace", with_countdown("99/99")),
+        ("matrix", "Zero System Chaos Matrix", WIDEST_COUNTDOWN),
+        ("supply_season", "Arkhianon Supply", with_countdown("70/70")),
+        ("galactic_disaster", "Galactic Disaster (Seasonal)",
+         WIDEST_COUNTDOWN),
+    ), (("shop_assault", "none"),), EVENTS_HEADING),
 )
 
 # Which period each column's shop products are taken from.
@@ -217,7 +271,7 @@ PERIOD_BY_COLUMN = {"Weekly": "weekly", "Monthly": "monthly",
                     "Other": "account"}
 
 
-def columns_for(raw, tracked=None):
+def columns_for(raw, tracked=None, now=None):
     """The four columns' rows for one snapshot.
 
     The shop rows are rebuilt from the wire every time, so a product
@@ -229,7 +283,7 @@ def columns_for(raw, tracked=None):
     bug. Ticking it puts it back where the shop keeps it.
     """
     out = []
-    for title, fixed, shops in COLUMNS:
+    for title, fixed, shops, events in COLUMNS:
         rows = list(fixed)
         period = PERIOD_BY_COLUMN.get(title)
         # **The shop's own heading goes in whether or not its products
@@ -239,7 +293,7 @@ def columns_for(raw, tracked=None):
         for shop in shops if period else ():
             head = SHOP_HEAD_PREFIX + "/".join(shop)
             rows.append((head, shop_stock.SHOPS[shop],
-                         "99 days" if head in COUNTDOWNS else None))
+                         WIDEST_COUNTDOWN if head in COUNTDOWNS else None))
             products = shop_rows(shop, period, raw)
             if tracked is not None:
                 # Stable within each half: the shop's own order is kept
@@ -250,6 +304,11 @@ def columns_for(raw, tracked=None):
                             + [row for row in products
                                if not tracked(_product_of(row[0]))])
             rows.extend(products)
+        if events:
+            live = event_rows(raw, now)
+            if live:
+                rows.append((EVENT_KEY_PREFIX, events, None))
+                rows.extend(live)
         out.append((title, tuple(rows)))
     return tuple(out)
 
@@ -365,6 +424,13 @@ DELEGATION_DONE = "Done"
 # fresh season shows through beside a finished one. With all of them
 # done every choice reads the same.
 BASIN_FIELD = "mission_seasson_entities"
+
+# The Galactic Disaster's weekly CHAOS progress, and its ceiling. The
+# score is not capped on the wire -- `week_clear_score` reads 8000 with
+# the screen showing 8000/8000 -- so the cap is stated and the display
+# clamps to it, marking a reading that went over.
+DISASTER_FIELD = "disaster_entities"
+CHAOS_PROGRESS_FULL = 8000
 
 # The Great Rift's weekly score. The standings nest season -> rank
 # slot -> record, and the threshold that pays out rides in the same
@@ -518,7 +584,7 @@ class ChecklistTab(BaseTab):
         recreates four Texts, and the ordinary case is a refresh where
         nothing but the numbers moved.
         """
-        built = columns_for(raw, self._tracked)
+        built = columns_for(raw, self._tracked, time.time())
         signature = tuple((title, tuple(key for key, _l, _w in rows))
                           for title, rows in built)
         # Ticking the LAST product of a shop changes no order, so the
@@ -589,6 +655,11 @@ class ChecklistTab(BaseTab):
         text.tag_configure(DONE, foreground=self.colors["green"])
         text.tag_configure(TODO, foreground=self.colors["red"])
         text.tag_configure(MUTED, foreground=self.colors["fg_dim"])
+        # A countdown reddens as it runs out. The middle band is the
+        # Materials tab's own warning colour, so the two agree.
+        text.tag_configure(SOON, foreground=self.colors["red"])
+        text.tag_configure(WARN, foreground=self.colors["orange"])
+        text.tag_configure(LATER, foreground=self.colors["yellow"])
         self.column_texts[title] = (text, rows)
 
     @staticmethod
@@ -666,23 +737,24 @@ class ChecklistTab(BaseTab):
         text.config(state=tk.NORMAL)
         text.delete("1.0", tk.END)
         for index, (key, label, _widest) in enumerate(rows):
-            value, state = readings.get(key, (None, UNKNOWN))
+            segments = readings.get(key) or ()
             line = ("row", "indent") if _is_shop(key) else ("row",)
             if index:
                 text.insert(tk.END, LINE_SEP, line)
             if _is_shop(key):
-                # An untracked product says so in its colour: the
-                # reading is greyed like explanation text and the row
-                # takes neither red nor green.
+                # An untracked product says so in its colour: every
+                # segment greys, red and green being about work left
+                # and a product nobody tracks having none.
                 if not self._tracked(_product_of(key)):
-                    state = MUTED
+                    segments = [(words, MUTED) for words, _s in segments]
+                head = segments[0][1] if segments else UNKNOWN
                 text.window_create(tk.END, window=self._checkbox(text, key,
-                                                                 label, state))
+                                                                 label, head))
             else:
                 text.insert(tk.END, label, line)
-            if value is not None:
-                text.insert(tk.END, COLUMN_SEP + value,
-                            line + ((state,) if state else ()))
+            for at, (words, state) in enumerate(segments):
+                text.insert(tk.END, (COLUMN_SEP if not at else SEGMENT_GAP)
+                            + words, line + ((state,) if state else ()))
         text.config(state=tk.DISABLED)
 
     def _checkbox(self, parent, key, label, state):
@@ -733,21 +805,21 @@ def _readings(raw, now=None, claimed=False):
     point = raw.get(POINT_FIELD)
     day = point.get("day_point") if isinstance(point, dict) else None
     if not _is_count(day):
-        out["activity"] = ("%s/%d" % (NO_DATA, ACTIVITY_FULL), UNKNOWN)
+        out["activity"] = _one("%s/%d" % (NO_DATA, ACTIVITY_FULL), UNKNOWN)
     elif claimed:
-        out["activity"] = (ACTIVITY_CLAIMED, DONE)
+        out["activity"] = _one(ACTIVITY_CLAIMED, DONE)
     else:
-        out["activity"] = ("%d/%d%s" % (day, ACTIVITY_FULL,
+        out["activity"] = _one("%d/%d%s" % (day, ACTIVITY_FULL,
                                         ACTIVITY_UNCLAIMED), TODO)
 
     # Today's coffee. **The field is a CAPABILITY, so the row inverts
     # it**: `is_coffee_possible` true means one is still going begging.
     possible = _dig(raw, COFFEE_PATH)
     if isinstance(possible, bool):
-        out["coffee"] = (COFFEE_TODO if possible else COFFEE_DONE,
+        out["coffee"] = _one(COFFEE_TODO if possible else COFFEE_DONE,
                          _done(not possible))
     else:
-        out["coffee"] = (NO_DATA, UNKNOWN)
+        out["coffee"] = _one(NO_DATA, UNKNOWN)
 
     # Today's Chaos Delegation, off when its currency last moved. The
     # daily boundary is the weekly one's hour on any day, so the reset
@@ -755,25 +827,25 @@ def _readings(raw, now=None, claimed=False):
     used = _dig(raw, DELEGATION_PATH)
     if _is_count(used):
         today = used >= _last_daily_reset(now)
-        out["chaos_delegation"] = (DELEGATION_DONE if today
+        out["chaos_delegation"] = _one(DELEGATION_DONE if today
                                    else DELEGATION_TODO, _done(today))
     else:
-        out["chaos_delegation"] = (NO_DATA, UNKNOWN)
+        out["chaos_delegation"] = _one(NO_DATA, UNKNOWN)
 
     # Communication Passes left today. Not an item and not a currency --
     # `excursions.passes_left` says why that reading is the only one a
     # snapshot allows.
     left = excursions.passes_left(raw)
-    out["excursions"] = (
+    out["excursions"] = _one(
         "%s/%d" % (NO_DATA if left is None else left, excursions.DAILY_PASSES),
         UNKNOWN if left is None else _done(left == 0))
 
     # Both weekly currencies are things to SPEND, so a holding is work
     # left rather than a stock to be pleased about.
     cards = amounts.get(CHAOS_CURRENCY, 0)
-    out["chaos_currency"] = ("%d" % cards, _done(cards == 0))
+    out["chaos_currency"] = _one("%d" % cards, _done(cards == 0))
     reason = amounts.get(SORTIE_CURRENCY, 0)
-    out["sortie_currency"] = ("%d/%d" % (reason, SORTIE_CAP),
+    out["sortie_currency"] = _one("%d/%d" % (reason, SORTIE_CAP),
                               _done(reason == 0))
 
     # The Great Rift's weekly score against the threshold that pays.
@@ -783,10 +855,10 @@ def _readings(raw, now=None, claimed=False):
     # that landed exactly on the bar.
     score, target = _great_rift(raw)
     if score is None:
-        out["seasonal_score"] = ("%s/%d" % (NO_DATA, target), UNKNOWN)
+        out["seasonal_score"] = _one("%s/%d" % (NO_DATA, target), UNKNOWN)
     else:
         over = GREAT_RIFT_OVER if score > target else ""
-        out["seasonal_score"] = ("%d%s/%d" % (min(score, target), over,
+        out["seasonal_score"] = _one("%d%s/%d" % (min(score, target), over,
                                               target),
                                  _done(score >= target))
 
@@ -804,7 +876,7 @@ def _readings(raw, now=None, claimed=False):
     for span, key, words, unit, divisor in MODULE_WINDOWS:
         inside = [end for end in expiries if end <= now + span]
         edge = (max(inside) - now) if inside else span
-        out[key] = (words % (len(inside),
+        out[key] = _one(words % (len(inside),
                              max(1, math.ceil(edge / divisor)), unit),
                     _done(not inside))
 
@@ -822,10 +894,10 @@ def _readings(raw, now=None, claimed=False):
                       and _is_count(row.get("issued_time"))
                       and row["issued_time"] >= since
                       and row.get("complete_time"))
-        out["supply_daily"] = ("%d/%d" % (claimed, PASS_DAILY_COUNT),
+        out["supply_daily"] = _one("%d/%d" % (claimed, PASS_DAILY_COUNT),
                                _done(claimed >= PASS_DAILY_COUNT))
     else:
-        out["supply_daily"] = ("%s/%d" % (NO_DATA, PASS_DAILY_COUNT), UNKNOWN)
+        out["supply_daily"] = _one("%s/%d" % (NO_DATA, PASS_DAILY_COUNT), UNKNOWN)
 
     # The week's EXP and the pass's level, both off the pass's own
     # record. EXP rather than a mission count, because only one of the
@@ -833,19 +905,19 @@ def _readings(raw, now=None, claimed=False):
     record = _live_pass(raw)
     week_exp = record.get("week_exp")
     if _is_count(week_exp):
-        out["supply_weekly"] = (
+        out["supply_weekly"] = _one(
             "%d/%d" % (min(week_exp, PASS_WEEK_EXP_FULL), PASS_WEEK_EXP_FULL),
             _done(week_exp >= PASS_WEEK_EXP_FULL))
     else:
-        out["supply_weekly"] = ("%s/%d" % (NO_DATA, PASS_WEEK_EXP_FULL),
+        out["supply_weekly"] = _one("%s/%d" % (NO_DATA, PASS_WEEK_EXP_FULL),
                                 UNKNOWN)
     level = record.get("free_reward_rank")
     if _is_count(level):
-        out["supply_season"] = ("%d/%d" % (min(level, PASS_LEVEL_FULL),
+        out["supply_season"] = _one("%d/%d" % (min(level, PASS_LEVEL_FULL),
                                            PASS_LEVEL_FULL),
                                 _done(level >= PASS_LEVEL_FULL))
     else:
-        out["supply_season"] = ("%s/%d" % (NO_DATA, PASS_LEVEL_FULL), UNKNOWN)
+        out["supply_season"] = _one("%s/%d" % (NO_DATA, PASS_LEVEL_FULL), UNKNOWN)
 
     # Simulation Challenges: the runs LEFT this week. Stale across a
     # reset the same way a shop row is, and read through the same
@@ -859,9 +931,9 @@ def _readings(raw, now=None, claimed=False):
         left = SIMULATION_RUNS if stale else max(
             0, SIMULATION_RUNS - stage["count"])
     if left is None:
-        out["simulation"] = ("%s/%d" % (NO_DATA, SIMULATION_RUNS), UNKNOWN)
+        out["simulation"] = _one("%s/%d" % (NO_DATA, SIMULATION_RUNS), UNKNOWN)
     else:
-        out["simulation"] = ("%d/%d" % (left, SIMULATION_RUNS),
+        out["simulation"] = _one("%d/%d" % (left, SIMULATION_RUNS),
                              _done(left == 0))
 
     # The Basin of Hyperspace: objectives done, out of the season's own
@@ -869,12 +941,36 @@ def _readings(raw, now=None, claimed=False):
     # holds -- which is the same figure the game shows.
     done, total = _basin(raw)
     if total is None:
-        out["basin"] = (NO_DATA, UNKNOWN)
+        out["basin"] = _one(NO_DATA, UNKNOWN)
     else:
-        out["basin"] = ("%d/%d" % (done, total), _done(done >= total))
+        out["basin"] = _one("%d/%d" % (done, total), _done(done >= total))
 
     # The shops, one sub-row per product. `-` where the field cannot be
     # read honestly -- see `shop_stock.remaining`.
+    # The Galactic Disaster's weekly chaos progress, against a ceiling
+    # the wire does not carry.
+    score = _chaos_progress(raw)
+    if score is None:
+        out["chaos_progress"] = _one("%s/%d" % (NO_DATA, CHAOS_PROGRESS_FULL),
+                                     UNKNOWN)
+    else:
+        over = GREAT_RIFT_OVER if score > CHAOS_PROGRESS_FULL else ""
+        out["chaos_progress"] = _one(
+            "%d%s/%d" % (min(score, CHAOS_PROGRESS_FULL), over,
+                         CHAOS_PROGRESS_FULL),
+            _done(score >= CHAOS_PROGRESS_FULL))
+
+    # Every live event says how long it has and nothing else: the wire
+    # dates them and says nothing about progress.
+    for key, name, _widest in event_rows(raw, now):
+        for group in EVENT_GROUPS:
+            live_name, window = schedules.live(group, raw, now)
+            if live_name == name:
+                seconds = max(0, window["end_time"] - now)
+                out[key] = [(ENDS_IN + schedules.countdown(seconds),
+                             _countdown_state(seconds))]
+                break
+
     _add_countdowns(out, raw, now)
 
     for key, product_id, define in _shop_rows(raw):
@@ -885,9 +981,9 @@ def _readings(raw, now=None, claimed=False):
             # either -- this is only here for a reading asked of one.
             continue
         elif stock is None:
-            out[key] = ("%s/%d" % (NO_DATA, limit), UNKNOWN)
+            out[key] = _one("%s/%d" % (NO_DATA, limit), UNKNOWN)
         else:
-            out[key] = ("%d/%d" % (stock, limit), _done(stock == 0))
+            out[key] = _one("%d/%d" % (stock, limit), _done(stock == 0))
     return out
 
 
@@ -946,6 +1042,34 @@ def _basin(raw):
     return best if best else (0, None)
 
 
+def _one(text, state):
+    """One reading, as the single segment a row usually has."""
+    return [(text, state)]
+
+
+def _countdown_state(seconds):
+    """What colour a countdown is drawn in, by how long is left."""
+    hours = seconds / 3600.0
+    for under, state in COUNTDOWN_STATES:
+        if under is None or hours < under:
+            return state
+    return LATER
+
+
+def _one(text, state):
+    """One reading, as the single segment a row usually has."""
+    return [(text, state)]
+
+
+def _countdown_state(seconds):
+    """What colour a countdown is drawn in, by how long is left."""
+    hours = seconds / 3600.0
+    for under, state in COUNTDOWN_STATES:
+        if under is None or hours < under:
+            return state
+    return LATER
+
+
 def _add_countdowns(out, raw, now):
     """Fold each dated content's remaining time into its own row.
 
@@ -958,13 +1082,34 @@ def _add_countdowns(out, raw, now):
     was -- no window is not the same as no time left.
     """
     for key, group in COUNTDOWNS.items():
-        left = schedules.countdown(schedules.remaining(group, raw, now))
+        seconds = schedules.remaining(group, raw, now)
+        left = schedules.countdown(seconds)
         if not left:
-            out.setdefault(key, (NO_DATA, UNKNOWN))
+            out.setdefault(key, _one(NO_DATA, UNKNOWN))
             continue
-        text, state = out.get(key, (None, UNKNOWN))
-        out[key] = (left if text in (None, NO_DATA)
-                    else "%s, %s" % (text, left), state)
+        # The dash is a stand-in for a reading, not a reading -- a row
+        # whose only other segment is one drops it rather than saying
+        # "nothing, ends in three days".
+        rest = [pair for pair in out.get(key, ()) if pair[0] != NO_DATA]
+        out[key] = rest + [(ENDS_IN + left, _countdown_state(seconds))]
+
+
+def _chaos_progress(raw):
+    """The live season's weekly chaos score, or None.
+
+    Every season the account has played keeps a row, so the live one is
+    the latest `week_id` -- past seasons sit at their own full 8000.
+    """
+    rows = raw.get(DISASTER_FIELD)
+    live = None
+    for row in rows if isinstance(rows, list) else ():
+        if not isinstance(row, dict) or not _is_count(
+                row.get("week_clear_score")):
+            continue
+        week = row.get("week_id") or 0
+        if live is None or week > live[0]:
+            live = (week, row["week_clear_score"])
+    return live[1] if live else None
 
 
 def _live_season(raw):

@@ -67,6 +67,7 @@ def run():
         columns_for,
         ACTIVITY_CLAIMED, ACTIVITY_UNCLAIMED,
         DELEGATION_CURRENCY, DELEGATION_DONE, DELEGATION_TODO,
+        ENDS_IN, LATER, SOON, WARN,
         PASS_DAILY_COUNT,
         _last_daily_reset,
         DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
@@ -103,19 +104,19 @@ def run():
     # --- the two currencies, by res_id --------------------------------
     raw = _snapshot(amounts=((CHAOS_CURRENCY, 3), (SORTIE_CURRENCY, 7)))
     out = _readings(raw, now)
-    if out["chaos_currency"][0] != "3":
+    if out["chaos_currency"][0][0] != "3":
         failures.append(
             f"Chaos Currency reads {out['chaos_currency'][0]!r} where the "
             f"snapshot holds 3 of {CHAOS_CURRENCY}. A wrong res_id reads "
             f"0, which is what an empty stock reads.")
-    if out["sortie_currency"][0] != f"7/{SORTIE_CAP}":
+    if out["sortie_currency"][0][0] != f"7/{SORTIE_CAP}":
         failures.append(
             f"Sortie Currency reads {out['sortie_currency'][0]!r}, not "
             f"'7/{SORTIE_CAP}', from 7 of {SORTIE_CURRENCY}.")
 
     # An id held nowhere reads 0 rather than raising.
     out = _readings(_snapshot(), now)
-    if out["chaos_currency"][0] != "0":
+    if out["chaos_currency"][0][0] != "0":
         failures.append(
             f"with nothing held, Chaos Currency reads "
             f"{out['chaos_currency'][0]!r}, not '0'.")
@@ -130,14 +131,14 @@ def run():
                                 f"{ACTIVITY_UNCLAIMED}", TODO),
                                (None, f"{NO_DATA}/{ACTIVITY_FULL}", UNKNOWN)):
         got = _readings(_snapshot(day_point=point), now)["activity"]
-        if got != (want, state):
+        if got != [(want, state)]:
             failures.append(
                 f"a day_point of {point!r} reads {got!r}, not "
                 f"{(want, state)!r}. A full day whose rewards are still "
                 f"sitting there is work left, not work done.")
     got = _readings(_snapshot(day_point=ACTIVITY_FULL), now,
                     claimed=True)["activity"]
-    if got != (ACTIVITY_CLAIMED, DONE):
+    if got != [(ACTIVITY_CLAIMED, DONE)]:
         failures.append(
             f"a claimed day reads {got!r}, not "
             f"({ACTIVITY_CLAIMED!r}, {DONE!r}).")
@@ -147,7 +148,7 @@ def run():
                                   (False, COFFEE_DONE, DONE),
                                   (None, NO_DATA, UNKNOWN)):
         got = _readings(_snapshot(coffee=possible), now)["coffee"]
-        if got != (want, state):
+        if got != [(want, state)]:
             failures.append(
                 f"is_coffee_possible={possible!r} reads {got!r}, not "
                 f"{(want, state)!r}. The field is a CAPABILITY: true "
@@ -159,7 +160,7 @@ def run():
     # threshold. The live one is the later WEEK, not the bigger number.
     rift = ((180, 999999, 500000), (193, 120000, 300000))
     got = _readings(_snapshot(rift=rift), now)["seasonal_score"]
-    if got != ("120000/300000", TODO):
+    if got != [("120000/300000", TODO)]:
         failures.append(
             f"the Great Rift row reads {got!r}, not "
             f"('120000/300000', {TODO!r}). Past seasons keep their rows "
@@ -168,7 +169,7 @@ def run():
     # Over the threshold, the display caps AND says it capped.
     got = _readings(_snapshot(rift=((193, 1396064, 300000),)),
                     now)["seasonal_score"]
-    if got != (f"300000{GREAT_RIFT_OVER}/300000", DONE):
+    if got != [(f"300000{GREAT_RIFT_OVER}/300000", DONE)]:
         failures.append(
             f"a score past the threshold reads {got!r}, not "
             f"('300000{GREAT_RIFT_OVER}/300000', {DONE!r}). The figure "
@@ -178,13 +179,13 @@ def run():
     # Landing EXACTLY on it takes no sign, and is still done.
     got = _readings(_snapshot(rift=((193, 300000, 300000),)),
                     now)["seasonal_score"]
-    if got != ("300000/300000", DONE):
+    if got != [("300000/300000", DONE)]:
         failures.append(
             f"a score exactly on the threshold reads {got!r}, not "
             f"('300000/300000', {DONE!r}). Nothing is over, so nothing "
             f"is capped.")
     got = _readings(_snapshot(), now)["seasonal_score"]
-    if got != (f"{NO_DATA}/{GREAT_RIFT_TARGET}", UNKNOWN):
+    if got != [(f"{NO_DATA}/{GREAT_RIFT_TARGET}", UNKNOWN)]:
         failures.append(
             f"with no standings the Great Rift row reads {got!r}, not "
             f"a dash against the stand-in threshold.")
@@ -197,7 +198,8 @@ def run():
                         (None, f"{NO_DATA}/{allowance}")):
         # Green only where every pass is spent: a pass left over is an
         # excursion not taken.
-        got, state = _readings(_snapshot(spent=spent), now)["excursions"]
+        (got, state), = _readings(_snapshot(spent=spent),
+                                  now)["excursions"]
         want_state = (UNKNOWN if spent is None
                       else DONE if spent >= allowance else TODO)
         if state != want_state:
@@ -219,12 +221,12 @@ def run():
     # is the longest a counted copy has left, not the window.
     raw = _snapshot(expiries=(now + 6 * HOUR, now + 3 * DAY, week + DAY))
     out = _readings(raw, now)
-    if out["modules_soon"] != ("1 expiring within 6h!", TODO):
+    if out["modules_soon"] != [("1 expiring within 6h!", TODO)]:
         failures.append(
             f"the tight module row reads {out['modules_soon']!r}, not "
             f"('1 expiring within 6h!', {TODO!r}). The window bounds what "
             f"is COUNTED; the words say how long the last of them has.")
-    if out["modules_week"] != ("2 expiring within 3 days", TODO):
+    if out["modules_week"] != [("2 expiring within 3 days", TODO)]:
         failures.append(
             f"the wide module row reads {out['modules_week']!r}, not "
             f"('2 expiring within 3 days', {TODO!r}). The windows NEST -- "
@@ -234,7 +236,7 @@ def run():
 
     # Rounded UP, so a copy is never promised time it has spent.
     out = _readings(_snapshot(expiries=(now + 90 * 60,)), now)
-    if out["modules_soon"][0] != "1 expiring within 2h!":
+    if out["modules_soon"][0][0] != "1 expiring within 2h!":
         failures.append(
             f"a copy 90 minutes out reads {out['modules_soon'][0]!r}, not "
             f"'1 expiring within 2h!'. Rounding down promises an hour "
@@ -242,7 +244,7 @@ def run():
 
     # A copy landing exactly ON a boundary is inside it.
     out = _readings(_snapshot(expiries=(soon,)), now)
-    if out["modules_soon"][0] != "1 expiring within 24h!":
+    if out["modules_soon"][0][0] != "1 expiring within 24h!":
         failures.append(
             f"a copy expiring exactly 24 hours out reads "
             f"{out['modules_soon'][0]!r}. `within` includes the boundary.")
@@ -250,8 +252,8 @@ def run():
     # Nothing held: the window's own bound stands in for a longest that
     # does not exist, and both rows are GREEN -- there is nothing to use.
     out = _readings(_snapshot(), now)
-    if (out["modules_soon"] != ("0 expiring within 24h!", DONE)
-            or out["modules_week"] != ("0 expiring within 7 days", DONE)):
+    if (out["modules_soon"] != [("0 expiring within 24h!", DONE)]
+            or out["modules_week"] != [("0 expiring within 7 days", DONE)]):
         failures.append(
             f"with no modules held the two rows read "
             f"{out['modules_soon']!r} and {out['modules_week']!r}, not "
@@ -270,7 +272,7 @@ def run():
             raw.setdefault("characters", {})["currencies"] = {
                 str(DELEGATION_CURRENCY): {"last_update": int(stamp)}}
         got = _readings(raw, now)["chaos_delegation"]
-        if got != (want, state):
+        if got != [(want, state)]:
             failures.append(
                 f"a delegation stamp of {stamp!r} against a reset of "
                 f"{reset!r} reads {got!r}, not {(want, state)!r}. The "
@@ -281,7 +283,7 @@ def run():
     raw = _snapshot()
     raw.setdefault("characters", {})["currencies"] = {
         str(DELEGATION_CURRENCY): {"last_update": int(reset)}}
-    if _readings(raw, now)["chaos_delegation"] != (DELEGATION_DONE, DONE):
+    if _readings(raw, now)["chaos_delegation"] != [(DELEGATION_DONE, DONE)]:
         failures.append(
             "a delegation used exactly at the reset reads as not used. "
             "The reset opens the day it belongs to.")
@@ -307,7 +309,7 @@ def run():
                              "complete_time": int(reset + HOUR)},
     }
     got = _readings(raw, now)["supply_daily"]
-    if got != (f"1/{PASS_DAILY_COUNT}", TODO):
+    if got != [(f"1/{PASS_DAILY_COUNT}", TODO)]:
         failures.append(
             f"the daily Arkhianon row reads {got!r}, not "
             f"1/{PASS_DAILY_COUNT} in red. It counts pass missions "
@@ -324,8 +326,8 @@ def run():
         {"res_id": "season_pass_008", "week_id": 193, "week_exp": 6500,
          "free_reward_rank": 46},
     ]
-    for key, want in (("supply_weekly", ("6500/10000", TODO)),
-                      ("supply_season", ("46/70", TODO))):
+    for key, want in (("supply_weekly", [("6500/10000", TODO)]),
+                      ("supply_season", [("46/70", TODO)])):
         got = _readings(raw, now)[key]
         if got != want:
             failures.append(
@@ -334,7 +336,7 @@ def run():
     # The singular field wins where a claim has just sent it.
     raw["season_pass_entity"] = {"week_id": 193, "week_exp": 8000,
                                  "free_reward_rank": 50}
-    if _readings(raw, now)["supply_weekly"] != ("8000/10000", TODO):
+    if _readings(raw, now)["supply_weekly"] != [("8000/10000", TODO)]:
         failures.append(
             "the singular `season_pass_entity` does not win over the "
             "login's list. A claim sends the one live pass under it, "
@@ -354,19 +356,19 @@ def run():
         return _readings(raw, now)["basin"]
 
     got = basin((26, 26))
-    if got != ("26/26", DONE):
+    if got != [("26/26", DONE)]:
         failures.append(
             f"a finished Basin season reads {got!r}, not ('26/26', "
             f"{DONE!r}). A scored objective is a done one.")
     got = basin((26, 26), (3, 26))
-    if got != ("3/26", TODO):
+    if got != [("3/26", TODO)]:
         failures.append(
             f"with a finished season beside a fresh one the Basin reads "
             f"{got!r}, not ('3/26', {TODO!r}). The row takes the LEAST "
             f"complete, or the season with work left disappears behind "
             f"the one without.")
     got = _readings(_snapshot(), now)["basin"]
-    if got != (NO_DATA, UNKNOWN):
+    if got != [(NO_DATA, UNKNOWN)]:
         failures.append(
             f"with no Basin data the row reads {got!r}, not a dash.")
 
@@ -391,13 +393,13 @@ def run():
         return _readings(raw, now)[key]
 
     got = shop(0, int(started) + HOUR)
-    if got != (f"{cap}/{cap}", TODO):
+    if got != [(f"{cap}/{cap}", TODO)]:
         failures.append(
             f"a shop row with nothing bought this period reads {got!r}, "
             f"not {cap}/{cap} in red. `count` is the purchases MADE, so "
             f"what is left is the cap less it.")
     got = shop(cap, int(started) + HOUR)
-    if got != (f"0/{cap}", DONE):
+    if got != [(f"0/{cap}", DONE)]:
         failures.append(
             f"a shop row bought out reads {got!r}, not 0 in green.")
 
@@ -406,7 +408,7 @@ def run():
     # period's number. Read straight it draws a refilled shop as empty,
     # which is what put 0/20 on a full shelf.
     got = shop(cap, int(started) - HOUR)
-    if got != (f"{cap}/{cap}", TODO):
+    if got != [(f"{cap}/{cap}", TODO)]:
         failures.append(
             f"a row last touched BEFORE the period began reads {got!r}, "
             f"not {cap}/{cap}. Its tally is last period's, so nothing "
@@ -419,7 +421,7 @@ def run():
         "limit_count": cap, "limit_type": "LIMIT_WEEK", "sort": 5,
         "link_shop_sub_category_id": "none"}}}
     got = _readings(raw, now)[key]
-    if got != (f"{NO_DATA}/{cap}", UNKNOWN):
+    if got != [(f"{NO_DATA}/{cap}", UNKNOWN)]:
         failures.append(
             f"with no shop_list the row reads {got!r}, not a dash. A "
             f"snapshot that never carried the field and a shop with "
@@ -432,7 +434,7 @@ def run():
     raw["shop_list"] = {"town_shop_goods_099": {"count": 1,
                                                 "reset_time": int(now)}}
     got = _readings(raw, now)[key]
-    if got != (f"{cap}/{cap}", TODO):
+    if got != [(f"{cap}/{cap}", TODO)]:
         failures.append(
             f"a product absent from a shop_list that DID arrive reads "
             f"{got!r}, not {cap}/{cap}. No row means nothing bought.")
@@ -440,13 +442,13 @@ def run():
     # A MONTHLY product has no boundary without the wire's own
     # `month_start`, so it reads a dash rather than guessing one.
     got = shop(1, now, "LIMIT_MONTH")
-    if got != (f"{NO_DATA}/{cap}", UNKNOWN):
+    if got != [(f"{NO_DATA}/{cap}", UNKNOWN)]:
         failures.append(
             f"a monthly row with no `month_start` reads {got!r}, not a "
             f"dash. The month rolls at 18:00 UTC on the LAST day, so "
             f"there is no boundary to compute without the wire saying.")
     got = shop(1, now, "LIMIT_MONTH", month=int(now - DAY))
-    if got != (f"0/{cap}", DONE):
+    if got != [(f"0/{cap}", DONE)]:
         failures.append(
             f"a monthly row with `month_start` reads {got!r}, not 0/{cap}.")
 
@@ -491,6 +493,51 @@ def run():
             "an uncapped product got a Checklist row. There is nothing "
             "to count down and nothing to finish, so it is not a "
             "checklist entry.")
+
+    # --- a value and a countdown are SEPARATE segments -----------------
+    # They answer different questions -- is the work done, and how long
+    # is left -- so they colour apart. Written as one string they could
+    # only take one colour between them.
+    raw = _snapshot()
+    raw["season_pass_entities"] = [{"res_id": "season_pass_008",
+                                    "week_id": 193, "week_exp": 6500,
+                                    "free_reward_rank": 46}]
+    raw["event_schedules"] = {"SEASON_PASS": {"season_pass_008": {
+        "start_time": int(now - DAY), "end_time": int(now + 5 * DAY)}}}
+    got = _readings(raw, now)["supply_season"]
+    if len(got) != 2 or got[0] != ("46/70", TODO):
+        failures.append(
+            f"a row with a value AND a deadline reads {got!r}. The two "
+            f"are separate segments: one says whether the work is done "
+            f"and the other how long is left, and one string could take "
+            f"only one colour between them.")
+    elif not got[1][0].startswith(ENDS_IN) or got[1][1] != LATER:
+        failures.append(
+            f"the countdown segment reads {got[1]!r}, not `{ENDS_IN}5 "
+            f"days` in {LATER!r}. Over three days out is the calm band.")
+
+    # The three bands, by how long is left.
+    for hours, state in ((6, SOON), (40, WARN), (200, LATER)):
+        raw["event_schedules"]["SEASON_PASS"]["season_pass_008"][
+            "end_time"] = int(now + hours * HOUR)
+        got = _readings(raw, now)["supply_season"][1]
+        if got[1] != state:
+            failures.append(
+                f"{hours}h left is drawn {got[1]!r}, not {state!r}. Under "
+                f"a day is urgent, one to three days is the Materials "
+                f"tab's warning, past that is calm.")
+
+    # A row with NO other reading takes the time alone -- the dash is a
+    # stand-in for a reading, not one.
+    raw = _snapshot()
+    raw["event_schedules"] = {"ZERO_REWARD_LIST": {"zero_orb_4": {
+        "start_time": int(now - DAY), "end_time": int(now + 5 * DAY)}}}
+    got = _readings(raw, now)["matrix"]
+    if len(got) != 1 or not got[0][0].startswith(ENDS_IN):
+        failures.append(
+            f"a row whose only reading is a deadline reads {got!r}, not "
+            f"the time alone. A dash beside it would be a stand-in "
+            f"presented as an answer.")
 
     # --- the ids the rows read ----------------------------------------
     # **Against the NAME, not against the constant.** Every assertion
