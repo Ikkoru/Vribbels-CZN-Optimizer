@@ -68,11 +68,11 @@ The banner schedule is one of three that arrive in a frame carrying no roster an
 
 Each is replaced whole rather than merged: the reply IS the board, so a row's absence is a reading. `excursions.py` reads the second, nothing reads the third yet.
 
-Three more join them, for what the recurring tasks stand at. The Checklist tab reads `day_point` off the first and lists the third; the pass record is captured so a snapshot taken before anything needs it already carries the history:
+Three more join them, for what the recurring tasks stand at. The Checklist tab reads the Activities claim off the first and lists the third; the pass record is captured so a snapshot taken before anything needs it already carries the history:
 
 | Attribute | Wire key | What it is |
 | --------- | -------- | ---------- |
-| `point_entity` | `point_entity` | the day's and week's ACTIVITY totals — `{"day_id": 1345, "week_id": 147, "day_point": 100, "week_point": 0}`, arriving with the reply to a Daily "Claim All" |
+| `point_entity` | `point_entity` | when the Activities reward was last claimed — `{"day_id": 1347, "week_id": 147, "day_point": 20, "week_point": 0}`. Written ONLY by the claim (`guide_system` / `point_reward`), so `day_id` is the day it happened on and `day_point` the total it was paid against. See "The day index" in `wire_hunt.md`: neither is live, and a record from an earlier day carries that day's figures |
 | `season_pass` | `season_pass_entity` | the Arkhianon Supply's own record: `res_id` (`season_pass_<season>`), `grade`, `exp`, `free_reward_rank`, `pay_reward_rank` |
 | `missions` | `mission_entities` | per-mission state, keyed by `res_id` |
 

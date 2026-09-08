@@ -30,7 +30,7 @@ DAY = 24 * HOUR
 
 
 def _snapshot(amounts=(), expiries=(), day_point=None, spent=None,
-              coffee=None, rift=()):
+              coffee=None, rift=(), day_id=None):
     """A snapshot holding exactly what a case needs and nothing else."""
     characters = {}
     if amounts:
@@ -48,8 +48,8 @@ def _snapshot(amounts=(), expiries=(), day_point=None, spent=None,
          "value": [{"end_time": end} for end in expiries]}]}}
     if characters:
         raw["characters"] = characters
-    if day_point is not None:
-        raw["point_entity"] = {"day_point": day_point}
+    if day_point is not None or day_id is not None:
+        raw["point_entity"] = {"day_point": day_point, "day_id": day_id}
     if rift:
         raw["disaster_boss_rank_entities"] = {
             f"season_{i}": {f"slot_{i}": {
@@ -62,15 +62,15 @@ def _snapshot(amounts=(), expiries=(), day_point=None, spent=None,
 def run():
     add_source_to_path()
     import excursions
+    import weekly_reset
     from ui.tabs.checklist_tab import (
         ACTIVITY_FULL, CHAOS_CURRENCY, COFFEE_DONE, COFFEE_TODO,
         columns_for,
-        ACTIVITY_CLAIMED, ACTIVITY_UNCLAIMED,
+        ACTIVITY_CLAIMED, ACTIVITY_PARTIAL, ACTIVITY_UNCLAIMED,
         DELEGATION_CURRENCY, DELEGATION_DONE, DELEGATION_TODO,
         ENDS_IN, LATER, SOON, WARN,
         PASS_DAILY_COUNT, PERIOD_LENGTHS,
         _period_band, _period_left, _period_words,
-        _last_daily_reset,
         DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
         MODULE_WINDOWS, NO_DATA,
         SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
@@ -122,27 +122,28 @@ def run():
             f"with nothing held, Chaos Currency reads "
             f"{out['chaos_currency'][0]!r}, not '0'.")
 
-    # --- the day's activity, and its colour ---------------------------
-    # **A full day is not a claimed day.** `day_point` reads 100 the
-    # moment the last activity lands, and the rewards sit there
-    # unclaimed -- so the row stays red until the claim is seen.
-    full = f"{ACTIVITY_FULL}/{ACTIVITY_FULL}{ACTIVITY_UNCLAIMED}"
-    for point, want, state in ((ACTIVITY_FULL, full, TODO),
-                               (40, f"40/{ACTIVITY_FULL}"
-                                f"{ACTIVITY_UNCLAIMED}", TODO),
-                               (None, f"{NO_DATA}/{ACTIVITY_FULL}", UNKNOWN)):
-        got = _readings(_snapshot(day_point=point), now)["activity"]
+    # --- the Activities claim -----------------------------------------
+    # **The reading is the DAY the record carries, not its points.**
+    # `point_entity` is rewritten only by the claim, so an earlier
+    # `day_id` is a day that was never claimed -- and its `day_point`
+    # belongs to that earlier day, which is why a stale 100 must not
+    # read as a finished today.
+    today = weekly_reset.day_index(now)
+    cases = ((today, ACTIVITY_FULL, ACTIVITY_CLAIMED, DONE),
+             (today, 20, ACTIVITY_PARTIAL % (20, ACTIVITY_FULL), TODO),
+             (today - 1, ACTIVITY_FULL, ACTIVITY_UNCLAIMED, TODO),
+             (today - 400, 20, ACTIVITY_UNCLAIMED, TODO),
+             (None, ACTIVITY_FULL, NO_DATA, UNKNOWN),
+             (today, None, NO_DATA, UNKNOWN))
+    for day_id, point, want, state in cases:
+        got = _readings(_snapshot(day_id=day_id, day_point=point),
+                        now)["activity"]
         if got != [(want, state)]:
             failures.append(
-                f"a day_point of {point!r} reads {got!r}, not "
-                f"{(want, state)!r}. A full day whose rewards are still "
-                f"sitting there is work left, not work done.")
-    got = _readings(_snapshot(day_point=ACTIVITY_FULL), now,
-                    claimed=True)["activity"]
-    if got != [(ACTIVITY_CLAIMED, DONE)]:
-        failures.append(
-            f"a claimed day reads {got!r}, not "
-            f"({ACTIVITY_CLAIMED!r}, {DONE!r}).")
+                f"a day_id of {day_id!r} against today's {today} with "
+                f"{point!r} points reads {got!r}, not {(want, state)!r}. "
+                f"Only a record stamped with TODAY is a claim that "
+                f"happened today.")
 
     # --- today's coffee, which INVERTS the field it reads --------------
     for possible, want, state in ((True, COFFEE_TODO, TODO),
@@ -264,7 +265,7 @@ def run():
     # No balance to read: the free entry is granted and spent in one
     # transaction, so `amount` is 0 either way and `last_update` is
     # what says whether it went today.
-    reset = _last_daily_reset(now)
+    reset = weekly_reset.last_daily_reset(now)
     for stamp, want, state in ((reset + HOUR, DELEGATION_DONE, DONE),
                                (reset - HOUR, DELEGATION_TODO, TODO),
                                (None, NO_DATA, UNKNOWN)):
@@ -294,7 +295,7 @@ def run():
     # there is no id list, and one would not survive the season number
     # changing. The denominator is stated: the game issues a mission
     # lazily, so counting the issued rows understates the day.
-    reset = _last_daily_reset(now)
+    reset = weekly_reset.last_daily_reset(now)
     raw = _snapshot()
     raw["mission_entities"] = {
         # Two issued today, one of them claimed.
@@ -459,7 +460,7 @@ def run():
     # plausible colour, which is why the shares are checked rather than
     # the words alone.
     day = PERIOD_LENGTHS["Daily"]
-    reset = _last_daily_reset(now)
+    reset = weekly_reset.last_daily_reset(now)
     for spent, band in ((0.1, "period_full"), (0.4, "period_most"),
                         (0.6, "period_some"), (0.9, "period_last")):
         at = reset + spent * day

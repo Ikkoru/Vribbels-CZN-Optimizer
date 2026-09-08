@@ -39,6 +39,14 @@ Which prefix is which shop, all established by buying one and reading the produc
 | `card_factor_*` | Exchange Shop — Prism Module |
 | `season_pass_*` | Seasonal Shop |
 
+## The day index
+
+The wire counts days from **2022-12-31 18:00 UTC** and stamps the number on anything that happens once a day: `point_entity.day_id`, `attendance_entities`' `start_dayid` and `last_dayid`, a free gacha's `last_issued_day_id`. `Vribbels/weekly_reset.py` holds the epoch and `day_index(now)`.
+
+18:00 UTC is the same hour the week turns on, so `RESET_HOUR` and `DAY_EPOCH` are two measurements of one boundary and correcting either means correcting both. `checks/check_day_index.py` pins them to day numbers the game itself sent.
+
+**A day-stamped record is written lazily, exactly like a shop's `count`.** Nothing rolls it at reset: yesterday's record survives untouched into today and only says which day it belongs to. So the reading is the comparison, not the value — `day_id == day_index(now)` means the thing happened today, and anything lower means today is untouched. The numbers stored *alongside* the stamp belong to that older day too, which is how `point_entity.day_point` can read a full 100 on a day whose real total is 20.
+
 ## Identifying a mission or a shop product
 
 **`mission_condition` is the fast route.** Any reply to an action that progressed a mission carries it, naming every mission touched, grouped by kind (`season_pass_mission`, `daily_achievement`, `achievement`, `accumulate_condition`, `disaster_achievement`) and each with a `condition_type` — `CAFE_DRINK`, `VISIT`, `DAILY_LOGIN`, `CLEAR_INGAME_CONTENTS__ID`. One action names its own missions, so a single deliberate action identifies them without a diff.
