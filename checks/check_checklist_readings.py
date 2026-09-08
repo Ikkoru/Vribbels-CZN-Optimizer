@@ -68,7 +68,8 @@ def run():
         ACTIVITY_CLAIMED, ACTIVITY_UNCLAIMED,
         DELEGATION_CURRENCY, DELEGATION_DONE, DELEGATION_TODO,
         ENDS_IN, LATER, SOON, WARN,
-        PASS_DAILY_COUNT,
+        PASS_DAILY_COUNT, PERIOD_LENGTHS,
+        _period_band, _period_left, _period_words,
         _last_daily_reset,
         DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
         MODULE_WINDOWS, NO_DATA,
@@ -451,6 +452,50 @@ def run():
     if got != [(f"0/{cap}", DONE)]:
         failures.append(
             f"a monthly row with `month_start` reads {got!r}, not 0/{cap}.")
+
+    # --- each column heading's own countdown ---------------------------
+    # The period splits into four EQUAL parts and the colour says which
+    # one is running. A band computed off the wrong length reads as a
+    # plausible colour, which is why the shares are checked rather than
+    # the words alone.
+    day = PERIOD_LENGTHS["Daily"]
+    reset = _last_daily_reset(now)
+    for spent, band in ((0.1, "period_full"), (0.4, "period_most"),
+                        (0.6, "period_some"), (0.9, "period_last")):
+        at = reset + spent * day
+        left, length = _period_left("Daily", {}, at)
+        if length != day:
+            failures.append(
+                f"the Daily period is {length!r} long, not {day}.")
+        elif _period_band(left, length) != band:
+            failures.append(
+                f"{spent:.0%} through the day the heading is drawn "
+                f"{_period_band(left, length)!r}, not {band!r}. The "
+                f"period splits into four equal parts, the first green "
+                f"and the last red.")
+
+    # Hours under a day, days above it, rounded DOWN so nothing is
+    # promised time it does not have.
+    for left, want in ((90 * 60, "1h left"), (23.9 * HOUR, "23h left"),
+                       (DAY, "1d left"), (5.9 * DAY, "5d left")):
+        if _period_words(left) != want:
+            failures.append(
+                f"{left}s left reads {_period_words(left)!r}, not "
+                f"{want!r}.")
+
+    # A MONTH is not a fixed length, so its bounds come off the wire.
+    if _period_left("Monthly", {}, now) != (None, None):
+        failures.append(
+            "the Monthly heading counts down without `month_start` and "
+            "`month_end`. A month is not a fixed number of days and the "
+            "game rolls it at 18:00 UTC on the last one, so there is "
+            "nothing to compute.")
+    raw = {"month_start": int(now - DAY), "month_end": int(now + 3 * DAY)}
+    left, length = _period_left("Monthly", raw, now)
+    if (left, length) != (3 * DAY, 4 * DAY):
+        failures.append(
+            f"a month bounded on the wire reads ({left!r}, {length!r}), "
+            f"not ({3 * DAY}, {4 * DAY}).")
 
     # --- a mid-login snapshot keeps its rows --------------------------
     # A capture saves as soon as the inventory arrives, dozens of frames

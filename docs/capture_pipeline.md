@@ -100,6 +100,8 @@ Six more join them, all merged rather than replaced for the same reason:
 
 **`mission_entity`, singular, is the claim.** A mission's `complete_time` is set when its REWARD IS CLAIMED, not when the task is finished, and the frame that sets it sends that one row rather than the list.
 
+**Every save prints `[SYNC] saved`, and that is what the app reloads on.** The human-readable `Saved:` line is suppressed when it would repeat the previous line word for word — and the login burst saves several times with identical counts, the first as soon as the inventory lands and the later ones carrying the shops, the schedules and the missions. A reload riding on the readable line was therefore skipped for exactly those saves, so the app sat on the first save's snapshot for the whole session. The marker is consumed by the reader and never shown, and it is deliberately not remembered as "the last line" — doing so would sit between two identical reports and stop either reading as a repeat. `checks/check_addon_template.py` holds the reader's copy of the literal equal to the addon's.
+
 **The snapshot's temp-file replace can be refused.** Windows returns `[WinError 5] Access is denied` while another process holds the destination open — the app reading it, an indexer, an antivirus. `_save_data` retries; a save that still cannot land says so and leaves the previous snapshot intact.
 
 **A Communication Pass is in none of them, because it is in nothing.** Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.

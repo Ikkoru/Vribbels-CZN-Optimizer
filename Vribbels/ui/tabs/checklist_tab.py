@@ -133,6 +133,37 @@ SPECIMEN_TEXT = (
     "exercitation exercitation dignissimos repellendus accusamus."
 )
 
+# How long each column's own period runs, and what its heading counts
+# down to. The Monthly one is None because a month is not a fixed
+# length -- the wire's `month_start` and `month_end` bound it, and the
+# quarters are quarters of THAT.
+PERIOD_LENGTHS = {"Daily": 24 * 3600, "Weekly": 7 * 24 * 3600,
+                  "Monthly": None}
+
+# A heading countdown's colour, by how much of its period is left. The
+# period splits into four equal parts: the first quarter spent is
+# green, the last is red.
+#
+# (share of the period still to run, the state). Read top down.
+HEADING_BANDS = ((0.75, "period_full"), (0.5, "period_most"),
+                 (0.25, "period_some"), (0.0, "period_last"))
+
+# What each band is drawn in, as a palette key. Most of the period
+# still to run is green; the last quarter is red.
+PERIOD_COLOURS = {"period_full": "green", "period_most": "yellow",
+                  "period_some": "orange", "period_last": "red"}
+
+# What a heading countdown says: `18h left`, `5d left`.
+HEADING_LEFT = " left"
+
+# The countdown's own face and where it sits against the heading. The
+# subtext face, so it reads as a note on the heading rather than as
+# part of it -- and dropped to sit on the heading's own baseline, a
+# 14pt box being taller than a 9pt one.
+HEADING_COUNTDOWN_FONT = ("Segoe UI", 9)
+HEADING_COUNTDOWN_GAP = 6   # spacing: heading ↔ element -- heading, label ↔
+HEADING_COUNTDOWN_DROP = 3  # spacing: heading ↔ element -- heading, label ↕
+
 # What a shop product with no per-period cap reads. It can always be
 # bought, so there is nothing to count down and nothing to finish.
 NO_LIMIT = "unlimited"
@@ -518,6 +549,8 @@ class ChecklistTab(BaseTab):
         # written before the shops arrive, and without this the whole
         # shop half of the tab vanishes until the next save.
         self._definitions = None
+        # The countdown beside each period column's heading.
+        self._period_labels = {}
         # The day the Activities reward was last seen being claimed, and
         # what the Crystal balance read on the previous refresh. See
         # `ACTIVITY_CLAIM_ITEM`: the claim is inferred from its payout
@@ -615,6 +648,8 @@ class ChecklistTab(BaseTab):
         self.frame.after_idle(self.refresh_checklist)
 
     def _rebuild_columns(self, raw):
+        # A rebuild destroys the heading labels with everything else.
+        self._period_labels = {}
         """(Re)build every column's heading and rows for one snapshot.
 
         Only when the row set actually changed: a rebuild destroys and
@@ -661,7 +696,18 @@ class ChecklistTab(BaseTab):
 
     def _build_column(self, parent, title, rows):
         """One heading and the rows under it."""
-        make_heading(parent, title).pack(anchor=tk.CENTER)
+        # The heading and its countdown travel together and the pair is
+        # centred, so the heading itself sits a little left of centre.
+        head = ttk.Frame(parent)
+        head.pack(anchor=tk.CENTER)
+        make_heading(head, title).pack(side=tk.LEFT, anchor=tk.S)
+        if title in PERIOD_LENGTHS:
+            # spacing: heading ↔ element -- heading, label ↕
+            label = ttk.Label(head, text="", font=HEADING_COUNTDOWN_FONT)
+            label.pack(side=tk.LEFT, anchor=tk.S,
+                       padx=px((HEADING_COUNTDOWN_GAP, 0)),
+                       pady=px((0, HEADING_COUNTDOWN_DROP)))
+            self._period_labels[title] = label
 
         if not rows:
             return
@@ -752,6 +798,19 @@ class ChecklistTab(BaseTab):
         self._boxes = []
         for text, rows in self.column_texts.values():
             self._fill(text, rows, readings)
+        self._fill_period_headings(raw)
+
+    def _fill_period_headings(self, raw):
+        """Rewrite the countdown beside each period column's heading."""
+        now = time.time()
+        for title, label in self._period_labels.items():
+            left, length = _period_left(title, raw, now)
+            if left is None:
+                label.config(text="")
+                continue
+            label.config(text=_period_words(left),
+                         foreground=self.colors[
+                             PERIOD_COLOURS[_period_band(left, length)]])
 
     def _activity_claim(self, raw):
         """Whether today's Activities reward has been taken.
@@ -1042,6 +1101,43 @@ def _readings(raw, now=None, claimed=False):
         else:
             out[key] = _one("%d/%d" % (stock, limit), _done(stock == 0))
     return out
+
+
+def _period_left(title, raw, now):
+    """(seconds left of this column's period, the period's length).
+
+    (None, None) where the period cannot be dated. Only the monthly one
+    can be: a month is not a fixed length, so its bounds come off the
+    wire as `month_start` and `month_end` and a snapshot without them
+    has no answer.
+    """
+    length = PERIOD_LENGTHS.get(title)
+    if title == "Daily":
+        return _last_daily_reset(now) + length - now, length
+    if title == "Weekly":
+        return weekly_reset.next_reset(now) - now, length
+    start = (raw or {}).get(shop_stock.MONTH_START_FIELD)
+    end = (raw or {}).get("month_end")
+    if not _is_count(start) or not _is_count(end) or end <= start:
+        return None, None
+    return end - now, end - start
+
+
+def _period_band(left, length):
+    """Which quarter of its period a countdown is in."""
+    share = max(0.0, left) / float(length) if length else 0.0
+    for above, band in HEADING_BANDS:
+        if share > above:
+            return band
+    return HEADING_BANDS[-1][1]
+
+
+def _period_words(left):
+    """`18h left` under a day, `5d left` above it. Rounded DOWN."""
+    left = max(0, int(left))
+    if left >= 24 * 3600:
+        return "%dd%s" % (left // (24 * 3600), HEADING_LEFT)
+    return "%dh%s" % (left // 3600, HEADING_LEFT)
 
 
 def _last_daily_reset(now):

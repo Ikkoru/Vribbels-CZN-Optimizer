@@ -23,6 +23,29 @@ from ._harness import add_source_to_path
 NAME = "capture addon template"
 
 
+def _save_marker_matches(failures):
+    """The reader's copy of the save marker must equal the addon's.
+
+    The addon is a GENERATED script and cannot import from the manager,
+    so the literal exists twice. Drift is silent and expensive: the
+    reader stops recognising a save, the app stops reloading, and the
+    tabs sit on whatever the first save of the session held -- which
+    during a login burst is an inventory and nothing else.
+    """
+    from capture.manager import ADDON_TEMPLATE, SAVE_MARKER
+    if SAVE_MARKER not in ADDON_TEMPLATE:
+        failures.append(
+            f"the reader watches for {SAVE_MARKER!r} and the addon "
+            f"template never prints it. Nothing would reload during a "
+            f"capture, and no error would say so.")
+    if 'self.log_callback(SAVE_MARKER)' not in ADDON_TEMPLATE:
+        failures.append(
+            "the addon no longer prints its save marker on every save. "
+            "The reload would fall back to the human-readable `Saved:` "
+            "line, which is suppressed when it repeats -- and it repeats "
+            "for exactly the login-burst saves that carry the shops.")
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -58,6 +81,7 @@ def run():
             "all session, and a read landing mid-write gets a truncated "
             "file rather than an error saying what happened."
         )
+    _save_marker_matches(failures)
     return failures
 
 

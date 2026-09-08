@@ -55,6 +55,12 @@ def is_loopback_address(ip: str) -> bool:
         return False
 
 
+# What the addon prints on every save. **Two copies of one literal**:
+# the addon is a generated script and cannot import from here, so the
+# reader below carries its own. `checks/check_addon_template.py` holds
+# them equal -- drift means the app silently stops reloading.
+SAVE_MARKER = "[SYNC] saved"
+
 # Addon template embedded as string constant (works in bundled executables)
 ADDON_TEMPLATE = '''"""
 mitmproxy Addon for intercepting CZN game WebSocket traffic.
@@ -82,6 +88,13 @@ except ImportError:
 # time it reads the snapshot -- a transient state, not a failure.
 SAVE_REPLACE_TRIES = 5
 SAVE_REPLACE_WAIT = 0.2
+
+# Printed on EVERY save, whether or not the human-readable `Saved:`
+# line is. The app watches for it to reload, and the two must not share
+# one line: the readable one is suppressed when it would repeat, and a
+# reload riding on it was skipped for exactly the login-burst saves
+# that carry the shops. The reader consumes this and does not show it.
+SAVE_MARKER = "[SYNC] saved"
 
 
 class Addon:
@@ -112,7 +125,12 @@ class Addon:
         self._last_line = None
 
         def remember(msg, *args, **kwargs):
-            self._last_line = msg
+            # **The save marker is not a line for this purpose.** It
+            # goes out on every save, so remembering it would put it
+            # between two identical reports and stop either from
+            # reading as a repeat.
+            if msg != SAVE_MARKER:
+                self._last_line = msg
             sink(msg, *args, **kwargs)
 
         self.log_callback = remember
@@ -1125,6 +1143,16 @@ class Addon:
             f"Saved: {count} Memory Fragments, {char_count} characters -> {self.saved_path.name}"
         )
 
+        # **Every save says so on this line, suppressed or not.** The
+        # app reloads when it sees a save go past, and the login burst
+        # saves several times with IDENTICAL counts -- the first as
+        # soon as the inventory lands, the later ones carrying the
+        # shops, the schedules and the missions. Suppressing the
+        # human-readable line for those suppressed the RELOAD with it,
+        # so the app sat on the first save's snapshot for the rest of
+        # the session and every shop row read empty until a restart.
+        self.log_callback(SAVE_MARKER)
+
         # Not twice in a row. Loading into the game sends the inventory
         # in one frame and the lobby's banner schedule in the next, so
         # two saves land seconds apart with the same counts in them --
@@ -1871,6 +1899,17 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
 
                 # Skip verbose mitmproxy messages
                 if any(pattern.lower() in line.lower() for pattern in skip_patterns):
+                    continue
+
+                # **The addon says this on every save, suppressed line
+                # or not.** Consumed rather than shown: it exists so a
+                # reload cannot ride on a human-readable line that is
+                # skipped whenever it would repeat itself.
+                if SAVE_MARKER in line:
+                    if self.status_callback:
+                        self.status_callback("[OK] Data Captured!")
+                    if self.live_update_callback:
+                        self.live_update_callback()
                     continue
 
                 # Route live updates with info tag, everything else with default tag
