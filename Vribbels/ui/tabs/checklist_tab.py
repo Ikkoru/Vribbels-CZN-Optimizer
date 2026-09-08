@@ -117,6 +117,22 @@ def with_countdown(widest):
 # product the user is not tracking has nothing to say either way.
 MUTED = "muted"
 
+# ---- the two specimen rows, TEMPORARY ------------------------------
+#
+# One line of prose in each of the two faces the app sets 11pt text in,
+# full width and unwrapped, so the maintainer can compare them side by
+# side on a real window. **Delete this block and its three constants
+# when the comparison is done.**
+SPECIMEN_ROWS = True
+SPECIMEN_FONTS = (("Segoe UI Variable Small", 11), ("Segoe UI", 11))
+SPECIMEN_TEXT = (
+    "Lorem ipsum dolor sit amet consectetur adipiscing elit. Animi "
+    "deleniti at consequat id consectetur eiusmod non est ut accusamus "
+    "quidem dolore. Tempore ut corrupti id odio in tempore consectetur. "
+    "Soluta in est omnis et enim. Culpa tempore occaecat nam "
+    "exercitation exercitation dignissimos repellendus accusamus."
+)
+
 # What a shop product with no per-period cap reads. It can always be
 # bought, so there is nothing to count down and nothing to finish.
 NO_LIMIT = "unlimited"
@@ -271,7 +287,7 @@ PERIOD_BY_COLUMN = {"Weekly": "weekly", "Monthly": "monthly",
                     "Other": "account"}
 
 
-def columns_for(raw, tracked=None, now=None):
+def columns_for(raw, tracked=None, now=None, definitions=None):
     """The four columns' rows for one snapshot.
 
     The shop rows are rebuilt from the wire every time, so a product
@@ -281,7 +297,18 @@ def columns_for(raw, tracked=None, now=None):
     sinks to the bottom of its own shop** rather than leaving the tab:
     the shop still sells it, and a row that vanished would read as a
     bug. Ticking it puts it back where the shop keeps it.
+
+    `definitions` stands in for `shop_res_data` where the snapshot
+    carries none. **A session's FIRST snapshot has none**: the capture
+    saves as soon as the inventory arrives -- dozens of frames before
+    the shops do -- so the row set would collapse the moment a capture
+    started and come back on the next save. What is remembered is which
+    rows EXIST; every reading still comes from the snapshot, so a row
+    whose source has not arrived reads its dash.
     """
+    if definitions and not shop_stock.definitions(raw):
+        raw = dict(raw or {})
+        raw[shop_stock.DEFINITIONS_FIELD] = definitions
     out = []
     for title, fixed, shops, events in COLUMNS:
         rows = list(fixed)
@@ -487,6 +514,10 @@ class ChecklistTab(BaseTab):
         # own an embedded window, so they are held here and destroyed
         # on the next rewrite.
         self._boxes = []
+        # The last `shop_res_data` seen. A capture's first snapshot is
+        # written before the shops arrive, and without this the whole
+        # shop half of the tab vanishes until the next save.
+        self._definitions = None
         # The day the Activities reward was last seen being claimed, and
         # what the Crystal balance read on the previous refresh. See
         # `ACTIVITY_CLAIM_ITEM`: the claim is inferred from its payout
@@ -527,6 +558,12 @@ class ChecklistTab(BaseTab):
         # takes that position and every Checklist entry skips, silently.
         # `checks/check_tabs_build.py` holds it there.
         columns = ttk.Frame(self.frame)
+
+        # Packed before the columns, which is a separate order: pack
+        # hands each widget its requested size in turn and only then
+        # gives the leftover to whatever expands.
+        if SPECIMEN_ROWS:
+            self._build_specimens()
 
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
@@ -584,7 +621,14 @@ class ChecklistTab(BaseTab):
         recreates four Texts, and the ordinary case is a refresh where
         nothing but the numbers moved.
         """
-        built = columns_for(raw, self._tracked, time.time())
+        # The shop DEFINITIONS are remembered across snapshots, so a
+        # capture's first save -- written before the shop payloads
+        # arrive -- cannot empty the tab. See `columns_for`.
+        seen = shop_stock.definitions(raw)
+        if seen:
+            self._definitions = seen
+        built = columns_for(raw, self._tracked, time.time(),
+                            self._definitions)
         signature = tuple((title, tuple(key for key, _l, _w in rows))
                           for title, rows in built)
         # Ticking the LAST product of a shop changes no order, so the
@@ -601,6 +645,19 @@ class ChecklistTab(BaseTab):
             for child in frame.winfo_children():
                 child.destroy()
             self._build_column(frame, title, rows)
+
+    def _build_specimens(self):
+        """The two prose rows at the bottom. See SPECIMEN_ROWS."""
+        # spacing: out of scope -- two specimen rows, for comparing one size in two faces
+        block = ttk.Frame(self.frame)
+        block.pack(side=tk.BOTTOM, fill=tk.X, anchor=tk.W,
+                   padx=px(4), pady=px((0, 4)))
+        for face in SPECIMEN_FONTS:
+            # `wraplength=0` is Tk's own "do not wrap", and `anchor=W`
+            # keeps the line at the left edge of a frame that fills.
+            ttk.Label(block, text=SPECIMEN_TEXT, font=face,
+                      wraplength=0, anchor=tk.W,
+                      justify=tk.LEFT).pack(fill=tk.X, anchor=tk.W)
 
     def _build_column(self, parent, title, rows):
         """One heading and the rows under it."""

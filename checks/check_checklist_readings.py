@@ -452,6 +452,34 @@ def run():
         failures.append(
             f"a monthly row with `month_start` reads {got!r}, not 0/{cap}.")
 
+    # --- a mid-login snapshot keeps its rows --------------------------
+    # A capture saves as soon as the inventory arrives, dozens of frames
+    # before the shop payloads do, so the session's FIRST snapshot has
+    # no `shop_res_data` at all. Without the remembered definitions the
+    # whole shop half of the tab vanishes the moment a capture starts.
+    raw = _snapshot()
+    raw["shop_res_data"] = {"shop_town": {"town_shop_goods_001": {
+        "product_link_item_id": 3310006, "product_count": 1,
+        "limit_count": 1, "limit_type": "LIMIT_WEEK", "sort": 1,
+        "link_shop_sub_category_id": "none"}}}
+    definitions = raw["shop_res_data"]
+    full = sum(len(rows) for _t, rows in columns_for(raw, None, now))
+    partial = _snapshot()
+    bare = sum(len(rows) for _t, rows in columns_for(partial, None, now))
+    held = sum(len(rows) for _t, rows in
+               columns_for(partial, None, now, definitions))
+    if not bare < full:
+        failures.append(
+            f"a snapshot with no shop_res_data builds {bare} rows against "
+            f"{full} with it, so this case proves nothing -- the shop "
+            f"rows are not coming from the definitions any more.")
+    elif held != full:
+        failures.append(
+            f"a mid-login snapshot with the definitions remembered builds "
+            f"{held} rows, not the {full} a full one does. A capture's "
+            f"first save has no shops in it, and the tab must not empty "
+            f"itself until the next one.")
+
     # --- ticking, and where an untracked product sits -----------------
     # An untracked product sinks to the BOTTOM of its own shop and the
     # tracked ones keep the shop's order. It does not leave the tab:

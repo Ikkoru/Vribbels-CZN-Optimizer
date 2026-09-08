@@ -186,7 +186,7 @@ A rule name is spelled in three places (this table, a `RULE_*` constant, every m
 
 ### Scope and standing exceptions
 
-**Nothing PERMANENT in the app is out of scope.** Every tab, the Stat Contributions popup, the Restore Defaults dialog and the hover tooltip are all marked and nudged alike. The one `# spacing: out of scope` marker is the Checklist tab's temporary mission listing, which goes when the missions are identified. Where a new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
+**Nothing PERMANENT in the app is out of scope.** Every tab, the Stat Contributions popup, the Restore Defaults dialog and the hover tooltip are all marked and nudged alike. The one `# spacing: out of scope` marker is the Checklist tab's two specimen rows, which go when the face comparison is done. Where a new boundary is drawn, one `# spacing: out of scope -- <why>` marks it.
 
 **A Text sizes in CHARACTERS and LINES, and neither can say what a window needs to the pixel.** `width` reserves whole cells, so what is left after the last glyph lands on the RIGHT inset and nothing inside the widget reaches it; `height` multiplies the font's linespace, so a per-line `spacing3` changes what is drawn and not what the widget asks for. The contributions popup rounds both up and takes the difference off the WINDOW, which its text field absorbs because it is the only child packed to expand.
 
