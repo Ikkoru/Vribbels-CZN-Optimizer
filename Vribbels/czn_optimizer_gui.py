@@ -678,6 +678,7 @@ class OptimizerGUI:
         from settings_manager import SettingsManager
         from optimizer_settings_manager import OptimizerSettingsManager
         from log_presets_manager import LogPresetsManager
+        from checklist_manager import ChecklistManager
         import perf_log
         import time as _time
 
@@ -751,6 +752,11 @@ class OptimizerGUI:
         # ensured at each data load); new ids default to selected.
         self.log_presets_manager = LogPresetsManager(program_dir)
         self.log_presets_manager.load()
+        # Which Checklist shop products the user tracks. No `ensure_ids`
+        # pass: a product absent from the file reads as its default, so
+        # a shop gaining one costs no write.
+        self.checklist_manager = ChecklistManager(program_dir)
+        self.checklist_manager.load()
         self.log_presets_manager.ensure_ids(str(rid) for rid in CHARACTERS.keys())
         # Fold any legacy config.json into settings.json and materialise
         # the canonical key order (SettingsManager.LAYOUT). Both historical
@@ -792,6 +798,7 @@ class OptimizerGUI:
         self.app_context.settings_manager = self.settings_manager
         self.app_context.optimizer_settings_manager = self.optimizer_settings_manager
         self.app_context.log_presets_manager = self.log_presets_manager
+        self.app_context.checklist_manager = self.checklist_manager
         self.app_context.recompute_upgrade_line_callback = (
             self.recompute_last_upgrade_line
         )

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from settings_manager import SettingsManager
     from optimizer_settings_manager import OptimizerSettingsManager
     from log_presets_manager import LogPresetsManager
+    from checklist_manager import ChecklistManager
 
 
 @dataclass
@@ -92,6 +93,10 @@ class AppContext:
     # checklist (which assigned presets participate in the "[LIVE]
     # Upgraded" Highest-Potential lines). See log_presets_manager.py.
     log_presets_manager: Optional['LogPresetsManager'] = None
+
+    # Which Checklist shop products the user tracks. See
+    # checklist_manager.py.
+    checklist_manager: Optional['ChecklistManager'] = None
     # Re-renders the LAST "[LIVE] Upgraded" capture-log line against the
     # current Log Presets selection. Set by the main GUI; the Capture
     # tab calls it after a checklist toggle. Optional -- callers must

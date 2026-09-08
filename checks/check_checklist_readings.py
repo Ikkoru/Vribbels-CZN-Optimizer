@@ -382,7 +382,8 @@ def run():
         raw = _snapshot()
         raw["shop_res_data"] = {"shop_town": {product: {
             "product_link_item_id": 3310006, "product_count": 1,
-            "limit_count": cap, "limit_type": limit_type, "sort": 5}}}
+            "limit_count": cap, "limit_type": limit_type, "sort": 5,
+        "link_shop_sub_category_id": "none"}}}
         raw["shop_list"] = {product: {"count": count, "reset_time": touched,
                                       "total_count": 5}}
         if month is not None:
@@ -415,7 +416,8 @@ def run():
     raw = _snapshot()
     raw["shop_res_data"] = {"shop_town": {product: {
         "product_link_item_id": 3310006, "product_count": 1,
-        "limit_count": cap, "limit_type": "LIMIT_WEEK", "sort": 5}}}
+        "limit_count": cap, "limit_type": "LIMIT_WEEK", "sort": 5,
+        "link_shop_sub_category_id": "none"}}}
     got = _readings(raw, now)[key]
     if got != (f"{NO_DATA}/{cap}", UNKNOWN):
         failures.append(
@@ -448,11 +450,41 @@ def run():
         failures.append(
             f"a monthly row with `month_start` reads {got!r}, not 0/{cap}.")
 
+    # --- ticking, and where an untracked product sits -----------------
+    # An untracked product sinks to the BOTTOM of its own shop and the
+    # tracked ones keep the shop's order. It does not leave the tab:
+    # the shop still sells it, and a row that vanished reads as a bug.
+    raw = _snapshot()
+    raw["shop_res_data"] = {"shop_town": {
+        f"town_shop_goods_{n:03d}": {
+            "product_link_item_id": 3310006, "product_count": 1,
+            "limit_count": 1, "limit_type": "LIMIT_WEEK", "sort": n,
+            "link_shop_sub_category_id": "none"}
+        for n in (1, 2, 3)}}
+    weekly = dict(columns_for(raw))["Weekly"]
+    order = [key for key, _l, _w in weekly if key.startswith("shop:")]
+    if order != ["shop:town_shop_goods_001", "shop:town_shop_goods_002",
+                 "shop:town_shop_goods_003"]:
+        failures.append(
+            f"with nothing filtered the shop rows read {order!r}, not the "
+            f"shop's own `sort` order.")
+    untracked = {"town_shop_goods_001"}
+    order = [key for key, _l, _w in
+             dict(columns_for(raw, lambda p: p not in untracked))["Weekly"]
+             if key.startswith("shop:")]
+    if order != ["shop:town_shop_goods_002", "shop:town_shop_goods_003",
+                 "shop:town_shop_goods_001"]:
+        failures.append(
+            f"with the first product untracked the rows read {order!r}. An "
+            f"untracked one sinks to the BOTTOM of its shop and the rest "
+            f"keep their order -- ticking one must move that one only.")
+
     # A product with NO cap is not a row at all: nothing counts down.
     raw = _snapshot()
     raw["shop_res_data"] = {"shop_town": {"town_shop_goods_010": {
         "product_link_item_id": 2000001, "product_count": 4000,
-        "limit_count": -1, "limit_type": "NONE", "sort": 14}}}
+        "limit_count": -1, "limit_type": "NONE", "sort": 14,
+        "link_shop_sub_category_id": "none"}}}
     if any(key.startswith("shop:") for _t, rows in columns_for(raw)
            for key, _l, _w in rows):
         failures.append(

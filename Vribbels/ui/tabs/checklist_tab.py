@@ -43,6 +43,7 @@ import weekly_reset
 from game_data.constants import item_names
 
 from ..base_tab import BaseTab
+from ..utils.checkbox import make_checkbox
 from ..utils.tab_header import make_heading
 from ui.scaling import px
 
@@ -75,10 +76,22 @@ SHOP_HEAD_PREFIX = "shophead:"
 # How far a shop's products are indented under the shop's own row.
 SHOP_INDENT = 27        # spacing: unique -- a shop's products under the shop -- run, run ↔
 
+# What a compact `tk.Checkbutton` costs beyond the width of its own
+# words: its indicator, and the gap Tk puts between the two. MEASURED
+# once and written down -- it is the widget's own, the same on every
+# label, and not readable before the widget exists. The column reserves
+# it so a checkbox row's words stop where a plain row's do.
+CHECKBOX_OVERHEAD = 23
+
 # What a value says about the row it sits on. GREEN is nothing left to
 # do, RED is something left, and a row whose source a snapshot cannot
 # answer for is neither.
 DONE, TODO, UNKNOWN = "done", "todo", None
+
+# What an UNTRACKED shop product's reading is drawn in: the dim colour
+# explanation text uses. Red and green say what is left to do, and a
+# product the user is not tracking has nothing to say either way.
+MUTED = "muted"
 
 # What a shop product with no per-period cap reads. It can always be
 # bought, so there is nothing to count down and nothing to finish.
@@ -191,11 +204,16 @@ PERIOD_BY_COLUMN = {"Weekly": "weekly", "Monthly": "monthly",
                     "Other": "account"}
 
 
-def columns_for(raw):
+def columns_for(raw, tracked=None):
     """The four columns' rows for one snapshot.
 
     The shop rows are rebuilt from the wire every time, so a product
     the game adds or a cap it changes reaches the tab with no edit.
+
+    `tracked` is a predicate on a product id. **An untracked product
+    sinks to the bottom of its own shop** rather than leaving the tab:
+    the shop still sells it, and a row that vanished would read as a
+    bug. Ticking it puts it back where the shop keeps it.
     """
     out = []
     for title, fixed, shops in COLUMNS:
@@ -208,7 +226,16 @@ def columns_for(raw):
         for shop in shops if period else ():
             rows.append((SHOP_HEAD_PREFIX + "/".join(shop),
                          shop_stock.SHOPS[shop], None))
-            rows.extend(shop_rows(shop, period, raw))
+            products = shop_rows(shop, period, raw)
+            if tracked is not None:
+                # Stable within each half: the shop's own order is kept
+                # on both sides of the split, so ticking one product
+                # moves that product and nothing else.
+                products = ([row for row in products
+                             if tracked(_product_of(row[0]))]
+                            + [row for row in products
+                               if not tracked(_product_of(row[0]))])
+            rows.extend(products)
         out.append((title, tuple(rows)))
     return tuple(out)
 
@@ -376,6 +403,10 @@ class ChecklistTab(BaseTab):
         # the set -- a shop gaining a product -- rebuilds them.
         self.column_texts = {}
         self._built_signature = None
+        # The shop checkboxes embedded in the columns. A Text does not
+        # own an embedded window, so they are held here and destroyed
+        # on the next rewrite.
+        self._boxes = []
         # The day the Activities reward was last seen being claimed, and
         # what the Crystal balance read on the previous refresh. See
         # `ACTIVITY_CLAIM_ITEM`: the claim is inferred from its payout
@@ -448,6 +479,24 @@ class ChecklistTab(BaseTab):
             column.grid(row=0, column=2 * index, sticky="nsew")
             self._column_frames.append(column)
 
+    def _tracked(self, product_id):
+        """Whether the user ticked one shop product. See ChecklistManager."""
+        manager = getattr(self.context, "checklist_manager", None)
+        return manager.is_tracked(product_id) if manager else True
+
+    def _toggle(self, product_id, variable):
+        """Persist one checkbox, then redraw.
+
+        **Redrawn on an idle callback, never here.** Ticking changes
+        the row ORDER, so the redraw destroys every widget in the
+        column -- this checkbox among them -- and doing that inside its
+        own command is how Tk gets a callback on a dead widget.
+        """
+        manager = getattr(self.context, "checklist_manager", None)
+        if manager is not None:
+            manager.set_tracked(product_id, bool(variable.get()))
+        self.frame.after_idle(self.refresh_checklist)
+
     def _rebuild_columns(self, raw):
         """(Re)build every column's heading and rows for one snapshot.
 
@@ -455,9 +504,15 @@ class ChecklistTab(BaseTab):
         recreates four Texts, and the ordinary case is a refresh where
         nothing but the numbers moved.
         """
-        built = columns_for(raw)
+        built = columns_for(raw, self._tracked)
         signature = tuple((title, tuple(key for key, _l, _w in rows))
                           for title, rows in built)
+        # Ticking the LAST product of a shop changes no order, so the
+        # keys alone would not notice it -- and its colour still has to
+        # change. The tracked set goes in the signature too.
+        signature += (tuple(sorted(
+            product_id for _k, product_id, _d in _shop_rows(raw)
+            if self._tracked(product_id))),)
         if signature == self._built_signature:
             return
         self._built_signature = signature
@@ -481,8 +536,9 @@ class ChecklistTab(BaseTab):
         #
         # A shop's products are indented under it, so their labels
         # reach further right than their words alone say.
-        labels = max(font.measure(label) + (px(SHOP_INDENT)
-                                            if _is_shop(key) else 0)
+        labels = max(font.measure(label)
+                     + (px(SHOP_INDENT) + px(CHECKBOX_OVERHEAD)
+                        if _is_shop(key) else 0)
                      for key, label, _w in rows)
         stop = labels + TEXT_INSET + LABEL_TO_VALUE
         widest = max([font.measure(w) for _k, _l, w in rows if w] or [0])
@@ -518,6 +574,7 @@ class ChecklistTab(BaseTab):
         # left. A row a snapshot cannot answer for takes neither.
         text.tag_configure(DONE, foreground=self.colors["green"])
         text.tag_configure(TODO, foreground=self.colors["red"])
+        text.tag_configure(MUTED, foreground=self.colors["fg_dim"])
         self.column_texts[title] = (text, rows)
 
     @staticmethod
@@ -574,23 +631,58 @@ class ChecklistTab(BaseTab):
             self._activity_claimed_day = day_id
         return self._activity_claimed_day is not None
 
-    @staticmethod
-    def _fill(text, rows, readings):
+    def _fill(self, text, rows, readings):
         """Rewrite one column: its rows, and any reading beside one.
 
         Written whole rather than patched line by line -- a Text has no
         per-line assignment, and the block is small.
+
+        **A shop product's label is a CHECKBOX**, embedded in the line
+        with `window_create`. The widget goes in at the line's start,
+        so the line's own `lmargin1` indents the checkbox itself and
+        its left edge lands where an ordinary row's words do.
         """
         text.config(state=tk.NORMAL)
         text.delete("1.0", tk.END)
+        for box in self._boxes:
+            box.destroy()
+        self._boxes = []
         for index, (key, label, _widest) in enumerate(rows):
             value, state = readings.get(key, (None, UNKNOWN))
             line = ("row", "indent") if _is_shop(key) else ("row",)
-            text.insert(tk.END, (LINE_SEP if index else "") + label, line)
+            if index:
+                text.insert(tk.END, LINE_SEP, line)
+            if _is_shop(key):
+                # An untracked product says so in its colour: the
+                # reading is greyed like explanation text and the row
+                # takes neither red nor green.
+                if not self._tracked(_product_of(key)):
+                    state = MUTED
+                text.window_create(tk.END, window=self._checkbox(text, key,
+                                                                 label, state))
+            else:
+                text.insert(tk.END, label, line)
             if value is not None:
                 text.insert(tk.END, COLUMN_SEP + value,
                             line + ((state,) if state else ()))
         text.config(state=tk.DISABLED)
+
+    def _checkbox(self, parent, key, label, state):
+        """One shop product's checkbox, kept alive on the tab.
+
+        Held in `_boxes` because a Text does not own an embedded
+        window: dropping the reference leaves the widget parented and
+        undestroyed on the next rewrite.
+        """
+        product_id = _product_of(key)
+        variable = tk.BooleanVar(value=self._tracked(product_id))
+        box = make_checkbox(
+            parent, self.colors, text=label, variable=variable,
+            compact=True,
+            fg=self.colors["fg_dim"] if state is MUTED else None,
+            command=lambda p=product_id, v=variable: self._toggle(p, v))
+        self._boxes.append(box)
+        return box
 
 
 
@@ -886,6 +978,11 @@ def _great_rift(raw):
     target = row.get("week_total_score_reward")
     return row["week_total_score"], (target if _is_count(target)
                                      else GREAT_RIFT_TARGET)
+
+
+def _product_of(key):
+    """The product id inside a shop row's key."""
+    return key[len(SHOP_KEY_PREFIX):]
 
 
 def _shop_rows(raw):
