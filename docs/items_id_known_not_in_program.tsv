@@ -7,7 +7,7 @@ res_id	where	amount	Name	Type	Note
 2000016	currencies	115	Rescue Anchor	Gacha Currency	
 2000018	currencies	42	Research Notes	Ark - Upgrade Currency	
 2000020	currencies	220	Zeronium	Shop Currency	
-2000022	currencies	3	Special Security Code		
+2000022	currencies	3	Special Security Code	Trauma Code Unlock Item	Max 3 stored
 2000023	currencies	58	Prism Lens	Gacha Currency - Animated Card	
 2000024	currencies	312	Prism Film	Shop Currency	
 2000031	currencies	49	Policy Point	Ark - Shop Currency	
@@ -38,4 +38,4 @@ res_id	where	amount	Name	Type	Note
 3920022	items	31	Abyssal Core	Save Data Edit	
 3920031	items	39712	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable
 3930004	items	43	Core of Mutation	Save Data Edit	
-5210001	items	2	Prism Module - Masterpiece		
+5210001	items	2	Prism Module - Masterpiece	Animated Card Unlock Item - 5*	

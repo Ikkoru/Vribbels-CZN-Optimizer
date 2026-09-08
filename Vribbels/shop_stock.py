@@ -5,8 +5,9 @@ Two payloads, and both are needed:
 * **`shop_res_data`** is the shop's own DEFINITIONS, one per product:
   what item it gives (`product_link_item_id`) and how many
   (`product_count`), the per-period cap (`limit_count`), which period
-  (`limit_type`), the price (`price_link_item_id`, `price_count`), and
-  the shop's display order (`sort`). Sent once at login.
+  (`limit_type`), the price (`price_link_item_id`, `price_count`), the
+  display order (`sort`), and **which screen it is on**
+  (`link_shop_sub_category_id`). Sent once at login.
 * **`shop_list`** is what the ACCOUNT has done with them, one row per
   product: `{count, reset_time, total_count}`.
 
@@ -43,17 +44,28 @@ DEFINITIONS_FIELD = "shop_res_data"
 STOCK_FIELD = "shop_list"
 MONTH_START_FIELD = "month_start"
 
-# The wire's shop category -> what the game calls it. **A shop absent
-# here gets no rows**, which is what keeps the tab to the shops the
-# maintainer tracks rather than every product table the login sends.
+# `(category, sub-category)` -> what the game calls that shop. **The
+# SUB-category is what a screen in the game actually is**: one category
+# holds several, and reading the category alone folds neighbours into
+# one list -- the Traveler exchange with the Combatant and Partner
+# duplicate shops, the Prism Module bench with the Anchor and Spectral
+# Cube ones, and the Seasonal Supply Store's three supplies as one.
+#
+# A shop absent here gets no rows, which is what keeps the tab to the
+# shops the maintainer tracks rather than every product table the login
+# sends. `none` is the sub-category of a category with only one shop.
 SHOPS = {
-    "shop_town": "Nono's Shop",
-    "shop_gacha_dup": "$hop - Memory Archive - Traveler",
-    "shop_hyperspace": "$hop - Zeronium Shop",
-    "shop_chaos": "$hop - Blackhorn Trade",
-    "shop_exchange_product": "$hop - Exchange Shop - Prism Module",
-    "shop_disaster": "Seasonal Shop",
-    "shop_assault": "Sortie - Chaos Analysis Lab",
+    ("shop_town", "none"): "Nono's Shop",
+    ("shop_gacha_dup", "shop_gacha_dup_legend"):
+        "$hop - Memory Archive - Traveler",
+    ("shop_hyperspace", "none"): "$hop - Zeronium Shop",
+    ("shop_chaos", "none"): "$hop - Blackhorn Trade",
+    ("shop_exchange_product", "shop_card_factor"):
+        "$hop - Exchange Shop - Prism Module",
+    ("shop_disaster", "shop_disaster_1"): "Seasonal Shop - 1st Supply",
+    ("shop_disaster", "shop_disaster_2"): "Seasonal Shop - 2nd Supply",
+    ("shop_disaster", "shop_disaster_3"): "Seasonal Shop - 3rd Supply",
+    ("shop_assault", "none"): "Sortie - Chaos Analysis Lab",
 }
 
 # The wire's `limit_type` -> which Checklist column the product belongs
@@ -86,16 +98,27 @@ def stock(raw_data):
     return out if isinstance(out, dict) else {}
 
 
-def products(category, period, raw_data):
+def products(shop, period, raw_data, prefix=None):
     """[(product id, definition)] in one shop and one period, in order.
 
-    Sorted by the shop's own `sort`, which is the order the game lists
-    them in. A product with no cap is left out: `PERIOD_BY_LIMIT` has
-    no entry for `NONE`.
+    `shop` is the `(category, sub-category)` pair -- the sub-category
+    being what a screen in the game is. Sorted by the shop's own
+    `sort`, which is the order the game lists them in. A product with
+    no cap is left out: `PERIOD_BY_LIMIT` has no entry for `NONE`.
+
+    `prefix` keeps only products whose id starts with it. **The
+    seasonal shop needs it**: every season the account has played keeps
+    its products in the table, so one screen offering one Tear of God
+    reads as three.
     """
+    category, sub = shop
     rows = []
     for product_id, define in definitions(raw_data).get(category, {}).items():
         if not isinstance(define, dict):
+            continue
+        if define.get("link_shop_sub_category_id") != sub:
+            continue
+        if prefix and not str(product_id).startswith(prefix):
             continue
         limit = define.get("limit_count")
         if PERIOD_BY_LIMIT.get(define.get("limit_type")) != period:

@@ -85,7 +85,13 @@ DONE, TODO, UNKNOWN = "done", "todo", None
 NO_LIMIT = "unlimited"
 
 
-def shop_rows(category, period, raw):
+# Shops whose products are kept PER SEASON, and where the live season
+# comes from. Every season the account has played keeps its products in
+# the table, so one screen offering one Tear of God reads as three.
+SEASONAL_SHOP_CATEGORY = "shop_disaster"
+
+
+def shop_rows(shop, period, raw):
     """The sub-rows for one shop's products in one period.
 
     `(key, label, widest)` per product, straight off the wire: the
@@ -94,8 +100,13 @@ def shop_rows(category, period, raw):
     more -- a product the game adds appears the next time the login
     burst is captured.
     """
+    prefix = (_live_season(raw) if shop[0] == SEASONAL_SHOP_CATEGORY
+              else None)
+    if shop[0] == SEASONAL_SHOP_CATEGORY and not prefix:
+        # Without a live season every season's products would show.
+        return ()
     out = []
-    for product_id, define in shop_stock.products(category, period, raw):
+    for product_id, define in shop_stock.products(shop, period, raw, prefix):
         limit = define.get("limit_count")
         out.append((SHOP_KEY_PREFIX + product_id,
                     product_label(define),
@@ -155,9 +166,16 @@ COLUMNS = (
         ("sortie_currency", "Sortie Currency", "99/9"),
         ("seasonal_event", "Seasonal Event(s)", None),
         ("seasonal_score", "Seasonal Accumulated Score", "300000+/300000"),
-    ), ("shop_town", "shop_gacha_dup", "shop_disaster")),
-    ("Monthly", (), ("shop_town", "shop_gacha_dup", "shop_hyperspace",
-                     "shop_chaos", "shop_exchange_product")),
+    ), (("shop_town", "none"),
+        ("shop_gacha_dup", "shop_gacha_dup_legend"),
+        ("shop_disaster", "shop_disaster_1"),
+        ("shop_disaster", "shop_disaster_2"),
+        ("shop_disaster", "shop_disaster_3"))),
+    ("Monthly", (), (("shop_town", "none"),
+                     ("shop_gacha_dup", "shop_gacha_dup_legend"),
+                     ("shop_hyperspace", "none"),
+                     ("shop_chaos", "none"),
+                     ("shop_exchange_product", "shop_card_factor"))),
     ("Other", (
         ("basin", "Basin of Hyperspace (21 days)", "99/99"),
         ("matrix", "Zero System Chaos Matrix (84? days)", None),
@@ -165,7 +183,7 @@ COLUMNS = (
         ("seasonal_event_other", "Seasonal Event (21 + 21 + 21 days)", None),
         ("sortie_other", "Sortie (21 days)", None),
         ("other_events_other", "Other Events", None),
-    ), ("shop_assault",)),
+    ), (("shop_assault", "none"),)),
 )
 
 # Which period each column's shop products are taken from.
@@ -187,10 +205,10 @@ def columns_for(raw):
         # do.** A snapshot from before `shop_res_data` was captured
         # knows no products, and a column that emptied itself would
         # read as a broken tab rather than as data not yet arrived.
-        for category in shops if period else ():
-            rows.append((SHOP_HEAD_PREFIX + category,
-                         shop_stock.SHOPS.get(category, category), None))
-            rows.extend(shop_rows(category, period, raw))
+        for shop in shops if period else ():
+            rows.append((SHOP_HEAD_PREFIX + "/".join(shop),
+                         shop_stock.SHOPS[shop], None))
+            rows.extend(shop_rows(shop, period, raw))
         out.append((title, tuple(rows)))
     return tuple(out)
 
@@ -816,6 +834,26 @@ def _basin(raw):
     return best if best else (0, None)
 
 
+def _live_season(raw):
+    """The live disaster season's id, or None.
+
+    The standings keep a row per season the account has played, so the
+    live one is the latest `score_week_id` -- the same reading the
+    Great Rift row makes, and for the same reason.
+    """
+    seasons = raw.get(GREAT_RIFT_FIELD)
+    live = None
+    for name, slots in (seasons or {}).items() if isinstance(
+            seasons, dict) else ():
+        for row in (slots or {}).values() if isinstance(slots, dict) else ():
+            if not isinstance(row, dict):
+                continue
+            week = row.get("score_week_id") or 0
+            if live is None or week > live[0]:
+                live = (week, name)
+    return live[1] if live else None
+
+
 def _great_rift(raw):
     """(this week's score, the threshold that pays it out).
 
@@ -854,10 +892,11 @@ def _shop_rows(raw):
     """[(row key, product id, definition)] for every shop sub-row."""
     out = []
     for category, defines in shop_stock.definitions(raw).items():
-        if category not in shop_stock.SHOPS:
-            continue
         for product_id, define in defines.items():
-            if isinstance(define, dict):
+            if not isinstance(define, dict):
+                continue
+            shop = (category, define.get("link_shop_sub_category_id"))
+            if shop in shop_stock.SHOPS:
                 out.append((SHOP_KEY_PREFIX + product_id, product_id, define))
     return out
 
