@@ -534,11 +534,19 @@ class ChecklistTab(BaseTab):
         # and the row set they were built for. A snapshot that changes
         # the set -- a shop gaining a product -- rebuilds them.
         self.column_texts = {}
-        self._built_signature = None
-        # The shop checkboxes embedded in the columns. A Text does not
+        # **Everything below is kept PER COLUMN, and that is what stops
+        # the tab flashing.** A redraw that rewrote all four columns
+        # destroyed and recreated every embedded checkbox each time a
+        # capture saved or a box was ticked, and the reflow that costs
+        # is visible. A column now redraws only when its own content
+        # changed: `_built_signatures` is the row set it was built for
+        # and `_rendered` is what is actually drawn in it.
+        self._built_signatures = {}
+        self._rendered = {}
+        # The shop checkboxes embedded in each column. A Text does not
         # own an embedded window, so they are held here and destroyed
-        # on the next rewrite.
-        self._boxes = []
+        # when that column is rewritten.
+        self._boxes = {}
         # The last `shop_res_data` seen. A capture's first snapshot is
         # written before the shops arrive, and without this the whole
         # shop half of the tab vanishes until the next save.
@@ -635,13 +643,18 @@ class ChecklistTab(BaseTab):
         self.frame.after_idle(self.refresh_checklist)
 
     def _rebuild_columns(self, raw):
-        # A rebuild destroys the heading labels with everything else.
-        self._period_labels = {}
-        """(Re)build every column's heading and rows for one snapshot.
+        """(Re)build the heading and rows of any column that changed.
 
-        Only when the row set actually changed: a rebuild destroys and
-        recreates four Texts, and the ordinary case is a refresh where
-        nothing but the numbers moved.
+        **One column at a time.** A rebuild destroys a Text and every
+        checkbox embedded in it, so rebuilding the four together made
+        the whole tab flash for a change in one of them -- and ticking
+        a box changes exactly one column, since an untracked product
+        sinks within its own shop.
+
+        A column's signature is its row keys IN ORDER. What a row is
+        drawn in is not in it: colour follows the tracked set, which
+        `_fill` reads for itself, and a product ticked at the bottom of
+        its shop moves nothing.
         """
         # The shop DEFINITIONS are remembered across snapshots, so a
         # capture's first save -- written before the shop payloads
@@ -651,19 +664,21 @@ class ChecklistTab(BaseTab):
             self._definitions = seen
         built = columns_for(raw, self._tracked, time.time(),
                             self._definitions)
-        signature = tuple((title, tuple(key for key, _l, _w in rows))
-                          for title, rows in built)
-        # Ticking the LAST product of a shop changes no order, so the
-        # keys alone would not notice it -- and its colour still has to
-        # change. The tracked set goes in the signature too.
-        signature += (tuple(sorted(
-            product_id for _k, product_id, _d in _shop_rows(raw)
-            if self._tracked(product_id))),)
-        if signature == self._built_signature:
-            return
-        self._built_signature = signature
-        self.column_texts = {}
         for frame, (title, rows) in zip(self._column_frames, built):
+            signature = tuple(key for key, _l, _w in rows)
+            if signature == self._built_signatures.get(title):
+                continue
+            self._built_signatures[title] = signature
+            # The Text, its checkboxes and its heading label all go
+            # with the frame's children, so nothing may outlive them.
+            for box in self._boxes.pop(title, ()):
+                box.destroy()
+            self._rendered.pop(title, None)
+            self._period_labels.pop(title, None)
+            # Dropped rather than overwritten: a column with no rows
+            # builds no Text at all, and the old entry would otherwise
+            # keep pointing at the one just destroyed.
+            self.column_texts.pop(title, None)
             for child in frame.winfo_children():
                 child.destroy()
             self._build_column(frame, title, rows)
@@ -776,15 +791,8 @@ class ChecklistTab(BaseTab):
         raw = getattr(self.optimizer, "raw_data", None) or {}
         self._rebuild_columns(raw)
         readings = _readings(raw)
-        # **Cleared ONCE, not per column.** `_fill` runs four times and
-        # every checkbox on the tab is in one list, so clearing inside
-        # it made each column destroy the one before -- leaving only
-        # the last column's boxes alive and the rest blank.
-        for box in self._boxes:
-            box.destroy()
-        self._boxes = []
-        for text, rows in self.column_texts.values():
-            self._fill(text, rows, readings)
+        for title, (text, rows) in self.column_texts.items():
+            self._fill(title, text, rows, readings)
         self._fill_period_headings(raw)
 
     def _fill_period_headings(self, raw):
@@ -799,33 +807,47 @@ class ChecklistTab(BaseTab):
                          foreground=self.colors[
                              PERIOD_COLOURS[_period_band(left, length)]])
 
-    def _fill(self, text, rows, readings):
+    def _fill(self, title, text, rows, readings):
         """Rewrite one column: its rows, and any reading beside one.
 
-        Written whole rather than patched line by line -- a Text has no
-        per-line assignment, and the block is small.
+        **Nothing happens when the column already reads that way.**
+        The rewrite destroys and recreates every checkbox in the block,
+        which reflows the Text visibly, and most refreshes -- a capture
+        saving, the tab being shown again -- change nothing at all.
+
+        **And when only the numbers moved, only the numbers are
+        rewritten.** A countdown ticking over would otherwise rewrite
+        the whole block, checkboxes and all, for a line of digits.
 
         **A shop product's label is a CHECKBOX**, embedded in the line
         with `window_create`. The widget goes in at the line's start,
         so the line's own `lmargin1` indents the checkbox itself and
         its left edge lands where an ordinary row's words do.
         """
+        drawn = tuple(self._line(key, label, readings) for key, label, _w
+                      in rows)
+        was = self._rendered.get(title)
+        if drawn == was:
+            return
+        self._rendered[title] = drawn
+        if _same_rows(was, drawn):
+            text.config(state=tk.NORMAL)
+            for index, (before, after) in enumerate(zip(was, drawn)):
+                if before != after:
+                    _patch_value(text, index + 1, after)
+            text.config(state=tk.DISABLED)
+            return
+        for box in self._boxes.pop(title, ()):
+            box.destroy()
         text.config(state=tk.NORMAL)
         text.delete("1.0", tk.END)
-        for index, (key, label, _widest) in enumerate(rows):
-            segments = readings.get(key) or ()
-            line = ("row", "indent") if _is_shop(key) else ("row",)
+        for index, ((key, label, _tracked, segments), line) in enumerate(drawn):
             if index:
                 text.insert(tk.END, LINE_SEP, line)
             if _is_shop(key):
-                # An untracked product says so in its colour: every
-                # segment greys, red and green being about work left
-                # and a product nobody tracks having none.
-                if not self._tracked(_product_of(key)):
-                    segments = [(words, MUTED) for words, _s in segments]
                 head = segments[0][1] if segments else UNKNOWN
-                text.window_create(tk.END, window=self._checkbox(text, key,
-                                                                 label, head))
+                text.window_create(tk.END, window=self._checkbox(
+                    title, text, key, label, head))
             else:
                 text.insert(tk.END, label, line)
             for at, (words, state) in enumerate(segments):
@@ -833,12 +855,31 @@ class ChecklistTab(BaseTab):
                             + words, line + ((state,) if state else ()))
         text.config(state=tk.DISABLED)
 
-    def _checkbox(self, parent, key, label, state):
+    def _line(self, key, label, readings):
+        """One row's drawn form: its words, its readings, its tags.
+
+        Everything that decides what the line LOOKS like, and nothing
+        else, so two of these comparing equal means the column can be
+        left alone. `tracked` is carried even though it shows only
+        through the segment colours: it also colours the CHECKBOX, and
+        a value patch does not repaint that.
+        """
+        tracked = not _is_shop(key) or self._tracked(_product_of(key))
+        segments = tuple(readings.get(key) or ())
+        if not tracked:
+            # An untracked product says so in its colour: every segment
+            # greys, red and green being about work left and a product
+            # nobody tracks having none.
+            segments = tuple((words, MUTED) for words, _s in segments)
+        line = ("row", "indent") if _is_shop(key) else ("row",)
+        return (key, label, tracked, segments), line
+
+    def _checkbox(self, title, parent, key, label, state):
         """One shop product's checkbox, kept alive on the tab.
 
-        Held in `_boxes` because a Text does not own an embedded
-        window: dropping the reference leaves the widget parented and
-        undestroyed on the next rewrite.
+        Held in `_boxes` under its own column because a Text does not
+        own an embedded window: dropping the reference leaves the
+        widget parented and undestroyed on the next rewrite.
         """
         product_id = _product_of(key)
         variable = tk.BooleanVar(value=self._tracked(product_id))
@@ -847,7 +888,7 @@ class ChecklistTab(BaseTab):
             compact=True,
             fg=self.colors["fg_dim"] if state is MUTED else None,
             command=lambda p=product_id, v=variable: self._toggle(p, v))
-        self._boxes.append(box)
+        self._boxes.setdefault(title, []).append(box)
         return box
 
 
@@ -858,6 +899,38 @@ class ChecklistTab(BaseTab):
 # punctuation.
 LINE_SEP = "\n"
 COLUMN_SEP = "\t"
+
+
+def _same_rows(was, drawn):
+    """True where two drawn columns differ only in their READINGS.
+
+    That is the case a value can be patched into: the rows are the same
+    things in the same order, each still tracked the way it was, so
+    every line's label -- and any checkbox embedded in it -- already
+    says what it should.
+    """
+    if was is None or len(was) != len(drawn):
+        return False
+    return all(before[0][:3] == after[0][:3]
+               for before, after in zip(was, drawn))
+
+
+def _patch_value(text, lineno, drawn):
+    """Rewrite one line's reading, leaving the rest of the line alone.
+
+    The reading is everything from the row's tab to the end of the
+    line, so the label -- or the embedded checkbox standing in for one
+    -- is never touched. Destroying and recreating an embedded window
+    is what makes the block visibly reflow.
+    """
+    (_key, _label, _tracked, segments), line = drawn
+    end = "%d.end" % lineno
+    at = text.search(COLUMN_SEP, "%d.0" % lineno, end)
+    if at:
+        text.delete(at, end)
+    for index, (words, state) in enumerate(segments):
+        text.insert(end, (COLUMN_SEP if not index else SEGMENT_GAP) + words,
+                    line + ((state,) if state else ()))
 
 
 def _readings(raw, now=None):

@@ -263,6 +263,16 @@ class Addon:
         # arrives. Maps qid -> {"item_ids": [...], "char_res_id": int}.
         self.pending_unequips = {}
 
+        # Tracks the daily coffee (town/order_coffee). **Its own reply
+        # carries no day_changeable_data**, so nothing in it says the
+        # coffee is gone -- the flag is only refreshed the next time
+        # some other town action happens to send that block, which can
+        # be a session later or never. Ordering one is what makes it
+        # false, so the request is remembered by qid and applied when
+        # the server answers res='ok'. A set of qids; the request
+        # carries nothing else worth keeping.
+        self.pending_coffees = set()
+
         # Load zstd dictionary if available
         if dict_path and dict_path.exists() and HAS_ZSTD:
             try:
@@ -567,6 +577,14 @@ class Addon:
         pending_unequip_info = None
         if qid is not None and qid in self.pending_unequips:
             pending_unequip_info = self.pending_unequips.pop(qid)
+
+        # The daily coffee was drunk. See `pending_coffees`: the reply
+        # confirms it and says nothing else about it, so the cached
+        # flag is turned off here rather than read off the wire.
+        if qid is not None and qid in self.pending_coffees:
+            self.pending_coffees.discard(qid)
+            if self._set_day_field("is_coffee_possible", False):
+                self._save_pending = True
 
         # Live monitoring: apply piece deltas
         #   "piece"  (singular): existing swap / upgrade / equip / unequip flows.
@@ -1370,6 +1388,28 @@ class Addon:
                         "item_ids": list(ids),
                         "char_res_id": char_res_id,
                     }
+
+            elif inner_cmd == "order_coffee":
+                self.pending_coffees.add(qid)
+
+    def _set_day_field(self, field, value):
+        """Write one field of the cached town daily block.
+
+        For state an ACTION establishes and no reply states -- see
+        `pending_coffees`. Returns whether anything was written: there
+        is nothing to save when the block has not arrived yet, which is
+        the case for a capture started before the game logged in.
+        """
+        if not isinstance(self.character_data, dict):
+            return False
+        town = self.character_data.get("town_data")
+        if not isinstance(town, dict):
+            return False
+        day = town.get("day_changeable_data")
+        if not isinstance(day, dict):
+            return False
+        day[field] = value
+        return True
 
     def _apply_piece_disassemble(self, piece_ids):
         """Remove pieces from piece_items by id (called on server confirmation

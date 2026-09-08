@@ -1,6 +1,6 @@
 res_id	where	amount	Name	Type	Note
-2000002	currencies	169	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
-2000007	currencies	5	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
+2000002	currencies	296	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
+2000007	currencies	25	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
 2000011	currencies	597	Moment of the Radiant Hero	Shop Currency	
 2000012	currencies	118	Moment of the Radiant Traveler	Shop Currency	
 2000014	currencies	0	Tear of God	Stamina Recovery	
@@ -20,10 +20,12 @@ res_id	where	amount	Name	Type	Note
 3210002	items	22	Multidimensional Alignment Material	Crafting Material for Memory Fragments	
 3300001	items	3	Sweet Choconilla	Gift Item	
 3300002	items	9	Exquisite Slice of Cake	Gift Item	
+3300005	items	7	Perfect Spray Gun	Gift Item	
 3300006	items	9	Locket Necklace of Memories	Gift Item	
 3300007	items	5	Excellent Merit Badge	Gift Item	
 3300008	items	33	Lucky Sachet	Gift Item	
 3300011	items	14	Carefully Handwritten Letter	Gift Item	
+3300012	items	9	Heartbeat Purfume	Gift Item	
 3300013	items	52	Cute Rabbit Doll	Gift Item	
 3300016	items	9	Handmade Wooden Doll	Gift Item	
 3300018	items	14	A Not So Boring Wait	Gift Item	

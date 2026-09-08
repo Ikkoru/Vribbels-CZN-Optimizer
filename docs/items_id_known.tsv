@@ -1,6 +1,6 @@
 res_id	family	group	tier	rarity	name	icon	amount	where
 2000001	named			Common	Units	currency_unit.png	2426893	currencies
-2000004	named			Mythic	Crystals	currency_paid_crystal.png	11026	currencies
+2000004	named			Mythic	Crystals	currency_paid_crystal.png	11126	currencies
 2000010	named			Mythic	Signal Amplification Anchor	currency_gacha_ticket_rateup_supporter.png	87	currencies
 2000027	named			Legendary	Loot Certification Card	currency_chaos_week_reward.png	0	currencies
 2000036	named			Legendary	Reason	currency_chaos_assault_stamina.png	7	currencies

@@ -1005,6 +1005,106 @@ def _level_stepper_offers_auto(tab):
     return out
 
 
+def _checklist_redraw_replaces_nothing(tab):
+    """A Checklist refresh that changes nothing must rebuild nothing.
+
+    The tab redraws whenever a capture saves, which during a login
+    burst is many times a minute, and whenever the tab is shown. If
+    that rewrites the columns, every embedded checkbox is destroyed and
+    recreated and the Text reflows -- the whole tab blinks, once per
+    save, for no change at all.
+
+    Widget IDENTITY is what says so: same data in, same widgets out.
+    Comparing the drawn text would pass happily while every widget
+    behind it was replaced.
+
+    Returns a list of complaints.
+    """
+    def widgets(w, out):
+        out.append(w)
+        for child in w.winfo_children():
+            widgets(child, out)
+        return out
+
+    frame = tab.get_frame()
+    before = widgets(frame, [])
+    boxes = sum(len(v) for v in tab._boxes.values())
+    tab.refresh_checklist()
+    after = widgets(frame, [])
+    if len(before) != len(after) or any(a is not b for a, b in
+                                        zip(before, after)):
+        return [
+            f"refreshing the Checklist with unchanged data replaced its "
+            f"widgets ({len(before)} before, {len(after)} after, "
+            f"{boxes} checkbox(es) in the columns). Every capture save "
+            f"triggers this refresh, so the tab blinks each time."
+        ]
+
+    # And a changed READING must patch, not rebuild. A countdown moves
+    # every time the tab is looked at, so this is the common case, not
+    # the rare one.
+    #
+    # **The column has to be one holding checkboxes.** Only an embedded
+    # window is destroyed by a rewrite, so a column of plain rows shows
+    # the same widgets either way and would pass without testing
+    # anything. With no captured snapshot there are no shop rows at
+    # all, and there is nothing here to check.
+    with_boxes = [t for t, boxes in tab._boxes.items() if boxes]
+    if not with_boxes:
+        return []
+    title = with_boxes[0]
+    text, rows = tab.column_texts[title]
+    keyed = [key for key, _label, widest in rows if widest]
+    if not keyed:
+        return []
+    import ui.tabs.checklist_tab as mod
+    moved = mod._readings(getattr(tab.optimizer, "raw_data", None) or {})
+    moved[keyed[0]] = [("999999", mod.TODO)]
+    tab._fill(title, text, rows, moved)
+    patched = widgets(frame, [])
+    if len(after) != len(patched) or any(a is not b for a, b in
+                                         zip(after, patched)):
+        return [
+            f"changing one reading in the {title} column replaced its "
+            f"widgets ({len(after)} before, {len(patched)} after). A row's "
+            f"value is its own stretch of the line and can be rewritten "
+            f"on its own; rebuilding the block destroys every checkbox in "
+            f"it and the reflow shows."
+        ]
+    if "999999" not in text.get("1.0", "end"):
+        return [f"patching the {title} column's first reading did not put "
+                f"the new value on screen."]
+
+    # Ticking a box rebuilds ONE column. It has to rebuild that one --
+    # an untracked product sinks within its shop, so the rows move --
+    # but the other three hold nothing that changed.
+    #
+    # `_tracked` is swapped rather than the manager written to: the
+    # manager saves to `settings/`, which is the maintainer's.
+    others = {t: widgets(tab.column_texts[t][0], [])
+              for t in tab.column_texts if t != title}
+    product = mod._product_of(next(
+        key for key, _l, _w in rows if mod._is_shop(key)))
+    original = tab._tracked
+    tab._tracked = lambda p, _f=original, _p=product: (
+        not _f(_p) if p == _p else _f(p))
+    try:
+        tab.refresh_checklist()
+    finally:
+        tab._tracked = original
+    for other, before_widgets in others.items():
+        now = widgets(tab.column_texts[other][0], [])
+        if len(before_widgets) != len(now) or any(
+                a is not b for a, b in zip(before_widgets, now)):
+            return [
+                f"ticking a product in the {title} column rebuilt the "
+                f"{other} column too. Every column redrawing for a change "
+                f"in one is what makes the whole tab blink on a click."
+            ]
+    tab.refresh_checklist()
+    return []
+
+
 def _checklist_columns_come_first(tab):
     """The Checklist tab's columns frame must be its FIRST child.
 
@@ -1597,6 +1697,8 @@ def run():
         if "ChecklistTab" in built:
             failures.extend(
                 _checklist_columns_come_first(built["ChecklistTab"]))
+            failures.extend(
+                _checklist_redraw_replaces_nothing(built["ChecklistTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))
