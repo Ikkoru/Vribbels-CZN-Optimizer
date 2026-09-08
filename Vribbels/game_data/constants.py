@@ -517,13 +517,20 @@ RECORDED_NAMES = {
     3310006: "A-Grade Policy Report",
     3310007: "Special Grade Policy Report",
     3920007: "Black Mass",
+    3920013: "Core of the Reverse",
     3920014: "Core of Annihilation",
     3920015: "Colorless Core",
     3920022: "Abyssal Core",
+    3920023: "Core of Archetype",
+    3920024: "Core of Potential",
+    3920029: "Core of Variables",
+    3920030: "Core of Phase",
     3920031: "Seasonal Event Currency",
+    3930003: "Core of Resonance",
     3930004: "Core of Mutation",
     5210001: "Prism Module - Masterpiece",
 }
+
 
 
 RECORDED_ONLY = frozenset(RECORDED_NAMES)

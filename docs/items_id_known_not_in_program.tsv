@@ -33,9 +33,15 @@ res_id	where	amount	Name	Type	Note
 3310006	items	0	A-Grade Policy Report	Ark - Policy	
 3310007	items	0	Special Grade Policy Report	Ark - Policy	
 3920007	items	3559	Black Mass	Sortie Currency	
+3920013	items	4	Core of the Reverse	Save Data Edit	
 3920014	items	12	Core of Annihilation	Save Data Edit	
 3920015	items	25	Colorless Core	Save Data Edit	
 3920022	items	31	Abyssal Core	Save Data Edit	
+3920023	items	4	Core of Archetype	Save Data Edit	Core of Archetype | Save Data Edit
+3920024	items	4	Core of Potential	Save Data Edit	Core of Potential | Save Data Edit
+3920029	items	3	Core of Variables	Save Data Edit	Core of Variables | Save Data Edit
+3920030	items	1	Core of Phase	Save Data Edit	Core of Phase | Save Data Edit
 3920031	items	39712	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable
+3930003	items	2	Core of Resonance	Save Data Edit	Core of Resonance | Save Data Edit
 3930004	items	43	Core of Mutation	Save Data Edit	
 5210001	items	2	Prism Module - Masterpiece	Animated Card Unlock Item - 5*	

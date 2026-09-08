@@ -62,9 +62,7 @@ SHOPS = {
     ("shop_chaos", "none"): "$hop - Blackhorn Trade",
     ("shop_exchange_product", "shop_card_factor"):
         "$hop - Exchange Shop - Prism Module",
-    ("shop_disaster", "shop_disaster_1"): "Seasonal Shop - 1st Supply",
-    ("shop_disaster", "shop_disaster_2"): "Seasonal Shop - 2nd Supply",
-    ("shop_disaster", "shop_disaster_3"): "Seasonal Shop - 3rd Supply",
+    ("shop_disaster", "shop_disaster_1"): "Seasonal Shop",
     ("shop_assault", "none"): "Sortie - Chaos Analysis Lab",
 }
 

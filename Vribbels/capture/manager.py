@@ -173,6 +173,10 @@ class Addon:
         self.basin_stages = None
         self.basin_missions = None
 
+        # Every content's window: when each season, event and rotation
+        # opened and when it closes. The only thing that dates them.
+        self.event_schedules = None
+
         self.saved_path = None
 
         # Set by anything that changes the cached data, cleared by
@@ -630,10 +634,17 @@ class Addon:
         # no inventory, so it is kept on its own and written out with
         # whatever the next save carries.
         schedules = data.get("event_schedules")
-        if isinstance(schedules, dict) and isinstance(schedules.get("GACHA"), dict):
-            self.gacha_banners = schedules["GACHA"]
-            self._report_unknown_units()
+        if isinstance(schedules, dict):
+            # **Kept WHOLE, not just the banners.** Every content the
+            # Checklist counts days on has its window in here -- the
+            # Sortie season, the Basin, the pass, the seasonal event,
+            # the Chaos Matrix -- and no other payload dates any of
+            # them. See `schedules.py`.
+            self.event_schedules = schedules
             self._save_pending = True
+            if isinstance(schedules.get("GACHA"), dict):
+                self.gacha_banners = schedules["GACHA"]
+                self._report_unknown_units()
 
         # The excursion board's reply: one row per combatant that has
         # been taken on one, carrying which of the visits it has
@@ -1063,6 +1074,7 @@ class Addon:
             "shop_res_data": self.shop_definitions,
             "season_entities": self.basin_stages,
             "mission_seasson_entities": self.basin_missions,
+            "event_schedules": self.event_schedules,
             "detected_region": self._detect_region(),
         }
 

@@ -39,18 +39,18 @@ Shop	Blackhorn Trade		2000016	Rescue Anchor	600	5	Monthly	Blackhorn Trade curren
 Shop	Exchange Shop	Prism Module	2000023	Prism Lens	10	20	Monthly	Prism Module currency = Prism Film	card_factor_1	Prism Lens x1
 Shop	Exchange Shop	Prism Module	5210001	Prism Module - Masterpiece	600	1	Monthly		card_factor_3	Prism Module - Masterpiece x1
 Seasonal Event	Supply Store	1st Supply	2000014	Tear of God	-	1	Weekly	Free	disaster_s04_01	Tear of God x1
-Sortie	Chaos Analysis Lab		3920013		8000	1	Account	Chaos Analysis Lab currency = Black Mass (3920007)	assault_shop_product_1	3920013 x1
+Sortie	Chaos Analysis Lab		3920013	Core of the Reverse	8000	1	Account	Chaos Analysis Lab currency = Black Mass (3920007)	assault_shop_product_1	Core of the Reverse x1
 Sortie	Chaos Analysis Lab		3920014	Core of Annihilation	6000	1	Account		assault_shop_product_5	Core of Annihilation x1
-Sortie	Chaos Analysis Lab		3920024		4000	3	Account		assault_shop_product_3	3920024 x1
-Sortie	Chaos Analysis Lab		3920024		8000	-	-		assault_shop_product_31	3920024 x1
-Sortie	Chaos Analysis Lab		3920030		4000	1	Account		assault_shop_product_33	3920030 x1
+Sortie	Chaos Analysis Lab		3920024	Core of Potential	4000	3	Account		assault_shop_product_3	Core of Potential x1
+Sortie	Chaos Analysis Lab		3920024	Core of Potential	8000	-	-		assault_shop_product_31	Core of Potential x1
+Sortie	Chaos Analysis Lab		3920030	Core of Phase	4000	1	Account		assault_shop_product_33	Core of Phase x1
 Sortie	Chaos Analysis Lab		3920022	Abyssal Core	1000	-	-		assault_shop_product_2	Abyssal Core x1
 Sortie	Chaos Analysis Lab		3920015	Colorless Core	650	-	-		assault_shop_product_4	Colorless Core x1
-Sortie	Chaos Analysis Lab		3930003		4000	4	Account		assault_shop_product_34	3930003 x1
+Sortie	Chaos Analysis Lab		3930003	Core of Resonance	4000	4	Account		assault_shop_product_34	Core of Resonance x1
 Sortie	Chaos Analysis Lab		3930004	Core of Mutation	1000	10	Account		assault_shop_product_36	Core of Mutation x1
-Sortie	Chaos Analysis Lab		3920023		650	-	-		assault_shop_product_6	3920023 x1
+Sortie	Chaos Analysis Lab		3920023	Core of Archetype	650	-	-		assault_shop_product_6	Core of Archetype x1
 Sortie	Chaos Analysis Lab		3930004	Core of Mutation	2000	-	-		assault_shop_product_35	Core of Mutation x1
-Sortie	Chaos Analysis Lab		3920029		650	-	-		assault_shop_product_32	3920029 x1
+Sortie	Chaos Analysis Lab		3920029	Core of Variables	650	-	-		assault_shop_product_32	Core of Variables x1
 Sortie	Chaos Analysis Lab		3210002	Multidimensional Alignment Material	1600	10	Account		assault_shop_product_7	Multidimensional Alignment Material x1
 Sortie	Chaos Analysis Lab		3210001	Traces of Memory	15	-	-		assault_shop_product_8	Traces of Memory x1
 Sortie	Chaos Analysis Lab		3200002	Core of Memory	160	-	-		assault_shop_product_9	Core of Memory x1

@@ -92,6 +92,7 @@ Six more join them, all merged rather than replaced for the same reason:
 | `shop_definitions` | `shop_res_data` | every product's item, count, per-period cap, `limit_type`, price and display order. **This is where a shop's MAX comes from** — a `shop_list` row carries only the tally |
 | `season_passes` | `season_pass_entities` | every pass the account has played, the live one among them |
 | `basin_stages` / `basin_missions` | `season_entities`, `mission_seasson_entities` | the Basin of Hyperspace's stages and its objectives. The scored tally is what the game shows as its progress |
+| `event_schedules` | `event_schedules` | every content's WINDOW — when each season, event and rotation opened and when it closes. **The only thing that dates any of them**, which is what the Checklist's countdowns read. See `schedules.py` |
 
 **Two payloads arrive at the TOP LEVEL where the cache holds them nested.** `day_changeable_data` (the coffee flag, the excursion count) belongs under `characters.town_data`, and `new_char_visit` is one row of the `char_visits` board. Ordering a coffee or running an excursion sends each on its own, so without merging them the cache keeps whatever the login said and the Checklist reads a stale flag all session.
 

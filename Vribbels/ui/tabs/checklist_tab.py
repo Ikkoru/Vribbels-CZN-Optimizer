@@ -38,6 +38,7 @@ from datetime import datetime, timezone
 import excursions
 import item_amounts
 import period_items
+import schedules
 import shop_stock
 import weekly_reset
 from game_data.constants import item_names
@@ -97,6 +98,21 @@ MUTED = "muted"
 # bought, so there is nothing to count down and nothing to finish.
 NO_LIMIT = "unlimited"
 
+
+# Which `event_schedules` group dates each row, and so what its
+# countdown counts down to. **The lengths used to be guesses in the
+# labels** -- `(21 days)`, `(84? days)` -- and the wire carries the
+# real window for every one of them.
+COUNTDOWNS = {
+    "basin": "HYPER_SPACE_SEASON",
+    "matrix": "ZERO_REWARD_LIST",
+    "supply_season": "SEASON_PASS",
+    # `EVENT_SCHEDULE` is NOT here. It holds several unrelated events
+    # at once -- a policy event, a stock event and the seasonal one --
+    # and nothing in the window says which is which, so taking the
+    # soonest picks whichever happens to end first.
+    "shophead:shop_assault/none": "ASSAULT_SCHEDULE",
+}
 
 # Shops whose products are kept PER SEASON, and where the live season
 # comes from. Every season the account has played keeps its products in
@@ -181,20 +197,17 @@ COLUMNS = (
         ("seasonal_score", "Seasonal Accumulated Score", "300000+/300000"),
     ), (("shop_town", "none"),
         ("shop_gacha_dup", "shop_gacha_dup_legend"),
-        ("shop_disaster", "shop_disaster_1"),
-        ("shop_disaster", "shop_disaster_2"),
-        ("shop_disaster", "shop_disaster_3"))),
+        ("shop_disaster", "shop_disaster_1"))),
     ("Monthly", (), (("shop_town", "none"),
                      ("shop_gacha_dup", "shop_gacha_dup_legend"),
                      ("shop_hyperspace", "none"),
                      ("shop_chaos", "none"),
                      ("shop_exchange_product", "shop_card_factor"))),
     ("Other", (
-        ("basin", "Basin of Hyperspace (21 days)", "99/99"),
-        ("matrix", "Zero System Chaos Matrix (84? days)", None),
-        ("supply_season", "Arkhianon Supply (42? days)", "70/70"),
-        ("seasonal_event_other", "Seasonal Event (21 + 21 + 21 days)", None),
-        ("sortie_other", "Sortie (21 days)", None),
+        ("basin", "Basin of Hyperspace", "99/99, 99 days"),
+        ("matrix", "Zero System Chaos Matrix", "99 days"),
+        ("supply_season", "Arkhianon Supply", "70/70, 99 days"),
+        ("seasonal_event_other", "Seasonal Event", None),
         ("other_events_other", "Other Events", None),
     ), (("shop_assault", "none"),)),
 )
@@ -224,8 +237,9 @@ def columns_for(raw, tracked=None):
         # knows no products, and a column that emptied itself would
         # read as a broken tab rather than as data not yet arrived.
         for shop in shops if period else ():
-            rows.append((SHOP_HEAD_PREFIX + "/".join(shop),
-                         shop_stock.SHOPS[shop], None))
+            head = SHOP_HEAD_PREFIX + "/".join(shop)
+            rows.append((head, shop_stock.SHOPS[shop],
+                         "99 days" if head in COUNTDOWNS else None))
             products = shop_rows(shop, period, raw)
             if tracked is not None:
                 # Stable within each half: the shop's own order is kept
@@ -601,6 +615,13 @@ class ChecklistTab(BaseTab):
         raw = getattr(self.optimizer, "raw_data", None) or {}
         self._rebuild_columns(raw)
         readings = _readings(raw, claimed=self._activity_claim(raw))
+        # **Cleared ONCE, not per column.** `_fill` runs four times and
+        # every checkbox on the tab is in one list, so clearing inside
+        # it made each column destroy the one before -- leaving only
+        # the last column's boxes alive and the rest blank.
+        for box in self._boxes:
+            box.destroy()
+        self._boxes = []
         for text, rows in self.column_texts.values():
             self._fill(text, rows, readings)
 
@@ -644,9 +665,6 @@ class ChecklistTab(BaseTab):
         """
         text.config(state=tk.NORMAL)
         text.delete("1.0", tk.END)
-        for box in self._boxes:
-            box.destroy()
-        self._boxes = []
         for index, (key, label, _widest) in enumerate(rows):
             value, state = readings.get(key, (None, UNKNOWN))
             line = ("row", "indent") if _is_shop(key) else ("row",)
@@ -857,6 +875,8 @@ def _readings(raw, now=None, claimed=False):
 
     # The shops, one sub-row per product. `-` where the field cannot be
     # read honestly -- see `shop_stock.remaining`.
+    _add_countdowns(out, raw, now)
+
     for key, product_id, define in _shop_rows(raw):
         stock, limit = shop_stock.remaining(product_id, define, raw, now)
         if limit is None:
@@ -924,6 +944,27 @@ def _basin(raw):
         if best is None or done - len(rows) <= best[0] - best[1]:
             best = (done, len(rows))
     return best if best else (0, None)
+
+
+def _add_countdowns(out, raw, now):
+    """Fold each dated content's remaining time into its own row.
+
+    APPENDED to whatever the row already reads rather than replacing
+    it: the Basin says how many objectives are done AND how long is
+    left, and the pass says its level and its season's end. A row with
+    no other reading takes the time alone.
+
+    A content whose window the snapshot does not carry is left as it
+    was -- no window is not the same as no time left.
+    """
+    for key, group in COUNTDOWNS.items():
+        left = schedules.countdown(schedules.remaining(group, raw, now))
+        if not left:
+            out.setdefault(key, (NO_DATA, UNKNOWN))
+            continue
+        text, state = out.get(key, (None, UNKNOWN))
+        out[key] = (left if text in (None, NO_DATA)
+                    else "%s, %s" % (text, left), state)
 
 
 def _live_season(raw):
