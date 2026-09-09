@@ -7,10 +7,10 @@ Run after a capture to re-read what the newest snapshot holds:
 Three files, and which one an id lands in says what is left to do with
 it:
 
-* `items_id_known.tsv` -- the program USES it: a table names it and it
+* `items_id_known_in_materials.tsv` -- the program USES it: a table names it and it
   is not in `RECORDED_ONLY`. Family, group, tier, rarity, icon and the
   amount held.
-* `items_id_known_not_in_program.tsv` -- it has been identified and the
+* `items_id_known_not_in_materials.tsv` -- it has been identified and the
   program does nothing with it. Either the dump carries a hand-typed
   `Name` and no table does, or a table names it only for the record.
   **This is the worklist.**
@@ -224,7 +224,7 @@ def main():
     # tables, it has moved to the worklist, so its old row goes with it.
     known_owned = ("res_id", "family", "group", "tier", "rarity", "name",
                    "icon", "amount", "where")
-    known_path = OUT / "items_id_known.tsv"
+    known_path = OUT / "items_id_known_in_materials.tsv"
     known_extra, known_kept = read_existing(known_path, known_owned)
     write(known_path, known_owned, known_rows,
           carried=(known_extra, {res_id: cells
@@ -235,7 +235,7 @@ def main():
     # pool of hand-typed cells, so a row can cross between them without
     # anything being retyped.
     extra, kept = _shared_tail(OUT / "items_id_unknown.tsv",
-                               OUT / "items_id_known_not_in_program.tsv",
+                               OUT / "items_id_known_not_in_materials.tsv",
                                UNKNOWN_OWNED)
     try:
         at = extra.index(NAME_COLUMN)
@@ -274,7 +274,7 @@ def main():
                 cells[at] = RECORDED_NAMES.get(res_id, "")
 
     named_ids = {r for r in set(rest) | set(kept) if identified(r)}
-    write(OUT / "items_id_known_not_in_program.tsv", UNKNOWN_OWNED,
+    write(OUT / "items_id_known_not_in_materials.tsv", UNKNOWN_OWNED,
           {r: v for r, v in rest.items() if r in named_ids},
           carried=(extra, {r: c for r, c in kept.items() if r in named_ids}))
     write(OUT / "items_id_unknown.tsv", UNKNOWN_OWNED,

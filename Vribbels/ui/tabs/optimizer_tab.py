@@ -2204,6 +2204,14 @@ class OptimizerTab(BaseTab):
             rid = self._resolve_res_id(name)
             if rid is None:
                 continue
+            # **A NEGATIVE res_id is a placeholder**, not a combatant:
+            # `game_data/characters.py` carries half-entered rows under
+            # one until the real id is known. Writing it into the
+            # settings leaves an entry keyed to a number that will
+            # change, and an exclusion nobody can find the character
+            # for. See `docs/game_data_files.md`.
+            if rid < 0:
+                continue
             rid_str = str(rid)
             self.opt_settings.ensure_character(rid, name=name)
             self._sync_optimize_level(rid, name)

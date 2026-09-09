@@ -166,6 +166,9 @@ class Addon:
         # loses whichever arrived first.
         self.point_entity = None
         self.remnants = None
+        self.zero_orb = None
+        self.attendance = None
+        self.overclock = None
         self.season_pass = None
         self.missions = {}
 
@@ -760,6 +763,28 @@ class Addon:
         if isinstance(data.get("remnants_entities"), dict):
             self.remnants = data["remnants_entities"]
             self._save_pending = True
+        # The Chaos Matrix's own record, and the Overclock event's
+        # daily counter. **The counter arrives under TWO names**: the
+        # login sends `overclock_entities` and a Simulation run sends
+        # the rows it changed as `result_overclock_entities`, so the
+        # second is merged rather than replacing the board.
+        # The login-streak events: days shown up, days claimed.
+        if isinstance(data.get("attendance_entities"), list):
+            self.attendance = data["attendance_entities"]
+            self._save_pending = True
+        if isinstance(data.get("zero_orb_entity"), dict):
+            self.zero_orb = data["zero_orb_entity"]
+            self._save_pending = True
+        if isinstance(data.get("overclock_entities"), dict):
+            self.overclock = dict(data["overclock_entities"])
+            self._save_pending = True
+        if isinstance(data.get("result_overclock_entities"), list):
+            if not isinstance(self.overclock, dict):
+                self.overclock = {}
+            for row in data["result_overclock_entities"]:
+                if isinstance(row, dict) and row.get("res_id"):
+                    self.overclock[str(row["res_id"])] = row
+            self._save_pending = True
         # **At LOGIN the pass missions arrive somewhere else entirely**,
         # nested as `season_pass_missions[<pass id>][<mission id>]`
         # rather than in the flat `mission_entities` list -- which is
@@ -1127,6 +1152,9 @@ class Addon:
             # the history.
             "point_entity": self.point_entity,
             "remnants_entities": self.remnants or None,
+            "zero_orb_entity": self.zero_orb,
+            "overclock_entities": self.overclock or None,
+            "attendance_entities": self.attendance or None,
             "season_pass_entity": self.season_pass,
             "mission_entities": self.missions or None,
             "shop_list": self.shop_products or None,

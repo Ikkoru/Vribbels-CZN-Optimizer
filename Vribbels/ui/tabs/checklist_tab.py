@@ -114,6 +114,19 @@ def with_countdown(widest):
 # product the user is not tracking has nothing to say either way.
 MUTED = "muted"
 
+# A shop heading's own colour, so the shops can be told apart at a
+# glance down a column of otherwise identical rows. Matched on the
+# words, longest first, and the FIRST match wins -- `Traveler` is also
+# a `$hop`, and it takes its own colour.
+#
+# (what the heading contains, the palette key). These colour the
+# LABEL; a row's reading keeps the red/green that says what is left.
+SHOP_LABEL_COLOURS = (
+    ("Traveler", "yellow"),
+    ("Nono's Shop", "blue_light"),
+    ("$hop", "purple"),
+)
+
 # ---- the two specimen rows, TEMPORARY ------------------------------
 #
 # One line of prose in each of the two faces the app sets 11pt text in,
@@ -234,7 +247,7 @@ def event_rows(raw, now=None):
         # under `EVENT_SCHEDULE` in one capture.
         for name, window in schedules.all_live(group, raw, now):
             found.append((window["end_time"], name))
-    return tuple((EVENT_KEY_PREFIX + name, name,
+    return tuple((EVENT_KEY_PREFIX + name, event_label(name),
                   with_countdown(EVENT_CLAIMED))
                  for _end, name in sorted(found))
 
@@ -256,6 +269,72 @@ def _under(mission, event):
     a plain prefix test cannot tell them apart.
     """
     return mission == event or mission.startswith(event + "_")
+
+
+def event_label(name):
+    """What an event row is called: its id without the common prefix.
+
+    Every id starts `event_`, so the word says nothing and costs a
+    column's width. An id that does not is left alone.
+    """
+    return name[len(EVENT_ID_PREFIX):] if name.startswith(
+        EVENT_ID_PREFIX) else name
+
+
+def _event_attendance(raw, name, window, _now):
+    """[(words, state)] for a login-streak event's rewards taken."""
+    rows = (raw or {}).get(ATTENDANCE_FIELD)
+    if not isinstance(rows, list) or not isinstance(window, dict):
+        return []
+    began = window.get("start_time")
+    mine = [row for row in rows
+            if isinstance(row, dict) and _is_count(row.get("start_time"))
+            and _is_count(began) and row["start_time"] >= began]
+    if not mine:
+        return []
+    row = min(mine, key=lambda r: r["start_time"])
+    taken = row.get("received_days")
+    if not _is_count(taken):
+        return []
+    return [("%d/%d" % (taken, ATTENDANCE_DAYS),
+             _done(taken >= ATTENDANCE_DAYS))]
+
+
+def _event_overclock(raw, name, _window, now):
+    """[(words, state)] for an Overclock event's doubled runs LEFT.
+
+    Never green: a run not taken today is work left, and one taken is
+    a bonus spent rather than a task finished.
+    """
+    rows = (raw or {}).get(OVERCLOCK_FIELD)
+    rows = rows if isinstance(rows, dict) else {}
+    row = rows.get(name)
+    used = 0
+    if isinstance(row, dict) and _is_count(row.get("count")):
+        touched = row.get("reset_time")
+        # Daily, and reset lazily: a count stamped before today's
+        # reset is yesterday's and today has taken none.
+        if not (_is_count(touched)
+                and touched < weekly_reset.last_daily_reset(now)):
+            used = row["count"]
+    left = max(0, OVERCLOCK_USES - used)
+    return [("%d/%d" % (left, OVERCLOCK_USES),
+             TODO if left else WARN)]
+
+
+def _event_missions(raw, name, _window, _now):
+    """[(words, state)] for an event scored by its own missions."""
+    return _event_progress(raw, name)
+
+
+# Which reader answers for each schedule group. A group with no entry
+# shows its deadline and no tally.
+EVENT_READERS = {
+    "EVENT_SCHEDULE": _event_missions,
+    "EVENT_NODELIST_PAGE": _event_missions,
+    "EVENT_DAILY_CHECK": _event_attendance,
+    "EVENT_OVERCLOCK": _event_overclock,
+}
 
 
 def _event_progress(raw, name):
@@ -321,6 +400,11 @@ EVENT_GROUPS = ("EVENT_SCHEDULE", "EVENT_COMBATANT_TRIAL",
 # What an event row's key is built from.
 EVENT_KEY_PREFIX = "event:"
 
+# What every event id starts with, and what the ROW LABEL drops. The
+# key keeps the whole id -- that is what the readers look the event up
+# by -- so only the words on screen lose it.
+EVENT_ID_PREFIX = "event_"
+
 # An event's id and its missions' ids differ, but only in ways that can
 # be normalised away -- so the pairing is DERIVED rather than listed.
 # Two differences, and no others across every pair read off a capture:
@@ -342,6 +426,29 @@ EVENT_NOISE_WORDS = ("schedule", "mission")
 # unlike its schedule goes here, and one that is simply unmapped shows
 # its deadline and no tally.
 EVENT_MISSIONS = {}
+
+# **Progress is read per GROUP, not per event.** Each kind of event
+# keeps its state somewhere else entirely -- missions, a login streak,
+# a daily counter -- so what an event row can say is decided by which
+# group it came from, and a new event in a known group needs no edit.
+# `EVENT_READERS` below maps the group to the function that reads it.
+
+# A login-streak event: `attendance_entities` counts the days shown up
+# and the days whose reward was taken. Its rows are numbered nothing
+# like the schedule's, so the row is the FIRST one started after the
+# event was -- the streak begins on the first login into it.
+ATTENDANCE_FIELD = "attendance_entities"
+ATTENDANCE_DAYS = 7
+
+# An Overclock event doubles the day's first two Simulation rewards.
+# `overclock_entities` counts what has been taken, daily, and a row
+# exists only once one has been -- so no row is a full two.
+#
+# **The cap is not on the wire.** Two is this event's, stated by the
+# game's own wording; older Overclock events ran at six, and their
+# rows still read `count` against whatever theirs was.
+OVERCLOCK_FIELD = "overclock_entities"
+OVERCLOCK_USES = 2
 
 # What an event with every reward taken reads instead of a tally.
 EVENT_CLAIMED = "All Claimed"
@@ -389,7 +496,8 @@ COLUMNS = (
                      ("shop_exchange_product", "shop_card_factor")), None),
     ("Other", (
         ("basin", "Basin of Hyperspace", with_countdown("99/99")),
-        ("matrix", "Zero System Chaos Matrix", WIDEST_COUNTDOWN),
+        ("matrix", "Zero System Chaos Matrix",
+         with_countdown("100/100")),
         ("offensive", "Full-Scale Offensive", with_countdown("9/9")),
         ("supply_season", "Arkhianon Supply", with_countdown("70/70")),
         ("galactic_disaster", "Galactic Disaster (Seasonal)",
@@ -573,6 +681,13 @@ BASIN_FIELD = "mission_seasson_entities"
 # counted from the rows so a fourth stage needs no edit.
 OFFENSIVE_FIELD = "remnants_entities"
 OFFENSIVE_STARS = 3
+
+# The Zero System Chaos Matrix: `reward_level` is how far up its reward
+# track the account has claimed, out of a hundred. The same record's
+# `chaos_orb_count` is the currency it is claimed with, which is a
+# balance rather than a task and has no row.
+MATRIX_FIELD = "zero_orb_entity"
+MATRIX_LEVELS = 100
 
 # The Galactic Disaster's weekly CHAOS progress, and its ceiling. The
 # score is not capped on the wire -- `week_clear_score` reads 8000 with
@@ -890,6 +1005,9 @@ class ChecklistTab(BaseTab):
         text.tag_configure(DONE, foreground=self.colors["green"])
         text.tag_configure(TODO, foreground=self.colors["red"])
         text.tag_configure(MUTED, foreground=self.colors["fg_dim"])
+        # A shop heading's own colour. See `SHOP_LABEL_COLOURS`.
+        for _words, colour in SHOP_LABEL_COLOURS:
+            text.tag_configure(colour, foreground=self.colors[colour])
         # A countdown reddens as it runs out. The middle band is the
         # Materials tab's own warning colour, so the two agree.
         text.tag_configure(SOON, foreground=self.colors["red"])
@@ -974,7 +1092,8 @@ class ChecklistTab(BaseTab):
             box.destroy()
         text.config(state=tk.NORMAL)
         text.delete("1.0", tk.END)
-        for index, ((key, label, _tracked, segments), line) in enumerate(drawn):
+        for index, ((key, label, _tracked, segments), line,
+                    label_tag) in enumerate(drawn):
             if index:
                 text.insert(tk.END, LINE_SEP, line)
             if _is_shop(key):
@@ -982,7 +1101,7 @@ class ChecklistTab(BaseTab):
                 text.window_create(tk.END, window=self._checkbox(
                     title, text, key, label, head))
             else:
-                text.insert(tk.END, label, line)
+                text.insert(tk.END, label, line + label_tag)
             for at, (words, state) in enumerate(segments):
                 text.insert(tk.END, (COLUMN_SEP if not at else SEGMENT_GAP)
                             + words, line + ((state,) if state else ()))
@@ -1005,7 +1124,7 @@ class ChecklistTab(BaseTab):
             # nobody tracks having none.
             segments = tuple((words, MUTED) for words, _s in segments)
         line = ("row", "indent") if _is_shop(key) else ("row",)
-        return (key, label, tracked, segments), line
+        return (key, label, tracked, segments), line, _label_tag(key, label)
 
     def _checkbox(self, title, parent, key, label, state):
         """One shop product's checkbox, kept alive on the tab.
@@ -1034,6 +1153,21 @@ LINE_SEP = "\n"
 COLUMN_SEP = "\t"
 
 
+def _label_tag(key, label):
+    """The tag a row's own words take, as a tuple for concatenation.
+
+    Only a SHOP HEADING gets one -- see `SHOP_LABEL_COLOURS`. The
+    products under it keep the ordinary foreground, so the heading is
+    what the eye lands on when scanning for a shop.
+    """
+    if not key.startswith(SHOP_HEAD_PREFIX):
+        return ()
+    for words, colour in SHOP_LABEL_COLOURS:
+        if words in label:
+            return (colour,)
+    return ()
+
+
 def _same_rows(was, drawn):
     """True where two drawn columns differ only in their READINGS.
 
@@ -1056,7 +1190,7 @@ def _patch_value(text, lineno, drawn):
     -- is never touched. Destroying and recreating an embedded window
     is what makes the block visibly reflow.
     """
-    (_key, _label, _tracked, segments), line = drawn
+    (_key, _label, _tracked, segments), line, _label_tag = drawn
     end = "%d.end" % lineno
     at = text.search(COLUMN_SEP, "%d.0" % lineno, end)
     if at:
@@ -1230,6 +1364,15 @@ def _readings(raw, now=None):
     # The Basin of Hyperspace: objectives done, out of the season's own
     # total. Nothing states the total, so it is how many the season
     # holds -- which is the same figure the game shows.
+    # The Chaos Matrix's reward track, in levels claimed.
+    matrix = raw.get(MATRIX_FIELD)
+    claimed = matrix.get("reward_level") if isinstance(matrix, dict) else None
+    if not _is_count(claimed):
+        out["matrix"] = _one(NO_DATA, UNKNOWN)
+    else:
+        out["matrix"] = _one("%d/%d" % (claimed, MATRIX_LEVELS),
+                             _done(claimed >= MATRIX_LEVELS))
+
     # The Full-Scale Offensive, scored in STARS. Each of its stages
     # carries a `star_count` out of three and its own `best_score`; the
     # screen's total score is those scores summed, which is a figure
@@ -1269,13 +1412,18 @@ def _readings(raw, now=None):
     # Every live event: what is left to claim of it, and how long it
     # has. See `EVENT_MISSIONS` -- an event nobody has mapped shows the
     # deadline alone.
-    ends = {}
+    live_events = {}
     for group in EVENT_GROUPS:
         for name, window in schedules.all_live(group, raw, now):
-            ends[name] = window["end_time"]
-    for key, name, _widest in event_rows(raw, now):
-        seconds = max(0, ends.get(name, now) - now)
-        segments = _event_progress(raw, name)
+            live_events[name] = (group, window)
+    for key, _label, _widest in event_rows(raw, now):
+        # The ID, not the label: the label drops the common
+        # prefix and every reader looks the event up by its id.
+        name = key[len(EVENT_KEY_PREFIX):]
+        group, window = live_events.get(name, (None, {}))
+        seconds = max(0, window.get("end_time", now) - now)
+        reader = EVENT_READERS.get(group)
+        segments = list(reader(raw, name, window, now)) if reader else []
         segments.append((ENDS_IN + schedules.countdown(seconds),
                          _countdown_state(seconds)))
         out[key] = segments

@@ -468,7 +468,7 @@ NAMED_MATERIALS = {
 # catch.
 #
 # **This is where an identification survives.** The dumps are the place
-# one is worked out and `docs/items_id_known_not_in_program.tsv` is the
+# one is worked out and `docs/items_id_known_not_in_materials.tsv` is the
 # worklist, but a name only reaches the running program from here --
 # which is what lets a Capture Log line say `Traces of Memory +40`
 # rather than `3210001 +40`.
@@ -504,13 +504,18 @@ RECORDED_NAMES = {
     3210002: "Multidimensional Alignment Material",
     3300001: "Sweet Choconilla",
     3300002: "Exquisite Slice of Cake",
+    3300003: "Wing Step A-50",
+    3300004: "Mysterious Encyclopedia",
     3300005: "Perfect Spray Gun",
     3300006: "Locket Necklace of Memories",
     3300007: "Excellent Merit Badge",
     3300008: "Lucky Sachet",
     3300011: "Carefully Handwritten Letter",
+    3300010: "Strange Decoration",
     3300012: "Heartbeat Purfume",
     3300013: "Cute Rabbit Doll",
+    3300014: "Nightmare-Repelling Dreamcatcher",
+    3300015: "Legendary Combat Manual",
     3300016: "Handmade Wooden Doll",
     3300018: "A Not So Boring Wait",
     3300019: "Midsummer Night Fireworks",

@@ -37,9 +37,34 @@ CHECKLIST_VERSION = 1
 DEFAULT_TRACKED = True
 
 # Per-product starting states, for products the default is wrong for.
-# **Empty until the maintainer has settled their own list** -- a guess
-# here is a checkbox every new install has to correct.
-DEFAULTS = {}
+# Read off the maintainer's own account: the products they do not
+# check for. Everything absent reads DEFAULT_TRACKED.
+DEFAULTS = {
+    # Untracked by default: bought rarely, or not worth the daily
+    # check for most accounts. Everything else reads DEFAULT_TRACKED.
+    'town_shop_goods_002': False,
+    'town_shop_goods_003': False,
+    'town_shop_goods_001': False,
+    'town_shop_goods_011': False,
+    'town_shop_goods_012': False,
+    'town_shop_goods_007': False,
+    'town_shop_goods_008': False,
+    'town_shop_goods_009': False,
+    'gacha_duplicate_legend_13': False,
+    'gacha_duplicate_legend_14': False,
+    'gacha_duplicate_legend_3': False,
+    'gacha_duplicate_legend_4': False,
+    'gacha_duplicate_legend_5': False,
+    'gacha_duplicate_legend_6': False,
+    'gacha_duplicate_legend_7': False,
+    'gacha_duplicate_legend_8': False,
+    'gacha_duplicate_legend_9': False,
+    'gacha_duplicate_legend_10': False,
+    'gacha_duplicate_legend_11': False,
+    'hyperspace_3': False,
+    'card_factor_4': False,
+    'assault_shop_product_7': False,
+}
 
 
 class ChecklistManager:

@@ -53,8 +53,8 @@ A rarity that no table prices costs a whole family its plates at once, and the o
 
 | file | means |
 | ---- | ----- |
-| `items_id_known.tsv` | a table names it and the program USES it |
-| `items_id_known_not_in_program.tsv` | identified, and the program does nothing with it — **the worklist** |
+| `items_id_known_in_materials.tsv` | a table names it and the program USES it |
+| `items_id_known_not_in_materials.tsv` | identified, and the program does nothing with it — **the worklist** |
 | `items_id_unknown.tsv` | not identified; where it came from and what it reads, for diffing against the next capture |
 
 The last two share their hand-added columns (`Name`, `Type`, `Name Candidate`, …), so a row crosses between them by gaining or losing its `Name` without anything being retyped. **The script owns the leftmost columns and nothing else** — everything typed to the right of them is read back and rewritten untouched, and it refuses to write at all if the header has moved under it.

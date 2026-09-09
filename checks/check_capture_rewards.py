@@ -271,12 +271,12 @@ def run():
                 f"identified -- so a known item reads as an unknown one.")
 
     # --- and every identification on the WORKLIST reaches the program --
-    # `docs/items_id_known_not_in_program.tsv` is where an id gets its
+    # `docs/items_id_known_not_in_materials.tsv` is where an id gets its
     # name by hand. Nothing copies that into `RECORDED_NAMES`, so a
     # name typed there and not here leaves the Capture Log printing the
     # res_id -- which is the marking reserved for ids nobody has
     # identified at all.
-    worklist = REPO_ROOT / "docs" / "items_id_known_not_in_program.tsv"
+    worklist = REPO_ROOT / "docs" / "items_id_known_not_in_materials.tsv"
     if worklist.exists():
         rows = worklist.read_text(encoding="utf-8").splitlines()
         header = rows[0].split("	")
