@@ -1,41 +1,5 @@
 {
   "version": 1,
-  "excluded_gear_chars": [
-    "1003",
-    "1004",
-    "1005",
-    "1008",
-    "1009",
-    "1010",
-    "1017",
-    "1018",
-    "1021",
-    "1024",
-    "1027",
-    "1028",
-    "1033",
-    "1039",
-    "1040",
-    "1041",
-    "1049",
-    "1050",
-    "1052",
-    "1055",
-    "1056",
-    "1057",
-    "1060",
-    "1061",
-    "1062",
-    "1069",
-    "30047",
-    "30048",
-    "30075",
-    "30084",
-    "30093",
-    "30097",
-    "30113",
-    "30115"
-  ],
   "characters": {
     "1003": {
       "name_hint": "Nia",
@@ -64,7 +28,7 @@
         7,
         25
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 100,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 0,
@@ -101,7 +65,7 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 100,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 100,
@@ -140,7 +104,7 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 100,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 140,
@@ -179,7 +143,7 @@
         19,
         20
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 262,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 100,
@@ -220,7 +184,7 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 110,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 75,
@@ -262,7 +226,7 @@
         19,
         27
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 300,
       "avg_mult_buff_pct": 30,
       "avg_add_buff_pct": 100,
@@ -302,7 +266,7 @@
         19,
         20
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 120,
       "avg_mult_buff_pct": 15,
       "avg_add_buff_pct": 200,
@@ -342,7 +306,7 @@
         9,
         11
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 200,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 0,
@@ -384,7 +348,7 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 150,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 100,
@@ -424,7 +388,7 @@
         7,
         25
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 100,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 0,
@@ -465,7 +429,7 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 180,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 100,
@@ -508,7 +472,7 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 300,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 100,
@@ -549,7 +513,7 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 180,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 75,
@@ -588,7 +552,7 @@
         7,
         25
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 100,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 0,
@@ -625,7 +589,7 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 150,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 100,
@@ -666,7 +630,7 @@
         9,
         11
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 140,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 0,
@@ -691,7 +655,7 @@
         "slot6_ego": false
       },
       "have_at_least": {
-        "ATK": 701,
+        "ATK": 700,
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
@@ -705,15 +669,16 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 70,
       "avg_mult_buff_pct": 40,
       "avg_add_buff_pct": 25,
       "element_override": null,
       "set_effect_pcts": {
-        "15": 20,
-        "6": 20,
-        "19": 100
+        "15": 10,
+        "6": 10,
+        "19": 100,
+		"28": 56
       }
     },
     "1049": {
@@ -746,7 +711,7 @@
         19,
         25
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 250,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 100,
@@ -789,7 +754,7 @@
         19,
         25
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 100,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 0,
@@ -831,7 +796,7 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 100,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 0,
@@ -872,7 +837,7 @@
         9,
         25
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 100,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 0,
@@ -909,7 +874,7 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 360,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 125,
@@ -950,7 +915,7 @@
         11,
         19
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 90,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 450,
@@ -993,7 +958,7 @@
         19,
         26
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 140,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 100,
@@ -1035,7 +1000,7 @@
         19,
         20
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 432,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 100,
@@ -1059,7 +1024,7 @@
         "slot6_ego": false
       },
       "have_at_least": {
-        "ATK": 901,
+        "ATK": 900,
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
@@ -1074,10 +1039,10 @@
         16,
         19
       ],
-      "max_flex_slots": 6,
-      "avg_card_dmg_pct": 100,
-      "avg_mult_buff_pct": 0,
-      "avg_add_buff_pct": 0,
+      "max_flex_slots": 4,
+      "avg_card_dmg_pct": 164,
+      "avg_mult_buff_pct": 25,
+      "avg_add_buff_pct": 25,
       "element_override": null,
       "set_effect_pcts": {
         "16": 100,
@@ -1114,7 +1079,7 @@
         20,
         24
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 650,
       "avg_mult_buff_pct": 25,
       "avg_add_buff_pct": 25,
@@ -1155,7 +1120,7 @@
         19,
         23
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 100,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 125,
@@ -1196,7 +1161,7 @@
         11,
         25
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 150,
       "avg_mult_buff_pct": 30,
       "avg_add_buff_pct": 25,
@@ -1240,7 +1205,7 @@
         19,
         26
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 150,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 240,
@@ -1280,7 +1245,7 @@
         11,
         20
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 540,
       "avg_mult_buff_pct": 100,
       "avg_add_buff_pct": 0,
@@ -1321,7 +1286,7 @@
         11,
         25
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 130,
       "avg_mult_buff_pct": 15,
       "avg_add_buff_pct": 140,
@@ -1364,13 +1329,13 @@
         10,
         11
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 300,
       "avg_mult_buff_pct": 80,
       "avg_add_buff_pct": 65,
       "element_override": null,
       "set_effect_pcts": {
-        "28": 60,
+        "28": 56,
         "6": 20,
         "20": 20,
         "26": 20,
@@ -1408,7 +1373,7 @@
         19,
         28
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "avg_card_dmg_pct": 100,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 100,
@@ -1449,7 +1414,7 @@
         19,
         28
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "set_effect_pcts": {
         "28": 100,
         "6": 10,
@@ -1463,37 +1428,6 @@
       "avg_add_buff_pct": 144,
       "element_override": null,
       "fracture_pct": 8
-    },
-    "-1": {
-      "name_hint": "Olga",
-      "optimize_for_level": null,
-      "extra_pct": 0,
-      "dot_pct": 0,
-      "atk_def_split": 0,
-      "shielding_healing_weight": 0,
-      "force_main": {
-        "slot4_hp": false,
-        "slot5_hp": false,
-        "slot6_hp": false,
-        "slot6_ego": false
-      },
-      "have_at_least": {
-        "ATK": 0,
-        "DEF": 0,
-        "HP": 0,
-        "Ego": 0,
-        "CRate": 0,
-        "CDmg": 0,
-        "Extra DMG%": 0,
-        "DoT%": 0
-      },
-      "sets_selected": [],
-      "max_flex_slots": 6,
-      "set_effect_pcts": {},
-      "avg_card_dmg_pct": 100,
-      "avg_mult_buff_pct": 0,
-      "avg_add_buff_pct": 0,
-      "element_override": null
     },
     "30115": {
       "name_hint": "Arabella",
@@ -1523,7 +1457,7 @@
         11,
         29
       ],
-      "max_flex_slots": 2,
+      "max_flex_slots": 4,
       "set_effect_pcts": {
         "6": 25,
         "12": 25,
@@ -1536,11 +1470,90 @@
       "avg_add_buff_pct": 105,
       "element_override": null,
       "fracture_pct": 69
+    },
+    "30117": {
+      "name_hint": "Olga",
+      "optimize_for_level": null,
+      "extra_pct": 0,
+      "dot_pct": 10,
+      "fracture_pct": 69,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 6.0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19,
+        29
+      ],
+      "max_flex_slots": 4,
+      "set_effect_pcts": {
+        "6": 10,
+        "12": 20,
+        "23": 10,
+        "29": 100,
+        "19": 100
+      },
+      "avg_card_dmg_pct": 170,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 160,
+      "element_override": null
     }
   },
   "excluded_default_initialized": true,
+  "excluded_gear_chars": [
+    "1003",
+    "1004",
+    "1005",
+    "1008",
+    "1009",
+    "1010",
+    "1017",
+    "1018",
+    "1021",
+    "1024",
+    "1027",
+    "1028",
+    "1033",
+    "1039",
+    "1040",
+    "1041",
+    "1049",
+    "1050",
+    "1052",
+    "1055",
+    "1056",
+    "1057",
+    "1060",
+    "1061",
+    "1062",
+    "1069",
+    "30047",
+    "30048",
+    "30075",
+    "30084",
+    "30093",
+    "30097",
+    "30113",
+    "30115",
+    "30117"
+  ],
   "exclude_seen_rids": [
-    "-1",
     "1003",
     "1004",
     "1005",
@@ -1576,7 +1589,8 @@
     "30093",
     "30097",
     "30113",
-    "30115"
+    "30115",
+    "30117"
   ],
   "optimize_level_seen": {
     "1003": 61,

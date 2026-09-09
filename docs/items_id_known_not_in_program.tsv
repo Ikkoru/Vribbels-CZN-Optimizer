@@ -1,51 +1,55 @@
 res_id	where	amount	Name	Type	Note
-2000002	currencies	296	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
-2000007	currencies	25	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
-2000011	currencies	597	Moment of the Radiant Hero	Shop Currency	
-2000012	currencies	118	Moment of the Radiant Traveler	Shop Currency	
-2000014	currencies	0	Tear of God	Stamina Recovery	
-2000016	currencies	115	Rescue Anchor	Gacha Currency	
-2000018	currencies	42	Research Notes	Ark - Upgrade Currency	
-2000020	currencies	220	Zeronium	Shop Currency	
-2000022	currencies	3	Special Security Code	Trauma Code Unlock Item	Max 3 stored
-2000023	currencies	58	Prism Lens	Gacha Currency - Animated Card	
-2000024	currencies	312	Prism Film	Shop Currency	
-2000031	currencies	157	Policy Point	Ark - Shop Currency	
-2000032	currencies	8320	Crystal of Discord	Shop Currency	
-3000005	items	40850	Chaos Orb	Zero System Currency	Worthless
-3000008	items	18	Tactical Data	Sortie Currency	
-3200001	items	3712	Particles of Memory	Crafting Material for Memory Fragments	
-3200002	items	63	Core of Memory	Crafting Material for Memory Fragments	
-3210001	items	7028	Traces of Memory	Crafting Material for Memory Fragments	
-3210002	items	22	Multidimensional Alignment Material	Crafting Material for Memory Fragments	
-3300001	items	3	Sweet Choconilla	Gift Item	
-3300002	items	9	Exquisite Slice of Cake	Gift Item	
-3300005	items	7	Perfect Spray Gun	Gift Item	
-3300006	items	9	Locket Necklace of Memories	Gift Item	
-3300007	items	5	Excellent Merit Badge	Gift Item	
-3300008	items	33	Lucky Sachet	Gift Item	
-3300011	items	14	Carefully Handwritten Letter	Gift Item	
-3300012	items	9	Heartbeat Purfume	Gift Item	
-3300013	items	52	Cute Rabbit Doll	Gift Item	
-3300016	items	9	Handmade Wooden Doll	Gift Item	
-3300018	items	14	A Not So Boring Wait	Gift Item	
-3300019	items	18	Midsummer Night Fireworks	Gift Item	
-3300020	items	21	Limited Edition Teddy Bear	Gift Item	
-3310005	items	0	B-Grade Policy Report	Ark - Policy	
-3310006	items	0	A-Grade Policy Report	Ark - Policy	
-3310007	items	0	Special Grade Policy Report	Ark - Policy	
-3920007	items	5465	Black Mass	Sortie Currency	
-3920013	items	4	Core of the Reverse	Save Data Edit	
-3920014	items	12	Core of Annihilation	Save Data Edit	
-3920015	items	25	Colorless Core	Save Data Edit	
-3920022	items	31	Abyssal Core	Save Data Edit	
-3920023	items	4	Core of Archetype	Save Data Edit	Core of Archetype | Save Data Edit
-3920024	items	5	Core of Potential	Save Data Edit	Core of Potential | Save Data Edit
-3920029	items	3	Core of Variables	Save Data Edit	Core of Variables | Save Data Edit
-3920030	items	1	Core of Phase	Save Data Edit	Core of Phase | Save Data Edit
-3920031	items	39712	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable
-3930003	items	2	Core of Resonance	Save Data Edit	Core of Resonance | Save Data Edit
-3930004	items	43	Core of Mutation	Save Data Edit	
-5201083	items	0	Animated Card Unlock Item - Olga	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it (this one is char 30117)
-5210000	shop		Prism Module - Nominate	Animated Card Unlock Item	Seen only in shop_res_data (card_factor_4, 200 Prism Lens, 3/month); the account has never held one, which is why no dump listed it
-5210001	items	2	Prism Module - Masterpiece	Animated Card Unlock Item - 5*	
+2000002	currencies	35	Aether		
+2000007	currencies	25	Clockwork of Time		
+2000011	currencies	597	Moment of the Radiant Hero		
+2000012	currencies	118	Moment of the Radiant Traveler		
+2000014	currencies	0	Tear of God		
+2000016	currencies	124	Rescue Anchor		
+2000018	currencies	42	Research Notes		
+2000020	currencies	220	Zeronium		
+2000022	currencies	3	Special Security Code		
+2000023	currencies	6	Prism Lens		
+2000024	currencies	312	Prism Film		
+2000031	currencies	252	Policy Point		
+2000032	currencies	8320	Crystal of Discord		
+3000005	items	40850	Chaos Orb		
+3000008	items	18	Tactical Data		
+3200001	items	4080	Particles of Memory		
+3200002	items	108	Core of Memory		
+3210001	items	7401	Traces of Memory		
+3210002	items	22	Multidimensional Alignment Material		
+3300001	items	0	Sweet Choconilla		
+3300002	items	0	Exquisite Slice of Cake		
+3300003	items	3	Wing Step A-50	Gift Item	
+3300004	items	3	Mysterious Encyclopedia	Gift Item	
+3300005	items	3	Perfect Spray Gun		
+3300006	items	9	Locket Necklace of Memories		
+3300007	items	5	Excellent Merit Badge		
+3300008	items	33	Lucky Sachet		
+3300010	items	3	Strange Decoration	Gift Item	
+3300011	items	14	Carefully Handwritten Letter		
+3300012	items	3	Heartbeat Purfume		
+3300013	items	52	Cute Rabbit Doll		
+3300014	items	2	Nightmare-Repelling Dreamcatcher	Gift Item	
+3300015	items	3	Legendary Combat Manual	Gift Item	
+3300016	items	9	Handmade Wooden Doll		
+3300018	items	14	A Not So Boring Wait		
+3300019	items	18	Midsummer Night Fireworks		
+3300020	items	21	Limited Edition Teddy Bear		
+3310005	items	0	B-Grade Policy Report		
+3310006	items	0	A-Grade Policy Report		
+3310007	items	0	Special Grade Policy Report		
+3920007	items	5465	Black Mass		
+3920013	items	4	Core of the Reverse		
+3920014	items	12	Core of Annihilation		
+3920015	items	25	Colorless Core		
+3920022	items	31	Abyssal Core		
+3920023	items	4	Core of Archetype		
+3920024	items	5	Core of Potential		
+3920029	items	3	Core of Variables		
+3920030	items	1	Core of Phase		
+3920031	items	112	Seasonal Event Currency		
+3930003	items	2	Core of Resonance		
+3930004	items	43	Core of Mutation		
+5201083	items	0	Animated Card Unlock Item - Olga		
+5210001	items	2	Prism Module - Masterpiece		
