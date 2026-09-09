@@ -193,8 +193,8 @@ ADVANCED_LABEL = "Advanced"
 # substitutes for another and the column's Potential Disk substitutes
 # for none of them.
 ADVANCED_TARGETS = (
-    ("Max best:", (4, 6, 2)),
-    ("+Neutral:", (8, None, None)),
+    ("Best:", (4, 6, 2)),
+    ("+Neut:", (8, None, None)),
     ("+5.1:", (None, 2, None)),
     ("+5.2:", (4, 2, None)),
 )
