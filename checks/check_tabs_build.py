@@ -1088,10 +1088,38 @@ def _checklist_redraw_replaces_nothing(tab):
     original = tab._tracked
     tab._tracked = lambda p, _f=original, _p=product: (
         not _f(_p) if p == _p else _f(p))
+
+    # A rebuilt column must be FILLED BEFORE IT IS SHOWN. Tk destroys
+    # an embedded window with its text, so a rebuild always builds new
+    # checkboxes, and one built inside a Text that is already on screen
+    # appears at the Text's origin until `window_create` places it -- a
+    # white dot at the top left of the column, once per box.
+    #
+    # `winfo_manager()` is what says so headlessly: empty means no
+    # geometry manager has the widget, so neither it nor anything
+    # inside it can be mapped. `winfo_ismapped` would read False for
+    # every widget here, the test root never being shown.
+    managers = []
+    fill = tab._fill
+    tab._fill = lambda t, txt, r, rd, _f=fill: (
+        managers.append((t, txt.winfo_manager())), _f(t, txt, r, rd))[1]
     try:
         tab.refresh_checklist()
     finally:
         tab._tracked = original
+        tab._fill = fill
+    # The FIRST fill of that column is the one that populated it; the
+    # refresh's own pass over every column comes after and finds
+    # nothing to do, on a Text that is by then rightly packed.
+    first = next((manager for t, manager in managers if t == title), None)
+    if first:
+        return [
+            f"the {title} column was filled while its Text was already "
+            f"managed by {first!r}. Build the replacement unmanaged, "
+            f"fill it, drop the old one and only then pack it -- "
+            f"otherwise every checkbox flashes at the column's origin "
+            f"before it lands."
+        ]
     for other, before_widgets in others.items():
         now = widgets(tab.column_texts[other][0], [])
         if len(before_widgets) != len(now) or any(

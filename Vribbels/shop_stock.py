@@ -38,6 +38,7 @@ derived from a date.
 No Tk and no managers: this takes the snapshot dict and returns data.
 """
 
+import schedules
 import weekly_reset
 
 DEFINITIONS_FIELD = "shop_res_data"
@@ -70,18 +71,23 @@ SHOPS = {
 # in. **`NONE` is absent on purpose**: a product with no cap has nothing
 # to count down and nothing to finish, so it is not a checklist row.
 #
-# `LIMIT_ACCOUNT` is a LIFETIME cap that never refreshes -- the Sortie
-# shop is all of it, and the Blackhorn 400 -- so it sits under Other
-# rather than under a period.
+# `LIMIT_ACCOUNT` names a cap the game itself never refreshes, which is
+# the Sortie shop, so it sits under Other rather than under a period.
 PERIOD_BY_LIMIT = {
     "LIMIT_WEEK": "weekly",
     "LIMIT_MONTH": "monthly",
     "LIMIT_ACCOUNT": "account",
 }
 
-# How long each period runs, for a `count` old enough to be last
-# period's. `account` never rolls, so its tally is always current.
-NEVER_ROLLS = ("account",)
+# **What refreshes the `account` shelves is the SEASON ending**, and
+# the season is only in `event_schedules`. `LIMIT_ACCOUNT` reads as a
+# lifetime cap, and taking it at its word left last season's purchases
+# standing: three cores read as bought when the shelves were full,
+# their tallies stamped weeks before the live season began.
+#
+# The rotations inside a season are their own group, so this one holds
+# nothing but the seasons themselves.
+ACCOUNT_SEASON_GROUP = "ASSAULT_SCHEDULE"
 
 
 def definitions(raw_data):
@@ -130,12 +136,12 @@ def products(shop, period, raw_data, prefix=None):
 def period_start(period, raw_data, now):
     """When the current period began, epoch seconds, or None.
 
-    A period that never rolls has no boundary, so 0 serves -- every
-    tally is current. The monthly boundary is the wire's own
+    The `account` boundary is the Sortie season's own start -- see
+    `ACCOUNT_SEASON_GROUP`. The monthly boundary is the wire's own
     `month_start`; without it there is no honest answer.
     """
-    if period in NEVER_ROLLS:
-        return 0
+    if period == "account":
+        return schedules.season_start(ACCOUNT_SEASON_GROUP, raw_data, now)
     if period == "weekly":
         # The reset BEFORE now: `next_reset` looks forward.
         return weekly_reset.next_reset(now) - 7 * 24 * 3600

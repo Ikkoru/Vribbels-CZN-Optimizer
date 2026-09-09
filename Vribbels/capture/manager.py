@@ -745,6 +745,14 @@ class Addon:
         if isinstance(data.get("mission_entities"), list):
             self._merge_missions(data["mission_entities"])
             self._save_pending = True
+        # An EVENT's missions arrive under their own key and in the
+        # same shape, so they join the same cache -- the ids do not
+        # collide, every one of them starting `event_`. This is what
+        # says an event has been finished and its rewards taken, which
+        # nothing in `event_schedules` does.
+        if isinstance(data.get("event_mission_entities"), list):
+            self._merge_missions(data["event_mission_entities"])
+            self._save_pending = True
         # **At LOGIN the pass missions arrive somewhere else entirely**,
         # nested as `season_pass_missions[<pass id>][<mission id>]`
         # rather than in the flat `mission_entities` list -- which is

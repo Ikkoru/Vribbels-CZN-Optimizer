@@ -183,6 +183,16 @@ COUNTDOWNS = {
 # the table, so one screen offering one Tear of God reads as three.
 SEASONAL_SHOP_CATEGORY = "shop_disaster"
 
+# Shop products the tab does not list, by the id the wire gives them.
+# The shop rows are built from `shop_res_data` whole, so this is the
+# only way to leave one out -- untracking a product mutes it and keeps
+# the row, which is a different thing.
+#
+# Each entry says what it is, since the id alone says nothing.
+HIDDEN_PRODUCTS = {
+    "card_factor_4",        # Prism Module - Nominate, item 5210000
+}
+
 
 def shop_rows(shop, period, raw):
     """The sub-rows for one shop's products in one period.
@@ -200,6 +210,8 @@ def shop_rows(shop, period, raw):
         return ()
     out = []
     for product_id, define in shop_stock.products(shop, period, raw, prefix):
+        if product_id in HIDDEN_PRODUCTS:
+            continue
         limit = define.get("limit_count")
         out.append((SHOP_KEY_PREFIX + product_id,
                     product_label(define),
@@ -217,11 +229,37 @@ def event_rows(raw, now=None):
     now = time.time() if now is None else now
     found = []
     for group in EVENT_GROUPS:
-        name, window = schedules.live(group, raw, now)
-        if name:
+        # EVERY instance, not one per group: three events overlapped
+        # under `EVENT_SCHEDULE` in one capture.
+        for name, window in schedules.all_live(group, raw, now):
             found.append((window["end_time"], name))
-    return tuple((EVENT_KEY_PREFIX + name, name, WIDEST_COUNTDOWN)
+    return tuple((EVENT_KEY_PREFIX + name, name,
+                  with_countdown(EVENT_CLAIMED))
                  for _end, name in sorted(found))
+
+
+def _event_progress(raw, name):
+    """[(words, state)] for one event's rewards, or [] where unmapped.
+
+    `complete_time` on a mission means its reward was TAKEN, so an
+    event whose rows all carry one is finished -- which is the state an
+    event about to expire is usually in, and the one worth telling
+    apart from an event still owing something.
+    """
+    prefix = EVENT_MISSIONS.get(name)
+    if not prefix:
+        return []
+    missions = (raw or {}).get(PASS_MISSION_FIELD)
+    if not isinstance(missions, dict):
+        return []
+    rows = [row for res_id, row in missions.items()
+            if str(res_id).startswith(prefix) and isinstance(row, dict)]
+    if not rows:
+        return []
+    claimed = sum(1 for row in rows if row.get("complete_time"))
+    if claimed >= len(rows):
+        return [(EVENT_CLAIMED, DONE)]
+    return [("%d/%d" % (claimed, len(rows)), TODO)]
 
 
 def product_label(define):
@@ -259,6 +297,28 @@ EVENT_GROUPS = ("EVENT_SCHEDULE", "EVENT_COMBATANT_TRIAL",
 
 # What an event row's key is built from.
 EVENT_KEY_PREFIX = "event:"
+
+# What an event's missions are called, per event id. **The two ids are
+# not the same and cannot be derived from one another** --
+# `event_stock_01` numbers its missions `event_stock_1_01_*`,
+# `event_schedule_policy_005` drops the middle word for
+# `event_policy_5_*`, and `event_summer_01` gains one for
+# `event_summer_mission_01_*` -- so the pairs are written down as each
+# is read off a capture.
+#
+# The value is a PREFIX: every `event_mission_entities` row whose
+# res_id starts with it belongs to that event, and a row carrying a
+# `complete_time` has had its reward taken. An event with no entry here
+# shows its deadline and no tally, which is what every event did before
+# any of them were mapped.
+EVENT_MISSIONS = {
+    "event_summer_01": "event_summer_mission_01",
+    "event_schedule_policy_005": "event_policy_5",
+    "event_stock_01": "event_stock_1",
+}
+
+# What an event with every reward taken reads instead of a tally.
+EVENT_CLAIMED = "All Claimed"
 
 
 # The columns, as a skeleton. Each is `(heading, rows, shops, events)`:
@@ -452,18 +512,21 @@ SIMULATION_FIELD = "stage_limit_entities"
 SIMULATION_STAGE = "content_boss"
 SIMULATION_RUNS = 3
 
-# Today's Chaos Delegation. **There is no balance to read**: the free
-# daily entry is granted and spent in the same transaction, so the
-# currency's `amount` sits at 0 either way and only `total_use_amount`
-# moves. What says whether it went today is `last_update` -- the moment
-# that currency last changed -- against the day's own reset.
+# Today's Chaos Delegation, read off the free daily entry it costs.
+# Holding one means the run is still there to do.
 #
-# Evidence, from one capture and on both sides of the boundary: at
-# login it read 13:14 UTC against an 18:00 reset (not used today), and
-# after entering a chaos stage 19:51 (used).
+# **`last_update` does not answer this**, though it looks as though it
+# should: the daily entry is GRANTED lazily, at the first login after
+# the reset, and the grant stamps that field exactly as spending it
+# does. In one capture the balance went 0 -> 1 six seconds after login
+# with `last_update` jumping to 19:45 against an 18:00 reset -- nothing
+# had been run, and a reading off the stamp alone said it had.
+#
+# So the balance is the reading, and the stamp only settles the case it
+# cannot: an empty balance from BEFORE the day's reset is a grant that
+# has not happened yet, not an entry that was spent.
 DELEGATION_CURRENCY = 2000048
-DELEGATION_PATH = ("characters", "currencies", str(DELEGATION_CURRENCY),
-                   "last_update")
+DELEGATION_PATH = ("characters", "currencies", str(DELEGATION_CURRENCY))
 DELEGATION_TODO = "Go run!"
 DELEGATION_DONE = "Done"
 
@@ -642,7 +705,7 @@ class ChecklistTab(BaseTab):
             manager.set_tracked(product_id, bool(variable.get()))
         self.frame.after_idle(self.refresh_checklist)
 
-    def _rebuild_columns(self, raw):
+    def _rebuild_columns(self, raw, readings):
         """(Re)build the heading and rows of any column that changed.
 
         **One column at a time.** A rebuild destroys a Text and every
@@ -650,6 +713,11 @@ class ChecklistTab(BaseTab):
         the whole tab flash for a change in one of them -- and ticking
         a box changes exactly one column, since an untracked product
         sinks within its own shop.
+
+        **And the replacement is built and filled before the column it
+        replaces is dropped**, all of it unmapped, so the swap is one
+        paint rather than a Text appearing empty and filling in. See
+        `_build_column`.
 
         A column's signature is its row keys IN ORDER. What a row is
         drawn in is not in it: colour follows the tracked set, which
@@ -669,19 +737,24 @@ class ChecklistTab(BaseTab):
             if signature == self._built_signatures.get(title):
                 continue
             self._built_signatures[title] = signature
-            # The Text, its checkboxes and its heading label all go
-            # with the frame's children, so nothing may outlive them.
-            for box in self._boxes.pop(title, ()):
-                box.destroy()
+            outgoing = list(frame.winfo_children())
+            # The old column's own state goes with it. The checkboxes
+            # need no destroying: Tk destroys an embedded window with
+            # the Text that holds it.
+            self._boxes.pop(title, None)
             self._rendered.pop(title, None)
             self._period_labels.pop(title, None)
             # Dropped rather than overwritten: a column with no rows
             # builds no Text at all, and the old entry would otherwise
             # keep pointing at the one just destroyed.
             self.column_texts.pop(title, None)
-            for child in frame.winfo_children():
+            show = self._build_column(frame, title, rows)
+            text = self.column_texts.get(title)
+            if text is not None:
+                self._fill(title, text[0], rows, readings)
+            for child in outgoing:
                 child.destroy()
-            self._build_column(frame, title, rows)
+            show()
 
     def _build_specimens(self):
         """The two prose rows at the bottom. See SPECIMEN_ROWS."""
@@ -697,11 +770,27 @@ class ChecklistTab(BaseTab):
                       justify=tk.LEFT).pack(fill=tk.X, anchor=tk.W)
 
     def _build_column(self, parent, title, rows):
-        """One heading and the rows under it."""
+        """One heading and the rows under it, BUILT BUT NOT SHOWN.
+
+        Returns the callable that shows it. Nothing here is packed:
+        a widget with no geometry manager is never mapped, and neither
+        are its children, so the whole column -- Text, embedded
+        checkboxes and all -- is assembled without a single paint. The
+        caller fills it, drops the column it replaces, and only then
+        calls what comes back.
+
+        That is what stops the flash. Tk destroys an embedded window
+        when its text is deleted, so a rewrite has no choice but to
+        build new checkboxes, and a checkbox built inside a MAPPED Text
+        shows up at the widget's origin for the frame before
+        `window_create` places it -- a white dot at the top left of the
+        column, once per box.
+        """
+        show = []
         # The heading and its countdown travel together and the pair is
         # centred, so the heading itself sits a little left of centre.
         head = ttk.Frame(parent)
-        head.pack(anchor=tk.CENTER)
+        show.append(lambda: head.pack(anchor=tk.CENTER))
         make_heading(head, title).pack(side=tk.LEFT, anchor=tk.S)
         if title in PERIOD_LENGTHS:
             # spacing: heading ↔ element -- heading, label ↕
@@ -712,7 +801,7 @@ class ChecklistTab(BaseTab):
             self._period_labels[title] = label
 
         if not rows:
-            return
+            return lambda: [do() for do in show]
         font = tkfont.Font(font=ROW_FONT)
         # The words, plus a column reserved for the widest reading any
         # row in this column can show. RESERVED rather than fitted: a
@@ -732,7 +821,8 @@ class ChecklistTab(BaseTab):
                           bg=self.colors["bg"])
         holder.pack_propagate(False)
         # spacing: panel ↕ unrelated label -- heading, frame ↕
-        holder.pack(anchor=tk.N, pady=px((HEADING_GAP, 0)))
+        show.append(lambda: holder.pack(anchor=tk.N,
+                                          pady=px((HEADING_GAP, 0))))
 
         text = tk.Text(
             holder, wrap=tk.NONE, bd=0, highlightthickness=px(0),
@@ -747,7 +837,7 @@ class ChecklistTab(BaseTab):
             # as belonging to the column instead of to the row.
             tabs=(stop,),
         )
-        text.pack(fill=tk.BOTH, expand=True)
+        show.append(lambda: text.pack(fill=tk.BOTH, expand=True))
         # spacing: label row -> label row -- run, run ↕
         text.tag_configure("row", spacing1=px(ROW_PITCH))
         # A shop's products, indented under the shop's own row. In
@@ -766,6 +856,7 @@ class ChecklistTab(BaseTab):
         text.tag_configure(WARN, foreground=self.colors["orange"])
         text.tag_configure(LATER, foreground=self.colors["yellow"])
         self.column_texts[title] = (text, rows)
+        return lambda: [do() for do in show]
 
     @staticmethod
     def _block_height(rows):
@@ -789,8 +880,10 @@ class ChecklistTab(BaseTab):
         Called automatically after data loads.
         """
         raw = getattr(self.optimizer, "raw_data", None) or {}
-        self._rebuild_columns(raw)
         readings = _readings(raw)
+        # A rebuilt column is filled inside the rebuild, before it is
+        # shown; this fills the ones that were left standing.
+        self._rebuild_columns(raw, readings)
         for title, (text, rows) in self.column_texts.items():
             self._fill(title, text, rows, readings)
         self._fill_period_headings(raw)
@@ -976,16 +1069,19 @@ def _readings(raw, now=None):
     else:
         out["coffee"] = _one(NO_DATA, UNKNOWN)
 
-    # Today's Chaos Delegation, off when its currency last moved. The
-    # daily boundary is the weekly one's hour on any day, so the reset
-    # BEFORE now is what a stamp is measured against.
-    used = _dig(raw, DELEGATION_PATH)
-    if _is_count(used):
-        today = used >= weekly_reset.last_daily_reset(now)
-        out["chaos_delegation"] = _one(DELEGATION_DONE if today
-                                   else DELEGATION_TODO, _done(today))
-    else:
+    # Today's Chaos Delegation. See `DELEGATION_CURRENCY`: an entry in
+    # hand is a run still to do, and an empty balance is only a run
+    # taken if the balance was written since the day's reset.
+    entry = _dig(raw, DELEGATION_PATH)
+    entry = entry if isinstance(entry, dict) else {}
+    held, stamped = entry.get("amount"), entry.get("last_update")
+    if not _is_count(held):
         out["chaos_delegation"] = _one(NO_DATA, UNKNOWN)
+    else:
+        ran = (held == 0 and _is_count(stamped)
+               and stamped >= weekly_reset.last_daily_reset(now))
+        out["chaos_delegation"] = _one(DELEGATION_DONE if ran
+                                   else DELEGATION_TODO, _done(ran))
 
     # Communication Passes left today. Not an item and not a currency --
     # `excursions.passes_left` says why that reading is the only one a
@@ -1115,16 +1211,19 @@ def _readings(raw, now=None):
                          CHAOS_PROGRESS_FULL),
             _done(score >= CHAOS_PROGRESS_FULL))
 
-    # Every live event says how long it has and nothing else: the wire
-    # dates them and says nothing about progress.
+    # Every live event: what is left to claim of it, and how long it
+    # has. See `EVENT_MISSIONS` -- an event nobody has mapped shows the
+    # deadline alone.
+    ends = {}
+    for group in EVENT_GROUPS:
+        for name, window in schedules.all_live(group, raw, now):
+            ends[name] = window["end_time"]
     for key, name, _widest in event_rows(raw, now):
-        for group in EVENT_GROUPS:
-            live_name, window = schedules.live(group, raw, now)
-            if live_name == name:
-                seconds = max(0, window["end_time"] - now)
-                out[key] = [(ENDS_IN + schedules.countdown(seconds),
-                             _countdown_state(seconds))]
-                break
+        seconds = max(0, ends.get(name, now) - now)
+        segments = _event_progress(raw, name)
+        segments.append((ENDS_IN + schedules.countdown(seconds),
+                         _countdown_state(seconds)))
+        out[key] = segments
 
     _add_countdowns(out, raw, now)
 

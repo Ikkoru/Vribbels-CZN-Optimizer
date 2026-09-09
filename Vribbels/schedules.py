@@ -64,6 +64,47 @@ def live(group, raw_data, now):
     return best if best else (None, None)
 
 
+def all_live(group, raw_data, now):
+    """[(id, window)] for every instance of `group` running now.
+
+    Soonest deadline first. `live` answers a different question -- ONE
+    instance, for a row that counts down to a single date -- and a
+    group can run several at once: three events under `EVENT_SCHEDULE`
+    overlapped in one capture, and listing one of them would have left
+    two out of a list whose whole point is to be complete.
+    """
+    found = []
+    for name, window in groups(raw_data).get(group, {}).items():
+        if not isinstance(window, dict):
+            continue
+        start, end = window.get("start_time"), window.get("end_time")
+        if not _is_time(start) or not _is_time(end):
+            continue
+        if start <= now <= end and end - now <= FOREVER_DAYS * DAY:
+            found.append((end, name, window))
+    return [(name, window) for _end, name, window in sorted(found)]
+
+
+def season_start(group, raw_data, now):
+    """When the season a tally belongs to began, or None.
+
+    The LATEST instance already under way, which is not the same
+    question `live` answers: between one season and the next there is
+    no running instance, and the shelves still hold what the season
+    just ended left on them. Falling back to the last one to have
+    started keeps those readings; taking the live one would blank them
+    for the gap.
+    """
+    best = None
+    for window in groups(raw_data).get(group, {}).values():
+        if not isinstance(window, dict):
+            continue
+        start = window.get("start_time")
+        if _is_time(start) and start <= now and (best is None or start > best):
+            best = start
+    return best
+
+
 def remaining(group, raw_data, now):
     """How long the live instance of `group` has, in seconds, or None."""
     _name, window = live(group, raw_data, now)

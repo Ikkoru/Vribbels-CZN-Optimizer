@@ -262,33 +262,37 @@ def run():
             f"zero against the window's own bound, in green.")
 
     # --- today's Chaos Delegation ------------------------------------
-    # No balance to read: the free entry is granted and spent in one
-    # transaction, so `amount` is 0 either way and `last_update` is
-    # what says whether it went today.
+    # **Holding the free entry is the reading.** `last_update` alone
+    # cannot answer it: the entry is granted lazily at the first login
+    # after the reset, and the grant stamps that field exactly as
+    # spending it does -- the third case below is that grant, and a
+    # reading off the stamp calls it a run that never happened.
     reset = weekly_reset.last_daily_reset(now)
-    for stamp, want, state in ((reset + HOUR, DELEGATION_DONE, DONE),
-                               (reset - HOUR, DELEGATION_TODO, TODO),
-                               (None, NO_DATA, UNKNOWN)):
+    cases = (
+        # (held, stamp, reading, state, what it is)
+        (0, reset + HOUR, DELEGATION_DONE, DONE, "spent since the reset"),
+        (1, reset + HOUR, DELEGATION_TODO, TODO, "granted, not yet run"),
+        (1, reset - HOUR, DELEGATION_TODO, TODO, "held from before"),
+        (0, reset - HOUR, DELEGATION_TODO, TODO,
+         "empty and stale: the grant has not happened yet"),
+        # Exactly ON the boundary counts as today: the reset is when
+        # the day begins, not the last moment of the one before.
+        (0, reset, DELEGATION_DONE, DONE, "spent exactly at the reset"),
+        (None, None, NO_DATA, UNKNOWN, "no currency row at all"),
+    )
+    for held, stamp, want, state, what in cases:
         raw = _snapshot()
-        if stamp is not None:
+        if held is not None:
             raw.setdefault("characters", {})["currencies"] = {
-                str(DELEGATION_CURRENCY): {"last_update": int(stamp)}}
+                str(DELEGATION_CURRENCY): {"amount": held,
+                                           "last_update": int(stamp)}}
         got = _readings(raw, now)["chaos_delegation"]
         if got != [(want, state)]:
             failures.append(
-                f"a delegation stamp of {stamp!r} against a reset of "
-                f"{reset!r} reads {got!r}, not {(want, state)!r}. The "
-                f"row is whether the currency moved since the day's own "
-                f"18:00 UTC boundary.")
-    # Exactly ON the boundary counts as today: the reset is when the
-    # day begins, not the last moment of the one before.
-    raw = _snapshot()
-    raw.setdefault("characters", {})["currencies"] = {
-        str(DELEGATION_CURRENCY): {"last_update": int(reset)}}
-    if _readings(raw, now)["chaos_delegation"] != [(DELEGATION_DONE, DONE)]:
-        failures.append(
-            "a delegation used exactly at the reset reads as not used. "
-            "The reset opens the day it belongs to.")
+                f"a delegation balance of {held!r} {what} reads {got!r}, "
+                f"not {(want, state)!r}. An entry in hand is a run still "
+                f"to do; an empty balance is a run taken only if it was "
+                f"written since the day's own 18:00 UTC boundary.")
 
     # --- the Arkhianon Supply, three ways -----------------------------
     # A DAILY mission is one the pass ISSUED since the day's reset --
