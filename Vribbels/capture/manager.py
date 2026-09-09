@@ -168,6 +168,7 @@ class Addon:
         self.remnants = None
         self.zero_orb = None
         self.attendance = None
+        self.season_rewards = None
         # {trial event id: [slot ids]}, learned from claims and
         # kept forever -- see `reward_combatant_trial`.
         self.trial_slots = {}
@@ -797,6 +798,24 @@ class Addon:
         if isinstance(data.get("combat_trial_entities"), list):
             self.combat_trials = data["combat_trial_entities"]
             self._save_pending = True
+        # How many of a season's star rewards have been CLAIMED, one
+        # row per season. Absent until the first claim, so no row is a
+        # season nobody has taken anything from. A claim answers with
+        # the single row it changed, under `reward_doc`.
+        if isinstance(data.get("reward_entities"), list):
+            self.season_rewards = data["reward_entities"]
+            self._save_pending = True
+        doc = data.get("reward_doc")
+        if isinstance(doc, dict) and doc.get("res_id") is not None:
+            if not isinstance(self.season_rewards, list):
+                self.season_rewards = []
+            for index, row in enumerate(self.season_rewards):
+                if isinstance(row, dict) and row.get("res_id") == doc["res_id"]:
+                    self.season_rewards[index] = doc
+                    break
+            else:
+                self.season_rewards.append(doc)
+            self._save_pending = True
         # The login-streak events: days shown up, days claimed.
         if isinstance(data.get("attendance_entities"), list):
             self.attendance = data["attendance_entities"]
@@ -1184,6 +1203,7 @@ class Addon:
             "zero_orb_entity": self.zero_orb,
             "overclock_entities": self.overclock or None,
             "attendance_entities": self.attendance or None,
+            "reward_entities": self.season_rewards or None,
             "combat_trial_entities": self.combat_trials or None,
             "combatant_trial_slots": self.trial_slots or None,
             "season_pass_entity": self.season_pass,

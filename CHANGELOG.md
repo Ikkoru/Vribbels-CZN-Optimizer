@@ -12,13 +12,23 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ## [2.0.1] - unreleased
 
+### Added
+
+- **Materials tab: the hardest target on each block is coloured** — red under 50%, yellow to 100%, green once covered. The steps on the way keep the ordinary colour, so a block reads as one verdict rather than a column of traffic lights.
+
 ### Fixed
 
 - **A fresh install opens at the same size a loaded one does.** Two panels were laid out only once data arrived: the Combatants tab's six fragment cells came up at a text widget's default size, far larger than they end up, which pushed the Character and Partner cards out of the space they fill; and the Memory Fragments tab's Sets panel came up empty and narrow, moving every panel beside it when the first snapshot loaded. The Sets columns now reserve room for a four-digit count instead of fitting the counts in hand, so the panel is the same width whatever you own.
 
+- **The Basin of Hyperspace is green only once its rewards are claimed.** Every objective can be scored with every star reward still sitting there, which read as a finished row and a trip to the game still owed.
+
+- **The Arkhianon Supply's daily missions go green once the week is full.** The dailies feed the week's exp, so once that caps there is nothing left for them to earn.
+
 - **The Arkhianon Supply's daily count ignores one-off missions.** A mission the pass issues today was counted as one of the day's six, so a patch that added a one-off read a five-of-six day as finished.
 
 ### Changed
+
+- **Combatant Trial events count three trials per Combatant banner running**, not three flat, so a second banner doubles them.
 
 - **Combatant Trial events count the rewards you have claimed.** Which trials an event offers is only stated when you claim one, so the pairing is learned from the claim and remembered; until then the row shows its deadline alone.
 

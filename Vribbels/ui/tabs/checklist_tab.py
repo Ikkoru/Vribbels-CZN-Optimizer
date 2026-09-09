@@ -322,7 +322,19 @@ def _event_overclock(raw, name, _window, now):
              TODO if left else WARN)]
 
 
-def _event_trials(raw, name, window, _now):
+def _trial_count(raw, now):
+    """How many trials a Combatant Trial event offers.
+
+    Three per live combatant pickup banner -- the event runs the
+    banner combatants -- and never fewer than one banner's worth, so a
+    snapshot carrying no schedule still reads a sensible total.
+    """
+    banners = sum(1 for name, _window in schedules.all_live(
+        BANNER_GROUP, raw, now) if name.startswith(BANNER_PREFIX))
+    return TRIAL_PER_BANNER * max(1, banners)
+
+
+def _event_trials(raw, name, window, now):
     """[(words, state)] for a Combatant Trial event's rewards claimed.
 
     Claimed THIS cycle: a slot's stamp is rewritten every time its
@@ -341,7 +353,7 @@ def _event_trials(raw, name, window, _now):
               if isinstance(row, dict)}
     claimed = sum(1 for slot in slots
                   if _is_count(stamps.get(slot)) and stamps[slot] >= began)
-    most = max(TRIAL_COUNT, len(slots))
+    most = max(_trial_count(raw, now), len(slots))
     return [("%d/%d" % (claimed, most), _done(claimed >= most))]
 
 
@@ -486,7 +498,14 @@ OVERCLOCK_USES = 2
 # with a capture running, the row shows its deadline alone.
 TRIAL_SLOTS_FIELD = "combatant_trial_slots"
 TRIAL_FIELD = "combat_trial_entities"
-TRIAL_COUNT = 3
+
+# Three trials PER COMBATANT BANNER running: the event offers the
+# banner combatants, so a second banner doubles the trials. Counted off
+# the live pickup banners rather than stated, which is what keeps it
+# right when a second one opens.
+TRIAL_PER_BANNER = 3
+BANNER_GROUP = "GACHA"
+BANNER_PREFIX = "gacha_pickup_combatant_"
 
 # What an event with every reward taken reads instead of a tally.
 EVENT_CLAIMED = "All Claimed"
@@ -719,6 +738,12 @@ DELEGATION_DONE = "Done"
 # fresh season shows through beside a finished one. With all of them
 # done every choice reads the same.
 BASIN_FIELD = "mission_seasson_entities"
+
+# How many of a Basin season's star rewards have been claimed, one row
+# per season keyed by the season id. The objectives and the rewards are
+# separate: every objective can be scored with none of the rewards
+# taken, and that is not a finished row.
+BASIN_REWARD_FIELD = "reward_entities"
 
 # The Full-Scale Offensive: one `remnants_entities` row per stage, each
 # with a `star_count` out of three and a `best_score`. Three stages of
@@ -1368,6 +1393,13 @@ def _readings(raw, now=None):
     # mission still reads as work left -- which it is.
     # A DAILY mission is one of the six lowest-numbered, CLAIMED since
     # the day's own reset. See `PASS_DAILY_COUNT`.
+    #
+    # **A full WEEK finishes the row too.** The dailies exist to feed
+    # the week's exp, so once that is capped there is nothing left for
+    # them to earn and the day's remainder is not work owed.
+    record = _live_pass(raw)
+    week_exp = record.get("week_exp")
+    week_full = _is_count(week_exp) and week_exp >= PASS_WEEK_EXP_FULL
     missions = raw.get(PASS_MISSION_FIELD)
     if isinstance(missions, dict):
         since = weekly_reset.last_daily_reset(now)
@@ -1375,16 +1407,15 @@ def _readings(raw, now=None):
                       if _pass_daily_number(res_id)
                       and _is_count(row.get("complete_time"))
                       and row["complete_time"] >= since)
-        out["supply_daily"] = _one("%d/%d" % (claimed, PASS_DAILY_COUNT),
-                               _done(claimed >= PASS_DAILY_COUNT))
+        out["supply_daily"] = _one(
+            "%d/%d" % (claimed, PASS_DAILY_COUNT),
+            _done(week_full or claimed >= PASS_DAILY_COUNT))
     else:
         out["supply_daily"] = _one("%s/%d" % (NO_DATA, PASS_DAILY_COUNT), UNKNOWN)
 
     # The week's EXP and the pass's level, both off the pass's own
     # record. EXP rather than a mission count, because only one of the
     # twelve weekly missions has been identified.
-    record = _live_pass(raw)
-    week_exp = record.get("week_exp")
     if _is_count(week_exp):
         out["supply_weekly"] = _one(
             "%d/%d" % (min(week_exp, PASS_WEEK_EXP_FULL), PASS_WEEK_EXP_FULL),
@@ -1444,11 +1475,16 @@ def _readings(raw, now=None):
         out["offensive"] = _one("%d/%d" % (stars, most),
                                 _done(stars >= most))
 
-    done, total = _basin(raw, now)
+    # **Green means nothing left to CLAIM**, not nothing left to do.
+    # The objectives can all be scored with every star reward still
+    # sitting there, which is a finished-looking row and a trip to the
+    # game still owed.
+    done, total, claimed = _basin(raw, now)
     if total is None:
         out["basin"] = _one(NO_DATA, UNKNOWN)
     else:
-        out["basin"] = _one("%d/%d" % (done, total), _done(done >= total))
+        out["basin"] = _one("%d/%d" % (done, total),
+                            _done(done >= total and claimed >= done))
 
     # The shops, one sub-row per product. `-` where the field cannot be
     # read honestly -- see `shop_stock.remaining`.
@@ -1559,9 +1595,22 @@ def _live_pass(raw):
     return live[1] if live else {}
 
 
+def _basin_claimed(raw, season):
+    """How many of a Basin season's star rewards have been taken.
+
+    `reward_entities` carries one row per season and only once
+    something has been claimed from it, so an absent row is none.
+    """
+    for row in (raw or {}).get(BASIN_REWARD_FIELD) or []:
+        if isinstance(row, dict) and row.get("res_id") == season:
+            count = row.get("count")
+            return count if _is_count(count) else 0
+    return 0
+
+
 def _basin(raw, now):
-    """(objectives done this season, objectives in a season), or
-    (0, None).
+    """(objectives done this season, objectives in a season, rewards
+    claimed of them), or (0, None, 0).
 
     **A season's own row count is not its size.** The game issues an
     objective lazily, so the live season carries only the ones it has
@@ -1574,11 +1623,11 @@ def _basin(raw, now):
     """
     seasons = raw.get(BASIN_FIELD)
     if not isinstance(seasons, dict) or not seasons:
-        return 0, None
+        return 0, None, 0
     sized = {name: rows for name, rows in seasons.items()
              if isinstance(rows, dict) and rows}
     if not sized:
-        return 0, None
+        return 0, None, 0
     total = max(len(rows) for rows in sized.values())
     name, _window = schedules.current(COUNTDOWNS["basin"], raw, now)
     if name not in sized:
@@ -1586,7 +1635,7 @@ def _basin(raw, now):
         name = sorted(sized)[-1]
     done = sum(1 for row in sized[name].values()
                if isinstance(row, dict) and row.get("score"))
-    return done, total
+    return done, total, _basin_claimed(raw, name)
 
 
 def _one(text, state):

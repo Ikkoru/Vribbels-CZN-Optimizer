@@ -306,9 +306,42 @@ GACHA_TARGETS = (
     ("Poor luck:", 128, "128 pulls"),
 )
 
+# The rows whose figure is COLOURED by how far it has got. One per
+# block, and the most ambitious one in it: the others are steps on the
+# way and a colour on each would be a column of traffic lights.
+SHARE_COLOURED = ("Level 60:", "+Neutral:", "Poor luck:")
+
+# The bands, and what each is drawn in. Read top down: the first whose
+# floor the share reaches wins. Green is a target already covered.
+SHARE_BANDS = ((100, "share_full"), (50, "share_part"), (0, "share_none"))
+SHARE_COLOURS = {"share_full": "green", "share_part": "yellow",
+                 "share_none": "red"}
+
 # The reserved column, top to bottom. `None` is a row still reserved,
 # which draws the plate alone.
 RESERVED_ITEMS = (2000001, 2000027, 2000036, None)
+
+
+def _share_state(label, values):
+    """Which band a coloured row's figure falls in, or None.
+
+    None for a row that takes no colour, for one whose figure is the
+    no-data dash, and for anything that is not a percentage -- the
+    totals line is a bare count and means nothing as a share.
+    """
+    if label not in SHARE_COLOURED or len(values) != 1:
+        return None
+    text = str(values[0]).strip()
+    if not text.endswith("%"):
+        return None
+    try:
+        share = int(text[:-1])
+    except ValueError:
+        return None
+    for floor, state in SHARE_BANDS:
+        if share >= floor:
+            return state
+    return SHARE_BANDS[-1][1]
 
 # Which of them count down to the WEEKLY RESET, and the holding at or
 # below which that caption stays away. Nothing in a snapshot dates
@@ -739,6 +772,10 @@ class MaterialsTab(BaseTab):
         text.tag_configure("name", font=NAME_FONT, foreground=colour,
                            justify=tk.CENTER, spacing3=NAME_GAP_BELOW)
         text.tag_configure("figure", font=STAT_FONT)
+        # How far a share has got, on the lines that carry one.
+        # See `SHARE_COLOURED`.
+        for state, key in SHARE_COLOURS.items():
+            text.tag_configure(state, foreground=self.colors[key])
         text.name = name
         return text
 
@@ -785,6 +822,13 @@ class MaterialsTab(BaseTab):
         for label, values in rows:
             line = LINE_SEP + COLUMN_SEP + COLUMN_SEP.join((label, *values))
             text.insert(tk.END, line, "figure")
+            # The VALUES take the share colour, not the label: the
+            # label says which target it is and does not move.
+            state = _share_state(label, values)
+            if state:
+                at = text.index("end-1c linestart")
+                text.tag_add(state, "%s + %d chars"
+                             % (at, 1 + len(label)), "end-1c")
         text.config(state=tk.DISABLED)
 
     def _build_advanced_row(self, row, index, spec):

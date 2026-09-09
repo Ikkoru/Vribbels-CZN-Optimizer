@@ -1016,6 +1016,7 @@ class HeroesTab(BaseTab):
         # arrives, and pushed the Character and Partner cards out of the
         # space they are meant to fill.
         self._pin_gear_cells()
+        self._compute_and_apply_fixed_sizes()
 
     # Public API
     def display_signature(self):
@@ -1779,6 +1780,12 @@ class HeroesTab(BaseTab):
             # inset is a style's to decide and is not the linespace, so
             # a height built from `line_default` runs short and the
             # block takes the difference off the card above it.
+            # Asked for BEFORE reading: at build time the panel has
+            # not been through the geometry manager, and an
+            # unmeasured block falls back to an estimate five short
+            # -- which the first load would then correct, moving the
+            # card under the user.
+            self._extra_info_block.update_idletasks()
             extra_h = self._extra_info_block.winfo_reqheight()
             if extra_h <= 1:                  # geometry not processed yet
                 extra_h = ((1 + len(CHAR_EXTRA_ROWS)) * line_default

@@ -75,16 +75,19 @@ INV_USE_LOG_FILTERS_KEY = "inventory_use_upgrade_log_filters"
 # name, so it needs the reverse lookup.
 SETS_BY_NAME = {v["name"]: v for v in SETS.values()}
 
-# The widest count a Sets column reserves room for. A MEASURED width,
-# not a stated one -- it goes through the font, so it grows with the
-# font at 200% the way the text beside it does.
+# The narrowest the Sets panel's contents may be, borders included.
 #
-# The reserve is what keeps the panel still: fitted to the counts in
-# hand, it came up narrow on a fresh install -- every count `(0)` --
-# and widened the moment a snapshot filled them in, moving every panel
-# beside it. Four digits, because a mature account already passes a
-# thousand of a common set.
-SET_COUNT_WIDEST = "(9999)"
+# **A HARD number, and not the right kind of one.** It is a physical
+# pixel count that does not grow with the font, where every other
+# distance here is either `px()`-scaled or measured through the face.
+# It stays because the alternative -- reserving room for the widest
+# count a column could hold -- reads correctly at any scale but makes
+# the panel 815 wide at 100%, which is 74 more than its contents need.
+# `tasks.md` T15 carries this as an open question for the 200% pass.
+#
+# What it prevents is the panel collapsing: its columns are fitted to
+# the counts they show, so anything that empties them makes it narrow.
+SETS_PANEL_MIN_W = 741
 
 
 
@@ -575,7 +578,7 @@ class InventoryTab(BaseTab):
         def _col_count_px(c):
             col_sets = four_names[c::ncols] + rest_names[c::ncols]
             texts = [f"({owned_counts.get(n, 0)})" for n in col_sets]
-            return column_px((texts or ["(0)"]) + [SET_COUNT_WIDEST])
+            return column_px(texts or ["(0)"])
         col_count_widths = [_col_count_px(c) for c in range(ncols)]
         # NOT through `px()`: `column_px` MEASURES the text, so the
         # width has already grown with the font scaling. And not named
@@ -671,6 +674,16 @@ class InventoryTab(BaseTab):
             # after it takes the ordinary pitch.
             top = SET_GROUP_GAP if j < ncols else 3
             _add_set_cell(set_name, r, j % ncols, top)
+
+        # Hold the panel to its floor. See `SETS_PANEL_MIN_W`: the
+        # shortfall goes on the LAST count column, the one with nothing
+        # to its right, so widening it moves no checkbox.
+        self.inv_set_frame_inner.update_idletasks()
+        short = SETS_PANEL_MIN_W - self.inv_set_frame_inner.winfo_reqwidth()
+        if short > 0:
+            last = (ncols - 1) * 2 + 1
+            self.inv_set_frame_inner.grid_columnconfigure(
+                last, minsize=col_count_widths[ncols - 1] + short)
 
         # Also rebuild unknown main-stat checkboxes for the data we just loaded.
         self.populate_unknown_main_stats()
