@@ -322,6 +322,29 @@ def _event_overclock(raw, name, _window, now):
              TODO if left else WARN)]
 
 
+def _event_trials(raw, name, window, _now):
+    """[(words, state)] for a Combatant Trial event's rewards claimed.
+
+    Claimed THIS cycle: a slot's stamp is rewritten every time its
+    trial comes round, so it counts only if it falls inside the event's
+    own window. See `TRIAL_SLOTS_FIELD`.
+    """
+    pairs = (raw or {}).get(TRIAL_SLOTS_FIELD)
+    slots = pairs.get(name) if isinstance(pairs, dict) else None
+    if not slots or not isinstance(window, dict):
+        return []
+    began = window.get("start_time")
+    if not _is_count(began):
+        return []
+    stamps = {row.get("event_combatant_trial_slot_id"): row.get("complete_time")
+              for row in ((raw or {}).get(TRIAL_FIELD) or [])
+              if isinstance(row, dict)}
+    claimed = sum(1 for slot in slots
+                  if _is_count(stamps.get(slot)) and stamps[slot] >= began)
+    most = max(TRIAL_COUNT, len(slots))
+    return [("%d/%d" % (claimed, most), _done(claimed >= most))]
+
+
 def _event_missions(raw, name, _window, _now):
     """[(words, state)] for an event scored by its own missions."""
     return _event_progress(raw, name)
@@ -334,6 +357,7 @@ EVENT_READERS = {
     "EVENT_NODELIST_PAGE": _event_missions,
     "EVENT_DAILY_CHECK": _event_attendance,
     "EVENT_OVERCLOCK": _event_overclock,
+    "EVENT_COMBATANT_TRIAL": _event_trials,
 }
 
 
@@ -449,6 +473,20 @@ ATTENDANCE_DAYS = 7
 # rows still read `count` against whatever theirs was.
 OVERCLOCK_FIELD = "overclock_entities"
 OVERCLOCK_USES = 2
+
+# A Combatant Trial event offers three trials, and what matters is the
+# REWARD: a slot's `complete_time` is when its reward was last claimed,
+# rewritten each time the trial comes round again.
+#
+# **Which slots an event offers is not on the wire.** Two trial events
+# run at once and their windows overlap, so a claim cannot be assigned
+# to one by its date. The pairing is learned from the claim itself --
+# `reward_combatant_trial` names both ids -- and the capture keeps it
+# under `combatant_trial_slots`. Until a slot has been claimed once
+# with a capture running, the row shows its deadline alone.
+TRIAL_SLOTS_FIELD = "combatant_trial_slots"
+TRIAL_FIELD = "combat_trial_entities"
+TRIAL_COUNT = 3
 
 # What an event with every reward taken reads instead of a tally.
 EVENT_CLAIMED = "All Claimed"
@@ -633,10 +671,17 @@ PASS_MISSION_PREFIX = "pass_mission"
 PASS_WEEK_EXP_FULL = 10000
 PASS_LEVEL_FULL = 70
 
-# How many daily missions the pass hands out. **Not derivable**: the
-# game issues a mission lazily, so the rows carrying today's
-# `issued_time` are the ones handed out SO FAR and counting them
+# How many daily missions the pass hands out, and which they are: the
+# LOWEST numbered, `_01` through `_06`. The count is not derivable --
+# the game issues a mission lazily, so the rows carrying today's
+# `issued_time` are the ones handed out so far and counting them
 # understates the day. Read off the game's own screen.
+#
+# **Being issued today does not make a mission daily.** A patch added
+# `pass_mission_008_28`, a one-off issued and claimed the same day,
+# which a test on `issued_time` counted as a seventh daily and read a
+# five-of-six day as finished. The number is what separates them; the
+# season in the middle of the id changes and this does not.
 PASS_DAILY_COUNT = 6
 
 # The stage whose per-period run limit IS the Simulation Challenges,
@@ -1153,6 +1198,19 @@ LINE_SEP = "\n"
 COLUMN_SEP = "\t"
 
 
+def _pass_daily_number(res_id):
+    """Whether a mission id is one of the pass's DAILY ones.
+
+    `pass_mission_<season>_NN` with NN in the first six. The season sits
+    in the middle and changes; the trailing number does not.
+    """
+    text = str(res_id)
+    if not text.startswith(PASS_MISSION_PREFIX):
+        return False
+    tail = text.rsplit("_", 1)[-1]
+    return tail.isdigit() and 1 <= int(tail) <= PASS_DAILY_COUNT
+
+
 def _label_tag(key, label):
     """The tag a row's own words take, as a tuple for concatenation.
 
@@ -1308,17 +1366,15 @@ def _readings(raw, now=None):
     # The Arkhianon Supply, three ways. A mission's `complete_time` is
     # set when its reward is CLAIMED, so a finished-but-unclaimed
     # mission still reads as work left -- which it is.
-    # A DAILY mission is one the pass issued since the day's own reset,
-    # which is what tells it from a weekly without an id list -- and an
-    # id list would not survive the season number changing anyway.
+    # A DAILY mission is one of the six lowest-numbered, CLAIMED since
+    # the day's own reset. See `PASS_DAILY_COUNT`.
     missions = raw.get(PASS_MISSION_FIELD)
     if isinstance(missions, dict):
         since = weekly_reset.last_daily_reset(now)
         claimed = sum(1 for res_id, row in missions.items()
-                      if str(res_id).startswith(PASS_MISSION_PREFIX)
-                      and _is_count(row.get("issued_time"))
-                      and row["issued_time"] >= since
-                      and row.get("complete_time"))
+                      if _pass_daily_number(res_id)
+                      and _is_count(row.get("complete_time"))
+                      and row["complete_time"] >= since)
         out["supply_daily"] = _one("%d/%d" % (claimed, PASS_DAILY_COUNT),
                                _done(claimed >= PASS_DAILY_COUNT))
     else:

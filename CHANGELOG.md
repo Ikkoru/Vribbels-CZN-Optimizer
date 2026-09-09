@@ -10,6 +10,18 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the
 pre-fork history, see the upstream repository's CHANGELOG.
 
+## [2.0.1] - unreleased
+
+### Fixed
+
+- **A fresh install opens at the same size a loaded one does.** Two panels were laid out only once data arrived: the Combatants tab's six fragment cells came up at a text widget's default size, far larger than they end up, which pushed the Character and Partner cards out of the space they fill; and the Memory Fragments tab's Sets panel came up empty and narrow, moving every panel beside it when the first snapshot loaded. The Sets columns now reserve room for a four-digit count instead of fitting the counts in hand, so the panel is the same width whatever you own.
+
+- **The Arkhianon Supply's daily count ignores one-off missions.** A mission the pass issues today was counted as one of the day's six, so a patch that added a one-off read a five-of-six day as finished.
+
+### Changed
+
+- **Combatant Trial events count the rewards you have claimed.** Which trials an event offers is only stated when you claim one, so the pairing is learned from the claim and remembered; until then the row shows its deadline alone.
+
 ## [2.0.0] - Checklist tab, region detection, Materials tab
 
 **The Checklist tab and the UI work are both unfinished.** They are in this release because what is there already works, not because either is done.

@@ -168,6 +168,10 @@ class Addon:
         self.remnants = None
         self.zero_orb = None
         self.attendance = None
+        # {trial event id: [slot ids]}, learned from claims and
+        # kept forever -- see `reward_combatant_trial`.
+        self.trial_slots = {}
+        self.combat_trials = None
         self.overclock = None
         self.season_pass = None
         self.missions = {}
@@ -590,6 +594,24 @@ class Addon:
             if self._set_day_field("is_coffee_possible", False):
                 self._save_pending = True
 
+        # A trial claim answers with the ONE slot row it changed, under
+        # the bare key `entity`. Folded into the board rather than
+        # replacing it -- everything else about the trials is untouched.
+        entity = data.get("entity")
+        if (isinstance(entity, dict)
+                and entity.get("event_combatant_trial_slot_id")):
+            if not isinstance(self.combat_trials, list):
+                self.combat_trials = []
+            slot = entity["event_combatant_trial_slot_id"]
+            for index, row in enumerate(self.combat_trials):
+                if (isinstance(row, dict)
+                        and row.get("event_combatant_trial_slot_id") == slot):
+                    self.combat_trials[index] = entity
+                    break
+            else:
+                self.combat_trials.append(entity)
+            self._save_pending = True
+
         # Live monitoring: apply piece deltas
         #   "piece"  (singular): existing swap / upgrade / equip / unequip flows.
         #   "pieces" (plural):   create flow (forge/fuse/craft a new fragment).
@@ -768,6 +790,13 @@ class Addon:
         # login sends `overclock_entities` and a Simulation run sends
         # the rows it changed as `result_overclock_entities`, so the
         # second is merged rather than replacing the board.
+        # The trial slots themselves: each says when its reward
+        # was last claimed. A claim reply sends the ONE row it
+        # changed as `entity`, so that is merged rather than
+        # replacing the board.
+        if isinstance(data.get("combat_trial_entities"), list):
+            self.combat_trials = data["combat_trial_entities"]
+            self._save_pending = True
         # The login-streak events: days shown up, days claimed.
         if isinstance(data.get("attendance_entities"), list):
             self.attendance = data["attendance_entities"]
@@ -1155,6 +1184,8 @@ class Addon:
             "zero_orb_entity": self.zero_orb,
             "overclock_entities": self.overclock or None,
             "attendance_entities": self.attendance or None,
+            "combat_trial_entities": self.combat_trials or None,
+            "combatant_trial_slots": self.trial_slots or None,
             "season_pass_entity": self.season_pass,
             "mission_entities": self.missions or None,
             "shop_list": self.shop_products or None,
@@ -1435,6 +1466,22 @@ class Addon:
 
             elif inner_cmd == "order_coffee":
                 self.pending_coffees.add(qid)
+
+            elif inner_cmd == "reward_combatant_trial":
+                # **The only place the two ids appear together.** A
+                # trial slot's own row says when its reward was last
+                # claimed and nothing about which event offered it, and
+                # the login says nothing either -- so the pairing is
+                # learned here, from the request that claims one, and
+                # kept. Once a slot is paired, later cycles are read
+                # off its `complete_time` against the event's window.
+                event = params.get("event_combatant_trial_id")
+                slot = params.get("event_combatant_trial_slot_id")
+                if event and slot:
+                    slots = self.trial_slots.setdefault(str(event), [])
+                    if str(slot) not in slots:
+                        slots.append(str(slot))
+                        self._save_pending = True
 
     def _set_day_field(self, field, value):
         """Write one field of the cached town daily block.

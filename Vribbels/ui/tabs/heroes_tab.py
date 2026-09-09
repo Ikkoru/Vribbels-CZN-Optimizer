@@ -1008,6 +1008,15 @@ class HeroesTab(BaseTab):
         gear_grid.rowconfigure(1, weight=1)
         gear_grid.rowconfigure(2, weight=1)
 
+        # **Pinned HERE as well as after a load.** A Text with no size
+        # asked for is 80 characters by 24 lines, so on a fresh install
+        # -- no snapshot, so nothing calls
+        # `_compute_and_apply_fixed_sizes` -- six of them opened the
+        # panel far wider and taller than the same six do once data
+        # arrives, and pushed the Character and Partner cards out of the
+        # space they are meant to fill.
+        self._pin_gear_cells()
+
     # Public API
     def display_signature(self):
         """A cheap hashable summary of everything this tab renders.
@@ -1646,6 +1655,31 @@ class HeroesTab(BaseTab):
             parts.append(f"{flex} Flex")
         return _padded_sublist(parts)
 
+    def _pin_gear_cells(self):
+        """Hold the six fragment cells at their stated size.
+
+        Their pixel size goes on the GRID rather than the widgets: a
+        Text sizes in characters, so it is told to ask for nothing and
+        left to fill the cell the grid reserves.
+
+        Called when the panel is built and again after a load, and the
+        two must agree -- a fresh install has no data and so never
+        reaches the second, which is how the panel came up oversized
+        until the first snapshot arrived.
+        """
+        cells = list(self.gear_cells.values())
+        if not cells:
+            return
+        cell_w, cell_h = px(GEAR_CELL_W), px(GEAR_CELL_H)
+        gear_grid = cells[0].master
+        for cell in cells:
+            cell.configure(width=1, height=1)
+        for column in (0, 1):
+            gear_grid.grid_columnconfigure(column, minsize=int(cell_w),
+                                           weight=0)
+        for row in (0, 1, 2):
+            gear_grid.grid_rowconfigure(row, minsize=int(cell_h), weight=0)
+
     def _compute_and_apply_fixed_sizes(self):
         """Freeze the three detail-pane frames (Character, Partner,
         Equipped Memory Fragments) to fixed pixel sizes computed
@@ -1685,8 +1719,7 @@ class HeroesTab(BaseTab):
             # Calibrated against the longest set description currently in
             # the game. A longer one clips rather than growing the cell,
             # so if a set is added and its description runs off, raise
-            # GEAR_CELL_H here.
-            cell_w, cell_h = px(GEAR_CELL_W), px(GEAR_CELL_H)
+            # GEAR_CELL_H here. `_pin_gear_cells` applies it.
 
             # The stat block's tab stops. Four stops per row: the left
             # value (right-aligned), the right column's name, the right
@@ -1790,22 +1823,7 @@ class HeroesTab(BaseTab):
             # cell uses PACK for its children, so grid_propagate would be
             # a silent no-op and the cells would stay at their natural
             # content size while the outer frame grew.
-            cells = list(self.gear_cells.values())
-            if cells:
-                gear_grid = cells[0].master
-                for cell in cells:
-                    # A Text sizes in CHARACTERS unless told otherwise, so
-                    # the pixel size goes on the grid cell and the widget
-                    # is left to fill it.
-                    cell.configure(width=1, height=1)
-                gear_grid.grid_columnconfigure(0, minsize=int(cell_w))
-                gear_grid.grid_columnconfigure(1, minsize=int(cell_w))
-                for _r in (0, 1, 2):
-                    gear_grid.grid_rowconfigure(_r, minsize=int(cell_h))
-                for _c in (0, 1):
-                    gear_grid.columnconfigure(_c, weight=0)
-                for _r in (0, 1, 2):
-                    gear_grid.rowconfigure(_r, weight=0)
+            self._pin_gear_cells()
         except Exception:
             pass
 

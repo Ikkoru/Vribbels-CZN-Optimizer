@@ -75,6 +75,18 @@ INV_USE_LOG_FILTERS_KEY = "inventory_use_upgrade_log_filters"
 # name, so it needs the reverse lookup.
 SETS_BY_NAME = {v["name"]: v for v in SETS.values()}
 
+# The widest count a Sets column reserves room for. A MEASURED width,
+# not a stated one -- it goes through the font, so it grows with the
+# font at 200% the way the text beside it does.
+#
+# The reserve is what keeps the panel still: fitted to the counts in
+# hand, it came up narrow on a fresh install -- every count `(0)` --
+# and widened the moment a snapshot filled them in, moving every panel
+# beside it. Four digits, because a mature account already passes a
+# thousand of a common set.
+SET_COUNT_WIDEST = "(9999)"
+
+
 
 MAIN_STAT_DISPLAY = [
     ("ATK%",      "ATK%"),
@@ -453,6 +465,14 @@ class InventoryTab(BaseTab):
         self.inv_tree.bind("<Motion>", self._on_tree_motion)
         self.inv_tree.bind("<Leave>", lambda e: self._set_tooltip.hide())
 
+        # **Filled here as well as on every load.** The set list comes
+        # from the game data, not from the snapshot -- only the `(n)`
+        # counts need one -- so it can be laid out before any data
+        # arrives. Left until the first load, the Sets panel opened as
+        # an empty box a fraction of its real width on a fresh install,
+        # and every panel beside it sat at the wrong size with it.
+        self.populate_set_filters()
+
     # ----- Slot filter ---------------------------------------------------
 
     def _on_slot_toggle(self, slot_num):
@@ -555,7 +575,7 @@ class InventoryTab(BaseTab):
         def _col_count_px(c):
             col_sets = four_names[c::ncols] + rest_names[c::ncols]
             texts = [f"({owned_counts.get(n, 0)})" for n in col_sets]
-            return column_px(texts or ["(0)"])
+            return column_px((texts or ["(0)"]) + [SET_COUNT_WIDEST])
         col_count_widths = [_col_count_px(c) for c in range(ncols)]
         # NOT through `px()`: `column_px` MEASURES the text, so the
         # width has already grown with the font scaling. And not named
