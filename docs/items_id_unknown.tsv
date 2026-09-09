@@ -7,7 +7,7 @@ res_id	where	amount	Name	Type	Note
 2000021	currencies	0			
 2000033	currencies	3			
 2000034	currencies	0			
-2000048	currencies	1			
+2000048	currencies	1	Daily Chaos Delegation	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation
 3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Reset when a Galactic Disaster ends
 3300009	items	3		Gift Item	
 3300017	items	6		Gift Item	
