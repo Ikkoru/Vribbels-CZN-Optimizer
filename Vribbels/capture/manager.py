@@ -292,6 +292,37 @@ class Addon:
             except Exception as e:
                 self.log_callback(f"Warning: Failed to load zstd dictionary: {e}")
 
+        self._seed_trial_slots()
+
+    def _seed_trial_slots(self):
+        """Carry the trial pairing over from the newest snapshot.
+
+        **The only state here that cannot be rebuilt from the wire.**
+        Everything else this addon caches arrives again at the next
+        login; which trial slots an event offers is named ONLY by the
+        request that claims one, so a session with no claim in it would
+        write an empty table over what an earlier one worked out --
+        and the pairing would last exactly as long as the capture that
+        saw it.
+
+        Read once, at startup, and failures are silent: a missing or
+        unreadable snapshot means starting empty, which is where this
+        began anyway.
+        """
+        try:
+            saved = sorted(self.output_dir.glob("memory_fragments_*.json"))
+            if not saved:
+                return
+            with open(saved[-1], "r", encoding="utf-8") as f:
+                previous = json.load(f)
+            known = previous.get("combatant_trial_slots")
+            if isinstance(known, dict):
+                for event, slots in known.items():
+                    if isinstance(slots, list):
+                        self.trial_slots[str(event)] = [str(s) for s in slots]
+        except Exception:
+            pass
+
     def _detect_region(self):
         """The region this session's connections actually went to.
 

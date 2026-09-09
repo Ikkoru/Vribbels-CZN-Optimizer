@@ -111,4 +111,40 @@ def run():
             "order was already answered. The pending qid has to be "
             "consumed, or every later reply reusing that number drinks a "
             "coffee that was never ordered.")
+
+    _trial_pairing_survives(Addon, failures)
     return failures
+
+
+def _trial_pairing_survives(Addon, failures):
+    """The trial pairing has to outlive the capture that learned it.
+
+    `reward_combatant_trial` is the ONLY message naming an event and a
+    trial slot together, so a session with no claim in it can rebuild
+    nothing -- and writes an empty table over whatever an earlier one
+    worked out. Everything else the addon caches arrives again at the
+    next login; this does not.
+    """
+    import json
+    import tempfile
+    from pathlib import Path
+
+    work = Path(tempfile.mkdtemp())
+    pairing = {"event_combatant_trial_17": ["combatant_trial_1039"]}
+    (work / "memory_fragments_20260101_000000.json").write_text(
+        json.dumps({"combatant_trial_slots": pairing}), encoding="utf-8")
+
+    addon = Addon(work, log_callback=lambda *a, **k: None)
+    if addon.trial_slots != pairing:
+        failures.append(
+            f"a new capture started with trial_slots {addon.trial_slots!r} "
+            f"where the newest snapshot carries {pairing!r}. It is seeded "
+            f"from there because nothing on the wire restates it: one "
+            f"capture without a claim in it would otherwise wipe the "
+            f"pairing, and every Combatant Trial row would go blank.")
+
+    empty = Addon(Path(tempfile.mkdtemp()), log_callback=lambda *a, **k: None)
+    if empty.trial_slots != {}:
+        failures.append(
+            f"with no snapshot to seed from, trial_slots is "
+            f"{empty.trial_slots!r} rather than empty.")

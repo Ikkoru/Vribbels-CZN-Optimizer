@@ -666,6 +666,21 @@ PANEL_EDGES = [
     ("Setup & Settings", "Links", "top"),
     ("Setup & Settings", "Links", "right"),
     ("Setup & Settings", "Links", "bottom"),
+    # The Memory Fragments filter panels. **None of their edges were
+    # registered**, which is why the audit ran green over gaps the eye
+    # could see were a pixel out -- an unresolved edge is not a
+    # failure, it is an edge nobody asked about.
+    #
+    # Their LEFT edges are not here: all three pack their contents
+    # west into a panel the window's leftover width sizes, so what is
+    # on that side is slack rather than a distance.
+    ("Memory Fragments", "Slots", "top"),
+    ("Memory Fragments", "Slots", "bottom"),
+    ("Memory Fragments", "Sets", "top"),
+    ("Memory Fragments", "Sets", "right"),
+    ("Memory Fragments", "Sets", "bottom"),
+    ("Memory Fragments", "Main Stats", "top"),
+    ("Memory Fragments", "Main Stats", "bottom"),
 ]
 
 # PANEL_EDGES rows whose edge answers to a different rule, as
@@ -674,6 +689,11 @@ PANEL_EDGE_RULES = {
     # The lowest thing in Update Status is the Check Now button, so the
     # BUTTON rule applies rather than the one for text.
     ("Update Status", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
+    # Each Memory Fragments filter panel ends in its All/None row, so
+    # its bottom edge meets BUTTONS and takes their rule.
+    ("Slots", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
+    ("Sets", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
+    ("Main Stats", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
 }
 
 # Hand readings for PANEL_EDGES rows the resolver and the eye disagree
@@ -3963,6 +3983,12 @@ CHECKLIST_ENTRIES = [
     # Both ends of the block against the window. The first and last
     # columns sit at their cells' outer edges rather than centred, so
     # these two are what that arrangement buys.
+    # The Memory Fragments preset caption against the window's left
+    # edge. Registered here rather than on that tab's own list because
+    # this is the same rule and the same resolver the two below use;
+    # it had no entry at all, so the gap went unwatched.
+    ("Memory Fragments", "window edge -> active preset label", 4,
+     RULE_CONTENT_FRAME, _from_window_edge(_by_text("Preset:")), "h"),
     ("Checklist", "Checklist: window edge -> first column", 4,
      RULE_CONTENT_FRAME, _from_window_edge(_checklist_column(0)), "h"),
     ("Checklist", "Checklist: last column -> window edge", 4,
