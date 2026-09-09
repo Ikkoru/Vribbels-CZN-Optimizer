@@ -971,7 +971,7 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "Gain 1 AP\n3 Paralytic Poison to all enemies\nParalytic Poison: When attacked by a card of the assigned Combatant, 1 Fracture\nAt the end of the turn decrease Paralytic Poison by 1",
     },
-    -1: {
+    30118: {
         "name": "Emilie",
         "grade": 5,
         "class": "Psionic",

@@ -580,18 +580,18 @@ CHARACTERS = {
         "node_60": "CDmg",
         "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Haru
     },
-    -1: {
+    30117: {
         "name": "Olga",
         "grade": 5,
         "attribute": "Instinct",
         "class": "Psionic",
-        "base_atk": 0,
-        "base_def": 0,
-        "base_hp": 0,
+        "base_atk": 443,
+        "base_def": 169,
+        "base_hp": 356,
         "base_crit_rate": 3.0,
         "base_crit_dmg": 125.0,
-        "node_50": "",
-        "node_60": "",
+        "node_50": "CRate",
+        "node_60": "CDmg",
         "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Tenebria
     },
 }
