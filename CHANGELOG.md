@@ -10,15 +10,26 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the
 pre-fork history, see the upstream repository's CHANGELOG.
 
-## [1.6.0] - unreleased
+## [2.0.0] - Checklist tab, region detection, Materials tab
+
+**The Checklist tab and the UI work are both unfinished.** They are in this release because what is there already works, not because either is done.
 
 ### Added
+
+- **A Checklist tab.** Four columns — Daily, Weekly, Monthly and Other — listing what comes back on each, with what is left to do beside it. Green means nothing left, red means something is, and a dash means the capture does not carry the answer yet.
+
+  - Each heading counts its own period down, and colours the time by how much of it is left.
+  - **Shop rows are read from the game**, not written into the program, so a product the game adds appears on its own. Every product has a checkbox; unticking one greys it and drops it to the bottom of its shop, and the state is remembered.
+  - Rows for the coffee, Activities, Excursions, Chaos Delegation, the Arkhianon Supply, Simulation Challenges, the two module expiries, Galactic Disaster, the Great Rift, the Basin of Hyperspace, the Chaos Matrix, the Full-Scale Offensive and the Sortie shop.
+  - **Live events are listed with their deadline**, and where the game says so, how much of the event is claimed. Login-streak events count the days taken, Overclock events count the doubled Simulation runs you have left today.
 
 - **Combatants tab: `Show missing characters`.** A checkbox at the top right adds every combatant in the game you have not obtained to the list, alongside the ones you have. A missing row is drawn in a faded version of its Element's colour and reads `-` for Level, Ego, Affinity and GS. Remembered.
 
 - **Memory Fragments tab: `Highest GS/Potential: Upgrade Log Settings`.** A second checkbox beside `Assigned Presets Only`. With it on, the two Highest columns judge a fragment the same way the Capture tab's Upgraded lines do -- only the presets ticked in Log Presets, and only those whose combatants can actually use that fragment's main stat. Remembered.
 
 ### Changed
+
+- **Agony damage can crit.** The game changed; the optimizer follows. Crit gear is now worth more to a combatant with an Agony share than it was, so their results will re-rank. Agony still takes no buffs, which is the only thing left separating it from Fracture.
 
 - **The Materials tab counts your upgrade material.** Three headed columns — Combatant Upgrade Material and Partner Upgrade Material by class, Potential Growth Stones by Element — and a fourth of blank tiles reserving room for a family still to come.
 
@@ -82,6 +93,12 @@ pre-fork history, see the upstream repository's CHANGELOG.
 - **The Memory Fragments Main Stats filters and the Optimizer's Exclude Combatant's MFs list are drawn like every other checkbox.** They had been built separately and had drifted: the exclude list still showed a focus rectangle, could be reached with Tab, and sat slightly larger than the checkboxes around it.
 
 - **The Capture Log no longer flashes white when the tab first opens.** The Gear Score and Setup panels had this fixed already; the Capture Log had been missed.
+
+- **The app reloads on every snapshot save.** It watched for the save's log line, which is suppressed when it repeats — so during a login the later saves, the ones carrying the shops and schedules, never triggered a reload and the tabs sat on the first save until a restart.
+
+- **Drinking the daily coffee is noticed.** Its reply says nothing about the coffee being gone, so the Checklist kept saying `Go drink!` until some other town action happened to mention it — which could be never.
+
+- **A combatant with a placeholder id is kept out of your settings.** Half-entered game data uses a negative id that later changes, and it was being written into the exclude lists as though it were a real combatant.
 
 ## [1.5.0] - Arabella, Fracture, UI update ongoing
 
