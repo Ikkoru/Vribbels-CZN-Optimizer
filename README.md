@@ -2,17 +2,15 @@
 
 A fork of Vribbels, a Fribbels-inspired gear management and optimization tool for the mobile game **Chaos Zero Nightmare**. It reads your Memory Fragments from the game and works out the best six for a combatant.
 
-## Installation
+## Installation & Usage
 
 You need Windows and the STOVE client.
 
 1. Download the latest release from the [Releases page](https://github.com/Ikkoru/Vribbels-CZN-Optimizer/releases).
-2. Run `Vribbels_CZN_Optimizer_Ikkoru.exe`.
+2. Run `Vribbels_CZN_Optimizer_Ikkoru.exe` as Administrator.
 3. Open the **Setup & Settings** tab and click **Generate & Install Cert**.
-
-## Capturing your data
-
-Run the program as Administrator, start the capture on the **Capture** tab, then launch the game and go to the main menu. Your data is saved next to the program in `snapshots/`, and changes you make in-game are picked up while the capture is running.
+4. Open the **Capture** tab and click Start Capture.
+5. Launch the game. Keep the program open: in-game changes are captured LIVE.
 
 ## Optimizing
 
@@ -20,7 +18,7 @@ The latest snapshot loads on startup. Pick a combatant, fill in **Important Sett
 
 Most of the settings are self-explanatory. These are the ones that aren't:
 
-- **The three damage sliders** — Extra, Agony and Fracture — are the share of the combatant's damage that comes from each. Fracture and Scorched share the one slider. Work them out from your deck rather than from damage numbers: add up the DMG% of each source per turn and take the fractions. Everything left over counts as ordinary card damage.
+- **The three damage sliders** — Extra, Agony and Fracture — how much of the combatant's damage is of that type. Fracture slider includes Scorched. Based on your deck, not damage numbers: add up the `DMG%/turn` of each type and take the fractions. Everything left over counts as Card damage.
 
   > Don't stress about getting these super accurate. Dealing 3 more damage per turn isn't going to save you from the Nightmare.
 
@@ -42,6 +40,7 @@ In the results, scores run 0–100 with the run's best build at 100. `(E)` marks
 - **Affinity, potential nodes and Partner bonuses** are all counted in the stats the optimizer scores.
 - **The Combatants tab lists every potential node**, and its `Nodes` column is a combatant's node levels summed against the maximum.
 - **The Materials tab** counts your promotion and levelling material by class, and your growth stones by Element. Each row's figures are that row's own holdings in bottom-tier equivalents, then what share that is of what a target costs.
+- **Checklist tab** shows current data while the game is being captured. You can check/uncheck `Shop` items to customize those you wish to keep track off.
 
 ## Contributing
 
@@ -54,10 +53,6 @@ Original by [Vorbroker](https://github.com/Vorbroker/Vribbels-CZN-Optimizer).
 Inspired by [Fribbels Epic 7 Gear Optimizer](https://github.com/fribbels/Fribbels-Epic-7-Optimizer).
 
 Thanks to [EpicSevenAssetRipper](https://github.com/CeciliaBot/EpicSevenAssetRipper) for asset extraction tools.
-
-## Support
-
-Currently not accepting donations.
 
 ## License
 
