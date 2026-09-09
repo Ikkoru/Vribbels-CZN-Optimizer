@@ -615,15 +615,15 @@ def compute_score_components(gear: list, stats: dict, sp: dict,
     # they crit, and they take the buffs in the card multiplier.
     fracture_per_hit = atk_scaling * (1 + dot_dmg_pct / 100.0)
 
-    # Agony neither crits nor takes buffs, so it drops crit_modifier and
-    # uses the bare base multiplier where the others use card_mult_dmg.
+    # Agony crits, and takes no buffs: the bare base multiplier where
+    # the others use card_mult_dmg, and otherwise the ATK formula.
     # Dropping the buffs also drops the conditional DMG multi / DMG add
     # set terms, which is what makes this build-dependent rather than a
     # constant rescale: a conditional set dialled up for DMG multi does
     # not lift the Agony portion.
     agony_per_hit = (
         sp["base_multiplier"] * final_atk * element_multiplier
-        * (1 + dot_dmg_pct / 100.0)
+        * crit_modifier * (1 + dot_dmg_pct / 100.0)
     )
 
     # ----- Blend damage by share -----

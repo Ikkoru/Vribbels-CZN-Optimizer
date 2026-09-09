@@ -170,14 +170,14 @@ Three, and they do NOT share a formula. All scale off ATK and are improved by Do
 | Scales off               | ATK    | ATK          | ATK          |
 | Improved by DoT%         | yes    | yes          | yes          |
 | Improved by Element DMG% | yes    | yes          | yes          |
-| Can crit                 | **no** | yes          | yes          |
+| Can crit                 | yes    | yes          | yes          |
 | Affected by buffs        | **no** | general only | general only |
 
 Agony is what the settings key `dot_pct` names. Fracture and Scorched are mechanically identical, so the optimizer gives them ONE share between them; the slider is labelled `Fracture` and its caption names both.
 
 "Buffs" here means everything in the damage card multiplier beyond `Base_Multiplier`. Agony takes none of them, so a conditional set dialled up for its `DMG multi` does not lift the Agony portion of a build's score — the one build-dependent consequence, and why it changes ranking rather than just scale.
 
-**Agony keeps `Base_Multiplier`.** Only the buff terms are removed. Scaling Agony by anything further — the reference build's crit and card multiplier, say — inflates it against the other types by exactly that factor.
+**Agony keeps `Base_Multiplier` and crit.** Only the buff terms are removed, so the one thing separating it from Fracture is the card multiplier: `base_multiplier` where the others take the full one. Scaling it by anything further inflates it against the other types by exactly that factor.
 
 **Where the shares come from.** The Important Settings shares are read off the combatant's **DECK**, not off damage numbers: add up the DMG% of each source over a turn — cards, Extra Attacks, DoT procs — and take each type's fraction. Only a deck change moves them, where a reading taken from damage numbers moves on every gear change.
 
@@ -297,9 +297,9 @@ damage_score = (
 atk_formula = card_mult × Final_ATK × (1 + element_dmg_pct/100) × crit_modifier
 def_formula = card_mult × (Final_ATK × 0.3 + Final_DEF × 2.1) × (1 + element_dmg_pct/100) × crit_modifier
 
-# Agony neither crits nor takes buffs, so it drops crit_modifier and
-# uses base_multiplier where the others use the full card multiplier.
-agony_formula = base_multiplier × Final_ATK × (1 + element_dmg_pct/100)
+# Agony crits but takes no buffs, so it uses base_multiplier where the
+# others use the full card multiplier and is otherwise the ATK formula.
+agony_formula = base_multiplier × Final_ATK × (1 + element_dmg_pct/100) × crit_modifier
 
 crit_modifier = 1 + min(1.0, Final_CRate/100) × max(0, (Final_CDmg - 100)/100)
 

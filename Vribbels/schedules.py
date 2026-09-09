@@ -85,24 +85,32 @@ def all_live(group, raw_data, now):
     return [(name, window) for _end, name, window in sorted(found)]
 
 
-def season_start(group, raw_data, now):
-    """When the season a tally belongs to began, or None.
+def current(group, raw_data, now):
+    """(id, window) of the LATEST instance already under way, or
+    (None, None).
 
-    The LATEST instance already under way, which is not the same
-    question `live` answers: between one season and the next there is
-    no running instance, and the shelves still hold what the season
-    just ended left on them. Falling back to the last one to have
-    started keeps those readings; taking the live one would blank them
-    for the gap.
+    Not the same question `live` answers: between one season and the
+    next nothing is running, and what the season just ended left behind
+    -- a shop's tallies, a set of objectives -- is still what the tab
+    should read. Falling back to the last one to have started keeps
+    those readings; taking the live one would blank them for the gap.
     """
     best = None
-    for window in groups(raw_data).get(group, {}).values():
+    for name, window in groups(raw_data).get(group, {}).items():
         if not isinstance(window, dict):
             continue
         start = window.get("start_time")
-        if _is_time(start) and start <= now and (best is None or start > best):
-            best = start
-    return best
+        if not _is_time(start) or start > now:
+            continue
+        if best is None or start > best[1]["start_time"]:
+            best = (name, window)
+    return best if best else (None, None)
+
+
+def season_start(group, raw_data, now):
+    """When the season a tally belongs to began, or None."""
+    _name, window = current(group, raw_data, now)
+    return None if window is None else window["start_time"]
 
 
 def remaining(group, raw_data, now):

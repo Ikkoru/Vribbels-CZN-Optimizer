@@ -1083,8 +1083,12 @@ def _checklist_redraw_replaces_nothing(tab):
     # manager saves to `settings/`, which is the maintainer's.
     others = {t: widgets(tab.column_texts[t][0], [])
               for t in tab.column_texts if t != title}
-    product = mod._product_of(next(
-        key for key, _l, _w in rows if mod._is_shop(key)))
+    # **The LAST product of a shop**, which is the case that once got
+    # through: untracking it changes its colour and moves no row, so a
+    # redraw decided on the row keys alone found them unchanged, left
+    # the column standing, and rewrote the Text that was on screen.
+    shop_keys = [key for key, _l, _w in rows if mod._is_shop(key)]
+    product = mod._product_of(shop_keys[-1])
     original = tab._tracked
     tab._tracked = lambda p, _f=original, _p=product: (
         not _f(_p) if p == _p else _f(p))

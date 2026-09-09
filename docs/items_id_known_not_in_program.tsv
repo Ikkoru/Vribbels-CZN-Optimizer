@@ -46,5 +46,6 @@ res_id	where	amount	Name	Type	Note
 3920031	items	39712	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable
 3930003	items	2	Core of Resonance	Save Data Edit	Core of Resonance | Save Data Edit
 3930004	items	43	Core of Mutation	Save Data Edit	
+5201083	items	0	Animated Card Unlock Item - Olga	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it (this one is char 30117)
 5210000	shop		Prism Module - Nominate	Animated Card Unlock Item	Seen only in shop_res_data (card_factor_4, 200 Prism Lens, 3/month); the account has never held one, which is why no dump listed it
 5210001	items	2	Prism Module - Masterpiece	Animated Card Unlock Item - 5*	

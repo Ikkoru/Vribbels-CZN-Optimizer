@@ -504,10 +504,12 @@ RECORDED_NAMES = {
     3210002: "Multidimensional Alignment Material",
     3300001: "Sweet Choconilla",
     3300002: "Exquisite Slice of Cake",
+    3300005: "Perfect Spray Gun",
     3300006: "Locket Necklace of Memories",
     3300007: "Excellent Merit Badge",
     3300008: "Lucky Sachet",
     3300011: "Carefully Handwritten Letter",
+    3300012: "Heartbeat Purfume",
     3300013: "Cute Rabbit Doll",
     3300016: "Handmade Wooden Doll",
     3300018: "A Not So Boring Wait",
@@ -528,6 +530,9 @@ RECORDED_NAMES = {
     3920031: "Seasonal Event Currency",
     3930003: "Core of Resonance",
     3930004: "Core of Mutation",
+    # One per combatant; `purchase_card_animation` names the rest.
+    5201083: "Animated Card Unlock Item - Olga",
+    5210000: "Prism Module - Nominate",
     5210001: "Prism Module - Masterpiece",
 }
 

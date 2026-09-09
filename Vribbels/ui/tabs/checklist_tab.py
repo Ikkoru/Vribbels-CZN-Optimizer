@@ -173,6 +173,7 @@ NO_LIMIT = "unlimited"
 COUNTDOWNS = {
     "basin": "HYPER_SPACE_SEASON",
     "matrix": "ZERO_REWARD_LIST",
+    "offensive": "REMNANTS_BOSS_PENALTY",
     "supply_season": "SEASON_PASS",
     "galactic_disaster": "DISASTER_SEASON",
     "shophead:shop_assault/none": "ASSAULT_SCHEDULE",
@@ -238,6 +239,25 @@ def event_rows(raw, now=None):
                  for _end, name in sorted(found))
 
 
+def _event_key(name):
+    """An event or mission id with the differences between the two
+    normalised away. See `EVENT_NOISE_WORDS`."""
+    parts = [part for part in str(name).split("_")
+             if part not in EVENT_NOISE_WORDS]
+    return "_".join(part.lstrip("0") or "0" if part.isdigit() else part
+                    for part in parts)
+
+
+def _under(mission, event):
+    """Whether a normalised mission id belongs to a normalised event.
+
+    On a SEGMENT boundary, so `event_daily_1` does not swallow
+    `event_daily_12`'s missions -- the ids differ by a digit and
+    a plain prefix test cannot tell them apart.
+    """
+    return mission == event or mission.startswith(event + "_")
+
+
 def _event_progress(raw, name):
     """[(words, state)] for one event's rewards, or [] where unmapped.
 
@@ -246,14 +266,17 @@ def _event_progress(raw, name):
     event about to expire is usually in, and the one worth telling
     apart from an event still owing something.
     """
-    prefix = EVENT_MISSIONS.get(name)
-    if not prefix:
-        return []
     missions = (raw or {}).get(PASS_MISSION_FIELD)
     if not isinstance(missions, dict):
         return []
-    rows = [row for res_id, row in missions.items()
-            if str(res_id).startswith(prefix) and isinstance(row, dict)]
+    override = EVENT_MISSIONS.get(name)
+    if override:
+        rows = [row for res_id, row in missions.items()
+                if str(res_id).startswith(override) and isinstance(row, dict)]
+    else:
+        want = _event_key(name)
+        rows = [row for res_id, row in missions.items()
+                if isinstance(row, dict) and _under(_event_key(res_id), want)]
     if not rows:
         return []
     claimed = sum(1 for row in rows if row.get("complete_time"))
@@ -298,24 +321,27 @@ EVENT_GROUPS = ("EVENT_SCHEDULE", "EVENT_COMBATANT_TRIAL",
 # What an event row's key is built from.
 EVENT_KEY_PREFIX = "event:"
 
-# What an event's missions are called, per event id. **The two ids are
-# not the same and cannot be derived from one another** --
-# `event_stock_01` numbers its missions `event_stock_1_01_*`,
-# `event_schedule_policy_005` drops the middle word for
-# `event_policy_5_*`, and `event_summer_01` gains one for
-# `event_summer_mission_01_*` -- so the pairs are written down as each
-# is read off a capture.
+# An event's id and its missions' ids differ, but only in ways that can
+# be normalised away -- so the pairing is DERIVED rather than listed.
+# Two differences, and no others across every pair read off a capture:
 #
-# The value is a PREFIX: every `event_mission_entities` row whose
-# res_id starts with it belongs to that event, and a row carrying a
-# `complete_time` has had its reward taken. An event with no entry here
-# shows its deadline and no tally, which is what every event did before
-# any of them were mapped.
-EVENT_MISSIONS = {
-    "event_summer_01": "event_summer_mission_01",
-    "event_schedule_policy_005": "event_policy_5",
-    "event_stock_01": "event_stock_1",
-}
+#   `event_schedule_policy_005` -> `event_policy_5_*`      a spare word
+#   `event_summer_01`           -> `event_summer_mission_01_*`   ditto
+#   `event_schedule_love_4`     -> `event_love_04_*`     zero padding
+#   `event_schedule_devil_001`  -> `event_devil_01_*`         ditto
+#   `event_stock_01`            -> `event_stock_1_01_*`        ditto
+#
+# Dropping the spare words and the padding makes each pair identical up
+# to the mission's own numbering. **This is what keeps the numbers
+# following the game**: an event that returns as `..._006` finds
+# `..._6_*` with no edit here.
+EVENT_NOISE_WORDS = ("schedule", "mission")
+
+# Events the rule cannot reach, as {event id: mission id prefix}. Empty
+# because nothing has needed one; an event whose missions are named
+# unlike its schedule goes here, and one that is simply unmapped shows
+# its deadline and no tally.
+EVENT_MISSIONS = {}
 
 # What an event with every reward taken reads instead of a tally.
 EVENT_CLAIMED = "All Claimed"
@@ -364,6 +390,7 @@ COLUMNS = (
     ("Other", (
         ("basin", "Basin of Hyperspace", with_countdown("99/99")),
         ("matrix", "Zero System Chaos Matrix", WIDEST_COUNTDOWN),
+        ("offensive", "Full-Scale Offensive", with_countdown("9/9")),
         ("supply_season", "Arkhianon Supply", with_countdown("70/70")),
         ("galactic_disaster", "Galactic Disaster (Seasonal)",
          WIDEST_COUNTDOWN),
@@ -540,6 +567,13 @@ DELEGATION_DONE = "Done"
 # done every choice reads the same.
 BASIN_FIELD = "mission_seasson_entities"
 
+# The Full-Scale Offensive: one `remnants_entities` row per stage, each
+# with a `star_count` out of three and a `best_score`. Three stages of
+# three stars is the nine the screen shows, and the denominator is
+# counted from the rows so a fourth stage needs no edit.
+OFFENSIVE_FIELD = "remnants_entities"
+OFFENSIVE_STARS = 3
+
 # The Galactic Disaster's weekly CHAOS progress, and its ceiling. The
 # score is not capped on the wire -- `week_clear_score` reads 8000 with
 # the screen showing 8000/8000 -- so the cap is stated and the display
@@ -597,18 +631,17 @@ class ChecklistTab(BaseTab):
         # and the row set they were built for. A snapshot that changes
         # the set -- a shop gaining a product -- rebuilds them.
         self.column_texts = {}
-        # **Everything below is kept PER COLUMN, and that is what stops
-        # the tab flashing.** A redraw that rewrote all four columns
-        # destroyed and recreated every embedded checkbox each time a
-        # capture saved or a box was ticked, and the reflow that costs
-        # is visible. A column now redraws only when its own content
-        # changed: `_built_signatures` is the row set it was built for
-        # and `_rendered` is what is actually drawn in it.
-        self._built_signatures = {}
+        # **Kept PER COLUMN, and that is what stops the tab flashing.**
+        # A redraw that rewrote all four destroyed and recreated every
+        # embedded checkbox each time a capture saved or a box was
+        # ticked. `_rendered` is what each column actually has drawn in
+        # it, and the only thing a redraw is decided on: identical
+        # leaves it alone, a reading moved patches that line, anything
+        # else builds the column again.
         self._rendered = {}
-        # The shop checkboxes embedded in each column. A Text does not
-        # own an embedded window, so they are held here and destroyed
-        # when that column is rewritten.
+        # The shop checkboxes embedded in each column, so a toggle can
+        # find the widget it came from. Not owned: Tk destroys an
+        # embedded window along with the Text holding it.
         self._boxes = {}
         # The last `shop_res_data` seen. A capture's first snapshot is
         # written before the shops arrive, and without this the whole
@@ -719,10 +752,13 @@ class ChecklistTab(BaseTab):
         paint rather than a Text appearing empty and filling in. See
         `_build_column`.
 
-        A column's signature is its row keys IN ORDER. What a row is
-        drawn in is not in it: colour follows the tracked set, which
-        `_fill` reads for itself, and a product ticked at the bottom of
-        its shop moves nothing.
+        **Anything `_fill` cannot patch is rebuilt here**, which is the
+        whole of the rule: a patch rewrites a line's reading and
+        touches no widget, and everything else needs new checkboxes.
+        Deciding on the row keys alone left one case behind -- ticking
+        a product already at the bottom of its shop changes its COLOUR
+        and moves nothing, so the keys matched, no rebuild ran, and the
+        rewrite landed on the Text that was already on screen.
         """
         # The shop DEFINITIONS are remembered across snapshots, so a
         # capture's first save -- written before the shop payloads
@@ -733,10 +769,10 @@ class ChecklistTab(BaseTab):
         built = columns_for(raw, self._tracked, time.time(),
                             self._definitions)
         for frame, (title, rows) in zip(self._column_frames, built):
-            signature = tuple(key for key, _l, _w in rows)
-            if signature == self._built_signatures.get(title):
-                continue
-            self._built_signatures[title] = signature
+            drawn = tuple(self._line(key, label, readings)
+                          for key, label, _w in rows)
+            if _same_rows(self._rendered.get(title), drawn):
+                continue                    # `_fill` patches or skips
             outgoing = list(frame.winfo_children())
             # The old column's own state goes with it. The checkboxes
             # need no destroying: Tk destroys an embedded window with
@@ -821,8 +857,11 @@ class ChecklistTab(BaseTab):
                           bg=self.colors["bg"])
         holder.pack_propagate(False)
         # spacing: panel ↕ unrelated label -- heading, frame ↕
-        show.append(lambda: holder.pack(anchor=tk.N,
-                                          pady=px((HEADING_GAP, 0))))
+        # Packed LAST of the three, so it never maps as an empty
+        # block waiting for its Text: a child packed into an unmapped
+        # parent maps with it, all at once.
+        pack_holder = lambda: holder.pack(anchor=tk.N,
+                                          pady=px((HEADING_GAP, 0)))
 
         text = tk.Text(
             holder, wrap=tk.NONE, bd=0, highlightthickness=px(0),
@@ -838,6 +877,7 @@ class ChecklistTab(BaseTab):
             tabs=(stop,),
         )
         show.append(lambda: text.pack(fill=tk.BOTH, expand=True))
+        show.append(pack_holder)
         # spacing: label row -> label row -- run, run ↕
         text.tag_configure("row", spacing1=px(ROW_PITCH))
         # A shop's products, indented under the shop's own row. In
@@ -1190,7 +1230,22 @@ def _readings(raw, now=None):
     # The Basin of Hyperspace: objectives done, out of the season's own
     # total. Nothing states the total, so it is how many the season
     # holds -- which is the same figure the game shows.
-    done, total = _basin(raw)
+    # The Full-Scale Offensive, scored in STARS. Each of its stages
+    # carries a `star_count` out of three and its own `best_score`; the
+    # screen's total score is those scores summed, which is a figure
+    # this row has no room for and no deadline to measure it against.
+    stages = raw.get(OFFENSIVE_FIELD)
+    stages = [row for row in (stages or {}).values()
+              if isinstance(row, dict)] if isinstance(stages, dict) else []
+    if not stages:
+        out["offensive"] = _one(NO_DATA, UNKNOWN)
+    else:
+        stars = sum(row.get("star_count") or 0 for row in stages)
+        most = OFFENSIVE_STARS * len(stages)
+        out["offensive"] = _one("%d/%d" % (stars, most),
+                                _done(stars >= most))
+
+    done, total = _basin(raw, now)
     if total is None:
         out["basin"] = _one(NO_DATA, UNKNOWN)
     else:
@@ -1300,38 +1355,34 @@ def _live_pass(raw):
     return live[1] if live else {}
 
 
-def _basin(raw):
-    """(objectives done, objectives in the season), or (0, None).
+def _basin(raw, now):
+    """(objectives done this season, objectives in a season), or
+    (0, None).
 
-    The LEAST complete season, which is the one with work left. Ties go
-    to whichever sorts last, so two finished seasons read the same
-    either way.
+    **A season's own row count is not its size.** The game issues an
+    objective lazily, so the live season carries only the ones it has
+    got to -- fifteen rows, all fifteen scored, for a season of
+    twenty-six. Read straight off, that is a finished season.
+
+    So the numerator is the live season's and the denominator is the
+    largest any season has reached, which a completed one states
+    exactly. Both move to the season's real size as the rows arrive.
     """
     seasons = raw.get(BASIN_FIELD)
-    best = None
-    for name in sorted(seasons or {}) if isinstance(seasons, dict) else ():
-        rows = seasons[name]
-        if not isinstance(rows, dict) or not rows:
-            continue
-        done = sum(1 for row in rows.values()
-                   if isinstance(row, dict) and row.get("score"))
-        if best is None or done - len(rows) <= best[0] - best[1]:
-            best = (done, len(rows))
-    return best if best else (0, None)
-
-
-def _one(text, state):
-    """One reading, as the single segment a row usually has."""
-    return [(text, state)]
-
-
-def _countdown_state(seconds):
-    """What colour a countdown is drawn in, by how long is left."""
-    hours = seconds / 3600.0
-    for under, state in COUNTDOWN_STATES:
-        if under is None or hours < under:
-            return state
-    return LATER
+    if not isinstance(seasons, dict) or not seasons:
+        return 0, None
+    sized = {name: rows for name, rows in seasons.items()
+             if isinstance(rows, dict) and rows}
+    if not sized:
+        return 0, None
+    total = max(len(rows) for rows in sized.values())
+    name, _window = schedules.current(COUNTDOWNS["basin"], raw, now)
+    if name not in sized:
+        # No schedule for it: the last season the account has rows for.
+        name = sorted(sized)[-1]
+    done = sum(1 for row in sized[name].values()
+               if isinstance(row, dict) and row.get("score"))
+    return done, total
 
 
 def _one(text, state):

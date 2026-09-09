@@ -165,6 +165,7 @@ class Addon:
         # send a DIFFERENT set under one key, so a wholesale replace
         # loses whichever arrived first.
         self.point_entity = None
+        self.remnants = None
         self.season_pass = None
         self.missions = {}
 
@@ -753,6 +754,12 @@ class Addon:
         if isinstance(data.get("event_mission_entities"), list):
             self._merge_missions(data["event_mission_entities"])
             self._save_pending = True
+        # The Full-Scale Offensive's stages, one row each with the
+        # stars taken and the best score. Replaced whole: the reply IS
+        # the board, and a stage's absence from it is a reading.
+        if isinstance(data.get("remnants_entities"), dict):
+            self.remnants = data["remnants_entities"]
+            self._save_pending = True
         # **At LOGIN the pass missions arrive somewhere else entirely**,
         # nested as `season_pass_missions[<pass id>][<mission id>]`
         # rather than in the flat `mission_entities` list -- which is
@@ -1119,6 +1126,7 @@ class Addon:
             # capture taken before anything needs them already carries
             # the history.
             "point_entity": self.point_entity,
+            "remnants_entities": self.remnants or None,
             "season_pass_entity": self.season_pass,
             "mission_entities": self.missions or None,
             "shop_list": self.shop_products or None,

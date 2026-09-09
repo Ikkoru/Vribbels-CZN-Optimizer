@@ -1,16 +1,16 @@
 """The three DoT types do not share a damage formula.
 
-Agony scales off ATK and DoT% like the others but neither crits nor
-takes buffs; Fracture and Scorched do both, which makes them ordinary
-ATK-scaling damage. Dropping the buffs is what makes the difference
-build-dependent rather than a constant rescale: a conditional set
-dialled up for `DMG multi` lifts the Fracture share and not the Agony
-one, so the two rank gear differently.
+Agony scales off ATK, DoT% and crit like the others but takes no
+buffs; Fracture and Scorched take both, which makes them ordinary
+ATK-scaling damage. The buffs are the whole of the difference, and what
+makes it build-dependent rather than a constant rescale: a conditional
+set dialled up for `DMG multi` lifts the Fracture share and not the
+Agony one, so the two rank gear differently.
 
 Nothing about a regression here is visible. Folding Agony back into the
 shared `atk_scaling` term still produces a full, plausible, correctly
-sorted results table -- one that has quietly ranked crit gear for a
-combatant whose damage cannot crit.
+sorted results table -- one that has quietly ranked a build by buffs
+that never reach its damage.
 
 Canonical: docs/game_formulas.md §3.4 and §8.
 """
@@ -35,7 +35,7 @@ STATS = {"ATK": 5000, "DEF": 500, "CRate": 0, "CDmg": 125,
 
 # share key -> (label, crits, takes buffs)
 TYPES = {
-    "dot_pct": ("Agony", False, False),
+    "dot_pct": ("Agony", True, False),
     "fracture_pct": ("Fracture/Scorched", True, True),
     "extra_pct": ("Extra", True, True),
 }
