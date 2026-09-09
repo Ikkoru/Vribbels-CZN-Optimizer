@@ -16,6 +16,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Added
 
+- **Olga and Emilie.**
+
 - **A Checklist tab.** Four columns — Daily, Weekly, Monthly and Other — listing what comes back on each, with what is left to do beside it. Green means nothing left, red means something is, and a dash means the capture does not carry the answer yet.
 
   - Each heading counts its own period down, and colours the time by how much of it is left.
@@ -28,6 +30,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 - **Memory Fragments tab: `Highest GS/Potential: Upgrade Log Settings`.** A second checkbox beside `Assigned Presets Only`. With it on, the two Highest columns judge a fragment the same way the Capture tab's Upgraded lines do -- only the presets ticked in Log Presets, and only those whose combatants can actually use that fragment's main stat. Remembered.
 
 ### Changed
+
+- **Default settings imporeved.**
 
 - **Agony damage can crit.** The game changed; the optimizer follows. Crit gear is now worth more to a combatant with an Agony share than it was, so their results will re-rank. Agony still takes no buffs, which is the only thing left separating it from Fracture.
 
