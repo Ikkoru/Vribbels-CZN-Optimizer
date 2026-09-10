@@ -77,9 +77,11 @@ One row per kind seen so far. **The group is what decides the reader** — a new
 | `EVENT_DAILY_CHECK` | `attendance_entities`, the first row started after the event | `received_days` / 7 | exact |
 | `EVENT_OVERCLOCK` | `overclock_entities[event id]` | doubled runs LEFT today | exact |
 | `EVENT_COMBATANT_TRIAL` | `combat_trial_entities`, sized by the banner sharing its window | claims inside the window / 3 per banner | exact |
-| the summer event | `event_summer_define_entity` | items spent ÷ 8 taken, items earned ÷ 8 ready | exact for what is WAITING |
+| the summer event | falls back to its missions | claimed rows / rows held | **floor** |
 
-**Only the first is a floor, and it is the common case.** Because of that a mission-counted row never goes green: it read three of three on the devil event's first afternoon against a real twenty-one, and twelve of twelve on the summer event with a wave unissued. A checklist that says done when it is not is worse than one that says nothing.
+**A floor is the common case, and it never goes green.** It read three of three on the devil event's first afternoon against a real twenty-one, and twelve of twelve on the summer event with a wave unissued. A checklist that says done when it is not is worse than one that says nothing — so a floor stays red, and turns orange only once it has stopped moving. See "When nothing can prove an event is finished" below.
+
+**The summer event resisted every derivation.** Its define's `reward_count` is the event ITEMS spent and `event_item_count` the items earned, neither of which is a reward count; the rate that converts them (eight items per reward) is not on the wire, nor is the eighty-four the last reward costs, nor any per-reward claimed flag. A rate written into the program read six of six correctly for nine rewards and would have been wrong for the tenth, which is exactly the kind of number that goes stale.
 
 ### Totals that are known and still not derivable
 
