@@ -309,7 +309,7 @@ GACHA_TARGETS = (
 # The rows whose figure is COLOURED by how far it has got. One per
 # block, and the most ambitious one in it: the others are steps on the
 # way and a colour on each would be a column of traffic lights.
-SHARE_COLOURED = ("Level 60:", "+Neutral:", "Poor luck:")
+SHARE_COLOURED = ("Level 60:", "+Neutral:", "+Neut:", "Poor luck:")
 
 # The bands, and what each is drawn in. Read top down: the first whose
 # floor the share reaches wins. Green is a target already covered.
@@ -322,16 +322,16 @@ SHARE_COLOURS = {"share_full": "green", "share_part": "yellow",
 RESERVED_ITEMS = (2000001, 2000027, 2000036, None)
 
 
-def _share_state(label, values):
-    """Which band a coloured row's figure falls in, or None.
+def _share_state(label, value):
+    """Which band one figure falls in, or None.
 
-    None for a row that takes no colour, for one whose figure is the
+    None for a row that takes no colour, for a figure that is the
     no-data dash, and for anything that is not a percentage -- the
     totals line is a bare count and means nothing as a share.
     """
-    if label not in SHARE_COLOURED or len(values) != 1:
+    if label not in SHARE_COLOURED:
         return None
-    text = str(values[0]).strip()
+    text = str(value).strip()
     if not text.endswith("%"):
         return None
     try:
@@ -823,12 +823,21 @@ class MaterialsTab(BaseTab):
             line = LINE_SEP + COLUMN_SEP + COLUMN_SEP.join((label, *values))
             text.insert(tk.END, line, "figure")
             # The VALUES take the share colour, not the label: the
-            # label says which target it is and does not move.
-            state = _share_state(label, values)
-            if state:
-                at = text.index("end-1c linestart")
-                text.tag_add(state, "%s + %d chars"
-                             % (at, 1 + len(label)), "end-1c")
+            # label says which target it is and does not move. Each
+            # value is coloured on ITS OWN -- the Advanced row carries
+            # three, one per item beside it, and none of the three
+            # stands in for another, so one verdict over the line would
+            # be a verdict over three separate stocks.
+            at = text.index("end-1c linestart")
+            start = 1 + len(label)
+            for value in values:
+                state = _share_state(label, value)
+                if state:
+                    text.tag_add(
+                        state,
+                        "%s + %d chars" % (at, start),
+                        "%s + %d chars" % (at, start + 1 + len(value)))
+                start += 1 + len(value)
         text.config(state=tk.DISABLED)
 
     def _build_advanced_row(self, row, index, spec):

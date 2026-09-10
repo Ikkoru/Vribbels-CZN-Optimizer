@@ -1140,7 +1140,11 @@ def _measure_tabs(app, notebook, gaps, scenario):
     tab_names = [n for n in ordered if n in by_tab]
     tab_names += [n for n in by_tab if n not in ordered]
 
-    prefix = "" if scenario == "default" else f"[{scenario}] "
+    # The scenario names the WHOLE RUN of a tab, so it goes on the
+    # heading that groups those rows rather than on each of them --
+    # repeated down every gap name it pushed the names out of line
+    # and said the same thing forty times.
+    suffix = "" if scenario == "default" else f"  [{scenario}]"
     rows = []
     for tab_name in tab_names:
         # A panel's rows stay together. Entries tracking a second element
@@ -1151,8 +1155,8 @@ def _measure_tabs(app, notebook, gaps, scenario):
         tab_gaps = _grouped_by_panel(by_tab[tab_name])
         tab_id = _tab_id(notebook, tab_name)
         if tab_id is None:
-            rows.extend((prefix + g.name, g.target, None,
-                         f"no tab {tab_name!r}", tab_name, g.axis,
+            rows.extend((g.name, g.target, None,
+                         f"no tab {tab_name!r}", tab_name + suffix, g.axis,
                          g.provisional) for g in tab_gaps)
             continue
         notebook.select(tab_id)
@@ -1171,26 +1175,27 @@ def _measure_tabs(app, notebook, gaps, scenario):
                     caps[g.window] = f"no window to capture: {exc}"
             cap = caps[None] if g.window is None else caps[g.window]
             if isinstance(cap, str):
-                rows.append((prefix + g.name, g.target, None, cap,
-                             tab_name, g.axis, g.provisional))
+                rows.append((g.name, g.target, None, cap,
+                             tab_name + suffix, g.axis, g.provisional))
                 continue
             try:
                 value, note = g.resolve(cap, app)
             except tk.TclError as exc:
-                rows.append((prefix + g.name, g.target, None,
-                             f"unmapped: {exc}", tab_name, g.axis,
+                rows.append((g.name, g.target, None,
+                             f"unmapped: {exc}", tab_name + suffix, g.axis,
                              g.provisional))
                 continue
             except Exception as exc:                      # noqa: BLE001
-                rows.append((prefix + g.name, g.target, None,
-                             f"error: {exc}", tab_name, g.axis,
+                rows.append((g.name, g.target, None,
+                             f"error: {exc}", tab_name + suffix, g.axis,
                              g.provisional))
                 continue
             if g.hand is not None and value is not None and value != g.hand:
                 disagreement = f"HAND READ {g.hand}"
                 note = f"{note}, {disagreement}" if note else disagreement
-            rows.append((prefix + g.name, g.target, value,
-                         _with_source(note, g.target_source), tab_name,
+            rows.append((g.name, g.target, value,
+                         _with_source(note, g.target_source),
+                         tab_name + suffix,
                          g.axis, g.provisional))
     return rows
 

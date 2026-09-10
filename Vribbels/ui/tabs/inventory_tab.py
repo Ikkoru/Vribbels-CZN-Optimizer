@@ -89,6 +89,11 @@ SETS_BY_NAME = {v["name"]: v for v in SETS.values()}
 # the counts they show, so anything that empties them makes it narrow.
 SETS_PANEL_MIN_W = 741
 
+# How far the active-preset caption's own inset is pulled back, so its
+# INK lands where the rule measures to rather than the widget's edge.
+# See the call site.
+PRESET_LABEL_TRIM = -3
+
 
 
 MAIN_STAT_DISPLAY = [
@@ -230,7 +235,7 @@ class InventoryTab(BaseTab):
         slot_col.pack(side=tk.LEFT, padx=px(2), anchor=tk.N)
 
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=px((0, 1, 0, 2)))
+        slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=px((0, 2, 0, 3)))
         slot_frame.pack(fill=tk.X)
 
         slot_inner = ttk.Frame(slot_frame)
@@ -262,10 +267,18 @@ class InventoryTab(BaseTab):
         # against. wraplength wraps a long preset name onto a second line
         # rather than widening this column, which would push the Sets and
         # Main Stats filters to the right.
+        # spacing: content frame -> content frame -- frame, label ↔
+        # NEGATIVE, and it has to be: the label's left edge already sits
+        # where the panel's border does, which is the rule's 4 -- but a
+        # ttk.Label insets its own text inside that, so the INK the rule
+        # is measured to lands three further right. Padding is the only
+        # lever that reaches inside the widget. Safe here where it is
+        # not on a LabelFrame, whose own border a negative eats.
         self.active_preset_label = ttk.Label(
             slot_col, text="Preset: Default",
             foreground=self.colors["fg_dim"],
             wraplength=px(205), justify=tk.LEFT,
+            padding=px((PRESET_LABEL_TRIM, 0, 0, 0)),
         )
         # spacing: panel ↕ unrelated label -- panel, label ↕
         # The leading pad is the whole lever: the trailing side has
@@ -274,7 +287,7 @@ class InventoryTab(BaseTab):
 
         # ----- Sets filter -----------------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=px((0, 1, 0, 2)))
+        set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=px((0, 2, 0, 3)))
         # spacing: content frame -> content frame -- frame, frame ↔
         set_frame.pack(side=tk.LEFT, padx=px(2), anchor=tk.N)
 
@@ -286,7 +299,7 @@ class InventoryTab(BaseTab):
 
         # ----- Main Stats filter -----------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=px((0, 3, 0, 2)))
+        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=px((0, 2, 0, 3)))
         # spacing: content frame -> content frame -- frame, frame ↔
         # Trailing 0, so this panel's two sides answer to two rules
         # without sharing a lever: what follows it is not another panel
@@ -640,7 +653,7 @@ class InventoryTab(BaseTab):
             # only ever grow it: Tk rejects a negative, so a tighter gap
             # would have to come off the per-column count width instead.
             cnt.grid(row=row, column=base_col + 1, sticky=tk.E,
-                     padx=px((1, 3 if logical_col == len(col_count_widths) - 1 else 2)),
+                     padx=px((1, 2 if logical_col == len(col_count_widths) - 1 else 2)),
                      pady=px((top_pad, 0)))
             # Clicking the count toggles the checkbox too (the count label
             # isn't part of the Checkbutton's own hit area).
