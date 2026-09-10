@@ -67,45 +67,15 @@ Over and over the wire describes one thing in two places under ids that do not m
 
 **Use it last, and keep what it learns.** It only sees what happens while a capture runs, so a table built this way must be seeded from the previous snapshot or it lasts one session — `capture/manager._seed_trial_slots` is the pattern. Prefer it as an OVERRIDE on a derivation rather than as the only source, so a fresh install still reads something.
 
-## Where each kind of event keeps its progress
+## Events
 
-One row per kind seen so far. **The group is what decides the reader** — a new event in a known group needs no edit — and `checklist_tab.EVENT_READERS` is the table.
+**`docs/events.md` is the canonical write-up** — the categories, how to classify one, where each kind keeps its progress, the totals the wire never states, and how to add an event nobody has mapped.
 
-| Group | Where its progress lives | Reading | Exact? |
-| ----- | ------------------------ | ------- | ------ |
-| `EVENT_SCHEDULE`, `EVENT_NODELIST_PAGE` | `event_mission_entities`, matched by the normalised id | claimed rows / rows held | **floor** |
-| `EVENT_DAILY_CHECK` | `attendance_entities`, the first row started after the event | `received_days` / 7 | exact |
-| `EVENT_OVERCLOCK` | `overclock_entities[event id]` | doubled runs LEFT today | exact |
-| `EVENT_COMBATANT_TRIAL` | `combat_trial_entities`, sized by the banner sharing its window | claims inside the window / 3 per banner | exact |
-| the summer event | falls back to its missions | claimed rows / rows held | **floor** |
+Two things from it are worth repeating here because they are general:
 
-**A floor is the common case, and it never goes green.** It read three of three on the devil event's first afternoon against a real twenty-one, and twelve of twelve on the summer event with a wave unissued. A checklist that says done when it is not is worse than one that says nothing — so a floor stays red, and turns orange only once it has stopped moving. See "When nothing can prove an event is finished" below.
+**A count of the rows an account holds is a FLOOR.** The game creates a record when it issues the task, so an event still handing them out reads as finished. That is the one wrong answer a checklist must not give, and it is why such a row never goes green.
 
-**The summer event resisted every derivation.** Its define's `reward_count` is the event ITEMS spent and `event_item_count` the items earned, neither of which is a reward count; the rate that converts them (eight items per reward) is not on the wire, nor is the eighty-four the last reward costs, nor any per-reward claimed flag. A rate written into the program read six of six correctly for nine rewards and would have been wrong for the tenth, which is exactly the kind of number that goes stale.
-
-### Totals that are known and still not derivable
-
-Read off the game's own screens, recorded here rather than in the code — **a number typed into the program is wrong the moment its event ends**, and none of these is on the wire.
-
-| Event | Total | How it is built |
-| ----- | ----- | --------------- |
-| `event_schedule_devil_001` | 21 | three tasks a day, seven days. The ids are `event_devil_<day>_<task>`, and the days present already run 01–07 with a max task of 03 — so `max(day) × max(task)` gives 21 here |
-| `event_bartender_01` | 24 | three reward pages of 7, 7 and 10. `max × max` gives 18 and is WRONG: the pages are ragged, and nothing in the ids says so |
-| `event_summer_01` | 10 rewards, 84 items | one reward per 8 items fitted. 84 is not 10×8, so the last rewards are not evenly spaced |
-
-The devil case shows the shape of a derivation that would work — a rectangular family's size is `max(first index) × max(second index)` — and the bartender case shows why it cannot be applied blind. **Telling a rectangular family from a ragged one is the open problem.**
-
-### When nothing can prove an event is finished
-
-The Checklist's third colour. A reading whose denominator is only what the game has handed out so far is marked a FLOOR: it draws red like any other unfinished row, and **turns orange once it has stood at its own ceiling for two days**. Orange says "this looks finished and nothing here can prove it".
-
-Two days because an event that is still handing out rewards does so daily, so a tally that has not moved across two of them has either finished or stopped. Reading anything new restarts the clock, and a row BELOW its ceiling never settles however long it sits there — that is work outstanding, not an unanswerable question.
-
-**It needs memory, which is why it lives in `settings/checklist.json`.** When a row last read something new is a fact about the past, and a snapshot holds only the present; `ChecklistManager.first_seen` is the record, and rows that leave the tab are forgotten.
-
-### The lead worth following
-
-The game's Events page has a **Completed Events** tab, so the client decides completion for at least some events. Either it holds the totals in its own data files — the same place the trial slot lists live — or something on the wire says so and has not been found. A capture taken while opening that tab would settle it: if it fires a request, its reply is the answer; if it fires nothing, the totals are client-side and only a stated number can supply them.
+**A reading that cannot be proved complete gets a third colour.** Orange, after the floor has stood at its own ceiling for 48 hours — long enough that an event still handing out rewards daily would have moved it. It needs memory, so the record lives in `settings/checklist.json`: when a row last moved is a fact about the past and a snapshot holds only the present.
 
 ## What is on the wire and what is not
 

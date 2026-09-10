@@ -32,6 +32,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **Daily rows come back on their own.** The coffee and the Communication Passes had no date attached, so with no capture running they kept yesterday's answer — a drunk coffee stayed green past the reset. They now reset with the clock like every other daily row.
 
+- **An Overclock event counts the runs you have taken, not the ones left.** Every other row on the tab reads as done-out-of-total, so `2/2` on a day nothing had been used looked finished. A repeating event's finished cycle reads orange rather than green: it comes back tomorrow.
+
 - **An event that looks finished but cannot be proved finished reads orange.** Where the only number available is the rewards handed out so far, a row that has sat at its own total for two days is neither red nor green.
 
 - **An event row says what it can prove.** Where the game states a total, the row counts against it and can go green; where the only number available is the missions handed out so far, it shows that and stays red — an event still handing them out would otherwise read as finished on its first day.

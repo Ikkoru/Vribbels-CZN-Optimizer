@@ -76,6 +76,7 @@ def run():
         DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
         MODULE_WINDOWS, NO_DATA,
         SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
+        CYCLE_DONE, OVERCLOCK_USES, _event_overclock,
     )
 
     failures = []
@@ -146,6 +147,39 @@ def run():
                 f"{point!r} points reads {got!r}, not {(want, state)!r}. "
                 f"Only a record stamped with TODAY is a claim that "
                 f"happened today.")
+
+    # --- an event row counts what is DONE, never what is left --------
+    # **Both directions print a plausible number**, and the wrong one
+    # is worst where the two agree: a full cap and an empty one both
+    # read `2/2` if the numerator is flipped, and `2/2` is what every
+    # other row on the tab uses for finished.
+    #
+    # An Overclock event is GENERIC -- its runs come back tomorrow --
+    # so a finished cycle is orange and never green.
+    reset = weekly_reset.last_daily_reset(now)
+    for taken, want, state in ((2, "2/2", CYCLE_DONE),
+                               (1, "1/2", TODO),
+                               (0, "0/2", TODO)):
+        raw = _snapshot()
+        raw["overclock_entities"] = {"e": {"res_id": "e", "count": taken,
+                                           "reset_time": int(reset + HOUR)}}
+        got = _event_overclock(raw, "e", {}, now)
+        if got != [(want, state)]:
+            failures.append(
+                f"{taken} of {OVERCLOCK_USES} doubled runs taken reads "
+                f"{got!r}, not {[(want, state)]!r}. The numerator is what "
+                f"has been DONE, like every other row, and a finished "
+                f"cycle is orange because the runs come back tomorrow.")
+    # A count stamped before the reset is yesterday's: none taken today.
+    raw = _snapshot()
+    raw["overclock_entities"] = {"e": {"res_id": "e", "count": 2,
+                                       "reset_time": int(reset - HOUR)}}
+    got = _event_overclock(raw, "e", {}, now)
+    if got != [("0/2", TODO)]:
+        failures.append(
+            f"an Overclock count stamped before the reset reads {got!r}, "
+            f"not [('0/2', {TODO!r})]. It is yesterday's tally, and the "
+            f"day's runs have come back.")
 
     # --- a DAY that has rolled brings its rows back ------------------
     # The town's daily block carries no date of its own but does carry
