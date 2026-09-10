@@ -142,7 +142,6 @@ class Addon:
         # which is the only res_id in the whole payload that does not
         # depend on owning the unit, so a release's id is readable here
         # from the day its banner opens.
-        self.gacha_banners = None
 
         # One row per combatant that has been on an excursion, from a
         # frame that carries nothing else the snapshot wants. Kept on
@@ -169,6 +168,7 @@ class Addon:
         self.zero_orb = None
         self.attendance = None
         self.season_rewards = None
+        self.event_defines = {}
         # {trial event id: [slot ids]}, learned from claims and
         # kept forever -- see `reward_combatant_trial`.
         self.trial_slots = {}
@@ -741,7 +741,6 @@ class Addon:
             self.event_schedules = schedules
             self._save_pending = True
             if isinstance(schedules.get("GACHA"), dict):
-                self.gacha_banners = schedules["GACHA"]
                 self._report_unknown_units()
 
         # The excursion board's reply: one row per combatant that has
@@ -766,9 +765,20 @@ class Addon:
         # one of these -- so without this branch the Materials tab
         # reads whatever was true when the game was started, with no
         # save, no log line and nothing to say it went stale.
-        for key in ("add_result", "item_result", "dec_result"):
-            if isinstance(data.get(key), dict):
-                self._apply_totals(data[key], spent=key == "dec_result")
+        # **`result` is the fourth name for the same thing**, and it
+        # was missing: an event mission claim pays under it, so the
+        # Crystals from one landed nowhere and the Capture Log said
+        # nothing had been received. It is also the most OVERLOADED key
+        # on the wire -- a string, a bool, a stage's step record -- so
+        # it counts only where it carries a rewards payload.
+        for key in ("add_result", "item_result", "dec_result", "result"):
+            payload = data.get(key)
+            if not isinstance(payload, dict):
+                continue
+            if key == "result" and not ("currency" in payload
+                                        or "items" in payload):
+                continue
+            self._apply_totals(payload, spent=key == "dec_result")
 
         # A stage's rewards, which are the exception: a LIST of drops
         # with no record and no total, so they are added rather than
@@ -847,6 +857,14 @@ class Addon:
             else:
                 self.season_rewards.append(doc)
             self._save_pending = True
+        # An event that STATES its own totals. Keyed by the field
+        # it arrives under, since each kind has its own -- what
+        # they share is being the only exact count of an event.
+        for key, value in data.items():
+            if (key.startswith("event_") and key.endswith("_define_entity")
+                    and isinstance(value, dict) and value):
+                self.event_defines[key] = value
+                self._save_pending = True
         # The login-streak events: days shown up, days claimed.
         if isinstance(data.get("attendance_entities"), list):
             self.attendance = data["attendance_entities"]
@@ -1129,6 +1147,16 @@ class Addon:
             if isinstance(row, dict) and row.get("res_id") is not None:
                 self.missions[str(row["res_id"])] = row
 
+    def _banners(self):
+        """The gacha schedule, read from the ONE copy of it.
+
+        `event_schedules["GACHA"]` is where the banners live; the
+        snapshot used to carry a second copy under `gacha_banners`,
+        byte for byte the same 2.8 KB.
+        """
+        group = (self.event_schedules or {}).get("GACHA")
+        return group if isinstance(group, dict) else {}
+
     def _report_unknown_units(self):
         """Log any banner naming a res_id this build has no entry for.
 
@@ -1138,7 +1166,7 @@ class Addon:
         maintainer can own one.
         """
         seen = []
-        for banner_id in sorted(self.gacha_banners or {}):
+        for banner_id in sorted(self._banners()):
             # gacha_pickup_<kind>_<res_id>[_<rerun>] -- the res_id is the
             # FIRST number, and a rerun suffix follows it.
             parts = banner_id.split("_")
@@ -1221,7 +1249,6 @@ class Addon:
             "capture_time": datetime.now().isoformat(),
             "inventory": self.inventory_data,
             "characters": self.character_data,
-            "gacha_banners": self.gacha_banners,
             "char_visits": self.char_visits,
             "disaster_boss_rank_entities": self.disaster_ranks,
             "disaster_entities": self.disaster_seasons,
@@ -1235,6 +1262,7 @@ class Addon:
             "overclock_entities": self.overclock or None,
             "attendance_entities": self.attendance or None,
             "reward_entities": self.season_rewards or None,
+            **self.event_defines,
             "combat_trial_entities": self.combat_trials or None,
             "combatant_trial_slots": self.trial_slots or None,
             "season_pass_entity": self.season_pass,

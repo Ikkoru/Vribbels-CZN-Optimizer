@@ -322,43 +322,117 @@ def _event_overclock(raw, name, _window, now):
              TODO if left else WARN)]
 
 
-def _trial_count(raw, now):
-    """How many trials a Combatant Trial event offers.
+def _trial_banners(raw, window):
+    """The combatant ids whose banner runs on exactly this window.
 
-    Three per live combatant pickup banner -- the event runs the
-    banner combatants -- and never fewer than one banner's worth, so a
-    snapshot carrying no schedule still reads a sensible total.
+    **A trial event and a banner are the same period.** Every one of
+    the eight in a capture matched a `gacha_pickup_combatant_*` window
+    to the second, which is what pairs the two without either naming
+    the other -- and where two banners share a window they share the
+    trial event, which is then twice the size.
     """
-    banners = sum(1 for name, _window in schedules.all_live(
-        BANNER_GROUP, raw, now) if name.startswith(BANNER_PREFIX))
-    return TRIAL_PER_BANNER * max(1, banners)
+    if not isinstance(window, dict):
+        return []
+    span = (window.get("start_time"), window.get("end_time"))
+    out = []
+    for name, banner in schedules.groups(raw).get(BANNER_GROUP, {}).items():
+        if not isinstance(banner, dict) or not name.startswith(BANNER_PREFIX):
+            continue
+        if (banner.get("start_time"), banner.get("end_time")) == span:
+            out.append(name[len(BANNER_PREFIX):].split("_")[0])
+    return out
+
+
+def _trial_count(raw, window):
+    """How many trials a Combatant Trial event offers."""
+    return TRIAL_PER_BANNER * max(1, len(_trial_banners(raw, window)))
+
+
+def _trial_claims(raw, name, window, now):
+    """How many of a live trial event's rewards have been taken.
+
+    **Derived, where nothing states it.** Which three slots an event
+    offers is in the client's own data and on no message but the claim
+    -- so the count comes from the stamps instead: a slot claimed
+    inside this event's window was claimed for this event.
+
+    Two events overlap for the last week of each, and a claim then
+    falls inside both windows. What separates them is that each event's
+    window names a banner, and a slot named for the OTHER event's
+    banner combatant is that event's; the rest is capped at this
+    event's own size so an overlap cannot read as more than a full one.
+    """
+    mine = {TRIAL_SLOT_PREFIX + c for c in _trial_banners(raw, window)}
+    others = set()
+    for other, window_of in schedules.all_live(TRIAL_GROUP, raw, now):
+        if other != name:
+            others |= {TRIAL_SLOT_PREFIX + c
+                       for c in _trial_banners(raw, window_of)}
+    began, ends = window.get("start_time"), window.get("end_time")
+    claimed = 0
+    for row in (raw or {}).get(TRIAL_FIELD) or []:
+        if not isinstance(row, dict):
+            continue
+        slot = row.get("event_combatant_trial_slot_id")
+        when = row.get("complete_time")
+        if not _is_count(when) or not (began <= when <= ends):
+            continue
+        if slot in others - mine:
+            continue
+        claimed += 1
+    return claimed
 
 
 def _event_trials(raw, name, window, now):
     """[(words, state)] for a Combatant Trial event's rewards claimed.
 
-    Claimed THIS cycle: a slot's stamp is rewritten every time its
-    trial comes round, so it counts only if it falls inside the event's
-    own window. See `TRIAL_SLOTS_FIELD`.
+    Claimed THIS CYCLE. A slot's stamp is rewritten every time its
+    trial comes round again, so a claim counts only where it falls
+    inside this event's own window -- and an older window cannot be
+    reconstructed at all, the stamps that were in it having moved on.
+
+    **The slot list is preferred where a capture has seen a claim**
+    (`TRIAL_SLOTS_FIELD`), since it names the three exactly. Without
+    one the count is derived -- see `_trial_claims` -- which needs no
+    history and is right except during the week two events overlap.
     """
+    if not isinstance(window, dict) or not _is_count(window.get("start_time")):
+        return []
+    most = _trial_count(raw, window)
     pairs = (raw or {}).get(TRIAL_SLOTS_FIELD)
     slots = pairs.get(name) if isinstance(pairs, dict) else None
-    if not slots or not isinstance(window, dict):
-        return []
-    began = window.get("start_time")
-    if not _is_count(began):
-        return []
-    stamps = {row.get("event_combatant_trial_slot_id"): row.get("complete_time")
-              for row in ((raw or {}).get(TRIAL_FIELD) or [])
-              if isinstance(row, dict)}
-    claimed = sum(1 for slot in slots
-                  if _is_count(stamps.get(slot)) and stamps[slot] >= began)
-    most = max(_trial_count(raw, now), len(slots))
+    if slots:
+        began, ends = window["start_time"], window.get("end_time")
+        stamps = {row.get("event_combatant_trial_slot_id"):
+                  row.get("complete_time")
+                  for row in ((raw or {}).get(TRIAL_FIELD) or [])
+                  if isinstance(row, dict)}
+        claimed = sum(1 for slot in slots
+                      if _is_count(stamps.get(slot))
+                      and began <= stamps[slot] <= ends)
+        most = max(most, len(slots))
+    else:
+        claimed = min(_trial_claims(raw, name, window, now), most)
     return [("%d/%d" % (claimed, most), _done(claimed >= most))]
 
 
 def _event_missions(raw, name, _window, _now):
-    """[(words, state)] for an event scored by its own missions."""
+    """[(words, state)] for an event scored by its own progress.
+
+    Its own DEFINE where it keeps one -- that is a stated total and so
+    the only exact answer -- and its missions otherwise, which counts
+    only the rows issued so far and is a floor.
+    """
+    stated = EVENT_DEFINES.get(name)
+    if stated:
+        field, claimed_key, total_key = stated
+        record = (raw or {}).get(field)
+        if isinstance(record, dict):
+            claimed, total = record.get(claimed_key), record.get(total_key)
+            if _is_count(claimed) and _is_count(total) and total > 0:
+                if claimed >= total:
+                    return [(EVENT_CLAIMED, DONE)]
+                return [("%d/%d" % (claimed, total), TODO)]
     return _event_progress(raw, name)
 
 
@@ -376,10 +450,17 @@ EVENT_READERS = {
 def _event_progress(raw, name):
     """[(words, state)] for one event's rewards, or [] where unmapped.
 
-    `complete_time` on a mission means its reward was TAKEN, so an
-    event whose rows all carry one is finished -- which is the state an
-    event about to expire is usually in, and the one worth telling
-    apart from an event still owing something.
+    `complete_time` on a mission means its reward was TAKEN. The
+    denominator is the rows the account HOLDS, which is a floor: the
+    game issues a mission row when it issues the mission, so an event
+    dripping three tasks a day for a week reads three of three on its
+    first afternoon.
+
+    **So this never reads green.** Twice it called an event finished
+    that was not -- a summer event with a wave unissued, and a daily
+    one on its first day -- and a checklist that says done when it is
+    not is worse than one that says nothing. An event carrying a define
+    STATES its total and can be green; see `EVENT_DEFINES`.
     """
     missions = (raw or {}).get(PASS_MISSION_FIELD)
     if not isinstance(missions, dict):
@@ -395,8 +476,6 @@ def _event_progress(raw, name):
     if not rows:
         return []
     claimed = sum(1 for row in rows if row.get("complete_time"))
-    if claimed >= len(rows):
-        return [(EVENT_CLAIMED, DONE)]
     return [("%d/%d" % (claimed, len(rows)), TODO)]
 
 
@@ -463,6 +542,18 @@ EVENT_NOISE_WORDS = ("schedule", "mission")
 # its deadline and no tally.
 EVENT_MISSIONS = {}
 
+# Events that STATE their own totals, as
+# {event id: (snapshot field, claimed key, total key)}.
+#
+# **Preferred over counting missions**, and the only exact reading
+# available: a mission count is a floor, since the game issues a row
+# when it issues the mission. The summer event's define answered 48 of
+# 50 while its mission rows knew of 13.
+EVENT_DEFINES = {
+    "event_summer_01": ("event_summer_define_entity",
+                        "reward_count", "event_item_count"),
+}
+
 # **Progress is read per GROUP, not per event.** Each kind of event
 # keeps its state somewhere else entirely -- missions, a login streak,
 # a daily counter -- so what an event row can say is decided by which
@@ -506,6 +597,8 @@ TRIAL_FIELD = "combat_trial_entities"
 TRIAL_PER_BANNER = 3
 BANNER_GROUP = "GACHA"
 BANNER_PREFIX = "gacha_pickup_combatant_"
+TRIAL_SLOT_PREFIX = "combatant_trial_"
+TRIAL_GROUP = "EVENT_COMBATANT_TRIAL"
 
 # What an event with every reward taken reads instead of a tally.
 EVENT_CLAIMED = "All Claimed"
@@ -1539,10 +1632,10 @@ def _readings(raw, now=None):
 def _period_left(title, raw, now):
     """(seconds left of this column's period, the period's length).
 
-    (None, None) where the period cannot be dated. Only the monthly one
-    can be: a month is not a fixed length, so its bounds come off the
-    wire as `month_start` and `month_end` and a snapshot without them
-    has no answer.
+    A month is not a fixed length, so its bounds are the wire's own
+    `month_start` and `month_end` -- and DERIVED where a snapshot
+    carries neither, which is every fresh install until the first
+    capture. The two agree: see `weekly_reset.month_bounds`.
     """
     length = PERIOD_LENGTHS.get(title)
     if title == "Daily":
@@ -1552,7 +1645,7 @@ def _period_left(title, raw, now):
     start = (raw or {}).get(shop_stock.MONTH_START_FIELD)
     end = (raw or {}).get("month_end")
     if not _is_count(start) or not _is_count(end) or end <= start:
-        return None, None
+        start, end = weekly_reset.month_bounds(now)
     return end - now, end - start
 
 

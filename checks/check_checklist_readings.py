@@ -507,13 +507,29 @@ def run():
                 f"{left}s left reads {_period_words(left)!r}, not "
                 f"{want!r}.")
 
-    # A MONTH is not a fixed length, so its bounds come off the wire.
-    if _period_left("Monthly", {}, now) != (None, None):
+    # A MONTH is not a fixed length, so its bounds come off the wire --
+    # and are DERIVED where a snapshot carries neither, which is every
+    # fresh install. **The two have to agree**: a Monthly column that
+    # counted to one date before the first capture and another after it
+    # would move under the user, and only one of the two can be right.
+    derived = _period_left("Monthly", {}, now)
+    if derived == (None, None):
         failures.append(
-            "the Monthly heading counts down without `month_start` and "
-            "`month_end`. A month is not a fixed number of days and the "
-            "game rolls it at 18:00 UTC on the last one, so there is "
-            "nothing to compute.")
+            "the Monthly heading has no countdown without `month_start` "
+            "and `month_end`. A fresh install has neither, and the month "
+            "is the calendar one on the reset hour -- so it computes.")
+    # The bounds the WIRE stated for September 2026, straight out of a
+    # capture. An OBSERVATION, so the derivation is checked against the
+    # game rather than against itself.
+    inside = 1788899000                       # 2026-09-09, mid-month
+    if weekly_reset.month_bounds(inside) != (1788199200, 1790791199):
+        failures.append(
+            f"for a moment inside September 2026 the month derives as "
+            f"{weekly_reset.month_bounds(inside)!r}, where the wire "
+            f"stated (1788199200, 1790791199) -- 08-31 18:00 UTC to "
+            f"09-30 17:59:59. The month is the calendar one shifted onto "
+            f"the reset hour, and a derivation that disagrees would move "
+            f"the Monthly column on the first capture.")
     raw = {"month_start": int(now - DAY), "month_end": int(now + 3 * DAY)}
     left, length = _period_left("Monthly", raw, now)
     if (left, length) != (3 * DAY, 4 * DAY):

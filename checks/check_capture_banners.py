@@ -3,7 +3,7 @@
 `gacha_pickup_supporter_30116` is the only place a res_id appears
 without owning the unit, so the banner schedule is what tells the
 maintainer a release's id -- weeks before a copy can be obtained. The
-addon keeps it under the snapshot's `gacha_banners` key and logs any
+addon keeps it under `event_schedules['GACHA']` and logs any
 res_id the tables have no entry for.
 
 Both halves fail quietly. An unwritten key looks like a snapshot that
@@ -85,7 +85,7 @@ def run():
 
         addon.websocket_message(_Flow(_Message(json.dumps(lobby_reply))))
 
-        if not addon.gacha_banners:
+        if not addon._banners():
             failures.append(
                 "The lobby reply's gacha schedule was not kept. New "
                 "release ids would only be visible in a debug log."
@@ -111,10 +111,20 @@ def run():
             failures.append("No snapshot was written for the inventory reply.")
         else:
             snapshot = json.loads(written[0].read_text(encoding="utf-8"))
-            if not snapshot.get("gacha_banners"):
+            # **ONE copy.** The banners are the GACHA group of
+            # `event_schedules`; a second key holding the same bytes
+            # is what this used to read.
+            if not (snapshot.get("event_schedules") or {}).get("GACHA"):
                 failures.append(
-                    "The snapshot has no `gacha_banners`. A schedule that "
+                    "The snapshot has no gacha schedule under "
+                    "`event_schedules['GACHA']`. A schedule that "
                     "arrives before the inventory is being dropped."
+                )
+            if "gacha_banners" in snapshot:
+                failures.append(
+                    "The snapshot carries `gacha_banners` as well as "
+                    "`event_schedules['GACHA']`. They were the same "
+                    "2.8 KB twice; readers take the schedule."
                 )
 
     return failures

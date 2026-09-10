@@ -64,6 +64,34 @@ def last_daily_reset(now):
     return stamp if stamp <= now else stamp - DAY
 
 
+def month_bounds(now):
+    """(start, end) of the game month `now` falls in, epoch seconds.
+
+    The calendar month shifted onto `RESET_HOUR`: it opens on the
+    boundary before the 1st and closes one second before the boundary
+    that opens the next. Checked against a capture, which stated
+    2026-08-31 18:00 and 2026-09-30 17:59:59 for September.
+
+    DERIVED because the wire's own `month_start` / `month_end` arrive
+    with the login and a fresh install has neither -- which left the
+    Monthly column with no countdown until the first capture. The wire
+    is still preferred where it is there; this answers when it is not.
+    """
+    at = datetime.fromtimestamp(last_daily_reset(now), timezone.utc)
+    # The boundary opens the NEXT calendar day, and that is the day the
+    # game counts as today -- so the month is that day's, not the
+    # boundary's own.
+    today = (at + timedelta(days=1)).date()
+
+    def opens(year, month):
+        first = datetime(year, month, 1, RESET_HOUR, tzinfo=timezone.utc)
+        return (first - timedelta(days=1)).timestamp()
+
+    following = (today.year + today.month // 12,
+                 today.month % 12 + 1)
+    return opens(today.year, today.month), opens(*following) - 1
+
+
 def day_index(now):
     """The wire's day number for `now`.
 
