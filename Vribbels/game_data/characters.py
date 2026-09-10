@@ -370,7 +370,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
-        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},  # Assumed based on Heidemarie
+        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},
     },
     1062: {
         "name": "Haru",
