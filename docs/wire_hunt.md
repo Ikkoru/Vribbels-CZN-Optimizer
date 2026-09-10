@@ -93,6 +93,14 @@ Read off the game's own screens, recorded here rather than in the code — **a n
 
 The devil case shows the shape of a derivation that would work — a rectangular family's size is `max(first index) × max(second index)` — and the bartender case shows why it cannot be applied blind. **Telling a rectangular family from a ragged one is the open problem.**
 
+### When nothing can prove an event is finished
+
+The Checklist's third colour. A reading whose denominator is only what the game has handed out so far is marked a FLOOR: it draws red like any other unfinished row, and **turns orange once it has stood at its own ceiling for two days**. Orange says "this looks finished and nothing here can prove it".
+
+Two days because an event that is still handing out rewards does so daily, so a tally that has not moved across two of them has either finished or stopped. Reading anything new restarts the clock, and a row BELOW its ceiling never settles however long it sits there — that is work outstanding, not an unanswerable question.
+
+**It needs memory, which is why it lives in `settings/checklist.json`.** When a row last read something new is a fact about the past, and a snapshot holds only the present; `ChecklistManager.first_seen` is the record, and rows that leave the tab are forgotten.
+
 ### The lead worth following
 
 The game's Events page has a **Completed Events** tab, so the client decides completion for at least some events. Either it holds the totals in its own data files — the same place the trial slot lists live — or something on the wire says so and has not been found. A capture taken while opening that tab would settle it: if it fires a request, its reply is the answer; if it fires nothing, the totals are client-side and only a stated number can supply them.

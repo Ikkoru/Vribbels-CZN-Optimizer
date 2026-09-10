@@ -74,6 +74,9 @@ class ChecklistManager:
         self.settings_dir = Path(base_dir) / "settings"
         self.file = self.settings_dir / "checklist.json"
         self.tracked = {}          # product id (str) -> bool
+        # row key -> [what it read, when it first read that].
+        # See `first_seen`.
+        self.seen = {}
 
     def load(self):
         """Read the flags. An unreadable file behaves like a fresh one.
@@ -92,6 +95,13 @@ class ChecklistManager:
         raw = data.get("tracked") if isinstance(data, dict) else None
         if isinstance(raw, dict):
             self.tracked = {str(k): bool(v) for k, v in raw.items()}
+        seen = data.get("seen") if isinstance(data, dict) else None
+        if isinstance(seen, dict):
+            self.seen = {
+                str(k): [str(v[0]), float(v[1])]
+                for k, v in seen.items()
+                if isinstance(v, (list, tuple)) and len(v) == 2
+            }
 
     def is_tracked(self, product_id) -> bool:
         """Whether a product is ticked. Absent ids take the default."""
@@ -108,9 +118,45 @@ class ChecklistManager:
         self.tracked[product_id] = bool(value)
         self._write()
 
+    def first_seen(self, key, reading, now):
+        """When `key` FIRST read `reading`, having read it ever since.
+
+        The clock behind the Checklist's "this looks finished but
+        nothing proves it" colour. An event whose rows are all claimed
+        may be finished or may be waiting for the game to hand out
+        more, and the wire says which for almost none of them -- but a
+        tally that has not moved in two days is evidence of a kind.
+
+        Recorded here rather than computed because it cannot be: it is
+        a fact about the PAST, and a snapshot holds only the present.
+        Reading something new restarts the clock.
+        """
+        key, reading = str(key), str(reading)
+        remembered = self.seen.get(key)
+        if remembered is not None and remembered[0] == reading:
+            return remembered[1]
+        self.seen[key] = [reading, float(now)]
+        self._write()
+        return float(now)
+
+    def forget_unseen(self, keys):
+        """Drop remembered rows that are no longer on the tab.
+
+        An event that ended takes its row with it, and its record would
+        otherwise sit in the file for good.
+        """
+        keys = {str(k) for k in keys}
+        stale = [k for k in self.seen if k not in keys]
+        if not stale:
+            return
+        for key in stale:
+            del self.seen[key]
+        self._write()
+
     def _write(self):
         self.settings_dir.mkdir(parents=True, exist_ok=True)
-        data = {"version": CHECKLIST_VERSION, "tracked": self.tracked}
+        data = {"version": CHECKLIST_VERSION, "tracked": self.tracked,
+                "seen": self.seen}
         tmp = self.file.with_suffix(self.file.suffix + ".tmp")
         tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         tmp.replace(self.file)

@@ -18,6 +18,8 @@ depends on captured data or on the hour it runs at.
 No Tk and no snapshot needed.
 """
 
+from datetime import datetime
+
 from ._harness import add_source_to_path
 
 NAME = "checklist readings"
@@ -144,6 +146,41 @@ def run():
                 f"{point!r} points reads {got!r}, not {(want, state)!r}. "
                 f"Only a record stamped with TODAY is a claim that "
                 f"happened today.")
+
+    # --- a DAY that has rolled brings its rows back ------------------
+    # The town's daily block carries no date of its own but does carry
+    # `town_visit_reset_time`, the moment the game granted the day. A
+    # block stamped before the last reset is a finished day's, and its
+    # coffee and its passes have both come back -- which is what makes
+    # the rows right with no capture running, the clock moving where
+    # the snapshot cannot.
+    reset = weekly_reset.last_daily_reset(now)
+    for stamp, label, coffee_want, passes_want in (
+            (reset + HOUR, "written since the reset", COFFEE_DONE, "0/5"),
+            (reset - HOUR, "written before it", COFFEE_TODO, "5/5")):
+        raw = _snapshot(coffee=False, spent=5)
+        raw["characters"]["town_data"]["day_changeable_data"][
+            "town_visit_reset_time"] = int(stamp)
+        out = _readings(raw, now)
+        if out["coffee"][0][0] != coffee_want:
+            failures.append(
+                f"with the day block {label} the coffee reads "
+                f"{out['coffee'][0][0]!r}, not {coffee_want!r}. A drunk "
+                f"coffee comes back at the reset whether or not a capture "
+                f"is running to say so.")
+        if out["excursions"][0][0] != passes_want:
+            failures.append(
+                f"with the day block {label} the passes read "
+                f"{out['excursions'][0][0]!r}, not {passes_want!r}.")
+
+    # ...and with no stamp at all, the CAPTURE's own time stands in.
+    raw = _snapshot(coffee=False, spent=5)
+    raw["capture_time"] = datetime.fromtimestamp(reset - HOUR).isoformat()
+    if _readings(raw, now)["coffee"][0][0] != COFFEE_TODO:
+        failures.append(
+            "a snapshot written before the last reset still reads its "
+            "coffee as drunk. Without the block's own stamp the capture "
+            "time is what dates it.")
 
     # --- today's coffee, which INVERTS the field it reads --------------
     for possible, want, state in ((True, COFFEE_TODO, TODO),

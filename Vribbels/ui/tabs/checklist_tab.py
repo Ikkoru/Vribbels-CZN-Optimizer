@@ -38,6 +38,7 @@ is forty of them.
 
 import math
 import time
+from datetime import datetime
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
@@ -95,6 +96,23 @@ CHECKBOX_OVERHEAD = 23
 # do, RED is something left, and a row whose source a snapshot cannot
 # answer for is neither.
 DONE, TODO, UNKNOWN = "done", "todo", None
+
+# A reading that CANNOT SAY whether its work is finished, because its
+# denominator is only what the game has handed out so far. It draws red
+# like any other unfinished row -- until it has stood at its own
+# ceiling long enough to be evidence, and then orange.
+#
+# **The row still is not green.** Orange says "this looks finished and
+# nothing here can prove it", which is a third answer and the honest
+# one for an event whose true total the wire never states.
+FLOOR = "floor"
+STALE_FLOOR = "floor_stale"
+
+# How long a floor must stand at its ceiling before it goes orange, and
+# what it takes to reset that. Two days: an event that hands out more
+# does so daily, so a tally unmoved across two of them has either
+# finished or stopped.
+FLOOR_SETTLES_AFTER = 48 * 3600
 
 # A countdown's own colours, by how long is left. Nothing to do with
 # whether the row's work is done -- a finished content still runs out.
@@ -423,24 +441,7 @@ def _event_trials(raw, name, window, now):
 
 
 def _event_missions(raw, name, _window, _now):
-    """[(words, state)] for an event scored by its own progress.
-
-    An event paying a reward per N items spent derives both halves of
-    its row and can be green -- see `EVENT_ITEM_REWARDS`, where green
-    means nothing WAITING rather than an event finished. Everything
-    else counts its claimed mission rows against the rows it holds,
-    which is a floor and stays red.
-    """
-    paid = EVENT_ITEM_REWARDS.get(name)
-    if paid:
-        field, per = paid
-        record = (raw or {}).get(field)
-        if isinstance(record, dict):
-            spent, earned = (record.get("reward_count"),
-                             record.get("event_item_count"))
-            if _is_count(spent) and _is_count(earned) and per > 0:
-                taken, ready = spent // per, earned // per
-                return [("%d/%d" % (taken, ready), _done(taken >= ready))]
+    """[(words, state)] for an event scored by its own missions."""
     return _event_progress(raw, name)
 
 
@@ -467,8 +468,9 @@ def _event_progress(raw, name):
     **So this never reads green.** Twice it called an event finished
     that was not -- a summer event with a wave unissued, and a daily
     one on its first day -- and a checklist that says done when it is
-    not is worse than one that says nothing. An event carrying a define
-    paying per item spent derives both; see `EVENT_ITEM_REWARDS`.
+    not is worse than one that says nothing. The reading is marked
+    `FLOOR` for that reason, and the tab colours it orange once it has
+    stood still long enough to mean something.
     """
     missions = (raw or {}).get(PASS_MISSION_FIELD)
     if not isinstance(missions, dict):
@@ -484,7 +486,7 @@ def _event_progress(raw, name):
     if not rows:
         return []
     claimed = sum(1 for row in rows if row.get("complete_time"))
-    return [("%d/%d" % (claimed, len(rows)), TODO)]
+    return [("%d/%d" % (claimed, len(rows)), FLOOR)]
 
 
 def product_label(define):
@@ -549,26 +551,6 @@ EVENT_NOISE_WORDS = ("schedule", "mission")
 # unlike its schedule goes here, and one that is simply unmapped shows
 # its deadline and no tally.
 EVENT_MISSIONS = {}
-
-# An event that pays a reward every N event ITEMS spent, as
-# {event id: (define field, items per reward)}. The summer event fits
-# puzzle pieces and pays every eight.
-#
-# **DERIVED, so nothing here goes stale with the event.** The define's
-# `reward_count` is the items SPENT and `event_item_count` the items
-# EARNED, so the rewards taken are the first divided by the rate and
-# the rewards standing ready are the second -- 48 and 50 over eight
-# read six taken and six earned, which is nothing waiting.
-#
-# What that pair CANNOT say is how many rewards the event holds
-# altogether: the wire states neither the items it will hand out nor
-# the rewards they buy. So this row answers "is anything waiting to be
-# claimed", not "is the event finished" -- and its green means the
-# first. A number for the second would have to be typed in and would
-# be wrong the moment the event ended.
-EVENT_ITEM_REWARDS = {
-    "event_summer_01": ("event_summer_define_entity", 8),
-}
 
 # **Progress is read per GROUP, not per event.** Each kind of event
 # keeps its state somewhere else entirely -- missions, a login streak,
@@ -776,10 +758,21 @@ MODULE_WINDOWS = (
      24 * 3600),
 )
 
+# The town's daily block: the coffee flag and the day's Communication
+# Passes. **Neither carries a date of its own**, so nothing in them
+# says which day they belong to -- and a snapshot taken yesterday read
+# as a coffee already drunk today, green, for as long as the app was
+# left open.
+#
+# `town_visit_reset_time` is the block's own stamp: the moment the
+# game granted the day, lazily, at the first login after the reset. A
+# block stamped before the LAST reset belongs to a day that is over,
+# and everything in it is a past day's answer.
+DAY_BLOCK_PATH = ("characters", "town_data", "day_changeable_data")
+DAY_BLOCK_STAMP = "town_visit_reset_time"
+
 # Today's coffee: a CAPABILITY, so the row inverts it. The two words
 # are the whole of what that row says.
-COFFEE_PATH = ("characters", "town_data", "day_changeable_data",
-               "is_coffee_possible")
 COFFEE_TODO = "Go drink!"
 COFFEE_DONE = "Tasty~"
 
@@ -1183,6 +1176,12 @@ class ChecklistTab(BaseTab):
         # left. A row a snapshot cannot answer for takes neither.
         text.tag_configure(DONE, foreground=self.colors["green"])
         text.tag_configure(TODO, foreground=self.colors["red"])
+        # A floor draws red like any other unfinished row; one that
+        # has stood at its ceiling for two days draws orange. See
+        # `FLOOR`.
+        text.tag_configure(FLOOR, foreground=self.colors["red"])
+        text.tag_configure(STALE_FLOOR,
+                           foreground=self.colors["orange"])
         text.tag_configure(MUTED, foreground=self.colors["fg_dim"])
         # A shop heading's own colour. See `SHOP_LABEL_COLOURS`.
         for _words, colour in SHOP_LABEL_COLOURS:
@@ -1217,13 +1216,40 @@ class ChecklistTab(BaseTab):
         Called automatically after data loads.
         """
         raw = getattr(self.optimizer, "raw_data", None) or {}
-        readings = _readings(raw)
+        readings = self._settle_floors(_readings(raw))
         # A rebuilt column is filled inside the rebuild, before it is
         # shown; this fills the ones that were left standing.
         self._rebuild_columns(raw, readings)
         for title, (text, rows) in self.column_texts.items():
             self._fill(title, text, rows, readings)
         self._fill_period_headings(raw)
+
+    def _settle_floors(self, readings):
+        """Turn a floor that has stopped moving orange.
+
+        A `FLOOR` reading cannot say whether its work is finished --
+        see the constant. What it CAN say is that it has not moved:
+        the manager remembers when each row last read something new,
+        and a row sitting at its own ceiling for two days has either
+        finished or stopped being handed more. Neither is red, and
+        neither is green.
+
+        A row below its ceiling is still work, however long it has sat
+        there, so only a full one settles.
+        """
+        manager = getattr(self.context, "checklist_manager", None)
+        if manager is None:
+            return readings
+        now = time.time()
+        for key, segments in readings.items():
+            for at, (words, state) in enumerate(segments):
+                if state is not FLOOR:
+                    continue
+                since = manager.first_seen(key, words, now)
+                if _at_ceiling(words) and now - since >= FLOOR_SETTLES_AFTER:
+                    segments[at] = (words, STALE_FLOOR)
+        manager.forget_unseen(readings)
+        return readings
 
     def _fill_period_headings(self, raw):
         """Rewrite the countdown beside each period column's heading."""
@@ -1345,6 +1371,55 @@ def _pass_daily_number(res_id):
     return tail.isdigit() and 1 <= int(tail) <= PASS_DAILY_COUNT
 
 
+def _at_ceiling(words):
+    """Whether an `n/m` reading has n equal to m."""
+    parts = str(words).split("/")
+    if len(parts) != 2 or not all(p.strip().isdigit() for p in parts):
+        return False
+    return int(parts[0]) >= int(parts[1])
+
+
+def _day_block(raw, now):
+    """(the town's daily block, whether it is TODAY's).
+
+    See `DAY_BLOCK_PATH`. A block stamped before the last reset is a
+    finished day's, and its readings have all come back -- so the
+    caller answers from the reset rather than from the block.
+
+    Where the stamp is missing, the CAPTURE's own time stands in: a
+    snapshot written before the last reset cannot hold today's answers
+    whatever it says. That is also what makes the rows come back with
+    no capture running -- the clock moves and the snapshot does not.
+    """
+    block = _dig(raw, DAY_BLOCK_PATH)
+    if not isinstance(block, dict):
+        # **None is not a rolled day.** A snapshot that never carried
+        # the block cannot say the coffee is waiting either, and a row
+        # with no source reads its dash.
+        return None, False
+    since = weekly_reset.last_daily_reset(now)
+    stamped = block.get(DAY_BLOCK_STAMP)
+    if _is_count(stamped):
+        return block, stamped >= since
+    taken = _capture_time(raw)
+    return block, taken is None or taken >= since
+
+
+def _capture_time(raw):
+    """When the snapshot was written, epoch seconds, or None.
+
+    `capture_time` is a naive local timestamp, which is what the
+    machine reading it runs on too, so it converts without a zone.
+    """
+    stamp = (raw or {}).get("capture_time")
+    if not isinstance(stamp, str):
+        return None
+    try:
+        return datetime.fromisoformat(stamp).timestamp()
+    except ValueError:
+        return None
+
+
 def _label_tag(key, label):
     """The tag a row's own words take, as a tuple for concatenation.
 
@@ -1428,7 +1503,11 @@ def _readings(raw, now=None):
 
     # Today's coffee. **The field is a CAPABILITY, so the row inverts
     # it**: `is_coffee_possible` true means one is still going begging.
-    possible = _dig(raw, COFFEE_PATH)
+    block, fresh = _day_block(raw, now)
+    # A day that has rolled since the block was written has a coffee
+    # waiting whatever the stale flag says.
+    possible = None if block is None else (
+        block.get("is_coffee_possible") if fresh else True)
     if isinstance(possible, bool):
         out["coffee"] = _one(COFFEE_TODO if possible else COFFEE_DONE,
                          _done(not possible))
@@ -1452,7 +1531,10 @@ def _readings(raw, now=None):
     # Communication Passes left today. Not an item and not a currency --
     # `excursions.passes_left` says why that reading is the only one a
     # snapshot allows.
-    left = excursions.passes_left(raw)
+    # A day that has rolled brings the whole allowance back, and
+    # the stale count says none of it was spent today.
+    left = (excursions.passes_left(raw) if fresh or block is None
+            else excursions.DAILY_PASSES)
     out["excursions"] = _one(
         "%s/%d" % (NO_DATA if left is None else left, excursions.DAILY_PASSES),
         UNKNOWN if left is None else _done(left == 0))

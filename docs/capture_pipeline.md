@@ -102,6 +102,8 @@ The rest join them, all merged rather than replaced for the same reason:
 | `trial_slots` | — | **learned, not received**: which slots a trial event offers, taken from the `reward_combatant_trial` request that claims one. Seeded from the previous snapshot, since nothing on the wire restates it |
 | `event_defines` | `event_*_define_entity`, `event_*_set_entities` | an event's own progress record, kept under the key it arrives on |
 
+**The town's daily block carries no date, and `town_visit_reset_time` is what dates it.** The coffee flag and the day's Communication Passes say nothing about which day they belong to, so a snapshot left open past a reset read a drunk coffee as still drunk. That field is the moment the game granted the day — lazily, at the first login after the reset — so a block stamped before the last reset is a finished day's and everything in it has come back. Where it is missing, `capture_time` stands in. This is what makes those rows right with no capture running.
+
 **Two payloads arrive at the TOP LEVEL where the cache holds them nested.** `day_changeable_data` (the coffee flag, the excursion count) belongs under `characters.town_data`, and `new_char_visit` is one row of the `char_visits` board. Ordering a coffee or running an excursion sends each on its own, so without merging them the cache keeps whatever the login said and the Checklist reads a stale flag all session.
 
 **At LOGIN the pass missions arrive somewhere else entirely**, nested as `season_pass_missions[<pass id>][<mission id>]` rather than in the flat `mission_entities` list — which is why a snapshot held the thirty `content_*` rows and none of the twenty-odd pass ones. Both shapes fold into one cache.

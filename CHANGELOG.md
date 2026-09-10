@@ -30,6 +30,10 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Changed
 
+- **Daily rows come back on their own.** The coffee and the Communication Passes had no date attached, so with no capture running they kept yesterday's answer — a drunk coffee stayed green past the reset. They now reset with the clock like every other daily row.
+
+- **An event that looks finished but cannot be proved finished reads orange.** Where the only number available is the rewards handed out so far, a row that has sat at its own total for two days is neither red nor green.
+
 - **An event row says what it can prove.** Where the game states a total, the row counts against it and can go green; where the only number available is the missions handed out so far, it shows that and stays red — an event still handing them out would otherwise read as finished on its first day.
 
 - **The Monthly column counts down on a fresh install**, instead of waiting for the first capture to state the month's bounds.
