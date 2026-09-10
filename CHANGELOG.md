@@ -20,6 +20,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **A fresh install opens at the same size a loaded one does.** Two panels were laid out only once data arrived: the Combatants tab's six fragment cells came up at a text widget's default size, far larger than they end up, which pushed the Character and Partner cards out of the space they fill; and the Memory Fragments tab's Sets panel came up empty and narrow, moving every panel beside it when the first snapshot loaded. The Sets columns now reserve room for a four-digit count instead of fitting the counts in hand, so the panel is the same width whatever you own.
 
+- **An event mission's rewards are recorded.** They pay under a key nothing read, so the items landed nowhere and the Capture Log reported no receipt.
+
 - **The Basin of Hyperspace is green only once its rewards are claimed.** Every objective can be scored with every star reward still sitting there, which read as a finished row and a trip to the game still owed.
 
 - **The Arkhianon Supply's daily missions go green once the week is full.** The dailies feed the week's exp, so once that caps there is nothing left for them to earn.
@@ -27,6 +29,10 @@ pre-fork history, see the upstream repository's CHANGELOG.
 - **The Arkhianon Supply's daily count ignores one-off missions.** A mission the pass issues today was counted as one of the day's six, so a patch that added a one-off read a five-of-six day as finished.
 
 ### Changed
+
+- **An event row says what it can prove.** Where the game states a total, the row counts against it and can go green; where the only number available is the missions handed out so far, it shows that and stays red — an event still handing them out would otherwise read as finished on its first day.
+
+- **The Monthly column counts down on a fresh install**, instead of waiting for the first capture to state the month's bounds.
 
 - **Combatant Trial events count three trials per Combatant banner running**, not three flat, so a second banner doubles them.
 

@@ -67,6 +67,36 @@ Over and over the wire describes one thing in two places under ids that do not m
 
 **Use it last, and keep what it learns.** It only sees what happens while a capture runs, so a table built this way must be seeded from the previous snapshot or it lasts one session — `capture/manager._seed_trial_slots` is the pattern. Prefer it as an OVERRIDE on a derivation rather than as the only source, so a fresh install still reads something.
 
+## Where each kind of event keeps its progress
+
+One row per kind seen so far. **The group is what decides the reader** — a new event in a known group needs no edit — and `checklist_tab.EVENT_READERS` is the table.
+
+| Group | Where its progress lives | Reading | Exact? |
+| ----- | ------------------------ | ------- | ------ |
+| `EVENT_SCHEDULE`, `EVENT_NODELIST_PAGE` | `event_mission_entities`, matched by the normalised id | claimed rows / rows held | **floor** |
+| `EVENT_DAILY_CHECK` | `attendance_entities`, the first row started after the event | `received_days` / 7 | exact |
+| `EVENT_OVERCLOCK` | `overclock_entities[event id]` | doubled runs LEFT today | exact |
+| `EVENT_COMBATANT_TRIAL` | `combat_trial_entities`, sized by the banner sharing its window | claims inside the window / 3 per banner | exact |
+| the summer event | `event_summer_define_entity` | items spent ÷ 8 taken, items earned ÷ 8 ready | exact for what is WAITING |
+
+**Only the first is a floor, and it is the common case.** Because of that a mission-counted row never goes green: it read three of three on the devil event's first afternoon against a real twenty-one, and twelve of twelve on the summer event with a wave unissued. A checklist that says done when it is not is worse than one that says nothing.
+
+### Totals that are known and still not derivable
+
+Read off the game's own screens, recorded here rather than in the code — **a number typed into the program is wrong the moment its event ends**, and none of these is on the wire.
+
+| Event | Total | How it is built |
+| ----- | ----- | --------------- |
+| `event_schedule_devil_001` | 21 | three tasks a day, seven days. The ids are `event_devil_<day>_<task>`, and the days present already run 01–07 with a max task of 03 — so `max(day) × max(task)` gives 21 here |
+| `event_bartender_01` | 24 | three reward pages of 7, 7 and 10. `max × max` gives 18 and is WRONG: the pages are ragged, and nothing in the ids says so |
+| `event_summer_01` | 10 rewards, 84 items | one reward per 8 items fitted. 84 is not 10×8, so the last rewards are not evenly spaced |
+
+The devil case shows the shape of a derivation that would work — a rectangular family's size is `max(first index) × max(second index)` — and the bartender case shows why it cannot be applied blind. **Telling a rectangular family from a ragged one is the open problem.**
+
+### The lead worth following
+
+The game's Events page has a **Completed Events** tab, so the client decides completion for at least some events. Either it holds the totals in its own data files — the same place the trial slot lists live — or something on the wire says so and has not been found. A capture taken while opening that tab would settle it: if it fires a request, its reply is the answer; if it fires nothing, the totals are client-side and only a stated number can supply them.
+
 ## What is on the wire and what is not
 
 A recurring confusion worth stating once. Two different things:

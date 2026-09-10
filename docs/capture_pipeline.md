@@ -50,19 +50,18 @@ The login burst is the only long stretch of solo commands. Everything after the 
 
 The reply to `lobby / lobby_update` carries `event_schedules.GACHA`: every banner, past and upcoming, keyed `gacha_pickup_<combatant|supporter>_<res_id>[_<rerun>]`. Those ids are server-side definitions and do not depend on what the account owns, which makes them the only res_ids a unit's owner-scoped absence cannot hide. The rerun suffix follows the res_id, so the FIRST number is the unit.
 
-The addon keeps the schedule on `self.gacha_banners` and `_save_data` writes it to the snapshot's `gacha_banners` key. It arrives with no roster and no inventory attached, so it must survive until a save is possible rather than being written on arrival.
+**The schedule is kept ONCE**, as the GACHA group of `event_schedules`; `_banners()` is what reads it out. A second copy under its own key is 2.8 KB of the snapshot saying the same thing twice, and every reader has to be told which one is current. It arrives with no roster and no inventory attached, so it must survive until a save is possible rather than being written on arrival.
 
 `_report_unknown_units` logs any banner naming a res_id absent from `KNOWN_UNIT_IDS` — the character and partner tables, injected by `_generate_addon_script` the same way `CHAR_NAMES` is. Negative placeholder keys are excluded from that set, so a unit awaiting an id still reports.
 
 `checks/check_capture_banners.py` builds the addon through `_generate_addon_script` rather than from the template alone, so it also catches a global the template reads and the generator stops supplying.
 
-## Three payloads are kept aside and written out later
+## Payloads kept aside and written out later
 
-The banner schedule is one of three that arrive in a frame carrying no roster and no inventory. `_save_data` returns early without `inventory_data`, so each is held on the addon and written by whatever save comes next:
+The excursion board and the Great Rift standings arrive in a frame carrying no roster and no inventory, as the banner schedule does. `_save_data` returns early without `inventory_data`, so each is held on the addon and written by whatever save comes next:
 
 | Attribute        | Wire key                        | Snapshot key                    | What it is                                            |
 | ---------------- | ------------------------------- | ------------------------------- | ------------------------------------------------------ |
-| `gacha_banners`  | `event_schedules.GACHA`         | `gacha_banners`                 | every banner, past and upcoming                       |
 | `char_visits`    | `char_visits`                   | `char_visits`                   | the excursion board, one row per combatant that has been on one |
 | `disaster_ranks` | `disaster_boss_rank_entities`   | `disaster_boss_rank_entities`   | Great Rift standings; the only carrier of the weekly score |
 
@@ -82,17 +81,26 @@ Three more join them, for what the recurring tasks stand at. The Checklist tab r
 
 `docs/missions_id_dump.py` writes `docs/missions_id.tsv` from whichever capture last carried them, for annotating by hand. It reads the newest SNAPSHOT that holds missions and falls back to the newest WebSocket debug log, because a session that claimed nothing saves none and the addon's cache does not survive one. Its rows are keyed on the id with the season replaced by `*`, so a hand-typed name survives the season turning over.
 
-Six more join them, all merged rather than replaced for the same reason:
+The rest join them, all merged rather than replaced for the same reason:
 
 | Attribute | Wire key | What it is |
 | --------- | -------- | ---------- |
 | `shop_products` | `shop_list`, `shop_entity` | one row per shop product; `shop_list` is all of them at login and `shop_entity` is the one just bought |
 | `stage_limits` | `stage_limit_entities` | per-stage run limits. `content_boss` is the Simulation Challenges |
-| `month_start` / `month_end` | `month_start`, `month_end` | when the month rolls, which is 18:00 UTC on the LAST day and cannot be computed |
+| `month_start` / `month_end` | `month_start`, `month_end` | when the month rolls: 18:00 UTC on the last day of it. `weekly_reset.month_bounds` derives the same pair to the second, which is what a fresh install counts down to |
 | `shop_definitions` | `shop_res_data` | every product's item, count, per-period cap, `limit_type`, price and display order. **This is where a shop's MAX comes from** — a `shop_list` row carries only the tally |
 | `season_passes` | `season_pass_entities` | every pass the account has played, the live one among them |
 | `basin_stages` / `basin_missions` | `season_entities`, `mission_seasson_entities` | the Basin of Hyperspace's stages and its objectives. The scored tally is what the game shows as its progress |
 | `event_schedules` | `event_schedules` | every content's WINDOW — when each season, event and rotation opened and when it closes. **The only thing that dates any of them**, which is what the Checklist's countdowns read. See `schedules.py` |
+| `disaster_seasons` | `disaster_entities` | one row per Galactic Disaster season, carrying that season's chaos progress and the difficulty cleared |
+| `remnants` | `remnants_entities` | the Full-Scale Offensive's stages, each with the stars taken and its best score |
+| `zero_orb` | `zero_orb_entity` | the Zero System Chaos Matrix. `reward_level` is how far up its track has been claimed, out of a hundred |
+| `overclock` | `overclock_entities`, `result_overclock_entities` | an Overclock event's doubled Simulation runs, counted daily. The second name is the rows one run changed |
+| `attendance` | `attendance_entities` | the login-streak events: days shown up against days claimed |
+| `season_rewards` | `reward_entities`, `reward_doc` | how many of a season's star rewards have been TAKEN, one row per season and none until the first claim. `reward_doc` is the row a claim changed |
+| `combat_trials` | `combat_trial_entities`, `entity` | one row per Combatant Trial slot, whose `complete_time` is when its reward was last claimed. `entity` is the row a claim changed |
+| `trial_slots` | — | **learned, not received**: which slots a trial event offers, taken from the `reward_combatant_trial` request that claims one. Seeded from the previous snapshot, since nothing on the wire restates it |
+| `event_defines` | `event_*_define_entity`, `event_*_set_entities` | an event's own progress record, kept under the key it arrives on |
 
 **Two payloads arrive at the TOP LEVEL where the cache holds them nested.** `day_changeable_data` (the coffee flag, the excursion count) belongs under `characters.town_data`, and `new_char_visit` is one row of the `char_visits` board. Ordering a coffee or running an excursion sends each on its own, so without merging them the cache keeps whatever the login said and the Checklist reads a stale flag all session.
 

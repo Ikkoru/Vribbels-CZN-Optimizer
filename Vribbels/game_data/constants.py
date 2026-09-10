@@ -587,17 +587,16 @@ PERIOD_ITEMS = {
               "currency_chaos_delegation_module.png"),  # Used to speed up Chaos runs. Expire 14 days after acquisition.
 }
 
-# TODO: `Great Rift Weekly Score` is NOT IN THE SNAPSHOT either. The
-# server sends it and the addon does not keep it -- the debug log has
-# it under two paths of one `disaster` payload, both reading the same
-# figure today:
+# The `Great Rift Weekly Score` is `disaster_boss_rank_entities`, which
+# the capture keeps and the Checklist's Seasonal Accumulated Score row
+# reads. One payload carries the figure under two paths:
 #
-#   /disaster_boss_rank_entities/disaster_s04/disaster_s04_rank_01/week_total_score
-#   /disaster_boss_rank_entities/disaster_s04/disaster_s04_rank_01/best_score
+#   .../disaster_s04_rank_01/week_total_score
+#   .../disaster_s04_rank_01/best_score
 #
 # `week_total_score` is the one the name matches; `best_score` sharing
-# its value is what a first week looks like, not evidence. Reaching
-# either means the addon storing `disaster_boss_rank_entities`.
+# its value is what a first week looks like, not evidence they are the
+# same field.
 
 # The Communication Pass -- `currency_town_visit.png`, used for
 # Counseling and Excursions -- HAS NO ID. It is not an item and not a
@@ -617,11 +616,12 @@ PERIOD_ITEMS = {
 # `town_visit_reset_time` beside it is when it goes back to 0 -- 18:00
 # UTC, which is when the game says the allowance is granted.
 
-# TODO: name the twenty ARCHIVE GIFT items, res_id 3300001-3300020.
-# What they are is settled: `characters.archive_gift_data` is keyed by
-# combatant and lists exactly these ids in its `item_id_list`, with
-# `reward_received_item_id_list` saying which have been handed over.
-# What is missing is each one's NAME and icon, which no payload spells.
+# Two ARCHIVE GIFT items are still unnamed: 3300009 and 3300017. What
+# they are is settled -- `characters.archive_gift_data` is keyed by
+# combatant and lists these ids in its `item_id_list`, with
+# `reward_received_item_id_list` saying which have been handed over --
+# and what is missing is each one's NAME, which no payload spells. The
+# other eighteen are in RECORDED_NAMES above.
 
 
 # Item rarity, rarest last, mapped to the plate that draws it. Two of
