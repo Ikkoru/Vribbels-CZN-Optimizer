@@ -168,6 +168,8 @@ class Addon:
         self.zero_orb = None
         self.attendance = None
         self.season_rewards = None
+        # {field: record} -- an event's own progress, by the key
+        # it arrives under. See the event branch below.
         self.event_defines = {}
         # {trial event id: [slot ids]}, learned from claims and
         # kept forever -- see `reward_combatant_trial`.
@@ -857,12 +859,16 @@ class Addon:
             else:
                 self.season_rewards.append(doc)
             self._save_pending = True
-        # An event that STATES its own totals. Keyed by the field
-        # it arrives under, since each kind has its own -- what
-        # they share is being the only exact count of an event.
+        # An event's own progress record, whatever shape it takes.
+        # Each kind of event has its own field and they share nothing
+        # but the naming, so they are kept by the field they arrive
+        # under and the Checklist reads whichever it knows -- a set of
+        # puzzles here, a stated total there.
         for key, value in data.items():
-            if (key.startswith("event_") and key.endswith("_define_entity")
-                    and isinstance(value, dict) and value):
+            if not isinstance(value, dict) or not value:
+                continue
+            if key.startswith("event_") and (key.endswith("_define_entity")
+                                             or key.endswith("_set_entities")):
                 self.event_defines[key] = value
                 self._save_pending = True
         # The login-streak events: days shown up, days claimed.

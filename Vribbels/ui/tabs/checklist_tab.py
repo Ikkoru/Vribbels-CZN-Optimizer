@@ -419,20 +419,22 @@ def _event_trials(raw, name, window, now):
 def _event_missions(raw, name, _window, _now):
     """[(words, state)] for an event scored by its own progress.
 
-    Its own DEFINE where it keeps one -- that is a stated total and so
-    the only exact answer -- and its missions otherwise, which counts
-    only the rows issued so far and is a floor.
+    Three shapes, and which one it is decides whether the row can ever
+    go green. A PUZZLE event counts the sets it has finished against a
+    stated total; a mission event counts its claimed rows, against a
+    stated total where there is one and against the rows in hand
+    otherwise -- and that last is a floor, so it stays red.
     """
-    stated = EVENT_DEFINES.get(name)
-    if stated:
-        field, claimed_key, total_key = stated
-        record = (raw or {}).get(field)
-        if isinstance(record, dict):
-            claimed, total = record.get(claimed_key), record.get(total_key)
-            if _is_count(claimed) and _is_count(total) and total > 0:
-                if claimed >= total:
-                    return [(EVENT_CLAIMED, DONE)]
-                return [("%d/%d" % (claimed, total), TODO)]
+    puzzle = EVENT_PUZZLES.get(name)
+    if puzzle:
+        field, total = puzzle
+        sets = (raw or {}).get(field)
+        if isinstance(sets, dict) and sets:
+            done = sum(1 for row in sets.values()
+                       if isinstance(row, dict) and row.get("complete_time"))
+            if done >= total:
+                return [(EVENT_CLAIMED, DONE)]
+            return [("%d/%d" % (done, total), TODO)]
     return _event_progress(raw, name)
 
 
@@ -460,7 +462,7 @@ def _event_progress(raw, name):
     that was not -- a summer event with a wave unissued, and a daily
     one on its first day -- and a checklist that says done when it is
     not is worse than one that says nothing. An event carrying a define
-    STATES its total and can be green; see `EVENT_DEFINES`.
+    with a stated total can be green; see `EVENT_TOTALS`.
     """
     missions = (raw or {}).get(PASS_MISSION_FIELD)
     if not isinstance(missions, dict):
@@ -476,7 +478,13 @@ def _event_progress(raw, name):
     if not rows:
         return []
     claimed = sum(1 for row in rows if row.get("complete_time"))
-    return [("%d/%d" % (claimed, len(rows)), TODO)]
+    total = EVENT_TOTALS.get(name)
+    if not _is_count(total) or total <= 0:
+        # The rows in hand, which is a floor -- so never green.
+        return [("%d/%d" % (claimed, len(rows)), TODO)]
+    if claimed >= total:
+        return [(EVENT_CLAIMED, DONE)]
+    return [("%d/%d" % (claimed, total), TODO)]
 
 
 def product_label(define):
@@ -542,16 +550,34 @@ EVENT_NOISE_WORDS = ("schedule", "mission")
 # its deadline and no tally.
 EVENT_MISSIONS = {}
 
-# Events that STATE their own totals, as
-# {event id: (snapshot field, claimed key, total key)}.
+# What an event's rewards actually TOTAL, where the wire does not say
+# and the maintainer does. Read off the game's own screen.
 #
-# **Preferred over counting missions**, and the only exact reading
-# available: a mission count is a floor, since the game issues a row
-# when it issues the mission. The summer event's define answered 48 of
-# 50 while its mission rows knew of 13.
-EVENT_DEFINES = {
-    "event_summer_01": ("event_summer_define_entity",
-                        "reward_count", "event_item_count"),
+# **A mission count cannot supply this.** The game issues a mission row
+# when it issues the mission, so the rows in hand are a floor -- the
+# devil event read three of three on its first afternoon against a real
+# twenty-one, and the summer event twelve of twelve with a wave still
+# to come. A stated total is the only thing that makes a row green.
+#
+# Each goes stale when its event ends, which is the cost of stating
+# them; an event with no entry shows its floor and never goes green.
+EVENT_TOTALS = {
+    # Three tasks a day for seven days.
+    "event_schedule_devil_001": 21,
+    # Three reward pages of 7, 7 and 10.
+    "event_bartender_01": 24,
+}
+
+# Events whose progress is a set of PUZZLES rather than missions, as
+# {event id: (field, how many puzzles the event has)}. A set gets an
+# entity once it is started and a `complete_time` once it is finished.
+#
+# **`event_summer_define_entity` does not answer this.** Its
+# `reward_count` is the event ITEMS spent -- 48, which is two
+# twenty-four piece puzzles -- and `event_item_count` the items
+# earned. Neither is a count of rewards.
+EVENT_PUZZLES = {
+    "event_summer_01": ("event_summer_set_entities", 10),
 }
 
 # **Progress is read per GROUP, not per event.** Each kind of event
