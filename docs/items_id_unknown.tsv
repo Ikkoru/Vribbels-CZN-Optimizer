@@ -7,16 +7,12 @@ res_id	where	amount	Name	Type	Note
 2000021	currencies	0			
 2000033	currencies	3			
 2000034	currencies	0			
-2000048	currencies	1	Daily Chaos Delegation	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation
-3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Reset when a Galactic Disaster ends
-3300009	items	3		Gift Item	
 3300017	items	6		Gift Item	
 3920004	items	0			
 3920005	items	0			
-3930002					Couldn't find any 10s
+3930002					Couldn't find any 10s. Possibly an event, because it was gone from the snapshot after new patch dropped
 4010001	items	1			
 4010002	items	1			
-4020001	items	0	Midsummer Night Memories	Event Exclusive Item	Check if this is reused in various events
 4100000	items	0			
 4100005	items	0			
 4100006	items	0			
@@ -54,7 +50,6 @@ res_id	where	amount	Name	Type	Note
 5201017	items	0			Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201021	items	0			Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201024	items	0			Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
-5201028	items	0	Animated Card Unlock - Maribell	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201033	items	0			Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201039	items	0			Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201040	items	0			Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
@@ -92,6 +87,8 @@ res_id	where	amount	Name	Type	Note
 9210043	items	1			
 9210044	items	1			
 9210050	items	1			
+9210052	items	1			
+9210053	items	1			
 9300115	items	1			
 9300116	items	1			
 9300117	items	1			
@@ -165,12 +162,15 @@ res_id	where	amount	Name	Type	Note
 9300256	items	1			
 9300258	items	1			
 9300260	items	1			
+9300262	items	1			
 9300263	items	1			
 9300264	items	1			
 9300265	items	1			
 9300266	items	1			
 9300267	items	1			
 9300268	items	1			
+9300269	items	1			
+9300270	items	1			
 9300273	items	1			
 9300278	items	1			
 9300279	items	1			
@@ -200,5 +200,9 @@ res_id	where	amount	Name	Type	Note
 9400061	items	1			
 9400062	items	1			
 9400063	items	1			
+9400064	items	1			
+9400065	items	1			
 9400072	items	1			
+9400094	items	1			
+9400095	items	1			
 9900007	items	1			
