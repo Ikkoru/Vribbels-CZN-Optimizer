@@ -1137,6 +1137,43 @@ def _checklist_redraw_replaces_nothing(tab):
     return []
 
 
+def _log_presets_redraw_replaces_nothing(tab):
+    """A Log Presets refresh with unchanged assignments rebuilds nothing.
+
+    It runs on every snapshot load, and a login burst saves several
+    times in a few seconds -- so an unconditional rebuild destroys and
+    recreates every checkbox two or three times while the user watches.
+    That shows as a dot blinking in the corner of the first one.
+
+    Widget IDENTITY is what says so: same assignments in, same widgets
+    out. Comparing the labels would pass while every widget behind them
+    was replaced.
+
+    Returns a list of complaints.
+    """
+    def widgets(w, out):
+        out.append(w)
+        for child in w.winfo_children():
+            widgets(child, out)
+        return out
+
+    frame = getattr(tab, "log_presets_list_frame", None)
+    if frame is None:
+        return []
+    before = widgets(frame, [])
+    tab.refresh_log_presets()
+    after = widgets(frame, [])
+    if len(before) != len(after) or any(a is not b for a, b in
+                                        zip(before, after)):
+        return [
+            f"refreshing Log Presets with unchanged assignments replaced "
+            f"its widgets ({len(before)} before, {len(after)} after). "
+            f"Every capture save triggers this refresh, so the checklist "
+            f"blinks each time."
+        ]
+    return []
+
+
 def _checklist_columns_come_first(tab):
     """The Checklist tab's columns frame must be its FIRST child.
 
@@ -1736,6 +1773,8 @@ def run():
                 _capture_log_colours_its_values(built["CaptureTab"]))
             failures.extend(
                 _log_preset_columns_leave_the_gap(built["CaptureTab"]))
+            failures.extend(
+                _log_presets_redraw_replaces_nothing(built["CaptureTab"]))
     finally:
         try:
             root.destroy()

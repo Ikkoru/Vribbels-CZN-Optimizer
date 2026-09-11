@@ -2,7 +2,7 @@
 
 Read this before touching the Events block of the Checklist tab, or before adding an event nobody has mapped. `wire_hunt.md` holds the general techniques for pairing wire payloads; this holds what is known about events specifically.
 
-The code is `ui/tabs/checklist_tab.py`: `EVENT_GROUPS` says which schedule groups are listed, `EVENT_CATEGORIES` says what kind each is, and `EVENT_READERS` says which function reads it.
+The code is `ui/tabs/checklist_tab.py`: `EVENT_GROUPS` says which schedule groups are listed, `EVENT_CATEGORIES` says what kinds each is (a set — see below), `event_is` asks whether a group is one of them, and `EVENT_READERS` says which function reads it.
 
 ## The three questions, in order
 
@@ -14,26 +14,37 @@ Answer them in this order for any event. Each one is cheap and rules out work on
 
 ## The categories
 
-| Category | What it is | How to tell | What the row does | Best colour |
-| -------- | ---------- | ----------- | ----------------- | ----------- |
-| **Generic** | repeats with fresh rewards on a cycle — daily, weekly | its record carries a `reset_time` or an equivalent that rolls; the same rewards come back | counts the CYCLE, not the event: what has been taken of what this cycle offers | **orange** when the cycle is finished. Never green |
-| **Tallied** | its total is knowable, from the wire or from a derivation that needs no maintenance | a stated total, or one derived from something dated — see `wire_hunt.md` | claimed / total | green when claimed reaches total |
-| **Open-ended** | only a floor is knowable | the rows are issued as the event hands them out, so the denominator grows | claimed / rows held | red; **orange** once the floor has not moved for 48h |
+**An event is usually several of these at once**, so a group's entry in `EVENT_CATEGORIES` is a SET rather than one value. An Overclock event is both Generic and Forced Daily, and the two say different things about it.
+
+| Category | What it is | How to tell | What the row does | Colour when full |
+| -------- | ---------- | ----------- | ----------------- | ---------------- |
+| **Tallied** | its total is knowable | a stated total, or one derived from something dated | claimed / total | **green** |
+| **Generic** | a Tallied event that comes back later largely unchanged | the same event id family has run before, with the same shape | as Tallied | **green** |
+| **Forced Daily** | its rewards refresh each day of its run and are lost if not taken that day | its record carries a `reset_time` that rolls daily | counts the DAY, not the event | **orange** |
+| **Open-ended** | only a floor is knowable | rows are issued as the event hands them out, so the denominator grows | claimed / rows held | red; **orange** after 48h unmoved |
 | **Unmapped** | nothing known about its progress | no entry in `EVENT_READERS` | deadline alone | — |
 
-### Why Generic is never green
+Generic **implies** Tallied — it is a Tallied event with a second property — and `event_is` applies that so the table need not say it twice.
 
-A green row means "nothing left to think about". A repeating event's cycle finishing means nothing left **today**, and the row will be work again tomorrow — so green would be read as one less thing for the whole rest of the event. Orange says "done for now".
+### Why Generic is worth naming
 
-It also does not need the 48-hour settling rule that Open-ended uses. Nothing about a Generic event is unproven: the cycle is genuinely complete, and its category alone says so.
+**Anything about a Generic event that resists derivation may be written down.** It is the one kind of hardcoding that does not go stale: the event returns with the same shape, so the number is right next time too. `OVERCLOCK_USES = 2` is the example.
+
+The cost is a standing obligation to notice if the game changes it — older Overclock events ran at six a day rather than two, so it HAS changed before. Say so at the constant.
+
+### Why Forced Daily is orange, not green
+
+Claiming everything on offer does not finish a Forced Daily event: tomorrow brings more, and today's are gone whether or not they were taken. A green row means "nothing left to think about", which would be wrong for the rest of the run — so a finished day reads orange.
+
+This is a different orange from the Open-ended one. Nothing here is unproven; the day is genuinely complete and the category alone says so, with no 48-hour settling involved.
 
 ### Members so far
 
-| Group | Category | Where its progress lives | Notes |
-| ----- | -------- | ------------------------ | ----- |
-| `EVENT_OVERCLOCK` | Generic | `overclock_entities[event id]` | doubled Simulation runs, `count` per day against a cap of 2. Older events of this kind ran at 6, and the cap is not on the wire |
+| Group | Categories | Where its progress lives | Notes |
+| ----- | ---------- | ------------------------ | ----- |
+| `EVENT_OVERCLOCK` | Generic, Forced Daily | `overclock_entities[event id]` | doubled Simulation runs, `count` per day against a cap of 2. Older events of this kind ran at 6, and the cap is not on the wire — see the Generic warning above |
 | `EVENT_DAILY_CHECK` | Tallied | `attendance_entities` | a login streak. The attendance row is the FIRST one started after the event was — the ids do not match |
-| `EVENT_COMBATANT_TRIAL` | Tallied | `combat_trial_entities` | three trials per combatant banner sharing the event's window |
+| `EVENT_COMBATANT_TRIAL` | Tallied, Generic | `combat_trial_entities` | three trials per combatant banner sharing the event's window |
 | `EVENT_SCHEDULE` | Open-ended | `event_mission_entities` | the catch-all: story events, seasonal events, the bartender |
 | `EVENT_NODELIST_PAGE` | Open-ended | `event_mission_entities` | same shape |
 
@@ -50,7 +61,7 @@ After 48 hours at its own ceiling a floor turns **orange** — long enough that 
 
 ## Totals the wire does not state
 
-Recorded here rather than in the code. **A total typed into the program is wrong the moment its event ends** — these are for working out the pattern, not for shipping.
+Recorded here rather than in the code. **A total typed into the program is wrong the moment its event ends** — unless its event is Generic, which none of these is. These are for working out the pattern, not for shipping.
 
 | Event | Total | How it is built | Derivable? |
 | ----- | ----- | --------------- | ---------- |
@@ -95,11 +106,11 @@ Claim commands seen so far, all naming the event and the records together:
 
 1. Watch it for a capture: open the event, claim one reward, note the time. `wire_hunt.md` has the diffing recipe.
 2. Find where its progress lives — a `*_entities` collection, or mission rows under the normalised id.
-3. Decide its category from the table above. **If in doubt it is Open-ended**, which is the safe answer: it shows a floor and never claims completion.
+3. Decide its categories — there may be more than one. **If in doubt it is Open-ended**, which is the safe answer: it shows a floor and never claims completion.
 4. Add the group to `EVENT_CATEGORIES` and `EVENT_READERS`. A new event in a group that already has both needs no edit at all — that is the point of keying on the group.
 
 ## Still open
 
-* **The Completed Events tab.** The game has one, so the client decides completion for at least some events. Either it holds the totals in its own data files — the same place the trial slot lists live — or something on the wire says so and has not been found. **A capture taken while opening that tab would settle it**: a request means the reply is the answer; no request means the totals are client-side.
+* **The Completed Events tab.** The game has one, so the client decides completion for at least some events — and it must decide BEFORE the tab is opened, to know what to sort in there. So a capture of opening it would most likely show no request at all, and the totals are client-side, in the same place the trial slot lists live. Worth one capture to confirm, but do not expect it to pay.
 * **`event_bartender_entities` stays `{}`** even after claiming, so the bartender's pages are invisible. Claiming on a page never touched might populate it.
 * **Event display names.** Every row shows an id, because the wire never sends a name — the client has them in a localisation table.

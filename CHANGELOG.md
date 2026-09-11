@@ -30,6 +30,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Changed
 
+- **The Log Presets checklist no longer blinks while a capture runs.** It was rebuilt from scratch on every snapshot save, and logging in saves several times in a few seconds.
+
 - **Daily rows come back on their own.** The coffee and the Communication Passes had no date attached, so with no capture running they kept yesterday's answer — a drunk coffee stayed green past the reset. They now reset with the clock like every other daily row.
 
 - **An Overclock event counts the runs you have taken, not the ones left.** Every other row on the tab reads as done-out-of-total, so `2/2` on a day nothing had been used looked finished. A repeating event's finished cycle reads orange rather than green: it comes back tomorrow.

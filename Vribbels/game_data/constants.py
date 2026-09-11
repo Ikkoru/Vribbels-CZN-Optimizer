@@ -496,8 +496,10 @@ RECORDED_NAMES = {
     2000024: "Prism Film",
     2000031: "Policy Point",
     2000032: "Crystal of Discord",
+    2000048: "Daily Chaos Delegation",
     3000005: "Chaos Orb",
     3000008: "Tactical Data",
+    3000009: "Memory of Light",
     3200001: "Particles of Memory",
     3200002: "Core of Memory",
     3210001: "Traces of Memory",
@@ -511,6 +513,7 @@ RECORDED_NAMES = {
     3300007: "Excellent Merit Badge",
     3300008: "Lucky Sachet",
     3300011: "Carefully Handwritten Letter",
+    3300009: "Hidden Card",
     3300010: "Strange Decoration",
     3300012: "Heartbeat Purfume",
     3300013: "Cute Rabbit Doll",
@@ -536,6 +539,8 @@ RECORDED_NAMES = {
     3930003: "Core of Resonance",
     3930004: "Core of Mutation",
     # One per combatant; `purchase_card_animation` names the rest.
+    4020001: "Midsummer Night Memories",
+    5201028: "Animated Card Unlock - Maribell",
     5201083: "Animated Card Unlock Item - Olga",
     5210000: "Prism Module - Nominate",
     5210001: "Prism Module - Masterpiece",
@@ -616,12 +621,12 @@ PERIOD_ITEMS = {
 # `town_visit_reset_time` beside it is when it goes back to 0 -- 18:00
 # UTC, which is when the game says the allowance is granted.
 
-# Two ARCHIVE GIFT items are still unnamed: 3300009 and 3300017. What
+# One ARCHIVE GIFT item is still unnamed: 3300017. What
 # they are is settled -- `characters.archive_gift_data` is keyed by
 # combatant and lists these ids in its `item_id_list`, with
 # `reward_received_item_id_list` saying which have been handed over --
 # and what is missing is each one's NAME, which no payload spells. The
-# other eighteen are in RECORDED_NAMES above.
+# other nineteen are in RECORDED_NAMES above.
 
 
 # Item rarity, rarest last, mapped to the plate that draws it. Two of

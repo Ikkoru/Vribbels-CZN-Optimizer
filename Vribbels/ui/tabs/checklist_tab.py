@@ -112,11 +112,12 @@ DONE, TODO, UNKNOWN = "done", "todo", None
 FLOOR = "floor"
 STALE_FLOOR = "floor_stale"
 
-# A GENERIC event's current cycle is finished -- today's doubled runs
-# taken, this week's box opened. Orange rather than green, and not
-# because anything is unproven: the event is not over, it comes back
-# tomorrow, and a green row would read as one less thing to think
-# about for the rest of the event. See `EVENT_CATEGORIES`.
+# A FORCED DAILY event's day is finished -- today's doubled runs taken.
+# Orange rather than green, and not because anything is unproven: the
+# rewards refresh tomorrow and today's are gone, so claiming them all
+# does not finish the event and a green row would read as one less
+# thing to think about for the rest of its run.
+# See `EVENT_CATEGORIES`.
 CYCLE_DONE = "cycle_done"
 
 # How long a floor must stand at its ceiling before it goes orange, and
@@ -343,9 +344,10 @@ def _event_overclock(raw, name, _window, now):
     way read `2/2` on a day nothing had been used, which is exactly
     what a finished row looks like everywhere else.
 
-    A GENERIC event, so a finished cycle is orange rather than green:
-    the two come back tomorrow and the event is not over. See
-    `EVENT_CATEGORIES`.
+    FORCED DAILY, so a finished day is orange rather than green: the
+    two come back tomorrow and today's are gone. It is also GENERIC,
+    which is what allows `OVERCLOCK_USES` to be written down -- the
+    same event returns with the same shape. See `EVENT_CATEGORIES`.
     """
     rows = (raw or {}).get(OVERCLOCK_FIELD)
     rows = rows if isinstance(rows, dict) else {}
@@ -462,27 +464,59 @@ def _event_missions(raw, name, _window, _now):
     return _event_progress(raw, name)
 
 
-# What KIND of thing a schedule group is, which is what decides what
-# its row can say and the best colour it can reach. `docs/wire_hunt.md`
-# holds the table: how to tell one from another, and what each costs.
+# What a schedule group IS. **A group can be several of these at
+# once**, so the value is a SET -- an Overclock event is both Generic
+# and Forced Daily, and the two say different things about it.
+# `docs/events.md` holds the table: how to classify one, and what each
+# costs.
 #
-#   GENERIC     repeats with fresh rewards on a cycle, so it is never
-#               finished. A completed cycle is ORANGE, never green.
-#   TALLIED     its total is knowable, so its row can be green.
-#   OPEN_ENDED  only a floor is knowable. Red, and orange once the
-#               floor has stopped moving -- see `FLOOR`.
+#   TALLIED       its total is knowable, so its row can go green.
+#   GENERIC       a TALLIED event that comes back later largely
+#                 unchanged. What cannot be derived about one may be
+#                 written down, because next time it will be the same
+#                 number -- the only kind of hardcoding that does not
+#                 go stale. Watch for the game changing it anyway.
+#   FORCED_DAILY  its rewards refresh each day of its run and are gone
+#                 if not taken that day. Claiming them all does not
+#                 finish it, so a full row is ORANGE rather than green.
+#   OPEN_ENDED    only a floor is knowable. Red, and orange once the
+#                 floor has stopped moving -- see `FLOOR`.
 #
 # A group with no entry has no reader either and shows its deadline
 # alone, which is the honest reading for an event nobody has mapped.
-GENERIC, TALLIED, OPEN_ENDED = "generic", "tallied", "open-ended"
+TALLIED = "tallied"
+GENERIC = "generic"
+FORCED_DAILY = "forced-daily"
+OPEN_ENDED = "open-ended"
 
 EVENT_CATEGORIES = {
-    "EVENT_OVERCLOCK": GENERIC,
-    "EVENT_DAILY_CHECK": TALLIED,
-    "EVENT_COMBATANT_TRIAL": TALLIED,
-    "EVENT_SCHEDULE": OPEN_ENDED,
-    "EVENT_NODELIST_PAGE": OPEN_ENDED,
+    # Generic: the same event returns every few weeks with the same
+    # shape, which is what lets `OVERCLOCK_USES` be a written-down two.
+    # Forced Daily: those two come back tomorrow and yesterday's are
+    # gone, so a finished day is not a finished event.
+    "EVENT_OVERCLOCK": frozenset({GENERIC, FORCED_DAILY}),
+    "EVENT_DAILY_CHECK": frozenset({TALLIED}),
+    "EVENT_COMBATANT_TRIAL": frozenset({TALLIED, GENERIC}),
+    "EVENT_SCHEDULE": frozenset({OPEN_ENDED}),
+    "EVENT_NODELIST_PAGE": frozenset({OPEN_ENDED}),
 }
+
+
+# Kinds that imply another: {kind: what being it also makes you}.
+# GENERIC is a TALLIED event that comes back, so anything generic is
+# tallied whether or not the table says so twice.
+EVENT_IMPLIES = {GENERIC: TALLIED}
+
+
+def event_is(group, category):
+    """Whether a schedule group is of a kind. See `EVENT_CATEGORIES`."""
+    kinds = set(EVENT_CATEGORIES.get(group, ()))
+    for kind in tuple(kinds):
+        implied = EVENT_IMPLIES.get(kind)
+        if implied is not None:
+            kinds.add(implied)
+    return category in kinds
+
 
 # Which reader answers for each schedule group. A group with no entry
 # shows its deadline and no tally.

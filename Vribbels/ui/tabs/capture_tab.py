@@ -110,6 +110,9 @@ class CaptureTab(BaseTab):
         # The column count currently on screen. A <Configure> rebuild
         # happens only when the width would change it.
         self._log_preset_columns_shown = None
+        # What the checklist was last built for. See
+        # `refresh_log_presets`.
+        self._log_preset_signature = None
         # Upgrade Log mismatch filters (column 2, below the checklist)
         self.ignore_atkdef_var = None
         self.ignore_element_var = None
@@ -662,9 +665,6 @@ class CaptureTab(BaseTab):
         frame = self.log_presets_list_frame
         if frame is None:
             return
-        for w in frame.winfo_children():
-            w.destroy()
-        self._log_preset_vars = {}
 
         cpm = self.context.character_preset_manager
         pm = self.context.preset_manager
@@ -676,6 +676,30 @@ class CaptureTab(BaseTab):
         for rid, preset in cpm.assignments_by_id.items():
             if preset and pm.has_preset(preset):
                 preset_to_ids.setdefault(preset, []).append(rid)
+
+        # **Decided BEFORE anything is destroyed.** This runs on every
+        # snapshot load, and a login burst saves several times in a few
+        # seconds -- so rebuilding unconditionally destroyed and
+        # recreated every checkbox here two or three times while the
+        # user watched, which shows as a dot blinking in the corner of
+        # the first one.
+        #
+        # The width is in the signature because the column count is
+        # SOLVED from how wide the built checkboxes turn out to be, so a
+        # resized panel has to rebuild even when its content has not
+        # moved.
+        signature = (frame.winfo_width(), tuple(
+            (name, self._preset_element_colour(preset_to_ids[name]),
+             (any(lpm.is_selected(r) for r in preset_to_ids[name])
+              if lpm is not None else True))
+            for name in sorted(preset_to_ids)))
+        if signature == self._log_preset_signature:
+            return
+        self._log_preset_signature = signature
+
+        for w in frame.winfo_children():
+            w.destroy()
+        self._log_preset_vars = {}
 
         if not preset_to_ids:
             ttk.Label(frame, text="No presets assigned yet.",
