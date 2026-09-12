@@ -1,16 +1,16 @@
 res_id	where	amount	Name	Type	Note
 2000005	currencies	0			
-2000006	currencies	3			
+2000006	currencies	3			Spectral Cube candidate
 2000008	currencies	0			
 2000013	currencies	0			
 2000017	currencies	0			
 2000021	currencies	0			
-2000033	currencies	3			
+2000033	currencies	3			Spectral Cube candidate
 2000034	currencies	0			
-3300017	items	6		Gift Item	
+3300017	items	6	Heartfelt Guitar Pick	Gift Item	Legendary
 3920004	items	0			
 3920005	items	0			
-3930002					Couldn't find any 10s. Possibly an event, because it was gone from the snapshot after new patch dropped
+3930002					Couldn't find any 10s. Possibly an event item, because it was gone from the snapshot after new patch dropped
 4010001	items	1			
 4010002	items	1			
 4100000	items	0			
@@ -177,32 +177,50 @@ res_id	where	amount	Name	Type	Note
 9300288	items	1			
 9300289	items	1			
 9300290	items	1			
-9400008	items	1			
-9400009	items	1			
-9400010	items	1			
-9400011	items	1			
-9400012	items	1			
-9400013	items	1			
-9400014	items	1			
-9400016	items	1			
-9400017	items	1			
-9400018	items	1			
-9400019	items	1			
-9400051	items	1			
-9400052	items	1			
-9400053	items	1			
-9400054	items	1			
-9400055	items	1			
-9400056	items	1			
-9400057	items	1			
-9400058	items	1			
-9400059	items	1			
-9400061	items	1			
-9400062	items	1			
-9400063	items	1			
-9400064	items	1			
-9400065	items	1			
-9400072	items	1			
-9400094	items	1			
-9400095	items	1			
+9400008	items	1			Presumably Sticker
+9400009	items	1			Presumably Sticker
+9400010	items	1			Presumably Sticker
+9400011	items	1			Presumably Sticker
+9400012	items	1			Presumably Sticker
+9400013	items	1			Presumably Sticker
+9400014	items	1			Presumably Sticker
+9400016	items	1			Presumably Sticker
+9400017	items	1			Presumably Sticker
+9400018	items	1			Presumably Sticker
+9400019	items	1			Presumably Sticker
+9400051	items	1			Presumably Sticker
+9400052	items	1			Presumably Sticker
+9400053	items	1			Presumably Sticker
+9400054	items	1			Presumably Sticker
+9400055	items	1			Presumably Sticker
+9400056	items	1			Presumably Sticker
+9400057	items	1			Presumably Sticker
+9400058	items	1			Presumably Sticker
+9400059	items	1			Presumably Sticker
+9400061	items	1			Presumably Sticker
+9400062	items	1			Presumably Sticker
+9400063	items	1			Presumably Sticker
+9400064	items	1			Presumably Sticker
+9400065	items	1			Presumably Sticker
+9400072	items	1			Presumably Sticker
+9400084	items	1		Sticker	Bartender Event sticker reward
+9400085	items	1		Sticker	Bartender Event sticker reward
+9400086	items	1		Sticker	Bartender Event sticker reward
+9400087	items	1		Sticker	Bartender Event sticker reward
+9400088	items	1		Sticker	Bartender Event sticker reward
+9400089	items	1		Sticker	Bartender Event sticker reward
+9400090	items	1		Sticker	Bartender Event sticker reward
+9400091	items	1		Sticker	Bartender Event sticker reward
+9400092	items	1		Sticker	Bartender Event sticker reward
+9400093	items	1		Sticker	Bartender Event sticker reward
+9400094	items	1		Sticker	Bartender Event sticker reward
+9400095	items	1		Sticker	Bartender Event sticker reward
+9400096	items	1		Sticker	Bartender Event sticker reward
+9400097	items	1		Sticker	Bartender Event sticker reward
+9400098	items	1		Sticker	Bartender Event sticker reward
+9400099	items	1		Sticker	Bartender Event sticker reward
+9400100	items	1		Sticker	Bartender Event sticker reward
+9400101	items	1		Sticker	Bartender Event sticker reward
+9400102	items	1		Sticker	Bartender Event sticker reward
+9400103	items	1		Sticker	Bartender Event sticker reward
 9900007	items	1			
