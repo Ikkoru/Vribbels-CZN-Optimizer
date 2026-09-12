@@ -166,8 +166,12 @@ class Addon:
         self.point_entity = None
         self.remnants = None
         self.zero_orb = None
-        self.attendance = None
+        self.attendance = {}
         self.season_rewards = None
+        # {event id: row} -- the only place the game says an event is
+        # FINISHED rather than how far along it is. See the branch
+        # below and `docs/events.md`.
+        self.event_rewards = {}
         # {field: record} -- an event's own progress, by the key
         # it arrives under. See the event branch below.
         self.event_defines = {}
@@ -872,9 +876,47 @@ class Addon:
                 self.event_defines[key] = value
                 self._save_pending = True
         # The login-streak events: days shown up, days claimed.
-        if isinstance(data.get("attendance_entities"), list):
-            self.attendance = data["attendance_entities"]
-            self._save_pending = True
+        #
+        # **Merged by event, never replaced.** The login burst sends
+        # the whole list, but a reward claim has only ever been seen
+        # from the login side -- so whatever shape a claim reply turns
+        # out to use, a partial list must update its own rows rather
+        # than throw the rest away. Both the plural and the singular
+        # spelling are taken, which is how every other entity here
+        # arrives.
+        for key in ("attendance_entities", "result_attendance_entities",
+                    "attendance_entity"):
+            rows = data.get(key)
+            if isinstance(rows, dict) and rows.get("event_id") is not None:
+                rows = [rows]
+            elif isinstance(rows, dict):
+                rows = list(rows.values())
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if isinstance(row, dict) and row.get("event_id") is not None:
+                    self.attendance[str(row["event_id"])] = row
+                    self._save_pending = True
+        # Whether an event is FINISHED, which is the one thing a count
+        # of claimed missions cannot say -- the account holds only the
+        # rows the game has issued so far, so a full tally is a floor.
+        # `event_achieve_state` is 1 once the event's own completion
+        # reward has been taken. Merged by event: the login sends every
+        # row, and a claim is expected to send one.
+        for key in ("event_mission_reward_entities",
+                    "result_event_mission_reward_entities",
+                    "event_mission_reward_entity"):
+            rows = data.get(key)
+            if isinstance(rows, dict) and rows.get("res_id") is not None:
+                rows = [rows]
+            elif isinstance(rows, dict):
+                rows = list(rows.values())
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if isinstance(row, dict) and row.get("res_id") is not None:
+                    self.event_rewards[str(row["res_id"])] = row
+                    self._save_pending = True
         if isinstance(data.get("zero_orb_entity"), dict):
             self.zero_orb = data["zero_orb_entity"]
             self._save_pending = True
@@ -1266,7 +1308,12 @@ class Addon:
             "remnants_entities": self.remnants or None,
             "zero_orb_entity": self.zero_orb,
             "overclock_entities": self.overclock or None,
-            "attendance_entities": self.attendance or None,
+            # Kept as LISTS, the shape the wire uses and every
+            # snapshot already on disk carries. They are merged by id
+            # while the capture runs and flattened here.
+            "attendance_entities": list(self.attendance.values()) or None,
+            "event_mission_reward_entities":
+                list(self.event_rewards.values()) or None,
             "reward_entities": self.season_rewards or None,
             **self.event_defines,
             "combat_trial_entities": self.combat_trials or None,

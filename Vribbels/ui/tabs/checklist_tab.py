@@ -493,6 +493,34 @@ def _event_trials(raw, name, window, now):
     return [("%d/%d" % (claimed, most), _done(claimed >= most))]
 
 
+def _event_finished(raw, name):
+    """Whether the game itself says this event is finished.
+
+    **`event_mission_reward_entities` is the only place it does.** One
+    row per event the account has a completion record for, and
+    `event_achieve_state` is 1 once the event's own final reward --
+    the one that unlocks after every other -- has been taken. The
+    Bartender's is the worked example.
+
+    Everything else about an event is a count of what has been handed
+    out, which is a floor and can never prove completion. This can,
+    which is what takes `EVENT_TOTAL_UNKNOWN` off the row and lets it
+    go green.
+
+    The record's id is the event's own rather than the schedule's, so
+    it goes through `_event_key` like every other pairing here.
+    """
+    rows = (raw or {}).get(EVENT_DONE_FIELD)
+    rows = rows if isinstance(rows, list) else []
+    want = _event_key(name)
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if _event_key(row.get("res_id")) == want:
+            return row.get(EVENT_DONE_FLAG) == EVENT_DONE_VALUE
+    return False
+
+
 def _event_missions(raw, name, _window, _now):
     """[(words, state)] for an event scored by its own missions."""
     return _event_progress(raw, name)
@@ -573,12 +601,19 @@ def _event_progress(raw, name):
     dripping three tasks a day for a week reads three of three on its
     first afternoon.
 
-    **So this never reads green.** Twice it called an event finished
-    that was not -- a summer event with a wave unissued, and a daily
-    one on its first day -- and a checklist that says done when it is
-    not is worse than one that says nothing. The reading is marked
-    `FLOOR` for that reason, and the tab colours it orange once it has
-    stood still long enough to mean something.
+    **So this normally cannot read green**, and says so: the total
+    carries `EVENT_TOTAL_UNKNOWN` after it, because a denominator that
+    is only a floor is a different claim from one that is a total.
+    Twice a bare tally called an event finished that was not -- a
+    summer event with a wave unissued, and a daily one on its first
+    day -- and a checklist that says done when it is not is worse than
+    one that says nothing. The reading is marked `FLOOR`, and the tab
+    colours it orange once it has stood still long enough to mean
+    something.
+
+    The exception is an event the game itself calls finished. See
+    `_event_finished`: the suffix comes off and the row goes green,
+    because the question has an answer rather than an estimate.
     """
     missions = (raw or {}).get(PASS_MISSION_FIELD)
     if not isinstance(missions, dict):
@@ -594,7 +629,9 @@ def _event_progress(raw, name):
     if not rows:
         return []
     claimed = sum(1 for row in rows if row.get("complete_time"))
-    return [("%d/%d" % (claimed, len(rows)), FLOOR)]
+    if claimed >= len(rows) and _event_finished(raw, name):
+        return [("%d/%d" % (claimed, len(rows)), DONE)]
+    return [("%d/%d%s" % (claimed, len(rows), EVENT_TOTAL_UNKNOWN), FLOOR)]
 
 
 def product_label(define):
@@ -652,7 +689,27 @@ EVENT_ID_PREFIX = "event_"
 # to the mission's own numbering. **This is what keeps the numbers
 # following the game**: an event that returns as `..._006` finds
 # `..._6_*` with no edit here.
-EVENT_NOISE_WORDS = ("schedule", "mission")
+EVENT_NOISE_WORDS = ("schedule", "mission", "season")
+
+# What marks a total that is only a FLOOR. The row reads `16/20+?`,
+# which says the twenty is what the account has been handed and not
+# what the event holds -- a bare `16/20` would read as four left when
+# it may be eight. It comes off only where `_event_finished` can say
+# the event is over, which is also the only way such a row goes green.
+EVENT_TOTAL_UNKNOWN = "+?"
+
+# Where the game states that an event is FINISHED, and what saying so
+# looks like. One row per event, `res_id` naming the event and
+# `event_achieve_state` flipping to 1 once its final reward is taken.
+#
+# The same row carries `reward_step` and `version`, which look like a
+# reward track's size and how much of it is claimed -- across every
+# row ever captured the state is 1 exactly when the two are equal.
+# NOT READ, because a second reading fits the same numbers; the
+# measurement that separates them is in `docs/events.md`.
+EVENT_DONE_FIELD = "event_mission_reward_entities"
+EVENT_DONE_FLAG = "event_achieve_state"
+EVENT_DONE_VALUE = 1
 
 # Events the rule cannot reach, as {event id: mission id prefix}. Empty
 # because nothing has needed one; an event whose missions are named
@@ -1492,8 +1549,16 @@ def _pass_daily_number(res_id):
 
 
 def _at_ceiling(words):
-    """Whether an `n/m` reading has n equal to m."""
-    parts = str(words).split("/")
+    """Whether an `n/m` reading has n equal to m.
+
+    `EVENT_TOTAL_UNKNOWN` comes off first: a floor's `16/20+?` is at
+    its ceiling on exactly the same terms as a plain `20/20`, and that
+    suffix is the whole reason such a row can settle at all.
+    """
+    words = str(words)
+    if words.endswith(EVENT_TOTAL_UNKNOWN):
+        words = words[:-len(EVENT_TOTAL_UNKNOWN)]
+    parts = words.split("/")
     if len(parts) != 2 or not all(p.strip().isdigit() for p in parts):
         return False
     return int(parts[0]) >= int(parts[1])

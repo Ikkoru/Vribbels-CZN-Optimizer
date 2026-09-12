@@ -78,6 +78,9 @@ def run():
         SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
         CYCLE_DONE, OVERCLOCK_USES, OVERCLOCK_SHAPE_SIGHTINGS,
         _event_overclock,
+        EVENT_DONE_FIELD, EVENT_DONE_FLAG, EVENT_DONE_VALUE,
+        EVENT_TOTAL_UNKNOWN, FLOOR, FLOOR_SETTLES_AFTER,
+        PASS_MISSION_FIELD, _at_ceiling, _event_missions,
     )
 
     failures = []
@@ -219,6 +222,56 @@ def run():
                 f"the smallest shape at least {OVERCLOCK_SHAPE_SIGHTINGS} "
                 f"ended events share that still fits today's count; "
                 f"{OVERCLOCK_USES} is only the floor where none does.")
+
+    # --- a floor SAYS it is a floor, and only the game lifts it ------
+    # A denominator counted off the rows in hand is what has been
+    # handed out, not what the event holds, so `20/20` there would be
+    # a different claim from `20/20` anywhere else on the tab. The
+    # suffix carries that difference, and comes off only where
+    # `event_mission_reward_entities` says the event is over.
+    def _event(rows_held, claimed, finished):
+        raw = _snapshot()
+        raw[PASS_MISSION_FIELD] = {
+            "event_probe_%02d" % at: {
+                "res_id": "event_probe_%02d" % at,
+                "complete_time": 1 if at <= claimed else 0}
+            for at in range(1, rows_held + 1)}
+        if finished is not None:
+            raw[EVENT_DONE_FIELD] = [{"res_id": "event_probe",
+                                      EVENT_DONE_FLAG: finished}]
+        return _event_missions(raw, "event_probe", {}, now)
+
+    unknown = EVENT_TOTAL_UNKNOWN
+    for held, claimed, finished, want, state, why in (
+            (20, 16, None, "16/20" + unknown, FLOOR,
+             "a part-claimed event with no completion record"),
+            (20, 20, None, "20/20" + unknown, FLOOR,
+             "every row in hand claimed, with nothing to say that is all"),
+            (20, 20, 0, "20/20" + unknown, FLOOR,
+             "a completion record that says NOT finished"),
+            (20, 20, EVENT_DONE_VALUE, "20/20", DONE,
+             "the game's own word that the event is finished"),
+            (20, 16, EVENT_DONE_VALUE, "16/20" + unknown, FLOOR,
+             "a finished flag over a tally that is not full")):
+        got = _event(held, claimed, finished)
+        if got != [(want, state)]:
+            failures.append(
+                f"{why} reads {got!r}, not {[(want, state)]!r}. A tally "
+                f"counted off the rows in hand is a FLOOR and says so with "
+                f"{unknown!r}; only {EVENT_DONE_FLAG} == "
+                f"{EVENT_DONE_VALUE!r} takes it off and lets the row go "
+                f"green.")
+
+    # The suffix must not stop a floor settling to orange, which is the
+    # whole answer for an event nothing can prove finished.
+    for words, want in (("20/20" + unknown, True), ("16/20" + unknown, False),
+                        ("20/20", True), ("16/20", False)):
+        if _at_ceiling(words) is not want:
+            failures.append(
+                f"_at_ceiling({words!r}) is {_at_ceiling(words)!r}, not "
+                f"{want!r}. A floor at its ceiling is what settles to "
+                f"orange after {FLOOR_SETTLES_AFTER // 3600}h, and "
+                f"{unknown!r} must not hide that.")
 
     # --- a DAY that has rolled brings its rows back ------------------
     # The town's daily block carries no date of its own but does carry
