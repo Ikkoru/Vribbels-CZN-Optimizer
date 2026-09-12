@@ -2,15 +2,16 @@
 
 Read this before touching the Events block of the Checklist tab, or before adding an event nobody has mapped. `wire_hunt.md` holds the general techniques for pairing wire payloads; this holds what is known about events specifically.
 
-The code is `ui/tabs/checklist_tab.py`: `EVENT_GROUPS` says which schedule groups are listed, `EVENT_CATEGORIES` says what kinds each is (a set — see below), `event_is` asks whether a group is one of them, and `EVENT_READERS` says which function reads it.
+The code is `ui/tabs/checklist_tab.py`: `EVENT_GROUPS` says which schedule groups are listed, `EVENT_CATEGORIES` says what kinds each is (a set — see below), `event_is` asks whether a group is one of them, `EVENT_READERS` says which function reads it, and `_event_finished` is the one thing that can call an event over.
 
-## The three questions, in order
+## The four questions, in order
 
 Answer them in this order for any event. Each one is cheap and rules out work on the next.
 
 1. **When does it end?** `event_schedules` dates every event, so this always has an answer, and it alone is a useful row. An event nobody has mapped still shows its deadline.
 2. **How much is done?** Usually a count of records carrying a claim stamp.
-3. **How much is there altogether?** The hard one. Get this wrong and the row lies — see *Floors* below.
+3. **Is it finished?** A separate question from 2, and often easier: the game keeps its own completion flag. See *The one place the game says an event is FINISHED*.
+4. **How much is there altogether?** The hard one, and the only one that can make the row lie — see *Floors* below. Where 3 has an answer, this one stops mattering.
 
 ## The categories
 
@@ -21,10 +22,16 @@ Answer them in this order for any event. Each one is cheap and rules out work on
 | **Tallied** | its total is knowable | a stated total, or one derived from something dated | claimed / total | **green** |
 | **Generic** | a Tallied event that comes back later largely unchanged | the same event id family has run before, with the same shape | as Tallied | **green** |
 | **Forced Daily** | its rewards refresh each day of its run and are lost if not taken that day | its record carries a `reset_time` that rolls daily | counts the DAY, not the event | **orange** |
-| **Open-ended** | only a floor is knowable | rows are issued as the event hands them out, so the denominator grows | claimed / rows held | red; **orange** after 48h unmoved |
+| **Open-ended** | only a floor is knowable | rows are issued as the event hands them out, so the denominator grows | claimed / rows held **+?** | red; **orange** after 48h unmoved, **green** if the game says finished |
 | **Unmapped** | nothing known about its progress | no entry in `EVENT_READERS` | deadline alone | — |
 
 Generic **implies** Tallied — it is a Tallied event with a second property — and `event_is` applies that so the table need not say it twice.
+
+### The `+?` on an Open-ended row
+
+`16/20` and `16/20+?` are different claims. The first says four left; the second says four left **that the game has handed out so far**, which may be eight. The suffix is `EVENT_TOTAL_UNKNOWN`, and it is on every reading whose denominator was counted off the rows in hand.
+
+It comes off in exactly one case — the game itself says the event is finished, below — and that is also the only way such a row goes green.
 
 ### Why Generic is worth naming
 
@@ -39,6 +46,20 @@ Two guards make that safe:
 
 Where a number genuinely resists derivation, a Generic event is still the one place hardcoding does not go stale — the event returns with the same shape, so the number is right next time. The cost is a standing obligation to notice if the game changes it, and the Overclock cap HAS changed before.
 
+### What the two Overclock shapes MEAN in game
+
+The shape is not arbitrary: it follows the kind of Simulation mission the event doubles, and the two kinds are different contents with different economics.
+
+| Simulation mission | Aether per run | Multiplier | Overclock shape |
+| ------------------ | -------------- | ---------- | --------------- |
+| Memory Fragment | 60 | none — one run is one run | **2** a day |
+| Unit, Battle Memory, Support Data, Manual, Certificate, Growth Stone | 20 × *x* | *x* = 1…6, rewards ×*x* | **6** a day |
+| Challenge | — | — | not an Overclock target; the Checklist tracks these as Simulation Challenges under Weekly |
+
+So the six is the multiplier ceiling of the missions it applies to, and the two belongs to the one kind that cannot be multiplied at all. **This makes a one-run experiment decisive**: complete a single Memory Fragment mission with a capture running. Doubled rewards mean the event is the two-shape; doubled rewards on any other type mean the six-shape.
+
+Nothing in the login payload names the targeted mission type, so this is an action test rather than a derivation — the derivation from ended events is what ships. Keep it as the tie-break for the case the derivation cannot settle: a two and a six are indistinguishable while the day's count is still at 1 or 2.
+
 ### Why Forced Daily is orange, not green
 
 Claiming everything on offer does not finish a Forced Daily event: tomorrow brings more, and today's are gone whether or not they were taken. A green row means "nothing left to think about", which would be wrong for the rest of the run — so a finished day reads orange.
@@ -52,8 +73,8 @@ This is a different orange from the Open-ended one. Nothing here is unproven; th
 | `EVENT_OVERCLOCK` | Generic, Forced Daily | `overclock_entities[event id]` | doubled Simulation runs. `count` is today's tally, `total_count` the event's lifetime one, `reset_time` when the day's was last written. The cap is not stated; `_overclock_cap` reads it off the ended events' own counts |
 | `EVENT_DAILY_CHECK` | Tallied | `attendance_entities` | a login streak. The attendance row is the FIRST one started after the event was — the ids do not match |
 | `EVENT_COMBATANT_TRIAL` | Tallied, Generic | `combat_trial_entities` | three trials per combatant banner sharing the event's window |
-| `EVENT_SCHEDULE` | Open-ended | `event_mission_entities` | the catch-all: story events, seasonal events, the bartender |
-| `EVENT_NODELIST_PAGE` | Open-ended | `event_mission_entities` | same shape |
+| `EVENT_SCHEDULE` | Open-ended | `event_mission_entities`, plus `event_mission_reward_entities` for the completion flag | the catch-all: story events, seasonal events, the bartender |
+| `EVENT_NODELIST_PAGE` | Open-ended | same two | same shape |
 
 ## Floors, and the one wrong answer
 
@@ -65,6 +86,36 @@ This is a different orange from the Open-ended one. Nothing here is unproven; th
 So an Open-ended row **never goes green**, and its reading is marked `FLOOR` in the code to say why. Saying "done" when it is not is the one answer a checklist must never give: it costs the user the reward.
 
 After 48 hours at its own ceiling a floor turns **orange** — long enough that an event still handing out rewards daily would have moved it. Reading anything new restarts that clock, and a row below its ceiling never settles, because that is work outstanding rather than an unanswerable question. The record lives in `settings/checklist.json`; when a row last moved is a fact about the past and a snapshot holds only the present.
+
+## The one place the game says an event is FINISHED
+
+**`event_mission_reward_entities`.** One row per event the account has a completion record for, and the row is the answer a floor can never give:
+
+| Field | Is |
+| ----- | --- |
+| `res_id` | the event — its own id, not the schedule's, so it goes through `_event_key` like everything else here |
+| `event_achieve_state` | **1 once the event's final reward has been taken**, 0 otherwise |
+| `reward_step`, `version` | a reward track's size and how far along it is — a suspect, see below |
+
+That final reward is the one that unlocks only after every other reward in the event is claimed, so the flag is a genuine "all done". `_event_finished` reads it, and a row at its ceiling with the flag set drops the `+?` and goes green.
+
+Confirmed against all nineteen rows ever captured, across four months: every event whose mission rows are all complete carries state 1, and the two known-unfinished ones (`event_season_love_4`, which was never started, and `event_chaos_assault_1`) carry 0. An event that has merely ENDED does not get the flag — `event_season_love_4` ended in August and is still 0 — so the flag is about completion and not about the clock.
+
+### `reward_step` and `version` — a strong suspect, not read
+
+Across every row ever captured, **`event_achieve_state` is 1 exactly when `version == reward_step`**:
+
+| Row | `reward_step` | `version` | `state` |
+| --- | --- | --- | --- |
+| `event_daily_mission_check_1` | 10 | 10 | 1 |
+| `event_season_love_2` | 21 | 12 | 0 |
+| `event_half_year_mission_1` | 24 | 8 | 0 |
+| `event_chaos_assault_1` | 3 | 2 | 0 |
+| every `event_node_*`, `event_arena_*` | 0 | 0 | 1 |
+
+Nineteen distinct events, no exception. That reads as *"`reward_step` is the track's size and `version` is how much of it is claimed"* — which would hand the Checklist a real denominator for the events that have one. But it also reads as *"`reward_step` is what has been claimed and `version` is the write counter it happens to track"*, and every row fits both.
+
+**The measurement that separates them:** claim ONE step of a step-track event with a capture running. If `reward_step` moves by one it is a tally; if `version` moves and `reward_step` stays it is a total. `event_chaos_assault_1` sits at 2 of 3 or 3 with 2 writes, so one claim there answers it. Until then the code reads only the flag.
 
 ## Telling a rectangular family from a ragged one
 
@@ -97,7 +148,7 @@ Recorded here rather than in the code. **A total typed into the program is wrong
 | Event | Total | How it is built | Derivable? |
 | ----- | ----- | --------------- | ---------- |
 | `event_schedule_devil_001` | 21 | 3 tasks/day × 7 days; ids are `event_devil_<day>_<task>` | **yes** — a grid, by the test above |
-| `event_bartender_01` | 24 | three reward pages of 7, 7, 10 | **no**: ragged. Pages 2 and 3 show their full 7 and 10, but page 1 is a floor |
+| `event_bartender_01` | 24, plus a final reward | three reward pages of 7, 7, 10, and one more that unlocks after all 24 | **no**: ragged. Pages 2 and 3 show their full 7 and 10, but page 1 is a floor. The final reward is not a mission row — it is what sets the completion flag |
 | `event_summer_01` | 10 rewards, 84 items | one reward per 8 items | items spent and earned **yes**, the 10 and the 84 **no** |
 
 ### What the bartender's pages really are
@@ -130,15 +181,18 @@ That gives rewards taken (`reward_count // 8`) and rewards waiting (`amount // 8
 
 ## Naming, and how to find an event's records
 
-An event's schedule id and its records' ids differ, but only in decoration. `checklist_tab._event_key` strips the words `schedule` and `mission` and the zero padding, after which they match:
+An event's schedule id and its records' ids differ, but only in decoration. `checklist_tab._event_key` strips the words `schedule`, `mission` and `season` (`EVENT_NOISE_WORDS`) and the zero padding, after which they match:
 
 ```
 event_schedule_policy_005  ->  event_policy_5_*
 event_summer_01            ->  event_summer_mission_01_*
-event_schedule_love_4      ->  event_love_04_*
-event_stock_01             ->  event_stock_1_01_*
+event_schedule_love_4      ->  event_love_04_*        and  event_season_love_4
+event_stock_01             ->  event_stock_1_01_*     and  event_stock_1
+event_bartender_01         ->  event_bartender_1_*    and  event_bartender_1
 event_schedule_devil_001   ->  event_devil_01_*
 ```
+
+The right-hand column of the last three is the completion record's id, which lives in the same namespace as the mission rows — so one normaliser serves both.
 
 Matching is on a segment boundary, so `event_daily_1` cannot swallow `event_daily_12`'s rows.
 
@@ -148,6 +202,7 @@ Matching is on a segment boundary, so `event_daily_1` cannot swallow `event_dail
 
 * **`event/get_list`** is the master payload, sent when the events screen opens. It carries every event entity at once: `event_bartender_entities`, `event_summer_define_entity`, `event_summer_set_entities`, `remnants_entities`, `marble_*`, `story_event_*`, `event_arena_*`. **It carries no trial entity**, which is why the trial slot lists have to be learned.
 * **`event_mission_entities`** arrives with the login's `mission` reply and holds every event mission the account has been issued.
+* **`event_mission_reward_entities`** arrives in the same `mission` reply and carries the completion flag above.
 * **A claim** answers with the rows it changed, under `entities` — and pays under **`result`**, which is the fourth key the wire uses for a rewards payload and the one that was missed. Watch for it when a claim seems to pay nothing.
 * **`mission_condition`** rides on the reply to any action that moved a mission, and is the single most informative payload an event has. Its `condition.event_mission` list names every event mission that one act touched, each with its `condition_type`, its `issued_time` and its NEW score — so one deliberate action says what a family's rows are FOR. A row drops out of the list once it is complete, which is how a ladder's thresholds become readable without any of them being stated.
 
@@ -164,18 +219,48 @@ Claim commands seen so far, all naming the event and the records together:
 
 **The command says whether an event is paged.** A flat mission list claims with `complete_event_mission_all`; one with reward pages uses `complete_nodelist_event_mission_all`. The bartender uses the nodelist command although it is scheduled under `EVENT_SCHEDULE` and not `EVENT_NODELIST_PAGE`, so the schedule group is not what decides it. Only a captured claim shows this, which makes it a confirmation rather than a classifier — `issued_time` gets there first and needs no capture.
 
+## Fields only ever seen in the login burst
+
+**This is the hazard that looks like a Checklist bug.** Some event records have never been observed outside the login payload. A capture that stays open all evening still shows what the account looked like at login, so a claim made during it changes nothing on the tab until the next login — and the row is not wrong, it is *old*, which is indistinguishable on screen.
+
+| Field | Seen in | A mid-session claim? |
+| ----- | ------- | -------------------- |
+| `attendance_entities` | `load` and `mission` replies at login | **never captured.** A Daily Check-in claim leaves the streak at its login value |
+| `event_mission_reward_entities` | the `mission` reply at login | never captured |
+| `overclock_entities` | the `unlock` reply at login | never captured; `result_overclock_entities` is handled but has not been seen either |
+| `event_mission_entities` | login, **and every claim reply** under `entities` | yes — these stay live |
+
+Two defences, both in `capture/manager.py`:
+
+* **merge by id, never replace.** Whatever shape a claim reply turns out to use, a one-row payload updates its own row and leaves the rest alone. A wholesale assignment would look right on every capture ever taken and wipe the list the first time a real claim arrived.
+* **accept all three spellings** — `x_entities` (list), `result_x_entities` (list) and `x_entity` (one record). Those are the three the wire uses elsewhere, so whichever this turns out to be, it lands. `checks/check_capture_event_state.py` holds all three.
+
+**What settles it is one short capture**: start it, claim the Daily Check-in reward and nothing else, stop. The reply names the field, and the guesswork above becomes a fact.
+
+### Reading a capture for whether anything mid-session landed
+
+Scan the saved snapshot for records stamped AFTER the session's own login. On the capture that prompted this, three timestamps fell inside the session and all three were the login burst itself — nothing from an hour of play reached the file. That is a two-line check worth running before blaming a reader:
+
+```
+login = <the session's own attendance_entities[].last_time>
+anything with a *_time field > login that is not from the login second
+```
+
 ## Adding an event nobody has mapped
 
 1. Watch it for a capture: open the event, **do one thing that moves a mission**, claim one reward, note the time. The action is what buys the `mission_condition` list, and that names the family's rows and what each is for. `wire_hunt.md` has the diffing recipe.
 2. Find where its progress lives — a `*_entities` collection, or mission rows under the normalised id.
 3. Run the `issued_time` test above on its mission rows: a grid has a total, a ragged family has a floor.
-4. Decide its categories — there may be more than one. **If in doubt it is Open-ended**, which is the safe answer: it shows a floor and never claims completion.
+4. Decide its categories — there may be more than one. **If in doubt it is Open-ended**, which is the safe answer: it shows a floor with `+?` and never claims completion.
 5. Add the group to `EVENT_CATEGORIES` and `EVENT_READERS`. A new event in a group that already has both needs no edit at all — that is the point of keying on the group.
+6. Check the field it reads against *Fields only ever seen in the login burst*. A record that arrives only at login needs its claim shape captured before the row can be trusted to move.
 
 ## Still open
 
 * **The Completed Events tab.** The game has one, so the client decides completion for at least some events — and it must decide BEFORE the tab is opened, to know what to sort in there. So a capture of opening it would most likely show no request at all, and the totals are client-side, in the same place the trial slot lists live. Worth one capture to confirm, but do not expect it to pay.
-* **A ragged family's page lengths.** The bartender's three pages are 7, 7 and 10, and two of the three can be read in full from the rows the account holds — but only because those pages were played. Page 1 hands out a row a day and will read short all week. Nothing distinguishes "this page is finished" from "this page is still being issued", which is the same wall every Open-ended reading hits.
+* **A ragged family's page lengths.** The bartender's three pages are 7, 7 and 10, and two of the three can be read in full from the rows the account holds — but only because those pages were played. Page 1 hands out a row a day and will read short all week. Nothing distinguishes "this page is finished" from "this page is still being issued", which is the same wall every Open-ended reading hits. The completion flag answers the only question that really matters — *is there anything left* — without answering this one.
+* **What a claim reply carries for a login-only field.** See that section: one short capture settles `attendance_entities` and, with a single Memory Fragment run, `overclock_entities` at the same time.
+* **`reward_step` vs `version`.** One claim on a step-track event separates a total from a tally, and a total would give three or four more events a real denominator.
 * **Event display names.** Every row shows an id, because the wire never sends a name — the client has them in a localisation table.
 
 Settled, and kept so they are not re-suggested:

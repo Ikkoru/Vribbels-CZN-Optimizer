@@ -18,11 +18,17 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **An item whose name is only a guess is drawn red in the Capture Log.** Two event currencies are named from one event each and the game may hand the same id out under a different name later; red says to check the line rather than trust it. An id nothing can name at all stays dim yellow, as before.
 
+- **An event row says when its total is only a guess.** Most events hand out their rewards over the whole run, so the count on screen is what you have been offered so far, not what the event holds. Those rows now read `16/20+?`. The `+?` comes off — and the row goes green — where the game itself says the event is finished.
+
+- **An event goes green once its final reward is claimed.** The game keeps its own record of that, which is the only thing on the wire that can tell a finished event from one still handing rewards out.
+
 ### Fixed
 
 - **A fresh install opens at the same size a loaded one does.** Two panels were laid out only once data arrived: the Combatants tab's six fragment cells came up at a text widget's default size, far larger than they end up, which pushed the Character and Partner cards out of the space they fill; and the Memory Fragments tab's Sets panel came up empty and narrow, moving every panel beside it when the first snapshot loaded. The Sets columns now reserve room for a four-digit count instead of fitting the counts in hand, so the panel is the same width whatever you own.
 
 - **An event mission's rewards are recorded.** They pay under a key nothing read, so the items landed nowhere and the Capture Log reported no receipt.
+
+- **A login-streak update no longer has to wait for the next login.** The Daily Check-in record was only ever kept when it arrived in full, which is how it arrives at login — so a reward claimed while a capture ran did not reach the tab. It is now kept a row at a time, in every shape the game uses elsewhere for a single record.
 
 - **The Basin of Hyperspace is green only once its rewards are claimed.** Every objective can be scored with every star reward still sitting there, which read as a finished row and a trip to the game still owed.
 

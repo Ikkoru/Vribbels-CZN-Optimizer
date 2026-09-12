@@ -73,7 +73,9 @@ Over and over the wire describes one thing in two places under ids that do not m
 
 Two things from it are worth repeating here because they are general:
 
-**A count of the rows an account holds is a FLOOR.** The game creates a record when it issues the task, so an event still handing them out reads as finished. That is the one wrong answer a checklist must not give, and it is why such a row never goes green.
+**A count of the rows an account holds is a FLOOR.** The game creates a record when it issues the task, so an event still handing them out reads as finished. That is the one wrong answer a checklist must not give, and it is why such a row never goes green — and why it prints `+?` after its total, so the reading says which kind of number it is.
+
+**A completion FLAG beats a total.** `event_mission_reward_entities.event_achieve_state` answers "is anything left" without answering "how much was there", which turns out to be the question a checklist actually asks. Look for one of these before trying to derive a denominator.
 
 **A reading that cannot be proved complete gets a third colour.** Orange, after the floor has stood at its own ceiling for 48 hours — long enough that an event still handing out rewards daily would have moved it. It needs memory, so the record lives in `settings/checklist.json`: when a row last moved is a fact about the past and a snapshot holds only the present.
 
@@ -82,6 +84,7 @@ Two things from it are worth repeating here because they are general:
 A recurring confusion worth stating once. Two different things:
 
 * **The state of a record** — claimed, scored, spent — is always on the wire, and reaches any device. `complete_time`, `count`, `received_days`, `reward_level`.
+* **WHEN it reaches the wire is a third thing.** Some records have only ever been seen in the login burst, so an action taken while a capture runs changes nothing the capture saves — the reading is not wrong, it is an hour old, and on screen those look identical. `docs/events.md` lists the login-only event fields and the two defences; the general rule is to merge a payload by id rather than assign it, so a partial list cannot wipe the rest.
 * **The existence of a record** is not. The game issues a mission row when it issues the mission, so a total counted from the rows in hand is a FLOOR: the Basin's live season carried 15 rows of 26, and a summer event read 12 of 12 with a third wave unissued.
 
 So a reading built from rows the account holds says "at least", and only a stated total — a completed season's row count — makes it exact.
