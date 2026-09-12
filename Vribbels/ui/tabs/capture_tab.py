@@ -7,6 +7,7 @@ import threading
 from capture import check_prerequisites, CaptureError
 from capture.constants import SERVERS
 from game_data.characters import CHARACTERS, ATTRIBUTE_COLORS
+from game_data.constants import PROVISIONAL_NAMES, item_names
 from ..base_tab import BaseTab
 from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.checkbox import make_checkbox
@@ -85,6 +86,33 @@ LOG_EVENT_TAGS = {
 # worth of context beside; the colour is there to say which line to
 # take to the dump.
 LOG_UNKNOWN_ITEM_RE = re.compile(r"\b(\d{4,})(?= [+-]\d)")
+
+
+def _provisional_item_re():
+    """The names in a log line that may not stay their item's.
+
+    Built from `PROVISIONAL_NAMES`, so the ids are recorded in one
+    place -- beside the names themselves -- rather than spelled twice.
+    Longest first, because one provisional name could be the opening of
+    another and the first alternative to match is the one that wins.
+
+    `None` where nothing is provisional, which is the state the set is
+    working towards: every id in it leaves once a second event has
+    confirmed its name.
+    """
+    names = sorted((item_names().get(rid) for rid in PROVISIONAL_NAMES),
+                   key=lambda name: -len(name or ""))
+    names = [re.escape(name) for name in names if name]
+    if not names:
+        return None
+    return re.compile("(%s)" % "|".join(names))
+
+
+# Names the program prints that may not be their item's for long. See
+# `PROVISIONAL_NAMES`: an event currency the game could hand out again
+# under a different name, drawn RED so a line carrying one is an
+# invitation to check it rather than a reading to trust.
+LOG_PROVISIONAL_ITEM_RE = _provisional_item_re()
 
 
 class CaptureTab(BaseTab):
@@ -525,6 +553,11 @@ class CaptureTab(BaseTab):
         # to self rather than something going wrong.
         self.capture_log.tag_configure("item_unknown",
                                        foreground=self.colors["yellow_dim"])
+        # Red, where an unnamed id is only yellow: a name that turns
+        # out to be the wrong item's is worse than no name, because
+        # nothing about the line says it is guessed.
+        self.capture_log.tag_configure("item_provisional",
+                                       foreground=self.colors["red"])
 
     def _colour_log_line(self, start: str, msg: str):
         """Tag the parts of one log line that carry a verdict.
@@ -534,7 +567,9 @@ class CaptureTab(BaseTab):
         insert. See `LOG_VALUE_POOR` for where the yellow starts.
 
         An item the tables cannot name is marked too, so a capture that
-        hands over a new id says which one -- see `LOG_UNKNOWN_ITEM_RE`.
+        hands over a new id says which one -- see `LOG_UNKNOWN_ITEM_RE`
+        -- and so is one whose name is only provisional, which is the
+        stronger warning of the two. See `LOG_PROVISIONAL_ITEM_RE`.
 
         Values are found by the SEPARATOR in front of them rather than
         by shape: every part of a `Highest ...` list begins with its
@@ -554,6 +589,10 @@ class CaptureTab(BaseTab):
 
         for match in LOG_UNKNOWN_ITEM_RE.finditer(msg):
             span(match.start(1), match.end(1), "item_unknown")
+
+        if LOG_PROVISIONAL_ITEM_RE is not None:
+            for match in LOG_PROVISIONAL_ITEM_RE.finditer(msg):
+                span(match.start(1), match.end(1), "item_provisional")
 
         head = msg.find("Highest ")
         if head < 0:

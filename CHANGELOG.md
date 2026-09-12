@@ -16,6 +16,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **Materials tab: the hardest target on each block is coloured** — red under 50%, yellow to 100%, green once covered. The steps on the way keep the ordinary colour, so a block reads as one verdict rather than a column of traffic lights.
 
+- **An item whose name is only a guess is drawn red in the Capture Log.** Two event currencies are named from one event each and the game may hand the same id out under a different name later; red says to check the line rather than trust it. An id nothing can name at all stays dim yellow, as before.
+
 ### Fixed
 
 - **A fresh install opens at the same size a loaded one does.** Two panels were laid out only once data arrived: the Combatants tab's six fragment cells came up at a text widget's default size, far larger than they end up, which pushed the Character and Partner cards out of the space they fill; and the Memory Fragments tab's Sets panel came up empty and narrow, moving every panel beside it when the first snapshot loaded. The Sets columns now reserve room for a four-digit count instead of fitting the counts in hand, so the panel is the same width whatever you own.
@@ -35,6 +37,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 - **Daily rows come back on their own.** The coffee and the Communication Passes had no date attached, so with no capture running they kept yesterday's answer — a drunk coffee stayed green past the reset. They now reset with the clock like every other daily row.
 
 - **An Overclock event counts the runs you have taken, not the ones left.** Every other row on the tab reads as done-out-of-total, so `2/2` on a day nothing had been used looked finished. A repeating event's finished cycle reads orange rather than green: it comes back tomorrow.
+
+- **An Overclock event's daily total is read from the ones you have already played.** The game runs these at two a day and at six, and the row assumed two — so a six-a-day event would have called the day finished after the second run with four still on offer.
 
 - **An event that looks finished but cannot be proved finished reads orange.** Where the only number available is the rewards handed out so far, a row that has sat at its own total for two days is neither red nor green.
 

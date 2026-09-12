@@ -28,9 +28,16 @@ Generic **implies** Tallied — it is a Tallied event with a second property —
 
 ### Why Generic is worth naming
 
-**Anything about a Generic event that resists derivation may be written down.** It is the one kind of hardcoding that does not go stale: the event returns with the same shape, so the number is right next time too. `OVERCLOCK_USES = 2` is the example.
+**A Generic event's own past is on the wire, and that is better than hardcoding it.** Because it has run before, the records of every earlier run are still in the account — and what could not be derived from the live event alone can often be read off the finished ones.
 
-The cost is a standing obligation to notice if the game changes it — older Overclock events ran at six a day rather than two, so it HAS changed before. Say so at the constant.
+The Overclock cap is the worked example. Nothing states how many doubled runs a day holds, and the game uses two shapes, six a day and two. But `overclock_entities` keeps one row per Overclock event ever played, each carrying its own `count`, so the shapes are simply there to be read: thirteen events, seven sixes and six twos. `_overclock_cap` takes the smallest shape that still fits today's count, which reads a six-shape event's third run as `3/6` where a written-down two would have clamped it to `2/2` and called a day with three runs left finished.
+
+Two guards make that safe:
+
+* **a shape must recur.** One row's `count` can be a day its event ended part-way through, which was never anyone's cap; a real shape shows up across events;
+* **the fallback is a floor, not an answer.** `OVERCLOCK_USES` is the smaller of the two shapes, used only where an account has no history at all.
+
+Where a number genuinely resists derivation, a Generic event is still the one place hardcoding does not go stale — the event returns with the same shape, so the number is right next time. The cost is a standing obligation to notice if the game changes it, and the Overclock cap HAS changed before.
 
 ### Why Forced Daily is orange, not green
 
@@ -42,7 +49,7 @@ This is a different orange from the Open-ended one. Nothing here is unproven; th
 
 | Group | Categories | Where its progress lives | Notes |
 | ----- | ---------- | ------------------------ | ----- |
-| `EVENT_OVERCLOCK` | Generic, Forced Daily | `overclock_entities[event id]` | doubled Simulation runs, `count` per day against a cap of 2. Older events of this kind ran at 6, and the cap is not on the wire — see the Generic warning above |
+| `EVENT_OVERCLOCK` | Generic, Forced Daily | `overclock_entities[event id]` | doubled Simulation runs. `count` is today's tally, `total_count` the event's lifetime one, `reset_time` when the day's was last written. The cap is not stated; `_overclock_cap` reads it off the ended events' own counts |
 | `EVENT_DAILY_CHECK` | Tallied | `attendance_entities` | a login streak. The attendance row is the FIRST one started after the event was — the ids do not match |
 | `EVENT_COMBATANT_TRIAL` | Tallied, Generic | `combat_trial_entities` | three trials per combatant banner sharing the event's window |
 | `EVENT_SCHEDULE` | Open-ended | `event_mission_entities` | the catch-all: story events, seasonal events, the bartender |
@@ -59,17 +66,67 @@ So an Open-ended row **never goes green**, and its reading is marked `FLOOR` in 
 
 After 48 hours at its own ceiling a floor turns **orange** — long enough that an event still handing out rewards daily would have moved it. Reading anything new restarts that clock, and a row below its ceiling never settles, because that is work outstanding rather than an unanswerable question. The record lives in `settings/checklist.json`; when a row last moved is a fact about the past and a snapshot holds only the present.
 
+## Telling a rectangular family from a ragged one
+
+Two mission families can look identical — `event_devil_<day>_<task>` and `event_bartender_1_<page>_<index>` are both a name and two numbers — and mean completely different things. The devil's is a grid, 3 tasks on each of 7 days, so `max × max` is its total. The bartender's is three pages of different lengths, so `max × max` is nonsense.
+
+**`issued_time` separates them, from one snapshot.** The game creates a mission row when the mission first becomes relevant, so rows stamped with the SAME SECOND were created by one act of the game. What such a batch varies is the shape:
+
+* a batch that varies an EARLIER index and holds the LAST one is the same task repeating per day — a **grid**;
+* a batch that varies only the LAST index is one page's ladder — **ragged**.
+
+Run against the whole account, every family answers, and the answers match what the events look like in game:
+
+| Family | A same-second batch | Verdict |
+| ------ | ------------------- | ------- |
+| `event_devil_<day>_<task>` | 6 rows varying `day`, holding `task` | grid — 7 × 3 = **21** |
+| `event_node_<id>_<stage>_<task>` | 4 rows varying `stage`, holding `task` | grid — 4 × 5, plus 5 achievements |
+| `event_bartender_1_<page>_<n>` | 12 rows varying `page` AND `n` | ragged |
+| `event_summer_mission_01_<wave>_<n>` | 4 rows varying `n` alone | ragged |
+| `event_stock_1_<page>_<n>` | 10 rows varying `n` alone | ragged |
+| `event_policy_<n>_<m>` | 6 rows varying `m` alone | ragged |
+
+**It answers on the event's first afternoon**, which is the only time the answer is worth anything. The devil's grid batch and all seven of its day numbers were in the snapshot taken hours after it opened — the `3/3` it once read came from a snapshot taken BEFORE the event issued anything, when the account held one row.
+
+A batch that varies both indices says nothing and is ignored; the devil has one of those too. One clean batch is enough.
+
 ## Totals the wire does not state
 
 Recorded here rather than in the code. **A total typed into the program is wrong the moment its event ends** — unless its event is Generic, which none of these is. These are for working out the pattern, not for shipping.
 
 | Event | Total | How it is built | Derivable? |
 | ----- | ----- | --------------- | ---------- |
-| `event_schedule_devil_001` | 21 | 3 tasks/day × 7 days; ids are `event_devil_<day>_<task>` | `max(day) × max(task)` gives 21 — but see below |
-| `event_bartender_01` | 24 | three reward pages of 7, 7, 10 | **no**: `max × max` gives 18. The pages are ragged and nothing in the ids says so |
-| `event_summer_01` | 10 rewards, 84 items | one reward per 8 items fitted into puzzles | **no**: neither the rate nor the 84 nor any per-reward flag is on the wire, and 84 ≠ 10×8, so the last rewards are not evenly spaced |
+| `event_schedule_devil_001` | 21 | 3 tasks/day × 7 days; ids are `event_devil_<day>_<task>` | **yes** — a grid, by the test above |
+| `event_bartender_01` | 24 | three reward pages of 7, 7, 10 | **no**: ragged. Pages 2 and 3 show their full 7 and 10, but page 1 is a floor |
+| `event_summer_01` | 10 rewards, 84 items | one reward per 8 items | items spent and earned **yes**, the 10 and the 84 **no** |
 
-**The open problem is telling a rectangular family from a ragged one.** The devil case shows the derivation that would work; the bartender case shows why it cannot be applied blind.
+### What the bartender's pages really are
+
+The 7/7/10 is real structure, not decoration: the page number is the middle segment of the mission id, and each page is one KIND of task. `mission_condition` on an action names the kind:
+
+| Page | `condition_type` | Shape | Seen |
+| ---- | ---------------- | ----- | ---- |
+| `_01_*` | `EVENT_BARTENDER_CLEAR_DAY__ID` | one row per day of the story | 3 of 7 |
+| `_02_*` | `EVENT_BARTENDER_GUESTBOOK_CLEAR` | a ladder, all seven sharing one running score | 7 of 7 |
+| `_03_*` | `EVENT_BARTENDER_MAKE_COCKTAIL__ID` | a ladder | 10 of 10 |
+
+So the total is 7 + 7 + 10 rather than any product, and the only unknown is page 1, whose rows arrive a day at a time. **Summing each page's own maximum is the right shape of derivation** — it gets 3 + 7 + 10 today — but each page is a floor, so the sum is too.
+
+The guestbook itself is elsewhere: `event_bartender_entities` keys on `bartender_01_day_<NN>_story_1` and each row carries THREE stamps — `normal_complete_time`, `hidden_complete_time`, `fail_complete_time`. The two guestbook entries a day is the normal ending and the hidden one; the third is a failure nobody has triggered. A row appears once its day has been played.
+
+### What the summer define entity really holds
+
+`event_summer_define_entity` has two counters and neither is a reward count:
+
+| Field | Is | Measured |
+| ----- | --- | -------- |
+| `event_item_count` | event items EARNED, lifetime | 52 → 68 on a claim paying 16 |
+| `reward_count` | event items SPENT ON REWARDS, lifetime | 48 → 64 when two rewards were claimed |
+| `items[4020001].amount` | what is spendable now | 4 → 0 across four puzzle-piece unlocks |
+
+**A reward costs 8 items**: two of them moved `reward_count` by 16, and the 48 standing before it is the 6 rewards the account had taken. Unlocking a puzzle piece also spends an item but does NOT move `reward_count`, so the three numbers only reconcile as `amount = event_item_count - reward_count - pieces unlocked`.
+
+That gives rewards taken (`reward_count // 8`) and rewards waiting (`amount // 8`) exactly. What is still absent is the DENOMINATOR: the event's 10 rewards and its 84 items are nowhere, and 84 ≠ 10 × 8, so the last rewards are not evenly spaced and no rate would find them anyway.
 
 ## Naming, and how to find an event's records
 
@@ -92,6 +149,7 @@ Matching is on a segment boundary, so `event_daily_1` cannot swallow `event_dail
 * **`event/get_list`** is the master payload, sent when the events screen opens. It carries every event entity at once: `event_bartender_entities`, `event_summer_define_entity`, `event_summer_set_entities`, `remnants_entities`, `marble_*`, `story_event_*`, `event_arena_*`. **It carries no trial entity**, which is why the trial slot lists have to be learned.
 * **`event_mission_entities`** arrives with the login's `mission` reply and holds every event mission the account has been issued.
 * **A claim** answers with the rows it changed, under `entities` — and pays under **`result`**, which is the fourth key the wire uses for a rewards payload and the one that was missed. Watch for it when a claim seems to pay nothing.
+* **`mission_condition`** rides on the reply to any action that moved a mission, and is the single most informative payload an event has. Its `condition.event_mission` list names every event mission that one act touched, each with its `condition_type`, its `issued_time` and its NEW score — so one deliberate action says what a family's rows are FOR. A row drops out of the list once it is complete, which is how a ladder's thresholds become readable without any of them being stated.
 
 Claim commands seen so far, all naming the event and the records together:
 
@@ -99,18 +157,29 @@ Claim commands seen so far, all naming the event and the records together:
 | ------- | ----- |
 | `mission / complete_event_mission_all` | `event_id` (or `event_mission_define_id`) and `mission_ids` |
 | `mission / complete_nodelist_event_mission_all` | `event_id` and `mission_ids` |
+| `event_summer / complete_event_mission_all` | `event_mission_define_id` — the wave, not the event |
+| `event_summer / get_summer_reward_all` | the event; claims every affordable reward at once |
 | `event_combatant_trial / reward_combatant_trial` | the trial event AND the slot — the only place the two meet |
 | `hyperspace / get_star_reward` | the Basin season, answering with `reward_doc` |
 
+**The command says whether an event is paged.** A flat mission list claims with `complete_event_mission_all`; one with reward pages uses `complete_nodelist_event_mission_all`. The bartender uses the nodelist command although it is scheduled under `EVENT_SCHEDULE` and not `EVENT_NODELIST_PAGE`, so the schedule group is not what decides it. Only a captured claim shows this, which makes it a confirmation rather than a classifier — `issued_time` gets there first and needs no capture.
+
 ## Adding an event nobody has mapped
 
-1. Watch it for a capture: open the event, claim one reward, note the time. `wire_hunt.md` has the diffing recipe.
+1. Watch it for a capture: open the event, **do one thing that moves a mission**, claim one reward, note the time. The action is what buys the `mission_condition` list, and that names the family's rows and what each is for. `wire_hunt.md` has the diffing recipe.
 2. Find where its progress lives — a `*_entities` collection, or mission rows under the normalised id.
-3. Decide its categories — there may be more than one. **If in doubt it is Open-ended**, which is the safe answer: it shows a floor and never claims completion.
-4. Add the group to `EVENT_CATEGORIES` and `EVENT_READERS`. A new event in a group that already has both needs no edit at all — that is the point of keying on the group.
+3. Run the `issued_time` test above on its mission rows: a grid has a total, a ragged family has a floor.
+4. Decide its categories — there may be more than one. **If in doubt it is Open-ended**, which is the safe answer: it shows a floor and never claims completion.
+5. Add the group to `EVENT_CATEGORIES` and `EVENT_READERS`. A new event in a group that already has both needs no edit at all — that is the point of keying on the group.
 
 ## Still open
 
 * **The Completed Events tab.** The game has one, so the client decides completion for at least some events — and it must decide BEFORE the tab is opened, to know what to sort in there. So a capture of opening it would most likely show no request at all, and the totals are client-side, in the same place the trial slot lists live. Worth one capture to confirm, but do not expect it to pay.
-* **`event_bartender_entities` stays `{}`** even after claiming, so the bartender's pages are invisible. Claiming on a page never touched might populate it.
+* **A ragged family's page lengths.** The bartender's three pages are 7, 7 and 10, and two of the three can be read in full from the rows the account holds — but only because those pages were played. Page 1 hands out a row a day and will read short all week. Nothing distinguishes "this page is finished" from "this page is still being issued", which is the same wall every Open-ended reading hits.
 * **Event display names.** Every row shows an id, because the wire never sends a name — the client has them in a localisation table.
+
+Settled, and kept so they are not re-suggested:
+
+* **`event_bartender_entities`** is the GUESTBOOK, not the reward pages, and it fills in as the days are played. One row per day, three completion stamps each.
+* **`event_info_entity`** is still `{"open_day": 1}` under a different `event_id`. Nothing in it is a total.
+* **`mission_event_node_list_story_node_entities`** and **`story_event_node_list_entities`** look like define lists — 81 and 43 rows for an event long finished — but they are the account's own records, complete only because the event was completed. They say nothing about a live one.

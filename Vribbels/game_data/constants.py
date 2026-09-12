@@ -550,6 +550,26 @@ RECORDED_NAMES = {
 
 RECORDED_ONLY = frozenset(RECORDED_NAMES)
 
+# Ids whose name may not be the item's for long -- an event currency
+# the game might hand out again under another name, or a placeholder
+# standing in for one. The Capture Log draws these RED, so a line
+# naming one is an invitation to check it against the game rather than
+# a reading to trust.
+#
+# A name here is provisional, not wrong: the program uses it exactly
+# like any other. What the colour asks is whether a LATER event is
+# paying the same id something else -- which is the one way a
+# hand-recorded name goes quietly stale.
+#
+# `docs/items_id_known_not_in_materials.tsv` carries the reason beside
+# each, and an id leaves this set when a second event has confirmed it.
+PROVISIONAL_NAMES = frozenset({
+    3920031,   # "Seasonal Event Currency" -- a placeholder; each
+               # season may spell its own currency differently
+    4020001,   # "Midsummer Night Memories" -- one summer's name on an
+               # id that looks like a general event-item slot
+})
+
 
 def item_names():
     """{res_id: display name} for every item this build can name.

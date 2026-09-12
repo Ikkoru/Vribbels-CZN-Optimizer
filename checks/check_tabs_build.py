@@ -636,18 +636,37 @@ def _capture_log_colours_its_values(tab):
     upgrades left prints ONE number, which is a ceiling and must not be
     read as a floor.
 
+    And it pins the two item marks, which say opposite things and are
+    easy to confuse: an id no table names is dim yellow, a NAME that
+    may not stay its item's is red. The red one is the warning, because
+    nothing else on the line says the name was a guess.
+
     Returns a list of complaints.
     """
+    from game_data.constants import PROVISIONAL_NAMES, item_names
+
     log = tab.capture_log
     line = ("[LIVE] Upgraded Set Slot IV +3. "
             "Highest Potential: 21-80 Fast, 15-38 Bulk")
     single = "[LIVE] Upgraded Set Slot I +5. Highest GS: 82 Fast, 31 Bulk"
     deleted = "[LIVE] Deleted Set Slot VI +0"
     created = "[LIVE] Created Set Slot III +0"
-    for msg in (line, single, deleted, created):
+    # An id nothing names, and a name that may not last, on one line.
+    named = item_names()
+    watched = sorted(name for name in
+                     (named.get(rid) for rid in PROVISIONAL_NAMES) if name)
+    received = "[LIVE] Received %s +16, 9999999 +1" % (
+        watched[0] if watched else "Premium Battle Memory")
+    for msg in (line, single, deleted, created, received):
         tab.capture_log_msg(msg, "info")
 
     out = []
+    missing = sorted(rid for rid in PROVISIONAL_NAMES if not named.get(rid))
+    if missing:
+        out.append(
+            f"{missing!r} is in PROVISIONAL_NAMES but no table names it, so "
+            f"the Capture Log has no name to draw red and the warning is "
+            f"silently absent. An id belongs in RECORDED_NAMES first.")
 
     def tag_over(row, needle, text):
         col = text.index(needle)
@@ -662,6 +681,9 @@ def _capture_log_colours_its_values(tab):
                      "31": "value_poor", "Bulk": "preset_name"}),
         (3, deleted, {"Deleted": "event_bad"}),
         (4, created, {"Created": "event_new"}),
+        (5, received, ({watched[0]: "item_provisional",
+                        "9999999": "item_unknown"} if watched
+                       else {"9999999": "item_unknown"})),
     ):
         for needle, expected in wanted.items():
             got = tag_over(row, needle, text)

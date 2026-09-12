@@ -336,6 +336,36 @@ def _event_attendance(raw, name, window, _now):
              _done(taken >= ATTENDANCE_DAYS))]
 
 
+def _overclock_cap(rows, name):
+    """How many doubled runs one Overclock event's day holds.
+
+    **The cap is not stated.** What the wire does state is the SET of
+    caps the game uses: `overclock_entities` keeps every Overclock
+    event the account has ever played, and a row's `count` is that
+    event's own daily tally. Two shapes across thirteen events, six a
+    day and two, and the current one is a two.
+
+    So the cap is the smallest shape that still fits today's count. A
+    six-shape event's third run then reads `3/6`, where a written-down
+    two would have clamped it to `2/2` and called the day finished with
+    three runs still on offer.
+
+    A shape counts only if it recurs. A row is left where its event
+    ended mid-day, so a final `count` can be a part-day that was never
+    the cap -- and a part-day is one account's accident where a shape
+    is the game's, showing up across events. `OVERCLOCK_USES` is the
+    floor for an account with no history at all.
+    """
+    seen = {}
+    for key, row in rows.items():
+        if key == name or not isinstance(row, dict):
+            continue
+        if _is_count(row.get("count")) and row["count"] > 0:
+            seen[row["count"]] = seen.get(row["count"], 0) + 1
+    return sorted(shape for shape, times in seen.items()
+                  if times >= OVERCLOCK_SHAPE_SIGHTINGS)
+
+
 def _event_overclock(raw, name, _window, now):
     """[(words, state)] for an Overclock event's doubled runs TAKEN.
 
@@ -346,8 +376,8 @@ def _event_overclock(raw, name, _window, now):
 
     FORCED DAILY, so a finished day is orange rather than green: the
     two come back tomorrow and today's are gone. It is also GENERIC,
-    which is what allows `OVERCLOCK_USES` to be written down -- the
-    same event returns with the same shape. See `EVENT_CATEGORIES`.
+    which is why a cap the wire never states can be answered from the
+    shapes the game has used before. See `EVENT_CATEGORIES`.
     """
     rows = (raw or {}).get(OVERCLOCK_FIELD)
     rows = rows if isinstance(rows, dict) else {}
@@ -359,10 +389,14 @@ def _event_overclock(raw, name, _window, now):
         # reset is yesterday's and today has taken none.
         if not (_is_count(touched)
                 and touched < weekly_reset.last_daily_reset(now)):
-            used = row["count"]
-    used = min(used, OVERCLOCK_USES)
-    return [("%d/%d" % (used, OVERCLOCK_USES),
-             CYCLE_DONE if used >= OVERCLOCK_USES else TODO)]
+            used = max(row["count"], 0)
+    cap = max(OVERCLOCK_USES, used)
+    for shape in _overclock_cap(rows, name):
+        if shape >= used:
+            cap = shape
+            break
+    return [("%d/%d" % (used, cap),
+             CYCLE_DONE if used >= cap else TODO)]
 
 
 def _trial_banners(raw, window):
@@ -490,9 +524,10 @@ FORCED_DAILY = "forced-daily"
 OPEN_ENDED = "open-ended"
 
 EVENT_CATEGORIES = {
-    # Generic: the same event returns every few weeks with the same
-    # shape, which is what lets `OVERCLOCK_USES` be a written-down two.
-    # Forced Daily: those two come back tomorrow and yesterday's are
+    # Generic: the same event returns every few weeks in one of two
+    # shapes, and the ended rows of both are still on the wire -- which
+    # is what lets `_overclock_cap` read a cap nothing states. Forced
+    # Daily: the day's runs come back tomorrow and yesterday's are
     # gone, so a finished day is not a finished event.
     "EVENT_OVERCLOCK": frozenset({GENERIC, FORCED_DAILY}),
     "EVENT_DAILY_CHECK": frozenset({TALLIED}),
@@ -638,15 +673,26 @@ EVENT_MISSIONS = {}
 ATTENDANCE_FIELD = "attendance_entities"
 ATTENDANCE_DAYS = 7
 
-# An Overclock event doubles the day's first two Simulation rewards.
-# `overclock_entities` counts what has been taken, daily, and a row
-# exists only once one has been -- so no row is a full two.
+# An Overclock event doubles the day's first Simulation rewards.
+# `overclock_entities` keeps one row per event, ended ones included:
+# `count` is what today took, `total_count` the event's lifetime tally,
+# and `reset_time` when the day's tally was last written. A row exists
+# only once a run has been taken.
 #
-# **The cap is not on the wire.** Two is this event's, stated by the
-# game's own wording; older Overclock events ran at six, and their
-# rows still read `count` against whatever theirs was.
+# **The cap is not on the wire, but the shapes are** -- every ended
+# row's `count` is that event's own, and `_overclock_cap` reads the
+# live one's out of them. Two shapes so far, six a day and two.
 OVERCLOCK_FIELD = "overclock_entities"
+
+# What to fall back on where no shape has been seen often enough: the
+# smaller of the two the game uses, so a fresh account reads a two-shape
+# event right and a six-shape one grows into its own count.
 OVERCLOCK_USES = 2
+
+# How many events must share a `count` before it counts as a shape
+# rather than as one account's part-day. Two: a shape recurs across
+# events, an interrupted final day does not.
+OVERCLOCK_SHAPE_SIGHTINGS = 2
 
 # A Combatant Trial event offers three trials, and what matters is the
 # REWARD: a slot's `complete_time` is when its reward was last claimed,

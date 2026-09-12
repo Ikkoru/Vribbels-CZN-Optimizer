@@ -51,10 +51,10 @@ res_id	where	amount	Name	Type	Note
 3920024	items	5	Core of Potential	Save Data Edit	
 3920029	items	3	Core of Variables	Save Data Edit	
 3920030	items	1	Core of Phase	Save Data Edit	
-3920031	items	6270	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable
+3920031	items	6270	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable. In PROVISIONAL_NAMES, so the Capture Log draws the name red
 3930003	items	2	Core of Resonance	Save Data Edit	
 3930004	items	45	Core of Mutation	Save Data Edit	
-4020001	items	16	Midsummer Night Memories	Event Exclusive Item	Check if this is reused in various events
+4020001	items	16	Midsummer Night Memories	Event Exclusive Item	Check if this is reused in various events. In PROVISIONAL_NAMES, so the Capture Log draws the name red
 5201028	items	0	Animated Card Unlock - Maribell	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201083	items	0	Animated Card Unlock Item - Olga	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it (this one is char 30117)
 5210000			Prism Module - Nominate	Animated Card Unlock Item - 4*	Seen only in shop_res_data (card_factor_4, 200 Prism Lens, 3/month); the account has never held one, which is why no dump listed it

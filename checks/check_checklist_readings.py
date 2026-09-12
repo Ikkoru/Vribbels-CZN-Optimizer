@@ -18,8 +18,8 @@ depends on captured data or on the hour it runs at.
 No Tk and no snapshot needed.
 """
 
-from datetime import datetime
-
+from datetime import datetime
+
 from ._harness import add_source_to_path
 
 NAME = "checklist readings"
@@ -76,7 +76,8 @@ def run():
         DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
         MODULE_WINDOWS, NO_DATA,
         SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
-        CYCLE_DONE, OVERCLOCK_USES, _event_overclock,
+        CYCLE_DONE, OVERCLOCK_USES, OVERCLOCK_SHAPE_SIGHTINGS,
+        _event_overclock,
     )
 
     failures = []
@@ -180,6 +181,44 @@ def run():
             f"an Overclock count stamped before the reset reads {got!r}, "
             f"not [('0/2', {TODO!r})]. It is yesterday's tally, and the "
             f"day's runs have come back.")
+
+    # --- the cap comes off the ENDED events, not a written-down two --
+    # The game runs Overclock at six a day as well as two, and every
+    # event it has ever run is still in `overclock_entities` carrying
+    # its own `count`. Reading the live one's cap out of those is what
+    # stops a six-shape event's third run from clamping to `2/2` and
+    # calling a day with three runs left finished.
+    #
+    # A shape has to RECUR. One row's `count` can be a day the event
+    # ended part-way through, which was never anybody's cap.
+    def _overclock(live, siblings):
+        raw = _snapshot()
+        rows = {"e": {"res_id": "e", "count": live,
+                      "reset_time": int(reset + HOUR)}}
+        for at, count in enumerate(siblings):
+            rows["old%d" % at] = {"res_id": "old%d" % at, "count": count,
+                                  "reset_time": int(reset - 30 * 24 * HOUR)}
+        raw["overclock_entities"] = rows
+        return _event_overclock(raw, "e", {}, now)
+
+    for live, siblings, want, state, why in (
+            (3, (6, 6, 2, 2), "3/6", TODO,
+             "three of a six-shape event's runs"),
+            (6, (6, 6, 2, 2), "6/6", CYCLE_DONE,
+             "a six-shape event's whole day"),
+            (2, (6, 6, 2, 2), "2/2", CYCLE_DONE,
+             "a two-shape event's whole day, with sixes also on file"),
+            (1, (6, 6, 2, 2, 1), "1/2", TODO,
+             "a lone `1` left by an event that ended mid-day"),
+            (2, (), "2/2", CYCLE_DONE,
+             "an account with no Overclock history at all")):
+        got = _overclock(live, siblings)
+        if got != [(want, state)]:
+            failures.append(
+                f"{why} reads {got!r}, not {[(want, state)]!r}. The cap is "
+                f"the smallest shape at least {OVERCLOCK_SHAPE_SIGHTINGS} "
+                f"ended events share that still fits today's count; "
+                f"{OVERCLOCK_USES} is only the floor where none does.")
 
     # --- a DAY that has rolled brings its rows back ------------------
     # The town's daily block carries no date of its own but does carry

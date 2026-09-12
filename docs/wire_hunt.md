@@ -84,13 +84,17 @@ A recurring confusion worth stating once. Two different things:
 * **The state of a record** — claimed, scored, spent — is always on the wire, and reaches any device. `complete_time`, `count`, `received_days`, `reward_level`.
 * **The existence of a record** is not. The game issues a mission row when it issues the mission, so a total counted from the rows in hand is a FLOOR: the Basin's live season carried 15 rows of 26, and a summer event read 12 of 12 with a third wave unissued.
 
-So a reading built from rows the account holds says "at least", and only a stated total — `event_summer_define_entity.event_item_count`, a completed season's row count — makes it exact.
+So a reading built from rows the account holds says "at least", and only a stated total — a completed season's row count — makes it exact.
+
+**But WHEN a row was created is itself information.** `issued_time` is the second the game decided the row was relevant, so rows sharing one are one act of the game, and what such a batch varies says how the family is laid out: vary an early index and hold the last, and the same task is repeating per day, which makes the family a grid with a computable total. `docs/events.md` has the test and the six families it has been run against.
 
 **A stamp is rewritten, not appended.** A trial slot's `complete_time` is when its reward was LAST taken, so an earlier cycle's claims cannot be recovered from it. Only the live period can be read.
 
 ## Identifying a mission or a shop product
 
-**`mission_condition` is the fast route.** Any reply to an action that progressed a mission carries it, naming every mission touched, grouped by kind (`season_pass_mission`, `daily_achievement`, `achievement`, `accumulate_condition`, `disaster_achievement`) and each with a `condition_type` — `CAFE_DRINK`, `VISIT`, `DAILY_LOGIN`, `CLEAR_INGAME_CONTENTS__ID`. One action names its own missions, so a single deliberate action identifies them without a diff.
+**`mission_condition` is the fast route.** Any reply to an action that progressed a mission carries it, naming every mission touched, grouped by kind (`season_pass_mission`, `daily_achievement`, `achievement`, `accumulate_condition`, `disaster_achievement`, `event_mission`) and each with a `condition_type` — `CAFE_DRINK`, `VISIT`, `DAILY_LOGIN`, `CLEAR_INGAME_CONTENTS__ID`, `EVENT_BARTENDER_MAKE_COCKTAIL__ID`. One action names its own missions, so a single deliberate action identifies them without a diff.
+
+**A row leaves the list when it completes**, so repeating the action and watching who drops out reads a ladder's thresholds off a payload that states none of them.
 
 For a shop, buy one: the request carries `product_id` and the reply carries `dec_result` (what it cost) and `add_result` (what it gave), so one purchase names the product, its price and its item at once.
 
