@@ -60,6 +60,8 @@ So the six is the multiplier ceiling of the missions it applies to, and the two 
 
 Nothing in the login payload names the targeted mission type, so this is an action test rather than a derivation — the derivation from ended events is what ships. Keep it as the tie-break for the case the derivation cannot settle: a two and a six are indistinguishable while the day's count is still at 1 or 2.
 
+**The experiment has been tried once and did not answer**, for a reason worth knowing before trying again: two Memory Fragment runs during a capture left `overclock_entities` exactly as the login had sent it, and `overclock_entities` is login-only (below). So a run that IS doubled and a run that is not both leave the row untouched. **Read the doubled rewards off the Capture Log or the game's own result screen, not off the snapshot.**
+
 ### Why Forced Daily is orange, not green
 
 Claiming everything on offer does not finish a Forced Daily event: tomorrow brings more, and today's are gone whether or not they were taken. A green row means "nothing left to think about", which would be wrong for the rest of the run — so a finished day reads orange.
@@ -239,12 +241,11 @@ Two defences, both in `capture/manager.py`:
 
 ### Reading a capture for whether anything mid-session landed
 
-Scan the saved snapshot for records stamped AFTER the session's own login. On the capture that prompted this, three timestamps fell inside the session and all three were the login burst itself — nothing from an hour of play reached the file. That is a two-line check worth running before blaming a reader:
+Scan the saved snapshot for records stamped AFTER the session's own login — `attendance_entities[].last_time` is that login, since the streak is touched by logging in.
 
-```
-login = <the session's own attendance_entities[].last_time>
-anything with a *_time field > login that is not from the login second
-```
+**The point is to separate a dead capture from a login-only field**, and they look the same from the tab. On the capture that prompted this, the capture was demonstrably live: `inventory.service_server_time` and the Aether balance's `last_update` both moved several minutes into the session, which is two Memory Fragment runs being paid for. In the same file the streak and the Overclock row still carried their login values. So the capture worked and those two fields simply never arrived again.
+
+Everything else stamped inside the session came from the login second itself, which is what a login-only field looks like when you scan for it.
 
 ## Adding an event nobody has mapped
 
