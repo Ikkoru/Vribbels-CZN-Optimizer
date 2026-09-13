@@ -76,6 +76,7 @@ def run():
         DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
         MODULE_WINDOWS, NO_DATA,
         SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
+        CHAOS_CAP, CHAOS_WEEKLY_GRANT, SORTIE_WEEKLY_GRANT,
         CYCLE_DONE, OVERCLOCK_USES, OVERCLOCK_SHAPE_SIGHTINGS,
         _event_overclock,
         EVENT_DONE_FIELD, EVENT_DONE_FLAG, EVENT_DONE_VALUE,
@@ -274,12 +275,16 @@ def run():
             "refusing it blanks a row that may be perfectly current.")
 
     # --- a weekly ALLOWANCE is topped up, not zeroed ------------------
-    # The two spendable currencies gain a fixed amount each week ON TOP
-    # of what was left, and the top-up is applied lazily -- so a record
-    # the week has rolled past proves only a floor. Never green: the
-    # allowance always arrives, so there is always something to spend.
+    # The two spendable currencies gain at the reset ON TOP of what was
+    # left, and the game applies that lazily -- so a record the week
+    # has rolled past holds a leftover and not a stock. The row then
+    # shows what the week's rule says to EXPECT, marked as such,
+    # because 60 Aether buys either with no limit and the real figure
+    # can only be higher.
     opened = weekly_reset.last_weekly_reset(now)
     more = EVENT_TOTAL_UNKNOWN
+    chaos_full = min(CHAOS_WEEKLY_GRANT, CHAOS_CAP)
+    reason_full = min(5 + SORTIE_WEEKLY_GRANT, SORTIE_CAP)
     for touched, fresh in ((opened + HOUR, True), (opened - HOUR, False)):
         raw = _snapshot()
         raw["characters"] = {"currencies": {
@@ -287,16 +292,37 @@ def run():
             str(SORTIE_CURRENCY): {"amount": 5, "last_update": int(touched)}}}
         out = _readings(raw, now)
         want = ([("0", DONE)], [(f"5/{SORTIE_CAP}", TODO)]) if fresh else (
-            [(f"0{more}", TODO)], [(f"5{more}/{SORTIE_CAP}", TODO)])
+            [(f"{chaos_full}{more}", TODO)],
+            [(f"{reason_full}{more}/{SORTIE_CAP}", TODO)])
         for key, wanted in (("chaos_currency", want[0]),
                             ("sortie_currency", want[1])):
             if out[key] != wanted:
                 failures.append(
                     f"a currency last written {'after' if fresh else 'before'}"
                     f" the week opened reads {out[key]!r} for {key}, not "
-                    f"{wanted!r}. A stale record carries last week's "
-                    f"LEFTOVER, so it is a floor and the row must not read "
-                    f"as nothing left to spend.")
+                    f"{wanted!r}. Read after the reset it is exact; read "
+                    f"before, the row owes the week's grant and says so.")
+
+    # **A holding above the cap is not pulled back to it.** Aether buys
+    # either currency with no limit, so the top-up stops at the cap
+    # without ever taking anything away -- and a row that confiscated
+    # the difference would read as work already done.
+    raw = _snapshot()
+    raw["characters"] = {"currencies": {
+        str(CHAOS_CURRENCY): {"amount": CHAOS_CAP + 6,
+                              "last_update": int(opened - HOUR)},
+        str(SORTIE_CURRENCY): {"amount": SORTIE_CAP + 6,
+                               "last_update": int(opened - HOUR)}}}
+    out = _readings(raw, now)
+    for key, wanted in (
+            ("chaos_currency", [(f"{CHAOS_CAP + 6}{more}", TODO)]),
+            ("sortie_currency",
+             [(f"{SORTIE_CAP + 6}{more}/{SORTIE_CAP}", TODO)])):
+        if out[key] != wanted:
+            failures.append(
+                f"a holding bought past the cap reads {out[key]!r} for "
+                f"{key}, not {wanted!r}. The week tops up TOWARD the cap "
+                f"and never takes anything away.")
 
     # --- a floor SAYS it is a floor, and only the game lifts it ------
     # A denominator counted off the rows in hand is what has been

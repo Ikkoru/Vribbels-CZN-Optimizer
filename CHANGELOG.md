@@ -32,7 +32,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The weekly rows come back on their own when the week turns.** The Arkhianon Supply's EXP, the Galactic Disaster's chaos progress and the Seasonal Accumulated Score all kept last week's figures into the new week, so on the first day of a week each read as finished work. They now reset with the clock, whether or not a capture is running — the same way the daily rows already did.
 
-- **Loot Certification Cards and Reason stop reading as spent after a weekly reset.** The week adds to whatever was left, and the game applies that only when you next open the content — so what the program holds is a floor until then. Both rows now say so with a `+?` and stay red, rather than reading an empty stock as nothing left to do.
+- **Loot Certification Cards and Reason stop reading as spent after a weekly reset.** The game tops both up at the reset but only applies it when you next open the content, so until then the program is holding last week's leftover. Each row now shows what the week's rule says to expect — the Cards back to 4, Reason up 3 to its 9 — marked with a `+?` because buying more with Aether can only push it higher. The mark comes off once a capture has seen the real figure.
 
 - **A doubled Simulation run is counted.** The Overclock row is fed by a record tucked inside the stage reply rather than at its top level, so the row sat at its login value for the whole session.
 

@@ -815,10 +815,11 @@ COLUMNS = (
     ("Weekly", (
         ("supply_weekly", "Arkhianon Supply", "10000/10000"),
         ("simulation", "Simulation Challenges", "3/3"),
-        ("chaos_currency", "Chaos Currency", "99"),
+        ("chaos_currency", "Chaos Currency", "99" + UNKNOWN_MORE),
         ("modules_soon", "Delegation Module", "99 expiring within 24h!"),
         ("modules_week", "Delegation Module", "99 expiring within 7 days"),
-        ("sortie_currency", "Sortie Currency", "99/9"),
+        ("sortie_currency", "Sortie Currency",
+         "99" + UNKNOWN_MORE + "/9"),
         ("chaos_progress", "Galactic Disaster - Chaos", "8000/8000"),
         ("seasonal_score", "Seasonal Accumulated Score", "300000+/300000"),
     ), (("shop_town", "none"),
@@ -927,6 +928,24 @@ ACTIVITY_PARTIAL = "%d/%d Claimed"
 CHAOS_CURRENCY = 2000027        # Loot Certification Card
 SORTIE_CURRENCY = 2000036       # Reason
 SORTIE_CAP = 9
+CHAOS_CAP = 4
+
+# What each gains at the Sunday reset, and the ceiling that gain stops
+# at. **Not on the wire in any form**, and the only two numbers on this
+# tab that are the game's rule rather than a reading -- so the row they
+# produce is marked as an expectation with `UNKNOWN_MORE` until a
+# capture replaces it with the real figure. See `_weekly_stock`.
+#
+# The grants are the game's own wording, and they match what the
+# account did: `total_amount` moved by exactly these across each of the
+# last four week boundaries. The Card's grant equals its cap, which is
+# why it reads as a reset to four rather than a top-up.
+#
+# **Neither cap is a hard one.** 60 Aether buys one of either with no
+# limit on the exchanges, so a holding can sit above the cap and must
+# not be pulled back down to it.
+CHAOS_WEEKLY_GRANT = 4
+SORTIE_WEEKLY_GRANT = 3
 
 # The period item the two module rows count copies of, and the two
 # windows they count it in. ROLLING, from the moment the tab is drawn
@@ -1583,21 +1602,30 @@ def _this_week(record, now, field=WEEK_STAMP):
     return stamp >= weekly_reset.week_index(now)
 
 
-def _weekly_stock(raw, res_id, now):
-    """(what is held of a weekly allowance, whether that is all of it).
+def _weekly_stock(raw, res_id, grant, cap, now):
+    """(how much of a weekly allowance is on hand, whether that is exact).
 
-    The second is False once the week has rolled past the last time
-    the game wrote the record. These currencies are TOPPED UP weekly
-    rather than zeroed, and the top-up is applied lazily -- the
-    document still carries last week's leftover until something in
-    game touches that content. So the number is a floor, and the row
-    says so with `UNKNOWN_MORE` rather than pretending the leftover is
-    the stock.
+    These two are TOPPED UP at the reset rather than zeroed, and the
+    top-up is applied lazily -- the record still carries last week's
+    leftover until something in game touches that content. So once the
+    week has rolled past the record, what it holds is not the stock
+    and the stock has to be worked out:
 
-    `last_update` is what dates it. It is not a write stamp: spending
-    the currency does not move it, and it has been seen sitting on the
-    day the week's allowance was first drawn. That is exactly the date
-    this needs.
+        max(leftover, min(leftover + grant, cap))
+
+    A top-up toward a cap that never takes anything away. `grant` and
+    `cap` are the game's own rule for the currency and are written
+    down beside it; the outer `max` is what keeps a holding ALREADY
+    above the cap -- bought with Aether, which has no limit -- from
+    reading as though the week had confiscated it.
+
+    **The answer is then EXPECTED rather than read**, so it is a floor:
+    an Aether exchange can only add to it, and the row carries
+    `UNKNOWN_MORE` until a capture sees the real figure.
+
+    `last_update` is what dates the record. It is not a write stamp --
+    spending the currency does not move it -- but it does move when
+    the currency is GAINED, which is what the week's top-up is.
     """
     currencies = ((raw or {}).get("characters") or {}).get("currencies") or {}
     doc = currencies.get(str(res_id))
@@ -1607,7 +1635,9 @@ def _weekly_stock(raw, res_id, now):
     touched = doc.get("last_update")
     if not _is_count(touched) or not touched:
         return amount, True
-    return amount, touched >= weekly_reset.last_weekly_reset(now)
+    if touched >= weekly_reset.last_weekly_reset(now):
+        return amount, True
+    return max(amount, min(amount + grant, cap)), False
 
 
 def _at_ceiling(words):
@@ -1793,14 +1823,15 @@ def _readings(raw, now=None):
     # past still carries last week's leftover, so all it can prove is
     # a floor -- which is `UNKNOWN_MORE`, and never green, because the
     # week's allowance always arrives.
-    cards, fresh = _weekly_stock(raw, CHAOS_CURRENCY, now)
+    cards, exact = _weekly_stock(raw, CHAOS_CURRENCY, CHAOS_WEEKLY_GRANT,
+                                 CHAOS_CAP, now)
     out["chaos_currency"] = _one(
-        "%d%s" % (cards, "" if fresh else UNKNOWN_MORE),
-        _done(cards == 0) if fresh else TODO)
-    reason, fresh = _weekly_stock(raw, SORTIE_CURRENCY, now)
+        "%d%s" % (cards, "" if exact else UNKNOWN_MORE), _done(cards == 0))
+    reason, exact = _weekly_stock(raw, SORTIE_CURRENCY, SORTIE_WEEKLY_GRANT,
+                                  SORTIE_CAP, now)
     out["sortie_currency"] = _one(
-        "%d%s/%d" % (reason, "" if fresh else UNKNOWN_MORE, SORTIE_CAP),
-        _done(reason == 0) if fresh else TODO)
+        "%d%s/%d" % (reason, "" if exact else UNKNOWN_MORE, SORTIE_CAP),
+        _done(reason == 0))
 
     # The Great Rift's weekly score against the threshold that pays.
     # **Capped in the DISPLAY**, because the figure runs to seven digits

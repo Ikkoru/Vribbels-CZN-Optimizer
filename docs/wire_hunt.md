@@ -59,12 +59,21 @@ The wire counts days from **2022-12-31 18:00 UTC** and stamps the number on anyt
 Loot Certification Cards (`2000027`) and Reason (`2000036`) are spent weekly, and the new week ADDS to what was left rather than replacing it. Neither the allowance nor the date it was granted is stated as such, and the currency document carries no `week_id`:
 
 * `amount` is the balance, and after a reset it is still last week's leftover;
-* `last_update` is **not a write stamp** — spending the currency does not move it. It has sat on the day that week's allowance was first drawn, which makes it the right thing to compare against `last_weekly_reset(now)`;
+* `last_update` is **not a write stamp** — spending the currency does not move it. It does move when the currency is GAINED, which is what the week's top-up is, so it is the right thing to compare against `last_weekly_reset(now)`;
 * `add_max` and `add_charge_value` are 0, so there is no recharge metadata to compute from either.
 
-So a stale record proves only a floor. The Checklist prints `5+?/9` and never green, because the allowance always arrives and there is always something to spend.
+So once the week has rolled past the record, what the record holds is a leftover and not a stock, and the stock has to be worked out from the game's rule:
 
-**The amounts are known but not derivable.** `total_amount` moved by exactly **+4** (cards) and **+3** (Reason) across each of the last four week boundaries, and 0 + 4 and 5 + 3 are what the game showed after the reset that prompted this. But `total_amount` also takes one-off gains from elsewhere — the cards picked up a stray +1 twice — so a rate read off it is only right when nothing else happened, and one snapshot holds one week anyway. Writing the two numbers down would work and would be the usual Generic trade: right until the game changes the allowance, with nothing to notice when it does.
+| | Grant at the Sunday reset | Cap | Reads |
+| --- | --- | --- | --- |
+| Loot Certification Card | 4 | 4 | a reset to **4**, the grant being the cap |
+| Reason | +3 | 9 | leftover **+3**, stopping at 9 |
+
+`max(leftover, min(leftover + grant, cap))` covers both, and the outer `max` is load-bearing: **60 Aether buys one of either with no limit on the exchanges**, so a holding can sit above the cap and the week must not pull it back down.
+
+**These are the only two numbers on the Checklist that are the game's rule rather than a reading**, so what the row shows is an EXPECTATION and is marked `+?` until a capture replaces it with the real figure. Corroboration rather than proof: `total_amount` moved by exactly +4 and +3 across each of the last four week boundaries, and `0 → 4` and `5 → 8` are what the game showed after the reset that prompted this. `total_amount` also takes one-off gains — the cards picked up a stray +1 twice — so it confirms a rate without deriving one.
+
+**Still open:** whether an Aether exchange moves `last_update`. If it does, one exchange makes the row exact for the rest of the week; if not, the `+?` stands until the content is opened. One exchange with a capture running settles it.
 
 ## Pairing two payloads that never name each other
 
