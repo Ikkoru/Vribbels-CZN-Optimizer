@@ -195,6 +195,37 @@ def run():
             f"`return_info`, and read only at the top level it never "
             f"arrives -- the row keeps the login's tally all session.")
 
+    # --- an event reward claim answers under a BARE `entities` -------
+    # Not `mission_entities`, not `event_mission_entities`. Without it
+    # a reward claimed during the session reads unclaimed, and a row
+    # the claim issued is missing from the denominator as well.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "qid": 91, "entities": [
+            {"res_id": "event_bartender_1_01_04", "complete_time": 1789328267,
+             "issued_time": 1789328079, "score": 1, "version": 1}]}]))
+    if addon.missions.get("event_bartender_1_01_04", {}).get(
+            "complete_time") != 1789328267:
+        failures.append(
+            "an event reward claim's own row did not reach the mission "
+            "cache. It arrives under the bare key `entities`, so a handler "
+            "watching only `mission_entities` leaves the Checklist showing "
+            "the tally it had at login.")
+
+    # **`entities` is not always missions.** The Full-Scale Offensive's
+    # board arrives under the same key, as a dict keyed by `list_id`.
+    # Taking that as missions would put three boss rows into the tally
+    # every event row is counted from.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "qid": 48, "entities": {
+            "remnants_boss_s05_01": {"list_id": "remnants_boss_s05_01",
+                                     "star_count": 3, "best_score": 1130418}}}]))
+    if any(str(key).startswith("remnants") for key in addon.missions):
+        failures.append(
+            "the Full-Scale Offensive board was merged into the mission "
+            "cache. It shares the key `entities` with a reward claim and "
+            "is a dict of `list_id` rows, so the guard is a LIST of rows "
+            "carrying `res_id` and `complete_time`.")
+
     # --- and both reach the snapshot as LISTS -----------------------
     # The shape the wire uses and the shape every snapshot on disk
     # already carries, so `_event_finished` and `_event_attendance`

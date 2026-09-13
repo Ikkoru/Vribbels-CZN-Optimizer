@@ -241,7 +241,7 @@ Claim commands seen so far, all naming the event and the records together:
 | `attendance_entities` | `load` and `mission` replies at login | **no record at all** — see below |
 | `overclock_entities` | the `unlock` reply at login | `result_overclock_entities`, nested under the stage reply's **`return_info`** |
 | `event_mission_reward_entities` | the `mission` reply at login | not yet seen; an ordinary reward claim does not send it |
-| `event_mission_entities` | login, **and every claim reply** under `entities` | itself — these stay live |
+| `event_mission_entities` | login | its own rows, under the BARE key `entities` — not under its own name |
 
 ### What a Daily Check-in claim actually answers
 

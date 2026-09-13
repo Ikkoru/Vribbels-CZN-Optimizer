@@ -36,6 +36,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **A doubled Simulation run is counted.** The Overclock row is fed by a record tucked inside the stage reply rather than at its top level, so the row sat at its login value for the whole session.
 
+- **An event reward claimed while a capture runs shows up straight away.** The claim answers under a key nothing was reading, so an event's tally stayed at whatever it was when you logged in.
+
 - **The Basin of Hyperspace is green only once its rewards are claimed.** Every objective can be scored with every star reward still sitting there, which read as a finished row and a trip to the game still owed.
 
 - **The Arkhianon Supply's daily missions go green once the week is full.** The dailies feed the week's exp, so once that caps there is nothing left for them to earn.

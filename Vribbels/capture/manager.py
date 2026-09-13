@@ -975,6 +975,26 @@ class Addon:
             self._merge_missions([data["mission_entity"]])
             self._save_pending = True
 
+        # And a LIST of them, under the bare key `entities`, when an
+        # event's rewards are claimed -- `complete_event_mission_all`
+        # and its nodelist twin both answer this way. Without it a
+        # reward claimed during the session still reads unclaimed, and
+        # a row the claim ISSUED is missing from the denominator too.
+        #
+        # **`entities` is not always missions.** The Full-Scale
+        # Offensive's board arrives under the same key as a dict keyed
+        # by `list_id`, so the guard is a LIST of rows carrying both
+        # `res_id` and `complete_time` -- the shape every claim reply
+        # ever captured has, and one the board does not have.
+        rows = data.get("entities")
+        if isinstance(rows, list):
+            claimed = [row for row in rows
+                       if isinstance(row, dict) and row.get("res_id")
+                       is not None and "complete_time" in row]
+            if claimed:
+                self._merge_missions(claimed)
+                self._save_pending = True
+
         # What limits a stage to N runs a period: `content_boss` is the
         # Simulation Challenges. Same shape as a shop row and the same
         # lazy reset -- `count` is the runs TAKEN this period and
