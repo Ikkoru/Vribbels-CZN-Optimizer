@@ -82,7 +82,7 @@ def run():
         EVENT_DONE_FIELD, EVENT_DONE_FLAG, EVENT_DONE_VALUE,
         EVENT_TOTAL_UNKNOWN, FLOOR, FLOOR_SETTLES_AFTER,
         PASS_MISSION_FIELD, _at_ceiling, _event_missions,
-        EXPECTED_VALUE, _event_rows,
+        EXPECTED_VALUE, EVENT_KEY_PREFIX, _event_rows,
     )
 
     failures = []
@@ -118,7 +118,7 @@ def run():
     # --- the two currencies, by res_id --------------------------------
     raw = _snapshot(amounts=((CHAOS_CURRENCY, 3), (SORTIE_CURRENCY, 7)))
     out = _readings(raw, now)
-    if out["chaos_currency"][0][0] != "3":
+    if out["chaos_currency"][0][0] != f"3/{CHAOS_CAP}":
         failures.append(
             f"Chaos Currency reads {out['chaos_currency'][0]!r} where the "
             f"snapshot holds 3 of {CHAOS_CURRENCY}. A wrong res_id reads "
@@ -130,10 +130,10 @@ def run():
 
     # An id held nowhere reads 0 rather than raising.
     out = _readings(_snapshot(), now)
-    if out["chaos_currency"][0][0] != "0":
+    if out["chaos_currency"][0][0] != f"0/{CHAOS_CAP}":
         failures.append(
             f"with nothing held, Chaos Currency reads "
-            f"{out['chaos_currency'][0]!r}, not '0'.")
+            f"{out['chaos_currency'][0]!r}, not '0/{CHAOS_CAP}'.")
 
     # --- the Activities claim -----------------------------------------
     # **The reading is the DAY the record carries, not its points.**
@@ -292,8 +292,9 @@ def run():
             str(CHAOS_CURRENCY): {"amount": 0, "last_update": int(touched)},
             str(SORTIE_CURRENCY): {"amount": 5, "last_update": int(touched)}}}
         out = _readings(raw, now)
-        want = ([("0", DONE)], [(f"5/{SORTIE_CAP}", TODO)]) if fresh else (
-            [(f"{soon_after}{chaos_full}", TODO)],
+        want = ([(f"0/{CHAOS_CAP}", DONE)],
+                [(f"5/{SORTIE_CAP}", TODO)]) if fresh else (
+            [(f"{soon_after}{chaos_full}/{CHAOS_CAP}", TODO)],
             [(f"{soon_after}{reason_full}/{SORTIE_CAP}", TODO)])
         for key, wanted in (("chaos_currency", want[0]),
                             ("sortie_currency", want[1])):
@@ -318,6 +319,53 @@ def run():
         failures.append(
             f"a holding one short of the cap reads {got!r}, not {want!r}. "
             f"The week's grant stops at the cap.")
+
+    # --- the Events block puts what is owed first ---------------------
+    # Only two states mean "nothing to do on this row": finished, and a
+    # Forced Daily whose day is taken. A settled FLOOR is orange
+    # because nothing can PROVE it finished, so it stays with the work;
+    # an event nobody has mapped shows a deadline and no reading, which
+    # is a question rather than an answer.
+    #
+    # Within each half the order is by deadline. A wrong comparison
+    # here just reorders rows, which nothing else would report.
+    reset = weekly_reset.last_daily_reset(now)
+    raw = _snapshot()
+    raw["event_schedules"] = {
+        "EVENT_OVERCLOCK": {"event_overclock_live_13": {
+            "start_time": int(now - DAY), "end_time": int(now + DAY)}},
+        "EVENT_SCHEDULE": {
+            "event_schedule_devil_001": {"start_time": int(now - DAY),
+                                         "end_time": int(now + 3 * DAY)},
+            "event_summer_01": {"start_time": int(now - DAY),
+                                "end_time": int(now + 2 * DAY)}},
+        "EVENT_RHYTHM_GAME": {"ds_event_rhythm_game": {
+            "start_time": int(now - DAY), "end_time": int(now + 4 * DAY)}},
+    }
+    raw["overclock_entities"] = {"event_overclock_live_13": {
+        "res_id": "event_overclock_live_13", "count": 2,
+        "reset_time": int(reset + HOUR)}}
+    raw[PASS_MISSION_FIELD] = {
+        "event_devil_01_01": {"res_id": "event_devil_01_01",
+                              "complete_time": 1},
+        "event_summer_1_1_01": {"res_id": "event_summer_1_1_01",
+                                "complete_time": 0},
+    }
+    # Soonest first inside each half: the summer floor ends first, then
+    # the devil floor, then the rhythm event, which has no reader at
+    # all. The Overclock's finished day sorts BELOW all three despite
+    # ending soonest of the four -- which is the whole point, and what
+    # a plain deadline sort would get wrong.
+    want = ["summer_01", "schedule_devil_001", "ds_event_rhythm_game",
+            "overclock_live_13"]
+    got = [label for title, rows in columns_for(raw, now=now)
+           for key, label, _widest in rows
+           if key.startswith(EVENT_KEY_PREFIX) and key != EVENT_KEY_PREFIX]
+    if got != want:
+        failures.append(
+            f"the Events block reads {got!r}, not {want!r}. Rows with work "
+            f"outstanding come first, by deadline; only a finished event or "
+            f"a Forced Daily whose day is taken sinks below them.")
 
     # --- which mission rows belong to which event --------------------
     # **An event's index is not always in its missions' ids.** The

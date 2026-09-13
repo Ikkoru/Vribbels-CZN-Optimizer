@@ -120,6 +120,10 @@ STALE_FLOOR = "floor_stale"
 # See `EVENT_CATEGORIES`.
 CYCLE_DONE = "cycle_done"
 
+# What an EVENT row must read on every segment before it sorts to
+# the bottom of the Events block. See `_event_settled`.
+EVENT_SETTLED_STATES = frozenset({DONE, CYCLE_DONE})
+
 # How long a floor must stand at its ceiling before it goes orange, and
 # what it takes to reset that. Two days: an event that hands out more
 # does so daily, so a tally unmoved across two of them has either
@@ -269,12 +273,37 @@ def shop_rows(shop, period, raw):
     return tuple(out)
 
 
+def _event_settled(raw, name, group, window, now):
+    """Whether an event's row has nothing outstanding on it.
+
+    Every segment its reader produces has to say so, and only the two
+    states that mean "nothing to do" count: finished, and a Forced
+    Daily whose day is taken.
+
+    **A settled FLOOR does not.** Orange there means the row looks
+    finished and nothing can prove it, so it belongs with the work
+    rather than with the events that are over. An event nobody has
+    mapped does not either: it shows a deadline and no reading, which
+    is a question rather than an answer.
+    """
+    reader = EVENT_READERS.get(group)
+    if reader is None:
+        return False
+    segments = list(reader(raw, name, window, now))
+    return bool(segments) and all(state in EVENT_SETTLED_STATES
+                                  for _words, state in segments)
+
+
 def event_rows(raw, now=None):
-    """`(key, id, widest)` for every event running now, soonest first.
+    """`(key, id, widest)` for every event running now.
 
     Read straight off `event_schedules`: an event the game adds turns
-    up with no edit, and one that ends drops out. The ORDER is by
-    deadline, which is what a checklist is about.
+    up with no edit, and one that ends drops out.
+
+    **Anything still owed comes first**, and within each half the order
+    is by deadline, which is what a checklist is about. Same shape as
+    an untracked shop product sinking to the bottom of its shop: the
+    rows that need a decision are the ones at the top.
     """
     now = time.time() if now is None else now
     found = []
@@ -282,10 +311,11 @@ def event_rows(raw, now=None):
         # EVERY instance, not one per group: three events overlapped
         # under `EVENT_SCHEDULE` in one capture.
         for name, window in schedules.all_live(group, raw, now):
-            found.append((window["end_time"], name))
+            found.append((_event_settled(raw, name, group, window, now),
+                          window["end_time"], name))
     return tuple((EVENT_KEY_PREFIX + name, event_label(name),
                   with_countdown(EVENT_CLAIMED))
-                 for _end, name in sorted(found))
+                 for _settled, _end, name in sorted(found))
 
 
 def _event_key(name):
@@ -881,7 +911,8 @@ COLUMNS = (
     ("Weekly", (
         ("supply_weekly", "Arkhianon Supply", "10000/10000"),
         ("simulation", "Simulation Challenges", "3/3"),
-        ("chaos_currency", "Chaos Currency", EXPECTED_VALUE + "99"),
+        ("chaos_currency", "Chaos Currency",
+         EXPECTED_VALUE + "99/4"),
         ("modules_soon", "Delegation Module", "99 expiring within 24h!"),
         ("modules_week", "Delegation Module", "99 expiring within 7 days"),
         ("sortie_currency", "Sortie Currency",
@@ -1893,7 +1924,7 @@ def _readings(raw, now=None):
     cards, exact = _weekly_stock(raw, CHAOS_CURRENCY, CHAOS_WEEKLY_GRANT,
                                  CHAOS_CAP, now)
     out["chaos_currency"] = _one(
-        "%s%d" % ("" if exact else EXPECTED_VALUE, cards),
+        "%s%d/%d" % ("" if exact else EXPECTED_VALUE, cards, CHAOS_CAP),
         _done(cards == 0))
     reason, exact = _weekly_stock(raw, SORTIE_CURRENCY, SORTIE_WEEKLY_GRANT,
                                   SORTIE_CAP, now)
