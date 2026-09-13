@@ -39,13 +39,32 @@ Which prefix is which shop, all established by buying one and reading the produc
 | `card_factor_*` | Exchange Shop — Prism Module |
 | `season_pass_*` | Seasonal Shop |
 
-## The day index
+## The day index, and the week index
 
 The wire counts days from **2022-12-31 18:00 UTC** and stamps the number on anything that happens once a day: `point_entity.day_id`, `attendance_entities`' `start_dayid` and `last_dayid`, a free gacha's `last_issued_day_id`. `Vribbels/weekly_reset.py` holds the epoch and `day_index(now)`.
 
 18:00 UTC is the same hour the week turns on, so `RESET_HOUR` and `DAY_EPOCH` are two measurements of one boundary and correcting either means correcting both. `checks/check_day_index.py` pins them to day numbers the game itself sent.
 
-**A day-stamped record is written lazily, exactly like a shop's `count`.** Nothing rolls it at reset: yesterday's record survives untouched into today and only says which day it belongs to. So the reading is the comparison, not the value — `day_id == day_index(now)` means the thing happened today, and anything lower means today is untouched. The numbers stored *alongside* the stamp belong to that older day too, which is how `point_entity.day_point` can read a full 100 on a day whose real total is 20.
+**It does the same thing a week up.** Anything that resets weekly carries a `week_id` — the season pass's record, a disaster season's `week_clear_score`, `point_entity`, and the Great Rift standings under their own spelling `score_week_id`. `week_index(now)` is the number to compare it against: weeks are groups of seven day numbers ending on a multiple of seven, so week 193 ran days 1345–1351 and opened Sunday 18:00 UTC. Two routes reach that boundary — `next_reset` from the weekday, `week_index` from the day number — and the check holds them together.
+
+**A period-stamped record is written lazily, exactly like a shop's `count`.** Nothing rolls it at the reset: the old record survives untouched into the new period and only says which period it belongs to. So the reading is the COMPARISON, not the value:
+
+* `day_id == day_index(now)` means the thing happened today, and anything lower means today is untouched. `point_entity.day_point` can read a full 100 on a day whose real total is 20.
+* `week_id == week_index(now)` likewise, and this one is worse because the figures are bigger: on the Monday after a reset the pass read a full `10000/10000`, the disaster season a full `8000/8000` and the Great Rift `300000+/300000` — three rows all saying the week's work was done in a week nothing had been done in.
+
+**A record with no stamp is read at face value.** Nothing about it can say otherwise, and refusing it blanks a row that may be perfectly current.
+
+## A weekly ALLOWANCE is topped up, not zeroed
+
+Loot Certification Cards (`2000027`) and Reason (`2000036`) are spent weekly, and the new week ADDS to what was left rather than replacing it. Neither the allowance nor the date it was granted is stated as such, and the currency document carries no `week_id`:
+
+* `amount` is the balance, and after a reset it is still last week's leftover;
+* `last_update` is **not a write stamp** — spending the currency does not move it. It has sat on the day that week's allowance was first drawn, which makes it the right thing to compare against `last_weekly_reset(now)`;
+* `add_max` and `add_charge_value` are 0, so there is no recharge metadata to compute from either.
+
+So a stale record proves only a floor. The Checklist prints `5+?/9` and never green, because the allowance always arrives and there is always something to spend.
+
+**The amounts are known but not derivable.** `total_amount` moved by exactly **+4** (cards) and **+3** (Reason) across each of the last four week boundaries, and 0 + 4 and 5 + 3 are what the game showed after the reset that prompted this. But `total_amount` also takes one-off gains from elsewhere — the cards picked up a stray +1 twice — so a rate read off it is only right when nothing else happened, and one snapshot holds one week anyway. Writing the two numbers down would work and would be the usual Generic trade: right until the game changes the allowance, with nothing to notice when it does.
 
 ## Pairing two payloads that never name each other
 
@@ -84,7 +103,9 @@ Two things from it are worth repeating here because they are general:
 A recurring confusion worth stating once. Two different things:
 
 * **The state of a record** — claimed, scored, spent — is always on the wire, and reaches any device. `complete_time`, `count`, `received_days`, `reward_level`.
-* **WHEN it reaches the wire is a third thing.** Some records have only ever been seen in the login burst, so an action taken while a capture runs changes nothing the capture saves — the reading is not wrong, it is an hour old, and on screen those look identical. `docs/events.md` lists the login-only event fields and the two defences; the general rule is to merge a payload by id rather than assign it, so a partial list cannot wipe the rest.
+* **WHEN it reaches the wire is a third thing.** Some records have only ever been seen in the login burst, so an action taken while a capture runs changes nothing the capture saves — the reading is not wrong, it is an hour old, and on screen those look identical. `docs/events.md` lists the login-only event fields; the general rule is to merge a payload by id rather than assign it, so a partial list cannot wipe the rest.
+* **WHERE in the reply is a fourth.** A stage reply nests its whole outcome under **`return_info`**, so a handler reading only the top level sees nothing: `result_overclock_entities` rode there for a whole session while `result_reward_drop_overclock` paid out beside it. When a record does not update from an action that obviously changed it, search the reply for the key before concluding the wire is silent.
+* **And a claim may answer with no record at all.** A Daily Check-in claim sends `event_id`, `received_days_before`, `received_days_after` and `completed` — numbers, not an entity. Nothing to merge; the cached row has to be patched from them.
 * **The existence of a record** is not. The game issues a mission row when it issues the mission, so a total counted from the rows in hand is a FLOOR: the Basin's live season carried 15 rows of 26, and a summer event read 12 of 12 with a third wave unissued.
 
 So a reading built from rows the account holds says "at least", and only a stated total — a completed season's row count — makes it exact.

@@ -28,7 +28,13 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **An event mission's rewards are recorded.** They pay under a key nothing read, so the items landed nowhere and the Capture Log reported no receipt.
 
-- **A login-streak update no longer has to wait for the next login.** The Daily Check-in record was only ever kept when it arrived in full, which is how it arrives at login — so a reward claimed while a capture ran did not reach the tab. It is now kept a row at a time, in every shape the game uses elsewhere for a single record.
+- **A login-streak update no longer has to wait for the next login.** The Daily Check-in record was only ever kept when it arrived in full, which is how it arrives at login — so a reward claimed while a capture ran did not reach the tab. The claim names no record at all, only the streak before and after, and the row is now read from that.
+
+- **The weekly rows come back on their own when the week turns.** The Arkhianon Supply's EXP, the Galactic Disaster's chaos progress and the Seasonal Accumulated Score all kept last week's figures into the new week, so on the first day of a week each read as finished work. They now reset with the clock, whether or not a capture is running — the same way the daily rows already did.
+
+- **Loot Certification Cards and Reason stop reading as spent after a weekly reset.** The week adds to whatever was left, and the game applies that only when you next open the content — so what the program holds is a floor until then. Both rows now say so with a `+?` and stay red, rather than reading an empty stock as nothing left to do.
+
+- **A doubled Simulation run is counted.** The Overclock row is fed by a record tucked inside the stage reply rather than at its top level, so the row sat at its login value for the whole session.
 
 - **The Basin of Hyperspace is green only once its rewards are claimed.** Every objective can be scored with every star reward still sitting there, which read as a finished row and a trip to the game still owed.
 

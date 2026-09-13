@@ -60,7 +60,18 @@ So the six is the multiplier ceiling of the missions it applies to, and the two 
 
 Nothing in the login payload names the targeted mission type, so this is an action test rather than a derivation — the derivation from ended events is what ships. Keep it as the tie-break for the case the derivation cannot settle: a two and a six are indistinguishable while the day's count is still at 1 or 2.
 
-**The experiment has been tried once and did not answer**, for a reason worth knowing before trying again: two Memory Fragment runs during a capture left `overclock_entities` exactly as the login had sent it, and `overclock_entities` is login-only (below). So a run that IS doubled and a run that is not both leave the row untouched. **Read the doubled rewards off the Capture Log or the game's own result screen, not off the snapshot.**
+**Measured, and the rule holds.** One Memory Fragment run (`simulation / enter_savedata_stage`, `res_id piece_10_10`, `drop_count 1`, 60 Aether) came back with its rewards under **`return_info.result_reward_drop_overclock`** — the doubled payout — while the live event was a two-shape. A Memory Fragment run IS what this shape doubles.
+
+The same reply settled what the fields mean, which a login payload alone never could:
+
+| | At login | After one run |
+| --- | --- | --- |
+| `count` | 2 (yesterday's, `reset_time` in yesterday's day) | **1** |
+| `total_count` | 10 | **11** |
+
+So `count` is **today's tally**, zeroed lazily at the daily reset, and `total_count` is the event's lifetime one. A run adds one to both.
+
+**It nearly did not answer, for a reason worth keeping.** The row rides under `return_info`, not at the top level of the reply, so an earlier attempt read nothing and looked exactly like "this event does not double Memory Fragment runs". Two Memory Fragment runs on another day left the snapshot's Overclock row untouched for that reason alone.
 
 ### Why Forced Daily is orange, not green
 
@@ -225,27 +236,40 @@ Claim commands seen so far, all naming the event and the records together:
 
 **This is the hazard that looks like a Checklist bug.** Some event records have never been observed outside the login payload. A capture that stays open all evening still shows what the account looked like at login, so a claim made during it changes nothing on the tab until the next login — and the row is not wrong, it is *old*, which is indistinguishable on screen.
 
-| Field | Seen in | A mid-session claim? |
-| ----- | ------- | -------------------- |
-| `attendance_entities` | `load` and `mission` replies at login | **never captured.** A Daily Check-in claim leaves the streak at its login value |
-| `event_mission_reward_entities` | the `mission` reply at login | never captured |
-| `overclock_entities` | the `unlock` reply at login | never captured; `result_overclock_entities` is handled but has not been seen either |
-| `event_mission_entities` | login, **and every claim reply** under `entities` | yes — these stay live |
+| Field | Seen in | What a mid-session claim sends |
+| ----- | ------- | ----------------------------- |
+| `attendance_entities` | `load` and `mission` replies at login | **no record at all** — see below |
+| `overclock_entities` | the `unlock` reply at login | `result_overclock_entities`, nested under the stage reply's **`return_info`** |
+| `event_mission_reward_entities` | the `mission` reply at login | not yet seen; an ordinary reward claim does not send it |
+| `event_mission_entities` | login, **and every claim reply** under `entities` | itself — these stay live |
 
-Two defences, both in `capture/manager.py`:
+### What a Daily Check-in claim actually answers
 
-* **merge by id, never replace.** Whatever shape a claim reply turns out to use, a one-row payload updates its own row and leaves the rest alone. A wholesale assignment would look right on every capture ever taken and wipe the list the first time a real claim arrived.
-* **accept all three spellings** — `x_entities` (list), `result_x_entities` (list) and `x_entity` (one record). Those are the three the wire uses elsewhere, so whichever this turns out to be, it lands. `checks/check_capture_event_state.py` holds all three.
+`attendance / reward` with an `event_id`, and the reply names no entity:
 
-**What settles it is one short capture**: start it, claim the Daily Check-in reward and nothing else, stop. The reply names the field, and the guesswork above becomes a fact.
+```
+{"completed": false, "event_id": "event_143",
+ "received_days_before": 5, "received_days_after": 6,
+ "reward_list": [{"count": 1, "res_id": 2000023}], "item": {...}}
+```
+
+So there is nothing to merge: the cached row is patched from `received_days_after`, and the next login sends the real record. **`completed` is a second completion flag** — the game's own word that the streak is finished — which is worth capturing once a streak actually ends, because it would give the row a proven denominator instead of `ATTENDANCE_DAYS`.
+
+### The defences
+
+Both in `capture/manager.py`, and both are the general rule rather than anything about these two fields:
+
+* **merge by id, never replace.** A one-row payload updates its own row and leaves the rest alone. A wholesale assignment looks right on every capture ever taken and wipes the list the first time a partial one arrives.
+* **look under `return_info` as well as at the top level.** A stage reply nests its whole outcome there. Reading only the top level is indistinguishable from the wire being silent, which is exactly how the Overclock row was misread.
+* **accept all three spellings** — `x_entities` (list), `result_x_entities` (list) and `x_entity` (one record). `checks/check_capture_event_state.py` holds all three plus the two shapes above.
 
 ### Reading a capture for whether anything mid-session landed
 
 Scan the saved snapshot for records stamped AFTER the session's own login — `attendance_entities[].last_time` is that login, since the streak is touched by logging in.
 
-**The point is to separate a dead capture from a login-only field**, and they look the same from the tab. On the capture that prompted this, the capture was demonstrably live: `inventory.service_server_time` and the Aether balance's `last_update` both moved several minutes into the session, which is two Memory Fragment runs being paid for. In the same file the streak and the Overclock row still carried their login values. So the capture worked and those two fields simply never arrived again.
+**The point is to separate a dead capture from a field the reader misses**, and they look the same from the tab. On the capture that prompted this, the capture was demonstrably live: `inventory.service_server_time` and the Aether balance's `last_update` both moved several minutes into the session, which is two Memory Fragment runs being paid for. In the same file the streak and the Overclock row still carried their login values.
 
-Everything else stamped inside the session came from the login second itself, which is what a login-only field looks like when you scan for it.
+So the capture worked. What it could not do was see a claim that sends no record and a row nested one level down — and the next capture, taken with the same actions deliberately isolated, showed both immediately. **When a row will not move, capture the ONE action that should move it and read the reply whole**, rather than diffing snapshots.
 
 ## Adding an event nobody has mapped
 
@@ -260,8 +284,8 @@ Everything else stamped inside the session came from the login second itself, wh
 
 * **The Completed Events tab.** The game has one, so the client decides completion for at least some events — and it must decide BEFORE the tab is opened, to know what to sort in there. So a capture of opening it would most likely show no request at all, and the totals are client-side, in the same place the trial slot lists live. Worth one capture to confirm, but do not expect it to pay.
 * **A ragged family's page lengths.** The bartender's three pages are 7, 7 and 10, and two of the three can be read in full from the rows the account holds — but only because those pages were played. Page 1 hands out a row a day and will read short all week. Nothing distinguishes "this page is finished" from "this page is still being issued", which is the same wall every Open-ended reading hits. The completion flag answers the only question that really matters — *is there anything left* — without answering this one.
-* **What a claim reply carries for a login-only field.** See that section: one short capture settles `attendance_entities` and, with a single Memory Fragment run, `overclock_entities` at the same time.
-* **`reward_step` vs `version`.** One claim on a step-track event separates a total from a tally, and a total would give three or four more events a real denominator.
+* **`reward_step` vs `version`.** One claim on a step-track event separates a total from a tally, and a total would give three or four more events a real denominator. **Nothing has moved either number yet** — an ordinary event reward claim does not touch `event_mission_reward_entities` at all, so the action has to be a claim on the event's own reward TRACK (`event_chaos_assault_1` sits at 3 and 2, one step short).
+* **A streak's real length.** `ATTENDANCE_DAYS` is written down as 7. The claim reply's `completed` flag would prove it, on the one claim that finishes a streak.
 * **Event display names.** Every row shows an id, because the wire never sends a name — the client has them in a localisation table.
 
 Settled, and kept so they are not re-suggested:
