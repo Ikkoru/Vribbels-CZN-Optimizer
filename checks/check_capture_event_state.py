@@ -149,6 +149,52 @@ def run():
                 f"completion record.")
             return failures
 
+    # --- the shape a Daily Check-in claim REALLY answers in ----------
+    # It carries no record at all: the event, the streak before, the
+    # streak after and whether that finished it. Captured from
+    # `websocket_debug_20260913_202036.jsonl`, qid 39.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "qid": 39, "completed": False, "event_id": "event_143",
+        "message": "", "received_days_before": 6, "received_days_after": 7,
+        "reward_list": [{"count": 1, "res_id": 2000023}],
+    }]))
+    held = _rows(addon, "attendance_entities")
+    if held.get("event_143", {}).get("received_days") != 7:
+        failures.append(
+            f"the real claim reply left event_143 at "
+            f"{held.get('event_143', {}).get('received_days')!r}, not 7. It "
+            f"names no entity, so the cached row has to be patched from "
+            f"`received_days_after` or the streak never moves until the "
+            f"next login.")
+    if held.get("event_1", {}).get("received_days") != 7:
+        failures.append(
+            "claiming one streak's reward changed another streak's row.")
+
+    # --- a doubled Simulation run's row arrives NESTED ---------------
+    # Under the stage reply's `return_info`, not at the top level --
+    # which is why the Overclock row sat at its login value all session
+    # while the doubled rewards paid out beside it. Shape from the same
+    # capture, qid 58.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "qid": 9,
+        "overclock_entities": {"event_overclock_live_13": {
+            "res_id": "event_overclock_live_13", "count": 2,
+            "reset_time": 1789236863, "total_count": 10}}}]))
+    addon.websocket_message(_Flow([{
+        "res": "ok", "qid": 58, "return_info": {
+            "result_reward_drop_overclock": {"currency": {}},
+            "result_overclock_entities": [{
+                "res_id": "event_overclock_live_13", "count": 1,
+                "reset_time": 1789327354, "total_count": 11}]}}]))
+    row = (addon.overclock or {}).get("event_overclock_live_13") or {}
+    if (row.get("count"), row.get("total_count")) != (1, 11):
+        failures.append(
+            f"after a doubled run the Overclock row reads count="
+            f"{row.get('count')!r} total={row.get('total_count')!r}, not "
+            f"1 and 11. `result_overclock_entities` rides under "
+            f"`return_info`, and read only at the top level it never "
+            f"arrives -- the row keeps the login's tally all session.")
+
     # --- and both reach the snapshot as LISTS -----------------------
     # The shape the wire uses and the shape every snapshot on disk
     # already carries, so `_event_finished` and `_event_attendance`

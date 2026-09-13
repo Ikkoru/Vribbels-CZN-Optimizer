@@ -691,12 +691,23 @@ EVENT_ID_PREFIX = "event_"
 # `..._6_*` with no edit here.
 EVENT_NOISE_WORDS = ("schedule", "mission", "season")
 
-# What marks a total that is only a FLOOR. The row reads `16/20+?`,
-# which says the twenty is what the account has been handed and not
-# what the event holds -- a bare `16/20` would read as four left when
-# it may be eight. It comes off only where `_event_finished` can say
-# the event is over, which is also the only way such a row goes green.
-EVENT_TOTAL_UNKNOWN = "+?"
+# What marks a number the snapshot can only put a FLOOR under: "this
+# much, and an unknown amount more". An event's total reads `16/20+?`,
+# where the twenty is what the account has been handed and not what
+# the event holds -- a bare `16/20` would read as four left when it
+# may be eight. A weekly allowance the game has not topped up yet
+# reads `5+?/9` for the same reason, the leftover being all a stale
+# record can prove.
+#
+# It comes off an event only where `_event_finished` can say the event
+# is over, which is also the only way such a row goes green.
+UNKNOWN_MORE = "+?"
+EVENT_TOTAL_UNKNOWN = UNKNOWN_MORE
+
+# The field the wire stamps the week on. Not universal -- a disaster
+# season's standings spell it `score_week_id` -- so the readers that
+# need the other one pass it. See `_this_week`.
+WEEK_STAMP = "week_id"
 
 # Where the game states that an event is FINISHED, and what saying so
 # looks like. One row per event, `res_id` naming the event and
@@ -1049,6 +1060,10 @@ CHAOS_PROGRESS_FULL = 8000
 # record -- `GREAT_RIFT_TARGET` is only what stands in when it does not.
 GREAT_RIFT_FIELD = "disaster_boss_rank_entities"
 GREAT_RIFT_TARGET = 300000
+
+# The standings spell the week stamp their own way, where every other
+# weekly record uses `WEEK_STAMP`.
+GREAT_RIFT_WEEK_STAMP = "score_week_id"
 
 # What a score PAST the threshold reads as. The figure runs to seven
 # digits where the row is about clearing a bar, so it is capped -- and
@@ -1548,6 +1563,53 @@ def _pass_daily_number(res_id):
     return tail.isdigit() and 1 <= int(tail) <= PASS_DAILY_COUNT
 
 
+def _this_week(record, now, field=WEEK_STAMP):
+    """Whether a weekly record belongs to the week `now` falls in.
+
+    **A weekly record is written lazily, exactly like a daily one.**
+    Nothing zeroes it at the reset: last week's EXP, score and clear
+    total survive untouched into the new week, and only the `week_id`
+    beside them says which week they are. So the STAMP is the reading
+    -- a number below this week's means the figures next to it belong
+    to last week and this week's are all zero.
+
+    A record with no stamp is taken at face value: nothing about it
+    can say otherwise, and refusing to read it would blank a row that
+    may be perfectly current.
+    """
+    stamp = (record or {}).get(field) if isinstance(record, dict) else None
+    if not _is_count(stamp):
+        return True
+    return stamp >= weekly_reset.week_index(now)
+
+
+def _weekly_stock(raw, res_id, now):
+    """(what is held of a weekly allowance, whether that is all of it).
+
+    The second is False once the week has rolled past the last time
+    the game wrote the record. These currencies are TOPPED UP weekly
+    rather than zeroed, and the top-up is applied lazily -- the
+    document still carries last week's leftover until something in
+    game touches that content. So the number is a floor, and the row
+    says so with `UNKNOWN_MORE` rather than pretending the leftover is
+    the stock.
+
+    `last_update` is what dates it. It is not a write stamp: spending
+    the currency does not move it, and it has been seen sitting on the
+    day the week's allowance was first drawn. That is exactly the date
+    this needs.
+    """
+    currencies = ((raw or {}).get("characters") or {}).get("currencies") or {}
+    doc = currencies.get(str(res_id))
+    doc = doc if isinstance(doc, dict) else {}
+    amount = doc.get("amount")
+    amount = amount if _is_count(amount) else 0
+    touched = doc.get("last_update")
+    if not _is_count(touched) or not touched:
+        return amount, True
+    return amount, touched >= weekly_reset.last_weekly_reset(now)
+
+
 def _at_ceiling(words):
     """Whether an `n/m` reading has n equal to m.
 
@@ -1726,18 +1788,26 @@ def _readings(raw, now=None):
 
     # Both weekly currencies are things to SPEND, so a holding is work
     # left rather than a stock to be pleased about.
-    cards = amounts.get(CHAOS_CURRENCY, 0)
-    out["chaos_currency"] = _one("%d" % cards, _done(cards == 0))
-    reason = amounts.get(SORTIE_CURRENCY, 0)
-    out["sortie_currency"] = _one("%d/%d" % (reason, SORTIE_CAP),
-                              _done(reason == 0))
+    #
+    # **Topped up weekly, and lazily.** A record the week has rolled
+    # past still carries last week's leftover, so all it can prove is
+    # a floor -- which is `UNKNOWN_MORE`, and never green, because the
+    # week's allowance always arrives.
+    cards, fresh = _weekly_stock(raw, CHAOS_CURRENCY, now)
+    out["chaos_currency"] = _one(
+        "%d%s" % (cards, "" if fresh else UNKNOWN_MORE),
+        _done(cards == 0) if fresh else TODO)
+    reason, fresh = _weekly_stock(raw, SORTIE_CURRENCY, now)
+    out["sortie_currency"] = _one(
+        "%d%s/%d" % (reason, "" if fresh else UNKNOWN_MORE, SORTIE_CAP),
+        _done(reason == 0) if fresh else TODO)
 
     # The Great Rift's weekly score against the threshold that pays.
     # **Capped in the DISPLAY**, because the figure runs to seven digits
     # and the row is about whether the threshold is cleared. A capped
     # reading carries `GREAT_RIFT_OVER` so it cannot be read as a score
     # that landed exactly on the bar.
-    score, target = _great_rift(raw)
+    score, target = _great_rift(raw, now)
     if score is None:
         out["seasonal_score"] = _one("%s/%d" % (NO_DATA, target), UNKNOWN)
     else:
@@ -1775,6 +1845,11 @@ def _readings(raw, now=None):
     # them to earn and the day's remainder is not work owed.
     record = _live_pass(raw)
     week_exp = record.get("week_exp")
+    # The pass's own `week_id` says which week that EXP belongs to.
+    # Nothing zeroes it at the reset, so last week's full 10000 reads
+    # as a finished week into a week with nothing done in it.
+    if _is_count(week_exp) and not _this_week(record, now):
+        week_exp = 0
     week_full = _is_count(week_exp) and week_exp >= PASS_WEEK_EXP_FULL
     missions = raw.get(PASS_MISSION_FIELD)
     if isinstance(missions, dict):
@@ -1866,7 +1941,7 @@ def _readings(raw, now=None):
     # read honestly -- see `shop_stock.remaining`.
     # The Galactic Disaster's weekly chaos progress, against a ceiling
     # the wire does not carry.
-    score = _chaos_progress(raw)
+    score = _chaos_progress(raw, now)
     if score is None:
         out["chaos_progress"] = _one("%s/%d" % (NO_DATA, CHAOS_PROGRESS_FULL),
                                      UNKNOWN)
@@ -2052,11 +2127,15 @@ def _add_countdowns(out, raw, now):
         out[key] = rest + [(ENDS_IN + left, _countdown_state(seconds))]
 
 
-def _chaos_progress(raw):
+def _chaos_progress(raw, now):
     """The live season's weekly chaos score, or None.
 
     Every season the account has played keeps a row, so the live one is
     the latest `week_id` -- past seasons sit at their own full 8000.
+
+    That same stamp says whether the score is THIS week's. It is not
+    zeroed at the reset, so a row left over from last week reads a full
+    8000 into a week nothing has been cleared in -- see `_this_week`.
     """
     rows = raw.get(DISASTER_FIELD)
     live = None
@@ -2066,8 +2145,11 @@ def _chaos_progress(raw):
             continue
         week = row.get("week_id") or 0
         if live is None or week > live[0]:
-            live = (week, row["week_clear_score"])
-    return live[1] if live else None
+            live = (week, row)
+    if live is None:
+        return None
+    row = live[1]
+    return row["week_clear_score"] if _this_week(row, now) else 0
 
 
 def _live_season(raw):
@@ -2090,7 +2172,7 @@ def _live_season(raw):
     return live[1] if live else None
 
 
-def _great_rift(raw):
+def _great_rift(raw, now):
     """(this week's score, the threshold that pays it out).
 
     The standings nest season -> rank slot -> record, and every season
@@ -2099,6 +2181,10 @@ def _great_rift(raw):
     seasons carry higher totals than the current week does, and their
     thresholds differ too: the older ones ask 500000 where this one
     asks 300000.
+
+    **A row is not zeroed at the reset**, so the latest one can still
+    be last week's: its `score_week_id` is what says which, and a stale
+    one scores nothing this week. See `_this_week`.
 
     The threshold rides in the chosen row; `GREAT_RIFT_TARGET` stands
     in only where it does not.
@@ -2120,8 +2206,9 @@ def _great_rift(raw):
         return None, GREAT_RIFT_TARGET
     row = live[1]
     target = row.get("week_total_score_reward")
-    return row["week_total_score"], (target if _is_count(target)
-                                     else GREAT_RIFT_TARGET)
+    score = row["week_total_score"] if _this_week(
+        row, now, GREAT_RIFT_WEEK_STAMP) else 0
+    return score, (target if _is_count(target) else GREAT_RIFT_TARGET)
 
 
 def _product_of(key):

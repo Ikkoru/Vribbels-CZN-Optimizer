@@ -85,6 +85,10 @@ def run():
 
     failures = []
     now = MONDAY_MORNING
+    # Every weekly case is written against the week `now` falls
+    # in: a literal number would go stale the moment the clock
+    # passed it, and the cases would then all test the STALE path.
+    this_week = weekly_reset.week_index(now)
 
     # --- the two windows the cases are written against ----------------
     if len(MODULE_WINDOWS) != 2 or (MODULE_WINDOWS[0][0]
@@ -223,6 +227,77 @@ def run():
                 f"ended events share that still fits today's count; "
                 f"{OVERCLOCK_USES} is only the floor where none does.")
 
+    # --- a week that has rolled brings its rows back ------------------
+    # **Weekly records are written lazily, exactly like the daily
+    # ones.** Nothing zeroes them at the reset, so last week's full
+    # score, EXP and clear total survive into a week with nothing done
+    # in it -- and every one of those rows read as FINISHED on the
+    # Monday morning that first showed it.
+    #
+    # The stamp beside each is what says which week it is. These read
+    # a full record twice, once stamped this week and once last, and
+    # the two must differ.
+    for stamp, want_full in ((this_week, True), (this_week - 1, False)):
+        raw = _snapshot()
+        raw["season_pass_entities"] = [
+            {"res_id": "season_pass_008", "week_id": stamp,
+             "week_exp": 10000, "free_reward_rank": 60,
+             "end_time": now + 30 * DAY, "start_time": now - 30 * DAY}]
+        raw["disaster_entities"] = [
+            {"res_id": "disaster_s04", "week_id": stamp,
+             "week_clear_score": 8000}]
+        raw["disaster_boss_rank_entities"] = {"disaster_s04": {"rank_01": {
+            "score_week_id": stamp, "week_total_score": 742054,
+            "week_total_score_reward": 300000}}}
+        out = _readings(raw, now)
+        for key, full, empty in (
+                ("supply_weekly", "10000/10000", "0/10000"),
+                ("chaos_progress", "8000/8000", "0/8000"),
+                ("seasonal_score", "300000+/300000", "0/300000")):
+            want = (full, DONE) if want_full else (empty, TODO)
+            if out[key] != [want]:
+                failures.append(
+                    f"a record stamped week {stamp} against this week's "
+                    f"{this_week} reads {out[key]!r} for {key}, not "
+                    f"{[want]!r}. A weekly record is not zeroed at the "
+                    f"reset, so its `week_id` is the only thing that says "
+                    f"whether the figure beside it is this week's.")
+
+    # A record with NO stamp is read at face value: nothing about it
+    # can say otherwise, and blanking it would lose a live reading.
+    raw = _snapshot()
+    raw["disaster_entities"] = [{"res_id": "d", "week_clear_score": 8000}]
+    if _readings(raw, now)["chaos_progress"] != [("8000/8000", DONE)]:
+        failures.append(
+            "an unstamped weekly record was not read at face value. "
+            "Nothing about it can say which week it belongs to, and "
+            "refusing it blanks a row that may be perfectly current.")
+
+    # --- a weekly ALLOWANCE is topped up, not zeroed ------------------
+    # The two spendable currencies gain a fixed amount each week ON TOP
+    # of what was left, and the top-up is applied lazily -- so a record
+    # the week has rolled past proves only a floor. Never green: the
+    # allowance always arrives, so there is always something to spend.
+    opened = weekly_reset.last_weekly_reset(now)
+    more = EVENT_TOTAL_UNKNOWN
+    for touched, fresh in ((opened + HOUR, True), (opened - HOUR, False)):
+        raw = _snapshot()
+        raw["characters"] = {"currencies": {
+            str(CHAOS_CURRENCY): {"amount": 0, "last_update": int(touched)},
+            str(SORTIE_CURRENCY): {"amount": 5, "last_update": int(touched)}}}
+        out = _readings(raw, now)
+        want = ([("0", DONE)], [(f"5/{SORTIE_CAP}", TODO)]) if fresh else (
+            [(f"0{more}", TODO)], [(f"5{more}/{SORTIE_CAP}", TODO)])
+        for key, wanted in (("chaos_currency", want[0]),
+                            ("sortie_currency", want[1])):
+            if out[key] != wanted:
+                failures.append(
+                    f"a currency last written {'after' if fresh else 'before'}"
+                    f" the week opened reads {out[key]!r} for {key}, not "
+                    f"{wanted!r}. A stale record carries last week's "
+                    f"LEFTOVER, so it is a floor and the row must not read "
+                    f"as nothing left to spend.")
+
     # --- a floor SAYS it is a floor, and only the game lifts it ------
     # A denominator counted off the rows in hand is what has been
     # handed out, not what the event holds, so `20/20` there would be
@@ -323,7 +398,8 @@ def run():
     # --- the Great Rift, and picking the LIVE season ------------------
     # Two seasons, the older carrying the higher score and a higher
     # threshold. The live one is the later WEEK, not the bigger number.
-    rift = ((180, 999999, 500000), (193, 120000, 300000))
+    rift = ((this_week - 13, 999999, 500000),
+            (this_week, 120000, 300000))
     got = _readings(_snapshot(rift=rift), now)["seasonal_score"]
     if got != [("120000/300000", TODO)]:
         failures.append(
@@ -332,7 +408,7 @@ def run():
             f"and carry higher totals AND different thresholds, so the "
             f"live one is the latest score_week_id.")
     # Over the threshold, the display caps AND says it capped.
-    got = _readings(_snapshot(rift=((193, 1396064, 300000),)),
+    got = _readings(_snapshot(rift=((this_week, 1396064, 300000),)),
                     now)["seasonal_score"]
     if got != [(f"300000{GREAT_RIFT_OVER}/300000", DONE)]:
         failures.append(
@@ -342,7 +418,7 @@ def run():
             f"threshold, so it caps -- and the sign is what stops a "
             f"capped reading looking like one that landed on the bar.")
     # Landing EXACTLY on it takes no sign, and is still done.
-    got = _readings(_snapshot(rift=((193, 300000, 300000),)),
+    got = _readings(_snapshot(rift=((this_week, 300000, 300000),)),
                     now)["seasonal_score"]
     if got != [("300000/300000", DONE)]:
         failures.append(
@@ -490,10 +566,10 @@ def run():
     # week. The live one is the latest `week_id`.
     raw = _snapshot()
     raw["season_pass_entities"] = [
-        {"res_id": "season_pass_006", "week_id": 182, "week_exp": 10000,
-         "free_reward_rank": 70},
-        {"res_id": "season_pass_008", "week_id": 193, "week_exp": 6500,
-         "free_reward_rank": 46},
+        {"res_id": "season_pass_006", "week_id": this_week - 11,
+         "week_exp": 10000, "free_reward_rank": 70},
+        {"res_id": "season_pass_008", "week_id": this_week,
+         "week_exp": 6500, "free_reward_rank": 46},
     ]
     for key, want in (("supply_weekly", [("6500/10000", TODO)]),
                       ("supply_season", [("46/70", TODO)])):
@@ -503,7 +579,7 @@ def run():
                 f"{key} reads {got!r}, not {want!r}. A finished past pass "
                 f"is in the same list and sits at its full figure.")
     # The singular field wins where a claim has just sent it.
-    raw["season_pass_entity"] = {"week_id": 193, "week_exp": 8000,
+    raw["season_pass_entity"] = {"week_id": this_week, "week_exp": 8000,
                                  "free_reward_rank": 50}
     if _readings(raw, now)["supply_weekly"] != [("8000/10000", TODO)]:
         failures.append(
@@ -776,7 +852,8 @@ def run():
     # only take one colour between them.
     raw = _snapshot()
     raw["season_pass_entities"] = [{"res_id": "season_pass_008",
-                                    "week_id": 193, "week_exp": 6500,
+                                    "week_id": this_week,
+                                    "week_exp": 6500,
                                     "free_reward_rank": 46}]
     raw["event_schedules"] = {"SEASON_PASS": {"season_pass_008": {
         "start_time": int(now - DAY), "end_time": int(now + 5 * DAY)}}}

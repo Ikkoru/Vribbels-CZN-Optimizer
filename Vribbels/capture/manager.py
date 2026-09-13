@@ -923,12 +923,35 @@ class Addon:
         if isinstance(data.get("overclock_entities"), dict):
             self.overclock = dict(data["overclock_entities"])
             self._save_pending = True
-        if isinstance(data.get("result_overclock_entities"), list):
+        # **A doubled run's own row arrives nested**, under the stage
+        # reply's `return_info` rather than at the top level -- which is
+        # why the Overclock row sat at its login value all session while
+        # `return_info.result_reward_drop_overclock` paid out beside it.
+        # Both places are read; nothing else in the reply is.
+        for carrier in (data, data.get("return_info")):
+            if not isinstance(carrier, dict):
+                continue
+            if not isinstance(carrier.get("result_overclock_entities"), list):
+                continue
             if not isinstance(self.overclock, dict):
                 self.overclock = {}
-            for row in data["result_overclock_entities"]:
+            for row in carrier["result_overclock_entities"]:
                 if isinstance(row, dict) and row.get("res_id"):
                     self.overclock[str(row["res_id"])] = row
+            self._save_pending = True
+        # A Daily Check-in claim answers with NO record at all -- the
+        # event, the streak before, the streak after and whether that
+        # finished it. So the cached row is patched from those rather
+        # than replaced by one, and the next login sends the real thing.
+        streak = data.get("received_days_after")
+        event_id = data.get("event_id")
+        if event_id is not None and isinstance(streak, int) and not isinstance(
+                streak, bool):
+            row = self.attendance.get(str(event_id))
+            if not isinstance(row, dict):
+                row = {"event_id": event_id}
+                self.attendance[str(event_id)] = row
+            row["received_days"] = streak
             self._save_pending = True
         # **At LOGIN the pass missions arrive somewhere else entirely**,
         # nested as `season_pass_missions[<pass id>][<mission id>]`

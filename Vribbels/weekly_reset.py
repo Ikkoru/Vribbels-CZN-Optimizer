@@ -26,6 +26,7 @@ RESET_WEEKDAY = 6
 RESET_HOUR = 18
 
 DAY = 24 * 3600
+DAYS_PER_WEEK = 7
 
 # When day 0 began, in epoch seconds: 2022-12-31 18:00 UTC.
 #
@@ -54,6 +55,16 @@ def next_reset(now):
 def hours_left(now):
     """Hours from `now` to the next weekly reset. Always positive."""
     return (next_reset(now) - now) / 3600
+
+
+def last_weekly_reset(now):
+    """The weekly reset at or before `now`, in epoch seconds.
+
+    `next_reset` is strict, so standing exactly on a boundary it names
+    the week AFTER this one -- a week back from it is therefore the
+    boundary that opened the current week, on or before `now`.
+    """
+    return next_reset(now) - 7 * DAY
 
 
 def last_daily_reset(now):
@@ -101,4 +112,23 @@ def day_index(now):
     today and only says which day it belongs to.
     """
     return int((now - DAY_EPOCH) // DAY)
+
+
+def week_index(now):
+    """The wire's week number for `now`.
+
+    The weekly counterpart of `day_index`, and read the same way: the
+    game stamps `week_id` on anything that resets weekly -- the season
+    pass's EXP, a disaster season's `week_clear_score`, the Great
+    Rift's `score_week_id` -- and nothing rolls those at the reset. So
+    a stamp BELOW this number is last week's record, and the figures
+    beside it are last week's too.
+
+    Weeks are groups of seven `day_index` days ending on a multiple of
+    seven, which is the same boundary `next_reset` computes from the
+    weekday: week 193 ran days 1345 to 1351, opening Sunday 18:00 UTC.
+    `checks/check_day_index.py` pins both against week numbers the
+    game itself sent.
+    """
+    return (day_index(now) + DAYS_PER_WEEK - 1) // DAYS_PER_WEEK
 
