@@ -307,6 +307,68 @@ def _under(mission, event):
     return mission == event or mission.startswith(event + "_")
 
 
+def _stem(key):
+    """A normalised event key without its own index.
+
+    `event_devil_1` -> `event_devil`. Unchanged where the key does not
+    end in a number, which is what stops a stem being taken off an id
+    that never had one.
+    """
+    parts = key.split("_")
+    return "_".join(parts[:-1]) if parts and parts[-1].isdigit() else key
+
+
+def _event_rows(raw, name):
+    """The mission ids belonging to one event, as a sorted list.
+
+    **An event's index does not always appear in its missions' ids.**
+    Most families repeat it -- `event_summer_01` owns
+    `event_summer_mission_01_*`, `event_bartender_01` owns
+    `event_bartender_1_*` -- so a prefix match on the normalised key
+    finds them. The devil event does not: its schedule is
+    `event_schedule_devil_001` and its missions are
+    `event_devil_<day>_<task>`, where that `01` is DAY one. Matching on
+    the key alone took day one and silently dropped days two to seven,
+    which is how a 21-reward event read `3/3` for a week.
+
+    So where the key matches something, the STEM is tried as well --
+    the key without its own index -- and the extra rows are taken
+    unless some other event's key claims them. That exclusion is what
+    keeps `event_schedule_policy_005` off `event_policy_4_*`: a past
+    instalment shares the stem and is still in `event_schedules`.
+
+    **The key must match first.** A stem on its own is far too greedy:
+    `event_2` stems to `event` and would take every event mission the
+    account holds, and `event_schedule_chaos_mission_5` stems to
+    `event_chaos` and would take the Sortie's. Requiring one row under
+    the full key rules both out, because neither has any.
+    """
+    missions = (raw or {}).get(PASS_MISSION_FIELD)
+    missions = missions if isinstance(missions, dict) else {}
+    want = _event_key(name)
+    keyed = {res_id for res_id in missions
+             if _under(_event_key(res_id), want)}
+    if not keyed:
+        return sorted(keyed)
+    root = _stem(want)
+    if root == want:
+        return sorted(keyed)
+    others = {_event_key(other)
+              for group in ((raw or {}).get("event_schedules") or {}).values()
+              if isinstance(group, dict) for other in group}
+    others.discard(want)
+    for res_id in missions:
+        if res_id in keyed:
+            continue
+        key = _event_key(res_id)
+        if not _under(key, root):
+            continue
+        if any(_under(key, other) for other in others):
+            continue
+        keyed.add(res_id)
+    return sorted(keyed)
+
+
 def event_label(name):
     """What an event row is called: its id without the common prefix.
 
@@ -623,9 +685,8 @@ def _event_progress(raw, name):
         rows = [row for res_id, row in missions.items()
                 if str(res_id).startswith(override) and isinstance(row, dict)]
     else:
-        want = _event_key(name)
-        rows = [row for res_id, row in missions.items()
-                if isinstance(row, dict) and _under(_event_key(res_id), want)]
+        rows = [missions[res_id] for res_id in _event_rows(raw, name)
+                if isinstance(missions.get(res_id), dict)]
     if not rows:
         return []
     claimed = sum(1 for row in rows if row.get("complete_time"))
@@ -695,14 +756,19 @@ EVENT_NOISE_WORDS = ("schedule", "mission", "season")
 # much, and an unknown amount more". An event's total reads `16/20+?`,
 # where the twenty is what the account has been handed and not what
 # the event holds -- a bare `16/20` would read as four left when it
-# may be eight. A weekly allowance the game has not topped up yet
-# reads `5+?/9` for the same reason, the leftover being all a stale
-# record can prove.
+# may be eight.
 #
-# It comes off an event only where `_event_finished` can say the event
-# is over, which is also the only way such a row goes green.
+# It comes off only where `_event_finished` can say the event is over,
+# which is also the only way such a row goes green.
 UNKNOWN_MORE = "+?"
 EVENT_TOTAL_UNKNOWN = UNKNOWN_MORE
+
+# What marks a number WORKED OUT from a rule rather than read off the
+# wire: `~4`, `~8/9`. A different claim from the one above -- not "at
+# least this" but "this, unless something the snapshot cannot see has
+# happened". The weekly allowances are the only rows that use it, and
+# only until a capture has seen the week's real figure.
+EXPECTED_VALUE = "~"
 
 # The field the wire stamps the week on. Not universal -- a disaster
 # season's standings spell it `score_week_id` -- so the readers that
@@ -815,11 +881,11 @@ COLUMNS = (
     ("Weekly", (
         ("supply_weekly", "Arkhianon Supply", "10000/10000"),
         ("simulation", "Simulation Challenges", "3/3"),
-        ("chaos_currency", "Chaos Currency", "99" + UNKNOWN_MORE),
+        ("chaos_currency", "Chaos Currency", EXPECTED_VALUE + "99"),
         ("modules_soon", "Delegation Module", "99 expiring within 24h!"),
         ("modules_week", "Delegation Module", "99 expiring within 7 days"),
         ("sortie_currency", "Sortie Currency",
-         "99" + UNKNOWN_MORE + "/9"),
+         EXPECTED_VALUE + "99/9"),
         ("chaos_progress", "Galactic Disaster - Chaos", "8000/8000"),
         ("seasonal_score", "Seasonal Accumulated Score", "300000+/300000"),
     ), (("shop_town", "none"),
@@ -933,7 +999,7 @@ CHAOS_CAP = 4
 # What each gains at the Sunday reset, and the ceiling that gain stops
 # at. **Not on the wire in any form**, and the only two numbers on this
 # tab that are the game's rule rather than a reading -- so the row they
-# produce is marked as an expectation with `UNKNOWN_MORE` until a
+# produce is marked as an expectation with `EXPECTED_VALUE` until a
 # capture replaces it with the real figure. See `_weekly_stock`.
 #
 # The grants are the game's own wording, and they match what the
@@ -1611,17 +1677,18 @@ def _weekly_stock(raw, res_id, grant, cap, now):
     week has rolled past the record, what it holds is not the stock
     and the stock has to be worked out:
 
-        max(leftover, min(leftover + grant, cap))
+        min(leftover + grant, cap)
 
-    A top-up toward a cap that never takes anything away. `grant` and
-    `cap` are the game's own rule for the currency and are written
-    down beside it; the outer `max` is what keeps a holding ALREADY
-    above the cap -- bought with Aether, which has no limit -- from
-    reading as though the week had confiscated it.
+    `grant` and `cap` are the game's own rule for the currency and are
+    written down beside it. **The cap is HARD** -- the maintainer has
+    tested that no amount of buying takes a holding past it -- so the
+    top-up simply stops there.
 
-    **The answer is then EXPECTED rather than read**, so it is a floor:
-    an Aether exchange can only add to it, and the row carries
-    `UNKNOWN_MORE` until a capture sees the real figure.
+    **The answer is then EXPECTED rather than read**, and the row says
+    so with `EXPECTED_VALUE` until a capture replaces it with the real
+    figure. Buying more with Aether is what can move it in between,
+    which is also why a record that has been written this week is
+    taken at face value however odd it looks.
 
     `last_update` is what dates the record. It is not a write stamp --
     spending the currency does not move it -- but it does move when
@@ -1637,7 +1704,7 @@ def _weekly_stock(raw, res_id, grant, cap, now):
         return amount, True
     if touched >= weekly_reset.last_weekly_reset(now):
         return amount, True
-    return max(amount, min(amount + grant, cap)), False
+    return min(amount + grant, cap), False
 
 
 def _at_ceiling(words):
@@ -1820,17 +1887,18 @@ def _readings(raw, now=None):
     # left rather than a stock to be pleased about.
     #
     # **Topped up weekly, and lazily.** A record the week has rolled
-    # past still carries last week's leftover, so all it can prove is
-    # a floor -- which is `UNKNOWN_MORE`, and never green, because the
-    # week's allowance always arrives.
+    # past still carries last week's leftover, so the row shows what
+    # the week's rule says to EXPECT, marked as worked out rather
+    # than read. See `_weekly_stock`.
     cards, exact = _weekly_stock(raw, CHAOS_CURRENCY, CHAOS_WEEKLY_GRANT,
                                  CHAOS_CAP, now)
     out["chaos_currency"] = _one(
-        "%d%s" % (cards, "" if exact else UNKNOWN_MORE), _done(cards == 0))
+        "%s%d" % ("" if exact else EXPECTED_VALUE, cards),
+        _done(cards == 0))
     reason, exact = _weekly_stock(raw, SORTIE_CURRENCY, SORTIE_WEEKLY_GRANT,
                                   SORTIE_CAP, now)
     out["sortie_currency"] = _one(
-        "%d%s/%d" % (reason, "" if exact else UNKNOWN_MORE, SORTIE_CAP),
+        "%s%d/%d" % ("" if exact else EXPECTED_VALUE, reason, SORTIE_CAP),
         _done(reason == 0))
 
     # The Great Rift's weekly score against the threshold that pays.

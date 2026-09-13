@@ -69,17 +69,19 @@ So once the week has rolled past the record, what the record holds is a leftover
 | Loot Certification Card | 4 | 4 | a reset to **4**, the grant being the cap |
 | Reason | +3 | 9 | leftover **+3**, stopping at 9 |
 
-`max(leftover, min(leftover + grant, cap))` covers both, and the outer `max` is load-bearing: **60 Aether buys one of either with no limit on the exchanges**, so a holding can sit above the cap and the week must not pull it back down.
+`min(leftover + grant, cap)` covers both. **The cap is HARD** — tested in game, no amount of buying takes a holding past it — so the top-up simply stops there. 60 Aether buys one of either, which is the only thing that can move the figure between the reset and the next time the content is opened.
 
-**These are the only two numbers on the Checklist that are the game's rule rather than a reading**, so what the row shows is an EXPECTATION and is marked `+?` until a capture replaces it with the real figure. Corroboration rather than proof: `total_amount` moved by exactly +4 and +3 across each of the last four week boundaries, and `0 → 4` and `5 → 8` are what the game showed after the reset that prompted this. `total_amount` also takes one-off gains — the cards picked up a stray +1 twice — so it confirms a rate without deriving one.
+**These are the only two numbers on the Checklist that are the game's rule rather than a reading**, so what the row shows is an EXPECTATION and is marked `~4`, `~8/9` until a capture replaces it with the real figure. A different mark from the `+?` an event floor carries: that one means *at least this much*, this one means *this, unless something the snapshot cannot see has happened*. Corroboration rather than proof: `total_amount` moved by exactly +4 and +3 across each of the last four week boundaries, and `0 → 4` and `5 → 8` are what the game showed after the reset that prompted this. `total_amount` also takes one-off gains — the cards picked up a stray +1 twice — so it confirms a rate without deriving one.
 
-**Still open:** whether an Aether exchange moves `last_update`. If it does, one exchange makes the row exact for the rest of the week; if not, the `+?` stands until the content is opened. One exchange with a capture running settles it.
+**Still open:** whether an Aether exchange moves `last_update`. If it does, one exchange makes the row exact for the rest of the week; if not, the `~` stands until the content is opened. One exchange with a capture running settles it, and it is the only way the expectation can be wrong.
 
 ## Pairing two payloads that never name each other
 
 Over and over the wire describes one thing in two places under ids that do not match, and the table joining them is in the client's own data files rather than in any message. Four ways out, cheapest first. **Try them in this order** — each later one costs more and is worth less.
 
 **1. Normalise the ids.** Where the two ids differ only in decoration, strip it and compare. An event's `event_schedule_policy_005` and its missions' `event_policy_5_*` become the same string once the word `schedule` and the zero padding are gone. Costs nothing, needs no history, and keeps working as the numbers increment. `checklist_tab._event_key` does this.
+
+**Its failure mode is a PARTIAL match, which looks like a small answer rather than a wrong one.** The devil event's missions leave its index out entirely and number the DAY in that position, so the normalised key matched day one and dropped six more days — a 21-reward event reading `3/3` with nothing to see. Where a family can be counted independently, count it and compare; `docs/events.md` has the recovery.
 
 **Use it whenever the two ids share a stem.** It fails silently if a rename breaks the stem, so it belongs with a case that shows on screen rather than one that only feeds a calculation.
 

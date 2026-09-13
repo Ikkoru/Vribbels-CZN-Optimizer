@@ -93,8 +93,8 @@ This is a different orange from the Open-ended one. Nothing here is unproven; th
 
 **A count of the rows the account holds is a FLOOR, not a total.** The game creates a mission row when it issues the mission, so an event still handing them out reads as finished:
 
-* the devil event read `3/3` on its first afternoon against a real 21 — three tasks a day for seven days;
-* a summer event read `12/12` with a third wave unissued.
+* a summer event read `12/12` with a third wave unissued;
+* the devil event read `3/3` against a real 21 — though that one turned out to be an id collision rather than a floor, and is worth reading about under *Naming* before assuming a short count is this.
 
 So an Open-ended row **never goes green**, and its reading is marked `FLOOR` in the code to say why. Saying "done" when it is not is the one answer a checklist must never give: it costs the user the reward.
 
@@ -150,7 +150,7 @@ Run against the whole account, every family answers, and the answers match what 
 | `event_stock_1_<page>_<n>` | 10 rows varying `n` alone | ragged |
 | `event_policy_<n>_<m>` | 6 rows varying `m` alone | ragged |
 
-**It answers on the event's first afternoon**, which is the only time the answer is worth anything. The devil's grid batch and all seven of its day numbers were in the snapshot taken hours after it opened — the `3/3` it once read came from a snapshot taken BEFORE the event issued anything, when the account held one row.
+**It answers on the event's first afternoon**, which is the only time the answer is worth anything. The devil's grid batch and all seven of its day numbers were in the snapshot taken hours after it opened, so the 21 was derivable from day one — the `3/3` the row actually showed was the id collision under *Naming*, not a shortage of evidence.
 
 A batch that varies both indices says nothing and is ignored; the devil has one of those too. One clean batch is enough.
 
@@ -202,12 +202,22 @@ event_summer_01            ->  event_summer_mission_01_*
 event_schedule_love_4      ->  event_love_04_*        and  event_season_love_4
 event_stock_01             ->  event_stock_1_01_*     and  event_stock_1
 event_bartender_01         ->  event_bartender_1_*    and  event_bartender_1
-event_schedule_devil_001   ->  event_devil_01_*
 ```
 
 The right-hand column of the last three is the completion record's id, which lives in the same namespace as the mission rows — so one normaliser serves both.
 
 Matching is on a segment boundary, so `event_daily_1` cannot swallow `event_daily_12`'s rows.
+
+### The event's index is not always in its missions' ids
+
+**The devil event is the exception, and it hid a wrong reading for a week.** Its schedule is `event_schedule_devil_001` and its missions are `event_devil_<day>_<task>` — that `01` is DAY one, not the event. So the normalised key `event_devil_1` matched day one's three rows and silently dropped days two to seven, and a 21-reward event read `3/3` with nothing about it looking wrong. Every other family repeats the index, which is why it took an account with six days claimed to notice.
+
+`_event_rows` handles it by trying the STEM — the key without its own index — and taking the extra rows unless another event's key claims them. Two guards, both load-bearing and both pinned:
+
+* **the full key must match something first.** A stem alone is wildly greedy: `event_2` stems to the bare word `event` and would take every event mission on the account, and `event_schedule_chaos_mission_5` stems to `event_chaos` and would take the Sortie's. Neither has a single row under its own key, which is what rules them out.
+* **another schedule's key wins.** `event_schedule_policy_004` is still in `event_schedules` long after it ended, so `event_policy_4_*` belongs to it and not to `_005`, which shares the stem.
+
+**When adding an event, check this by counting.** The rows the account holds under the family stem, against what the row reports. They agreeing is the whole test, and it is one line.
 
 **Attendance and trial events do not follow this** — their records are numbered in a different space entirely, and `wire_hunt.md` says how each is paired.
 

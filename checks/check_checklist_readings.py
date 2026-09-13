@@ -82,6 +82,7 @@ def run():
         EVENT_DONE_FIELD, EVENT_DONE_FLAG, EVENT_DONE_VALUE,
         EVENT_TOTAL_UNKNOWN, FLOOR, FLOOR_SETTLES_AFTER,
         PASS_MISSION_FIELD, _at_ceiling, _event_missions,
+        EXPECTED_VALUE, _event_rows,
     )
 
     failures = []
@@ -282,7 +283,7 @@ def run():
     # because 60 Aether buys either with no limit and the real figure
     # can only be higher.
     opened = weekly_reset.last_weekly_reset(now)
-    more = EVENT_TOTAL_UNKNOWN
+    soon_after = EXPECTED_VALUE
     chaos_full = min(CHAOS_WEEKLY_GRANT, CHAOS_CAP)
     reason_full = min(5 + SORTIE_WEEKLY_GRANT, SORTIE_CAP)
     for touched, fresh in ((opened + HOUR, True), (opened - HOUR, False)):
@@ -292,37 +293,82 @@ def run():
             str(SORTIE_CURRENCY): {"amount": 5, "last_update": int(touched)}}}
         out = _readings(raw, now)
         want = ([("0", DONE)], [(f"5/{SORTIE_CAP}", TODO)]) if fresh else (
-            [(f"{chaos_full}{more}", TODO)],
-            [(f"{reason_full}{more}/{SORTIE_CAP}", TODO)])
+            [(f"{soon_after}{chaos_full}", TODO)],
+            [(f"{soon_after}{reason_full}/{SORTIE_CAP}", TODO)])
         for key, wanted in (("chaos_currency", want[0]),
                             ("sortie_currency", want[1])):
             if out[key] != wanted:
                 failures.append(
                     f"a currency last written {'after' if fresh else 'before'}"
                     f" the week opened reads {out[key]!r} for {key}, not "
-                    f"{wanted!r}. Read after the reset it is exact; read "
-                    f"before, the row owes the week's grant and says so.")
+                    f"{wanted!r}. Read after the reset it is a reading; read "
+                    f"before, the row owes the week's grant and is marked as "
+                    f"worked out rather than read.")
 
-    # **A holding above the cap is not pulled back to it.** Aether buys
-    # either currency with no limit, so the top-up stops at the cap
-    # without ever taking anything away -- and a row that confiscated
-    # the difference would read as work already done.
+    # **The cap is hard**, tested in game: no amount of buying takes a
+    # holding past it, so the top-up stops there rather than running
+    # over. Reason one short of its ceiling gains one, not three.
     raw = _snapshot()
     raw["characters"] = {"currencies": {
-        str(CHAOS_CURRENCY): {"amount": CHAOS_CAP + 6,
-                              "last_update": int(opened - HOUR)},
-        str(SORTIE_CURRENCY): {"amount": SORTIE_CAP + 6,
+        str(SORTIE_CURRENCY): {"amount": SORTIE_CAP - 1,
                                "last_update": int(opened - HOUR)}}}
-    out = _readings(raw, now)
-    for key, wanted in (
-            ("chaos_currency", [(f"{CHAOS_CAP + 6}{more}", TODO)]),
-            ("sortie_currency",
-             [(f"{SORTIE_CAP + 6}{more}/{SORTIE_CAP}", TODO)])):
-        if out[key] != wanted:
+    got = _readings(raw, now)["sortie_currency"]
+    want = [(f"{soon_after}{SORTIE_CAP}/{SORTIE_CAP}", TODO)]
+    if got != want:
+        failures.append(
+            f"a holding one short of the cap reads {got!r}, not {want!r}. "
+            f"The week's grant stops at the cap.")
+
+    # --- which mission rows belong to which event --------------------
+    # **An event's index is not always in its missions' ids.** The
+    # devil event is scheduled as `event_schedule_devil_001` and its
+    # missions are `event_devil_<day>_<task>` -- so the normalised key
+    # `event_devil_1` matches DAY one and nothing else, and a 21-reward
+    # event read `3/3` for a week without anything looking wrong.
+    #
+    # The stem fixes that and is far too greedy on its own, so these
+    # pin both halves: the devil is whole, and the three families it
+    # would otherwise swallow are untouched.
+    def _rows(schedules, mission_ids):
+        raw = _snapshot()
+        raw["event_schedules"] = {"EVENT_SCHEDULE": {
+            name: {"schedule_id": name} for name in schedules}}
+        raw[PASS_MISSION_FIELD] = {
+            res_id: {"res_id": res_id, "complete_time": 0}
+            for res_id in mission_ids}
+        return raw
+
+    devil = ["event_devil_%02d_%02d" % (day, task)
+             for day in range(1, 8) for task in range(1, 4)]
+    cases = (
+        ("event_schedule_devil_001", ("event_schedule_devil_001",), devil, 21,
+         "its own index collides with its first DAY, so the key alone "
+         "takes day one and drops the other six"),
+        ("event_bartender_01", ("event_bartender_01",),
+         ["event_bartender_1_01_%02d" % n for n in range(1, 8)], 7,
+         "an ordinary family repeats the event index and must be "
+         "unaffected"),
+        ("event_schedule_policy_005",
+         ("event_schedule_policy_004", "event_schedule_policy_005"),
+         ["event_policy_4_1", "event_policy_4_2", "event_policy_5_1"], 1,
+         "a PAST instalment shares the stem and is still in "
+         "event_schedules, so its rows belong to it"),
+        ("event_schedule_chaos_mission_5", ("event_schedule_chaos_mission_5",),
+         ["event_chaos_assault_1_1", "event_chaos_assault_spt_1_1"], 0,
+         "its stem `event_chaos` is the opening of another family's "
+         "name entirely"),
+        ("event_2", ("event_2",), devil + ["event_summer_1_1_1"], 0,
+         "its stem is the bare word `event`, which every event mission "
+         "on the account starts with"),
+    )
+    for name, schedules, mission_ids, want, why in cases:
+        got = len(_event_rows(_rows(schedules, mission_ids), name))
+        if got != want:
             failures.append(
-                f"a holding bought past the cap reads {out[key]!r} for "
-                f"{key}, not {wanted!r}. The week tops up TOWARD the cap "
-                f"and never takes anything away.")
+                f"{name} takes {got} of {len(mission_ids)} mission rows, not "
+                f"{want}: {why}. The stem is tried only where the full key "
+                f"already matched something, and never over rows another "
+                f"schedule's key claims.")
 
     # --- a floor SAYS it is a floor, and only the game lifts it ------
     # A denominator counted off the rows in hand is what has been
