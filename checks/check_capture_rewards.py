@@ -241,6 +241,48 @@ def run():
                 f"corrected by the next frame -- the qid guard is the "
                 f"only thing between a retransmit and a doubled count.")
 
+        # --- and a Memory Fragment paid as a REWARD ------------------
+        # **Shaped nothing like a forged one.** Forging answers with a
+        # top-level `pieces` LIST of documents; a reward answers with a
+        # `pieces` DICT keyed by the fragment's id, each value a
+        # `{diff, doc}` pair, a level down under `item_result` or
+        # inside `return_info`. Read only at the top level, everything
+        # a Chaos week reward or a Simulation run pays is missing from
+        # the inventory until the next login -- and nothing says so,
+        # because the currencies in the same frame apply fine.
+        log.clear()
+        addon.websocket_message(_Flow(_Message(json.dumps({
+            "res": "ok", "qid": 46,
+            "item_result": {
+                "pieces": {"901": {"diff": 1, "doc": {
+                    "id": 901, "res_id": 1144010, "char_res_id": 0,
+                    "level": 0, "stat_list": []}}},
+                # Broken down on the way in: materials, not fragments,
+                # and no `id` anywhere in the row.
+                "auto_disassemble_piece": {
+                    "gained_items": [{"count": 12, "res_id": 3200001}],
+                    "pieces": [{"rarity": "RARITY_RARE", "res_id": 1163020}]},
+            },
+            "return_info": {"result_reward_drop_overclock": {
+                "pieces": {"902": {"diff": 1, "doc": {
+                    "id": 902, "res_id": 1164029, "char_res_id": 0,
+                    "level": 0, "stat_list": []}}}}},
+        }))))
+        ids = {row.get("id") for row in addon.inventory_data["piece_items"]}
+        for pid, where in ((901, "item_result.pieces"),
+                           (902, "return_info.*.pieces")):
+            if pid not in ids:
+                failures.append(
+                    f"a fragment paid under {where} never reached the "
+                    f"inventory. A reward's fragments are a DICT of "
+                    f"`{{diff, doc}}` one level down, not the top-level "
+                    f"LIST a forge sends.")
+        # The `auto_disassemble_piece` rows in that frame are there
+        # to keep the fixture honest, not to be asserted on: three
+        # separate things exclude them and no single fault lets one
+        # through, so an assertion on the count could never fail.
+        # `_reward_pieces` says what those three are.
+
     # Every id the program can NAME has to reach the log line, or the
     # user reads a res_id where a name belongs -- and an id it CANNOT
     # name has to stay a number, because the Capture Log marks those

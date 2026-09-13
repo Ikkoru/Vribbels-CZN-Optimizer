@@ -670,6 +670,15 @@ class Addon:
             else:
                 self._apply_pieces_create(data)
 
+        # A fragment that arrives as a REWARD is shaped differently and
+        # is never at the top level -- see `_reward_pieces`. Without
+        # this, everything a Chaos week reward or a Simulation run pays
+        # is missing from the inventory until the next login.
+        if self.inventory_data and "piece_items" in self.inventory_data:
+            gained = self._reward_pieces(data)
+            if gained:
+                self._apply_pieces_create({"pieces": gained})
+
         # Check for 'info' structure (new API format)
         if "info" in data:
             info = data.get("info", {})
@@ -1492,6 +1501,50 @@ class Addon:
             self.log_callback(f"[LIVE] Equipped {desc} to {char_name}")
         else:
             self.log_callback(f"[LIVE] Unequipped {desc}")
+
+    @staticmethod
+    def _reward_pieces(data):
+        """Fragments a REWARD paid, as a list of piece documents.
+
+        **A reward's fragments look nothing like a forge's.** Forging
+        answers with a top-level `pieces` LIST of documents; a reward
+        answers with a `pieces` DICT keyed by the fragment's own id,
+        each value a `{diff, doc}` pair, and never at the top level.
+        Three carriers have been seen, all of them a level down:
+
+            item_result.pieces                         a Chaos week reward
+            return_info.result_reward_drop_item        a Simulation run
+            return_info.result_reward_drop_overclock   a doubled one
+
+        so the whole of `return_info` is swept rather than those two
+        names, which are only the ones a capture has happened to show.
+
+        **`auto_disassemble_piece` must not be read.** Those
+        fragments were broken down for materials on the way in and
+        never reach the inventory -- the game pays their dust under
+        `gained_items` instead. They are excluded three times over
+        and by accident rather than by design: their `pieces` is a
+        LIST, its rows have no `doc`, and what is inside has no
+        `id`. Any ONE of those going away leaves them out, so a
+        rewrite here should re-establish the exclusion on purpose
+        rather than assume it survives.
+        """
+        carriers = [data.get("item_result")]
+        nested = data.get("return_info")
+        if isinstance(nested, dict):
+            carriers.extend(nested.values())
+        found = []
+        for carrier in carriers:
+            if not isinstance(carrier, dict):
+                continue
+            rows = carrier.get("pieces")
+            if not isinstance(rows, dict):
+                continue
+            for row in rows.values():
+                doc = row.get("doc") if isinstance(row, dict) else None
+                if isinstance(doc, dict):
+                    found.append(doc)
+        return found
 
     def _apply_pieces_create(self, data):
         """Apply a piece-create response (forge / fuse / craft new fragment).
