@@ -112,6 +112,8 @@ After 48 hours at its own ceiling a floor turns **orange** — long enough that 
 
 That final reward is the one that unlocks only after every other reward in the event is claimed, so the flag is a genuine "all done". `_event_finished` reads it, and a row at its ceiling with the flag set drops the `+?` and goes green.
 
+**Which events have one is not known in advance.** The Bartender does; the devil looks as though it might, unconfirmed. Nothing needs deciding either way — an event with no record simply never gets the flag and keeps its floor, and one that gains a record is read the moment it appears. So the question answers itself on the capture where the final reward is claimed, and until then the row is merely cautious rather than wrong.
+
 Confirmed against all nineteen rows ever captured, across four months: every event whose mission rows are all complete carries state 1, and the two known-unfinished ones (`event_season_love_4`, which was never started, and `event_chaos_assault_1`) carry 0. An event that has merely ENDED does not get the flag — `event_season_love_4` ended in August and is still 0 — so the flag is about completion and not about the clock.
 
 ### `reward_step` and `version` — a strong suspect, not read

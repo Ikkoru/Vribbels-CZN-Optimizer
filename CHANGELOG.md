@@ -36,6 +36,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The devil event counts all seven of its days.** Its rewards are named after the DAY rather than the event, which the program was reading as an event number — so it matched day one and quietly ignored the rest, showing `3/3` for an event with 21 rewards in it.
 
+- **Memory Fragments won as rewards are kept.** Anything a Chaos week reward or a Simulation run paid was missing from the inventory until the next login: those arrive in a different shape from a forged fragment, and nothing was reading it.
+
 - **A doubled Simulation run is counted.** The Overclock row is fed by a record tucked inside the stage reply rather than at its top level, so the row sat at its login value for the whole session.
 
 - **An event reward claimed while a capture runs shows up straight away.** The claim answers under a key nothing was reading, so an event's tally stayed at whatever it was when you logged in.
@@ -47,6 +49,10 @@ pre-fork history, see the upstream repository's CHANGELOG.
 - **The Arkhianon Supply's daily count ignores one-off missions.** A mission the pass issues today was counted as one of the day's six, so a patch that added a one-off read a five-of-six day as finished.
 
 ### Changed
+
+- **The Events list puts what you still owe first.** Events with rewards left to claim sort to the top by deadline; the ones that are finished, and a daily event whose day is already taken, sit below them.
+
+- **Chaos Currency reads against its cap**, `3/4`, the way Sortie already did.
 
 - **The Log Presets checklist no longer blinks while a capture runs.** It was rebuilt from scratch on every snapshot save, and logging in saves several times in a few seconds.
 

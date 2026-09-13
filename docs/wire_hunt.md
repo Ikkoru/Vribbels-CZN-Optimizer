@@ -59,7 +59,7 @@ The wire counts days from **2022-12-31 18:00 UTC** and stamps the number on anyt
 Loot Certification Cards (`2000027`) and Reason (`2000036`) are spent weekly, and the new week ADDS to what was left rather than replacing it. Neither the allowance nor the date it was granted is stated as such, and the currency document carries no `week_id`:
 
 * `amount` is the balance, and after a reset it is still last week's leftover;
-* `last_update` is **not a write stamp** — spending the currency does not move it. It does move when the currency is GAINED, which is what the week's top-up is, so it is the right thing to compare against `last_weekly_reset(now)`;
+* `last_update` is **not a write stamp, and not a gain stamp either** — an Aether exchange pays one and leaves it alone. What it has tracked, across every capture, is the moment the WEEK's allowance was applied, which is exactly what `last_weekly_reset(now)` has to be compared against;
 * `add_max` and `add_charge_value` are 0, so there is no recharge metadata to compute from either.
 
 So once the week has rolled past the record, what the record holds is a leftover and not a stock, and the stock has to be worked out from the game's rule:
@@ -73,7 +73,9 @@ So once the week has rolled past the record, what the record holds is a leftover
 
 **These are the only two numbers on the Checklist that are the game's rule rather than a reading**, so what the row shows is an EXPECTATION and is marked `~4`, `~8/9` until a capture replaces it with the real figure. A different mark from the `+?` an event floor carries: that one means *at least this much*, this one means *this, unless something the snapshot cannot see has happened*. Corroboration rather than proof: `total_amount` moved by exactly +4 and +3 across each of the last four week boundaries, and `0 → 4` and `5 → 8` are what the game showed after the reset that prompted this. `total_amount` also takes one-off gains — the cards picked up a stray +1 twice — so it confirms a rate without deriving one.
 
-**Still open:** whether an Aether exchange moves `last_update`. If it does, one exchange makes the row exact for the rest of the week; if not, the `~` stands until the content is opened. One exchange with a capture running settles it, and it is the only way the expectation can be wrong.
+**An Aether exchange does NOT date the record.** `item / recharge_item` with `recharge_id: recharge_6` spends 60 Aether and pays one Card, and the reply's own `doc` carries a `last_update` from hours earlier — so buying one cannot make the row exact. That is the right way round: `last_update` tracks the WEEK's grant and nothing else, which is exactly what the comparison needs.
+
+The same capture confirmed the grant itself. `total_amount` went 192 → 196 across the reset (+4, the Card's whole allowance) and the balance the row had predicted as `~4` read a real 4 on the next capture.
 
 ## Pairing two payloads that never name each other
 
@@ -115,6 +117,7 @@ A recurring confusion worth stating once. Two different things:
 
 * **The state of a record** — claimed, scored, spent — is always on the wire, and reaches any device. `complete_time`, `count`, `received_days`, `reward_level`.
 * **WHEN it reaches the wire is a third thing.** Some records have only ever been seen in the login burst, so an action taken while a capture runs changes nothing the capture saves — the reading is not wrong, it is an hour old, and on screen those look identical. `docs/events.md` lists the login-only event fields; the general rule is to merge a payload by id rather than assign it, so a partial list cannot wipe the rest.
+* **A REWARD's Memory Fragments are shaped nothing like a forged one's.** Forging answers with a top-level `pieces` LIST of documents; a reward answers with a `pieces` DICT keyed by the fragment's id, each value a `{diff, doc}` pair, and always a level down — under `item_result` (a Chaos week reward) or inside `return_info` (a Simulation run, doubled or not). Beside it sits `auto_disassemble_piece`, whose `pieces` are fragments broken down on the way in: they never reach the inventory and must not be added. `capture/manager._reward_pieces`.
 * **WHERE in the reply is a fourth.** A stage reply nests its whole outcome under **`return_info`**, so a handler reading only the top level sees nothing: `result_overclock_entities` rode there for a whole session while `result_reward_drop_overclock` paid out beside it. When a record does not update from an action that obviously changed it, search the reply for the key before concluding the wire is silent.
 * **And a claim may answer with no record at all.** A Daily Check-in claim sends `event_id`, `received_days_before`, `received_days_after` and `completed` — numbers, not an entity. Nothing to merge; the cached row has to be patched from them.
 * **The existence of a record** is not. The game issues a mission row when it issues the mission, so a total counted from the rows in hand is a FLOOR: the Basin's live season carried 15 rows of 26, and a summer event read 12 of 12 with a third wave unissued.
