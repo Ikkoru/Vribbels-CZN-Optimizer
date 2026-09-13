@@ -91,6 +91,7 @@ Version string: `Vribbels/version.py`, bumped ONLY at release — dev builds kee
 | `inventory_tab.py`, `piece`            | Memory Fragment   |
 | `materials_tab.py`                     | growth stones     |
 | `FRIENDSHIP_BONUSES`, `friendship_index` | Affinity        |
+| `chaos_assault`, `assault_*`, `ASSAULT_SCHEDULE` | Sortie  |
 | `dot_pct`, `dot_share`                 | the Agony share   |
 
 The last row is the sharp one: the `DoT%` STAT is called DoT% in game and improves all three DoT types, while the damage TYPE the program calls DoT is only Agony. `docs/game_formulas.md` §3.4 is canonical.
