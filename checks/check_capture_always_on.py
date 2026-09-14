@@ -1,0 +1,214 @@
+"""A capture meant to be left running for weeks.
+
+Three things that only matter once a capture outlives one sitting, and
+each of which fails quietly:
+
+1. **The debug log is compressed, and readable after every write.** Its
+   content is almost all repetition -- a bare login is 1.8MB of which
+   99.3% is byte-for-byte what the last login said -- so an always-on
+   capture without compression is gigabytes. What makes it safe is one
+   gzip MEMBER per line rather than one stream: a stream is readable
+   only once its end marker is written, and an always-on capture ends
+   by being killed.
+
+2. **A snapshot per game launch.** `saved_path` used to be chosen once
+   per addon instance and rewritten on every save, so a month of
+   capture left exactly one snapshot -- the newest state, with no
+   history behind it. That history is what every derived reading in
+   this program was built from.
+
+3. **The wire catalogue accumulates rather than doubling.** It is the
+   record of which request carries which field, kept so that a field
+   nobody reads is visible -- `entity` and `issued_limit_entities` were
+   both on the wire for months. It merges with what is already on disk,
+   and a merge that also folded in its own starting point would read
+   one sighting as three.
+
+Drives the REAL generated addon, so a guard lost from the template
+fails here rather than in someone's capture.
+"""
+
+import gzip
+import json
+import tempfile
+import time
+from pathlib import Path
+
+from ._harness import add_source_to_path
+
+NAME = "capture survives being left on"
+
+HELO = [{"cmd": "helo", "qid": 1, "params": {"device_id": "d"}}]
+ASK = [{"cmd": "mission", "qid": 100,
+        "params": {"cmd": "reward_event_limit",
+                   "event_mission_id": "event_bartender_1"}}]
+REPLY = {"res": "ok", "qid": 100,
+         "entity": {"res_id": "event_bartender_1", "event_achieve_state": 1}}
+LOGIN = {"res": "ok", "qid": 4, "user": {"id": "acct", "auth_id": "a"},
+         "characters": [{"res_id": 1001}], "piece_items": [{"id": 1}]}
+
+CATALOGUED = "mission/reward_event_limit|entity"
+
+
+class _Message:
+    def __init__(self, payload, from_client=False):
+        self.from_client = from_client
+        self.is_text = True
+        self.text = json.dumps(payload)
+        self.content = self.text.encode()
+
+
+class _Flow:
+    def __init__(self, payload, from_client=False):
+        self.websocket = type(
+            "W", (), {"messages": [_Message(payload, from_client)]})()
+
+
+def _addon(root, debug):
+    """Build and import the addon exactly as a capture would."""
+    from capture.manager import CaptureManager
+
+    snaps = Path(root) / "snapshots"
+    snaps.mkdir(parents=True, exist_ok=True)
+    mgr = CaptureManager(snaps, log_callback=lambda *a, **k: None)
+    # **Generated without debug**, and the debug one built below. The
+    # script constructs an addon of its own at import, and that one
+    # would open a second log and announce it on stdout -- a check has
+    # no business writing to the run's output.
+    script = mgr._generate_addon_script(debug_mode=False)
+
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_always_on_addon", script)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    # Everything about it -- the class, the paths -- is the generated
+    # script's own, so this is still the real addon.
+    addon = type(mod.addons[0])(
+        mod.OUTPUT_DIR, dict_path=mod.DICT_PATH,
+        log_callback=lambda *a, **k: None, debug_mode=debug,
+        catalogue_path=mod.CATALOGUE_PATH)
+    return addon, snaps
+
+
+def _debug_log_is_readable_while_open(addon, snaps):
+    """Complaints about the compressed log, or []."""
+    logs = list(snaps.glob("websocket_debug_*"))
+    if len(logs) != 1 or logs[0].suffix != ".gz":
+        return [
+            f"debug logging produced {[p.name for p in logs]!r}. It has to "
+            f"be compressed: uncompressed, a capture left on for a month "
+            f"is gigabytes of near-identical login bursts."]
+
+    addon.websocket_message(_Flow(HELO, from_client=True))
+    addon.websocket_message(_Flow(ASK, from_client=True))
+    addon.websocket_message(_Flow(REPLY))
+
+    # **Read while the capture still holds it open**, which is the
+    # whole point of a member per line.
+    try:
+        with gzip.open(logs[0], "rt", encoding="utf-8") as fh:
+            frames = [json.loads(line) for line in fh if line.strip()]
+    except (OSError, EOFError) as e:
+        return [
+            f"the debug log could not be read while the capture still held "
+            f"it open ({type(e).__name__}: {e}). One gzip stream over the "
+            f"whole file is readable only once its end marker is written, "
+            f"and an always-on capture ends by being killed -- so every "
+            f"frame has to be its own member."]
+    if len(frames) != 3:
+        return [
+            f"the debug log held {len(frames)} frames mid-write, not the 3 "
+            f"written. A frame that is not on disk when the capture dies is "
+            f"a frame nobody will ever see."]
+    return []
+
+
+def _a_snapshot_per_launch(addon, snaps):
+    """Complaints about snapshot rotation, or []."""
+    out = []
+    addon.websocket_message(_Flow(LOGIN))
+    first = sorted(snaps.glob("memory_fragments_*.json"))
+    if len(first) != 1:
+        return [f"the first launch left {len(first)} snapshots."]
+
+    # The filename carries a timestamp to the second, so two launches
+    # inside one second would share a name however the code behaves.
+    time.sleep(1.1)
+    addon.websocket_message(_Flow(HELO, from_client=True))
+    addon.websocket_message(
+        _Flow(dict(LOGIN, piece_items=[{"id": 1}, {"id": 2}])))
+    after = sorted(snaps.glob("memory_fragments_*.json"))
+    if len(after) != 2:
+        out.append(
+            f"two game launches left {len(after)} snapshot(s), not 2. A "
+            f"capture left running rewrites one file for its whole life "
+            f"otherwise, and the history every derived reading is built "
+            f"from never exists.")
+    else:
+        held = json.loads(first[0].read_text(encoding="utf-8"))
+        if len(held["inventory"]["piece_items"]) != 1:
+            out.append(
+                "the first launch's snapshot was rewritten by the second. "
+                "A finished session's file has to be left as it was.")
+
+    # A close releases it too, so a stray late reply opens a new file
+    # rather than appending to a session that is over.
+    addon.websocket_end(None)
+    if addon.saved_path is not None:
+        out.append(
+            "the game closing did not release the snapshot. `websocket_end`"
+            " is the only close signal there is -- and a real one, since the"
+            " game pings while idle, so a connection that ends has ended.")
+    return out
+
+
+def _the_catalogue_accumulates(addon, root):
+    """Complaints about the wire catalogue, or []."""
+    out = []
+    addon.done()
+    book = Path(root) / "settings" / "wire_catalogue.json"
+    if not book.exists():
+        return [
+            f"no wire catalogue at {book}. It belongs beside the settings: "
+            f"the snapshots folder is the one a user empties, and this is a "
+            f"record built up over months."]
+    rows = json.loads(book.read_text(encoding="utf-8"))["keys"]
+    row = rows.get(CATALOGUED)
+    if not row:
+        return [
+            f"the catalogue holds {sorted(rows)!r}, without {CATALOGUED!r}. "
+            f"A key is filed under the command that answered with it, which "
+            f"is what makes it findable at all."]
+    if row["count"] != 1:
+        out.append(f"one sighting was catalogued as {row['count']}.")
+
+    second, _snaps = _addon(root, debug=False)
+    second.websocket_message(_Flow(ASK, from_client=True))
+    second.websocket_message(_Flow(REPLY))
+    second.done()
+    again = json.loads(book.read_text(encoding="utf-8"))["keys"][CATALOGUED]
+    if again["count"] != 2:
+        out.append(
+            f"a second capture took one sighting to {again['count']}, not "
+            f"2. The catalogue merges with the file, so an addon that also "
+            f"STARTS from the file adds the whole history to itself.")
+    if again["first"] != row["first"]:
+        out.append(
+            f"the first sighting moved from {row['first']!r} to "
+            f"{again['first']!r}. It is the earlier of the two, or the "
+            f"record cannot say how long a field has been there.")
+    return out
+
+
+def run():
+    add_source_to_path()
+    root = Path(tempfile.mkdtemp())
+    addon, snaps = _addon(root, debug=True)
+
+    failures = _debug_log_is_readable_while_open(addon, snaps)
+    if failures:
+        return failures
+    failures.extend(_a_snapshot_per_launch(addon, snaps))
+    failures.extend(_the_catalogue_accumulates(addon, root))
+    return failures

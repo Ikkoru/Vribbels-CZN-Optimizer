@@ -96,6 +96,17 @@ SAVE_REPLACE_WAIT = 0.2
 # that carry the shops. The reader consumes this and does not show it.
 SAVE_MARKER = "[SYNC] saved"
 
+# How much of a payload the wire catalogue keeps as an example, and how
+# many entries it will hold. The sample says what SHAPE a field is, not
+# what is in it -- a reader who wants the whole thing turns debug
+# logging on and captures one.
+#
+# The cap guards against a key built out of something unbounded rather
+# than against an expected size: one account's vocabulary is a few
+# hundred pairs.
+CATALOGUE_SAMPLE = 200
+CATALOGUE_MAX = 4000
+
 
 class Addon:
     """mitmproxy addon that intercepts WebSocket messages and extracts game data."""
@@ -105,7 +116,8 @@ class Addon:
         output_dir: Path,
         dict_path: Optional[Path] = None,
         log_callback: Optional[Callable[[str], None]] = None,
-        debug_mode: bool = False
+        debug_mode: bool = False,
+        catalogue_path: Optional[Path] = None
     ):
         """
         Initialize the capture addon.
@@ -114,9 +126,36 @@ class Addon:
             output_dir: Directory to save captured JSON files
             dict_path: Optional path to zstd dictionary file
             log_callback: Optional callback for logging messages (defaults to print)
-            debug_mode: If True, log all WebSocket messages to a .jsonl file
+            debug_mode: If True, log all WebSocket messages to a
+                .jsonl.gz file
+            catalogue_path: Where to keep the wire catalogue. None
+                leaves it unwritten, which is what a check that only
+                wants the parsing wants.
         """
         self.output_dir = output_dir
+
+        # **What the wire has ever sent, and which request sent it.**
+        # A field nobody reads is invisible: `entity` and
+        # `issued_limit_entities` were both on the wire for months
+        # before anything looked at them, and no amount of reading the
+        # code would have said so. This is the record that would --
+        # `command|key` to a count, when it was first and last
+        # seen, its type and a short sample.
+        #
+        # Kept whether or not debug logging is on, because it is
+        # kilobytes and its whole value is being there when a question
+        # is asked about a session nobody thought to record. MERGED
+        # with what is already on disk, so it accumulates.
+        # **This session's sightings only.** Seeding it from the file
+        # would have every write add the whole history to itself
+        # again -- one reply seen once read back as three.
+        self.catalogue_path = catalogue_path
+        self.catalogue = {}
+        self.catalogue_dirty = False
+        # qid -> the command that asked, so a reply's keys can be
+        # attributed. Cleared with everything else on a new `helo`:
+        # qids restart at 1 there.
+        self.qid_commands = {}
 
         # Every line goes through a wrapper that remembers the last one,
         # so the save report can tell whether it would be repeating
@@ -252,12 +291,27 @@ class Addon:
         self.zstd_dict = None
         self.zstd_dctx = None
 
-        # Debug logging
+        # Debug logging.
+        #
+        # **Compressed, because the content is almost all repetition.**
+        # A bare login is 1.8MB of which 99.3% is byte-for-byte what
+        # the last login said. The format is unchanged -- still one
+        # JSON object per line -- so a reader only has to open it
+        # through `gzip` instead of `open`.
+        #
+        # **One gzip MEMBER per line**, concatenated, rather than one
+        # stream over the whole file. A stream is readable only once
+        # its end marker is written, so a capture that is KILLED --
+        # which is how an always-on one ends -- would leave a file
+        # `gzip.open` refuses outright, sync-flushed or not. A member
+        # per line is complete after every single write, and measured
+        # against the whole-file stream it costs almost nothing: 12.7x
+        # against 13.2 on a login, 10.7 against 12.6 with play in it.
         self.debug_file = None
         if debug_mode:
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            debug_path = self.output_dir / f"websocket_debug_{ts}.jsonl"
-            self.debug_file = open(debug_path, "w", encoding="utf-8")
+            debug_path = self.output_dir / f"websocket_debug_{ts}.jsonl.gz"
+            self.debug_file = open(debug_path, "wb")
             self.log_callback(f"Debug logging to: {debug_path.name}")
 
         # Tracks delete (disassemble_piece) requests we're waiting on the
@@ -459,8 +513,7 @@ class Addon:
                         "keys": list(parsed.keys()) if isinstance(parsed, dict) else [],
                         "data": parsed if parsed is not None else content,
                     }
-                    self.debug_file.write(json.dumps(entry, ensure_ascii=False) + "\\n")
-                    self.debug_file.flush()
+                    self._write_debug(entry)
                 except Exception:
                     pass  # never let debug logging break capture
             return
@@ -592,8 +645,9 @@ class Addon:
                 "size": frame_size,
                 "data": data
             }
-            self.debug_file.write(json.dumps(entry, ensure_ascii=False) + "\\n")
-            self.debug_file.flush()
+            self._write_debug(entry)
+
+        self._note_keys(data)
 
         if data.get("res") != "ok":
             return
@@ -1522,6 +1576,11 @@ class Addon:
         # so the app sat on the first save's snapshot for the rest of
         # the session and every shop row read empty until a restart.
         self.log_callback(SAVE_MARKER)
+        # **Written beside the snapshot, not only at shutdown.** A
+        # capture left running for weeks would otherwise hold every
+        # sighting in memory until the process ended, and lose the
+        # lot if it ended badly.
+        self._write_catalogue()
 
         # Not twice in a row. Loading into the game sends the inventory
         # in one frame and the lobby's banner schedule in the next, so
@@ -1726,6 +1785,161 @@ class Addon:
                 f"[LIVE] Unequipped all {updated_count} pieces from {char_name}"
             )
 
+    def _write_debug(self, entry):
+        """One frame into the debug log, as its own gzip member.
+
+        See the note where the file is opened: a member per line is
+        what keeps the file readable after every write, and the flush
+        is what puts it on disk.
+        """
+        line = json.dumps(entry, ensure_ascii=False) + "\\n"
+        self.debug_file.write(gzip.compress(line.encode("utf-8")))
+        self.debug_file.flush()
+
+    # ------------------------------------------------- the wire catalogue
+
+    def _read_catalogue(self):
+        """What is already on disk, or an empty catalogue."""
+        if self.catalogue_path is None or not self.catalogue_path.exists():
+            return {}
+        try:
+            held = json.loads(self.catalogue_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        rows = held.get("keys") if isinstance(held, dict) else None
+        return rows if isinstance(rows, dict) else {}
+
+    def _note_command(self, entry):
+        """Remember which command a qid belongs to.
+
+        `cmd` names the family and `params.cmd` the call inside it, so
+        the pair is what a reader would grep for -- `mission` alone
+        answers a dozen different things.
+        """
+        qid = entry.get("qid")
+        if qid is None:
+            return
+        params = entry.get("params")
+        inner = params.get("cmd") if isinstance(params, dict) else None
+        name = str(entry.get("cmd"))
+        if inner:
+            name += "/" + str(inner)
+        if len(self.qid_commands) > CATALOGUE_MAX:
+            self.qid_commands.clear()
+        self.qid_commands[qid] = name
+
+    def _note_keys(self, data):
+        """Record every top-level key of one reply against its command.
+
+        The reply carries the qid it answers, which is how a key is
+        tied back to what asked for it. A reply with no qid, or one
+        whose request was never seen -- the game had already been
+        running when the capture started -- is filed under `?`.
+        """
+        if self.catalogue_path is None:
+            return
+        asked = self.qid_commands.get(data.get("qid"), "?")
+        when = datetime.now().isoformat(timespec="seconds")
+        for key, value in data.items():
+            if key in ("res", "qid", "service_server_time", "reset_resp"):
+                continue                 # on every reply; nothing to learn
+            name = asked + "|" + str(key)
+            row = self.catalogue.get(name)
+            if row is None:
+                if len(self.catalogue) >= CATALOGUE_MAX:
+                    continue
+                try:
+                    sample = json.dumps(value, ensure_ascii=False)
+                except (TypeError, ValueError):
+                    sample = repr(value)
+                row = {"count": 0, "first": when,
+                       "type": type(value).__name__,
+                       "sample": sample[:CATALOGUE_SAMPLE]}
+                self.catalogue[name] = row
+            row["count"] += 1
+            row["last"] = when
+            self.catalogue_dirty = True
+
+    def _write_catalogue(self):
+        """Persist the catalogue, merged with whatever else wrote it.
+
+        Re-read before writing because two captures can run over one
+        file. Counts add, the first sighting is the earlier of the two
+        and the last the later -- so nothing is lost by whichever
+        finishes second.
+        """
+        if self.catalogue_path is None or not self.catalogue_dirty:
+            return
+        merged = self._read_catalogue()
+        for name, row in self.catalogue.items():
+            was = merged.get(name)
+            if not isinstance(was, dict):
+                merged[name] = dict(row)
+                continue
+            merged[name] = {
+                "count": (was.get("count") or 0) + row["count"],
+                "first": min(str(was.get("first") or row["first"]),
+                             row["first"]),
+                "last": max(str(was.get("last") or row["last"]),
+                            row["last"]),
+                "type": row["type"],
+                "sample": was.get("sample") or row["sample"],
+            }
+        try:
+            self.catalogue_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.catalogue_path.with_suffix(".tmp")
+            tmp.write_text(
+                json.dumps({"keys": merged}, indent=1, ensure_ascii=False),
+                encoding="utf-8")
+            tmp.replace(self.catalogue_path)
+        except OSError:
+            return                       # never let this break a capture
+        # What was just folded in must not be folded in twice.
+        self.catalogue = {}
+        self.catalogue_dirty = False
+
+    def _new_launch(self):
+        """A game has connected. Start a snapshot of its own.
+
+        **A capture is not one sitting any more.** `saved_path` is
+        chosen on the first save and rewritten on every one after, so
+        a capture left running for a month used to leave exactly one
+        snapshot: the newest state, with no history behind it. That
+        history is what every derived reading here was built from --
+        a currency's rate, a streak's length, an event's total.
+
+        Dropping the path is the whole rotation: the next save picks a
+        new timestamped name, and the file the last game filled is left
+        as it was. Nothing is created until there is something to put
+        in it, so a launch that sends nothing costs no file.
+
+        The CACHE is deliberately kept. A snapshot is meant to be the
+        whole account, and the login burst rewrites all of it anyway --
+        clearing here would only mean the first save of a session held
+        less than the last save of the one before.
+        """
+        if self.saved_path is None:
+            return                       # the first launch of a capture
+        self.log_callback("Game restarted -- starting a new snapshot")
+        self.saved_path = None
+
+    def websocket_end(self, flow):
+        """The game's connection closed.
+
+        Which is the only close signal there is, and a real one: the
+        game sends WebSocket ping keepalives while it is idle, so a
+        connection that ends has ended rather than gone quiet.
+
+        The snapshot is released here as well as on the next `helo`.
+        Both orderings then leave the finished file alone -- a stray
+        reply arriving after the game has gone opens a new one rather
+        than appending to a session that is over.
+        """
+        self._forget_pending()
+        if self.saved_path is not None:
+            self.log_callback("Game closed")
+            self.saved_path = None
+
     def _forget_pending(self):
         """Drop every request still waiting on a reply.
 
@@ -1783,7 +1997,11 @@ class Addon:
             # is left running for days.
             if entry.get("cmd") == "helo":
                 self._forget_pending()
+                self.qid_commands.clear()
+                self._new_launch()
                 continue
+
+            self._note_command(entry)
 
             params = entry.get("params") or {}
             if not isinstance(params, dict):
@@ -1878,6 +2096,7 @@ class Addon:
 
     def done(self):
         """Cleanup on shutdown."""
+        self._write_catalogue()
         if self.debug_file:
             self.debug_file.close()
             self.debug_file = None
@@ -2239,6 +2458,12 @@ class CaptureManager:
         try:
             addon_script = self.output_folder / "_capture_addon.py"
 
+            # **Beside the settings, not among the captures.** The
+            # catalogue is a record built up over months, and the
+            # snapshots folder is the one a user empties.
+            catalogue_path = (self.output_folder.parent / "settings"
+                              / "wire_catalogue.json").absolute()
+
             # Find dictionary path
             dict_path = self._find_dictionary_path()
             dict_path_str = f'Path(r"{dict_path}")' if dict_path else "None"
@@ -2287,6 +2512,7 @@ class CaptureManager:
             addon_code = f'''{ADDON_TEMPLATE}
 
 OUTPUT_DIR = Path(r"{self.output_folder.absolute()}")
+CATALOGUE_PATH = Path(r"{catalogue_path}")
 DICT_PATH = {dict_path_str}
 CHAR_NAMES = {char_names}
 ITEM_NAMES = {item_names}
@@ -2295,7 +2521,8 @@ SLOT_NAMES = {slot_names}
 KNOWN_UNIT_IDS = {known_unit_ids}
 REGION_ROUTES = {region_routes}
 
-addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode})]
+addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
+                catalogue_path=CATALOGUE_PATH)]
 '''
 
             # Always write the addon as UTF-8. On Windows the default

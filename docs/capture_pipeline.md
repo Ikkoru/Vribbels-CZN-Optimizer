@@ -169,10 +169,18 @@ Both measured off the captures on disk rather than estimated.
 
 Thirty-four captures on disk come to 87 MB, mean 2.6 MB.
 
-### What would shrink it
+### What it does about that
 
-* **gzip, 13x.** 1.81 MB to 0.14 MB on a login, 4.33 to 0.34 on a session with play. It keeps the format — a `.jsonl.gz` still streams line by line — and the only cost is that the per-frame `flush()` has to become a sync-flush, which gives up some ratio to keep a killed capture's file readable.
-* **Dedup, 99.3%.** Two logins three minutes apart were byte-for-byte identical in **1802.7 KB of 1815.9**. Only 13.2 KB differed, and half of that was the auth cookie:
+**The log is gzipped, one MEMBER per line.** `websocket_debug_*.jsonl.gz`, still one JSON object per line — a reader opens it with `gzip.open(path, "rt", encoding="utf-8")` and changes nothing else.
+
+A member per line rather than one stream over the file, because **a stream is readable only once its end marker is written** and an always-on capture ends by being killed. A sync-flush does not help: Python's `gzip` refuses the file outright with `EOFError`. Per line, the file is complete after every single write, and the ratio barely moves:
+
+| | whole-file stream | member per line |
+| - | ------------------ | ---------------- |
+| one login | 13.2x | 12.7x |
+| session with play | 12.6x | 10.7x |
+
+**Dedup was measured and not taken.** Two logins three minutes apart were byte-for-byte identical in **1802.7 KB of 1815.9**. Only 13.2 KB differed, and half of that was the auth cookie:
 
   | Payload | Changed |
   | ------- | ------- |
@@ -181,13 +189,33 @@ Thirty-four captures on disk come to 87 MB, mean 2.6 MB.
   | `user` | 0.5 KB |
   | `session`, `server_time`, `seqnum` | under 0.1 KB |
 
-  So the login burst — the bulk of every capture — is almost pure repetition between launches. Storing it content-addressed would beat gzip, at the cost of a file nobody can read with `grep`.
+So the login burst — the bulk of every capture — is almost pure repetition between launches. Storing it content-addressed would beat gzip handily, at the cost of the one property that makes these files useful: that a two-line script can read them.
 
 ### A new game launch is markable; a close is not
 
 `helo` is the first client command of every connection, carrying the device block and `qid: 1`. Every capture on disk holds exactly one, which is also why nothing has ever needed it. `lobby_update` with `from_title: true` says the same thing one step later — the mid-session lobby refreshes send `from_title: false`.
 
-**A close has no marker.** The websocket simply stops; mitmproxy sees the connection end, and a crash and a clean exit look the same.
+**A close has one too**, and it is `websocket_end` — mitmproxy's own hook, no polling and no process list. It is a real signal rather than a guess at idleness: the game sends WebSocket ping keepalives while it sits there, so a connection that ENDS has ended. What it cannot tell apart is a crash from a clean exit, which nothing downstream needs to know.
+
+**So a capture rotates its snapshot per launch.** `saved_path` is released on `helo` and again on `websocket_end`, and the next save picks a new timestamped name — both orderings leave the finished file alone. Nothing is created until there is something to put in it, so a launch that sends nothing costs no file. The addon's CACHE is deliberately kept across the rotation: a snapshot is meant to be the whole account, and the login burst rewrites all of it anyway.
+
+### The wire catalogue
+
+Kept whether or not debug logging is on, in `settings/wire_catalogue.json` — beside the settings rather than among the captures, since the snapshots folder is the one that gets emptied.
+
+One entry per `command|key` seen, with a count, first and last sighting, the type and a 200-character sample:
+
+```json
+"mission/reward_event_limit|entity": {
+  "count": 1, "first": "2026-09-14T22:13:07", "last": "2026-09-14T22:13:07",
+  "type": "dict", "sample": "{\"res_id\": \"event_bartender_1\", ..."}
+```
+
+The command comes from the qid the reply answers, which the addon has seen go past on the request. A reply with no qid, or one whose request predates the capture, is filed under `?`.
+
+**It is the record that makes an unread field visible.** `entity` and `issued_limit_entities` were both on the wire for months, and no amount of reading the addon would have said so — a field nobody reads leaves no trace in the code. `docs/wire_catalogue.py` prints the catalogue against the keys the addon actually asks for, deriving the second half from the source so the two cannot drift.
+
+It MERGES with what is on disk: counts add, the first sighting is the earlier. It must not also start from the file — that would fold the whole history into itself on every write, and one sighting would read as three.
 
 **Qids restart at 1 with each `helo`**, which is why `_forget_pending` exists: the pending-intent maps are keyed by qid, and an intent left unanswered by a game that went away would otherwise be claimed by an unrelated reply from the next one.
 
