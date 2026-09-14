@@ -1,6 +1,6 @@
 res_id	family	group	tier	rarity	name	icon	amount	where
-2000001	named			Common	Units	currency_unit.png	2932524	currencies
-2000004	named			Mythic	Crystals	currency_paid_crystal.png	2451	currencies
+2000001	named			Common	Units	currency_unit.png	3068524	currencies
+2000004	named			Mythic	Crystals	currency_paid_crystal.png	2511	currencies
 2000010	named			Mythic	Signal Amplification Anchor	currency_gacha_ticket_rateup_supporter.png	119	currencies
 2000027	named			Legendary	Loot Certification Card	currency_chaos_week_reward.png	2	currencies
 2000036	named			Legendary	Reason	currency_chaos_assault_stamina.png	8	currencies
@@ -9,11 +9,11 @@ res_id	family	group	tier	rarity	name	icon	amount	where
 2100003	named			Legendary	Potential Disk	currency_ego_tree_public.png	209	currencies
 3000003	named			Mythic	Undetermined Ego Crystal	icon_item_card_levelup_all_1.png	11	items
 3100001	EXP material	Combatant	Basic	Common	Basic Battle Memory	icon_item_char_level_materal_1.png	11	items
-3100002	EXP material	Combatant	Advanced	Rare	Advanced Battle Memory	icon_item_char_level_materal_2.png	169	items
-3100003	EXP material	Combatant	Premium	Legendary	Premium Battle Memory	icon_item_char_level_materal_3.png	179	items
+3100002	EXP material	Combatant	Advanced	Rare	Advanced Battle Memory	icon_item_char_level_materal_2.png	177	items
+3100003	EXP material	Combatant	Premium	Legendary	Premium Battle Memory	icon_item_char_level_materal_3.png	195	items
 3100021	EXP material	Partner	Basic	Common	Basic Support Data	icon_item_supporter_level_materal_1.png	1786	items
-3100022	EXP material	Partner	Advanced	Rare	Advanced Support Data	icon_item_supporter_level_materal_2.png	219	items
-3100023	EXP material	Partner	Premium	Legendary	Premium Support Data	icon_item_supporter_level_materal_3.png	212	items
+3100022	EXP material	Partner	Advanced	Rare	Advanced Support Data	icon_item_supporter_level_materal_2.png	223	items
+3100023	EXP material	Partner	Premium	Legendary	Premium Support Data	icon_item_supporter_level_materal_3.png	220	items
 3110001	named			Legendary	Eye of Wailing Prodigal	icon_item_akcalion_3.png	19	items
 3110004	named			Legendary	Shards of Condemnation	currency_chaos.png	37	items
 3120001	Growth Stone	Passion	Common	Common	Common Growth Stone of Passion	icon_item_card_levelup_love_1.png	0	items

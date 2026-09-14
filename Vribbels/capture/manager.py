@@ -792,7 +792,15 @@ class Addon:
                 continue
             if key == "result" and not ("currency" in payload
                                         or "items" in payload):
-                continue
+                # **A story episode nests its rewards one deeper**, as
+                # `result.story_reward_result.reward`, and the `result`
+                # around them carries no `currency` or `items` of its
+                # own -- so the guard above is exactly what dropped
+                # them. Everything a story paid landed nowhere and the
+                # Capture Log reported no receipt.
+                payload = self._nested_reward(payload)
+                if payload is None:
+                    continue
             self._apply_totals(payload, spent=key == "dec_result")
 
         # A stage's rewards, which are the exception: a LIST of drops
@@ -1115,6 +1123,34 @@ class Addon:
             self.disaster_seasons = data["disaster_entities"]
             self._save_pending = True
 
+
+    @staticmethod
+    def _nested_reward(payload):
+        """A rewards payload buried inside a `result`, or None.
+
+        A story episode answers with
+        `result.story_reward_result.reward.{currency, items}`, and the
+        `result` around it carries only `is_clear`, the node's id and a
+        title level -- so the shape test that keeps `result` honest is
+        exactly what threw a story's rewards away.
+
+        **Two levels, and no names.** `story_reward_result` is what a
+        STORY happens to call its envelope and nothing says the next
+        kind of content will agree, so the sweep looks for the shape
+        instead. It stops at two because `result` is the most
+        overloaded key on the wire and a deeper walk would eventually
+        find something that only resembles a reward.
+        """
+        for value in payload.values():
+            if not isinstance(value, dict):
+                continue
+            if "currency" in value or "items" in value:
+                return value
+            for deeper in value.values():
+                if isinstance(deeper, dict) and ("currency" in deeper
+                                                 or "items" in deeper):
+                    return deeper
+        return None
 
     def _apply_totals(self, result, spent=False):
         """Apply a record that states what a holding NOW IS.

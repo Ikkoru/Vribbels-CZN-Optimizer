@@ -1,5 +1,5 @@
 res_id	where	amount	Name	Type	Note
-2000002	currencies	70	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
+2000002	currencies	75	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
 2000007	currencies	23	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
 2000011	currencies	359	Moment of the Radiant Hero	Shop Currency	
 2000012	currencies	1068	Moment of the Radiant Traveler	Shop Currency	
@@ -18,7 +18,7 @@ res_id	where	amount	Name	Type	Note
 3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Reset when a Galactic Disaster ends
 3200001	items	6276	Particles of Memory	Crafting Material for Memory Fragments	
 3200002	items	260	Core of Memory	Crafting Material for Memory Fragments	
-3210001	items	7341	Traces of Memory	Crafting Material for Memory Fragments	
+3210001	items	7381	Traces of Memory	Crafting Material for Memory Fragments	
 3210002	items	23	Multidimensional Alignment Material	Crafting Material for Memory Fragments	
 3300001	items	0	Sweet Choconilla	Gift Item	Common
 3300002	items	1	Exquisite Slice of Cake	Gift Item	Rare
@@ -55,6 +55,7 @@ res_id	where	amount	Name	Type	Note
 3920031	items	3280	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable. In PROVISIONAL_NAMES, so the Capture Log draws the name red
 3930003	items	2	Core of Resonance	Save Data Edit	
 3930004	items	48	Core of Mutation	Save Data Edit	
+4010003	items	1	Summer 2026 Olga	Main Screen Background	
 4020001	items	16	Midsummer Night Memories	Event Exclusive Item	Check if this is reused in various events. In PROVISIONAL_NAMES, so the Capture Log draws the name red
 5201028	items	0	Animated Card Unlock - Maribell	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201083	items	0	Animated Card Unlock Item - Olga	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it (this one is char 30117)

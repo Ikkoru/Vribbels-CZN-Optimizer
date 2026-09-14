@@ -241,6 +241,48 @@ def run():
                 f"corrected by the next frame -- the qid guard is the "
                 f"only thing between a retransmit and a doubled count.")
 
+        # --- a story episode buries its rewards one level deeper -----
+        # `result.story_reward_result.reward.{currency, items}`, with
+        # the `result` around them carrying only `is_clear`, the node's
+        # id and a title level. The shape test that keeps `result`
+        # honest is exactly what threw these away.
+        #
+        # **It looked like nothing was wrong.** The client asks for the
+        # whole item list moments later, so the COUNTS came right on
+        # their own and only the Capture Log's receipt was missing --
+        # which is the one thing saying the capture is awake.
+        log.clear()
+        addon.websocket_message(_Flow(_Message(json.dumps({
+            "res": "ok", "qid": 47,
+            "result": {
+                "is_clear": True, "account_title_level": 0,
+                "res_id": "nw_story_node_01_01_12",
+                "story_reward_result": {"reward": {
+                    "fake_items": {},
+                    "items": {str(ITEM_ID): {
+                        "doc": {"res_id": ITEM_ID, "amount": 64},
+                        "diff": 4}},
+                    "currency": {str(CURRENCY_ID): {
+                        "doc": {"res_id": CURRENCY_ID, "amount": 634439},
+                        "diff": 24000}}}}},
+        }))))
+        held = {row.get("res_id"): row.get("amount")
+                for row in addon.inventory_data.get("items", [])
+                if isinstance(row, dict)}
+        if held.get(ITEM_ID) != 64:
+            failures.append(
+                f"a story episode's reward left the item at "
+                f"{held.get(ITEM_ID)}, not 64. It pays under "
+                f"`result.story_reward_result.reward`, and a `result` with "
+                f"no `currency` or `items` of its own is skipped -- so "
+                f"everything a story gives is dropped.")
+        if not any("Received" in line for line in log):
+            failures.append(
+                f"a story episode's reward wrote nothing to the Capture "
+                f"Log; it logged {log}. The counts recover by themselves "
+                f"because the client refetches the item list, so the "
+                f"missing line is the ONLY thing that shows this.")
+
         # --- and a Memory Fragment paid as a REWARD ------------------
         # **Shaped nothing like a forged one.** Forging answers with a
         # top-level `pieces` LIST of documents; a reward answers with a

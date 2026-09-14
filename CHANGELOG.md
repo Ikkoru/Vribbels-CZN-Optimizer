@@ -38,6 +38,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **A finished summer puzzle shows as finished.** The reply confirming the last piece names only the set it changed, which nothing was reading, so the puzzle stayed one piece short until the next login.
 
+- **A story episode's rewards reach the Capture Log.** They arrive nested deeper than anything else pays under, so nothing reported them. The counts were right anyway — the game re-sends the item list straight afterwards — which is why only the missing line showed it.
+
 - **Memory Fragments won as rewards are kept.** Anything a Chaos week reward or a Simulation run paid was missing from the inventory until the next login: those arrive in a different shape from a forged fragment, and nothing was reading it.
 
 - **A doubled Simulation run is counted.** The Overclock row is fed by a record tucked inside the stage reply rather than at its top level, so the row sat at its login value for the whole session.

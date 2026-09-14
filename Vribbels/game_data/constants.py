@@ -539,6 +539,8 @@ RECORDED_NAMES = {
     3920031: "Seasonal Event Currency",
     3930003: "Core of Resonance",
     3930004: "Core of Mutation",
+    # Paid once, for finishing a summer event's last puzzle.
+    4010003: "Summer 2026 Olga",
     # One per combatant; `purchase_card_animation` names the rest.
     4020001: "Midsummer Night Memories",
     5201028: "Animated Card Unlock - Maribell",
