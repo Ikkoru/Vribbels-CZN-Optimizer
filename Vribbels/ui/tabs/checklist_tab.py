@@ -94,14 +94,14 @@ SHOP_KEY_PREFIX = "shop:"
 SHOP_HEAD_PREFIX = "shophead:"
 
 # How far a shop's products are indented under the shop's own row.
-SHOP_INDENT = 27        # spacing: unique -- a shop's products under the shop -- run, run ↔
+SHOP_INDENT = 0        # spacing: unique -- a shop's products under the shop -- run, run ↔
 
 # What a compact `tk.Checkbutton` costs beyond the width of its own
 # words: its indicator, and the gap Tk puts between the two. MEASURED
 # once and written down -- it is the widget's own, the same on every
 # label, and not readable before the widget exists. The column reserves
 # it so a checkbox row's words stop where a plain row's do.
-CHECKBOX_OVERHEAD = 23
+CHECKBOX_OVERHEAD = 21
 
 # What a value says about the row it sits on. GREEN is nothing left to
 # do, RED is something left, and a row whose source a snapshot cannot
