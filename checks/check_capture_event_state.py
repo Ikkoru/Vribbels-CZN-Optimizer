@@ -91,10 +91,10 @@ def run():
                 f"start; nothing else sends them in full.")
 
     # --- the shapes a claim could answer in -------------------------
-    # No capture has ever caught one, so all three are accepted: the
-    # plural list, a `result_`-prefixed list (which is how an Overclock
-    # run answers) and a bare singular record (which is how a Bartender
-    # story answers). Whichever it turns out to be, the row lands.
+    # Four are accepted: the plural list, a `result_`-prefixed list
+    # (which is how an Overclock run answers), a bare singular record,
+    # and -- the one a capture has since caught -- a bare `entity`.
+    # Whichever a given claim uses, the row lands.
     claims = (
         ("attendance_entities",
          {"attendance_entities": [
@@ -154,9 +154,9 @@ def run():
     # streak after and whether that finished it. Captured from
     # `websocket_debug_20260913_202036.jsonl`, qid 39.
     addon.websocket_message(_Flow([{
-        "res": "ok", "qid": 39, "completed": False, "event_id": "event_143",
+        "res": "ok", "qid": 39, "completed": True, "event_id": "event_143",
         "message": "", "received_days_before": 6, "received_days_after": 7,
-        "reward_list": [{"count": 1, "res_id": 2000023}],
+        "reward_list": [{"count": 3, "res_id": 2000023}],
     }]))
     held = _rows(addon, "attendance_entities")
     if held.get("event_143", {}).get("received_days") != 7:
@@ -262,6 +262,86 @@ def run():
             f"collection under another name, and a second copy is one more "
             f"thing for a reader to pick the wrong one of.")
 
+    # --- the completion flag's REAL shape: a bare `entity` ----------
+    # `mission / reward_event_limit` -- the claim of the final reward
+    # that unlocks only after every other -- answers under `entity`,
+    # the same key a Combatant Trial claim uses for a different row.
+    # Captured from `websocket_debug_20260914_195103.jsonl`, qid 100.
+    #
+    # Put back to UNFINISHED first, which is what the cases above left
+    # it at the end of: without that this reads 1 whatever the addon
+    # does with `entity`, and the case cannot fail.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "event_mission_reward_entities": [
+            {"res_id": "event_bartender_1", "event_achieve_state": 0}]}]))
+    addon.websocket_message(_Flow([{
+        "res": "ok", "qid": 100,
+        "item_result": {"items": {"9700001": {
+            "doc": {"res_id": 9700001, "amount": 1}, "diff": 1}}},
+        "entity": {"user_id": 1, "res_id": "event_bartender_1",
+                   "event_achieve_state": 1},
+    }]))
+    held = _rows(addon, "event_mission_reward_entities")
+    if held.get("event_bartender_1", {}).get("event_achieve_state") != 1:
+        failures.append(
+            f"the real completion reply left the Bartender at "
+            f"{held.get('event_bartender_1', {}).get('event_achieve_state')!r}"
+            f", not 1. `entity` is the key that claim answers under, and "
+            f"dropping it leaves an event the wire has called finished "
+            f"reading as a floor for as long as it runs.")
+    if "event_stock_1" not in held:
+        failures.append(
+            "the one-row `entity` reply replaced every other event's "
+            "completion record.")
+
+    # **A bare `entity` is not always one of these.** A Combatant Trial
+    # claim answers under the same key with a different row, and taking
+    # it would put a trial slot in the completion table under whatever
+    # id it happens to carry. The flag is what tells them apart.
+    before = set(_rows(addon, "event_mission_reward_entities"))
+    addon.websocket_message(_Flow([{
+        "res": "ok", "qid": 101,
+        "entity": {"res_id": "not_an_event",
+                   "event_combatant_trial_slot_id": "slot_1"},
+    }]))
+    stray = set(_rows(addon, "event_mission_reward_entities")) - before
+    if stray:
+        failures.append(
+            f"a trial claim's `entity` landed in the completion table as "
+            f"{sorted(stray)!r}. Only a row carrying `event_achieve_state` "
+            f"belongs there.")
+
+    # --- `completed` survives the login that follows ----------------
+    # It is the only thing that says a streak has ENDED rather than
+    # been claimed for today: streak lengths vary by event -- one
+    # account's history holds runs of 7, 10, 14 and 21 days -- and a
+    # finished record is identical to a claimed-today one.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "attendance_entities": [
+            {"event_id": "event_143", "start_time": 200,
+             "current_days": 7, "received_days": 7}]}]))
+    held = _rows(addon, "attendance_entities")
+    if not held.get("event_143", {}).get("completed"):
+        failures.append(
+            "the login after a streak finished dropped `completed`. The "
+            "row it sends is identical to a streak claimed for today, so "
+            "letting it win loses the only answer there is -- and the "
+            "next login sends the same row again.")
+
+    # --- what the monthly pass expires at ---------------------------
+    # `issued_limit_entities` rides the login burst beside the stage
+    # limits. `subscription_1.expire_time` is the only thing on the
+    # wire that says how long the daily gift keeps coming.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "issued_limit_entities": {"subscription_1": {
+            "res_id": "subscription_1", "expire_time": 1797962400,
+            "count": 14, "vi1": 1353}}}]))
+    if (addon.issued_limits.get("subscription_1") or {}).get(
+            "expire_time") != 1797962400:
+        failures.append(
+            "the login's `issued_limit_entities` did not reach the addon. "
+            "Nothing else on the wire dates the monthly pass.")
+
     # --- and both reach the snapshot as LISTS -----------------------
     # The shape the wire uses and the shape every snapshot on disk
     # already carries, so `_event_finished` and `_event_attendance`
@@ -269,11 +349,16 @@ def run():
     addon.inventory_data = {"memory_fragments": []}
     addon._save_data()
     saved = json.loads(Path(addon.saved_path).read_text(encoding="utf-8"))
-    for field in ("attendance_entities", "event_mission_reward_entities"):
+    # **Each in the shape the WIRE sends it in**, which is what lets
+    # the readers treat an old capture and a new one the same way: the
+    # two event records as lists, the limit tables keyed by res_id.
+    for field, shape in (("attendance_entities", list),
+                         ("event_mission_reward_entities", list),
+                         ("issued_limit_entities", dict)):
         rows = saved.get(field)
-        if not isinstance(rows, list) or not rows:
+        if not isinstance(rows, shape) or not rows:
             failures.append(
-                f"a saved snapshot's {field} is {rows!r}. The Checklist "
-                f"reads a list of rows; a field the addon never writes is "
-                f"invisible to everything downstream.")
+                f"a saved snapshot's {field} is {rows!r}, not a "
+                f"{shape.__name__} with rows in it. A field the addon "
+                f"never writes is invisible to everything downstream.")
     return failures

@@ -563,8 +563,36 @@ def event_label(name):
         EVENT_ID_PREFIX) else name
 
 
-def _event_attendance(raw, name, window, _now):
-    """[(words, state)] for a login-streak event's rewards taken."""
+def _event_attendance(raw, name, window, now):
+    """[(words, state)] for a login-streak event's rewards taken.
+
+    **A reward is waiting when `current_days` is ahead of
+    `received_days`** -- days shown up for against days claimed. Not
+    `last_dayid`, which looks like a claim stamp and is not: the
+    record read `2/1/1348` and then `2/2/1348` across a claim, so the
+    stamp moves on the LOGIN.
+
+    **And never by more than one.** A claim advances the streak by
+    exactly one -- `received_days_before` 6 to `received_days_after` 7
+    -- and the record has never been caught more than one apart. So
+    the ceiling shown is one past what is claimed, whatever
+    `current_days` says: on the launch login event it says fifty-six
+    against seven claimed, its rewards being finite and its day count
+    not, and a row reading `7/56` would be a tally of nothing.
+
+    Three answers. A day to claim is red; everything claimed is ORANGE
+    while the streak may still have days in it -- the same answer a
+    Forced Daily's finished day gets -- and green only where the game
+    has said the streak is over. See `ATTENDANCE_OVER`.
+
+    **The launch event reads red for a day that is not there.** Its
+    `received_days` has sat at seven across every capture while
+    `current_days` climbed, so it looks like a streak one day behind
+    for ever, and no field in the record tells the two apart. What
+    would settle it is a capture of a day the maintainer does not
+    claim: if the live streak's gap opens to one and the launch
+    event's stays where it is, the difference is real and readable.
+    """
     rows = (raw or {}).get(ATTENDANCE_FIELD)
     if not isinstance(rows, list) or not isinstance(window, dict):
         return []
@@ -575,11 +603,15 @@ def _event_attendance(raw, name, window, _now):
     if not mine:
         return []
     row = min(mine, key=lambda r: r["start_time"])
-    taken = row.get("received_days")
+    taken, shown = row.get(ATTENDANCE_TAKEN), row.get(ATTENDANCE_SHOWN)
     if not _is_count(taken):
         return []
-    return [("%d/%d" % (taken, ATTENDANCE_DAYS),
-             _done(taken >= ATTENDANCE_DAYS))]
+    if row.get(ATTENDANCE_OVER):
+        return [("%d/%d" % (taken, taken), DONE)]
+    waiting = _is_count(shown) and shown > taken
+    return [("%d/%d%s" % (taken, taken + (1 if waiting else 0),
+                          UNKNOWN_MORE),
+             TODO if waiting else CYCLE_DONE)]
 
 
 def _overclock_cap(rows, name):
@@ -1042,8 +1074,27 @@ EVENT_MISSIONS = {}
 # and the days whose reward was taken. Its rows are numbered nothing
 # like the schedule's, so the row is the FIRST one started after the
 # event was -- the streak begins on the first login into it.
+#
+# **A streak's LENGTH is per event and the wire never states it.** One
+# account's twenty-four of them ran 7 days nineteen times, 14 twice,
+# 21 twice and 10 once, so a written-down seven is the commonest
+# answer rather than the rule. What the row does state exactly is how
+# many days have been shown up for and how many claimed, and the gap
+# between those is the only thing a checklist needs: whether there is
+# a reward waiting right now.
 ATTENDANCE_FIELD = "attendance_entities"
-ATTENDANCE_DAYS = 7
+
+# Days shown up for, days claimed, and whether the streak is OVER.
+#
+# **The last is not in the record.** A finished streak and one claimed
+# for today are written identically -- shown-up equal to claimed in
+# both -- and the game says which only on the claim that ends it, in
+# the reply's own `completed`. The capture keeps that on the row; see
+# `ChecklistManager`'s neighbour in `capture/manager.py`.
+ATTENDANCE_SHOWN = "current_days"
+ATTENDANCE_TAKEN = "received_days"
+ATTENDANCE_OVER = "completed"
+
 
 # An Overclock event doubles the day's first Simulation rewards.
 # `overclock_entities` keeps one row per event, ended ones included:

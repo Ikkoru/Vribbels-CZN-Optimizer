@@ -89,28 +89,28 @@ DEFAULT_TRACKED = True
 DEFAULTS = {
     # Untracked by default: bought rarely, or not worth the daily
     # check for most accounts. Everything else reads DEFAULT_TRACKED.
-    'town_shop_goods_001': False,
-    'town_shop_goods_002': False,
-    'town_shop_goods_003': False,
-    'town_shop_goods_007': False,
-    'town_shop_goods_008': False,
-    'town_shop_goods_009': False,
-    'town_shop_goods_011': False,
-    'town_shop_goods_012': False,
-    'gacha_duplicate_legend_10': False,
-    'gacha_duplicate_legend_11': False,
-    'gacha_duplicate_legend_13': False,
-    'gacha_duplicate_legend_14': False,
-    'gacha_duplicate_legend_3': False,
-    'gacha_duplicate_legend_4': False,
-    'gacha_duplicate_legend_5': False,
-    'gacha_duplicate_legend_6': False,
-    'gacha_duplicate_legend_7': False,
-    'gacha_duplicate_legend_8': False,
-    'gacha_duplicate_legend_9': False,
-    'hyperspace_3': False,
-    'card_factor_4': False,
-    'assault_shop_product_7': False,
+    'town_shop_goods_001': False,        # Multidimensional Alignment Material
+    'town_shop_goods_002': False,        # Special Security Code
+    'town_shop_goods_003': False,        # Research Notes
+    'town_shop_goods_007': False,        # Exquisite Slice of Cake
+    'town_shop_goods_008': False,        # Sweet Choconilla
+    'town_shop_goods_009': False,        # Units x4000
+    'town_shop_goods_011': False,        # Advanced Battle Memory x5
+    'town_shop_goods_012': False,        # Advanced Support Data x5
+    'gacha_duplicate_legend_10': False,  # Particles of Memory
+    'gacha_duplicate_legend_11': False,  # Units x15000
+    'gacha_duplicate_legend_13': False,  # Exquisite Slice of Cake
+    'gacha_duplicate_legend_14': False,  # Sweet Choconilla
+    'gacha_duplicate_legend_3': False,   # Great Growth Stone of Passion
+    'gacha_duplicate_legend_4': False,   # Great Growth Stone of Order
+    'gacha_duplicate_legend_5': False,   # Great Growth Stone of Instinct
+    'gacha_duplicate_legend_6': False,   # Great Growth Stone of Void
+    'gacha_duplicate_legend_7': False,   # Great Growth Stone of Justice
+    'gacha_duplicate_legend_8': False,   # Advanced Battle Memory x2
+    'gacha_duplicate_legend_9': False,   # Advanced Support Data x2
+    'hyperspace_3': False,               # Multidimensional Alignment Material
+    'card_factor_4': False,              # Prism Module - Nominate
+    'assault_shop_product_7': False,     # Multidimensional Alignment Material
 }
 
 

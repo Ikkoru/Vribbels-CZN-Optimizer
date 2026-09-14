@@ -196,6 +196,7 @@ class Addon:
 
         # Per-stage run limits, keyed by stage id.
         self.stage_limits = {}
+        self.issued_limits = {}
 
         # Every pass the account has played, and the shops' own product
         # DEFINITIONS -- what each sells, its cap, its period, its
@@ -924,18 +925,37 @@ class Addon:
             if not isinstance(rows, list):
                 continue
             for row in rows:
-                if isinstance(row, dict) and row.get("event_id") is not None:
-                    self.attendance[str(row["event_id"])] = row
-                    self._save_pending = True
+                if not isinstance(row, dict) or row.get("event_id") is None:
+                    continue
+                # **`completed` survives the replacement.** It is the
+                # only thing that says a streak is OVER rather than
+                # claimed for today -- the two look identical in the
+                # record, `current_days` equal to `received_days` in
+                # both -- and it arrives on the claim reply alone. The
+                # login that follows sends a row without it, and
+                # letting that row win would lose the answer for good.
+                was = self.attendance.get(str(row["event_id"]))
+                if isinstance(was, dict) and was.get("completed"):
+                    row = dict(row)
+                    row["completed"] = was["completed"]
+                self.attendance[str(row["event_id"])] = row
+                self._save_pending = True
         # Whether an event is FINISHED, which is the one thing a count
         # of claimed missions cannot say -- the account holds only the
         # rows the game has issued so far, so a full tally is a floor.
         # `event_achieve_state` is 1 once the event's own completion
         # reward has been taken. Merged by event: the login sends every
         # row, and a claim is expected to send one.
+        #
+        # **The claim that sets it answers under the bare key
+        # `entity`**, which is the same key a trial claim uses for a
+        # different row -- so the flag itself is what says which this
+        # is. Reading only the three spelled-out keys dropped the one
+        # reply that ever carries a completion, and the event went on
+        # reading as unfinished with the wire having said otherwise.
         for key in ("event_mission_reward_entities",
                     "result_event_mission_reward_entities",
-                    "event_mission_reward_entity"):
+                    "event_mission_reward_entity", "entity"):
             rows = data.get(key)
             if isinstance(rows, dict) and rows.get("res_id") is not None:
                 rows = [rows]
@@ -944,9 +964,12 @@ class Addon:
             if not isinstance(rows, list):
                 continue
             for row in rows:
-                if isinstance(row, dict) and row.get("res_id") is not None:
-                    self.event_rewards[str(row["res_id"])] = row
-                    self._save_pending = True
+                if not isinstance(row, dict) or row.get("res_id") is None:
+                    continue
+                if key == "entity" and "event_achieve_state" not in row:
+                    continue
+                self.event_rewards[str(row["res_id"])] = row
+                self._save_pending = True
         if isinstance(data.get("zero_orb_entity"), dict):
             self.zero_orb = data["zero_orb_entity"]
             self._save_pending = True
@@ -973,6 +996,12 @@ class Addon:
         # event, the streak before, the streak after and whether that
         # finished it. So the cached row is patched from those rather
         # than replaced by one, and the next login sends the real thing.
+        #
+        # **`completed` is kept, and it is the only thing that can say
+        # a streak has ENDED.** Streak lengths vary by event -- one
+        # account's history holds runs of 7, 10, 14 and 21 days -- and
+        # a finished streak's record is identical to one claimed for
+        # today, `current_days` equal to `received_days` in both.
         streak = data.get("received_days_after")
         event_id = data.get("event_id")
         if event_id is not None and isinstance(streak, int) and not isinstance(
@@ -982,6 +1011,8 @@ class Addon:
                 row = {"event_id": event_id}
                 self.attendance[str(event_id)] = row
             row["received_days"] = streak
+            if data.get("completed") is True:
+                row["completed"] = True
             self._save_pending = True
         # **At LOGIN the pass missions arrive somewhere else entirely**,
         # nested as `season_pass_missions[<pass id>][<mission id>]`
@@ -1033,6 +1064,18 @@ class Addon:
             for res_id, row in data["stage_limit_entities"].items():
                 if isinstance(row, dict):
                     self.stage_limits[str(res_id)] = row
+            self._save_pending = True
+
+        # The same shape, for what the ACCOUNT has bought rather than
+        # what a stage allows: `subscription_1` is the monthly pass,
+        # and its `expire_time` is the one thing on the wire that says
+        # how long the daily gift keeps coming. `vi1` is the day its
+        # reward was last taken, in the same day numbering everything
+        # else here uses.
+        if isinstance(data.get("issued_limit_entities"), dict):
+            for res_id, row in data["issued_limit_entities"].items():
+                if isinstance(row, dict):
+                    self.issued_limits[str(res_id)] = row
             self._save_pending = True
 
         # **The town's own daily block arrives on its own**, at the top
@@ -1425,6 +1468,7 @@ class Addon:
             "month_start": self.month_start,
             "month_end": self.month_end,
             "stage_limit_entities": self.stage_limits or None,
+            "issued_limit_entities": self.issued_limits or None,
             "season_pass_entities": self.season_passes,
             "shop_res_data": self.shop_definitions,
             "season_entities": self.basin_stages,

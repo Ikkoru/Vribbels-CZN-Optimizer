@@ -85,6 +85,7 @@ def run():
         EXPECTED_VALUE, EVENT_KEY_PREFIX, _event_rows,
         SHOP_HEAD_PREFIX, SHOP_TOTAL_PREFIX, shop_head_key,
         currency_earned, currency_rate, shop_period, shop_rates,
+        _event_attendance,
         RATE_RECENT_LABEL, RATE_LONG_LABEL,
         SHOP_RATE_FLOOR,
     )
@@ -1268,6 +1269,60 @@ def run():
         failures.append(
             f"a weekly shop's period reads "
             f"{shop_period('weekly', {}, now)!r}, not ('week', 7).")
+
+    # --- a login streak, which has no stated length -------------------
+    # Every reading here is a plausible number if it is wrong. The
+    # account's own history holds streaks of 7, 10, 14 and 21 days, so
+    # a written-down seven would read `8/7` on the eighth day of a
+    # fortnight's run and nothing would look broken.
+    WINDOW = {"start_time": 1000, "end_time": now + DAY}
+
+    def _streak(**fields):
+        raw = _snapshot()
+        raw["attendance_entities"] = [dict({"event_id": "event_143",
+                                            "start_time": 2000}, **fields)]
+        return _event_attendance(raw, "event_daily_16", WINDOW, now)
+
+    cases = (
+        # claimed up to date -- orange, the streak may have more days
+        (dict(current_days=4, received_days=4), "4/4" + UNKNOWN_MORE,
+         CYCLE_DONE),
+        # a day shown up for and not claimed -- red
+        (dict(current_days=5, received_days=4), "4/5" + UNKNOWN_MORE, TODO),
+        # the game says the streak is over -- green, and the floor mark
+        # comes off with it
+        (dict(current_days=7, received_days=7, completed=True), "7/7", DONE),
+        # **The launch event.** Its rewards are finite and its day
+        # count is not, so the ceiling is one past what is claimed
+        # rather than the fifty-six days it has been shown up for.
+        (dict(current_days=56, received_days=7), "7/8" + UNKNOWN_MORE, TODO),
+        # no shown-up count at all: nothing says a day is waiting
+        (dict(received_days=3), "3/3" + UNKNOWN_MORE, CYCLE_DONE),
+    )
+    for fields, want, state in cases:
+        got = _streak(**fields)
+        if got != [(want, state)]:
+            failures.append(
+                f"a streak reading {fields!r} shows {got!r}, not "
+                f"[({want!r}, {state!r})].")
+
+    # The row is the FIRST one started after the event was: the streak
+    # ids are numbered nothing like the schedule's, and a row that
+    # began before the window belongs to some earlier event.
+    raw = _snapshot()
+    raw["attendance_entities"] = [
+        {"event_id": "before", "start_time": 500, "received_days": 99,
+         "current_days": 99},
+        {"event_id": "mine", "start_time": 2000, "received_days": 4,
+         "current_days": 4},
+        {"event_id": "later", "start_time": 9000, "received_days": 1,
+         "current_days": 1},
+    ]
+    got = _event_attendance(raw, "event_daily_16", WINDOW, now)
+    if got != [("4/4" + UNKNOWN_MORE, CYCLE_DONE)]:
+        failures.append(
+            f"with three streaks on the account the row reads {got!r}, not "
+            f"the first one started after the event's own window opened.")
 
     # --- the ids the rows read ----------------------------------------
     # **Against the NAME, not against the constant.** Every assertion

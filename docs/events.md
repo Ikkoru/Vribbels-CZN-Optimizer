@@ -287,7 +287,45 @@ Claim commands seen so far, all naming the event and the records together:
  "reward_list": [{"count": 1, "res_id": 2000023}], "item": {...}}
 ```
 
-So there is nothing to merge: the cached row is patched from `received_days_after`, and the next login sends the real record. **`completed` is a second completion flag** — the game's own word that the streak is finished — which is worth capturing once a streak actually ends, because it would give the row a proven denominator instead of `ATTENDANCE_DAYS`.
+So there is nothing to merge: the cached row is patched from `received_days_after`, and the next login sends the real record.
+
+**`completed` is the game's own word that the streak has ENDED**, and it is the only one there is. Captured on the claim that finished `event_143` (`websocket_debug_20260914_195103.jsonl`, qid 39): `received_days_before: 6, received_days_after: 7, completed: true`. The addon keeps it on the row AND across the login that follows — the row that login sends is identical to a streak merely claimed for today, so letting it win would lose the answer for good.
+
+### A streak has no stated length
+
+The claim that proved `completed` also disproved the constant it was meant to confirm. One account's twenty-four streaks:
+
+| Days | Streaks |
+| ---- | ------- |
+| 7 | 19 |
+| 10 | 1 |
+| 14 | 2 |
+| 21 | 2 |
+
+**The length is per event and the wire never states it.** In twenty-three of the twenty-four, `current_days`, `received_days` and the span between `start_dayid` and `last_dayid` are all the same number once the streak is over — so the length is readable afterwards and never in advance.
+
+What the record does state exactly:
+
+| Field | Is |
+| ----- | -- |
+| `current_days` | days shown up for |
+| `received_days` | days claimed |
+| `last_dayid` | the last day the streak ADVANCED — **the LOGIN, not the claim.** The record read `2/1/1348` and then `2/2/1348` across a claim |
+
+So the row reads claimed against claimed-plus-one, red where `current_days` is ahead and orange where it is level. **One claim advances the streak by exactly one** — `received_days_before` to `received_days_after` — and the record has never been caught more than one apart.
+
+**`event_1`, the launch login event, is the exception and reads wrong.** Its `received_days` has sat at 7 across every capture while `current_days` climbed to 56, its rewards being finite and its day count not — so it looks like a streak permanently one day behind, and no field in the record tells it apart from a real one. What would settle it: a capture of a day the maintainer does NOT claim. If the live streak's gap opens to one and `event_1`'s stays where it is, the difference is real and readable.
+
+### What sets the completion flag
+
+`mission / reward_event_limit` with an `event_mission_id` — the claim of the final reward that unlocks only once every other has been taken. Captured on the bartender (`websocket_debug_20260914_195103.jsonl`, qid 100):
+
+```
+{"item_result": {"items": {"9700001": ..., "9700002": ...}},
+ "entity": {"res_id": "event_bartender_1", "event_achieve_state": 1}}
+```
+
+**Under the bare key `entity`**, which is also what a Combatant Trial claim answers under with a different row — so the addon takes it only when `event_achieve_state` is on it. Read as only the three spelled-out keys, the one reply that ever carries a completion was dropped, and the bartender went on reading `24/24+?` with the wire having said outright that it was finished.
 
 ### The defences
 
@@ -295,7 +333,7 @@ Both in `capture/manager.py`, and both are the general rule rather than anything
 
 * **merge by id, never replace.** A one-row payload updates its own row and leaves the rest alone. A wholesale assignment looks right on every capture ever taken and wipes the list the first time a partial one arrives.
 * **look under `return_info` as well as at the top level.** A stage reply nests its whole outcome there. Reading only the top level is indistinguishable from the wire being silent, which is exactly how the Overclock row was misread.
-* **accept all three spellings** — `x_entities` (list), `result_x_entities` (list) and `x_entity` (one record). The singular is the ROW THAT CHANGED and belongs folded into the collection, not kept beside it: a second copy under a near-identical name is one more thing for a reader to pick the wrong one of. `checks/check_capture_event_state.py` holds all three plus the shapes above.
+* **accept all four spellings** — `x_entities` (list), `result_x_entities` (list), `x_entity` (one record) and, for a completion, the bare `entity`. The singular is the ROW THAT CHANGED and belongs folded into the collection, not kept beside it: a second copy under a near-identical name is one more thing for a reader to pick the wrong one of. **`entity` is shared with the Combatant Trial claim**, which puts a different row under it, so the presence of `event_achieve_state` is what says which is which. `checks/check_capture_event_state.py` holds all four plus the shapes above.
 
 ### Reading a capture for whether anything mid-session landed
 
@@ -321,11 +359,14 @@ So the capture worked. What it could not do was see a claim that sends no record
 * **`reward_step` vs `version`.** One claim on a step-track event separates a total from a tally, and a total would give three or four more events a real denominator. **Nothing has moved either number yet** — an ordinary event reward claim does not touch `event_mission_reward_entities` at all, so the action has to be a claim on the event's own reward TRACK.
 
   **`event_chaos_assault_1` is the readiest candidate.** `chaos_assault` is the code's inherited word for **Sortie** (`shop_assault` is `Sortie - Chaos Analysis Lab`, and Reason's icon is `currency_chaos_assault_stamina.png`), its season `assault_1_s7` is live, and the record has sat at `reward_step 3, version 2` since May. Its one mission row, `event_chaos_assault_1_1`, has scored 5 and been unclaimed since April — matching `chaos_assault_entity.highest_clear_level`, which is also 5. Claiming it is one deliberate action, and whichever of the two numbers moves answers the question.
-* **A streak's real length.** `ATTENDANCE_DAYS` is written down as 7. The claim reply's `completed` flag would prove it, on the one claim that finishes a streak.
+* **Telling the launch login event from a streak one day behind.** See *A streak has no stated length*: one capture of a day left unclaimed settles it.
 * **Event display names.** Every row shows an id, because the wire never sends a name — the client has them in a localisation table.
 
 Settled, and kept so they are not re-suggested:
 
 * **`event_bartender_entities`** is the GUESTBOOK, not the reward pages, and it fills in as the days are played. One row per day, three completion stamps each.
 * **`event_info_entity`** is still `{"open_day": 1}` under a different `event_id`. Nothing in it is a total.
+* **A third id space.** The mission commands name an event by a bare number — `event_142` is the devil, `event_143` the login streak, `event_146` the bartender — alongside the schedule's `event_schedule_devil_001` and the reward record's `event_bartender_1`. Nothing needs the numeric one: every reader pairs on the normalised key.
+* **The devil's last claim produces no completion flag.** Claiming the seventh day's three rewards answered with the mission rows and the items and nothing else — no `event_achieve_state`, because the event has no final reward to unlock one. It stays a floor, correctly.
+* **The message that unlocks when an event's rewards are all claimed** is not a usable flag. `messenger_entities` rides the login burst (106 rows of `{res_id, choice_id, complete}`) and the addon does not save it; even saved, a message id would have to be mapped to its event by hand, where `event_achieve_state` names the event outright.
 * **`mission_event_node_list_story_node_entities`** and **`story_event_node_list_entities`** look like define lists — 81 and 43 rows for an event long finished — but they are the account's own records, complete only because the event was completed. They say nothing about a live one.

@@ -28,6 +28,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The Seasonal Shop shows no rates.** Its currency is wiped at the end of every season, so what was earned of it before says nothing about now.
 
+- **The monthly pass's own record is captured.** `issued_limit_entities` rides the login burst and dates the subscription; nothing shows it yet, but the data is there for a Coronomicon Gift row.
+
 - **A shop heading's total is inked a shade apart** from the products under it — the same green and red, slightly darker and slightly stronger — so the block's own verdict does not read as one more row's.
 
 - **An event row says when its total is only a guess.** Most events hand out their rewards over the whole run, so the count on screen is what you have been offered so far, not what the event holds. Those rows now read `16/20+?`. The `+?` comes off — and the row goes green — where the game itself says the event is finished.
@@ -36,6 +38,9 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Fixed
 
+- **An event the game has called finished now reads as finished.** The claim of an event's final reward — the one that unlocks only after every other — answers with the completion flag under a key the capture was not reading, so the Bartender went on showing `24/24+?` in red with the wire having said outright that it was over.
+
+- **The Daily Check-in row no longer invents a length.** It was counting claimed days against a written-down seven; streaks actually run 7, 10, 14 or 21 days depending on the event, and nothing on the wire says which in advance. The row now reads claimed against claimed-plus-one — red when a day is waiting, orange when it is not — and goes green only on the game's own word that the streak has ended, which the capture now keeps.
 - **The Checklist stopped losing the shops at the foot of a column.** Each column is a block of a fixed height, and a checkbox row is taller than a text one — so the block came up three pixels short per shop product and Tk clipped the difference off the bottom silently. The Weekly column was missing its Seasonal Shop and the Monthly column its last two rows.
 
 - **A fresh install opens at the same size a loaded one does.** Two panels were laid out only once data arrived: the Combatants tab's six fragment cells came up at a text widget's default size, far larger than they end up, which pushed the Character and Partner cards out of the space they fill; and the Memory Fragments tab's Sets panel came up empty and narrow, moving every panel beside it when the first snapshot loaded. The Sets columns now reserve room for a four-digit count instead of fitting the counts in hand, so the panel is the same width whatever you own.
