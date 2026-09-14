@@ -151,6 +151,46 @@ A redirect block left in the hosts file by a run that ended without removing it 
 
 `CaptureManager`'s `live_update_callback` has the same cross-thread shape and is safe only because capture cannot start before mainloop is running.
 
+## A capture left running, and what a debug log costs
+
+Both measured off the captures on disk rather than estimated.
+
+**A session is one snapshot file and one debug file, for its whole life.** `saved_path` is chosen once per addon instance and rewritten on every save, so a capture left running for a month produces exactly one `memory_fragments_*.json` — the newest state, with no history behind it. The debug log grows without bound and is flushed on every frame.
+
+### Where a debug log's bytes go
+
+| | one login | a session with play |
+| - | ---------- | -------------------- |
+| total | 1.81 MB over 58 frames | 4.33 MB over 263 frames |
+| `piece_items` | 490 KB (27%) | 1465 KB (33%) |
+| `savedata` | 213 KB (12%) | 639 KB (14%) |
+| `shop_res_data` | 278 KB (15%) | 278 KB (6%) |
+| `snapshot` (battle) | — | 562 KB (13%) |
+
+Thirty-four captures on disk come to 87 MB, mean 2.6 MB.
+
+### What would shrink it
+
+* **gzip, 13x.** 1.81 MB to 0.14 MB on a login, 4.33 to 0.34 on a session with play. It keeps the format — a `.jsonl.gz` still streams line by line — and the only cost is that the per-frame `flush()` has to become a sync-flush, which gives up some ratio to keep a killed capture's file readable.
+* **Dedup, 99.3%.** Two logins three minutes apart were byte-for-byte identical in **1802.7 KB of 1815.9**. Only 13.2 KB differed, and half of that was the auth cookie:
+
+  | Payload | Changed |
+  | ------- | ------- |
+  | `cheetah_cookie` | 6.9 KB |
+  | `currencies` | 5.6 KB |
+  | `user` | 0.5 KB |
+  | `session`, `server_time`, `seqnum` | under 0.1 KB |
+
+  So the login burst — the bulk of every capture — is almost pure repetition between launches. Storing it content-addressed would beat gzip, at the cost of a file nobody can read with `grep`.
+
+### A new game launch is markable; a close is not
+
+`helo` is the first client command of every connection, carrying the device block and `qid: 1`. Every capture on disk holds exactly one, which is also why nothing has ever needed it. `lobby_update` with `from_title: true` says the same thing one step later — the mid-session lobby refreshes send `from_title: false`.
+
+**A close has no marker.** The websocket simply stops; mitmproxy sees the connection end, and a crash and a clean exit look the same.
+
+**Qids restart at 1 with each `helo`**, which is why `_forget_pending` exists: the pending-intent maps are keyed by qid, and an intent left unanswered by a game that went away would otherwise be claimed by an unrelated reply from the next one.
+
 ## Upgraded-line augmentation
 
 `[LIVE] Upgraded` lines carry an internal `[pid=N]` marker so the app can find the upgraded fragment after the post-upgrade reload and append what it scores under each preset; the marker is stripped before the user sees it. A fragment with upgrades left reports a range under the label `Highest Potential`, and one with none reports a single value under `Highest GS` -- the same distinction the Memory Fragments tab's two columns make. Lines are queued (`pending_upgrade_lines`) because the fragment has to be re-read from the new snapshot first, and `_drain_pending_upgrade_lines` emits them after the reload. The fragment object is retained so a later Upgrade Log Settings toggle can re-render the line in place against a different preset selection.

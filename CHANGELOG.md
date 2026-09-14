@@ -38,6 +38,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Fixed
 
+- **A capture spanning two game launches no longer confuses one for the other.** Requests waiting on a reply are remembered by the game's own request number, and those start again at 1 each time the game opens — so a request the game never answered before closing could be claimed by an unrelated reply from the next launch. Harmless while a capture covered one launch, which is every capture taken so far; the costly case was a fragment disassembly, whose remembered intent is a list of fragments to delete.
+
 - **A finished login streak stays finished.** The game says a streak has ended exactly once, on the claim that ends it, and the record it sends afterwards is identical to a streak merely claimed for today — so the row went back to orange the next time the program started. It is remembered now, in `settings/`, which a cleanup of captures never touches.
 
 - **An event the game has called finished now reads as finished.** The claim of an event's final reward — the one that unlocks only after every other — answers with the completion flag under a key the capture was not reading, so the Bartender went on showing `24/24+?` in red with the wire having said outright that it was over.

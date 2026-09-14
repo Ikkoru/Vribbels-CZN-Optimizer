@@ -49,6 +49,55 @@ def _payload(account, pieces=1):
     }
 
 
+def _a_new_game_forgets_the_old_one(addon):
+    """A qid means nothing across game launches.
+
+    `pending_disassembles`, `pending_unequips` and `pending_coffees`
+    map a qid to what the client asked for, and the reply that clears
+    one is matched on that qid alone. Every capture so far covered ONE
+    launch, so the maps could only ever hold this game's requests --
+    but a capture left running for days sees the game close mid-request
+    and open again with its qids restarted at one, and then an
+    unrelated reply claims an intent meant for a request that will
+    never be answered.
+
+    The costly one is a disassemble: its intent is a list of fragments
+    to delete, so a stale one applied to the wrong reply takes real
+    fragments out of the snapshot with nothing to say it happened.
+
+    `helo` is the first command of every connection, which is what
+    makes it the marker.
+
+    Returns a list of complaints.
+    """
+    out = []
+    addon._track_client_request([
+        {"cmd": "item", "qid": 7,
+         "params": {"cmd": "disassemble_piece", "item_db_ids": [111, 222]}},
+        {"cmd": "item", "qid": 8,
+         "params": {"cmd": "unequip_piece", "item_db_ids": [333],
+                    "char_res_id": 1001}},
+    ])
+    addon.pending_coffees.add(9)
+    if not addon.pending_disassembles:
+        return ["the addon did not remember a disassemble request at all, "
+                "so nothing below was checked."]
+
+    addon._track_client_request([{"cmd": "helo", "qid": 1, "params": {
+        "device_id": "d", "device_platform": "win32"}}])
+    still = {"pending_disassembles": addon.pending_disassembles,
+             "pending_unequips": addon.pending_unequips,
+             "pending_coffees": addon.pending_coffees}
+    left = {name: held for name, held in still.items() if held}
+    if left:
+        out.append(
+            f"after a new game connected the addon still holds {left!r}. "
+            f"Those qids belong to a game that has gone; the new one's "
+            f"start again at 1, and a reply of the new game's would be "
+            f"taken for the old game's request.")
+    return out
+
+
 def run():
     failures = []
     tmp = tempfile.mkdtemp()
@@ -59,6 +108,8 @@ def run():
 
     logged = []
     addon.log_callback = lambda msg, *a, **k: logged.append(str(msg))
+
+    failures.extend(_a_new_game_forgets_the_old_one(addon))
 
     # First account is adopted.
     addon._handle_server_payload(_payload("acct-A", pieces=3), 100)

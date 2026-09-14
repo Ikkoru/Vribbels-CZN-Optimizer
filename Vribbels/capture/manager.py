@@ -1726,6 +1726,20 @@ class Addon:
                 f"[LIVE] Unequipped all {updated_count} pieces from {char_name}"
             )
 
+    def _forget_pending(self):
+        """Drop every request still waiting on a reply.
+
+        Called when a new game connects. Each of these maps a qid to
+        what the client asked for, and a qid means nothing across
+        connections -- see the note in `_track_client_request`.
+        """
+        if not (self.pending_disassembles or self.pending_unequips
+                or self.pending_coffees):
+            return
+        self.pending_disassembles.clear()
+        self.pending_unequips.clear()
+        self.pending_coffees.clear()
+
     def _track_client_request(self, parsed):
         """Scan a parsed client message for command(s) we want to remember
         across the request/response gap. Currently:
@@ -1754,6 +1768,23 @@ class Addon:
         for entry in parsed:
             if not isinstance(entry, dict):
                 continue
+
+            # **A new game has started, and its qids begin again at
+            # one.** `helo` is the first command of every connection,
+            # so anything still waiting here was asked by the game that
+            # just went away and will never be answered -- and leaving
+            # it would let an unrelated reply of the new game's qid 1
+            # claim it. The costly one is a disassemble: its intent is
+            # a list of fragments to delete, and a stale one applied to
+            # the wrong reply takes real fragments out of the snapshot.
+            #
+            # Harmless while a capture covered one launch, which is
+            # every capture taken so far. Not harmless once a capture
+            # is left running for days.
+            if entry.get("cmd") == "helo":
+                self._forget_pending()
+                continue
+
             params = entry.get("params") or {}
             if not isinstance(params, dict):
                 continue
