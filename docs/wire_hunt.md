@@ -157,6 +157,33 @@ Five `limit_type` values across every shop, and which Checklist column each land
 
 **One shop, one currency.** Every product on a screen the Checklist lists carries the same `price_link_item_id` — checked across all seven — which is what lets a shop's heading total its bill against a single holding: `<held>/<what the ticked products still cost>`. The screens that DO mix them are the ones bought with real money or Crystals, and none of those is on the tab. Two cases read as "no total" rather than as an error: the seasonal supplies are free and carry no price item at all, and the seasonal shop keeps every season it has ever run, each in its own currency, so the live-season filter is what leaves one standing.
 
+## What a currency has EARNED, and how old the account is
+
+A currency in `characters.currencies` keeps three figures, and the third is the one worth having:
+
+| Field | Is |
+| ----- | -- |
+| `amount` | what is held now |
+| `total_amount` | lifetime GAINED |
+| `total_use_amount` | lifetime spent |
+
+The three reconcile exactly — Policy Point read 36043 gained against 36020 spent with 23 in hand — and `total_amount` is **monotonic**: checked across 101 snapshots and five currencies, not one backward step. So the rate a currency is earned at is one subtraction between two readings of it, with nothing to model about what was spent in between. `Vribbels/checklist_manager.py` is what keeps those readings.
+
+**Two of the seven shop currencies are not currencies.** Black Mass (3920007) and the Seasonal Event Currency (3920031) are ordinary `inventory.items` entries with an `amount` and no lifetime anything, so a total for those has to be accumulated from the rises in the holding — which understates, a gain and a spend between two captures cancelling before either is seen. Nothing on the wire does better.
+
+`characters.user` dates the account and counts its days:
+
+| Field | Is |
+| ----- | -- |
+| `createAt` | account creation, epoch seconds |
+| `day_id` | today, in the same day numbering `weekly_reset.day_index` produces — the two agreed exactly |
+| `login_total_count` | distinct days logged in, NOT sessions |
+| `login_continuous_count`, `highest_login_continuous_count` | the current and best streaks |
+
+**`login_total_count` counts days, not logins.** It read 325 against an account age of 325.1 days, and moved +126 over 127 days across the snapshot history while several of those days carried three or four captures each. So it is an ACTIVE-DAY count: equal to the elapsed days for an account that logs in daily, and below it for one that skips.
+
+Together those make a lifetime rate available from a single capture — `total_amount` over the days since `createAt` — which is what lets the Checklist's shop headings answer on the first capture rather than after a year of them.
+
 ## What `content_*` is
 
 **The Basin of Hyperspace's objectives**, three per stage, arriving with the reply to `hyperspace/get_list` — not story records. `mission_seasson_entities` (the game's own spelling) holds them per Basin season and `season_entities` the stages; the Checklist reads the scored tally as the Basin's progress. `missions_id_dump.py` skips the family for that reason: thirty rows nobody annotates.

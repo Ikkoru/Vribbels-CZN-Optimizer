@@ -1,4 +1,5 @@
-"""Which Checklist shop products the user is actually tracking.
+"""Which Checklist shop products the user is tracking, and what the
+shop currencies have been earning.
 
 Every shop product on the Checklist tab carries a checkbox. A TICKED
 one is a thing the user means to buy each period, and its reading is
@@ -26,12 +27,54 @@ whichever state suits most of them rather than needing a first tick.
 the ones most accounts would answer differently on. It ships in the
 code rather than in a file, since a shipped `settings/` file is user
 state the sync would then have to reason about.
+
+## The currency ledger
+
+The same file also holds a per-currency record of how much has been
+EARNED, one point per day:
+
+    "currency": {
+        "2000031": {"kind": "total",
+                    "points": [[1027, 0], [1352, 36043]]},
+        "3920007": {"kind": "delta", "held": 11005,
+                    "points": [[1352, 0]]}
+    }
+
+**A point is a lifetime running total, never a holding**, so a rate
+over any window is one subtraction and nothing has to reason about
+spending. The two kinds differ only in where that total comes from:
+
+* `total` -- the wire states it. A currency in `characters.currencies`
+  carries `total_amount`, which is lifetime GAINED and `total_use_amount`
+  lifetime spent, the two differing by exactly the holding. Checked
+  across 101 snapshots and five currencies: it never steps backwards.
+  Such a ledger is SEEDED at the account's creation day with zero, off
+  `user.createAt`, which is an observation rather than a guess -- an
+  account has earned nothing the day it is made -- and so a year's
+  reading is available from the first capture rather than after a year
+  of them.
+* `delta` -- the wire does not. Two shop currencies are ordinary
+  inventory items with an `amount` and no lifetime anything, so the
+  total is accumulated here from the rises in that holding, and `held`
+  is what the last one is measured against. **It UNDERSTATES**: a gain
+  and a spend between two captures cancel before either is seen. There
+  is nothing on the wire that would do better.
+
+Points are kept for a year and a day. Past that the oldest fall off,
+which is what turns the seeded reading into a rolling one.
 """
 
 import json
 from pathlib import Path
 
 CHECKLIST_VERSION = 1
+
+# How many daily points a currency keeps. A year, plus the day at the
+# far end to measure the year against.
+LEDGER_DAYS = 366
+
+# The two ways a lifetime total is arrived at. See the module note.
+FROM_WIRE, FROM_RISES = "total", "delta"
 
 # What an id nobody has ticked or unticked reads as.
 DEFAULT_TRACKED = True
@@ -77,6 +120,8 @@ class ChecklistManager:
         # row key -> [what it read, when it first read that].
         # See `first_seen`.
         self.seen = {}
+        # res_id (str) -> {kind, points, held}. See the module note.
+        self.currency = {}
 
     def load(self):
         """Read the flags. An unreadable file behaves like a fresh one.
@@ -102,6 +147,8 @@ class ChecklistManager:
                 for k, v in seen.items()
                 if isinstance(v, (list, tuple)) and len(v) == 2
             }
+        self.currency = _clean_ledger(data.get("currency")
+                                      if isinstance(data, dict) else None)
 
     def is_tracked(self, product_id) -> bool:
         """Whether a product is ticked. Absent ids take the default."""
@@ -153,10 +200,113 @@ class ChecklistManager:
             del self.seen[key]
         self._write()
 
+    # ------------------------------------------------- the currency ledger
+
+    def record_currency(self, res_id, value, day, kind=FROM_WIRE,
+                        since=None):
+        """Note where one currency's lifetime total stands today.
+
+        `value` is `total_amount` off the wire for a `FROM_WIRE`
+        currency, and the plain holding for a `FROM_RISES` one -- the
+        running total is kept here for the second, because nothing on
+        the wire keeps it.
+
+        `day` is the day the SNAPSHOT is from, not today. Loading an
+        old capture file is an ordinary thing to do, and a lifetime
+        total from three weeks ago written against today would read as
+        three weeks of earnings undone. Against its own day it is what
+        it is -- a reading of that day -- and a `FROM_WIRE` ledger
+        takes it wherever it belongs, which is how opening an old file
+        fills a gap in the record rather than spoiling it.
+
+        A `FROM_RISES` ledger cannot: its totals are accumulated
+        forward, so a point can only be added at the end and an older
+        snapshot is passed over.
+
+        `since` is the day the account was made, and seeds an empty
+        `FROM_WIRE` ledger with a zero there. That point is a reading:
+        a lifetime total was zero before there was a lifetime. Without
+        it the first year of readings would have no far end to measure
+        against.
+
+        Returns the ledger's points, oldest first.
+        """
+        res_id, day = str(res_id), int(day)
+        row = self.currency.get(res_id)
+        if not isinstance(row, dict) or row.get("kind") != kind:
+            row = {"kind": kind, "points": []}
+            if kind is FROM_WIRE and since is not None and int(since) < day:
+                row["points"].append([int(since), 0])
+            self.currency[res_id] = row
+        points = row["points"]
+        before = json.dumps(row, sort_keys=True)
+        if kind is FROM_WIRE:
+            # One point per day, the higher reading winning: a day with
+            # six captures is still one day's earnings, and a ledger
+            # with six points on it would answer "per day" six times.
+            by_day = {p[0]: p[1] for p in points}
+            by_day[day] = max(int(value), by_day.get(day, int(value)))
+            newest = max(by_day)
+            points = [[d, by_day[d]] for d in sorted(by_day)
+                      if d >= newest - LEDGER_DAYS]
+        elif not points or day >= points[-1][0]:
+            held = row.get("held")
+            rose = max(0, int(value) - held) if isinstance(held, int) else 0
+            total = (points[-1][1] if points else 0) + rose
+            row["held"] = int(value)
+            if points and points[-1][0] >= day:
+                points[-1] = [day, total]
+            else:
+                points.append([day, total])
+            points = [p for p in points if p[0] >= day - LEDGER_DAYS]
+        row["points"] = points
+        if json.dumps(row, sort_keys=True) != before:
+            self._write()
+        return [tuple(p) for p in points]
+
+    def currency_points(self, res_id):
+        """One currency's ledger, oldest first, as (day, total) pairs."""
+        row = self.currency.get(str(res_id))
+        points = row.get("points") if isinstance(row, dict) else None
+        return [tuple(p) for p in points] if points else []
+
     def _write(self):
         self.settings_dir.mkdir(parents=True, exist_ok=True)
         data = {"version": CHECKLIST_VERSION, "tracked": self.tracked,
-                "seen": self.seen}
+                "seen": self.seen, "currency": self.currency}
         tmp = self.file.with_suffix(self.file.suffix + ".tmp")
         tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         tmp.replace(self.file)
+
+
+def _clean_ledger(raw):
+    """A currency ledger read back off disk, with the rot taken out.
+
+    A hand-edited or half-written file must not cost the user the tab,
+    so anything that does not read as a point is dropped rather than
+    raised on. Points come back sorted and one-per-day, which is what
+    every reading off them assumes.
+    """
+    out = {}
+    for res_id, row in (raw or {}).items() if isinstance(raw, dict) else ():
+        if not isinstance(row, dict):
+            continue
+        kind = row.get("kind")
+        if kind not in (FROM_WIRE, FROM_RISES):
+            continue
+        by_day = {}
+        for point in row.get("points") or ():
+            if (not isinstance(point, (list, tuple)) or len(point) != 2
+                    or not all(isinstance(n, int) and not isinstance(n, bool)
+                               for n in point)):
+                continue
+            by_day[point[0]] = point[1]
+        if not by_day:
+            continue
+        clean = {"kind": kind,
+                 "points": [[day, by_day[day]] for day in sorted(by_day)]}
+        held = row.get("held")
+        if isinstance(held, int) and not isinstance(held, bool):
+            clean["held"] = held
+        out[str(res_id)] = clean
+    return out

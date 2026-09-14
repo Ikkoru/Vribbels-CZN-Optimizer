@@ -129,6 +129,12 @@ COLORS = {
     # `accent` lightened, for a Capture Log event that is neither good
     # nor bad: a fragment arriving is news rather than a verdict.
     "blue_light": "#b8d4fd",
+    # `green` and `red` at the same hue, a little darker and a little
+    # stronger. For a verdict that answers for a BLOCK rather than for
+    # a row -- a shop heading's total against the products beneath it
+    # -- so the two read as the same yes and no without the heading's
+    # answer being mistaken for one of theirs.
+    "green_deep": "#8ee387", "red_deep": "#f76e94",
     # The preset NAME in an Upgraded line. Off-white and warm, so it
     # reads as a label beside the coloured numbers rather than as one
     # more value to compare.

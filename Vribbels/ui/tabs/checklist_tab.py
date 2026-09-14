@@ -38,7 +38,14 @@ edit. `shop_stock` is what reads it.
 hand over the bill for the ticked products still on its shelves. That
 one sits at a stop of its own, off the heading's words rather than in
 the column of readings, because it answers for the shop rather than
-for a row. See `_add_shop_totals`.
+for a row, and it is inked a shade apart for the same reason. See
+`_add_shop_totals`.
+
+**Hovering a shop says what its currency EARNS**, per rotation and per
+year. Those two come off a ledger the manager keeps -- a snapshot
+holds only the present, and a rate is a fact about the past -- and
+`ChecklistManager` is the write-up. `shop_rates` is where the two
+lines are worded.
 
 The rows that DO read a value get it from `_readings`, one place, keyed
 by the row's own key rather than by its words -- two rows share the
@@ -60,6 +67,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
 
+import checklist_manager
 import excursions
 import item_amounts
 import period_items
@@ -114,6 +122,52 @@ SHOP_TOTAL_PREFIX = "shoptotal:"
 # row SET changes.
 SHOP_TOTAL_WIDEST = "999999/999999"
 
+# What a shop heading's hover is tagged with, plus its key. Covers the
+# shop's NAME and its total and nothing else on the line -- the Sortie
+# shop's heading also carries a countdown, which the rates say nothing
+# about.
+SHOP_TIP_PREFIX = "shoptip:"
+
+# How long each shop period runs and what to call one, as
+# `(the word, days)`. The LENGTH is read off the wire where the wire
+# states it -- `month_start`/`month_end` bound a month, and the Sortie
+# season is a schedule of its own -- so these are the fallback for a
+# snapshot carrying neither, and the word is what the tip says.
+SHOP_PERIODS = {"weekly": ("week", 7), "monthly": ("month", 30),
+                "account": ("season", 21)}
+
+# How many of a shop's own periods the short average rolls over. ONE:
+# what the currency earned over the last rotation.
+#
+# **That is a single observation rather than an average.** A week's
+# income swings with what content ran that week, so the figure moves a
+# long way for reasons that say nothing about the next rotation.
+# Widening this to four or eight trades that noise for lag.
+SHOP_RATE_ROLL = 1
+
+# The long average's window, in days, and what it is stated as. Capped
+# at the ledger's own reach: an account younger than a year is measured
+# over its whole life and the figure scaled up, which is what makes it
+# an answer on the first capture rather than in a year's time.
+SHOP_RATE_YEAR = 365
+
+# The least a ledger may span before a rate off it is shown at all.
+# A WEEK, which is the shortest cycle the game runs on: under that,
+# what the window holds is which content happened to fall in it.
+#
+# The currencies the wire keeps a lifetime total for clear this on the
+# first capture, their ledger reaching back to the account's creation.
+# The two that are ordinary items have to earn it a day at a time.
+SHOP_RATE_FLOOR = 7
+
+# What the two lines say. `%s` is the shop's period -- `week`,
+# `month`, `season` -- so a monthly shop does not claim a weekly rate.
+RATE_PERIOD_LABEL = "Average per %s:"
+RATE_YEAR_LABEL = "Average per year:"
+
+# What a rate reads as with a value and a name beside it.
+RATE_VALUE = "%s %s"
+
 # What a compact `tk.Checkbutton` costs beyond the width of its own
 # words: its indicator, and the gap Tk puts between the two. MEASURED
 # once and written down -- it is the widget's own, the same on every
@@ -125,6 +179,16 @@ CHECKBOX_OVERHEAD = 21
 # do, RED is something left, and a row whose source a snapshot cannot
 # answer for is neither.
 DONE, TODO, UNKNOWN = "done", "todo", None
+
+# The same two answers, drawn a little darker and a little stronger,
+# for a SHOP HEADING's total. It answers for every product beneath it
+# rather than for a row of its own, and the shade is what keeps the
+# two apart without a second colour to learn.
+#
+# Mapped at drawing time rather than carried in the reading: a total
+# says DONE or TODO like anything else on the tab, and only the ink
+# differs.
+HEAD_STATE_TAGS = {DONE: "headdone", TODO: "headtodo"}
 
 # A reading that CANNOT SAY whether its work is finished, because its
 # denominator is only what the game has handed out so far. It draws red
@@ -294,6 +358,45 @@ def shop_products(shop, period, raw):
                  for product_id, define
                  in shop_stock.products(shop, period, raw, prefix)
                  if product_id not in HIDDEN_PRODUCTS)
+
+
+def shop_currency(shop, period, raw):
+    """The res_id one shop sells for, or None where it has no one.
+
+    **A shop sells for ONE currency** -- the same `price_link_item_id`
+    on every product of a screen, checked across all seven the tab
+    lists. Two ways to get None, and both are readings rather than
+    failures: the seasonal supplies are free and carry no price item,
+    and a shop reading as more than one has nothing a single holding
+    could be compared against.
+    """
+    money = {define.get("price_link_item_id")
+             for _pid, define in shop_products(shop, period, raw)}
+    one = money.pop() if len(money) == 1 else None
+    return one if _is_count(one) else None
+
+
+def shop_period(period, raw, now):
+    """`(what to call one of this shop's periods, how many days it is)`.
+
+    Off the wire where the wire states it: a month is however long
+    `month_start` to `month_end` runs, and an `account` shelf refreshes
+    with the Sortie SEASON rather than on any calendar. The written
+    lengths stand in where a snapshot carries neither.
+    """
+    word, days = SHOP_PERIODS.get(period, (period, 0))
+    if period == "monthly":
+        start, end = (raw or {}).get("month_start"), (raw or {}).get("month_end")
+        if _is_count(start) and _is_count(end) and end > start:
+            days = int(round((end - start) / 86400.0))
+    elif period == "account":
+        _name, window = schedules.current(
+            shop_stock.ACCOUNT_SEASON_GROUP, raw, now)
+        if isinstance(window, dict):
+            span = (window.get("end_time") or 0) - (window.get("start_time") or 0)
+            if span > 0:
+                days = int(round(span / 86400.0))
+    return word, max(1, days)
 
 
 def shop_rows(shop, period, raw):
@@ -1406,9 +1509,13 @@ class ChecklistTab(BaseTab):
         self._period_labels = {}
         # How tall a line holding a checkbox is. See `_checkbox_line`.
         self._box_line = None
-        # The full name behind a shortened product row. See
-        # `SHORT_NAMES`; one instance serves every checkbox.
+        # The full name behind a shortened product row, and the rates
+        # behind a shop heading. One instance serves every target.
         self._tips = Tooltip(self.colors)
+        # heading key -> the (label, value) rows its tip shows. Read at
+        # HOVER time rather than at bind time, so a tip put on a tag
+        # when the column was built still says what the tab says now.
+        self._shop_tips = {}
         self.setup_ui()
         # Drawn once with nothing, so the tab is its rows rather than a
         # blank before the first capture.
@@ -1679,6 +1786,14 @@ class ChecklistTab(BaseTab):
             text.tag_configure(
                 SHOP_STOP_PREFIX + key,
                 tabs=(own, own + font.measure(SHOP_TOTAL_WIDEST)))
+            # What the shop's currency has been earning. Bound to the
+            # TAG rather than to the words, and reading the rows back
+            # when the pointer stops rather than now: the tag outlives
+            # every rewrite of the line it covers, and the figures do
+            # not.
+            self._tips.bind_tag(
+                text, SHOP_TIP_PREFIX + key,
+                lambda k=key: self._shop_tips.get(k))
         # Green is nothing left to do on that row, red is something
         # left. A row a snapshot cannot answer for takes neither.
         text.tag_configure(DONE, foreground=self.colors["green"])
@@ -1691,6 +1806,13 @@ class ChecklistTab(BaseTab):
                            foreground=self.colors["orange"])
         text.tag_configure(CYCLE_DONE, foreground=self.colors["orange"])
         text.tag_configure(MUTED, foreground=self.colors["fg_dim"])
+        # A shop heading's total, in the same yes and no a hair darker
+        # and a hair stronger. It answers for the whole block under it,
+        # so it reads as the block's verdict rather than as one more
+        # row's. See `HEAD_STATE_TAGS`.
+        for state, tag in HEAD_STATE_TAGS.items():
+            text.tag_configure(tag, foreground=self.colors[
+                "green_deep" if state is DONE else "red_deep"])
         # A shop heading's own colour. See `SHOP_LABEL_COLOURS`.
         for _words, colour in SHOP_LABEL_COLOURS:
             text.tag_configure(colour, foreground=self.colors[colour])
@@ -1762,12 +1884,56 @@ class ChecklistTab(BaseTab):
         raw = getattr(self.optimizer, "raw_data", None) or {}
         readings = self._settle_floors(
             _readings(raw, tracked=self._tracked))
+        self._shop_tips = self._rates(raw, time.time())
         # A rebuilt column is filled inside the rebuild, before it is
         # shown; this fills the ones that were left standing.
         self._rebuild_columns(raw, readings)
         for title, (text, rows) in self.column_texts.items():
             self._fill(title, text, rows, readings)
         self._fill_period_headings(raw)
+
+    def _rates(self, raw, now):
+        """{heading key: the rows its tip shows}, the ledger updated.
+
+        **Recording and reading in one pass**, because the reading is
+        of the record: today's point has to be in the ledger before a
+        rate off it can include today. See `ChecklistManager`.
+
+        A shop with no single currency gets no tip -- there is no
+        holding for a rate to be a rate of.
+
+        **Dated by the SNAPSHOT, not by the clock.** Opening an old
+        capture file is an ordinary thing to do, and its figures belong
+        to the day it was taken; written against today they would read
+        as weeks of earnings undone. `now` only stands in where a
+        snapshot carries no time of its own.
+        """
+        manager = getattr(self.context, "checklist_manager", None)
+        if manager is None:
+            return {}
+        taken = _dig(raw, ("characters", "server_time"))
+        day = weekly_reset.day_index(taken if taken else now)
+        made = _dig(raw, ("characters", "user", "createAt"))
+        since = weekly_reset.day_index(made) if _is_count(made) and made else None
+        out = {}
+        for title, _fixed, shops, _events in COLUMNS:
+            period = PERIOD_BY_COLUMN.get(title)
+            for shop in shops if period else ():
+                money = shop_currency(shop, period, raw)
+                if money is None:
+                    continue
+                value, kind = currency_earned(raw, money)
+                if value is None:
+                    points = manager.currency_points(money)
+                else:
+                    points = manager.record_currency(
+                        money, value, day, kind, since)
+                word, days = shop_period(period, raw, now)
+                rows = shop_rates(points, word, days,
+                                  ITEM_NAMES.get(money) or str(money))
+                if rows:
+                    out[shop_head_key(shop, period)] = rows
+        return out
 
     def _settle_floors(self, readings):
         """Turn a floor that has stopped moving orange.
@@ -1860,8 +2026,10 @@ class ChecklistTab(BaseTab):
                 for tag in line:
                     text.tag_add(tag, at, at + "+1c")
             else:
-                text.insert(tk.END, label, line + label_tag)
-            _insert_value(text, line, total, segments)
+                text.insert(tk.END, label, line + label_tag
+                            + ((SHOP_TIP_PREFIX + key,)
+                               if key.startswith(SHOP_HEAD_PREFIX) else ()))
+            _insert_value(text, key, line, total, segments)
         text.config(state=tk.DISABLED)
 
     def _draw(self, rows, readings):
@@ -2124,15 +2292,15 @@ def _patch_value(text, lineno, drawn):
     with the rest: it is a reading too, and it moves for the same
     reasons.
     """
-    (_key, _label, _tracked, segments), line, _label_tag, total = drawn
+    (key, _label, _tracked, segments), line, _label_tag, total = drawn
     end = "%d.end" % lineno
     at = text.search(COLUMN_SEP, "%d.0" % lineno, end)
     if at:
         text.delete(at, end)
-    _insert_value(text, line, total, segments, at="%d.end" % lineno)
+    _insert_value(text, key, line, total, segments, at="%d.end" % lineno)
 
 
-def _insert_value(text, line, total, segments, at=tk.END):
+def _insert_value(text, key, line, total, segments, at=tk.END):
     """Write a row's total and readings onto the end of its line.
 
     One place, because the line is written twice -- built whole, and
@@ -2143,14 +2311,22 @@ def _insert_value(text, line, total, segments, at=tk.END):
     a shop heading both stops are the heading's own, so a heading
     carrying a countdown as well reads name, total, countdown, each at
     a fixed distance from the words rather than from the column.
+
+    Only a total takes the heading's shade and its hover; the segments
+    after it are the row's own readings and keep the ordinary ones.
     """
     if total:
         words, state = total
-        text.insert(at, COLUMN_SEP + words,
-                    line + ((state,) if state else ()))
+        text.insert(at, COLUMN_SEP + words, line + _head_tags(key, state))
     for index, (words, state) in enumerate(segments):
         text.insert(at, (COLUMN_SEP if not index else SEGMENT_GAP) + words,
                     line + ((state,) if state else ()))
+
+
+def _head_tags(key, state):
+    """The tags a shop heading's own total takes."""
+    return ((HEAD_STATE_TAGS.get(state, state),) if state else ()) \
+        + (SHOP_TIP_PREFIX + key,)
 
 
 def _readings(raw, now=None, tracked=None):
@@ -2443,13 +2619,8 @@ def _add_shop_totals(out, raw, amounts, tracked, now):
     `<currency on hand>/<what clearing the ticked products costs>`, so
     one glance says whether a shop can be finished this period.
 
-    **A shop sells for ONE currency**, the same `price_link_item_id` on
-    every product of a screen, and that is what makes a single total
-    meaningful. A shop that reads as more than one says nothing rather
-    than adding prices in different money: the seasonal supplies are
-    free and carry no price item at all, and the seasonal shop's past
-    seasons each had their own -- the live-season filter is what leaves
-    one standing.
+    A shop with no single currency to its name has no total -- see
+    `shop_currency`, which is where that is decided.
 
     **Only the TICKED products are billed.** The row answers "can I
     clear what I care about", and an untracked product is one the user
@@ -2462,9 +2633,8 @@ def _add_shop_totals(out, raw, amounts, tracked, now):
     for title, _fixed, shops, _events in COLUMNS:
         period = PERIOD_BY_COLUMN.get(title)
         for shop in shops if period else ():
-            money, bill, unknown = set(), 0, False
+            bill, unknown = 0, False
             for product_id, define in shop_products(shop, period, raw):
-                money.add(define.get("price_link_item_id"))
                 if tracked is not None and not tracked(product_id):
                     continue
                 left, _cap = shop_stock.remaining(
@@ -2474,14 +2644,92 @@ def _add_shop_totals(out, raw, amounts, tracked, now):
                     unknown = True
                     continue
                 bill += left * price
-            currency = money.pop() if len(money) == 1 else None
-            if not _is_count(currency):
+            currency = shop_currency(shop, period, raw)
+            if currency is None:
                 continue
             held = amounts.get(currency)
             held = held if _is_count(held) else 0
             out[SHOP_TOTAL_PREFIX + shop_head_key(shop, period)] = _one(
                 "%d/%d%s" % (held, bill, UNKNOWN_MORE if unknown else ""),
                 _done(not unknown and held >= bill))
+
+
+def currency_earned(raw, res_id):
+    """`(the figure to record, which kind of ledger it feeds)`.
+
+    A currency in `characters.currencies` states its own lifetime
+    GAINED as `total_amount`, and that is the figure. An ordinary
+    inventory item states only what is held, and the ledger has to
+    build a lifetime out of the rises in it.
+
+    `(None, None)` where the snapshot carries the id nowhere -- which
+    is not zero. A currency the account has never touched and one the
+    capture has not reached look the same from here, and recording a
+    zero for either would put a false floor in the ledger.
+    """
+    doc = ((raw or {}).get("characters") or {}).get("currencies") or {}
+    doc = doc.get(str(res_id))
+    if isinstance(doc, dict) and _is_count(doc.get("total_amount")):
+        return doc["total_amount"], checklist_manager.FROM_WIRE
+    for item in ((raw or {}).get("inventory") or {}).get("items") or ():
+        if isinstance(item, dict) and item.get("res_id") == res_id:
+            if _is_count(item.get("amount")):
+                return item["amount"], checklist_manager.FROM_RISES
+    return None, None
+
+
+def currency_rate(points, window):
+    """`(earned per day, the days that covers)` over the last `window`.
+
+    Points are `(day, lifetime total)` oldest first, so a rate is one
+    subtraction across the pair that brackets the window -- no sum, and
+    nothing to say about what was spent in between.
+
+    **The window is a FLOOR, not a promise.** Where the ledger does not
+    reach back that far the oldest point stands in and the days it
+    actually covers come back beside the rate, so a caller can say
+    whether the figure was measured over its own unit or scaled up to
+    it.
+    """
+    if len(points) < 2:
+        return None, 0
+    last_day, last_total = points[-1]
+    older = [p for p in points if p[0] <= last_day - window]
+    first = older[-1] if older else points[0]
+    days = last_day - first[0]
+    if days <= 0:
+        return None, 0
+    return (last_total - first[1]) / float(days), days
+
+
+def shop_rates(points, word, days, name):
+    """The two lines of a shop heading's tip, or `()`.
+
+    `(label, value)` a row, which is what the tip draws as two aligned
+    columns. The period figure rolls over `SHOP_RATE_ROLL` of the
+    shop's own periods and the year figure over `SHOP_RATE_YEAR` days,
+    each falling back to the whole ledger where it is shorter -- and a
+    figure the ledger could not measure over its own unit carries
+    `EXPECTED_VALUE`, the same mark the weekly allowances use for a
+    number worked out rather than read. The year figure keeps that mark
+    until the account has been watched for a year, which is honest and
+    which clears itself.
+
+    Nothing at all until the ledger spans `SHOP_RATE_FLOOR` days. A
+    tip has to be worth stopping for, and a rate off two days is which
+    content ran on them.
+    """
+    rows = []
+    for label, window, over in (
+            (RATE_PERIOD_LABEL % word, days * SHOP_RATE_ROLL, days),
+            (RATE_YEAR_LABEL, SHOP_RATE_YEAR, SHOP_RATE_YEAR)):
+        rate, covered = currency_rate(points, window)
+        if rate is None or covered < SHOP_RATE_FLOOR:
+            continue
+        mark = "" if covered >= over else EXPECTED_VALUE
+        rows.append((label, RATE_VALUE % (mark + "%d" % round(rate * over),
+                                          name)))
+    return tuple(rows)
 
 
 def _period_left(title, raw, now):

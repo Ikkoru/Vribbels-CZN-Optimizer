@@ -1283,6 +1283,69 @@ def _checklist_block_is_tall_enough(tab):
     return out
 
 
+def _tooltip_columns_align(root, colors):
+    """A two-column tip's values line up, and its payload can be lazy.
+
+    Two things that fail QUIETLY. A value column drawn as one Label per
+    row would align only while every label happened to be the same
+    width, and the wrong reading would look like the right one beside a
+    different name. And a tip bound to something that changes has to
+    read its content at HOVER time -- a callable resolved when the
+    binding was made would freeze the figures that were on screen then,
+    and a stale tooltip looks exactly like a fresh one.
+
+    Built against an unmapped frame and measured there. Putting a real
+    tip up to check it would mean a window on the maintainer's screen.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.scaling import px
+    from ui.utils.tooltip import Tooltip, ROW_GAP
+    out = []
+    tips = Tooltip(colors)
+
+    if Tooltip.content(lambda: "late") != "late":
+        out.append(
+            "Tooltip.content does not call a callable payload, so a tip "
+            "bound to something that changes shows whatever it said when "
+            "the binding was made.")
+    if Tooltip.content("plain") != "plain":
+        out.append("Tooltip.content mangles a plain string payload.")
+
+    holder = tk.Frame(root)
+    rows = (("Average per week:", "776 Policy Point"),
+            ("Average per year:", "40467 Policy Point"))
+    body = tips._columns(holder, rows)
+    labels = [w for w in body.winfo_children() if isinstance(w, tk.Label)]
+    if len(labels) != len(rows[0]):
+        out.append(
+            f"a two-column tip built {len(labels)} labels for "
+            f"{len(rows[0])} columns. One Label per COLUMN is what makes "
+            f"the values line up without anything being measured; one per "
+            f"cell aligns only by accident.")
+    else:
+        for at, (label, column) in enumerate(zip(labels, zip(*rows))):
+            if label.cget("text") != "\n".join(column):
+                out.append(
+                    f"column {at} reads {label.cget('text')!r}, not its own "
+                    f"cells joined by newline. A column out of step with "
+                    f"the other puts a value beside the wrong label.")
+            if int(label.cget("wraplength") or 0):
+                out.append(
+                    f"column {at} wraps. A wrapped cell takes one column "
+                    f"out of step with the other and nothing on screen "
+                    f"says which line belongs to which.")
+        gap = str(labels[1].pack_info().get("padx"))
+        if gap != str(px((ROW_GAP, 0))):
+            out.append(
+                f"the value column sits {gap!r} from the labels where "
+                f"ROW_GAP asks for {px((ROW_GAP, 0))!r}. That pad IS the "
+                f"`label -> its element` gap for every tip drawn this way.")
+    holder.destroy()
+    return out
+
+
 def _checklist_short_names_keep_their_tip(tab):
     """A row whose name is cut short has to carry the full one.
 
@@ -1329,6 +1392,62 @@ def _checklist_short_names_keep_their_tip(tab):
             "nothing here was checked. Either SHORT_NAMES no longer "
             "matches anything the shops sell, or the labels stopped "
             "going through `product_label`.")
+    return out
+
+
+def _checklist_heading_totals_are_marked(tab):
+    """A shop heading's name and total carry the hover; the tail does not.
+
+    Three claims, and each fails invisibly. The hover has to reach BOTH
+    the shop's name and its figures, since either is what a reader
+    points at. It must NOT reach what follows them -- the Sortie shop's
+    heading also carries a countdown, and a tip about currency rates
+    over a deadline is an answer to a question nobody asked. And the
+    total takes its own shade of the two verdicts, which is the only
+    thing separating a heading's answer from its products'.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.tabs import checklist_tab as mod
+    out = []
+    seen = 0
+    for title, (text, rows) in tab.column_texts.items():
+        for at, (key, _label, _widest) in enumerate(rows):
+            if not key.startswith(mod.SHOP_HEAD_PREFIX):
+                continue
+            line = at + 1
+            tab_at = text.search("\t", "%d.0" % line, "%d.end" % line)
+            if not tab_at:
+                continue                    # no total and no countdown
+            want = mod.SHOP_TIP_PREFIX + key
+            seen += 1
+            words = set(text.tag_names("%d.0" % line))
+            total = set(text.tag_names(tab_at + "+1c"))
+            if want not in words or want not in total:
+                out.append(
+                    f"the {title!r} heading {key!r} carries its hover on "
+                    f"{sorted(words & {want})} of its name and "
+                    f"{sorted(total & {want})} of its total. Both are what "
+                    f"a reader points at.")
+            shades = total & set(mod.HEAD_STATE_TAGS.values())
+            if not shades:
+                out.append(
+                    f"the {title!r} heading {key!r} draws its total in "
+                    f"{sorted(total)}, with none of HEAD_STATE_TAGS among "
+                    f"them -- so a heading's verdict is inked the same as "
+                    f"the rows it answers for.")
+            tail = text.search("\t", tab_at + "+1c", "%d.end" % line)
+            if tail and want in set(text.tag_names(tail + "+1c")):
+                out.append(
+                    f"the {title!r} heading {key!r} puts its currency hover "
+                    f"on the countdown after its total, which the rates say "
+                    f"nothing about.")
+    if not seen:
+        out.append(
+            "no shop heading on the Checklist showed a total, so nothing "
+            "here was checked. A check that cannot fail is not watching "
+            "anything.")
     return out
 
 
@@ -1904,12 +2023,14 @@ def run():
         complaint = _scrolled_text_packs_the_pair(root, dict(gui.COLORS))
         if complaint:
             failures.append(complaint)
+        failures.extend(_tooltip_columns_align(root, dict(gui.COLORS)))
         import ui.tabs as tabs_pkg
         from ui.context import AppContext
         from optimizer.optimizer import GearOptimizer
         import preset_manager, character_preset_manager
         import optimizer_settings_manager, settings_manager
         import log_presets_manager
+        import checklist_manager
         from config import AppConfig
         from ._harness import newest_snapshot
 
@@ -1939,6 +2060,11 @@ def run():
             optimizer_settings_manager=_load(
                 optimizer_settings_manager.OptimizerSettingsManager),
             log_presets_manager=_load(log_presets_manager.LogPresetsManager),
+            # The Checklist's own store. Without it the tab still
+            # builds -- every reader of it is guarded -- and the
+            # floor clock and the currency ledger are never reached,
+            # so the checks below would pass over both.
+            checklist_manager=_load(checklist_manager.ChecklistManager),
             recompute_upgrade_line_callback=None,
         )
 
@@ -1993,6 +2119,9 @@ def run():
                 _checklist_block_is_tall_enough(built["ChecklistTab"]))
             failures.extend(
                 _checklist_short_names_keep_their_tip(built["ChecklistTab"]))
+            failures.extend(
+                _checklist_heading_totals_are_marked(
+                    built["ChecklistTab"]))
             failures.extend(
                 _checklist_rows_are_all_drawn(built["ChecklistTab"]))
         if "CaptureTab" in built:

@@ -84,7 +84,10 @@ def run():
         PASS_MISSION_FIELD, _at_ceiling, _event_missions,
         EXPECTED_VALUE, EVENT_KEY_PREFIX, _event_rows,
         SHOP_HEAD_PREFIX, SHOP_TOTAL_PREFIX, shop_head_key,
+        currency_earned, currency_rate, shop_period, shop_rates,
+        SHOP_RATE_FLOOR,
     )
+    import checklist_manager
 
     failures = []
     now = MONDAY_MORNING
@@ -1121,6 +1124,112 @@ def run():
         failures.append(
             "a shop whose products carry no price item still produced a "
             "total. There is no currency to read and nothing to spend.")
+
+    # --- what a shop currency earns -----------------------------------
+    # The rate is the part a reader cannot sanity-check: a window taken
+    # off the wrong end, a span divided by the wrong number of days, or
+    # a figure scaled to a unit it was never measured over all produce
+    # a plausible number with nothing beside it to disagree.
+    #
+    # 10 a day, watched for 100 days.
+    steady = [(1000 + n, 10 * n) for n in range(101)]
+
+    rate, covered = currency_rate(steady, 7)
+    if (rate, covered) != (10.0, 7):
+        failures.append(
+            f"a ledger rising 10 a day reads {rate!r} a day over "
+            f"{covered!r} days, not 10.0 over 7. The window is taken off "
+            f"the NEWEST point backwards; off the oldest it would answer "
+            f"about the account's first week forever.")
+
+    # A window longer than the ledger falls back to its whole span, and
+    # SAYS so -- that second figure is what marks a scaled-up reading.
+    rate, covered = currency_rate(steady, 365)
+    if (rate, covered) != (10.0, 100):
+        failures.append(
+            f"a 365-day window over a 100-day ledger reads {rate!r} over "
+            f"{covered!r}, not 10.0 over 100. A window the ledger cannot "
+            f"fill has to report what it actually covered, or nothing can "
+            f"tell a measured year from an extrapolated one.")
+
+    for points in ([], [(1000, 5)], [(1000, 5), (1000, 9)]):
+        if currency_rate(points, 7) != (None, 0):
+            failures.append(
+                f"{points!r} produced a rate. Fewer than two days apart "
+                f"there is no span to divide by, and a rate off one point "
+                f"is a division by zero waiting to be a number.")
+
+    # The two lines, against a weekly shop paying 10 a day.
+    rows = shop_rates(steady, "week", 7, "Policy Point")
+    want = (("Average per week:", "70 Policy Point"),
+            ("Average per year:", EXPECTED_VALUE + "3650 Policy Point"))
+    if rows != want:
+        failures.append(
+            f"a shop earning 10 a day reads {rows!r}, not {want!r}. The "
+            f"week figure was measured over a week and the year figure "
+            f"over 100 days scaled up, which is what the mark says.")
+
+    # A full year of watching drops the mark from the year line.
+    full = [(1000 + n, 10 * n) for n in range(400)]
+    marked = [value for _label, value in shop_rates(full, "week", 7, "P")
+              if value.startswith(EXPECTED_VALUE)]
+    if marked:
+        failures.append(
+            f"with 400 days on the ledger the year figure still reads "
+            f"{marked!r}. The mark means the window fell short of the "
+            f"unit, and it has to come off once it no longer does.")
+
+    # And nothing at all below the floor.
+    if shop_rates(steady[:SHOP_RATE_FLOOR], "week", 7, "P"):
+        failures.append(
+            f"a ledger spanning under {SHOP_RATE_FLOOR} days produced a "
+            f"rate. What a window that short holds is which content ran "
+            f"in it, and a tip has to be worth stopping for.")
+
+    # --- which figure a currency feeds the ledger ---------------------
+    wired = {"characters": {"currencies": {"2000031": {
+        "amount": 23, "total_amount": 36043, "total_use_amount": 36020}}}}
+    if currency_earned(wired, 2000031) != (36043, checklist_manager.FROM_WIRE):
+        failures.append(
+            f"a currency stating its own lifetime total feeds "
+            f"{currency_earned(wired, 2000031)!r} to the ledger, not its "
+            f"`total_amount`. Recording the HOLDING would make every "
+            f"purchase read as earnings undone.")
+    item = {"inventory": {"items": [{"res_id": 3920007, "amount": 11005}]}}
+    if currency_earned(item, 3920007) != (11005,
+                                          checklist_manager.FROM_RISES):
+        failures.append(
+            f"an inventory item feeds {currency_earned(item, 3920007)!r}, "
+            f"not its amount as a rises ledger. Nothing on the wire keeps "
+            f"a lifetime total for those two.")
+    if currency_earned({}, 2000031) != (None, None):
+        failures.append(
+            "a currency the snapshot carries nowhere fed a figure to the "
+            "ledger. Never held and not yet captured look the same from "
+            "there, and a zero for either is a false floor in the record.")
+
+    # --- how long a shop's period is ----------------------------------
+    # A THIRTY-ONE day month, deliberately: the written fallback is
+    # thirty, so a reading that ignored the wire would agree with
+    # this case and the case would never fail.
+    month = {"month_start": 1788199200,
+             "month_end": 1788199200 + 31 * DAY - 1}
+    if shop_period("monthly", month, now) != ("month", 31):
+        failures.append(
+            f"a month bounded by the wire reads "
+            f"{shop_period('monthly', month, now)!r}, not ('month', 31). "
+            f"A month is 28 to 31 days and the wire is the only thing "
+            f"that knows which.")
+    if shop_period("monthly", {}, now) != ("month", 30):
+        failures.append(
+            f"a month with no bounds on the wire reads "
+            f"{shop_period('monthly', {}, now)!r}, not the written "
+            f"fallback. A fresh install has no `month_start` until "
+            f"its first capture.")
+    if shop_period("weekly", {}, now) != ("week", 7):
+        failures.append(
+            f"a weekly shop's period reads "
+            f"{shop_period('weekly', {}, now)!r}, not ('week', 7).")
 
     # --- the ids the rows read ----------------------------------------
     # **Against the NAME, not against the constant.** Every assertion

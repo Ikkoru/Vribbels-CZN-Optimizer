@@ -4,10 +4,22 @@ A borderless Toplevel near the pointer after a short delay, torn down on
 leave or on any click. Deliberately not a ttk widget: it has to sit above
 everything, follow the pointer and disappear without leaving a hole, none
 of which a themed widget does for free.
+
+**A tip's content can be three things.** A string is the plain case. A
+sequence of `(label, value)` pairs is drawn as two aligned columns --
+see `ROW_GAP`. And a CALLABLE returning either is resolved when the tip
+goes up rather than when it was bound, which is what lets a tip on
+something that changes say what the thing says now: a binding made at
+build time would otherwise hold the figures that were on screen then.
 """
 
 import tkinter as tk
 from ui.scaling import px
+
+# A two-column tip's label against its value. The columns are two
+# Labels side by side, each as wide as its own widest line, so this is
+# the gap from the LONGEST label -- every shorter one has more.
+ROW_GAP = 5             # spacing: label ↔ its element -- label, label ↔
 
 
 class Tooltip:
@@ -64,6 +76,10 @@ class Tooltip:
         is to drive the delay from a `<Motion>` handler. Reaching for
         this is what the Memory Fragments tab does; before it existed
         that tab grew a second tooltip of its own.
+
+        `text` may be a callable, and is not resolved here: a tip is
+        armed on every hover and shown on few of them, so the content
+        is worked out once the delay has run.
         """
         self.hide()
         self._owner = widget
@@ -92,8 +108,16 @@ class Tooltip:
         callers that already know they want it on screen: itself, once
         the delay has run, and the spacing audit, which has a window to
         photograph and no pointer to hover with.
+
+        A callable `text` is resolved here, and one answering with
+        nothing puts no tip up at all -- a tip with an empty box in it
+        reads as a bug rather than as "nothing to say".
         """
         self._after_id = None
+        text = self.content(text)
+        if not text:
+            self._tip = None
+            return
         try:
             x = widget.winfo_pointerx() + 12
             y = widget.winfo_pointery() + 14
@@ -101,21 +125,61 @@ class Tooltip:
             tip.wm_overrideredirect(True)
             tip.wm_geometry(f"+{x}+{y}")
             tip.attributes("-topmost", True)
-            # spacing: content frame -> content frame -- frame, label ↔↕
-            # The tip's border against its own words. One value on all
-            # four sides: a Label's `padx` reaches both sides at once
-            # and so does its `pady`, so this is the whole of the tip's
-            # inset -- the window is the Label and nothing else.
-            tk.Label(
-                tip, text=text, justify=tk.LEFT,
-                bg=self.colors["bg_lighter"], fg=self.colors["fg"],
-                relief=tk.SOLID, borderwidth=px(1),
-                font=("Segoe UI", 9), wraplength=px(self.WRAP_PX),
-                padx=px(4), pady=px(4),
-            ).pack()
+            if isinstance(text, str):
+                self._words(tip, text).pack()
+            else:
+                self._columns(tip, text).pack()
             self._tip = tip
         except tk.TclError:
             self._tip = None
+
+    @staticmethod
+    def content(text):
+        """What a tip is to say, a callable payload resolved.
+
+        Its own method so that the resolution can be exercised without
+        a window: putting a tip up to find out whether it read its
+        callable means a Toplevel on the maintainer's screen.
+        """
+        return text() if callable(text) else text
+
+    def _words(self, tip, text):
+        """The whole tip as one Label. The plain case."""
+        # spacing: content frame -> content frame -- frame, label ↔↕
+        # The tip's border against its own words. One value on all
+        # four sides: a Label's `padx` reaches both sides at once
+        # and so does its `pady`, so this is the whole of the tip's
+        # inset -- the window is the Label and nothing else.
+        return tk.Label(
+            tip, text=text, justify=tk.LEFT,
+            bg=self.colors["bg_lighter"], fg=self.colors["fg"],
+            relief=tk.SOLID, borderwidth=px(1),
+            font=("Segoe UI", 9), wraplength=px(self.WRAP_PX),
+            padx=px(4), pady=px(4))
+
+    def _columns(self, tip, rows):
+        """`(label, value)` rows, as two aligned columns.
+
+        Two Labels rather than a grid of them: each is as wide as its
+        own widest line, so the values line up with nothing measured
+        and no cell to size. **Neither wraps.** A wrapped cell would
+        take one column out of step with the other and there would be
+        nothing on screen to say which line belonged to which.
+        """
+        # spacing: content frame -> content frame -- frame, label ↔↕
+        # As above: the frame's own border, and the inset from it.
+        body = tk.Frame(tip, bg=self.colors["bg_lighter"],
+                        relief=tk.SOLID, borderwidth=px(1),
+                        padx=px(4), pady=px(4))
+        for at, column in enumerate(zip(*rows)):
+            # spacing: label ↔ its element -- label, label ↔
+            tk.Label(
+                body, text="\n".join(column), justify=tk.LEFT,
+                bg=self.colors["bg_lighter"], fg=self.colors["fg"],
+                font=("Segoe UI", 9),
+            ).pack(side=tk.LEFT, anchor=tk.N,
+                   padx=px((ROW_GAP, 0)) if at else 0)
+        return body
 
     def hide(self):
         if self._after_id is not None and self._owner is not None:

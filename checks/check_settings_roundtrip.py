@@ -45,6 +45,7 @@ MANAGERS = [
     "optimizer_settings_manager.py",
     "character_preset_manager.py",
     "log_presets_manager.py",
+    "checklist_manager.py",
 ]
 
 # The two ways a settings key is spelled in this source: a literal
@@ -97,6 +98,89 @@ def _writes_atomically(path: Path) -> bool:
     return False
 
 
+def _currency_ledger_keeps_its_shape(root):
+    """The Checklist's currency ledger, on a temp root.
+
+    Every reading off it is a subtraction between two points, so
+    anything that puts a wrong point in produces a rate that is a
+    number and nothing else. Four ways in:
+
+    * a day with six captures recording six points, which would make
+      the ledger answer "per day" six times over for that day;
+    * an OLD snapshot -- opening a capture file is an ordinary thing to
+      do -- written against today, which reads as weeks of earnings
+      undone;
+    * the creation seed missing, which costs the whole first year of
+      readings their far end;
+    * an item ledger accumulating from a holding that went DOWN, which
+      would count spending as income.
+
+    Returns a list of complaints.
+    """
+    import checklist_manager as cm
+    out = []
+    m = cm.ChecklistManager(root)
+    m.load()
+
+    # Two captures the same day, the second higher.
+    m.record_currency(2000031, 100, 1350, cm.FROM_WIRE, since=1000)
+    points = m.record_currency(2000031, 140, 1350, cm.FROM_WIRE, since=1000)
+    if points != [(1000, 0), (1350, 140)]:
+        out.append(
+            f"two captures on one day left {points!r}, not the seed and "
+            f"one point at 140. A day is one point however many times it "
+            f"is read, and the seed is what a year is measured against.")
+
+    # An older snapshot goes to its OWN day rather than to today's.
+    points = m.record_currency(2000031, 120, 1340, cm.FROM_WIRE, since=1000)
+    if points != [(1000, 0), (1340, 120), (1350, 140)]:
+        out.append(
+            f"an older capture left {points!r}. It belongs to the day it "
+            f"was taken -- written against today it reads as ten days of "
+            f"earnings undone, and every rate off the ledger goes with "
+            f"it.")
+
+    # A holding that rises, then falls: only the rise is income.
+    m.record_currency(3920007, 500, 1350, cm.FROM_RISES)
+    m.record_currency(3920007, 800, 1351, cm.FROM_RISES)
+    points = m.record_currency(3920007, 200, 1352, cm.FROM_RISES)
+    if points != [(1350, 0), (1351, 300), (1352, 300)]:
+        out.append(
+            f"a holding of 500 -> 800 -> 200 left {points!r}, not a "
+            f"lifetime of 0, 300, 300. Only the RISES are income; a fall "
+            f"is what was spent, and counting it would make every "
+            f"purchase subtract from what the account has earned.")
+
+    # And it survives the file.
+    m._write()
+    again = cm.ChecklistManager(root)
+    again.load()
+    if again.currency_points(2000031) != m.currency_points(2000031):
+        out.append(
+            f"the ledger came back as {again.currency_points(2000031)!r} "
+            f"where it was written as {m.currency_points(2000031)!r}.")
+
+    # Rot in the file costs the rows it is in, and nothing else.
+    path = Path(root) / "settings" / "checklist.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["currency"]["9999"] = {"kind": "total", "points": [[1, "x"], [2, 3]]}
+    data["currency"]["8888"] = {"kind": "nonsense", "points": [[1, 2]]}
+    path.write_text(json.dumps(data), encoding="utf-8")
+    rotted = cm.ChecklistManager(root)
+    rotted.load()
+    if rotted.currency_points(2000031) != m.currency_points(2000031):
+        out.append(
+            "a malformed row cost the ledger its good rows too. A bad "
+            "byte in a settings file must not take the tab with it.")
+    if rotted.currency_points(9999) != [(2, 3)]:
+        out.append(
+            f"a row with one bad point came back as "
+            f"{rotted.currency_points(9999)!r}, not its good point alone.")
+    if rotted.currency_points(8888):
+        out.append("a row of an unknown kind survived the load.")
+    return out
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -113,6 +197,12 @@ def run():
             )
 
     failures.extend(_layout_covers_every_key())
+
+    ledger_root = Path(tempfile.mkdtemp())
+    try:
+        failures.extend(_currency_ledger_keeps_its_shape(ledger_root))
+    finally:
+        shutil.rmtree(ledger_root, ignore_errors=True)
 
     live = SOURCE_ROOT / "settings" / "optimizer_settings.json"
     if not live.exists():

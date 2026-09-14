@@ -22,6 +22,10 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **`Multidimensional Alignment Material` is shortened on the Checklist**, with the full name on the row's own tooltip. The tip is bound to the row, so it follows the product wherever ticking sorts it.
 
+- **Hovering a shop on the Checklist says what its currency earns.** Two lines: the average per rotation of that shop — week, month or season, whichever it resets on — and the average per year, each in the shop's own currency. The figures come off a record the program now keeps, one reading a day; for the five currencies whose lifetime earnings the game states outright the record reaches back to the day the account was made, so the year figure is there on the first capture. A `~` marks a figure measured over less than the span it names, and comes off once it is not.
+
+- **A shop heading's total is inked a shade apart** from the products under it — the same green and red, slightly darker and slightly stronger — so the block's own verdict does not read as one more row's.
+
 - **An event row says when its total is only a guess.** Most events hand out their rewards over the whole run, so the count on screen is what you have been offered so far, not what the event holds. Those rows now read `16/20+?`. The `+?` comes off — and the row goes green — where the game itself says the event is finished.
 
 - **An event goes green once its final reward is claimed.** The game keeps its own record of that, which is the only thing on the wire that can tell a finished event from one still handing rewards out.
