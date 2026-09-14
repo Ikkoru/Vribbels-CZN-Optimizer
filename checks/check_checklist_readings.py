@@ -418,6 +418,30 @@ def run():
                 f"already matched something, and never over rows another "
                 f"schedule's key claims.")
 
+    # --- a Forced Daily's LAST day is finished, not refreshing --------
+    # Orange says the row comes back tomorrow. On the final day there
+    # is no tomorrow, so taking the day's runs ends the event and the
+    # row is green like any other finished one. The event's own window
+    # says which day that is -- and where there is no window the
+    # answer has to be NO, because going green a day early costs the
+    # last day's rewards where staying orange costs nothing.
+    opens = weekly_reset.last_daily_reset(now)
+    full = {"e": {"res_id": "e", "count": 2, "reset_time": int(opens + 60)}}
+    for ends, want, why in (
+            (int(opens + DAY), DONE, "the day the event ends on"),
+            (int(opens + DAY) - 1, DONE, "an event ending inside today"),
+            (int(opens + DAY) + 1, CYCLE_DONE, "a day with one still to come"),
+            (int(opens + 9 * DAY), CYCLE_DONE, "an event with a week to run"),
+            (None, CYCLE_DONE, "an event whose window is missing")):
+        window = {} if ends is None else {"end_time": ends}
+        got = _event_overclock({"overclock_entities": full}, "e", window, now)
+        if got != [("2/2", want)]:
+            failures.append(
+                f"a full day on {why} reads {got!r}, not "
+                f"{[('2/2', want)]!r}. Orange means the rewards come back; "
+                f"on the last day they do not, and a row that stays orange "
+                f"there never tells the user the event is over.")
+
     # --- a floor SAYS it is a floor, and only the game lifts it ------
     # A denominator counted off the rows in hand is what has been
     # handed out, not what the event holds, so `20/20` there would be

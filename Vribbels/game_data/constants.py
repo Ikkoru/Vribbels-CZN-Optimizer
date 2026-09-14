@@ -522,6 +522,7 @@ RECORDED_NAMES = {
     3300016: "Handmade Wooden Doll",
     3300018: "A Not So Boring Wait",
     3300019: "Midsummer Night Fireworks",
+    3300017: "Heartfelt Guitar Pick",
     3300020: "Limited Edition Teddy Bear",
     3310005: "B-Grade Policy Report",
     3310006: "A-Grade Policy Report",
@@ -544,6 +545,7 @@ RECORDED_NAMES = {
     5201083: "Animated Card Unlock Item - Olga",
     5210000: "Prism Module - Nominate",
     5210001: "Prism Module - Masterpiece",
+    9210051: "Memories of the Beach Café Festival",
 }
 
 
@@ -641,12 +643,12 @@ PERIOD_ITEMS = {
 # `town_visit_reset_time` beside it is when it goes back to 0 -- 18:00
 # UTC, which is when the game says the allowance is granted.
 
-# One ARCHIVE GIFT item is still unnamed: 3300017. What
-# they are is settled -- `characters.archive_gift_data` is keyed by
-# combatant and lists these ids in its `item_id_list`, with
-# `reward_received_item_id_list` saying which have been handed over --
-# and what is missing is each one's NAME, which no payload spells. The
-# other nineteen are in RECORDED_NAMES above.
+# Every ARCHIVE GIFT item is now named. What they are is settled --
+# `characters.archive_gift_data` is keyed by combatant and lists
+# these ids in its `item_id_list`, with
+# `reward_received_item_id_list` saying which have been handed over
+# -- and the NAMES, which no payload spells, are all in
+# RECORDED_NAMES above.
 
 
 # Item rarity, rarest last, mapped to the plate that draws it. Two of

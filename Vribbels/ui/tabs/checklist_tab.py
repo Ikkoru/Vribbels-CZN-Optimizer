@@ -458,7 +458,7 @@ def _overclock_cap(rows, name):
                   if times >= OVERCLOCK_SHAPE_SIGHTINGS)
 
 
-def _event_overclock(raw, name, _window, now):
+def _event_overclock(raw, name, window, now):
     """[(words, state)] for an Overclock event's doubled runs TAKEN.
 
     **Taken, not left**, because every other row on the tab counts what
@@ -470,6 +470,11 @@ def _event_overclock(raw, name, _window, now):
     two come back tomorrow and today's are gone. It is also GENERIC,
     which is why a cap the wire never states can be answered from the
     shapes the game has used before. See `EVENT_CATEGORIES`.
+
+    **On the LAST day it goes green.** Orange says the row will be
+    back tomorrow, and on the final day there is no tomorrow -- taking
+    the day's runs finishes the event outright, which is what green is
+    for. The event's own window says which day that is.
     """
     rows = (raw or {}).get(OVERCLOCK_FIELD)
     rows = rows if isinstance(rows, dict) else {}
@@ -487,8 +492,27 @@ def _event_overclock(raw, name, _window, now):
         if shape >= used:
             cap = shape
             break
+    if used < cap:
+        return [("%d/%d" % (used, cap), TODO)]
     return [("%d/%d" % (used, cap),
-             CYCLE_DONE if used >= cap else TODO)]
+             DONE if _last_cycle(window, now) else CYCLE_DONE)]
+
+
+def _last_cycle(window, now):
+    """Whether the event ends before its rewards would come back.
+
+    A Forced Daily event's rewards refresh at the daily reset, so the
+    day that reaches the event's end is its last -- nothing comes back
+    after it and a full row is genuinely finished.
+
+    Unknown where the window is missing, and the answer is then NO: a
+    row that goes green a day early costs the user the last day's
+    rewards, where one that stays orange costs nothing.
+    """
+    ends = (window or {}).get("end_time")
+    if not _is_count(ends):
+        return False
+    return ends <= weekly_reset.last_daily_reset(now) + weekly_reset.DAY
 
 
 def _trial_banners(raw, window):
