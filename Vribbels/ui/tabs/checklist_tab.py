@@ -34,6 +34,12 @@ display order, so a column's shop rows are rebuilt from the snapshot
 whenever the set changes -- a product the game adds appears with no
 edit. `shop_stock` is what reads it.
 
+**A shop's own heading reads what clearing it costs**, the currency on
+hand over the bill for the ticked products still on its shelves. That
+one sits at a stop of its own, off the heading's words rather than in
+the column of readings, because it answers for the shop rather than
+for a row. See `_add_shop_totals`.
+
 The rows that DO read a value get it from `_readings`, one place, keyed
 by the row's own key rather than by its words -- two rows share the
 words `Delegation Module` and differ only in the deadline they count
@@ -65,6 +71,7 @@ from game_data.constants import item_names
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
 from ..utils.tab_header import make_heading
+from ..utils.tooltip import Tooltip
 from ui.scaling import px
 
 
@@ -74,8 +81,9 @@ from ui.scaling import px
 #
 # A row is `(key, label, widest)`. The KEY is what `_readings` answers
 # to and is unique across the tab -- `Delegation Module` appears twice
-# and `Nono's Shop` in two columns, so the words cannot serve. `widest`
-# is the longest reading that row can show, which is what the column
+# and `Nono's Shop` in two columns, so the words cannot serve, and a
+# shop's heading carries its PERIOD for the same reason. `widest` is
+# the longest reading that row can show, which is what the column
 # reserves room for; `None` is a row that shows none.
 #
 # **A column's rows are its own.** `Arkhianon Supply` appears under
@@ -93,8 +101,18 @@ from ui.scaling import px
 SHOP_KEY_PREFIX = "shop:"
 SHOP_HEAD_PREFIX = "shophead:"
 
-# How far a shop's products are indented under the shop's own row.
-SHOP_INDENT = 0        # spacing: unique -- a shop's products under the shop -- run, run ↔
+# What a shop heading's own reading answers to. A shop is on the tab
+# under as many PERIODS as it sells caps for -- Nono's is both a weekly
+# and a monthly shelf -- so the period is part of the heading's key,
+# and without it one shop's two rows would read each other's totals.
+SHOP_TOTAL_PREFIX = "shoptotal:"
+
+# The widest a shop heading's total can render, which is what the
+# column reserves room for. Six figures a side: the largest bill any
+# shop can present is five, and the reserve is static so that a total
+# gaining a digit cannot outrun a block that is only rebuilt when the
+# row SET changes.
+SHOP_TOTAL_WIDEST = "999999/999999"
 
 # What a compact `tk.Checkbutton` costs beyond the width of its own
 # words: its indicator, and the gap Tk puts between the two. MEASURED
@@ -236,7 +254,7 @@ COUNTDOWNS = {
     "offensive": "REMNANTS_BOSS_PENALTY",
     "supply_season": "SEASON_PASS",
     "galactic_disaster": "DISASTER_SEASON",
-    "shophead:shop_assault/none": "ASSAULT_SCHEDULE",
+    "shophead:shop_assault/none/account": "ASSAULT_SCHEDULE",
 }
 
 # Shops whose products are kept PER SEASON, and where the live season
@@ -255,6 +273,29 @@ HIDDEN_PRODUCTS = {
 }
 
 
+def shop_head_key(shop, period):
+    """The key of one shop's own heading row. See `SHOP_TOTAL_PREFIX`."""
+    return SHOP_HEAD_PREFIX + "/".join(shop + (period,))
+
+
+def shop_products(shop, period, raw):
+    """[(product id, definition)] the tab lists for one shop and period.
+
+    `shop_stock.products` minus the ones this tab does not show: the
+    hidden ones, and every season but the live one where the shop
+    keeps its shelves per season.
+    """
+    prefix = (_live_season(raw) if shop[0] == SEASONAL_SHOP_CATEGORY
+              else None)
+    if shop[0] == SEASONAL_SHOP_CATEGORY and not prefix:
+        # Without a live season every season's products would show.
+        return ()
+    return tuple((product_id, define)
+                 for product_id, define
+                 in shop_stock.products(shop, period, raw, prefix)
+                 if product_id not in HIDDEN_PRODUCTS)
+
+
 def shop_rows(shop, period, raw):
     """The sub-rows for one shop's products in one period.
 
@@ -264,15 +305,8 @@ def shop_rows(shop, period, raw):
     more -- a product the game adds appears the next time the login
     burst is captured.
     """
-    prefix = (_live_season(raw) if shop[0] == SEASONAL_SHOP_CATEGORY
-              else None)
-    if shop[0] == SEASONAL_SHOP_CATEGORY and not prefix:
-        # Without a live season every season's products would show.
-        return ()
     out = []
-    for product_id, define in shop_stock.products(shop, period, raw, prefix):
-        if product_id in HIDDEN_PRODUCTS:
-            continue
+    for product_id, define in shop_products(shop, period, raw):
         limit = define.get("limit_count")
         out.append((SHOP_KEY_PREFIX + product_id,
                     product_label(define),
@@ -756,6 +790,18 @@ def _event_progress(raw, name):
     return [("%d/%d%s" % (claimed, len(rows), UNKNOWN_MORE), FLOOR)]
 
 
+# Items whose name is longer than a Checklist column wants to be, and
+# what this tab calls them instead. **The full name is on the row's own
+# tooltip**, so the words are still there to read -- see `_checkbox`.
+#
+# Keyed by res_id rather than by the words, so the pair is tied to the
+# product and survives a rename in `item_names`. The shortening is this
+# tab's alone: everywhere else the item keeps its name.
+SHORT_NAMES = {
+    3210002: "Multidimensional...",      # Multidimensional Alignment Material
+}
+
+
 def product_label(define):
     """What to call a product: the item it gives, and how many.
 
@@ -763,9 +809,28 @@ def product_label(define):
     no table names falls back to its id, which is the same marking the
     Capture Log uses -- a number on screen is an invitation to identify
     it, where a blank is a bug nobody can see.
+
+    A name in `SHORT_NAMES` is cut down to fit the column.
     """
     res_id = define.get("product_link_item_id")
-    name = ITEM_NAMES.get(res_id) or str(res_id)
+    return _product_words(define, SHORT_NAMES.get(res_id))
+
+
+def product_tip(define):
+    """A product's FULL label, or None where its row already shows it.
+
+    What the checkbox's tooltip says, and only the shortened rows get
+    one: a tip repeating the words under the pointer is noise.
+    """
+    if define.get("product_link_item_id") not in SHORT_NAMES:
+        return None
+    return _product_words(define, None)
+
+
+def _product_words(define, name):
+    """A product's label built on `name`, or on the item's own."""
+    res_id = define.get("product_link_item_id")
+    name = name or ITEM_NAMES.get(res_id) or str(res_id)
     count = define.get("product_count")
     return name if count in (1, None) else "%s x%s" % (name, count)
 
@@ -929,8 +994,9 @@ EVENT_WIDEST = "99/99" + UNKNOWN_MORE
 #
 # A row is `(key, label, widest)`. The KEY is what `_readings` answers
 # to and is unique across the tab -- `Delegation Module` appears twice
-# and `Nono's Shop` in two columns, so the words cannot serve. `widest`
-# is the longest reading that row can show, which is what the column
+# and `Nono's Shop` in two columns, so the words cannot serve, and a
+# shop's heading carries its PERIOD for the same reason. `widest` is
+# the longest reading that row can show, which is what the column
 # reserves room for; `None` is a row that shows none.
 #
 # **A column's rows are its own.** `Arkhianon Supply` appears under
@@ -1011,7 +1077,7 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
         # knows no products, and a column that emptied itself would
         # read as a broken tab rather than as data not yet arrived.
         for shop in shops if period else ():
-            head = SHOP_HEAD_PREFIX + "/".join(shop)
+            head = shop_head_key(shop, period)
             rows.append((head, shop_stock.SHOPS[shop],
                          WIDEST_COUNTDOWN if head in COUNTDOWNS else None))
             products = shop_rows(shop, period, raw)
@@ -1051,12 +1117,11 @@ ROW_FONT = ("Segoe UI", 9)
 # finished reading.
 ACTIVITY_FULL = 100
 POINT_FIELD = "point_entity"
-# **The claimed state shows its numbers**, where it used to read
-# `All Claimed`. This is the trickiest row on the tab -- the record
-# is written only by the claim and never rolled, so a stale one
+# **The claimed state shows its numbers rather than a word.** The
+# record is written only by the claim and never rolled, so a stale one
 # carries yesterday's points -- and a row that always prints the
-# figures is one where a wrong answer can be SEEN. A word cannot be
-# checked against anything.
+# figures is one where a wrong answer can be SEEN against the game. A
+# word cannot be checked against anything.
 ACTIVITY_UNCLAIMED = "Unclaimed"
 ACTIVITY_CLAIMED = "%d/%d Claimed"
 
@@ -1251,10 +1316,16 @@ ROW_PITCH = 4           # spacing: label row -> label row -- run, run ↕
 # with nothing else of the widget's in it.
 CHECKBOX_PITCH = 1      # spacing: TBD -- checkbox row -> checkbox row
 
-# What sets a block apart from the rows around it: extra space ABOVE a
-# row that heads one -- the Events heading, and every shop's -- and the
-# same again BELOW the last checkbox under it. One lever for both, so
-# a block keeps its own margins symmetrical however the number moves.
+# What sets a block apart from the rows around it: extra space on the
+# row that crosses a BOUNDARY -- the first row of a shop or of the
+# Events list, and the first ordinary row after one.
+#
+# **Charged once per boundary, and only above.** Paying it below a
+# block as well doubled it wherever two blocks touch, which on this tab
+# is most of them -- every shop is followed by another. And the row at
+# the TOP of a column crosses nothing: the Monthly column starts on a
+# shop, and charging it there dropped that column below the other
+# three for a gap with nothing on the other side of it.
 BLOCK_PAD = 4           # spacing: TBD -- block heading and its checkbox run
 
 # What each line tag's `spacing1` is set from. The tags are configured
@@ -1262,11 +1333,15 @@ BLOCK_PAD = 4           # spacing: TBD -- block heading and its checkbox run
 # one table serves both -- a pitch changed in one place and not the
 # other sizes the block for rows it does not draw, and Tk clips the
 # difference off the bottom without a word.
-ROW_TAG_PITCH = {"row": ROW_PITCH, "headrow": ROW_PITCH + BLOCK_PAD,
-                 "boxrow": CHECKBOX_PITCH, "boxlast": CHECKBOX_PITCH}
+ROW_TAG_PITCH = {"row": ROW_PITCH, "blockrow": ROW_PITCH + BLOCK_PAD,
+                 "boxrow": CHECKBOX_PITCH}
 
 # A row's words against its value, which is a left TAB STOP. A lever
 # short of the rule, the words stopping inside their own advance.
+#
+# **A shop heading's total hangs off the same lever**, at a stop of its
+# own so that it follows the heading's words rather than the column --
+# see `_head_stop`.
 LABEL_TO_VALUE = 6      # spacing: label ↔ its element -- run, run ↔
 
 # The heading of a column against the first row under it. The gap runs
@@ -1280,6 +1355,25 @@ HEADING_GAP = 2         # spacing: panel ↕ unrelated label -- heading, frame �
 # `width` is in CHARACTERS and this block is sized in pixels, so the
 # holder is fixed and the Text fills it.
 TEXT_INSET = 2
+
+# What a shop heading's total is tagged with, plus the heading's key.
+# Each heading gets a tab stop of its OWN -- the stop is a tag option
+# and a tag is shared by every line that carries it, so one stop per
+# heading means one tag per heading.
+SHOP_STOP_PREFIX = "headstop:"
+
+
+def _head_stop(font, label):
+    """Where a shop heading's total starts, in pixels from the left.
+
+    Off the heading's OWN words rather than off the column's
+    label/value stop: the total belongs to the shop it names, not to
+    the column of readings beside it. Same lever and so the same gap,
+    which is why a heading that IS its column's longest label lands on
+    that stop exactly -- there is nowhere else the gap could put it.
+    """
+    # spacing: label ↔ its element -- run, run ↔
+    return font.measure(label) + TEXT_INSET + LABEL_TO_VALUE
 
 
 
@@ -1310,6 +1404,11 @@ class ChecklistTab(BaseTab):
         self._definitions = None
         # The countdown beside each period column's heading.
         self._period_labels = {}
+        # How tall a line holding a checkbox is. See `_checkbox_line`.
+        self._box_line = None
+        # The full name behind a shortened product row. See
+        # `SHORT_NAMES`; one instance serves every checkbox.
+        self._tips = Tooltip(self.colors)
         self.setup_ui()
         # Drawn once with nothing, so the tab is its rows rather than a
         # blank before the first capture.
@@ -1509,15 +1608,24 @@ class ChecklistTab(BaseTab):
         # column that sized to its content would move every row's words
         # the moment a figure gained a digit.
         #
-        # A shop's products are indented under it, so their labels
-        # reach further right than their words alone say.
+        # A shop product's label is a CHECKBOX, so it reaches further
+        # right than its words alone say.
         labels = max(font.measure(label)
-                     + (px(SHOP_INDENT) + px(CHECKBOX_OVERHEAD)
-                        if _is_shop(key) else 0)
+                     + (px(CHECKBOX_OVERHEAD) if _is_shop(key) else 0)
                      for key, label, _w in rows)
         stop = labels + TEXT_INSET + LABEL_TO_VALUE
         widest = max([font.measure(w) for _k, _l, w in rows if w] or [0])
-        holder = tk.Frame(parent, width=stop + widest,
+        # **A shop heading's line is outside that column**, hanging off
+        # its own words: its total, then its reserve, then anything
+        # else the heading shows. So the block is as wide as whichever
+        # reaches further, the readings at the stop or the longest
+        # heading here.
+        reach = max([_head_stop(font, label)
+                     + font.measure(SHOP_TOTAL_WIDEST)
+                     + (font.measure(w) if w else 0)
+                     for key, label, w in rows
+                     if key.startswith(SHOP_HEAD_PREFIX)] or [0])
+        holder = tk.Frame(parent, width=max(stop + widest, reach),
                           height=self._block_height(
                               [key for key, _l, _w in rows]),
                           bg=self.colors["bg"])
@@ -1553,13 +1661,24 @@ class ChecklistTab(BaseTab):
         # spacing: TBD -- checkbox row -> checkbox row
         for tag, pitch in ROW_TAG_PITCH.items():
             text.tag_configure(tag, spacing1=px(pitch))
-        # The last checkbox of a run closes the block off below it.
-        text.tag_configure("boxlast", spacing3=px(BLOCK_PAD))
-        # A shop's products, indented under the shop's own row. In
-        # PIXELS, on the line: a run of spaces is whatever the font
-        # makes it, and this is a distance.
-        # spacing: unique -- a shop's products under the shop -- run, run ↔
-        text.tag_configure("indent", lmargin1=px(SHOP_INDENT))
+        # A tab stop per shop heading, for the total beside it. A
+        # line's stops come from the tags on its FIRST character, so
+        # each heading needs a tag of its own -- one stop cannot serve
+        # two headings of different lengths.
+        for key, label, _w in rows:
+            if not key.startswith(SHOP_HEAD_PREFIX):
+                continue
+            own = _head_stop(font, label)
+            # Two stops, both the heading's own: the total, and
+            # whatever follows it. **The second cannot be the column's
+            # stop.** A total is wider than the gap between a heading
+            # and that stop, so a tab aiming there is already behind
+            # the cursor -- and Tk then falls through to a spacing of
+            # its own devising, which is not a thing to lay a gap on.
+            # So a shop heading's line hangs entirely off its words.
+            text.tag_configure(
+                SHOP_STOP_PREFIX + key,
+                tabs=(own, own + font.measure(SHOP_TOTAL_WIDEST)))
         # Green is nothing left to do on that row, red is something
         # left. A row a snapshot cannot answer for takes neither.
         text.tag_configure(DONE, foreground=self.colors["green"])
@@ -1583,32 +1702,54 @@ class ChecklistTab(BaseTab):
         self.column_texts[title] = (text, rows)
         return lambda: [do() for do in show]
 
-    @staticmethod
-    def _block_height(keys):
+    def _checkbox_line(self):
+        """How tall a line holding a checkbox is, MEASURED once.
+
+        **A `tk.Checkbutton` is taller than the text line it sits in**
+        -- its indicator sets the height, not the words -- and Tk grows
+        the line to fit the window embedded in it. So a block sized on
+        the font's `linespace` alone comes up short by the difference
+        on every checkbox row it holds, and `pack_propagate(False)`
+        clips the shortfall off the bottom without a word: the shops at
+        the foot of a column simply stop being drawn.
+
+        Not written down as a number: it moves with the face and with
+        the display scale, and a stale one here LOSES rows.
+
+        The probe is never given a geometry manager, so it is built and
+        destroyed without ever being mapped.
+        """
+        if self._box_line is None:
+            probe = make_checkbox(self.frame, self.colors, text="Ag",
+                                  compact=True)
+            self._box_line = probe.winfo_reqheight()
+            probe.destroy()
+        return max(tkfont.Font(font=ROW_FONT).metrics("linespace"),
+                   self._box_line)
+
+    def _block_height(self, keys):
         """A column's height: its rows and the space around each.
 
         Measured off the face rather than multiplied by a guess -- a
         Text sizes in LINES and this block is pinned in pixels, so the
         two have to be reconciled somewhere.
 
-        **Every row's OWN pitch**, not one figure times the row count:
-        a checkbox row, a block heading and an ordinary row each carry
-        a different `spacing1`, and a block sized on the ordinary one
-        clips however many lines the difference adds up to.
+        **Every row's OWN height and pitch**, not one figure times the
+        row count: a checkbox row, a block boundary and an ordinary row
+        differ in both, and a block sized on the ordinary one clips
+        however many lines the difference adds up to.
         """
         # Each row's pitch counts, not each gap BETWEEN rows:
         # `spacing1` is drawn above EVERY line including the first, so
         # a block sized for the gaps alone is one pitch short and clips
-        # its last line. `spacing3` below the last checkbox of a run is
-        # inside the block for the same reason.
+        # its last line.
         line = tkfont.Font(font=ROW_FONT).metrics("linespace")
-        total = 0
-        for at, key in enumerate(keys):
-            below = keys[at + 1] if at + 1 < len(keys) else None
-            tags = _row_tags(key, below)
-            total += line + px(ROW_TAG_PITCH[tags[0]])
-            if "boxlast" in tags:
-                total += px(BLOCK_PAD)
+        box = self._checkbox_line()
+        total, above = 0, None
+        for key in keys:
+            total += (box if _is_shop(key) else line)
+            total += px(ROW_TAG_PITCH[_row_tags(key, above)[0]])
+            above = key
         return total
 
     # ----------------------------------------------------------- update
@@ -1619,7 +1760,8 @@ class ChecklistTab(BaseTab):
         Called automatically after data loads.
         """
         raw = getattr(self.optimizer, "raw_data", None) or {}
-        readings = self._settle_floors(_readings(raw))
+        readings = self._settle_floors(
+            _readings(raw, tracked=self._tracked))
         # A rebuilt column is filled inside the rebuild, before it is
         # shown; this fills the ones that were left standing.
         self._rebuild_columns(raw, readings)
@@ -1679,9 +1821,8 @@ class ChecklistTab(BaseTab):
         the whole block, checkboxes and all, for a line of digits.
 
         **A shop product's label is a CHECKBOX**, embedded in the line
-        with `window_create`. The widget goes in at the line's start,
-        so the line's own `lmargin1` indents the checkbox itself and
-        its left edge lands where an ordinary row's words do.
+        with `window_create`, and its left edge lands where an ordinary
+        row's words do.
         """
         drawn = self._draw(rows, readings)
         was = self._rendered.get(title)
@@ -1700,20 +1841,19 @@ class ChecklistTab(BaseTab):
         text.config(state=tk.NORMAL)
         text.delete("1.0", tk.END)
         for index, ((key, label, _tracked, segments), line,
-                    label_tag) in enumerate(drawn):
+                    label_tag, total) in enumerate(drawn):
             if index:
                 text.insert(tk.END, LINE_SEP, line)
             if _is_shop(key):
                 head = segments[0][1] if segments else UNKNOWN
                 # **`window_create` takes no tags**, and a line reads
-                # its own `spacing1` and `lmargin1` off its FIRST
+                # its own `spacing1` and its tab stops off its FIRST
                 # character -- which for one of these rows is the
                 # untagged character the window leaves behind. So the
                 # tags on the rest of the line styled the words and
-                # nothing else: a checkbox row took neither the pitch
-                # above it nor the indent that puts it under its shop,
-                # and changing either moved nothing on screen. The
-                # window lands where `end` was before the call.
+                # nothing else: a checkbox row took none of the pitch
+                # above it, and changing that moved nothing on screen.
+                # The window lands where `end` was before the call.
                 at = text.index(tk.END + "-1c")
                 text.window_create(tk.END, window=self._checkbox(
                     title, text, key, label, head))
@@ -1721,26 +1861,25 @@ class ChecklistTab(BaseTab):
                     text.tag_add(tag, at, at + "+1c")
             else:
                 text.insert(tk.END, label, line + label_tag)
-            for at, (words, state) in enumerate(segments):
-                text.insert(tk.END, (COLUMN_SEP if not at else SEGMENT_GAP)
-                            + words, line + ((state,) if state else ()))
+            _insert_value(text, line, total, segments)
         text.config(state=tk.DISABLED)
 
     def _draw(self, rows, readings):
-        """Every row's drawn form, each told what follows it.
+        """Every row's drawn form, each told what precedes it.
 
         One place, because the column is built from this twice -- once
         to decide whether anything changed and once to write it -- and
         two loops that drifted apart would compare a column against a
         different column and rewrite it every refresh.
         """
-        keys = [key for key, _label, _widest in rows]
-        return tuple(
-            self._line(key, label, readings,
-                       keys[at + 1] if at + 1 < len(keys) else None)
-            for at, (key, label, _widest) in enumerate(rows))
+        above = None
+        out = []
+        for key, label, _widest in rows:
+            out.append(self._line(key, label, readings, above))
+            above = key
+        return tuple(out)
 
-    def _line(self, key, label, readings, below=None):
+    def _line(self, key, label, readings, above=None):
         """One row's drawn form: its words, its readings, its tags.
 
         Everything that decides what the line LOOKS like, and nothing
@@ -1749,10 +1888,12 @@ class ChecklistTab(BaseTab):
         through the segment colours: it also colours the CHECKBOX, and
         a value patch does not repaint that.
 
-        `below` is the key of the row UNDER this one, or None at the
-        foot of the column. A checkbox cannot tell it is the last of
-        its run by looking at itself, and that is what closes a block
-        off -- see `_row_tags`.
+        `above` is the key of the row OVER this one, or None at the top
+        of the column, and it is what says whether this row pays the
+        pad that sets a block apart -- see `_row_tags`.
+
+        The fourth field is a shop heading's own total, which sits at a
+        stop of its own rather than in the column of readings.
         """
         tracked = not _is_shop(key) or self._tracked(_product_of(key))
         segments = tuple(readings.get(key) or ())
@@ -1761,8 +1902,9 @@ class ChecklistTab(BaseTab):
             # greys, red and green being about work left and a product
             # nobody tracks having none.
             segments = tuple((words, MUTED) for words, _s in segments)
-        line = _row_tags(key, below)
-        return (key, label, tracked, segments), line, _label_tag(key, label)
+        total = readings.get(SHOP_TOTAL_PREFIX + key)
+        return ((key, label, tracked, segments), _row_tags(key, above),
+                _label_tag(key, label), total[0] if total else None)
 
     def _checkbox(self, title, parent, key, label, state):
         """One shop product's checkbox, kept alive on the tab.
@@ -1770,6 +1912,10 @@ class ChecklistTab(BaseTab):
         Held in `_boxes` under its own column because a Text does not
         own an embedded window: dropping the reference leaves the
         widget parented and undestroyed on the next rewrite.
+
+        **The tip is bound to the WIDGET**, so a row whose words are
+        cut short carries its full name wherever ticking sorts it --
+        the box is rebuilt in its new place with the same binding.
         """
         product_id = _product_of(key)
         variable = tk.BooleanVar(value=self._tracked(product_id))
@@ -1778,8 +1924,25 @@ class ChecklistTab(BaseTab):
             compact=True,
             fg=self.colors["fg_dim"] if state is MUTED else None,
             command=lambda p=product_id, v=variable: self._toggle(p, v))
+        tip = self._product_tip(product_id)
+        if tip:
+            self._tips.bind(box, tip)
         self._boxes.setdefault(title, []).append(box)
         return box
+
+    def _product_tip(self, product_id):
+        """One product's full name, or None where its row shows it.
+
+        Off the remembered definitions rather than off the snapshot:
+        the rows are built from those too, so a tip cannot go missing
+        on a capture's first save while its row is still drawn.
+        """
+        for defines in (self._definitions or {}).values():
+            define = (defines or {}).get(product_id) if isinstance(
+                defines, dict) else None
+            if isinstance(define, dict):
+                return product_tip(define)
+        return None
 
 
 
@@ -1952,22 +2115,45 @@ def _same_rows(was, drawn):
 def _patch_value(text, lineno, drawn):
     """Rewrite one line's reading, leaving the rest of the line alone.
 
-    The reading is everything from the row's tab to the end of the
-    line, so the label -- or the embedded checkbox standing in for one
-    -- is never touched. Destroying and recreating an embedded window
-    is what makes the block visibly reflow.
+    The reading is everything from the row's FIRST tab to the end of
+    the line, so the label -- or the embedded checkbox standing in for
+    one -- is never touched. Destroying and recreating an embedded
+    window is what makes the block visibly reflow.
+
+    A shop heading's total is inside that stretch and is rewritten
+    with the rest: it is a reading too, and it moves for the same
+    reasons.
     """
-    (_key, _label, _tracked, segments), line, _label_tag = drawn
+    (_key, _label, _tracked, segments), line, _label_tag, total = drawn
     end = "%d.end" % lineno
     at = text.search(COLUMN_SEP, "%d.0" % lineno, end)
     if at:
         text.delete(at, end)
+    _insert_value(text, line, total, segments, at="%d.end" % lineno)
+
+
+def _insert_value(text, line, total, segments, at=tk.END):
+    """Write a row's total and readings onto the end of its line.
+
+    One place, because the line is written twice -- built whole, and
+    patched when only its numbers moved -- and the two drifting apart
+    would put a heading's total at a different stop each way.
+
+    **The total goes in FIRST and takes the line's own first tab.** On
+    a shop heading both stops are the heading's own, so a heading
+    carrying a countdown as well reads name, total, countdown, each at
+    a fixed distance from the words rather than from the column.
+    """
+    if total:
+        words, state = total
+        text.insert(at, COLUMN_SEP + words,
+                    line + ((state,) if state else ()))
     for index, (words, state) in enumerate(segments):
-        text.insert(end, (COLUMN_SEP if not index else SEGMENT_GAP) + words,
+        text.insert(at, (COLUMN_SEP if not index else SEGMENT_GAP) + words,
                     line + ((state,) if state else ()))
 
 
-def _readings(raw, now=None):
+def _readings(raw, now=None, tracked=None):
     """{row key: (text, alert)} for every row that shows a value.
 
     One place for all of them, and pure but for the clock, so the whole
@@ -1976,6 +2162,11 @@ def _readings(raw, now=None):
 
     A row whose source is missing reads `-` rather than `0`: nothing
     claimed and nothing recorded are different answers.
+
+    `tracked` is a predicate on a shop product id, and only the shop
+    HEADINGS use it -- a shop's bill is what its ticked products cost.
+    None means everything is ticked, which is also what the tab reads
+    before a settings manager exists.
     """
     now = time.time() if now is None else now
     amounts = item_amounts.held(raw)
@@ -2241,7 +2432,56 @@ def _readings(raw, now=None):
             out[key] = _one("%s/%d" % (NO_DATA, limit), UNKNOWN)
         else:
             out[key] = _one("%d/%d" % (stock, limit), _done(stock == 0))
+
+    _add_shop_totals(out, raw, amounts, tracked, now)
     return out
+
+
+def _add_shop_totals(out, raw, amounts, tracked, now):
+    """Fold each shop heading's own reading into `out`.
+
+    `<currency on hand>/<what clearing the ticked products costs>`, so
+    one glance says whether a shop can be finished this period.
+
+    **A shop sells for ONE currency**, the same `price_link_item_id` on
+    every product of a screen, and that is what makes a single total
+    meaningful. A shop that reads as more than one says nothing rather
+    than adding prices in different money: the seasonal supplies are
+    free and carry no price item at all, and the seasonal shop's past
+    seasons each had their own -- the live-season filter is what leaves
+    one standing.
+
+    **Only the TICKED products are billed.** The row answers "can I
+    clear what I care about", and an untracked product is one the user
+    has said they do not.
+
+    A product whose remaining count the snapshot cannot give is left
+    out of the bill, which then understates: such a total carries
+    `UNKNOWN_MORE` and stays red, affordable-looking or not.
+    """
+    for title, _fixed, shops, _events in COLUMNS:
+        period = PERIOD_BY_COLUMN.get(title)
+        for shop in shops if period else ():
+            money, bill, unknown = set(), 0, False
+            for product_id, define in shop_products(shop, period, raw):
+                money.add(define.get("price_link_item_id"))
+                if tracked is not None and not tracked(product_id):
+                    continue
+                left, _cap = shop_stock.remaining(
+                    product_id, define, raw, now)
+                price = define.get("price_count")
+                if left is None or not _is_count(price):
+                    unknown = True
+                    continue
+                bill += left * price
+            currency = money.pop() if len(money) == 1 else None
+            if not _is_count(currency):
+                continue
+            held = amounts.get(currency)
+            held = held if _is_count(held) else 0
+            out[SHOP_TOTAL_PREFIX + shop_head_key(shop, period)] = _one(
+                "%d/%d%s" % (held, bill, UNKNOWN_MORE if unknown else ""),
+                _done(not unknown and held >= bill))
 
 
 def _period_left(title, raw, now):
@@ -2501,7 +2741,21 @@ def _heads_a_block(key):
     return key.startswith(SHOP_HEAD_PREFIX) or key == EVENT_KEY_PREFIX
 
 
-def _row_tags(key, below):
+def _crosses_a_block(above, key):
+    """Whether the gap between two rows is a block's own edge.
+
+    True where `key` opens a block, and true where `above` closed one
+    -- a shop's last product followed by anything that is not another
+    of its products. **Once either way**: charging the pad on both
+    sides of a boundary doubles it wherever two blocks touch, which on
+    this tab is every shop but the first in its column.
+    """
+    if above is None:
+        return False                # the top of a column crosses nothing
+    return _heads_a_block(key) or (_is_shop(above) and not _is_shop(key))
+
+
+def _row_tags(key, above):
     """The line tags one row takes, beyond its own colours.
 
     **Exactly one pitch tag per line.** Tk resolves two tags setting
@@ -2509,14 +2763,20 @@ def _row_tags(key, below):
     stacking a pad on top of `row` would give a gap that depends on
     the order the tags happened to be created in.
 
-    `below` is the key of the row under this one, or None at the foot
-    of the column, and it is how the last checkbox of a run closes the
-    block off underneath itself.
+    `above` is the key of the row OVER this one, or None at the top of
+    the column. The block pad rides the row below a boundary, so that
+    is what says whether this row pays it.
+
+    A shop heading also carries the tab stop its own total sits at --
+    see `SHOP_STOP_PREFIX`. That tag holds no pitch, and the pitch tag
+    stays first: callers read `[0]` for it.
     """
     if _is_shop(key):
-        pitch = "boxrow" if below is not None and _is_shop(below) else "boxlast"
-        return (pitch, "indent")
-    return ("headrow",) if _heads_a_block(key) else ("row",)
+        return ("boxrow",)
+    pitch = "blockrow" if _crosses_a_block(above, key) else "row"
+    if key.startswith(SHOP_HEAD_PREFIX):
+        return (pitch, SHOP_STOP_PREFIX + key)
+    return (pitch,)
 
 
 def _is_count(value):

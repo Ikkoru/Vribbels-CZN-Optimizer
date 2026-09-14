@@ -83,6 +83,7 @@ def run():
         UNKNOWN_MORE, FLOOR, FLOOR_SETTLES_AFTER,
         PASS_MISSION_FIELD, _at_ceiling, _event_missions,
         EXPECTED_VALUE, EVENT_KEY_PREFIX, _event_rows,
+        SHOP_HEAD_PREFIX, SHOP_TOTAL_PREFIX, shop_head_key,
     )
 
     failures = []
@@ -104,10 +105,17 @@ def run():
     week = now + MODULE_WINDOWS[1][0]
 
     # --- every keyed reading belongs to a row, and vice versa ---------
+    # A shop heading's total is keyed apart from the rows -- it is
+    # drawn at a stop of its own rather than in the column of readings
+    # -- so it is matched against the headings instead.
     keyed = {key for _title, rows in columns_for(_snapshot())
              for key, _label, widest in rows if widest}
+    heads = {SHOP_TOTAL_PREFIX + key
+             for _title, rows in columns_for(_snapshot())
+             for key, _label, _widest in rows
+             if key.startswith(SHOP_HEAD_PREFIX)}
     produced = set(_readings(_snapshot(), now))
-    if produced != keyed:
+    if (produced - keyed - heads) or (keyed - produced):
         failures.append(
             f"the rows reserving a value are {sorted(keyed)} and "
             f"`_readings` produces {sorted(produced)}. A row reserving "
@@ -142,9 +150,9 @@ def run():
     # belongs to that earlier day, which is why a stale 100 must not
     # read as a finished today.
     today = weekly_reset.day_index(now)
-    # **The claimed state prints its numbers too.** This is the
-    # trickiest row on the tab, and a figure can be checked against
-    # the game where a word like `All Claimed` cannot.
+    # **The claimed state prints its numbers too**, so that a figure
+    # can be checked against the game where a word like `All Claimed`
+    # cannot.
     cases = ((today, ACTIVITY_FULL,
               ACTIVITY_CLAIMED % (ACTIVITY_FULL, ACTIVITY_FULL), DONE),
              (today, 20, ACTIVITY_CLAIMED % (20, ACTIVITY_FULL), TODO),
@@ -1039,6 +1047,80 @@ def run():
             f"a row whose only reading is a deadline reads {got!r}, not "
             f"the time alone. A dash beside it would be a stand-in "
             f"presented as an answer.")
+
+    # --- a shop heading's own total -----------------------------------
+    # `<currency held>/<what clearing the ticked products costs>`. The
+    # bill is the part that can go quietly wrong: a price read off the
+    # wrong field, a cap counted instead of what is left, or an
+    # untracked product billed anyway all produce a number that still
+    # looks like a number.
+    MONEY = 2000031                 # Policy Point
+    SHOP = ("shop_town", "none")
+    HEAD = SHOP_TOTAL_PREFIX + shop_head_key(SHOP, "weekly")
+
+    def _shop(products, bought=(), held=9999, money=MONEY):
+        """A snapshot of one weekly shop and what has been bought."""
+        raw = _snapshot(amounts=((money, held),) if money else ())
+        raw["shop_res_data"] = {SHOP[0]: {
+            pid: {"link_shop_sub_category_id": SHOP[1],
+                  "limit_type": "LIMIT_WEEK", "limit_count": cap,
+                  "product_link_item_id": 3210002, "product_count": 1,
+                  "price_link_item_id": price_of,
+                  "price_count": price, "sort": at}
+            for at, (pid, cap, price, price_of) in enumerate(products)}}
+        # A row per product, `bought` overriding. `shop_list` arriving
+        # at all is what tells `shop_stock.remaining` an absent row
+        # means a full shelf rather than an unread one.
+        raw["shop_list"] = {pid: {"count": 0, "reset_time": now}
+                            for pid, _cap, _price, _of in products}
+        for pid, count in bought:
+            raw["shop_list"][pid] = {"count": count, "reset_time": now}
+        return raw
+
+    # Nothing bought: the bill is every cap at its price.
+    raw = _shop((("a", 3, 20, MONEY), ("b", 1, 100, MONEY)), held=250)
+    got = _readings(raw, now)[HEAD][0]
+    if got != ("250/160", DONE):
+        failures.append(
+            f"a full shelf of 3x20 and 1x100 against 250 held reads "
+            f"{got!r}, not ('250/160', {DONE!r}). The bill is what is "
+            f"LEFT to buy at its price, and green is being able to "
+            f"afford the lot.")
+
+    # Bought down, and short of the money.
+    raw = _shop((("a", 3, 20, MONEY), ("b", 1, 100, MONEY)),
+                bought=(("a", 2),), held=50)
+    got = _readings(raw, now)[HEAD][0]
+    if got != ("50/120", TODO):
+        failures.append(
+            f"with two of three bought and 50 held, the shop reads "
+            f"{got!r}, not ('50/120', {TODO!r}). A bill counting the CAP "
+            f"rather than the remainder overstates every shop the "
+            f"account has shopped at.")
+
+    # An untracked product is not billed.
+    raw = _shop((("a", 3, 20, MONEY), ("b", 1, 100, MONEY)), held=250)
+    got = _readings(raw, now, tracked=lambda pid: pid != "b")[HEAD][0]
+    if got != ("250/60", DONE):
+        failures.append(
+            f"with one of two products unticked the shop reads {got!r}, "
+            f"not ('250/60', {DONE!r}). The row answers for what the "
+            f"user tracks, and billing the rest makes it unanswerable.")
+
+    # Two currencies on one shelf: nothing to total.
+    raw = _shop((("a", 3, 20, MONEY), ("b", 1, 100, 2000020)))
+    if HEAD in _readings(raw, now):
+        failures.append(
+            "a shop priced in two currencies still produced a total. "
+            "Adding prices in different money gives a figure that "
+            "cannot be compared with any holding.")
+
+    # No price item at all -- the seasonal supplies are free.
+    raw = _shop((("a", 3, 0, None),), money=None)
+    if HEAD in _readings(raw, now):
+        failures.append(
+            "a shop whose products carry no price item still produced a "
+            "total. There is no currency to read and nothing to spend.")
 
     # --- the ids the rows read ----------------------------------------
     # **Against the NAME, not against the constant.** Every assertion

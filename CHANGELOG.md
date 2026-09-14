@@ -18,11 +18,17 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **An item whose name is only a guess is drawn red in the Capture Log.** Two event currencies are named from one event each and the game may hand the same id out under a different name later; red says to check the line rather than trust it. An id nothing can name at all stays dim yellow, as before.
 
+- **Each shop on the Checklist says what clearing it costs.** Beside the shop's name, the currency on hand over the bill for every ticked product still on its shelves — green once you can afford the lot. A product you have unticked is not billed, and a shop whose products are free or priced in more than one currency shows nothing rather than a figure that cannot be compared with anything.
+
+- **`Multidimensional Alignment Material` is shortened on the Checklist**, with the full name on the row's own tooltip. The tip is bound to the row, so it follows the product wherever ticking sorts it.
+
 - **An event row says when its total is only a guess.** Most events hand out their rewards over the whole run, so the count on screen is what you have been offered so far, not what the event holds. Those rows now read `16/20+?`. The `+?` comes off — and the row goes green — where the game itself says the event is finished.
 
 - **An event goes green once its final reward is claimed.** The game keeps its own record of that, which is the only thing on the wire that can tell a finished event from one still handing rewards out.
 
 ### Fixed
+
+- **The Checklist stopped losing the shops at the foot of a column.** Each column is a block of a fixed height, and a checkbox row is taller than a text one — so the block came up three pixels short per shop product and Tk clipped the difference off the bottom silently. The Weekly column was missing its Seasonal Shop and the Monthly column its last two rows.
 
 - **A fresh install opens at the same size a loaded one does.** Two panels were laid out only once data arrived: the Combatants tab's six fragment cells came up at a text widget's default size, far larger than they end up, which pushed the Character and Partner cards out of the space they fill; and the Memory Fragments tab's Sets panel came up empty and narrow, moving every panel beside it when the first snapshot loaded. The Sets columns now reserve room for a four-digit count instead of fitting the counts in hand, so the panel is the same width whatever you own.
 
@@ -58,9 +64,9 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The Checklist columns sit evenly across the tab.** The four were flush against the left with the whole leftover width piled up after the last one; the gaps now fall between them and both ends stand the same distance from the window.
 
-- **Each block on the Checklist is set apart from the rows around it.** A shop's heading and the Events heading take a little more space above them, and a shop's last product the same below.
+- **Each block on the Checklist is set apart from the rows around it.** A shop's heading and the Events heading take a little more space above them — once per edge, so two shops in a row are no further apart than a shop and a plain row, and a column that opens on a shop still starts level with its neighbours.
 
-- **The Activities row shows its numbers even when it is finished**, `100/100 Claimed` rather than `All Claimed`. It is the trickiest reading on the tab — the record is written only by the claim and never rolled — and a figure can be checked against the game where a word cannot.
+- **The Activities row shows its numbers even when it is finished**, `100/100 Claimed` rather than `All Claimed`. Its record is written only by the claim and never rolled, and a figure can be checked against the game where a word cannot.
 
 - **The Events list puts what you still owe first.** Events with rewards left to claim sort to the top by deadline; the ones that are finished, and a daily event whose day is already taken, sit below them.
 

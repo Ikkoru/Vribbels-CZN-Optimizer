@@ -1197,19 +1197,25 @@ def _log_presets_redraw_replaces_nothing(tab):
 
 
 def _checklist_block_is_tall_enough(tab):
-    """A column's fixed height has to match the pitches it draws.
+    """A column's fixed height has to match what the Text lays out.
 
     The rows live in a Text inside a frame with `pack_propagate(False)`
     and a height in PIXELS, so nothing pushes back when the sum is
     wrong: Tk clips whatever does not fit off the bottom and the column
-    simply ends a row early. Three different pitches feed it now -- an
-    ordinary row, a block heading, a checkbox -- plus a pad under the
-    last checkbox of a run, and `ROW_TAG_PITCH` is the one table both
-    the tags and the height are built from.
+    simply ends a row early. Three pitches feed it -- an ordinary row,
+    a block boundary, a checkbox -- and `ROW_TAG_PITCH` is the one
+    table both the tags and the height are built from.
 
-    So this holds the two ends together: every tag the Text configures
-    carries the `spacing1` the table says, and a column's computed
-    height equals the pitches of the rows it actually contains.
+    **And a checkbox row is TALLER than a text one**, the embedded
+    widget rather than the font setting the line. Sizing every row at
+    the font's `linespace` lost three pixels per checkbox and clipped
+    whole shops off the foot of the Weekly and Monthly columns.
+
+    So this holds the ends together three ways: every tag the Text
+    configures carries the `spacing1` the table says, a column's
+    computed height equals the pitches of the rows it contains, and
+    the Text's own laid-out lines fit inside the block reserved for
+    them.
 
     Returns a list of complaints.
     """
@@ -1234,18 +1240,12 @@ def _checklist_block_is_tall_enough(tab):
                 f"ROW_TAG_PITCH says {px(pitch)}. That table is what "
                 f"`_block_height` adds up, so the block is sized for rows "
                 f"the Text does not draw and Tk clips the difference.")
-    if int(texts[0].tag_cget("boxlast", "spacing3") or 0) != px(mod.BLOCK_PAD):
-        out.append(
-            "the last checkbox of a run carries no `spacing3`, so nothing "
-            "closes a block off below it -- and `_block_height` reserves "
-            "room for a pad that is not drawn.")
-
     # **A checkbox row's own tags**, which is where this last went
     # wrong. `window_create` takes no tags, and a line reads `spacing1`
-    # and `lmargin1` off its FIRST character -- so a checkbox row was
-    # styling its words and nothing else. The pitch and the indent both
-    # did nothing, and both changed nothing visible when they moved,
-    # which is as quiet as a layout bug gets.
+    # and its tab stops off its FIRST character -- so a checkbox row
+    # was styling its words and nothing else. The pitch did nothing,
+    # and changed nothing visible when it moved, which is as quiet as
+    # a layout bug gets.
     for text in texts:
         last = int(text.index("end-1c").split(".")[0])
         for line in range(1, last + 1):
@@ -1253,34 +1253,145 @@ def _checklist_block_is_tall_enough(tab):
             if not text.dump(start, start + "+1c", window=True):
                 continue                      # not a checkbox row
             tags = set(text.tag_names(start))
-            missing = {"indent"} - tags
-            if missing or not tags & set(mod.ROW_TAG_PITCH):
+            if not tags & set(mod.ROW_TAG_PITCH):
                 out.append(
                     f"the checkbox on line {line} carries tags {sorted(tags)}, "
-                    f"with no pitch tag or no indent. `window_create` leaves "
+                    f"with no pitch tag among them. `window_create` leaves "
                     f"an untagged character and the line takes its spacing "
-                    f"from that one, so the row loses both.")
+                    f"from that one, so the row loses it.")
                 break
 
     # And the height itself, against the rows a column really holds.
     line = tkfont.Font(font=mod.ROW_FONT).metrics("linespace")
+    box = tab._checkbox_line()
     for title, rows in mod.columns_for({}, None, 0, None):
         if not rows:
             continue
         keys = [key for key, _label, _widest in rows]
-        want = 0
-        for at, key in enumerate(keys):
-            below = keys[at + 1] if at + 1 < len(keys) else None
-            tags = mod._row_tags(key, below)
-            want += line + px(mod.ROW_TAG_PITCH[tags[0]])
-            if "boxlast" in tags:
-                want += px(mod.BLOCK_PAD)
-        got = mod.ChecklistTab._block_height(keys)
+        want, above = 0, None
+        for key in keys:
+            want += (box if mod._is_shop(key) else line)
+            want += px(mod.ROW_TAG_PITCH[mod._row_tags(key, above)[0]])
+            above = key
+        got = tab._block_height(keys)
         if got != want:
             out.append(
                 f"the {title!r} column reserves {got}px for {len(keys)} "
                 f"rows where their own pitches come to {want}px. A short "
                 f"block clips its last row and nothing reports it.")
+
+    return out
+
+
+def _checklist_short_names_keep_their_tip(tab):
+    """A row whose name is cut short has to carry the full one.
+
+    `SHORT_NAMES` trades words for column width, and the only thing
+    giving them back is the checkbox's own tooltip. A shortened row
+    with no tip is a product named by an ellipsis, which is worse than
+    the long name it replaced -- and nothing about it looks wrong.
+
+    The tip is bound to the WIDGET rather than to a line, so it follows
+    the product wherever ticking sorts it; that is what this reads.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs import checklist_tab as mod
+    out = []
+    for res_id, short in mod.SHORT_NAMES.items():
+        full = mod.ITEM_NAMES.get(res_id)
+        if not full:
+            out.append(
+                f"SHORT_NAMES shortens item {res_id}, which `item_names` "
+                f"does not name -- so the tip would have nothing to say "
+                f"and the row would read as an ellipsis with no product.")
+        elif len(short) >= len(full):
+            out.append(
+                f"SHORT_NAMES turns {full!r} into {short!r}, which is no "
+                f"shorter. The table costs a tooltip and buys nothing.")
+    shortened = set(mod.SHORT_NAMES.values())
+    seen = 0
+    for boxes in tab._boxes.values():
+        for box in boxes:
+            words = str(box.cget("text"))
+            if not any(words.startswith(short) for short in shortened):
+                continue
+            seen += 1
+            if not box.bind("<Enter>"):
+                out.append(
+                    f"the shop row {words!r} is a shortened name with no "
+                    f"hover binding, so the full name is nowhere on the "
+                    f"tab.")
+                break
+    if mod.SHORT_NAMES and tab._boxes and not seen:
+        out.append(
+            "no shop row on the Checklist carries a shortened name, so "
+            "nothing here was checked. Either SHORT_NAMES no longer "
+            "matches anything the shops sell, or the labels stopped "
+            "going through `product_label`.")
+    return out
+
+
+def _checklist_rows_are_all_drawn(tab):
+    """Every Checklist row has to FIT the block reserved for it.
+
+    The two readings above agree with each other by sharing a formula.
+    This one asks Tk what it actually laid out, which is the only way
+    to catch the formula being wrong about a row -- as it was about a
+    checkbox's height, losing three pixels a row until whole shops
+    fell off the foot of a column with nothing to show for it.
+
+    **`count -ypixels` answers only for a MAPPED widget**, so the
+    window goes up at alpha 0 -- the app's own `_hide_until_ready`
+    trick, and what `check_ui_scales` already measures through. It is
+    mapped, so Tk lays it out; it is invisible, so nothing appears on
+    the maintainer's screen.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    out = []
+    if not tab.column_texts:
+        return out
+    root = tab.frame.winfo_toplevel()
+    notebook = tab.frame.master
+    try:
+        root.attributes("-alpha", 0.0)
+        if str(tab.frame) not in notebook.tabs():
+            notebook.add(tab.frame, text="Checklist")
+        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.select(tab.frame)
+        root.deiconify()
+        root.update_idletasks()
+    except tk.TclError as e:
+        return [f"the Checklist could not be laid out for measuring: {e}"]
+    try:
+        for title, (text, _rows) in tab.column_texts.items():
+            holder = text.master
+            last = int(text.index("end-1c").split(".")[0])
+            drawn = 0
+            for line in range(1, last + 1):
+                tall = text.count("%d.0" % line, "%d.0" % (line + 1),
+                                  "ypixels")
+                tall = tall[0] if isinstance(tall, tuple) else tall
+                drawn += tall or 0
+            if not drawn:
+                out.append(
+                    f"the {title!r} column laid out no pixels, so nothing "
+                    f"here was measured. Either the block is empty or the "
+                    f"window never mapped -- and a check that cannot fail "
+                    f"is not watching anything.")
+                continue
+            reserved = int(holder.cget("height"))
+            if drawn > reserved:
+                out.append(
+                    f"the {title!r} column's {last} rows lay out to "
+                    f"{drawn}px inside a block reserved for {reserved}px. "
+                    f"`pack_propagate(False)` clips the difference without "
+                    f"a word, so the rows at the foot of that column are "
+                    f"simply not drawn.")
+    finally:
+        root.withdraw()
     return out
 
 
@@ -1880,6 +1991,10 @@ def run():
                 _checklist_redraw_replaces_nothing(built["ChecklistTab"]))
             failures.extend(
                 _checklist_block_is_tall_enough(built["ChecklistTab"]))
+            failures.extend(
+                _checklist_short_names_keep_their_tip(built["ChecklistTab"]))
+            failures.extend(
+                _checklist_rows_are_all_drawn(built["ChecklistTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))
