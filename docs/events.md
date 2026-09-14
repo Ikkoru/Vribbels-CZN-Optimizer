@@ -335,6 +335,17 @@ What `current_days: 56` counts is still unknown: the account is 326 days old wit
 
 **Under the bare key `entity`**, which is also what a Combatant Trial claim answers under with a different row — so the addon takes it only when `event_achieve_state` is on it. Read as only the three spelled-out keys, the one reply that ever carries a completion was dropped, and the bartender went on reading `24/24+?` with the wire having said outright that it was finished.
 
+### A completion is kept by the server; a streak's is not
+
+Captured by logging in after finishing both (`websocket_debug_20260914_205131.jsonl`), and the two answers differ:
+
+* **`event_mission_reward_entities` comes back with it.** The login sent six rows where it had sent five, the new one being `event_bartender_1` with `event_achieve_state: 1`, `reward_step: 0`, `version: 0`. So a completion is the server's own record and arrives at every login — an event once finished stays finished across restarts, with nothing client-side needed.
+* **`attendance_entities` does not.** The finished streak came back as `current_days: 7, received_days: 7, version: 13` with no `completed` anywhere. That flag exists only in the reply to the claim that ends the streak.
+
+So the addon's copy of `completed` is load-bearing WITHIN a session and lost between them: a streak finished today reads green until the game is restarted and orange after. Orange is the honest answer there — today's is claimed and nothing proves the streak is over — and green needs a record the program would have to keep itself.
+
+**A finished streak's `version` is `2 x received_days - 1`** — 13 at seven days, 19 at ten, 27 at fourteen, 41 at twenty-one — and stops moving when the streak ends, where the year-long event's climbs on. It re-encodes what `current_days` already says and adds nothing, and three of the account's oldest rows carry `version: 0` regardless. Not a signal.
+
 ### The defences
 
 Both in `capture/manager.py`, and both are the general rule rather than anything about these two fields:
@@ -362,10 +373,9 @@ So the capture worked. What it could not do was see a claim that sends no record
 
 ## Still open
 
-* **Does a completion SURVIVE the session?** `event_achieve_state` has only ever been seen on the claim reply. The addon rebuilds its event records from the login burst every session, so if the login does not send the completion the flag is lost the moment the game is restarted and the event goes back to reading as a floor. **One capture settles it: start the capture, log in, let the lobby finish loading, stop.** Nothing else needs doing — the login burst carries every event record there is, and the same file answers two more questions at once: whether the login's `attendance_entities` row carries `completed` (the addon assumes not, and keeps its own copy across the merge), and whether a finished event says anything new anywhere.
 
 
-* **The Completed Events tab.** The game has one, so the client decides completion for at least some events — and it must decide BEFORE the tab is opened, to know what to sort in there. So a capture of opening it would most likely show no request at all, and the totals are client-side, in the same place the trial slot lists live. Worth one capture to confirm, but do not expect it to pay.
+
 * **A ragged family's page lengths.** The bartender's three pages are 7, 7 and 10, and two of the three can be read in full from the rows the account holds — but only because those pages were played. Page 1 hands out a row a day and will read short all week. Nothing distinguishes "this page is finished" from "this page is still being issued", which is the same wall every Open-ended reading hits. The completion flag answers the only question that really matters — *is there anything left* — without answering this one.
 * **`reward_step` vs `version`.** One claim on a step-track event separates a total from a tally, and a total would give three or four more events a real denominator. **Nothing has moved either number yet** — an ordinary event reward claim does not touch `event_mission_reward_entities` at all, so the action has to be a claim on the event's own reward TRACK.
 
@@ -374,6 +384,8 @@ So the capture worked. What it could not do was see a claim that sends no record
 * **Event display names.** Every row shows an id, because the wire never sends a name — the client has them in a localisation table.
 
 Settled, and kept so they are not re-suggested:
+
+* **The Completed Events tab is entirely client-side.** Captured: opening the event list screen after finishing several events sent NOT ONE request. The two login captures taken minutes apart, one of them with the screen opened, carry the same thirty-eight commands — the only difference is a `req_very_cheetah_cookie` keepalive. Whatever the client sorts in there, it decides from the records the login already gave it.
 
 * **`event_bartender_entities`** is the GUESTBOOK, not the reward pages, and it fills in as the days are played. One row per day, three completion stamps each.
 * **`event_info_entity`** is still `{"open_day": 1}` under a different `event_id`. Nothing in it is a total.
