@@ -1733,6 +1733,38 @@ def _to_window_edge(locator):
     return resolve
 
 
+def _box_to_window_edge(locator):
+    """Resolver: a widget's BOX right edge -> the window's.
+
+    For a `content frame -> content frame` gap against the edge, which
+    is the one rule measured box to box -- see `ui_spacing.md`. The
+    painted version cannot answer it here: a Checklist column reserves
+    room for the widest reading any of its rows COULD show, so its
+    last painted pixel sits wherever the widest row it happens to hold
+    stops. That read 23 where the pad gives 4, and moves with the data
+    rather than with the layout.
+    """
+    def resolve(cap, app):
+        box = sa.box_of(locator(app))
+        return sa.gap_between(box.right,
+                              cap.origin[0] + cap.image.size[0]), ""
+    return resolve
+
+
+def _box_from_window_edge(locator):
+    """Resolver: the window's left edge -> a widget's BOX left.
+
+    The mirror of `_box_to_window_edge`, and paired with it so both
+    ends of a block answer the same question. Its painted twin happens
+    to agree wherever a column's first row starts at its own edge,
+    which is not something the layout promises.
+    """
+    def resolve(cap, app):
+        box = sa.box_of(locator(app))
+        return sa.gap_between(cap.origin[0] - 1, box.left), ""
+    return resolve
+
+
 def _from_window_edge(locator):
     """Resolver: the window's left edge -> a widget's painted left.
 
@@ -3989,10 +4021,15 @@ CHECKLIST_ENTRIES = [
     # it had no entry at all, so the gap went unwatched.
     ("Memory Fragments", "window edge -> active preset label", 4,
      RULE_CONTENT_FRAME, _from_window_edge(_by_text("Preset:")), "h"),
+    # BOX to box, which is what the content-frame rule is measured
+    # as. A column reserves room for the widest reading any of its
+    # rows COULD show, so its last painted pixel lands wherever the
+    # widest row it happens to hold stops -- a reading that moves with
+    # the data instead of with the layout.
     ("Checklist", "Checklist: window edge -> first column", 4,
-     RULE_CONTENT_FRAME, _from_window_edge(_checklist_column(0)), "h"),
+     RULE_CONTENT_FRAME, _box_from_window_edge(_checklist_column(0)), "h"),
     ("Checklist", "Checklist: last column -> window edge", 4,
-     RULE_CONTENT_FRAME, _to_window_edge(_checklist_column(-1)), "h"),
+     RULE_CONTENT_FRAME, _box_to_window_edge(_checklist_column(-1)), "h"),
 ]
 
 MATERIALS_ENTRIES = [
@@ -4139,12 +4176,6 @@ AWAITING_FIRST_READING = {
     # -- so a row printing yellow is a question, never a regression.
     # EMPTY is the state to return it to.
     #
-    # The reading is on target and the audit agrees with it, but the
-    # eye has not confirmed WHICH edge it stops at: the value sits on
-    # a `Panel.TLabel` whose inset the style strips, so the pad beside
-    # it is the whole distance and there is nothing else in the gap to
-    # tell one reading from another.
-    "Character: Excursion Types -> its count",
     # The Checklist tab is new and nothing on it has been read off a
     # screen. Every one of its four is registered at the rules table's
     # own number rather than at a measured distance.

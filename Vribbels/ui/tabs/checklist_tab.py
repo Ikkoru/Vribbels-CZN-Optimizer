@@ -1224,10 +1224,14 @@ NO_DATA = "-"
 ROW_PITCH = 4           # spacing: label row -> label row -- run, run ↕
 
 # The same, for a row whose label is a CHECKBOX. Its own lever because
-# a checkbox is taller than a text line and paints a border inside its
-# box, so the painted gap between two of them is narrower than the
-# pitch that produced it -- the two cannot answer to one number.
-CHECKBOX_PITCH = 5      # spacing: TBD -- checkbox row -> checkbox row
+# a checkbox is taller than a text line, so the two cannot answer to
+# one number.
+#
+# **This is the distance between the boxes, and a checkbox paints
+# inset from its own**, so what the eye sees is this plus that inset
+# twice over. Measured: the box-to-box gap is exactly `spacing1`,
+# with nothing else of the widget's in it.
+CHECKBOX_PITCH = 1      # spacing: TBD -- checkbox row -> checkbox row
 
 # What sets a block apart from the rows around it: extra space ABOVE a
 # row that heads one -- the Events heading, and every shop's -- and the
@@ -1683,8 +1687,20 @@ class ChecklistTab(BaseTab):
                 text.insert(tk.END, LINE_SEP, line)
             if _is_shop(key):
                 head = segments[0][1] if segments else UNKNOWN
+                # **`window_create` takes no tags**, and a line reads
+                # its own `spacing1` and `lmargin1` off its FIRST
+                # character -- which for one of these rows is the
+                # untagged character the window leaves behind. So the
+                # tags on the rest of the line styled the words and
+                # nothing else: a checkbox row took neither the pitch
+                # above it nor the indent that puts it under its shop,
+                # and changing either moved nothing on screen. The
+                # window lands where `end` was before the call.
+                at = text.index(tk.END + "-1c")
                 text.window_create(tk.END, window=self._checkbox(
                     title, text, key, label, head))
+                for tag in line:
+                    text.tag_add(tag, at, at + "+1c")
             else:
                 text.insert(tk.END, label, line + label_tag)
             for at, (words, state) in enumerate(segments):

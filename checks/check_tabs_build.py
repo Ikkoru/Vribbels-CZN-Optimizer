@@ -1240,6 +1240,28 @@ def _checklist_block_is_tall_enough(tab):
             "closes a block off below it -- and `_block_height` reserves "
             "room for a pad that is not drawn.")
 
+    # **A checkbox row's own tags**, which is where this last went
+    # wrong. `window_create` takes no tags, and a line reads `spacing1`
+    # and `lmargin1` off its FIRST character -- so a checkbox row was
+    # styling its words and nothing else. The pitch and the indent both
+    # did nothing, and both changed nothing visible when they moved,
+    # which is as quiet as a layout bug gets.
+    for text in texts:
+        last = int(text.index("end-1c").split(".")[0])
+        for line in range(1, last + 1):
+            start = "%d.0" % line
+            if not text.dump(start, start + "+1c", window=True):
+                continue                      # not a checkbox row
+            tags = set(text.tag_names(start))
+            missing = {"indent"} - tags
+            if missing or not tags & set(mod.ROW_TAG_PITCH):
+                out.append(
+                    f"the checkbox on line {line} carries tags {sorted(tags)}, "
+                    f"with no pitch tag or no indent. `window_create` leaves "
+                    f"an untagged character and the line takes its spacing "
+                    f"from that one, so the row loses both.")
+                break
+
     # And the height itself, against the rows a column really holds.
     line = tkfont.Font(font=mod.ROW_FONT).metrics("linespace")
     for title, rows in mod.columns_for({}, None, 0, None):
