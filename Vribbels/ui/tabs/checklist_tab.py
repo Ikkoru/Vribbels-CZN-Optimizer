@@ -1943,6 +1943,7 @@ class ChecklistTab(BaseTab):
         Called automatically after data loads.
         """
         raw = getattr(self.optimizer, "raw_data", None) or {}
+        self._recall_streaks(raw)
         readings = self._settle_floors(
             _readings(raw, tracked=self._tracked))
         self._shop_tips = self._rates(raw, time.time())
@@ -1952,6 +1953,38 @@ class ChecklistTab(BaseTab):
         for title, (text, rows) in self.column_texts.items():
             self._fill(title, text, rows, readings)
         self._fill_period_headings(raw)
+
+    def _recall_streaks(self, raw):
+        """Put `completed` back on a streak the game has ended.
+
+        **The game says a streak is over exactly once**, on the reply
+        to the claim that finishes it. The login that follows sends
+        the row without it, and that row cannot be told from a streak
+        merely claimed for today -- so the answer has to be kept, or
+        every finished streak reads unfinished from the next session
+        until its event ends.
+
+        The manager keeps it; this hands it back. Written onto the row
+        rather than passed beside it because it IS the row's own field
+        and the readers already know what it means -- the capture does
+        the same thing one level down, carrying `completed` across the
+        login that would otherwise overwrite it.
+
+        Recording and recalling in one pass, so a streak finished this
+        session is remembered for the next.
+        """
+        manager = getattr(self.context, "checklist_manager", None)
+        rows = (raw or {}).get(ATTENDANCE_FIELD)
+        if manager is None or not isinstance(rows, list):
+            return
+        for row in rows:
+            event_id = row.get("event_id") if isinstance(row, dict) else None
+            if event_id is None:
+                continue
+            if row.get(ATTENDANCE_OVER):
+                manager.remember_streak(event_id)
+            elif manager.streak_finished(event_id):
+                row[ATTENDANCE_OVER] = True
 
     def _rates(self, raw, now):
         """{heading key: the rows its tip shows}, the ledger updated.

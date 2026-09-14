@@ -183,6 +183,48 @@ def _currency_ledger_keeps_its_shape(root):
     return out
 
 
+def _streak_memory_survives_the_file(root):
+    """A finished login streak is remembered across sessions.
+
+    `completed` rides one wire reply and is never sent again -- the
+    login that follows carries a row identical to a streak merely
+    claimed for today. So the answer has to outlive the session, and
+    the only place it can is here: `settings/`, which is not the
+    directory a user clears when tidying up captures.
+
+    Returns a list of complaints.
+    """
+    import checklist_manager as cm
+    out = []
+    m = cm.ChecklistManager(root)
+    m.load()
+    if m.streak_finished("event_143"):
+        out.append("a fresh manager already calls event_143 finished.")
+    m.remember_streak("event_143")
+    if not m.streak_finished("event_143"):
+        out.append("remembering a finished streak did not take.")
+
+    again = cm.ChecklistManager(root)
+    again.load()
+    if not again.streak_finished("event_143"):
+        out.append(
+            "a finished streak was forgotten across a reload. `completed` "
+            "is said once and never again, so a memory that does not "
+            "reach the file is no memory at all.")
+    if again.streak_finished("event_1"):
+        out.append("a streak nobody finished came back finished.")
+
+    # **In `settings/`, not `snapshots/`.** The snapshots directory is
+    # the one a user clears; this must not be in it.
+    where = str(Path(m.file).parent.name)
+    if where != "settings":
+        out.append(
+            f"the streak memory lives in {where!r}. It belongs beside the "
+            f"other things the program works out for itself, in the "
+            f"directory a capture cleanup never touches.")
+    return out
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -203,6 +245,7 @@ def run():
     ledger_root = Path(tempfile.mkdtemp())
     try:
         failures.extend(_currency_ledger_keeps_its_shape(ledger_root))
+        failures.extend(_streak_memory_survives_the_file(ledger_root))
     finally:
         shutil.rmtree(ledger_root, ignore_errors=True)
 

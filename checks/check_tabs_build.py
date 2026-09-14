@@ -1395,6 +1395,60 @@ def _checklist_short_names_keep_their_tip(tab):
     return out
 
 
+def _checklist_recalls_a_finished_streak(tab):
+    """A streak the game ended reads finished on the next session too.
+
+    `completed` arrives on one wire reply and never again -- the login
+    that follows sends a row identical to a streak merely claimed for
+    today. So the tab records it and hands it back, and this is both
+    halves: a row carrying the flag is remembered, and a row without
+    it gets the flag back.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs import checklist_tab as mod
+    manager = getattr(tab.context, "checklist_manager", None)
+    if manager is None:
+        return ["the Checklist tab was built with no manager, so the "
+                "streak memory was never reached."]
+    out = []
+    was = dict(manager.streaks)
+    try:
+        # The claim's row, carrying the flag.
+        raw = {mod.ATTENDANCE_FIELD: [
+            {"event_id": "check_streak", "received_days": 7,
+             "current_days": 7, mod.ATTENDANCE_OVER: True}]}
+        tab._recall_streaks(raw)
+        if not manager.streak_finished("check_streak"):
+            out.append(
+                "a streak arriving with `completed` was not remembered. It "
+                "is said once, so a session that does not record it loses "
+                "the answer for the rest of the event.")
+
+        # The next session's row, without it.
+        raw = {mod.ATTENDANCE_FIELD: [
+            {"event_id": "check_streak", "received_days": 7,
+             "current_days": 7}]}
+        tab._recall_streaks(raw)
+        if not raw[mod.ATTENDANCE_FIELD][0].get(mod.ATTENDANCE_OVER):
+            out.append(
+                "a remembered streak did not get its `completed` back, so "
+                "it reads as unfinished from the next login onwards.")
+
+        # And a streak nobody finished stays unfinished.
+        raw = {mod.ATTENDANCE_FIELD: [
+            {"event_id": "check_other", "received_days": 3,
+             "current_days": 3}]}
+        tab._recall_streaks(raw)
+        if raw[mod.ATTENDANCE_FIELD][0].get(mod.ATTENDANCE_OVER):
+            out.append(
+                "a streak nobody has finished came back finished.")
+    finally:
+        manager.streaks = was
+        manager._write()
+    return out
+
+
 def _checklist_heading_totals_are_marked(tab):
     """A shop heading's name and total carry the hover; the tail does not.
 
@@ -2119,6 +2173,9 @@ def run():
                 _checklist_block_is_tall_enough(built["ChecklistTab"]))
             failures.extend(
                 _checklist_short_names_keep_their_tip(built["ChecklistTab"]))
+            failures.extend(
+                _checklist_recalls_a_finished_streak(
+                    built["ChecklistTab"]))
             failures.extend(
                 _checklist_heading_totals_are_marked(
                     built["ChecklistTab"]))

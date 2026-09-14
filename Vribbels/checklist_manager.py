@@ -66,6 +66,21 @@ recorded because one is stated and the other is worked out:
 
 Points are kept for a year and a day. Past that the oldest fall off,
 which is what turns the seeded reading into a rolling one.
+
+## Streaks the game has said are over
+
+    "streaks": {"event_143": true}
+
+**A login streak's end is said ONCE and never again.** `completed`
+rides the reply to the claim that finishes it; the login that follows
+sends the row without it, and that row is identical to a streak merely
+claimed for today -- `current_days` equal to `received_days` in both.
+So a streak finished in one session would read as unfinished in the
+next, for as long as its event ran.
+
+Kept here rather than in a snapshot because it is a fact about the
+PAST, which is the same reason `seen` is here -- and because this
+directory is not the one a user clears when they tidy up captures.
 """
 
 import json
@@ -126,6 +141,9 @@ class ChecklistManager:
         self.seen = {}
         # res_id (str) -> {kind, points}. See the module note.
         self.currency = {}
+        # Streak event id (str) -> True, for the ones the game has
+        # said are over. See the module note.
+        self.streaks = {}
 
     def load(self):
         """Read the flags. An unreadable file behaves like a fresh one.
@@ -153,6 +171,9 @@ class ChecklistManager:
             }
         self.currency = _clean_ledger(data.get("currency")
                                       if isinstance(data, dict) else None)
+        streaks = data.get("streaks") if isinstance(data, dict) else None
+        if isinstance(streaks, dict):
+            self.streaks = {str(k): True for k, v in streaks.items() if v}
 
     def is_tracked(self, product_id) -> bool:
         """Whether a product is ticked. Absent ids take the default."""
@@ -203,6 +224,18 @@ class ChecklistManager:
         for key in stale:
             del self.seen[key]
         self._write()
+
+    def remember_streak(self, event_id):
+        """Note that the game has said this login streak is over."""
+        event_id = str(event_id)
+        if self.streaks.get(event_id):
+            return
+        self.streaks[event_id] = True
+        self._write()
+
+    def streak_finished(self, event_id):
+        """Whether that has been said, in this session or an earlier one."""
+        return bool(self.streaks.get(str(event_id)))
 
     # ------------------------------------------------- the currency ledger
 
@@ -263,7 +296,8 @@ class ChecklistManager:
     def _write(self):
         self.settings_dir.mkdir(parents=True, exist_ok=True)
         data = {"version": CHECKLIST_VERSION, "tracked": self.tracked,
-                "seen": self.seen, "currency": self.currency}
+                "seen": self.seen, "currency": self.currency,
+                "streaks": self.streaks}
         tmp = self.file.with_suffix(self.file.suffix + ".tmp")
         tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         tmp.replace(self.file)

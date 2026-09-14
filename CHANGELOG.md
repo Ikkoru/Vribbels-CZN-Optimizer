@@ -38,6 +38,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Fixed
 
+- **A finished login streak stays finished.** The game says a streak has ended exactly once, on the claim that ends it, and the record it sends afterwards is identical to a streak merely claimed for today — so the row went back to orange the next time the program started. It is remembered now, in `settings/`, which a cleanup of captures never touches.
+
 - **An event the game has called finished now reads as finished.** The claim of an event's final reward — the one that unlocks only after every other — answers with the completion flag under a key the capture was not reading, so the Bartender went on showing `24/24+?` in red with the wire having said outright that it was over.
 
 - **The Daily Check-in row no longer invents a length.** It was counting claimed days against a written-down seven; streaks actually run 7, 10, 14 or 21 days depending on the event, and nothing on the wire says which in advance. The row now reads claimed against claimed-plus-one — red when a day is waiting, orange when it is not — and goes green only on the game's own word that the streak has ended, which the capture now keeps.
