@@ -314,7 +314,15 @@ What the record does state exactly:
 
 So the row reads claimed against claimed-plus-one, red where `current_days` is ahead and orange where it is level. **One claim advances the streak by exactly one** — `received_days_before` to `received_days_after` — and the record has never been caught more than one apart.
 
-**`event_1`, the launch login event, is the exception and reads wrong.** Its `received_days` has sat at 7 across every capture while `current_days` climbed to 56, its rewards being finite and its day count not — so it looks like a streak permanently one day behind, and no field in the record tells it apart from a real one. What would settle it: a capture of a day the maintainer does NOT claim. If the live streak's gap opens to one and `event_1`'s stays where it is, the difference is real and readable.
+**`event_1`, the year-long login event, is the exception and reads wrong.** `event_daily_1`'s schedule runs 365 days, and its streak row's `received_days` has sat at 7 across every capture while `current_days` climbed to 56 — so it looks like a streak permanently one day behind.
+
+Three things have been ruled out as ways to tell it apart:
+
+* **It is never claimed.** Every `attendance / reward` command in all thirty-two debug captures names `event_143`, the live streak. Not once `event_1`. So the CLIENT knows there is nothing there, and knows it from a reward table the server never sends.
+* **A day left unclaimed does not separate them.** That state is already in the record: on 2026-09-09 at 20:52 the live streak read `current_days 2, received_days 1` with the reward genuinely waiting, and `event_1` read `51/7` beside it. Both look "behind" in exactly the same way.
+* **`reddot_info` does not carry it.** The login burst's red-dot payload is two lists of item ids — new savedata and new fragments — and mentions no event, mission or streak.
+
+What `current_days: 56` counts is still unknown: the account is 326 days old with 325 login days, so it is neither. Until that is explained, nothing here should be built on it.
 
 ### What sets the completion flag
 
@@ -354,6 +362,9 @@ So the capture worked. What it could not do was see a claim that sends no record
 
 ## Still open
 
+* **Does a completion SURVIVE the session?** `event_achieve_state` has only ever been seen on the claim reply. The addon rebuilds its event records from the login burst every session, so if the login does not send the completion the flag is lost the moment the game is restarted and the event goes back to reading as a floor. **One capture settles it: start the capture, log in, let the lobby finish loading, stop.** Nothing else needs doing — the login burst carries every event record there is, and the same file answers two more questions at once: whether the login's `attendance_entities` row carries `completed` (the addon assumes not, and keeps its own copy across the merge), and whether a finished event says anything new anywhere.
+
+
 * **The Completed Events tab.** The game has one, so the client decides completion for at least some events — and it must decide BEFORE the tab is opened, to know what to sort in there. So a capture of opening it would most likely show no request at all, and the totals are client-side, in the same place the trial slot lists live. Worth one capture to confirm, but do not expect it to pay.
 * **A ragged family's page lengths.** The bartender's three pages are 7, 7 and 10, and two of the three can be read in full from the rows the account holds — but only because those pages were played. Page 1 hands out a row a day and will read short all week. Nothing distinguishes "this page is finished" from "this page is still being issued", which is the same wall every Open-ended reading hits. The completion flag answers the only question that really matters — *is there anything left* — without answering this one.
 * **`reward_step` vs `version`.** One claim on a step-track event separates a total from a tally, and a total would give three or four more events a real denominator. **Nothing has moved either number yet** — an ordinary event reward claim does not touch `event_mission_reward_entities` at all, so the action has to be a claim on the event's own reward TRACK.
@@ -368,5 +379,5 @@ Settled, and kept so they are not re-suggested:
 * **`event_info_entity`** is still `{"open_day": 1}` under a different `event_id`. Nothing in it is a total.
 * **A third id space.** The mission commands name an event by a bare number — `event_142` is the devil, `event_143` the login streak, `event_146` the bartender — alongside the schedule's `event_schedule_devil_001` and the reward record's `event_bartender_1`. Nothing needs the numeric one: every reader pairs on the normalised key.
 * **The devil's last claim produces no completion flag.** Claiming the seventh day's three rewards answered with the mission rows and the items and nothing else — no `event_achieve_state`, because the event has no final reward to unlock one. It stays a floor, correctly.
-* **The message that unlocks when an event's rewards are all claimed** is not a usable flag. `messenger_entities` rides the login burst (106 rows of `{res_id, choice_id, complete}`) and the addon does not save it; even saved, a message id would have to be mapped to its event by hand, where `event_achieve_state` names the event outright.
+* **The message that unlocks when an event's rewards are all claimed** is most likely client-side and not on the wire at all. It is an EVENT screen's own message rather than anything in `messenger_entities`, which is the separate Combatant messenger. Nothing needs it: `event_achieve_state` names the event outright and arrives on the claim.
 * **`mission_event_node_list_story_node_entities`** and **`story_event_node_list_entities`** look like define lists — 81 and 43 rows for an event long finished — but they are the account's own records, complete only because the event was completed. They say nothing about a live one.
