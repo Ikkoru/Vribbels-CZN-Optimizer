@@ -4176,9 +4176,11 @@ AWAITING_FIRST_READING = {
     # -- so a row printing yellow is a question, never a regression.
     # EMPTY is the state to return it to.
     #
-    # The Checklist tab is new and nothing on it has been read off a
-    # screen. Every one of its four is registered at the rules table's
-    # own number rather than at a measured distance.
+    # Three of the Checklist's four have now been read off a screen
+    # and agreed, but the block they measure is still being worked on
+    # -- its columns, its row pitches and its checkbox rows have all
+    # moved since. They come out together after a run that follows a
+    # quiet turn, not one at a time mid-change.
     "Checklist: heading -> its first row",
     "Checklist: row -> row",
     "Checklist: window edge -> first column",

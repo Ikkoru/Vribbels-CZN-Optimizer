@@ -105,7 +105,7 @@ Over and over the wire describes one thing in two places under ids that do not m
 
 Two things from it are worth repeating here because they are general:
 
-**A count of the rows an account holds is a FLOOR.** The game creates a record when it issues the task, so an event still handing them out reads as finished. That is the one wrong answer a checklist must not give, and it is why such a row never goes green — and why it prints `+?` after its total, so the reading says which kind of number it is.
+**A count of the rows an account holds is a FLOOR.** The game creates a record when it issues the task, so an event still handing them out reads as finished. That is the one wrong answer a checklist must not give, and it is why such a row prints `+?` after its total — so the reading says which kind of number it is — and goes green only on a completion flag from the game rather than on anything it can count.
 
 **A completion FLAG beats a total.** `event_mission_reward_entities.event_achieve_state` answers "is anything left" without answering "how much was there", which turns out to be the question a checklist actually asks. Look for one of these before trying to derive a denominator.
 

@@ -68,7 +68,7 @@ def run():
     from ui.tabs.checklist_tab import (
         ACTIVITY_FULL, CHAOS_CURRENCY, COFFEE_DONE, COFFEE_TODO,
         columns_for,
-        ACTIVITY_CLAIMED, ACTIVITY_PARTIAL, ACTIVITY_UNCLAIMED,
+        ACTIVITY_CLAIMED, ACTIVITY_UNCLAIMED,
         DELEGATION_CURRENCY, DELEGATION_DONE, DELEGATION_TODO,
         ENDS_IN, LATER, SOON, WARN,
         PASS_DAILY_COUNT, PERIOD_LENGTHS,
@@ -80,7 +80,7 @@ def run():
         CYCLE_DONE, OVERCLOCK_USES, OVERCLOCK_SHAPE_SIGHTINGS,
         _event_overclock,
         EVENT_DONE_FIELD, EVENT_DONE_FLAG, EVENT_DONE_VALUE,
-        EVENT_TOTAL_UNKNOWN, FLOOR, FLOOR_SETTLES_AFTER,
+        UNKNOWN_MORE, FLOOR, FLOOR_SETTLES_AFTER,
         PASS_MISSION_FIELD, _at_ceiling, _event_missions,
         EXPECTED_VALUE, EVENT_KEY_PREFIX, _event_rows,
     )
@@ -142,8 +142,12 @@ def run():
     # belongs to that earlier day, which is why a stale 100 must not
     # read as a finished today.
     today = weekly_reset.day_index(now)
-    cases = ((today, ACTIVITY_FULL, ACTIVITY_CLAIMED, DONE),
-             (today, 20, ACTIVITY_PARTIAL % (20, ACTIVITY_FULL), TODO),
+    # **The claimed state prints its numbers too.** This is the
+    # trickiest row on the tab, and a figure can be checked against
+    # the game where a word like `All Claimed` cannot.
+    cases = ((today, ACTIVITY_FULL,
+              ACTIVITY_CLAIMED % (ACTIVITY_FULL, ACTIVITY_FULL), DONE),
+             (today, 20, ACTIVITY_CLAIMED % (20, ACTIVITY_FULL), TODO),
              (today - 1, ACTIVITY_FULL, ACTIVITY_UNCLAIMED, TODO),
              (today - 400, 20, ACTIVITY_UNCLAIMED, TODO),
              (None, ACTIVITY_FULL, NO_DATA, UNKNOWN),
@@ -460,7 +464,7 @@ def run():
                                       EVENT_DONE_FLAG: finished}]
         return _event_missions(raw, "event_probe", {}, now)
 
-    unknown = EVENT_TOTAL_UNKNOWN
+    unknown = UNKNOWN_MORE
     for held, claimed, finished, want, state, why in (
             (20, 16, None, "16/20" + unknown, FLOOR,
              "a part-claimed event with no completion record"),

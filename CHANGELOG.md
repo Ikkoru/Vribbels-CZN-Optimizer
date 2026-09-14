@@ -60,6 +60,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **Each block on the Checklist is set apart from the rows around it.** A shop's heading and the Events heading take a little more space above them, and a shop's last product the same below.
 
+- **The Activities row shows its numbers even when it is finished**, `100/100 Claimed` rather than `All Claimed`. It is the trickiest reading on the tab — the record is written only by the claim and never rolled — and a figure can be checked against the game where a word cannot.
+
 - **The Events list puts what you still owe first.** Events with rewards left to claim sort to the top by deadline; the ones that are finished, and a daily event whose day is already taken, sit below them.
 
 - **Chaos Currency reads against its cap**, `3/4`, the way Sortie already did.

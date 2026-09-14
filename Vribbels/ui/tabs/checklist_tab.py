@@ -15,11 +15,18 @@ set of puzzle pieces. `_readings` is where every one of them is, keyed
 by the row rather than by its words, and `docs/wire_hunt.md` records
 what each field means and which readings are exact.
 
-**A reading that can only be a FLOOR never goes green.** The game
-issues a mission row when it issues the mission, so counting the rows
-in hand understates an event that has not finished handing them out --
-and a checklist saying done when it is not is worse than one saying
-nothing.
+**A reading that can only be a FLOOR says so, and does not go green
+on its own.** The game issues a mission row when it issues the
+mission, so counting the rows in hand understates an event still
+handing them out -- and a checklist saying done when it is not is
+worse than one saying nothing. Such a row prints `UNKNOWN_MORE` after
+its total and turns green only where the game itself says the event
+is over.
+
+**A number worked out rather than read carries `EXPECTED_VALUE`.**
+Two rows do: a weekly allowance the game has not topped up yet is the
+week's own rule applied to last week's leftover, not a reading, and
+the mark comes off as soon as a capture sees the real figure.
 
 **A shop's rows are read off the wire, not written here.**
 `shop_res_data` carries every product's item, cap, period, price and
@@ -314,7 +321,7 @@ def event_rows(raw, now=None):
             found.append((_event_settled(raw, name, group, window, now),
                           window["end_time"], name))
     return tuple((EVENT_KEY_PREFIX + name, event_label(name),
-                  with_countdown(EVENT_CLAIMED))
+                  with_countdown(EVENT_WIDEST))
                  for _settled, _end, name in sorted(found))
 
 
@@ -620,7 +627,7 @@ def _event_finished(raw, name):
 
     Everything else about an event is a count of what has been handed
     out, which is a floor and can never prove completion. This can,
-    which is what takes `EVENT_TOTAL_UNKNOWN` off the row and lets it
+    which is what takes `UNKNOWN_MORE` off the row and lets it
     go green.
 
     The record's id is the event's own rather than the schedule's, so
@@ -718,7 +725,7 @@ def _event_progress(raw, name):
     first afternoon.
 
     **So this normally cannot read green**, and says so: the total
-    carries `EVENT_TOTAL_UNKNOWN` after it, because a denominator that
+    carries `UNKNOWN_MORE` after it, because a denominator that
     is only a floor is a different claim from one that is a total.
     Twice a bare tally called an event finished that was not -- a
     summer event with a wave unissued, and a daily one on its first
@@ -746,7 +753,7 @@ def _event_progress(raw, name):
     claimed = sum(1 for row in rows if row.get("complete_time"))
     if claimed >= len(rows) and _event_finished(raw, name):
         return [("%d/%d" % (claimed, len(rows)), DONE)]
-    return [("%d/%d%s" % (claimed, len(rows), EVENT_TOTAL_UNKNOWN), FLOOR)]
+    return [("%d/%d%s" % (claimed, len(rows), UNKNOWN_MORE), FLOOR)]
 
 
 def product_label(define):
@@ -815,7 +822,6 @@ EVENT_NOISE_WORDS = ("schedule", "mission", "season")
 # It comes off only where `_event_finished` can say the event is over,
 # which is also the only way such a row goes green.
 UNKNOWN_MORE = "+?"
-EVENT_TOTAL_UNKNOWN = UNKNOWN_MORE
 
 # What marks a number WORKED OUT from a rule rather than read off the
 # wire: `~4`, `~8/9`. A different claim from the one above -- not "at
@@ -905,8 +911,15 @@ BANNER_PREFIX = "gacha_pickup_combatant_"
 TRIAL_SLOT_PREFIX = "combatant_trial_"
 TRIAL_GROUP = "EVENT_COMBATANT_TRIAL"
 
-# What an event with every reward taken reads instead of a tally.
-EVENT_CLAIMED = "All Claimed"
+# The widest reading an event row can produce. RESERVED rather than
+# fitted, so a figure gaining a digit does not move every row's
+# words -- and written as the reading itself rather than as a
+# phrase, because that is what an event row ever draws.
+#
+# Two digits each side: the largest event yet held 23 rewards, and
+# the `+?` is on every reading whose total is only a floor. Widen
+# it the day an event issues a hundred.
+EVENT_WIDEST = "99/99" + UNKNOWN_MORE
 
 
 # The columns, as a skeleton. Each is `(heading, rows, shops, events)`:
@@ -1038,9 +1051,14 @@ ROW_FONT = ("Segoe UI", 9)
 # finished reading.
 ACTIVITY_FULL = 100
 POINT_FIELD = "point_entity"
+# **The claimed state shows its numbers**, where it used to read
+# `All Claimed`. This is the trickiest row on the tab -- the record
+# is written only by the claim and never rolled, so a stale one
+# carries yesterday's points -- and a row that always prints the
+# figures is one where a wrong answer can be SEEN. A word cannot be
+# checked against anything.
 ACTIVITY_UNCLAIMED = "Unclaimed"
-ACTIVITY_CLAIMED = "All Claimed"
-ACTIVITY_PARTIAL = "%d/%d Claimed"
+ACTIVITY_CLAIMED = "%d/%d Claimed"
 
 # The two weekly currencies, and the cap the game states for the second.
 # The Card states one too -- four -- but a row that only ever reads
@@ -1848,13 +1866,13 @@ def _weekly_stock(raw, res_id, grant, cap, now):
 def _at_ceiling(words):
     """Whether an `n/m` reading has n equal to m.
 
-    `EVENT_TOTAL_UNKNOWN` comes off first: a floor's `16/20+?` is at
+    `UNKNOWN_MORE` comes off first: a floor's `16/20+?` is at
     its ceiling on exactly the same terms as a plain `20/20`, and that
     suffix is the whole reason such a row can settle at all.
     """
     words = str(words)
-    if words.endswith(EVENT_TOTAL_UNKNOWN):
-        words = words[:-len(EVENT_TOTAL_UNKNOWN)]
+    if words.endswith(UNKNOWN_MORE):
+        words = words[:-len(UNKNOWN_MORE)]
     parts = words.split("/")
     if len(parts) != 2 or not all(p.strip().isdigit() for p in parts):
         return False
@@ -1977,11 +1995,13 @@ def _readings(raw, now=None):
     elif day_id < weekly_reset.day_index(now):
         out["activity"] = _one(ACTIVITY_UNCLAIMED, TODO)
     elif day >= ACTIVITY_FULL:
-        out["activity"] = _one(ACTIVITY_CLAIMED, DONE)
+        out["activity"] = _one(
+            ACTIVITY_CLAIMED % (day, ACTIVITY_FULL), DONE)
     else:
         # Claimed, but against fewer than the day's full points -- so
         # more will have come due since.
-        out["activity"] = _one(ACTIVITY_PARTIAL % (day, ACTIVITY_FULL), TODO)
+        out["activity"] = _one(
+            ACTIVITY_CLAIMED % (day, ACTIVITY_FULL), TODO)
 
     # Today's coffee. **The field is a CAPABILITY, so the row inverts
     # it**: `is_coffee_possible` true means one is still going begging.

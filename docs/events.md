@@ -29,7 +29,7 @@ Generic **implies** Tallied — it is a Tallied event with a second property —
 
 ### The `+?` on an Open-ended row
 
-`16/20` and `16/20+?` are different claims. The first says four left; the second says four left **that the game has handed out so far**, which may be eight. The suffix is `EVENT_TOTAL_UNKNOWN`, and it is on every reading whose denominator was counted off the rows in hand.
+`16/20` and `16/20+?` are different claims. The first says four left; the second says four left **that the game has handed out so far**, which may be eight. The suffix is `UNKNOWN_MORE`, and it is on every reading whose denominator was counted off the rows in hand.
 
 It comes off in exactly one case — the game itself says the event is finished, below — and that is also the only way such a row goes green.
 
@@ -98,7 +98,7 @@ This is a different orange from the Open-ended one. Nothing here is unproven; th
 * a summer event read `12/12` with a third wave unissued;
 * the devil event read `3/3` against a real 21 — though that one turned out to be an id collision rather than a floor, and is worth reading about under *Naming* before assuming a short count is this.
 
-So an Open-ended row **never goes green**, and its reading is marked `FLOOR` in the code to say why. Saying "done" when it is not is the one answer a checklist must never give: it costs the user the reward.
+So an Open-ended row is marked `FLOOR` in the code and prints `+?` after its total. Saying "done" when it is not is the one answer a checklist must never give: it costs the user the reward. **The only thing that turns such a row green is the game's own completion flag** — see below; nothing the row can count about itself will do it.
 
 After 48 hours at its own ceiling a floor turns **orange** — long enough that an event still handing out rewards daily would have moved it. Reading anything new restarts that clock, and a row below its ceiling never settles, because that is work outstanding rather than an unanswerable question. The record lives in `settings/checklist.json`; when a row last moved is a fact about the past and a snapshot holds only the present.
 
