@@ -1196,6 +1196,72 @@ def _log_presets_redraw_replaces_nothing(tab):
     return []
 
 
+def _checklist_block_is_tall_enough(tab):
+    """A column's fixed height has to match the pitches it draws.
+
+    The rows live in a Text inside a frame with `pack_propagate(False)`
+    and a height in PIXELS, so nothing pushes back when the sum is
+    wrong: Tk clips whatever does not fit off the bottom and the column
+    simply ends a row early. Three different pitches feed it now -- an
+    ordinary row, a block heading, a checkbox -- plus a pad under the
+    last checkbox of a run, and `ROW_TAG_PITCH` is the one table both
+    the tags and the height are built from.
+
+    So this holds the two ends together: every tag the Text configures
+    carries the `spacing1` the table says, and a column's computed
+    height equals the pitches of the rows it actually contains.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    import tkinter.font as tkfont
+    from ui.scaling import px
+    from ui.tabs import checklist_tab as mod
+    out = []
+
+    texts = [widget for frame in tab._column_frames
+             for widget in _descendants(frame)
+             if isinstance(widget, tk.Text)]
+    if not texts:
+        return ["the Checklist built no row blocks, so nothing about "
+                "their height can be checked."]
+
+    for tag, pitch in mod.ROW_TAG_PITCH.items():
+        got = texts[0].tag_cget(tag, "spacing1")
+        if int(got or 0) != px(pitch):
+            out.append(
+                f"the {tag!r} rows are drawn at spacing1 {got!r} where "
+                f"ROW_TAG_PITCH says {px(pitch)}. That table is what "
+                f"`_block_height` adds up, so the block is sized for rows "
+                f"the Text does not draw and Tk clips the difference.")
+    if int(texts[0].tag_cget("boxlast", "spacing3") or 0) != px(mod.BLOCK_PAD):
+        out.append(
+            "the last checkbox of a run carries no `spacing3`, so nothing "
+            "closes a block off below it -- and `_block_height` reserves "
+            "room for a pad that is not drawn.")
+
+    # And the height itself, against the rows a column really holds.
+    line = tkfont.Font(font=mod.ROW_FONT).metrics("linespace")
+    for title, rows in mod.columns_for({}, None, 0, None):
+        if not rows:
+            continue
+        keys = [key for key, _label, _widest in rows]
+        want = 0
+        for at, key in enumerate(keys):
+            below = keys[at + 1] if at + 1 < len(keys) else None
+            tags = mod._row_tags(key, below)
+            want += line + px(mod.ROW_TAG_PITCH[tags[0]])
+            if "boxlast" in tags:
+                want += px(mod.BLOCK_PAD)
+        got = mod.ChecklistTab._block_height(keys)
+        if got != want:
+            out.append(
+                f"the {title!r} column reserves {got}px for {len(keys)} "
+                f"rows where their own pitches come to {want}px. A short "
+                f"block clips its last row and nothing reports it.")
+    return out
+
+
 def _checklist_columns_come_first(tab):
     """The Checklist tab's columns frame must be its FIRST child.
 
@@ -1790,6 +1856,8 @@ def run():
                 _checklist_columns_come_first(built["ChecklistTab"]))
             failures.extend(
                 _checklist_redraw_replaces_nothing(built["ChecklistTab"]))
+            failures.extend(
+                _checklist_block_is_tall_enough(built["ChecklistTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))

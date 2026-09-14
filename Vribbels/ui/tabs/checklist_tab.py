@@ -1223,6 +1223,26 @@ NO_DATA = "-"
 # padding this cannot go negative.
 ROW_PITCH = 4           # spacing: label row -> label row -- run, run ↕
 
+# The same, for a row whose label is a CHECKBOX. Its own lever because
+# a checkbox is taller than a text line and paints a border inside its
+# box, so the painted gap between two of them is narrower than the
+# pitch that produced it -- the two cannot answer to one number.
+CHECKBOX_PITCH = 5      # spacing: TBD -- checkbox row -> checkbox row
+
+# What sets a block apart from the rows around it: extra space ABOVE a
+# row that heads one -- the Events heading, and every shop's -- and the
+# same again BELOW the last checkbox under it. One lever for both, so
+# a block keeps its own margins symmetrical however the number moves.
+BLOCK_PAD = 4           # spacing: TBD -- block heading and its checkbox run
+
+# What each line tag's `spacing1` is set from. The tags are configured
+# on the Text and `_block_height` has to add the same numbers up, so
+# one table serves both -- a pitch changed in one place and not the
+# other sizes the block for rows it does not draw, and Tk clips the
+# difference off the bottom without a word.
+ROW_TAG_PITCH = {"row": ROW_PITCH, "headrow": ROW_PITCH + BLOCK_PAD,
+                 "boxrow": CHECKBOX_PITCH, "boxlast": CHECKBOX_PITCH}
+
 # A row's words against its value, which is a left TAB STOP. A lever
 # short of the rule, the words stopping inside their own advance.
 LABEL_TO_VALUE = 6      # spacing: label ↔ its element -- run, run ↔
@@ -1230,8 +1250,9 @@ LABEL_TO_VALUE = 6      # spacing: label ↔ its element -- run, run ↔
 # The heading of a column against the first row under it. The gap runs
 # from the heading's BASELINE to the row's CAPITAL, with the heading's
 # box below its baseline and the row's box above its capital both
-# inside it -- which is why the lever is at its floor.
-HEADING_GAP = 0         # spacing: panel ↕ unrelated label -- heading, frame ↕
+# inside it -- so most of the distance is already spent before this
+# lever adds anything, and it cannot go below zero to take any back.
+HEADING_GAP = 2         # spacing: panel ↕ unrelated label -- heading, frame ↕
 
 # What a Text puts around its own content, both sides together. Its
 # `width` is in CHARACTERS and this block is sized in pixels, so the
@@ -1309,16 +1330,21 @@ class ChecklistTab(BaseTab):
 
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
-        columns.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((0, 2)))
+        columns.pack(fill=tk.BOTH, expand=True, padx=px(4),
+                     pady=px((0, 2)))
 
         # Content in the EVEN grid columns, an empty expanding one
         # between each pair. Given to spacers of one uniform group the
         # leftover width lands as equal gaps with the block flush
         # against both edges; shared out inside the content cells it
         # lands unequally, the widest column keeping the least.
-        for index in range(len(COLUMNS) + 1):
-            columns.grid_columnconfigure(2 * index, weight=0)
         for index in range(len(COLUMNS)):
+            columns.grid_columnconfigure(2 * index, weight=0)
+        # BETWEEN the columns only -- `len(COLUMNS) - 1` of them. A
+        # trailing spacer would take the whole leftover width itself
+        # and leave the last column a hundred pixels short of the
+        # edge the first one is four from.
+        for index in range(len(COLUMNS) - 1):
             # spacing: content frame -> content frame -- frame, frame ↔
             # NOT TRACKED: the distance is whatever the tab has spare
             # divided four ways, so it moves with the window. What is
@@ -1387,8 +1413,7 @@ class ChecklistTab(BaseTab):
         built = columns_for(raw, self._tracked, time.time(),
                             self._definitions)
         for frame, (title, rows) in zip(self._column_frames, built):
-            drawn = tuple(self._line(key, label, readings)
-                          for key, label, _w in rows)
+            drawn = self._draw(rows, readings)
             if _same_rows(self._rendered.get(title), drawn):
                 continue                    # `_fill` patches or skips
             outgoing = list(frame.winfo_children())
@@ -1471,7 +1496,8 @@ class ChecklistTab(BaseTab):
         stop = labels + TEXT_INSET + LABEL_TO_VALUE
         widest = max([font.measure(w) for _k, _l, w in rows if w] or [0])
         holder = tk.Frame(parent, width=stop + widest,
-                          height=self._block_height(len(rows)),
+                          height=self._block_height(
+                              [key for key, _l, _w in rows]),
                           bg=self.colors["bg"])
         holder.pack_propagate(False)
         # spacing: panel ↕ unrelated label -- heading, frame ↕
@@ -1496,8 +1522,17 @@ class ChecklistTab(BaseTab):
         )
         show.append(lambda: text.pack(fill=tk.BOTH, expand=True))
         show.append(pack_holder)
+        # Exactly ONE of these per line. Tk resolves two tags setting
+        # the same option by priority rather than by sum, so a pad
+        # stacked on top of `row` would depend on the order the tags
+        # were created in -- which is not a thing to lay a gap on.
         # spacing: label row -> label row -- run, run ↕
-        text.tag_configure("row", spacing1=px(ROW_PITCH))
+        # spacing: TBD -- block heading and its checkbox run
+        # spacing: TBD -- checkbox row -> checkbox row
+        for tag, pitch in ROW_TAG_PITCH.items():
+            text.tag_configure(tag, spacing1=px(pitch))
+        # The last checkbox of a run closes the block off below it.
+        text.tag_configure("boxlast", spacing3=px(BLOCK_PAD))
         # A shop's products, indented under the shop's own row. In
         # PIXELS, on the line: a run of spaces is whatever the font
         # makes it, and this is a distance.
@@ -1527,18 +1562,32 @@ class ChecklistTab(BaseTab):
         return lambda: [do() for do in show]
 
     @staticmethod
-    def _block_height(rows):
-        """A column's height: its rows and the pitch between them.
+    def _block_height(keys):
+        """A column's height: its rows and the space around each.
 
         Measured off the face rather than multiplied by a guess -- a
         Text sizes in LINES and this block is pinned in pixels, so the
         two have to be reconciled somewhere.
+
+        **Every row's OWN pitch**, not one figure times the row count:
+        a checkbox row, a block heading and an ordinary row each carry
+        a different `spacing1`, and a block sized on the ordinary one
+        clips however many lines the difference adds up to.
         """
-        # `rows` pitches, not `rows - 1`: `spacing1` is drawn above
-        # EVERY line including the first, so a block sized for the gaps
-        # BETWEEN rows is one pitch short and clips its last line.
-        return rows * (tkfont.Font(font=ROW_FONT).metrics("linespace")
-                       + px(ROW_PITCH))
+        # Each row's pitch counts, not each gap BETWEEN rows:
+        # `spacing1` is drawn above EVERY line including the first, so
+        # a block sized for the gaps alone is one pitch short and clips
+        # its last line. `spacing3` below the last checkbox of a run is
+        # inside the block for the same reason.
+        line = tkfont.Font(font=ROW_FONT).metrics("linespace")
+        total = 0
+        for at, key in enumerate(keys):
+            below = keys[at + 1] if at + 1 < len(keys) else None
+            tags = _row_tags(key, below)
+            total += line + px(ROW_TAG_PITCH[tags[0]])
+            if "boxlast" in tags:
+                total += px(BLOCK_PAD)
+        return total
 
     # ----------------------------------------------------------- update
 
@@ -1612,8 +1661,7 @@ class ChecklistTab(BaseTab):
         so the line's own `lmargin1` indents the checkbox itself and
         its left edge lands where an ordinary row's words do.
         """
-        drawn = tuple(self._line(key, label, readings) for key, label, _w
-                      in rows)
+        drawn = self._draw(rows, readings)
         was = self._rendered.get(title)
         if drawn == was:
             return
@@ -1644,7 +1692,21 @@ class ChecklistTab(BaseTab):
                             + words, line + ((state,) if state else ()))
         text.config(state=tk.DISABLED)
 
-    def _line(self, key, label, readings):
+    def _draw(self, rows, readings):
+        """Every row's drawn form, each told what follows it.
+
+        One place, because the column is built from this twice -- once
+        to decide whether anything changed and once to write it -- and
+        two loops that drifted apart would compare a column against a
+        different column and rewrite it every refresh.
+        """
+        keys = [key for key, _label, _widest in rows]
+        return tuple(
+            self._line(key, label, readings,
+                       keys[at + 1] if at + 1 < len(keys) else None)
+            for at, (key, label, _widest) in enumerate(rows))
+
+    def _line(self, key, label, readings, below=None):
         """One row's drawn form: its words, its readings, its tags.
 
         Everything that decides what the line LOOKS like, and nothing
@@ -1652,6 +1714,11 @@ class ChecklistTab(BaseTab):
         left alone. `tracked` is carried even though it shows only
         through the segment colours: it also colours the CHECKBOX, and
         a value patch does not repaint that.
+
+        `below` is the key of the row UNDER this one, or None at the
+        foot of the column. A checkbox cannot tell it is the last of
+        its run by looking at itself, and that is what closes a block
+        off -- see `_row_tags`.
         """
         tracked = not _is_shop(key) or self._tracked(_product_of(key))
         segments = tuple(readings.get(key) or ())
@@ -1660,7 +1727,7 @@ class ChecklistTab(BaseTab):
             # greys, red and green being about work left and a product
             # nobody tracks having none.
             segments = tuple((words, MUTED) for words, _s in segments)
-        line = ("row", "indent") if _is_shop(key) else ("row",)
+        line = _row_tags(key, below)
         return (key, label, tracked, segments), line, _label_tag(key, label)
 
     def _checkbox(self, title, parent, key, label, state):
@@ -2386,6 +2453,34 @@ def _shop_rows(raw):
 def _expiring_by(expiries, deadline):
     """How many copies expire at or before `deadline`, epoch seconds."""
     return sum(1 for end in expiries if end <= deadline)
+
+
+def _heads_a_block(key):
+    """Whether a row introduces a block of rows below it.
+
+    Every shop's heading, and the Events one. They read as titles
+    rather than as tasks, so they take the extra space above that
+    separates one block from the rows before it.
+    """
+    return key.startswith(SHOP_HEAD_PREFIX) or key == EVENT_KEY_PREFIX
+
+
+def _row_tags(key, below):
+    """The line tags one row takes, beyond its own colours.
+
+    **Exactly one pitch tag per line.** Tk resolves two tags setting
+    the same option by tag PRIORITY rather than by adding them, so
+    stacking a pad on top of `row` would give a gap that depends on
+    the order the tags happened to be created in.
+
+    `below` is the key of the row under this one, or None at the foot
+    of the column, and it is how the last checkbox of a run closes the
+    block off underneath itself.
+    """
+    if _is_shop(key):
+        pitch = "boxrow" if below is not None and _is_shop(below) else "boxlast"
+        return (pitch, "indent")
+    return ("headrow",) if _heads_a_block(key) else ("row",)
 
 
 def _is_count(value):

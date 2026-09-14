@@ -244,12 +244,16 @@ A 14 bold heading's ascenders reach above its capitals. Judge it by the capitals
 
 | Digit           | Ink width | Left of the norm | Right of the norm |
 | --------------- | --------- | ---------------- | ----------------- |
-| `1`             | 5px       | 0                | **-1**            |
-| `4`             | 8px       | **+1**           | **+1**            |
+| `1`             | 4px       | **-1**           | **-1**            |
+| `5`             | 5px       | **-1**           | 0                 |
 | `7`             | 7px       | 0                | **+1**            |
-| `0 2 3 5 6 8 9` | 6px       | 0                | 0                 |
+| `0 2 3 4 6 8 9` | 6px       | 0                | 0                 |
 
-So a value ending in `4` reads 1px tighter than the same gap ending in `0`, with no padding having changed. Segoe UI 9 only — re-measure for another face.
+A minus means the ink falls SHORT of the advance on that side, a plus that it runs past. So a gap ending at a `1` reads 1px WIDER than the same gap ending at a `0`, and one ending at a `7` reads 1px tighter, with no padding having changed. **`1` is the one to watch**: it is inset on both sides, so it widens the gap before it as well as the gap after.
+
+**Measured through GDI**, the rasteriser Tk draws with on Windows, into a memory DC with no window on screen: a 9pt Segoe UI logfont (`lfHeight` -12 at 96 DPI) reports the same 6px advance for every digit that Tk's own `measure` does, and the ink columns are read back under `FRINGE_LIGHTNESS`, the audit's own test. ClearType, which is what Windows renders text with by default -- the greyscale-antialiased raster gives narrower ink for every digit and does not match what the audit reads off the screen.
+
+Segoe UI 9 only; re-measure for another face, and re-MEASURE rather than reason. An earlier version of this table had `1` flush left and `4` overhanging by a pixel on each side, and neither is what the screen does -- which showed up as a `label -> count` gap reading a pixel wider than its target wherever the count began with a 1.
 
 ## Widget behaviour that moves spacing
 
@@ -485,6 +489,8 @@ A `unique` names no rule, so nothing derives its number — and the registry's r
 | Description | Location | Rule/Question |
 | ----------- | -------- | ------------- |
 | the Links panel's own button styling and pitch | `ui/tabs/setup_tab.py`, `_link_button` | Flat `tk.Button`s with their own `padx`/`pady`, packed `fill=X` at a pitch of 2. A flat button's painted edge is its fill rather than a border, so `button -> button` may not be the rule that applies. |
+| checkbox row -> checkbox row | `ui/tabs/checklist_tab.py`, `CHECKBOX_PITCH` | The Checklist's shop products are checkboxes embedded in a Text line, and a checkbox is taller than the line it sits on and paints a border inside its own box -- so the painted gap between two of them is narrower than the `spacing1` that produced it. `label row -> label row` is measured between painted rows and would be answering about the box, not the tick. Open: whether checkbox rows want their own rule or a correction applied to that one. |
+| block heading and its checkbox run | `ui/tabs/checklist_tab.py`, `BLOCK_PAD` | Extra space above a row that heads a block -- the Events heading, and every shop's -- and the same again below the last checkbox under it, so a block is set apart from the rows either side. One lever feeds both, which is what keeps a block's own margins symmetrical. Open: what the distance should be, and whether a heading and a run's end are really the same gap. |
 
 ## Checking spacing
 

@@ -56,6 +56,10 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **A daily event's last day goes green.** Orange says the rewards come back tomorrow; on the final day they do not, so taking them finishes the event and the row says so.
 
+- **The Checklist columns sit evenly across the tab.** The four were flush against the left with the whole leftover width piled up after the last one; the gaps now fall between them and both ends stand the same distance from the window.
+
+- **Each block on the Checklist is set apart from the rows around it.** A shop's heading and the Events heading take a little more space above them, and a shop's last product the same below.
+
 - **The Events list puts what you still owe first.** Events with rewards left to claim sort to the top by deadline; the ones that are finished, and a daily event whose day is already taken, sit below them.
 
 - **Chaos Currency reads against its cap**, `3/4`, the way Sortie already did.
