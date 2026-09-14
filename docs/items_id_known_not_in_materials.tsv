@@ -1,61 +1,63 @@
 res_id	where	amount	Name	Type	Note
-2000002	currencies	131	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
-2000007	currencies	25	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
+2000002	currencies	70	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
+2000007	currencies	23	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
 2000011	currencies	359	Moment of the Radiant Hero	Shop Currency	
 2000012	currencies	1068	Moment of the Radiant Traveler	Shop Currency	
-2000014	currencies	1	Tear of God	Stamina Recovery	
+2000014	currencies	2	Tear of God	Stamina Recovery	
 2000016	currencies	128	Rescue Anchor	Gacha Currency	
-2000018	currencies	42	Research Notes	Ark - Upgrade Currency	
+2000018	currencies	44	Research Notes	Ark - Upgrade Currency	
 2000020	currencies	560	Zeronium	Shop Currency	
 2000022	currencies	3	Special Security Code	Trauma Code Unlock Item	Max 3 stored
-2000023	currencies	16	Prism Lens	Gacha Currency - Animated Card	
+2000023	currencies	27	Prism Lens	Gacha Currency - Animated Card	
 2000024	currencies	560	Prism Film	Shop Currency	
-2000031	currencies	8	Policy Point	Ark - Shop Currency	
-2000032	currencies	8920	Crystal of Discord	Shop Currency	
-2000048	currencies	1	Daily Chaos Delegation	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation
-3000005	items	40989	Chaos Orb	Zero System Currency	Worthless
-3000008	items	18	Tactical Data	Sortie Currency	
-3000009	items	241	Memory of Light	Zero System Currency - Seasonal	Reset when a Galactic Disaster ends
-3200001	items	5400	Particles of Memory	Crafting Material for Memory Fragments	
-3200002	items	170	Core of Memory	Crafting Material for Memory Fragments	
-3210001	items	8297	Traces of Memory	Crafting Material for Memory Fragments	
+2000031	currencies	23	Policy Point	Ark - Shop Currency	
+2000032	currencies	10420	Crystal of Discord	Shop Currency	
+2000048	currencies	0	Daily Chaos Delegation	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation
+3000005	items	41372	Chaos Orb	Zero System Currency	Worthless
+3000008	items	574	Tactical Data	Sortie Currency	
+3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Reset when a Galactic Disaster ends
+3200001	items	6276	Particles of Memory	Crafting Material for Memory Fragments	
+3200002	items	260	Core of Memory	Crafting Material for Memory Fragments	
+3210001	items	7341	Traces of Memory	Crafting Material for Memory Fragments	
 3210002	items	23	Multidimensional Alignment Material	Crafting Material for Memory Fragments	
 3300001	items	0	Sweet Choconilla	Gift Item	Common
-3300002	items	0	Exquisite Slice of Cake	Gift Item	Rare
+3300002	items	1	Exquisite Slice of Cake	Gift Item	Rare
 3300003	items	3	Wing Step A-50	Gift Item	Legendary
 3300004	items	5	Mysterious Encyclopedia	Gift Item	Legendary
 3300005	items	3	Perfect Spray Gun	Gift Item	Legendary
-3300006	items	9	Locket Necklace of Memories	Gift Item	Rare
+3300006	items	10	Locket Necklace of Memories	Gift Item	Rare
 3300007	items	5	Excellent Merit Badge	Gift Item	Rare
-3300008	items	33	Lucky Sachet	Gift Item	Rare
+3300008	items	35	Lucky Sachet	Gift Item	Rare
 3300009	items	5	Hidden Card	Gift Item	Legendary
 3300010	items	3	Strange Decoration	Gift Item	Rare
 3300011	items	15	Carefully Handwritten Letter	Gift Item	Legendary
 3300012	items	4	Heartbeat Purfume	Gift Item	Common
-3300013	items	52	Cute Rabbit Doll	Gift Item	Common
+3300013	items	56	Cute Rabbit Doll	Gift Item	Common
 3300014	items	2	Nightmare-Repelling Dreamcatcher	Gift Item	Legendary
 3300015	items	3	Legendary Combat Manual	Gift Item	Legendary
-3300016	items	9	Handmade Wooden Doll	Gift Item	Common
+3300016	items	11	Handmade Wooden Doll	Gift Item	Common
+3300017	items	6	Heartfelt Guitar Pick	Gift Item	Legendary
 3300018	items	14	A Not So Boring Wait	Gift Item	Rare
-3300019	items	18	Midsummer Night Fireworks	Gift Item	Rare
+3300019	items	19	Midsummer Night Fireworks	Gift Item	Rare
 3300020	items	21	Limited Edition Teddy Bear	Gift Item	Rare
 3310005	items	0	B-Grade Policy Report	Ark - Policy	
 3310006	items	0	A-Grade Policy Report	Ark - Policy	
 3310007	items	0	Special Grade Policy Report	Ark - Policy	
-3920007	items	5465	Black Mass	Sortie Currency	
-3920013	items	4	Core of the Reverse	Save Data Edit	
+3920007	items	11005	Black Mass	Sortie Currency	
+3920013	items	5	Core of the Reverse	Save Data Edit	
 3920014	items	12	Core of Annihilation	Save Data Edit	
 3920015	items	35	Colorless Core	Save Data Edit	
-3920022	items	46	Abyssal Core	Save Data Edit	
+3920022	items	29	Abyssal Core	Save Data Edit	
 3920023	items	4	Core of Archetype	Save Data Edit	
-3920024	items	5	Core of Potential	Save Data Edit	
+3920024	items	4	Core of Potential	Save Data Edit	
 3920029	items	3	Core of Variables	Save Data Edit	
 3920030	items	1	Core of Phase	Save Data Edit	
-3920031	items	6270	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable. In PROVISIONAL_NAMES, so the Capture Log draws the name red
+3920031	items	3280	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable. In PROVISIONAL_NAMES, so the Capture Log draws the name red
 3930003	items	2	Core of Resonance	Save Data Edit	
-3930004	items	45	Core of Mutation	Save Data Edit	
+3930004	items	48	Core of Mutation	Save Data Edit	
 4020001	items	16	Midsummer Night Memories	Event Exclusive Item	Check if this is reused in various events. In PROVISIONAL_NAMES, so the Capture Log draws the name red
 5201028	items	0	Animated Card Unlock - Maribell	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201083	items	0	Animated Card Unlock Item - Olga	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it (this one is char 30117)
 5210000			Prism Module - Nominate	Animated Card Unlock Item - 4*	Seen only in shop_res_data (card_factor_4, 200 Prism Lens, 3/month); the account has never held one, which is why no dump listed it
 5210001	items	2	Prism Module - Masterpiece	Animated Card Unlock Item - 5*	
+9210051	items	1	Memories of the Beach Café Festival	Background - ID Card	

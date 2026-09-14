@@ -7,12 +7,12 @@ res_id	where	amount	Name	Type	Note
 2000021	currencies	0			
 2000033	currencies	3			Spectral Cube candidate
 2000034	currencies	0			
-3300017	items	6	Heartfelt Guitar Pick	Gift Item	Legendary
 3920004	items	0			
 3920005	items	0			
 3930002					Couldn't find any 10s. Possibly an event item, because it was gone from the snapshot after new patch dropped
 4010001	items	1			
 4010002	items	1			
+4010003	items	1			
 4100000	items	0			
 4100005	items	0			
 4100006	items	0			
@@ -74,21 +74,23 @@ res_id	where	amount	Name	Type	Note
 9100014	items	1			
 9100015	items	1			
 9100016	items	1			
-9210025	items	1			
-9210026	items	1			
-9210027	items	1			
-9210036	items	1			
-9210037	items	1			
-9210038	items	1			
-9210039	items	1			
-9210040	items	1			
-9210041	items	1			
-9210042	items	1			
-9210043	items	1			
-9210044	items	1			
-9210050	items	1			
-9210052	items	1			
-9210053	items	1			
+9210025	items	1			Background - ID Card candidate?
+9210026	items	1			Background - ID Card candidate?
+9210027	items	1			Background - ID Card candidate?
+9210036	items	1			Background - ID Card candidate?
+9210037	items	1			Background - ID Card candidate?
+9210038	items	1			Background - ID Card candidate?
+9210039	items	1			Background - ID Card candidate?
+9210040	items	1			Background - ID Card candidate?
+9210041	items	1			Background - ID Card candidate?
+9210042	items	1			Background - ID Card candidate?
+9210043	items	1			Background - ID Card candidate?
+9210044	items	1			Background - ID Card candidate?
+9210050	items	1			Background - ID Card candidate?
+9210052	items	1			Background - ID Card candidate?
+9210053	items	1			Background - ID Card candidate?
+9210054	items	1			Background - ID Card candidate?
+9210055	items	1			Background - ID Card candidate?
 9300115	items	1			
 9300116	items	1			
 9300117	items	1			
@@ -160,6 +162,7 @@ res_id	where	amount	Name	Type	Note
 9300253	items	1			
 9300255	items	1			
 9300256	items	1			
+9300257	items	1			
 9300258	items	1			
 9300260	items	1			
 9300262	items	1			
@@ -174,6 +177,8 @@ res_id	where	amount	Name	Type	Note
 9300273	items	1			
 9300278	items	1			
 9300279	items	1			
+9300286	items	1			
+9300287	items	1			
 9300288	items	1			
 9300289	items	1			
 9300290	items	1			
