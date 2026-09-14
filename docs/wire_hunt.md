@@ -169,7 +169,23 @@ A currency in `characters.currencies` keeps three figures, and the third is the 
 
 The three reconcile exactly — Policy Point read 36043 gained against 36020 spent with 23 in hand — and `total_amount` is **monotonic**: checked across 101 snapshots and five currencies, not one backward step. So the rate a currency is earned at is one subtraction between two readings of it, with nothing to model about what was spent in between. `Vribbels/checklist_manager.py` is what keeps those readings.
 
-**Two of the seven shop currencies are not currencies.** Black Mass (3920007) and the Seasonal Event Currency (3920031) are ordinary `inventory.items` entries with an `amount` and no lifetime anything, so a total for those has to be accumulated from the rises in the holding — which understates, a gain and a spend between two captures cancelling before either is seen. Nothing on the wire does better.
+**Two of the seven shop currencies are not currencies.** Black Mass (3920007) and the Seasonal Event Currency (3920031) are ordinary `inventory.items` entries with an `amount` and no lifetime anything. **The shops account for them instead:** what is held, plus `shop_list[*].total_count` times each product's price, summed over every product priced in that currency.
+
+That reconstruction was checked against the wire's own answer for the five currencies that state one — `held + bought` against `total_amount`, at every snapshot carrying both shop payloads:
+
+| Currency | Readings | Exact | Off |
+| -------- | -------- | ----- | --- |
+| Policy Point | 36 | 36 | — |
+| Moment of the Radiant Traveler | 36 | 36 | — |
+| Zeronium | 36 | 36 | — |
+| Prism Film | 36 | 36 | — |
+| Crystal of Discord | 36 | 33 | 3, by up to +300 |
+
+The three misses are all in the same direction — the derived figure HIGH — which is a capture that caught `shop_list` updated and `currencies` not yet. Black Mass derives monotonically across all 36 readings and exactly one shop prices in it, which is the Sortie shop itself.
+
+**The method needs both shop payloads.** `shop_list` absent is not "nothing bought": it is the payload not having arrived, and reading the holding alone would put a total in the record that every later reading has to climb back over.
+
+It does NOT generalise past shop-only currencies: Crystals read 228721 spent against 248000 of shop purchases, and Moment of the Radiant Hero 2175 against 675 — both are spent and earned outside the shop tables.
 
 `characters.user` dates the account and counts its days:
 

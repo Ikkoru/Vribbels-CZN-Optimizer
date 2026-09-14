@@ -85,6 +85,7 @@ def run():
         EXPECTED_VALUE, EVENT_KEY_PREFIX, _event_rows,
         SHOP_HEAD_PREFIX, SHOP_TOTAL_PREFIX, shop_head_key,
         currency_earned, currency_rate, shop_period, shop_rates,
+        RATE_RECENT_LABEL, RATE_LONG_LABEL,
         SHOP_RATE_FLOOR,
     )
     import checklist_manager
@@ -1159,25 +1160,47 @@ def run():
                 f"there is no span to divide by, and a rate off one point "
                 f"is a division by zero waiting to be a number.")
 
-    # The two lines, against a weekly shop paying 10 a day.
-    rows = shop_rates(steady, "week", 7, "Policy Point")
-    want = (("Average per week:", "70 Policy Point"),
-            ("Average per year:", EXPECTED_VALUE + "3650 Policy Point"))
+    # A seed at the account's creation and one reading today: the far
+    # end is 100 days back whichever window is asked for, so there is
+    # ONE line and it says so.
+    seeded = [(1000, 0), (1100, 1000)]
+    rows = shop_rates(seeded, "week", 7, "Policy Point")
+    want = ((RATE_LONG_LABEL % "week", "70 Policy Point"),)
     if rows != want:
         failures.append(
-            f"a shop earning 10 a day reads {rows!r}, not {want!r}. The "
-            f"week figure was measured over a week and the year figure "
-            f"over 100 days scaled up, which is what the mark says.")
+            f"a ledger of a seed and one reading gives {rows!r}, not "
+            f"{want!r}. Both windows land on the same two points -- "
+            f"printing that twice presents one measurement as two that "
+            f"agree, and calling it `recent` names a window it did not "
+            f"use.")
 
-    # A full year of watching drops the mark from the year line.
-    full = [(1000 + n, 10 * n) for n in range(400)]
-    marked = [value for _label, value in shop_rates(full, "week", 7, "P")
-              if value.startswith(EXPECTED_VALUE)]
-    if marked:
+    # A week of daily points beside that seed: the recent line appears
+    # and is measured against the nearest day it HAS, eight back, not
+    # against the seed three months back.
+    recent = [(1000, 0)] + [(1092 + n, 1000 + 200 * n) for n in range(9)]
+    rows = shop_rates(recent, "week", 7, "P")
+    if len(rows) != 2 or rows[0][0] != RATE_RECENT_LABEL % "week":
         failures.append(
-            f"with 400 days on the ledger the year figure still reads "
-            f"{marked!r}. The mark means the window fell short of the "
-            f"unit, and it has to come off once it no longer does.")
+            f"a seed plus eight daily points gives {rows!r}. The recent "
+            f"line has to take the NEAREST recorded day to the window it "
+            f"wants -- eight days back, not the seed three months back.")
+    if len(rows) == 2 and rows[0][1] == rows[1][1]:
+        failures.append(
+            f"the two lines read the same {rows[0][1]!r} where the recent "
+            f"week earned 200 a day against the long run's 10. A pair of "
+            f"windows that cannot disagree is one line printed twice.")
+
+    # **Both lines are per ROTATION.** A monthly shop over the same
+    # ledger says roughly four times what a weekly one does, because
+    # the unit is the shop's period and only the window differs.
+    week = shop_rates(steady, "week", 7, "P")[-1][1]
+    month = shop_rates(steady, "month", 30, "P")[-1][1]
+    if (int(week.split()[0]), int(month.split()[0])) != (70, 300):
+        failures.append(
+            f"a shop earning 10 a day reads {week!r} weekly and "
+            f"{month!r} monthly, not 70 and 300. Both lines are per "
+            f"ROTATION of that shop -- a rate per day times the days its "
+            f"period runs -- and only the window behind them differs.")
 
     # And nothing at all below the floor.
     if shop_rates(steady[:SHOP_RATE_FLOOR], "week", 7, "P"):
@@ -1195,13 +1218,28 @@ def run():
             f"{currency_earned(wired, 2000031)!r} to the ledger, not its "
             f"`total_amount`. Recording the HOLDING would make every "
             f"purchase read as earnings undone.")
-    item = {"inventory": {"items": [{"res_id": 3920007, "amount": 11005}]}}
-    if currency_earned(item, 3920007) != (11005,
-                                          checklist_manager.FROM_RISES):
+    # An item with no lifetime total: what is HELD plus everything ever
+    # bought with it. 11005 in hand and 3 x 4000 spent.
+    item = {"inventory": {"items": [{"res_id": 3920007, "amount": 11005}]},
+            "shop_res_data": {"shop_assault": {
+                "p1": {"price_link_item_id": 3920007, "price_count": 4000},
+                "p2": {"price_link_item_id": 2000020, "price_count": 99}}},
+            "shop_list": {"p1": {"total_count": 3},
+                          "p2": {"total_count": 7}}}
+    if currency_earned(item, 3920007) != (11005 + 12000,
+                                          checklist_manager.FROM_SHOPS):
         failures.append(
             f"an inventory item feeds {currency_earned(item, 3920007)!r}, "
-            f"not its amount as a rises ledger. Nothing on the wire keeps "
-            f"a lifetime total for those two.")
+            f"not 23005 from the shops. Nothing on the wire keeps a "
+            f"lifetime total for those two, and the holding alone would "
+            f"read as an account that has never earned what it spent.")
+    if currency_earned({"inventory": {"items": [
+            {"res_id": 3920007, "amount": 11005}]}}, 3920007) != (None, None):
+        failures.append(
+            "an item was recorded with no `shop_list` to account for it. "
+            "That payload not having arrived is not the same as nothing "
+            "having been bought, and the holding alone puts a total in "
+            "the ledger every later reading has to climb back over.")
     if currency_earned({}, 2000031) != (None, None):
         failures.append(
             "a currency the snapshot carries nowhere fed a figure to the "

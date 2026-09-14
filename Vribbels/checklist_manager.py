@@ -36,29 +36,33 @@ EARNED, one point per day:
     "currency": {
         "2000031": {"kind": "total",
                     "points": [[1027, 0], [1352, 36043]]},
-        "3920007": {"kind": "delta", "held": 11005,
-                    "points": [[1352, 0]]}
+        "3920007": {"kind": "shop",
+                    "points": [[1027, 0], [1352, 185755]]}
     }
 
-**A point is a lifetime running total, never a holding**, so a rate
-over any window is one subtraction and nothing has to reason about
-spending. The two kinds differ only in where that total comes from:
+**A point is a lifetime EARNED total, never a holding**, so a rate over
+any window is one subtraction and nothing has to reason about spending.
+**And it is SEEDED at the account's creation day with a zero**, off
+`user.createAt` -- an observation rather than a guess, an account
+having earned nothing the day it is made. That seed is what makes a
+year's reading available on the first capture rather than after a year
+of them.
+
+The two kinds differ only in where the total came from, which is
+recorded because one is stated and the other is worked out:
 
 * `total` -- the wire states it. A currency in `characters.currencies`
-  carries `total_amount`, which is lifetime GAINED and `total_use_amount`
-  lifetime spent, the two differing by exactly the holding. Checked
-  across 101 snapshots and five currencies: it never steps backwards.
-  Such a ledger is SEEDED at the account's creation day with zero, off
-  `user.createAt`, which is an observation rather than a guess -- an
-  account has earned nothing the day it is made -- and so a year's
-  reading is available from the first capture rather than after a year
-  of them.
-* `delta` -- the wire does not. Two shop currencies are ordinary
-  inventory items with an `amount` and no lifetime anything, so the
-  total is accumulated here from the rises in that holding, and `held`
-  is what the last one is measured against. **It UNDERSTATES**: a gain
-  and a spend between two captures cancel before either is seen. There
-  is nothing on the wire that would do better.
+  carries `total_amount` beside `total_use_amount` and the holding,
+  and the three reconcile exactly. Across 101 snapshots and five
+  currencies it never steps backwards.
+* `shop` -- the wire does not, and the shops account for it. Two shop
+  currencies are ordinary inventory items with an `amount` and no
+  lifetime anything; what is held plus everything ever bought with it
+  (`shop_list[*].total_count` times the product's price) is the same
+  figure. Checked against the wire's own answer for the five
+  currencies that have one: exact at every reading for four of them,
+  and within 300 in 3 readings of 36 for the fifth, where a capture
+  caught a purchase between the two payloads.
 
 Points are kept for a year and a day. Past that the oldest fall off,
 which is what turns the seeded reading into a rolling one.
@@ -74,7 +78,7 @@ CHECKLIST_VERSION = 1
 LEDGER_DAYS = 366
 
 # The two ways a lifetime total is arrived at. See the module note.
-FROM_WIRE, FROM_RISES = "total", "delta"
+FROM_WIRE, FROM_SHOPS = "total", "shop"
 
 # What an id nobody has ticked or unticked reads as.
 DEFAULT_TRACKED = True
@@ -120,7 +124,7 @@ class ChecklistManager:
         # row key -> [what it read, when it first read that].
         # See `first_seen`.
         self.seen = {}
-        # res_id (str) -> {kind, points, held}. See the module note.
+        # res_id (str) -> {kind, points}. See the module note.
         self.currency = {}
 
     def load(self):
@@ -206,27 +210,23 @@ class ChecklistManager:
                         since=None):
         """Note where one currency's lifetime total stands today.
 
-        `value` is `total_amount` off the wire for a `FROM_WIRE`
-        currency, and the plain holding for a `FROM_RISES` one -- the
-        running total is kept here for the second, because nothing on
-        the wire keeps it.
+        `value` is the lifetime EARNED total however it was arrived
+        at -- stated by the wire, or worked out from the shops. `kind`
+        records which, because one is a reading and the other is a
+        reconstruction.
 
         `day` is the day the SNAPSHOT is from, not today. Loading an
         old capture file is an ordinary thing to do, and a lifetime
         total from three weeks ago written against today would read as
         three weeks of earnings undone. Against its own day it is what
-        it is -- a reading of that day -- and a `FROM_WIRE` ledger
-        takes it wherever it belongs, which is how opening an old file
-        fills a gap in the record rather than spoiling it.
-
-        A `FROM_RISES` ledger cannot: its totals are accumulated
-        forward, so a point can only be added at the end and an older
-        snapshot is passed over.
+        it is -- a reading of that day -- and the ledger takes it
+        wherever it belongs, which is how opening an old file fills a
+        gap in the record rather than spoiling it.
 
         `since` is the day the account was made, and seeds an empty
-        `FROM_WIRE` ledger with a zero there. That point is a reading:
-        a lifetime total was zero before there was a lifetime. Without
-        it the first year of readings would have no far end to measure
+        ledger with a zero there. That point is a reading: a lifetime
+        total was zero before there was a lifetime. Without it the
+        first year of readings would have no far end to measure
         against.
 
         Returns the ledger's points, oldest first.
@@ -235,34 +235,24 @@ class ChecklistManager:
         row = self.currency.get(res_id)
         if not isinstance(row, dict) or row.get("kind") != kind:
             row = {"kind": kind, "points": []}
-            if kind is FROM_WIRE and since is not None and int(since) < day:
+            if since is not None and int(since) < day:
                 row["points"].append([int(since), 0])
             self.currency[res_id] = row
-        points = row["points"]
         before = json.dumps(row, sort_keys=True)
-        if kind is FROM_WIRE:
-            # One point per day, the higher reading winning: a day with
-            # six captures is still one day's earnings, and a ledger
-            # with six points on it would answer "per day" six times.
-            by_day = {p[0]: p[1] for p in points}
-            by_day[day] = max(int(value), by_day.get(day, int(value)))
-            newest = max(by_day)
-            points = [[d, by_day[d]] for d in sorted(by_day)
-                      if d >= newest - LEDGER_DAYS]
-        elif not points or day >= points[-1][0]:
-            held = row.get("held")
-            rose = max(0, int(value) - held) if isinstance(held, int) else 0
-            total = (points[-1][1] if points else 0) + rose
-            row["held"] = int(value)
-            if points and points[-1][0] >= day:
-                points[-1] = [day, total]
-            else:
-                points.append([day, total])
-            points = [p for p in points if p[0] >= day - LEDGER_DAYS]
-        row["points"] = points
+        # One point per day, the higher reading winning: a day with six
+        # captures is still one day's earnings, and a ledger with six
+        # points on it would answer "per day" six times over. The
+        # higher, because a lifetime total only rises -- so a lower
+        # second reading of a day is a capture that caught the shop
+        # payloads mid-purchase rather than a day that went backwards.
+        by_day = {p[0]: p[1] for p in row["points"]}
+        by_day[day] = max(int(value), by_day.get(day, int(value)))
+        newest = max(by_day)
+        row["points"] = [[d, by_day[d]] for d in sorted(by_day)
+                         if d >= newest - LEDGER_DAYS]
         if json.dumps(row, sort_keys=True) != before:
             self._write()
-        return [tuple(p) for p in points]
+        return [tuple(p) for p in row["points"]]
 
     def currency_points(self, res_id):
         """One currency's ledger, oldest first, as (day, total) pairs."""
@@ -292,7 +282,7 @@ def _clean_ledger(raw):
         if not isinstance(row, dict):
             continue
         kind = row.get("kind")
-        if kind not in (FROM_WIRE, FROM_RISES):
+        if kind not in (FROM_WIRE, FROM_SHOPS):
             continue
         by_day = {}
         for point in row.get("points") or ():
@@ -303,10 +293,7 @@ def _clean_ledger(raw):
             by_day[point[0]] = point[1]
         if not by_day:
             continue
-        clean = {"kind": kind,
-                 "points": [[day, by_day[day]] for day in sorted(by_day)]}
-        held = row.get("held")
-        if isinstance(held, int) and not isinstance(held, bool):
-            clean["held"] = held
-        out[str(res_id)] = clean
+        out[str(res_id)] = {
+            "kind": kind,
+            "points": [[day, by_day[day]] for day in sorted(by_day)]}
     return out

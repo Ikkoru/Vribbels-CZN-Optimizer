@@ -112,8 +112,8 @@ def _currency_ledger_keeps_its_shape(root):
       undone;
     * the creation seed missing, which costs the whole first year of
       readings their far end;
-    * an item ledger accumulating from a holding that went DOWN, which
-      would count spending as income.
+    * a second reading of a day coming back LOWER -- a capture that
+      caught the shop payloads mid-purchase -- taking the day with it.
 
     Returns a list of complaints.
     """
@@ -140,16 +140,18 @@ def _currency_ledger_keeps_its_shape(root):
             f"earnings undone, and every rate off the ledger goes with "
             f"it.")
 
-    # A holding that rises, then falls: only the rise is income.
-    m.record_currency(3920007, 500, 1350, cm.FROM_RISES)
-    m.record_currency(3920007, 800, 1351, cm.FROM_RISES)
-    points = m.record_currency(3920007, 200, 1352, cm.FROM_RISES)
-    if points != [(1350, 0), (1351, 300), (1352, 300)]:
+    # A day read twice, the second lower. A lifetime total only rises,
+    # so the lower reading is a capture that caught the shop payloads
+    # mid-purchase rather than a day that went backwards.
+    m.record_currency(3920007, 800, 1351, cm.FROM_SHOPS, since=1340)
+    points = m.record_currency(3920007, 500, 1351, cm.FROM_SHOPS, since=1340)
+    if points != [(1340, 0), (1351, 800)]:
         out.append(
-            f"a holding of 500 -> 800 -> 200 left {points!r}, not a "
-            f"lifetime of 0, 300, 300. Only the RISES are income; a fall "
-            f"is what was spent, and counting it would make every "
-            f"purchase subtract from what the account has earned.")
+            f"a day read 800 then 500 left {points!r}, not 800. A lifetime "
+            f"total does not fall, so the lower reading is a capture taken "
+            f"between the two shop payloads -- and letting it win would "
+            f"put a dip in the record that every rate across it divides "
+            f"by.")
 
     # And it survives the file.
     m._write()

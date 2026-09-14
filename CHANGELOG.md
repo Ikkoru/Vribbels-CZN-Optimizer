@@ -22,7 +22,11 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **`Multidimensional Alignment Material` is shortened on the Checklist**, with the full name on the row's own tooltip. The tip is bound to the row, so it follows the product wherever ticking sorts it.
 
-- **Hovering a shop on the Checklist says what its currency earns.** Two lines: the average per rotation of that shop — week, month or season, whichever it resets on — and the average per year, each in the shop's own currency. The figures come off a record the program now keeps, one reading a day; for the five currencies whose lifetime earnings the game states outright the record reaches back to the day the account was made, so the year figure is there on the first capture. A `~` marks a figure measured over less than the span it names, and comes off once it is not.
+- **Hovering a shop on the Checklist says what its currency earns.** Two lines, both in that shop's own rotation — week, month or season, whichever it resets on — differing only in how far back they looked: `recent` over the last four rotations, `long run` over the last year. A gap between them means something changed; while the record is too young to tell them apart, only the long-run line shows.
+
+- **That record starts full rather than empty.** The game states a lifetime earned total for five of the seven shop currencies, and the shops account for the other two — what is held plus everything ever bought with it, which reproduces the game's own figure exactly at every reading of four currencies and within 300 for the fifth. Anchored at the day the account was made, so a year's reading is there on the first capture instead of in a year's time.
+
+- **The Seasonal Shop shows no rates.** Its currency is wiped at the end of every season, so what was earned of it before says nothing about now.
 
 - **A shop heading's total is inked a shade apart** from the products under it — the same green and red, slightly darker and slightly stronger — so the block's own verdict does not read as one more row's.
 

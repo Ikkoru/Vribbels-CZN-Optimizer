@@ -136,19 +136,21 @@ SHOP_TIP_PREFIX = "shoptip:"
 SHOP_PERIODS = {"weekly": ("week", 7), "monthly": ("month", 30),
                 "account": ("season", 21)}
 
-# How many of a shop's own periods the short average rolls over. ONE:
-# what the currency earned over the last rotation.
+# **Both lines answer in the shop's own period** -- what a rotation is
+# worth -- and differ only in how far back the daily rate behind them
+# was measured. That is the whole point of showing two: the same
+# question asked of recent play and of the long run, so a gap between
+# them says something happened rather than being arithmetic.
 #
-# **That is a single observation rather than an average.** A week's
-# income swings with what content ran that week, so the figure moves a
-# long way for reasons that say nothing about the next rotation.
-# Widening this to four or eight trades that noise for lag.
-SHOP_RATE_ROLL = 1
+# How many of the shop's own periods the SHORT one rolls over. One is
+# a single observation rather than an average -- a week's income swings
+# with what content ran that week -- so this trades that noise for lag.
+SHOP_RATE_ROLL = 4
 
-# The long average's window, in days, and what it is stated as. Capped
-# at the ledger's own reach: an account younger than a year is measured
-# over its whole life and the figure scaled up, which is what makes it
-# an answer on the first capture rather than in a year's time.
+# And how far back the LONG one reaches, in days. Capped at the
+# ledger's own span: an account younger than that is measured over its
+# whole life, which is what makes this an answer on the first capture
+# rather than in a year's time.
 SHOP_RATE_YEAR = 365
 
 # The least a ledger may span before a rate off it is shown at all.
@@ -160,10 +162,18 @@ SHOP_RATE_YEAR = 365
 # The two that are ordinary items have to earn it a day at a time.
 SHOP_RATE_FLOOR = 7
 
-# What the two lines say. `%s` is the shop's period -- `week`,
-# `month`, `season` -- so a monthly shop does not claim a weekly rate.
-RATE_PERIOD_LABEL = "Average per %s:"
-RATE_YEAR_LABEL = "Average per year:"
+# What each line says. `%s` is the shop's period -- `week`, `month`,
+# `season` -- so a monthly shop does not claim a weekly rate. Both
+# lines answer in that same unit and name only which window they came
+# from, not how many days that was.
+#
+# **A `recent` line can be measured over fewer days than it asked
+# for**, where the ledger does not reach back that far, and says
+# nothing about it. What stops that reading as a four-week figure on a
+# ledger three days old is `SHOP_RATE_FLOOR`, plus the rule that two
+# windows landing on the same days print once.
+RATE_RECENT_LABEL = "Average per %s, recent:"
+RATE_LONG_LABEL = "Average per %s, long run:"
 
 # What a rate reads as with a value and a name beside it.
 RATE_VALUE = "%s %s"
@@ -1919,6 +1929,12 @@ class ChecklistTab(BaseTab):
         for title, _fixed, shops, _events in COLUMNS:
             period = PERIOD_BY_COLUMN.get(title)
             for shop in shops if period else ():
+                # **The seasonal shop has no rate to give.** Its
+                # currency is wiped at the end of every season, so what
+                # was earned of it last season says nothing about this
+                # one and a lifetime total spans several wipes.
+                if shop[0] == SEASONAL_SHOP_CATEGORY:
+                    continue
                 money = shop_currency(shop, period, raw)
                 if money is None:
                     continue
@@ -2655,27 +2671,52 @@ def _add_shop_totals(out, raw, amounts, tracked, now):
 
 
 def currency_earned(raw, res_id):
-    """`(the figure to record, which kind of ledger it feeds)`.
+    """`(what has ever been earned of it, how that was arrived at)`.
 
-    A currency in `characters.currencies` states its own lifetime
-    GAINED as `total_amount`, and that is the figure. An ordinary
-    inventory item states only what is held, and the ledger has to
-    build a lifetime out of the rises in it.
+    Two sources, and the first is simply read:
 
-    `(None, None)` where the snapshot carries the id nowhere -- which
-    is not zero. A currency the account has never touched and one the
-    capture has not reached look the same from here, and recording a
-    zero for either would put a false floor in the ledger.
+    * a currency in `characters.currencies` states its own lifetime
+      gained as `total_amount`;
+    * an ordinary inventory item states none, and the SHOPS account
+      for it -- what is held plus everything ever bought with it, which
+      is `shop_list[*].total_count` times each product's price.
+
+    **The second is checked against the first.** For the five
+    currencies carrying a `total_amount`, the shop sum reproduces it
+    exactly at every reading of four of them, and within 300 in three
+    readings of thirty-six for the fifth -- a capture that caught a
+    purchase between the two payloads. So it is a reconstruction rather
+    than a reading, and the ledger records which it got.
+
+    `(None, None)` where the snapshot carries the id nowhere, which is
+    not zero: a currency never held and one a capture has not reached
+    look the same from here, and recording a zero for either would put
+    a false floor in the ledger.
     """
     doc = ((raw or {}).get("characters") or {}).get("currencies") or {}
     doc = doc.get(str(res_id))
     if isinstance(doc, dict) and _is_count(doc.get("total_amount")):
         return doc["total_amount"], checklist_manager.FROM_WIRE
-    for item in ((raw or {}).get("inventory") or {}).get("items") or ():
-        if isinstance(item, dict) and item.get("res_id") == res_id:
-            if _is_count(item.get("amount")):
-                return item["amount"], checklist_manager.FROM_RISES
-    return None, None
+    held = item_amounts.held(raw).get(res_id)
+    if not _is_count(held):
+        return None, None
+    bought = shop_stock.stock(raw)
+    if not bought:
+        # No `shop_list` is not "nothing bought": it is the payload not
+        # having arrived. Recording the holding alone would put a total
+        # in the ledger that every later reading has to climb back over.
+        return None, None
+    spent = 0
+    for _category, defines in shop_stock.definitions(raw).items():
+        for product_id, define in (defines or {}).items():
+            if (not isinstance(define, dict)
+                    or define.get("price_link_item_id") != res_id):
+                continue
+            price = define.get("price_count")
+            count = (bought.get(product_id) or {}).get("total_count")
+            if _is_count(price) and _is_count(count):
+                spent += price * count
+    return held + spent, checklist_manager.FROM_SHOPS
 
 
 def currency_rate(points, window):
@@ -2685,17 +2726,19 @@ def currency_rate(points, window):
     subtraction across the pair that brackets the window -- no sum, and
     nothing to say about what was spent in between.
 
-    **The window is a FLOOR, not a promise.** Where the ledger does not
-    reach back that far the oldest point stands in and the days it
-    actually covers come back beside the rate, so a caller can say
-    whether the figure was measured over its own unit or scaled up to
-    it.
+    **The window is what is ASKED FOR, and what comes back is what was
+    available.** The far end is the recorded day NEAREST the one the
+    window names, on either side of it -- so a ledger holding a seed at
+    the account's creation and a week of recent days answers a
+    four-week question with the week it has, rather than with the three
+    hundred days the seed would drag in. The days actually covered come
+    back beside the rate, and every caller states them.
     """
     if len(points) < 2:
         return None, 0
     last_day, last_total = points[-1]
-    older = [p for p in points if p[0] <= last_day - window]
-    first = older[-1] if older else points[0]
+    want = last_day - window
+    first = min(points[:-1], key=lambda p: abs(p[0] - want))
     days = last_day - first[0]
     if days <= 0:
         return None, 0
@@ -2706,30 +2749,35 @@ def shop_rates(points, word, days, name):
     """The two lines of a shop heading's tip, or `()`.
 
     `(label, value)` a row, which is what the tip draws as two aligned
-    columns. The period figure rolls over `SHOP_RATE_ROLL` of the
-    shop's own periods and the year figure over `SHOP_RATE_YEAR` days,
-    each falling back to the whole ledger where it is shorter -- and a
-    figure the ledger could not measure over its own unit carries
-    `EXPECTED_VALUE`, the same mark the weekly allowances use for a
-    number worked out rather than read. The year figure keeps that mark
-    until the account has been watched for a year, which is honest and
-    which clears itself.
+    columns. **Both are per ROTATION of this shop** -- an average
+    earned per day, times the days the shop's period runs -- and they
+    differ in how far back that per-day figure was measured:
+    `SHOP_RATE_ROLL` of the shop's own periods, and `SHOP_RATE_YEAR`
+    days, each reaching for the recorded day nearest the one it wants.
 
-    Nothing at all until the ledger spans `SHOP_RATE_FLOOR` days. A
-    tip has to be worth stopping for, and a rate off two days is which
+    **ONE line where both windows land on the same days**, and it is
+    the LONG one. A young ledger cannot tell recent from long-run -- it
+    holds one stretch of record and both readings are of that stretch
+    -- so printing two would present one measurement as two that agree,
+    and calling that one `recent` would name a window it did not use.
+    The second line appears when there is something for it to say.
+
+    Nothing at all until the ledger spans `SHOP_RATE_FLOOR` days. A tip
+    has to be worth stopping for, and a rate off two days is which
     content ran on them.
     """
     rows = []
-    for label, window, over in (
-            (RATE_PERIOD_LABEL % word, days * SHOP_RATE_ROLL, days),
-            (RATE_YEAR_LABEL, SHOP_RATE_YEAR, SHOP_RATE_YEAR)):
+    for label, window in ((RATE_RECENT_LABEL, days * SHOP_RATE_ROLL),
+                          (RATE_LONG_LABEL, SHOP_RATE_YEAR)):
         rate, covered = currency_rate(points, window)
         if rate is None or covered < SHOP_RATE_FLOOR:
             continue
-        mark = "" if covered >= over else EXPECTED_VALUE
-        rows.append((label, RATE_VALUE % (mark + "%d" % round(rate * over),
-                                          name)))
-    return tuple(rows)
+        rows.append((label % word,
+                     RATE_VALUE % ("%d" % round(rate * days), name),
+                     covered))
+    if len(rows) == 2 and rows[0][2] == rows[1][2]:
+        rows = rows[1:]
+    return tuple((label, value) for label, value, _covered in rows)
 
 
 def _period_left(title, raw, now):
