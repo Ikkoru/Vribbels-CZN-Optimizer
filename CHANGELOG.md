@@ -36,6 +36,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The devil event counts all seven of its days.** Its rewards are named after the DAY rather than the event, which the program was reading as an event number — so it matched day one and quietly ignored the rest, showing `3/3` for an event with 21 rewards in it.
 
+- **A finished summer puzzle shows as finished.** The reply confirming the last piece names only the set it changed, which nothing was reading, so the puzzle stayed one piece short until the next login.
+
 - **Memory Fragments won as rewards are kept.** Anything a Chaos week reward or a Simulation run paid was missing from the inventory until the next login: those arrive in a different shape from a forged fragment, and nothing was reading it.
 
 - **A doubled Simulation run is counted.** The Overclock row is fed by a record tucked inside the stage reply rather than at its top level, so the row sat at its login value for the whole session.
@@ -49,6 +51,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 - **The Arkhianon Supply's daily count ignores one-off missions.** A mission the pass issues today was counted as one of the day's six, so a patch that added a one-off read a five-of-six day as finished.
 
 ### Changed
+
+- **A daily event's last day goes green.** Orange says the rewards come back tomorrow; on the final day they do not, so taking them finishes the event and the row says so.
 
 - **The Events list puts what you still owe first.** Events with rewards left to claim sort to the top by deadline; the ones that are finished, and a daily event whose day is already taken, sit below them.
 

@@ -226,6 +226,42 @@ def run():
             "is a dict of `list_id` rows, so the guard is a LIST of rows "
             "carrying `res_id` and `complete_time`.")
 
+    # --- the SINGULAR of a collection is the row that changed --------
+    # Finishing a summer puzzle answers with `event_summer_set_entity`,
+    # one row, under its own key rather than inside the plural the
+    # login sends. Read only in the plural, the set's `complete_time`
+    # stays 0 until the next login -- the snapshot then shows an
+    # unfinished puzzle beside the reward it has just paid for.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "qid": 35,
+        "event_summer_set_entities": {
+            "event_summer_01_01": {"res_id": "event_summer_01_01",
+                                   "complete_time": 1786910660},
+            "event_summer_01_03": {"res_id": "event_summer_01_03",
+                                   "complete_time": 0}}}]))
+    addon.websocket_message(_Flow([{
+        "res": "ok", "qid": 43,
+        "event_summer_set_entity": {"res_id": "event_summer_01_03",
+                                    "complete_time": 1789347146}}]))
+    sets = addon.event_defines.get("event_summer_set_entities") or {}
+    if sets.get("event_summer_01_03", {}).get("complete_time") != 1789347146:
+        failures.append(
+            f"the finished set reads "
+            f"{sets.get('event_summer_01_03', {}).get('complete_time')!r}, "
+            f"not 1789347146. A one-row reply arrives under the SINGULAR "
+            f"key and has to be folded into the collection the login "
+            f"sends.")
+    if sets.get("event_summer_01_01", {}).get("complete_time") != 1786910660:
+        failures.append(
+            "folding in the one changed set lost the others.")
+    stray = [key for key in addon.event_defines if key.endswith("_entity")
+             and key.endswith("_set_entity")]
+    if stray:
+        failures.append(
+            f"the singular key {stray!r} was kept as well. It is the same "
+            f"collection under another name, and a second copy is one more "
+            f"thing for a reader to pick the wrong one of.")
+
     # --- and both reach the snapshot as LISTS -----------------------
     # The shape the wire uses and the shape every snapshot on disk
     # already carries, so `_event_finished` and `_event_attendance`

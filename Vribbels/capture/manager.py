@@ -884,6 +884,19 @@ class Addon:
                                              or key.endswith("_set_entities")):
                 self.event_defines[key] = value
                 self._save_pending = True
+            # **The SINGULAR of a collection is the one row that
+            # changed**, and it arrives under its own key rather than
+            # inside the plural. Finishing a summer puzzle answers with
+            # `event_summer_set_entity`, so without this the set's
+            # `complete_time` stays 0 until the next login -- the
+            # snapshot shows an unfinished puzzle beside the reward it
+            # just paid for.
+            elif (key.startswith("event_") and key.endswith("_set_entity")
+                    and value.get("res_id") is not None):
+                plural = self.event_defines.setdefault(key[:-1] + "ies", {})
+                if isinstance(plural, dict):
+                    plural[str(value["res_id"])] = value
+                    self._save_pending = True
         # The login-streak events: days shown up, days claimed.
         #
         # **Merged by event, never replaced.** The login burst sends

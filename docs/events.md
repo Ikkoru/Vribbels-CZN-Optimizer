@@ -79,6 +79,8 @@ Claiming everything on offer does not finish a Forced Daily event: tomorrow brin
 
 This is a different orange from the Open-ended one. Nothing here is unproven; the day is genuinely complete and the category alone says so, with no 48-hour settling involved.
 
+**On the LAST day it goes green.** Orange is a promise that the row comes back; on the final day it does not, and taking that day's runs finishes the event outright. `_last_cycle` asks the event's own window whether the day now running is the one that reaches its end. Where there is no window the answer has to be NO — a row that goes green a day early costs the user the last day's rewards, where one that stays orange costs nothing.
+
 ### Members so far
 
 | Group | Categories | Where its progress lives | Notes |
@@ -194,6 +196,25 @@ The guestbook itself is elsewhere: `event_bartender_entities` keys on `bartender
 
 That gives rewards taken (`reward_count // 8`) and rewards waiting (`amount // 8`) exactly. What is still absent is the DENOMINATOR: the event's 10 rewards and its 84 items are nowhere, and 84 ≠ 10 × 8, so the last rewards are not evenly spaced and no rate would find them anyway.
 
+### What a FINISHED summer event looks like, and what it does not say
+
+Captured in full — the last mission claimed, the last reward taken, the last puzzle piece slotted, the last story watched. Everything the account then held:
+
+| | Reads |
+| --- | --- |
+| `event_summer_define_entity` | `event_item_count` 88, `reward_count` **84** — the event's whole cost, and it stops there |
+| every mission row | 20 of 20 with a `complete_time` |
+| `event_summer_set_entities` | three sets, all with a `complete_time` |
+| `story_event_entities["event_132"]` | 14 stories, 14 complete |
+| the balance of `4020001` | 4 — less than one reward's 8, so nothing is affordable |
+| **`event_mission_reward_entities`** | **no summer row at all** |
+
+**So the general completion flag does not cover this event**, and none of the other five is a proof. Each is a floor in the same old way: a fourth mission wave, a fourth set, another story or more items would each make the "complete" reading move again, and nothing on the wire rules that out. The 84 is only recognisable as a total because the maintainer counted it in game.
+
+The one thing that IS exact is a different question: **`amount // 8` is how many rewards are waiting**, and it needs no total at all. `0` there means nothing to collect right now — which is what a checklist is actually for — while "the event is over" stays unanswerable.
+
+Finishing the last puzzle also pays a one-off item (`4010003` here), which would serve as a per-event completion marker. That is a hardcode per event and worth it only if a general answer never turns up.
+
 ## Naming, and how to find an event's records
 
 An event's schedule id and its records' ids differ, but only in decoration. `checklist_tab._event_key` strips the words `schedule`, `mission` and `season` (`EVENT_NOISE_WORDS`) and the zero padding, after which they match:
@@ -254,6 +275,7 @@ Claim commands seen so far, all naming the event and the records together:
 | `overclock_entities` | the `unlock` reply at login | `result_overclock_entities`, nested under the stage reply's **`return_info`** |
 | `event_mission_reward_entities` | the `mission` reply at login | not yet seen; an ordinary reward claim does not send it |
 | `event_mission_entities` | login | its own rows, under the BARE key `entities` — not under its own name |
+| `event_summer_set_entities` | the `event/get_list` payload | the one row that changed, under the SINGULAR `event_summer_set_entity` |
 
 ### What a Daily Check-in claim actually answers
 
@@ -273,7 +295,7 @@ Both in `capture/manager.py`, and both are the general rule rather than anything
 
 * **merge by id, never replace.** A one-row payload updates its own row and leaves the rest alone. A wholesale assignment looks right on every capture ever taken and wipes the list the first time a partial one arrives.
 * **look under `return_info` as well as at the top level.** A stage reply nests its whole outcome there. Reading only the top level is indistinguishable from the wire being silent, which is exactly how the Overclock row was misread.
-* **accept all three spellings** — `x_entities` (list), `result_x_entities` (list) and `x_entity` (one record). `checks/check_capture_event_state.py` holds all three plus the two shapes above.
+* **accept all three spellings** — `x_entities` (list), `result_x_entities` (list) and `x_entity` (one record). The singular is the ROW THAT CHANGED and belongs folded into the collection, not kept beside it: a second copy under a near-identical name is one more thing for a reader to pick the wrong one of. `checks/check_capture_event_state.py` holds all three plus the shapes above.
 
 ### Reading a capture for whether anything mid-session landed
 
