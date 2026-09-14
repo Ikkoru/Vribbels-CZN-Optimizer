@@ -58,6 +58,7 @@ whether or not the addon of the day knew to keep them. Finding neither
 it leaves the file alone rather than blanking it.
 """
 
+import gzip
 import json
 from pathlib import Path
 
@@ -177,11 +178,18 @@ def from_debug_logs():
     One JSON record per line, and a line that will not parse is skipped
     rather than stopping the read: a log can be cut off mid-write by
     the capture ending.
+
+    **Both spellings.** Captures are written `.jsonl.gz` now -- one
+    gzip member per line, so it still reads a line at a time -- and the
+    plain `.jsonl` ones taken before that are still on disk. Sorting
+    the two together works because the timestamp is in the stem.
     """
-    for path in sorted(SNAPSHOTS.glob("websocket_debug_*.jsonl"),
-                       reverse=True):
+    logs = (list(SNAPSHOTS.glob("websocket_debug_*.jsonl"))
+            + list(SNAPSHOTS.glob("websocket_debug_*.jsonl.gz")))
+    for path in sorted(logs, key=lambda p: p.name, reverse=True):
         rows = {}
-        with path.open(encoding="utf-8") as handle:
+        opener = (gzip.open if path.suffix == ".gz" else open)
+        with opener(path, "rt", encoding="utf-8") as handle:
             for line in handle:
                 if FIELD not in line:
                     continue
