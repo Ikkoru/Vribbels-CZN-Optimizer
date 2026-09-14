@@ -1,6 +1,6 @@
 res_id	family	group	tier	rarity	name	icon	amount	where
-2000001	named			Common	Units	currency_unit.png	3068524	currencies
-2000004	named			Mythic	Crystals	currency_paid_crystal.png	2511	currencies
+2000001	named			Common	Units	currency_unit.png	3256524	currencies
+2000004	named			Mythic	Crystals	currency_paid_crystal.png	2721	currencies
 2000010	named			Mythic	Signal Amplification Anchor	currency_gacha_ticket_rateup_supporter.png	119	currencies
 2000027	named			Legendary	Loot Certification Card	currency_chaos_week_reward.png	2	currencies
 2000036	named			Legendary	Reason	currency_chaos_assault_stamina.png	8	currencies
@@ -21,7 +21,7 @@ res_id	family	group	tier	rarity	name	icon	amount	where
 3120003	Growth Stone	Passion	Premium	Legendary	Premium Growth Stone of Passion	icon_item_card_levelup_love_3.png	0	items
 3120011	Growth Stone	Instinct	Common	Common	Common Growth Stone of Instinct	icon_item_card_levelup_instinct_1.png	0	items
 3120012	Growth Stone	Instinct	Great	Rare	Great Growth Stone of Instinct	icon_item_card_levelup_instinct_2.png	75	items
-3120013	Growth Stone	Instinct	Premium	Legendary	Premium Growth Stone of Instinct	icon_item_card_levelup_instinct_3.png	83	items
+3120013	Growth Stone	Instinct	Premium	Legendary	Premium Growth Stone of Instinct	icon_item_card_levelup_instinct_3.png	87	items
 3120021	Growth Stone	Void	Common	Common	Common Growth Stone of Void	icon_item_card_levelup_creed_1.png	0	items
 3120022	Growth Stone	Void	Great	Rare	Great Growth Stone of Void	icon_item_card_levelup_creed_2.png	20	items
 3120023	Growth Stone	Void	Premium	Legendary	Premium Growth Stone of Void	icon_item_card_levelup_creed_3.png	0	items
