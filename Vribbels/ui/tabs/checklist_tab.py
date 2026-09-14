@@ -175,6 +175,15 @@ SHOP_RATE_FLOOR = 7
 RATE_RECENT_LABEL = "Average per %s, recent:"
 RATE_LONG_LABEL = "Average per %s, long run:"
 
+# And what a full period of the shop costs, which is the figure those
+# two are worth comparing against.
+#
+# **The whole cap, not what is left of it.** The heading's own reading
+# already says what finishing THIS period costs; this one says what the
+# period costs from empty, so it does not move as the shelves are
+# bought out and can be read against a rate.
+FULL_COST_LABEL = "Full cost of selected items:"
+
 # What a rate reads as with a value and a name beside it.
 RATE_VALUE = "%s %s"
 
@@ -2029,10 +2038,16 @@ class ChecklistTab(BaseTab):
                     points = manager.record_currency(
                         money, value, day, kind, since)
                 word, days = shop_period(period, raw, now)
-                rows = shop_rates(points, word, days,
-                                  ITEM_NAMES.get(money) or str(money))
-                if rows:
-                    out[shop_head_key(shop, period)] = rows
+                name = ITEM_NAMES.get(money) or str(money)
+                # The rates first, then what a full period costs --
+                # which is the figure they are worth reading against,
+                # and which is there even on a ledger too young to
+                # give a rate at all.
+                rows = shop_rates(points, word, days, name) + (
+                    (FULL_COST_LABEL,
+                     RATE_VALUE % (shop_full_cost(shop, period, raw,
+                                                  self._tracked), name)),)
+                out[shop_head_key(shop, period)] = rows
         return out
 
     def _settle_floors(self, readings):
@@ -2827,6 +2842,25 @@ def currency_rate(points, window):
     if days <= 0:
         return None, 0
     return (last_total - first[1]) / float(days), days
+
+
+def shop_full_cost(shop, period, raw, tracked=None):
+    """What a full period of one shop's ticked products costs.
+
+    Every ticked product's cap times its price, whether or not any of
+    it has been bought. **Distinct from the heading's own reading**,
+    which is what finishing the period from HERE costs: this one does
+    not move as the shelves empty, which is what makes it comparable
+    against a rate.
+    """
+    total = 0
+    for product_id, define in shop_products(shop, period, raw):
+        if tracked is not None and not tracked(product_id):
+            continue
+        cap, price = define.get("limit_count"), define.get("price_count")
+        if _is_count(cap) and _is_count(price):
+            total += cap * price
+    return total
 
 
 def shop_rates(points, word, days, name):

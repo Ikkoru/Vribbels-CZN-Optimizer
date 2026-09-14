@@ -20,9 +20,15 @@ why nothing else would catch it.
 arrives in one and the lobby's banner schedule seconds later in the
 next. Both are real saves and the second carries something the first
 did not, but the report counts fragments and combatants and neither of
-those moved -- so the line repeats itself word for word. The second one
-is dropped, and ONLY where it would repeat the last line logged: a save
-that follows an upgrade or a delete still confirms itself.
+those moved -- so the line would repeat itself word for word.
+
+**So the report is printed only when it would SAY something new**: a
+different file, or different counts. It used to be dropped only where
+it would repeat the LAST line logged, which caught the login burst and
+nothing else -- any `[LIVE]` line in between, and there is one after
+every upgrade, delete and reward, put the same figures back on screen.
+An evening's capture was mostly this sentence. What is left is the
+file being written, the numbers moving, and a save that FAILS.
 """
 
 import json
@@ -118,18 +124,32 @@ def run():
             f"a repeat of the last line says nothing. Lines: {saves}"
         )
 
-    # ...and a save that follows anything else still confirms itself,
-    # identical counts or not. An upgrade changes a level, so the
-    # fragment and combatant counts in the line do not move.
+    # ...and an upgrade does not bring it back. The `[LIVE] Upgraded`
+    # line is what says something happened; the counts have not moved,
+    # so repeating them says nothing.
     upgraded = dict(batch[0]["piece_items"][0])
     upgraded["level"] = 3
     addon.websocket_message(_Flow([{"res": "ok", "piece": upgraded}]))
-    if not str(lines[-1]).startswith("Saved:"):
+    saves = [l for l in lines if str(l).startswith("Saved:")]
+    if len(saves) != 1:
         failures.append(
-            f"the save after an upgrade did not report itself; the log "
-            f"ends {lines[-1]!r}. Only a repeat of the LAST line is "
-            f"dropped -- with an upgrade logged in between there is "
-            f"nothing to repeat."
+            f"the save after an upgrade reported itself again: {saves!r}. "
+            f"An upgrade changes a LEVEL, so neither figure in that line "
+            f"moves -- and a capture left running was mostly this sentence "
+            f"repeated after every event."
+        )
+
+    # A save that moves a count DOES report, which is what keeps this
+    # from being a rule that simply silences the line.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "piece_items": batch[0]["piece_items"] + [
+            {"id": 999, "res_id": 11001, "level": 0}]}]))
+    saves = [l for l in lines if str(l).startswith("Saved:")]
+    if len(saves) != 2:
+        failures.append(
+            f"a save whose fragment count moved did not report itself: "
+            f"{saves!r}. The line exists to show the file being written "
+            f"and the numbers moving."
         )
 
     return failures

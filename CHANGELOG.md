@@ -14,9 +14,9 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Added
 
-- **A capture can be left running.** Three things changed to make that worth doing: the debug log is compressed (13x, and readable at every moment rather than only once the capture stops); a new snapshot is started each time the game is launched, instead of one file rewritten for the capture's whole life; and the capture keeps a catalogue of which request carries which field.
+- **A capture can be left running.** Three things changed to make that worth doing: the debug log is compressed (13x, and readable at every moment rather than only once the capture stops); a new snapshot is started each time the game is RELAUNCHED — not merely reconnected, which this game does often — instead of one file rewritten for the capture's whole life; and the capture keeps a catalogue of which request carries which field.
 
-- **The wire catalogue.** `settings/wire_catalogue.json`, built as a capture runs and accumulated across them: every request-and-field pair seen, how often, when first and last, and a short sample. `docs/wire_catalogue.py` prints it against the fields the program actually reads, so the ones nothing has ever looked at are named. It is kept beside the settings rather than among the captures, so tidying those up does not lose it.
+- **The wire catalogue.** `settings/wire_catalogue.json`, built as a capture runs and accumulated across them: every request-and-field pair seen, how often, when first and last, and a short sample. `docs/wire_catalogue.py` prints it against the fields the program actually reads, so the ones nothing has ever looked at are named. It is kept beside the settings rather than among the captures, so tidying those up does not lose it. **It runs only from a source checkout** — a released build never writes it.
 - **Materials tab: the hardest target on each block is coloured** — red under 50%, yellow to 100%, green once covered. The steps on the way keep the ordinary colour, so a block reads as one verdict rather than a column of traffic lights.
 
 - **An item whose name is only a guess is drawn red in the Capture Log.** Two event currencies are named from one event each and the game may hand the same id out under a different name later; red says to check the line rather than trust it. An id nothing can name at all stays dim yellow, as before.
@@ -80,6 +80,9 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Changed
 
+- **The capture log stopped repeating itself.** `Saved: 747 Memory Fragments, 197 characters` appeared again after every upgrade, delete and reward, with the same figures every time. It now appears when the file or the counts change, and a save that FAILS says so plainly instead of arriving as a bare `Error:`.
+
+- **The Checklist's shop tooltips say what a full period costs**, on a line of their own under the earning rates: every ticked product's cap at its price, whether or not any of it has been bought yet. That is the figure the rates are worth reading against — it does not move as the shelves empty.
 - **A daily event's last day goes green.** Orange says the rewards come back tomorrow; on the final day they do not, so taking them finishes the event and the row says so.
 
 - **The Checklist columns sit evenly across the tab.** The four were flush against the left with the whole leftover width piled up after the last one; the gaps now fall between them and both ends stand the same distance from the window.

@@ -85,6 +85,7 @@ def run():
         EXPECTED_VALUE, EVENT_KEY_PREFIX, _event_rows,
         SHOP_HEAD_PREFIX, SHOP_TOTAL_PREFIX, shop_head_key,
         currency_earned, currency_rate, shop_period, shop_rates,
+        shop_full_cost,
         _event_attendance,
         RATE_RECENT_LABEL, RATE_LONG_LABEL,
         SHOP_RATE_FLOOR,
@@ -1209,6 +1210,31 @@ def run():
             f"a ledger spanning under {SHOP_RATE_FLOOR} days produced a "
             f"rate. What a window that short holds is which content ran "
             f"in it, and a tip has to be worth stopping for.")
+
+    # --- what a full period of a shop costs ---------------------------
+    # **The whole cap, bought or not**, which is what separates it from
+    # the heading's own reading. Both are a sum over the same products
+    # at the same prices, so the only thing that can distinguish them
+    # is whether a shelf that has been emptied still counts.
+    SHOP = ("shop_town", "none")
+    shelf = _shop((("a", 3, 20, MONEY), ("b", 1, 100, MONEY)),
+                  bought=(("a", 2),))
+    got = shop_full_cost(SHOP, "weekly", shelf)
+    if got != 160:
+        failures.append(
+            f"a shelf of 3x20 and 1x100 costs {got!r} in full, not 160. "
+            f"Two of the three having been bought does not make the "
+            f"period cheaper -- that is what the heading's own reading "
+            f"says, and this one is meant to sit still beside a rate.")
+    got = shop_full_cost(SHOP, "weekly", shelf, lambda pid: pid != "b")
+    if got != 60:
+        failures.append(
+            f"with one product unticked the full cost is {got!r}, not 60. "
+            f"It answers for what the user tracks, like every other "
+            f"figure on that heading.")
+    if shop_full_cost(SHOP, "weekly", _snapshot()) != 0:
+        failures.append(
+            "a shop with no products on the wire costed something.")
 
     # --- which figure a currency feeds the ledger ---------------------
     wired = {"characters": {"currencies": {"2000031": {

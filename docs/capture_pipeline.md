@@ -195,13 +195,26 @@ So the login burst — the bulk of every capture — is almost pure repetition b
 
 `helo` is the first client command of every connection, carrying the device block and `qid: 1`. Every capture on disk holds exactly one, which is also why nothing has ever needed it. `lobby_update` with `from_title: true` says the same thing one step later — the mid-session lobby refreshes send `from_title: false`.
 
-**A close has one too**, and it is `websocket_end` — mitmproxy's own hook, no polling and no process list. It is a real signal rather than a guess at idleness: the game sends WebSocket ping keepalives while it sits there, so a connection that ENDS has ended. What it cannot tell apart is a crash from a clean exit, which nothing downstream needs to know.
+**But none of those means a NEW GAME**, and that is the trap. This game reconnects often, and a reconnect does all three: it closes and reopens the websocket, so `websocket_end` fires; it redoes the handshake, so `helo` arrives again; and it re-sends the lobby. One evening with a few dropped connections made three snapshots out of one sitting.
 
-**So a capture rotates its snapshot per launch.** `saved_path` is released on `helo` and again on `websocket_end`, and the next save picks a new timestamped name — both orderings leave the finished file alone. Nothing is created until there is something to put in it, so a launch that sends nothing costs no file. The addon's CACHE is deliberately kept across the rotation: a snapshot is meant to be the whole account, and the login burst rewrites all of it anyway.
+**`characters.user.last_login_tm` is the marker.** Across those three snapshots it was identical to the second — as were `activated_tm` and the account payload's own `server_time` — while the previous real launch differed. A reconnect resumes; only a login logs in. `session` is no help either: one launch was seen rotating through seven tokens.
+
+| Signal | On a relaunch | On a reconnect |
+| ------ | ------------- | --------------- |
+| `websocket_end` | fires | **fires** |
+| `helo` | sent | **sent** |
+| `session` | new | **new, and again mid-session** |
+| `user.last_login_tm` | moves | stays |
+
+**So a capture rotates its snapshot on `last_login_tm` and nothing else.** The next save picks a new timestamped name and the file the last game filled is left as it was. Nothing is created until there is something to put in it, so a launch that sends nothing costs no file. The addon's CACHE is deliberately kept across the rotation: a snapshot is meant to be the whole account, and the login burst rewrites all of it anyway.
+
+`websocket_end` still earns its keep — it drops the requests still waiting on a reply, which that connection will not answer — but it says nothing to the log and rotates nothing.
 
 ### The wire catalogue
 
-Kept whether or not debug logging is on, in `settings/wire_catalogue.json` — beside the settings rather than among the captures, since the snapshots folder is the one that gets emptied.
+Kept in `settings/wire_catalogue.json` — beside the settings rather than among the captures, since the snapshots folder is the one that gets emptied — and whether or not debug logging is on.
+
+**Only on a working copy.** The `zRUN*.bat` launchers set `VRIBBELS_DEV`; a frozen exe has no way to, and without it the catalogue is off entirely: nothing recorded and nothing written, so a released build's capture behaves exactly as it did before any of this. It is a switch rather than a setting because a setting would ship to everyone and want explaining, and what it guards is of no use to anybody who is not reading the wire.
 
 One entry per `command|key` seen, with a count, first and last sighting, the type and a 200-character sample:
 
@@ -218,6 +231,14 @@ The command comes from the qid the reply answers, which the addon has seen go pa
 It MERGES with what is on disk: counts add, the first sighting is the earlier. It must not also start from the file — that would fold the whole history into itself on every write, and one sighting would read as three.
 
 **Qids restart at 1 with each `helo`**, which is why `_forget_pending` exists: the pending-intent maps are keyed by qid, and an intent left unanswered by a game that went away would otherwise be claimed by an unrelated reply from the next one.
+
+### What the capture log says about saving
+
+**A save reports itself only when it would say something new** — a different file, or different counts. It used to be suppressed only where it would repeat the LAST line logged, which caught the login burst's several saves and nothing else: any `[LIVE]` line in between, and there is one after every upgrade, delete and reward, put the same figures back on screen. A capture left running for an evening was mostly that one sentence.
+
+What is left is the file being written, the numbers moving, and — loudly — a save that FAILS. The write is wrapped for that: an `OSError` used to surface through the frame handler's own catch as a bare `Error:` with no mention of a snapshot, in a log whose every other line is about the game.
+
+`SAVE_MARKER` is unaffected and still goes out on every save. The app reloads on it, and the two must not share a line — see `_save_data`.
 
 ## Upgraded-line augmentation
 

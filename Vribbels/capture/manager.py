@@ -61,6 +61,16 @@ def is_loopback_address(ip: str) -> bool:
 # them equal -- drift means the app silently stops reloading.
 SAVE_MARKER = "[SYNC] saved"
 
+# What says this is a working copy rather than a released build, and so
+# that the developer tooling may run. The `zRUN*.bat` launchers set it;
+# a frozen exe has no way to, which is the point -- a user's capture
+# behaves exactly as it did before any of that tooling existed.
+#
+# **Not a setting.** One in `settings.json` would ship to everyone and
+# want explaining, and the thing it guards is of no use to anybody who
+# is not reading the wire.
+MAINTAINER_ENV = "VRIBBELS_DEV"
+
 # Addon template embedded as string constant (works in bundled executables)
 ADDON_TEMPLATE = '''"""
 mitmproxy Addon for intercepting CZN game WebSocket traffic.
@@ -156,6 +166,15 @@ class Addon:
         # attributed. Cleared with everything else on a new `helo`:
         # qids restart at 1 there.
         self.qid_commands = {}
+
+        # The server's own word for when this account last logged in.
+        # A RELAUNCH moves it and a reconnect does not, which is what
+        # the snapshot rotation turns on -- see `_check_for_relaunch`.
+        self.login_stamp = None
+
+        # What the last SAVE line reported: the counts and the file.
+        # A save that would say the same thing again says nothing.
+        self._last_save = None
 
         # Every line goes through a wrapper that remembers the last one,
         # so the save report can tell whether it would be repeating
@@ -783,6 +802,9 @@ class Addon:
         # merged and nothing is dropped.
         has_characters = "characters" in data and isinstance(data.get("characters"), list)
         has_user = "user" in data
+
+        if has_user:
+            self._check_for_relaunch(data["user"])
 
         if has_characters:
             self._merge_character_data(data)
@@ -1538,8 +1560,19 @@ class Addon:
         # mid-write gets a truncated file and a JSON error naming a line
         # number, which reads as corrupt data rather than as a race.
         tmp = self.saved_path.with_suffix(self.saved_path.suffix + ".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(save_data, f, indent=2)
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(save_data, f, indent=2)
+        except OSError as e:
+            # **A capture that cannot write says so.** Left to the
+            # frame handler's own catch this came out as a bare
+            # `Error:` with no mention of a snapshot, in a log whose
+            # every other line is about the game.
+            self.log_callback(
+                f"[X] Could not write {self.saved_path.name}: {e}. The "
+                f"capture is still running; nothing has been lost that "
+                f"the next save will not write again.")
+            return
 
         # **The replace can be REFUSED on Windows** with
         # `[WinError 5] Access is denied` while another process holds
@@ -1582,14 +1615,22 @@ class Addon:
         # lot if it ended badly.
         self._write_catalogue()
 
-        # Not twice in a row. Loading into the game sends the inventory
-        # in one frame and the lobby's banner schedule in the next, so
-        # two saves land seconds apart with the same counts in them --
-        # the second carries the banners, which this line does not
-        # report. Suppressed only where it would be the LAST line
-        # repeated: anything logged in between (an upgrade, a delete)
-        # means the save after it is worth confirming, and prints.
-        if report != self._last_line:
+        # **Printed only when it would say something new**, which for
+        # this line means a different file or different counts.
+        #
+        # It used to be suppressed only where it would repeat the LAST
+        # line logged, which caught the login burst's several saves and
+        # nothing else: any `[LIVE]` line in between -- and there is
+        # one after every upgrade, delete and reward -- put the same
+        # figures back on screen. A capture left running for an evening
+        # was mostly this sentence.
+        #
+        # What a reader wants from it is the file being written and the
+        # numbers moving. A save that changed neither is the program
+        # working, and the program working is not news. A save that
+        # FAILS still says so, above.
+        if (count, char_count, self.saved_path.name) != self._last_save:
+            self._last_save = (count, char_count, self.saved_path.name)
             self.log_callback(report)
 
     def _describe_piece(self, piece_data):
@@ -1898,8 +1939,8 @@ class Addon:
         self.catalogue = {}
         self.catalogue_dirty = False
 
-    def _new_launch(self):
-        """A game has connected. Start a snapshot of its own.
+    def _check_for_relaunch(self, user):
+        """Start a snapshot of its own when the game has been RELAUNCHED.
 
         **A capture is not one sitting any more.** `saved_path` is
         chosen on the first save and rewritten on every one after, so
@@ -1908,37 +1949,53 @@ class Addon:
         history is what every derived reading here was built from --
         a currency's rate, a streak's length, an event's total.
 
+        **The marker is `last_login_tm`, and the ones that look easier
+        are wrong.** This game reconnects often, and a reconnect:
+
+        * closes and reopens the websocket, so `websocket_end` fires;
+        * redoes the handshake, so `helo` arrives again;
+        * keeps its `session` token for a while and then rotates it
+          anyway -- one launch was seen using seven.
+
+        Rotating on any of those turned a single evening with a few
+        dropped connections into three snapshots. What a reconnect
+        does NOT do is log in again: across those three the server's
+        `last_login_tm`, `activated_tm` and the account payload's own
+        `server_time` were identical to the second, and the previous
+        real launch's differed. So the server's own word for "this
+        account logged in" is the one thing that means a new game.
+
         Dropping the path is the whole rotation: the next save picks a
-        new timestamped name, and the file the last game filled is left
-        as it was. Nothing is created until there is something to put
-        in it, so a launch that sends nothing costs no file.
+        new timestamped name, and the file the last game filled is
+        left as it was. Nothing is created until there is something to
+        put in it.
 
         The CACHE is deliberately kept. A snapshot is meant to be the
-        whole account, and the login burst rewrites all of it anyway --
-        clearing here would only mean the first save of a session held
-        less than the last save of the one before.
+        whole account, and the login burst rewrites all of it anyway.
         """
-        if self.saved_path is None:
-            return                       # the first launch of a capture
-        self.log_callback("Game restarted -- starting a new snapshot")
+        if not isinstance(user, dict):
+            return
+        stamp = user.get("last_login_tm")
+        if stamp is None or stamp == self.login_stamp:
+            return
+        was, self.login_stamp = self.login_stamp, stamp
+        if was is None or self.saved_path is None:
+            return                       # the capture's first login
+        self.log_callback("Game relaunched -- starting a new snapshot")
         self.saved_path = None
 
     def websocket_end(self, flow):
         """The game's connection closed.
 
-        Which is the only close signal there is, and a real one: the
-        game sends WebSocket ping keepalives while it is idle, so a
-        connection that ends has ended rather than gone quiet.
+        **Which is not the same as the game closing.** A dropped
+        connection looks identical, and this game drops them often --
+        so nothing here rotates a snapshot or says anything to the
+        log. See `_check_for_relaunch` for what does.
 
-        The snapshot is released here as well as on the next `helo`.
-        Both orderings then leave the finished file alone -- a stray
-        reply arriving after the game has gone opens a new one rather
-        than appending to a session that is over.
+        What it is good for is the requests still waiting on a reply:
+        that connection is gone and they will not be answered on it.
         """
         self._forget_pending()
-        if self.saved_path is not None:
-            self.log_callback("Game closed")
-            self.saved_path = None
 
     def _forget_pending(self):
         """Drop every request still waiting on a reply.
@@ -1998,7 +2055,6 @@ class Addon:
             if entry.get("cmd") == "helo":
                 self._forget_pending()
                 self.qid_commands.clear()
-                self._new_launch()
                 continue
 
             self._note_command(entry)
@@ -2461,12 +2517,23 @@ class CaptureManager:
             # **Beside the settings, not among the captures.** The
             # catalogue is a record built up over months, and the
             # snapshots folder is the one a user empties.
-            catalogue_path = (self.output_folder.parent / "settings"
-                              / "wire_catalogue.json").absolute()
+            #
+            # **And only where the app was started by a zRUN bat**,
+            # which is the maintainer's way in and not a released
+            # build's. `None` here switches the whole thing off inside
+            # the addon -- nothing recorded and nothing written -- so a
+            # user gets a capture that behaves exactly as it did before
+            # the catalogue existed. See MAINTAINER_ENV.
+            catalogue_path = None
+            if os.environ.get(MAINTAINER_ENV):
+                catalogue_path = (self.output_folder.parent / "settings"
+                                  / "wire_catalogue.json").absolute()
 
             # Find dictionary path
             dict_path = self._find_dictionary_path()
             dict_path_str = f'Path(r"{dict_path}")' if dict_path else "None"
+            catalogue_str = (f'Path(r"{catalogue_path}")'
+                             if catalogue_path else "None")
 
             if not dict_path:
                 self.log_callback("Warning: zstd dictionary not found", "warning")
@@ -2512,7 +2579,7 @@ class CaptureManager:
             addon_code = f'''{ADDON_TEMPLATE}
 
 OUTPUT_DIR = Path(r"{self.output_folder.absolute()}")
-CATALOGUE_PATH = Path(r"{catalogue_path}")
+CATALOGUE_PATH = {catalogue_str}
 DICT_PATH = {dict_path_str}
 CHAR_NAMES = {char_names}
 ITEM_NAMES = {item_names}

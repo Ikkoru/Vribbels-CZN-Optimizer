@@ -44,8 +44,15 @@ ASK = [{"cmd": "mission", "qid": 100,
                    "event_mission_id": "event_bartender_1"}}]
 REPLY = {"res": "ok", "qid": 100,
          "entity": {"res_id": "event_bartender_1", "event_achieve_state": 1}}
-LOGIN = {"res": "ok", "qid": 4, "user": {"id": "acct", "auth_id": "a"},
+# **`last_login_tm` is what says a launch is a launch.** A reconnect
+# keeps it; only a real login moves it.
+LOGIN = {"res": "ok", "qid": 4,
+         "user": {"id": "acct", "auth_id": "a", "last_login_tm": 1000},
          "characters": [{"res_id": 1001}], "piece_items": [{"id": 1}]}
+RELAUNCH = {"res": "ok", "qid": 4,
+            "user": {"id": "acct", "auth_id": "a", "last_login_tm": 2000},
+            "characters": [{"res_id": 1001}],
+            "piece_items": [{"id": 1}, {"id": 2}]}
 
 CATALOGUED = "mission/reward_event_limit|entity"
 
@@ -64,9 +71,16 @@ class _Flow:
             "W", (), {"messages": [_Message(payload, from_client)]})()
 
 
-def _addon(root, debug):
+def _addon(root, debug, maintainer=True):
     """Build and import the addon exactly as a capture would."""
-    from capture.manager import CaptureManager
+    import os
+    from capture.manager import CaptureManager, MAINTAINER_ENV
+
+    was = os.environ.get(MAINTAINER_ENV)
+    if maintainer:
+        os.environ[MAINTAINER_ENV] = "1"
+    else:
+        os.environ.pop(MAINTAINER_ENV, None)
 
     snaps = Path(root) / "snapshots"
     snaps.mkdir(parents=True, exist_ok=True)
@@ -84,11 +98,17 @@ def _addon(root, debug):
 
     # Everything about it -- the class, the paths -- is the generated
     # script's own, so this is still the real addon.
+    if was is None:
+        os.environ.pop(MAINTAINER_ENV, None)
+    else:
+        os.environ[MAINTAINER_ENV] = was
+
+    said = []
     addon = type(mod.addons[0])(
         mod.OUTPUT_DIR, dict_path=mod.DICT_PATH,
-        log_callback=lambda *a, **k: None, debug_mode=debug,
-        catalogue_path=mod.CATALOGUE_PATH)
-    return addon, snaps
+        log_callback=lambda msg, *a, **k: said.append(str(msg)),
+        debug_mode=debug, catalogue_path=mod.CATALOGUE_PATH)
+    return addon, snaps, said
 
 
 def _debug_log_is_readable_while_open(addon, snaps):
@@ -124,7 +144,7 @@ def _debug_log_is_readable_while_open(addon, snaps):
     return []
 
 
-def _a_snapshot_per_launch(addon, snaps):
+def _a_snapshot_per_launch(addon, snaps, said):
     """Complaints about snapshot rotation, or []."""
     out = []
     addon.websocket_message(_Flow(LOGIN))
@@ -132,12 +152,45 @@ def _a_snapshot_per_launch(addon, snaps):
     if len(first) != 1:
         return [f"the first launch left {len(first)} snapshots."]
 
+    # **A reconnect must NOT rotate.** This game drops its connection
+    # often, and a reconnect closes the socket, redoes the handshake
+    # and re-sends the lobby -- all of which look like a launch. What
+    # it does not do is log in again.
+    #
+    # Read off `saved_path` rather than off the folder: a snapshot's
+    # name carries a timestamp to the SECOND, so a wrongful rotation
+    # inside one second would write to the same name and leave the
+    # file count alone.
+    was = addon.saved_path
+    addon.websocket_end(None)
+    if addon.saved_path != was:
+        out.append(
+            "a dropped connection released the snapshot. `websocket_end` "
+            "fires on a blip exactly as it does on a close, and this game "
+            "blips often -- one evening of it made three files out of one "
+            "sitting.")
+    addon.websocket_message(_Flow(HELO, from_client=True))
+    if addon.saved_path != was:
+        out.append(
+            "the handshake after a reconnect released the snapshot. A "
+            "reconnect redoes it, so `helo` does not mean a new game.")
+    # **Counted off the LOG, not off the path.** A rotation is
+    # immediately followed by a save, which picks a name from the clock
+    # at second resolution -- so a wrongful rotation inside one second
+    # puts the path back exactly as it was and leaves no trace on disk.
+    before = len([line for line in said if "relaunch" in line.lower()])
+    addon.websocket_message(_Flow(LOGIN))
+    if len([line for line in said if "relaunch" in line.lower()]) != before:
+        out.append(
+            "re-sending the SAME login was taken for a relaunch. Only a "
+            "`last_login_tm` the account has not been seen at is a new "
+            "game; a reconnect keeps the one it had.")
+
     # The filename carries a timestamp to the second, so two launches
     # inside one second would share a name however the code behaves.
     time.sleep(1.1)
     addon.websocket_message(_Flow(HELO, from_client=True))
-    addon.websocket_message(
-        _Flow(dict(LOGIN, piece_items=[{"id": 1}, {"id": 2}])))
+    addon.websocket_message(_Flow(RELAUNCH))
     after = sorted(snaps.glob("memory_fragments_*.json"))
     if len(after) != 2:
         out.append(
@@ -152,14 +205,6 @@ def _a_snapshot_per_launch(addon, snaps):
                 "the first launch's snapshot was rewritten by the second. "
                 "A finished session's file has to be left as it was.")
 
-    # A close releases it too, so a stray late reply opens a new file
-    # rather than appending to a session that is over.
-    addon.websocket_end(None)
-    if addon.saved_path is not None:
-        out.append(
-            "the game closing did not release the snapshot. `websocket_end`"
-            " is the only close signal there is -- and a real one, since the"
-            " game pings while idle, so a connection that ends has ended.")
     return out
 
 
@@ -183,7 +228,7 @@ def _the_catalogue_accumulates(addon, root):
     if row["count"] != 1:
         out.append(f"one sighting was catalogued as {row['count']}.")
 
-    second, _snaps = _addon(root, debug=False)
+    second, _snaps, _said = _addon(root, debug=False)
     second.websocket_message(_Flow(ASK, from_client=True))
     second.websocket_message(_Flow(REPLY))
     second.done()
@@ -201,14 +246,55 @@ def _the_catalogue_accumulates(addon, root):
     return out
 
 
+def _a_released_build_catalogues_nothing(root):
+    """The catalogue is the maintainer's, and nobody else's.
+
+    It is of no use to anyone not reading the wire, and it would put a
+    file in a user's `settings/` that nothing explains. The switch is
+    an environment variable the `zRUN*.bat` launchers set; a frozen exe
+    has no way to, which is what makes this safe by construction
+    rather than by a setting somebody has to find.
+
+    Returns a list of complaints.
+    """
+    import shutil
+    out = []
+    plain = Path(root) / "released"
+    plain.mkdir(parents=True, exist_ok=True)
+    addon, _snaps, _said = _addon(plain, debug=False, maintainer=False)
+    if addon.catalogue_path is not None:
+        out.append(
+            f"a released build was given a catalogue at "
+            f"{addon.catalogue_path}. Without the environment variable the "
+            f"whole thing has to be off -- nothing recorded and nothing "
+            f"written.")
+    addon.websocket_message(_Flow(ASK, from_client=True))
+    addon.websocket_message(_Flow(REPLY))
+    addon.done()
+    if addon.catalogue:
+        out.append(
+            f"a released build recorded {len(addon.catalogue)} sightings. "
+            f"The recording costs nothing much, but a switch that only "
+            f"stops the WRITING is one edit away from shipping the file.")
+    left = list((plain / "settings").glob("*")) if (
+        plain / "settings").exists() else []
+    if left:
+        out.append(
+            f"a released build wrote {[p.name for p in left]!r} into "
+            f"settings/.")
+    shutil.rmtree(plain, ignore_errors=True)
+    return out
+
+
 def run():
     add_source_to_path()
     root = Path(tempfile.mkdtemp())
-    addon, snaps = _addon(root, debug=True)
+    addon, snaps, said = _addon(root, debug=True)
 
     failures = _debug_log_is_readable_while_open(addon, snaps)
     if failures:
         return failures
-    failures.extend(_a_snapshot_per_launch(addon, snaps))
+    failures.extend(_a_snapshot_per_launch(addon, snaps, said))
     failures.extend(_the_catalogue_accumulates(addon, root))
+    failures.extend(_a_released_build_catalogues_nothing(root))
     return failures
