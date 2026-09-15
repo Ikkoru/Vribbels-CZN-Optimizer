@@ -219,7 +219,11 @@ Across every row ever captured, **`event_achieve_state` is 1 exactly when `versi
 
 Nineteen distinct events, no exception. That reads as *"`reward_step` is the track's size and `version` is how much of it is claimed"* — which would hand the Checklist a real denominator for the events that have one. But it also reads as *"`reward_step` is what has been claimed and `version` is the write counter it happens to track"*, and every row fits both.
 
-**The measurement that separates them:** claim ONE step of a step-track event with a capture running. If `reward_step` moves by one it is a tally; if `version` moves and `reward_step` stays it is a total. `event_chaos_assault_1` sits at 2 of 3 or 3 with 2 writes, so one claim there answers it. Until then the code reads only the flag.
+**The measurement that separates them:** claim ONE step of a step-track event with a capture running. If `reward_step` moves by one it is a tally; if `version` moves and `reward_step` stays it is a total. Until then the code reads only the flag.
+
+**Which event to claim in, and what its track is.** `event_chaos_assault_1` is the Sortie's own event row, and it has sat at `reward_step 3, version 2` through every snapshot that carries the field -- including one taken across a whole Sortie run with two `receive_area_reward` claims in it, so an AREA reward is not a step. What the Sortie does have is clear-level rewards, and its `chaos_assault_entity` reads `highest_clear_level: 5` beside a step of 3: three of the track claimed, on a run that has reached level five. `event_season_love_4` is the same shape from a finished event -- `reward_step 21, version 7` -- against a single mission row scoring 2190.
+
+So the claim to capture is **a Sortie clear-level reward**, not an area reward. One of them moves either `reward_step` or `version`, and that settles what the pair means for every event that has a track.
 
 ## Telling a rectangular family from a ragged one
 
