@@ -57,6 +57,19 @@ manager keeps, since a snapshot holds only the present and a rate is a
 fact about the past. `ChecklistManager` is the write-up, `shop_rates`
 and `shop_full_cost` the wording.
 
+**Deadlines line up in a column of their own**, and there are two of
+them: the rows above the Sortie shop and the Events block below it,
+each measured against its own members so a long reading in one does
+not push the other's across. A shop heading is in neither -- its line
+hangs off its own words. See `countdown_group`.
+
+**And the Events block asks the one question the wire cannot answer.**
+A row at its own ceiling that the game has not called finished is
+either finished or waiting for more, so the tab offers a `Finished?`
+checkbox at the end of it and remembers the answer against the reading
+it was given for: another reward claimed, or another one to claim,
+retires the answer and asks again. See `_mark_finished`.
+
 The columns are built the way the Materials tab's are: content in the
 EVEN grid columns with an empty expanding one between each pair, so the
 block spans the window and the gaps across it stay equal. A row is one
@@ -437,6 +450,11 @@ def _event_settled(raw, name, group, window, now):
     mapped does not either: it shows a deadline and no reading, which
     is a question rather than an answer.
     """
+    # The user's own answer settles a row as surely as the game's:
+    # see `EVENT_FINISHED_FIELD`. Checked first, because the reader
+    # below knows nothing about it.
+    if str(name) in ((raw or {}).get(EVENT_FINISHED_FIELD) or ()):
+        return True
     reader = EVENT_READERS.get(group)
     if reader is None:
         return False
@@ -1377,6 +1395,59 @@ PERIOD_BY_COLUMN = {"Weekly": "weekly", "Monthly": "monthly",
                     "Other": "account"}
 
 
+# **Countdowns line up in a column of their own**, and there are TWO
+# of them: the rows above the Sortie shop and the Events block below
+# it. Each is measured against its own members, so a long reading in
+# one does not push the other's deadlines across.
+#
+# The groups are taken from the reserves in `COLUMNS` rather than
+# listed: a row that reserves room for a countdown is a row that has
+# one, and a row added there joins its group with no edit here.
+# **The one answer the wire cannot give**, offered to the person who
+# can see the game. A row sitting at its own ceiling is either finished
+# or waiting for the game to hand out more, and almost no event ever
+# says which -- so the tab asks, on a checkbox at the end of the row,
+# and remembers the answer against the reading it was given for. See
+# `ChecklistManager.called_finished`.
+#
+# Written onto the loaded snapshot for the readers to find, the way a
+# recalled streak is. This program's own key, not the wire's.
+EVENT_FINISHED_FIELD = "_checklist_finished"
+FINISHED_LABEL = "Finished?"
+
+COUNTDOWN_STOP_PREFIX = "endsat:"
+COUNTDOWN_FIXED, COUNTDOWN_EVENTS = "fixed", "events"
+COUNTDOWN_ROWS = frozenset(
+    key for _title, fixed, _shops, _events in COLUMNS
+    for key, _label, widest in fixed
+    if widest and widest.endswith(WIDEST_COUNTDOWN))
+
+
+def countdown_group(key):
+    """Which column of deadlines a row's countdown belongs in, or None.
+
+    An event row is in the Events group whatever it reserves; every
+    other row that reserves a countdown is in the one above the shops.
+    A shop heading is in NEITHER -- its countdown hangs off its own
+    words, at a stop of its own, and it is the boundary the two groups
+    sit either side of.
+    """
+    if str(key).startswith(EVENT_KEY_PREFIX):
+        return COUNTDOWN_EVENTS
+    return COUNTDOWN_FIXED if key in COUNTDOWN_ROWS else None
+
+
+def countdown_reserve(widest):
+    """What a row reserves for its reading ALONE, countdown aside."""
+    if not widest:
+        return ""
+    if widest == WIDEST_COUNTDOWN:
+        return ""
+    if widest.endswith(SEGMENT_GAP + WIDEST_COUNTDOWN):
+        return widest[:-len(SEGMENT_GAP + WIDEST_COUNTDOWN)]
+    return widest
+
+
 def columns_for(raw, tracked=None, now=None, definitions=None):
     """The four columns' rows for one snapshot.
 
@@ -1744,6 +1815,9 @@ class ChecklistTab(BaseTab):
         # HOVER time rather than at bind time, so a tip put on a tag
         # when the column was built still says what the tab says now.
         self._shop_tips = {}
+        # {row key: (claimed, total, ticked)} for the event rows the
+        # `Finished?` question is open on. See `_mark_finished`.
+        self._finishable = {}
         self.setup_ui()
         # Drawn once with nothing, so the tab is its rows rather than a
         # blank before the first capture.
@@ -1944,6 +2018,36 @@ class ChecklistTab(BaseTab):
                      + (font.measure(w) if w else 0)
                      for key, label, w in rows
                      if key.startswith(SHOP_HEAD_PREFIX)] or [0])
+        # **A stop per group of countdowns**, measured against that
+        # group's own readings: the rows above the shops and the
+        # Events block below them each line their deadlines up on
+        # their own, so a long reading in one does not push the
+        # other's across. See `countdown_group`.
+        #
+        # The gap before the column is the same two spaces a countdown
+        # used to follow its reading by, MEASURED rather than scaled --
+        # the font carries it.
+        group_stops = {}
+        for group in sorted({countdown_group(key) for key, _l, _w in rows}
+                            - {None}):
+            reserve = max([font.measure(countdown_reserve(w))
+                           for key, _l, w in rows
+                           if countdown_group(key) == group] or [0])
+            at = stop + reserve + font.measure(SEGMENT_GAP)
+            stops = [at]
+            # **And the Events group has one more**, for the
+            # `Finished?` box at the end of a row whose ceiling nothing
+            # proves. Room is reserved whether or not any row is
+            # asking today: a column that widened the moment a question
+            # opened would move every row beside it.
+            if group == COUNTDOWN_EVENTS:
+                stops.append(at + font.measure(WIDEST_COUNTDOWN)
+                             + font.measure(SEGMENT_GAP))
+            group_stops[group] = tuple(stops)
+            reach = max(reach, stops[-1] + font.measure(WIDEST_COUNTDOWN)
+                        if len(stops) == 1 else
+                        stops[-1] + font.measure(FINISHED_LABEL)
+                        + px(CHECKBOX_OVERHEAD))
         holder = tk.Frame(parent, width=max(stop + widest, reach),
                           height=self._block_height(
                               [key for key, _l, _w in rows]),
@@ -1980,6 +2084,9 @@ class ChecklistTab(BaseTab):
         # spacing: TBD -- checkbox row -> checkbox row
         for tag, pitch in ROW_TAG_PITCH.items():
             text.tag_configure(tag, spacing1=px(pitch))
+        for group, stops in group_stops.items():
+            text.tag_configure(COUNTDOWN_STOP_PREFIX + group,
+                               tabs=(stop,) + stops)
         # A tab stop per shop heading, for the total beside it. A
         # line's stops come from the tags on its FIRST character, so
         # each heading needs a tag of its own -- one stop cannot serve
@@ -2072,6 +2179,12 @@ class ChecklistTab(BaseTab):
         row count: a checkbox row, a block boundary and an ordinary row
         differ in both, and a block sized on the ordinary one clips
         however many lines the difference adds up to.
+
+        **An event row asking `Finished?` is a checkbox row too.** Its
+        words are ordinary text, but the box embedded at the end of the
+        line sets the line's height the same way a shop product's does
+        -- and a block that counted it as text came up short by the
+        difference, per asking row, and clipped the foot of the column.
         """
         # Each row's pitch counts, not each gap BETWEEN rows:
         # `spacing1` is drawn above EVERY line including the first, so
@@ -2081,7 +2194,8 @@ class ChecklistTab(BaseTab):
         box = self._checkbox_line()
         total, above = 0, None
         for key in keys:
-            total += (box if _is_shop(key) else line)
+            total += (box if _is_shop(key) or key in self._finishable
+                      else line)
             total += px(ROW_TAG_PITCH[_row_tags(key, above)[0]])
             above = key
         return total
@@ -2098,6 +2212,9 @@ class ChecklistTab(BaseTab):
         self._recall_event_totals(raw, time.time())
         readings = self._settle_floors(
             _readings(raw, tracked=self._tracked))
+        # Before the columns are built: the sort reads the answers off
+        # `raw`, and the rows are built from that.
+        self._finishable = self._mark_finished(raw, readings)
         self._shop_tips = self._rates(raw, time.time())
         # A rebuilt column is filled inside the rebuild, before it is
         # shown; this fills the ones that were left standing.
@@ -2142,6 +2259,52 @@ class ChecklistTab(BaseTab):
                 if total is not None:
                     totals[name] = total
         raw[EVENT_TOTALS_FIELD] = totals
+
+    def _mark_finished(self, raw, readings):
+        """Fold the user's `Finished?` answers into the readings.
+
+        Returns `{row key: (claimed, total, ticked)}` for every event
+        row the question is open on -- which is what the column draws
+        a checkbox for, ticked or not.
+
+        **A ticked row reads GREEN and sorts down with the finished**,
+        because the person who ticked it can see the game and this
+        program cannot. The answer is written onto `raw` as well, for
+        the sort: `event_rows` is built before these readings are.
+
+        **An answer whose reading has moved is gone, not stale.** Every
+        tick is remembered against the pair it was given for, so
+        another reward claimed or another one to claim retires it --
+        and the row goes back to red with the box unticked. A row not
+        on the tab at all is left alone: its event may simply be over,
+        and a tab with no snapshot behind it would otherwise wipe
+        every answer at once.
+        """
+        manager = getattr(self.context, "checklist_manager", None)
+        out = {}
+        for key, segments in list(readings.items()):
+            if not str(key).startswith(EVENT_KEY_PREFIX):
+                continue
+            name = key[len(EVENT_KEY_PREFIX):]
+            pair = unsure_ceiling(segments)
+            if pair is None:
+                # The row exists and is not at an unproven ceiling, so
+                # an answer about it is about a reading that is gone.
+                if manager is not None and name in manager.finished:
+                    manager.call_finished(name, 0, 0, done=False)
+                continue
+            ticked = bool(manager is not None
+                          and manager.called_finished(name, *pair))
+            if not ticked and manager is not None and name in manager.finished:
+                manager.call_finished(name, 0, 0, done=False)
+            out[key] = pair + (ticked,)
+            if ticked:
+                readings[key] = ((segments[0][0], DONE),) + tuple(segments[1:])
+        if isinstance(raw, dict):
+            raw[EVENT_FINISHED_FIELD] = frozenset(
+                key[len(EVENT_KEY_PREFIX):] for key, row in out.items()
+                if row[2])
+        return out
 
     def _recall_streaks(self, raw):
         """Put `completed` back on a streak the game has ended.
@@ -2290,18 +2453,23 @@ class ChecklistTab(BaseTab):
         if drawn == was:
             return
         self._rendered[title] = drawn
-        if _same_rows(was, drawn):
+        moved = [(index, after) for index, (before, after)
+                 in enumerate(zip(was or (), drawn)) if before != after]
+        # **A line holding a `Finished?` box is never patched.** The
+        # patch rewrites everything from the row's first tab to the end
+        # of the line, and the box is in that stretch -- so a countdown
+        # ticking over would take the checkbox with it.
+        if _same_rows(was, drawn) and not any(after[0][4] for _i, after in moved):
             text.config(state=tk.NORMAL)
-            for index, (before, after) in enumerate(zip(was, drawn)):
-                if before != after:
-                    _patch_value(text, index + 1, after)
+            for index, after in moved:
+                _patch_value(text, index + 1, after)
             text.config(state=tk.DISABLED)
             return
         for box in self._boxes.pop(title, ()):
             box.destroy()
         text.config(state=tk.NORMAL)
         text.delete("1.0", tk.END)
-        for index, ((key, label, _tracked, segments), line,
+        for index, ((key, label, _tracked, segments, box), line,
                     label_tag, total) in enumerate(drawn):
             if index:
                 text.insert(tk.END, LINE_SEP, line)
@@ -2325,6 +2493,14 @@ class ChecklistTab(BaseTab):
                             + ((SHOP_TIP_PREFIX + key,)
                                if key.startswith(SHOP_HEAD_PREFIX) else ()))
             _insert_value(text, key, line, total, segments)
+            # **The one question the program cannot answer**, at the
+            # end of the row and at a stop of its own. Only where it
+            # is open: a row the game has called finished, or one with
+            # work left, is not asked about. See `_mark_finished`.
+            if box is not None:
+                text.insert(tk.END, COLUMN_SEP, line)
+                text.window_create(tk.END, window=self._finished_box(
+                    title, text, key, box))
         text.config(state=tk.DISABLED)
 
     def _draw(self, rows, readings):
@@ -2366,7 +2542,11 @@ class ChecklistTab(BaseTab):
             # nobody tracks having none.
             segments = tuple((words, MUTED) for words, _s in segments)
         total = readings.get(SHOP_TOTAL_PREFIX + key)
-        return ((key, label, tracked, segments), _row_tags(key, above),
+        # The fifth field is the row's `Finished?` state, which is a
+        # WIDGET rather than a reading: a value patch cannot repaint
+        # it, so it belongs in what says whether the line is the same.
+        return ((key, label, tracked, segments, self._finishable.get(key)),
+                _row_tags(key, above),
                 _label_tag(key, label), total[0] if total else None)
 
     def _checkbox(self, title, parent, key, label, state):
@@ -2392,6 +2572,42 @@ class ChecklistTab(BaseTab):
             self._tips.bind(box, tip)
         self._boxes.setdefault(title, []).append(box)
         return box
+
+    def _finished_box(self, title, parent, key, state):
+        """One event row's `Finished?` checkbox, kept alive on the tab.
+
+        YELLOW while the question is open and ORANGE once answered:
+        the reading beside it has gone green, and the answer is the
+        user's rather than the game's -- which is a different kind of
+        green from an event the wire called over.
+
+        Held in `_boxes` with the shop ones, for the same reason: a
+        Text does not own an embedded window.
+        """
+        claimed, total, ticked = state
+        name = key[len(EVENT_KEY_PREFIX):]
+        variable = tk.BooleanVar(value=ticked)
+        box = make_checkbox(
+            parent, self.colors, text=FINISHED_LABEL, variable=variable,
+            compact=True,
+            fg=self.colors["orange" if ticked else "yellow"],
+            command=lambda n=name, c=claimed, t=total, v=variable:
+                self._toggle_finished(n, c, t, v))
+        self._boxes.setdefault(title, []).append(box)
+        return box
+
+    def _toggle_finished(self, name, claimed, total, variable):
+        """Persist one `Finished?` answer, then redraw.
+
+        **Redrawn on an idle callback, never here.** Answering moves
+        the row down among the finished ones, so the redraw destroys
+        every widget in the column -- this checkbox among them.
+        """
+        manager = getattr(self.context, "checklist_manager", None)
+        if manager is not None:
+            manager.call_finished(name, claimed, total,
+                                  done=bool(variable.get()))
+        self.frame.after_idle(self.refresh_checklist)
 
     def _product_tip(self, product_id):
         """One product's full name, or None where its row shows it.
@@ -2489,6 +2705,46 @@ def _weekly_stock(raw, res_id, grant, cap, now):
     return min(amount + grant, cap), False
 
 
+def _tally(words):
+    """`(claimed, total)` off an `n/m` reading, or None.
+
+    The marks a reading can carry come off first: `UNKNOWN_MORE` says
+    the total is a floor and `EXPECTED_VALUE` says it was worked out,
+    and neither changes what the two numbers are.
+    """
+    words = str(words)
+    if words.endswith(UNKNOWN_MORE):
+        words = words[:-len(UNKNOWN_MORE)]
+    if words.startswith(EXPECTED_VALUE):
+        words = words[len(EXPECTED_VALUE):]
+    parts = words.split("/")
+    if len(parts) != 2 or not all(p.strip().isdigit() for p in parts):
+        return None
+    return int(parts[0]), int(parts[1])
+
+
+def unsure_ceiling(segments):
+    """`(claimed, total)` where a row is at a ceiling nothing proves.
+
+    **The question the checkbox asks.** Everything claimed that the
+    program can see, and no word from the game that the event is over
+    -- which is the one state a person looking at the game can settle
+    and this program cannot.
+
+    A row the game HAS called finished is not asked about, and neither
+    is one with work left to do.
+    """
+    if not segments:
+        return None
+    words, state = segments[0]
+    if state is DONE:
+        return None
+    pair = _tally(words)
+    if pair is None or pair[0] < pair[1]:
+        return None
+    return pair
+
+
 def _at_ceiling(words):
     """Whether an `n/m` reading has n equal to m.
 
@@ -2571,7 +2827,7 @@ def _same_rows(was, drawn):
     """
     if was is None or len(was) != len(drawn):
         return False
-    return all(before[0][:3] == after[0][:3]
+    return all(before[0][:3] == after[0][:3] and before[0][4] == after[0][4]
                for before, after in zip(was, drawn))
 
 
@@ -2587,7 +2843,7 @@ def _patch_value(text, lineno, drawn):
     with the rest: it is a reading too, and it moves for the same
     reasons.
     """
-    (key, _label, _tracked, segments), line, _label_tag, total = drawn
+    (key, _label, _tracked, segments, _box), line, _label_tag, total = drawn
     end = "%d.end" % lineno
     at = text.search(COLUMN_SEP, "%d.0" % lineno, end)
     if at:
@@ -2613,9 +2869,21 @@ def _insert_value(text, key, line, total, segments, at=tk.END):
     if total:
         words, state = total
         text.insert(at, COLUMN_SEP + words, line + _head_tags(key, state))
+    # **A countdown in a group goes to that group's STOP.** Written
+    # after a tab rather than after two spaces, so every deadline in
+    # the group starts at one x however long the readings beside them
+    # are -- and a row with no reading at all still lands there.
+    aligned = any(str(tag).startswith(COUNTDOWN_STOP_PREFIX) for tag in line)
     for index, (words, state) in enumerate(segments):
-        text.insert(at, (COLUMN_SEP if not index else SEGMENT_GAP) + words,
-                    line + ((state,) if state else ()))
+        if aligned and str(words).startswith(ENDS_IN):
+            # TWO tabs where the row has no reading at all: the first
+            # takes the reading's stop and the second the group's, so
+            # a row that is only a deadline still lines up with the
+            # deadlines beside it.
+            gap = COLUMN_SEP * (2 if not index else 1)
+        else:
+            gap = COLUMN_SEP if not index else SEGMENT_GAP
+        text.insert(at, gap + words, line + ((state,) if state else ()))
 
 
 def _head_tags(key, state):
@@ -3370,6 +3638,11 @@ def _row_tags(key, above):
     pitch = "blockrow" if _crosses_a_block(above, key) else "row"
     if key.startswith(SHOP_HEAD_PREFIX):
         return (pitch, SHOP_STOP_PREFIX + key)
+    # The stop its countdown lines up at, where it is in a group that
+    # has one. See `countdown_group`.
+    group = countdown_group(key)
+    if group is not None:
+        return (pitch, COUNTDOWN_STOP_PREFIX + group)
     return (pitch,)
 
 

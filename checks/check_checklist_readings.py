@@ -93,6 +93,7 @@ def run():
         RATE_RECENT_LABEL, RATE_LONG_LABEL,
         SHOP_RATE_FLOOR,
         ChecklistTab, WRITTEN_TOTALS, written_total,
+        unsure_ceiling, EVENT_FINISHED_FIELD,
     )
     import checklist_manager
 
@@ -1412,6 +1413,84 @@ def run():
             failures.append(
                 f"a streak reading {fields!r} shows {got!r}, not "
                 f"[({want!r}, {state!r})].")
+
+    # --- the one answer the program cannot give -----------------------
+    # A row at its own ceiling that the game has not called finished is
+    # either finished or waiting for more, and nothing here can say
+    # which. So the tab asks the person who can see the game, and
+    # remembers the answer against the READING it was given for.
+    for segments, want, why in (
+            ((("21/21", FLOOR),), (21, 21), "a floor at its ceiling"),
+            ((("20/20" + UNKNOWN_MORE, FLOOR),), (20, 20),
+             "a floor at its ceiling with the mark still on it"),
+            ((("7/7" + UNKNOWN_MORE, CYCLE_DONE),), (7, 7),
+             "a streak claimed up to date"),
+            ((("24/24", DONE),), None, "an event the game called finished"),
+            ((("16/20", FLOOR),), None, "an event with work left"),
+            ((("Go drink!", TODO),), None, "a row that is not a tally"),
+    ):
+        got = unsure_ceiling(segments)
+        if got != want:
+            failures.append(
+                f"{why} answers {got!r} to the Finished? question, not "
+                f"{want!r}. The box is offered where the tally is full and "
+                f"the GAME has not settled it, and nowhere else.")
+
+    # And the answer stands only for the pair it was given for.
+    store = checklist_manager.ChecklistManager(
+        Path(tempfile.mkdtemp(prefix="checklist_finished_")))
+    store.load()
+    stub = SimpleNamespace(
+        context=SimpleNamespace(checklist_manager=store),
+        _finishable={})
+    raw = _snapshot()
+    readings = {EVENT_KEY_PREFIX + "probe": (("21/21", FLOOR),
+                                             ("Ends in 3 days", LATER))}
+    open_rows = ChecklistTab._mark_finished(stub, raw, readings)
+    if open_rows.get(EVENT_KEY_PREFIX + "probe") != (21, 21, False):
+        failures.append(
+            f"an unanswered row came back as "
+            f"{open_rows.get(EVENT_KEY_PREFIX + 'probe')!r}, not "
+            f"(21, 21, False). The pair is what the answer will be "
+            f"remembered against.")
+
+    store.call_finished("probe", 21, 21)
+    readings = {EVENT_KEY_PREFIX + "probe": (("21/21", FLOOR),
+                                             ("Ends in 3 days", LATER))}
+    open_rows = ChecklistTab._mark_finished(stub, raw, readings)
+    if readings[EVENT_KEY_PREFIX + "probe"][0] != ("21/21", DONE):
+        failures.append(
+            f"an answered row still reads "
+            f"{readings[EVENT_KEY_PREFIX + 'probe'][0]!r}. A tick is the "
+            f"only thing that can settle an event the wire says nothing "
+            f"about, so the reading goes green on it.")
+    if "probe" not in (raw.get(EVENT_FINISHED_FIELD) or ()):
+        failures.append(
+            "an answered row did not reach the snapshot, so the sort "
+            "cannot see it: the rows are built before these readings are.")
+
+    # **Either figure moving retires the answer**, and not quietly:
+    # the record goes, so the row is asked about again from scratch.
+    readings = {EVENT_KEY_PREFIX + "probe": (("21/22", FLOOR),
+                                             ("Ends in 3 days", LATER))}
+    open_rows = ChecklistTab._mark_finished(stub, raw, readings)
+    if store.finished or readings[EVENT_KEY_PREFIX + "probe"][0][1] is DONE:
+        failures.append(
+            f"a reward appearing under an answered row left it answered: "
+            f"{store.finished!r}, reading "
+            f"{readings[EVENT_KEY_PREFIX + 'probe'][0]!r}. The answer was "
+            f"about 21 of 21; 21 of 22 is a different question.")
+
+    # A row that is not on the tab at all is left alone -- its event
+    # may simply be over, and a tab with no snapshot behind it would
+    # otherwise wipe every answer at once.
+    store.call_finished("gone", 5, 5)
+    ChecklistTab._mark_finished(stub, raw, {})
+    if "gone" not in store.finished:
+        failures.append(
+            "an answer was forgotten for a row that was not drawn. A "
+            "Checklist with no data behind it draws nothing, and that is "
+            "not the user changing their mind.")
 
     # --- a rectangular family states its own size --------------------
     # The devil event is the same three tasks each day, ids

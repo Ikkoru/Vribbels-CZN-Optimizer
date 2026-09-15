@@ -149,10 +149,11 @@ What a family needs, then, is not a number but a RULE: `{page prefix: (which tab
 | ------ | ---- | ------------------ |
 | **Finished** | the completion flag is set | green |
 | **Finished** | every page whole or resolved, and claimed equals the total, and the event pays nothing outside its mission rows | not claimed yet: nothing states the last condition, which is why this case is still orange |
+| **Said so by the user** | the row's `Finished?` box is ticked | green, and sorted down with the rest. The answer is kept against the pair it was given for: either figure moving retires it |
 | **Likely finished** | claimed equals the floor and the tally has not moved for two days | orange — see `FLOOR_SETTLES_AFTER` |
 | **Unknown** | anything else | red, with `+?` where the denominator is a floor |
 
-**The gap between the second and the third rows is the whole remaining problem.** What would close it is a statement that an event's rewards are all mission rows — which nothing on the wire makes, and which the bartender is a counter-example to.
+**Nothing on the wire closes the gap between the second row and the fourth.** What would is a statement that an event's rewards are all mission rows, which nothing makes and which the bartender and the summer event are both counter-examples to. So the tab asks instead: a row at an unproven ceiling carries a `Finished?` checkbox, and the person who can see the game answers it. That answer is evidence of a different kind from the rest of this page -- it is not checkable, so it is held to the reading it was given for and retired the moment that reading moves.
 
 ### What the game's own screens say, and what the program derives
 

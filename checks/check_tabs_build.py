@@ -1292,6 +1292,124 @@ def _set_filters_redraw_replaces_nothing(tab):
     return out
 
 
+def _countdowns_line_up(tab):
+    """Deadlines sit in a column, and the Events block has its own.
+
+    A countdown used to follow its row's reading by two spaces, so the
+    `Ends in` of five rows started at five different places. Each is
+    written to a TAB STOP now -- one for the rows above the shops and
+    one for the Events block below them, each measured against its own
+    members, so a long reading in one does not push the other's
+    deadlines across.
+
+    **Read off the STOPS and the tab count, not off pixels.** The
+    column is not mapped here, so nothing has an x; what can be read
+    is that the line ends with a tab before its countdown and that the
+    tag it carries declares a stop for it.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.tabs.checklist_tab import (
+        COLUMN_SEP, COUNTDOWN_EVENTS, COUNTDOWN_FIXED,
+        COUNTDOWN_STOP_PREFIX, ENDS_IN, LINE_SEP)
+    out = []
+    held = tab.column_texts.get("Other")
+    if held is None:
+        return ["the Other column built no Text to read."]
+    text, _rows = held
+
+    stops = {}
+    for group in (COUNTDOWN_FIXED, COUNTDOWN_EVENTS):
+        raw = text.tag_cget(COUNTDOWN_STOP_PREFIX + group, "tabs")
+        stops[group] = [int(float(x)) for x in
+                        (raw.split() if isinstance(raw, str) else raw)]
+    if len(stops[COUNTDOWN_FIXED]) < 2 or len(stops[COUNTDOWN_EVENTS]) < 3:
+        return [
+            f"the two deadline columns declare {stops!r}. The rows above "
+            f"the shops need a stop for their countdown; the Events block "
+            f"needs that and one more for the `Finished?` box at the end "
+            f"of a row."]
+    if stops[COUNTDOWN_FIXED][1] == stops[COUNTDOWN_EVENTS][1]:
+        out.append(
+            f"both deadline columns landed on {stops[COUNTDOWN_FIXED][1]}. "
+            f"They are measured against different rows and only agree by "
+            f"accident -- if this is ever a real coincidence, widen one of "
+            f"the reserves rather than deleting the case.")
+
+    # Every row that shows a countdown reaches it through a tab.
+    for number, line in enumerate(
+            text.get("1.0", tk.END).split(LINE_SEP), 1):
+        if ENDS_IN not in line:
+            continue
+        tags = text.tag_names("%d.0" % number)
+        if not any(str(t).startswith(COUNTDOWN_STOP_PREFIX) for t in tags):
+            continue                      # a shop heading, at its own stop
+        at = line.index(ENDS_IN)
+        if not line[:at].endswith(COLUMN_SEP):
+            out.append(
+                f"a deadline is written as {line[:at][-12:]!r} + the "
+                f"countdown, without a tab before it -- so it starts "
+                f"wherever the reading beside it happens to end.")
+            break
+    return out
+
+
+def _finished_boxes_ask_only_where_it_is_open(tab):
+    """The `Finished?` box appears on exactly the rows it is a question for.
+
+    A row the game has called finished is not asked about, and neither
+    is one with work left to do. What is left is a tally at its own
+    ceiling that nothing proves -- the one state a person looking at
+    the game can settle and this program cannot.
+
+    **Counted against the READINGS, never against the tab's own list
+    of open questions.** That list is what draws the boxes, so
+    comparing the two would agree however wrong both were.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs.checklist_tab import (
+        DONE, EVENT_KEY_PREFIX, FINISHED_LABEL, unsure_ceiling)
+    out = []
+    drawn = tab._rendered.get("Other")
+    if drawn is None:
+        return ["the Other column rendered nothing to read."]
+    manager = getattr(tab.context, "checklist_manager", None)
+    want, carry = set(), set()
+    for (key, _label, _tracked, segments, box), *_rest in drawn:
+        if not str(key).startswith(EVENT_KEY_PREFIX):
+            continue
+        if box is not None:
+            carry.add(key)
+        name = key[len(EVENT_KEY_PREFIX):]
+        answered = bool(manager is not None and name in manager.finished)
+        if unsure_ceiling(segments) is not None or answered:
+            want.add(key)
+    if carry != want:
+        out.append(
+            f"the Events block draws `Finished?` on {sorted(carry)!r} where "
+            f"the readings leave the question open on {sorted(want)!r}. The "
+            f"box is the only way to answer one, and drawing it where the "
+            f"GAME has already answered invites a user to contradict it.")
+
+    boxes = [b for b in tab._boxes.get("Other", [])
+             if str(b.cget("text")) == FINISHED_LABEL]
+    if len(boxes) != len(carry):
+        out.append(
+            f"{len(carry)} row(s) carry the question and {len(boxes)} "
+            f"checkbox(es) were built. A box the column forgot to keep is "
+            f"a widget nothing destroys on the next rewrite.")
+    shades = {str(b.cget("fg")) for b in boxes}
+    if len(shades) > 1 and not any(
+            row[0][4] and row[0][4][2] for row in drawn):
+        out.append(
+            f"the boxes are drawn in {sorted(shades)!r} with none of them "
+            f"answered. Unanswered is yellow and answered is orange; two "
+            f"unanswered ones cannot differ.")
+    return out
+
+
 def _checklist_block_is_tall_enough(tab):
     """A column's fixed height has to match what the Text lays out.
 
@@ -2277,6 +2395,9 @@ def run():
                     built["ChecklistTab"]))
             failures.extend(
                 _checklist_rows_are_all_drawn(built["ChecklistTab"]))
+            failures.extend(_countdowns_line_up(built["ChecklistTab"]))
+            failures.extend(_finished_boxes_ask_only_where_it_is_open(
+                built["ChecklistTab"]))
         if "InventoryTab" in built:
             failures.extend(
                 _set_filters_redraw_replaces_nothing(built["InventoryTab"]))

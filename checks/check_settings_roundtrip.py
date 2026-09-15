@@ -288,6 +288,63 @@ def _event_totals_survive_the_file(root):
     return out
 
 
+def _finished_answers_survive_the_file(root):
+    """The user's `Finished?` answers outlive the session.
+
+    They are the only word anything has on whether most events are
+    over, so losing them costs the user the answer AND the question --
+    the row goes back to red and asks again.
+
+    Returns a list of complaints.
+    """
+    import checklist_manager as cm
+    out = []
+    m = cm.ChecklistManager(root)
+    m.load()
+    m.call_finished("event_devil_1", 21, 21)
+
+    again = cm.ChecklistManager(root)
+    again.load()
+    if not again.called_finished("event_devil_1", 21, 21):
+        out.append(
+            "an answer did not survive a reload. Nothing else on the tab "
+            "says an event is over, so a forgotten answer is a row that "
+            "goes back to red for the rest of the event's run.")
+    if again.called_finished("event_devil_1", 22, 21):
+        out.append(
+            "an answer given for 21 of 21 answered for 22 of 21 as well. "
+            "It is about the reading it was given for: another reward "
+            "claimed is a different question.")
+    if again.called_finished("event_devil_1", 21, 22):
+        out.append(
+            "an answer given for 21 of 21 answered for 21 of 22 as well. "
+            "Another reward to claim is a different question.")
+
+    again.call_finished("event_devil_1", 0, 0, done=False)
+    third = cm.ChecklistManager(root)
+    third.load()
+    if third.called_finished("event_devil_1", 21, 21):
+        out.append("unticking did not reach the file.")
+
+    # Rot costs the entry it is in and nothing else.
+    path = Path(root) / "settings" / "checklist.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data.setdefault("finished", {})["good"] = [3, 3]
+    data["finished"]["bad"] = ["three", 3]
+    data["finished"]["worse"] = 7
+    path.write_text(json.dumps(data), encoding="utf-8")
+    rotted = cm.ChecklistManager(root)
+    rotted.load()
+    if not rotted.called_finished("good", 3, 3):
+        out.append("a malformed answer cost the record its good ones too.")
+    if "bad" in rotted.finished or "worse" in rotted.finished:
+        out.append(
+            f"rot survived the load: {rotted.finished!r}. An answer that is "
+            f"not a pair of counts cannot be compared against a reading, "
+            f"and one that cannot be checked is worse than none.")
+    return out
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -310,6 +367,7 @@ def run():
         failures.extend(_currency_ledger_keeps_its_shape(ledger_root))
         failures.extend(_streak_memory_survives_the_file(ledger_root))
         failures.extend(_event_totals_survive_the_file(ledger_root))
+        failures.extend(_finished_answers_survive_the_file(ledger_root))
     finally:
         shutil.rmtree(ledger_root, ignore_errors=True)
 

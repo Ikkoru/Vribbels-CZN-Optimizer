@@ -82,6 +82,23 @@ Kept here rather than in a snapshot because it is a fact about the
 PAST, which is the same reason `seen` is here -- and because this
 directory is not the one a user clears when they tidy up captures.
 
+## Events the USER has called finished
+
+    "finished": {"event_schedule_devil_001": [21, 21]}
+
+**The wire says an event is over for almost none of them.** What it
+does say is how many rewards have been claimed and, where the shape
+can be worked out, how many there are -- and a row sitting at its own
+ceiling is either finished or waiting for the game to hand out more,
+with nothing here able to tell which.
+
+So the tab offers the answer to the person who can see the game, and
+remembers it against the PAIR it was given for. A tick counts only
+while the claimed count and the total are the two it was made at:
+either of them moving is the game saying something new, and the
+answer goes back to being unknown rather than standing on a reading
+that no longer exists.
+
 ## How many rewards a past instalment of an event held
 
     "events": {"event_stock": {"event_stock_01": 17}}
@@ -167,6 +184,9 @@ class ChecklistManager:
         # Event family (str) -> {instalment id: how many rewards it
         # held}. Finished instalments only. See the module note.
         self.events = {}
+        # Event id (str) -> [claimed, total] when the user ticked
+        # `Finished?`. See the module note.
+        self.finished = {}
 
     def load(self):
         """Read the flags. An unreadable file behaves like a fresh one.
@@ -199,6 +219,8 @@ class ChecklistManager:
             self.streaks = {str(k): True for k, v in streaks.items() if v}
         self.events = _clean_events(data.get("events")
                                     if isinstance(data, dict) else None)
+        self.finished = _clean_finished(data.get("finished")
+                                        if isinstance(data, dict) else None)
 
     def is_tracked(self, product_id) -> bool:
         """Whether a product is ticked. Absent ids take the default."""
@@ -261,6 +283,37 @@ class ChecklistManager:
     def streak_finished(self, event_id):
         """Whether that has been said, in this session or an earlier one."""
         return bool(self.streaks.get(str(event_id)))
+
+    # ------------------------------------------ what the user called done
+
+    def call_finished(self, event_id, claimed, total, done=True):
+        """Tick or untick `Finished?` for one event.
+
+        The pair it was ticked AT is what is written down, because
+        that is what the answer was about. See `called_finished`.
+        """
+        event_id = str(event_id)
+        if not done:
+            if self.finished.pop(event_id, None) is None:
+                return
+        else:
+            pair = [int(claimed), int(total)]
+            if self.finished.get(event_id) == pair:
+                return
+            self.finished[event_id] = pair
+        self._write()
+
+    def called_finished(self, event_id, claimed, total):
+        """Whether the user's answer still stands for this reading.
+
+        **A tick is about the reading it was given for.** Either figure
+        moving is the game saying something new -- another reward
+        claimed, or another one to claim -- and an answer given before
+        that cannot speak for it. So the tick is not merely stale, it
+        is gone: `False` here, and the caller forgets it.
+        """
+        held = self.finished.get(str(event_id))
+        return bool(held) and held == [int(claimed), int(total)]
 
     # ----------------------------------------------- finished instalments
 
@@ -365,7 +418,8 @@ class ChecklistManager:
         self.settings_dir.mkdir(parents=True, exist_ok=True)
         data = {"version": CHECKLIST_VERSION, "tracked": self.tracked,
                 "seen": self.seen, "currency": self.currency,
-                "streaks": self.streaks, "events": self.events}
+                "streaks": self.streaks, "events": self.events,
+                "finished": self.finished}
         tmp = self.file.with_suffix(self.file.suffix + ".tmp")
         tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         tmp.replace(self.file)
@@ -374,6 +428,21 @@ class ChecklistManager:
 def _is_count(value):
     """A real whole number, `True` not being one."""
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _clean_finished(raw):
+    """The user's `Finished?` answers off disk, with the rot taken out.
+
+    A pair of counts or nothing: an entry that is not two whole
+    numbers cannot be compared against a reading, and an answer that
+    cannot be checked is worse than no answer.
+    """
+    out = {}
+    for event_id, pair in (raw or {}).items() if isinstance(raw, dict) else ():
+        if (isinstance(pair, (list, tuple)) and len(pair) == 2
+                and all(_is_count(n) and n >= 0 for n in pair)):
+            out[str(event_id)] = [int(pair[0]), int(pair[1])]
+    return out
 
 
 def _clean_events(raw):
