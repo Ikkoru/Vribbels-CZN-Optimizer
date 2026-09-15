@@ -40,6 +40,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **You can tell the Checklist an event is finished.** Most events never say so themselves, so a row with everything claimed sits there unproven. Those rows now carry a `Finished?` checkbox at the end: tick it and the tally goes green and sorts down with the events that are done. **The answer is about the reading it was given for** — if another reward turns up, or another one is claimed, the box unticks itself and the row goes back to red rather than quietly standing on a number that has moved.
 
+- **The Checklist reads a point larger.** Every row, reading, deadline and checkbox on the tab is up one size; the Daily / Weekly / Monthly / Other headings are unchanged. The block is wider and taller for it — about 130px across the four columns — so a window sized to the old tab may want widening.
+
 - **The Checklist's deadlines line up.** `Ends in ...` used to start wherever the reading beside it ended; it now sits in a column of its own — one for the rows above the Sortie shop and one for the Events block, each lined up on its own members.
 
 - **An event shaped like a grid says how big it is on its first day.** Where a family is the same few tasks repeating per day, the game hands out one axis a row at a time and the other all at once — so the row can read `3/21` on the opening afternoon instead of `3/3+?`. The devil event's 21 and the past node lists' 25 are the numbers the game's own screens state. A family that is not rectangular is left alone: most are not.

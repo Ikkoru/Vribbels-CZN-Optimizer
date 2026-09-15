@@ -207,10 +207,15 @@ RATE_VALUE = "%s %s"
 
 # What a compact `tk.Checkbutton` costs beyond the width of its own
 # words: its indicator, and the gap Tk puts between the two. MEASURED
-# once and written down -- it is the widget's own, the same on every
-# label, and not readable before the widget exists. The column reserves
-# it so a checkbox row's words stop where a plain row's do.
-CHECKBOX_OVERHEAD = 21
+# and written down -- it is the widget's own, and not readable before
+# the widget exists. The column reserves it so a checkbox row's words
+# stop where a plain row's do.
+#
+# **The same at any font size**: 23 against `Ag`, `Finished?` and a
+# shop product's whole name, at 9pt and at 10pt alike. So it does not
+# follow `ROW_FONT`, and a reserve short by the difference lets a long
+# label run into its own reading.
+CHECKBOX_OVERHEAD = 23
 
 # What a value says about the row it sits on. GREEN is nothing left to
 # do, RED is something left, and a row whose source a snapshot cannot
@@ -324,7 +329,7 @@ HEADING_LEFT = " left"
 # subtext face, so it reads as a note on the heading rather than as
 # part of it -- and dropped to sit on the heading's own baseline, a
 # 14pt box being taller than a 9pt one.
-HEADING_COUNTDOWN_FONT = ("Segoe UI", 9)
+HEADING_COUNTDOWN_FONT = ("Segoe UI", 10)
 HEADING_COUNTDOWN_GAP = 6   # spacing: heading ↔ element -- heading, label ↔
 HEADING_COUNTDOWN_DROP = 3  # spacing: heading ↔ element -- heading, label ↕
 
@@ -1501,8 +1506,15 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
     return tuple(out)
 
 
-# The rows' face. The headings use the shared helper's own.
-ROW_FONT = ("Segoe UI", 9)
+# The rows' face -- a point above the app's body text, this tab being
+# read rather than scanned. The column HEADINGS are not this: they come
+# from the shared helper and keep its own face.
+#
+# Everything the block is sized and spaced by is measured off this, so
+# changing it moves the rows, the stops and the block's height
+# together. The one thing that does not follow is `CHECKBOX_OVERHEAD`,
+# which is the widget's own and the same at any size.
+ROW_FONT = ("Segoe UI", 10)
 
 # The Activities row reads `point_entity`, which the game writes ONLY
 # when the day's reward is claimed (`guide_system` / `point_reward`).
@@ -2161,8 +2173,12 @@ class ChecklistTab(BaseTab):
         destroyed without ever being mapped.
         """
         if self._box_line is None:
+            # **In the rows' own face.** A checkbox a point smaller than
+            # the rows it sits among is a pixel shorter, and a block
+            # sized off that probe clips one pixel per checkbox row --
+            # which the column's foot pays all at once.
             probe = make_checkbox(self.frame, self.colors, text="Ag",
-                                  compact=True)
+                                  compact=True, font=ROW_FONT)
             self._box_line = probe.winfo_reqheight()
             probe.destroy()
         return max(tkfont.Font(font=ROW_FONT).metrics("linespace"),
@@ -2564,7 +2580,7 @@ class ChecklistTab(BaseTab):
         variable = tk.BooleanVar(value=self._tracked(product_id))
         box = make_checkbox(
             parent, self.colors, text=label, variable=variable,
-            compact=True,
+            compact=True, font=ROW_FONT,
             fg=self.colors["fg_dim"] if state is MUTED else None,
             command=lambda p=product_id, v=variable: self._toggle(p, v))
         tip = self._product_tip(product_id)
@@ -2589,7 +2605,7 @@ class ChecklistTab(BaseTab):
         variable = tk.BooleanVar(value=ticked)
         box = make_checkbox(
             parent, self.colors, text=FINISHED_LABEL, variable=variable,
-            compact=True,
+            compact=True, font=ROW_FONT,
             fg=self.colors["orange" if ticked else "yellow"],
             command=lambda n=name, c=claimed, t=total, v=variable:
                 self._toggle_finished(n, c, t, v))
