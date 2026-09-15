@@ -158,6 +158,21 @@ Run against the whole account, every family answers, and the answers match what 
 
 A batch that varies both indices says nothing and is ignored; the devil has one of those too. One clean batch is enough.
 
+## What the last instalment held
+
+**A FINISHED instalment's mission rows are its whole total.** The game issues a row when it issues the mission, so a live event's rows are what has been handed out so far — but an event whose window has closed has handed out everything it ever will, and counting its rows is counting the event.
+
+So every load counts the ended events in `event_schedules` and files the figure under the family the instalment belongs to (`_stem` of the normalised id, so `event_schedule_policy_005` files under `event_policy`). `ChecklistManager` keeps it in `settings/checklist.json`, and the recording is the half that cannot wait: **the game purges old instalments**, and a count nobody wrote down while its rows were there cannot be recovered.
+
+A live event takes its denominator from that record when, and only when:
+
+* **two or more finished instalments of its family agree.** One is a number rather than a pattern — the login streaks run 7, 10, 14 or 21 days depending on the instalment, measured across twenty-four of them;
+* **the figure is BIGGER than the rows in hand.** Where the live event has issued more than its predecessors held, the wire is saying so against a record that only remembers, and the rows win.
+
+Such a row reads `~1/20` rather than `1/3+?`: the tilde is the tab's mark for a number worked out rather than read. **It does not go green on it** — `event_achieve_state` is still the only thing that ends an event — so the worst an over-large inherited total can do is leave a finished row looking unfinished.
+
+The record starts empty and fills as instalments end. On the account it was written against, one snapshot filed three: `event_stock_01` at 17 rows, `event_schedule_policy_005` at 6, `event_schedule_love_4` at 1. No family has two yet, so nothing on the tab reads from it — which is the state to expect until a family repeats.
+
 ## Totals the wire does not state
 
 Recorded here rather than in the code. **A total typed into the program is wrong the moment its event ends** — unless its event is Generic, which none of these is. These are for working out the pattern, not for shipping.

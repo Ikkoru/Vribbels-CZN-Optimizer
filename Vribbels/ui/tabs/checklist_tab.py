@@ -25,6 +25,13 @@ worse than one saying nothing. Such a row prints `UNKNOWN_MORE` after
 its total and turns green only where the game itself says the event
 is over.
 
+**An event's own family is what knows its total.** A finished
+instalment's mission rows are all the rows it ever had, so they are
+counted and written down; a live instalment of a family whose past
+agrees with itself reads against that instead of against a floor. It
+still goes green only on the game's own word. See
+`_recall_event_totals`.
+
 **A number worked out rather than read carries `EXPECTED_VALUE`.**
 Two rows do: a weekly allowance the game has not topped up yet is the
 week's own rule applied to last week's leftover, not a reading, and
@@ -923,22 +930,41 @@ def _event_progress(raw, name):
     `_event_finished`: the suffix comes off and the row goes green,
     because the question has an answer rather than an estimate.
     """
-    missions = (raw or {}).get(PASS_MISSION_FIELD)
-    if not isinstance(missions, dict):
-        return []
-    override = EVENT_MISSIONS.get(name)
-    if override:
-        rows = [row for res_id, row in missions.items()
-                if str(res_id).startswith(override) and isinstance(row, dict)]
-    else:
-        rows = [missions[res_id] for res_id in _event_rows(raw, name)
-                if isinstance(missions.get(res_id), dict)]
+    rows = _event_mission_rows(raw, name)
     if not rows:
         return []
     claimed = sum(1 for row in rows if row.get("complete_time"))
     if claimed >= len(rows) and _event_finished(raw, name):
         return [("%d/%d" % (claimed, len(rows)), DONE)]
+    # **What the family's finished instalments held**, where two of
+    # them agree -- see `ChecklistManager.event_total`. Taken only
+    # where it is BIGGER than the rows in hand, so the reading can
+    # only ever say more work is coming, never less, and marked
+    # `EXPECTED_VALUE` because it is the past speaking for the
+    # present. It does not go green on that: `_event_finished` is
+    # still the only thing that ends an event.
+    total = ((raw or {}).get(EVENT_TOTALS_FIELD) or {}).get(name)
+    if _is_count(total) and total > len(rows):
+        return [("%s%d/%d" % (EXPECTED_VALUE, claimed, total), TODO)]
     return [("%d/%d%s" % (claimed, len(rows), UNKNOWN_MORE), FLOOR)]
+
+
+def _event_mission_rows(raw, name):
+    """One event's mission rows, live or long over.
+
+    The same route `_event_progress` scores an event by, so what a
+    finished instalment is recorded as holding and what a live one is
+    measured against are counted the same way.
+    """
+    missions = (raw or {}).get(PASS_MISSION_FIELD)
+    if not isinstance(missions, dict):
+        return []
+    override = EVENT_MISSIONS.get(name)
+    if override:
+        return [row for res_id, row in missions.items()
+                if str(res_id).startswith(override) and isinstance(row, dict)]
+    return [missions[res_id] for res_id in _event_rows(raw, name)
+            if isinstance(missions.get(res_id), dict)]
 
 
 # Items whose name is longer than a Checklist column wants to be, and
@@ -1069,6 +1095,13 @@ EVENT_DONE_VALUE = 1
 # unlike its schedule goes here, and one that is simply unmapped shows
 # its deadline and no tally.
 EVENT_MISSIONS = {}
+
+# Where `_recall_event_totals` leaves what a live event is expected to
+# hold, as {event id: rewards}. **This program's own key, not the
+# wire's** -- it is written onto the loaded snapshot in memory so the
+# readers can take it off `raw` like anything else, the way a recalled
+# streak is written back onto its row. Nothing saves it.
+EVENT_TOTALS_FIELD = "_checklist_event_totals"
 
 # **Progress is read per GROUP, not per event.** Each kind of event
 # keeps its state somewhere else entirely -- missions, a login streak,
@@ -1950,6 +1983,7 @@ class ChecklistTab(BaseTab):
         """
         raw = getattr(self.optimizer, "raw_data", None) or {}
         self._recall_streaks(raw)
+        self._recall_event_totals(raw, time.time())
         readings = self._settle_floors(
             _readings(raw, tracked=self._tracked))
         self._shop_tips = self._rates(raw, time.time())
@@ -1959,6 +1993,43 @@ class ChecklistTab(BaseTab):
         for title, (text, rows) in self.column_texts.items():
             self._fill(title, text, rows, readings)
         self._fill_period_headings(raw)
+
+    def _recall_event_totals(self, raw, now):
+        """Record what ended events held, and say what live ones hold.
+
+        **A finished instalment's mission rows are its whole total.**
+        A live event's are only what has been issued so far, which is
+        why nearly every event row on the tab can show a floor and
+        nothing better -- and the same family's last instalment is the
+        one thing that knows more.
+
+        Recording is the half that cannot wait: the game purges old
+        instalments, and a count nobody wrote down while the rows were
+        there is gone. So every ended event is counted on every load,
+        whether or not anything is live to use it.
+
+        What comes back is written onto `raw` under
+        `EVENT_TOTALS_FIELD`, where the readers take it off the
+        snapshot like any other field. Only families whose finished
+        instalments AGREE are in it -- see
+        `ChecklistManager.event_total`.
+        """
+        manager = getattr(self.context, "checklist_manager", None)
+        if manager is None or not isinstance(raw, dict):
+            return
+        for group in EVENT_GROUPS:
+            for name, _window in schedules.ended(group, raw, now):
+                rows = _event_mission_rows(raw, name)
+                if rows:
+                    manager.record_event_total(
+                        _stem(_event_key(name)), name, len(rows))
+        totals = {}
+        for group in EVENT_GROUPS:
+            for name, _window in schedules.all_live(group, raw, now):
+                total = manager.event_total(_stem(_event_key(name)), name)
+                if total is not None:
+                    totals[name] = total
+        raw[EVENT_TOTALS_FIELD] = totals
 
     def _recall_streaks(self, raw):
         """Put `completed` back on a streak the game has ended.

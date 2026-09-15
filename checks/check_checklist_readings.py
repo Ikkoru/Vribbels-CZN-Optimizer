@@ -18,7 +18,10 @@ depends on captured data or on the hour it runs at.
 No Tk and no snapshot needed.
 """
 
+import tempfile
 from datetime import datetime
+from pathlib import Path
+from types import SimpleNamespace
 
 from ._harness import add_source_to_path
 
@@ -89,6 +92,7 @@ def run():
         _event_attendance,
         RATE_RECENT_LABEL, RATE_LONG_LABEL,
         SHOP_RATE_FLOOR,
+        ChecklistTab,
     )
     import checklist_manager
 
@@ -498,6 +502,82 @@ def run():
                 f"{unknown!r}; only {EVENT_DONE_FLAG} == "
                 f"{EVENT_DONE_VALUE!r} takes it off and lets the row go "
                 f"green.")
+
+    # --- what the family's past instalments held ---------------------
+    # A live event's rows are what has been issued so far. Its
+    # FINISHED predecessors' are the whole total, and where two of them
+    # agree the live row can say how much is still coming instead of
+    # reading three of three on its first afternoon.
+    #
+    # **Two, and agreeing.** One instalment is a number rather than a
+    # pattern -- the login streaks run 7, 10, 14 or 21 days depending
+    # on which one it is -- so a family has to repeat itself before any
+    # of this is believed.
+    def _family(pasts, held, claimed):
+        """(the live event's reading, what got recorded).
+
+        `pasts` is {instalment index: rows it held}, all ended; the
+        live instalment holds `held` rows with `claimed` of them taken.
+        """
+        raw = _snapshot()
+        missions, windows = {}, {}
+        for index, rows in list(pasts.items()) + [(9, held)]:
+            live = index == 9
+            windows["event_probe_%d" % index] = {
+                "start_time": now - (10 * DAY if live else 90 * DAY),
+                "end_time": now + 10 * DAY if live else now - 60 * DAY}
+            for at in range(1, rows + 1):
+                name = "event_probe_%d_%02d" % (index, at)
+                missions[name] = {
+                    "res_id": name,
+                    "complete_time": 1 if live and at <= claimed else 1}
+            if live:
+                for at in range(claimed + 1, rows + 1):
+                    missions["event_probe_9_%02d" % at]["complete_time"] = 0
+        raw[PASS_MISSION_FIELD] = missions
+        raw["event_schedules"] = {"EVENT_SCHEDULE": windows}
+        manager = checklist_manager.ChecklistManager(
+            Path(tempfile.mkdtemp(prefix="checklist_totals_")))
+        manager.load()
+        stub = SimpleNamespace(
+            context=SimpleNamespace(checklist_manager=manager))
+        ChecklistTab._recall_event_totals(stub, raw, now)
+        return _event_missions(raw, "event_probe_9", {}, now), manager
+
+    got, manager = _family({1: 20, 2: 20}, held=3, claimed=1)
+    want = [(EXPECTED_VALUE + "1/20", TODO)]
+    if got != want:
+        failures.append(
+            f"an event whose family held 20 twice reads {got!r}, not "
+            f"{want!r}. Three rows issued on day one is what the account "
+            f"HAS, and a row saying 1/3 of an event that holds 20 is the "
+            f"floor this record exists to replace.")
+    if manager.events.get("event_probe") != {"event_probe_1": 20,
+                                             "event_probe_2": 20}:
+        failures.append(
+            f"the finished instalments were recorded as "
+            f"{manager.events!r}. The game purges old instalments, so a "
+            f"count not written down while the rows are there is gone -- "
+            f"that is why every load counts them.")
+
+    for pasts, why in (({1: 20}, "one instalment on record"),
+                       ({1: 20, 2: 14}, "two that disagree")):
+        got, _manager = _family(pasts, held=3, claimed=1)
+        if got != [("1/3" + UNKNOWN_MORE, FLOOR)]:
+            failures.append(
+                f"with {why} the row reads {got!r}, not the floor. A total "
+                f"taken from a family that has not repeated itself is a "
+                f"guess wearing a number's clothes.")
+
+    # Nor may a family's history ever shrink a reading: a live event
+    # that has issued MORE than its predecessors held is the wire
+    # saying so, against a record that only remembers.
+    got, _manager = _family({1: 20, 2: 20}, held=25, claimed=25)
+    if got != [("25/25" + UNKNOWN_MORE, FLOOR)]:
+        failures.append(
+            f"an event holding more rows than its family's history reads "
+            f"{got!r}. The record is the PAST; where the two disagree the "
+            f"rows in hand are the ones that were counted today.")
 
     # The suffix must not stop a floor settling to orange, which is the
     # whole answer for an event nothing can prove finished.

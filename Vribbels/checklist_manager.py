@@ -81,6 +81,26 @@ next, for as long as its event ran.
 Kept here rather than in a snapshot because it is a fact about the
 PAST, which is the same reason `seen` is here -- and because this
 directory is not the one a user clears when they tidy up captures.
+
+## How many rewards a past instalment of an event held
+
+    "events": {"event_stock": {"event_stock_01": 17}}
+
+**A FINISHED event's mission rows are its whole total**, where a live
+one's are only what has been issued so far -- which is why almost every
+event row on the tab can show a floor and nothing better. An instalment
+whose window has closed is counted once and written down here, under
+the family it belongs to.
+
+Written down rather than re-derived because the game PURGES old
+instalments: the rows are in `mission_entities` for a while and then
+they are not, and a total nobody recorded while it was there cannot be
+recovered. The record outlives them, and the next instalment of that
+family is what it is for.
+
+**Two agreeing instalments before any of it is believed.** One is not
+evidence that a family repeats itself: the login streaks run 7, 10, 14
+or 21 days depending on the instalment. See `event_total`.
 """
 
 import json
@@ -144,6 +164,9 @@ class ChecklistManager:
         # Streak event id (str) -> True, for the ones the game has
         # said are over. See the module note.
         self.streaks = {}
+        # Event family (str) -> {instalment id: how many rewards it
+        # held}. Finished instalments only. See the module note.
+        self.events = {}
 
     def load(self):
         """Read the flags. An unreadable file behaves like a fresh one.
@@ -174,6 +197,8 @@ class ChecklistManager:
         streaks = data.get("streaks") if isinstance(data, dict) else None
         if isinstance(streaks, dict):
             self.streaks = {str(k): True for k, v in streaks.items() if v}
+        self.events = _clean_events(data.get("events")
+                                    if isinstance(data, dict) else None)
 
     def is_tracked(self, product_id) -> bool:
         """Whether a product is ticked. Absent ids take the default."""
@@ -237,6 +262,49 @@ class ChecklistManager:
         """Whether that has been said, in this session or an earlier one."""
         return bool(self.streaks.get(str(event_id)))
 
+    # ----------------------------------------------- finished instalments
+
+    def record_event_total(self, family, event_id, count):
+        """Note how many rewards one FINISHED instalment held.
+
+        The caller decides an instalment is finished; this only files
+        the count. Re-recording the same figure writes nothing, so an
+        ordinary load costs no disk.
+
+        **The BIGGEST count for an instalment wins.** The rows are
+        purged gradually, so a smaller figure later is the purge having
+        started rather than a better reading, and it must not overwrite
+        what was seen whole.
+        """
+        family, event_id = str(family), str(event_id)
+        if not _is_count(count) or count <= 0:
+            return
+        held = self.events.setdefault(family, {})
+        if count <= held.get(event_id, 0):
+            return
+        held[event_id] = int(count)
+        self._write()
+
+    def event_total(self, family, live_id=None):
+        """What an instalment of `family` holds, or None.
+
+        Every FINISHED instalment on record has to agree, and there
+        have to be at least two of them: a family that repeats itself
+        says so by repeating, and one instalment is a number rather
+        than a pattern -- the login streaks run 7, 10, 14 or 21 days
+        depending on which one it is.
+
+        `live_id` is left out of the count. A live instalment's rows
+        are what has been issued so far, so letting it vote would be
+        the floor this exists to replace, voting for itself.
+        """
+        held = self.events.get(str(family)) or {}
+        past = [count for event_id, count in held.items()
+                if event_id != str(live_id)]
+        if len(past) < 2 or len(set(past)) != 1:
+            return None
+        return past[0]
+
     # ------------------------------------------------- the currency ledger
 
     def record_currency(self, res_id, value, day, kind=FROM_WIRE,
@@ -297,10 +365,32 @@ class ChecklistManager:
         self.settings_dir.mkdir(parents=True, exist_ok=True)
         data = {"version": CHECKLIST_VERSION, "tracked": self.tracked,
                 "seen": self.seen, "currency": self.currency,
-                "streaks": self.streaks}
+                "streaks": self.streaks, "events": self.events}
         tmp = self.file.with_suffix(self.file.suffix + ".tmp")
         tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         tmp.replace(self.file)
+
+
+def _is_count(value):
+    """A real whole number, `True` not being one."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _clean_events(raw):
+    """The finished-instalment record off disk, with the rot taken out.
+
+    Same contract as `_clean_ledger`: a hand-edited or half-written
+    file costs the entries it broke and nothing else.
+    """
+    out = {}
+    for family, held in (raw or {}).items() if isinstance(raw, dict) else ():
+        if not isinstance(held, dict):
+            continue
+        rows = {str(event_id): int(count) for event_id, count in held.items()
+                if _is_count(count) and count > 0}
+        if rows:
+            out[str(family)] = rows
+    return out
 
 
 def _clean_ledger(raw):

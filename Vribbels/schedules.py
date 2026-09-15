@@ -86,6 +86,24 @@ def all_live(group, raw_data, now):
     return [(name, window) for _end, name, window in sorted(found)]
 
 
+def ended(group, raw_data, now):
+    """[(id, window)] for every instance of `group` already OVER.
+
+    Oldest first. The table keeps past instances, and an instance whose
+    window has closed is the only kind whose records are complete --
+    whatever the game issued for it, it has issued.
+    """
+    found = []
+    for name, window in groups(raw_data).get(group, {}).items():
+        if not isinstance(window, dict):
+            continue
+        start, end = window.get("start_time"), window.get("end_time")
+        if not _is_time(start) or not _is_time(end) or end >= now:
+            continue
+        found.append((end, name, window))
+    return [(name, window) for _end, name, window in sorted(found)]
+
+
 def current(group, raw_data, now):
     """(id, window) of the LATEST instance already under way, or
     (None, None).

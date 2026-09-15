@@ -36,6 +36,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **A shop heading's total is inked a shade apart** from the products under it — the same green and red, slightly darker and slightly stronger — so the block's own verdict does not read as one more row's.
 
+- **An event can take its total from the last time it ran.** The game issues a mission row when it issues the mission, so a live event's rows are what it has handed out so far — but an instalment that has ENDED handed out everything it had, and its count is recorded as it is seen. Where two past instalments of the same event agree, a live one reads `~1/20` instead of `1/3+?`. It still goes green only on the game's own word, and a live event that has issued more than its predecessors held keeps its own figure.
+
 - **An event row says when its total is only a guess.** Most events hand out their rewards over the whole run, so the count on screen is what you have been offered so far, not what the event holds. Those rows now read `16/20+?`. The `+?` comes off — and the row goes green — where the game itself says the event is finished.
 
 - **An event goes green once its final reward is claimed.** The game keeps its own record of that, which is the only thing on the wire that can tell a finished event from one still handing rewards out.

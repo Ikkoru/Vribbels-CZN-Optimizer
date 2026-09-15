@@ -225,6 +225,69 @@ def _streak_memory_survives_the_file(root):
     return out
 
 
+def _event_totals_survive_the_file(root):
+    """What a finished instalment held outlives the rows it was counted from.
+
+    The game purges old instalments, so the count is only readable
+    while they are there -- and the whole value of it is to a live
+    event that starts AFTER they are gone. A record that does not
+    reach the file records nothing that matters.
+
+    Returns a list of complaints.
+    """
+    import checklist_manager as cm
+    out = []
+    m = cm.ChecklistManager(root)
+    m.load()
+    m.record_event_total("event_probe", "event_probe_1", 20)
+    if m.event_total("event_probe", "event_probe_9") is not None:
+        out.append(
+            "one instalment on record answered for the family. One is a "
+            "number, not a pattern -- the login streaks run 7, 10, 14 or "
+            "21 days depending on the instalment.")
+    m.record_event_total("event_probe", "event_probe_2", 20)
+
+    again = cm.ChecklistManager(root)
+    again.load()
+    if again.event_total("event_probe", "event_probe_9") != 20:
+        out.append(
+            f"two agreeing instalments came back as "
+            f"{again.event_total('event_probe', 'event_probe_9')!r} after a "
+            f"reload. The rows they were counted from are purged; this "
+            f"record is what is left of them.")
+
+    # **A purge must not shrink what was seen whole.** The rows go a
+    # few at a time, so a smaller count later is fewer rows rather than
+    # a better reading.
+    again.record_event_total("event_probe", "event_probe_1", 4)
+    if again.events.get("event_probe", {}).get("event_probe_1") != 20:
+        out.append(
+            f"a later, smaller count overwrote the full one: "
+            f"{again.events.get('event_probe')!r}. A count only ever grows "
+            f"-- what shrinks is the rows still on the account.")
+
+    # Rot costs the entries it is in and nothing else.
+    path = Path(root) / "settings" / "checklist.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    # `setdefault`, because a run where nothing was written at all is
+    # exactly one of the faults this is here to report -- as a
+    # complaint, not as a KeyError from the line that injects the rot.
+    rows = data.setdefault("events", {})
+    rows["broken"] = {"event_x": "twenty"}
+    rows["worse"] = "not a table at all"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    rotted = cm.ChecklistManager(root)
+    rotted.load()
+    if rotted.event_total("event_probe", "event_probe_9") != 20:
+        out.append(
+            "a malformed entry cost the record its good families too.")
+    if rotted.events.get("broken") or rotted.events.get("worse"):
+        out.append(
+            f"rot survived the load: {rotted.events!r}. A count that is "
+            f"not a count would be compared against a row tally.")
+    return out
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -246,6 +309,7 @@ def run():
     try:
         failures.extend(_currency_ledger_keeps_its_shape(ledger_root))
         failures.extend(_streak_memory_survives_the_file(ledger_root))
+        failures.extend(_event_totals_survive_the_file(ledger_root))
     finally:
         shutil.rmtree(ledger_root, ignore_errors=True)
 
