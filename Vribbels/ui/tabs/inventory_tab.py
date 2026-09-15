@@ -534,14 +534,9 @@ class InventoryTab(BaseTab):
         Preserves selection state across reloads -- if a set was unchecked
         before a live update, it stays unchecked. New sets default to checked.
         """
-        # Snapshot current selection state before tearing down widgets.
-        previous = {name: var.get() for name, var in self.inv_set_vars.items()}
-
-        for widget in self.inv_set_frame_inner.winfo_children():
-            widget.destroy()
-        self.inv_set_vars.clear()
-
         # Count how many of each set the current snapshot owns (by set_name).
+        # BEFORE anything is destroyed: the counts are what the labels
+        # show, so they are also what says whether a rebuild is needed.
         owned_counts: dict = {}
         for f in self.optimizer.fragments:
             owned_counts[f.set_name] = owned_counts.get(f.set_name, 0) + 1
@@ -560,6 +555,33 @@ class InventoryTab(BaseTab):
             key=int,
         )
         set_names.extend(unknown_numeric)
+
+        # **Nothing visible has changed, so nothing is rebuilt.** Both
+        # load paths call this, and the live one fires on every snapshot
+        # save -- a login burst is several in a few seconds. Each call
+        # destroyed every checkbox in the panel and built it again, and
+        # what the user saw was the panel blinking.
+        #
+        # The signature is every cell's own text: the set names in the
+        # order they are laid out, each with the count beside it. The
+        # column widths are measured off those counts and the column
+        # COUNT is fixed at five, so nothing else about the layout can
+        # move while this holds still. Check states are not in it --
+        # they live in the vars, and skipping the rebuild leaves them
+        # exactly where they were.
+        drawn = tuple((name, owned_counts.get(name, 0)) for name in set_names)
+        if drawn == getattr(self, "_set_filter_drawn", None) and self.inv_set_vars:
+            # The unknown mains are a different panel with different
+            # inputs and its own gate; it is not what this one skipped.
+            self.populate_unknown_main_stats()
+            return
+        self._set_filter_drawn = drawn
+
+        # Snapshot current selection state before tearing down widgets.
+        previous = {name: var.get() for name, var in self.inv_set_vars.items()}
+        for widget in self.inv_set_frame_inner.winfo_children():
+            widget.destroy()
+        self.inv_set_vars.clear()
 
         # Each logical column uses TWO grid columns: column 2c holds the
         # proportional-font Checkbutton (set name), column 2c+1 holds the
@@ -731,9 +753,6 @@ class InventoryTab(BaseTab):
         Surviving unknowns are listed by their raw stat string. Selection
         state is preserved across reloads.
         """
-        for widget in self.inv_main_unknown_frame.winfo_children():
-            widget.destroy()
-
         # Stats that should NEVER appear in the filter, even when present in
         # the data: the 11 displayed mains (always shown) and the three flat
         # slot 1/2/3 mains (always pass through, never shown).
@@ -744,6 +763,20 @@ class InventoryTab(BaseTab):
         for f in self.optimizer.fragments:
             if f.main_stat and f.main_stat.name not in known:
                 seen_unknown.add(f.main_stat.name)
+
+        # **Worked out before anything is destroyed**, because it is what
+        # decides whether anything should be. This row is rebuilt on
+        # every load and every live update, and the stats in it change
+        # only when a fragment with a main nothing names arrives or
+        # leaves -- so the same row was torn down and rebuilt several
+        # times per login burst for no change at all.
+        drawn = tuple(sorted(seen_unknown))
+        if drawn == getattr(self, "_unknown_mains_drawn", None):
+            return
+        self._unknown_mains_drawn = drawn
+
+        for widget in self.inv_main_unknown_frame.winfo_children():
+            widget.destroy()
 
         # Drop vars for unknowns that no longer appear in the data.
         for stale in [k for k in self.inv_unknown_main_stat_vars if k not in seen_unknown]:

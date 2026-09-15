@@ -58,6 +58,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The Checklist stopped losing the shops at the foot of a column.** Each column is a block of a fixed height, and a checkbox row is taller than a text one — so the block came up three pixels short per shop product and Tk clipped the difference off the bottom silently. The Weekly column was missing its Seasonal Shop and the Monthly column its last two rows.
 
+- **The Memory Fragments filters stop blinking during a capture.** The Sets panel and the unknown-main-stats row were torn down and rebuilt on every snapshot save, and a login burst is several in a few seconds. They now rebuild only when a set name, one of the counts beside them, or an unknown main actually changes.
+
 - **A fresh install opens at the same size a loaded one does.** Two panels were laid out only once data arrived: the Combatants tab's six fragment cells came up at a text widget's default size, far larger than they end up, which pushed the Character and Partner cards out of the space they fill; and the Memory Fragments tab's Sets panel came up empty and narrow, moving every panel beside it when the first snapshot loaded. The Sets columns now reserve room for a four-digit count instead of fitting the counts in hand, so the panel is the same width whatever you own.
 
 - **An event mission's rewards are recorded.** They pay under a key nothing read, so the items landed nowhere and the Capture Log reported no receipt.

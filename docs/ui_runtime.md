@@ -71,6 +71,26 @@ The admin prompt uses `MessageBoxW` via `_win_message`. It runs before `Optimize
 
 `setup_ui` packs it as its very last statement. Redundant with the hidden window, and it keeps the tab atomic if it is ever rebuilt after startup. Don't parent new top-level tab sections to `self.frame`; use `content`.
 
+## A rebuild on the load path is gated on what it would draw
+
+A panel that destroys its children and builds them again blinks: between the destroy and the next paint there is a hole where the widgets were, and a login burst saves the snapshot several times in a few seconds — so a refresh wired to the data load runs two or three times while the user watches.
+
+Four panels rebuild real widgets after startup, and each is gated on a SIGNATURE computed before anything is destroyed, holding everything the rebuild would read:
+
+| Panel | Method | What the gate holds |
+| ----- | ------ | ------------------- |
+| Capture's Log Presets | `refresh_log_presets` | the presets and their assignments |
+| Memory Fragments' Sets | `populate_set_filters` | each set name with the number owned, in layout order |
+| Memory Fragments' unknown mains | `populate_unknown_main_stats` | the unknown main-stat names |
+| Optimizer's Exclude Combatant's MFs | `refresh_exclude_heroes` | the roster, the excluded set, the selected combatant |
+| The Checklist's columns | `_rebuild_columns` | per column, the row keys and what `_fill` cannot patch |
+
+**Width belongs in the signature wherever the layout is solved from the built widgets' own `winfo_reqwidth()`** — the exclude list's flow is, so it re-flows on `<Configure>`; the Sets grid is five columns whatever the window does, and its column widths are measured off the counts already in the signature.
+
+`checks/check_tabs_build.py` holds each of these to widget IDENTITY: same inputs in, the same objects still on screen. Comparing the labels would pass while every widget behind them was replaced.
+
+Treeview and Listbox rebuilds are not this: their rows are not widgets, and clearing one repaints inside a single widget with no hole to see.
+
 ## The exclude checklist's flow layout must not create widgets per re-flow
 
 Checkbuttons are created once per combatant (`_exclude_checkbutton`) and positioned by `place()`; a re-flow moves them. Destroying and recreating ~40 classic Tk widgets on every `<Configure>` is the cost that rules it out, and pooled row *frames* can't help (a Tk widget can't change parent).

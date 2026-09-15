@@ -35,6 +35,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from types import SimpleNamespace
+
 from ._harness import add_source_to_path, SOURCE_ROOT, Skip
 
 NAME = "tabs build"
@@ -1196,6 +1198,100 @@ def _log_presets_redraw_replaces_nothing(tab):
     return []
 
 
+def _set_filters_redraw_replaces_nothing(tab):
+    """The Memory Fragments filters rebuild only when their words change.
+
+    Both load paths call `populate_set_filters`, and the live one runs
+    on every snapshot save -- a login burst is several in a few
+    seconds. Each call destroyed every set checkbox and its count, and
+    the unknown-mains row with them, so the panel blinked while the
+    user watched.
+
+    **What a cell shows is what decides it**: the set names in the
+    order they are laid out, each with the number owned beside it. The
+    count also sets its column's width, and the column COUNT is fixed,
+    so nothing else about the layout can move while those hold still.
+
+    Widget IDENTITY is what the case reads. Comparing the labels would
+    pass while every widget behind them was replaced.
+
+    Returns a list of complaints.
+    """
+    def widgets(w, out):
+        out.append(w)
+        for child in w.winfo_children():
+            widgets(child, out)
+        return out
+
+    out = []
+    frame = getattr(tab, "inv_set_frame_inner", None)
+    if frame is not None:
+        before = widgets(frame, [])
+        tab.populate_set_filters()
+        after = widgets(frame, [])
+        if len(before) != len(after) or any(a is not b for a, b in
+                                            zip(before, after)):
+            out.append(
+                f"reloading with the same fragments replaced the Sets "
+                f"filters ({len(before)} widgets before, {len(after)} "
+                f"after). Every capture save calls this, so the panel "
+                f"blinks each time.")
+
+    # **The unknown-mains row needs an unknown main to be about.** No
+    # snapshot is guaranteed to hold one, and a row of no widgets is
+    # rebuilt indistinguishably from one that is left alone -- so the
+    # case makes one rather than hoping for it.
+    unknown = getattr(tab, "inv_main_unknown_frame", None)
+    held = list(getattr(tab.optimizer, "fragments", []) or [])
+    if unknown is not None and held:
+        odd = SimpleNamespace(
+            set_name=held[0].set_name,
+            main_stat=SimpleNamespace(name="Nothing Names This%"))
+        tab.optimizer.fragments = held + [odd]
+        try:
+            tab.populate_set_filters()
+            before = widgets(unknown, [])
+            tab.populate_set_filters()
+            after = widgets(unknown, [])
+        finally:
+            tab.optimizer.fragments = held
+        if len(before) < 2:
+            out.append(
+                f"a fragment with a main nothing names left the unknown "
+                f"row holding {len(before)} widget(s). The case cannot "
+                f"say anything about a row that was never built.")
+        elif len(before) != len(after) or any(a is not b for a, b in
+                                              zip(before, after)):
+            out.append(
+                f"reloading with the same fragments replaced the unknown "
+                f"mains row ({len(before)} widgets before, {len(after)} "
+                f"after). It is rebuilt from the same two load paths, so "
+                f"it blinks on every capture save with the rest.")
+
+    # And a CHANGE still rebuilds. A gate that never opens is a panel
+    # that stops telling the truth about what is owned -- the counts in
+    # the labels are read off the fragments.
+    frame = getattr(tab, "inv_set_frame_inner", None)
+    held = list(getattr(tab.optimizer, "fragments", []) or [])
+    if frame is not None and held:
+        before = widgets(frame, [])
+        tab.optimizer.fragments = held[1:]
+        try:
+            tab.populate_set_filters()
+        finally:
+            tab.optimizer.fragments = held
+        after = widgets(frame, [])
+        if len(before) == len(after) and all(a is b for a, b in
+                                             zip(before, after)):
+            out.append(
+                "dropping a fragment rebuilt nothing. The bracketed count "
+                "beside each set name is read off the fragments, so a gate "
+                "that holds through a change leaves the panel stating a "
+                "number that is no longer true.")
+        tab.populate_set_filters()
+    return out
+
+
 def _checklist_block_is_tall_enough(tab):
     """A column's fixed height has to match what the Text lays out.
 
@@ -2181,6 +2277,9 @@ def run():
                     built["ChecklistTab"]))
             failures.extend(
                 _checklist_rows_are_all_drawn(built["ChecklistTab"]))
+        if "InventoryTab" in built:
+            failures.extend(
+                _set_filters_redraw_replaces_nothing(built["InventoryTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))
