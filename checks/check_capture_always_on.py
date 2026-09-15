@@ -288,6 +288,87 @@ def _a_released_build_catalogues_nothing(root):
     return out
 
 
+def _the_marker_survives_elevation():
+    """The working copy's marker reaches the process that captures.
+
+    Capture needs Administrator, so the program relaunches itself
+    elevated -- and `ShellExecuteW`'s "runas" starts the new process
+    with a FRESH environment. The `zRUN*.bat` launchers set
+    `VRIBBELS_DEV`; the elevated copy, which is the one that captures,
+    never saw it, so the catalogue was off in every session that
+    accepted the UAC prompt.
+
+    The flag rides the relaunch instead, and is read back only where
+    the program runs from source: a frozen build ignores it, so the
+    switch is still closed by construction.
+
+    Returns a list of complaints.
+    """
+    import ctypes
+    import os
+    import sys
+    import czn_optimizer_gui as gui
+
+    if sys.platform != "win32":
+        return []
+    out = []
+    was = os.environ.get(gui.MAINTAINER_ENV)
+    seen = []
+    real = ctypes.windll.shell32.ShellExecuteW
+    try:
+        os.environ[gui.MAINTAINER_ENV] = "1"
+        # **The real relaunch, with only the Win32 call stubbed.** The
+        # stub answers 33 -- what ShellExecuteW returns when the
+        # elevated copy started -- so nothing is elevated and nothing
+        # is opened.
+        ctypes.windll.shell32.ShellExecuteW = (
+            lambda *a: seen.append(a) or 33)
+        gui.run_as_admin()
+    finally:
+        ctypes.windll.shell32.ShellExecuteW = real
+        if was is None:
+            os.environ.pop(gui.MAINTAINER_ENV, None)
+        else:
+            os.environ[gui.MAINTAINER_ENV] = was
+
+    params = str(seen[0][3]) if seen else ""
+    if gui.DEV_FLAG not in params:
+        out.append(
+            f"the elevated relaunch was asked for as {params!r}, without "
+            f"{gui.DEV_FLAG!r}. The environment does not survive a UAC "
+            f"prompt, so the marker has to ride the command line -- "
+            f"otherwise the process that captures is never the one that "
+            f"knows it is a working copy.")
+
+    # And the far end reads it back, but only from source.
+    os.environ.pop(gui.MAINTAINER_ENV, None)
+    try:
+        gui._adopt_dev_flag(["czn_optimizer_gui.py", gui.DEV_FLAG])
+        # **Read off the ENVIRONMENT, not off the return value.** What
+        # the addon generator consults is the variable; a function that
+        # answers yes without setting it leaves the catalogue off.
+        if not os.environ.get(gui.MAINTAINER_ENV):
+            out.append(
+                f"{gui.DEV_FLAG!r} on the command line did not set "
+                f"{gui.MAINTAINER_ENV}. The relaunch passes it and "
+                f"nothing reads it back, which is the same as not "
+                f"passing it.")
+        os.environ.pop(gui.MAINTAINER_ENV, None)
+        sys.frozen = True
+        if gui._adopt_dev_flag(["app.exe", gui.DEV_FLAG]):
+            out.append(
+                f"a FROZEN build adopted {gui.DEV_FLAG!r}. The catalogue "
+                f"is the maintainer's; a released build has to ignore the "
+                f"flag whoever types it.")
+    finally:
+        if hasattr(sys, "frozen"):
+            del sys.frozen
+        os.environ.pop(gui.MAINTAINER_ENV, None)
+        if was is not None:
+            os.environ[gui.MAINTAINER_ENV] = was
+    return out
+
+
 def run():
     add_source_to_path()
     root = Path(tempfile.mkdtemp())
@@ -299,4 +380,5 @@ def run():
     failures.extend(_a_snapshot_per_launch(addon, snaps, said))
     failures.extend(_the_catalogue_accumulates(addon, root))
     failures.extend(_a_released_build_catalogues_nothing(root))
+    failures.extend(_the_marker_survives_elevation())
     return failures

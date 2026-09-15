@@ -1355,6 +1355,27 @@ def _win_message(title: str, text: str, flags: int) -> int:
         return 0
 
 
+# **What carries the working-copy marker across an elevation.** The
+# `zRUN*.bat` launchers set `VRIBBELS_DEV`, and a UAC relaunch does not
+# inherit it: `ShellExecuteW`'s "runas" starts the elevated copy with a
+# fresh environment, so the process that actually captures never saw
+# the variable. The flag is passed instead, and read back only where
+# the program is running from source -- a frozen build ignores it, so
+# the switch stays closed by construction rather than by trust.
+DEV_FLAG = "--dev"
+
+
+def _adopt_dev_flag(argv):
+    """Turn a relayed `--dev` back into the environment variable.
+
+    Answers whether it was adopted, which is what the check reads.
+    """
+    if getattr(sys, "frozen", False) or DEV_FLAG not in argv:
+        return False
+    os.environ[MAINTAINER_ENV] = "1"
+    return True
+
+
 def run_as_admin() -> int:
     """Relaunch this program elevated.
 
@@ -1362,19 +1383,25 @@ def run_as_admin() -> int:
     started and this process should exit; SE_ERR_ACCESSDENIED means the
     user dismissed the UAC prompt; any other small value is a real
     failure. 0 if the call raised or the platform isn't Windows.
+
+    **The working-copy marker rides along as `DEV_FLAG`**, because the
+    environment does not survive the elevation.
     """
     if sys.platform != "win32":
         return 0
 
     try:
+        extra = ([DEV_FLAG]
+                 if os.environ.get(MAINTAINER_ENV)
+                 and DEV_FLAG not in sys.argv else [])
         if getattr(sys, 'frozen', False):
             script = sys.executable
-            params = " ".join(sys.argv[1:])
+            params = " ".join(sys.argv[1:] + extra)
         else:
             script = sys.executable
             params = f'"{sys.argv[0]}"'
-            if len(sys.argv) > 1:
-                params += " " + " ".join(sys.argv[1:])
+            if len(sys.argv) > 1 or extra:
+                params += " " + " ".join(sys.argv[1:] + extra)
 
         return ctypes.windll.shell32.ShellExecuteW(
             None, "runas", script, params, None, 1
@@ -1432,6 +1459,10 @@ def _saved_ui_scale():
 
 
 def main():
+    # The elevated copy is the one that captures, and it does not
+    # inherit the launcher's environment. See `DEV_FLAG`.
+    _adopt_dev_flag(sys.argv)
+
     # BEFORE any Tk root, including the single-instance warning's. DPI
     # awareness is a property of the PROCESS and the first window fixes
     # it, and the UI scale has to be set before a widget takes its

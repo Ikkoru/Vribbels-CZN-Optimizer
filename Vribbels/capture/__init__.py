@@ -32,7 +32,7 @@ Example:
     >>> captured_file = manager.stop_capture()
 """
 
-from .manager import CaptureManager, CaptureError
+from .manager import CaptureManager, CaptureError, MAINTAINER_ENV
 from .setup import (
     find_mitmdump,
     install_mitmproxy,
@@ -47,6 +47,7 @@ __all__ = [
     # Manager
     'CaptureManager',
     'CaptureError',
+    'MAINTAINER_ENV',
 
     # Setup
     'find_mitmdump',

@@ -234,6 +234,8 @@ Kept in `settings/wire_catalogue.json` — beside the settings rather than among
 
 **Only on a working copy.** The `zRUN*.bat` launchers set `VRIBBELS_DEV`; a frozen exe has no way to, and without it the catalogue is off entirely: nothing recorded and nothing written, so a released build's capture is untouched by any of it. It is a switch rather than a setting because a setting would ship to everyone and want explaining, and what it guards is of no use to anybody who is not reading the wire.
 
+**The marker has to survive the elevation.** Capture needs Administrator, so the program relaunches itself through `ShellExecuteW`'s "runas" -- which starts the new process with a FRESH environment. The elevated copy is the one that captures, and it never saw the variable, so every session that accepted the UAC prompt ran with the catalogue off. `DEV_FLAG` rides the relaunch on the command line and `_adopt_dev_flag` reads it back, **only where the program is running from source**: a frozen build ignores the flag whoever types it, so the switch is still closed by construction rather than by trust.
+
 One entry per `command|key` seen, with a count, first and last sighting, the type and a 200-character sample:
 
 ```json
