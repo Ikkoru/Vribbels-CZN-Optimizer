@@ -92,7 +92,7 @@ def run():
         _event_attendance,
         RATE_RECENT_LABEL, RATE_LONG_LABEL,
         SHOP_RATE_FLOOR,
-        ChecklistTab,
+        ChecklistTab, WRITTEN_TOTALS, written_total,
     )
     import checklist_manager
 
@@ -1398,9 +1398,10 @@ def run():
         # the game says the streak is over -- green, and the floor mark
         # comes off with it
         (dict(current_days=7, received_days=7, completed=True), "7/7", DONE),
-        # **The launch event.** Its rewards are finite and its day
-        # count is not, so the ceiling is one past what is claimed
-        # rather than the fifty-six days it has been shown up for.
+        # **Days shown up for do not raise the ceiling.** Whatever
+        # `current_days` says, the ceiling is one past what has been
+        # claimed -- a streak has never been caught more than one
+        # apart, and fifty-six over seven would be a tally of nothing.
         (dict(current_days=56, received_days=7), "7/8" + UNKNOWN_MORE, TODO),
         # no shown-up count at all: nothing says a day is waiting
         (dict(received_days=3), "3/3" + UNKNOWN_MORE, CYCLE_DONE),
@@ -1411,6 +1412,50 @@ def run():
             failures.append(
                 f"a streak reading {fields!r} shows {got!r}, not "
                 f"[({want!r}, {state!r})].")
+
+    # --- a total written down, and what takes it back ----------------
+    # The launch login event hands out seven rewards in a new account's
+    # first week and then sits there for a year with `current_days`
+    # climbing. Nothing on the wire says seven, so it is WRITTEN DOWN --
+    # and written down so that the wire can take it back: a reward past
+    # the number disproves it and the row goes back to reading the way
+    # every other streak reads.
+    def _launch(name, **fields):
+        raw = _snapshot()
+        raw["attendance_entities"] = [dict({"event_id": "event_1",
+                                            "start_time": 2000}, **fields)]
+        return _event_attendance(raw, name, WINDOW, now)
+
+    written = WRITTEN_TOTALS.get("event_daily_1")
+    if written != 7:
+        failures.append(
+            f"WRITTEN_TOTALS holds {written!r} for the launch event, and "
+            f"the cases below are written against seven.")
+    else:
+        got = _launch("event_daily_1", current_days=56, received_days=7)
+        if got != [("7/7", DONE)]:
+            failures.append(
+                f"the launch event reads {got!r}, not [('7/7', {DONE!r})]. "
+                f"Its seven are all it ever had; counting its days "
+                f"instead reports a reward waiting that cannot be "
+                f"claimed, in red, for the year the event runs.")
+        # **An eighth reward disproves the write-down.** A number typed
+        # into the program is a claim about what the wire has not said,
+        # and this is the wire saying it.
+        got = _launch("event_daily_1", current_days=56, received_days=8)
+        if got != [("8/9" + UNKNOWN_MORE, TODO)]:
+            failures.append(
+                f"an eighth reward left the launch event reading {got!r}. "
+                f"Past the written-down total the row has to go back to "
+                f"its group's own reading -- otherwise a write-down that "
+                f"turns out wrong is wrong on screen for ever.")
+        # And it belongs to that event alone.
+        got = _launch("event_daily_16", current_days=56, received_days=7)
+        if got != [("7/8" + UNKNOWN_MORE, TODO)]:
+            failures.append(
+                f"a live streak with the same numbers read {got!r}. The "
+                f"write-down is keyed on the event, not on the shape of "
+                f"its record.")
 
     # The row is the FIRST one started after the event was: the streak
     # ids are numbered nothing like the schedule's, and a row that

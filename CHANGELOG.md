@@ -36,6 +36,8 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **A shop heading's total is inked a shade apart** from the products under it — the same green and red, slightly darker and slightly stronger — so the block's own verdict does not read as one more row's.
 
+- **The launch login event stops asking for a reward that is not there.** Its seven rewards are a new account's first week, and it then runs for a year with the days climbing — so the row read red for ever, one short of a total nothing states. The seven are written down now, and the row reads `7/7` green. **Written down so the game can take it back:** an eighth reward would put the row straight back to counting days, `+?` and all.
+
 - **An event can take its total from the last time it ran.** The game issues a mission row when it issues the mission, so a live event's rows are what it has handed out so far — but an instalment that has ENDED handed out everything it had, and its count is recorded as it is seen. Where two past instalments of the same event agree, a live one reads `~1/20` instead of `1/3+?`. It still goes green only on the game's own word, and a live event that has issued more than its predecessors held keeps its own figure.
 
 - **An event row says when its total is only a guess.** Most events hand out their rewards over the whole run, so the count on screen is what you have been offered so far, not what the event holds. Those rows now read `16/20+?`. The `+?` comes off — and the row goes green — where the game itself says the event is finished.

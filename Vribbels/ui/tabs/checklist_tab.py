@@ -284,22 +284,6 @@ SHOP_LABEL_COLOURS = (
     ("$hop", "purple"),
 )
 
-# ---- the two specimen rows, TEMPORARY ------------------------------
-#
-# One line of prose in each of the two faces the app sets 11pt text in,
-# full width and unwrapped, so the maintainer can compare them side by
-# side on a real window. **Delete this block and its three constants
-# when the comparison is done.**
-SPECIMEN_ROWS = True
-SPECIMEN_FONTS = (("Segoe UI Variable Small", 11), ("Segoe UI", 11))
-SPECIMEN_TEXT = (
-    "Lorem ipsum dolor sit amet consectetur adipiscing elit. Animi "
-    "deleniti at consequat id consectetur eiusmod non est ut accusamus "
-    "quidem dolore. Tempore ut corrupti id odio in tempore consectetur. "
-    "Soluta in est omnis et enim. Culpa tempore occaecat nam "
-    "exercitation exercitation dignissimos repellendus accusamus."
-)
-
 # How long each column's own period runs, and what its heading counts
 # down to. The Monthly one is None because a month is not a fixed
 # length -- the wire's `month_start` and `month_end` bound it, and the
@@ -621,6 +605,14 @@ def _event_attendance(raw, name, window, now):
         return []
     if row.get(ATTENDANCE_OVER):
         return [("%d/%d" % (taken, taken), DONE)]
+    # **A total written down here beats the streak's own reading**,
+    # while the record has not disproved it. See `WRITTEN_TOTALS`: the
+    # launch event's seven are all it ever had, and counting its days
+    # instead reports a reward waiting that cannot be claimed.
+    written = written_total(name, taken)
+    if written is not None:
+        return [("%d/%d" % (taken, written),
+                 DONE if taken >= written else TODO)]
     waiting = _is_count(shown) and shown > taken
     return [("%d/%d%s" % (taken, taken + (1 if waiting else 0),
                           UNKNOWN_MORE),
@@ -886,6 +878,39 @@ EVENT_CATEGORIES = {
 EVENT_IMPLIES = {GENERIC: TALLIED}
 
 
+# **A total nothing states, written down anyway** -- and written down
+# so that the wire can take it back. An event here reads as TALLIED
+# against the number below, and reverts to whatever its group really
+# is the moment a reward past that number turns up. See
+# `written_total`.
+#
+# `event_daily_1`, the launch login event, is the one that needs it:
+# its seven rewards are a new account's first week, nothing has moved
+# since, and no field separates it from a streak genuinely a day
+# behind. Its `current_days` climbs for ever, so what the row would
+# otherwise show is a reward waiting that nobody can claim.
+#
+# Keyed by the NORMALISED event key, so an instalment's spelling does
+# not matter. The value is REWARDS, not days.
+WRITTEN_DOWN = "written-down"
+WRITTEN_TOTALS = {"event_daily_1": 7}
+
+
+def written_total(name, taken):
+    """The total written down for an event, while it still holds.
+
+    `taken` is what the account has actually had out of it. **A reward
+    past the write-down disproves it**, and the answer is then None:
+    the row goes back to reading the way its group reads, floor and
+    all. A number typed into the program is only a claim about what
+    the wire has not said yet.
+    """
+    total = WRITTEN_TOTALS.get(_event_key(name))
+    if total is None or not _is_count(taken) or taken > total:
+        return None
+    return total
+
+
 def event_is(group, category):
     """Whether a schedule group is of a kind. See `EVENT_CATEGORIES`."""
     kinds = set(EVENT_CATEGORIES.get(group, ()))
@@ -943,6 +968,12 @@ def _event_progress(raw, name):
     # `EXPECTED_VALUE` because it is the past speaking for the
     # present. It does not go green on that: `_event_finished` is
     # still the only thing that ends an event.
+    # A total written down for this event, while the rows in hand have
+    # not gone past it. See `WRITTEN_TOTALS`.
+    written = written_total(name, len(rows))
+    if written is not None:
+        return [("%d/%d" % (claimed, written),
+                 DONE if claimed >= written else TODO)]
     total = ((raw or {}).get(EVENT_TOTALS_FIELD) or {}).get(name)
     if _is_count(total) and total > len(rows):
         return [("%s%d/%d" % (EXPECTED_VALUE, claimed, total), TODO)]
@@ -1653,9 +1684,6 @@ class ChecklistTab(BaseTab):
         # Packed before the columns, which is a separate order: pack
         # hands each widget its requested size in turn and only then
         # gives the leftover to whatever expands.
-        if SPECIMEN_ROWS:
-            self._build_specimens()
-
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
         columns.pack(fill=tk.BOTH, expand=True, padx=px(4),
@@ -1762,19 +1790,6 @@ class ChecklistTab(BaseTab):
             for child in outgoing:
                 child.destroy()
             show()
-
-    def _build_specimens(self):
-        """The two prose rows at the bottom. See SPECIMEN_ROWS."""
-        # spacing: out of scope -- two specimen rows, for comparing one size in two faces
-        block = ttk.Frame(self.frame)
-        block.pack(side=tk.BOTTOM, fill=tk.X, anchor=tk.W,
-                   padx=px(4), pady=px((0, 4)))
-        for face in SPECIMEN_FONTS:
-            # `wraplength=0` is Tk's own "do not wrap", and `anchor=W`
-            # keeps the line at the left edge of a frame that fills.
-            ttk.Label(block, text=SPECIMEN_TEXT, font=face,
-                      wraplength=0, anchor=tk.W,
-                      justify=tk.LEFT).pack(fill=tk.X, anchor=tk.W)
 
     def _build_column(self, parent, title, rows):
         """One heading and the rows under it, BUILT BUT NOT SHOWN.

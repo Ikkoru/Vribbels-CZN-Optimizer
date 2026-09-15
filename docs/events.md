@@ -81,6 +81,16 @@ This is a different orange from the Open-ended one. Nothing here is unproven; th
 
 **On the LAST day it goes green.** Orange is a promise that the row comes back; on the final day it does not, and taking that day's runs finishes the event outright. `_last_cycle` asks the event's own window whether the day now running is the one that reaches its end. Where there is no window the answer has to be NO — a row that goes green a day early costs the user the last day's rewards, where one that stays orange costs nothing.
 
+### A total written down, and what takes it back
+
+Some events have no knowable total and no floor worth showing either. The launch login event is the one: `event_daily_1` hands out seven rewards in a new account's first week and then sits there for the year its schedule runs, its `received_days` stuck at 7 while `current_days` climbs past fifty. Read as a streak, the row says a reward is waiting that nobody can claim; read as a floor, it says nothing at all.
+
+So the total is **written down** -- `WRITTEN_TOTALS` in `checklist_tab.py`, keyed by normalised event key -- and the event reads as Tallied against it.
+
+**Written down so the wire can take it back.** A reward past the number disproves it: `written_total` answers None from then on and the row goes straight back to reading the way its group reads, floor and all. A number typed into the program is only ever a claim about what the wire has not said yet, and this is the shape that lets one be wrong safely. Without the falsifier an eighth claimed day would read `8/7` in green.
+
+The same applies to a mission-tallied event: the write-down holds while the rows in hand have not gone past it.
+
 ### Members so far
 
 | Group | Categories | Where its progress lives | Notes |
