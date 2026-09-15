@@ -378,8 +378,8 @@ def run():
     addon._handle_server_payload(login, 100)
     addon._handle_server_payload(roster, 100)
 
-    # A Sortie or Chaos report pays under `chaos_free_reward_result`,
-    # the same LIST of drops `drop_item_result` uses.
+    # A Chaos report screen pays under `chaos_free_reward_result`, the
+    # same LIST of drops `drop_item_result` uses.
     addon._handle_server_payload({
         "res": "ok", "qid": 77,
         "chaos_free_reward_result": [
@@ -392,11 +392,38 @@ def run():
             f"a chaos report's drops left {ITEM_ID} at {held!r}, not 53. "
             f"`chaos_free_reward_result` is `drop_item_result` under "
             f"another name, and read only under the first a whole "
-            f"Sortie's reward went unreported.")
+            f"report screen's reward went unreported.")
+
     if not any("4000" in str(line) for line in log):
         failures.append(
             f"a chaos report's drops reached no log line. Lines: {log!r}")
 
+    # --- and `drop_item` is NOT one of them ---------------------------
+    # **A payout shape that must not be applied.** `battle/reward_complete`
+    # answers with `drop_item`, a list in exactly the reward shape -- and
+    # it is the RUN's running tally, not the battle's payout: the same
+    # entries come back after every battle of a run and grow as spots are
+    # picked up, while the counts they name do not move. One capture
+    # sent `[Units 2000, Traces 2]` four times in 50 seconds with the
+    # Units balance unchanged throughout. Applied, a five-battle run
+    # would pay five times over.
+    #
+    # `world/get_stage_info|drop_item` and `merchant/*|drop_item_info`
+    # carry the same accumulated list, for the same reason.
+    log.clear()
+    before = _amount(addon, ITEM_ID)
+    addon._handle_server_payload({
+        "res": "ok", "qid": 79, "result_type": "next_spot",
+        "drop_item": [
+            {"id": CURRENCY_ID, "amount": 2000},
+            {"id": ITEM_ID, "amount": 2}],
+    }, 100)
+    if _amount(addon, ITEM_ID) != before or log:
+        failures.append(
+            f"`drop_item` was applied: {ITEM_ID} went {before!r} -> "
+            f"{_amount(addon, ITEM_ID)!r} and the log said {log!r}. It is "
+            f"the run's accumulated list, re-sent after every battle, so "
+            f"reading it pays a run's rewards once per battle.")
     # A town calamity pays under `calamity_reward`, in the same
     # `{currency, items}` shape as the four keys beside it.
     log.clear()

@@ -129,7 +129,7 @@ The rest join them, all merged rather than replaced for the same reason:
 
 `doc` is the item's whole record in the shape the cache already holds, and **`doc.amount` is the TOTAL, not the change** — so `_apply_totals` writes it in rather than adding `diff`, and a frame arriving twice cannot double a count. Items are a list keyed by `res_id` and currencies a dict keyed by the same id as a string; an id not yet held is appended.
 
-**`drop_item_result` and `chaos_free_reward_result` are the exception**: a stage's rewards and a Sortie or Chaos report screen's, as a LIST with one entry per drop and no record at all —
+**`drop_item_result` and `chaos_free_reward_result` are the exception**: a stage's rewards and a Chaos or encounter report screen's, as a LIST with one entry per drop and no record at all —
 
 ```
 [{"id": 3120012, "amount": 2, "cur_drop_count": 1}, {"id": 3120012, "amount": 3, "cur_drop_count": 2}, ...]
@@ -142,6 +142,10 @@ so a x6 run sends six entries for the same item and the total is their sum. Noth
 Without these branches nothing on the wire moves an item count: the Materials tab reads what the account had at login, no save is triggered, and no line reaches the Capture Log — a capture that has gone stale looks exactly like one where nothing has happened. `checks/check_capture_rewards.py` drives all seven keys.
 
 **A key missing from the list is close to invisible**, which is why two of them went unread for months. The client asks for the inventory again after a run, so the counts still end up right; the only symptom is the Capture Log staying quiet about something the player watched arrive. `calamity_reward` and `chaos_free_reward_result` were both found by the wire catalogue rather than by reading anything.
+
+**Three keys are payout-shaped and must NOT be applied.** `battle/reward_complete` answers with `drop_item`, a list in exactly the drop shape — and it is the RUN's running tally rather than the battle's payout: the same entries come back after every battle and grow as spots are picked up, while the counts they name stay put. One capture sent `[Units 2000, Traces of Memory 2]` four times in fifty seconds with the Units balance unchanged throughout, then carried those entries plus the spot pickups for the rest of the run. `world/get_stage_info|drop_item` and `merchant/*|drop_item_info` carry the same accumulated list. Applied, a five-battle run pays five times over. `checks/check_capture_rewards.py` holds the line.
+
+**The Sortie's own report screen has never been captured.** Across all 34 debug logs there is not one `chaos_assault` run command, Reason (the entry cost) never moves in any reply, and Aether never moves by the Sortie's deposit — so what a Sortie pays under is unknown, and the Capture Log stays quiet when one is finished. `chaos_free_reward_result` is not it: that belongs to `chaos_report_reward/battle_report_reward` and `encounter/report_reward`, which are the Chaos and encounter report screens. Settling it needs a capture with **Debug WS ticked** covering one Sortie from entry to report.
 
 **The log's word is picked from the SIGNS, not from the key.** A Sortie's entry fee is CHARGED through `item_result`, so reading the key announces it as a receipt: `Received Aether -10`. Where every figure in a payload moved the same way that is the answer; a payload with movement both ways falls back to the key.
 

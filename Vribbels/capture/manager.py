@@ -885,11 +885,16 @@ class Addon:
         # written in. See `_apply_drops`.
         #
         # **`chaos_free_reward_result` is the same list under another
-        # name** -- what a Sortie or a Chaos run pays out at its report
-        # screen. Read only under the first name, a whole Sortie's
-        # reward went unreported: the items still reached the snapshot,
-        # because the client asks for the inventory again afterwards,
-        # so the only sign of it was the Capture Log staying quiet.
+        # name** -- what a Chaos run or an encounter pays out at its
+        # report screen. Read only under the first name, a whole report
+        # screen's reward went unreported: the items still reached the
+        # snapshot, because the client asks for the inventory again
+        # afterwards, so the only sign was the log staying quiet.
+        #
+        # **`drop_item` is NOT a third name for it.** It is the run's
+        # accumulated tally, re-sent after every battle and never the
+        # payout -- see `docs/capture_pipeline.md` and the check that
+        # pins it.
         for key in ("drop_item_result", "chaos_free_reward_result"):
             drops = data.get(key)
             if isinstance(drops, list) and drops:

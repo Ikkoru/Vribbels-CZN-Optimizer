@@ -183,6 +183,41 @@ Recorded here rather than in the code. **A total typed into the program is wrong
 | `event_bartender_01` | 24, plus a final reward | three reward pages of 7, 7, 10, and one more that unlocks after all 24 | **no**: ragged. Pages 2 and 3 show their full 7 and 10, but page 1 is a floor. The final reward is not a mission row — it is what sets the completion flag |
 | `event_summer_01` | 10 rewards, 84 items | one reward per 8 items | items spent and earned **yes**, the 10 and the 84 **no** |
 
+### The bartender keeps its own per-day record
+
+**`event_bartender_entities` is the event's real progress**, and nothing on the Checklist reads it. It rides `event/get_list` at every login (16 sightings between 2026-09-09 and 09-14), one row per DAY of the event rather than per mission:
+
+```json
+"bartender_01_day_07_story_1": {
+  "user_id": 300001105178, "event_id": "event_bartender_1",
+  "bartender_story_id": "bartender_01_day_07_story_1",
+  "normal_complete_time": 1789412941, "hidden_complete_time": 1789412661,
+  "fail_complete_time": 0, "version": 1}
+```
+
+Seven rows for a seven-day event, each carrying three outcome stamps. On the account it was read from, all seven have a `normal` AND a `hidden` time and none has a `fail` — so a day can be finished more than one way, and the record says which ways it was.
+
+**That makes it a stated denominator where the mission tally is a floor.** The rows exist from the day the event opens; counting the ones with any stamp is days done, and the event's own length is how many rows there are.
+
+### The Last Call is what ends a day, and it names the ending
+
+`event_bartender/check_last_call` is the submission: the day's orders plus one `last_call_order`, each an `order_id` and a five-slot `liqueur_count`. The reply says what the player got:
+
+| Field | Is |
+| ----- | -- |
+| `ending_type` | `NORMAL`, `HIDDEN` — a third for a failure is implied by the record's `fail_complete_time` and has not been seen |
+| `story_map_id` | the story that unlocks, `event_bartender_07_nor` against `_hid` |
+| `guestbook_id` | the guestbook entry it fills, `bartender_01_guestbook_07` |
+| `event_bartender_entity` | that day's row, with the stamp just written |
+| `mission_condition` | every mission the submission moved, with its new score |
+| `item_result` | `{}` — the Last Call itself pays nothing; the rewards come from claiming the missions |
+
+Both endings of one day were captured minutes apart: `HIDDEN` at 20:04 wrote `hidden_complete_time` and left `normal_complete_time` at 0, and `NORMAL` at 20:09 filled the other and took `version` from 0 to 1. So the two are independent and either can come first.
+
+`check_general_orders` answers the same shape before the last call, with **`can_last_call`** saying whether the day can be ended yet. `set_last_open_day` writes `event_info_entity` (`{"info": {"open_day": 1}}`, under `event_146` rather than the bartender's own id) — which day of the event the player has opened up to.
+
+**Nothing here is read yet**, and none of it is in the snapshot: `event_bartender_entities` reaches the addon and is dropped. It is the one Open-ended event whose progress the wire states outright.
+
 ### What the bartender's pages really are
 
 The 7/7/10 is real structure, not decoration: the page number is the middle segment of the mission id, and each page is one KIND of task. `mission_condition` on an action names the kind:
