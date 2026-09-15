@@ -41,6 +41,9 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Fixed
 
+- **A Sortie's rewards reach the Capture Log.** The report screen pays under a key nothing was reading, so a whole run's payout went unannounced — the counts still ended up right, because the game re-sends the inventory afterwards, which is exactly what made it hard to notice. A town calamity's payout had the same problem, under a key of its own.
+
+- **A charge no longer reads as a gift.** Entering a Sortie costs Aether and is charged through the same envelope a reward arrives in, so the log said `Received Aether -10`. The word now comes from which way the figures moved.
 - **A capture spanning two game launches no longer confuses one for the other.** Requests waiting on a reply are remembered by the game's own request number, and those start again at 1 each time the game opens — so a request the game never answered before closing could be claimed by an unrelated reply from the next launch. Harmless while a capture covered one launch, which is every capture taken so far; the costly case was a fragment disassembly, whose remembered intent is a list of fragments to delete.
 
 - **A finished login streak stays finished.** The game says a streak has ended exactly once, on the claim that ends it, and the record it sends afterwards is identical to a streak merely claimed for today — so the row went back to orange the next time the program started. It is remembered now, in `settings/`, which a cleanup of captures never touches.

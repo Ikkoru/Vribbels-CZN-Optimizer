@@ -863,7 +863,13 @@ class Addon:
         # nothing had been received. It is also the most OVERLOADED key
         # on the wire -- a string, a bool, a stage's step record -- so
         # it counts only where it carries a rewards payload.
-        for key in ("add_result", "item_result", "dec_result", "result"):
+        # **`calamity_reward` is the fifth**, and the catalogue is what
+        # named it: a town calamity's payout arrives under a key of its
+        # own, in the same `{currency, items}` shape as the four above.
+        # Nothing read it, so what a calamity paid landed nowhere and
+        # the Capture Log said nothing had arrived.
+        for key in ("add_result", "item_result", "dec_result",
+                    "calamity_reward", "result"):
             payload = data.get(key)
             if not isinstance(payload, dict):
                 continue
@@ -883,8 +889,21 @@ class Addon:
         # A stage's rewards, which are the exception: a LIST of drops
         # with no record and no total, so they are added rather than
         # written in. See `_apply_drops`.
-        if isinstance(data.get("drop_item_result"), list):
-            self._apply_drops(data["drop_item_result"], qid)
+        #
+        # **`chaos_free_reward_result` is the same list under another
+        # name** -- what a Sortie or a Chaos run pays out at its report
+        # screen. Read only under the first name, a whole Sortie's
+        # reward went unreported: the items still reached the snapshot,
+        # because the client asks for the inventory again afterwards,
+        # so the only sign of it was the Capture Log staying quiet.
+        for key in ("drop_item_result", "chaos_free_reward_result"):
+            drops = data.get(key)
+            if isinstance(drops, list) and drops:
+                # The qid is what stops a re-applied frame doubling a
+                # count, so each key gets its own -- a reply carrying
+                # both would otherwise apply only whichever came first.
+                self._apply_drops(drops, None if qid is None
+                                  else "%s/%s" % (qid, key))
 
         # What the recurring tasks stand at. Three keys, kept aside like
         # the board above because each arrives in a frame carrying no
@@ -1317,8 +1336,27 @@ class Addon:
 
         if moved:
             self.log_callback("[LIVE] %s %s"
-                              % ("Spent" if spent else "Received",
+                              % (self._verb(moved, spent),
                                  self._describe_amounts(moved)))
+
+    @staticmethod
+    def _verb(moved, spent):
+        """`Received` or `Spent`, off the SIGNS rather than the key.
+
+        The key a payload arrives under is a poor guide to which way it
+        went: the Sortie's entry fee is charged through `item_result`
+        and came out as `Received Aether -10`. Where every figure moved
+        the same way, that is the answer; a payload with movement in
+        both directions falls back to the key, which is the best thing
+        left to say about it.
+        """
+        ways = {diff > 0 for _res_id, diff in moved
+                if isinstance(diff, (int, float)) and diff}
+        if ways == {True}:
+            return "Received"
+        if ways == {False}:
+            return "Spent"
+        return "Spent" if spent else "Received"
 
     def _replace_item(self, held, doc):
         """Put `doc` in the cached item list, by res_id."""

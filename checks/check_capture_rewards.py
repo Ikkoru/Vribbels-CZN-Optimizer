@@ -80,6 +80,19 @@ def _reward(item_total, currency_total):
     }
 
 
+def _amount(addon, res_id):
+    """What the cached inventory says is held of one item."""
+    held = (addon.inventory_data or {}).get("items") or []
+    return {row.get("res_id"): row.get("amount")
+            for row in held if isinstance(row, dict)}.get(res_id)
+
+
+def _currency(addon, res_id):
+    """The same, for a currency."""
+    held = (addon.character_data or {}).get("currencies") or {}
+    return (held.get(str(res_id)) or {}).get("amount")
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -353,6 +366,71 @@ def run():
                 f"line falls back to the res_id for those, which is the "
                 f"marking the Capture Log reserves for ids nobody has "
                 f"identified -- so a known item reads as an unknown one.")
+
+    # --- the reward keys a capture found the hard way -----------------
+    # Both were named by the wire catalogue rather than by anyone
+    # reading the code: a field nobody reads leaves no trace in the
+    # source, and the only symptom is the Capture Log staying quiet
+    # while the counts move anyway -- the client asks for the inventory
+    # again after a run, so the items still arrive.
+    log.clear()
+    addon = _build_addon(tmp, log)
+    addon._handle_server_payload(login, 100)
+    addon._handle_server_payload(roster, 100)
+
+    # A Sortie or Chaos report pays under `chaos_free_reward_result`,
+    # the same LIST of drops `drop_item_result` uses.
+    addon._handle_server_payload({
+        "res": "ok", "qid": 77,
+        "chaos_free_reward_result": [
+            {"id": CURRENCY_ID, "amount": 4000, "rarity": "RARITY_COMMON"},
+            {"id": ITEM_ID, "amount": 4, "rarity": "RARITY_RARE"}],
+    }, 100)
+    held = _amount(addon, ITEM_ID)
+    if held != 53:
+        failures.append(
+            f"a chaos report's drops left {ITEM_ID} at {held!r}, not 53. "
+            f"`chaos_free_reward_result` is `drop_item_result` under "
+            f"another name, and read only under the first a whole "
+            f"Sortie's reward went unreported.")
+    if not any("4000" in str(line) for line in log):
+        failures.append(
+            f"a chaos report's drops reached no log line. Lines: {log!r}")
+
+    # A town calamity pays under `calamity_reward`, in the same
+    # `{currency, items}` shape as the four keys beside it.
+    log.clear()
+    addon._handle_server_payload({
+        "res": "ok", "qid": 78,
+        "calamity_reward": {"currency": {str(CURRENCY_ID): {
+            "doc": {"res_id": CURRENCY_ID, "amount": 999999, "version": 9},
+            "diff": 90}}},
+    }, 100)
+    if _currency(addon, CURRENCY_ID) != 999999:
+        failures.append(
+            f"a calamity's payout left {CURRENCY_ID} at "
+            f"{_currency(addon, CURRENCY_ID)!r}, not 999999. "
+            f"`calamity_reward` is a fifth name for the same shape.")
+    if not any("Received" in str(line) for line in log):
+        failures.append(
+            f"a calamity's payout reached no log line. Lines: {log!r}")
+
+    # --- and the word matches which WAY it went -----------------------
+    # The Sortie's entry fee is charged through `item_result`, which
+    # the log used to read as a receipt: `Received Aether -10`.
+    log.clear()
+    addon._handle_server_payload({
+        "res": "ok", "qid": 79,
+        "item_result": {"currency": {str(CURRENCY_ID): {
+            "doc": {"res_id": CURRENCY_ID, "amount": 999989, "version": 10},
+            "diff": -10}}},
+    }, 100)
+    said = " ".join(str(line) for line in log)
+    if "Spent" not in said:
+        failures.append(
+            f"a charge that arrived under `item_result` was logged as "
+            f"{said!r}. The key a payload rides is a poor guide to which "
+            f"way it went; the sign of the figures is not.")
 
     # --- and every identification on the WORKLIST reaches the program --
     # `docs/items_id_known_not_in_materials.tsv` is where an id gets its

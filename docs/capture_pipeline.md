@@ -232,6 +232,22 @@ It MERGES with what is on disk: counts add, the first sighting is the earlier. I
 
 **Qids restart at 1 with each `helo`**, which is why `_forget_pending` exists: the pending-intent maps are keyed by qid, and an intent left unanswered by a game that went away would otherwise be claimed by an unrelated reply from the next one.
 
+### The names a reward arrives under
+
+Six, and the last three were found by the catalogue rather than by reading anything:
+
+| Key | Shape | Pays for |
+| --- | ----- | -------- |
+| `add_result`, `item_result`, `dec_result` | `{currency, items}`, each entry a whole record and a `diff` | most things |
+| `result` | the same, sometimes nested two deep under an envelope of its own | an event mission claim, a story episode |
+| `calamity_reward` | the same again | a town calamity |
+| `drop_item_result` | a LIST of `{id, amount}` deltas, one entry per drop | a stage's rewards |
+| `chaos_free_reward_result` | the same list | a Sortie or Chaos report screen |
+
+**A missed reward key is close to invisible.** The client asks for the inventory again after a run, so the counts still end up right — the only symptom is the Capture Log staying quiet about something the player watched arrive. A whole Sortie's payout went unreported that way.
+
+**The word is picked from the SIGNS, not from the key.** The Sortie's entry fee is charged through `item_result`, which read as `Received Aether -10`. Where every figure in a payload moved the same way that is the answer; a payload with movement both ways falls back to the key.
+
 ### What the capture log says about saving
 
 **A save reports itself only when it would say something new** — a different file, or different counts. It used to be suppressed only where it would repeat the LAST line logged, which caught the login burst's several saves and nothing else: any `[LIVE]` line in between, and there is one after every upgrade, delete and reward, put the same figures back on screen. A capture left running for an evening was mostly that one sentence.

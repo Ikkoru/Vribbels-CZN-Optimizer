@@ -548,6 +548,10 @@ RECORDED_NAMES = {
     5210000: "Prism Module - Nominate",
     5210001: "Prism Module - Masterpiece",
     9210051: "Memories of the Beach Café Festival",
+    # The Bartender event's final reward, the pair that unlocks only
+    # once every other reward has been taken.
+    9700001: "The Last of Summer in a Glass",
+    9700002: "Waves Underneath the Stars",
 }
 
 
