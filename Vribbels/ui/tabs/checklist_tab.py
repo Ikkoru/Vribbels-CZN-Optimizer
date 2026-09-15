@@ -974,6 +974,12 @@ def _event_progress(raw, name):
     if written is not None:
         return [("%d/%d" % (claimed, written),
                  DONE if claimed >= written else TODO)]
+    # **A rectangular family states its own size**, from the ids and
+    # their issue stamps and nothing else -- see `_grid_total`. Above
+    # the family's history because it is THIS instalment speaking.
+    grid = _grid_total(rows)
+    if grid is not None:
+        return [("%d/%d" % (claimed, grid), FLOOR)]
     total = ((raw or {}).get(EVENT_TOTALS_FIELD) or {}).get(name)
     if _is_count(total) and total > len(rows):
         return [("%s%d/%d" % (EXPECTED_VALUE, claimed, total), TODO)]
@@ -987,6 +993,52 @@ def _event_progress(raw, name):
     if whole and not trickling:
         return [("%d/%d" % (claimed, whole), FLOOR)]
     return [("%d/%d%s" % (claimed, len(rows), UNKNOWN_MORE), FLOOR)]
+
+
+def _grid_total(rows):
+    """What a RECTANGULAR family holds, or None.
+
+    **Some events are a grid**: the same few tasks repeating per day,
+    ids `event_devil_<day>_<task>`. The game issues such a family a
+    ROW AT A TIME along one axis and all of the other at once -- so a
+    same-second batch that varies the DAY while holding the task says
+    both how many days the event has and that the shape is a grid.
+    Total is then the two axes multiplied.
+
+    `docs/events.md` has the measurement: over the eleven families in
+    the account's mission table it finds two grids and leaves nine
+    ragged, with no crossing either way. The two it answers -- the
+    devil's 21 and the node list's 25 -- are the numbers the game's
+    own screens state.
+
+    **It answers on the event's first afternoon**, which is the only
+    time an answer is worth anything: on the devil's opening day, with
+    12 of its 21 rows in hand, the batch already spanned all seven
+    days.
+
+    None where the rows do not look rectangular, or where there are
+    already more of them than the shape allows -- a grid that has been
+    outgrown was never one.
+    """
+    pairs = []
+    for row in rows:
+        parts = str(row.get("res_id") or "").split("_")
+        if len(parts) < 3:
+            return None
+        pairs.append((parts[-2], parts[-1], row.get("issued_time")))
+    batches = {}
+    for page, index, stamp in pairs:
+        batches.setdefault(stamp, []).append((page, index))
+    spanning = False
+    for stamp, rows_in in batches.items():
+        if not stamp or len(rows_in) < 2:
+            continue
+        if len({p for p, _i in rows_in}) > 1 and len({i for _p, i in rows_in}) == 1:
+            spanning = True
+    if not spanning:
+        return None
+    total = len({p for p, _i, _s in pairs}) * len({i for _p, i, _s in pairs})
+    return total if total >= len(pairs) else None
 
 
 def _page_totals(rows):

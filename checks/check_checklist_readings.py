@@ -1413,6 +1413,59 @@ def run():
                 f"a streak reading {fields!r} shows {got!r}, not "
                 f"[({want!r}, {state!r})].")
 
+    # --- a rectangular family states its own size --------------------
+    # The devil event is the same three tasks each day, ids
+    # `event_devil_<day>_<task>`, and the game issues one axis a row
+    # at a time and the other all at once -- so a same-second batch
+    # spanning the days says both that the shape is a grid and how
+    # many days it has. The game's own screen says 21; so does this,
+    # and it said so on the event's first afternoon with 12 rows in
+    # hand.
+    def _grid(pairs, stamps, claimed=0):
+        """`pairs` is [(page, index)], `stamps` the issue time of each."""
+        raw = _snapshot()
+        missions = {}
+        for (page, index), stamp in zip(pairs, stamps):
+            name = "event_probe_%02d_%02d" % (page, index)
+            missions[name] = {"res_id": name, "issued_time": stamp,
+                              "complete_time": 1 if len(missions) < claimed
+                              else 0}
+        raw[PASS_MISSION_FIELD] = missions
+        return _event_missions(raw, "event_probe", {}, now)
+
+    # Seven days of three tasks, with only day one's three issued and
+    # the first task of every day issued in one batch.
+    day_one = [(d, 1) for d in range(1, 8)] + [(1, 2), (1, 3)]
+    stamps = [500] * 7 + [600, 700]
+    got = _grid(day_one, stamps, claimed=2)
+    if got != [("2/21", FLOOR)]:
+        failures.append(
+            f"a grid with nine of its rows issued reads {got!r}, not "
+            f"[('2/21', {FLOOR!r})]. Seven days x three tasks is what the "
+            f"batch spanning the days says the event holds, and saying "
+            f"2/2 instead is the floor this exists to replace.")
+
+    # A ragged family must NOT be called a grid: its batch varies both
+    # indices, which says nothing about a shape.
+    got = _grid([(1, 1), (1, 2), (2, 1)], [500, 500, 500], claimed=1)
+    if got != [("1/3", FLOOR)]:
+        failures.append(
+            f"a family whose batch varies both indices reads {got!r}. "
+            f"Nothing there says the pages are the same length -- the "
+            f"bartender's are 7, 7 and 10.")
+
+    # **The shape is re-derived, never remembered.** An eighth day
+    # appearing is an event bigger than it looked, and the row has to
+    # say so rather than hold the number it first worked out.
+    eight = [(d, 1) for d in range(1, 9)] + [(1, 2), (1, 3)]
+    got = _grid(eight, [500] * 8 + [600, 700], claimed=2)
+    if got != [("2/24", FLOOR)]:
+        failures.append(
+            f"a grid that gained a day reads {got!r}, not [('2/24', "
+            f"{FLOOR!r})]. Nothing about the shape is written down: it "
+            f"comes off the ids in hand every time, so an event that "
+            f"turns out longer than it looked corrects itself.")
+
     # --- a page issued WHOLE is a denominator, not a floor -----------
     # A mission id's middle segment is its page, and a page whose rows
     # all carry one `issued_time` was issued in a single act -- so its

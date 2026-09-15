@@ -108,14 +108,15 @@ A Checklist row about an event is three separate claims, and they have different
 | | The question | How well it can be answered |
 | - | ------------ | -------------------------- |
 | 1 | How many rewards have been CLAIMED? | **Exactly, always.** `complete_time` on a mission row means its reward was taken; an event with no mission rows keeps its own table (a streak's `received_days`, a trial's slots) |
-| 2 | How many does the event HOLD? | The hard one. Six sources, below |
+| 2 | How many does the event HOLD? | The hard one. Seven sources, below |
 | 3 | Is it FINISHED? | Definite for a few, derived for some, a judgement for the rest |
 
-### The six sources for a total, strongest first
+### The sources for a total, strongest first
 
 | Source | What it needs | What it gives | How it fails | Where |
 | ------ | ------------- | ------------- | ------------ | ----- |
 | **The completion flag** | the event's final reward claimed | not a total, but it ends question 3 outright | most events never set one; it exists only where a final reward unlocks after all the others | `_event_finished`, `event_achieve_state` |
+| **A rectangular family** | one snapshot, once a batch spans an axis | the whole event, exactly | the family is ragged, and most are | `_grid_total` |
 | **Pages issued whole** | one snapshot | an exact count for that page | a page not yet issued at all is invisible | `_page_totals` |
 | **A per-unit census** | the event's own table, and one rule per family | an exact count for a page that trickles | the table is not captured, or the rule is wrong | **designed, not built** — below |
 | **A finished past instalment** | two instalments of the family agreeing | the whole event | the family varies between instalments (the streaks run 7, 10, 14 or 21 days) | `ChecklistManager.event_total` |
@@ -152,6 +153,30 @@ What a family needs, then, is not a number but a RULE: `{page prefix: (which tab
 | **Unknown** | anything else | red, with `+?` where the denominator is a floor |
 
 **The gap between the second and the third rows is the whole remaining problem.** What would close it is a statement that an event's rewards are all mission rows — which nothing on the wire makes, and which the bartender is a counter-example to.
+
+### What the game's own screens say, and what the program derives
+
+The maintainer read every live event's totals off the game and reported them. This is the only ground truth there is -- nothing on the wire states a total -- so it is what every derivation above is checked against.
+
+| Event, as the game names it | The game says | The program derives | |
+| --------------------------- | ------------- | ------------------- | - |
+| SE-4 BR33ZE (bartender) | 7 + 7 + 10 rewards, plus Special Reward 1/1 | 24 mission rows, green on the completion flag | agrees |
+| Olga's Secret Diary (devil) | 21 | the grid: 7 days x 3 tasks | agrees |
+| Beach Cafe Festival (summer) | 20 mission rewards, **plus 10 puzzle and 15 story** | 20 mission rows | agrees on the rows; 25 of its rewards are not rows at all |
+| Rei's Gift (`event_daily_16`) | 7, one per login day | claimed against claimed-plus-one | floor, as designed |
+| Virtual Tactical Simulation | 3, one per banner combatant | 3 | agrees |
+| Basin of Hyperspace | 26 stars | 26/26 | agrees |
+| Full-Scale Offensive | 9 stars | 9/9 | agrees |
+| Zero System (Chaos Matrix) | 100 rewards | 100/100 | agrees |
+| Galactic Disaster, weekly chaos | 8000 | 8000/8000 | agrees |
+| Great Rift score | 300000 | 0/300000 | agrees |
+| Event Node List (past instalments) | 25 | the grid: 5 x 5 | agrees |
+
+**Two events pay outside their mission rows**, which is what stops "every row claimed" from meaning "finished": the bartender's Special Reward, and the summer event's 10 puzzle rewards and 15 story rewards. Both are counted on their own screens and neither is a mission row.
+
+**A named login-streak event has one length.** Rei's Gift is seven rewards every time it runs; the 10-, 14- and 21-day rows in `attendance_entities` belong to other events sharing that table, not to longer instalments of one event. What still cannot be done is telling which event a row belongs to before it ends, which is why the row counts claimed against claimed-plus-one.
+
+**The Galactic Disaster is not one event but a season of them** -- three parts of 21 days, each with a supply store, a medal screen, five pages of challenge missions, a story track, three distortion bosses and a Great Rift half. The Checklist reads two of its figures (the weekly chaos progress and the seasonal score) and nothing else. Anything more needs the screens enumerated one at a time.
 
 ## Floors, and the one wrong answer
 
