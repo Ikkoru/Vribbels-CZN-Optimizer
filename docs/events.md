@@ -101,6 +101,58 @@ The same applies to a mission-tallied event: the write-down holds while the rows
 | `EVENT_SCHEDULE` | Open-ended | `event_mission_entities`, plus `event_mission_reward_entities` for the completion flag | the catch-all: story events, seasonal events, the bartender |
 | `EVENT_NODELIST_PAGE` | Open-ended | same two | same shape |
 
+## Knowing an event: three questions, and what can answer each
+
+A Checklist row about an event is three separate claims, and they have different evidence behind them.
+
+| | The question | How well it can be answered |
+| - | ------------ | -------------------------- |
+| 1 | How many rewards have been CLAIMED? | **Exactly, always.** `complete_time` on a mission row means its reward was taken; an event with no mission rows keeps its own table (a streak's `received_days`, a trial's slots) |
+| 2 | How many does the event HOLD? | The hard one. Six sources, below |
+| 3 | Is it FINISHED? | Definite for a few, derived for some, a judgement for the rest |
+
+### The six sources for a total, strongest first
+
+| Source | What it needs | What it gives | How it fails | Where |
+| ------ | ------------- | ------------- | ------------ | ----- |
+| **The completion flag** | the event's final reward claimed | not a total, but it ends question 3 outright | most events never set one; it exists only where a final reward unlocks after all the others | `_event_finished`, `event_achieve_state` |
+| **Pages issued whole** | one snapshot | an exact count for that page | a page not yet issued at all is invisible | `_page_totals` |
+| **A per-unit census** | the event's own table, and one rule per family | an exact count for a page that trickles | the table is not captured, or the rule is wrong | **designed, not built** — below |
+| **A finished past instalment** | two instalments of the family agreeing | the whole event | the family varies between instalments (the streaks run 7, 10, 14 or 21 days) | `ChecklistManager.event_total` |
+| **A write-down** | a person deciding | the whole event | it is wrong until a reward past it proves so | `WRITTEN_TOTALS`, `written_total` |
+| **The floor** | nothing | a lower bound, always | it is only ever a lower bound | `_event_progress` |
+
+**They stack, and they cross-check.** `_event_progress` tries them in that order and takes the first that answers. Where two would answer and disagree, the weaker one is wrong: an instalment's history is the PAST and rows in hand are the present, so rows win; a write-down loses to any reward past it. A disagreement is worth noticing rather than smoothing over — it means a rule has broken, and the honest fallback is the floor.
+
+### A reward has a SOURCE, and sources can be counted
+
+This is the layer that would close most of what is left, and it is not built.
+
+**A page is a kind of source.** The bartender's three pages are one reward per day of the event, a ladder over guestbook entries, and ten cocktails to make. So an event's total is a sum over its pages, and each page is one of three shapes:
+
+| Page shape | Total | Read from |
+| ---------- | ----- | --------- |
+| a ladder over a counter | its own row count | already exact: ladders arrive whole |
+| one reward per unit of content | units x rewards-per-unit | the event's own table, counted |
+| a fixed set (ten cocktails) | the size of the set | nothing states it yet |
+
+The census is the middle row: **how many units of content the event has.** That is what the event's own table says — `event_bartender_entities` is one row per DAY, so a seven-row table is a seven-day event and its per-day page holds seven rewards. Those tables are captured now, every `event_*` one of them, because they arrive in the login burst and nowhere else.
+
+What a family needs, then, is not a number but a RULE: `{page prefix: (which table counts its units, rewards per unit)}`. A rule survives what a number cannot — the next bartender running ten days instead of seven recomputes itself, where a written-down 24 would simply be wrong. And it is falsifiable the same way a write-down is: a page that grows past its census-derived total has disproved the rule, and the row goes back to the floor.
+
+**Worked example, the bartender.** 7 days x 1 (census over `event_bartender_entities`) + 7 (ladder, whole) + 10 (cocktails, census unknown) = 24 mission rewards, plus one final reward that is not a mission row at all — the one that sets the completion flag. 25 in total, of which 24 are derivable today given the rule and one unknown.
+
+### Answering question 3
+
+| Answer | When | What the tab shows |
+| ------ | ---- | ------------------ |
+| **Finished** | the completion flag is set | green |
+| **Finished** | every page whole or resolved, and claimed equals the total, and the event pays nothing outside its mission rows | not claimed yet: nothing states the last condition, which is why this case is still orange |
+| **Likely finished** | claimed equals the floor and the tally has not moved for two days | orange — see `FLOOR_SETTLES_AFTER` |
+| **Unknown** | anything else | red, with `+?` where the denominator is a floor |
+
+**The gap between the second and the third rows is the whole remaining problem.** What would close it is a statement that an event's rewards are all mission rows — which nothing on the wire makes, and which the bartender is a counter-example to.
+
 ## Floors, and the one wrong answer
 
 **A count of the rows the account holds is a FLOOR, not a total.** The game creates a mission row when it issues the mission, so an event still handing them out reads as finished:
