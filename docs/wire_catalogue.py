@@ -23,6 +23,10 @@ every `data.get("x")`, `carrier.get("x")` and `raw.get("x")` in
 `capture/manager.py`. So the two halves cannot drift -- a key the addon
 stops reading turns up in this report on the next run.
 
+`docs/wire_catalogue_backfill.py` folds the captures taken before the
+catalogue existed into the same file, which is what makes a first-seen
+date reach back past the day the catalogue was invented.
+
 A key being unread is not a bug. Most of this wire is content the
 program has no use for. It is a list of things nobody has LOOKED at,
 which is a different and more useful thing than a list of bugs.

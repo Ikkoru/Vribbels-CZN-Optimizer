@@ -342,6 +342,23 @@ def run():
             "the login's `issued_limit_entities` did not reach the addon. "
             "Nothing else on the wire dates the monthly pass.")
 
+    # --- and the claim answers under a name of its own --------------
+    # `lobby/monthly_subscription_reward` sends the row back as a LIST
+    # under `issued_entities`, with the day it was taken already on it.
+    # Read at login only, the tab would go on saying what the login
+    # said while the gift sits claimed.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "issued_entities": [{
+            "res_id": "subscription_1", "expire_time": 1797962400,
+            "count": 15, "vi1": 1354}]}]))
+    if (addon.issued_limits.get("subscription_1") or {}).get("vi1") != 1354:
+        failures.append(
+            "claiming the Coronomicon Gift left the addon on the login's "
+            "figures. The claim answers with the same record as a LIST "
+            "under `issued_entities`, and `vi1` on it is the day the "
+            "gift was taken -- which is the whole of what a claimed-today "
+            "reading needs.")
+
     # --- and both reach the snapshot as LISTS -----------------------
     # The shape the wire uses and the shape every snapshot on disk
     # already carries, so `_event_finished` and `_event_attendance`

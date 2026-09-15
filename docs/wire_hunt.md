@@ -220,7 +220,7 @@ The Daily Coronomicon Gift is the monthly subscription's daily reward. Everythin
 | `vi2` | gifts claimed over the pass's life | 321 against 322 days between `reset_time` and today, so one missed day |
 | `vi3` | unknown | 0 on this row |
 
-**Claiming it is `lobby / monthly_subscription_reward`**, which answers with the row above and an `item_result` — 90 Crystals (2000004) on the capture.
+**Claiming it is `lobby / monthly_subscription_reward`**, which answers with an `item_result` — 90 Crystals (2000004) on the capture — and with the row above under a name of its own: `issued_entities`, a LIST where the login sends a dict keyed by res_id. The capture folds both into the same table, so a claim moves `vi1` and `count` as it happens rather than at the next login.
 
 So a row could read **claimed today** (`vi1` against `weekly_reset.day_index(now)`, the same lazy-stamp comparison every other daily row makes) and **days left** (`expire_time` against now — 98.9 on the capture). Nothing further needs capturing.
 

@@ -32,7 +32,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The Seasonal Shop shows no rates.** Its currency is wiped at the end of every season, so what was earned of it before says nothing about now.
 
-- **The monthly pass's own record is captured.** `issued_limit_entities` rides the login burst and dates the subscription; nothing shows it yet, but the data is there for a Coronomicon Gift row.
+- **The monthly pass's own record is captured, claim included.** `issued_limit_entities` rides the login burst and dates the subscription, and claiming the Coronomicon Gift answers with the same record under a name of its own — so the day it was taken is known as it happens rather than at the next login. Nothing shows it yet; the data is there for a Coronomicon Gift row.
 
 - **A shop heading's total is inked a shade apart** from the products under it — the same green and red, slightly darker and slightly stronger — so the block's own verdict does not read as one more row's.
 

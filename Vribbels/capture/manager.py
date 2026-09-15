@@ -1167,6 +1167,17 @@ class Addon:
                     self.issued_limits[str(res_id)] = row
             self._save_pending = True
 
+        # **The claim answers in a LIST, under a name of its own.**
+        # `lobby/monthly_subscription_reward` pays the daily gift and
+        # sends the row straight back as `issued_entities` -- the same
+        # record, with `count` and `vi1` already moved. Read only at
+        # login, the row says what the login said until the next one.
+        issued = data.get("issued_entities")
+        for row in issued if isinstance(issued, list) else ():
+            if isinstance(row, dict) and row.get("res_id") is not None:
+                self.issued_limits[str(row["res_id"])] = row
+                self._save_pending = True
+
         # **The town's own daily block arrives on its own**, at the top
         # level of a reply -- ordering a coffee, running an excursion,
         # or asking `check_day_changeable_data` -- where the cache

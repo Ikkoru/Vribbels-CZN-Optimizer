@@ -232,6 +232,8 @@ The command comes from the qid the reply answers, which the addon has seen go pa
 
 **It is the record that makes an unread field visible.** `entity` and `issued_limit_entities` were both on the wire for months, and no amount of reading the addon would have said so — a field nobody reads leaves no trace in the code. `docs/wire_catalogue.py` prints the catalogue against the keys the addon actually asks for, deriving the second half from the source so the two cannot drift.
 
+**The captures taken before it exists are foldable in**: `docs/wire_catalogue_backfill.py` replays a debug log through the real addon with only the clock replaced, so each sighting is filed under the frame's own timestamp. It reports by default and writes on `--write`, and it reads the uncompressed captures only — compression and the catalogue arrived together, so a `.jsonl.gz` has been catalogued already and folding it in would count one sighting twice.
+
 It MERGES with what is on disk: counts add, the first sighting is the earlier. It must not also start from the file — that would fold the whole history into itself on every write, and one sighting would read as three.
 
 **Qids restart at 1 with each `helo`**, which is why `_forget_pending` exists: the pending-intent maps are keyed by qid, and an intent left unanswered by a game that went away would otherwise be claimed by an unrelated reply from the next one.
