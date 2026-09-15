@@ -23,12 +23,12 @@ did not, but the report counts fragments and combatants and neither of
 those moved -- so the line would repeat itself word for word.
 
 **So the report is printed only when it would SAY something new**: a
-different file, or different counts. It used to be dropped only where
-it would repeat the LAST line logged, which caught the login burst and
-nothing else -- any `[LIVE]` line in between, and there is one after
-every upgrade, delete and reward, put the same figures back on screen.
-An evening's capture was mostly this sentence. What is left is the
-file being written, the numbers moving, and a save that FAILS.
+different file, or different counts. Comparing against the LAST LINE
+logged is the tempting simplification and is not enough -- a `[LIVE]`
+line lands after every upgrade, delete and reward, so there is almost
+always something in between and the same figures go back up. What is
+left is the file being written, the numbers moving, and a save that
+FAILS.
 """
 
 import json

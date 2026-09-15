@@ -93,8 +93,8 @@ def run():
     # --- the shapes a claim could answer in -------------------------
     # Four are accepted: the plural list, a `result_`-prefixed list
     # (which is how an Overclock run answers), a bare singular record,
-    # and -- the one a capture has since caught -- a bare `entity`.
-    # Whichever a given claim uses, the row lands.
+    # and a bare `entity`, which is what the completion claim uses.
+    # Whichever a given claim spells, the row lands.
     claims = (
         ("attendance_entities",
          {"attendance_entities": [

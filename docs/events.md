@@ -318,7 +318,7 @@ So the row reads claimed against claimed-plus-one, red where `current_days` is a
 
 Three things have been ruled out as ways to tell it apart:
 
-* **It is never claimed.** Every `attendance / reward` command in all thirty-two debug captures names `event_143`, the live streak. Not once `event_1`. So the CLIENT knows there is nothing there, and knows it from a reward table the server never sends.
+* **It is never claimed.** Every `attendance / reward` command in all thirty-four debug captures names `event_143`, the live streak. Not once `event_1`. So the CLIENT knows there is nothing there, and knows it from a reward table the server never sends.
 * **A day left unclaimed does not separate them.** That state is already in the record: on 2026-09-09 at 20:52 the live streak read `current_days 2, received_days 1` with the reward genuinely waiting, and `event_1` read `51/7` beside it. Both look "behind" in exactly the same way.
 * **`reddot_info` does not carry it.** The login burst's red-dot payload is two lists of item ids — new savedata and new fragments — and mentions no event, mission or streak.
 
@@ -342,7 +342,7 @@ Captured by logging in after finishing both (`websocket_debug_20260914_205131.js
 * **`event_mission_reward_entities` comes back with it.** The login sent six rows where it had sent five, the new one being `event_bartender_1` with `event_achieve_state: 1`, `reward_step: 0`, `version: 0`. So a completion is the server's own record and arrives at every login — an event once finished stays finished across restarts, with nothing client-side needed.
 * **`attendance_entities` does not.** The finished streak came back as `current_days: 7, received_days: 7, version: 13` with no `completed` anywhere. That flag exists only in the reply to the claim that ends the streak.
 
-So the addon's copy of `completed` is load-bearing WITHIN a session and lost between them: a streak finished today reads green until the game is restarted and orange after. Orange is the honest answer there — today's is claimed and nothing proves the streak is over — and green needs a record the program would have to keep itself.
+So the addon's copy of `completed` carries the answer through the session that saw the claim, and the program keeps its own across sessions: `ChecklistManager.remember_streak` files the event id in `settings/checklist.json` and `_recall_streaks` writes the flag back onto the login's row. Without that record a finished streak reads orange from the next start until its event ends — the honest answer for a row that cannot be told from one merely claimed today, and not the true one.
 
 **A finished streak's `version` is `2 x received_days - 1`** — 13 at seven days, 19 at ten, 27 at fourteen, 41 at twenty-one — and stops moving when the streak ends, where the year-long event's climbs on. It re-encodes what `current_days` already says and adds nothing, and three of the account's oldest rows carry `version: 0` regardless. Not a signal.
 
@@ -373,14 +373,11 @@ So the capture worked. What it could not do was see a claim that sends no record
 
 ## Still open
 
-
-
-
 * **A ragged family's page lengths.** The bartender's three pages are 7, 7 and 10, and two of the three can be read in full from the rows the account holds — but only because those pages were played. Page 1 hands out a row a day and will read short all week. Nothing distinguishes "this page is finished" from "this page is still being issued", which is the same wall every Open-ended reading hits. The completion flag answers the only question that really matters — *is there anything left* — without answering this one.
-* **`reward_step` vs `version`.** One claim on a step-track event separates a total from a tally, and a total would give three or four more events a real denominator. **Nothing has moved either number yet** — an ordinary event reward claim does not touch `event_mission_reward_entities` at all, so the action has to be a claim on the event's own reward TRACK.
+* **`reward_step` vs `version`.** One claim on a step-track event separates a total from a tally, and a total would give three or four more events a real denominator. **Nothing has moved either number yet.** An ordinary event reward claim does not touch `event_mission_reward_entities` at all, and the Bartender's final reward — the one claim seen to touch it — CREATED its row rather than moving one, at `reward_step 0, version 0`. So the action has to be a claim on a reward TRACK the account already has a row for.
 
   **`event_chaos_assault_1` is the readiest candidate.** `chaos_assault` is the code's inherited word for **Sortie** (`shop_assault` is `Sortie - Chaos Analysis Lab`, and Reason's icon is `currency_chaos_assault_stamina.png`), its season `assault_1_s7` is live, and the record has sat at `reward_step 3, version 2` since May. Its one mission row, `event_chaos_assault_1_1`, has scored 5 and been unclaimed since April — matching `chaos_assault_entity.highest_clear_level`, which is also 5. Claiming it is one deliberate action, and whichever of the two numbers moves answers the question.
-* **Telling the launch login event from a streak one day behind.** See *A streak has no stated length*: one capture of a day left unclaimed settles it.
+* **Telling the launch login event from a streak one day behind.** Three ways have been ruled out and none is left — see *A streak has no stated length*, which also says what a next attempt would have to explain first.
 * **Event display names.** Every row shows an id, because the wire never sends a name — the client has them in a localisation table.
 
 Settled, and kept so they are not re-suggested:

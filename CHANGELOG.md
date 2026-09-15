@@ -14,9 +14,10 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Added
 
-- **A capture can be left running.** Three things changed to make that worth doing: the debug log is compressed (13x, and readable at every moment rather than only once the capture stops); a new snapshot is started each time the game is RELAUNCHED — not merely reconnected, which this game does often — instead of one file rewritten for the capture's whole life; and the capture keeps a catalogue of which request carries which field.
+- **A capture can be left running.** Three things changed to make that worth doing: the debug log is compressed (about 12x, and readable at every moment rather than only once the capture stops); a new snapshot is started each time the game is RELAUNCHED — not merely reconnected, which this game does often — instead of one file rewritten for the capture's whole life; and the capture keeps a catalogue of which request carries which field.
 
-- **The wire catalogue.** `settings/wire_catalogue.json`, built as a capture runs and accumulated across them: every request-and-field pair seen, how often, when first and last, and a short sample. `docs/wire_catalogue.py` prints it against the fields the program actually reads, so the ones nothing has ever looked at are named. It is kept beside the settings rather than among the captures, so tidying those up does not lose it. **It runs only from a source checkout** — a released build never writes it.
+- **The wire catalogue.** `settings/wire_catalogue.json`, built as a capture runs and accumulated across them: every request-and-field pair seen, how often, when first and last, and a short sample. `docs/wire_catalogue.py` prints it against the fields the program actually reads, so the ones nothing has ever looked at are named. It is kept beside the settings rather than among the captures, so tidying those up does not lose it. **It runs only for the maintainer** — the `zRUN` launchers set an environment variable a released build has no way to, so an installed copy records nothing and writes nothing.
+
 - **Materials tab: the hardest target on each block is coloured** — red under 50%, yellow to 100%, green once covered. The steps on the way keep the ordinary colour, so a block reads as one verdict rather than a column of traffic lights.
 
 - **An item whose name is only a guess is drawn red in the Capture Log.** Two event currencies are named from one event each and the game may hand the same id out under a different name later; red says to check the line rather than trust it. An id nothing can name at all stays dim yellow, as before.
@@ -25,7 +26,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **`Multidimensional Alignment Material` is shortened on the Checklist**, with the full name on the row's own tooltip. The tip is bound to the row, so it follows the product wherever ticking sorts it.
 
-- **Hovering a shop on the Checklist says what its currency earns.** Two lines, both in that shop's own rotation — week, month or season, whichever it resets on — differing only in how far back they looked: `recent` over the last four rotations, `long run` over the last year. A gap between them means something changed; while the record is too young to tell them apart, only the long-run line shows.
+- **Hovering a shop on the Checklist says what its currency earns, and what a full period of it costs.** The rates are in that shop's own rotation — week, month or season, whichever it resets on — and differ only in how far back they look: `recent` over the last four rotations, `long run` over the last year. A gap between them means something changed; while the record is too young to tell them apart, only the long-run line shows. Beneath them, what every ticked product's full cap costs, which does not move as the shelves empty and so can be read against the rates.
 
 - **That record starts full rather than empty.** The game states a lifetime earned total for five of the seven shop currencies, and the shops account for the other two — what is held plus everything ever bought with it, which reproduces the game's own figure exactly at every reading of four currencies and within 300 for the fifth. Anchored at the day the account was made, so a year's reading is there on the first capture instead of in a year's time.
 
@@ -44,6 +45,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 - **A Sortie's rewards reach the Capture Log.** The report screen pays under a key nothing was reading, so a whole run's payout went unannounced — the counts still ended up right, because the game re-sends the inventory afterwards, which is exactly what made it hard to notice. A town calamity's payout had the same problem, under a key of its own.
 
 - **A charge no longer reads as a gift.** Entering a Sortie costs Aether and is charged through the same envelope a reward arrives in, so the log said `Received Aether -10`. The word now comes from which way the figures moved.
+
 - **A capture spanning two game launches no longer confuses one for the other.** Requests waiting on a reply are remembered by the game's own request number, and those start again at 1 each time the game opens — so a request the game never answered before closing could be claimed by an unrelated reply from the next launch. Harmless while a capture covered one launch, which is every capture taken so far; the costly case was a fragment disassembly, whose remembered intent is a list of fragments to delete.
 
 - **A finished login streak stays finished.** The game says a streak has ended exactly once, on the claim that ends it, and the record it sends afterwards is identical to a streak merely claimed for today — so the row went back to orange the next time the program started. It is remembered now, in `settings/`, which a cleanup of captures never touches.
@@ -51,6 +53,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 - **An event the game has called finished now reads as finished.** The claim of an event's final reward — the one that unlocks only after every other — answers with the completion flag under a key the capture was not reading, so the Bartender went on showing `24/24+?` in red with the wire having said outright that it was over.
 
 - **The Daily Check-in row no longer invents a length.** It was counting claimed days against a written-down seven; streaks actually run 7, 10, 14 or 21 days depending on the event, and nothing on the wire says which in advance. The row now reads claimed against claimed-plus-one — red when a day is waiting, orange when it is not — and goes green only on the game's own word that the streak has ended, which the capture now keeps.
+
 - **The Checklist stopped losing the shops at the foot of a column.** Each column is a block of a fixed height, and a checkbox row is taller than a text one — so the block came up three pixels short per shop product and Tk clipped the difference off the bottom silently. The Weekly column was missing its Seasonal Shop and the Monthly column its last two rows.
 
 - **A fresh install opens at the same size a loaded one does.** Two panels were laid out only once data arrived: the Combatants tab's six fragment cells came up at a text widget's default size, far larger than they end up, which pushed the Character and Partner cards out of the space they fill; and the Memory Fragments tab's Sets panel came up empty and narrow, moving every panel beside it when the first snapshot loaded. The Sets columns now reserve room for a four-digit count instead of fitting the counts in hand, so the panel is the same width whatever you own.
@@ -85,7 +88,6 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The capture log stopped repeating itself.** `Saved: 747 Memory Fragments, 197 characters` appeared again after every upgrade, delete and reward, with the same figures every time. It now appears when the file or the counts change, and a save that FAILS says so plainly instead of arriving as a bare `Error:`.
 
-- **The Checklist's shop tooltips say what a full period costs**, on a line of their own under the earning rates: every ticked product's cap at its price, whether or not any of it has been bought yet. That is the figure the rates are worth reading against — it does not move as the shelves empty.
 - **A daily event's last day goes green.** Orange says the rewards come back tomorrow; on the final day they do not, so taking them finishes the event and the row says so.
 
 - **The Checklist columns sit evenly across the tab.** The four were flush against the left with the whole leftover width piled up after the last one; the gaps now fall between them and both ends stand the same distance from the window.

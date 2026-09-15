@@ -40,7 +40,7 @@ In the results, scores run 0–100 with the run's best build at 100. `(E)` marks
 - **Affinity, potential nodes and Partner bonuses** are all counted in the stats the optimizer scores.
 - **The Combatants tab lists every potential node**, and its `Nodes` column is a combatant's node levels summed against the maximum.
 - **The Materials tab** counts your promotion and levelling material by class, and your growth stones by Element. Each row's figures are that row's own holdings in bottom-tier equivalents, then what share that is of what a target costs.
-- **Checklist tab** shows current data while the game is being captured. You can check/uncheck `Shop` items to customize those you wish to keep track off.
+- **The Checklist tab** shows what resets when — daily, weekly, monthly and seasonal — and what is left to do on each, updating while the game is captured. Tick or untick a shop's products to track only what you actually buy: the shop's heading then reads what you hold against what clearing it costs, and hovering it says what that currency earns in a rotation.
 
 ## Contributing
 

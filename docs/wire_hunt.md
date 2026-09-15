@@ -198,7 +198,7 @@ It does NOT generalise past shop-only currencies: Crystals read 228721 spent aga
 
 **`login_total_count` counts days, not logins.** It read 325 against an account age of 325.1 days, and moved +126 over 127 days across the snapshot history while several of those days carried three or four captures each. So it is an ACTIVE-DAY count: equal to the elapsed days for an account that logs in daily, and below it for one that skips.
 
-Together those make a lifetime rate available from a single capture — `total_amount` over the days since `createAt` — which is what lets the Checklist's shop headings answer on the first capture rather than after a year of them.
+Together those make a lifetime rate available from a single capture — `total_amount` over the days since `createAt` — which is what lets a shop heading's hover answer on the first capture rather than after a year of them.
 
 ## The monthly pass, and what it would take to show it
 
@@ -229,4 +229,3 @@ So a row could read **claimed today** (`vi1` against `weekly_reset.day_index(now
 ## What `content_*` is
 
 **The Basin of Hyperspace's objectives**, three per stage, arriving with the reply to `hyperspace/get_list` — not story records. `mission_seasson_entities` (the game's own spelling) holds them per Basin season and `season_entities` the stages; the Checklist reads the scored tally as the Basin's progress. `missions_id_dump.py` skips the family for that reason: thirty rows nobody annotates.
-

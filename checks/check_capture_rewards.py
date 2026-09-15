@@ -416,8 +416,9 @@ def run():
             f"a calamity's payout reached no log line. Lines: {log!r}")
 
     # --- and the word matches which WAY it went -----------------------
-    # The Sortie's entry fee is charged through `item_result`, which
-    # the log used to read as a receipt: `Received Aether -10`.
+    # The Sortie's entry fee is charged through `item_result`, so a
+    # log that reads the KEY rather than the sign announces it as a
+    # receipt: `Received Aether -10`.
     log.clear()
     addon._handle_server_payload({
         "res": "ok", "qid": 79,

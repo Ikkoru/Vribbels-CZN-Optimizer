@@ -420,8 +420,9 @@ class CaptureTab(BaseTab):
             btn_frame, self.colors, text="Debug WS",
             variable=self.debug_var, wraplength=px(35),
         )
-        # Enable to log every WebSocket message to a websocket_debug_*.jsonl
-        # file in the snapshots folder — useful when adding support for new
+        # Enable to log every WebSocket message to a
+        # websocket_debug_*.jsonl.gz file in the snapshots folder, one
+        # JSON object per line — useful when adding support for new
         # packet types (e.g., fragment create/delete).
         # spacing: border edge -> first non-button element -- button, checkbox ↔
         # spacing: exception -- border edge -> first non-button element -- checkbox, panel ↔

@@ -12,8 +12,10 @@ what each kind's row is allowed to claim.
 Each row reads its own field, and they have almost nothing in common:
 a claim stamp, a currency balance, a daily counter, a login streak, a
 set of puzzle pieces. `_readings` is where every one of them is, keyed
-by the row rather than by its words, and `docs/wire_hunt.md` records
-what each field means and which readings are exact.
+by the row's own key rather than by its words -- two rows share the
+words `Delegation Module` and differ only in the deadline they count
+to. `docs/wire_hunt.md` records what each field means and which
+readings are exact.
 
 **A reading that can only be a FLOOR says so, and does not go green
 on its own.** The game issues a mission row when it issues the
@@ -41,16 +43,12 @@ the column of readings, because it answers for the shop rather than
 for a row, and it is inked a shade apart for the same reason. See
 `_add_shop_totals`.
 
-**Hovering a shop says what its currency EARNS**, per rotation and per
-year. Those two come off a ledger the manager keeps -- a snapshot
-holds only the present, and a rate is a fact about the past -- and
-`ChecklistManager` is the write-up. `shop_rates` is where the two
-lines are worded.
-
-The rows that DO read a value get it from `_readings`, one place, keyed
-by the row's own key rather than by its words -- two rows share the
-words `Delegation Module` and differ only in the deadline they count
-to.
+**Hovering a shop says what its currency EARNS**, and what a full
+period of it costs. Both rates are per ROTATION of that shop and
+differ only in how far back they look; they come off a ledger the
+manager keeps, since a snapshot holds only the present and a rate is a
+fact about the past. `ChecklistManager` is the write-up, `shop_rates`
+and `shop_full_cost` the wording.
 
 The columns are built the way the Materials tab's are: content in the
 EVEN grid columns with an empty expanding one between each pair, so the
@@ -328,9 +326,8 @@ HEADING_COUNTDOWN_DROP = 3  # spacing: heading ↔ element -- heading, label ↕
 
 
 # Which `event_schedules` group dates each row, and so what its
-# countdown counts down to. **The lengths used to be guesses in the
-# labels** -- `(21 days)`, `(84? days)` -- and the wire carries the
-# real window for every one of them.
+# countdown counts down to. **The wire carries the real window for
+# every one of them**, so no row's length is written down here.
 COUNTDOWNS = {
     "basin": "HYPER_SPACE_SEASON",
     "matrix": "ZERO_REWARD_LIST",
@@ -597,10 +594,10 @@ def _event_attendance(raw, name, window, now):
     **The launch event reads red for a day that is not there.** Its
     `received_days` has sat at seven across every capture while
     `current_days` climbed, so it looks like a streak one day behind
-    for ever, and no field in the record tells the two apart. What
-    would settle it is a capture of a day the maintainer does not
-    claim: if the live streak's gap opens to one and the launch
-    event's stays where it is, the difference is real and readable.
+    for ever, and no field in the record tells the two apart -- a day
+    left unclaimed included, which the record already holds and which
+    writes the live streak the same way. `docs/events.md` has what has
+    been ruled out.
     """
     rows = (raw or {}).get(ATTENDANCE_FIELD)
     if not isinstance(rows, list) or not isinstance(window, dict):
@@ -2864,7 +2861,7 @@ def shop_full_cost(shop, period, raw, tracked=None):
 
 
 def shop_rates(points, word, days, name):
-    """The two lines of a shop heading's tip, or `()`.
+    """A shop heading tip's two RATE lines, or `()`.
 
     `(label, value)` a row, which is what the tip draws as two aligned
     columns. **Both are per ROTATION of this shop** -- an average

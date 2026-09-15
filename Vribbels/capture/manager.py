@@ -847,27 +847,21 @@ class Addon:
             self.char_visits = data["char_visits"]
             self._save_pending = True
 
-        # What the server says your holdings now are. THREE keys carry
-        # the same envelope -- a gain, a spend, and a use all report the
-        # item's whole record -- so they are applied by one handler
-        # rather than three that would drift apart.
+        # What the server says your holdings now are. FIVE keys carry
+        # the same envelope -- a gain, a spend, a use, a town calamity
+        # and an event mission claim all report the item's whole record
+        # -- so one handler takes them rather than five that would
+        # drift apart.
         #
         # **Nothing else on the wire updates an item count.** The
         # inventory arrives once, at login, and every later change is
-        # one of these -- so without this branch the Materials tab
-        # reads whatever was true when the game was started, with no
-        # save, no log line and nothing to say it went stale.
-        # **`result` is the fourth name for the same thing**, and it
-        # was missing: an event mission claim pays under it, so the
-        # Crystals from one landed nowhere and the Capture Log said
-        # nothing had been received. It is also the most OVERLOADED key
-        # on the wire -- a string, a bool, a stage's step record -- so
-        # it counts only where it carries a rewards payload.
-        # **`calamity_reward` is the fifth**, and the catalogue is what
-        # named it: a town calamity's payout arrives under a key of its
-        # own, in the same `{currency, items}` shape as the four above.
-        # Nothing read it, so what a calamity paid landed nowhere and
-        # the Capture Log said nothing had arrived.
+        # one of these, so a key missing from this list is a payout
+        # that lands nowhere: no save, no log line, and the Materials
+        # tab serving whatever was true when the game started.
+        #
+        # `result` is the most OVERLOADED key on the wire -- a string,
+        # a bool, a stage's step record -- so it counts only where it
+        # carries a rewards payload or nests one. See `_nested_reward`.
         for key in ("add_result", "item_result", "dec_result",
                     "calamity_reward", "result"):
             payload = data.get(key)
@@ -1456,9 +1450,10 @@ class Addon:
     def _banners(self):
         """The gacha schedule, read from the ONE copy of it.
 
-        `event_schedules["GACHA"]` is where the banners live; the
-        snapshot used to carry a second copy under `gacha_banners`,
-        byte for byte the same 2.8 KB.
+        `event_schedules["GACHA"]` is where the banners live, and the
+        snapshot carries them nowhere else: a second key holding the
+        same 2.8 KB byte for byte is one more thing for a reader to
+        pick the wrong one of.
         """
         group = (self.event_schedules or {}).get("GACHA")
         return group if isinstance(group, dict) else {}
@@ -1654,19 +1649,14 @@ class Addon:
         self._write_catalogue()
 
         # **Printed only when it would say something new**, which for
-        # this line means a different file or different counts.
+        # this line means a different file or different counts. A save
+        # that changed neither is the program working, and the program
+        # working is not news; a save that FAILS says so above.
         #
-        # It used to be suppressed only where it would repeat the LAST
-        # line logged, which caught the login burst's several saves and
-        # nothing else: any `[LIVE]` line in between -- and there is
-        # one after every upgrade, delete and reward -- put the same
-        # figures back on screen. A capture left running for an evening
-        # was mostly this sentence.
-        #
-        # What a reader wants from it is the file being written and the
-        # numbers moving. A save that changed neither is the program
-        # working, and the program working is not news. A save that
-        # FAILS still says so, above.
+        # **Comparing against the LAST LINE is not enough**, which is
+        # the tempting simplification: a `[LIVE]` line lands after
+        # every upgrade, delete and reward, so there is almost always
+        # something in between and the same figures go back up.
         if (count, char_count, self.saved_path.name) != self._last_save:
             self._last_save = (count, char_count, self.saved_path.name)
             self.log_callback(report)
@@ -1980,12 +1970,12 @@ class Addon:
     def _check_for_relaunch(self, user):
         """Start a snapshot of its own when the game has been RELAUNCHED.
 
-        **A capture is not one sitting any more.** `saved_path` is
-        chosen on the first save and rewritten on every one after, so
-        a capture left running for a month used to leave exactly one
-        snapshot: the newest state, with no history behind it. That
-        history is what every derived reading here was built from --
-        a currency's rate, a streak's length, an event's total.
+        **A capture is not one sitting.** `saved_path` is chosen on
+        the first save and rewritten on every one after, so without a
+        rotation a month of capture leaves exactly one snapshot: the
+        newest state, with no history behind it. That history is what
+        every derived reading here is built from -- a currency's rate,
+        a streak's length, an event's total.
 
         **The marker is `last_login_tm`, and the ones that look easier
         are wrong.** This game reconnects often, and a reconnect:
@@ -2560,8 +2550,8 @@ class CaptureManager:
             # which is the maintainer's way in and not a released
             # build's. `None` here switches the whole thing off inside
             # the addon -- nothing recorded and nothing written -- so a
-            # user gets a capture that behaves exactly as it did before
-            # the catalogue existed. See MAINTAINER_ENV.
+            # user's capture is untouched by any of it. See
+            # MAINTAINER_ENV.
             catalogue_path = None
             if os.environ.get(MAINTAINER_ENV):
                 catalogue_path = (self.output_folder.parent / "settings"

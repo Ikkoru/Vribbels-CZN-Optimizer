@@ -116,11 +116,11 @@ The rest join them, all merged rather than replaced for the same reason:
 
 **A Communication Pass is in none of them, because it is in nothing.** Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.
 
-## The item counts arrive once, and change through four keys
+## The item counts arrive once, and change through seven keys
 
 `inventory.items` and `characters.currencies` come down in the login burst and never again. Every later change to either rides on the reply to whatever caused it, in one of two shapes.
 
-**Three keys state what a holding NOW IS** — `add_result` (a gain), `item_result` (a use), `dec_result` (a spend). One envelope between them:
+**Five keys state what a holding NOW IS** — `add_result` (a gain), `item_result` (a use), `dec_result` (a spend), `calamity_reward` (a town calamity) and `result` (an event mission claim, a story episode). One envelope between them:
 
 ```
 {"items":    {"<res_id>": {"doc": {..., "res_id": 3120013, "amount": 146, ...}, "diff": 10}},
@@ -129,7 +129,7 @@ The rest join them, all merged rather than replaced for the same reason:
 
 `doc` is the item's whole record in the shape the cache already holds, and **`doc.amount` is the TOTAL, not the change** — so `_apply_totals` writes it in rather than adding `diff`, and a frame arriving twice cannot double a count. Items are a list keyed by `res_id` and currencies a dict keyed by the same id as a string; an id not yet held is appended.
 
-**`drop_item_result` is the exception**: a stage's rewards, as a LIST with one entry per drop and no record at all —
+**`drop_item_result` and `chaos_free_reward_result` are the exception**: a stage's rewards and a Sortie or Chaos report screen's, as a LIST with one entry per drop and no record at all —
 
 ```
 [{"id": 3120012, "amount": 2, "cur_drop_count": 1}, {"id": 3120012, "amount": 3, "cur_drop_count": 2}, ...]
@@ -137,7 +137,13 @@ The rest join them, all merged rather than replaced for the same reason:
 
 so a x6 run sends six entries for the same item and the total is their sum. Nothing states what the holding becomes, which leaves `_apply_drops` adding — and **adding is what makes a repeat dangerous**, so the frame's `qid` is remembered and one already applied is skipped. An id the currencies already hold is a currency (Units drop this way); everything else is an item.
 
-Without these branches nothing on the wire moves an item count: the Materials tab reads what the account had at login, no save is triggered, and no line reaches the Capture Log — a capture that has gone stale looks exactly like one where nothing has happened. `checks/check_capture_rewards.py` drives all four keys.
+`result` is the most OVERLOADED key on the wire — a string, a bool, a stage's step record — so it counts only where it carries a rewards payload or nests one, two levels down under an envelope of its own.
+
+Without these branches nothing on the wire moves an item count: the Materials tab reads what the account had at login, no save is triggered, and no line reaches the Capture Log — a capture that has gone stale looks exactly like one where nothing has happened. `checks/check_capture_rewards.py` drives all seven keys.
+
+**A key missing from the list is close to invisible**, which is why two of them went unread for months. The client asks for the inventory again after a run, so the counts still end up right; the only symptom is the Capture Log staying quiet about something the player watched arrive. `calamity_reward` and `chaos_free_reward_result` were both found by the wire catalogue rather than by reading anything.
+
+**The log's word is picked from the SIGNS, not from the key.** A Sortie's entry fee is CHARGED through `item_result`, so reading the key announces it as a receipt: `Received Aether -10`. Where every figure in a payload moved the same way that is the answer; a payload with movement both ways falls back to the key.
 
 ## The proxy's upstream must never be a loopback address
 
@@ -155,7 +161,7 @@ A redirect block left in the hosts file by a run that ended without removing it 
 
 Both measured off the captures on disk rather than estimated.
 
-**A session is one snapshot file and one debug file, for its whole life.** `saved_path` is chosen once per addon instance and rewritten on every save, so a capture left running for a month produces exactly one `memory_fragments_*.json` — the newest state, with no history behind it. The debug log grows without bound and is flushed on every frame.
+**Two things grow with the capture, and neither bounds itself.** `saved_path` is chosen once per addon instance and rewritten on every save, so without a rotation a month of capture is one `memory_fragments_*.json` — the newest state, with no history behind it. The debug log has no ceiling at all and is flushed on every frame. What each is answered with is below.
 
 ### Where a debug log's bytes go
 
@@ -167,7 +173,7 @@ Both measured off the captures on disk rather than estimated.
 | `shop_res_data` | 278 KB (15%) | 278 KB (6%) |
 | `snapshot` (battle) | — | 562 KB (13%) |
 
-Thirty-four captures on disk come to 87 MB, mean 2.6 MB.
+Thirty-four captures on disk come to 91 MB, mean 2.7 MB.
 
 ### What it does about that
 
@@ -191,13 +197,11 @@ A member per line rather than one stream over the file, because **a stream is re
 
 So the login burst — the bulk of every capture — is almost pure repetition between launches. Storing it content-addressed would beat gzip handily, at the cost of the one property that makes these files useful: that a two-line script can read them.
 
-### A new game launch is markable; a close is not
+### Telling a relaunch from a reconnect
 
-`helo` is the first client command of every connection, carrying the device block and `qid: 1`. Every capture on disk holds exactly one, which is also why nothing has ever needed it. `lobby_update` with `from_title: true` says the same thing one step later — the mid-session lobby refreshes send `from_title: false`.
+Four signals look like a new game and three of them are traps. **This game drops its connection often**, and a reconnect closes and reopens the websocket, redoes the handshake and re-sends the lobby — so `websocket_end` fires, `helo` arrives with its `qid: 1` and its device block, `lobby_update` comes back with `from_title: true`, and a fresh `session` token is issued. An evening with a few dropped connections is indistinguishable from an evening of relaunches by any of them.
 
-**But none of those means a NEW GAME**, and that is the trap. This game reconnects often, and a reconnect does all three: it closes and reopens the websocket, so `websocket_end` fires; it redoes the handshake, so `helo` arrives again; and it re-sends the lobby. One evening with a few dropped connections made three snapshots out of one sitting.
-
-**`characters.user.last_login_tm` is the marker.** Across those three snapshots it was identical to the second — as were `activated_tm` and the account payload's own `server_time` — while the previous real launch differed. A reconnect resumes; only a login logs in. `session` is no help either: one launch was seen rotating through seven tokens.
+**`characters.user.last_login_tm` is the marker**, because a reconnect resumes and only a login logs in. Three snapshots written across one evening of dropped connections carried it identical to the second — as they did `activated_tm` and the account payload's own `server_time` — where the launch before them differed.
 
 | Signal | On a relaunch | On a reconnect |
 | ------ | ------------- | --------------- |
@@ -214,7 +218,7 @@ So the login burst — the bulk of every capture — is almost pure repetition b
 
 Kept in `settings/wire_catalogue.json` — beside the settings rather than among the captures, since the snapshots folder is the one that gets emptied — and whether or not debug logging is on.
 
-**Only on a working copy.** The `zRUN*.bat` launchers set `VRIBBELS_DEV`; a frozen exe has no way to, and without it the catalogue is off entirely: nothing recorded and nothing written, so a released build's capture behaves exactly as it did before any of this. It is a switch rather than a setting because a setting would ship to everyone and want explaining, and what it guards is of no use to anybody who is not reading the wire.
+**Only on a working copy.** The `zRUN*.bat` launchers set `VRIBBELS_DEV`; a frozen exe has no way to, and without it the catalogue is off entirely: nothing recorded and nothing written, so a released build's capture is untouched by any of it. It is a switch rather than a setting because a setting would ship to everyone and want explaining, and what it guards is of no use to anybody who is not reading the wire.
 
 One entry per `command|key` seen, with a count, first and last sighting, the type and a 200-character sample:
 
@@ -232,27 +236,11 @@ It MERGES with what is on disk: counts add, the first sighting is the earlier. I
 
 **Qids restart at 1 with each `helo`**, which is why `_forget_pending` exists: the pending-intent maps are keyed by qid, and an intent left unanswered by a game that went away would otherwise be claimed by an unrelated reply from the next one.
 
-### The names a reward arrives under
-
-Six, and the last three were found by the catalogue rather than by reading anything:
-
-| Key | Shape | Pays for |
-| --- | ----- | -------- |
-| `add_result`, `item_result`, `dec_result` | `{currency, items}`, each entry a whole record and a `diff` | most things |
-| `result` | the same, sometimes nested two deep under an envelope of its own | an event mission claim, a story episode |
-| `calamity_reward` | the same again | a town calamity |
-| `drop_item_result` | a LIST of `{id, amount}` deltas, one entry per drop | a stage's rewards |
-| `chaos_free_reward_result` | the same list | a Sortie or Chaos report screen |
-
-**A missed reward key is close to invisible.** The client asks for the inventory again after a run, so the counts still end up right — the only symptom is the Capture Log staying quiet about something the player watched arrive. A whole Sortie's payout went unreported that way.
-
-**The word is picked from the SIGNS, not from the key.** The Sortie's entry fee is charged through `item_result`, which read as `Received Aether -10`. Where every figure in a payload moved the same way that is the answer; a payload with movement both ways falls back to the key.
-
 ### What the capture log says about saving
 
-**A save reports itself only when it would say something new** — a different file, or different counts. It used to be suppressed only where it would repeat the LAST line logged, which caught the login burst's several saves and nothing else: any `[LIVE]` line in between, and there is one after every upgrade, delete and reward, put the same figures back on screen. A capture left running for an evening was mostly that one sentence.
+**A save reports itself only when it would say something new** — a different file, or different counts. The suppression is keyed on those figures and not on the last line logged: any `[LIVE]` line in between, and there is one after every upgrade, delete and reward, would otherwise put the same numbers back on screen, and an evening of capture reads as that one sentence repeated.
 
-What is left is the file being written, the numbers moving, and — loudly — a save that FAILS. The write is wrapped for that: an `OSError` used to surface through the frame handler's own catch as a bare `Error:` with no mention of a snapshot, in a log whose every other line is about the game.
+What is left is the file being written, the numbers moving, and — loudly — a save that FAILS. The write is wrapped for that: unwrapped, an `OSError` surfaces through the frame handler's own catch as a bare `Error:` with no mention of a snapshot, in a log whose every other line is about the game.
 
 `SAVE_MARKER` is unaffected and still goes out on every save. The app reloads on it, and the two must not share a line — see `_save_data`.
 

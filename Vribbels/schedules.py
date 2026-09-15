@@ -10,8 +10,9 @@ instance the account has seen with a `start_time` and an `end_time`:
 **Nothing else dates any of them.** A Sortie product's cap is
 `LIMIT_ACCOUNT`, which never refreshes -- what actually refreshes it is
 the season ending, and the season's end is only here. The same goes for
-the Basin, the pass, the seasonal event and the Chaos Matrix, whose
-lengths the Checklist used to guess at in its labels.
+the Basin, the pass, the seasonal event and the Chaos Matrix: nothing
+else states how long one runs, so a label without this table can do no
+better than guess.
 
 Past instances stay in the table, so `live` is what picks the one that
 is running: `start_time <= now <= end_time`. Where two overlap the one

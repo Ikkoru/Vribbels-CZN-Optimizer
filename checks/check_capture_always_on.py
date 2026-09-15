@@ -11,11 +11,13 @@ each of which fails quietly:
    only once its end marker is written, and an always-on capture ends
    by being killed.
 
-2. **A snapshot per game launch.** `saved_path` used to be chosen once
-   per addon instance and rewritten on every save, so a month of
-   capture left exactly one snapshot -- the newest state, with no
-   history behind it. That history is what every derived reading in
-   this program was built from.
+2. **A snapshot per game RELAUNCH.** `saved_path` is chosen once and
+   rewritten on every save, so without a rotation a month of capture
+   leaves exactly one snapshot -- the newest state, with no history
+   behind it, and that history is what every derived reading in this
+   program is built from. The trap is the rotation firing too often
+   instead: this game drops its connection regularly, and a reconnect
+   looks like a launch from every angle but one.
 
 3. **The wire catalogue accumulates rather than doubling.** It is the
    record of which request carries which field, kept so that a field
@@ -96,13 +98,13 @@ def _addon(root, debug, maintainer=True):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
-    # Everything about it -- the class, the paths -- is the generated
-    # script's own, so this is still the real addon.
     if was is None:
         os.environ.pop(MAINTAINER_ENV, None)
     else:
         os.environ[MAINTAINER_ENV] = was
 
+    # Everything about it -- the class, the paths -- is the generated
+    # script's own, so this is still the real addon.
     said = []
     addon = type(mod.addons[0])(
         mod.OUTPUT_DIR, dict_path=mod.DICT_PATH,

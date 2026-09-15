@@ -112,8 +112,8 @@ def run():
         else:
             snapshot = json.loads(written[0].read_text(encoding="utf-8"))
             # **ONE copy.** The banners are the GACHA group of
-            # `event_schedules`; a second key holding the same bytes
-            # is what this used to read.
+            # `event_schedules`, and a second key holding the same
+            # bytes is what this must not start reading instead.
             if not (snapshot.get("event_schedules") or {}).get("GACHA"):
                 failures.append(
                     "The snapshot has no gacha schedule under "
