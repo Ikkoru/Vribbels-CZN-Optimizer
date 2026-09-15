@@ -23,6 +23,11 @@ retyped and never lost. **An id can be in both at once**, and their
 cells are merged one at a time with a filled cell always beating a
 blank: taking either row whole would destroy whatever the other held.
 
+Each file's line says how many rows are NEW to it, and the closing
+line how many ids no dump had carried before -- an id can be new to one
+file merely by moving out of another, and what a capture is being read
+for is the ids nothing has seen.
+
 The amount column is what makes an id identifiable at all: an item is
 named by spending some and diffing two captures, so a dump that has
 lost its counts cannot be compared against the next one.
@@ -138,6 +143,13 @@ def read_existing(path, owned):
     return extra, kept
 
 
+def few(values, limit=10):
+    """`values` as one line, cut short so a first run stays readable."""
+    shown = ", ".join(str(value) for value in values[:limit])
+    over = len(values) - limit
+    return shown + (f", +{over} more" if over > 0 else "")
+
+
 def write(path, owned, rows, carried=None):
     """Rewrite `path`, keeping every hand-added column and row.
 
@@ -152,6 +164,11 @@ def write(path, owned, rows, carried=None):
     reads its own, which is what a file nothing moves out of wants.
     """
     extra, kept = carried if carried is not None else read_existing(path, owned)
+    # **New rows are counted against THIS file's own ids**, never
+    # against `kept`: for the two unknown dumps that is the pair's
+    # shared pool of hand-typed cells, so an id sitting in the other
+    # file would hide a row this one has never held.
+    was = set(read_existing(path, owned)[1])
     order = sorted(set(rows) | set(kept))
     blank = [""] * (len(owned) - 1)
     gone = []
@@ -165,7 +182,9 @@ def write(path, owned, rows, carried=None):
             tail = kept.get(res_id, [""] * len(extra))
             f.write("\t".join(str(c) for c in
                               [res_id, *values, *tail]) + "\n")
+    fresh = [res_id for res_id in order if res_id not in was]
     print(f"{path.name}: {len(order)} rows, {len(extra)} hand-added columns"
+          + (f", {len(fresh)} new: {few(fresh)}" if fresh else ", 0 new")
           + (f", {len(gone)} id(s) not in this snapshot: {gone}" if gone
              else ""))
 
@@ -226,6 +245,11 @@ def main():
                    "icon", "amount", "where")
     known_path = OUT / "items_id_known_in_materials.tsv"
     known_extra, known_kept = read_existing(known_path, known_owned)
+    # What the three dumps held BEFORE this run, for the closing line:
+    # an id new to one file may merely have moved out of another, and
+    # the question the maintainer is asking after a capture is which
+    # ids no dump has ever carried.
+    was_dumped = set(known_kept)
     write(known_path, known_owned, known_rows,
           carried=(known_extra, {res_id: cells
                                  for res_id, cells in known_kept.items()
@@ -237,6 +261,7 @@ def main():
     extra, kept = _shared_tail(OUT / "items_id_unknown.tsv",
                                OUT / "items_id_known_not_in_materials.tsv",
                                UNKNOWN_OWNED)
+    was_dumped |= set(kept)
     try:
         at = extra.index(NAME_COLUMN)
     except ValueError:
@@ -281,6 +306,10 @@ def main():
           {r: v for r, v in rest.items() if r not in named_ids},
           carried=(extra, {r: c for r, c in kept.items()
                            if r not in named_ids}))
+
+    fresh = sorted((set(known_rows) | set(rest) | set(kept)) - was_dumped)
+    print(f"{len(fresh)} id(s) no dump had seen before"
+          + (f": {few(fresh, 20)}" if fresh else ""))
 
 
 def _shared_tail(first, second, owned):

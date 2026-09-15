@@ -36,6 +36,10 @@ that never carries it is either untouched or of a kind that does not
 report completion, and telling those two apart is what the hand-added
 columns are for.
 
+The run says how many rows are NEW to the file and names them: a key
+it has never held is a set nothing has dumped yet or a season opening,
+where the rest of a run is known rows being refreshed in place.
+
 **This script owns those columns and nothing else.** Anything typed to
 the right of them is read back and written out again untouched, in the
 same order, so a mission named by hand survives the next run. It
@@ -235,6 +239,13 @@ def read_existing(path):
     return extra, kept, before
 
 
+def few(values, limit=10):
+    """`values` as one line, cut short so a first run stays readable."""
+    shown = ", ".join(str(value) for value in values[:limit])
+    over = len(values) - limit
+    return shown + (f", +{over} more" if over > 0 else "")
+
+
 def main():
     source, rows = from_snapshots()
     if not rows:
@@ -275,10 +286,16 @@ def main():
             handle.write("\t".join(str(cell) for cell in
                                    [key, *values, *tail]) + "\n")
 
+    # **New rows are the point of a run.** A mission key the file has
+    # never held is either a set nothing has dumped yet or a season
+    # opening, and both want looking at -- where the rest of the run is
+    # a file of known rows being refreshed in place.
+    fresh = [key for key in order if key not in kept]
     families = sorted({row[1] for row in rows.values()})
     print(f"from {source}")
     print(f"{path.name}: {len(order)} rows, {len(extra)} hand-added columns"
           + (f", {len(gone)} kept from an earlier capture" if gone else ""))
+    print(f"  {len(fresh)} new row(s)" + (f": {few(fresh)}" if fresh else ""))
     print("  sets: " + ", ".join(
         f"{family} x{sum(1 for r in rows.values() if r[1] == family)}"
         for family in families))
