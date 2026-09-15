@@ -1413,6 +1413,53 @@ def run():
                 f"a streak reading {fields!r} shows {got!r}, not "
                 f"[({want!r}, {state!r})].")
 
+    # --- a page issued WHOLE is a denominator, not a floor -----------
+    # A mission id's middle segment is its page, and a page whose rows
+    # all carry one `issued_time` was issued in a single act -- so its
+    # count is what it holds. Every page issued that way in the
+    # account's table is a ladder of thresholds, and none of the
+    # twenty-four that trickle is.
+    #
+    # **Whole pages do not make the EVENT exact** unless every page is
+    # whole: a page still being handed out says the event is not done
+    # issuing, and a page nobody has been issued at all is invisible
+    # either way -- which is why this never goes green.
+    def _paged(pages, claimed):
+        """`pages` is {page number: [issued_time per row]}."""
+        raw = _snapshot()
+        missions = {}
+        taken = claimed
+        for page, stamps in pages.items():
+            for at, stamp in enumerate(stamps, start=1):
+                name = "event_paged_%02d_%02d" % (page, at)
+                missions[name] = {"res_id": name, "issued_time": stamp,
+                                  "complete_time": 1 if taken > 0 else 0}
+                taken -= 1
+        raw[PASS_MISSION_FIELD] = missions
+        return _event_missions(raw, "event_paged", {}, now)
+
+    got = _paged({1: [500, 500, 500, 500, 500, 500, 500]}, claimed=3)
+    if got != [("3/7", FLOOR)]:
+        failures.append(
+            f"a page issued whole reads {got!r}, not [('3/7', {FLOOR!r})]. "
+            f"Seven rows sharing one issue stamp is seven rewards stated, "
+            f"not seven handed out so far -- and a denominator that is a "
+            f"statement does not carry the floor mark.")
+
+    got = _paged({1: [500, 600, 700]}, claimed=3)
+    if got != [("3/3" + UNKNOWN_MORE, FLOOR)]:
+        failures.append(
+            f"a page whose rows trickled in reads {got!r}, not the floor. "
+            f"Three rows issued at three different moments is an event "
+            f"still handing them out.")
+
+    got = _paged({1: [500, 500, 500], 2: [500, 600]}, claimed=2)
+    if got != [("2/5" + UNKNOWN_MORE, FLOOR)]:
+        failures.append(
+            f"an event with one whole page and one trickling reads "
+            f"{got!r}, not the floor. One page being complete says "
+            f"nothing about the page beside it.")
+
     # --- a total written down, and what takes it back ----------------
     # The launch login event hands out seven rewards in a new account's
     # first week and then sits there for a year with `current_days`

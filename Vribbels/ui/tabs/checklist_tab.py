@@ -977,7 +977,52 @@ def _event_progress(raw, name):
     total = ((raw or {}).get(EVENT_TOTALS_FIELD) or {}).get(name)
     if _is_count(total) and total > len(rows):
         return [("%s%d/%d" % (EXPECTED_VALUE, claimed, total), TODO)]
+    # **Every page issued WHOLE makes the denominator a statement**,
+    # so the floor mark comes off -- see `_page_totals`. The row is
+    # still not green on it: a page nobody has been issued yet is
+    # invisible here, and an event can pay outside its mission rows
+    # (the bartender's final reward is not one). `_event_finished` is
+    # what ends an event.
+    whole, trickling = _page_totals(rows)
+    if whole and not trickling:
+        return [("%d/%d" % (claimed, whole), FLOOR)]
     return [("%d/%d%s" % (claimed, len(rows), UNKNOWN_MORE), FLOOR)]
+
+
+def _page_totals(rows):
+    """(rewards a page KNOWS it holds, rewards only issued so far).
+
+    **A mission id's middle segment is its PAGE**, and a page is one
+    kind of task -- `event_bartender_1_02_*` is the guestbook ladder,
+    `_01_*` one reward per day of the event. `docs/events.md` has the
+    write-up.
+
+    A page whose rows all carry ONE `issued_time` was issued in a
+    single act, so its row count is what that page holds and not what
+    has been handed out so far. A page whose rows trickle in is a
+    floor, and stays one.
+
+    In the account's whole mission table the two sort perfectly: every
+    page issued whole is a ladder of strictly increasing thresholds
+    (three of them), and not one of the twenty-four pages that trickle
+    is. **What this cannot see is a page that has not been issued at
+    all** -- an event that opens a fourth page in its second week is
+    an event whose pages all read whole in its first.
+    """
+    pages = {}
+    for row in rows:
+        res_id = str(row.get("res_id") or "")
+        parts = res_id.split("_")
+        page = "_".join(parts[:-1]) if len(parts) > 1 else res_id
+        pages.setdefault(page, []).append(row.get("issued_time"))
+    whole = trickling = 0
+    for stamps in pages.values():
+        seen = set(stamps)
+        if len(seen) == 1 and all(seen):
+            whole += len(stamps)
+        else:
+            trickling += len(stamps)
+    return whole, trickling
 
 
 def _event_mission_rows(raw, name):

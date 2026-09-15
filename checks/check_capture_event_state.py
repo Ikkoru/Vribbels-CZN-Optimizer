@@ -359,6 +359,26 @@ def run():
             "gift was taken -- which is the whole of what a claimed-today "
             "reading needs.")
 
+    # --- an event's own table is kept whether or not anything reads it
+    # **These are what say how BIG an event is.** The bartender's is
+    # one row per day of it, each with the day's outcome stamps, and a
+    # count over it is the denominator a Checklist row cannot derive
+    # from mission rows alone. They arrive at LOGIN and nowhere else,
+    # so a table not kept is a table that cannot be read later.
+    addon.websocket_message(_Flow([{
+        "res": "ok",
+        "event_bartender_entities": {"bartender_01_day_01_story_1": {
+            "event_id": "event_bartender_1", "normal_complete_time": 5,
+            "hidden_complete_time": 0, "fail_complete_time": 0}},
+        "event_nobody_reads_entities": {"x": {"res_id": "x"}}}]))
+    for field in ("event_bartender_entities", "event_nobody_reads_entities"):
+        if field not in addon.event_defines:
+            failures.append(
+                f"{field} did not reach the addon. Every `event_*` table "
+                f"is kept, not a list of the ones in use: one nobody reads "
+                f"yet costs a couple of kilobytes, and one nobody KEPT is "
+                f"gone -- it rides the login burst and nothing else.")
+
     # --- and both reach the snapshot as LISTS -----------------------
     # The shape the wire uses and the shape every snapshot on disk
     # already carries, so `_event_finished` and `_event_attendance`

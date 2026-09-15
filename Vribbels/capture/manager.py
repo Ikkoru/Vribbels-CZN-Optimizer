@@ -114,6 +114,14 @@ SAVE_MARKER = "[SYNC] saved"
 # The cap guards against a key built out of something unbounded rather
 # than against an expected size: one account's vocabulary is a few
 # hundred pairs.
+# Event tables with a reader of their own, kept out of the general
+# `event_*` sweep: the completion record is merged by id and written
+# as a LIST, where the sweep would keep the wire's dict beside it.
+EVENT_FIELDS_HANDLED = frozenset({
+    "event_mission_reward_entities", "event_mission_reward_entity",
+    "result_event_mission_reward_entities",
+})
+
 CATALOGUE_SAMPLE = 200
 CATALOGUE_MAX = 4000
 
@@ -996,26 +1004,51 @@ class Addon:
         # but the naming, so they are kept by the field they arrive
         # under and the Checklist reads whichever it knows -- a set of
         # puzzles here, a stated total there.
+        #
+        # **Every `event_*` table, not a list of the ones in use.**
+        # These are what say how BIG an event is -- the bartender's is
+        # one row per day of it -- and the total a Checklist row needs
+        # is a count over them. A table nobody reads yet costs a few
+        # kilobytes; a table nobody KEPT cannot be read later, because
+        # it only ever arrives at login. Eight of them on this account
+        # come to 16KB against a 2.2MB snapshot, and the bulky
+        # story-node payloads in the same reply do not carry the
+        # prefix. See `docs/events.md`.
         for key, value in data.items():
-            if not isinstance(value, dict) or not value:
+            if not isinstance(value, dict) or not value or not key.startswith(
+                    "event_"):
                 continue
-            if key.startswith("event_") and (key.endswith("_define_entity")
-                                             or key.endswith("_set_entities")):
-                self.event_defines[key] = value
-                self._save_pending = True
+            # **The tables with a reader of their own stay out.** Each
+            # is merged its own way and written into the snapshot under
+            # its own name; sweeping one up here would put a second
+            # copy in the same file, under the same key, and the later
+            # of the two wins.
+            if key in EVENT_FIELDS_HANDLED:
+                continue
             # **The SINGULAR of a collection is the one row that
             # changed**, and it arrives under its own key rather than
             # inside the plural. Finishing a summer puzzle answers with
             # `event_summer_set_entity`, so without this the set's
             # `complete_time` stays 0 until the next login -- the
             # snapshot shows an unfinished puzzle beside the reward it
-            # just paid for.
-            elif (key.startswith("event_") and key.endswith("_set_entity")
-                    and value.get("res_id") is not None):
-                plural = self.event_defines.setdefault(key[:-1] + "ies", {})
-                if isinstance(plural, dict):
-                    plural[str(value["res_id"])] = value
+            # just paid for. **And it must not be kept as a table of
+            # its own**: a second copy under a second name is one more
+            # thing for a reader to pick the wrong one of.
+            # A singular carrying a `res_id` is ONE ROW; a singular
+            # without one is a record of its own, like an event's
+            # define. That test rather than "have I seen the plural" --
+            # a capture started mid-session sees the row before it ever
+            # sees the collection, and would then keep the second copy.
+            if key.endswith("_entity") and value.get("res_id") is not None:
+                held = self.event_defines.setdefault(
+                    key[:-len("_entity")] + "_entities", {})
+                if isinstance(held, dict):
+                    held[str(value["res_id"])] = value
                     self._save_pending = True
+                continue
+            if key.endswith("_entity") or key.endswith("_entities"):
+                self.event_defines[key] = value
+                self._save_pending = True
         # The login-streak events: days shown up, days claimed.
         #
         # **Merged by event, never replaced.** The login burst sends
