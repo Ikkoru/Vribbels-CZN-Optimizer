@@ -116,7 +116,7 @@ The rest join them, all merged rather than replaced for the same reason:
 
 **A Communication Pass is in none of them, because it is in nothing.** Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.
 
-## The item counts arrive once, and change through seven keys
+## The item counts arrive once, and change through seven keys and a sweep
 
 `inventory.items` and `characters.currencies` come down in the login burst and never again. Every later change to either rides on the reply to whatever caused it, in one of two shapes.
 
@@ -145,7 +145,17 @@ Without these branches nothing on the wire moves an item count: the Materials ta
 
 **Three keys are payout-shaped and must NOT be applied.** `battle/reward_complete` answers with `drop_item`, a list in exactly the drop shape — and it is the RUN's running tally rather than the battle's payout: the same entries come back after every battle and grow as spots are picked up, while the counts they name stay put. One capture sent `[Units 2000, Traces of Memory 2]` four times in fifty seconds with the Units balance unchanged throughout, then carried those entries plus the spot pickups for the rest of the run. `world/get_stage_info|drop_item` and `merchant/*|drop_item_info` carry the same accumulated list. Applied, a five-battle run pays five times over. `checks/check_capture_rewards.py` holds the line.
 
-**The Sortie's own report screen has never been captured.** Across all 34 debug logs there is not one `chaos_assault` run command, Reason (the entry cost) never moves in any reply, and Aether never moves by the Sortie's deposit — so what a Sortie pays under is unknown, and the Capture Log stays quiet when one is finished. `chaos_free_reward_result` is not it: that belongs to `chaos_report_reward/battle_report_reward` and `encounter/report_reward`, which are the Chaos and encounter report screens. Settling it needs a capture with **Debug WS ticked** covering one Sortie from entry to report.
+**A run's own clear reward is NESTED, and nothing at the top level carries it.** `stage/clear_stage` answers with `return_info`, and inside it:
+
+| Where | Pays |
+| ----- | ---- |
+| `return_info.result_reward_drop_item` | what finishing the run gave — items and currency together |
+| `return_info.chaos_assault_result.refund_item_result` | a Sortie's entry deposit back (Aether +10) |
+| `return_info.confirm_drop_item` | nothing: the run's accumulated pickups, already paid |
+
+So `_nested_rewards` sweeps `return_info` by SHAPE rather than by name — the names are per-content and there is no reason the next kind of run will reuse them — and takes every totals envelope it finds, bounded and stopping as soon as it has one. **Over-collecting is safe here**: an envelope states what a holding now is, so taking one twice writes the same number. The drop LISTS in the same payload would double, which is why only envelopes are swept.
+
+This is what a Sortie pays at its report screen, and reading only the reply's own keys is why every Sortie finished in silence. The entry itself is `chaos_assault/enter_assault` (Aether −10) and each area's reward is `chaos_assault/receive_area_reward`, which charges a Reason under `dec_result` and pays under `item_result` — both already read.
 
 **The log's word is picked from the SIGNS, not from the key.** A Sortie's entry fee is CHARGED through `item_result`, so reading the key announces it as a receipt: `Received Aether -10`. Where every figure in a payload moved the same way that is the answer; a payload with movement both ways falls back to the key.
 

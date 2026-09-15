@@ -46,7 +46,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Fixed
 
-- **A Sortie's rewards reach the Capture Log.** The report screen pays under a key nothing was reading, so a whole run's payout went unannounced — the counts still ended up right, because the game re-sends the inventory afterwards, which is exactly what made it hard to notice. A town calamity's payout had the same problem, under a key of its own.
+- **A Sortie's rewards reach the Capture Log.** Finishing a run pays under a key nothing was reading — nested inside the stage's own result rather than at the top level — so a whole run's payout went unannounced, the entry deposit coming back with it. The counts still ended up right, because the game re-sends the inventory afterwards, which is exactly what made it hard to notice. A Chaos report screen and a town calamity had the same problem, each under a key of its own.
 
 - **A charge no longer reads as a gift.** Entering a Sortie costs Aether and is charged through the same envelope a reward arrives in, so the log said `Received Aether -10`. The word now comes from which way the figures moved.
 

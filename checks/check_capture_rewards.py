@@ -424,6 +424,64 @@ def run():
             f"{_amount(addon, ITEM_ID)!r} and the log said {log!r}. It is "
             f"the run's accumulated list, re-sent after every battle, so "
             f"reading it pays a run's rewards once per battle.")
+    # --- a run's clear reward, nested where nothing looked ----------
+    # `stage/clear_stage` pays under `return_info.result_reward_drop_item`
+    # and hands a Sortie's entry deposit back under
+    # `return_info.chaos_assault_result.refund_item_result`. Both are
+    # ordinary totals envelopes, and neither is at the top level -- so
+    # every Sortie's clear reward went unannounced while the counts
+    # still came right off the client's own re-read.
+    #
+    # The `confirm_drop_item` LIST in the same payload is the run's
+    # accumulated pickups and must stay untouched: the sweep takes
+    # envelopes, which state totals, and never lists, which add.
+    log.clear()
+    before_item, before_currency = _amount(addon, ITEM_ID), _currency(addon, CURRENCY_ID)
+    addon._handle_server_payload({
+        "res": "ok", "qid": 80,
+        "return_info": {
+            "state": "finish", "result": "CLEAR", "play_score": 888,
+            "result_reward_drop_item": {
+                "items": {str(ITEM_ID): {
+                    "doc": {"res_id": ITEM_ID, "amount": before_item + 120},
+                    "diff": 120}},
+                "currency": {str(CURRENCY_ID): {
+                    "doc": {"res_id": CURRENCY_ID,
+                            "amount": before_currency + 4000},
+                    "diff": 4000}},
+                "fake_items": {}},
+            "chaos_assault_result": {"refund_item_result": {"currency": {
+                "2000002": {"doc": {"res_id": 2000002, "amount": 145},
+                            "diff": 10}}}},
+            "confirm_drop_item": [{"id": ITEM_ID, "amount": 20},
+                                  {"id": CURRENCY_ID, "amount": 2000}],
+            "result_overclock_entities": []},
+    }, 100)
+    if _amount(addon, ITEM_ID) != before_item + 120:
+        failures.append(
+            f"a run's clear reward left {ITEM_ID} at "
+            f"{_amount(addon, ITEM_ID)!r}, not {before_item + 120}. It is "
+            f"nested under `return_info`, never at the top level, so a "
+            f"reader that only looks at the reply's own keys announces "
+            f"nothing and every Sortie finishes in silence.")
+    if _currency(addon, CURRENCY_ID) != before_currency + 4000:
+        failures.append(
+            f"a run's clear reward left the currency at "
+            f"{_currency(addon, CURRENCY_ID)!r}, not "
+            f"{before_currency + 4000}.")
+    if _currency(addon, 2000002) != 145:
+        failures.append(
+            f"the entry deposit came back as {_currency(addon, 2000002)!r}, "
+            f"not 145. The refund is a second envelope in the same "
+            f"payload, one level deeper -- and taking only the first one "
+            f"found is how it would be missed.")
+    if len([line for line in log if "Received" in str(line)]) != 2:
+        failures.append(
+            f"a run's clear reward and its refund wrote {log!r}. Two "
+            f"envelopes moved, so two lines: the counts come right off "
+            f"the client's own re-read either way, and the log line is "
+            f"the only thing that says a reward arrived at all.")
+
     # A town calamity pays under `calamity_reward`, in the same
     # `{currency, items}` shape as the four keys beside it.
     log.clear()

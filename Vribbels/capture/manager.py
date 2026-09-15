@@ -880,6 +880,22 @@ class Addon:
                     continue
             self._apply_totals(payload, spent=key == "dec_result")
 
+        # **A run's own clear reward is nested**, under the stage
+        # reply's `return_info` and never at the top level:
+        # `result_reward_drop_item` is what finishing the run paid, and
+        # `chaos_assault_result.refund_item_result` hands a Sortie's
+        # entry deposit back. Both are ordinary totals envelopes.
+        #
+        # Swept by SHAPE rather than by name, because the names are
+        # per-content and there is no reason to think the next kind of
+        # run will reuse them. **Safe to over-collect**: an envelope
+        # states what a holding now is, so taking one twice writes the
+        # same number. The drop LISTS beside them in the same payload
+        # -- `confirm_drop_item` -- would double, which is why only
+        # envelopes are swept. See `_nested_rewards`.
+        for nested in self._nested_rewards(data.get("return_info")):
+            self._apply_totals(nested)
+
         # A stage's rewards, which are the exception: a LIST of drops
         # with no record and no total, so they are added rather than
         # written in. See `_apply_drops`.
@@ -1299,6 +1315,45 @@ class Addon:
                                                  or "items" in deeper):
                     return deeper
         return None
+
+    @staticmethod
+    def _nested_rewards(payload, depth=3):
+        """Every totals envelope inside `payload`, however it is named.
+
+        `_nested_reward` answers the same question for a `result` and
+        stops at the FIRST match; a stage's `return_info` carries
+        several, so this collects them all.
+
+        The test is the shape: a dict holding `items` or `currency`
+        whose rows carry a `doc`. Bounded, because a deep enough walk
+        of a stage reply eventually finds something that only
+        resembles a reward -- and the walk stops descending as soon as
+        it has an envelope, so a `doc` inside one cannot be taken for
+        another.
+        """
+        found = []
+
+        def envelope(value):
+            for group in ("items", "currency"):
+                rows = value.get(group)
+                if isinstance(rows, dict) and any(
+                        isinstance(row, dict) and isinstance(row.get("doc"),
+                                                             dict)
+                        for row in rows.values()):
+                    return True
+            return False
+
+        def walk(value, left):
+            if not isinstance(value, dict) or left <= 0:
+                return
+            if envelope(value):
+                found.append(value)
+                return
+            for deeper in value.values():
+                walk(deeper, left - 1)
+
+        walk(payload, depth)
+        return found
 
     def _apply_totals(self, result, spent=False):
         """Apply a record that states what a holding NOW IS.
