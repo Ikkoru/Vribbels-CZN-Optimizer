@@ -281,7 +281,7 @@ Both inset the box by what the widget paints around its own content: a cell with
 
 ### What the audit does not reach
 
-An entry named in `AWAITING_FIRST_READING` prints yellow, in the short run as well as the verbose one, until a run agrees with it. Everything else is on target and confirmed against a hand reading. What follows is the parts of the app no entry measures at all, so a drift there shows up on screen and nowhere else.
+An entry named in `AWAITING_FIRST_READING` prints yellow, in the short run as well as the verbose one, until a run agrees with it. The set is EMPTY: every registered gap is on target and confirmed against a hand reading, so a row printing at all is a regression. What follows is the parts of the app no entry measures at all, so a drift there shows up on screen and nowhere else.
 
 - **The Optimizer's status label ends 6px from the tab's right edge**, where the border rule asks 4 and a Label's own inset has 2 left to give. The off-Element checkbox below it sits at 13, deliberately: it stays under the spinbox and is easier to click there.
 - **`checkboxes -> unrelated checkboxes` has no entry at all.** Its one site pins its block to a panel's floor, so what sits above it is leftover height rather than a distance. The rule's 20 is a floor there, and the audit compares against a number.

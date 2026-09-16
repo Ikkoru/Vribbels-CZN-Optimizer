@@ -4424,22 +4424,11 @@ AWAITING_FIRST_READING = {
     # -- so a row printing yellow is a question, never a regression.
     # EMPTY is the state to return it to.
     #
-    # The Checklist's five. Two carry targets read off the screen and
-    # agreed -- the row pitch at 12 and the block division at 16 -- but
-    # neither has been confirmed by a run SINCE the readings that set
-    # them: the tab's face went up a point in the same turn, and the
-    # division's own lever was changed to meet its number. The other
-    # three are rule targets that the last run measured against a
-    # reading taken off the wrong reference. They come out together
-    # after a run that follows a quiet turn, not one at a time
-    # mid-change.
-    "Checklist: heading -> its first row",
-    "Checklist: row -> row",
-    "Checklist: block division",
-    "Checklist: product -> product",
-    "Checklist: shop heading -> its first product",
-    "Checklist: window edge -> first column",
-    "Checklist: last column -> window edge",
+    # The Checklist's seven came out together after the run that
+    # confirmed all of them: every target is either the rules table's
+    # or a distance read off the screen and agreed, and a run measured
+    # each against the levers it has now. They are the tab's normal
+    # state, so a row of it printing again is a regression.
 }
 
 
