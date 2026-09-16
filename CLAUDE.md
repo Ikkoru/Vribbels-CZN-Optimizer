@@ -7,21 +7,20 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 ## Hard rules
 
 - **Every hardcoded distance goes through `px()`**, on the geometry call and never on the constant — `ui/scaling.py` says why. A MEASURED distance (a font metric, a `winfo_reqheight`) must NOT: the font scaling already carried it. The spacing audit is 100%-only; `checks/check_ui_scales.py` is what watches 200%.
-- **Doc-first.** When in-game behaviour disagrees with the code or with `docs/game_formulas.md`, fix the doc first, then the code. A formula doc records what the user is ASKED TO ENTER as well as what the program computes — the Important Settings shares are read off the deck, not off damage numbers. Establish what a setting's input MEANS before changing math because it "should" behave differently.
+- **Doc-first.** When in-game behaviour disagrees with the code or with `docs/game_formulas.md`, fix the doc first, then the code. A formula doc records what the user is ASKED TO ENTER as well as what the program computes — the Important Settings shares are read off the deck, not off damage numbers — so establish what an input MEANS before changing math because it "should" behave differently.
+- **Every checkbox comes from `ui/utils/checkbox.py` and every scrolled text from `ui/utils/scrolled_text.py`** — a check enforces both.
 - **Load-bearing code that looks removable:** `make_checkbox`'s `winfo_id()`, the `realize_windows()` walk in `_reveal_window`, `_ScrolledText`'s copy of the wrapper's geometry methods, and `OptimizerSettingsManager.load()`'s unknown-key passthrough. All pinned with a check. See `docs/ui_runtime.md` for the first three.
 - **"Never open a window unasked" means the GUI here** — `zRUN.bat` and the spacing audit both need the maintainer at the keyboard.
 - End-of-turn commits go after `checks/run_all.py`; messages use the CHANGELOG's register.
 
 ## Commands
 
-- Syntax-check everything touched, from the repo root: `python -m compileall -q Vribbels`
 - Build: `zCreate exe.bat` (PyInstaller, onefile). It passes `--add-data` on the command line, so `Vribbels_CZN_Optimizer_Ikkoru.spec` is an artifact it overwrites — edit the bat, never the spec. Two scripts run first and either failing stops the build: `default_settings/normalize/normalize_defaults.py` (fails if `default_settings/` is missing its three JSONs — workflow in `docs/how_to_maintain_default_settings.md`), and `build_tcl/prepare_tcl_data.py`, which unpacks Tcl/Tk's library only when PyInstaller cannot collect it. **Tcl 9 keeps its library inside the DLL**, so PyInstaller finds no data files and its own runtime hook raises on the exe's first line — a build that succeeds and an executable that dies before any window.
-- Checks: `python checks/run_all.py`, or `zRUN Checks.bat` for a window that stays open. Both take the same flags.
 - Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its target (`...Verbose.bat` for all rows, `...Freeze.bat` to rewrite the baseline). It photographs the screen, so it needs the window unobscured and frontmost, the pointer off it, and a snapshot loaded — **ask before running one.** A normal launch never imports it.
 
 ## Headless verification
 
-**Run `python checks/run_all.py` before handing work over.** ~15s, no GUI. They cover the invariants that fail QUIETLY: optimizer scoring and parity, game data, settings round-trips, the capture pipeline, the spacing markers and registry, and the UI's own construction and geometry at both scales. `--list` names every one — read that rather than a copy of it here. Checks needing captured data skip themselves when `Vribbels/snapshots/` is empty. Parity runs bounded; `--full` takes minutes.
+**Run `python checks/run_all.py` before handing work over** (`zRUN Checks.bat` for a window that stays open; same flags). ~15s, no GUI. They cover the invariants that fail QUIETLY: optimizer scoring and parity, game data, settings round-trips, the capture pipeline, the spacing markers and registry, and the UI's own construction and geometry at both scales. `--list` names every one — read that rather than a copy of it here. A check with no captured data to work on skips, or notes what it could not cover. Parity runs bounded; `--full` takes minutes.
 
 **Add a check whenever you fix something that failed silently** — that is what the directory is for. `checks/__init__.py` says how.
 
@@ -42,7 +41,7 @@ Mapping a window puts it on the maintainer's screen — **ask first**. `withdraw
 | A settings or defaults-sync change    | Point the managers at a COPY of `Vribbels/settings/` in the scratchpad, never the live folder                                        |
 | Which widgets a change moved          | Build the tabs the `check_tabs_build.py` way, snapshot every row's values before and after, diff                                      |
 | A rendered GAP, in pixels             | `zRUN Spacing Audit Verbose.bat` — every registered gap, read off a screenshot. Ask before running one                                |
-| Something only the screen shows       | A side-by-side repro in `_tmp/`, for the maintainer to run                                                                            |
+| Something only the screen shows       | A side-by-side repro in `_tmp/` — the maintainer runs it, so it goes in the repo, not the scratchpad                                  |
 
 Snapshots are the maintainer's captured game data. Read them; never write to `Vribbels/snapshots/` or `Vribbels/settings/`.
 
@@ -72,17 +71,11 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 
 ## Project identity
 
-**Vribbels CZN Optimizer (Ikkoru fork)** — a Memory Fragment / gear optimizer for **Chaos Zero Nightmare** (CZN), forked from `Vorbroker/Vribbels-CZN-Optimizer` at upstream v1.7.0. This fork is `Ikkoru/Vribbels-CZN-Optimizer`, branch `master`.
+**Vribbels CZN Optimizer (Ikkoru fork)** — a Memory Fragment / gear optimizer for **Chaos Zero Nightmare** (CZN). Python 3, Tkinter UI, mitmproxy for capture; source root `Vribbels/`. Forked from `Vorbroker/Vribbels-CZN-Optimizer` at upstream v1.7.0; this fork is `Ikkoru/Vribbels-CZN-Optimizer`, branch `master`.
 
 Version string: `Vribbels/version.py`, bumped ONLY at release — dev builds keep the released string.
 
-## Layout
-
-- Python 3, Tkinter UI, mitmproxy for capture.
-- Source root `Vribbels/`; main GUI `czn_optimizer_gui.py`; tabs in `ui/tabs/{capture,checklist,heroes,inventory,materials,optimizer,scoring,setup}_tab.py`.
-- Optimizer engine: `optimizer/optimizer.py` (wrappers, run context, dispatch), pure per-combo math in `optimizer/core.py`, multiprocessing in `optimizer/parallel.py`.
-- Game data tables in `game_data/`; dataclasses in `models/`.
-- Shared widget helpers in `ui/utils/`. Every checkbox comes from `checkbox.py` and every scrolled text from `scrolled_text.py`; a check enforces both.
+## Naming
 
 **Identifiers inherited from upstream do not use the game's words**, and that mismatch is deliberate — renaming them cascades through saved settings, presets and captured-data keys. User-visible TEXT uses the game's term; identifiers keep upstream's.
 
