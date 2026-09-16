@@ -493,11 +493,15 @@ Two entries on that tab carry targets its rule does not supply, and both are mar
 
 **The division is two levers, not one.** A boundary crossed from an ordinary row and one crossed from a CHECKBOX row sat 2px apart at the same `spacing1` -- the widget's ink reaches lower in its line than a glyph's -- so `BLOCK_PAD_FROM_BOX` pays the difference back. Both are the one distance the eye is meant to see, and the audit reads whichever is widest.
 
+| `Checklist: product -> product` | 5 | A shop product's label IS the checkbox, so the row has no capital to read and both this and the gap below are taken between painted boxes. The eye reads 12 on them, the same as every row beside them, measured capital to capital on the labels inside the widgets. `CHECKBOX_PITCH` |
+| `Checklist: shop heading -> its first product` | 5 | The first product sits under the heading's WORDS where the rest sit under another box, and a heading's ink stops at its baseline where a checkbox's stops at its own edge -- two apart at one `spacing1`. `CHECKBOX_UNDER_HEAD` |
 | `Checklist: heading -> its first row` | 12 | The heading's own box and the first row's spend more than the rule's 10 between them before `HEADING_GAP` adds anything, the tab's face being a point larger. |
 
-**A row whose label is an embedded WIDGET has no baseline**, so nothing restates its reading from one: its lowest ink is the checkbox's own edge rather than a glyph's. Correcting it by the glyph table anyway added a pixel for the `/` in a reading like `20/20`, which is how a division under a shop product read one wider than the same division under a row of words.
+**A row whose label is an embedded WIDGET has no baseline and no capital**, so its end of a gap is read off ink. That is why the two product gaps carry targets of their own: every other row on the tab is read capital to capital, and 5 between painted boxes is the same 12 the eye sees between the labels inside them.
 
-**A line's top is read on its first CAPITAL.** The rules measure to the cap and a row's topmost ink is routinely a digit or an ascender, which differ by a per-font pixel: the same pitch read 10 on one row and 11 on the next depending on what the row happened to say. `_capital_band` narrows the scan to one capital, and a line with no capital on it keeps its whole-line reading and says so in the note.
+**And a row with a checkbox at the END of it stands taller than its words.** The widget sets the line's height and its ink sits inside that, so the gap above such a row and the gap below it each read a pixel wider at one `spacing1` -- measured down the Events block as 13, 14, 14, 13 against the 12 two rows of text sit at. `BOX_ROW_SLACK` is what gives those pixels back.
+
+**Both ends of a line-to-line reading are the line's first CAPITAL.** A capital's top IS the cap height and its bottom IS the baseline, so a gap taken between two of them is already on the references the rules name -- with no glyph table in it at all. Read off the whole line instead, each end moves with whatever the row happens to say: an ascender clears the cap by a pixel, a slash drops two below the baseline, and the same pitch reads 11 on one pair and 12 on the next. `_capital_band` narrows the scan; a line with no capital keeps its ink reading and the note names it.
 
 ## The unruled rows, as a table
 
@@ -506,7 +510,6 @@ Two entries on that tab carry targets its rule does not supply, and both are mar
 | Description | Location | Rule/Question |
 | ----------- | -------- | ------------- |
 | the Links panel's own button styling and pitch | `ui/tabs/setup_tab.py`, `_link_button` | Flat `tk.Button`s with their own `padx`/`pady`, packed `fill=X` at a pitch of 2. A flat button's painted edge is its fill rather than a border, so `button -> button` may not be the rule that applies. |
-| checkbox row -> checkbox row | `ui/tabs/checklist_tab.py`, `CHECKBOX_PITCH` | The Checklist's shop products are checkboxes embedded in a Text line, and a checkbox is taller than the line it sits on — 18px against the face's 15, which is why the block that holds them is sized on the widget rather than on `linespace`. Measured: the BOX-to-box gap is exactly the `spacing1`, with nothing of the widget's own in it, so what the eye sees is that plus the inset the checkbox paints inside its box, twice over. `label row -> label row` is read between painted rows and would answer about the box rather than the tick. Open: whether checkbox rows want their own rule or a correction applied to that one. |
 
 ## Checking spacing
 

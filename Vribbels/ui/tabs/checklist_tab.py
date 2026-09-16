@@ -1737,7 +1737,13 @@ ROW_PITCH = 4           # spacing: exception -- label row -> label row -- run, r
 # inset from its own**, so what the eye sees is this plus that inset
 # twice over. Measured: the box-to-box gap is exactly `spacing1`,
 # with nothing else of the widget's in it.
-CHECKBOX_PITCH = 1      # spacing: TBD -- checkbox row -> checkbox row
+CHECKBOX_PITCH = 2      # spacing: exception -- label row -> label row -- checkbox, checkbox ↕
+
+# And the FIRST product of a shop, which sits under the heading's words
+# rather than under another box. A heading's ink stops at its baseline
+# where a checkbox's stops at its own edge, so the same `spacing1`
+# reads two wider there -- this is the two, given back.
+CHECKBOX_UNDER_HEAD = 0  # spacing: exception -- label row -> label row -- heading, checkbox ↕
 
 # What sets a block apart from the rows around it: extra space on the
 # row that crosses a BOUNDARY -- the first row of a shop or of the
@@ -1758,6 +1764,15 @@ BLOCK_PAD = 4           # spacing: exception -- label row -> label row -- run, r
 # does. Both are the one distance the eye is meant to see.
 BLOCK_PAD_FROM_BOX = 6  # spacing: exception -- label row -> label row -- run, run ↕
 
+# **A row with a checkbox at the END of it stands taller than its
+# words.** The widget sets the line's height and its ink sits inside
+# that, so the gap above such a row and the gap below it each read a
+# pixel wider than the same `spacing1` between two rows of text.
+# Measured down the Events block: 13 under a heading, 14 between two
+# asking rows, 13 back to a row that is not asking, 12 between two
+# that are not.
+BOX_ROW_SLACK = 1
+
 # What each line tag's `spacing1` is set from. The tags are configured
 # on the Text and `_block_height` has to add the same numbers up, so
 # one table serves both -- a pitch changed in one place and not the
@@ -1765,7 +1780,12 @@ BLOCK_PAD_FROM_BOX = 6  # spacing: exception -- label row -> label row -- run, r
 # difference off the bottom without a word.
 ROW_TAG_PITCH = {"row": ROW_PITCH, "blockrow": ROW_PITCH + BLOCK_PAD,
                  "boxblockrow": ROW_PITCH + BLOCK_PAD_FROM_BOX,
-                 "boxrow": CHECKBOX_PITCH}
+                 "boxrow": CHECKBOX_PITCH,
+                 "boxheadrow": CHECKBOX_UNDER_HEAD,
+                 # An ordinary row beside one asking `Finished?`, and
+                 # one between two of them. See `BOX_ROW_SLACK`.
+                 "row_beside_box": ROW_PITCH - BOX_ROW_SLACK,
+                 "row_between_boxes": ROW_PITCH - 2 * BOX_ROW_SLACK}
 
 # A row's words against its value, which is a left TAB STOP. A lever
 # short of the rule, the words stopping inside their own advance.
@@ -2109,7 +2129,8 @@ class ChecklistTab(BaseTab):
         # stacked on top of `row` would depend on the order the tags
         # were created in -- which is not a thing to lay a gap on.
         # spacing: exception -- label row -> label row -- run, run ↕
-        # spacing: TBD -- checkbox row -> checkbox row
+        # spacing: exception -- label row -> label row -- checkbox, checkbox ↕
+        # spacing: exception -- label row -> label row -- heading, checkbox ↕
         for tag, pitch in ROW_TAG_PITCH.items():
             text.tag_configure(tag, spacing1=px(pitch))
         for group, stops in group_stops.items():
@@ -2228,7 +2249,8 @@ class ChecklistTab(BaseTab):
         for key in keys:
             total += (box if _is_shop(key) or key in self._finishable
                       else line)
-            total += px(ROW_TAG_PITCH[_row_tags(key, above)[0]])
+            total += px(ROW_TAG_PITCH[
+                _row_tags(key, above, self._finishable)[0]])
             above = key
         return total
 
@@ -2578,7 +2600,7 @@ class ChecklistTab(BaseTab):
         # WIDGET rather than a reading: a value patch cannot repaint
         # it, so it belongs in what says whether the line is the same.
         return ((key, label, tracked, segments, self._finishable.get(key)),
-                _row_tags(key, above),
+                _row_tags(key, above, self._finishable),
                 _label_tag(key, label), total[0] if total else None)
 
     def _checkbox(self, title, parent, key, label, state):
@@ -3649,7 +3671,7 @@ def _crosses_a_block(above, key):
     return _heads_a_block(key) or (_is_shop(above) and not _is_shop(key))
 
 
-def _row_tags(key, above):
+def _row_tags(key, above, boxed=()):
     """The line tags one row takes, beyond its own colours.
 
     **Exactly one pitch tag per line.** Tk resolves two tags setting
@@ -3661,19 +3683,31 @@ def _row_tags(key, above):
     the column. The block pad rides the row below a boundary, so that
     is what says whether this row pays it.
 
+    `boxed` is the keys of the rows carrying a checkbox at the END of
+    the line -- the ones asking `Finished?`. Such a row stands taller
+    than its words, so it and the row under it both sit closer.
+
     A shop heading also carries the tab stop its own total sits at --
     see `SHOP_STOP_PREFIX`. That tag holds no pitch, and the pitch tag
     stays first: callers read `[0]` for it.
     """
     if _is_shop(key):
-        return ("boxrow",)
+        # The first product of a shop sits under WORDS rather than
+        # under another box, which the same `spacing1` reads two wider
+        # under. See `CHECKBOX_UNDER_HEAD`.
+        return ("boxheadrow" if str(above or "").startswith(SHOP_HEAD_PREFIX)
+                else "boxrow",)
     # **A boundary crossed from a checkbox row pays more.** The
     # widget's ink sits lower in its line than a glyph's, so the same
     # `spacing1` reads two tighter under one. See `BLOCK_PAD_FROM_BOX`.
     if _crosses_a_block(above, key):
         pitch = "boxblockrow" if _is_shop(above) else "blockrow"
     else:
-        pitch = "row"
+        # A row asking `Finished?` carries a checkbox at the end of it
+        # and stands taller than its words, which widens the gap on
+        # both sides of it. See `BOX_ROW_SLACK`.
+        slack = (key in boxed) + (above in boxed)
+        pitch = ("row", "row_beside_box", "row_between_boxes")[slack]
     if key.startswith(SHOP_HEAD_PREFIX):
         return (pitch, SHOP_STOP_PREFIX + key)
     # The stop its countdown lines up at, where it is in a group that
