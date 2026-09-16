@@ -206,16 +206,19 @@ FULL_COST_LABEL = "Full cost of selected items:"
 RATE_VALUE = "%s %s"
 
 # What a compact `tk.Checkbutton` costs beyond the width of its own
-# words: its indicator, and the gap Tk puts between the two. MEASURED
-# and written down -- it is the widget's own, and not readable before
-# the widget exists. The column reserves it so a checkbox row's words
-# stop where a plain row's do.
+# words: its indicator, and the gap Tk puts between the two. The column
+# reserves it so a checkbox row's words stop where a plain row's do.
 #
-# **The same at any font size**: 23 against `Ag`, `Finished?` and a
-# shop product's whole name, at 9pt and at 10pt alike. So it does not
-# follow `ROW_FONT`, and a reserve short by the difference lets a long
-# label run into its own reading.
-CHECKBOX_OVERHEAD = 23
+# **Measured from the widget's leftmost pixel to its TEXT's leftmost
+# pixel**, off the screen, which is the offset this is about: where a
+# checkbox row's words START. The widget's requested WIDTH is two more
+# than that -- trailing padding past the end of the text -- and taking
+# that instead pushes the reading column two right of where the words
+# need it.
+#
+# The same at any font size: the indicator and its gap are the
+# widget's own, so this does not follow `ROW_FONT`.
+CHECKBOX_OVERHEAD = 21
 
 # What a value says about the row it sits on. GREEN is nothing left to
 # do, RED is something left, and a row whose source a snapshot cannot
@@ -1718,7 +1721,7 @@ NO_DATA = "-"
 # after the first. A lever a rendered distance short of the rule: a
 # Text line's own box already carries part of the pitch, and unlike a
 # padding this cannot go negative.
-ROW_PITCH = 4           # spacing: label row -> label row -- run, run ↕
+ROW_PITCH = 4           # spacing: exception -- label row -> label row -- run, run ↕
 
 # The same, for a row whose label is a CHECKBOX. Its own lever because
 # a checkbox is taller than a text line, so the two cannot answer to
@@ -1740,7 +1743,14 @@ CHECKBOX_PITCH = 1      # spacing: TBD -- checkbox row -> checkbox row
 # the TOP of a column crosses nothing: the Monthly column starts on a
 # shop, and charging it there dropped that column below the other
 # three for a gap with nothing on the other side of it.
-BLOCK_PAD = 4           # spacing: TBD -- block heading and its checkbox run
+BLOCK_PAD = 4           # spacing: exception -- label row -> label row -- run, run ↕
+
+# And the same boundary crossed from a CHECKBOX row, which needs two
+# more to read the same. Measured across every boundary on the tab: a
+# heading under an ordinary row sat at 16 and one under a shop product
+# at 14, the widget's ink reaching lower in its line than a glyph's
+# does. Both are the one distance the eye is meant to see.
+BLOCK_PAD_FROM_BOX = 6  # spacing: exception -- label row -> label row -- run, run ↕
 
 # What each line tag's `spacing1` is set from. The tags are configured
 # on the Text and `_block_height` has to add the same numbers up, so
@@ -1748,6 +1758,7 @@ BLOCK_PAD = 4           # spacing: TBD -- block heading and its checkbox run
 # other sizes the block for rows it does not draw, and Tk clips the
 # difference off the bottom without a word.
 ROW_TAG_PITCH = {"row": ROW_PITCH, "blockrow": ROW_PITCH + BLOCK_PAD,
+                 "boxblockrow": ROW_PITCH + BLOCK_PAD_FROM_BOX,
                  "boxrow": CHECKBOX_PITCH}
 
 # A row's words against its value, which is a left TAB STOP. A lever
@@ -2091,8 +2102,7 @@ class ChecklistTab(BaseTab):
         # the same option by priority rather than by sum, so a pad
         # stacked on top of `row` would depend on the order the tags
         # were created in -- which is not a thing to lay a gap on.
-        # spacing: label row -> label row -- run, run ↕
-        # spacing: TBD -- block heading and its checkbox run
+        # spacing: exception -- label row -> label row -- run, run ↕
         # spacing: TBD -- checkbox row -> checkbox row
         for tag, pitch in ROW_TAG_PITCH.items():
             text.tag_configure(tag, spacing1=px(pitch))
@@ -3651,7 +3661,13 @@ def _row_tags(key, above):
     """
     if _is_shop(key):
         return ("boxrow",)
-    pitch = "blockrow" if _crosses_a_block(above, key) else "row"
+    # **A boundary crossed from a checkbox row pays more.** The
+    # widget's ink sits lower in its line than a glyph's, so the same
+    # `spacing1` reads two tighter under one. See `BLOCK_PAD_FROM_BOX`.
+    if _crosses_a_block(above, key):
+        pitch = "boxblockrow" if _is_shop(above) else "blockrow"
+    else:
+        pitch = "row"
     if key.startswith(SHOP_HEAD_PREFIX):
         return (pitch, SHOP_STOP_PREFIX + key)
     # The stop its countdown lines up at, where it is in a group that

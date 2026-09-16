@@ -482,6 +482,19 @@ A `unique` names no rule, so nothing derives its number — and the registry's r
 
 **The Setup Status pitch is read on the first CAPITAL of each row**, not on the row's whole painted extent. Those rows read `[OK] Python 3.13` once they have checked, and a bracket rises above the cap and drops below the baseline — so a whole-row scan reports a pitch two overshoots short, and one that changes the moment the panel leaves its `Checking ...` state. Narrowing the scan to one letter puts both ends of the reading on the rule's own reference with no glyph correction to model. The same panel's gaps to its own border are still read from the ink, so they are not this number.
 
+### Where the Checklist breaks `label row -> label row`
+
+Two entries on that tab carry targets its rule does not supply, and both are marked at their site:
+
+| Gap | Target | Why |
+| --- | ------ | --- |
+| `Checklist: row -> row` | 12 | The tab's face is a point larger than the app's body text. The rows carry more ink each, and the 10 that reads as a list at 9pt reads as a solid block at 10. `ROW_PITCH` |
+| `Checklist: block division` | 16 | What sets a shop or the Events list apart from the rows around it. Four above the pitch, which is what it takes to break a column of near-identical rows into blocks the eye can find without the gap reading as a missing row. `BLOCK_PAD` |
+
+**The division is two levers, not one.** A boundary crossed from an ordinary row and one crossed from a CHECKBOX row sat 2px apart at the same `spacing1` -- the widget's ink reaches lower in its line than a glyph's -- so `BLOCK_PAD_FROM_BOX` pays the difference back. Both are the one distance the eye is meant to see, and the audit reads whichever is widest.
+
+**A line's top is read on its first CAPITAL.** The rules measure to the cap and a row's topmost ink is routinely a digit or an ascender, which differ by a per-font pixel: the same pitch read 10 on one row and 11 on the next depending on what the row happened to say. `_capital_band` narrows the scan to one capital, and a line with no capital on it keeps its whole-line reading and says so in the note.
+
 ## The unruled rows, as a table
 
 `checks/check_spacing_markers.py` compares this section against the `# spacing: TBD -- ...` markers in the code, so a row here with no site — or a site with no row — fails.
@@ -490,7 +503,6 @@ A `unique` names no rule, so nothing derives its number — and the registry's r
 | ----------- | -------- | ------------- |
 | the Links panel's own button styling and pitch | `ui/tabs/setup_tab.py`, `_link_button` | Flat `tk.Button`s with their own `padx`/`pady`, packed `fill=X` at a pitch of 2. A flat button's painted edge is its fill rather than a border, so `button -> button` may not be the rule that applies. |
 | checkbox row -> checkbox row | `ui/tabs/checklist_tab.py`, `CHECKBOX_PITCH` | The Checklist's shop products are checkboxes embedded in a Text line, and a checkbox is taller than the line it sits on — 18px against the face's 15, which is why the block that holds them is sized on the widget rather than on `linespace`. Measured: the BOX-to-box gap is exactly the `spacing1`, with nothing of the widget's own in it, so what the eye sees is that plus the inset the checkbox paints inside its box, twice over. `label row -> label row` is read between painted rows and would answer about the box rather than the tick. Open: whether checkbox rows want their own rule or a correction applied to that one. |
-| block heading and its checkbox run | `ui/tabs/checklist_tab.py`, `BLOCK_PAD` | Extra space on the row that crosses a block's edge -- the first row of a shop or of the Events list, and the first ordinary row after one -- so a block is set apart from what surrounds it. Charged ONCE per edge and only above: paying it below a block as well doubles it wherever two blocks touch, and paying it at the top of a column drops that column below its neighbours for a gap with nothing on the other side. Open: which rule this is, a heading's own pitch being neither `label row -> label row` nor `panel ↕ unrelated label`. |
 
 ## Checking spacing
 

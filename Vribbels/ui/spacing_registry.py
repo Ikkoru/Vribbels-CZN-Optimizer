@@ -17,6 +17,7 @@ Two conventions for adding entries:
   makes a target a plain number rather than one per glyph class.
 """
 
+import re
 import tkinter as tk
 from tkinter import font as tkfont
 
@@ -273,35 +274,42 @@ def _capital_span(text, font):
     return font.measure(text[:index]), font.measure(text[:index + 1])
 
 
-def _first_capital_band(widget):
-    """The box of the first CAPITAL on a Text's first painted line.
+def _capital_band(widget, n):
+    """The box of the first CAPITAL on one line of a Text, or None.
 
-    Returns a Box in root coordinates, or None when the line has no
-    capital on it -- a caller then falls back to the whole line and says
-    so, rather than reporting a number taken from a different reference
-    than the one the rule names.
+    In root coordinates. None where the line has no capital on it, or
+    where the capital falls past the line's own width -- a caller then
+    falls back to the whole line and says so, rather than reporting a
+    number taken from a different reference than the one the rule
+    names.
     """
     box = sa.box_of(widget)
+    line = widget.get(f"{n}.0", f"{n}.end")
+    if not line.strip():
+        return None
+    info = widget.dlineinfo(f"{n}.0")
+    if info is None:
+        return None
+    font = tkfont.Font(font=widget.cget("font"))
+    span = _capital_span(line, font)
+    if span is None:
+        return None
+    # A wrapped line puts later characters on a row of their own, where
+    # this offset would land on the wrong one.
+    if span[1] > info[2]:
+        return None
+    left = box.left + info[0] + span[0]
+    return sa.Box(left=left, top=box.top + info[1],
+                  right=box.left + info[0] + span[1] - 1,
+                  bottom=box.top + info[1] + info[3] - 1)
+
+
+def _first_capital_band(widget):
+    """The box of the first CAPITAL on a Text's FIRST painted line."""
     count = int(widget.index("end-1c").split(".")[0])
     for n in range(1, count + 1):
-        line = widget.get(f"{n}.0", f"{n}.end")
-        if not line.strip():
-            continue
-        info = widget.dlineinfo(f"{n}.0")
-        if info is None:
-            return None
-        font = tkfont.Font(font=widget.cget("font"))
-        span = _capital_span(line, font)
-        if span is None:
-            return None
-        # A wrapped first line puts later characters on a row of their
-        # own, where this offset would land on the wrong one.
-        if span[1] > info[2]:
-            return None
-        left = box.left + info[0] + span[0]
-        return sa.Box(left=left, top=box.top + info[1],
-                      right=box.left + info[0] + span[1] - 1,
-                      bottom=box.top + info[1] + info[3] - 1)
+        if widget.get(f"{n}.0", f"{n}.end").strip():
+            return _capital_band(widget, n)
     return None
 
 
@@ -2698,7 +2706,7 @@ def _text_line_pitch(locator):
         box = _inside_border(widget)
         origin = sa.box_of(widget).top
         colours = {_widget_fill(widget)}
-        rows, bands = [], []
+        rows, bands, no_cap = [], [], []
         count = int(widget.index("end-1c").split(".")[0])
         for n in range(1, count + 1):
             if not widget.get(f"{n}.0", f"{n}.end").strip():
@@ -2717,8 +2725,26 @@ def _text_line_pitch(locator):
             band = sa.Box(left=box.left, top=top,
                           right=box.right, bottom=top + info[3] - 1)
             extent = sa.painted_extent_v(cap, band, colours)
+            # **The TOP of a line is read on its first CAPITAL.** The
+            # rules measure to the cap, and a line's topmost ink is
+            # routinely a digit or an ascender instead -- so the same
+            # pitch read 10 on one row and 11 on the next depending on
+            # what the row happened to say. Narrowing the scan to one
+            # capital puts both ends on the rule's own reference with
+            # no glyph correction to model; a line with no capital
+            # keeps its whole-line reading and the note says so.
+            words = widget.get(f"{n}.0", f"{n}.end")
+            caps = _capital_band(widget, n)
+            if caps is not None:
+                narrow = sa.Box(left=caps.left, top=band.top,
+                                right=caps.right, bottom=band.bottom)
+                on_cap = sa.painted_extent_v(cap, narrow, colours)
+                if on_cap and extent:
+                    extent = (on_cap[0], extent[1])
+            elif extent:
+                no_cap.append(n)
             if extent:
-                rows.append((n, extent, widget.get(f"{n}.0", f"{n}.end")))
+                rows.append((n, extent, words))
                 bands.append((band.top, band.bottom))
         # Only between lines that were NEIGHBOURS. Skipping a wrapped one
         # would otherwise leave a gap measured across it.
@@ -2741,6 +2767,8 @@ def _text_line_pitch(locator):
         # the bands are touching, and whether that is ALL of them or one
         # is the difference between a wrong band and a tight row.
         note = f"{len(edges)} lines, gaps {_tally(gaps)}"
+        if no_cap:
+            note += f" | no capital on lines {no_cap[:4]}, read off their ink"
         if min(gaps) == 0:
             # Touching bands mean the extents are filling them, which is
             # a wrong band rather than a tight row. The first two say
@@ -2751,6 +2779,54 @@ def _text_line_pitch(locator):
                      f" | last row {row} first ink {at}")
         return min(gaps), note
     return resolve
+
+
+def _text_block_division(locator):
+    """Resolver: the WIDEST gap between painted lines inside a Text.
+
+    The other end of `_text_line_pitch`. Where that takes the smallest
+    gap -- the pitch every row sits at -- this takes the largest, which
+    on a tab whose rows are grouped into blocks is the division between
+    two of them.
+
+    **One number for every division, or the reading is meaningless.**
+    The tab pays the same distance at every boundary, so the widest
+    and the second widest are the same gap; the note carries the whole
+    tally, and a divergence shows up there as two numbers where there
+    should be one.
+    """
+    inner = _text_line_pitch(locator)
+
+    def resolve(cap, app):
+        value, note = inner(cap, app)
+        if value is None:
+            return None, note
+        # The tally the pitch resolver already built says everything;
+        # what differs is which end of it answers.
+        gaps = _gaps_from_tally(note)
+        if not gaps:
+            return None, f"no gaps to read a division from | {note}"
+        return max(gaps), note
+    return resolve
+
+
+def _gaps_from_tally(note):
+    """The gap values out of a `_text_line_pitch` note, as a list.
+
+    The tally is built for a reader; this reads it back rather than
+    measuring twice, so the two ends of one reading can never disagree
+    about what was on the screen.
+    """
+    found = re.search(r"gaps ([^|]+)", note or "")
+    if not found:
+        return []
+    out = []
+    for piece in found.group(1).split(","):
+        piece = piece.strip()
+        head = piece.split(" x")[0].strip()
+        if head.lstrip("-").isdigit():
+            out.append(int(head))
+    return out
 
 
 def _row_pitch(title, classes):
@@ -3250,6 +3326,12 @@ DEBUG_PAIR_GAPS = ()
 # why -- `check_spacing_registry` enforces the pair.
 EXCEPTION_ENTRIES = {
     "Debug WS -> Upgrade Log Settings": "exception",
+    # The Checklist's face is a point larger than the app's body text,
+    # so its rows sit 12 apart where the rule asks 10, and the division
+    # between two of its blocks 16. Both measured on the window and
+    # marked at `ROW_PITCH` and `BLOCK_PAD`.
+    "Checklist: row -> row": "exception",
+    "Checklist: block division": "exception",
 }
 
 
@@ -3984,19 +4066,48 @@ def _checklist_column(position):
     return find
 
 
-def _checklist_text(app):
-    """Locator: the Text inside the first Checklist column.
+def _gap_to_first_capital(above, text):
+    """Resolver: a widget's ink -> the first CAPITAL of a Text's first row.
+
+    `_gap` would read the lower end off the line's topmost INK, which
+    on these rows is a digit or an ascender as often as a capital --
+    and the two differ by a per-font pixel. The rules measure to the
+    capital, so the scan is narrowed to one.
+    """
+    def resolve(cap, app):
+        top, widget = above(app), text(app)
+        band = _first_capital_band(widget)
+        if band is None:
+            return None, "no capital on the first row to measure to"
+        colours = {_widget_fill(widget)}
+        extent = sa.painted_extent_v(cap, band, colours)
+        if extent is None:
+            return None, "the first capital painted nothing"
+        upper = sa.painted_extent_v(cap, sa.box_of(top))
+        if upper is None:
+            return None, "the heading painted nothing"
+        return sa.gap_between(upper[1], extent[0]), ""
+    return resolve
+
+
+def _checklist_text_at(position):
+    """Locator: the Text inside one Checklist column.
 
     The rows are one Text per column inside a frame fixed to the pixel,
     so the words are one level in.
     """
-    inside = _checklist_column(0)(app).winfo_children()
-    if len(inside) < 2:
-        raise LookupError("the Checklist column has no rows block")
-    holder = inside[1].winfo_children()
-    if not holder:
-        raise LookupError("the rows block holds no text widget")
-    return holder[0]
+    def find(app):
+        inside = _checklist_column(position)(app).winfo_children()
+        if len(inside) < 2:
+            raise LookupError("the Checklist column has no rows block")
+        holder = inside[1].winfo_children()
+        if not holder:
+            raise LookupError("the rows block holds no text widget")
+        return holder[0]
+    return find
+
+
+_checklist_text = _checklist_text_at(0)
 
 
 # (tab, name, target, rule, resolver, axis) for the Checklist tab. Its
@@ -4007,11 +4118,26 @@ CHECKLIST_ENTRIES = [
     # reading runs baseline to capital.
     ("Checklist", "Checklist: heading -> its first row", 10,
      RULE_PANEL_UNRELATED_LABEL,
-     _gap(lambda app: _checklist_column(0)(app).winfo_children()[0],
-          _checklist_text, "v"), "v"),
+     _gap_to_first_capital(
+         lambda app: _checklist_column(0)(app).winfo_children()[0],
+         _checklist_text), "v"),
     # And between the rows, which are LINES rather than widgets.
-    ("Checklist", "Checklist: row -> row", 10, RULE_LABEL_ROW_PITCH,
+    #
+    # **12 rather than the rule's 10**, the tab's face being a point
+    # larger than the app's body text: the rows carry more ink each,
+    # and the pitch that reads as one list at 9pt reads as a solid
+    # block at 10. Measured on the window, agreed, and marked at
+    # `ROW_PITCH`.
+    ("Checklist", "Checklist: row -> row", 12, RULE_LABEL_ROW_PITCH,
      _text_line_pitch(_checklist_text), "v"),
+    # **What sets a block apart from the rows around it**: the extra
+    # space above a shop's heading and above the Events list, which is
+    # the same distance below the last product of the block before it.
+    # 16, against the 12 an ordinary pair of rows sits at -- enough to
+    # break a column of near-identical rows into blocks the eye can
+    # find. Measured in the Weekly column, which holds three of them.
+    ("Checklist", "Checklist: block division", 16, RULE_LABEL_ROW_PITCH,
+     _text_block_division(_checklist_text_at(1)), "v"),
     # Both ends of the block against the window. The first and last
     # columns sit at their cells' outer edges rather than centred, so
     # these two are what that arrangement buys.
@@ -4176,13 +4302,18 @@ AWAITING_FIRST_READING = {
     # -- so a row printing yellow is a question, never a regression.
     # EMPTY is the state to return it to.
     #
-    # Three of the Checklist's four have now been read off a screen
-    # and agreed, but the block they measure is still being worked on
-    # -- its columns, its row pitches and its checkbox rows have all
-    # moved since. They come out together after a run that follows a
-    # quiet turn, not one at a time mid-change.
+    # The Checklist's five. Two carry targets read off the screen and
+    # agreed -- the row pitch at 12 and the block division at 16 -- but
+    # neither has been confirmed by a run SINCE the readings that set
+    # them: the tab's face went up a point in the same turn, and the
+    # division's own lever was changed to meet its number. The other
+    # three are rule targets that the last run measured against a
+    # reading taken off the wrong reference. They come out together
+    # after a run that follows a quiet turn, not one at a time
+    # mid-change.
     "Checklist: heading -> its first row",
     "Checklist: row -> row",
+    "Checklist: block division",
     "Checklist: window edge -> first column",
     "Checklist: last column -> window edge",
 }
@@ -4385,6 +4516,9 @@ def register_all():
             resolve=resolve,
             axis=axis,
             provisional=name in AWAITING_FIRST_READING,
+            # A row here can miss its rule deliberately; the table
+            # above says which, and the site says why.
+            target_source=EXCEPTION_ENTRIES.get(name, "rule"),
         )
 
     for scenario, name, target, rule, resolve, axis in POPUP_ENTRIES:
