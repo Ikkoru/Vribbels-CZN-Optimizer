@@ -37,6 +37,23 @@ class AppConfig:
         self._settings.set("server_region", str(value))
 
     @property
+    def capture_archive(self) -> str:
+        """Which compression the capture archiver runs at, or `off`.
+
+        Anything unrecognised reads as the default rather than as off:
+        a typo in the settings file should not quietly stop a folder
+        from being tidied.
+        """
+        from capture.archive import DEFAULT_PRESET, PRESETS
+        value = str(self._settings.get("capture_archive",
+                                       DEFAULT_PRESET)).lower()
+        return value if value in PRESETS or value == "off" else DEFAULT_PRESET
+
+    @capture_archive.setter
+    def capture_archive(self, value: str) -> None:
+        self._settings.set("capture_archive", str(value).lower())
+
+    @property
     def optimizer_workers(self) -> int:
         # 0 = auto (cpu_count - 1, leaving a core for the UI / game
         # client), 1 = single-thread path, N = N capped to cpu_count --

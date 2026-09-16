@@ -247,6 +247,10 @@ class OptimizerGUI:
         # the audit reads pixels off the screen, so the window has to be
         # up, settled and painted.
         self._maybe_schedule_spacing_audit()
+        # After the reveal for the same reason the audit is: the window
+        # is up and the user is looking at it, so a rebuild that takes a
+        # second has nothing to block.
+        self._start_capture_archiver()
         _t0 = getattr(self, "_startup_t0", None)
         if _t0 is not None:
             perf_log.log("startup:TOTAL", secs=_time.perf_counter() - _t0)
@@ -992,6 +996,27 @@ class OptimizerGUI:
             else:
                 return
         self.root.destroy()
+
+    def _start_capture_archiver(self):
+        """Fold superseded captures into the archive, beside the UI.
+
+        Once per launch. The snapshots folder has no ceiling of its own
+        -- nothing in `capture/` deletes anything -- so this is what
+        keeps a long-running install from growing without bound. See
+        `capture/archive.py` for the water marks and for why a loose
+        file is never removed before its archived copy has been matched.
+
+        `Off` is the one setting that stops it, and it is read here
+        rather than inside the archiver so that no thread starts at all.
+        """
+        from capture import archive
+        chosen = self.config.capture_archive
+        if chosen not in archive.PRESETS:
+            return
+        folder = self.capture_manager.output_folder
+        archive.compact_in_background(
+            folder, preset=chosen,
+            say=lambda msg: self.capture_tab_instance.capture_log_msg(msg))
 
     def auto_load(self):
         latest = self.capture_manager.get_latest_capture()

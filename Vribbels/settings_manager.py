@@ -116,6 +116,7 @@ class SettingsManager:
         # through `settings_manager`, which `ui/` itself imports.
         # `checks/check_ui_scales.py` holds the two together.
         ("ui_scale", "100%"),
+        ("capture_archive", "balanced"),
         ("#4", "_Memory_"),
         ("first_launch_done", False),
         ("update_last_checked", ""),

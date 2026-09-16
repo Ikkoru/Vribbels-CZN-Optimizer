@@ -256,6 +256,106 @@ def _dry_run_deletes_nothing():
     return []
 
 
+def _background_run_reports_instead_of_dying():
+    """A thread that raises dies silently, taking the report with it.
+
+    The launch path hands the archiver to a daemon thread, so an
+    unexpected exception inside it reaches nobody: the UI carries on,
+    the folder is never tidied, and no line says why. Everything the
+    thread does is wrapped for that, and a failure arrives through the
+    same callback the Capture Log listens on.
+    """
+    out = []
+    high = archive.KINDS[archive.SNAPSHOTS][1]
+    work = _folder(snapshots=high)
+    said = []
+    was = archive.compact
+    try:
+        thread = archive.compact_in_background(work, say=said.append)
+        thread.join(60)
+        if thread.is_alive():
+            out.append("the background compaction did not finish.")
+        if not thread.daemon:
+            out.append(
+                "the archiving thread is not a daemon, so a close while it "
+                "runs waits for a rebuild instead of exiting.")
+        if len(list(work.glob("memory_fragments_*.json"))) != \
+                archive.KINDS[archive.SNAPSHOTS][2]:
+            out.append("the background run did not compact the folder.")
+
+        said.clear()
+
+        def _boom(*_a, **_k):
+            raise RuntimeError("injected")
+
+        archive.compact = _boom
+        thread = archive.compact_in_background(work, say=said.append)
+        thread.join(60)
+        if not any("RuntimeError" in line for line in said):
+            out.append(
+                f"an exception inside the archiving thread was not "
+                f"reported ({said!r}). A thread that dies of one dies "
+                f"silently, so nothing else would ever say so.")
+    finally:
+        archive.compact = was
+        shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
+def _the_setting_reaches_the_launch_path():
+    """`Off` stops it, a typo does not, and the hook is still called.
+
+    The launch path reads the setting rather than letting the archiver
+    read it, so that `Off` starts no thread at all. Both halves fail
+    quietly: a setting nothing reads leaves the folder growing, and a
+    hook deleted from `__init__` raises nothing until a user notices
+    their snapshots folder never shrinks.
+    """
+    import inspect
+    import tempfile as tf
+
+    out = []
+    from config import AppConfig
+    from settings_manager import SettingsManager
+    import czn_optimizer_gui as gui
+
+    work = Path(tf.mkdtemp(prefix="czn_archive_cfg_"))
+    try:
+        manager = SettingsManager(work)
+        manager.load()
+        config = AppConfig(manager)
+        for value, want in (("off", "off"),
+                            ("strongest", "strongest"),
+                            ("balanced", "balanced"),
+                            ("wharrgarbl", archive.DEFAULT_PRESET)):
+            config.capture_archive = value
+            got = config.capture_archive
+            if got != want:
+                out.append(
+                    f"`capture_archive` set to {value!r} read back as "
+                    f"{got!r}, not {want!r}. An unrecognised value reads as "
+                    f"the default: a typo should not quietly stop the "
+                    f"folder from being tidied.")
+        if "capture_archive" not in dict(SettingsManager.LAYOUT):
+            out.append(
+                "`capture_archive` is not in SettingsManager.LAYOUT, so "
+                "settings.json will not carry it for a user to find.")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+    if not hasattr(gui.OptimizerGUI, "_start_capture_archiver"):
+        out.append("OptimizerGUI lost `_start_capture_archiver`.")
+    else:
+        body = inspect.getsource(gui.OptimizerGUI.__init__)
+        if "_start_capture_archiver" not in body:
+            out.append(
+                "`_start_capture_archiver` is never called from "
+                "`OptimizerGUI.__init__`, so nothing archives at launch "
+                "and the folder grows without bound. It belongs after the "
+                "reveal, with the window already up.")
+    return out
+
+
 def run():
     try:
         tarfile.open  # noqa: B018 -- lzma may be missing from a build
@@ -268,6 +368,8 @@ def run():
                   _deleter_refuses_what_it_should,
                   _sweep_clears_an_interrupted_build,
                   _twice_leaves_one_member_each,
-                  _dry_run_deletes_nothing):
+                  _dry_run_deletes_nothing,
+                  _background_run_reports_instead_of_dying,
+                  _the_setting_reaches_the_launch_path):
         problems.extend(probe())
     return problems

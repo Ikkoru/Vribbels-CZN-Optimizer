@@ -30,6 +30,7 @@ import hashlib
 import lzma
 import os
 import tarfile
+import threading
 import time
 from pathlib import Path
 
@@ -311,3 +312,36 @@ def compact(folder, preset=DEFAULT_PRESET, say=print, delete=True) -> dict:
         % (len(result["archived"]), len(result["deleted"]),
            ARCHIVE_NAME, len(contents(folder))))
     return result
+
+
+def compact_in_background(folder, preset=DEFAULT_PRESET, say=print):
+    """Start a compaction off the calling thread, and return the thread.
+
+    The pass rebuilds the whole archive -- about a second at Balanced
+    over a hundred captures, half a minute at Strongest -- and there is
+    nothing for the UI to wait on, so it runs beside it. A capture
+    writing at the same time is not a hazard: a capture only ever
+    writes NEW files, and nothing older than the newest few is a
+    candidate.
+
+    **Nothing here may raise into the caller.** A thread that dies of
+    an unexpected exception dies silently, taking the report with it,
+    so the whole run is wrapped and anything unforeseen is reported
+    through `say` like the failures the run knows about.
+    """
+    def work():
+        try:
+            result = compact(folder, preset=preset, say=say)
+        except Exception as exc:                              # noqa: BLE001
+            say("[X] Archiving old captures stopped on an unexpected "
+                "%s: %s. Nothing was deleted." % (type(exc).__name__, exc))
+            return
+        if result["failed"]:
+            say("[X] Archiving old captures failed: %s. Nothing was "
+                "deleted and the previous archive is untouched."
+                % result["failed"])
+
+    thread = threading.Thread(target=work, name="capture-archive",
+                              daemon=True)
+    thread.start()
+    return thread
