@@ -45,6 +45,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | `*_manager.py`, `defaults_sync.py`, Restore Defaults, settings files | `docs/settings_architecture.md`            |
 | Shipping `default_settings/` — maintainer workflow                   | `docs/how_to_maintain_default_settings.md` |
 | `capture/`, snapshot parsing, char-vs-partner classification         | `docs/capture_pipeline.md`                 |
+| Folding superseded captures into the archive                         | `Vribbels/capture/archive.py`, run by hand with `docs/snapshots_archive.py` |
 | `game_data/*.py`, the launch-time validator, stat vocabularies       | `docs/game_data_files.md`                  |
 | Which item res_ids are known, used, or still to identify              | `docs/items_id_dump.py` and its three TSVs |
 | Which mission res_ids are known, and which set each belongs to        | `docs/missions_id_dump.py` and `docs/missions_id.tsv` |

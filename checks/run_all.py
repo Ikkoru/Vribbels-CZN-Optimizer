@@ -33,6 +33,7 @@ for _stream in (sys.stdout, sys.stderr):
 from checks._harness import Skip, take_notes           # noqa: E402
 from checks import (                                    # noqa: E402
     check_addon_template,
+    check_archive,
     check_breakdown_reconciles,
     check_capture_banners,
     check_capture_batching,
@@ -90,6 +91,7 @@ CHECKS = [
     check_capture_rewards,
     check_capture_saves_once,
     check_capture_session_file,
+    check_archive,
     check_game_data,
     check_potential_nodes,
     check_item_art,

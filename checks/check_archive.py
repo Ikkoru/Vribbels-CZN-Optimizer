@@ -1,0 +1,241 @@
+"""The capture archiver moves files without ever losing one.
+
+`capture/archive.py` deletes the maintainer's captured history, which
+is the only copy there is. Everything here guards that one sentence:
+
+* a file goes in and comes back byte for byte, a `.gz` log included
+  (it is stored decompressed, so what must match is its CONTENT);
+* the water marks leave the newest LOW loose and take the rest, and do
+  nothing at all below HIGH;
+* **a failed verification deletes NOTHING** and leaves the previous
+  archive untouched;
+* the deleter refuses a path it did not verify in this pass, a path
+  that is not a capture, and a path outside the folder -- which is
+  where `_capture_addon.py` and `__pycache__/` live;
+* an interrupted build leaves no `.tmp` behind once a run has swept.
+
+Run against temp directories only. Nothing here reads or writes the
+real `Vribbels/snapshots/`.
+"""
+
+import gzip
+import json
+import shutil
+import tarfile
+import tempfile
+from pathlib import Path
+
+from ._harness import add_source_to_path, Skip
+
+NAME = "capture archiver loses nothing"
+
+add_source_to_path()
+
+from capture import archive                                   # noqa: E402
+
+
+def _snapshot(folder, stamp, filler=1):
+    path = folder / ("memory_fragments_%s.json" % stamp)
+    path.write_text(json.dumps({"capture_time": stamp,
+                                "inventory": {"items": ["x"] * filler}}),
+                    encoding="utf-8")
+    return path
+
+
+def _log(folder, stamp, lines=3):
+    path = folder / ("websocket_debug_%s.jsonl.gz" % stamp)
+    with open(path, "wb") as handle:
+        for n in range(lines):
+            handle.write(gzip.compress(
+                (json.dumps({"ts": stamp, "n": n}) + "\n").encode("utf-8")))
+    return path
+
+
+def _stamps(count, start=1):
+    return ["202601%02d_0000%02d" % (1 + (n // 60), n % 60)
+            for n in range(start, start + count)]
+
+
+def _folder(snapshots=0, logs=0):
+    work = Path(tempfile.mkdtemp(prefix="czn_archive_"))
+    for stamp in _stamps(snapshots):
+        _snapshot(work, stamp)
+    for stamp in _stamps(logs):
+        _log(work, stamp)
+    return work
+
+
+def _quiet(*_a, **_k):
+    pass
+
+
+def _round_trip():
+    """Everything archived comes back, and a log comes back decompressed."""
+    out = []
+    high, low = archive.KINDS[archive.SNAPSHOTS][1:]
+    work = _folder(snapshots=high, logs=archive.KINDS[archive.LOGS][1])
+    try:
+        before = {p.name: p.read_bytes() for p in work.glob("memory_*.json")}
+        logs = {}
+        for path in work.glob("websocket_debug_*.gz"):
+            with gzip.open(path, "rb") as fh:
+                logs[archive.member_name(path)] = fh.read()
+
+        result = archive.compact(work, say=_quiet)
+        if result["failed"]:
+            return ["a clean run reported %r" % result["failed"]]
+
+        loose = sorted(p.name for p in work.glob("memory_fragments_*.json"))
+        if len(loose) != low:
+            out.append(
+                f"{len(loose)} snapshot(s) left loose, not {low}. The newest "
+                f"LOW have to stay: the app loads the newest and the dump "
+                f"scripts walk back through the ones behind it.")
+        if loose != sorted(before)[-low:]:
+            out.append(
+                f"the wrong snapshots were kept: {loose!r}. 'Old' is "
+                f"positional -- the Nth file back from the newest.")
+
+        for name in result["archived"]:
+            got = archive.read_member(work, name)
+            want = before.get(name) or logs.get(name)
+            if want is None:
+                out.append(f"{name!r} was archived but was never written.")
+            elif got != want:
+                out.append(
+                    f"{name!r} came back {len(got)} bytes against "
+                    f"{len(want)} written. A member that does not match is "
+                    f"a capture lost, since the loose file is deleted.")
+        if not any(n.endswith(".jsonl") for n in result["archived"]):
+            out.append(
+                "no log was stored under a `.jsonl` name. They go in "
+                "decompressed -- xz cannot shrink a `.gz`, and ungzipping "
+                "recovers about 85% of the archived size.")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
+def _below_high_does_nothing():
+    high = archive.KINDS[archive.SNAPSHOTS][1]
+    work = _folder(snapshots=high - 1)
+    try:
+        result = archive.compact(work, say=_quiet)
+        if result["archived"] or result["deleted"]:
+            return [
+                f"a folder holding {high - 1} snapshots compacted anyway "
+                f"({result['archived']!r}). Below HIGH nothing is due: the "
+                f"mark is what keeps a rebuild from running per file."]
+        if (work / archive.ARCHIVE_NAME).exists():
+            return ["an archive was written with nothing due."]
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return []
+
+
+def _failed_verify_keeps_everything():
+    """The one that matters: a mismatch must cost nothing."""
+    out = []
+    high = archive.KINDS[archive.SNAPSHOTS][1]
+    work = _folder(snapshots=high)
+    was = archive._verify
+    try:
+        archive._verify = lambda book, wanted: ["injected mismatch"]
+        loose_before = sorted(p.name for p in work.iterdir())
+        result = archive.compact(work, say=_quiet)
+        if not result["failed"]:
+            out.append("a failed verification reported success.")
+        if result["deleted"]:
+            out.append(
+                f"a failed verification still deleted {result['deleted']!r}. "
+                f"Nothing may be removed until its archived copy has been "
+                f"read back and matched.")
+        loose_after = sorted(p.name for p in work.iterdir())
+        if loose_after != loose_before:
+            out.append(
+                f"the folder changed under a failed run: {loose_before!r} -> "
+                f"{loose_after!r}.")
+        if (work / archive.TMP_NAME).exists():
+            out.append("a failed run left its `.tmp` behind.")
+    finally:
+        archive._verify = was
+        shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
+def _deleter_refuses_what_it_should():
+    out = []
+    work = _folder(snapshots=2)
+    try:
+        (work / "_capture_addon.py").write_text("x", encoding="utf-8")
+        outside = Path(tempfile.mkdtemp(prefix="czn_outside_"))
+        stray = _snapshot(outside, "20260101_000099")
+        verified = {archive.member_name(p): (1, "x")
+                    for p in work.glob("memory_fragments_*.json")}
+        cases = [
+            ("a file that sits in another directory", stray),
+            ("a file that is not a capture", work / "_capture_addon.py"),
+            ("a capture nothing verified this pass",
+             work / "memory_fragments_20260101_000099.json"),
+        ]
+        for label, path in cases:
+            try:
+                archive._delete(work, path, verified, _quiet)
+            except archive.Refused:
+                continue
+            out.append(
+                f"the deleter accepted {label} ({path.name}). It takes a "
+                f"whitelist, not a path: in the folder, named like a "
+                f"capture, and verified in this same pass.")
+        shutil.rmtree(outside, ignore_errors=True)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
+def _sweep_clears_an_interrupted_build():
+    work = _folder(snapshots=1)
+    try:
+        (work / archive.TMP_NAME).write_bytes(b"half a tar")
+        if not archive.sweep(work):
+            return ["sweep did not report the `.tmp` it found."]
+        if (work / archive.TMP_NAME).exists():
+            return [
+                "sweep left the `.tmp` in place. An interrupted build has to "
+                "leave either the old archive or the new one, never a "
+                "half-written file that the next run reads."]
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return []
+
+
+def _dry_run_deletes_nothing():
+    high = archive.KINDS[archive.SNAPSHOTS][1]
+    work = _folder(snapshots=high)
+    try:
+        before = sorted(p.name for p in work.glob("memory_fragments_*.json"))
+        result = archive.compact(work, say=_quiet, delete=False)
+        after = sorted(p.name for p in work.glob("memory_fragments_*.json"))
+        if not result["archived"]:
+            return ["a dry run archived nothing."]
+        if after != before:
+            return [f"a dry run removed {sorted(set(before) - set(after))!r}."]
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return []
+
+
+def run():
+    try:
+        tarfile.open  # noqa: B018 -- lzma may be missing from a build
+        import lzma   # noqa: F401
+    except Exception as e:                                    # noqa: BLE001
+        raise Skip(f"no lzma here ({type(e).__name__})")
+    problems = []
+    for probe in (_round_trip, _below_high_does_nothing,
+                  _failed_verify_keeps_everything,
+                  _deleter_refuses_what_it_should,
+                  _sweep_clears_an_interrupted_build,
+                  _dry_run_deletes_nothing):
+        problems.extend(probe())
+    return problems

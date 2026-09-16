@@ -262,6 +262,18 @@ What is left is the file being written, the numbers moving, and — loudly — a
 
 `SAVE_MARKER` is unaffected and still goes out on every save. The app reloads on it, and the two must not share a line — see `_save_data`.
 
+### Folding old captures into an archive
+
+`capture/archive.py` moves superseded captures into `archived_captures.tar.xz`, beside the loose ones. `docs/snapshots_archive.py` is the same code with a report attached, for a run by hand; `--list` says what the archive holds.
+
+**One archive, rebuilt, never appended to.** Consecutive snapshots are near-identical and that only pays inside ONE compression stream: measured over 114 real captures, a solid rebuild came to 242 KB where compressing each file alone came to 7.0 MB. Rebuild cost is proportional to the whole archive, which is what the water marks are for — a rebuild per file would pay the whole cost every time and lose the ratio as well.
+
+**"Old" is positional, not temporal.** A file is a candidate when it is the Nth back from the newest of its own kind, so what the program reads is never in reach however long ago it was written. `KINDS` carries both marks per kind: snapshots compact at 16 and keep 3, logs at 13 and keep 3.
+
+**A loose file is deleted only after its archived copy has been read back and its SHA-256 matched**, in that same pass, and `_delete` refuses anything that is not directly in the folder, not named like a capture, or not verified — `_capture_addon.py` sits in that directory. A verification mismatch is never retried: either the archive is wrong or the file changed underneath, and both want a human, so the run stops with the old archive untouched. A file that will not open, or will not delete, is left loose for the next compaction instead of failing the run.
+
+**Logs go in decompressed.** xz cannot shrink a `.gz`, and ungzipping on the way in recovers about 85% of a log's archived size. `gzip.open` streams straight into the tar, so nothing is written to a temporary file, and the member keeps the `.jsonl` name.
+
 ## Upgraded-line augmentation
 
 `[LIVE] Upgraded` lines carry an internal `[pid=N]` marker so the app can find the upgraded fragment after the post-upgrade reload and append what it scores under each preset; the marker is stripped before the user sees it. A fragment with upgrades left reports a range under the label `Highest Potential`, and one with none reports a single value under `Highest GS` -- the same distinction the Memory Fragments tab's two columns make. Lines are queued (`pending_upgrade_lines`) because the fragment has to be re-read from the new snapshot first, and `_drain_pending_upgrade_lines` emits them after the reload. The fragment object is retained so a later Upgrade Log Settings toggle can re-render the line in place against a different preset selection.
