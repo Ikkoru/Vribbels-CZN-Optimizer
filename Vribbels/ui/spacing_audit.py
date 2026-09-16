@@ -1094,7 +1094,7 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False):
         setup, teardown = SCENARIOS.get(scenario, (None, None))
         if setup is None:
             rows.extend((g.name, g.target, None, f"no scenario {scenario!r}",
-                         g.tab, g.axis, g.provisional) for g in gaps)
+                         g.tab, g.axis, g.provisional, False) for g in gaps)
             continue
         # A scenario that raises reports the reason against its own
         # gaps and leaves every other scenario running. The ones
@@ -1108,7 +1108,7 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False):
             rows.extend((g.name, g.target, None,
                          f"scenario {scenario!r} failed: "
                          f"{type(exc).__name__}: {exc}",
-                         g.tab, g.axis, g.provisional) for g in gaps)
+                         g.tab, g.axis, g.provisional, False) for g in gaps)
             teardown(app)
             continue
         app.root.update()
@@ -1157,7 +1157,7 @@ def _measure_tabs(app, notebook, gaps, scenario):
         if tab_id is None:
             rows.extend((g.name, g.target, None,
                          f"no tab {tab_name!r}", tab_name + suffix, g.axis,
-                         g.provisional) for g in tab_gaps)
+                         g.provisional, False) for g in tab_gaps)
             continue
         notebook.select(tab_id)
         app.root.update()
@@ -1176,27 +1176,45 @@ def _measure_tabs(app, notebook, gaps, scenario):
             cap = caps[None] if g.window is None else caps[g.window]
             if isinstance(cap, str):
                 rows.append((g.name, g.target, None, cap,
-                             tab_name + suffix, g.axis, g.provisional))
+                             tab_name + suffix, g.axis, g.provisional, False))
                 continue
             try:
-                value, note = g.resolve(cap, app)
+                # **A resolver may report its SIBLINGS.** One entry
+                # often stands for a run of gaps -- every row pitch in
+                # a column, every division in a block -- and reporting
+                # one number lets the rest drift: the tightest stays on
+                # target while a row two below it sits a pixel out. A
+                # third value, where a resolver has one, is the other
+                # readings that answer to the same target.
+                measured = g.resolve(cap, app)
+                value, note = measured[0], measured[1]
+                others = tuple(measured[2]) if len(measured) > 2 else ()
             except tk.TclError as exc:
                 rows.append((g.name, g.target, None,
                              f"unmapped: {exc}", tab_name + suffix, g.axis,
-                             g.provisional))
+                             g.provisional, False))
                 continue
             except Exception as exc:                      # noqa: BLE001
                 rows.append((g.name, g.target, None,
                              f"error: {exc}", tab_name + suffix, g.axis,
-                             g.provisional))
+                             g.provisional, False))
                 continue
             if g.hand is not None and value is not None and value != g.hand:
                 disagreement = f"HAND READ {g.hand}"
                 note = f"{note}, {disagreement}" if note else disagreement
-            rows.append((g.name, g.target, value,
-                         _with_source(note, g.target_source),
+            # **One sibling off the target fails the row**, whatever the
+            # reported reading says. The note names the count and the
+            # distances; which rows they are is in the resolver's own
+            # note beside it.
+            off = [o for o in others if o != g.target]
+            if off:
+                spread = ", ".join(str(o) for o in sorted(set(off)))
+                extra = (f"{len(off)} of {len(others) + 1} off target "
+                         f"at {spread}")
+                note = f"{note} | {extra}" if note else extra
+            rows.append((g.name, g.target, value, note,
                          tab_name + suffix,
-                         g.axis, g.provisional))
+                         g.axis, g.provisional, bool(off), g.target_source))
     return rows
 
 
@@ -1253,25 +1271,38 @@ def _print_table(rows, out, verbose=False):
     Left to the on-target filter it would be invisible in exactly the
     run that is meant to surface it.
     """
-    on_target = sum(1 for _n, t, v, *_ in rows
-                    if v is not None and v == t)
-    shown = rows if verbose else [
-        r for r in rows if r[6] or r[2] is None or r[2] != r[1]]
+    def missed(row):
+        """Whether a row is off target -- its own reading or a sibling's."""
+        _n, target, value = row[0], row[1], row[2]
+        return value is None or value != target or row[7]
+
+    on_target = sum(1 for r in rows if not missed(r))
+    shown = rows if verbose else [r for r in rows if r[6] or missed(r)]
     if not shown:
         out(f"all {len(rows)} gaps on target, none provisional")
         return
 
     body = []
-    for name, target, value, note, tab, axis, provisional in shown:
+    for row in shown:
+        name, target, value, note, tab, axis, provisional, sibling = row[:8]
+        source = row[8] if len(row) > 8 else "rule"
         arrow = AXIS_MARK[axis]
         if value is None:
             body.append((tab, name, arrow, f"{target:>6}", f"{'--':>8}",
-                         f"{'--':>5}", note, provisional, "  <-"))
+                         f"{'--':>5}", _with_source(note, source),
+                         provisional, "  <-"))
             continue
         delta = value - target
-        flag = "" if delta == 0 else "  <-"
+        flag = "" if delta == 0 and not sibling else "  <-"
+        # **A row that is right says only that.** The detail behind a
+        # reading -- which lines it came from, what else was on them --
+        # is for working out why a number is wrong, and printing it
+        # beside every right one buries the rows that need reading.
+        # `verbose` is where it all goes.
+        detail = _with_source(note if (verbose or delta or sibling) else "",
+                              source)
         body.append((tab, name, arrow, f"{target:>6}", f"{value:>8}",
-                     f"{delta:>+5}", f"{note}{flag}", provisional, flag))
+                     f"{delta:>+5}", f"{detail}{flag}", provisional, flag))
 
     width = max(len(r[1]) for r in body)
     out(f"{'gap'.ljust(width)}  axis  target  measured  delta  note")

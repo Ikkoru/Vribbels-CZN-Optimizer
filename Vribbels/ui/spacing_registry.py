@@ -2689,7 +2689,39 @@ def _display_lines(widget, line):
     return max(1, int(got or 1))
 
 
-def _text_line_reading(locator, pick, label=None):
+def _checklist_pitch_tags(*names):
+    """The Checklist's own pitch-tag names, looked up when the audit runs.
+
+    A line carries the tag that sets its `spacing1`, which is the tab's
+    own statement of what KIND of gap sits above it -- an ordinary row,
+    a block's edge, a shop product, the first product under a heading.
+    Reading that back is what lets one scan answer four entries, each
+    about its own gaps and blind to the others.
+
+    Looked up late and by name: a tag renamed in the tab shows up here
+    as an error row naming it, rather than as an entry that silently
+    measures nothing.
+    """
+    def tags():
+        from ui.tabs.checklist_tab import ROW_TAG_PITCH
+        missing = [n for n in names if n not in ROW_TAG_PITCH]
+        if missing:
+            raise LookupError(
+                f"the Checklist has no pitch tag {missing!r} -- it was "
+                f"renamed, and this entry would measure nothing")
+        return set(names)
+    return tags
+
+
+def _line_pitch_tag(widget, n, known):
+    """Which of a tab's pitch tags a line carries, or None."""
+    for tag in widget.tag_names(f"{n}.0"):
+        if tag in known:
+            return tag
+    return None
+
+
+def _text_line_reading(locator, kinds=None, label=None):
     """Resolver: the SMALLEST gap between painted LINES inside a Text.
 
     A Text's rows are not widgets, so `_row_pitch_in` cannot see them:
@@ -2779,14 +2811,27 @@ def _text_line_reading(locator, pick, label=None):
         pairs = [(sa.gap_between(a[1], b[0]), na, nb)
                  for (na, a, _ta), (nb, b, _tb) in zip(rows, rows[1:])
                  if nb == na + 1]
+        # **One kind of gap per entry.** A line carries the tag that
+        # sets its `spacing1`, which is the tab's own word for what
+        # sits above it -- so an entry about row pitch never sees a
+        # block's edge, and the note it prints is about its own rows
+        # only. Without a kind, every pair answers: a Text with no
+        # pitch tags on it has one gap and one target.
+        want = kinds() if kinds is not None else None
+        if want is not None:
+            pairs = [(value, na, nb) for value, na, nb in pairs
+                     if _line_pitch_tag(widget, nb, want) is not None]
+            no_cap = [n for n in no_cap
+                      if any(n in (na, nb) for _v, na, nb in pairs)]
         gaps = [value for value, _na, _nb in pairs]
         if not gaps:
-            return None, (f"{len(edges)} unwrapped lines of {count} painted "
-                          f"anything inside rows {box.top}-{box.bottom}")
+            return None, (f"no pair of that kind among {len(edges)} "
+                          f"unwrapped lines of {count}, inside rows "
+                          f"{box.top}-{box.bottom}"), ()
         # Always reported, not only when they differ: a pitch of 0 says
         # the bands are touching, and whether that is ALL of them or one
         # is the difference between a wrong band and a tight row.
-        note = f"{len(edges)} lines, gaps {_tally(gaps)}"
+        note = f"{len(pairs)} of {len(edges)} lines, gaps {_tally(gaps)}"
         # **Named, not just tallied.** A tally says one row is out of
         # step and leaves the reader to find it; the pair each extreme
         # came from is what says WHICH, and the name carries the row's
@@ -2824,60 +2869,50 @@ def _text_line_reading(locator, pick, label=None):
             at = sa._first_painted_x(cap, box, row, colours)
             note += (f" | bands {bands[:2]} extents {edges[:2]}"
                      f" | last row {row} first ink {at}")
-        value, why = pick(pairs, boxed)
-        if value is None:
-            return None, f"{why} | {note}"
-        return value, note
+        return min(gaps), note, sorted(gaps)[1:]
     return resolve
 
 
-def _text_line_pitch(locator, label=None):
-    """Resolver: the SMALLEST gap between painted LINES inside a Text.
+def _text_line_pitch(locator, label=None, kinds=None):
+    """Resolver: the gap between ordinary painted LINES inside a Text.
 
-    Smallest for the same reason the widget version takes it: a
-    division between blocks is always the widest gap, so it can never
-    be mistaken for the pitch, while a group of rows sitting tighter
-    than the rest is exactly what this has to report.
+    Every pair of the kind, not the tightest of them: they all answer
+    to one target, so one sitting a pixel out is the reading that
+    matters and reporting only the smallest hides it. The value is the
+    tightest and the rest ride along as siblings, which the audit
+    fails the row for.
+
+    `kinds` narrows the pairs to the tab's own pitch tags; without it
+    every neighbouring pair answers, which is what a Text with no such
+    tags wants.
     """
-    return _text_line_reading(
-        locator, lambda pairs, _boxed: (min(v for v, _a, _b in pairs), ""),
-        label=label)
+    return _text_line_reading(locator, kinds=kinds, label=label)
 
 
 def _text_gap_under_heading(locator, label=None):
-    """Resolver: the gap above a Text's FIRST row with a checkbox in it.
+    """Resolver: a shop heading against the first product under it.
 
-    A shop's first product sits under the heading's WORDS where every
-    product after it sits under another box, and the two read two
-    apart at one `spacing1` -- a heading's ink stops at its baseline
-    and a checkbox's at its own edge. So this is its own gap and its
-    own lever, and reporting it means finding the one pair that
-    crosses from words into boxes.
+    That product sits under the heading's WORDS where every product
+    after it sits under another box, and the two read two apart at one
+    `spacing1` -- a heading's ink stops at its baseline and a
+    checkbox's at its own edge. So it is its own gap, its own lever and
+    its own tag.
     """
-    def pick(pairs, boxed):
-        for value, na, nb in pairs:
-            if nb in boxed and na not in boxed:
-                return value, ""
-        return None, "no row with a checkbox under a row without one"
-    return _text_line_reading(locator, pick, label=label)
+    return _text_line_reading(
+        locator, kinds=_checklist_pitch_tags("boxheadrow"), label=label)
 
 
 def _text_block_division(locator, label=None):
-    """Resolver: the WIDEST gap between painted lines inside a Text.
+    """Resolver: the gap where one BLOCK of rows meets the next.
 
-    The other end of `_text_line_pitch`. Where that takes the smallest
-    gap -- the pitch every row sits at -- this takes the largest, which
-    on a tab whose rows are grouped into blocks is the division between
-    two of them.
-
-    **One number for every division, or the reading is meaningless.**
-    The tab pays the same distance at every boundary, so the widest
-    and the second widest are the same gap; the note carries the whole
-    tally, and a divergence shows up there as two numbers where there
-    should be one.
+    The rows that open a block carry their own pitch tag, so this
+    reads exactly those pairs -- the extra space above a shop's
+    heading and above the Events list. One number for every division
+    or the row fails: they are the one distance the eye is meant to
+    see.
     """
     return _text_line_reading(
-        locator, lambda pairs, _boxed: (max(v for v, _a, _b in pairs), ""),
+        locator, kinds=_checklist_pitch_tags("blockrow", "boxblockrow"),
         label=label)
 
 
@@ -4201,7 +4236,10 @@ CHECKLIST_ENTRIES = [
     # block at 10. Measured on the window, agreed, and marked at
     # `ROW_PITCH`.
     ("Checklist", "Checklist: row -> row", 12, RULE_LABEL_ROW_PITCH,
-     _text_line_pitch(_checklist_text, label="Daily"), "v"),
+     _text_line_pitch(_checklist_text, label="Daily",
+                      kinds=_checklist_pitch_tags(
+                          "row", "row_beside_box", "row_between_boxes")),
+     "v"),
     # **What sets a block apart from the rows around it**: the extra
     # space above a shop's heading and above the Events list, which is
     # the same distance below the last product of the block before it.
@@ -4217,7 +4255,8 @@ CHECKLIST_ENTRIES = [
     # beside them sit at. The eye reads the same twelve on both:
     # measured capital to capital on the labels inside the widgets.
     ("Checklist", "Checklist: product -> product", 5, RULE_LABEL_ROW_PITCH,
-     _text_line_pitch(_checklist_text_at(1), label="Weekly"), "v"),
+     _text_line_pitch(_checklist_text_at(1), label="Weekly",
+                      kinds=_checklist_pitch_tags("boxrow")), "v"),
     ("Checklist", "Checklist: shop heading -> its first product", 5,
      RULE_LABEL_ROW_PITCH,
      _text_gap_under_heading(_checklist_text_at(1), label="Weekly"), "v"),

@@ -497,6 +497,12 @@ Two entries on that tab carry targets its rule does not supply, and both are mar
 | `Checklist: shop heading -> its first product` | 5 | The first product sits under the heading's WORDS where the rest sit under another box, and a heading's ink stops at its baseline where a checkbox's stops at its own edge -- two apart at one `spacing1`. `CHECKBOX_UNDER_HEAD` |
 | `Checklist: heading -> its first row` | 12 | The heading's own box and the first row's spend more than the rule's 10 between them before `HEADING_GAP` adds anything, the tab's face being a point larger. |
 
+**One entry, every instance of its gap.** A reading that stands for a run of gaps -- every row pitch in a column, every division in a block -- reports the tightest and carries the rest as siblings, and **one sibling off the target fails the row**. Reporting a single number let the rest drift: the tightest stayed on target while a row two below it sat a pixel out.
+
+**Which gaps an entry covers comes off the tab's own pitch TAGS.** A line carries the tag that sets its `spacing1`, which is the tab's word for what sits above it -- an ordinary row, a block's edge, a shop product, the first product under a heading -- so one scan answers four entries, each about its own pairs and blind to the others. A tag renamed in the tab shows up as an error row naming it rather than as an entry that quietly measures nothing.
+
+**A row that is right says only that.** The detail behind a reading -- which lines it came from, what else was on them -- is for working out why a number is wrong, so the short run prints it only for the rows that miss. `--verbose` prints it for all of them. The target's PROVENANCE is not detail and stays either way: `exception` says the number is a hand reading, which is what a reader needs to know before arguing with it.
+
 **A row whose label is an embedded WIDGET has no baseline and no capital**, so its end of a gap is read off ink. That is why the two product gaps carry targets of their own: every other row on the tab is read capital to capital, and 5 between painted boxes is the same 12 the eye sees between the labels inside them.
 
 **And a row with a checkbox at the END of it stands taller than its words.** The widget sets the line's height and its ink sits inside that, so the gap above such a row and the gap below it each read a pixel wider at one `spacing1` -- measured down the Events block as 13, 14, 14, 13 against the 12 two rows of text sit at. `BOX_ROW_SLACK` is what gives those pixels back.
