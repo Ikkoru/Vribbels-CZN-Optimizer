@@ -2073,9 +2073,10 @@ class ChecklistTab(BaseTab):
         # their own, so a long reading in one does not push the
         # other's across. See `countdown_group`.
         #
-        # The gap before the column is the same two spaces a countdown
-        # used to follow its reading by, MEASURED rather than scaled --
-        # the font carries it.
+        # The gap before the column is the width of `SEGMENT_GAP` in
+        # the rows' own face, MEASURED rather than scaled: the font
+        # scaling has already carried it, and two spaces is the
+        # narrowest a reading and a deadline may sit.
         group_stops = {}
         for group in sorted({countdown_group(key) for key, _l, _w in rows}
                             - {None}):

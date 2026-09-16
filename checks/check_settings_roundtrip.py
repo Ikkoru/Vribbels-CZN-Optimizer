@@ -243,8 +243,8 @@ def _event_totals_survive_the_file(root):
     if m.event_total("event_probe", "event_probe_9") is not None:
         out.append(
             "one instalment on record answered for the family. One is a "
-            "number, not a pattern -- the login streaks run 7, 10, 14 or "
-            "21 days depending on the instalment.")
+            "number, not a pattern -- the twenty-four login-streak rows "
+            "on this account run 7, 10, 14 and 21 days between them.")
     m.record_event_total("event_probe", "event_probe_2", 20)
 
     again = cm.ChecklistManager(root)

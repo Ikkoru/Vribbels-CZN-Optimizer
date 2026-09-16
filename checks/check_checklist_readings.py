@@ -511,9 +511,9 @@ def run():
     # reading three of three on its first afternoon.
     #
     # **Two, and agreeing.** One instalment is a number rather than a
-    # pattern -- the login streaks run 7, 10, 14 or 21 days depending
-    # on which one it is -- so a family has to repeat itself before any
-    # of this is believed.
+    # pattern -- the twenty-four login-streak rows on this account run
+    # 7, 10, 14 and 21 days between them -- so a family has to repeat
+    # itself before any of this is believed.
     def _family(pasts, held, claimed):
         """(the live event's reading, what got recorded).
 

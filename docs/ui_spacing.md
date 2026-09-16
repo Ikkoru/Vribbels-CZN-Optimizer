@@ -221,7 +221,7 @@ Icons double by NEAREST NEIGHBOUR, which is exact at a whole multiple — every 
 
 ## Fonts in use
 
-Body text is **Segoe UI 9**; the three panels of running prose are **Segoe UI Variable Small**, the optical size Windows draws small text at. `TkDefaultFont` is Segoe UI 9 and no ttk style overrides it, so an explicit `("Segoe UI", 9)` is the same face the default already gives.
+Body text is **Segoe UI 9**; the three panels of running prose are **Segoe UI Variable Small**, the optical size Windows draws small text at; the Checklist's rows are **Segoe UI 10**, a point up, that tab being read rather than scanned. `TkDefaultFont` is Segoe UI 9 and no ttk style overrides it, so an explicit `("Segoe UI", 9)` is the same face the default already gives.
 
 | Face                    | Tk pt   | Ascent | Descent | Linespace | Where                            |
 | ----------------------- | ------- | ------ | ------- | --------- | -------------------------------- |

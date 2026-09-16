@@ -119,7 +119,7 @@ A Checklist row about an event is three separate claims, and they have different
 | **A rectangular family** | one snapshot, once a batch spans an axis | the whole event, exactly | the family is ragged, and most are | `_grid_total` |
 | **Pages issued whole** | one snapshot | an exact count for that page | a page not yet issued at all is invisible | `_page_totals` |
 | **A per-unit census** | the event's own table, and one rule per family | an exact count for a page that trickles | the table is not captured, or the rule is wrong | **designed, not built** — below |
-| **A finished past instalment** | two instalments of the family agreeing | the whole event | the family varies between instalments (the streaks run 7, 10, 14 or 21 days) | `ChecklistManager.event_total` |
+| **A finished past instalment** | two instalments of the family agreeing | the whole event | the family turns out not to repeat itself | `ChecklistManager.event_total` |
 | **A write-down** | a person deciding | the whole event | it is wrong until a reward past it proves so | `WRITTEN_TOTALS`, `written_total` |
 | **The floor** | nothing | a lower bound, always | it is only ever a lower bound | `_event_progress` |
 
@@ -258,7 +258,7 @@ So every load counts the ended events in `event_schedules` and files the figure 
 
 A live event takes its denominator from that record when, and only when:
 
-* **two or more finished instalments of its family agree.** One is a number rather than a pattern — the login streaks run 7, 10, 14 or 21 days depending on the instalment, measured across twenty-four of them;
+* **two or more finished instalments of its family agree.** One is a number rather than a pattern — the twenty-four login-streak rows on this account run 7, 10, 14 and 21 days, and only reading them as one family would make that look like an event changing length;
 * **the figure is BIGGER than the rows in hand.** Where the live event has issued more than its predecessors held, the wire is saying so against a record that only remembers, and the rows win.
 
 Such a row reads `~1/20` rather than `1/3+?`: the tilde is the tab's mark for a number worked out rather than read. **It does not go green on it** — `event_achieve_state` is still the only thing that ends an event — so the worst an over-large inherited total can do is leave a finished row looking unfinished.
