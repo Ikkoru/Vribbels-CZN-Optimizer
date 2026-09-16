@@ -165,11 +165,17 @@ def _build(folder: Path, adding: list, preset: int, say) -> dict:
     book = folder / ARCHIVE_NAME
     tmp = folder / TMP_NAME
     wanted = {}
+    # **A name being added now wins over the copy already inside.** A
+    # loose file can legitimately still be there after an interrupted
+    # or dry run, and tar does not reject a second member of the same
+    # name -- it stores both, so the archive grows by a copy every
+    # pass and `extractfile` answers with whichever it reaches last.
+    fresh = {member_name(path) for path in adding}
     with tarfile.open(tmp, "w:xz", preset=preset) as out:
         if book.exists():
             with tarfile.open(book, "r:xz") as old:
                 for info in old.getmembers():
-                    if not info.isfile():
+                    if not info.isfile() or info.name in fresh:
                         continue
                     handle = old.extractfile(info)
                     if handle is not None:

@@ -209,6 +209,37 @@ def _sweep_clears_an_interrupted_build():
     return []
 
 
+def _twice_leaves_one_member_each():
+    """A second pass over files still loose must not double them up.
+
+    A dry run, an interrupted delete or a file that would not unlink
+    all leave a loose copy of something already archived. Tar does not
+    reject a second member of the same name, so without a guard the
+    archive gains a copy of everything on every pass.
+    """
+    out = []
+    high = archive.KINDS[archive.SNAPSHOTS][1]
+    work = _folder(snapshots=high)
+    try:
+        first = archive.compact(work, say=_quiet, delete=False)
+        second = archive.compact(work, say=_quiet, delete=False)
+        if second["failed"]:
+            return ["a second pass reported %r" % second["failed"]]
+        names = [name for name, _size in archive.contents(work)]
+        if len(names) != len(set(names)):
+            doubled = sorted({n for n in names if names.count(n) > 1})
+            out.append(
+                f"{len(doubled)} member(s) appear twice after two passes "
+                f"({doubled[:3]!r}). A file still loose is re-added on the "
+                f"next pass, so the archive grows by a copy every time and "
+                f"`extractfile` answers with whichever it reaches last.")
+        if sorted(first["archived"]) != sorted(second["archived"]):
+            out.append("the two passes archived different sets.")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
 def _dry_run_deletes_nothing():
     high = archive.KINDS[archive.SNAPSHOTS][1]
     work = _folder(snapshots=high)
@@ -236,6 +267,7 @@ def run():
                   _failed_verify_keeps_everything,
                   _deleter_refuses_what_it_should,
                   _sweep_clears_an_interrupted_build,
+                  _twice_leaves_one_member_each,
                   _dry_run_deletes_nothing):
         problems.extend(probe())
     return problems
