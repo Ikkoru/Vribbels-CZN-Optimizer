@@ -37,7 +37,8 @@ from pathlib import Path
 
 from types import SimpleNamespace
 
-from ._harness import add_source_to_path, SOURCE_ROOT, Skip
+from ._harness import (add_source_to_path, SOURCE_ROOT, Skip,
+                       newest_snapshot, note)
 
 NAME = "tabs build"
 
@@ -1312,25 +1313,35 @@ def _countdowns_line_up(tab):
     import tkinter as tk
     from ui.tabs.checklist_tab import (
         COLUMN_SEP, COUNTDOWN_EVENTS, COUNTDOWN_FIXED,
-        COUNTDOWN_STOP_PREFIX, ENDS_IN, LINE_SEP)
+        COUNTDOWN_STOP_PREFIX, ENDS_IN, EVENT_KEY_PREFIX, LINE_SEP)
     out = []
     held = tab.column_texts.get("Other")
     if held is None:
         return ["the Other column built no Text to read."]
     text, _rows = held
 
+    # **A stop tag exists only once a row needs it**, and `tag_cget`
+    # raises on one that was never configured rather than answering
+    # empty. The rows above the shops are the fixed schedule and are
+    # always drawn; the Events block is only there while the account
+    # has events, so its stop is demanded only when its rows are.
+    declared = set(text.tag_names())
     stops = {}
     for group in (COUNTDOWN_FIXED, COUNTDOWN_EVENTS):
-        raw = text.tag_cget(COUNTDOWN_STOP_PREFIX + group, "tabs")
+        name = COUNTDOWN_STOP_PREFIX + group
+        raw = text.tag_cget(name, "tabs") if name in declared else ()
         stops[group] = [int(float(x)) for x in
                         (raw.split() if isinstance(raw, str) else raw)]
-    if len(stops[COUNTDOWN_FIXED]) < 2 or len(stops[COUNTDOWN_EVENTS]) < 3:
+    events = any(str(row[0][0]).startswith(EVENT_KEY_PREFIX)
+                 for row in tab._rendered.get("Other") or ())
+    if (len(stops[COUNTDOWN_FIXED]) < 2
+            or (events and len(stops[COUNTDOWN_EVENTS]) < 3)):
         return [
             f"the two deadline columns declare {stops!r}. The rows above "
             f"the shops need a stop for their countdown; the Events block "
             f"needs that and one more for the `Finished?` box at the end "
             f"of a row."]
-    if stops[COUNTDOWN_FIXED][1] == stops[COUNTDOWN_EVENTS][1]:
+    if events and stops[COUNTDOWN_FIXED][1] == stops[COUNTDOWN_EVENTS][1]:
         out.append(
             f"both deadline columns landed on {stops[COUNTDOWN_FIXED][1]}. "
             f"They are measured against different rows and only agree by "
@@ -1688,6 +1699,14 @@ def _checklist_heading_totals_are_marked(tab):
             tab_at = text.search("\t", "%d.0" % line, "%d.end" % line)
             if not tab_at:
                 continue                    # no total and no countdown
+            # **A heading with nothing to count draws `NO_DATA`**, and a
+            # placeholder has no verdict to shade and no rates to
+            # explain. Demanding the marks on it reports faults against
+            # a heading that is drawn exactly right -- which is every
+            # shop heading when no capture has been loaded.
+            if text.get(tab_at + "+1c",
+                        "%d.end" % line).startswith(mod.NO_DATA):
+                continue
             want = mod.SHOP_TIP_PREFIX + key
             seen += 1
             words = set(text.tag_names("%d.0" % line))
@@ -1712,10 +1731,15 @@ def _checklist_heading_totals_are_marked(tab):
                     f"on the countdown after its total, which the rates say "
                     f"nothing about.")
     if not seen:
-        out.append(
-            "no shop heading on the Checklist showed a total, so nothing "
-            "here was checked. A check that cannot fail is not watching "
-            "anything.")
+        said = ("no shop heading on the Checklist showed a total, so "
+                "nothing here was checked. A check that cannot fail is "
+                "not watching anything.")
+        # With nothing captured there is nothing to total, and that is
+        # the one case where the silence is honest.
+        if newest_snapshot() is None:
+            note(said)
+        else:
+            out.append(said)
     return out
 
 
@@ -2300,12 +2324,20 @@ def run():
         import log_presets_manager
         import checklist_manager
         from config import AppConfig
-        from ._harness import newest_snapshot
 
         optimizer = GearOptimizer()
         snap = newest_snapshot()
         if snap:
             optimizer.load_data(snap)
+        else:
+            # Construction still gets checked without data -- a name
+            # deleted from under a `setup_ui` raises either way. Every
+            # assertion ABOUT a row does not: with no captured data the
+            # tabs build empty, zero rows satisfy every claim made about
+            # them, and this reports the same `ok` as a full run.
+            note("no snapshot in Vribbels/snapshots/, so the tabs built "
+                 "empty: construction was checked, nothing about rows "
+                 "was")
 
         def _load(cls):
             m = cls(work)

@@ -187,7 +187,7 @@ Both measured off the captures on disk rather than estimated.
 | `shop_res_data` | 278 KB (15%) | 278 KB (6%) |
 | `snapshot` (battle) | — | 562 KB (13%) |
 
-Thirty-four captures on disk come to 91 MB, mean 2.7 MB.
+A capture averages 2.7 MB uncompressed, so a month of daily play is on the order of 80 MB — multiply rather than trusting a total, since the folder is never pruned and only grows.
 
 ### What it does about that
 

@@ -29,7 +29,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from ._harness import add_source_to_path, SOURCE_ROOT, Skip, newest_snapshot
+from ._harness import (add_source_to_path, SOURCE_ROOT, Skip,
+                       newest_snapshot, note)
 
 NAME = "optimizer starts with no combatant"
 
@@ -71,6 +72,11 @@ def run():
         snap = newest_snapshot()
         if snap:
             optimizer.load_data(snap)
+        else:
+            # An empty combatant list starts unselected whatever the
+            # code does, so the claim holds vacuously without data.
+            note("no snapshot in Vribbels/snapshots/, so the combatant "
+                 "list was empty and the claim held vacuously")
 
         def _load(cls):
             m = cls(work)

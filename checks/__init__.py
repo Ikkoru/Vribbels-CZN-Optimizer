@@ -18,7 +18,9 @@ Run them from the repo root:
 
 Checks that need the maintainer's captured data skip themselves, with a
 reason, when `Vribbels/snapshots/` is empty -- so this stays runnable on
-a fresh clone.
+a fresh clone. One that can still do PART of its work there passes and
+notes what it could not cover, rather than reporting the same `ok` as a
+full run.
 
 ## Adding one
 
@@ -26,8 +28,12 @@ A module here needs two names: `NAME`, the line `run_all.py` prints,
 and `run()`, returning a list of complaint strings -- empty for a pass.
 Call `add_source_to_path()` from `._harness` before importing anything
 under `Vribbels/`, raise `Skip("reason")` where the check cannot run,
-and add the module to `run_all.py` twice: once to the import block and
-once to `CHECKS`, which is ordered cheapest first.
+call `note("...")` where it can only run in part, and add the module to
+`run_all.py` twice: once to the import block and once to `CHECKS`, which
+is ordered cheapest first.
+
+**A note is for coverage lost, not for progress.** It prints beside the
+result, so a check with nothing missing says nothing.
 
 **A complaint says what broke, what it costs, and where to look.** The
 reader is meeting the invariant for the first time, and a check that

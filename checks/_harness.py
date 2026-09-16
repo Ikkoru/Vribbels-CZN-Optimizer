@@ -37,5 +37,33 @@ class Skip(Exception):
     """Raised by a check that cannot run here. Not a failure."""
 
 
+# What the check about to finish could NOT cover. Drained by the runner
+# after every check; see `note`.
+NOTES = []
+
+
+def note(text: str) -> None:
+    """Say that part of this check's coverage was not exercised.
+
+    A check that still passes with half its ground unchecked reports the
+    same `ok` as one that checked everything, and the gap is invisible
+    exactly when it matters -- a snapshot folder emptied for an unrelated
+    reason leaves every row-level assertion running over zero rows. A
+    note prints beside the result without failing a fresh clone, which
+    legitimately has no captured data.
+
+    For coverage lost, not for progress: a check with nothing to say
+    says nothing.
+    """
+    NOTES.append(str(text))
+
+
+def take_notes():
+    """Everything noted since the last drain, emptying the list."""
+    held = list(NOTES)
+    NOTES.clear()
+    return held
+
+
 def describe(path) -> str:
     return os.path.basename(str(path))

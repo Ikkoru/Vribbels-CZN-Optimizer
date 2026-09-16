@@ -30,7 +30,7 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-from checks._harness import Skip                       # noqa: E402
+from checks._harness import Skip, take_notes           # noqa: E402
 from checks import (                                    # noqa: E402
     check_addon_template,
     check_breakdown_reconciles,
@@ -130,6 +130,7 @@ def main(argv=None):
     started = time.time()
     for mod in CHECKS:
         t = time.time()
+        take_notes()               # anything left by a check that raised
         try:
             kwargs = {"full": args.full} if mod is check_optimizer_parity else {}
             problems = mod.run(**kwargs)
@@ -150,6 +151,10 @@ def main(argv=None):
             failed += 1
         else:
             print(f"{GREEN}ok{RESET}   {mod.NAME} {DIM}{elapsed}{RESET}")
+        # A pass with part of its ground unchecked says so, rather than
+        # reading the same as a pass that checked everything.
+        for said in take_notes():
+            print(f"       {YELLOW}note{RESET} {DIM}{said}{RESET}")
 
     total = len(CHECKS)
     print(f"\n{total - failed - skipped}/{total} passed, {failed} failed, "
