@@ -58,11 +58,11 @@ MONTH_START_FIELD = "month_start"
 SHOPS = {
     ("shop_town", "none"): "Nono's Shop",
     ("shop_gacha_dup", "shop_gacha_dup_legend"):
-        "$hop - Memory Archive - Traveler",
-    ("shop_hyperspace", "none"): "$hop - Zeronium Shop",
-    ("shop_chaos", "none"): "$hop - Blackhorn Trade",
+        "Shop - Memory Archive - Traveler",
+    ("shop_hyperspace", "none"): "Shop - Zeronium Shop",
+    ("shop_chaos", "none"): "Shop - Blackhorn Trade",
     ("shop_exchange_product", "shop_card_factor"):
-        "$hop - Exchange Shop - Prism Module",
+        "Shop - Exchange Shop - Prism Module",
     ("shop_disaster", "shop_disaster_1"): "Seasonal Shop",
     ("shop_assault", "none"): "Sortie - Chaos Analysis Lab",
 }

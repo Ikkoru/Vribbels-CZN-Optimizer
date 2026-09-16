@@ -102,7 +102,7 @@ from ui.scaling import px
 
 
 # Each column's heading and its rows, left to right. Read off the
-# game: the wording is the game's own where it has one, and `$hop`
+# game: the wording is the game's own where it has one, and `Shop`
 # marks a shop tab rather than a currency.
 #
 # A row is `(key, label, widest)`. The KEY is what `_readings` answers
@@ -295,14 +295,14 @@ MUTED = "muted"
 # A shop heading's own colour, so the shops can be told apart at a
 # glance down a column of otherwise identical rows. Matched on the
 # words, longest first, and the FIRST match wins -- `Traveler` is also
-# a `$hop`, and it takes its own colour.
+# a `Shop`, and it takes its own colour.
 #
 # (what the heading contains, the palette key). These colour the
 # LABEL; a row's reading keeps the red/green that says what is left.
 SHOP_LABEL_COLOURS = (
     ("Traveler", "yellow"),
     ("Nono's Shop", "blue_light"),
-    ("$hop", "purple"),
+    ("Shop", "purple"),
 )
 
 # How long each column's own period runs, and what its heading counts
