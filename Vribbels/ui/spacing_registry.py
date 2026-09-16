@@ -2791,11 +2791,19 @@ def _text_line_reading(locator, pick, label=None):
         # step and leaves the reader to find it; the pair each extreme
         # came from is what says WHICH, and the name carries the row's
         # own words. Both ends are named because one resolver reports
-        # each.
+        # each, and the second widest because a tab whose divisions
+        # have drifted apart says so there.
+        #
+        # **Each distance named ONCE.** Three labels over two numbers
+        # printed the same rows twice, which is a longer note saying
+        # less: a column of four gaps where one is out of step has a
+        # tightest and a widest and nothing else to say.
+        named = set()
         for what, value in (("tightest", min(gaps)), ("widest", max(gaps)),
                             ("next widest", _second_widest(gaps))):
-            if value is None:
+            if value is None or value in named:
                 continue
+            named.add(value)
             where = [f"{_line_name(widget, nb, where=label)} under "
                      f"{_line_name(widget, na, where=label)}"
                      for value_here, na, nb in pairs if value_here == value]
