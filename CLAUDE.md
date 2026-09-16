@@ -16,7 +16,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 ## Commands
 
 - Build: `zCreate exe.bat` (PyInstaller, onefile). It passes `--add-data` on the command line, so `Vribbels_CZN_Optimizer_Ikkoru.spec` is an artifact it overwrites — edit the bat, never the spec. Two scripts run first and either failing stops the build: `default_settings/normalize/normalize_defaults.py` (fails if `default_settings/` is missing its three JSONs — workflow in `docs/how_to_maintain_default_settings.md`), and `build_tcl/prepare_tcl_data.py`, which unpacks Tcl/Tk's library only when PyInstaller cannot collect it. **Tcl 9 keeps its library inside the DLL**, so PyInstaller finds no data files and its own runtime hook raises on the exe's first line — a build that succeeds and an executable that dies before any window.
-- Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its target (`...Verbose.bat` for all rows, `...Freeze.bat` to rewrite the baseline). It photographs the screen, so it needs the window unobscured and frontmost, the pointer off it, and a snapshot loaded — **ask before running one.** A normal launch never imports it.
+- Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its target. It photographs the screen and needs the maintainer at the keyboard — **ask before running one.** A normal launch never imports it. The launchers, the preconditions and how to read the table: the `spacing-audit` skill.
 
 ## Headless verification
 
@@ -53,6 +53,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | Event categories, how to classify one, and what the Checklist does with each | `docs/events.md` |
 | Tk threading, startup, display quirks                                | `docs/ui_runtime.md`                       |
 | Panel layout, spacing rules, the ledger, ttk styles                  | `docs/ui_spacing.md`                       |
+| Running a spacing audit and reading its table                        | `.claude/skills/spacing-audit/SKILL.md`    |
 | `tasks.md` / `plan.md` / CHANGELOG conventions                       | `docs/repo_conventions.md`                 |
 | The executable checks, and how to add one                            | `checks/__init__.py`                       |
 | Optimizer / startup performance history                              | `past_plans/optimizer_performance.md`      |

@@ -519,6 +519,8 @@ Two entries on that tab carry targets its rule does not supply, and both are mar
 
 ## Checking spacing
 
+The mechanism is below; the procedure for running one and reading its table is the `spacing-audit` skill.
+
 `ui/spacing_audit.py` measures registered gaps from a screenshot of the live window, counting background pixels by the convention above, so glyph reference points come out right without a font table. It cycles the tabs itself; the operator keeps the window unobscured and frontmost, the pointer off it (hover repaints and is measured), and a snapshot loaded so the data-driven panels exist.
 
 **It locates panels by their visible title**, not by attribute — most of these frames are locals, and storing each on `self` purely to measure it would touch six tab files for no functional reason. So renaming a panel's title removes it from the audit; the baseline comparison reports that as a missing entry rather than a pass.

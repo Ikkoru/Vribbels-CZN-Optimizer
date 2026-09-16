@@ -52,6 +52,7 @@ from checks import (                                    # noqa: E402
     check_expiry_captions,
     check_fringe_lightness,
     check_game_data,
+    check_instruction_files,
     check_item_art,
     check_materials_targets,
     check_no_flash,
@@ -74,6 +75,7 @@ from checks import (                                    # noqa: E402
 # against the thing that broke it rather than after a minute of search.
 CHECKS = [
     check_repo_root,
+    check_instruction_files,
     check_spacing_markers,
     check_spacing_registry,
     check_fringe_lightness,
