@@ -36,7 +36,12 @@ Vribbels/settings/
 # graduates into `past_plans/` when its work lands, and `paused_task.md`
 # is written to be deleted. `CLAUDE.md`, `docs/` and `past_plans/` are
 # tracked.
-.claude/
+# `.claude/*` rather than `.claude/`: a negation cannot re-include
+# anything under an excluded DIRECTORY, and `rules/` is repo guidance
+# that belongs in the history beside `CLAUDE.md`. Settings stay out --
+# `settings.local.json` holds one machine's choices.
+.claude/*
+!.claude/rules/
 plan.md
 tasks.md
 paused_task.md
