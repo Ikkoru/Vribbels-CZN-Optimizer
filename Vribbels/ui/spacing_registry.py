@@ -274,6 +274,20 @@ def _capital_span(text, font):
     return font.measure(text[:index]), font.measure(text[:index + 1])
 
 
+def _line_name(widget, n, where=None):
+    """One line of a Text, named so a reader can find it on the screen.
+
+    A row whose label is an embedded CHECKBOX has no words before its
+    tab -- the widget is the label -- so it is marked as one rather
+    than reported as a blank line nobody can place.
+    """
+    words = " ".join(widget.get(f"{n}.0", f"{n}.end").split())
+    boxed = any(kind == "window" for kind, _value, _index
+                in widget.dump(f"{n}.0", f"{n}.end", window=True))
+    shown = ("[box] " if boxed else "") + (words or "(blank)")
+    return f"{where + ' ' if where else ''}L{n} {shown[:34]!r}"
+
+
 def _capital_band(widget, n):
     """The box of the first CAPITAL on one line of a Text, or None.
 
@@ -2675,7 +2689,7 @@ def _display_lines(widget, line):
     return max(1, int(got or 1))
 
 
-def _text_line_pitch(locator):
+def _text_line_pitch(locator, label=None):
     """Resolver: the SMALLEST gap between painted LINES inside a Text.
 
     A Text's rows are not widgets, so `_row_pitch_in` cannot see them:
@@ -2744,7 +2758,17 @@ def _text_line_pitch(locator):
             elif extent:
                 no_cap.append(n)
             if extent:
-                rows.append((n, extent, words))
+                # **A row whose label is an embedded WIDGET has no
+                # baseline.** Its lowest ink is the widget's own edge,
+                # not a glyph's, so the correction below has nothing to
+                # restate -- and applying it anyway adds a pixel for
+                # the `/` in a reading like `20/20`, which is how a
+                # division under a shop product read one wider than the
+                # same division under a row of words.
+                boxed = any(kind == "window" for kind, _v, _i
+                            in widget.dump(f"{n}.0", f"{n}.end",
+                                           window=True))
+                rows.append((n, extent, "" if boxed else words))
                 bands.append((band.top, band.bottom))
         # Only between lines that were NEIGHBOURS. Skipping a wrapped one
         # would otherwise leave a gap measured across it.
@@ -2757,9 +2781,11 @@ def _text_line_pitch(locator):
         # 10 x3` on a cell whose rows are evenly spaced, the 3 being
         # exactly a descender's depth.
         edges = [e for _n, e, _t in rows]
-        gaps = [sa.gap_between(a[1], b[0]) + ink_below_baseline(text_a)
-                for (na, a, text_a), (nb, b, _tb) in zip(rows, rows[1:])
-                if nb == na + 1]
+        pairs = [(sa.gap_between(a[1], b[0]) + ink_below_baseline(text_a),
+                  na, nb)
+                 for (na, a, text_a), (nb, b, _tb) in zip(rows, rows[1:])
+                 if nb == na + 1]
+        gaps = [value for value, _na, _nb in pairs]
         if not gaps:
             return None, (f"{len(edges)} unwrapped lines of {count} painted "
                           f"anything inside rows {box.top}-{box.bottom}")
@@ -2767,8 +2793,25 @@ def _text_line_pitch(locator):
         # the bands are touching, and whether that is ALL of them or one
         # is the difference between a wrong band and a tight row.
         note = f"{len(edges)} lines, gaps {_tally(gaps)}"
+        # **Named, not just tallied.** A tally says one row is out of
+        # step and leaves the reader to find it; the pair each extreme
+        # came from is what says WHICH, and the name carries the row's
+        # own words. Both ends are named because one resolver reports
+        # each.
+        for what, value in (("tightest", min(gaps)), ("widest", max(gaps)),
+                            ("next widest", _second_widest(gaps))):
+            if value is None:
+                continue
+            where = [f"{_line_name(widget, nb, where=label)} under "
+                     f"{_line_name(widget, na, where=label)}"
+                     for value_here, na, nb in pairs if value_here == value]
+            note += f" | {what} {value} at " + "; ".join(where[:3])
+            if len(where) > 3:
+                note += f" and {len(where) - 3} more"
         if no_cap:
-            note += f" | no capital on lines {no_cap[:4]}, read off their ink"
+            note += (" | no capital, read off their ink: "
+                     + ", ".join(_line_name(widget, n, where=label)
+                                 for n in no_cap[:4]))
         if min(gaps) == 0:
             # Touching bands mean the extents are filling them, which is
             # a wrong band rather than a tight row. The first two say
@@ -2781,7 +2824,7 @@ def _text_line_pitch(locator):
     return resolve
 
 
-def _text_block_division(locator):
+def _text_block_division(locator, label=None):
     """Resolver: the WIDEST gap between painted lines inside a Text.
 
     The other end of `_text_line_pitch`. Where that takes the smallest
@@ -2795,19 +2838,32 @@ def _text_block_division(locator):
     tally, and a divergence shows up there as two numbers where there
     should be one.
     """
-    inner = _text_line_pitch(locator)
+    inner = _text_line_pitch(locator, label=label)
 
     def resolve(cap, app):
         value, note = inner(cap, app)
         if value is None:
             return None, note
         # The tally the pitch resolver already built says everything;
-        # what differs is which end of it answers.
+        # what differs is which end of it answers. Read back rather
+        # than measured twice, so the two ends of one reading can never
+        # disagree about what was on the screen.
         gaps = _gaps_from_tally(note)
         if not gaps:
             return None, f"no gaps to read a division from | {note}"
         return max(gaps), note
     return resolve
+
+
+def _second_widest(gaps):
+    """The widest gap below the widest, or None where they are all one.
+
+    A tab whose blocks are divided by one distance reports the same
+    number twice and says so; one whose divisions have drifted apart
+    reports two, which is the reading that matters.
+    """
+    below = [g for g in gaps if g != max(gaps)]
+    return max(below) if below else None
 
 
 def _gaps_from_tally(note):
@@ -3326,6 +3382,7 @@ DEBUG_PAIR_GAPS = ()
 # why -- `check_spacing_registry` enforces the pair.
 EXCEPTION_ENTRIES = {
     "Debug WS -> Upgrade Log Settings": "exception",
+    "Checklist: heading -> its first row": "exception",
     # The Checklist's face is a point larger than the app's body text,
     # so its rows sit 12 apart where the rule asks 10, and the division
     # between two of its blocks 16. Both measured on the window and
@@ -4116,7 +4173,13 @@ _checklist_text = _checklist_text_at(0)
 CHECKLIST_ENTRIES = [
     # The heading against the first row under it. Text to text, so the
     # reading runs baseline to capital.
-    ("Checklist", "Checklist: heading -> its first row", 10,
+    # **12 rather than the rule's 10**, for the same reason the pitch
+    # below misses it: the tab's face is a point larger than the app's
+    # body text, so the heading's own box and the row's between them
+    # spend more than the rule's number before this lever adds
+    # anything. Read off the window and agreed; marked at
+    # `HEADING_GAP`.
+    ("Checklist", "Checklist: heading -> its first row", 12,
      RULE_PANEL_UNRELATED_LABEL,
      _gap_to_first_capital(
          lambda app: _checklist_column(0)(app).winfo_children()[0],
@@ -4129,7 +4192,7 @@ CHECKLIST_ENTRIES = [
     # block at 10. Measured on the window, agreed, and marked at
     # `ROW_PITCH`.
     ("Checklist", "Checklist: row -> row", 12, RULE_LABEL_ROW_PITCH,
-     _text_line_pitch(_checklist_text), "v"),
+     _text_line_pitch(_checklist_text, label="Daily"), "v"),
     # **What sets a block apart from the rows around it**: the extra
     # space above a shop's heading and above the Events list, which is
     # the same distance below the last product of the block before it.
@@ -4137,7 +4200,7 @@ CHECKLIST_ENTRIES = [
     # break a column of near-identical rows into blocks the eye can
     # find. Measured in the Weekly column, which holds three of them.
     ("Checklist", "Checklist: block division", 16, RULE_LABEL_ROW_PITCH,
-     _text_block_division(_checklist_text_at(1)), "v"),
+     _text_block_division(_checklist_text_at(1), label="Weekly"), "v"),
     # Both ends of the block against the window. The first and last
     # columns sit at their cells' outer edges rather than centred, so
     # these two are what that arrangement buys.

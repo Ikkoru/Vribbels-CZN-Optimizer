@@ -330,11 +330,17 @@ HEADING_LEFT = " left"
 
 # The countdown's own face and where it sits against the heading. The
 # subtext face, so it reads as a note on the heading rather than as
-# part of it -- and dropped to sit on the heading's own baseline, a
-# 14pt box being taller than a 9pt one.
+# part of it.
+#
+# **The drop seats it on the heading's own baseline**, and it is a
+# BOTTOM pad under `anchor=S`, so it lifts: a 14pt box is taller than
+# the subtext's and the difference is what has to come back. At 9pt
+# that was three; a point larger it is none, and the lever is at its
+# floor -- a pad cannot go negative, so a subtext that ever sat too
+# LOW would need the heading padded instead.
 HEADING_COUNTDOWN_FONT = ("Segoe UI", 10)
 HEADING_COUNTDOWN_GAP = 6   # spacing: heading ↔ element -- heading, label ↔
-HEADING_COUNTDOWN_DROP = 3  # spacing: heading ↔ element -- heading, label ↕
+HEADING_COUNTDOWN_DROP = 0  # spacing: heading ↔ element -- heading, label ↕
 
 
 # Which `event_schedules` group dates each row, and so what its
@@ -1774,7 +1780,7 @@ LABEL_TO_VALUE = 6      # spacing: label ↔ its element -- run, run ↔
 # box below its baseline and the row's box above its capital both
 # inside it -- so most of the distance is already spent before this
 # lever adds anything, and it cannot go below zero to take any back.
-HEADING_GAP = 2         # spacing: panel ↕ unrelated label -- heading, frame ↕
+HEADING_GAP = 2         # spacing: exception -- panel ↕ unrelated label -- heading, frame ↕
 
 # What a Text puts around its own content, both sides together. Its
 # `width` is in CHARACTERS and this block is sized in pixels, so the

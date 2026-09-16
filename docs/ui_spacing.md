@@ -493,6 +493,10 @@ Two entries on that tab carry targets its rule does not supply, and both are mar
 
 **The division is two levers, not one.** A boundary crossed from an ordinary row and one crossed from a CHECKBOX row sat 2px apart at the same `spacing1` -- the widget's ink reaches lower in its line than a glyph's -- so `BLOCK_PAD_FROM_BOX` pays the difference back. Both are the one distance the eye is meant to see, and the audit reads whichever is widest.
 
+| `Checklist: heading -> its first row` | 12 | The heading's own box and the first row's spend more than the rule's 10 between them before `HEADING_GAP` adds anything, the tab's face being a point larger. |
+
+**A row whose label is an embedded WIDGET has no baseline**, so nothing restates its reading from one: its lowest ink is the checkbox's own edge rather than a glyph's. Correcting it by the glyph table anyway added a pixel for the `/` in a reading like `20/20`, which is how a division under a shop product read one wider than the same division under a row of words.
+
 **A line's top is read on its first CAPITAL.** The rules measure to the cap and a row's topmost ink is routinely a digit or an ascender, which differ by a per-font pixel: the same pitch read 10 on one row and 11 on the next depending on what the row happened to say. `_capital_band` narrows the scan to one capital, and a line with no capital on it keeps its whole-line reading and says so in the note.
 
 ## The unruled rows, as a table
