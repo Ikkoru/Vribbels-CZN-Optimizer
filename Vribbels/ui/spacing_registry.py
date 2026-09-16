@@ -2255,6 +2255,37 @@ def _row_gaps(cap, frame, classes):
             for i in range(len(rows) - 1)]
 
 
+def _what_crosses(cap, frame, classes, rows, index):
+    """What sits between two of a panel's rows, named.
+
+    A pitch read between rows of one class skips whatever ELSE the
+    panel puts between them -- a caption, a divider, a row of another
+    kind -- and the gap across one of those is not a pitch at all. The
+    tally says such a gap exists; this says what it is, so a reader
+    does not have to open the panel to find out.
+    """
+    if index + 1 >= len(rows):
+        return ""
+    above, below = rows[index][1], rows[index + 1][0]
+    found = []
+    for widget in sa.find_descendants_class(frame, "TLabel", "Label",
+                                            "TSeparator", "Frame", "TFrame"):
+        try:
+            extent = sa.painted_extent_v(cap, sa.box_of(widget))
+        except tk.TclError:
+            continue
+        if not extent or extent[0] <= above or extent[1] >= below:
+            continue
+        words = ""
+        try:
+            words = " ".join(str(widget.cget("text")).split())
+        except tk.TclError:
+            pass
+        found.append(f"{widget.winfo_class()} {words[:30]!r}" if words
+                     else widget.winfo_class())
+    return ", ".join(found[:3]) if found else ""
+
+
 def _label_capital_box(cap, widget):
     """The box of a Label's first CAPITAL, or None if it has none.
 
@@ -2965,6 +2996,21 @@ def _row_pitch_in(container, classes):
         # just that one is -- `7 x6, 3 x2` is two stragglers, `3 x8` is
         # a panel nobody has touched.
         note = "" if len(set(gaps)) == 1 else f"gaps {_tally(gaps)}"
+        # **And a wide one says what it crossed.** Important Settings
+        # reads `6 x2, 28 x2`, and the 28s are not pitches at all: they
+        # are slider rows with a CAPTION between them. Named here, so
+        # the tally stops reading as two rows that are wildly out.
+        frame = container(app)
+        rows = _painted_rows(cap, frame, classes)
+        crossings = []
+        for index, gap in enumerate(gaps):
+            if gap == common:
+                continue
+            what = _what_crosses(cap, frame, classes, rows, index)
+            if what:
+                crossings.append(f"{gap} crosses {what}")
+        if crossings:
+            note += " | " + "; ".join(crossings[:3])
         return common, note
     return resolve
 
@@ -3007,12 +3053,14 @@ ROW_PITCH_ENTRIES = [
     # stands for the other.
     ("Optimizer", "Have at least this much of a stat", RULE_SPINBOX_PITCH,
      SPINBOX_CLASSES, 3),
-    # Important Settings' slider rows sit at 7, not the 12 their markers
-    # claimed: adjacent slider rows are `checkbox/slider ↕ rows` like any
-    # other non-tall pair, and the 12 belongs to the gaps that cross a
-    # CAPTION, which are tracked separately as row-to-caption. The min is
-    # the pitch and the tally shows those crossings as the divisions
-    # they are.
+    # **Two of this panel's four slider gaps are not pitches.** Its
+    # five sliders are in three groups, each under its own caption, so
+    # the gaps from Fracture to ATK/DEF and from there to Shielding
+    # cross a caption and read about 28 where the pitch reads 6. The
+    # min is the pitch; the tally shows the crossings, and the note
+    # names what each one crossed. Those gaps answer to
+    # `panel ↕ unrelated label` through their own entries, not to this
+    # one.
     ("Optimizer", "Important Settings", RULE_CHECKBOX_PITCH,
      SCALE_CLASSES, 6),
     # Restore Defaults stacks three buttons, so its pitch is a

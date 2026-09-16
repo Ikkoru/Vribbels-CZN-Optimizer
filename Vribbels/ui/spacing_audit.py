@@ -1064,6 +1064,16 @@ def compare_baseline(rows, path=BASELINE_PATH, out=print):
         out(f"baseline MISSING  {name} (renamed panel, or no longer measured)")
 
 
+# **Tabs whose repeated gaps are a GRID rather than a pitch.** One
+# entry elsewhere stands for a run of gaps that all answer to one
+# target, so a sibling off it fails the row. The Materials tab's icons
+# sit in a fixed grid: its repeats are cells, and a cell that measures
+# differently is the grid's shape rather than a distance that drifted.
+# So its rows are read on the value the resolver reports and nothing
+# else.
+GRID_TABS = frozenset({"Materials"})
+
+
 def run_audit(app, out=print, verbose: bool = False, freeze: bool = False):
     """Measure every registered gap and print a table.
 
@@ -1205,8 +1215,10 @@ def _measure_tabs(app, notebook, gaps, scenario):
             # **One sibling off the target fails the row**, whatever the
             # reported reading says. The note names the count and the
             # distances; which rows they are is in the resolver's own
-            # note beside it.
-            off = [o for o in others if o != g.target]
+            # note beside it. See `GRID_TABS` for where that does not
+            # hold.
+            off = ([] if g.tab in GRID_TABS
+                   else [o for o in others if o != g.target])
             if off:
                 spread = ", ".join(str(o) for o in sorted(set(off)))
                 extra = (f"{len(off)} of {len(others) + 1} off target "
