@@ -1,11 +1,13 @@
 ---
 name: spacing-audit
-description: Run and read the UI spacing audit — the screenshot-based measurement of every registered gap. Use when asked to run a spacing audit, to check a rendered gap in pixels, to freeze the spacing baseline, or when a UI change needs its distances confirmed on screen. Covers the preconditions, the launchers, how to read the table and what to do with a miss.
+description: Read or run the UI spacing audit — the screenshot-based measurement of every registered gap. Use when the maintainer pastes audit output, reports a gap as off, or mentions a baseline CHANGED or MISSING line; when a rendered distance needs confirming in pixels; when the baseline is being frozen; or when asked to run one. Covers how to read the table, what a miss resolves to, and the preconditions and launchers for a run.
 ---
 
 # Spacing audit
 
 The procedure only. The mechanism — what each rule means, what the audit can and cannot see, the marker vocabulary — lives in `docs/ui_spacing.md`, and the entries themselves in `Vribbels/ui/spacing_registry.py`.
+
+**The maintainer runs audits on their own judgement and hands over the output**, so reading a table is the common case and asking for a run is the rare one. Start at *Reading the table*.
 
 ## Before asking for a run
 
