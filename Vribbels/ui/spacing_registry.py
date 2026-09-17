@@ -4497,10 +4497,6 @@ AWAITING_FIRST_READING = {
     # or a distance read off the screen and agreed, and a run measured
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
-    #
-    # The archive column's two readings are new and nobody has read
-    # them off the screen yet.
-    "Archive size -> Loose size",
 }
 
 
