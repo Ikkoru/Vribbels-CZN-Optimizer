@@ -882,7 +882,7 @@ class OptimizerTab(BaseTab):
         # _update_element_override_visibility based on selected character).
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         self.element_override_frame = ttk.LabelFrame(
-            parent, text="Element override (Unknown character)", padding=px(3)
+            parent, text="Element override", padding=px(3)
         )
         # spacing: label ↔ its element -- label, dropdown ↔
         ttk.Label(

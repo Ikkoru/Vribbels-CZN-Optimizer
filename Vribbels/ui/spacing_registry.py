@@ -3280,7 +3280,7 @@ LEFT_INSET_OVERRIDES = {
 # Panels that only exist in a non-default app state, and the panels
 # beneath them whose position that state changes. Both are measured in
 # the scenario as well as (where they exist) in the default one.
-ELEMENT_OVERRIDE_TITLE = "Element override (Unknown character)"
+ELEMENT_OVERRIDE_TITLE = "Element override"
 ELEMENT_OVERRIDE_PANELS = [
     ELEMENT_OVERRIDE_TITLE,
     # These sit below it in the middle column, so packing the override
@@ -3595,7 +3595,7 @@ ELEMENT_ENTRIES = [
      _class_left_inset("Set Configuration", *CHECKBOX_CLASSES)),
     ("Capture", "Upgrade Log Settings", "checkboxes", 4,
      _class_left_inset("Upgrade Log Settings", *CHECKBOX_CLASSES)),
-    ("Gear Score", "Stat Weight Configuration", "applied preset label", 4,
+    ("Gear Score", "Stat Weight Configuration", "applied preset", 4,
      _text_left_inset("Stat Weight Configuration", "Applied")),
 ]
 
