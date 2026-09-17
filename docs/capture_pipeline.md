@@ -268,7 +268,7 @@ What is left is the file being written, the numbers moving, and — loudly — a
 
 **One archive, rebuilt, never appended to.** Consecutive snapshots are near-identical and that only pays inside ONE compression stream: measured over 114 real captures, a solid rebuild came to 242 KB where compressing each file alone came to 7.0 MB. Rebuild cost is proportional to the whole archive, which is what the water marks are for — a rebuild per file would pay the whole cost every time and lose the ratio as well.
 
-**"Old" is positional, not temporal.** A file is a candidate when it is the Nth back from the newest of its own kind, so what the program reads is never in reach however long ago it was written. `KINDS` carries both marks per kind: snapshots compact at 16 and keep 3, logs at 13 and keep 3.
+**"Old" is positional, not temporal.** A file is a candidate when it is the Nth back from the newest of its own kind, so what the program reads is never in reach however long ago it was written. `KINDS` carries both marks per kind, and is the only place they are written down — snapshots and logs compact at different counts, since a log is the bigger file and nothing shipped reads an old one.
 
 **A loose file is deleted only after its archived copy has been read back and its SHA-256 matched**, in that same pass, and `_delete` refuses anything that is not directly in the folder, not named like a capture, or not verified — `_capture_addon.py` sits in that directory. A verification mismatch is never retried: either the archive is wrong or the file changed underneath, and both want a human, so the run stops with the old archive untouched. A file that will not open, or will not delete, is left loose for the next compaction instead of failing the run.
 

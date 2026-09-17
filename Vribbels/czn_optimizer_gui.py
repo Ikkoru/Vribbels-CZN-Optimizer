@@ -318,22 +318,30 @@ class OptimizerGUI:
         # opens it: the Optimizer tab's help text re-wraps, which changes the
         # toolbar height and shifts every panel below it.
         #
-        # ONLY that one tab. Cycling all eight cost 2.6-3.8s of startup
+        # NAMED tabs only. Cycling all eight cost 2.6-3.8s of startup
         # (measured) -- more than every other phase combined -- because each
         # select() + update() forces a full layout and draw of a tab the user
-        # may never open. The Optimizer tab is the only one with a known
-        # Configure-driven layout dependency; if another turns out to shift,
-        # add it here by name rather than going back to cycling everything.
+        # may never open. Two have a known Configure-driven layout
+        # dependency; if another turns out to shift, add it here by name
+        # rather than going back to cycling everything.
+        #
+        # Setup & Settings is the second: its panels are laid out one after
+        # another and then RESIZED, so opening it cold shows the frames
+        # arriving and the contents settling into them over about a second.
         import time as _time
         import perf_log
         _t = _time.perf_counter()
         try:
             originally_selected = self.notebook.select()
-            optimizer_tab_id = str(self.optimizer_tab_instance.frame)
-            if optimizer_tab_id != originally_selected:
-                self.notebook.select(optimizer_tab_id)
-                self.root.update()
-                self.notebook.select(originally_selected)
+            for instance in (self.optimizer_tab_instance,
+                             self.setup_tab_instance):
+                if instance is None:
+                    continue
+                tab_id = str(instance.frame)
+                if tab_id != originally_selected:
+                    self.notebook.select(tab_id)
+                    self.root.update()
+            self.notebook.select(originally_selected)
         except (tk.TclError, AttributeError):
             pass
         perf_log.log("startup:reveal.pre_settle_tabs",

@@ -166,7 +166,7 @@ def _build(folder: Path, adding: list, preset: int, say) -> dict:
     book = folder / ARCHIVE_NAME
     tmp = folder / TMP_NAME
     wanted = {}
-    # **A name being added now wins over the copy already inside.** A
+    # **A name added this pass wins over the copy already inside.** A
     # loose file can legitimately still be there after an interrupted
     # or dry run, and tar does not reject a second member of the same
     # name -- it stores both, so the archive grows by a copy every
