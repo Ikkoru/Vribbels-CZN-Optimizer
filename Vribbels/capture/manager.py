@@ -218,6 +218,10 @@ class Addon:
         # The Great Rift standings, season -> rank slot -> record. The
         # weekly score is in there and in nothing else the game sends.
         self.disaster_ranks = None
+        # The Sortie ladders, keyed by res_id. See where they are read
+        # for why they are merged rather than replaced.
+        self.assault_char_achievements = {}
+        self.assault_char_titles = {}
 
         # One row per Galactic Disaster season, carrying that season's
         # weekly chaos score.
@@ -1313,6 +1317,30 @@ class Addon:
         if isinstance(data.get("disaster_boss_rank_entities"), dict):
             self.disaster_ranks = data["disaster_boss_rank_entities"]
             self._save_pending = True
+        # **The two Sortie ladders, per combatant.** Both arrive whole
+        # on the login burst and again as they are earned, and both are
+        # SPARSE: a rung sends nothing until it has been reached, so
+        # what is on the wire is the count DONE and the total is the
+        # game's own shape rather than anything the wire states.
+        #
+        # Merged rather than replaced: the run-end reply carries only
+        # the rungs that run earned, where the login carries every one
+        # the account has.
+        for key, held in (("assault_char_achievement_entities",
+                           self.assault_char_achievements),
+                          ("assault_char_title_entities",
+                           self.assault_char_titles)):
+            rows = data.get(key)
+            rows = (rows if isinstance(rows, list)
+                    else list(rows.values()) if isinstance(rows, dict)
+                    else None)
+            if not rows:
+                continue
+            for row in rows:
+                if isinstance(row, dict) and row.get("res_id"):
+                    held[str(row["res_id"])] = row
+            self._save_pending = True
+
         # And the season's own row, which carries the WEEKLY CHAOS
         # score. A different record from the standings above, arriving
         # in the same frame.
@@ -1656,6 +1684,9 @@ class Addon:
             "characters": self.character_data,
             "char_visits": self.char_visits,
             "disaster_boss_rank_entities": self.disaster_ranks,
+            "assault_char_achievement_entities":
+                self.assault_char_achievements or None,
+            "assault_char_title_entities": self.assault_char_titles or None,
             "disaster_entities": self.disaster_seasons,
             # What the recurring tasks stand at. The Checklist tab
             # reads the first and the last; the rest are written so a

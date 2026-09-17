@@ -64,6 +64,7 @@ from checks import (                                    # noqa: E402
     check_repo_root,
     check_settings_roundtrip,
     check_shipped_defaults,
+    check_sortie_progress,
     check_spacing_markers,
     check_spacing_registry,
     check_tabs_build,
@@ -77,6 +78,7 @@ from checks import (                                    # noqa: E402
 CHECKS = [
     check_repo_root,
     check_instruction_files,
+    check_sortie_progress,
     check_spacing_markers,
     check_spacing_registry,
     check_fringe_lightness,
