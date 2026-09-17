@@ -361,6 +361,73 @@ def gap_between(a: int, b: int) -> int:
     return b - a - 1
 
 
+# **A tooltip's underline is ink the rules do not name.** It is drawn
+# inside the label's own box, across the full advance width and on a row
+# below the baseline, so a widget carrying one paints further than its
+# glyphs do while occupying exactly the same space -- measured, a label
+# keeps its width and height to the pixel either way.
+#
+# Below: its lowest pixel sits 2 under a capital's, which is the
+# baseline, on every face the app uses.
+#
+# Right: 1, the advance width's trailing side bearing that the last
+# glyph's ink does not reach. Two sites read a pixel tight the day the
+# underline arrived -- `LVL group -> Start` and `Sets set -> its count`
+# -- with every other horizontal gap unmoved.
+#
+# These correct the READING, like the glyph tables in the registry: the
+# rules measure to the baseline and to the glyphs, and the screen shows
+# the underline too.
+UNDERLINE_BELOW = 2
+UNDERLINE_RIGHT = 1
+
+
+def _has_underlined_font(widget) -> bool:
+    """Does this ONE widget's own font carry the underline?"""
+    try:
+        spec = str(widget.cget("font"))
+    except (AttributeError, tk.TclError):
+        return False
+    if not spec:
+        return False
+    try:
+        from tkinter import font as tkfont
+        return bool(int(tkfont.Font(root=widget, font=spec)
+                        .cget("underline")))
+    except (tk.TclError, ValueError, TypeError):
+        return False
+
+
+def is_underlined(widget, edge=None) -> bool:
+    """Does the ink at `edge` of this element carry a tooltip's underline?
+
+    A gap is often read against a GROUP rather than a single label -- a
+    row's frame, a block of controls -- and a frame has no font. What
+    decides the reading is the one child whose ink reaches the edge
+    being measured, so that is the child asked: `edge` is `"right"` or
+    `"bottom"`, and without it only the widget itself is considered.
+    """
+    if _has_underlined_font(widget):
+        return True
+    if edge is None:
+        return False
+    reach, found = None, None
+    stack = list(getattr(widget, "winfo_children", list)() or ())
+    while stack:
+        child = stack.pop()
+        stack.extend(child.winfo_children())
+        try:
+            if edge == "right":
+                at = child.winfo_rootx() + child.winfo_width()
+            else:
+                at = child.winfo_rooty() + child.winfo_height()
+        except tk.TclError:
+            continue
+        if reach is None or at > reach:
+            reach, found = at, child
+    return found is not None and _has_underlined_font(found)
+
+
 def vertical_gap(cap: Capture, upper, lower) -> tuple:
     """Background rows between the painted bottom of `upper` and the
     painted top of `lower`. Returns (value, note).
@@ -369,7 +436,10 @@ def vertical_gap(cap: Capture, upper, lower) -> tuple:
     lb = painted_extent_v(cap, box_of(lower))
     if ub is None or lb is None:
         return None, "one element painted nothing (empty or hidden)"
-    return gap_between(ub[1], lb[0]), ""
+    value = gap_between(ub[1], lb[0])
+    if is_underlined(upper, "bottom"):
+        return value + UNDERLINE_BELOW, "underlined"
+    return value, ""
 
 
 def horizontal_gap(cap: Capture, left, right) -> tuple:
@@ -377,7 +447,10 @@ def horizontal_gap(cap: Capture, left, right) -> tuple:
     rb = painted_extent_h(cap, box_of(right))
     if lb is None or rb is None:
         return None, "one element painted nothing (empty or hidden)"
-    return gap_between(lb[1], rb[0]), ""
+    value = gap_between(lb[1], rb[0])
+    if is_underlined(left, "right"):
+        return value + UNDERLINE_RIGHT, "underlined"
+    return value, ""
 
 
 MAX_BORDER = 4

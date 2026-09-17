@@ -548,6 +548,15 @@ RECORDED_NAMES = {
     5210000: "Prism Module - Nominate",
     5210001: "Prism Module - Masterpiece",
     9210051: "Memories of the Beach Café Festival",
+    9300259: "Glorious Allegory",
+    # Animated card unlocks, which the game names after what they
+    # unlock rather than after themselves. The last two share a name:
+    # the collaboration issued two separate items under it.
+    9400080: "Arky",
+    9400081: "Kayron",
+    9400082: "Witch of the Mere Tenebria",
+    9400083: "CZN x Epic Seven",
+    9400104: "CZN x Epic Seven",
     # The Bartender event's final reward, the pair that unlocks only
     # once every other reward has been taken.
     9700001: "The Last of Summer in a Glass",

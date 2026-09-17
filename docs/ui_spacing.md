@@ -30,6 +30,12 @@ Prefer narrowing the scan wherever the string can be indexed to a capital. Prefe
 | a true descender below the baseline (`g j p q y`) | 3px | any body size |
 | a parenthesis below the baseline | 2px | any body size |
 | an ascender or tittle above the caps (`b d f h i j k l`) | 1px | **Segoe UI 14 bold only** |
+| a tooltip's underline below the baseline | 2px | every face it is drawn on |
+| a tooltip's underline past the last glyph | 1px | every face it is drawn on |
+
+**The underline is not a glyph**, which is why it is two rows rather than one: it is drawn inside the label's own box across the FULL advance width and on a row below the baseline, so a widget carrying one paints further in both directions while occupying exactly the same space -- measured, a label keeps its width and height to the pixel either way. Below, its lowest pixel sits 2 under a capital's. To the right, 1: the advance width's trailing side bearing that the last glyph's ink does not reach, read off two sites that went a pixel tight the day the underline arrived while every other horizontal gap held.
+
+`ui/spacing_audit.py` applies both, and asks the child whose ink reaches the edge being measured rather than the element as a whole -- a gap is often read against a group, and a frame has no font.
 
 `i` and `l` are measured; the rest of that class is assumed to match, and `t` is NOT in it. At Segoe UI 9 and 11 the whole class tops out level with the capitals, so only the tab headings need the correction.
 
