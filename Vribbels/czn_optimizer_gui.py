@@ -1021,6 +1021,13 @@ class OptimizerGUI:
         def say(msg):
             tag = tags.get(str(msg).split(" ", 1)[0])
             self.capture_tab_instance.capture_log_msg(msg, tag)
+            # Only the aborts. The retry-and-carry-on cases put a line
+            # in the log and leave the folder correct, and a mark
+            # raised for something that fixed itself is one nobody
+            # reads the next time it means something.
+            if tag == "error":
+                self.root.after(
+                    0, self.capture_tab_instance.flag_failure)
 
         archive.compact_in_background(folder, preset=chosen, say=say)
 

@@ -2303,6 +2303,74 @@ def _default_word(node):
     return None
 
 
+def _the_failure_mark_lights_and_clears(tab):
+    """The tab's mark goes up on a failure and comes off when read.
+
+    Every way this breaks is silent. A `PhotoImage` nobody holds is
+    collected and the tab goes blank; a blink whose `after` is never
+    cancelled keeps firing at a widget that has gone; a mark that does
+    not clear on opening the tab is one the user learns to ignore.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+
+    out = []
+    alert = getattr(tab, "_alert", None)
+    if alert is None:
+        return ["the Capture tab built no `_alert`, so a background "
+                "failure has no way to reach a user on another tab."]
+
+    if alert.showing:
+        out.append("the mark was already showing before anything failed.")
+    tab.flag_failure()
+    if not alert.showing:
+        out.append(
+            "`flag_failure` did not raise the mark. A failure that reports "
+            "only into the Capture Log reaches nobody who is on another "
+            "tab, which is everybody while a background task runs.")
+    was = alert._after
+    tab.flag_failure()
+    if alert._after != was:
+        out.append(
+            "a second failure started a second blink, so two `after` "
+            "chains now drive one mark and only one can be cancelled.")
+    for name in ("_dot", "_blank"):
+        image = getattr(alert, name, None)
+        if not isinstance(image, tk.PhotoImage):
+            out.append(
+                f"`{name}` is {type(image).__name__}, not a PhotoImage held "
+                f"on the alert. An image with no Python reference is "
+                f"garbage-collected and the tab goes blank.")
+    # The title's pulse is a SEPARATE life from the mark's: opening the
+    # tab reads the mark, while the title only points at which panel
+    # spoke and runs out on its own. So it is still going here, and
+    # that is right.
+    if getattr(tab, "_title_blink", None) is None:
+        out.append(
+            "`flag_failure` did not pulse the Capture Log's title, so a "
+            "user who opens the tab is not told which panel spoke.")
+    if tab._log_frame.cget("style") not in ("TLabelframe",
+                                            "Alert.TLabelframe"):
+        out.append(
+            f"the log frame carries style {tab._log_frame.cget('style')!r}, "
+            f"which the blink neither sets nor restores.")
+
+    alert.clear()
+    if alert.showing or alert._after is not None:
+        out.append(
+            "`clear` left the blink running. Its `after` fires at a widget "
+            "that may be gone by then.")
+    tab._stop_title_blink()
+    if tab._title_blink is not None:
+        out.append("`_stop_title_blink` left its `after` pending.")
+    if tab._log_frame.cget("style") != "TLabelframe":
+        out.append(
+            "the log frame kept the alert style after its blink stopped, "
+            "so the title stays red for the rest of the session.")
+    return out
+
+
 def _archive_size_carries_its_tooltip(tab):
     """The archive reading says on hover what the figure does not.
 
@@ -2489,6 +2557,8 @@ def run():
                 )
 
         if "OptimizerTab" in built:
+            failures.extend(
+                _the_failure_mark_lights_and_clears(built["CaptureTab"]))
             failures.extend(_messagebox_defaults_name_their_own_buttons())
             failures.extend(_archive_size_carries_its_tooltip(
                 built["SetupTab"]))

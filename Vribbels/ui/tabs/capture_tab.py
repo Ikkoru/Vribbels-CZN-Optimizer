@@ -9,6 +9,7 @@ from capture.constants import SERVERS
 from game_data.characters import CHARACTERS, ATTRIBUTE_COLORS
 from game_data.constants import PROVISIONAL_NAMES, item_names
 from ..base_tab import BaseTab
+from ..utils.alert import BLINK_MS, TabAlert
 from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.checkbox import make_checkbox
 from ..utils.scrolled_text import make_scrolled_text
@@ -21,6 +22,12 @@ from ui.scaling import px
 # count is DERIVED from the width everywhere else; see
 # `_log_preset_columns`.
 LOG_PRESET_COLUMNS_FALLBACK = 6
+
+# How long the Capture Log's title pulses after a background failure.
+# Shorter-lived than the mark on the tab: the mark says SOMETHING
+# failed and waits to be read, while the title only says WHICH panel
+# spoke, which is answered as soon as the eye lands on it.
+TITLE_BLINK_MS = 7000
 
 # Gap between those columns, in pixels. A FLOOR, not a distance: the
 # columns size to the preset names in them and the names are the user's,
@@ -171,6 +178,21 @@ class CaptureTab(BaseTab):
         self.context.notebook.bind(
             "<<NotebookTabChanged>>", self._on_tab_changed, add="+"
         )
+
+        # The mark on this tab, and the pulse on the log's title, for a
+        # background failure the user must act on. Built after the UI:
+        # the alert needs the tab's frame to be in the notebook.
+        self._title_blink = None
+        self._title_blink_until = 0
+        self._title_blink_on = False
+        self.context.style.configure(
+            "Alert.TLabelframe.Label",
+            background=self.colors["red"], foreground=self.colors["bg"])
+        try:
+            self._alert = TabAlert(self.context.notebook, self.frame,
+                                   self.colors["red"])
+        except tk.TclError:
+            self._alert = None
 
         # Auto-check prerequisites after UI setup
         self.root.after(500, self.check_capture_prerequisites)
@@ -497,7 +519,8 @@ class CaptureTab(BaseTab):
         #
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border.
-        log_frame = ttk.LabelFrame(main_frame, text="Capture Log", padding=px(0))
+        log_frame = self._log_frame = ttk.LabelFrame(
+            main_frame, text="Capture Log", padding=px(0))
         log_frame.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((5, 2)))
 
         # spacing: border edge -> first non-button element -- panel, text ↔↕
@@ -690,7 +713,63 @@ class CaptureTab(BaseTab):
         try:
             if event.widget.nametowidget(event.widget.select()) is self.frame:
                 self.refresh_log_presets()
+            elif self._title_blink is not None:
+                # Leaving the tab ends the title's blink even if its
+                # seven seconds have not run out: it was there to catch
+                # an eye that has now moved on.
+                self._stop_title_blink()
         except Exception:
+            pass
+
+    def flag_failure(self):
+        """Mark the tab, and pulse the log's title, for a failure.
+
+        For a failure the user must ACT on. Anything that retries and
+        carries on belongs in the log alone -- a mark raised for
+        something that fixed itself is one nobody reads next time.
+
+        The tab's mark stays until the tab is opened. The title's blink
+        is a shorter thing: it is only there to point at which panel
+        spoke, so it stops on leaving the tab or after `TITLE_BLINK_MS`,
+        whichever comes first.
+        """
+        if self._alert is not None:
+            self._alert.raise_alert()
+        self._start_title_blink()
+
+    def _start_title_blink(self):
+        if self._log_frame is None or self._title_blink is not None:
+            return
+        self._title_blink_until = (
+            self.root.tk.call("clock", "milliseconds") + TITLE_BLINK_MS)
+        self._title_blink_on = False
+        self._tick_title_blink()
+
+    def _tick_title_blink(self):
+        now = self.root.tk.call("clock", "milliseconds")
+        if now >= self._title_blink_until:
+            self._stop_title_blink()
+            return
+        self._title_blink_on = not self._title_blink_on
+        try:
+            self._log_frame.configure(
+                style="Alert.TLabelframe" if self._title_blink_on
+                else "TLabelframe")
+            self._title_blink = self.root.after(BLINK_MS,
+                                                self._tick_title_blink)
+        except tk.TclError:
+            self._title_blink = None
+
+    def _stop_title_blink(self):
+        if self._title_blink is not None:
+            try:
+                self.root.after_cancel(self._title_blink)
+            except (ValueError, tk.TclError):
+                pass
+            self._title_blink = None
+        try:
+            self._log_frame.configure(style="TLabelframe")
+        except (AttributeError, tk.TclError):
             pass
 
     def refresh_log_presets(self):
