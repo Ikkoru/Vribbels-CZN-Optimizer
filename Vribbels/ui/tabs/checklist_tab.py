@@ -2052,9 +2052,18 @@ class ChecklistTab(BaseTab):
         #
         # A shop product's label is a CHECKBOX, so it reaches further
         # right than its words alone say.
+        #
+        # **A row showing NO value has no say in where the value column
+        # sits.** A shop heading is the long one -- `Shop - Exchange
+        # Shop - Prism Module` -- and its total hangs off its own words
+        # rather than standing in the column, so letting it vote pushed
+        # every reading beside it right for a column it does not use.
+        # Shop PRODUCTS still vote: their counts are in that column.
+        measured = [(key, label) for key, label, w in rows if w] or \
+            [(key, label) for key, label, _w in rows]
         labels = max(font.measure(label)
                      + (px(CHECKBOX_OVERHEAD) if _is_shop(key) else 0)
-                     for key, label, _w in rows)
+                     for key, label in measured)
         stop = labels + TEXT_INSET + LABEL_TO_VALUE
         widest = max([font.measure(w) for _k, _l, w in rows if w] or [0])
         # **A shop heading's line is outside that column**, hanging off
