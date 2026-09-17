@@ -132,7 +132,12 @@ SETTINGS_LABEL_GAP = 2  # spacing: label ↔ its element -- label, dropdown ↔
 # right one. Wider than `label ↔ its element`: these separate things
 # that answer different questions, where that rule joins a pair.
 SETTINGS_COLUMN_GAP = 16  # spacing: unique -- the settings panel's two columns -- dropdown, label ↔
-ARCHIVE_SIZE_GAP = 8  # spacing: unique -- the two size readings -- label, label ↔
+# Two label+value pairs side by side, which is the pair rule at its own
+# 8px -- LESS the chrome the reading includes and the padding does not:
+# each label's own inset plus the side bearings of the glyphs that end
+# and begin them. MEASURED off an audit, like `INSTRUCTIONS_CHROME`.
+ARCHIVE_PAIR_CHROME = 5
+ARCHIVE_SIZE_GAP = 8 - ARCHIVE_PAIR_CHROME  # spacing: element and its label ↔ element and its label -- label, label ↔
 
 # The Compression dropdown's words, against what the setting stores.
 # `Off` is a state of the same control rather than a separate switch:
@@ -143,6 +148,10 @@ ARCHIVE_WORDS = {
     "strongest": "Strongest",
 }
 ARCHIVE_NOTE = "Archives old captures. Applies on the next launch."
+# The panel's own bottom pad is 0 and `SETTINGS_LAST_TRIM` gives the
+# left column's last LABEL its gap back. The button is the lowest thing
+# in the panel, so it carries its own rule's distance here.
+ARCHIVE_BUTTON_EDGE = 3  # spacing: border edge -> button -- panel, button ↕
 
 
 def _megabytes(count: int) -> str:
@@ -563,13 +572,18 @@ class SetupTab(BaseTab):
         # right one is the capture archive, which is about the DISK
         # rather than about how the program runs -- a different question
         # from the two beside it, so it is a column and not more rows.
+        # **`fill=X` and no `expand`**, like every other row in the
+        # panel. A frame that also fills the HEIGHT paints its own
+        # background down the whole interior, and the left-edge reading
+        # then meets that fill instead of the first label's glyph -- one
+        # pixel earlier, for a distance nothing moved.
         columns = ttk.Frame(settings_frame)
-        columns.pack(fill=tk.BOTH, expand=True, anchor=tk.W)
+        columns.pack(fill=tk.X, anchor=tk.W)
         left = ttk.Frame(columns)
-        left.pack(side=tk.LEFT, anchor=tk.N)
+        left.pack(side=tk.LEFT, anchor=tk.NW)
         # spacing: unique -- the settings panel's two columns -- dropdown, label ↔
         right = ttk.Frame(columns)
-        right.pack(side=tk.LEFT, anchor=tk.N, fill=tk.Y,
+        right.pack(side=tk.LEFT, anchor=tk.NW, fill=tk.Y,
                    padx=px((SETTINGS_COLUMN_GAP, 0)))
         settings_frame = left
 
@@ -652,7 +666,7 @@ class SetupTab(BaseTab):
         sizes.pack(fill=tk.X, anchor=tk.W, pady=px((SETTINGS_ROW_GAP, 0)))
         self._archive_size_label = ttk.Label(sizes, text="")
         self._archive_size_label.pack(side=tk.LEFT)
-        # spacing: unique -- the two size readings -- label, label ↔
+        # spacing: element and its label ↔ element and its label -- label, label ↔
         self._folder_size_label = ttk.Label(sizes, text="")
         self._folder_size_label.pack(side=tk.LEFT,
                                      padx=px((ARCHIVE_SIZE_GAP, 0)))
@@ -661,7 +675,9 @@ class SetupTab(BaseTab):
         # left column is the taller of the two and sets the height.
         self._delete_archive_button = ttk.Button(
             parent, text="Delete Archive", command=self._delete_archive)
-        self._delete_archive_button.pack(side=tk.BOTTOM, anchor=tk.E)
+        # spacing: border edge -> button -- panel, button ↕
+        self._delete_archive_button.pack(
+            side=tk.BOTTOM, anchor=tk.E, pady=px((0, ARCHIVE_BUTTON_EDGE)))
 
         self._refresh_archive_sizes()
         self.context.notebook.bind(

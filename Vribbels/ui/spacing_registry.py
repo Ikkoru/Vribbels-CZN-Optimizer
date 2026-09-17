@@ -70,7 +70,6 @@ UNIQUE_STATUS_LABEL_SPINBOX = (
 UNIQUE_STATUS_SPINBOX_CHECKBOX = (
     "between mixed element rows (spinbox -> checkbox)")
 UNIQUE_SETUP_STATUS = "Setup Status stands apart on purpose"
-UNIQUE_ARCHIVE_SIZES = "the two size readings"
 UNIQUE_SETTINGS_COLUMNS = "the settings panel's two columns"
 
 
@@ -718,6 +717,10 @@ PANEL_EDGE_RULES = {
     ("Slots", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
     ("Sets", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
     ("Main Stats", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
+    # The archive column ends in `Delete Archive`, which sits at the
+    # panel's foot -- so Settings' bottom edge meets a BUTTON, whatever
+    # the left column's last label does above it.
+    ("Settings", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
 }
 
 # Hand readings for PANEL_EDGES rows the resolver and the eye disagree
@@ -3118,11 +3121,6 @@ UNIQUE_ENTRIES = [
     # is held rather than merely intended.
     ("Setup & Settings", "Setup Status: row pitch", UNIQUE_SETUP_STATUS, 13,
      _capital_row_pitch("Setup Status", LABEL_CLASSES)),
-    # The archive column's two readings. One row, two labels, so this is
-    # a plain horizontal gap -- unlike the gap between the COLUMNS,
-    # which the uniques table explains is not one distance to hold.
-    ("Setup & Settings", "Archive size -> Loose size", UNIQUE_ARCHIVE_SIZES,
-     8, _gap(_by_text("Archive:"), _by_text("Loose:"), "h")),
 ]
 
 
