@@ -2314,6 +2314,7 @@ def _the_failure_mark_lights_and_clears(tab):
     Returns a list of complaints.
     """
     import tkinter as tk
+    from tkinter import ttk
 
     out = []
     alert = getattr(tab, "_alert", None)
@@ -2323,12 +2324,52 @@ def _the_failure_mark_lights_and_clears(tab):
 
     if alert.showing:
         out.append("the mark was already showing before anything failed.")
+
+    # On the tab already: nowhere to bring anyone, and no tab change
+    # coming to take a mark back off again.
+    notebook = alert.notebook
+    if str(tab.frame) not in notebook.tabs():
+        notebook.add(tab.frame, text="Capture")
+    was = notebook.select()
+    notebook.select(tab.frame)
+    tab._title_pending = False
+    tab.flag_failure()
+    if alert.showing:
+        out.append(
+            "a failure marked the tab the user is already reading. Nothing "
+            "brings them anywhere, and `<<NotebookTabChanged>>` does not "
+            "fire for the tab already selected -- so the mark blinks until "
+            "they leave and come back.")
+    if tab._title_blink is None:
+        out.append(
+            "on the tab already, nothing pulsed at all: the mark is not "
+            "raised there, so the title is the only thing left to say "
+            "which panel spoke.")
+    tab._stop_title_blink()
+
+    # Somewhere ELSE to be. The harness builds tabs without adding them
+    # all, so restoring the previous selection can leave this one still
+    # showing -- and then the off-tab case is never exercised.
+    elsewhere = ttk.Frame(notebook)
+    notebook.add(elsewhere, text="elsewhere")
+    notebook.select(elsewhere)
+    tab._title_pending = False
+
     tab.flag_failure()
     if not alert.showing:
         out.append(
             "`flag_failure` did not raise the mark. A failure that reports "
             "only into the Capture Log reaches nobody who is on another "
             "tab, which is everybody while a background task runs.")
+    if tab._title_blink is not None:
+        out.append(
+            "the title's pulse started while the user was on another tab. "
+            "It runs out after a few seconds, so it is spent before the "
+            "mark has brought anyone over to see it.")
+    if not tab._title_pending:
+        out.append(
+            "nothing held the title's pulse for the user's arrival, so "
+            "opening the tab clears the mark and says nothing more.")
     was = alert._after
     tab.flag_failure()
     if alert._after != was:
@@ -2342,14 +2383,6 @@ def _the_failure_mark_lights_and_clears(tab):
                 f"`{name}` is {type(image).__name__}, not a PhotoImage held "
                 f"on the alert. An image with no Python reference is "
                 f"garbage-collected and the tab goes blank.")
-    # The title's pulse is a SEPARATE life from the mark's: opening the
-    # tab reads the mark, while the title only points at which panel
-    # spoke and runs out on its own. So it is still going here, and
-    # that is right.
-    if getattr(tab, "_title_blink", None) is None:
-        out.append(
-            "`flag_failure` did not pulse the Capture Log's title, so a "
-            "user who opens the tab is not told which panel spoke.")
     if tab._log_frame.cget("style") not in ("TLabelframe",
                                             "Alert.TLabelframe"):
         out.append(
@@ -2361,6 +2394,16 @@ def _the_failure_mark_lights_and_clears(tab):
         out.append(
             "`clear` left the blink running. Its `after` fires at a widget "
             "that may be gone by then.")
+    # The tab has to be its own width again. A tab carrying an image is
+    # wider than one without, so leaving the blank behind holds a
+    # dot-shaped hole open and shoves the label right for the rest of
+    # the session.
+    if notebook.tab(tab.frame, "image"):
+        out.append(
+            f"the tab still carries an image after `clear` "
+            f"({notebook.tab(tab.frame, 'image')!r}). Blinking swaps the "
+            f"dot for a blank of the same size so the strip does not "
+            f"shuffle; clearing has to take the image off entirely.")
     tab._stop_title_blink()
     if tab._title_blink is not None:
         out.append("`_stop_title_blink` left its `after` pending.")
@@ -2368,6 +2411,12 @@ def _the_failure_mark_lights_and_clears(tab):
         out.append(
             "the log frame kept the alert style after its blink stopped, "
             "so the title stays red for the rest of the session.")
+    try:
+        notebook.forget(elsewhere)
+        if was:
+            notebook.select(was)
+    except tk.TclError:
+        pass
     return out
 
 

@@ -50,11 +50,35 @@ class TabAlert:
         self._blank = tk.PhotoImage(master=notebook, width=size, height=size)
         notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed, add="+")
 
-    def raise_alert(self):
+    def is_current(self) -> bool:
+        """Is this tab the one being looked at?"""
+        try:
+            return self.notebook.nametowidget(
+                self.notebook.select()) is self.frame
+        except (tk.TclError, KeyError):
+            return False
+
+    def raise_alert(self) -> bool:
+        """Mark the tab. True if the mark went up.
+
+        It does NOT go up on the tab already on screen. A mark exists to
+        bring someone TO a tab; raised on the one they are reading it
+        has nothing to say and no way to be dismissed, because
+        `<<NotebookTabChanged>>` does not fire for the tab that is
+        already selected -- so it would blink until they left and came
+        back.
+
+        The answer is the caller's cue: a mark that went up means the
+        user is elsewhere, and whatever else the failure wants to say
+        should wait for them.
+        """
         if self._after is not None:
-            return
+            return True
+        if self.is_current():
+            return False
         self._show(True)
         self._tick()
+        return True
 
     def clear(self):
         """Take the mark off and stop the blink. Safe to call twice."""
@@ -64,7 +88,7 @@ class TabAlert:
             except (ValueError, tk.TclError):
                 pass
             self._after = None
-        self._show(False)
+        self._unmark()
 
     @property
     def showing(self) -> bool:
@@ -79,11 +103,30 @@ class TabAlert:
             self._after = None
 
     def _show(self, lit):
+        """One blink. The dark half keeps the dot's WIDTH.
+
+        A tab carrying an image is wider than one without it, so
+        blinking by adding and removing the image would shuffle the
+        whole tab strip twice a second. The blank twin holds the space
+        instead, and only `_unmark` gives it back.
+        """
         self._lit = bool(lit)
         try:
             self.notebook.tab(self.frame,
                               image=self._dot if lit else self._blank,
                               compound=tk.LEFT)
+        except tk.TclError:
+            pass
+
+    def _unmark(self):
+        """Take the image off entirely, so the tab is its own width again.
+
+        Setting the blank here is what left a dot-shaped hole in the
+        tab strip for the rest of the session.
+        """
+        self._lit = False
+        try:
+            self.notebook.tab(self.frame, image="", compound=tk.NONE)
         except tk.TclError:
             pass
 

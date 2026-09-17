@@ -185,6 +185,9 @@ class CaptureTab(BaseTab):
         self._title_blink = None
         self._title_blink_until = 0
         self._title_blink_on = False
+        # A failure reported while the user is on another tab. The
+        # pulse is held for their arrival rather than spent before it.
+        self._title_pending = False
         self.context.style.configure(
             "Alert.TLabelframe.Label",
             background=self.colors["red"], foreground=self.colors["bg"])
@@ -713,6 +716,9 @@ class CaptureTab(BaseTab):
         try:
             if event.widget.nametowidget(event.widget.select()) is self.frame:
                 self.refresh_log_presets()
+                if self._title_pending:
+                    self._title_pending = False
+                    self._start_title_blink()
             elif self._title_blink is not None:
                 # Leaving the tab ends the title's blink even if its
                 # seven seconds have not run out: it was there to catch
@@ -728,14 +734,22 @@ class CaptureTab(BaseTab):
         carries on belongs in the log alone -- a mark raised for
         something that fixed itself is one nobody reads next time.
 
-        The tab's mark stays until the tab is opened. The title's blink
-        is a shorter thing: it is only there to point at which panel
-        spoke, so it stops on leaving the tab or after `TITLE_BLINK_MS`,
-        whichever comes first.
+        **The title's pulse waits for an audience.** It runs for
+        `TITLE_BLINK_MS` and then stops, so starting it while the user
+        is on another tab spends it on nobody: by the time the tab's
+        mark brings them over, it has already run out. Held until they
+        arrive instead, which is also when the mark comes off.
+
+        On the tab already, there is nothing to bring anyone to, so the
+        pulse is all there is.
         """
-        if self._alert is not None:
-            self._alert.raise_alert()
-        self._start_title_blink()
+        # ONE decision, and the alert makes it: the mark goes up only
+        # where there is someone to bring over, and its answer is what
+        # says whether the pulse has an audience yet.
+        if self._alert is not None and self._alert.raise_alert():
+            self._title_pending = True
+        else:
+            self._start_title_blink()
 
     def _start_title_blink(self):
         if self._log_frame is None or self._title_blink is not None:
