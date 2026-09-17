@@ -302,13 +302,13 @@ def compact(folder, preset=DEFAULT_PRESET, say=print, delete=True) -> dict:
 
     result["archived"] = sorted(wanted)
     if not delete:
-        say("[i] %d capture(s) archived and verified; nothing deleted."
+        say("[OK] %d capture(s) archived and verified; nothing deleted."
             % len(wanted))
         return result
     for path in adding:
         if member_name(path) in wanted and _delete(folder, path, wanted, say):
             result["deleted"].append(path.name)
-    say("[i] %d capture(s) archived, %d deleted; %s holds %d file(s)."
+    say("[OK] %d capture(s) archived, %d deleted; %s holds %d file(s)."
         % (len(result["archived"]), len(result["deleted"]),
            ARCHIVE_NAME, len(contents(folder))))
     return result

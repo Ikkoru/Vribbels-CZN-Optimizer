@@ -1014,9 +1014,15 @@ class OptimizerGUI:
         if chosen not in archive.PRESETS:
             return
         folder = self.capture_manager.output_folder
-        archive.compact_in_background(
-            folder, preset=chosen,
-            say=lambda msg: self.capture_tab_instance.capture_log_msg(msg))
+        # The Capture Log colours by TAG, not by prefix, so the two are
+        # paired here rather than left for the reader to match up.
+        tags = {"[OK]": "success", "[!]": "warning", "[X]": "error"}
+
+        def say(msg):
+            tag = tags.get(str(msg).split(" ", 1)[0])
+            self.capture_tab_instance.capture_log_msg(msg, tag)
+
+        archive.compact_in_background(folder, preset=chosen, say=say)
 
     def auto_load(self):
         latest = self.capture_manager.get_latest_capture()

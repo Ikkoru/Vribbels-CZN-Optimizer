@@ -70,6 +70,8 @@ UNIQUE_STATUS_LABEL_SPINBOX = (
 UNIQUE_STATUS_SPINBOX_CHECKBOX = (
     "between mixed element rows (spinbox -> checkbox)")
 UNIQUE_SETUP_STATUS = "Setup Status stands apart on purpose"
+UNIQUE_ARCHIVE_SIZES = "the two size readings"
+UNIQUE_SETTINGS_COLUMNS = "the settings panel's two columns"
 
 
 # Glyphs whose ink reaches the FULL descender depth. `|` is not a
@@ -3116,6 +3118,11 @@ UNIQUE_ENTRIES = [
     # is held rather than merely intended.
     ("Setup & Settings", "Setup Status: row pitch", UNIQUE_SETUP_STATUS, 13,
      _capital_row_pitch("Setup Status", LABEL_CLASSES)),
+    # The archive column's two readings. One row, two labels, so this is
+    # a plain horizontal gap -- unlike the gap between the COLUMNS,
+    # which the uniques table explains is not one distance to hold.
+    ("Setup & Settings", "Archive size -> Loose size", UNIQUE_ARCHIVE_SIZES,
+     8, _gap(_by_text("Archive:"), _by_text("Loose:"), "h")),
 ]
 
 

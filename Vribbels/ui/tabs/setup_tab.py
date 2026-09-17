@@ -128,6 +128,32 @@ INSTRUCTIONS_CHROME = 23
 # the last LABEL instead -- `SETTINGS_LAST_TRIM`.
 SETTINGS_PAD = (1, 4, 1, 0)  # spacing: border edge -> first non-button element -- panel, dropdown ↔↕
 SETTINGS_LABEL_GAP = 2  # spacing: label ↔ its element -- label, dropdown ↔
+# The two columns inside the panel, and the two size readings inside the
+# right one. Wider than `label ↔ its element`: these separate things
+# that answer different questions, where that rule joins a pair.
+SETTINGS_COLUMN_GAP = 16  # spacing: unique -- the settings panel's two columns -- dropdown, label ↔
+ARCHIVE_SIZE_GAP = 8  # spacing: unique -- the two size readings -- label, label ↔
+
+# The Compression dropdown's words, against what the setting stores.
+# `Off` is a state of the same control rather than a separate switch:
+# it is the same question, answered with "not at all".
+ARCHIVE_WORDS = {
+    "off": "Off",
+    "balanced": "Balanced",
+    "strongest": "Strongest",
+}
+ARCHIVE_NOTE = "Archives old captures. Applies on the next launch."
+
+
+def _megabytes(count: int) -> str:
+    """A byte count as the reader would say it, never as `0.0 MB`."""
+    if count >= 1e9:
+        return "%.1f GB" % (count / 1e9)
+    if count >= 1e6:
+        return "%.1f MB" % (count / 1e6)
+    if count:
+        return "%.0f KB" % max(1, count / 1e3)
+    return "none"
 
 # What the LAST line in the panel gives back to its own bottom gap. A
 # `ttk.Label` carries about two pixels of inset below its glyphs, and a
@@ -533,6 +559,20 @@ class SetupTab(BaseTab):
 
         sm = self.context.settings_manager
 
+        # Two columns. The left one is the program's own switches; the
+        # right one is the capture archive, which is about the DISK
+        # rather than about how the program runs -- a different question
+        # from the two beside it, so it is a column and not more rows.
+        columns = ttk.Frame(settings_frame)
+        columns.pack(fill=tk.BOTH, expand=True, anchor=tk.W)
+        left = ttk.Frame(columns)
+        left.pack(side=tk.LEFT, anchor=tk.N)
+        # spacing: unique -- the settings panel's two columns -- dropdown, label ↔
+        right = ttk.Frame(columns)
+        right.pack(side=tk.LEFT, anchor=tk.N, fill=tk.Y,
+                   padx=px((SETTINGS_COLUMN_GAP, 0)))
+        settings_frame = left
+
         # ---- UI scale ------------------------------------------------
         scale_row = ttk.Frame(settings_frame)
         scale_row.pack(fill=tk.X, anchor=tk.W)
@@ -577,6 +617,147 @@ class SetupTab(BaseTab):
                   foreground=self.colors["red"], justify=tk.LEFT,
                   padding=px((0, 0, 0, SETTINGS_LAST_TRIM))).pack(
                       anchor=tk.W, pady=px((SETTINGS_NOTE_GAP, 0)))
+
+        self._build_archive_settings(right)
+
+    def _build_archive_settings(self, parent):
+        """The capture archive: how hard to compress, and how big it is.
+
+        `Applies on the next launch` is the literal truth and the reason
+        the control does nothing when it is changed: the compaction runs
+        once, at startup, off the UI thread. Firing a rebuild from a
+        dropdown would put a pass of up to half a minute behind a click
+        that does not look like it starts one.
+        """
+        from capture import archive
+
+        top = ttk.Frame(parent)
+        top.pack(fill=tk.X, anchor=tk.W)
+        ttk.Label(top, text="Compression:").pack(side=tk.LEFT)
+        self.archive_var = tk.StringVar(
+            value=self._archive_word(self.context.config.capture_archive))
+        choices = list(ARCHIVE_WORDS.values())
+        box = ttk.Combobox(top, textvariable=self.archive_var,
+                           state="readonly", values=choices,
+                           width=max(len(word) for word in choices) + 1)
+        # spacing: label ↔ its element -- label, dropdown ↔
+        box.pack(side=tk.LEFT, padx=px((SETTINGS_LABEL_GAP, 0)))
+        self.archive_var.trace_add("write", lambda *_: self._save_archive())
+        # spacing: explanation text -> the controls it explains -- dropdown, label ↕
+        ttk.Label(parent, text=ARCHIVE_NOTE,
+                  foreground=self.colors["fg_dim"]).pack(
+                      anchor=tk.W, pady=px((SETTINGS_NOTE_GAP, 0)))
+
+        sizes = ttk.Frame(parent)
+        sizes.pack(fill=tk.X, anchor=tk.W, pady=px((SETTINGS_ROW_GAP, 0)))
+        self._archive_size_label = ttk.Label(sizes, text="")
+        self._archive_size_label.pack(side=tk.LEFT)
+        # spacing: unique -- the two size readings -- label, label ↔
+        self._folder_size_label = ttk.Label(sizes, text="")
+        self._folder_size_label.pack(side=tk.LEFT,
+                                     padx=px((ARCHIVE_SIZE_GAP, 0)))
+
+        # BOTTOM of the column, which is the bottom of the panel: the
+        # left column is the taller of the two and sets the height.
+        self._delete_archive_button = ttk.Button(
+            parent, text="Delete Archive", command=self._delete_archive)
+        self._delete_archive_button.pack(side=tk.BOTTOM, anchor=tk.E)
+
+        self._refresh_archive_sizes()
+        self.context.notebook.bind(
+            "<<NotebookTabChanged>>", self._on_archive_tab_changed, add="+")
+
+    def _on_archive_tab_changed(self, event):
+        """Re-read the two sizes when this tab becomes the selected one.
+
+        On SELECT rather than on a timer: both figures come off a
+        directory walk and a tar header scan, and neither changes while
+        the user is looking at another tab.
+        """
+        try:
+            if event.widget.nametowidget(event.widget.select()) is self.frame:
+                self._refresh_archive_sizes()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _archive_word(value):
+        return ARCHIVE_WORDS.get(str(value).lower(), ARCHIVE_WORDS["balanced"])
+
+    def _save_archive(self):
+        chosen = self.archive_var.get()
+        for key, word in ARCHIVE_WORDS.items():
+            if word == chosen:
+                self.context.config.capture_archive = key
+                return
+
+    def _archive_folder(self):
+        manager = getattr(self.context, "capture_manager", None)
+        return getattr(manager, "output_folder", None)
+
+    def _refresh_archive_sizes(self):
+        """Put the archive's size and the loose folder's beside each other.
+
+        The folder figure EXCLUDES the archive, so the two add up to
+        what the folder costs rather than overlapping.
+        """
+        from capture import archive
+
+        folder = self._archive_folder()
+        book = folder / archive.ARCHIVE_NAME if folder else None
+        packed = book.stat().st_size if book and book.exists() else 0
+        loose = 0
+        if folder:
+            for path in folder.iterdir():
+                if path.is_file() and path != book:
+                    try:
+                        loose += path.stat().st_size
+                    except OSError:
+                        pass
+        self._archive_size_label.configure(
+            text="Archive: %s" % _megabytes(packed))
+        self._folder_size_label.configure(
+            text="Loose: %s" % _megabytes(loose))
+        state = tk.NORMAL if packed else tk.DISABLED
+        self._delete_archive_button.configure(state=state)
+        if packed:
+            held = archive.contents(folder)
+            inside = sum(size for _name, size in held)
+            self._archive_tip = (len(held), inside)
+        else:
+            self._archive_tip = (0, 0)
+
+    def _delete_archive(self):
+        """Delete the archive, to the Recycle Bin where there is one.
+
+        The one irreversible action here: everything else the archiver
+        does keeps a verified copy, and this is the copy. So it names
+        what is being lost, and it goes to the bin rather than being
+        unlinked, which is the only undo there is.
+        """
+        from capture import archive
+        from ui.utils.recycle import recycle
+
+        folder = self._archive_folder()
+        book = folder / archive.ARCHIVE_NAME if folder else None
+        if not book or not book.exists():
+            return
+        count, inside = getattr(self, "_archive_tip", (0, 0))
+        if not messagebox.askyesno(
+                "Delete Archive",
+                "Delete %d archived capture%s (%s of history, %s on disk)?\n\n"
+                "This cannot be undone from inside the program."
+                % (count, "" if count == 1 else "s", _megabytes(inside),
+                   _megabytes(book.stat().st_size)),
+                icon="warning", default="cancel"):
+            return
+        if recycle(book):
+            self._refresh_archive_sizes()
+        else:
+            messagebox.showerror(
+                "Delete Archive",
+                "%s could not be deleted. It may be open in another "
+                "program." % archive.ARCHIVE_NAME)
 
     def _build_links(self, parent):
         """Links: outward buttons, in the left column's width."""
