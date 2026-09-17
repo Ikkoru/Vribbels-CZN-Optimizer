@@ -691,8 +691,10 @@ class InventoryTab(BaseTab):
             # tooltip is a bare box.
             tip = (SETS_BY_NAME.get(set_name) or {}).get("bonus", "")
             if tip:
-                for w in (cb, cnt):
-                    self._set_tooltip.bind(w, tip)
+                # The set NAME carries it, not the count beside it: the
+                # count is a figure, and underlining one says something
+                # about the number rather than about the set.
+                self._set_tooltip.bind(cb, tip)
 
         # spacing: checkbox row -> checkbox row (small division) -- checkbox, checkbox ↕
         # What a row on the far side of the division adds ON TOP of the

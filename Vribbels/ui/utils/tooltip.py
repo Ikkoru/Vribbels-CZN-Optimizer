@@ -28,6 +28,12 @@ ROW_GAP = 5             # spacing: label ↔ its element -- label, label ↔
 # says there is more to read; the cursor says it arrives on hover.
 HOVER_CURSOR = "question_arrow"
 
+# How far the tip's corner sits from the pointer. Through `px()` at the
+# call, like every other hardcoded distance: a fixed nudge is half a
+# nudge at 200%.
+OFFSET_X = 12
+OFFSET_Y = 14
+
 
 class Tooltip:
     """Lightweight hover tooltip, shared by every tab that needs one.
@@ -200,19 +206,45 @@ class Tooltip:
             self._tip = None
             return
         try:
-            x = widget.winfo_pointerx() + 12
-            y = widget.winfo_pointery() + 14
             tip = tk.Toplevel(widget)
             tip.wm_overrideredirect(True)
-            tip.wm_geometry(f"+{x}+{y}")
             tip.attributes("-topmost", True)
             if isinstance(text, str):
                 self._words(tip, text).pack()
             else:
                 self._columns(tip, text).pack()
+            self._place(tip, widget)
             self._tip = tip
         except tk.TclError:
             self._tip = None
+
+    def _place(self, tip, widget):
+        """Put the tip's BOTTOM-RIGHT corner beside the pointer.
+
+        Above and left of the cursor rather than below and right of it,
+        so the tip never covers what the pointer is about to move onto
+        -- a row below the one being read, or the next control along.
+
+        The content has to be packed first: the corner is placed by
+        subtracting the tip's own width and height, and a Toplevel that
+        has not been laid out reports 1 for both.
+
+        Held inside the APP WINDOW rather than the screen. `winfo_screen*`
+        reports the primary monitor, so on a second display to the left
+        the pointer is at a negative x and clamping to zero throws the
+        tip onto the other monitor entirely. The window is on whichever
+        display the user is working on, which is the one the tip belongs
+        on.
+        """
+        tip.update_idletasks()
+        top = widget.winfo_toplevel()
+        width, height = tip.winfo_width(), tip.winfo_height()
+        x = widget.winfo_pointerx() - px(OFFSET_X) - width
+        y = widget.winfo_pointery() - px(OFFSET_Y) - height
+        left, upper = top.winfo_rootx(), top.winfo_rooty()
+        x = max(left, min(x, left + top.winfo_width() - width))
+        y = max(upper, min(y, upper + top.winfo_height() - height))
+        tip.wm_geometry(f"+{x}+{y}")
 
     @staticmethod
     def content(text):

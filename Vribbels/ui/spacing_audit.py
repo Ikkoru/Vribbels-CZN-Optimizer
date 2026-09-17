@@ -370,16 +370,16 @@ def gap_between(a: int, b: int) -> int:
 # Below: its lowest pixel sits 2 under a capital's, which is the
 # baseline, on every face the app uses.
 #
-# Right: 1, the advance width's trailing side bearing that the last
-# glyph's ink does not reach. Two sites read a pixel tight the day the
-# underline arrived -- `LVL group -> Start` and `Sets set -> its count`
-# -- with every other horizontal gap unmoved.
+# **Sideways it is worth nothing.** The underline runs the advance
+# width, so it reaches past a narrow last character like `1` and stops
+# short of a wide one like `4` -- and where it stops short, the glyph's
+# own ink is usually under the threshold anyway. Read against real
+# strings the two cancel, so there is no horizontal correction.
 #
-# These correct the READING, like the glyph tables in the registry: the
-# rules measure to the baseline and to the glyphs, and the screen shows
-# the underline too.
+# This corrects the READING, like the glyph tables in the registry: the
+# rules measure to the baseline, and the screen shows the underline
+# too.
 UNDERLINE_BELOW = 2
-UNDERLINE_RIGHT = 1
 
 
 def _has_underlined_font(widget) -> bool:
@@ -447,10 +447,7 @@ def horizontal_gap(cap: Capture, left, right) -> tuple:
     rb = painted_extent_h(cap, box_of(right))
     if lb is None or rb is None:
         return None, "one element painted nothing (empty or hidden)"
-    value = gap_between(lb[1], rb[0])
-    if is_underlined(left, "right"):
-        return value + UNDERLINE_RIGHT, "underlined"
-    return value, ""
+    return gap_between(lb[1], rb[0]), ""
 
 
 MAX_BORDER = 4

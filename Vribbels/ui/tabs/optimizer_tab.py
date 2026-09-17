@@ -531,7 +531,9 @@ class OptimizerTab(BaseTab):
         # come back 0, so it would snap every level to zero.
         self._clamp_level_on_commit(level_spin)
         level_spin.bind("<MouseWheel>", lambda e: self._spinbox_wheel(e, level_spin))
-        self._tooltip.bind(level_spin, LEVEL_TOOLTIP)
+        # The LABEL carries it, not the spinbox. A tip underlines what
+        # it is bound to, and underlining a value the user types reads
+        # as a text field's own decoration rather than as a hint.
         self._tooltip.bind(level_label, LEVEL_TOOLTIP)
         self.optimize_for_level_var.trace_add(
             "write", lambda *_: self._save_optimize_for_level())
@@ -1505,9 +1507,11 @@ class OptimizerTab(BaseTab):
             # the row's individual children (not the container) -- Tk
             # fires Leave on the container whenever the pointer crosses
             # onto a child.
+            # The NAME carries it. The checkbox's own text is the piece
+            # count -- `4pc` -- and an underline under two characters
+            # reads as a mark on the number rather than on the set.
             tip_text = sinfo.get("bonus", "")
-            for w in (cb, name_label):
-                self._tooltip.bind(w, tip_text)
+            self._tooltip.bind(name_label, tip_text)
 
             def _toggle(_event=None, v=var):
                 v.set(not v.get())

@@ -2753,6 +2753,22 @@ def _line_pitch_tag(widget, n, known):
     return None
 
 
+def _line_underlined(widget, n) -> bool:
+    """Does a tag on this line carry a tooltip's underline?
+
+    Asked at the line's start, where the capital the reading is taken
+    on sits. A tag underlining only a later span would not reach the
+    band being measured.
+    """
+    for tag in widget.tag_names("%d.0" % n):
+        try:
+            if int(widget.tag_cget(tag, "underline") or 0):
+                return True
+        except (ValueError, tk.TclError):
+            continue
+    return False
+
+
 def _text_line_reading(locator, kinds=None, label=None):
     """Resolver: the SMALLEST gap between painted LINES inside a Text.
 
@@ -2785,6 +2801,7 @@ def _text_line_reading(locator, kinds=None, label=None):
         origin = sa.box_of(widget).top
         colours = {_widget_fill(widget)}
         rows, bands, no_cap, boxed = [], [], [], set()
+        underlined = set()
         count = int(widget.index("end-1c").split(".")[0])
         for n in range(1, count + 1):
             if not widget.get(f"{n}.0", f"{n}.end").strip():
@@ -2831,6 +2848,8 @@ def _text_line_reading(locator, kinds=None, label=None):
             if extent:
                 rows.append((n, extent, ""))
                 bands.append((band.top, band.bottom))
+                if _line_underlined(widget, n):
+                    underlined.add(n)
         # Only between lines that were NEIGHBOURS. Skipping a wrapped one
         # would otherwise leave a gap measured across it.
         #
@@ -2840,7 +2859,13 @@ def _text_line_reading(locator, kinds=None, label=None):
         # it is read off ink at that end and is the exception the note
         # calls out, not a reading to correct by a table.
         edges = [e for _n, e, _t in rows]
-        pairs = [(sa.gap_between(a[1], b[0]), na, nb)
+        # **A tooltip's underline is ink 2px below the baseline**, and a
+        # capital band catches it: the rule runs the whole line, under
+        # the capital too. Corrected here rather than in
+        # `sa.vertical_gap`, which reads WIDGETS -- a Text carries its
+        # underline on a tag, and there is no widget to ask.
+        pairs = [(sa.gap_between(a[1], b[0])
+                  + (sa.UNDERLINE_BELOW if na in underlined else 0), na, nb)
                  for (na, a, _ta), (nb, b, _tb) in zip(rows, rows[1:])
                  if nb == na + 1]
         # **One kind of gap per entry.** A line carries the tag that
