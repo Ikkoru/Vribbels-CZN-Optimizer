@@ -90,97 +90,98 @@ res_id	where	amount	Name	Type	Note
 9210053	items	1			Background - ID Card candidate?
 9210054	items	1			Background - ID Card candidate?
 9210055	items	1			Background - ID Card candidate?
-9300115	items	1			
-9300116	items	1			
-9300117	items	1			
-9300118	items	1			
-9300119	items	1			
-9300120	items	1			
-9300121	items	1			
-9300122	items	1			
-9300126	items	1			
-9300132	items	1			
-9300135	items	1			
-9300136	items	1			
-9300137	items	1			
-9300138	items	1			
-9300165	items	1			
-9300176	items	1			
-9300177	items	1			
-9300182	items	1			
-9300183	items	1			
-9300184	items	1			
-9300185	items	1			
-9300186	items	1			
-9300187	items	1			
-9300188	items	1			
-9300189	items	1			
-9300190	items	1			
-9300191	items	1			
-9300192	items	1			
-9300193	items	1			
-9300194	items	1			
-9300195	items	1			
-9300196	items	1			
-9300197	items	1			
-9300198	items	1			
-9300200	items	1			
-9300204	items	1			
-9300205	items	1			
-9300210	items	1			
-9300211	items	1			
-9300212	items	1			
-9300213	items	1			
-9300214	items	1			
-9300217	items	1			
-9300218	items	1			
-9300223	items	1			
-9300224	items	1			
-9300226	items	1			
-9300231	items	1			
-9300232	items	1			
-9300233	items	1			
-9300235	items	1			
-9300236	items	1			
-9300237	items	1			
-9300238	items	1			
-9300239	items	1			
-9300240	items	1			
-9300241	items	1			
-9300242	items	1			
-9300243	items	1			
-9300244	items	1			
-9300245	items	1			
-9300246	items	1			
-9300247	items	1			
-9300248	items	1			
-9300249	items	1			
-9300250	items	1			
-9300251	items	1			
-9300252	items	1			
-9300253	items	1			
-9300255	items	1			
-9300256	items	1			
-9300257	items	1			
-9300258	items	1			
-9300260	items	1			
-9300262	items	1			
-9300263	items	1			
-9300264	items	1			
-9300265	items	1			
-9300266	items	1			
-9300267	items	1			
-9300268	items	1			
-9300269	items	1			
-9300270	items	1			
-9300273	items	1			
-9300278	items	1			
-9300279	items	1			
-9300286	items	1			
-9300287	items	1			
-9300288	items	1			
-9300289	items	1			
-9300290	items	1			
+9300115	items	1			Galactic Medal candidate
+9300116	items	1			Galactic Medal candidate
+9300117	items	1			Galactic Medal candidate
+9300118	items	1			Galactic Medal candidate
+9300119	items	1			Galactic Medal candidate
+9300120	items	1			Galactic Medal candidate
+9300121	items	1			Galactic Medal candidate
+9300122	items	1			Galactic Medal candidate
+9300126	items	1			Galactic Medal candidate
+9300132	items	1			Galactic Medal candidate
+9300135	items	1			Galactic Medal candidate
+9300136	items	1			Galactic Medal candidate
+9300137	items	1			Galactic Medal candidate
+9300138	items	1			Galactic Medal candidate
+9300165	items	1			Galactic Medal candidate
+9300176	items	1			Galactic Medal candidate
+9300177	items	1			Galactic Medal candidate
+9300182	items	1			Galactic Medal candidate
+9300183	items	1			Galactic Medal candidate
+9300184	items	1			Galactic Medal candidate
+9300185	items	1			Galactic Medal candidate
+9300186	items	1			Galactic Medal candidate
+9300187	items	1			Galactic Medal candidate
+9300188	items	1			Galactic Medal candidate
+9300189	items	1			Galactic Medal candidate
+9300190	items	1			Galactic Medal candidate
+9300191	items	1			Galactic Medal candidate
+9300192	items	1			Galactic Medal candidate
+9300193	items	1			Galactic Medal candidate
+9300194	items	1			Galactic Medal candidate
+9300195	items	1			Galactic Medal candidate
+9300196	items	1			Galactic Medal candidate
+9300197	items	1			Galactic Medal candidate
+9300198	items	1			Galactic Medal candidate
+9300200	items	1			Galactic Medal candidate
+9300204	items	1			Galactic Medal candidate
+9300205	items	1			Galactic Medal candidate
+9300210	items	1			Galactic Medal candidate
+9300211	items	1			Galactic Medal candidate
+9300212	items	1			Galactic Medal candidate
+9300213	items	1			Galactic Medal candidate
+9300214	items	1			Galactic Medal candidate
+9300217	items	1			Galactic Medal candidate
+9300218	items	1			Galactic Medal candidate
+9300223	items	1			Galactic Medal candidate
+9300224	items	1			Galactic Medal candidate
+9300226	items	1			Galactic Medal candidate
+9300231	items	1			Galactic Medal candidate
+9300232	items	1			Galactic Medal candidate
+9300233	items	1			Galactic Medal candidate
+9300235	items	1			Galactic Medal candidate
+9300236	items	1			Galactic Medal candidate
+9300237	items	1			Galactic Medal candidate
+9300238	items	1			Galactic Medal candidate
+9300239	items	1			Galactic Medal candidate
+9300240	items	1			Galactic Medal candidate
+9300241	items	1			Galactic Medal candidate
+9300242	items	1			Galactic Medal candidate
+9300243	items	1			Galactic Medal candidate
+9300244	items	1			Galactic Medal candidate
+9300245	items	1			Galactic Medal candidate
+9300246	items	1			Galactic Medal candidate
+9300247	items	1			Galactic Medal candidate
+9300248	items	1			Galactic Medal candidate
+9300249	items	1			Galactic Medal candidate
+9300250	items	1			Galactic Medal candidate
+9300251	items	1			Galactic Medal candidate
+9300252	items	1			Galactic Medal candidate
+9300253	items	1			Galactic Medal candidate
+9300255	items	1			Galactic Medal candidate
+9300256	items	1			Galactic Medal candidate
+9300257	items	1			Galactic Medal candidate
+9300258	items	1			Galactic Medal candidate
+9300259	items	1	Glorious Allegory	Galactic Medal - Kaleidoscope Hatchery	
+9300260	items	1			Galactic Medal candidate
+9300262	items	1			Galactic Medal candidate
+9300263	items	1			Galactic Medal candidate
+9300264	items	1			Galactic Medal candidate
+9300265	items	1			Galactic Medal candidate
+9300266	items	1			Galactic Medal candidate
+9300267	items	1			Galactic Medal candidate
+9300268	items	1			Galactic Medal candidate
+9300269	items	1			Galactic Medal candidate
+9300270	items	1			Galactic Medal candidate
+9300273	items	1			Galactic Medal candidate
+9300278	items	1			Galactic Medal candidate
+9300279	items	1			Galactic Medal candidate
+9300286	items	1			Galactic Medal candidate
+9300287	items	1			Galactic Medal candidate
+9300288	items	1			Galactic Medal candidate
+9300289	items	1			Galactic Medal candidate
+9300290	items	1			Galactic Medal candidate
 9400008	items	1			Sticker candidate
 9400009	items	1			Sticker candidate
 9400010	items	1			Sticker candidate

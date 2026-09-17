@@ -98,7 +98,7 @@ def include_generic_key(column_key):
 # Ranger, Psionic, Controller -- Hunter and Ranger swap.
 CLASS_ORDER = ("Striker", "Vanguard", "Ranger", "Hunter", "Psionic",
                "Controller")
-ELEMENT_ORDER = ("Passion", "Justice", "Order", "Instinct", "Void")
+ELEMENT_ORDER = ("Passion", "Order", "Instinct", "Void", "Justice")
 
 # What each tier of a PROMOTION family is worth in bottom-tier
 # equivalents. Keyed by tier word, because the three families spell

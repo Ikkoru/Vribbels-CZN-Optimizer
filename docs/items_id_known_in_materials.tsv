@@ -1,24 +1,24 @@
 res_id	family	group	tier	rarity	name	icon	amount	where
-2000001	named			Common	Units	currency_unit.png	3484339	currencies
-2000004	named			Mythic	Crystals	currency_paid_crystal.png	2946	currencies
+2000001	named			Common	Units	currency_unit.png	4109743	currencies
+2000004	named			Mythic	Crystals	currency_paid_crystal.png	3676	currencies
 2000010	named			Mythic	Signal Amplification Anchor	currency_gacha_ticket_rateup_supporter.png	119	currencies
-2000027	named			Legendary	Loot Certification Card	currency_chaos_week_reward.png	1	currencies
-2000036	named			Legendary	Reason	currency_chaos_assault_stamina.png	8	currencies
+2000027	named			Legendary	Loot Certification Card	currency_chaos_week_reward.png	0	currencies
+2000036	named			Legendary	Reason	currency_chaos_assault_stamina.png	4	currencies
 2100001	named			Legendary	Universal Tactical Certificate	currency_combatant_ascend_public.png	243	currencies
 2100002	named			Legendary	Universal Support Certificate	currency_supporter_ascend_public.png	156	currencies
 2100003	named			Legendary	Potential Disk	currency_ego_tree_public.png	214	currencies
 3000003	named			Mythic	Undetermined Ego Crystal	icon_item_card_levelup_all_1.png	11	items
-3100001	EXP material	Combatant	Basic	Common	Basic Battle Memory	icon_item_char_level_materal_1.png	11	items
-3100002	EXP material	Combatant	Advanced	Rare	Advanced Battle Memory	icon_item_char_level_materal_2.png	177	items
-3100003	EXP material	Combatant	Premium	Legendary	Premium Battle Memory	icon_item_char_level_materal_3.png	195	items
+3100001	EXP material	Combatant	Basic	Common	Basic Battle Memory	icon_item_char_level_materal_1.png	17	items
+3100002	EXP material	Combatant	Advanced	Rare	Advanced Battle Memory	icon_item_char_level_materal_2.png	183	items
+3100003	EXP material	Combatant	Premium	Legendary	Premium Battle Memory	icon_item_char_level_materal_3.png	135	items
 3100021	EXP material	Partner	Basic	Common	Basic Support Data	icon_item_supporter_level_materal_1.png	1786	items
 3100022	EXP material	Partner	Advanced	Rare	Advanced Support Data	icon_item_supporter_level_materal_2.png	223	items
 3100023	EXP material	Partner	Premium	Legendary	Premium Support Data	icon_item_supporter_level_materal_3.png	220	items
 3110001	named			Legendary	Eye of Wailing Prodigal	icon_item_akcalion_3.png	19	items
 3110004	named			Legendary	Shards of Condemnation	currency_chaos.png	37	items
 3120001	Growth Stone	Passion	Common	Common	Common Growth Stone of Passion	icon_item_card_levelup_love_1.png	0	items
-3120002	Growth Stone	Passion	Great	Rare	Great Growth Stone of Passion	icon_item_card_levelup_love_2.png	52	items
-3120003	Growth Stone	Passion	Premium	Legendary	Premium Growth Stone of Passion	icon_item_card_levelup_love_3.png	0	items
+3120002	Growth Stone	Passion	Great	Rare	Great Growth Stone of Passion	icon_item_card_levelup_love_2.png	119	items
+3120003	Growth Stone	Passion	Premium	Legendary	Premium Growth Stone of Passion	icon_item_card_levelup_love_3.png	50	items
 3120011	Growth Stone	Instinct	Common	Common	Common Growth Stone of Instinct	icon_item_card_levelup_instinct_1.png	0	items
 3120012	Growth Stone	Instinct	Great	Rare	Great Growth Stone of Instinct	icon_item_card_levelup_instinct_2.png	75	items
 3120013	Growth Stone	Instinct	Premium	Legendary	Premium Growth Stone of Instinct	icon_item_card_levelup_instinct_3.png	87	items
@@ -26,8 +26,8 @@ res_id	family	group	tier	rarity	name	icon	amount	where
 3120022	Growth Stone	Void	Great	Rare	Great Growth Stone of Void	icon_item_card_levelup_creed_2.png	46	items
 3120023	Growth Stone	Void	Premium	Legendary	Premium Growth Stone of Void	icon_item_card_levelup_creed_3.png	20	items
 3120031	Growth Stone	Order	Common	Common	Common Growth Stone of Order	icon_item_card_levelup_norms_1.png	0	items
-3120032	Growth Stone	Order	Great	Rare	Great Growth Stone of Order	icon_item_card_levelup_norms_2.png	96	items
-3120033	Growth Stone	Order	Premium	Legendary	Premium Growth Stone of Order	icon_item_card_levelup_norms_3.png	0	items
+3120032	Growth Stone	Order	Great	Rare	Great Growth Stone of Order	icon_item_card_levelup_norms_2.png	120	items
+3120033	Growth Stone	Order	Premium	Legendary	Premium Growth Stone of Order	icon_item_card_levelup_norms_3.png	20	items
 3120051	Growth Stone	Justice	Common	Common	Common Growth Stone of Justice	icon_item_card_levelup_narcissism_1.png	1	items
 3120052	Growth Stone	Justice	Great	Rare	Great Growth Stone of Justice	icon_item_card_levelup_narcissism_2.png	79	items
 3120053	Growth Stone	Justice	Premium	Legendary	Premium Growth Stone of Justice	icon_item_card_levelup_narcissism_3.png	0	items

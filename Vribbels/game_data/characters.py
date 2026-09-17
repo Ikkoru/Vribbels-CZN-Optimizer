@@ -453,7 +453,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},  # Assumed based on Adelheid
+        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
     },
     30084: {
         "name": "Tiphera",
@@ -592,7 +592,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Tenebria
+        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},
     },
 }
 
