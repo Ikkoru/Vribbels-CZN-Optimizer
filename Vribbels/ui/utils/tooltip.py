@@ -40,7 +40,7 @@ class Tooltip:
     each row binds its individual children).
     """
     DELAY_MS = 400
-    WRAP_PX = 320
+    WRAP_PX = 330
 
     def __init__(self, colors):
         self.colors = colors

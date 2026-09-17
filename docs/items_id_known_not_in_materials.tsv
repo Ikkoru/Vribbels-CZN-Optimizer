@@ -1,24 +1,24 @@
 res_id	where	amount	Name	Type	Note
-2000002	currencies	25	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
-2000007	currencies	21	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
+2000002	currencies	62	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
+2000007	currencies	19	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
 2000011	currencies	359	Moment of the Radiant Hero	Shop Currency	
 2000012	currencies	1068	Moment of the Radiant Traveler	Shop Currency	
 2000014	currencies	2	Tear of God	Stamina Recovery	
-2000016	currencies	128	Rescue Anchor	Gacha Currency	
+2000016	currencies	131	Rescue Anchor	Gacha Currency	
 2000018	currencies	44	Research Notes	Ark - Upgrade Currency	
 2000020	currencies	560	Zeronium	Shop Currency	
 2000022	currencies	3	Special Security Code	Trauma Code Unlock Item	Max 3 stored
-2000023	currencies	31	Prism Lens	Gacha Currency - Animated Card	
+2000023	currencies	32	Prism Lens	Gacha Currency - Animated Card	
 2000024	currencies	560	Prism Film	Shop Currency	
-2000031	currencies	389	Policy Point	Ark - Shop Currency	
-2000032	currencies	11320	Crystal of Discord	Shop Currency	
+2000031	currencies	451	Policy Point	Ark - Shop Currency	
+2000032	currencies	11620	Crystal of Discord	Shop Currency	
 2000048	currencies	0	Daily Chaos Delegation	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation
-3000005	items	41621	Chaos Orb	Zero System Currency	Worthless
-3000008	items	526	Tactical Data	Sortie Currency	
+3000005	items	41720	Chaos Orb	Zero System Currency	Worthless
+3000008	items	508	Tactical Data	Sortie Currency	
 3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Reset when a Galactic Disaster ends
 3200001	items	6798	Particles of Memory	Crafting Material for Memory Fragments	
 3200002	items	289	Core of Memory	Crafting Material for Memory Fragments	
-3210001	items	7717	Traces of Memory	Crafting Material for Memory Fragments	
+3210001	items	7729	Traces of Memory	Crafting Material for Memory Fragments	
 3210002	items	24	Multidimensional Alignment Material	Crafting Material for Memory Fragments	
 3300001	items	0	Sweet Choconilla	Gift Item	Common
 3300002	items	0	Exquisite Slice of Cake	Gift Item	Rare
@@ -37,13 +37,13 @@ res_id	where	amount	Name	Type	Note
 3300015	items	3	Legendary Combat Manual	Gift Item	Legendary
 3300016	items	15	Handmade Wooden Doll	Gift Item	Common
 3300017	items	6	Heartfelt Guitar Pick	Gift Item	Legendary
-3300018	items	14	A Not So Boring Wait	Gift Item	Rare
+3300018	items	15	A Not So Boring Wait	Gift Item	Rare
 3300019	items	20	Midsummer Night Fireworks	Gift Item	Rare
 3300020	items	21	Limited Edition Teddy Bear	Gift Item	Rare
 3310005	items	0	B-Grade Policy Report	Ark - Policy	
 3310006	items	0	A-Grade Policy Report	Ark - Policy	
 3310007	items	0	Special Grade Policy Report	Ark - Policy	
-3920007	items	22085	Black Mass	Sortie Currency	
+3920007	items	28243	Black Mass	Sortie Currency	
 3920013	items	5	Core of the Reverse	Save Data Edit	
 3920014	items	13	Core of Annihilation	Save Data Edit	
 3920015	items	35	Colorless Core	Save Data Edit	
@@ -52,7 +52,7 @@ res_id	where	amount	Name	Type	Note
 3920024	items	4	Core of Potential	Save Data Edit	
 3920029	items	3	Core of Variables	Save Data Edit	
 3920030	items	1	Core of Phase	Save Data Edit	
-3920031	items	10810	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable. In PROVISIONAL_NAMES, so the Capture Log draws the name red
+3920031	items	11320	Seasonal Event Currency	Seasonal Event Currency	Check if the ID is the same for each seasonal event. Name may be variable. In PROVISIONAL_NAMES, so the Capture Log draws the name red
 3930003	items	2	Core of Resonance	Save Data Edit	
 3930004	items	49	Core of Mutation	Save Data Edit	
 4010003	items	1	Summer 2026 Olga	Main Screen Background	
@@ -62,5 +62,11 @@ res_id	where	amount	Name	Type	Note
 5210000			Prism Module - Nominate	Animated Card Unlock Item - 4*	Seen only in shop_res_data (card_factor_4, 200 Prism Lens, 3/month); the account has never held one, which is why no dump listed it
 5210001	items	2	Prism Module - Masterpiece	Animated Card Unlock Item - 5*	
 9210051	items	1	Memories of the Beach Café Festival	Background - ID Card	
+9300259	items	1	Glorious Allegory	Galactic Medal	
+9400080	items	1	Arky	Sticker	CZN x Epic Seven collab
+9400081	items	1	Kayron	Sticker	CZN x Epic Seven collab
+9400082	items	1	Witch of the Mere Tenebria	Sticker	CZN x Epic Seven collab
+9400083	items	1	CZN x Epic Seven	Sticker	CZN x Epic Seven collab
+9400104	items	1	CZN x Epic Seven	Background - Save Data	CZN x Epic Seven collab
 9700001	items	1	The Last of Summer in a Glass	Jukebox Disc	
 9700002	items	1	Waves Underneath the Stars	Jukebox Disc	
