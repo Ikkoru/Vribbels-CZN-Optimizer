@@ -481,7 +481,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Tenebria
+        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},
     },
     1061: {
         "name": "Diana",
