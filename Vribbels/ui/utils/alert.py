@@ -22,7 +22,7 @@ from ..scaling import px
 # The mark, and the pause between its two states. Slow enough to read
 # as a pulse rather than a flicker -- a fast blink reads as a fault in
 # the program rather than a message from it.
-DOT_PX = 8
+DOT_PX = 9
 BLINK_MS = 700
 
 
