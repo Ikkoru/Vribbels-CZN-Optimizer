@@ -34,6 +34,11 @@ HOVER_CURSOR = "question_arrow"
 OFFSET_X = 0
 OFFSET_Y = 10
 
+# How far outside the window a tip may sit. One pixel: enough that a
+# tip beside a control at the very edge is not shoved back over the
+# control it explains, and not so much that it reads as a loose window.
+EDGE = 1
+
 
 class Tooltip:
     """Lightweight hover tooltip, shared by every tab that needs one.
@@ -242,8 +247,20 @@ class Tooltip:
         x = widget.winfo_pointerx() - px(OFFSET_X) - width
         y = widget.winfo_pointery() - px(OFFSET_Y) - height
         left, upper = top.winfo_rootx(), top.winfo_rooty()
-        x = max(left, min(x, left + top.winfo_width() - width))
-        y = max(upper, min(y, upper + top.winfo_height() - height))
+        # **The title bar counts as the window.** `winfo_rooty` is the
+        # CLIENT area's top, and a tip beside a control in the first row
+        # has nowhere to go above it without that strip. The height of
+        # the decoration is the client top less the frame's own: for a
+        # toplevel, `winfo_y` is the frame's position on screen while
+        # `winfo_rooty` is the client area's.
+        #
+        # Plus `EDGE` all round, so a tip may sit a hair outside rather
+        # than being shoved back over the control it explains.
+        chrome = max(0, upper - top.winfo_y())
+        x = max(left - EDGE,
+                min(x, left + top.winfo_width() - width + EDGE))
+        y = max(upper - chrome - EDGE,
+                min(y, upper + top.winfo_height() - height + EDGE))
         tip.wm_geometry(f"+{x}+{y}")
 
     @staticmethod

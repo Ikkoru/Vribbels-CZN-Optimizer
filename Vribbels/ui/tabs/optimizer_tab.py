@@ -548,7 +548,12 @@ class OptimizerTab(BaseTab):
         # edge level with the other elements in this row. A ttk.Button's
         # box edge IS its border, where a Label's box starts above its
         # glyphs, so equal pady would render them unequal.
-        self.start_button.pack(side=tk.LEFT, padx=px((13, 2)), pady=px((5, 0)), anchor=tk.N)
+        # 14 rather than 13: the group to the left ends in a spinbox
+        # whose painted right edge sits a pixel inside its box, so the
+        # rule's 16 rendered as 15 at 13. The lever moves this button
+        # and everything packed after it together, so the gaps BETWEEN
+        # them are unchanged and only this one grows.
+        self.start_button.pack(side=tk.LEFT, padx=px((14, 2)), pady=px((5, 0)), anchor=tk.N)
         ttk.Button(self._toolbar_top_row, text="Stop",
                    width=BUTTON_W_SMALL,
                    command=self.cancel_optimization).pack(
