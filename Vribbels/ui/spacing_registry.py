@@ -5194,10 +5194,16 @@ def register_all():
             axis="h",
         )
 
+    # **The scenario goes in the NAME.** Three of these panels are
+    # measured in the default state too, and the baseline is keyed by
+    # name -- so an identical name meant one row silently replacing the
+    # other and the comparison watching only whichever was measured
+    # last. The printed table shows the scenario beside the tab, which
+    # is why the collision was invisible there.
     for title in ELEMENT_OVERRIDE_PANELS:
         target, source = _title_target_and_source(title)
         sa.track(
-            name=f"{title}: title -> first element",
+            name=f"{title} [element override]: title -> first element",
             tab="Optimizer",
             rule=RULE_TITLE_ELEMENT,
             target=target,

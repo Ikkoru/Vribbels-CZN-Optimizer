@@ -1094,7 +1094,20 @@ BASELINE_PATH = os.path.join(
 
 
 def save_baseline(rows, path=BASELINE_PATH, out=print):
-    data = {name: value for name, _t, value, *_ in rows if value is not None}
+    measured = [(name, value) for name, _t, value, *_ in rows
+                if value is not None]
+    data = dict(measured)
+    # **The baseline is keyed by NAME**, so two entries sharing one
+    # collapse into a single row -- and the survivor is whichever was
+    # measured last. The pair is still printed in the table, so nothing
+    # says the comparison has stopped watching one of them.
+    if len(data) != len(measured):
+        seen, twice = set(), []
+        for name, _value in measured:
+            (twice.append(name) if name in seen else seen.add(name))
+        out("baseline: %d row(s) share a name with another and only one "
+            "of each is watched -- %s" % (len(twice), ", ".join(sorted(
+                set(twice)))))
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, sort_keys=True)
     out(f"baseline written: {len(data)} gaps -> {path}")
