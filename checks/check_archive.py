@@ -20,12 +20,13 @@ real `Vribbels/snapshots/`.
 
 import gzip
 import json
+import sys
 import shutil
 import tarfile
 import tempfile
 from pathlib import Path
 
-from ._harness import add_source_to_path, Skip
+from ._harness import add_source_to_path, REPO_ROOT, Skip
 
 NAME = "capture archiver loses nothing"
 
@@ -356,6 +357,106 @@ def _the_setting_reaches_the_launch_path():
     return out
 
 
+def _a_walk_reaches_archived_captures():
+    """The dump scripts see past the hot window, and past a bad file.
+
+    Once a folder has been compacted, the loose files are the newest
+    few and everything else is a member. A walker that only globs
+    stops at the hot window and reports the archive's contents as
+    absent -- quietly, since finding nothing is a legal answer for it.
+
+    The other half is the same walk meeting a file that will not parse:
+    before, one damaged capture ended the run with a traceback, and a
+    bigger hot window could not have helped -- the walk dies at the
+    first bad file whichever way it is set.
+    """
+    out = []
+    high = archive.KINDS[archive.SNAPSHOTS][1]
+    work = _folder(snapshots=high)
+    try:
+        newest = sorted(work.glob("memory_fragments_*.json"))[-1].name
+        archive.compact(work, say=_quiet)
+
+        names = [name for name, _size in archive.contents(work)]
+        seen = []
+        for name, handle in archive.stream_members(work,
+                                                   "memory_fragments_"):
+            seen.append(name)
+            if not handle.read():
+                out.append(f"{name!r} streamed empty out of the archive.")
+        if seen != names:
+            out.append(
+                f"streaming the archive yielded {len(seen)} member(s) "
+                f"against {len(names)} in it. A walk that misses members "
+                f"reports captures as absent rather than as unread.")
+        if seen and seen != sorted(seen):
+            out.append(
+                "archived members did not stream in name order. A caller "
+                "looking for the NEWEST capture keeps the last hit, which "
+                "is only the newest while the order holds.")
+        if newest in seen:
+            out.append(
+                f"{newest!r} is both loose and archived, so the hot window "
+                f"did not hold.")
+
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    out.extend(_a_bad_capture_is_skipped_and_named())
+    return out
+
+
+def _a_bad_capture_is_skipped_and_named():
+    """One damaged capture must not end a walk, and must not be silent.
+
+    A bigger hot window cannot help here: the walk meets the first bad
+    file whichever way the marks are set, and before this it ended
+    there with a traceback.
+
+    Its own directory tree, not a shared temp root: the walker reads
+    `ROOT / "Vribbels" / "snapshots"`, and a fixed path under `%TEMP%`
+    would be whatever an earlier run left there.
+    """
+    import contextlib
+    import io as _io
+
+    out = []
+    home = Path(tempfile.mkdtemp(prefix="czn_archive_home_"))
+    snaps = home / "Vribbels" / "snapshots"
+    snaps.mkdir(parents=True)
+    sys.path.insert(0, str(REPO_ROOT / "docs"))
+    try:
+        for stamp in _stamps(2):
+            _snapshot(snaps, stamp)
+        broken = snaps / "memory_fragments_20260101_999999.json"
+        broken.write_text("{ not json", encoding="utf-8")
+
+        import items_id_dump
+        was_root = items_id_dump.ROOT
+        items_id_dump.ROOT = home
+        try:
+            noise = _io.StringIO()
+            with contextlib.redirect_stdout(noise):
+                name, _text = items_id_dump.newest_capture()
+        finally:
+            items_id_dump.ROOT = was_root
+        if name == broken.name:
+            out.append(
+                "the walker returned the capture that will not parse, so "
+                "whatever reads it next raises instead.")
+        if "skipped" not in noise.getvalue():
+            out.append(
+                f"a capture that will not parse was passed over in silence "
+                f"({noise.getvalue()!r}). A walk that says nothing about a "
+                f"file it could not read leaves the reader wondering why "
+                f"the answer is older than they expected.")
+    except ImportError:
+        pass
+    finally:
+        sys.path.remove(str(REPO_ROOT / "docs"))
+        shutil.rmtree(home, ignore_errors=True)
+    return out
+
+
 def run():
     try:
         tarfile.open  # noqa: B018 -- lzma may be missing from a build
@@ -370,6 +471,7 @@ def run():
                   _twice_leaves_one_member_each,
                   _dry_run_deletes_nothing,
                   _background_run_reports_instead_of_dying,
-                  _the_setting_reaches_the_launch_path):
+                  _the_setting_reaches_the_launch_path,
+                  _a_walk_reaches_archived_captures):
         problems.extend(probe())
     return problems

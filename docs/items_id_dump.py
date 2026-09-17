@@ -48,6 +48,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "Vribbels"))
 
+from capture import archive                 # noqa: E402
 import period_items                         # noqa: E402
 from game_data.constants import (            # noqa: E402
     COMBATANT_PROMOTION, EXP_MATERIALS, GROWTH_STONES, NAMED_MATERIALS,
@@ -74,17 +75,46 @@ FAMILIES = (
 )
 
 
-def newest_snapshot():
-    snaps = sorted((ROOT / "Vribbels" / "snapshots").glob(
-        "memory_fragments_*.json"))
-    if not snaps:
-        raise SystemExit("no snapshot in Vribbels/snapshots/")
-    return snaps[-1]
+def newest_capture():
+    """(name, JSON text) of the newest capture, archived ones included.
+
+    Loose files first, newest back. Failing those, the archive holds
+    every capture older than the few still on disk -- read in ONE pass
+    in stored order, which is oldest first, so the LAST readable member
+    is the newest one.
+
+    A file that will not parse is skipped and named rather than ending
+    the run: the dump wants any capture that carries the items, and one
+    bad file is no reason to abandon the ones behind it.
+    """
+    folder = ROOT / "Vribbels" / "snapshots"
+    for path in sorted(folder.glob("memory_fragments_*.json"), reverse=True):
+        text = path.read_text(encoding="utf-8")
+        try:
+            json.loads(text)
+        except ValueError as exc:
+            print("  skipped %s: %s" % (path.name, exc))
+            continue
+        return path.name, text
+
+    found = None
+    for name, handle in archive.stream_members(folder, "memory_fragments_"):
+        text = handle.read().decode("utf-8", "replace")
+        try:
+            json.loads(text)
+        except ValueError as exc:
+            print("  skipped %s: %s" % (name, exc))
+            continue
+        found = (name, text)
+    if found is None:
+        raise SystemExit("no readable snapshot in Vribbels/snapshots/, "
+                         "loose or archived")
+    return found
 
 
-def amounts(snapshot):
+def amounts(text):
     """{res_id: (amount, where)} across all three of the sources."""
-    data = json.loads(snapshot.read_text(encoding="utf-8"))
+    data = json.loads(text)
     inventory = data.get("inventory") or {}
     out = {}
     for item in inventory.get("items") or []:
@@ -190,9 +220,9 @@ def write(path, owned, rows, carried=None):
 
 
 def main():
-    snapshot = newest_snapshot()
-    held = amounts(snapshot)
-    print(f"from {snapshot.name}")
+    name, text = newest_capture()
+    held = amounts(text)
+    print(f"from {name}")
 
     known_rows, named, table_names = {}, set(), {}
     for table, family in FAMILIES:

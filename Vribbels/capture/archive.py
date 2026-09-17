@@ -345,3 +345,28 @@ def compact_in_background(folder, preset=DEFAULT_PRESET, say=print):
                               daemon=True)
     thread.start()
     return thread
+
+
+def stream_members(folder, prefix=""):
+    """(name, binary stream) for archived captures, in stored order.
+
+    ONE pass over the archive. A `.tar.xz` is a solid stream, so
+    reaching a member means decompressing everything ahead of it --
+    opening the file once per member turns a walk into a quadratic one.
+    The generator hands out each member as it reaches it and closes the
+    archive when the caller stops.
+
+    Stored order is OLDEST first, since that is the order `_ordered`
+    adds them in. A caller looking for the newest capture that carries
+    something keeps the last match rather than breaking on the first.
+    """
+    book = Path(folder) / ARCHIVE_NAME
+    if not book.exists():
+        return
+    with tarfile.open(book, "r:xz") as tf:
+        for info in tf:
+            if not info.isfile() or not info.name.startswith(prefix):
+                continue
+            handle = tf.extractfile(info)
+            if handle is not None:
+                yield info.name, handle

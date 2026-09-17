@@ -24,6 +24,16 @@ catalogued live as it was taken -- folding those in counts one sighting
 twice. `--all` takes them anyway, for a catalogue that was moved or
 lost.
 
+**A RESTORED log breaks that rule**, and it is the one case the name
+cannot answer. `capture/archive.py` stores logs decompressed, so a
+member pulled back out of `archived_captures.tar.xz` lands as a
+`.jsonl` whatever it was written as -- and a log written `.jsonl.gz`
+was catalogued live. Anything restored from the archive has already
+been read, whichever spelling it now wears, so leave it out of the
+folder or pass `--again` knowingly. `wire_catalogue_mined.json` lists
+what has been folded in, and it lists them under the names they had
+when they were read.
+
 Files already folded in are listed in `wire_catalogue_mined.json`
 beside the catalogue and skipped on the next run; `--again` ignores
 that list.
@@ -140,7 +150,14 @@ def replay(addon, frame):
 
 
 def captures(every):
-    """The debug logs to read, oldest first."""
+    """The debug logs to read, oldest first.
+
+    A log inside `archived_captures.tar.xz` is NOT offered. Every
+    archived log has been read already -- the archive only takes what
+    the capture has finished with -- and a member restored beside them
+    would come back under a `.jsonl` name whatever it was written as,
+    which is exactly the spelling this treats as never catalogued.
+    """
     found = list(SNAPSHOTS.glob("websocket_debug_*.jsonl"))
     if every:
         found += list(SNAPSHOTS.glob("websocket_debug_*.jsonl.gz"))

@@ -63,11 +63,16 @@ it leaves the file alone rather than blanking it.
 """
 
 import gzip
+import io
 import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SNAPSHOTS = ROOT / "Vribbels" / "snapshots"
+
+sys.path.insert(0, str(ROOT / "Vribbels"))
+from capture import archive                                    # noqa: E402
 OUT = Path(__file__).resolve().parent
 
 # The key both sources carry them under, and the columns this script
@@ -165,15 +170,45 @@ def _collect(payload, into):
             _collect(value, into)
 
 
+def _readable(name, text, rows):
+    """Fold one capture's JSON into `rows`. False if it will not parse.
+
+    A file damaged some other way -- a disk, an editor, a copy that
+    stopped -- used to end the run with a traceback. Skipped and named
+    instead: the walk is looking for ANY capture that carries missions,
+    and one bad file is no reason to abandon the ones behind it.
+    """
+    try:
+        _collect(json.loads(text), rows)
+        return True
+    except ValueError as exc:
+        print("  skipped %s: %s" % (name, exc))
+        return False
+
+
 def from_snapshots():
-    """(name, rows) from the newest snapshot that carries missions."""
+    """(name, rows) from the newest snapshot that carries missions.
+
+    Loose files first, newest back; then the archive, which holds
+    every capture older than the few still on disk. The archived half
+    is read in ONE pass in stored order -- oldest first -- so the last
+    hit rather than the first is the newest one.
+    """
     for path in sorted(SNAPSHOTS.glob("memory_fragments_*.json"),
                        reverse=True):
         rows = {}
-        _collect(json.loads(path.read_text(encoding="utf-8")), rows)
-        if rows:
+        if _readable(path.name, path.read_text(encoding="utf-8"), rows) \
+                and rows:
             return path.name, rows
-    return None, {}
+
+    found = (None, {})
+    for name, handle in archive.stream_members(SNAPSHOTS,
+                                               "memory_fragments_"):
+        rows = {}
+        if _readable(name, handle.read().decode("utf-8", "replace"), rows) \
+                and rows:
+            found = (name, rows)
+    return found
 
 
 def from_debug_logs():
@@ -188,22 +223,40 @@ def from_debug_logs():
     plain `.jsonl` ones taken before that are still on disk. Sorting
     the two together works because the timestamp is in the stem.
     """
+    def _scan(lines, rows):
+        for line in lines:
+            if FIELD not in line:
+                continue
+            try:
+                _collect(json.loads(line), rows)
+            except ValueError:
+                continue
+
     logs = (list(SNAPSHOTS.glob("websocket_debug_*.jsonl"))
             + list(SNAPSHOTS.glob("websocket_debug_*.jsonl.gz")))
     for path in sorted(logs, key=lambda p: p.name, reverse=True):
         rows = {}
         opener = (gzip.open if path.suffix == ".gz" else open)
-        with opener(path, "rt", encoding="utf-8") as handle:
-            for line in handle:
-                if FIELD not in line:
-                    continue
-                try:
-                    _collect(json.loads(line), rows)
-                except ValueError:
-                    continue
+        try:
+            with opener(path, "rt", encoding="utf-8") as handle:
+                _scan(handle, rows)
+        except OSError as exc:
+            print("  skipped %s: %s" % (path.name, exc))
+            continue
         if rows:
             return path.name, rows
-    return None, {}
+
+    # Archived logs are stored DECOMPRESSED, so a member is read as
+    # plain text whatever the file it came from was.
+    found = (None, {})
+    for name, handle in archive.stream_members(SNAPSHOTS,
+                                               "websocket_debug_"):
+        rows = {}
+        _scan(io.TextIOWrapper(handle, encoding="utf-8", errors="replace"),
+              rows)
+        if rows:
+            found = (name, rows)
+    return found
 
 
 def read_existing(path):
