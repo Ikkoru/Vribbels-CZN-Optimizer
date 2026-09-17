@@ -14,12 +14,19 @@ build time would otherwise hold the figures that were on screen then.
 """
 
 import tkinter as tk
+from tkinter import font as tkfont
+from tkinter import ttk
+
 from ui.scaling import px
 
 # A two-column tip's label against its value. The columns are two
 # Labels side by side, each as wide as its own widest line, so this is
 # the gap from the LONGEST label -- every shorter one has more.
 ROW_GAP = 5             # spacing: label ↔ its element -- label, label ↔
+
+# What the pointer becomes over anything carrying a tip. The underline
+# says there is more to read; the cursor says it arrives on hover.
+HOVER_CURSOR = "question_arrow"
 
 
 class Tooltip:
@@ -45,14 +52,69 @@ class Tooltip:
         # never takes keyboard focus -- so the key is caught on the
         # window that does, once per Tooltip rather than once per tip.
         self._escape_bound = False
+        # Underlined faces derived for the widgets marked through this
+        # instance. See `mark` for why they are held.
+        self._fonts = []
+        # The font names this instance has already derived, so a tip
+        # rebound on a refresh does not derive another.
+        self._marked = set()
 
     def bind(self, widget, text):
+        self.mark(widget)
         widget.bind("<Enter>",
                     lambda e, w=widget, t=text: self.schedule(w, t), add="+")
         widget.bind("<Leave>", lambda e: self.hide(), add="+")
         # Any click dismisses -- the tooltip shouldn't sit over the row
         # while the user is toggling checkboxes or editing the spinbox.
         widget.bind("<Button>", lambda e: self.hide(), add="+")
+
+    def mark(self, widget):
+        """Say that this widget HAS a tooltip, before anyone hovers it.
+
+        A tip nobody knows about is a tip nobody reads. Two marks, both
+        conventional: the words are underlined, and the pointer becomes
+        `question_arrow` over them.
+
+        Done here rather than at each call site so that binding a tip
+        is the only thing a caller has to remember -- there is no way
+        to add one and forget the mark.
+
+        A widget with no `font` of its own -- a Treeview, a frame
+        standing in for a row -- takes the cursor alone. Underlining is
+        skipped rather than forced: a Treeview draws its own cells, and
+        the font there is the style's for every row at once.
+        """
+        try:
+            widget.configure(cursor=HOVER_CURSOR)
+        except tk.TclError:
+            pass
+        try:
+            spec = str(widget.cget("font"))
+        except tk.TclError:
+            return
+        # **Already marked.** A tip rebound on every refresh -- the
+        # archive readings are -- would otherwise derive a new named
+        # font each time, and Tk keeps every one of them.
+        if spec and spec in self._marked:
+            return
+        if not spec:
+            # A ttk widget left on its style's font answers with "".
+            spec = (ttk.Style().lookup(widget.winfo_class(), "font")
+                    or "TkDefaultFont")
+        try:
+            marked = tkfont.Font(root=widget, font=spec)
+        except tk.TclError:
+            return
+        marked.configure(underline=True)
+        # **Held.** A `Font` is a Tcl named font that Tk deletes when
+        # the Python object is collected, and the widget would fall
+        # back to a default face mid-session.
+        self._fonts.append(marked)
+        self._marked.add(str(marked))
+        try:
+            widget.configure(font=marked)
+        except tk.TclError:
+            pass
 
     def bind_tag(self, text_widget, tag, text):
         """Same, for one tagged RANGE inside a Text rather than a widget.
@@ -62,10 +124,29 @@ class Tooltip:
         positions against the Text itself, which is close enough for a
         cell-sized widget.
         """
-        text_widget.tag_bind(
-            tag, "<Enter>",
-            lambda e, w=text_widget, t=text: self.schedule(w, t), add="+")
-        text_widget.tag_bind(tag, "<Leave>", lambda e: self.hide(), add="+")
+        # The same two marks as `mark`, in a Text's own vocabulary: the
+        # range is underlined by its tag, and the CURSOR is a widget
+        # option rather than a tag one, so it is swapped on the way in
+        # and put back on the way out.
+        text_widget.tag_configure(tag, underline=True)
+        was = str(text_widget.cget("cursor"))
+
+        def _enter(event, w=text_widget, t=text):
+            try:
+                w.configure(cursor=HOVER_CURSOR)
+            except tk.TclError:
+                pass
+            self.schedule(w, t)
+
+        def _leave(event, w=text_widget):
+            try:
+                w.configure(cursor=was)
+            except tk.TclError:
+                pass
+            self.hide()
+
+        text_widget.tag_bind(tag, "<Enter>", _enter, add="+")
+        text_widget.tag_bind(tag, "<Leave>", _leave, add="+")
         text_widget.tag_bind(tag, "<Button>", lambda e: self.hide(), add="+")
 
     def schedule(self, widget, text):

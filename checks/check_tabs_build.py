@@ -2303,6 +2303,66 @@ def _default_word(node):
     return None
 
 
+def _a_tooltip_marks_what_it_is_bound_to(root):
+    """Anything carrying a tip says so before anyone hovers it.
+
+    A tip nobody knows about is a tip nobody reads, and there is no way
+    to see from the screen that a widget has one. Both marks are made
+    inside `Tooltip.bind`, so that adding a tip is the only thing a
+    caller has to remember -- this is what holds that: the underline,
+    the cursor, and that neither costs the widget any size.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from tkinter import font as tkfont, ttk
+
+    from ui.utils.tooltip import HOVER_CURSOR, Tooltip
+
+    out = []
+    tips = Tooltip({"bg": "#1e1e2e", "fg": "#cdd6f4", "accent": "#89b4fa",
+                    "bg_light": "#313244"})
+    label = ttk.Label(root, text="Archive: 1.3 MB")
+    was = (label.winfo_reqwidth(), label.winfo_reqheight())
+    tips.bind(label, "how much history it holds")
+    face = tkfont.Font(font=label.cget("font"))
+    if not int(face.cget("underline")):
+        out.append(
+            "a tip was bound to a label and its words were not underlined. "
+            "Nothing else on screen says a widget has one.")
+    if str(label.cget("cursor")) != HOVER_CURSOR:
+        out.append(
+            f"a tip was bound and the cursor stayed {label.cget('cursor')!r}, "
+            f"not {HOVER_CURSOR!r}.")
+    if (label.winfo_reqwidth(), label.winfo_reqheight()) != was:
+        out.append(
+            f"marking a tip changed the widget from {was} to "
+            f"{(label.winfo_reqwidth(), label.winfo_reqheight())}. An "
+            f"underline is drawn, not spaced: anything else moves every "
+            f"gap registered around it.")
+
+    held = len(tips._fonts)
+    tips.bind(label, "rebound on a refresh")
+    if len(tips._fonts) != held:
+        out.append(
+            "rebinding a tip derived a second font. The archive readings "
+            "rebind on every tab select, and Tk keeps every named font it "
+            "is given.")
+
+    text = tk.Text(root)
+    text.insert("1.0", "hello")
+    text.tag_add("probe", "1.0", "1.5")
+    tips.bind_tag(text, "probe", "a tip on a range")
+    if not int(text.tag_cget("probe", "underline") or 0):
+        out.append(
+            "a tip bound to a Text RANGE left it unmarked. A Text draws "
+            "what would otherwise be several widgets, and the tag is the "
+            "only thing that can carry the underline.")
+    label.destroy()
+    text.destroy()
+    return out
+
+
 def _the_failure_mark_lights_and_clears(tab):
     """The tab's mark goes up on a failure and comes off when read.
 
@@ -2606,6 +2666,7 @@ def run():
                 )
 
         if "OptimizerTab" in built:
+            failures.extend(_a_tooltip_marks_what_it_is_bound_to(root))
             failures.extend(
                 _the_failure_mark_lights_and_clears(built["CaptureTab"]))
             failures.extend(_messagebox_defaults_name_their_own_buttons())
