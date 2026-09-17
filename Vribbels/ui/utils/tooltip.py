@@ -31,8 +31,8 @@ HOVER_CURSOR = "question_arrow"
 # How far the tip's corner sits from the pointer. Through `px()` at the
 # call, like every other hardcoded distance: a fixed nudge is half a
 # nudge at 200%.
-OFFSET_X = 12
-OFFSET_Y = 14
+OFFSET_X = 0
+OFFSET_Y = 10
 
 
 class Tooltip:
