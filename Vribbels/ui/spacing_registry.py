@@ -717,10 +717,6 @@ PANEL_EDGE_RULES = {
     ("Slots", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
     ("Sets", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
     ("Main Stats", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
-    # The archive column ends in `Delete Archive`, which sits at the
-    # panel's foot -- so Settings' bottom edge meets a BUTTON, whatever
-    # the left column's last label does above it.
-    ("Settings", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
 }
 
 # Hand readings for PANEL_EDGES rows the resolver and the eye disagree
@@ -3243,6 +3239,13 @@ LEFT_INSET_OVERRIDES = {
     # number. Tracked rather than left out: an exception nothing
     # measures cannot be told apart from a drift into one.
     "Status": (RULE_BORDER_EDGE_CONTENT, 7, "exception"),
+    # The rule's 4 is where the panel puts its content, and the reading
+    # is 3 because of what the content IS: the leftmost ink in the
+    # panel belongs to the `A` of `Applies on the next launch.`, whose
+    # diagonal antialiases a pixel past the glyph box at a non-zero
+    # threshold. Nothing to move -- the entry is at what the screen
+    # shows so a real drift still reports.
+    "Settings": (RULE_BORDER_EDGE_CONTENT, 3, "exception"),
 }
 
 
@@ -4470,6 +4473,15 @@ POPUP_ENTRIES = [
 ]
 
 
+# Setup & Settings' archive column. Its own list because the panel's
+# other distances are panel edges and row pitches, which their own
+# loops generate.
+SETTINGS_ENTRIES = [
+    ("Setup & Settings", "Archive size -> Loose size", 8, RULE_PAIR_GAP,
+     _gap(_by_text("Archive:"), _by_text("Loose:"), "h"), "h"),
+]
+
+
 AWAITING_FIRST_READING = {
     # A name goes in here when an entry is registered at a target the
     # rules table supplies rather than at a distance somebody has read
@@ -4482,6 +4494,10 @@ AWAITING_FIRST_READING = {
     # or a distance read off the screen and agreed, and a run measured
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
+    #
+    # The archive column's two readings are new and nobody has read
+    # them off the screen yet.
+    "Archive size -> Loose size",
 }
 
 
@@ -4673,7 +4689,8 @@ def register_all():
             )
 
     for tab, name, target, rule, resolve, axis in (MATERIALS_ENTRIES
-                                                  + CHECKLIST_ENTRIES):
+                                                  + CHECKLIST_ENTRIES
+                                                  + SETTINGS_ENTRIES):
         sa.track(
             name=name,
             tab=tab,

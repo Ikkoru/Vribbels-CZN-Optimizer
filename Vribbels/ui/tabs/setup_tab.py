@@ -40,7 +40,8 @@ import sys
 from capture import setup_certificate, open_certificate, find_mitmdump
 from ..base_tab import BaseTab
 from ..utils.all_none_row import make_all_none_row
-from ..utils.button_width import BUTTON_W_LARGE, BUTTON_W_SMALL
+from ..utils.button_width import (BUTTON_W_LARGE, BUTTON_W_MEDIUM,
+                                 BUTTON_W_SMALL)
 from ..utils.checkbox import make_checkbox
 from ..utils.escape import close_on_escape
 from ..utils.scrolled_text import make_scrolled_text
@@ -674,7 +675,8 @@ class SetupTab(BaseTab):
         # BOTTOM of the column, which is the bottom of the panel: the
         # left column is the taller of the two and sets the height.
         self._delete_archive_button = ttk.Button(
-            parent, text="Delete Archive", command=self._delete_archive)
+            parent, text="Delete Archive", command=self._delete_archive,
+            width=BUTTON_W_MEDIUM)
         # spacing: border edge -> button -- panel, button ↕
         self._delete_archive_button.pack(
             side=tk.BOTTOM, anchor=tk.E, pady=px((0, ARCHIVE_BUTTON_EDGE)))

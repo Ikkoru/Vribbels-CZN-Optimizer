@@ -1,6 +1,6 @@
 ---
 name: spacing-audit
-description: Read or run the UI spacing audit — the screenshot-based measurement of every registered gap. Use when the maintainer pastes audit output, reports a gap as off, or mentions a baseline CHANGED or MISSING line; when a rendered distance needs confirming in pixels; when the baseline is being frozen; or when asked to run one. Covers how to read the table, what a miss resolves to, and the preconditions and launchers for a run.
+description: Read or run the UI spacing audit — the screenshot-based measurement of every registered gap. Use when the maintainer pastes audit output, reports a gap as off, or mentions a baseline CHANGED or MISSING line; when a rendered distance needs confirming in pixels; when the baseline is being frozen; or when asked to run one. Covers how to read the table, what a miss resolves to, what registering a new gap obliges, and the preconditions and launchers for a run.
 ---
 
 # Spacing audit
@@ -64,6 +64,17 @@ Doc-first, as everywhere in this repo. **A distance that does not answer to its 
 3. the site is a deliberate departure — add the `exception` marker at the call site naming the rule it breaks, and register it as one.
 
 Take the maintainer's own measurements over the audit's when the two disagree and they have measured by hand: several of the audit's reference conventions were corrected that way. Readings are capital-to-capital, and gaps are counted background pixels.
+
+**A reading can move without any distance moving.** The scan meets INK, so what is leftmost or lowest inside a panel can change when a widget is added, or when a frame that fills its parent paints its background where the panel's own showed. Before reaching for a padding constant, measure the structure: build the tab against a mapped window at alpha 0 (the `check_tabs_build.py` recipe, and `_hide_until_ready` is the app's own way to be mapped and invisible) and compare `winfo_rootx` against the panel's. A lever nudged to chase a reading that never moved is the mistake this catches. Glyphs do it too: an `A`'s antialiased diagonal reaches a pixel left of its box at a non-zero threshold, which is a 3 where the rule says 4 and nothing is wrong.
+
+## Adding an entry
+
+New rows carry obligations the audit itself will not remind you of, and `checks/check_spacing_registry.py` fails until they are met:
+
+- **Prefer a rule to a `unique`.** Read the rules table in `docs/ui_spacing.md` before inventing one — `element and its label ↔ element and its label` already prices two label+value pairs side by side at 8px, and a unique for a distance a rule covers is a second vocabulary for one idea.
+- **A `unique` needs both halves.** A `unique -- <what> --` marker in the widget code, spelled identically in the doc's uniques table, AND an entry measuring it — or a row in that table carrying **—** and a reason it is not tracked, with no entry at all.
+- **A new entry is provisional.** Add its name to `AWAITING_FIRST_READING` so the row prints yellow: its target came from the rules table rather than from anything anyone has seen. It comes out the moment a run confirms it.
+- **A distance that deliberately misses its rule is an `exception`**, registered at what the screen actually shows, with the reason at the site. Tracked at its real value, a later drift still reports; left out, it cannot be told apart from one.
 
 ## Freezing
 
