@@ -45,6 +45,7 @@ from ..utils.button_width import (BUTTON_W_LARGE, BUTTON_W_MEDIUM,
 from ..utils.checkbox import make_checkbox
 from ..utils.escape import close_on_escape
 from ..utils.scrolled_text import make_scrolled_text
+from ..utils.tooltip import Tooltip
 from ..utils.tab_header import make_tab_header
 from defaults_sync import resolve_defaults_dir
 from ui.scaling import px
@@ -667,6 +668,11 @@ class SetupTab(BaseTab):
         sizes.pack(fill=tk.X, anchor=tk.W, pady=px((SETTINGS_ROW_GAP, 0)))
         self._archive_size_label = ttk.Label(sizes, text="")
         self._archive_size_label.pack(side=tk.LEFT)
+        # The file on disk is the figure that fits; what it HOLDS is
+        # the one that says whether deleting it is worth anything, and
+        # that only fits on hover.
+        self._archive_tip = Tooltip(self.colors)
+        self._archive_tip.bind(self._archive_size_label, "")
         # spacing: element and its label ↔ element and its label -- label, label ↔
         self._folder_size_label = ttk.Label(sizes, text="")
         self._folder_size_label.pack(side=tk.LEFT,
@@ -738,12 +744,19 @@ class SetupTab(BaseTab):
             text="Loose: %s" % _megabytes(loose))
         state = tk.NORMAL if packed else tk.DISABLED
         self._delete_archive_button.configure(state=state)
+        self._archive_held = (0, 0)
         if packed:
             held = archive.contents(folder)
-            inside = sum(size for _name, size in held)
-            self._archive_tip = (len(held), inside)
-        else:
-            self._archive_tip = (0, 0)
+            self._archive_held = (len(held), sum(s for _n, s in held))
+        count, inside = self._archive_held
+        # Rebound rather than re-texted: `Tooltip.bind` closes over the
+        # string it was given, so a stale binding would keep answering
+        # with the figures from the last time the tab was opened.
+        self._archive_tip.bind(
+            self._archive_size_label,
+            "%d archived capture%s, %s of captures inside."
+            % (count, "" if count == 1 else "s", _megabytes(inside))
+            if count else "Nothing archived yet.")
 
     def _delete_archive(self):
         """Delete the archive, to the Recycle Bin where there is one.
@@ -760,14 +773,14 @@ class SetupTab(BaseTab):
         book = folder / archive.ARCHIVE_NAME if folder else None
         if not book or not book.exists():
             return
-        count, inside = getattr(self, "_archive_tip", (0, 0))
+        count, inside = getattr(self, "_archive_held", (0, 0))
         if not messagebox.askyesno(
                 "Delete Archive",
                 "Delete %d archived capture%s (%s of history, %s on disk)?\n\n"
                 "This cannot be undone from inside the program."
                 % (count, "" if count == 1 else "s", _megabytes(inside),
                    _megabytes(book.stat().st_size)),
-                icon="warning", default="cancel"):
+                icon="warning", default=messagebox.NO):
             return
         if recycle(book):
             self._refresh_archive_sizes()

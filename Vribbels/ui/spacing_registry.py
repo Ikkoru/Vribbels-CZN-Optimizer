@@ -3239,12 +3239,15 @@ LEFT_INSET_OVERRIDES = {
     # number. Tracked rather than left out: an exception nothing
     # measures cannot be told apart from a drift into one.
     "Status": (RULE_BORDER_EDGE_CONTENT, 7, "exception"),
-    # The rule's 4 is where the panel puts its content, and the reading
-    # is 3 because of what the content IS: the leftmost ink in the
-    # panel belongs to the `A` of `Applies on the next launch.`, whose
-    # diagonal antialiases a pixel past the glyph box at a non-zero
-    # threshold. Nothing to move -- the entry is at what the screen
-    # shows so a real drift still reports.
+    # THE PANEL PUTS ITS CONTENT AT 3, measured against a mapped
+    # window: 1px of padding over a 2px border. The rule's 4 is what
+    # most panels READ, because their leading glyph's first column is
+    # dark enough for the ink threshold to pass over -- invisible on
+    # this background, and rightly ignored. `U` and `L` do that here.
+    # The `A` of the scale note does not, so its first column counts
+    # and the panel reads a pixel nearer its edge than its neighbours.
+    # Registered at what the screen shows, so a real drift still
+    # reports; there is no lever to move.
     "Settings": (RULE_BORDER_EDGE_CONTENT, 3, "exception"),
 }
 

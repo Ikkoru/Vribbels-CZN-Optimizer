@@ -2275,6 +2275,110 @@ def _restore_dialog_frames_follow_the_rules(tab, root):
     return out
 
 
+# Which buttons each `messagebox` helper actually draws. A `default`
+# naming anything else raises `invalid default button` from Tk -- at
+# the moment the user clicks, never at import, never in a build.
+MESSAGEBOX_BUTTONS = {
+    "askyesno": {"yes", "no"},
+    "askretrycancel": {"retry", "cancel"},
+    "askokcancel": {"ok", "cancel"},
+    "askyesnocancel": {"yes", "no", "cancel"},
+    "showinfo": {"ok"},
+    "showwarning": {"ok"},
+    "showerror": {"ok"},
+}
+
+def _default_word(node):
+    """The button a `default=` argument names, or None.
+
+    Parsed rather than matched: the call spans lines and holds nested
+    calls of its own, and a regex that walks parens is wrong the moment
+    an argument carries two levels of them -- which the delete
+    confirmation's `_megabytes(book.stat().st_size)` does.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value.lower()
+    if isinstance(node, ast.Attribute):
+        return node.attr.lower()
+    return None
+
+
+def _archive_size_carries_its_tooltip(tab):
+    """The archive reading says on hover what the figure does not.
+
+    `Archive: 1.3 MB` is the file on disk; what it HOLDS is the number
+    that decides whether deleting it is worth anything, and that only
+    fits on hover. A tooltip that was never bound looks exactly like
+    one nobody hovered.
+
+    Returns a list of complaints.
+    """
+    out = []
+    label = getattr(tab, "_archive_size_label", None)
+    if label is None:
+        return ["the Setup tab has no `_archive_size_label` to hover."]
+    if not label.bind("<Enter>"):
+        out.append(
+            "the archive size reading has no `<Enter>` binding, so its "
+            "tooltip never appears. The figure on its own does not say "
+            "how much history the archive holds.")
+    held = getattr(tab, "_archive_held", None)
+    if not isinstance(held, tuple) or len(held) != 2:
+        out.append(
+            f"`_archive_held` is {held!r}, not the (count, bytes) pair the "
+            f"tooltip and the delete confirmation both read.")
+    return out
+
+
+def _messagebox_defaults_name_their_own_buttons():
+    """A dialog's `default` has to be one of the buttons it draws.
+
+    `askyesno(..., default="cancel")` passes every check the repo has:
+    it imports, it builds, and it raises `TclError` the first time a
+    user presses the button that opens it. Scanned rather than called,
+    because calling one would put a modal dialog on the maintainer's
+    screen.
+    """
+    out = []
+    seen = 0
+    for path in sorted((SOURCE_ROOT / "ui").rglob("*.py")):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8",
+                                            errors="replace"))
+        except SyntaxError as exc:
+            out.append(f"{path.name} will not parse: {exc}")
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if not (isinstance(func, ast.Attribute)
+                    and isinstance(func.value, ast.Name)
+                    and func.value.id == "messagebox"):
+                continue
+            want = MESSAGEBOX_BUTTONS.get(func.attr)
+            if want is None:
+                continue
+            for keyword in node.keywords:
+                if keyword.arg != "default":
+                    continue
+                seen += 1
+                chosen = _default_word(keyword.value)
+                if chosen and chosen not in want:
+                    out.append(
+                        f"{path.name}:{node.lineno} calls {func.attr} with "
+                        f"default={chosen!r}, which is not one of the "
+                        f"buttons it draws ({sorted(want)}). Tk raises "
+                        f"`invalid default button` when the dialog opens, "
+                        f"so nothing sees this until a user clicks.")
+    if not seen:
+        out.append(
+            "no `messagebox` call under `ui/` passes a `default`, so this "
+            "checked nothing. A check that cannot fail is not watching "
+            "anything.")
+    return out
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -2385,6 +2489,9 @@ def run():
                 )
 
         if "OptimizerTab" in built:
+            failures.extend(_messagebox_defaults_name_their_own_buttons())
+            failures.extend(_archive_size_carries_its_tooltip(
+                built["SetupTab"]))
             failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
             failures.extend(
                 _level_stepper_offers_auto(built["OptimizerTab"]))
