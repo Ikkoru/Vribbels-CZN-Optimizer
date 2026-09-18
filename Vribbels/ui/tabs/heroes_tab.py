@@ -344,7 +344,7 @@ CHAR_TOTAL_LINES = 5 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5
 # Preset stretches, so its number is a minimum in the other sense as
 # well: it also takes the leftover width. Sortie sits to its right and
 # is fixed, which is why the stretch column can be in the middle.
-HERO_COL_PX = [67, 37, 58, 59, 32, 42, 26, 45, 24, 66, 32, 180, 40]
+HERO_COL_PX = [67, 37, 58, 59, 32, 42, 26, 45, 24, 66, 32, 180, 36]
 
 # Treeview column ids, and the heading each shows. The id IS the sort
 # key, so a heading click needs no lookup table.
