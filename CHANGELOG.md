@@ -10,93 +10,89 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the
 pre-fork history, see the upstream repository's CHANGELOG.
 
-## [2.0.1] - unreleased
+## [2.1.0] - Checklist events and shops, capture archive, Sortie progress
 
 ### Added
 
-- **Combatants: a `Sortie` column.** Each combatant's Sortie Data progress as one figure — their achievements and their titles added together, `3/16` — beside the preset they are assigned. Sorting it puts the combatants with the most progress at the top. It reads `-` until a capture has carried the ladders, so a fresh snapshot is what fills it in.
+- **Combatants: a `Sortie` column.** Each combatant's Sortie Data progress as one figure, `3/16` — achievements and titles added together — beside the preset they are assigned. Sorting it puts the furthest along at the top. It reads `-` until a capture has carried the data.
 
-- **A Sortie's run-end payout is stated in full.** Finishing a run paid four things and the Capture Log named one of them: the rest arrive only in the run's accumulated list, which is deliberately never applied because every item in it has already been paid. It is now REPORTED instead, as `Total rewards:` on its own line — the whole run in one statement, beside the receipts rather than folded into them, and changing no count.
+- **A Sortie run's full payout is listed.** After a run the Capture Log adds a `Total rewards:` line with everything the run paid, on its own line beneath the individual receipts.
 
-- **Old captures are archived instead of piling up.** The snapshots folder had no ceiling — a capture per game relaunch, and a debug log per session for anyone using Debug WS — and nothing ever removed one. At launch, in the background, everything but the newest few is folded into a single `archived_captures.tar.xz` beside them: 280 MB of captures came to 1.3 MB in under five seconds. A loose file is deleted only after its archived copy has been read back and matched byte for byte, so a failure anywhere leaves every capture where it was. `Setup & Settings` → `Settings` carries the controls: `Compression` (`Off`, `Balanced`, `Strongest`), the archive's size beside the loose folder's, and `Delete Archive`, which goes to the Recycle Bin.
+- **Old captures are archived instead of piling up.** At launch, in the background, everything but the newest few captures and debug logs is folded into a single `archived_captures.tar.xz` beside them, which is a small fraction of their loose size. A file is deleted only after its archived copy has been read back and matched byte for byte, so a failure at any point leaves every capture where it was. `Setup & Settings` → `Settings` has the controls: `Compression` (`Off`, `Balanced`, `Strongest`), the archive's size beside the loose folder's, and `Delete Archive`, which goes to the Recycle Bin.
 
-- **The Capture tab says when something failed while you were elsewhere.** A background task reports into the Capture Log, which is on a tab nobody is watching while it runs. A failure that needs attention now puts a red dot on the tab until the tab is opened, and pulses the `Capture Log` title once you are there so you can see which panel spoke. Only failures that stop the work raise it — anything that retries and carries on stays a line in the log.
+- **The Capture tab says when something failed while you were elsewhere.** A failure that stops a background task puts a red dot on the `Capture` tab until you open it, then pulses the `Capture Log` title so you can see which panel spoke. Anything that retries and carries on stays an ordinary line in the log.
 
-- **A capture can be left running.** Three things changed to make that worth doing: the debug log is compressed (about 12x, and readable at every moment rather than only once the capture stops); a new snapshot is started each time the game is RELAUNCHED — not merely reconnected, which this game does often — instead of one file rewritten for the capture's whole life; and the capture keeps a catalogue of which request carries which field.
+- **A capture can be left running.** The debug log is compressed as it is written, and stays readable while the capture is open. A new snapshot is started each time the game is relaunched, rather than one file being rewritten for the capture's whole life.
 
-- **The wire catalogue.** `settings/wire_catalogue.json`, built as a capture runs and accumulated across them: every request-and-field pair seen, how often, when first and last, and a short sample. `docs/wire_catalogue.py` prints it against the fields the program actually reads, so the ones nothing has ever looked at are named. It is kept beside the settings rather than among the captures, so tidying those up does not lose it. **It runs only for the maintainer** — the `zRUN` launchers set an environment variable a released build has no way to, so an installed copy records nothing and writes nothing.
+- **Materials tab: the hardest target on each block is coloured** — red under 50%, yellow to 100%, green once covered. The steps on the way keep the ordinary colour.
 
-- **Materials tab: the hardest target on each block is coloured** — red under 50%, yellow to 100%, green once covered. The steps on the way keep the ordinary colour, so a block reads as one verdict rather than a column of traffic lights.
+- **An item whose name is only a guess is drawn red in the Capture Log.** Two event currencies are named from a single event each, and the game may reuse the id under another name; red means check the line rather than trust it. An id with no name at all stays dim yellow, as before.
 
-- **An item whose name is only a guess is drawn red in the Capture Log.** Two event currencies are named from one event each and the game may hand the same id out under a different name later; red says to check the line rather than trust it. An id nothing can name at all stays dim yellow, as before.
+- **Each shop on the Checklist says what clearing it costs.** Beside the shop's name, the currency you hold over the bill for every ticked product still on its shelves, turning green once you can afford the lot. Unticked products are not billed. A shop whose products are free, or priced in more than one currency, shows nothing.
 
-- **Each shop on the Checklist says what clearing it costs.** Beside the shop's name, the currency on hand over the bill for every ticked product still on its shelves — green once you can afford the lot. A product you have unticked is not billed, and a shop whose products are free or priced in more than one currency shows nothing rather than a figure that cannot be compared with anything.
+- **A shop heading's total is inked a shade apart** from the products under it, so the block's own total does not read as one more row.
 
-- **`Multidimensional Alignment Material` is shortened on the Checklist**, with the full name on the row's own tooltip. The tip is bound to the row, so it follows the product wherever ticking sorts it.
+- **`Multidimensional Alignment Material` is shortened on the Checklist**, with the full name on the row's tooltip. The tip follows the product wherever ticking sorts it.
 
-- **Hovering a shop on the Checklist says what its currency earns, and what a full period of it costs.** The rates are in that shop's own rotation — week, month or season, whichever it resets on — and differ only in how far back they look: `recent` over the last four rotations, `long run` over the last year. A gap between them means something changed; while the record is too young to tell them apart, only the long-run line shows. Beneath them, what every ticked product's full cap costs, which does not move as the shelves empty and so can be read against the rates.
+- **Hovering a shop on the Checklist says what its currency earns, and what a full period of it costs.** Rates are given in that shop's own rotation — week, month or season, whichever it resets on — over two spans: `recent` covers the last four rotations, `long run` the last year. A gap between the two means something changed. Only the long-run line shows while the record is too young to tell them apart. Beneath them is what every ticked product's full cap costs, which does not move as the shelves empty.
 
-- **That record starts full rather than empty.** The game states a lifetime earned total for five of the seven shop currencies, and the shops account for the other two — what is held plus everything ever bought with it, which reproduces the game's own figure exactly at every reading of four currencies and within 300 for the fifth. Anchored at the day the account was made, so a year's reading is there on the first capture instead of in a year's time.
+- **That record starts full rather than empty.** The game states a lifetime earned total for five of the seven shop currencies, and the other two are worked out from what you hold plus everything ever bought with it. Anchored at the day the account was made, so a year's reading is there on the first capture.
 
-- **The Seasonal Shop shows no rates.** Its currency is wiped at the end of every season, so what was earned of it before says nothing about now.
+- **The Seasonal Shop shows no rates.** Its currency is wiped at the end of every season, so what was earned before says nothing about now.
 
-- **The monthly pass's own record is captured, claim included.** `issued_limit_entities` rides the login burst and dates the subscription, and claiming the Coronomicon Gift answers with the same record under a name of its own — so the day it was taken is known as it happens rather than at the next login. Nothing shows it yet; the data is there for a Coronomicon Gift row.
+- **The launch login event reads `7/7`.** Its seven rewards are a new account's first week, after which it runs for a year with the days climbing — so the row used to sit red for ever against a total nothing states. If the game ever adds an eighth reward, the row goes back to counting days with a `+?`.
 
-- **A shop heading's total is inked a shade apart** from the products under it — the same green and red, slightly darker and slightly stronger — so the block's own verdict does not read as one more row's.
+- **You can tell the Checklist an event is finished.** Most events never say so themselves, so a row with everything claimed sits unproven. Those rows now carry a `Finished?` checkbox: tick it and the tally goes green and sorts down with the events that are done. If another reward turns up, or another is claimed, the box unticks itself and the row goes back to red.
 
-- **The launch login event stops asking for a reward that is not there.** Its seven rewards are a new account's first week, and it then runs for a year with the days climbing — so the row read red for ever, one short of a total nothing states. The seven are written down now, and the row reads `7/7` green. **Written down so the game can take it back:** an eighth reward would put the row straight back to counting days, `+?` and all.
+- **The Checklist reads a point larger.** Every row, reading, deadline and checkbox on the tab is up one size; the Daily / Weekly / Monthly / Other headings are unchanged. The block is wider and taller for it, so a window sized to the old tab may want widening.
 
-- **You can tell the Checklist an event is finished.** Most events never say so themselves, so a row with everything claimed sits there unproven. Those rows now carry a `Finished?` checkbox at the end: tick it and the tally goes green and sorts down with the events that are done. **The answer is about the reading it was given for** — if another reward turns up, or another one is claimed, the box unticks itself and the row goes back to red rather than quietly standing on a number that has moved.
+- **The Checklist's deadlines line up.** `Ends in ...` now sits in a column of its own rather than starting wherever the reading beside it ended — one column for the rows above the Sortie shop, one for the Events block.
 
-- **The Checklist reads a point larger.** Every row, reading, deadline and checkbox on the tab is up one size; the Daily / Weekly / Monthly / Other headings are unchanged. The block is wider and taller for it — about 130px across the four columns — so a window sized to the old tab may want widening.
+- **An event shaped like a grid says how big it is on its first day.** Where a family is the same few tasks repeating each day, the game hands out one axis a row at a time and the other all at once, so the row can read `3/21` on the opening afternoon instead of `3/3+?`. Events that are not rectangular are left alone.
 
-- **The Checklist's deadlines line up.** `Ends in ...` used to start wherever the reading beside it ended; it now sits in a column of its own — one for the rows above the Sortie shop and one for the Events block, each lined up on its own members.
+- **An event can take its total from the last time it ran.** A live event's rows are only what it has handed out so far, but an instalment that has ended handed out everything it had, and that count is recorded. Where two past instalments agree, a live one reads `~1/20` instead of `1/3+?`. It still goes green only on the game's own word, and a live event that has issued more than its predecessors held keeps its own figure.
 
-- **An event shaped like a grid says how big it is on its first day.** Where a family is the same few tasks repeating per day, the game hands out one axis a row at a time and the other all at once — so the row can read `3/21` on the opening afternoon instead of `3/3+?`. The devil event's 21 and the past node lists' 25 are the numbers the game's own screens state. A family that is not rectangular is left alone: most are not.
+- **An event row says when its total is only a guess.** Most events hand their rewards out over the whole run, so the count on screen is what you have been offered so far, not what the event holds. Those rows read `16/20+?`. The `+?` comes off, and the row goes green, once the game says the event is finished.
 
-- **An event can take its total from the last time it ran.** The game issues a mission row when it issues the mission, so a live event's rows are what it has handed out so far — but an instalment that has ENDED handed out everything it had, and its count is recorded as it is seen. Where two past instalments of the same event agree, a live one reads `~1/20` instead of `1/3+?`. It still goes green only on the game's own word, and a live event that has issued more than its predecessors held keeps its own figure.
-
-- **An event row says when its total is only a guess.** Most events hand out their rewards over the whole run, so the count on screen is what you have been offered so far, not what the event holds. Those rows now read `16/20+?`. The `+?` comes off — and the row goes green — where the game itself says the event is finished.
-
-- **An event goes green once its final reward is claimed.** The game keeps its own record of that, which is the only thing on the wire that can tell a finished event from one still handing rewards out.
+- **An event goes green once its final reward is claimed.**
 
 ### Fixed
 
-- **A Sortie's rewards reach the Capture Log.** Finishing a run pays under a key nothing was reading — nested inside the stage's own result rather than at the top level — so a whole run's payout went unannounced, the entry deposit coming back with it. The counts still ended up right, because the game re-sends the inventory afterwards, which is exactly what made it hard to notice. A Chaos report screen and a town calamity had the same problem, each under a key of its own.
+- **A Sortie's rewards reach the Capture Log.** Finishing a run pays under a key nothing was reading, so a whole run's payout went unannounced, along with the entry deposit coming back. The counts were right regardless, because the game re-sends the inventory afterwards. A Chaos report screen and a town calamity had the same problem, each under a key of its own.
 
-- **A charge no longer reads as a gift.** Entering a Sortie costs Aether and is charged through the same envelope a reward arrives in, so the log said `Received Aether -10`. The word now comes from which way the figures moved.
+- **A charge no longer reads as a gift.** Entering a Sortie costs Aether and is charged through the same envelope a reward arrives in, so the log said `Received Aether -10`. The wording now follows which way the figures moved.
 
-- **A capture spanning two game launches no longer confuses one for the other.** Requests waiting on a reply are remembered by the game's own request number, and those start again at 1 each time the game opens — so a request the game never answered before closing could be claimed by an unrelated reply from the next launch. Harmless while a capture covered one launch, which is every capture taken so far; the costly case was a fragment disassembly, whose remembered intent is a list of fragments to delete.
+- **A capture spanning two game launches no longer confuses one for the other.** Requests waiting on a reply are tracked by the game's own request number, which restarts at 1 each time the game opens, so an unanswered request could be claimed by an unrelated reply from the next launch.
 
-- **A finished login streak stays finished.** The game says a streak has ended exactly once, on the claim that ends it, and the record it sends afterwards is identical to a streak merely claimed for today — so the row went back to orange the next time the program started. It is remembered now, in `settings/`, which a cleanup of captures never touches.
+- **A finished login streak stays finished.** The game says a streak has ended exactly once, on the claim that ends it, and what it sends afterwards is identical to a streak merely claimed for today — so the row went back to orange on the next start. It is remembered now, in `settings/`, which tidying up captures never touches.
 
-- **An event the game has called finished now reads as finished.** The claim of an event's final reward — the one that unlocks only after every other — answers with the completion flag under a key the capture was not reading, so the Bartender went on showing `24/24+?` in red with the wire having said outright that it was over.
+- **An event the game has called finished now reads as finished.** Claiming an event's final reward answers with a completion flag the capture was not reading, so the Bartender went on showing `24/24+?` in red.
 
-- **The Daily Check-in row no longer invents a length.** It was counting claimed days against a written-down seven; streaks actually run 7, 10, 14 or 21 days depending on the event, and nothing on the wire says which in advance. The row now reads claimed against claimed-plus-one — red when a day is waiting, orange when it is not — and goes green only on the game's own word that the streak has ended, which the capture now keeps.
+- **The Daily Check-in row no longer invents a length.** It counted claimed days against a written-down seven, but streaks run 7, 10, 14 or 21 days depending on the event and nothing says which in advance. The row now reads claimed against claimed-plus-one — red when a day is waiting, orange when it is not — and goes green only when the game says the streak has ended.
 
-- **The Checklist stopped losing the shops at the foot of a column.** Each column is a block of a fixed height, and a checkbox row is taller than a text one — so the block came up three pixels short per shop product and Tk clipped the difference off the bottom silently. The Weekly column was missing its Seasonal Shop and the Monthly column its last two rows.
+- **The Checklist stopped losing the shops at the foot of a column.** Each column is a fixed height and a checkbox row is taller than a text one, so the bottom was silently clipped. The Weekly column was missing its Seasonal Shop and the Monthly column its last two rows.
 
-- **The Memory Fragments filters stop blinking during a capture.** The Sets panel and the unknown-main-stats row were torn down and rebuilt on every snapshot save, and a login burst is several in a few seconds. They now rebuild only when a set name, one of the counts beside them, or an unknown main actually changes.
+- **The Memory Fragments filters stop blinking during a capture.** The Sets panel and the unknown-main-stats row were rebuilt on every snapshot save, and a login saves several times in a few seconds. They now rebuild only when a set name, one of the counts beside them, or an unknown main actually changes.
 
-- **A fresh install opens at the same size a loaded one does.** Two panels were laid out only once data arrived: the Combatants tab's six fragment cells came up at a text widget's default size, far larger than they end up, which pushed the Character and Partner cards out of the space they fill; and the Memory Fragments tab's Sets panel came up empty and narrow, moving every panel beside it when the first snapshot loaded. The Sets columns now reserve room for a four-digit count instead of fitting the counts in hand, so the panel is the same width whatever you own.
+- **A fresh install opens at the same size a loaded one does.** The Combatants tab's six fragment cells and the Memory Fragments tab's Sets panel were laid out only once data arrived, so both moved everything around them when the first snapshot loaded.
 
 - **An event mission's rewards are recorded.** They pay under a key nothing read, so the items landed nowhere and the Capture Log reported no receipt.
 
-- **A login-streak update no longer has to wait for the next login.** The Daily Check-in record was only ever kept when it arrived in full, which is how it arrives at login — so a reward claimed while a capture ran did not reach the tab. The claim names no record at all, only the streak before and after, and the row is now read from that.
+- **A login-streak update no longer has to wait for the next login.** The Daily Check-in record was kept only when it arrived in full, which is how it arrives at login, so a reward claimed mid-capture did not reach the tab.
 
-- **The weekly rows come back on their own when the week turns.** The Arkhianon Supply's EXP, the Galactic Disaster's chaos progress and the Seasonal Accumulated Score all kept last week's figures into the new week, so on the first day of a week each read as finished work. They now reset with the clock, whether or not a capture is running — the same way the daily rows already did.
+- **The weekly rows come back on their own when the week turns.** The Arkhianon Supply's EXP, the Galactic Disaster's chaos progress and the Seasonal Accumulated Score all kept last week's figures into the new week, so each read as finished work on the first day. They now reset with the clock, whether or not a capture is running.
 
-- **Loot Certification Cards and Reason stop reading as spent after a weekly reset.** The game tops both up at the reset but only applies it when you next open the content, so until then the program is holding last week's leftover. Each row now shows what the week's rule says to expect — the Cards back to 4, Reason up 3 to its 9 — written as `~4` and `~8/9` to say it is worked out rather than read. The `~` goes once a capture has seen the real figure.
+- **Loot Certification Cards and Reason stop reading as spent after a weekly reset.** The game tops both up at the reset but only applies it when you next open the content. Each row now shows what the week's rule says to expect — the Cards back to 4, Reason up 3 to its 9 — written as `~4` and `~8/9` to say it is worked out rather than read. The `~` goes once a capture has seen the real figure.
 
-- **The devil event counts all seven of its days.** Its rewards are named after the DAY rather than the event, which the program was reading as an event number — so it matched day one and quietly ignored the rest, showing `3/3` for an event with 21 rewards in it.
+- **The devil event counts all seven of its days.** Its rewards are named after the day rather than the event, which was read as an event number, so it matched day one and ignored the rest — showing `3/3` for an event with 21 rewards in it.
 
 - **A finished summer puzzle shows as finished.** The reply confirming the last piece names only the set it changed, which nothing was reading, so the puzzle stayed one piece short until the next login.
 
-- **A story episode's rewards reach the Capture Log.** They arrive nested deeper than anything else pays under, so nothing reported them. The counts were right anyway — the game re-sends the item list straight afterwards — which is why only the missing line showed it.
+- **A story episode's rewards reach the Capture Log.** They arrive nested deeper than anything else pays under, so nothing reported them.
 
-- **Memory Fragments won as rewards are kept.** Anything a Chaos week reward or a Simulation run paid was missing from the inventory until the next login: those arrive in a different shape from a forged fragment, and nothing was reading it.
+- **Memory Fragments won as rewards are kept.** Anything a Chaos week reward or a Simulation run paid was missing from the inventory until the next login.
 
-- **A doubled Simulation run is counted.** The Overclock row is fed by a record tucked inside the stage reply rather than at its top level, so the row sat at its login value for the whole session.
+- **A doubled Simulation run is counted.** The Overclock row is fed by a record inside the stage reply rather than at its top level, so the row sat at its login value all session.
 
 - **An event reward claimed while a capture runs shows up straight away.** The claim answers under a key nothing was reading, so an event's tally stayed at whatever it was when you logged in.
 
@@ -108,17 +104,17 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Changed
 
-- **The capture log stopped repeating itself.** `Saved: 747 Memory Fragments, 197 characters` appeared again after every upgrade, delete and reward, with the same figures every time. It now appears when the file or the counts change, and a save that FAILS says so plainly instead of arriving as a bare `Error:`.
+- **The capture log stopped repeating itself.** `Saved:` appeared again after every upgrade, delete and reward, with the same figures every time. It now appears when the file or the counts change, and a save that fails says so plainly instead of arriving as a bare `Error:`.
 
-- **A daily event's last day goes green.** Orange says the rewards come back tomorrow; on the final day they do not, so taking them finishes the event and the row says so.
+- **A daily event's last day goes green.** Orange says the rewards come back tomorrow; on the final day they do not.
 
-- **The Checklist columns sit evenly across the tab.** The four were flush against the left with the whole leftover width piled up after the last one; the gaps now fall between them and both ends stand the same distance from the window.
+- **The Checklist columns sit evenly across the tab.** The four were flush left with the leftover width piled up after the last one; the gaps now fall between them and both ends stand the same distance from the window.
 
-- **Each block on the Checklist is set apart from the rows around it.** A shop's heading and the Events heading take a little more space above them — once per edge, so two shops in a row are no further apart than a shop and a plain row, and a column that opens on a shop still starts level with its neighbours.
+- **Each block on the Checklist is set apart from the rows around it.** A shop's heading and the Events heading take a little more space above them — once per edge, so two shops in a row are no further apart than a shop and a plain row.
 
-- **The Activities row shows its numbers even when it is finished**, `100/100 Claimed` rather than `All Claimed`. Its record is written only by the claim and never rolled, and a figure can be checked against the game where a word cannot.
+- **The Activities row shows its numbers even when it is finished**, `100/100 Claimed` rather than `All Claimed`.
 
-- **The Events list puts what you still owe first.** Events with rewards left to claim sort to the top by deadline; the ones that are finished, and a daily event whose day is already taken, sit below them.
+- **The Events list puts what you still owe first.** Events with rewards left to claim sort to the top by deadline; finished ones, and a daily event whose day is already taken, sit below them.
 
 - **Chaos Currency reads against its cap**, `3/4`, the way Sortie already did.
 
@@ -126,19 +122,19 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **Daily rows come back on their own.** The coffee and the Communication Passes had no date attached, so with no capture running they kept yesterday's answer — a drunk coffee stayed green past the reset. They now reset with the clock like every other daily row.
 
-- **An Overclock event counts the runs you have taken, not the ones left.** Every other row on the tab reads as done-out-of-total, so `2/2` on a day nothing had been used looked finished. A repeating event's finished cycle reads orange rather than green: it comes back tomorrow.
+- **An Overclock event counts the runs you have taken, not the ones left.** Every other row on the tab reads as done-out-of-total, so `2/2` on an unused day looked finished. A repeating event's finished cycle reads orange rather than green, because it comes back tomorrow.
 
-- **An Overclock event's daily total is read from the ones you have already played.** The game runs these at two a day and at six, and the row assumed two — so a six-a-day event would have called the day finished after the second run with four still on offer.
+- **An Overclock event's daily total is read from the runs already played.** The game runs these at two a day and at six, and the row assumed two — so a six-a-day event called the day finished after the second run.
 
 - **An event that looks finished but cannot be proved finished reads orange.** Where the only number available is the rewards handed out so far, a row that has sat at its own total for two days is neither red nor green.
 
-- **An event row says what it can prove.** Where the game states a total, the row counts against it and can go green; where the only number available is the missions handed out so far, it shows that and stays red — an event still handing them out would otherwise read as finished on its first day.
+- **An event row says what it can prove.** Where the game states a total, the row counts against it and can go green; where the only number available is the missions handed out so far, it shows that and stays red.
 
 - **The Monthly column counts down on a fresh install**, instead of waiting for the first capture to state the month's bounds.
 
 - **Combatant Trial events count three trials per Combatant banner running**, not three flat, so a second banner doubles them.
 
-- **Combatant Trial events count the rewards you have claimed.** Which trials an event offers is only stated when you claim one, so the pairing is learned from the claim and remembered; until then the row shows its deadline alone.
+- **Combatant Trial events count the rewards you have claimed.** Which trials an event offers is stated only when you claim one, so the pairing is learned from the claim and remembered; until then the row shows its deadline alone.
 
 ## [2.0.0] - Checklist tab, region detection, Materials tab
 

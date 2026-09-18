@@ -64,7 +64,7 @@ from game_data.constants import RARITY_BG_COLORS, RARITY_COLORS
 # set low within it, because discarding real ink would report a
 # misalignment as aligned, and that is the worse direction.
 #
-# Set to 0 to get the old exact-match behaviour back.
+# Set to 0 to count only pixels that match the background exactly.
 FRINGE_LIGHTNESS = 10.0
 
 # L* is a function of relative luminance alone, and a screenshot holds

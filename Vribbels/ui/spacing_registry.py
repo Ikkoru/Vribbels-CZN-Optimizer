@@ -208,10 +208,9 @@ def track_text_top_gap(name, tab, rule, resolve, text, target=None,
 # background reaching the border is intended (0 is correct there), and
 # the frame-edge rule applies to the prose within it.
 #
-# "Character" joined them when it collapsed from stacked labels to a
-# single Text widget. Measuring it the old way reports a NEGATIVE inset
-# and a saturated border scan, because the scan looks for a background
-# pixel between border and content and the fill leaves none.
+# Measuring one of these from the border INWARD reports a negative
+# inset and a saturated scan: the scan looks for a background pixel
+# between border and content, and the fill leaves none.
 TEXT_PANELS = {"Character", "Partner", "How Gear Score Works",
                "Capture Log", "Setup Instructions"}
 

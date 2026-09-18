@@ -31,9 +31,10 @@ Prefer narrowing the scan wherever the string can be indexed to a capital. Prefe
 | a parenthesis below the baseline | 2px | any body size |
 | an ascender or tittle above the caps (`b d f h i j k l`) | 1px | **Segoe UI 14 bold only** |
 | a tooltip's underline below the baseline | 2px | every face it is drawn on |
-| a tooltip's underline past the last glyph | 1px | every face it is drawn on |
 
-**The underline is not a glyph**, which is why it is two rows rather than one: it is drawn inside the label's own box across the FULL advance width and on a row below the baseline, so a widget carrying one paints further in both directions while occupying exactly the same space -- measured, a label keeps its width and height to the pixel either way. Below, its lowest pixel sits 2 under a capital's. To the right, 1: the advance width's trailing side bearing that the last glyph's ink does not reach, read off two sites that went a pixel tight the day the underline arrived while every other horizontal gap held.
+**The underline is not a glyph.** It is drawn inside the label's own box, across the FULL advance width and on a row below the baseline, so a widget carrying one paints further down than its glyphs do while occupying exactly the same space -- measured, a label keeps its width and height to the pixel either way. Its lowest pixel sits 2 under a capital's, which is the baseline.
+
+**Sideways it is worth nothing**, and a correction there is wrong. The underline runs the advance width, so it reaches past a narrow last character like `1` and stops short of a wide one like `4` -- and where it stops short, the glyph's own ink is usually under the ink threshold anyway. Across real strings the two cancel.
 
 `ui/spacing_audit.py` applies both, and asks the child whose ink reaches the edge being measured rather than the element as a whole -- a gap is often read against a group, and a frame has no font.
 

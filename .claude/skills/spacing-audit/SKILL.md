@@ -80,6 +80,12 @@ New rows carry obligations the audit itself will not remind you of, and `checks/
 
 Freeze only once the maintainer has confirmed the current readings are right. The freeze overwrites `docs/spacing_baseline.json` wholesale, so freezing over an unexplained `CHANGED` line buries it permanently.
 
+It prints `baseline written: <n> gaps`, and before that a warning where two entries share a NAME:
+
+- `baseline: N row(s) share a name with another and only one of each is watched -- <names>`
+
+The baseline is keyed by name, so a shared one collapses to whichever was measured last and the other stops being compared — silently, because both still print in the table. A scenario row replacing its default-state twin is the usual cause. Rename one of the pair so both are watched; the registry's own naming (`<title> [element override]: title -> first element`) is what that looks like.
+
 ## Related
 
 - `docs/ui_spacing.md` — the rules, the ledger, what the audit cannot reach, and the uniques table.
