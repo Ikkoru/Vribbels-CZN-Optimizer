@@ -1,14 +1,10 @@
 # Changelog
 
-All notable changes to Vribbels CZN Optimizer (Ikkoru) will be
-documented in this file.
+All notable changes to Vribbels CZN Optimizer (Ikkoru) will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer)
-at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the
-pre-fork history, see the upstream repository's CHANGELOG.
+This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
 ## [2.1.0] - Checklist events and shops, capture archive, Sortie progress
 
@@ -342,7 +338,6 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 - **The window no longer assembles itself in view on startup.** It used to show as a blank white frame for about a second, then draw itself piece by piece — panels appearing half-populated, the Exclude Combatant's MFs checklist flashing rows of blank boxes, and sections jumping as the layout settled. It now stays hidden until it is built, loaded and settled, then appears complete.
 - **Loading a snapshot is faster.** The Memory Fragments and Combatants tabs were each being rebuilt twice per load, and the first rebuild used the previous scores anyway.
-- 
 
 ## [1.2.0] - Multi-core
 
@@ -383,13 +378,7 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ## [1.1.0] - Optimizer rework
 
-Major Optimizer-tab overhaul. The Optimizer becomes hands-off for the
-user: instead of dialling priority sliders per build, each character
-carries a saved profile of build assumptions (damage-type shares,
-ATK/DEF scaling, shielding/healing weight, set choices, stat biases),
-and the engine works out the best gear combination on its own. Per-
-character settings persist between launches, keyed by character `res_id`
-so renames don't lose data.
+Major Optimizer-tab overhaul. The Optimizer becomes hands-off for the user: instead of dialling priority sliders per build, each character carries a saved profile of build assumptions (damage-type shares, ATK/DEF scaling, shielding/healing weight, set choices, stat biases), and the engine works out the best gear combination on its own. Per-character settings persist between launches, keyed by character `res_id` so renames don't lose data.
 
 ### Added
 
