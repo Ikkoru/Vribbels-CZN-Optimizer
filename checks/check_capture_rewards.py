@@ -481,6 +481,26 @@ def run():
             f"envelopes moved, so two lines: the counts come right off "
             f"the client's own re-read either way, and the log line is "
             f"the only thing that says a reward arrived at all.")
+    # ...and the run's whole tally beside them, REPORTED. The two
+    # assertions above are what catch it being applied -- the list says
+    # another 20 of the item -- and this is what catches it being
+    # dropped, which is how the payout went unstated in the first
+    # place. Its own line: a Sortie pays its deposit back in the same
+    # frame, and one line holding both reads as one receipt.
+    totals = [line for line in log if "Total rewards" in str(line)]
+    if len(totals) != 1:
+        failures.append(
+            f"the run's own tally wrote {totals!r}, not one line. "
+            f"`return_info.confirm_drop_item` is the only statement of "
+            f"a run as a WHOLE -- the envelopes arrive split across the "
+            f"frames that paid them -- so without it a Sortie's payout "
+            f"is never stated anywhere.")
+    elif not all(word in str(totals[0])
+                 for word in ("+20", "+2000")):
+        failures.append(
+            f"the run's tally says {totals[0]!r}, which does not carry "
+            f"both of the list's amounts. It is a reading of the list, "
+            f"not of what the envelopes happened to pay.")
 
     # A town calamity pays under `calamity_reward`, in the same
     # `{currency, items}` shape as the four keys beside it.

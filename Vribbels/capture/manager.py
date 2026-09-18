@@ -908,6 +908,19 @@ class Addon:
         for nested in self._nested_rewards(data.get("return_info")):
             self._apply_totals(nested)
 
+        # And the run's own tally, REPORTED and never applied. The
+        # envelopes above have already paid every one of these, so
+        # adding them would double the run; but the envelopes arrive
+        # split across the frames that paid them, and this is the only
+        # place the whole run is stated at once -- which is what the
+        # results screen shows and what a reader wants to check against.
+        #
+        # Its own line, and worded so it cannot be mistaken for a
+        # receipt: a payout landing in the same frame prints beside it.
+        self._report_run_total(
+            (data.get("return_info") or {}).get("confirm_drop_item")
+            if isinstance(data.get("return_info"), dict) else None)
+
         # A stage's rewards, which are the exception: a LIST of drops
         # with no record and no total, so they are added rather than
         # written in. See `_apply_drops`.
@@ -1319,9 +1332,11 @@ class Addon:
             self._save_pending = True
         # **The two Sortie ladders, per combatant.** Both arrive whole
         # on the login burst and again as they are earned, and both are
-        # SPARSE: a rung sends nothing until it has been reached, so
-        # what is on the wire is the count DONE and the total is the
-        # game's own shape rather than anything the wire states.
+        # SPARSE: nothing is sent for a rung the game has not offered
+        # yet, so no snapshot can say how LONG a ladder is. A row being
+        # present is not the rung being done either -- an achievement
+        # row is issued while it is still in progress. `complete_time`
+        # is what finishes one; `sortie_progress.py` does the reading.
         #
         # Merged rather than replaced: the run-end reply carries only
         # the rungs that run earned, where the login carries every one
@@ -1558,6 +1573,29 @@ class Addon:
         if applied:
             self.log_callback("[LIVE] Received %s"
                               % self._describe_amounts(applied))
+
+    def _report_run_total(self, drops):
+        """Say what a whole run paid, without changing a single count.
+
+        **NOT dead code, and nothing here may start applying it.** Every
+        item in this list has already been written in by an envelope;
+        adding it would double the run. The value is that it is the one
+        statement of the run as a WHOLE -- the envelopes come split
+        across the frames that paid them -- so it goes to the log as a
+        reading and stops there.
+        """
+        if not isinstance(drops, list):
+            return
+        totals = {}
+        for row in drops:
+            if not isinstance(row, dict):
+                continue
+            res_id, amount = row.get("id"), row.get("amount")
+            if res_id is not None and isinstance(amount, int):
+                totals[res_id] = totals.get(res_id, 0) + amount
+        if totals:
+            self.log_callback("[LIVE] Total rewards: %s"
+                              % self._describe_amounts(totals.items()))
 
     @staticmethod
     def _describe_amounts(moved):

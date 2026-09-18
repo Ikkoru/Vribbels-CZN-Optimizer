@@ -4,18 +4,24 @@ The game shows a combatant's Sortie progress as two figures -- `1/4`
 for the achievements and `2/12` for the titles -- and this reads both
 off a snapshot as one `3/16`.
 
-**A rung is DONE when its row exists.** Both ladders are sparse: the
-wire sends nothing for a rung that has not been reached, so what a
-snapshot holds is exactly the count completed. No field says so --
-`score` is 1, 2 or 3 depending on the combatant and carries no
-completion of its own, and `complete_time` is 0 on rungs whose reward
-HAS been collected, so neither can be read as a flag. The presence of
-the row is the whole of it.
+**A rung is DONE when its `complete_time` is non-zero**, on both
+ladders. The row EXISTING is not enough: an achievement row is issued
+while the rung is still in progress, so most of them sit at
+`complete_time` 0 and counting rows overstates a combatant by up to
+three. Title rows only arrive once earned, so for them the two
+readings agree -- which is why one rule serves both, and why it keeps
+serving if titles ever start arriving early the way achievements do.
 
-**The totals are the game's, not the wire's.** Because an unearned rung
-sends nothing, no snapshot can say how long a ladder is. A combatant
-reaching a rung past the end is the one sign that the game has changed
-its shape, and `warn` is what makes that say so.
+Neither of the other likely-looking fields is a flag. `score` is 1, 2
+or 3 on achievement rows without tracking completion: one combatant's
+done rung scores 3 and another's scores 1. `acquired_count` reaches 3
+on title rows that still count once each.
+
+**The totals are the game's, not the wire's.** Both ladders are sparse
+-- nothing is sent for a rung not yet reached -- so no snapshot can say
+how long a ladder is; the longest one an account has touched is a
+floor. A combatant reaching a rung past the end is the one sign that
+the game has changed shape, and `warn` is what makes that say so.
 """
 
 import re
@@ -52,15 +58,18 @@ def _rows(raw, key):
 def progress(raw, warn=None):
     """{combatant res_id: (done, total)} across both ladders.
 
+    A combatant with rows but nothing finished reads 0 rather than
+    dropping out, because the game shows it that way too.
+
     `warn` is called with a complaint string for anything the ladders
     say that the game's shape does not allow -- a rung past the end,
     which is how a longer ladder would first show itself.
     """
     done = {}
     seen = {}
-    for key, pattern, length, label in (
-            (ACHIEVEMENT_FIELD, _ACHIEVEMENT_ID, ACHIEVEMENTS, "achievement"),
-            (TITLE_FIELD, _TITLE_ID, TITLES, "title")):
+    for key, pattern, label in (
+            (ACHIEVEMENT_FIELD, _ACHIEVEMENT_ID, "achievement"),
+            (TITLE_FIELD, _TITLE_ID, "title")):
         for row in _rows(raw, key):
             if not isinstance(row, dict):
                 continue
@@ -69,7 +78,7 @@ def progress(raw, warn=None):
                 continue
             char, rung = int(found.group(1)), int(found.group(2))
             seen.setdefault((char, label), set()).add(rung)
-            done[char] = done.get(char, 0) + 1
+            done[char] = done.get(char, 0) + bool(row.get("complete_time"))
     if warn is not None:
         for (char, label), rungs in sorted(seen.items()):
             length = ACHIEVEMENTS if label == "achievement" else TITLES

@@ -14,6 +14,10 @@ pre-fork history, see the upstream repository's CHANGELOG.
 
 ### Added
 
+- **Combatants: a `Sortie` column.** Each combatant's Sortie Data progress as one figure — their achievements and their titles added together, `3/16` — beside the preset they are assigned. Sorting it puts the combatants with the most progress at the top. It reads `-` until a capture has carried the ladders, so a fresh snapshot is what fills it in.
+
+- **A Sortie's run-end payout is stated in full.** Finishing a run paid four things and the Capture Log named one of them: the rest arrive only in the run's accumulated list, which is deliberately never applied because every item in it has already been paid. It is now REPORTED instead, as `Total rewards:` on its own line — the whole run in one statement, beside the receipts rather than folded into them, and changing no count.
+
 - **Old captures are archived instead of piling up.** The snapshots folder had no ceiling — a capture per game relaunch, and a debug log per session for anyone using Debug WS — and nothing ever removed one. At launch, in the background, everything but the newest few is folded into a single `archived_captures.tar.xz` beside them: 280 MB of captures came to 1.3 MB in under five seconds. A loose file is deleted only after its archived copy has been read back and matched byte for byte, so a failure anywhere leaves every capture where it was. `Setup & Settings` → `Settings` carries the controls: `Compression` (`Off`, `Balanced`, `Strongest`), the archive's size beside the loose folder's, and `Delete Archive`, which goes to the Recycle Bin.
 
 - **The Capture tab says when something failed while you were elsewhere.** A background task reports into the Capture Log, which is on a tab nobody is watching while it runs. A failure that needs attention now puts a red dot on the tab until the tab is opened, and pulses the `Capture Log` title once you are there so you can see which panel spoke. Only failures that stop the work raise it — anything that retries and carries on stays a line in the log.

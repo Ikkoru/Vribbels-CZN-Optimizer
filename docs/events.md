@@ -226,6 +226,8 @@ Nineteen distinct events, no exception. That reads as *"`reward_step` is the tra
 
 So the claim to capture is **a Sortie clear-level reward**, not an area reward. One of them moves either `reward_step` or `version`, and that settles what the pair means for every event that has a track.
 
+**The reading to rule out first is that the row has no track at all.** An event row also exists for a permanent content RELEASE — the entry that puts the mode on the event list and is never claimed against — and one of those would sit at fixed numbers forever, which is exactly what `event_chaos_assault_1` has done. The measurement tells them apart the same way: a clear-level claim that moves neither number says this row is a release notice, and the step-track question has to be settled on some other event.
+
 ## Telling a rectangular family from a ragged one
 
 Two mission families can look identical — `event_devil_<day>_<task>` and `event_bartender_1_<page>_<index>` are both a name and two numbers — and mean completely different things. The devil's is a grid, 3 tasks on each of 7 days, so `max × max` is its total. The bartender's is three pages of different lengths, so `max × max` is nonsense.

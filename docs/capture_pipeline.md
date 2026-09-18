@@ -99,6 +99,7 @@ The rest join them, all merged rather than replaced for the same reason:
 | `attendance` | `attendance_entities` | the login-streak events: days shown up against days claimed |
 | `season_rewards` | `reward_entities`, `reward_doc` | how many of a season's star rewards have been TAKEN, one row per season and none until the first claim. `reward_doc` is the row a claim changed |
 | `combat_trials` | `combat_trial_entities`, `entity` | one row per Combatant Trial slot, whose `complete_time` is when its reward was last claimed. `entity` is the row a claim changed |
+| `assault_char_achievements` / `assault_char_titles` | `assault_char_achievement_entities`, `assault_char_title_entities` | the two per-combatant Sortie ladders, keyed by `res_id` (`assault_char_achieve_<char>_<rung>`, `assault_char_title_<char>_<rung>`). Read by `sortie_progress.py` for the Combatants tab's Sortie column |
 | `trial_slots` | — | **learned, not received**: which slots a trial event offers, taken from the `reward_combatant_trial` request that claims one. Seeded from the previous snapshot, since nothing on the wire restates it |
 | `event_defines` | every `event_*_entity` and `event_*_entities` | an event's own record, kept under the key it arrives on. **Every one of them, not a list of the ones in use**: these are what say how BIG an event is — the bartender's is one row per day of it — and a table nobody kept cannot be read later, since it rides the login burst and nothing else. A singular carrying a `res_id` is one ROW of its collection and is folded into it; `EVENT_FIELDS_HANDLED` keeps out the tables with a reader of their own |
 
@@ -109,6 +110,8 @@ The rest join them, all merged rather than replaced for the same reason:
 **At LOGIN the pass missions arrive somewhere else entirely**, nested as `season_pass_missions[<pass id>][<mission id>]` rather than in the flat `mission_entities` list — which is why a snapshot held the thirty `content_*` rows and none of the twenty-odd pass ones. Both shapes fold into one cache.
 
 **`mission_entity`, singular, is the claim.** A mission's `complete_time` is set when its REWARD IS CLAIMED, not when the task is finished, and the frame that sets it sends that one row rather than the list.
+
+**A Sortie rung is done when it is STAMPED, and sparse is not the same as complete.** Both ladders are sparse — nothing is sent for a rung the game has not offered — but an ACHIEVEMENT row is issued while its rung is still in progress, so its presence says only that the rung is live. `complete_time` is what finishes one. Title rows happen to arrive only once earned, so the two readings agree there; `sortie_progress.py` applies the one rule to both so the count stays right if that changes. Neither `score` (1–3 on achievement rows, unrelated to completion — one combatant's finished rung scores 3 and another's scores 1) nor `acquired_count` (reaches 3 on title rungs that count once) is a flag. Because a ladder's unearned rungs send nothing, the LENGTHS cannot come off the wire either: they are constants in `sortie_progress.py`, and a rung arriving past the end is the one sign the game has lengthened one.
 
 **Every save prints `[SYNC] saved`, and that is what the app reloads on.** The human-readable `Saved:` line is suppressed when it would repeat the previous line word for word — and the login burst saves several times with identical counts, the first as soon as the inventory lands and the later ones carrying the shops, the schedules and the missions. A reload riding on the readable line was therefore skipped for exactly those saves, so the app sat on the first save's snapshot for the whole session. The marker is consumed by the reader and never shown, and it is deliberately not remembered as "the last line" — doing so would sit between two identical reports and stop either reading as a repeat. `checks/check_addon_template.py` holds the reader's copy of the literal equal to the addon's.
 
@@ -151,13 +154,28 @@ Without these branches nothing on the wire moves an item count: the Materials ta
 | ----- | ---- |
 | `return_info.result_reward_drop_item` | what finishing the run gave — items and currency together |
 | `return_info.chaos_assault_result.refund_item_result` | a Sortie's entry deposit back (Aether +10) |
-| `return_info.confirm_drop_item` | nothing: the run's accumulated pickups, already paid |
+| `return_info.confirm_drop_item` | nothing — but it is REPORTED. The run's accumulated pickups, every one of them already paid by an envelope, so applying it doubles the run. It is also the only statement of a run as a WHOLE, where the envelopes arrive split across the frames that paid them, so `_report_run_total` writes it to the log as `Total rewards:` and changes no count. Its own line, because a Sortie's deposit refund lands in the same frame and one line holding both reads as a single receipt |
 
 So `_nested_rewards` sweeps `return_info` by SHAPE rather than by name — the names are per-content and there is no reason the next kind of run will reuse them — and takes every totals envelope it finds, bounded and stopping as soon as it has one. **Over-collecting is safe here**: an envelope states what a holding now is, so taking one twice writes the same number. The drop LISTS in the same payload would double, which is why only envelopes are swept.
 
 This is what a Sortie pays at its report screen, and reading only the reply's own keys is why every Sortie finished in silence. The entry itself is `chaos_assault/enter_assault` (Aether −10) and each area's reward is `chaos_assault/receive_area_reward`, which charges a Reason under `dec_result` and pays under `item_result` — both already read.
 
 **The log's word is picked from the SIGNS, not from the key.** A Sortie's entry fee is CHARGED through `item_result`, so reading the key announces it as a receipt: `Received Aether -10`. Where every figure in a payload moved the same way that is the answer; a payload with movement both ways falls back to the key.
+
+### What a Sortie sends that nothing reads
+
+Kept here rather than in the wire catalogue because they are one content's, and a reader for any of them starts by knowing which frame carries it. The two per-combatant ladders are the exception — those ARE read, by `sortie_progress.py`.
+
+| Field | Arrives with | What it holds |
+| ----- | ------------ | ------------- |
+| `chaos_assault_entity` | `chaos_assault/enter_assault`, `event/get_list`, and nested in the run end's `chaos_assault_result` | the account's standing in the mode: `highest_clear_level`, `schedule_highest_clear_level`, `total_clear_count`, `schedule_id` |
+| `score_detail` | `return_info.chaos_assault_result` and `record_detail` | where a run's score came from — `district_score`, `card_score`, `fate_score`, `equip_score`, `total_score`, `final_score`, `bonus_multiplier`, `bonus_ratio`, `score_counts`. `clear_area` and `is_best_score` sit beside it in the same envelope |
+| `records` | `chaos_assault/get_records` | one row per attempt: `score`, `clear_area`, `progress_floor`, `penalty_level`, `duration`, `hardcore_flag`, `is_best`, `is_complete`, `timestamp`, `char_res_ids`, `assault_char_titles`, `area_max_floors`, `chaos_assault_list_id`. `get_record_detail` expands one into `record_detail` |
+| `assault_achievement_entities` | `mission/get_list`, and the `..._reward_all` claim | the ACCOUNT-wide Sortie Data ladder, ids `assault_achievement_NNN`. A different table from the per-combatant ones, carrying the same `complete_time` / `issued_time` / `score`. Whether an unfinished rung is issued here too is untested — every row in the capture to hand is stamped — so a reader should take `complete_time` rather than row presence, as the per-combatant one must |
+| `assault_tactical_skill_node_entities` | `chaos_assault/check_season_reset`; one node at a time as `assault_tactical_skill_node_entity` from `assault_tactical_skill_level_up` | the Tactical Authority tree, one row per node, ids `a_skill_s<season>_<tier>_a<branch>_<step>` |
+| `chaos_assault_rank_entity`, `rank_list`, `my_rank` | `chaos_assault/get_ranking` | the Sortie standings. Paged, so a reader would have to ask for them |
+
+**`spot_reward/assault_card_reward` is not a holding and must never be treated as one.** It is the roguelite draft a run offers between spots — `cards` is the hand offered, `result_card` the one taken, with `index` and `slot_index` saying where. Those cards exist for that run and are gone when it ends, so nothing in them survives to be counted, shown, or compared against a later capture.
 
 ## The proxy's upstream must never be a loopback address
 

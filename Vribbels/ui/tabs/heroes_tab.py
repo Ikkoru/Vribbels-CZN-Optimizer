@@ -17,6 +17,9 @@ Where to look when changing X
 - **Row colour** — one TAG per Element, set on the row. A Treeview
   colours a ROW, never a cell, so the Element colour runs the full
   width.
+- **The Sortie column** — `sortie_progress.progress()` over the raw
+  snapshot, via `_sortie_progress()`. `-` where the capture has not
+  carried the ladders; the sort is on the NUMBER, not the `3/16`.
 - **The detail pane** — `show_hero_details()`: character card (ONE Text
   widget holding details, the Sets line and the build-stat block),
   partner card, equipped MFs frame.
@@ -61,6 +64,7 @@ from typing import Optional
 
 import excursions
 import perf_log
+import sortie_progress
 
 from ui.base_tab import BaseTab
 from ui.context import AppContext
@@ -337,18 +341,19 @@ CHAR_TOTAL_LINES = 5 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5
 # Each is currently the wider of its bold header and its widest real
 # value, plus a little room -- measured, not guessed.
 #
-# Preset is last and stretches, so its number is a minimum in the other
-# sense as well: it also takes the leftover width.
-HERO_COL_PX = [67, 37, 58, 59, 32, 42, 26, 45, 24, 66, 32, 180]
+# Preset stretches, so its number is a minimum in the other sense as
+# well: it also takes the leftover width. Sortie sits to its right and
+# is fixed, which is why the stretch column can be in the middle.
+HERO_COL_PX = [67, 37, 58, 59, 32, 42, 26, 45, 24, 66, 32, 180, 40]
 
 # Treeview column ids, and the heading each shows. The id IS the sort
 # key, so a heading click needs no lookup table.
 HERO_COL_IDS = ("name", "grade", "attribute", "class", "level", "nodes",
                 "ego", "affinity", "gs", "partner", "partner_level",
-                "preset")
+                "preset", "sortie")
 HERO_COL_TITLES = ("Combatant", "Grade", "Attribute", "Class", "Level",
                    "Nodes", "Ego", "Affinity", "GS", "Partner", "Level",
-                   "Preset")
+                   "Preset", "Sortie")
 
 # Tag for a row whose Element the program does not know, so it still gets
 # an explicit foreground rather than inheriting the theme's.
@@ -505,6 +510,10 @@ class HeroesTab(BaseTab):
         self.show_missing_var = None
         self.hero_col_char_widths = None
         self.selected_hero_index = -1
+        # Sortie-ladder complaints already sent to the console. A
+        # rebuild runs on every re-sort, and the same complaint printed
+        # once per heading click is noise that buries the next one.
+        self._sortie_warned = set()
 
         # Detail widgets (set in setup_ui)
         self.user_info_label = None
@@ -1062,12 +1071,19 @@ class HeroesTab(BaseTab):
         # excursion taken during a live capture would leave the count
         # showing its old value with nothing to say it had moved.
         board = tuple(sorted(excursions.counts(self.optimizer.raw_data).items()))
+        # Same for the Sortie column, which reads the two ladders off
+        # the raw snapshot. Finishing a rung during a live capture has
+        # to move it, and nothing else here would notice.
+        ladders = tuple(sorted(
+            sortie_progress.progress(
+                getattr(self.optimizer, "raw_data", None)).items()))
         return (
             (u.nickname, u.level, u.login_total, u.login_continuous,
              u.login_highest_continuous),
             tuple(chars),
             tuple(gear),
             board,
+            ladders,
         )
 
     def _on_show_missing_toggle(self):
@@ -1083,6 +1099,29 @@ class HeroesTab(BaseTab):
         if sm is not None:
             sm.set(HERO_SHOW_MISSING_KEY, bool(self.show_missing_var.get()))
         self.refresh_heroes()
+
+    def _sortie_progress(self):
+        """{combatant res_id: (done, total)} for the Sortie column.
+
+        A ladder longer than this build knows about is reported to the
+        console rather than shown: the reading is still usable, it is
+        just measured against a shape the game has moved on from, and
+        there is nowhere on a row to say so. Each complaint goes out
+        once per session -- a rebuild runs on every heading click.
+        """
+        said = []
+        try:
+            found = sortie_progress.progress(
+                getattr(self.optimizer, "raw_data", None), warn=said.append)
+        except Exception:                                     # noqa: BLE001
+            # A malformed ladder must not take the whole roster with
+            # it: every other column on the row is still right.
+            return {}
+        for complaint in said:
+            if complaint not in self._sortie_warned:
+                self._sortie_warned.add(complaint)
+                sortie_progress.to_console(complaint)
+        return found
 
     def refresh_heroes(self):
         """Refresh the heroes list."""
@@ -1111,6 +1150,8 @@ class HeroesTab(BaseTab):
         else:
             user_text = "No user data available"
         self.user_info_label.config(text=user_text)
+
+        sortie = self._sortie_progress()
 
         # Every combatant the capture knows about. `optimizer.characters`
         # holds only those wearing a fragment, which is the smallest of
@@ -1201,6 +1242,11 @@ class HeroesTab(BaseTab):
                 "partner_name_part": partner_name_part,
                 "partner_level_part": partner_level_part,
                 "preset": preset_display,
+                # How many Sortie rungs this combatant has finished, or
+                # None where the capture has not carried the ladders.
+                # The NUMBER, so the column sorts 10 after 3 rather than
+                # before it.
+                "sortie_done": (sortie.get(res_id) or (None,))[0],
                 # res_id / exp drive the right-click "Add confirmed level"
                 # checkpoint flow. They're 0 when char_info is missing (no
                 # captured data for this hero) -- the right-click handler
@@ -1223,6 +1269,11 @@ class HeroesTab(BaseTab):
             "partner": lambda h: h["partner_name_part"],
             "partner_level": lambda h: h["partner_level_part"],
             "preset": lambda h: h["preset"],
+            # Unknown sorts as its own group rather than as zero, so a
+            # roster the capture has no ladders for does not read as
+            # everyone being equally behind.
+            "sortie": lambda h: (h["sortie_done"] is not None,
+                                 h["sortie_done"] or 0),
         }
 
         key_func = sort_key_map.get(self.hero_sort_col, lambda h: h["name"])
@@ -1239,10 +1290,13 @@ class HeroesTab(BaseTab):
             nodes_str = (f"{h['nodes']}/{POTENTIAL_MAX_TOTAL}"
                          if h["max_level"] > 0 else "-")
 
+            sortie_str = ("-" if h["sortie_done"] is None
+                          else f"{h['sortie_done']}/{sortie_progress.TOTAL}")
+
             values = (h["name"], f"{h['grade']}*", h["attribute"], h["class"],
                       level_str, nodes_str, ego_str, affinity_str, gs_str,
                       h["partner_name_part"], h["partner_level_part"],
-                      h["preset"])
+                      h["preset"], sortie_str)
             # The row's Element tag is what colours it. An Element the
             # program has no colour for falls back to the plain
             # foreground rather than the theme's default.
@@ -1274,7 +1328,7 @@ class HeroesTab(BaseTab):
         else:
             self.hero_sort_col = col
             self.hero_sort_reverse = col in ["gs", "grade", "ego", "affinity",
-                                         "partner_level"]
+                                         "partner_level", "sortie"]
 
         self.refresh_heroes()
 
