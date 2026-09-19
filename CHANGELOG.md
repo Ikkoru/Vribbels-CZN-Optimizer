@@ -58,31 +58,11 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - **A charge no longer reads as a gift.** Entering a Sortie costs Aether and is charged through the same envelope a reward arrives in, so the log said `Received Aether -10`. The wording now follows which way the figures moved.
 
-- **A capture spanning two game launches no longer confuses one for the other.** Requests waiting on a reply are tracked by the game's own request number, which restarts at 1 each time the game opens, so an unanswered request could be claimed by an unrelated reply from the next launch.
-
-- **A finished login streak stays finished.** The game says a streak has ended exactly once, on the claim that ends it, and what it sends afterwards is identical to a streak merely claimed for today — so the row went back to orange on the next start. It is remembered now, in `settings/`, which tidying up captures never touches.
-
-- **An event the game has called finished now reads as finished.** Claiming an event's final reward answers with a completion flag the capture was not reading, so the Bartender went on showing `24/24+?` in red.
-
-- **The Daily Check-in row no longer invents a length.** It counted claimed days against a written-down seven, but streaks run 7, 10, 14 or 21 days depending on the event and nothing says which in advance. The row now reads claimed against claimed-plus-one — red when a day is waiting, orange when it is not — and goes green only when the game says the streak has ended.
-
-- **The Checklist stopped losing the shops at the foot of a column.** Each column is a fixed height and a checkbox row is taller than a text one, so the bottom was silently clipped. The Weekly column was missing its Seasonal Shop and the Monthly column its last two rows.
-
 - **The Memory Fragments filters stop blinking during a capture.** The Sets panel and the unknown-main-stats row were rebuilt on every snapshot save, and a login saves several times in a few seconds. They now rebuild only when a set name, one of the counts beside them, or an unknown main actually changes.
 
 - **A fresh install opens at the same size a loaded one does.** The Combatants tab's six fragment cells and the Memory Fragments tab's Sets panel were laid out only once data arrived, so both moved everything around them when the first snapshot loaded.
 
 - **An event mission's rewards are recorded.** They pay under a key nothing read, so the items landed nowhere and the Capture Log reported no receipt.
-
-- **A login-streak update no longer has to wait for the next login.** The Daily Check-in record was kept only when it arrived in full, which is how it arrives at login, so a reward claimed mid-capture did not reach the tab.
-
-- **The weekly rows come back on their own when the week turns.** The Arkhianon Supply's EXP, the Galactic Disaster's chaos progress and the Seasonal Accumulated Score all kept last week's figures into the new week, so each read as finished work on the first day. They now reset with the clock, whether or not a capture is running.
-
-- **Loot Certification Cards and Reason stop reading as spent after a weekly reset.** The game tops both up at the reset but only applies it when you next open the content. Each row now shows what the week's rule says to expect — the Cards back to 4, Reason up 3 to its 9 — written as `~4` and `~8/9` to say it is worked out rather than read. The `~` goes once a capture has seen the real figure.
-
-- **The devil event counts all seven of its days.** Its rewards are named after the day rather than the event, which was read as an event number, so it matched day one and ignored the rest — showing `3/3` for an event with 21 rewards in it.
-
-- **A finished summer puzzle shows as finished.** The reply confirming the last piece names only the set it changed, which nothing was reading, so the puzzle stayed one piece short until the next login.
 
 - **A story episode's rewards reach the Capture Log.** They arrive nested deeper than anything else pays under, so nothing reported them.
 
@@ -90,29 +70,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - **A doubled Simulation run is counted.** The Overclock row is fed by a record inside the stage reply rather than at its top level, so the row sat at its login value all session.
 
-- **An event reward claimed while a capture runs shows up straight away.** The claim answers under a key nothing was reading, so an event's tally stayed at whatever it was when you logged in.
-
-- **The Basin of Hyperspace is green only once its rewards are claimed.** Every objective can be scored with every star reward still sitting there, which read as a finished row and a trip to the game still owed.
-
-- **The Arkhianon Supply's daily missions go green once the week is full.** The dailies feed the week's exp, so once that caps there is nothing left for them to earn.
-
-- **The Arkhianon Supply's daily count ignores one-off missions.** A mission the pass issues today was counted as one of the day's six, so a patch that added a one-off read a five-of-six day as finished.
-
 ### Changed
 
 - **The capture log stopped repeating itself.** `Saved:` appeared again after every upgrade, delete and reward, with the same figures every time. It now appears when the file or the counts change, and a save that fails says so plainly instead of arriving as a bare `Error:`.
-
-- **A daily event's last day goes green.** Orange says the rewards come back tomorrow; on the final day they do not.
-
-- **The Checklist columns sit evenly across the tab.** The four were flush left with the leftover width piled up after the last one; the gaps now fall between them and both ends stand the same distance from the window.
-
-- **Each block on the Checklist is set apart from the rows around it.** A shop's heading and the Events heading take a little more space above them — once per edge, so two shops in a row are no further apart than a shop and a plain row.
-
-- **The Activities row shows its numbers even when it is finished**, `100/100 Claimed` rather than `All Claimed`.
-
-- **The Events list puts what you still owe first.** Events with rewards left to claim sort to the top by deadline; finished ones, and a daily event whose day is already taken, sit below them.
-
-- **Chaos Currency reads against its cap**, `3/4`, the way Sortie already did.
 
 - **The Log Presets checklist no longer blinks while a capture runs.** It was rebuilt from scratch on every snapshot save, and logging in saves several times in a few seconds.
 
