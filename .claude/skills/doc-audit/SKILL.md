@@ -7,6 +7,14 @@ description: Audit the repo's prose — docs/, CLAUDE.md, .claude/rules/, skills
 
 The written guidelines are elsewhere and are not repeated here: `~/.claude/CLAUDE.md` (comment style, mechanism-not-output, no change narration), `CLAUDE.md` (what belongs in which file), `docs/repo_conventions.md` (`tasks.md`, `plan.md`, CHANGELOG, release notes). This skill is the **detection and judgement** half — how to find breaches, which apparent ones are not, and what a pass must leave alone.
 
+## What this pass may change on its own
+
+**Correct freely; remove only with approval.** A dead path, a constant named against the wrong file, a value the code has already moved past — fix those and say so. Anything that DELETES content, moves a fact to another file, or rewrites a passage wholesale is proposed with the text quoted, and waits.
+
+The reason is not caution in general. It is that an audit reads a hundred passages and judges each in seconds, against a repo whose most valuable lines look redundant on purpose — and the maintainer's own edits are in the same files. A bulk pass that removes forty things is how the good ones go.
+
+**Re-read a file immediately before editing it**, whatever an earlier read in the same session showed. The maintainer edits between turns, and an audit is exactly the kind of long pass that straddles one.
+
 ## Order
 
 1. **Contradictions first.** Every other improvement to a passage is wasted if two passages disagree.
@@ -27,7 +35,7 @@ The written guidelines are elsewhere and are not repeated here: `~/.claude/CLAUD
 
 ## Sweeps
 
-Cheap, and each has caught something. Run them over `docs/`, `.claude/**/*.md` and `CLAUDE.md`. **`past_plans/` is exempt from all of them** — it is an archive and its dates and `[IMPLEMENTED]` tags are the record.
+Cheap, and each has caught something. Run them over `docs/`, `.claude/**/*.md` and `CLAUDE.md` for prose, and over `Vribbels/` and `checks/` for docstrings and comments — the change-narration and stale-output sweeps are worth as much in a comment as in a doc, and the false positives below were all found in code. **`past_plans/` is exempt from all of them** — it is an archive and its dates and `[IMPLEMENTED]` tags are the record.
 
 | Looking for | Signal |
 | ----------- | ------ |
@@ -93,6 +101,8 @@ A density pass run without this gate removes the most valuable lines in the corp
 4. **Precedence and ordering lists.** Directly executable, cheapest content per token.
 5. **Naming contracts where three places must agree**, and every pointer to a source file or a check. Add anchors; remove none.
 6. **A stated method for re-measuring something.** The method stays even when the resulting table goes.
+7. **A target, as against a reading.** The stale-output sweep cannot tell them apart and they look identical on the page. A number is a CONTRACT where something is built to satisfy it — a spacing rule's target, a cap, a grant, a per-unit rate — and a reading where something produced it. `ui_spacing.md`'s rules table is targets and every row stays verbatim; its `Gap now` column is readings and belongs to `docs/spacing_baseline.json`. Where the doc names the constant beside the target and does not restate its value, that is the pattern to leave alone, not an omission to fill.
+8. **Font metrics and other reference the code does not carry.** A figure with no constant anywhere is not a duplicate of anything; deleting it loses it.
 
 ## Hard gate
 
@@ -102,7 +112,7 @@ A density pass run without this gate removes the most valuable lines in the corp
 
 ## Reporting
 
-Findings with a `file:line` anchor and the proposed rewrite. Separate what was fixed from what needs the maintainer: a contradiction that needs a capture to settle, a decision about who owns an unowned file. Say plainly when a sweep found nothing — a clean sweep is a result, and the next audit should know which ones are worth keeping.
+Findings with a `file:line` anchor and the proposed rewrite, in three groups: **corrected** (the plain factual fixes, already applied), **proposed** (anything removing or moving content, quoted and waiting), and **needs the maintainer**: a contradiction that needs a capture to settle, a decision about who owns an unowned file. Say plainly when a sweep found nothing — a clean sweep is a result, and the next audit should know which ones are worth keeping.
 
 ## Related
 
