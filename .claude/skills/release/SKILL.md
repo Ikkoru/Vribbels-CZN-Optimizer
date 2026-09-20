@@ -25,35 +25,34 @@ Run the doc audit first (`doc-audit` skill) — it moves facts between files, an
 
 **Accuracy first.** Every entry describes the shipped build, not the intent at the time it was written. An entry whose feature changed later in the cycle is wrong, and nothing will have flagged it.
 
-Then the register. Cut, in this order of frequency:
+Then the register. The CHANGELOG is written for a player who wants the smaller changes too — not for a maintainer. Cut, in this order of frequency:
 
-- **Figures that argue rather than inform.** "280 MB of captures came to 1.3 MB in under five seconds" defends a decision nobody is disputing.
-- **Worth-it framing** — "Three things changed to make that worth doing", "which is exactly what made it hard to notice".
+- **Anything that argues.** A figure defending a decision, worth-it framing, the reason an alternative was rejected. These documents notify; they never persuade. This applies to the CHANGELOG as much as to the notes.
 - **Internal mechanism a user cannot act on** — "three pixels short per shop product and Tk clipped the difference".
-- **The program's word where the game has one.** Check `CLAUDE.md` § Naming, and check the game's own screens for anything it does not cover: an internal pairing like "achievements and titles" can be accurate and still appear nowhere in the game.
+- **Words.** Default to one line per entry. Most changes need no more, and a paragraph where a line would do is the most common defect in this file.
+- **The program's word where the game has one.** Check `CLAUDE.md` § Naming, and check the game's own screens for anything it does not cover. Where the game names a thing nowhere recognisable, describe it instead of inventing a name.
 
-**The CHANGELOG keeps everything.** Nothing is dropped for being small or internal. The filtering happens once, in the release notes — drop it here and the record is gone.
+**Everything keeps an entry**, however small. The filtering happens once, in the release notes — drop it here and the record is gone.
 
 Verify by diffing the bolded lead of every entry before and after, and name each delta. A rewrite that silently loses an entry looks exactly like a rewrite that tightened one.
 
 ## RELEASE_NOTES.md
 
-**Not a shorter CHANGELOG.** It is what a player is told, in a player's register — second person and contractions are right here and wrong in the CHANGELOG. Gitignored; rewritten per release; pasted into the GitHub release.
+**Not a shorter CHANGELOG.** It is what a player installing this version is told; `docs/repo_conventions.md` has the cut rules and the two overrides. Gitignored, rewritten per release, pasted into the GitHub release, and it always links the CHANGELOG — that link is what licenses every cut.
 
-Most entries do not survive. The filters, in the order they remove the most:
+Expect most entries not to survive, and expect `Fixed` and `Changed` to come out empty or nearly so. That is the normal shape of this document, not a sign of a missed step.
 
-- **Self-evident from the UI.** Opening the tab teaches it faster. The exception that keeps a line: where the ABSENCE of something would read as a bug. "The Seasonal Shop shows no rates" stays for that alone — and the reason it shows none does not.
-- **Not actionable.** Exact figures, timing, control names, internal mechanism, the reason a thing works as it does.
-- **Never really released.** A fix to a feature the previous release shipped as unfinished belongs to the CHANGELOG only. Judge against what that release SAID — `## [2.0.0]` says "The Checklist tab and the UI work are both unfinished" — not against the commit history.
-- **Too minor to be news**, even when real and user-visible.
+The judgement calls worth slowing down for:
 
-What survives is written as **what, then where**, with no excess: *"Archive info and settings are in Setup & Settings → Settings."* Group by tab, and give a new tab one line saying what it is for. `Fixed` and `Changed` may end up empty; that is a normal outcome, not a sign of a missed step.
+- **Is it unmissable, or merely visible?** Unmissable goes. A player meets a `Delete Archive` button by opening the panel; they do not meet a behaviour that only shows in one state.
+- **Does the absence of something read as broken?** One case behaving unlike every comparable case, with nothing on screen explaining it, earns a line. Apply strictly.
+- **Could this be over-read?** Say what the change does not do. That is what the relaunch line is for.
 
-Two things to add that the CHANGELOG has no place for: a **limitation a player will hit** (relaunching the program still needs the capture started by hand), and a one-line **state-of-the-UI notice** where a surface is still settling.
+Write what survives as **what, then where**. Group by tab, order by importance inside each group. A little whimsy is welcome.
 
 ## README
 
-Checked at release, **reported, not edited**. The standing policy: nothing that is evident from the UI, except a list of the main features someone would install for.
+Checked at release, **reported, not edited**. `docs/repo_conventions.md` § README has the policy — note that its first two sections are exempt from the self-evident filter, because a stranger deciding whether to download cannot see the UI.
 
 Re-check these rather than re-deriving them — all five were open at v2.1.0:
 

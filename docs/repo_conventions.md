@@ -17,31 +17,64 @@ Lives at the repo root while the work is live. The test of a plan is whether som
 
 When the work finishes the file moves to `past_plans/<topic>.md`, keeping the measurements and the reasoning behind rejected options. `past_plans/` is an archive: its dated entries and `[IMPLEMENTED]` tags are the record, not staleness to clean up.
 
+## Who reads what
+
+Three documents, one audience, three depths. **The reader is a Windows gacha player who cares about optimizing stats** — assume that much domain knowledge and do not explain it.
+
+| | Reader | Depth |
+| - | ------ | ----- |
+| `README.md` | someone who has just heard of the program | can it run, and what is it for |
+| `RELEASE_NOTES.md` | a player installing this version | what changed that they would notice or act on |
+| `CHANGELOG.md` | a player who wants the smaller changes too | everything |
+
+**None of the three argues.** They notify. No entry defends a change, justifies a design, or says why an alternative was rejected — not in the notes, and not in the CHANGELOG either. Reasoning lives in `docs/`, in `past_plans/`, and in the code.
+
+**Default to one line per change in all three.** Length is earned by a reader needing it, and most changes do not earn it. "Fixed fresh install UI being unfilled" is a complete entry.
+
+## `README.md` — the front door
+
+Order matters, because a stranger reads top-down and stops early.
+
+1. **How to get it running.** Prerequisites, install, first-run setup.
+2. **What it does** — the main features, briefly. Repeating what the UI makes obvious is CORRECT here: someone deciding whether to download it cannot see the UI.
+3. **What the UI does not make obvious.** Settings whose meaning is not self-explanatory, and anything the program does to the system.
+
+Only section 3 takes the self-evident filter. Sections 1 and 2 exist for a reader who has never opened the program.
+
 ## `CHANGELOG.md` — Keep a Changelog format
 
 Active work goes under the top `## [X.Y.Z] - unreleased` section as it lands: new features → `### Added`, polish → `### Changed`, bug fixes → `### Fixed`.
 
 **Summarize at USER-FACING level**, not implementation detail. "Memory Fragments tab: the Highest Potential column names the preset it scored under" — not "refactored `_presets_for_highest_gs` to return tuples".
 
-**Write the entry in that register when it LANDS.** An entry written from the implementation and rewritten at release costs the rewrite and loses detail nobody can recover months later. Three habits carry most of it: no figure that only argues the change was worth making, no internal mechanism a user cannot act on, and the game's word for anything the UI names.
+**Write the entry in that register when it LANDS.** An entry written from the implementation and rewritten at release costs the rewrite and loses detail nobody can recover months later.
+
+**Everything that changes RELEASED behaviour gets an entry**, however small, and an entry is one line unless a reader needs more.
+
+**Churn inside a feature that shipped unfinished is not recorded at all.** Where a release said a feature was not done — `## [2.0.0]` says "The Checklist tab and the UI work are both unfinished" — fixing and reshaping it is finishing it, not changing it, and belongs in neither document. The entries that survive are the ones a player of the LAST release would notice.
 
 At release, `unreleased` is replaced by a short release name (`- Multi-core`), which is also when `version.py` is bumped. Released entries record what shipped and are never retro-edited, even where their numbers no longer describe the current build.
 
-**The CHANGELOG is the complete record.** Nothing is omitted for being small, internal or invisible — that filtering happens once, in the release notes.
-
 ## `RELEASE_NOTES.md` — what a player is told
 
-Gitignored, rewritten per release, and pasted into the GitHub release. It is **not** a shorter CHANGELOG: it is the subset a player needs, in their words.
+Gitignored, rewritten per release, pasted into the GitHub release. **Always links `CHANGELOG.md`**: a reader who wants the rest will take one click, and that link is what lets everything below be cut.
 
-- **Cut anything self-evident from the UI.** Opening the tab teaches it faster than a sentence can. The exception: keep a line where the absence of something reads as a bug — "the Seasonal Shop shows no rates" stays for that reason alone.
-- **Cut what a player cannot act on.** Internal mechanism, exact figures, timing, control names, the reason a thing works the way it does.
-- **What and where, in that order.** "Archive info and settings are in Setup & Settings → Settings", not a tour of the panel.
-- **No reason-giving at all**, including the factual kind. The CHANGELOG carries the why.
-- **A fix to something never really released does not get an entry.** Where a release shipped a feature marked unfinished, that feature's fixes belong to the CHANGELOG alone. Judge it against what the earlier release SAID, not against the commit history.
-- **Group by tab**, and give a new tab one line saying what it is for.
-- The header names one or two themes, not every area touched.
+Most entries do not survive. Cut an entry when any of these is true:
 
-The register is a player's, not a maintainer's: second person, contractions, and a light touch are all correct here and wrong in the CHANGELOG.
+- **It has little practical effect** — a control resized, wording tweaked, a panel moved inside its own tab.
+- **It is unmissable.** Anyone who opens the tab meets it immediately: a list now coloured by Element, a button labelled `Delete Archive` that deletes the archive.
+- **It is common knowledge for this audience** — red is bad and green is good; a `+?` means the total is unknown.
+- **Only someone who never saw the bug is affected.** A new user has no before-state to compare against, so a fix that only shows on a fresh install is a line at most.
+- **It is too minor to be news**, even when real and user-visible.
+
+Two things override those cuts:
+
+- **An exception with no visible reason.** Where one case behaves unlike every comparable case and nothing on screen explains it, a player reads it as broken. Every shop shows earning rates except the Seasonal Shop; that line stays. Apply this strictly — it is not a licence to keep anything that might confuse someone.
+- **A change that invites a wrong conclusion.** Say what it does NOT do. "A capture can be left running" plus "a new snapshot starts each relaunch" reads as "capture is automatic now", so the note adds that relaunching the program still needs the button.
+
+What survives is written as **what, then where**: *"Archive info and settings are in Setup & Settings → Settings."* Group by tab and order by importance within each; give a new tab one line saying what it is for. The header names one or two themes. `Fixed` and `Changed` may end up empty.
+
+A little whimsy is welcome here and nowhere else.
 
 ## Keeping the settings docs in step
 

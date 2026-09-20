@@ -10,57 +10,57 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
-- **Combatants: a `Sortie` column.** Each combatant's Sortie Data progress as one figure, `3/16` — achievements and titles added together — beside the preset they are assigned. Sorting it puts the furthest along at the top. It reads `-` until a capture has carried the data.
+- **Combatants: a `Sortie` column.** Each combatant's Sortie Data progress, the two ladders added together, beside the preset they are assigned. It reads `-` until a capture has carried the data.
 
 - **A Sortie run's full payout is listed.** After a run the Capture Log adds a `Total rewards:` line with everything the run paid, on its own line beneath the individual receipts.
 
-- **Old captures are archived instead of piling up.** At launch, in the background, everything but the newest few captures and debug logs is folded into a single `archived_captures.tar.xz` beside them, which is a small fraction of their loose size. A file is deleted only after its archived copy has been read back and matched byte for byte, so a failure at any point leaves every capture where it was. `Setup & Settings` → `Settings` has the controls: `Compression` (`Off`, `Balanced`, `Strongest`), the archive's size beside the loose folder's, and `Delete Archive`, which goes to the Recycle Bin.
+- **Old captures are archived instead of piling up.** At launch, in the background, everything but the newest few captures and debug logs is folded into `archived_captures.tar.xz` beside them. A file is deleted only after its archived copy has been read back and matched byte for byte. Controls are in `Setup & Settings` → `Settings`: `Compression` (`Off`, `Balanced`, `Strongest`), the archive's size beside the loose folder's, and `Delete Archive`, which goes to the Recycle Bin.
 
-- **The Capture tab says when something failed while you were elsewhere.** A failure that stops a background task puts a red dot on the `Capture` tab until you open it, then pulses the `Capture Log` title so you can see which panel spoke. Anything that retries and carries on stays an ordinary line in the log.
+- **The Capture tab says when something failed while you were elsewhere.** A failure that stops a background task puts a red dot on the `Capture` tab until you open it, then pulses the `Capture Log` title. Anything that retries and carries on stays an ordinary line in the log.
 
-- **A capture can be left running.** The debug log is compressed as it is written, and stays readable while the capture is open. A new snapshot is started each time the game is relaunched, rather than one file being rewritten for the capture's whole life.
+- **A capture can be left running.** The debug log is compressed as it is written and stays readable, and a new snapshot starts each time the game is relaunched.
 
 - **Materials tab: the hardest target on each block is coloured** — red under 50%, yellow to 100%, green once covered. The steps on the way keep the ordinary colour.
 
-- **An item whose name is only a guess is drawn red in the Capture Log.** Two event currencies are named from a single event each, and the game may reuse the id under another name; red means check the line rather than trust it. An id with no name at all stays dim yellow, as before.
+- **An item whose name is only a guess is drawn red in the Capture Log.** An id with no name at all stays dim yellow, as before.
 
-- **Each shop on the Checklist says what clearing it costs.** Beside the shop's name, the currency you hold over the bill for every ticked product still on its shelves, turning green once you can afford the lot. Unticked products are not billed. A shop whose products are free, or priced in more than one currency, shows nothing.
+- **Each shop on the Checklist says what clearing it costs.** The currency you hold against the bill for its ticked products, green once you can afford the lot. A shop whose products are free, or priced in more than one currency, shows nothing.
 
 - **A shop heading's total is inked a shade apart** from the products under it, so the block's own total does not read as one more row.
 
 - **`Multidimensional Alignment Material` is shortened on the Checklist**, with the full name on the row's tooltip. The tip follows the product wherever ticking sorts it.
 
-- **Hovering a shop on the Checklist says what its currency earns, and what a full period of it costs.** Rates are given in that shop's own rotation — week, month or season, whichever it resets on — over two spans: `recent` covers the last four rotations, `long run` the last year. A gap between the two means something changed. Only the long-run line shows while the record is too young to tell them apart. Beneath them is what every ticked product's full cap costs, which does not move as the shelves empty.
+- **Hovering a shop on the Checklist says what its currency earns, and what a full period of it costs.** Rates are in that shop's own rotation, over two spans: `recent` is the last four rotations, `long run` the last year. A gap between them means something changed, and only the long-run line shows while the record is too young to tell them apart.
 
-- **That record starts full rather than empty.** The game states a lifetime earned total for five of the seven shop currencies, and the other two are worked out from what you hold plus everything ever bought with it. Anchored at the day the account was made, so a year's reading is there on the first capture.
+- **That record starts full rather than empty.** It is anchored at the day the account was made, so a year's reading is there on the first capture.
 
 - **The Seasonal Shop shows no rates.** Its currency is wiped at the end of every season, so what was earned before says nothing about now.
 
-- **The launch login event reads `7/7`.** Its seven rewards are a new account's first week, after which it runs for a year with the days climbing — so the row used to sit red for ever against a total nothing states. If the game ever adds an eighth reward, the row goes back to counting days with a `+?`.
+- **The launch login event reads `7/7`.** If the game ever adds an eighth reward, the row goes back to counting days with a `+?`.
 
-- **You can tell the Checklist an event is finished.** Most events never say so themselves, so a row with everything claimed sits unproven. Those rows now carry a `Finished?` checkbox: tick it and the tally goes green and sorts down with the events that are done. If another reward turns up, or another is claimed, the box unticks itself and the row goes back to red.
+- **You can tell the Checklist an event is finished.** Rows the game never marks carry a `Finished?` checkbox: tick it and the tally goes green and sorts down. If another reward turns up, or another is claimed, the box unticks itself.
 
-- **The Checklist reads a point larger.** Every row, reading, deadline and checkbox on the tab is up one size; the Daily / Weekly / Monthly / Other headings are unchanged. The block is wider and taller for it, so a window sized to the old tab may want widening.
+- **The Checklist reads a point larger.** Every row, reading, deadline and checkbox on the tab is up one size; the Daily / Weekly / Monthly / Other headings are unchanged.
 
 - **The Checklist's deadlines line up.** `Ends in ...` now sits in a column of its own rather than starting wherever the reading beside it ended — one column for the rows above the Sortie shop, one for the Events block.
 
-- **An event shaped like a grid says how big it is on its first day.** Where a family is the same few tasks repeating each day, the game hands out one axis a row at a time and the other all at once, so the row can read `3/21` on the opening afternoon instead of `3/3+?`. Events that are not rectangular are left alone.
+- **An event shaped like a grid says how big it is on its first day**, reading `3/21` on the opening afternoon instead of `3/3+?`. Events that are not rectangular are left alone.
 
-- **An event can take its total from the last time it ran.** A live event's rows are only what it has handed out so far, but an instalment that has ended handed out everything it had, and that count is recorded. Where two past instalments agree, a live one reads `~1/20` instead of `1/3+?`. It still goes green only on the game's own word, and a live event that has issued more than its predecessors held keeps its own figure.
+- **An event can take its total from the last time it ran.** Where two past instalments agree, a live one reads `~1/20` instead of `1/3+?`. It still goes green only on the game's own word, and a live event that has issued more than its predecessors held keeps its own figure.
 
-- **An event row says when its total is only a guess.** Most events hand their rewards out over the whole run, so the count on screen is what you have been offered so far, not what the event holds. Those rows read `16/20+?`. The `+?` comes off, and the row goes green, once the game says the event is finished.
+- **An event row says when its total is only a guess**, reading `16/20+?`. The `+?` comes off, and the row goes green, once the game says the event is finished.
 
 - **An event goes green once its final reward is claimed.**
 
 ### Fixed
 
-- **A Sortie's rewards reach the Capture Log.** Finishing a run pays under a key nothing was reading, so a whole run's payout went unannounced, along with the entry deposit coming back. The counts were right regardless, because the game re-sends the inventory afterwards. A Chaos report screen and a town calamity had the same problem, each under a key of its own.
+- **A Sortie's rewards reach the Capture Log**, along with the entry deposit coming back. A Chaos report screen and a town calamity had the same problem, each under a key of its own.
 
 - **A charge no longer reads as a gift.** Entering a Sortie costs Aether and is charged through the same envelope a reward arrives in, so the log said `Received Aether -10`. The wording now follows which way the figures moved.
 
-- **The Memory Fragments filters stop blinking during a capture.** The Sets panel and the unknown-main-stats row were rebuilt on every snapshot save, and a login saves several times in a few seconds. They now rebuild only when a set name, one of the counts beside them, or an unknown main actually changes.
+- **The Memory Fragments filters stop blinking during a capture.** The Sets panel and the unknown-main-stats row now rebuild only when a set name, one of the counts beside them, or an unknown main changes.
 
-- **A fresh install opens at the same size a loaded one does.** The Combatants tab's six fragment cells and the Memory Fragments tab's Sets panel were laid out only once data arrived, so both moved everything around them when the first snapshot loaded.
+- **A fresh install opens with its panels filled**, at the size a loaded one uses.
 
 - **An event mission's rewards are recorded.** They pay under a key nothing read, so the items landed nowhere and the Capture Log reported no receipt.
 
@@ -72,13 +72,13 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Changed
 
-- **The capture log stopped repeating itself.** `Saved:` appeared again after every upgrade, delete and reward, with the same figures every time. It now appears when the file or the counts change, and a save that fails says so plainly instead of arriving as a bare `Error:`.
+- **The capture log stopped repeating itself.** `Saved:` now appears when the file or the counts change, and a save that fails says so instead of arriving as a bare `Error:`.
 
 - **The Log Presets checklist no longer blinks while a capture runs.** It was rebuilt from scratch on every snapshot save, and logging in saves several times in a few seconds.
 
-- **Daily rows come back on their own.** The coffee and the Communication Passes had no date attached, so with no capture running they kept yesterday's answer — a drunk coffee stayed green past the reset. They now reset with the clock like every other daily row.
+- **Daily rows come back on their own.** The coffee and the Communication Passes reset with the clock like every other daily row, with or without a capture running.
 
-- **An Overclock event counts the runs you have taken, not the ones left.** Every other row on the tab reads as done-out-of-total, so `2/2` on an unused day looked finished. A repeating event's finished cycle reads orange rather than green, because it comes back tomorrow.
+- **An Overclock event counts the runs you have taken, not the ones left.** A repeating event's finished cycle reads orange rather than green.
 
 - **An Overclock event's daily total is read from the runs already played.** The game runs these at two a day and at six, and the row assumed two — so a six-a-day event called the day finished after the second run.
 
