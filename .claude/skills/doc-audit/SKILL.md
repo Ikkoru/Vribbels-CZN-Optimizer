@@ -55,6 +55,24 @@ Do not "fix" these. Each has been mistaken for a breach at least once.
 - **The `# spacing:` markers and `ui_spacing.md`'s contract tables.** A check parses them; density edits break the build. See the hard gate below.
 - **A `past_plans/` entry that reads stale.** It is the record of a decision, not a description of today.
 
+## Auditing a skill
+
+A skill is prose and takes every sweep above, plus three of its own.
+
+**The `description:` line is the trigger, and it is the part that rots.** It decides when the skill fires and nothing else does. Read it against the body: a procedure that has grown a step the description does not mention will not be reached at the moment it is needed.
+
+**Check the description against the skill's invocation mode** in `.claude/settings.local.json`. A skill set to `user-invocable-only` whose description is written as auto-fire conditions ("Use when the maintainer says…") is describing something that cannot happen; it should say what the skill DOES, since the listing is all the maintainer sees. A skill left on `on` needs the opposite — conditions concrete enough to match.
+
+**A skill must not restate a rule another file owns.** Skills are written last and are the likeliest place for a second copy of something in `CLAUDE.md`, `.claude/rules/` or `docs/repo_conventions.md`. They hold procedure and judgement; the rules stay where they live, reached by a pointer.
+
+## The improvement queue
+
+`_tmp/skill_notes.md`, gitignored, holds corrections noticed during ordinary work: a rule that misfired, one that turned out to be missing, a trigger that did not match when it should have. Anything recorded there is EVIDENCE that something went wrong, never a speculative improvement.
+
+Reviewing it belongs to an audit and to nothing else. For each entry: quote what happened, name the file, and give the exact line to add or change. **Then stop.** Nothing is applied until the maintainer accepts it — accepted entries are applied and cleared, rejected ones are deleted so they cannot be re-proposed, and edited ones are applied as edited.
+
+**An empty queue is the expected state**, and saying so is the correct outcome. A pass that produces a proposal every time is a pass inventing them.
+
 ## Verify against the artifact, not the mechanism
 
 The most expensive error available here, and it has been made: reading the code, seeing that it *would* keep a field, and concluding a snapshot *contains* it. Code that sweeps `event_*` tables into the snapshot does not mean any capture ever ran while such a table was being sent — zero of 113 archived snapshots carry one.

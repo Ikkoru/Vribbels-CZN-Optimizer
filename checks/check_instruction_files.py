@@ -66,6 +66,8 @@ EXPECTED_ABSENT = {
     ".defaults_sync.json",     # written beside the settings at runtime
     "paused_task.md",          # written to be deleted
     "RELEASE_NOTES.md",        # assembled at release
+    "_tmp/skill_notes.md",     # the improvement queue, written as
+                               # lessons land and cleared on review
 }
 
 

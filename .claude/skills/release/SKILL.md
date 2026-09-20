@@ -1,11 +1,13 @@
 ---
 name: release
-description: Cut a release — bump the version, close the CHANGELOG section, write RELEASE_NOTES.md for players, and re-check the README. Use when the maintainer says they are releasing a version, names a version number to release as, asks for release notes, or asks whether the CHANGELOG is ready to ship. Covers the order the steps must run in, how the player-facing register differs from the CHANGELOG's, and how to verify nothing was dropped.
+description: Cut a release — bump the version, close the CHANGELOG section, write RELEASE_NOTES.md for players, and re-check the README. Invoked by hand only. Anything typed after the command is read as part of the request: a version number, a theme for the release name, a step to skip.
 ---
 
 # Release
 
-Maintainer-invoked. Never start this because a release "seems due".
+**Invoked by hand, never on inference.** A release is a judgement about what shipped, so nothing here starts because one seems due.
+
+**Read what was typed after the command before starting.** It is part of the request, not a comment — a version number, a release name, a step to skip, a section to leave alone. Say which of the steps below it changes, then run the rest as written. Where no version is given, ask; do not infer one from the last tag.
 
 The conventions are in `docs/repo_conventions.md`; this is the procedure and the judgement.
 
