@@ -23,7 +23,7 @@ Three documents, one audience, three depths. **The reader is a mobile or PC gach
 
 |                    | Reader                                     | Depth                                         |
 | ------------------ | ------------------------------------------ | --------------------------------------------- |
-| `README.md`        | someone who has just heard of the program  | how to run, and what is it for                |
+| `README.md`        | someone who has just heard of the program  | how to run it, and what it is for             |
 | `RELEASE_NOTES.md` | a player installing this version           | what changed that they would notice or act on |
 | `CHANGELOG.md`     | a player who wants the smaller changes too | everything                                    |
 
