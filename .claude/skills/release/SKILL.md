@@ -32,7 +32,7 @@ Then the register. The CHANGELOG is written for a player who wants the smaller c
 - **Words.** Default to one line per entry. Most changes need no more, and a paragraph where a line would do is the most common defect in this file.
 - **The program's word where the game has one.** Check `CLAUDE.md` § Naming, and check the game's own screens for anything it does not cover. Where the game names a thing nowhere recognisable, describe it instead of inventing a name.
 
-**Everything keeps an entry**, however small. The filtering happens once, in the release notes — drop it here and the record is gone.
+**An entry earns its place by the confusion it prevents**, not by the size of the edit — `docs/repo_conventions.md` has the test. The commit history is the complete record, so nothing is kept here merely to be thorough.
 
 Verify by diffing the bolded lead of every entry before and after, and name each delta. A rewrite that silently loses an entry looks exactly like a rewrite that tightened one.
 

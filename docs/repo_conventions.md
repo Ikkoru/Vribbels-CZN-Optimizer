@@ -25,7 +25,9 @@ Three documents, one audience, three depths. **The reader is a mobile or PC gach
 | ------------------ | ------------------------------------------ | --------------------------------------------- |
 | `README.md`        | someone who has just heard of the program  | how to run it, and what it is for             |
 | `RELEASE_NOTES.md` | a player installing this version           | what changed that they would notice or act on |
-| `CHANGELOG.md`     | a player who wants the smaller changes too | everything                                    |
+| `CHANGELOG.md`     | a player who wants the smaller changes too | everything worth knowing about                |
+
+**The commit history is the complete record; these three are not.** They are written to be read, so a document nobody finishes is a document that failed — length is spent on what a reader will act on, and anything else belongs in the log.
 
 **None of the three argues.** They notify. No entry defends a change, justifies a design, or says why an alternative was rejected — not in the notes, and not in the CHANGELOG either. Reasoning lives in `docs/`, in `past_plans/`, and in the code.
 
@@ -49,7 +51,9 @@ Active work goes under the top `## [X.Y.Z] - unreleased` section as it lands: ne
 
 **Write the entry in that register when it LANDS.** An entry written from the implementation and rewritten at release costs the rewrite and loses detail nobody can recover months later.
 
-**Everything that changes RELEASED behaviour gets an entry**, however small, and an entry is one line unless a reader needs more.
+**An entry earns its place if someone who did not know about the change would be confused, or would act differently.** A feature that moved to another panel, a sort order that quietly changed, Gear Score reading 0–100 where it used to read 600 — all qualify, however small the edit was. Padding going from 3 to 4 does not. Nor does a change that answers itself on contact: tooltip sources are underlined now, and anyone wondering why hovers and gets the tooltip.
+
+**Before adding an entry, search the unreleased section for its subject**, and amend the entry already there rather than appending a second. A fix to something this cycle added is not a separate change — it is the Added entry not having been true yet.
 
 **Churn inside a feature that shipped unfinished is not recorded at all.** Where a release said a feature was not done — `## [2.0.0]` says "The Checklist tab and the UI work are both unfinished" — fixing and reshaping it is finishing it, not changing it, and belongs in neither document. The entries that survive are the ones a player of the LAST release would notice.
 
