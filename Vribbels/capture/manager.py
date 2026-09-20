@@ -154,9 +154,9 @@ class Addon:
 
         # **What the wire has ever sent, and which request sent it.**
         # A field nobody reads is invisible: `entity` and
-        # `issued_limit_entities` were both on the wire for months
-        # before anything looked at them, and no amount of reading the
-        # code would have said so. This is the record that would --
+        # `issued_limit_entities` both reached the addon while nothing
+        # looked at them, and no amount of reading the code would have
+        # said so. This is the record that would --
         # `command|key` to a count, when it was first and last
         # seen, its type and a short sample.
         #

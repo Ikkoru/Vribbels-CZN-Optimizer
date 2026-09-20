@@ -65,7 +65,7 @@ The excursion board and the Great Rift standings arrive in a frame carrying no r
 | `char_visits`    | `char_visits`                   | `char_visits`                   | the excursion board, one row per combatant that has been on one |
 | `disaster_ranks` | `disaster_boss_rank_entities`   | `disaster_boss_rank_entities`   | Great Rift standings; the only carrier of the weekly score |
 
-Each is replaced whole rather than merged: the reply IS the board, so a row's absence is a reading. `excursions.py` reads the second, nothing reads the third yet.
+Each is replaced whole rather than merged: the reply IS the board, so a row's absence is a reading. `excursions.py` reads `char_visits`; `checklist_tab.py` reads `disaster_boss_rank_entities` for the Great Rift.
 
 Three more join them, for what the recurring tasks stand at. The Checklist tab reads the Activities claim off the first and lists the third; the pass record is captured so a snapshot taken before anything needs it already carries the history:
 
