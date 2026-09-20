@@ -30,7 +30,7 @@ Stat-name vocabulary
 ====================
 
 **The optimizer consumes ONLY the exact strings below** (mapping:
-`SET_STAT_NAME_MAP` in `optimizer/core.py`). Any other value is silently
+`SET_STAT_NAME_MAP`, below). Any other value is silently
 ignored — no error, no effect — so a typo costs the set its bonus while
 leaving set-locking working, which is easy to miss.
 

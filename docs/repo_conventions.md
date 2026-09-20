@@ -1,6 +1,6 @@
 # Repo conventions
 
-How `tasks.md`, `plan.md` and `CHANGELOG.md` are kept. Nothing here affects the program.
+How `tasks.md`, `plan.md`, `CHANGELOG.md` and `RELEASE_NOTES.md` are kept. Nothing here affects the program.
 
 ## `tasks.md` — the triaged backlog
 
@@ -23,7 +23,25 @@ Active work goes under the top `## [X.Y.Z] - unreleased` section as it lands: ne
 
 **Summarize at USER-FACING level**, not implementation detail. "Memory Fragments tab: the Highest Potential column names the preset it scored under" — not "refactored `_presets_for_highest_gs` to return tuples".
 
+**Write the entry in that register when it LANDS.** An entry written from the implementation and rewritten at release costs the rewrite and loses detail nobody can recover months later. Three habits carry most of it: no figure that only argues the change was worth making, no internal mechanism a user cannot act on, and the game's word for anything the UI names.
+
 At release, `unreleased` is replaced by a short release name (`- Multi-core`), which is also when `version.py` is bumped. Released entries record what shipped and are never retro-edited, even where their numbers no longer describe the current build.
+
+**The CHANGELOG is the complete record.** Nothing is omitted for being small, internal or invisible — that filtering happens once, in the release notes.
+
+## `RELEASE_NOTES.md` — what a player is told
+
+Gitignored, rewritten per release, and pasted into the GitHub release. It is **not** a shorter CHANGELOG: it is the subset a player needs, in their words.
+
+- **Cut anything self-evident from the UI.** Opening the tab teaches it faster than a sentence can. The exception: keep a line where the absence of something reads as a bug — "the Seasonal Shop shows no rates" stays for that reason alone.
+- **Cut what a player cannot act on.** Internal mechanism, exact figures, timing, control names, the reason a thing works the way it does.
+- **What and where, in that order.** "Archive info and settings are in Setup & Settings → Settings", not a tour of the panel.
+- **No reason-giving at all**, including the factual kind. The CHANGELOG carries the why.
+- **A fix to something never really released does not get an entry.** Where a release shipped a feature marked unfinished, that feature's fixes belong to the CHANGELOG alone. Judge it against what the earlier release SAID, not against the commit history.
+- **Group by tab**, and give a new tab one line saying what it is for.
+- The header names one or two themes, not every area touched.
+
+The register is a player's, not a maintainer's: second person, contractions, and a light touch are all correct here and wrong in the CHANGELOG.
 
 ## Keeping the settings docs in step
 

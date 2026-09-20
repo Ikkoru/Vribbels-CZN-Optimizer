@@ -248,7 +248,7 @@ Each conditional set's share is the spinbox beside its checkbox, persisted per c
 
 ### Set stat name → program name mapping
 
-`sets.py` spells some stats differently from the rest of the program. Mapping is `SET_STAT_NAME_MAP` in `optimizer/core.py`.
+`sets.py` spells some stats differently from the rest of the program. Mapping is `SET_STAT_NAME_MAP` in `game_data/sets.py`, re-exported from `optimizer/core.py` for callers that have always imported it from there.
 
 | sets.py `stat` | Internal name                         |
 | -------------- | ------------------------------------- |

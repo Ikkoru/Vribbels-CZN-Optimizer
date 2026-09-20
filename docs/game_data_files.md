@@ -32,7 +32,7 @@ The optimizer consumes ONLY the keys in that module docstring's vocabulary table
 
 And deliberately spelled differently from everywhere else: a set's `stat` field says `Crit DMG` / `Crit Rate` where the program and `partners.py` say `CDmg` / `CRate`.
 
-Only the names in that module's docstring table reach the formulas — the five in `SET_STAT_NAME_MAP` (`optimizer/core.py`) plus `DMG multi` and `DMG add`, which feed the damage card multiplier and apply to CONDITIONAL sets only. Anything else is silently ignored while the set still counts for set-locking, so a typo costs a bonus with no visible error.
+Only the names in that module's docstring table reach the formulas — the five in `SET_STAT_NAME_MAP` (`game_data/sets.py`) plus `DMG multi` and `DMG add`, which feed the damage card multiplier and apply to CONDITIONAL sets only. Anything else is silently ignored while the set still counts for set-locking, so a typo costs a bonus with no visible error.
 
 Where each value lands: `game_formulas.md` §5.
 
