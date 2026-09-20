@@ -19,17 +19,17 @@ When the work finishes the file moves to `past_plans/<topic>.md`, keeping the me
 
 ## Who reads what
 
-Three documents, one audience, three depths. **The reader is a Windows gacha player who cares about optimizing stats** — assume that much domain knowledge and do not explain it.
+Three documents, one audience, three depths. **The reader is a mobile or PC gacha player running this program on Windows who cares about optimizing stats** — assume that much domain knowledge and do not explain it.
 
-| | Reader | Depth |
-| - | ------ | ----- |
-| `README.md` | someone who has just heard of the program | can it run, and what is it for |
-| `RELEASE_NOTES.md` | a player installing this version | what changed that they would notice or act on |
-| `CHANGELOG.md` | a player who wants the smaller changes too | everything |
+|                    | Reader                                     | Depth                                         |
+| ------------------ | ------------------------------------------ | --------------------------------------------- |
+| `README.md`        | someone who has just heard of the program  | how to run, and what is it for                |
+| `RELEASE_NOTES.md` | a player installing this version           | what changed that they would notice or act on |
+| `CHANGELOG.md`     | a player who wants the smaller changes too | everything                                    |
 
 **None of the three argues.** They notify. No entry defends a change, justifies a design, or says why an alternative was rejected — not in the notes, and not in the CHANGELOG either. Reasoning lives in `docs/`, in `past_plans/`, and in the code.
 
-**Default to one line per change in all three.** Length is earned by a reader needing it, and most changes do not earn it. "Fixed fresh install UI being unfilled" is a complete entry.
+**Default to one line per change in all three.** Length is earned by a reader needing it, and most changes do not earn it. "Fixed fresh install UI being unfilled" is a complete entry. Multiple similar entries of low importance can be condensed: "Minor UI changes", not "Padding in tabs A, B, and button size in panel Z changed".
 
 ## `README.md` — the front door
 
@@ -45,7 +45,7 @@ Only section 3 takes the self-evident filter. Sections 1 and 2 exist for a reade
 
 Active work goes under the top `## [X.Y.Z] - unreleased` section as it lands: new features → `### Added`, polish → `### Changed`, bug fixes → `### Fixed`.
 
-**Summarize at USER-FACING level**, not implementation detail. "Memory Fragments tab: the Highest Potential column names the preset it scored under" — not "refactored `_presets_for_highest_gs` to return tuples".
+**Summarize at USER-FACING level** in simple English, not implementation detail. "Memory Fragments tab: the Highest Potential column shows the preset used for the score" — not "refactored `_presets_for_highest_gs` to return tuples".
 
 **Write the entry in that register when it LANDS.** An entry written from the implementation and rewritten at release costs the rewrite and loses detail nobody can recover months later.
 
@@ -72,7 +72,7 @@ Two things override those cuts:
 - **An exception with no visible reason.** Where one case behaves unlike every comparable case and nothing on screen explains it, a player reads it as broken. Every shop shows earning rates except the Seasonal Shop; that line stays. Apply this strictly — it is not a licence to keep anything that might confuse someone.
 - **A change that invites a wrong conclusion.** Say what it does NOT do. "A capture can be left running" plus "a new snapshot starts each relaunch" reads as "capture is automatic now", so the note adds that relaunching the program still needs the button.
 
-What survives is written as **what, then where**: *"Archive info and settings are in Setup & Settings → Settings."* Group by tab and order by importance within each; give a new tab one line saying what it is for. The header names one or two themes. `Fixed` and `Changed` may end up empty.
+What survives is written as **what, then where**: *"Archive info and settings are in Setup & Settings → Settings."* Group by tab and order by importance within each; give a new tab one line saying what it is for. The header names one or two themes. `Added`, `Fixed` and `Changed` may end up empty.
 
 A little whimsy is welcome here and nowhere else.
 
