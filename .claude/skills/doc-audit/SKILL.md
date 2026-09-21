@@ -1,6 +1,6 @@
 ---
 name: doc-audit
-description: Audit the repo's prose — docs/, CLAUDE.md, .claude/rules/, skills, docstrings and comments — for staleness, contradictions, unfollowable references and guideline breaches. Use when the maintainer asks whether the docs are up to date, asks for a doc or comment pass, reports a doc disagreeing with the code, before a release, or when a convention has just been corrected and its old value may survive elsewhere. Covers what to grep for, which findings are false positives here, and what must never be deleted.
+description: Audit the repo's prose — docs/, CLAUDE.md, .claude/rules/, skills, docstrings and comments — for staleness, contradictions, unfollowable references and guideline breaches, and review the skill-improvement queue. Use when the maintainer asks whether the docs are up to date, asks for a doc or comment pass, asks what is in the skill notes, reports a doc disagreeing with the code, before a release, or when a convention has just been corrected and its old value may survive elsewhere. Covers what to grep for, which findings are false positives here, what a pass may change unasked, and what must never be deleted.
 ---
 
 # Doc audit
