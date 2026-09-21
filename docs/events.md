@@ -204,7 +204,7 @@ That final reward is the one that unlocks only after every other reward in the e
 
 **Which events have one is not known in advance.** `event_bartender_1` does. `event_schedule_devil_001` does NOT — claiming the seventh day's three rewards answered with the mission rows and the items and nothing else. Nothing needs deciding either way — an event with no record simply never gets the flag and keeps its floor, and one that gains a record is read the moment it appears. So the question answers itself on the capture where the final reward is claimed, and until then the row is merely cautious rather than wrong.
 
-Confirmed against every row carrying the field: every event whose mission rows are all complete carries state 1, and the two known-unfinished ones (`event_season_love_4`, which was never started, and `event_chaos_assault_1`) carry 0. An event that has merely ENDED does not get the flag — `event_season_love_4` ended in August and is still 0 — so the flag is about completion and not about the clock.
+Confirmed against every row carrying the field, which is not many. The game purges an instalment's rows when it ends, so a capture holds only the live events plus whatever has not been swept yet, and the sample behind every rule on this page is that small and that short-lived. **Treat what follows as the best reading of a handful of events, not as settled behaviour** — the next few instalments are as likely to extend these rules as to confirm them. every event whose mission rows are all complete carries state 1, and the two known-unfinished ones (`event_season_love_4`, which was never started, and `event_chaos_assault_1`) carry 0. An event that has merely ENDED does not get the flag — `event_season_love_4` ended in August and is still 0 — so the flag is about completion and not about the clock.
 
 ### `reward_step` and `version` — a strong suspect, not read
 
@@ -218,7 +218,7 @@ Across every row ever captured, **`event_achieve_state` is 1 exactly when `versi
 | `event_chaos_assault_1` | 3 | 2 | 0 |
 | every `event_node_*`, `event_arena_*` | 0 | 0 | 1 |
 
-Nineteen distinct events, no exception. That reads as *"`reward_step` is the track's size and `version` is how much of it is claimed"* — which would hand the Checklist a real denominator for the events that have one. But it also reads as *"`reward_step` is what has been claimed and `version` is the write counter it happens to track"*, and every row fits both.
+No exception among the rows that have carried the pair — though that is a handful of events, for the reason above. That reads as *"`reward_step` is the track's size and `version` is how much of it is claimed"* — which would hand the Checklist a real denominator for the events that have one. But it also reads as *"`reward_step` is what has been claimed and `version` is the write counter it happens to track"*, and every row fits both.
 
 **The measurement that separates them:** claim ONE step of a step-track event with a capture running. If `reward_step` moves by one it is a tally; if `version` moves and `reward_step` stays it is a total. Until then the code reads only the flag.
 
@@ -265,7 +265,7 @@ A live event takes its denominator from that record when, and only when:
 
 Such a row reads `~1/20` rather than `1/3+?`: the tilde is the tab's mark for a number worked out rather than read. **It does not go green on it** — `event_achieve_state` is still the only thing that ends an event — so the worst an over-large inherited total can do is leave a finished row looking unfinished.
 
-The record starts empty and fills as instalments end. It held three the day it was written — `event_stock_01` at 17 rows, `event_schedule_policy_005` at 6, `event_schedule_love_4` at 1 — which any snapshot can be re-read for. Until a family has two, so nothing on the tab reads from it — which is the state to expect until a family repeats.
+The record starts empty and fills as instalments end. It held three the day it was written — `event_stock_01` at 17 rows, `event_schedule_policy_005` at 6, `event_schedule_love_4` at 1 — and no capture still on disk carries any of them, the game having purged those instalments. Until a family has two, so nothing on the tab reads from it — which is the state to expect until a family repeats.
 
 ## Totals the wire does not state
 
