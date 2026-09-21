@@ -207,7 +207,7 @@ Both measured off the captures on disk rather than estimated.
 
 A capture averages 2.7 MB uncompressed, so a month of daily play is on the order of 80 MB — multiply rather than trusting a total, since the folder is never pruned and only grows.
 
-### What it does about that
+### Compressing and rotating the debug log
 
 **The log is gzipped, one MEMBER per line.** `websocket_debug_*.jsonl.gz`, still one JSON object per line — a reader opens it with `gzip.open(path, "rt", encoding="utf-8")` and changes nothing else.
 

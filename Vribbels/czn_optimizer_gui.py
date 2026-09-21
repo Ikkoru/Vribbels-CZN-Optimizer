@@ -325,7 +325,7 @@ class OptimizerGUI:
         # dependency; if another turns out to shift, add it here by name
         # rather than going back to cycling everything.
         #
-        # Setup & Settings is the second: its panels are laid out one after
+        # Setup & Settings is the other: its panels are laid out one after
         # another and then RESIZED, so opening it cold shows the frames
         # arriving and the contents settling into them over about a second.
         import time as _time

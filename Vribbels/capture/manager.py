@@ -1727,9 +1727,9 @@ class Addon:
             "assault_char_title_entities": self.assault_char_titles or None,
             "disaster_entities": self.disaster_seasons,
             # What the recurring tasks stand at. The Checklist tab
-            # reads the first and the last; the rest are written so a
-            # capture taken before anything needs them already carries
-            # the history.
+            # reads `point_entity` and `mission_entities`; the rest are
+            # written so a capture taken before anything needs them
+            # already carries the history.
             "point_entity": self.point_entity,
             "remnants_entities": self.remnants or None,
             "zero_orb_entity": self.zero_orb,
