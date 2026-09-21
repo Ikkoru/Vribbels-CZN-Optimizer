@@ -8,7 +8,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ## [2.2.0] - unreleased
 
-## [2.1.0] - Checklist events and shops, capture archive, Sortie progress
+## [2.1.0] - Checklist of in-game activities, capture archiving
 
 ### Added
 
