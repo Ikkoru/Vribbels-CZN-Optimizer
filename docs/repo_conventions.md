@@ -57,7 +57,11 @@ Active work goes under the top `## [X.Y.Z] - unreleased` section as it lands: ne
 
 **Churn inside a feature that shipped unfinished is not recorded at all.** Where a release said a feature was not done — `## [2.0.0]` says "The Checklist tab and the UI work are both unfinished" — fixing and reshaping it is finishing it, not changing it, and belongs in neither document. The entries that survive are the ones a player of the LAST release would notice.
 
-At release, `unreleased` is replaced by a short release name (`- Multi-core`), which is also when `version.py` is bumped. Released entries record what shipped and are never retro-edited, even where their numbers no longer describe the current build.
+**State what the program does now; the section heading says it changed.** "The Combatants tab keeps the combatant you are looking at" is the entry. Adding "it used to drop back to the first row" spends a clause on something `### Changed` already implies, and a binary change implies its own opposite. Where the new statement alone would not say WHICH thing moved, fold the contrast into it — "counts the runs you have taken, not the ones left" — rather than adding a sentence of history. This is what makes `used to` and `previously` worth grepping for in the unreleased section.
+
+At release, `unreleased` is replaced by a short release name (`- Multi-core`), which is also when `version.py` is bumped.
+
+**A released entry is edited only to fix it**, never to restate what shipped. Correcting a mistake, an inconsistency or a dead reference is fine; changing what the entry claims happened is not, and neither is tidying prose that is merely verbose — the risk of quietly rewriting history is what the caution is for, not the wording.
 
 ## `RELEASE_NOTES.md` — what a player is told
 

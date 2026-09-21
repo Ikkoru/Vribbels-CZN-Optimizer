@@ -35,7 +35,7 @@ The reason is not caution in general. It is that an audit reads a hundred passag
 
 ## Sweeps
 
-Cheap, and each has caught something. Run them over `docs/`, `.claude/**/*.md` and `CLAUDE.md` for prose, and over `Vribbels/` and `checks/` for docstrings and comments — the change-narration and stale-output sweeps are worth as much in a comment as in a doc, and the false positives below were all found in code. **`past_plans/` is exempt from all of them** — it is an archive and its dates and `[IMPLEMENTED]` tags are the record.
+Cheap, and each has caught something. Run them over `docs/`, `.claude/**/*.md` and `CLAUDE.md` for prose — in `CHANGELOG.md`, only the `unreleased` section, since narrating change is what the file is for and released sections are edited only to fix them, and over `Vribbels/` and `checks/` for docstrings and comments — the change-narration and stale-output sweeps are worth as much in a comment as in a doc, and the false positives below were all found in code. **`past_plans/` is exempt from all of them** — it is an archive and its dates and `[IMPLEMENTED]` tags are the record.
 
 | Looking for | Signal |
 | ----------- | ------ |
@@ -47,6 +47,8 @@ Cheap, and each has caught something. Run them over `docs/`, `.claude/**/*.md` a
 | Dense sentences | over ~40 words; two or more of `—` `;` in one sentence |
 | Headings that name nothing | `^#+ (What|Why|Where|How|Which|When)\b`; headings with ` and ` or a comma; pronouns |
 | Emphasis inflation | count `^\*\*` per file against the heading count; above ~1:1 the bold marks nothing |
+
+**In the unreleased CHANGELOG the narration sweep is a question, not a verdict.** An entry stating what the program does now is right; one that also describes the old state is spending a clause on what `### Changed` already implies. Report the lines and ask — some changes are not binary, and there the contrast belongs folded into the sentence rather than deleted.
 
 Two mechanical traps, both of which have produced wrong numbers:
 
@@ -61,6 +63,7 @@ Do not "fix" these. Each has been mistaken for a breach at least once.
 - **Dates that are evidence.** The wire's day-zero epoch, an observed reset time, a sample JSON timestamp. The rule bars narrating change, not recording a fact that happens to be a date.
 - **A number a check pins.** `POTENTIAL_MAX_TOTAL`'s 45 is held in three places on purpose, one of them a check whose comment says so. Deleting it throws away a deliberate cross-copy. `grep -rn "<the number>" checks/` before touching any figure.
 - **The `# spacing:` markers and `ui_spacing.md`'s contract tables.** A check parses them; density edits break the build. See the hard gate below.
+- **A digit inside a name.** `Potential 7`, `Slot 5`, `Level 61`, `Season 8` — the game and the code both name things with numbers, and no sweep can tell those from a tally. A capitalised word before the digit is the tell.
 - **A `past_plans/` entry that reads stale.** It is the record of a decision, not a description of today.
 
 ## Auditing a skill
@@ -81,9 +84,17 @@ Reviewing it belongs to an audit and to nothing else. For each entry: quote what
 
 **An empty queue is the expected state**, and saying so is the correct outcome. A pass that produces a proposal every time is a pass inventing them.
 
+## Comments that assure rather than inform
+
+Two shapes, both found in `constants.py`, both costing words and trust.
+
+**A comment confirming a constant is correct.** "DEF% only appears on slot 6 (game data confirmed)" tells a reader nothing they can act on, and implies that a constant WITHOUT such a line is less trustworthy. Whatever research established the value belongs in the process that set it, not beside it. Delete these; keep a note only where it says what BREAKS if the value is wrong, or why the obvious-looking alternative is not available.
+
+**The same note twice within a screen.** Repetition a few lines apart reads as two independent facts and doubles the cost of changing one. Keep the copy nearest the thing it constrains.
+
 ## Verify against the artifact, not the mechanism
 
-The most expensive error available here, and it has been made: reading the code, seeing that it *would* keep a field, and concluding a snapshot *contains* it. Code that sweeps `event_*` tables into the snapshot does not mean any capture ever ran while such a table was being sent — zero of 113 archived snapshots carry one.
+**Measure the whole corpus, not the part that is easy to reach.** `event_bartender_entities` is absent from all 113 archived snapshots and present in 8 of the 10 loose ones — the archive predates the capture change, so sampling it alone gives the confident wrong answer, twice over: the field looks uncaptured, and the doc saying so looks correct. Snapshots on disk are one population and the archive is another; a claim about "every capture" has to read both.
 
 The same discipline in the other direction: **a passage that describes itself is a hypothesis.** A sentence saying "the code owns this table" is not evidence that it does. Open the constant and diff the columns; a doc table that adds a column the code has no field for is not a mirror.
 

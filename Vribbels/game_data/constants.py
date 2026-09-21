@@ -273,10 +273,7 @@ DISPLAY_NAMES = {
     "Instinct DMG%": "Instinct%",
 }
 
-# Main stats for each slot.
-# DEF% appears as a main stat on slot 6 ONLY -- the game has never
-# offered it on slots 4 or 5, however plausible that looks. See
-# docs/game_formulas.md §2 for the canonical main-stat table.
+# Which main stats each slot can carry.
 SLOT_MAIN_STATS = {
     1: ["Flat ATK"],
     2: ["Flat DEF"],
@@ -292,12 +289,9 @@ SLOT_MAIN_STATS = {
 # converge to for a maxed Legendary fragment. The optimizer doesn't read
 # this directly -- it uses fragment.main_stat.value from captured data --
 # but the table is useful for:
-#   - Reference documentation (see docs/game_formulas.md §2)
 #   - Sanity-checking captured values
 #   - Future UI affordances (e.g. "this fragment's main stat is at X% of
 #     its ceiling")
-#
-# DEF% only appears on slot 6 (game data confirmed).
 MAIN_STAT_VALUES = {
     (1, "Flat ATK"):       22,
     (2, "Flat DEF"):       22,

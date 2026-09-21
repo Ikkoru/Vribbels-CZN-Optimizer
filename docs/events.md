@@ -202,9 +202,9 @@ After 48 hours at its own ceiling a floor turns **orange** — long enough that 
 
 That final reward is the one that unlocks only after every other reward in the event is claimed, so the flag is a genuine "all done". `_event_finished` reads it, and a row at its ceiling with the flag set drops the `+?` and goes green.
 
-**Which events have one is not known in advance.** The Bartender does; the devil looks as though it might, unconfirmed. Nothing needs deciding either way — an event with no record simply never gets the flag and keeps its floor, and one that gains a record is read the moment it appears. So the question answers itself on the capture where the final reward is claimed, and until then the row is merely cautious rather than wrong.
+**Which events have one is not known in advance.** `event_bartender_1` does. `event_schedule_devil_001` does NOT — claiming the seventh day's three rewards answered with the mission rows and the items and nothing else. Nothing needs deciding either way — an event with no record simply never gets the flag and keeps its floor, and one that gains a record is read the moment it appears. So the question answers itself on the capture where the final reward is claimed, and until then the row is merely cautious rather than wrong.
 
-Confirmed against all nineteen rows ever captured, across four months: every event whose mission rows are all complete carries state 1, and the two known-unfinished ones (`event_season_love_4`, which was never started, and `event_chaos_assault_1`) carry 0. An event that has merely ENDED does not get the flag — `event_season_love_4` ended in August and is still 0 — so the flag is about completion and not about the clock.
+Confirmed against every row carrying the field: every event whose mission rows are all complete carries state 1, and the two known-unfinished ones (`event_season_love_4`, which was never started, and `event_chaos_assault_1`) carry 0. An event that has merely ENDED does not get the flag — `event_season_love_4` ended in August and is still 0 — so the flag is about completion and not about the clock.
 
 ### `reward_step` and `version` — a strong suspect, not read
 
@@ -265,7 +265,7 @@ A live event takes its denominator from that record when, and only when:
 
 Such a row reads `~1/20` rather than `1/3+?`: the tilde is the tab's mark for a number worked out rather than read. **It does not go green on it** — `event_achieve_state` is still the only thing that ends an event — so the worst an over-large inherited total can do is leave a finished row looking unfinished.
 
-The record starts empty and fills as instalments end. On the account it was written against, one snapshot filed three: `event_stock_01` at 17 rows, `event_schedule_policy_005` at 6, `event_schedule_love_4` at 1. No family has two yet, so nothing on the tab reads from it — which is the state to expect until a family repeats.
+The record starts empty and fills as instalments end. It held three the day it was written — `event_stock_01` at 17 rows, `event_schedule_policy_005` at 6, `event_schedule_love_4` at 1 — which any snapshot can be re-read for. Until a family has two, so nothing on the tab reads from it — which is the state to expect until a family repeats.
 
 ## Totals the wire does not state
 
@@ -310,7 +310,7 @@ Both endings of one day were captured minutes apart: `HIDDEN` at 20:04 wrote `hi
 
 `check_general_orders` answers the same shape before the last call, with **`can_last_call`** saying whether the day can be ended yet. `set_last_open_day` writes `event_info_entity` (`{"info": {"open_day": 1}}`, under `event_146` rather than the bartender's own id) — which day of the event the player has opened up to.
 
-**Nothing here is read yet**, and none of it is in the snapshot: `event_bartender_entities` reaches the addon and is dropped. It is the one Open-ended event whose progress the wire states outright.
+**Nothing here is read yet**, though it IS captured: `event_bartender_entities` rides the login burst into the snapshot with every other `event_*` table. It is the one Open-ended event whose progress the wire states outright.
 
 ### What the bartender's pages really are
 

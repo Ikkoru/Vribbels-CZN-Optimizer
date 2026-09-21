@@ -67,7 +67,7 @@ The excursion board and the Great Rift standings arrive in a frame carrying no r
 
 Each is replaced whole rather than merged: the reply IS the board, so a row's absence is a reading. `excursions.py` reads `char_visits`; `checklist_tab.py` reads `disaster_boss_rank_entities` for the Great Rift.
 
-Three more join them, for what the recurring tasks stand at. The Checklist tab reads the Activities claim off the first and lists the third; the pass record is captured so a snapshot taken before anything needs it already carries the history:
+Three more join them, for what the recurring tasks stand at. The Checklist tab reads the Activities claim off `point_entity` and lists `mission_entities`; `season_pass` is captured so a snapshot taken before anything needs it already carries the history:
 
 | Attribute | Wire key | What it is |
 | --------- | -------- | ---------- |

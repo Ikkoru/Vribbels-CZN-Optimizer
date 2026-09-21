@@ -71,26 +71,11 @@ Max levels total **45**, which is what the Combatants tab's `Nodes` column count
 
 Per-level magnitudes are `POTENTIAL_STAT_VALUES`: 1.6/level for ATK%/DEF%/HP%, 2.0 for CRate, 2.4 for CDmg.
 
-## 2. Main stat magnitudes (max-level Legendary)
+## 2. Main stats
 
-The optimizer reads `fragment.main_stat.value` from captured data, so this table is for documentation and UI forcing constraints. Stored as `MAIN_STAT_VALUES` in `game_data/constants.py`.
+A slot accepts a main stat only from its own set, and each main stat has one value per upgrade level, topping out at a ceiling fixed per stat.
 
-| Main stat     | Max value | Slot 1 | Slot 2 | Slot 3 | Slot 4 | Slot 5 | Slot 6 |
-| ------------- | ---------:|:------:|:------:|:------:|:------:|:------:|:------:|
-| Flat ATK      | 22        | ✓      |        |        |        |        |        |
-| Flat DEF      | 22        |        | ✓      |        |        |        |        |
-| Flat HP       | 37        |        |        | ✓      |        |        |        |
-| ATK%          | 25        |        |        |        | ✓      | ✓      | ✓      |
-| HP%           | 25        |        |        |        | ✓      | ✓      | ✓      |
-| CRate         | 27        |        |        |        | ✓      |        |        |
-| CDmg          | 40.8      |        |        |        | ✓      |        |        |
-| Passion DMG%  | 16        |        |        |        |        | ✓      |        |
-| Order DMG%    | 16        |        |        |        |        | ✓      |        |
-| Justice DMG%  | 16        |        |        |        |        | ✓      |        |
-| Void DMG%     | 16        |        |        |        |        | ✓      |        |
-| Instinct DMG% | 16        |        |        |        |        | ✓      |        |
-| DEF%          | 25        |        |        |        |        |        | ✓      |
-| Ego           | 40        |        |        |        |        |        | ✓      |
+Both are in `game_data/constants.py` and nothing else: `SLOT_MAIN_STATS` says which stats a slot can carry, `MAIN_STAT_VALUES` gives each `(slot, stat)` pair its max-level Legendary ceiling. The optimizer never reads either for scoring — it takes `fragment.main_stat.value` from captured data — so they serve the UI's forcing constraints and sanity checks.
 
 ### Rarity, levels and substats
 
