@@ -36,6 +36,15 @@ Then the register. The CHANGELOG is written for a player who wants the smaller c
 
 **An entry earns its place by the confusion it prevents**, not by the size of the edit — `docs/repo_conventions.md` has the test. The commit history is the complete record, so nothing is kept here merely to be thorough.
 
+**Read the section as a whole before tightening its entries.** Most of what a pass can win is structural, and none of it is visible one entry at a time:
+
+- **Entries that generalise together.** A popup resized, a tick glyph swapped, a dialog respaced, a tooltip recoloured — four entries and one line. Run `repo_conventions`' three questions over any run of small visual changes. A first pass that tightened each one separately still left four.
+- **Entries that group under a tab.** Three or more naming the same tab become a parent with sub-bullets.
+- **Bold that has stopped marking anything.** Count the bolded leads against the entries: near 1:1 in a `Fixed` section means the bold is decoration.
+- **Entries that should not exist.** A settings-file shape, a build fix caught before release, churn inside a feature the last release called unfinished.
+
+**Then check each surviving entry states the whole fix.** Tightening is where half a claim goes missing: a guard against both a typed `1e9` and a typed `abc` reads as one or the other unless the line is written to cover both.
+
 Verify by diffing the bolded lead of every entry before and after, and name each delta. A rewrite that silently loses an entry looks exactly like a rewrite that tightened one.
 
 ## RELEASE_NOTES.md
