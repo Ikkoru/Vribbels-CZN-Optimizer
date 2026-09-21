@@ -111,7 +111,14 @@ The rest join them, all merged rather than replaced for the same reason:
 
 **`mission_entity`, singular, is the claim.** A mission's `complete_time` is set when its REWARD IS CLAIMED, not when the task is finished, and the frame that sets it sends that one row rather than the list.
 
-**A Sortie rung is done when it is STAMPED, and sparse is not the same as complete.** Both ladders are sparse — nothing is sent for a rung the game has not offered — but an ACHIEVEMENT row is issued while its rung is still in progress, so its presence says only that the rung is live. `complete_time` is what finishes one. Title rows happen to arrive only once earned, so the two readings agree there; `sortie_progress.py` applies the one rule to both so the count stays right if that changes. Neither `score` (1–3 on achievement rows, unrelated to completion — one combatant's finished rung scores 3 and another's scores 1) nor `acquired_count` (reaches 3 on title rungs that count once) is a flag. Because a ladder's unearned rungs send nothing, the LENGTHS cannot come off the wire either: they are constants in `sortie_progress.py`, and a rung arriving past the end is the one sign the game has lengthened one.
+**A Sortie rung is complete only when `complete_time` is set.** `sortie_progress.py` applies that to both ladders.
+
+- Both ladders are sparse — nothing is sent for a rung the game has not offered — so row presence is not completion.
+- An ACHIEVEMENT row is issued while its rung is still in progress. Its presence says only that the rung is live.
+- A TITLE row happens to arrive only once earned, so there the two readings agree. Do not rely on it; one rule serves both.
+- `score` is not a flag. It runs 1–3 on achievement rows and tracks nothing: one combatant's finished rung scores 3 and another's scores 1.
+- `acquired_count` is not a flag. It reaches 3 on title rungs that count once each.
+- Ladder LENGTHS are constants in `sortie_progress.py`. Unearned rungs send nothing, so the wire cannot state them, and a rung arriving past the end is the one sign the game has lengthened one.
 
 **Every save prints `[SYNC] saved`, and that is what the app reloads on.** The human-readable `Saved:` line is suppressed when it would repeat the previous line word for word — and the login burst saves several times with identical counts, the first as soon as the inventory lands and the later ones carrying the shops, the schedules and the missions. A reload riding on the readable line was therefore skipped for exactly those saves, so the app sat on the first save's snapshot for the whole session. The marker is consumed by the reader and never shown, and it is deliberately not remembered as "the last line" — doing so would sit between two identical reports and stop either reading as a repeat. `checks/check_addon_template.py` holds the reader's copy of the literal equal to the addon's.
 
