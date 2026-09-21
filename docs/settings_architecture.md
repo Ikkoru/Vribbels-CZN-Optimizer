@@ -55,7 +55,7 @@ Keyed by `str(res_id)`, NOT by name; `name_hints` exists purely for readability 
 
 ## Restore Defaults
 
-Three buttons on the Setup & Settings tab, one per defaultable file, all opening a generalized modal (`_open_restore_dialog(kind)` in `setup_tab.py`, dispatched via `_RESTORE_KIND_META`). It brings back deleted defaults and picks up updated values at per-entry granularity, **overriding the tombstone gate** that normally suppresses re-adds.
+Three buttons on the Setup & Settings tab, one per defaultable file, all opening a generalized modal (`_open_restore_dialog(kind)` in `setup_tab.py`, dispatched via `_RESTORE_KIND_META`). It brings back deleted defaults and picks up updated values at per-entry granularity, overriding the tombstone gate that normally suppresses re-adds.
 
 Two frames: "Restore Missing" (defaults the user has not taken) and "Replace Changed" (same key, different value), each row with a checkbox defaulting to checked. The Presets kind also gets a Rename column, so the user can keep their customized version under a new name while accepting the default under the original; rename text must be non-empty and must not collide with an existing preset or another rename in the same dialog.
 

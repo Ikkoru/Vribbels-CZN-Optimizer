@@ -50,11 +50,11 @@ The judgement calls worth slowing down for:
 - **Does the absence of something read as broken?** One case behaving unlike every comparable case, with nothing on screen explaining it, earns a line. Apply strictly.
 - **Could this be over-read?** Say what the change does not do. That is what the relaunch line is for.
 
-Write what survives as **what, then where**. Group by tab, order by importance inside each group. A little whimsy is welcome.
+Write what survives as what, then where. Group by tab, order by importance inside each group. A little whimsy is welcome.
 
 ## README
 
-Checked at release, **reported, not edited**. `docs/repo_conventions.md` § README has the policy — note that its first two sections are exempt from the self-evident filter, because a stranger deciding whether to download cannot see the UI.
+Checked at release, reported, not edited. `docs/repo_conventions.md` § README has the policy — note that its first two sections are exempt from the self-evident filter, because a stranger deciding whether to download cannot see the UI.
 
 Re-check these rather than re-deriving them — all five were open at v2.1.0:
 

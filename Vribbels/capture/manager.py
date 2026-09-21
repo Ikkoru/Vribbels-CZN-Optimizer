@@ -1023,7 +1023,7 @@ class Addon:
         # puzzles here, a stated total there.
         #
         # **Every `event_*` table, not a list of the ones in use.**
-        # These are what say how BIG an event is -- the bartender's is
+        # These are what say how BIG an event is -- `event_bartender_1`'s is
         # one row per day of it -- and the total a Checklist row needs
         # is a count over them. A table nobody reads yet costs a few
         # kilobytes; a table nobody KEPT cannot be read later, because

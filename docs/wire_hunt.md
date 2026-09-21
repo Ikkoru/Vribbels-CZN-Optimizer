@@ -2,7 +2,7 @@
 
 A worklist, not a reference. Every Checklist row that shows no value is here with the fields that could carry it, what the account read at the time, and how confident the match is. A row leaves when it is CONFIRMED and the code reads it; a suspect leaves when a capture rules it out.
 
-`docs/wire_hunt.tsv` is what is still OPEN and `docs/wire_hunt_added.tsv` is what the program already reads — a row moves across when the code acts on it. Both are **hand-maintained** -- no script rewrites it, so an edit cannot be lost to a regeneration. This file says how to read it.
+`docs/wire_hunt.tsv` is what is still OPEN and `docs/wire_hunt_added.tsv` is what the program already reads — a row moves across when the code acts on it. Both are hand-maintained -- no script rewrites it, so an edit cannot be lost to a regeneration. This file says how to read it.
 
 Columns: `Row`, `What we need`, `Read on <date>`, `Suspect`, `Confidence`, `Evidence / what would settle it`. The third holds what the account actually showed when the note was taken, which is what a later capture is diffed against.
 
@@ -26,7 +26,7 @@ Everything else is a suspect. A field whose value happens to equal a small numbe
 
 ## Reading the shop rows
 
-Settled — `Vribbels/shop_stock.py` is the canonical write-up and the code that acts on it. In short: `count` is how many were bought in the CURRENT period, `total_count` is the lifetime tally, `reset_time` is when `count` last moved, and `count` is reset **lazily** so a row untouched since the period rolled still carries the previous period's number.
+Settled — `Vribbels/shop_stock.py` is the canonical write-up and the code that acts on it. In short: `count` is how many were bought in the CURRENT period, `total_count` is the lifetime tally, `reset_time` is when `count` last moved, and `count` is reset lazily so a row untouched since the period rolled still carries the previous period's number.
 
 Which prefix is which shop, all established by buying one and reading the product id off the request:
 
@@ -83,7 +83,7 @@ Over and over the wire describes one thing in two places under ids that do not m
 
 **1. Normalise the ids.** Where the two ids differ only in decoration, strip it and compare. An event's `event_schedule_policy_005` and its missions' `event_policy_5_*` become the same string once the word `schedule` and the zero padding are gone. Costs nothing, needs no history, and keeps working as the numbers increment. `checklist_tab._event_key` does this.
 
-**Its failure mode is a PARTIAL match, which looks like a small answer rather than a wrong one.** The devil event's missions leave its index out entirely and number the DAY in that position, so the normalised key matched day one and dropped six more days — a 21-reward event reading `3/3` with nothing to see. Where a family can be counted independently, count it and compare; `docs/events.md` has the recovery.
+**Its failure mode is a PARTIAL match, which looks like a small answer rather than a wrong one.** `event_devil_*` leaves its index out entirely and number the DAY in that position, so the normalised key matched day one and dropped six more days — a 21-reward event reading `3/3` with nothing to see. Where a family can be counted independently, count it and compare; `docs/events.md` has the recovery.
 
 **Use it whenever the two ids share a stem.** It fails silently if a rename breaks the stem, so it belongs with a case that shows on screen rather than one that only feeds a calculation.
 
@@ -167,7 +167,7 @@ A currency in `characters.currencies` keeps three figures, and the third is the 
 | `total_amount` | lifetime GAINED |
 | `total_use_amount` | lifetime spent |
 
-The three reconcile exactly — Policy Point read 36043 gained against 36020 spent with 23 in hand — and `total_amount` is **monotonic**: checked across 101 snapshots and five currencies, not one backward step. So the rate a currency is earned at is one subtraction between two readings of it, with nothing to model about what was spent in between. `Vribbels/checklist_manager.py` is what keeps those readings.
+The three reconcile exactly — Policy Point read 36043 gained against 36020 spent with 23 in hand — and `total_amount` is monotonic: checked across 101 snapshots and five currencies, not one backward step. So the rate a currency is earned at is one subtraction between two readings of it, with nothing to model about what was spent in between. `Vribbels/checklist_manager.py` is what keeps those readings.
 
 **Two of the seven shop currencies are not currencies.** Black Mass (3920007) and the Seasonal Event Currency (3920031) are ordinary `inventory.items` entries with an `amount` and no lifetime anything. **The shops account for them instead:** what is held, plus `shop_list[*].total_count` times each product's price, summed over every product priced in that currency.
 

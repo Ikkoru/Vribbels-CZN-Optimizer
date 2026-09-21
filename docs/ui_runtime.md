@@ -26,7 +26,7 @@ The pattern that works, used by both prerequisite probes and by `_report_data_pr
 
 `tk.Tk()` maps a window the moment it is created, so `OptimizerGUI.__init__` calls `_hide_until_ready()` as its first act and `_reveal_window()` as its last. Everything between is built, loaded and drawn off-screen.
 
-`_hide_until_ready` prefers **alpha 0** to `withdraw()`: a transparent window is still MAPPED, so children realize their true sizes and `winfo_width` / `bbox` return real numbers. That also makes it the way to measure rendered geometry in a probe without putting a window on the maintainer's screen.
+`_hide_until_ready` prefers alpha 0 to `withdraw()`: a transparent window is still MAPPED, so children realize their true sizes and `winfo_width` / `bbox` return real numbers. That also makes it the way to measure rendered geometry in a probe without putting a window on the maintainer's screen.
 
 `_reveal_window()` settles with full `update()` passes, NOT `update_idletasks()`: geometry runs in idle handlers, but the `<Configure>` events geometry generates and the redraws that follow are ordinary events, so draining only idle work reveals a window one layout pass short and partly unpainted.
 

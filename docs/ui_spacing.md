@@ -42,7 +42,7 @@ Prefer narrowing the scan wherever the string can be indexed to a capital. Prefe
 
 **Correcting the reading rather than the target is what keeps a target one number.** A target per glyph class says the same fact twice — that the tool reads a different reference point than the rules name — and puts a conditional in every rule's target column.
 
-One case has no correction and cannot get one: a string with **no cap and no ascender** (`someone`, all lowercase) tops out at the x-height, 2-3px lower, which looks exactly like a gap that is too wide. No title in the app is one, and a title that became one would more likely be a typo than a decision — so the registry refuses to guess rather than deriving something, and the refusal names the reason.
+One case has no correction and cannot get one: a string with no cap and no ascender (`someone`, all lowercase) tops out at the x-height, 2-3px lower, which looks exactly like a gap that is too wide. No title in the app is one, and a title that became one would more likely be a typo than a decision — so the registry refuses to guess rather than deriving something, and the refusal names the reason.
 
 | Gap                                                   | Target                                      | Marker                                          |
 | ----------------------------------------------------- | ------------------------------------------- | ----------------------------------------------- |
@@ -304,7 +304,7 @@ An entry named in `AWAITING_FIRST_READING` prints yellow, in the short run as we
 
 **A list's internals are ruled by this section, not the rules table.** Row height, the inset from a column edge to its text and the header's own padding are style options on a widget that draws itself, not gaps between two things a geometry manager can reach. So no row-pitch or frame-edge rule reaches inside a Treeview, and a marker there names the lever rather than a rule. The rules table covers the gap from the list's outer edge to whatever sits beside it.
 
-All six Treeviews take the base `Treeview` style — none passes a `style=` — so they move together. `configure_styles` sets: `Treeview` padding **(2, 0, 2, 0)**, `rowheight` **21**, heading padding **3**, heading borderwidth **0**, and a layout with no `Treeview.field`, so the widget has no outline.
+All six Treeviews take the base `Treeview` style — none passes a `style=` — so they move together. `configure_styles` sets: `Treeview` padding (2, 0, 2, 0), `rowheight` **21**, heading padding **3**, heading borderwidth **0**, and a layout with no `Treeview.field`, so the widget has no outline.
 
 | Lever                   | What it insets                                                                                                                                                                                                                                                                        | Set to          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
@@ -372,7 +372,7 @@ The three border colours reach only a scrollbar's edges; the two that fill it ar
 
 The audit's question is not "is this pixel painted" but **"would the eye put the edge here"** — a gap measured to a pixel nobody can see reads as misaligned when it looks fine. Antialiasing puts such a pixel at both ends of every string.
 
-So `is_background` runs three tests in order. A pixel matching a background shade exactly is empty space. A blend of two background shades is too — that is the tab-strip seam, and it needs no tolerance in RGB because testing whether the pixel lies BETWEEN two known shades is exact at any width. Then, for a pixel matching no palette colour at all, a **lightness** test: below `FRINGE_LIGHTNESS` in CIE L\* from the background, it is a fringe the eye cannot find, and it is empty space.
+So `is_background` runs three tests in order. A pixel matching a background shade exactly is empty space. A blend of two background shades is too — that is the tab-strip seam, and it needs no tolerance in RGB because testing whether the pixel lies BETWEEN two known shades is exact at any width. Then, for a pixel matching no palette colour at all, a lightness test: below `FRINGE_LIGHTNESS` in CIE L\* from the background, it is a fringe the eye cannot find, and it is empty space.
 
 Three things about that last test are load-bearing.
 
@@ -426,7 +426,7 @@ stop_desc  = stop_level + 5                              # left-aligned
 
 **A right stop is placed at the widest label-and-value PAIR across the real rows**, not at the two maxima added together: a value of width `v` starts at the stop less `v`, so what has to clear the label is that row's own pair. The widest pair is a node whose name carries a decimal point beside a one-character `Y`; the two-digit levels sit on shorter names. `checks/check_tabs_build.py` holds both stops to what the rows measure.
 
-Tab stops are **pixel** offsets, not character counts, so a group can be tuned to the pixel. `name_px` is measured in the actual font, which is what survives a font change.
+Tab stops are pixel offsets, not character counts, so a group can be tuned to the pixel. `name_px` is measured in the actual font, which is what survives a font change.
 
 **A value column is anchored at one edge, and which one decides what stays constant:**
 

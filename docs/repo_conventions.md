@@ -80,7 +80,7 @@ Two things override those cuts:
 - **An exception with no visible reason.** Where one case behaves unlike every comparable case and nothing on screen explains it, a player reads it as broken. Every shop shows earning rates except the Seasonal Shop; that line stays. Apply this strictly — it is not a licence to keep anything that might confuse someone.
 - **A change that invites a wrong conclusion.** Say what it does NOT do. "A capture can be left running" plus "a new snapshot starts each relaunch" reads as "capture is automatic now", so the note adds that relaunching the program still needs the button.
 
-What survives is written as **what, then where**: *"Archive info and settings are in Setup & Settings → Settings."* Group by tab and order by importance within each; give a new tab one line saying what it is for. The header names one or two themes. `Added`, `Fixed` and `Changed` may end up empty.
+What survives is written as what, then where: *"Archive info and settings are in Setup & Settings → Settings."* Group by tab and order by importance within each; give a new tab one line saying what it is for. The header names one or two themes. `Added`, `Fixed` and `Changed` may end up empty.
 
 A little whimsy is welcome here and nowhere else.
 

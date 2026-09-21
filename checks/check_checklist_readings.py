@@ -375,7 +375,7 @@ def run():
                                 "complete_time": 0},
     }
     # Soonest first inside each half: the summer floor ends first, then
-    # the devil floor, then the rhythm event, which has no reader at
+    # the event_devil_* floor, then the rhythm event, no reader at
     # all. The Overclock's finished day sorts BELOW all three despite
     # ending soonest of the four -- which is the whole point, and what
     # a plain deadline sort would get wrong.
@@ -398,7 +398,7 @@ def run():
     # event read `3/3` for a week without anything looking wrong.
     #
     # The stem fixes that and is far too greedy on its own, so these
-    # pin both halves: the devil is whole, and the three families it
+    # pin both halves: event_devil_* is whole, and the three it
     # would otherwise swallow are untouched.
     def _rows(schedules, mission_ids):
         raw = _snapshot()
@@ -1493,7 +1493,7 @@ def run():
             "not the user changing their mind.")
 
     # --- a rectangular family states its own size --------------------
-    # The devil event is the same three tasks each day, ids
+    # event_devil_* is the same three tasks each day, ids
     # `event_devil_<day>_<task>`, and the game issues one axis a row
     # at a time and the other all at once -- so a same-second batch
     # spanning the days says both that the shape is a grid and how

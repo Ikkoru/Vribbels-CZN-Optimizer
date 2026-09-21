@@ -62,7 +62,7 @@ Ten nodes, and **the numbering on the wire does not match the numbering in the g
 
 Max levels total **45**, which is what the Combatants tab's `Nodes` column counts against. It is summed from `POTENTIAL_NODES` rather than stated, so this table and that one cannot drift apart on it.
 
-`CharacterInfo.potential_nodes` holds every node's level; `potential_50_level` / `potential_60_level` repeat the two STAT nodes as their own fields, because the scoring path reads them per combo and that loop is not the place for a dict lookup. `characters.py` still stores a stat for `node_50` and `node_60` only — **deliberate, not an oversight**: the card-effect nodes change card magnitudes, which the build score does not model, so they are displayed and not scored.
+`CharacterInfo.potential_nodes` holds every node's level; `potential_50_level` / `potential_60_level` repeat the two STAT nodes as their own fields, because the scoring path reads them per combo and that loop is not the place for a dict lookup. `characters.py` still stores a stat for `node_50` and `node_60` only — deliberate, not an oversight: the card-effect nodes change card magnitudes, which the build score does not model, so they are displayed and not scored.
 
 `POTENTIAL_NODES` in `game_data/characters.py` is the one list carrying the display order, both numberings, the maxima and the per-node descriptions. The descriptions live there rather than here on purpose: a second copy of a string the UI already shows is what goes stale.
 
@@ -71,7 +71,7 @@ Max levels total **45**, which is what the Combatants tab's `Nodes` column count
 
 Per-level magnitudes are `POTENTIAL_STAT_VALUES`: 1.6/level for ATK%/DEF%/HP%, 2.0 for CRate, 2.4 for CDmg.
 
-## 2. Main stats
+## 2. A fragment: main stat, rarity, levels and substats
 
 A slot accepts a main stat only from its own set, and each main stat has one value per upgrade level, topping out at a ceiling fixed per stat.
 
@@ -166,7 +166,7 @@ Agony is what the settings key `dot_pct` names. Fracture and Scorched are mechan
 
 **Where the shares come from.** The Important Settings shares are read off the combatant's **DECK**, not off damage numbers: add up the DMG% of each source over a turn — cards, Extra Attacks, DoT procs — and take each type's fraction. Only a deck change moves them, where a reading taken from damage numbers moves on every gear change.
 
-That makes each share a fraction of **base coefficients**, before ATK, crit, buffs and the mechanic multipliers. So each type's term must carry its own full multiplier stack, `(1 + DoT%)` and `(1 + Extra%)` included — not double-counted, because the share never contained them. A combatant declaring 50% Agony is saying half their raw coefficient output is Agony, **not** half their damage.
+That makes each share a fraction of base coefficients, before ATK, crit, buffs and the mechanic multipliers. So each type's term must carry its own full multiplier stack, `(1 + DoT%)` and `(1 + Extra%)` included — not double-counted, because the share never contained them. A combatant declaring 50% Agony is saying half their raw coefficient output is Agony, not half their damage.
 
 **The program does not distinguish general buffs from card-only buffs.** In game, Fracture and Scorched take general buffs but not card-only ones. The Average Buff% settings are read as GENERAL throughout, which overstates the Fracture share for a combatant whose buffs are card-only. Splitting the two is parked in `tasks.md` TBD.
 

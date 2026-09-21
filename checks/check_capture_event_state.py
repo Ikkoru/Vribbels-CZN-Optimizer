@@ -284,7 +284,7 @@ def run():
     held = _rows(addon, "event_mission_reward_entities")
     if held.get("event_bartender_1", {}).get("event_achieve_state") != 1:
         failures.append(
-            f"the real completion reply left the Bartender at "
+            f"the real completion reply left `event_bartender_1` at "
             f"{held.get('event_bartender_1', {}).get('event_achieve_state')!r}"
             f", not 1. `entity` is the key that claim answers under, and "
             f"dropping it leaves an event the wire has called finished "

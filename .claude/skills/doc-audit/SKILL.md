@@ -5,7 +5,7 @@ description: Audit the repo's prose — docs/, CLAUDE.md, .claude/rules/, skills
 
 # Doc audit
 
-The written guidelines are elsewhere and are not repeated here: `~/.claude/CLAUDE.md` (comment style, mechanism-not-output, no change narration), `CLAUDE.md` (what belongs in which file), `docs/repo_conventions.md` (`tasks.md`, `plan.md`, CHANGELOG, release notes). This skill is the **detection and judgement** half — how to find breaches, which apparent ones are not, and what a pass must leave alone.
+The written guidelines are elsewhere and are not repeated here: `~/.claude/CLAUDE.md` (comment style, mechanism-not-output, no change narration), `CLAUDE.md` (what belongs in which file), `docs/repo_conventions.md` (`tasks.md`, `plan.md`, CHANGELOG, release notes). This skill is the detection and judgement half — how to find breaches, which apparent ones are not, and what a pass must leave alone.
 
 ## What this pass may change on its own
 
@@ -19,7 +19,7 @@ The reason is not caution in general. It is that an audit reads a hundred passag
 
 1. **Contradictions first.** Every other improvement to a passage is wasted if two passages disagree.
 2. **Then anything that moves a fact between files.** Editing prose that is about to be deleted is the one wholly wasted edit.
-3. **Then staleness**, then references, then shape.
+3. Then staleness, then references, then shape.
 
 ## The three failure modes that actually happen here
 

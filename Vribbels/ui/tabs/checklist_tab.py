@@ -538,7 +538,7 @@ def _event_rows(raw, name):
     Most families repeat it -- `event_summer_01` owns
     `event_summer_mission_01_*`, `event_bartender_01` owns
     `event_bartender_1_*` -- so a prefix match on the normalised key
-    finds them. The devil event does not: its schedule is
+    finds them. `event_devil_*` does not: its schedule is
     `event_schedule_devil_001` and its missions are
     `event_devil_<day>_<task>`, where that `01` is DAY one. Matching on
     the key alone took day one and silently dropped days two to seven,
@@ -838,8 +838,8 @@ def _event_finished(raw, name):
     **`event_mission_reward_entities` is the only place it does.** One
     row per event the account has a completion record for, and
     `event_achieve_state` is 1 once the event's own final reward --
-    the one that unlocks after every other -- has been taken. The
-    Bartender's is the worked example.
+    the one that unlocks after every other -- has been taken.
+    `event_bartender_1`'s is the worked example.
 
     Everything else about an event is a count of what has been handed
     out, which is a floor and can never prove completion. This can,
@@ -1019,7 +1019,7 @@ def _event_progress(raw, name):
     # so the floor mark comes off -- see `_page_totals`. The row is
     # still not green on it: a page nobody has been issued yet is
     # invisible here, and an event can pay outside its mission rows
-    # (the bartender's final reward is not one). `_event_finished` is
+    # (`event_bartender_1`'s final reward is not one). `_event_finished` is
     # what ends an event.
     whole, trickling = _page_totals(rows)
     if whole and not trickling:
@@ -1039,14 +1039,14 @@ def _grid_total(rows):
 
     `docs/events.md` has the measurement: over the eleven families in
     the account's mission table it finds two grids and leaves nine
-    ragged, with no crossing either way. The two it answers -- the
-    devil's 21 and the node list's 25 -- are the numbers the game's
-    own screens state.
+    ragged, with no crossing either way. The two it answers --
+    `event_schedule_devil_001`'s 21 and the node list's 25 -- are the
+    numbers the game's own screens state.
 
     **It answers on the event's first afternoon**, which is the only
-    time an answer is worth anything: on the devil's opening day, with
-    12 of its 21 rows in hand, the batch already spanned all seven
-    days.
+    time an answer is worth anything: on `event_schedule_devil_001`'s
+    opening day, with 12 of its 21 rows in hand, the batch already
+    spanned all seven days.
 
     None where the rows do not look rectangular, or where there are
     already more of them than the shape allows -- a grid that has been
