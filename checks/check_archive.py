@@ -241,6 +241,48 @@ def _twice_leaves_one_member_each():
     return out
 
 
+def _the_report_says_a_number_once_when_it_means_once():
+    """Short form only where all three counts agree.
+
+    The long form exists for the two cases that matter -- a file that
+    would not delete, and an archive that already held members -- so a
+    run that collapses them into one number where they DIFFER is
+    hiding exactly what the line is for.
+    """
+    out = []
+    high, low = archive.KINDS[archive.SNAPSHOTS][1:3]
+    work = _folder(snapshots=high)
+    try:
+        said = []
+        archive.compact(work, say=lambda m, *a, **k: said.append(str(m)))
+        first = [m for m in said if m.startswith("[OK]")]
+        if len(first) != 1:
+            return ["a first compaction said %r" % first]
+        if "deleted" in first[0] or "holds" in first[0]:
+            out.append(
+                f"a first compaction, where archived, deleted and held are "
+                f"all the same number, still reported {first[0]!r}. That is "
+                f"the case the short form is for.")
+
+        # Enough new files for a second compaction. The archive now
+        # holds the first batch too, so held exceeds archived.
+        for stamp in _stamps(high, start=high + 1):
+            _snapshot(work, stamp)
+        said.clear()
+        archive.compact(work, say=lambda m, *a, **k: said.append(str(m)))
+        second = [m for m in said if m.startswith("[OK]")]
+        if len(second) != 1:
+            out.append("a second compaction said %r" % second)
+        elif "holds" not in second[0]:
+            out.append(
+                f"a second compaction reported {second[0]!r}. The archive "
+                f"already held the first batch, so held is larger than "
+                f"archived and the long form is the honest one.")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
 def _dry_run_deletes_nothing():
     high = archive.KINDS[archive.SNAPSHOTS][1]
     work = _folder(snapshots=high)
@@ -469,7 +511,8 @@ def run():
                   _deleter_refuses_what_it_should,
                   _sweep_clears_an_interrupted_build,
                   _twice_leaves_one_member_each,
-                  _dry_run_deletes_nothing,
+                  _the_report_says_a_number_once_when_it_means_once,
+        _dry_run_deletes_nothing,
                   _background_run_reports_instead_of_dying,
                   _the_setting_reaches_the_launch_path,
                   _a_walk_reaches_archived_captures):

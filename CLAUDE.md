@@ -34,41 +34,41 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 
 **Measuring the UI headlessly has its own rules** — `.claude/rules/ui.md`, which also carries the spacing audit's recipes.
 
-| To check                              | Do this                                                                                                                              |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Any file touched                      | `python -m compileall -q Vribbels`                                                                                                   |
-| Anything, before handing over         | `python checks/run_all.py`                                                                                                           |
-| A `game_data/` table                  | `game_data_validator.check_data_files()` and `find_data_problems()` — the launch-time checks, invoked directly                        |
-| A settings or defaults-sync change    | Point the managers at a COPY of `Vribbels/settings/` in the scratchpad, never the live folder                                        |
+| To check                           | Do this                                                                                                        |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Any file touched                   | `python -m compileall -q Vribbels`                                                                             |
+| Anything, before handing over      | `python checks/run_all.py`                                                                                     |
+| A `game_data/` table               | `game_data_validator.check_data_files()` and `find_data_problems()` — the launch-time checks, invoked directly |
+| A settings or defaults-sync change | Point the managers at a COPY of `Vribbels/settings/` in the scratchpad, never the live folder                  |
 
 Snapshots are the maintainer's captured game data. Read them; never write to `Vribbels/snapshots/` or `Vribbels/settings/`.
 
 ## Where the detail lives
 
-| Area                                                                 | Doc                                        |
-| -------------------------------------------------------------------- | ------------------------------------------ |
-| Game math: damage, shield/heal, set effects, scoring                 | `docs/game_formulas.md` (canonical)        |
-| `*_manager.py`, `defaults_sync.py`, Restore Defaults, settings files | `docs/settings_architecture.md`            |
-| Shipping `default_settings/` — maintainer workflow                   | `docs/how_to_maintain_default_settings.md` |
-| `capture/`, snapshot parsing, char-vs-partner classification         | `docs/capture_pipeline.md`                 |
-| Folding superseded captures into the archive                         | `Vribbels/capture/archive.py`, run by hand with `docs/snapshots_archive.py` |
-| `game_data/*.py`, the launch-time validator, stat vocabularies       | `docs/game_data_files.md`                  |
-| Which item res_ids are known, used, or still to identify              | `docs/items_id_dump.py` and the item TSVs it writes |
-| What each shop sells, at what price and cap                           | `docs/items_shops.tsv` |
-| The spacing audit's recorded readings                                 | `docs/spacing_baseline.json`, written by `zRUN Spacing Audit Freeze.bat` |
-| Which mission res_ids are known, and which set each belongs to        | `docs/missions_id_dump.py` and `docs/missions_id.tsv` |
-| Which wire field carries a Checklist row, and the suspects for the rest | `docs/wire_hunt.md` and `docs/wire_hunt.tsv` |
-| What the wire has sent that nothing reads                             | `docs/wire_catalogue.py`, over `settings/wire_catalogue.json`; `docs/wire_catalogue_backfill.py` folds in older captures |
-| Event categories, how to classify one, and what the Checklist does with each | `docs/events.md` |
-| Tk threading, startup, display quirks                                | `docs/ui_runtime.md`                       |
-| Panel layout, spacing rules, the ledger, ttk styles                  | `docs/ui_spacing.md`                       |
-| Running a spacing audit and reading its table                        | `.claude/skills/spacing-audit/SKILL.md`    |
-| `tasks.md` / `plan.md` / CHANGELOG conventions                       | `docs/repo_conventions.md`                 |
-| The executable checks, and how to add one                            | `checks/__init__.py`                       |
-| Optimizer / startup performance history                              | `past_plans/optimizer_performance.md`      |
-| Why the game-data validator checks what it checks                    | `past_plans/game_data_validation.md`       |
-| Why the spacing work took the shape it did, and what is left of it   | `past_plans/UI_unionization.md` and `_extra` |
-| Why the capture archive is one rebuilt file, and what it cost to prove | `past_plans/capture_archiving.md` |
+| Area                                                                         | Doc                                                                                                                      |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Game math: damage, shield/heal, set effects, scoring                         | `docs/game_formulas.md` (canonical)                                                                                      |
+| `*_manager.py`, `defaults_sync.py`, Restore Defaults, settings files         | `docs/settings_architecture.md`                                                                                          |
+| Shipping `default_settings/` — maintainer workflow                           | `docs/how_to_maintain_default_settings.md`                                                                               |
+| `capture/`, snapshot parsing, char-vs-partner classification                 | `docs/capture_pipeline.md`                                                                                               |
+| Folding superseded captures into the archive                                 | `Vribbels/capture/archive.py`, run by hand with `docs/snapshots_archive.py`                                              |
+| `game_data/*.py`, the launch-time validator, stat vocabularies               | `docs/game_data_files.md`                                                                                                |
+| Which item res_ids are known, used, or still to identify                     | `docs/items_id_dump.py` and the item TSVs it writes                                                                      |
+| What each shop sells, at what price and cap                                  | `docs/items_shops.tsv`                                                                                                   |
+| The spacing audit's recorded readings                                        | `docs/spacing_baseline.json`, written by `zRUN Spacing Audit Freeze.bat`                                                 |
+| Which mission res_ids are known, and which set each belongs to               | `docs/missions_id_dump.py` and `docs/missions_id.tsv`                                                                    |
+| Which wire field carries a Checklist row, and the suspects for the rest      | `docs/wire_hunt.md` and `docs/wire_hunt.tsv`                                                                             |
+| What the wire has sent that nothing reads                                    | `docs/wire_catalogue.py`, over `settings/wire_catalogue.json`; `docs/wire_catalogue_backfill.py` folds in older captures |
+| Event categories, how to classify one, and what the Checklist does with each | `docs/events.md`                                                                                                         |
+| Tk threading, startup, display quirks                                        | `docs/ui_runtime.md`                                                                                                     |
+| Panel layout, spacing rules, the ledger, ttk styles                          | `docs/ui_spacing.md`                                                                                                     |
+| Running a spacing audit and reading its table                                | `.claude/skills/spacing-audit/SKILL.md`                                                                                  |
+| `tasks.md` / `plan.md` / CHANGELOG conventions                               | `docs/repo_conventions.md`                                                                                               |
+| The executable checks, and how to add one                                    | `checks/__init__.py`                                                                                                     |
+| Optimizer / startup performance history                                      | `past_plans/optimizer_performance.md`                                                                                    |
+| Why the game-data validator checks what it checks                            | `past_plans/game_data_validation.md`                                                                                     |
+| Why the spacing work took the shape it did, and what is left of it           | `past_plans/UI_unionization.md` and `_extra`                                                                             |
+| Why the capture archive is one rebuilt file, and what it cost to prove       | `past_plans/capture_archiving.md`                                                                                        |
 
 `past_plans/` is an ARCHIVE and the one exception to the no-dates/no-status-tags rule: its dated decisions and `[IMPLEMENTED]` tags are the record. Read one before reopening a question it settled.
 
@@ -76,20 +76,20 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 
 **Vribbels CZN Optimizer (Ikkoru fork)** — a Memory Fragment / gear optimizer for **Chaos Zero Nightmare** (CZN). Python 3, Tkinter UI, mitmproxy for capture; source root `Vribbels/`. Forked from `Vorbroker/Vribbels-CZN-Optimizer` at upstream v1.7.0; this fork is `Ikkoru/Vribbels-CZN-Optimizer`, branch `master`.
 
-Version string: `Vribbels/version.py`, bumped ONLY at release — dev builds keep the released string.
+Version string: `Vribbels/version.py`.
 
 ## Naming
 
 **Identifiers inherited from upstream do not use the game's words**, and that mismatch is deliberate — renaming them cascades through saved settings, presets and captured-data keys. User-visible TEXT uses the game's term; identifiers keep upstream's.
 
-| Code says                              | The game says     |
-| -------------------------------------- | ----------------- |
-| `heroes_tab.py`, `hero`                | Combatant         |
-| `inventory_tab.py`, `piece`            | Memory Fragment   |
-| `materials_tab.py`                     | growth stones     |
-| `FRIENDSHIP_BONUSES`, `friendship_index` | Affinity        |
-| `chaos_assault`, `assault_*`, `ASSAULT_SCHEDULE` | Sortie  |
-| `dot_pct`, `dot_share`                 | the Agony share   |
+| Code says                                        | The game says   |
+| ------------------------------------------------ | --------------- |
+| `heroes_tab.py`, `hero`                          | Combatant       |
+| `inventory_tab.py`, `piece`                      | Memory Fragment |
+| `materials_tab.py`                               | growth stones   |
+| `FRIENDSHIP_BONUSES`, `friendship_index`         | Affinity        |
+| `chaos_assault`, `assault_*`, `ASSAULT_SCHEDULE` | Sortie          |
+| `dot_pct`, `dot_share`                           | the Agony share |
 
 The last row is the sharp one: the `DoT%` STAT is called DoT% in game and improves all three DoT types, while the damage TYPE the program calls DoT is only Agony. `docs/game_formulas.md` §3.4 is canonical.
 

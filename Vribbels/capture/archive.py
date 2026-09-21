@@ -308,9 +308,17 @@ def compact(folder, preset=DEFAULT_PRESET, say=print, delete=True) -> dict:
     for path in adding:
         if member_name(path) in wanted and _delete(folder, path, wanted, say):
             result["deleted"].append(path.name)
-    say("[OK] %d capture(s) archived, %d deleted; %s holds %d file(s)."
-        % (len(result["archived"]), len(result["deleted"]),
-           ARCHIVE_NAME, len(contents(folder))))
+    # Three counts that usually say one thing. They diverge only when
+    # a file would not delete, or when the archive already held members
+    # from an earlier pass -- and those are the cases worth spelling
+    # out, so the short form is the one that says nothing is amiss.
+    added, gone, held = (len(result["archived"]), len(result["deleted"]),
+                         len(contents(folder)))
+    if added == gone == held:
+        say("[OK] %d capture(s) archived to %s." % (added, ARCHIVE_NAME))
+    else:
+        say("[OK] %d capture(s) archived, %d deleted; %s holds %d file(s)."
+            % (added, gone, ARCHIVE_NAME, held))
     return result
 
 
