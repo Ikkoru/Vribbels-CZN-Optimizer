@@ -7,8 +7,8 @@ res_id	where	amount	Name	Type	Note
 2000021	currencies	0			
 2000033	currencies	3			Spectral Cube candidate
 2000034	currencies	0			
-3920001	items			Seasonal Event Currency	Galactic Disaster Season 1 Event Currency
-3920002	items			Seasonal Event Currency	Galactic Disaster Season 2 Event Currency
+3920001				Seasonal Event Currency	Galactic Disaster Season 1 Event Currency
+3920002				Seasonal Event Currency	Galactic Disaster Season 2 Event Currency
 3920004	items	0			
 3920005	items	0			
 3930002					Couldn't find any 10s. Possibly an event item, because it was gone from the snapshot after new patch dropped

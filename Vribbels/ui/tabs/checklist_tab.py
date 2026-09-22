@@ -133,12 +133,35 @@ SHOP_HEAD_PREFIX = "shophead:"
 # and without it one shop's two rows would read each other's totals.
 SHOP_TOTAL_PREFIX = "shoptotal:"
 
-# The widest a shop heading's total can render, which is what the
-# column reserves room for. Six figures a side: the largest bill any
-# shop can present is five, and the reserve is static so that a total
-# gaining a digit cannot outrun a block that is only rebuilt when the
-# row SET changes.
-SHOP_TOTAL_WIDEST = "999999/999999"
+# The widest a shop heading's total can render, PER SHOP. The reserve
+# is what the heading's second tab stop sits at, so one figure too few
+# pushes a long total out of alignment and one too many leaves the
+# whole column that much wider than its content -- and the column with
+# only shops in it is as wide as this and nothing else.
+#
+# Sized from the shop's own catalogue, which does not move within a
+# period, so the reserve stays STATIC: a total gaining a digit as the
+# shelves empty cannot outrun a block that is rebuilt only when the
+# row SET changes. Six figures where a shop can present them (the
+# Galactic Disaster's runs past 700,000), four where it cannot.
+SHOP_TOTAL_FALLBACK = "999999/999999"
+SHOP_TOTAL_MIN_DIGITS = 4
+
+# Heading key -> its reserve, filled as the rows are built and read
+# when they are laid out. The two happen in different scopes and the
+# row tuple is three fields wide everywhere it is consumed.
+SHOP_TOTAL_RESERVE = {}
+
+
+def shop_total_widest(shop, period, raw):
+    """The widest `held/bill` one shop's heading can render."""
+    bill = 0
+    for _product_id, define in shop_products(shop, period, raw):
+        cap, price = define.get("limit_count"), define.get("price_count")
+        if _is_count(cap) and _is_count(price):
+            bill += cap * price
+    digits = max(len(str(bill)), SHOP_TOTAL_MIN_DIGITS)
+    return "%s/%s" % ("9" * digits, "9" * digits)
 
 # What a shop heading's hover is tagged with, plus its key. Covers the
 # shop's NAME and its total and nothing else on the line -- the Sortie
@@ -1494,6 +1517,7 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
         # read as a broken tab rather than as data not yet arrived.
         for shop in shops if period else ():
             head = shop_head_key(shop, period)
+            SHOP_TOTAL_RESERVE[head] = shop_total_widest(shop, period, raw)
             rows.append((head, shop_stock.SHOPS[shop],
                          WIDEST_COUNTDOWN if head in COUNTDOWNS else None))
             products = shop_rows(shop, period, raw)
@@ -2072,7 +2096,8 @@ class ChecklistTab(BaseTab):
         # reaches further, the readings at the stop or the longest
         # heading here.
         reach = max([_head_stop(font, label)
-                     + font.measure(SHOP_TOTAL_WIDEST)
+                     + font.measure(SHOP_TOTAL_RESERVE.get(
+                         key, SHOP_TOTAL_FALLBACK))
                      + (font.measure(w) if w else 0)
                      for key, label, w in rows
                      if key.startswith(SHOP_HEAD_PREFIX)] or [0])
@@ -2163,7 +2188,8 @@ class ChecklistTab(BaseTab):
             # So a shop heading's line hangs entirely off its words.
             text.tag_configure(
                 SHOP_STOP_PREFIX + key,
-                tabs=(own, own + font.measure(SHOP_TOTAL_WIDEST)))
+                tabs=(own, own + font.measure(SHOP_TOTAL_RESERVE.get(
+                    key, SHOP_TOTAL_FALLBACK))))
             # What the shop's currency has been earning. Bound to the
             # TAG rather than to the words, and reading the rows back
             # when the pointer stops rather than now: the tag outlives
