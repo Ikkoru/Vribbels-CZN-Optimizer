@@ -481,26 +481,48 @@ def run():
             f"envelopes moved, so two lines: the counts come right off "
             f"the client's own re-read either way, and the log line is "
             f"the only thing that says a reward arrived at all.")
-    # ...and the run's whole tally beside them, REPORTED. The two
-    # assertions above are what catch it being applied -- the list says
-    # another 20 of the item -- and this is what catches it being
-    # dropped, which is how the payout went unstated in the first
-    # place. Its own line: a Sortie pays its deposit back in the same
-    # frame, and one line holding both reads as one receipt.
+    # ...and NOT the run's own tally, because the envelope above
+    # already stated it. A Simulation or Chaos run's
+    # `result_reward_drop_item` is the whole run as holdings, so
+    # reporting `confirm_drop_item` beside it prints one payout twice
+    # under two different words.
+    totals = [line for line in log if "Total rewards" in str(line)]
+    if totals:
+        failures.append(
+            f"a run whose envelope stated its payout also wrote {totals!r}. "
+            f"`result_reward_drop_item` and `confirm_drop_item` carry the "
+            f"same thing here, so the second line is the first one again.")
+
+    # A Sortie is the case the line exists for: its envelope is `{}`
+    # and the list is the only statement of what the run paid.
+    log.clear()
+    before_item = _amount(addon, ITEM_ID)
+    addon._handle_server_payload({
+        "res": "ok", "qid": 81,
+        "return_info": {
+            "state": "finish", "result": "CLEAR",
+            "chaos_assault_result": {
+                "item_result": {},
+                "refund_item_result": {"currency": {
+                    "2000002": {"doc": {"res_id": 2000002, "amount": 155},
+                                "diff": 10}}}},
+            "confirm_drop_item": [{"id": ITEM_ID, "amount": 20}]},
+    }, 100)
     totals = [line for line in log if "Total rewards" in str(line)]
     if len(totals) != 1:
         failures.append(
-            f"the run's own tally wrote {totals!r}, not one line. "
-            f"`return_info.confirm_drop_item` is the only statement of "
-            f"a run as a WHOLE -- the envelopes arrive split across the "
-            f"frames that paid them -- so without it a Sortie's payout "
-            f"is never stated anywhere.")
-    elif not all(word in str(totals[0])
-                 for word in ("+20", "+2000")):
+            f"a Sortie, whose own envelope is empty, wrote {totals!r} rather "
+            f"than one `Total rewards` line. The list is the only place its "
+            f"payout is stated, which is the whole reason for the line.")
+    elif "+20" not in str(totals[0]):
         failures.append(
-            f"the run's tally says {totals[0]!r}, which does not carry "
-            f"both of the list's amounts. It is a reading of the list, "
-            f"not of what the envelopes happened to pay.")
+            f"the Sortie tally says {totals[0]!r}, without the list's "
+            f"amount. It is a reading of the list, not of the envelopes.")
+    if _amount(addon, ITEM_ID) != before_item:
+        failures.append(
+            f"reporting a Sortie's tally moved {ITEM_ID} from "
+            f"{before_item!r} to {_amount(addon, ITEM_ID)!r}. It is "
+            f"reported, never applied.")
 
     # A town calamity pays under `calamity_reward`, in the same
     # `{currency, items}` shape as the four keys beside it.

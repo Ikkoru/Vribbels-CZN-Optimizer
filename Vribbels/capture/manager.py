@@ -905,21 +905,26 @@ class Addon:
         # same number. The drop LISTS beside them in the same payload
         # -- `confirm_drop_item` -- would double, which is why only
         # envelopes are swept. See `_nested_rewards`.
+        stated = set()
         for nested in self._nested_rewards(data.get("return_info")):
-            self._apply_totals(nested)
+            stated |= self._apply_totals(nested)
 
-        # And the run's own tally, REPORTED and never applied. The
-        # envelopes above have already paid every one of these, so
-        # adding them would double the run; but the envelopes arrive
-        # split across the frames that paid them, and this is the only
-        # place the whole run is stated at once -- which is what the
-        # results screen shows and what a reader wants to check against.
+        # And the run's own tally -- REPORTED, never applied, and only
+        # where the envelopes above have not already named the same
+        # items.
         #
-        # Its own line, and worded so it cannot be mistaken for a
-        # receipt: a payout landing in the same frame prints beside it.
+        # A Simulation or Chaos run's `result_reward_drop_item` states
+        # the whole run as holdings, so reporting the list beside it
+        # prints one payout twice under two different words. A Sortie's
+        # is `{}` and only its deposit refund carries anything, so the
+        # list is the only statement of what that run paid -- which is
+        # why this exists. The test is WHICH items were named, not
+        # whether any envelope spoke: the refund speaks and says
+        # nothing about the payout.
         self._report_run_total(
             (data.get("return_info") or {}).get("confirm_drop_item")
-            if isinstance(data.get("return_info"), dict) else None)
+            if isinstance(data.get("return_info"), dict) else None,
+            stated)
 
         # A stage's rewards, which are the exception: a LIST of drops
         # with no record and no total, so they are added rather than
@@ -1479,6 +1484,7 @@ class Addon:
             self.log_callback("[LIVE] %s %s"
                               % (self._verb(moved, spent),
                                  self._describe_amounts(moved)))
+        return {res_id for res_id, _diff in moved}
 
     @staticmethod
     def _verb(moved, spent):
@@ -1574,7 +1580,7 @@ class Addon:
             self.log_callback("[LIVE] Received %s"
                               % self._describe_amounts(applied))
 
-    def _report_run_total(self, drops):
+    def _report_run_total(self, drops, already_named=()):
         """Say what a whole run paid, without changing a single count.
 
         **NOT dead code, and nothing here may start applying it.** Every
@@ -1593,7 +1599,9 @@ class Addon:
             res_id, amount = row.get("id"), row.get("amount")
             if res_id is not None and isinstance(amount, int):
                 totals[res_id] = totals.get(res_id, 0) + amount
-        if totals:
+        # Nothing to add where every item was already named by an
+        # envelope in the same reply: that line IS this one.
+        if totals and not set(totals) <= set(already_named or ()):
             self.log_callback("[LIVE] Total rewards: %s"
                               % self._describe_amounts(totals.items()))
 
