@@ -277,6 +277,7 @@ SEASON_ESTIMATE = {
             9 * 100 + 52 * 200 + 2 * 2000,          # Chaos Investigation
             4 * 500 + 4 * 1000 + 2 * 2000,          # Battle Report
             4 * 3 * (200 + 6 * 100 + 3 * 50),       # Annihilation Reward
+            11 * 1000,                              # Seasonal Chaos first clear
         ),
     },
 }

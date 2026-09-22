@@ -1,6 +1,6 @@
 res_id	where	amount	Name	Type	Note
-2000002	currencies	76	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
-2000007	currencies	25	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
+2000002	currencies	11	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
+2000007	currencies	13	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
 2000011	currencies	359	Moment of the Radiant Hero	Shop Currency	
 2000012	currencies	1068	Moment of the Radiant Traveler	Shop Currency	
 2000014	currencies	0	Tear of God	Stamina Recovery	
@@ -10,15 +10,15 @@ res_id	where	amount	Name	Type	Note
 2000022	currencies	3	Special Security Code	Trauma Code Unlock Item	Max 3 stored
 2000023	currencies	32	Prism Lens	Gacha Currency - Animated Card	
 2000024	currencies	560	Prism Film	Shop Currency	
-2000031	currencies	243	Policy Point	Ark - Shop Currency	
-2000032	currencies	13120	Crystal of Discord	Shop Currency	
+2000031	currencies	256	Policy Point	Ark - Shop Currency	
+2000032	currencies	13720	Crystal of Discord	Shop Currency	
 2000048	currencies	0	Daily Chaos Delegation	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation
-3000005	items	42160	Chaos Orb	Zero System Currency	Worthless
+3000005	items	42347	Chaos Orb	Zero System Currency	Worthless
 3000008	items	508	Tactical Data	Sortie Currency	
 3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Reset when a Galactic Disaster ends
-3200001	items	7200	Particles of Memory	Crafting Material for Memory Fragments	
-3200002	items	329	Core of Memory	Crafting Material for Memory Fragments	
-3210001	items	8059	Traces of Memory	Crafting Material for Memory Fragments	
+3200001	items	7280	Particles of Memory	Crafting Material for Memory Fragments	
+3200002	items	332	Core of Memory	Crafting Material for Memory Fragments	
+3210001	items	8075	Traces of Memory	Crafting Material for Memory Fragments	
 3210002	items	24	Multidimensional Alignment Material	Crafting Material for Memory Fragments	
 3300001	items	10	Sweet Choconilla	Gift Item	Common
 3300002	items	0	Exquisite Slice of Cake	Gift Item	Rare
@@ -52,7 +52,7 @@ res_id	where	amount	Name	Type	Note
 3920024	items	4	Core of Potential	Save Data Edit	
 3920029	items	3	Core of Variables	Save Data Edit	
 3920030	items	1	Core of Phase	Save Data Edit	
-3920031	items	6260	Enrapturing Crystal	Seasonal Event Currency	Galactic Disaster Season 4 Event Currency
+3920031	items	7490	Enrapturing Crystal	Seasonal Event Currency	Galactic Disaster Season 4 Event Currency
 3930003	items	2	Core of Resonance	Save Data Edit	
 3930004	items	49	Core of Mutation	Save Data Edit	
 4010003	items	1	Summer 2026 Olga	Main Screen Background	

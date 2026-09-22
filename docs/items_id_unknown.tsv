@@ -75,23 +75,24 @@ res_id	where	amount	Name	Type	Note
 9100014	items	1			
 9100015	items	1			
 9100016	items	1			
-9210025	items	1			Background - ID Card candidate?
-9210026	items	1			Background - ID Card candidate?
-9210027	items	1			Background - ID Card candidate?
-9210036	items	1			Background - ID Card candidate?
-9210037	items	1			Background - ID Card candidate?
-9210038	items	1			Background - ID Card candidate?
-9210039	items	1			Background - ID Card candidate?
-9210040	items	1			Background - ID Card candidate?
-9210041	items	1			Background - ID Card candidate?
-9210042	items	1			Background - ID Card candidate?
-9210043	items	1			Background - ID Card candidate?
-9210044	items	1			Background - ID Card candidate?
-9210050	items	1			Background - ID Card candidate?
-9210052	items	1			Background - ID Card candidate?
-9210053	items	1			Background - ID Card candidate?
-9210054	items	1			Background - ID Card candidate?
-9210055	items	1			Background - ID Card candidate?
+9210025	items	1			Background?
+9210026	items	1			Background?
+9210027	items	1			Background?
+9210036	items	1			Background?
+9210037	items	1			Background?
+9210038	items	1			Background?
+9210039	items	1			Background?
+9210040	items	1			Background?
+9210041	items	1			Background?
+9210042	items	1			Background?
+9210043	items	1			Background?
+9210044	items	1			Background?
+9210049	items	1	Shattered Light and Claw	Background - Save data	
+9210050	items	1			Background?
+9210052	items	1			Background?
+9210053	items	1			Background?
+9210054	items	1			Background?
+9210055	items	1			Background?
 9300115	items	1			Galactic Medal candidate
 9300116	items	1			Galactic Medal candidate
 9300117	items	1			Galactic Medal candidate
@@ -161,11 +162,13 @@ res_id	where	amount	Name	Type	Note
 9300251	items	1			Galactic Medal candidate
 9300252	items	1			Galactic Medal candidate
 9300253	items	1			Galactic Medal candidate
+9300254	items	1	Shattered Light and Claw	Galactic Medal	
 9300255	items	1			Galactic Medal candidate
 9300256	items	1			Galactic Medal candidate
 9300257	items	1			Galactic Medal candidate
 9300258	items	1			Galactic Medal candidate
 9300260	items	1			Galactic Medal candidate
+9300261	items	1	Petite Anis	Sticker	or Perfect Taxidermy - Galactic Medal
 9300262	items	1			Galactic Medal candidate
 9300263	items	1			Galactic Medal candidate
 9300264	items	1			Galactic Medal candidate
@@ -175,6 +178,7 @@ res_id	where	amount	Name	Type	Note
 9300268	items	1			Galactic Medal candidate
 9300269	items	1			Galactic Medal candidate
 9300270	items	1			Galactic Medal candidate
+9300271	items	1	Perfect Taxidermy	Galactic Medal	or Petite Anis Sticker
 9300273	items	1			Galactic Medal candidate
 9300278	items	1			Galactic Medal candidate
 9300279	items	1			Galactic Medal candidate

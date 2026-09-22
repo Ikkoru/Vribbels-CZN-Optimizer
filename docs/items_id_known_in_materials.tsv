@@ -1,8 +1,8 @@
 res_id	family	group	tier	rarity	name	icon	amount	where
-2000001	named			Common	Units	currency_unit.png	5487589	currencies
-2000004	named			Mythic	Crystals	currency_paid_crystal.png	4836	currencies
+2000001	named			Common	Units	currency_unit.png	5557007	currencies
+2000004	named			Mythic	Crystals	currency_paid_crystal.png	4851	currencies
 2000010	named			Mythic	Signal Amplification Anchor	currency_gacha_ticket_rateup_supporter.png	129	currencies
-2000027	named			Legendary	Loot Certification Card	currency_chaos_week_reward.png	1	currencies
+2000027	named			Legendary	Loot Certification Card	currency_chaos_week_reward.png	0	currencies
 2000036	named			Legendary	Reason	currency_chaos_assault_stamina.png	5	currencies
 2100001	named			Legendary	Universal Tactical Certificate	currency_combatant_ascend_public.png	243	currencies
 2100002	named			Legendary	Universal Support Certificate	currency_supporter_ascend_public.png	76	currencies
@@ -23,8 +23,8 @@ res_id	family	group	tier	rarity	name	icon	amount	where
 3120012	Growth Stone	Instinct	Great	Rare	Great Growth Stone of Instinct	icon_item_card_levelup_instinct_2.png	75	items
 3120013	Growth Stone	Instinct	Premium	Legendary	Premium Growth Stone of Instinct	icon_item_card_levelup_instinct_3.png	87	items
 3120021	Growth Stone	Void	Common	Common	Common Growth Stone of Void	icon_item_card_levelup_creed_1.png	0	items
-3120022	Growth Stone	Void	Great	Rare	Great Growth Stone of Void	icon_item_card_levelup_creed_2.png	117	items
-3120023	Growth Stone	Void	Premium	Legendary	Premium Growth Stone of Void	icon_item_card_levelup_creed_3.png	80	items
+3120022	Growth Stone	Void	Great	Rare	Great Growth Stone of Void	icon_item_card_levelup_creed_2.png	130	items
+3120023	Growth Stone	Void	Premium	Legendary	Premium Growth Stone of Void	icon_item_card_levelup_creed_3.png	90	items
 3120031	Growth Stone	Order	Common	Common	Common Growth Stone of Order	icon_item_card_levelup_norms_1.png	0	items
 3120032	Growth Stone	Order	Great	Rare	Great Growth Stone of Order	icon_item_card_levelup_norms_2.png	145	items
 3120033	Growth Stone	Order	Premium	Legendary	Premium Growth Stone of Order	icon_item_card_levelup_norms_3.png	40	items
@@ -67,4 +67,4 @@ res_id	family	group	tier	rarity	name	icon	amount	where
 3140051	Partner Promotion (Certificate)	Controller	Common	Common	Common Controller Certificate	icon_item_supporter_classup_controller_1.png	0	items
 3140052	Partner Promotion (Certificate)	Controller	Advanced	Rare	Advanced Controller Certificate	icon_item_supporter_classup_controller_2.png	1	items
 3140053	Partner Promotion (Certificate)	Controller	Premium	Legendary	Premium Controller Certificate	icon_item_supporter_classup_controller_3.png	0	items
-3920026	period item			Mythic	Time-Limited Command Delegation Module - 14 Days	currency_chaos_delegation_module.png	2	period_items
+3920026	period item			Mythic	Time-Limited Command Delegation Module - 14 Days	currency_chaos_delegation_module.png	1	period_items
