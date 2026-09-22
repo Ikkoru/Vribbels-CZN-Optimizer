@@ -253,6 +253,13 @@ SEASON_ESTIMATE = {
     "disaster_s04": {
         # How many days of the season pay a Chaos run, and what one
         # successful run gives. The only term a rate of play moves.
+        #
+        # **Not the length of the season's SCHEDULE.** `DISASTER_SEASON`
+        # opens three weeks before the event does, and neither the shop
+        # nor the currency exists in that preseason -- so the window on
+        # the wire runs 84 days where the content runs 63. Season 3's
+        # ran 70: the parts are three rotations long and one of them
+        # was four.
         "days": 63,
         "per_run": 810,
         # Everything that does not depend on how often it is played.
@@ -1556,6 +1563,12 @@ COLUMNS = (
 # a block is built into the column above it in this order.
 BLOCKS = frozenset([SEASONAL_BLOCK])
 
+# What stands above a block's FIRST row, there being no row there to
+# name: the column it hangs under. Only `_crosses_a_block` reads it,
+# and only to charge the boundary pad the row would otherwise skip --
+# see `BLOCK_PAD`.
+BLOCK_TOP = "blocktop:"
+
 # Which period each column's shop products are taken from.
 PERIOD_BY_COLUMN = {"Weekly": "weekly", "Monthly": "monthly",
                     "Other": "account", SEASONAL_BLOCK: "account"}
@@ -2107,8 +2120,13 @@ class ChecklistTab(BaseTab):
         stacked = ttk.Frame(host)
         stacked.pack(side=tk.TOP, fill=tk.X)
         self._column_frames[-1] = stacked
+        # **Anchored WEST, or it centres.** A block is narrower than
+        # the column it hangs in -- the column is as wide as whichever
+        # of its blocks reaches furthest -- and pack centres a child
+        # that does not fill, which stood the shelf's rows half the
+        # difference right of the ones above them.
         shelf = ttk.Frame(host)
-        shelf.pack(side=tk.BOTTOM, anchor=tk.S)
+        shelf.pack(side=tk.BOTTOM, anchor=tk.SW)
         self._column_frames.append(shelf)
 
     def _tracked(self, product_id):
@@ -2166,7 +2184,7 @@ class ChecklistTab(BaseTab):
         built = columns_for(raw, self._tracked, time.time(),
                             self._definitions)
         for frame, (title, rows) in zip(self._column_frames, built):
-            drawn = self._draw(rows, readings)
+            drawn = self._draw(rows, readings, title)
             if _same_rows(self._rendered.get(title), drawn):
                 continue                    # `_fill` patches or skips
             outgoing = list(frame.winfo_children())
@@ -2291,7 +2309,7 @@ class ChecklistTab(BaseTab):
                         + px(CHECKBOX_OVERHEAD))
         holder = tk.Frame(parent, width=max(stop + widest, reach),
                           height=self._block_height(
-                              [key for key, _l, _w in rows]),
+                              [key for key, _l, _w in rows], title),
                           bg=self.colors["bg"])
         holder.pack_propagate(False)
         # spacing: panel ↕ unrelated label -- heading, frame ↕
@@ -2355,9 +2373,18 @@ class ChecklistTab(BaseTab):
             # when the pointer stops rather than now: the tag outlives
             # every rewrite of the line it covers, and the figures do
             # not.
-            self._tips.bind_tag(
-                text, SHOP_TIP_PREFIX + key,
-                lambda k=key: self._shop_tips.get(k))
+            #
+            # **Only where there is one to show.** Binding underlines
+            # the heading and arms the pointer, so a shop with nothing
+            # to say -- one selling for no single currency, which is
+            # every free shelf -- advertised a tip that never came.
+            # Whether a shop has one turns on its PRODUCTS, which are
+            # what this block is rebuilt for, so the answer cannot go
+            # stale between rebuilds.
+            if key in self._shop_tips:
+                self._tips.bind_tag(
+                    text, SHOP_TIP_PREFIX + key,
+                    lambda k=key: self._shop_tips.get(k))
         # Green is nothing left to do on that row, red is something
         # left. A row a snapshot cannot answer for takes neither.
         text.tag_configure(DONE, foreground=self.colors["green"])
@@ -2417,7 +2444,7 @@ class ChecklistTab(BaseTab):
         return max(tkfont.Font(font=ROW_FONT).metrics("linespace"),
                    self._box_line)
 
-    def _block_height(self, keys):
+    def _block_height(self, keys, title=None):
         """A column's height: its rows and the space around each.
 
         Measured off the face rather than multiplied by a guess -- a
@@ -2434,6 +2461,11 @@ class ChecklistTab(BaseTab):
         line sets the line's height the same way a shop product's does
         -- and a block that counted it as text came up short by the
         difference, per asking row, and clipped the foot of the column.
+
+        **`title` has to be the same one `_draw` was given.** The two
+        walk the rows in step and the pitch of the FIRST turns on what
+        stands over it, so a block sized without it is short by the
+        boundary pad and clips its last line.
         """
         # Each row's pitch counts, not each gap BETWEEN rows:
         # `spacing1` is drawn above EVERY line including the first, so
@@ -2441,7 +2473,8 @@ class ChecklistTab(BaseTab):
         # its last line.
         line = tkfont.Font(font=ROW_FONT).metrics("linespace")
         box = self._checkbox_line()
-        total, above = 0, None
+        total = 0
+        above = BLOCK_TOP if title in BLOCKS else None
         for key in keys:
             total += (box if _is_shop(key) or key in self._finishable
                       else line)
@@ -2711,7 +2744,7 @@ class ChecklistTab(BaseTab):
         with `window_create`, and its left edge lands where an ordinary
         row's words do.
         """
-        drawn = self._draw(rows, readings)
+        drawn = self._draw(rows, readings, title)
         was = self._rendered.get(title)
         if drawn == was:
             return
@@ -2766,15 +2799,19 @@ class ChecklistTab(BaseTab):
                     title, text, key, box))
         text.config(state=tk.DISABLED)
 
-    def _draw(self, rows, readings):
+    def _draw(self, rows, readings, title=None):
         """Every row's drawn form, each told what precedes it.
 
         One place, because the column is built from this twice -- once
         to decide whether anything changed and once to write it -- and
         two loops that drifted apart would compare a column against a
         different column and rewrite it every refresh.
+
+        `title` says which column or block these rows are, which is
+        what tells the first of them whether anything stands over it.
+        See `BLOCK_TOP`.
         """
-        above = None
+        above = BLOCK_TOP if title in BLOCKS else None
         out = []
         for key, label, _widest in rows:
             out.append(self._line(key, label, readings, above))
@@ -2833,6 +2870,7 @@ class ChecklistTab(BaseTab):
         tip = self._product_tip(products[0])
         if tip:
             self._tips.bind(box, tip)
+        _wheel_reaches_the_text(box, parent)
         self._boxes.setdefault(title, []).append(box)
         return box
 
@@ -2856,6 +2894,7 @@ class ChecklistTab(BaseTab):
             fg=self.colors["orange" if ticked else "yellow"],
             command=lambda n=name, c=claimed, t=total, v=variable:
                 self._toggle_finished(n, c, t, v))
+        _wheel_reaches_the_text(box, parent)
         self._boxes.setdefault(title, []).append(box)
         return box
 
@@ -3895,6 +3934,30 @@ def _heads_a_block(key):
     return key.startswith(SHOP_HEAD_PREFIX) or key == EVENT_KEY_PREFIX
 
 
+def _wheel_reaches_the_text(widget, text):
+    """Send a wheel turn over an embedded widget to the Text under it.
+
+    A column taller than the tab scrolls, which is the only way to
+    reach a row the block's foot has clipped -- but a checkbox
+    embedded in the line is a WINDOW, and the wheel stops at whatever
+    is under the pointer. Most of this tab's rows are checkboxes, so
+    without this the column scrolls everywhere except where the user
+    is likely to be pointing.
+
+    Handed back to the Text's own class binding rather than scrolled
+    here: how far one turn goes is Tk's to say, and a second opinion
+    would drift from every other Text in the app.
+    """
+    def _turn(event, w=text):
+        try:
+            w.event_generate("<MouseWheel>", delta=event.delta)
+        except tk.TclError:
+            return None
+        return "break"
+
+    widget.bind("<MouseWheel>", _turn, add="+")
+
+
 def _crosses_a_block(above, key):
     """Whether the gap between two rows is a block's own edge.
 
@@ -3903,6 +3966,13 @@ def _crosses_a_block(above, key):
     of its products. **Once either way**: charging the pad on both
     sides of a boundary doubles it wherever two blocks touch, which on
     this tab is every shop but the first in its column.
+
+    `above` is `BLOCK_TOP` for the first row of a block hanging under
+    a column: the top of a COLUMN crosses nothing, but the top of a
+    block has the column's own rows over it and pays the boundary
+    like any other. The two are different Texts, so `spacing1` is the
+    only lever that reaches across -- and it is the same lever every
+    other boundary on the tab uses, which is what keeps them equal.
     """
     if above is None:
         return False                # the top of a column crosses nothing

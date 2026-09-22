@@ -1570,6 +1570,18 @@ def _tooltip_columns_align(root, colors):
                 f"the value column sits {gap!r} from the labels where "
                 f"ROW_GAP asks for {px((ROW_GAP, 0))!r}. That pad IS the "
                 f"`label -> its element` gap for every tip drawn this way.")
+        # **Labels read left, values read RIGHT.** The rows above are
+        # a four-figure sum under a five-figure one, which is the case
+        # it is for: left-justified they start together and the digits
+        # land in the wrong places.
+        want = {0: "left", 1: "right"}
+        for at, label in enumerate(labels):
+            if str(label.cget("justify")) != want[at]:
+                out.append(
+                    f"tip column {at} is justified "
+                    f"{str(label.cget('justify'))!r}, not {want[at]!r}. "
+                    f"A value column ragged on the RIGHT puts a shorter "
+                    f"figure's digits out of line with a longer one's.")
     holder.destroy()
     return out
 
@@ -1809,6 +1821,119 @@ def _checklist_rows_are_all_drawn(tab):
     return out
 
 
+def _a_wheel_over_a_checkbox_scrolls_its_column(tab):
+    """The wheel has to reach the Text under an embedded checkbox.
+
+    A column taller than the tab scrolls, and that is the only way to
+    reach a row its foot has clipped. But a checkbox in a line is a
+    WINDOW and the wheel stops at whatever the pointer is over, which
+    on this tab is a checkbox for most of the column -- so the scroll
+    works everywhere except where the user is likely to be pointing.
+
+    Needs a MAPPED window: an unmapped Text has no view to move. And
+    a window at the app's own MINIMUM, because a column with room for
+    all its rows has nowhere to scroll and nothing to prove. Goes up
+    at alpha 0, like `_checklist_rows_are_all_drawn`.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.scaling import px, WINDOW_MIN_H, WINDOW_MIN_W
+    root = tab.frame.winfo_toplevel()
+    notebook = tab.frame.master
+    out = []
+    try:
+        root.attributes("-alpha", 0.0)
+        if str(tab.frame) not in notebook.tabs():
+            notebook.add(tab.frame, text="Checklist")
+        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.select(tab.frame)
+        root.geometry("%dx%d" % (px(WINDOW_MIN_W), px(WINDOW_MIN_H)))
+        root.deiconify()
+        root.update_idletasks()
+    except tk.TclError as e:
+        return [f"the Checklist could not be laid out for measuring: {e}"]
+    try:
+        # A column the tab is too short for, which is the only one
+        # with anywhere to scroll TO.
+        for title, (text, _rows) in (tab.column_texts or {}).items():
+            boxes = (tab._boxes or {}).get(title) or ()
+            if not boxes or text.yview() == (0.0, 1.0):
+                continue
+            text.yview_moveto(0.0)
+            root.update_idletasks()
+            before = text.yview()
+            # Delivered SYNCHRONOUSLY -- `event_generate` with no
+            # `when` runs the binding before it returns. A full
+            # `update()` here would also run every pending `after`,
+            # and the Capture Log's own arrive on one.
+            boxes[0].event_generate("<MouseWheel>", delta=-120)
+            root.update_idletasks()
+            after = text.yview()
+            text.yview_moveto(0.0)
+            if after == before:
+                out.append(
+                    f"a wheel turn over a checkbox in the {title!r} "
+                    f"column moved nothing. The rows its foot clips can "
+                    f"only be reached by scrolling, and a checkbox "
+                    f"swallows the turn unless it is handed on.")
+            return out
+        out.append(
+            "no Checklist column both overflows and holds a checkbox, so "
+            "this is watching nothing.")
+    finally:
+        root.withdraw()
+    return out
+
+
+def _a_marked_shop_heading_has_something_to_say(tab):
+    """A shop heading is underlined only where a tip will appear.
+
+    The underline and the query cursor are what the tab uses to say
+    "there is more to read here", and `Tooltip.bind_tag` lays both on
+    whatever tag it is given -- so a heading tagged out of habit
+    advertises a tip that never comes. The free shelves are the case:
+    a shop selling for no single currency has no rates and no bill, so
+    there is nothing behind the mark.
+
+    Nothing about it is visible from the data: the words look the same
+    and the tip's absence reads as a slow hover.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.tabs.checklist_tab import SHOP_HEAD_PREFIX, SHOP_TIP_PREFIX
+
+    out = []
+    marked = 0
+    for title, (widget, rows) in (tab.column_texts or {}).items():
+        for key, _label, _widest in rows:
+            if not key.startswith(SHOP_HEAD_PREFIX):
+                continue
+            try:
+                under = bool(int(widget.tag_cget(
+                    SHOP_TIP_PREFIX + key, "underline") or 0))
+            except (tk.TclError, ValueError):
+                under = False
+            has = key in (tab._shop_tips or {})
+            marked += under
+            if under and not has:
+                out.append(
+                    f"{key!r} in the {title!r} column is underlined and "
+                    f"has no tip to show. The underline and the query "
+                    f"cursor are the tab's promise of one.")
+            if has and not under:
+                out.append(
+                    f"{key!r} in the {title!r} column has a tip and is "
+                    f"not marked, so nothing on screen says to hover it.")
+    if not marked:
+        out.append(
+            "no shop heading is marked as carrying a tip, so this is "
+            "watching nothing -- either the tips stopped being bound or "
+            "the tab built no shops.")
+    return out
+
+
 def _the_seasonal_shelf_hangs_from_the_bottom(tab):
     """The Galactic Disaster shelf sits against the foot of its column.
 
@@ -1836,7 +1961,8 @@ def _the_seasonal_shelf_hangs_from_the_bottom(tab):
     """
     import tkinter as tk
     from ui.scaling import px, WINDOW_MIN_H, WINDOW_MIN_W
-    from ui.tabs.checklist_tab import BLOCKS, COLUMNS as CHECKLIST_COLUMNS
+    from ui.tabs.checklist_tab import (
+        BLOCKS, COLUMNS as CHECKLIST_COLUMNS, ROW_TAG_PITCH)
 
     frames = getattr(tab, "_column_frames", None)
     if not frames or len(frames) != len(CHECKLIST_COLUMNS):
@@ -1878,6 +2004,35 @@ def _the_seasonal_shelf_hangs_from_the_bottom(tab):
                     f"its column's. It is packed against the bottom edge "
                     f"so that its last row lands there, and anything "
                     f"packed after it takes that place instead.")
+            # **And its left edge is the column's.** A block is
+            # narrower than the column it hangs in, and pack CENTRES a
+            # child that does not fill -- which stood the shelf's rows
+            # half the difference right of the ones above them.
+            adrift = shelf.winfo_rootx() - host.winfo_rootx()
+            if adrift:
+                out.append(
+                    f"the {title!r} block starts {adrift}px right of its "
+                    f"column. Its rows and the ones above it are one "
+                    f"list to read down, so they share a left edge.")
+            # **And its first row pays the block boundary.** The two
+            # are different Texts, so `spacing1` on that line is the
+            # only lever reaching between them -- skip it and the
+            # shelf sits a pad tighter than every other boundary on
+            # the tab. `_row_tags` knowing this is not enough: `_draw`
+            # has to be the one asking.
+            drawn = (tab._rendered or {}).get(title) or ()
+            pitch = drawn[0][1][0] if drawn else None
+            want = ROW_TAG_PITCH.get("blockrow")
+            if pitch is None:
+                out.append(f"the {title!r} block drew no rows, so its "
+                           f"first row's spacing was not read.")
+            elif ROW_TAG_PITCH.get(pitch) != want:
+                out.append(
+                    f"the {title!r} block's first row is spaced "
+                    f"{ROW_TAG_PITCH.get(pitch)} under the {pitch!r} tag "
+                    f"where a block boundary is {want}. It has the "
+                    f"column's rows above it and reads as part of the "
+                    f"same list, so it is set apart the same way.")
             above = [child for child in host.winfo_children()
                      if child is not shelf]
             for rows in above:
@@ -2807,7 +2962,13 @@ def run():
             failures.extend(
                 _checklist_rows_are_all_drawn(built["ChecklistTab"]))
             failures.extend(
+                _a_marked_shop_heading_has_something_to_say(
+                    built["ChecklistTab"]))
+            failures.extend(
                 _the_seasonal_shelf_hangs_from_the_bottom(
+                    built["ChecklistTab"]))
+            failures.extend(
+                _a_wheel_over_a_checkbox_scrolls_its_column(
                     built["ChecklistTab"]))
             failures.extend(_countdowns_line_up(built["ChecklistTab"]))
             failures.extend(_finished_boxes_ask_only_where_it_is_open(

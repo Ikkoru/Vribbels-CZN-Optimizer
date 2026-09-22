@@ -295,6 +295,11 @@ class Tooltip:
         and no cell to size. **Neither wraps.** A wrapped cell would
         take one column out of step with the other and there would be
         nothing on screen to say which line belonged to which.
+
+        **The first column reads left and the rest read RIGHT.** A
+        value column is figures with a unit after them, and ragged on
+        the left is what puts a four-figure sum under a five-figure
+        one digit for digit. The labels are words and stay flush left.
         """
         # spacing: content frame -> content frame -- frame, label ↔↕
         # As above: the frame's own border, and the inset from it.
@@ -304,7 +309,8 @@ class Tooltip:
         for at, column in enumerate(zip(*rows)):
             # spacing: label ↔ its element -- label, label ↔
             tk.Label(
-                body, text="\n".join(column), justify=tk.LEFT,
+                body, text="\n".join(column),
+                justify=tk.RIGHT if at else tk.LEFT,
                 bg=self.colors["bg_lighter"], fg=self.colors["fg"],
                 font=("Segoe UI", 9),
             ).pack(side=tk.LEFT, anchor=tk.N,

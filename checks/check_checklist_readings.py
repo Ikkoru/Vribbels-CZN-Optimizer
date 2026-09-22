@@ -92,6 +92,7 @@ def run():
         _event_attendance,
         RATE_RECENT_LABEL, RATE_LONG_LABEL,
         SHOP_RATE_FLOOR, season_estimate,
+        BLOCK_TOP, ROW_TAG_PITCH, _row_tags,
         ChecklistTab, WRITTEN_TOTALS, written_total,
         unsure_ceiling, EVENT_FINISHED_FIELD,
     )
@@ -1072,6 +1073,33 @@ def run():
         failures.append(
             "playing more Chaos a day does not raise the estimate, so "
             "the rate is reaching nothing it multiplies.")
+
+    # --- a block's first row crosses a boundary -----------------------
+    # The top of a COLUMN has nothing over it; the top of a block has
+    # the column's own rows. They are different Texts, so `spacing1`
+    # on that first line is the only lever that reaches between them --
+    # and skipping it sat the shelf a block pad tighter than every
+    # other boundary on the tab. See `BLOCK_TOP`.
+    head = shop_head_key(("shop_disaster", shop_stock.ALL_SCREENS),
+                         "account")
+    at_block = _row_tags(head, BLOCK_TOP)[0]
+    at_column = _row_tags(head, None)[0]
+    inside = _row_tags(head, "basin")[0]
+    if at_block != inside:
+        failures.append(
+            f"a block's first row takes the {at_block!r} pitch where the "
+            f"same heading inside a column takes {inside!r}. Both cross "
+            f"the same kind of boundary and have to read alike.")
+    if at_block == at_column:
+        failures.append(
+            "a block's first row and a column's take the same pitch, so "
+            "BLOCK_TOP is reaching nothing -- the top of a column has "
+            "nothing above it to be set apart from.")
+    if ROW_TAG_PITCH[at_block] <= ROW_TAG_PITCH[at_column]:
+        failures.append(
+            f"a block's first row is spaced {ROW_TAG_PITCH[at_block]} "
+            f"against a column's {ROW_TAG_PITCH[at_column]}. It has the "
+            f"column's rows above it, so it pays MORE, not less.")
 
     # --- each column heading's own countdown ---------------------------
     # The period splits into four EQUAL parts and the colour says which

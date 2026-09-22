@@ -14,9 +14,15 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Hovering the Seasonal Shop gives two estimates of what a season pays: at one Chaos run a day, and at one and a half, claiming everything. A season nobody has counted yet shows neither.
 
+- A tooltip's figures line up by their last digit rather than their first.
+
 ### Fixed
 
 - **The Seasonal Shop counted only the last three weeks of buying.** Its shelves were measured against the Sortie season instead of the Galactic Disaster's own, so purchases made earlier in the season read as never made and the shop's total asked for far more than was actually left.
+
+- The mouse wheel scrolls a Checklist column when the pointer is over a checkbox. It only worked over the gaps before, which is how a column too tall for the window hid its last rows.
+
+- The Weekly column's Seasonal Shop was underlined as if it had a tooltip. It has none: everything it sells is free, so there is no bill and no rate.
 
 ## [2.1.0] - Checklist of in-game activities, capture archiving
 

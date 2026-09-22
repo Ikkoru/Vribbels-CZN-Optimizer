@@ -131,6 +131,8 @@ So a reading built from rows the account holds says "at least", and only a state
 
 **A stamp is rewritten, not appended.** A trial slot's `complete_time` is when its reward was LAST taken, so an earlier cycle's claims cannot be recovered from it. Only the live period can be read.
 
+**A Galactic Disaster season's schedule window is three weeks longer than the event.** `DISASTER_SEASON` opens 21 days before the content does, and through that preseason neither the shop nor the season's currency exists — so a season reading 84 days on the wire runs 63 (s04) or 70 (s03, whose first part ran four rotations instead of three). Both check out against the stated dates: s03 opened 2026.04.29 against a window from 2026.04.08, s04 on 2026.07.29 against 2026.07.08. The window's END is the event's end, so a countdown off it is right and only a LENGTH taken from it is not.
+
 **No achievement states its REWARD.** The shop sends definitions — `shop_res_data`, one per product, naming the item it gives and the price — and nothing else does. Every achievement payload the login burst carries (`achievements`, `disaster_achievement_entities`, `assault_achievement_entities`, `zero_orb_achievement_entities`, `mission_accumulate`, `chapter_achieve`) is the account's own progress: an id, a score, a claim time. Searched every debug capture for the live season's currency and it appears in exactly two places — a payout already made (`drop_item`, `drop_item_info`, `confirm_drop_item`, `result_reward_drop_item`) and the shop's prices. So "how much does this content pay in total" cannot be read off the wire, and anything that needs it counts by hand: `checklist_tab.SEASON_ESTIMATE` is the one place that does.
 
 ## Identifying a mission or a shop product
