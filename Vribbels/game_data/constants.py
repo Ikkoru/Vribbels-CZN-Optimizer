@@ -548,6 +548,7 @@ RECORDED_NAMES = {
     4020001: "Midsummer Night Memories",
     5201028: "Animated Card Unlock - Maribell",
     5201083: "Animated Card Unlock Item - Olga",
+    5110001: "Omega Code",
     5210000: "Prism Module - Nominate",
     5210001: "Prism Module - Masterpiece",
     9210051: "Memories of the Beach Café Festival",

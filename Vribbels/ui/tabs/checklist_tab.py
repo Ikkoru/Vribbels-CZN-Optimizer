@@ -233,6 +233,12 @@ SEASON_ESTIMATE_LABEL = "Approximate, %s Chaos run/day, all rewards:"
 # what it multiplies.
 SEASON_ESTIMATE_RATES = (("1", 1.0), ("1.5", 1.5))
 
+# And what the season has actually paid out so far, which is the line
+# the two estimates are there to be read against. Held plus every one
+# of it ever spent -- and for THIS shop that really is the season's
+# own total, the currency and the products both being per season.
+SEASON_EARNED_LABEL = "You have earned this Season:"
+
 # What one Galactic Disaster season pays out in its own currency,
 # claiming everything: the weekly content, and every achievement the
 # season offers.
@@ -340,6 +346,14 @@ HEAD_STATE_TAGS = {DONE: "headdone", TODO: "headtodo"}
 # one for an event whose true total the wire never states.
 FLOOR = "floor"
 STALE_FLOOR = "floor_stale"
+
+# A seasonal shop row whose whole remainder sits on a page that has
+# not opened yet: everything the shop is currently selling of it has
+# been bought. Orange rather than green, because the row is not
+# finished -- more of it arrives when the next page does -- and
+# rather than red, because there is nothing to do about it today.
+# See `shop_pages_open`.
+LOCKED_PAGES = "locked_pages"
 
 # A FORCED DAILY event's day is finished -- today's doubled runs taken.
 # Orange rather than green, and not because anything is unproven: the
@@ -501,31 +515,152 @@ def shop_products(shop, period, raw):
 # up reads `shop_products`; only what draws rows reads the other.
 MERGED_SHOPS = frozenset([SEASONAL_SHOP_CATEGORY])
 
+# What tells two rows of ONE item apart, where a shop sells it at more
+# than one price. Bare digits: the shop deals in a single currency and
+# its heading names it, so a unit here would repeat what the block
+# already says on every row that needs it.
+PRICE_APART = " (%d)"
+
+
+def shop_shut_for_now(shop, period, raw, now):
+    """Whether a shop has no shelves to show at all right now.
+
+    Only a SEASONAL one ever does. Two ways: the season has ended,
+    which is the state of it for as long as the game leaves between
+    one and the next; and its preseason, three weeks in which the
+    schedule is open and the shop is not.
+
+    **The shelves survive the season on the wire**, and the standings
+    keep naming it the live one, so nothing else here notices that it
+    is over -- the block went on offering a bought-out catalogue and
+    billing it in a currency the game had already wiped.
+    """
+    if shop[0] != SEASONAL_SHOP_CATEGORY:
+        return False
+    _name, live = schedules.live(
+        shop_stock.season_group_of(shop[0]), raw, now)
+    if not isinstance(live, dict):
+        # No live season, or none the snapshot carries. Shut only
+        # where the wire HAS a season table to be silent in: a
+        # snapshot from before the schedules arrived says nothing
+        # about whether a season is running.
+        return bool(schedules.groups(raw).get(
+            shop_stock.season_group_of(shop[0])))
+    return shop_pages_open(shop, period, raw, now) == set()
+
+
+def shop_pages_open(shop, period, raw, now):
+    """Which of a seasonal shop's pages are open, as a set, or None.
+
+    None where the question does not arise -- a shop that is not kept
+    per season, or a season whose rotations the snapshot cannot give.
+    Every page counts as open then, which is what the shop looked like
+    before anything asked.
+
+    **Nothing on the wire says a page is open.** No schedule names
+    one, and `shop_res_data` sends all three from the season's first
+    login. So it is read off the SORTIE rotations falling inside the
+    season: the first of them is the preseason -- a Galactic Disaster
+    season's schedule opens three weeks before its content does, with
+    no shop and no currency in between -- and each one after it opens
+    the next page.
+
+    Checked against the purchase record, which stamps every buy: this
+    account's first purchase on each page lands on a rotation boundary
+    (nine more inside ten minutes of the second page's, ten of the
+    third's), which is somebody shopping the hour a page opened.
+
+    **A season whose parts are not one rotation long is misdated.**
+    Season three ran 28 days and then two of 21. What that costs is a
+    colour on a row, so the inference is worth making and the error is
+    worth having.
+    """
+    if shop[0] != SEASONAL_SHOP_CATEGORY:
+        return None
+    _name, season = schedules.live(
+        shop_stock.season_group_of(shop[0]), raw, now)
+    if not isinstance(season, dict) or not season.get("start_time"):
+        return None
+    starts = sorted(
+        window["start_time"]
+        for window in (schedules.groups(raw).get(
+            shop_stock.ACCOUNT_SEASON_GROUP) or {}).values()
+        if isinstance(window, dict)
+        and season["start_time"] <= window.get("start_time", 0)
+        < season.get("end_time", 0))
+    pages = sorted({define.get("link_shop_sub_category_id")
+                    for _pid, define in shop_products(shop, period, raw)}
+                   - {None})
+    # The preseason is the first rotation and opens no page, so the
+    # pages take the rest -- and a season with fewer rotations than
+    # pages leaves the ones it cannot date open.
+    opens = dict(zip(pages, starts[1:]))
+    return {page for page in pages if opens.get(page, 0) <= now}
+
 
 def shop_display_rows(shop, period, raw):
     """[(row key, ((product id, its definition), ...))] for one shop.
 
     One entry per row the tab draws: per product for most shops, per
-    ITEM for a `MERGED_SHOPS` one.
-
-    Grouped by the item AND how many of it a purchase gives, never by
-    the item alone -- a screen offering five of something and a screen
-    offering one are two rows in the game too, and merging them would
-    label the pair with whichever count came first.
+    OFFER for a `MERGED_SHOPS` one -- see `_merged_as` for what makes
+    two products one row and `_merged_order` for where the row goes.
     """
     rows = shop_products(shop, period, raw)
     if shop[0] not in MERGED_SHOPS:
         return tuple((SHOP_KEY_PREFIX + product_id, ((product_id, define),))
                      for product_id, define in rows)
-    groups = {}
+    groups, pages = {}, {}
     for product_id, define in rows:
-        groups.setdefault(
-            (define.get("product_link_item_id"),
-             define.get("product_count")), []).append((product_id, define))
+        offer = _merged_as(define)
+        groups.setdefault(offer, []).append((product_id, define))
+        pages.setdefault(define.get("link_shop_sub_category_id"),
+                         []).append(offer)
     return tuple(
-        (SHOP_KEY_PREFIX + SHOP_KEY_JOIN.join(pid for pid, _d in group),
-         tuple(group))
-        for group in groups.values())
+        (SHOP_KEY_PREFIX + SHOP_KEY_JOIN.join(
+            pid for pid, _d in groups[offer]), tuple(groups[offer]))
+        for offer in _merged_order(pages))
+
+
+def _merged_as(define):
+    """What makes two of a merging shop's products ONE row.
+
+    The item, how many of it a purchase gives, and the PRICE. A screen
+    offering five of something and a screen offering one are two rows
+    in the game as well; so are two screens asking different money for
+    the same thing, which is what the last of the Galactic Disaster's
+    pages does with the two Advanced materials.
+    """
+    return (define.get("product_link_item_id"),
+            define.get("product_count"), define.get("price_count"))
+
+
+def _merged_order(pages):
+    """The merged rows, in the order the shop's own pages imply.
+
+    `pages` is {page: [what each of its rows is, in the shop's order]}.
+    A shop's pages are near-copies of one another, so they are folded
+    together rather than concatenated: every row a page shares stays
+    where it was, and every row it ADDS goes immediately before
+    whatever follows that row on ITS page. A new row then lands beside
+    the rows it sits beside in the game, instead of at the top of the
+    list or the foot of it.
+
+    **A row one page skipped stays above the rows added below it.**
+    Page two of the Galactic Disaster drops the Signal Amplification
+    Anchor and adds the Striker manuals; anchoring each new row to its
+    own SUCCESSOR is what leaves the Anchor where page one had it and
+    puts the manuals under page one's, rather than sinking the one or
+    lifting the other past it.
+    """
+    order = []
+    for _page, sequence in sorted(pages.items()):
+        for at, offer in enumerate(sequence):
+            if offer in order:
+                continue
+            follows = [order.index(later) for later in sequence[at + 1:]
+                       if later in order]
+            order.insert(min(follows) if follows else len(order), offer)
+    return order
 
 
 def shop_currency(shop, period, raw):
@@ -580,11 +715,29 @@ def shop_rows(shop, period, raw):
     counts down from. See `shop_display_rows`.
     """
     out = []
-    for key, group in shop_display_rows(shop, period, raw):
-        limit = sum(define.get("limit_count") or 0 for _pid, define in group)
-        out.append((key, product_label(group[0][1]),
-                    "%d/%d" % (limit, limit)))
+    display = shop_display_rows(shop, period, raw)
+    twice = _sold_at_more_than_one_price(display)
+    for key, group in display:
+        define = group[0][1]
+        limit = sum(one.get("limit_count") or 0 for _pid, one in group)
+        label = product_label(define)
+        if define.get("product_link_item_id") in twice:
+            label += PRICE_APART % (define.get("price_count") or 0)
+        out.append((key, label, "%d/%d" % (limit, limit)))
     return tuple(out)
+
+
+def _sold_at_more_than_one_price(display):
+    """The items a shop draws more than one row for.
+
+    Only those rows need their price saying: everywhere else the
+    item's own name is already what tells one row from another.
+    """
+    seen = {}
+    for _key, group in display:
+        item = group[0][1].get("product_link_item_id")
+        seen[item] = seen.get(item, 0) + 1
+    return {item for item, drawn in seen.items() if drawn > 1}
 
 
 def _event_settled(raw, name, group, window, now):
@@ -1658,6 +1811,8 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
         # knows no products, and a column that emptied itself would
         # read as a broken tab rather than as data not yet arrived.
         for shop in shops if period else ():
+            if shop_shut_for_now(shop, period, raw, now):
+                continue
             head = shop_head_key(shop, period)
             SHOP_TOTAL_RESERVE[head] = shop_total_widest(shop, period, raw)
             rows.append((head, shop_stock.SHOPS[shop],
@@ -2396,6 +2551,9 @@ class ChecklistTab(BaseTab):
         text.tag_configure(STALE_FLOOR,
                            foreground=self.colors["orange"])
         text.tag_configure(CYCLE_DONE, foreground=self.colors["orange"])
+        # Bought out of everything on sale, with the rest on a page
+        # still to open. See `LOCKED_PAGES`.
+        text.tag_configure(LOCKED_PAGES, foreground=self.colors["orange"])
         text.tag_configure(MUTED, foreground=self.colors["fg_dim"])
         # A shop heading's total, in the same yes and no a hair darker
         # and a hair stronger. It answers for the whole block under it,
@@ -2648,6 +2806,8 @@ class ChecklistTab(BaseTab):
         for title, _fixed, shops, _events in COLUMNS:
             period = PERIOD_BY_COLUMN.get(title)
             for shop in shops if period else ():
+                if shop_shut_for_now(shop, period, raw, now):
+                    continue
                 money = shop_currency(shop, period, raw)
                 if money is None:
                     continue
@@ -2686,6 +2846,16 @@ class ChecklistTab(BaseTab):
                     (FULL_COST_LABEL,
                      RATE_VALUE % (shop_full_cost(shop, period, raw,
                                                   self._tracked), name)),)
+                if shop[0] == SEASONAL_SHOP_CATEGORY:
+                    # And what the season HAS paid, last because it is
+                    # the reading the three lines above it are guesses
+                    # or bills against. Absent where the shop payloads
+                    # have not arrived: see `currency_earned`, whose
+                    # None is a reading rather than a zero.
+                    earned, _kind = currency_earned(raw, money)
+                    if earned is not None:
+                        rows += ((SEASON_EARNED_LABEL,
+                                  RATE_VALUE % (earned, name)),)
                 out[shop_head_key(shop, period)] = rows
         return out
 
@@ -3468,7 +3638,7 @@ def _readings(raw, now=None, tracked=None):
 
     _add_countdowns(out, raw, now)
 
-    for key, group in _shop_rows(raw):
+    for key, group, shut in _shop_rows(raw, now):
         # A merged row counts down from the sum of its shelves, and one
         # shelf the snapshot cannot read leaves the whole row unread:
         # a partial sum drawn as a total would say a row is nearly
@@ -3484,9 +3654,13 @@ def _readings(raw, now=None, tracked=None):
         limit = sum(caps)
         if any(stock is None for stock, _limit in counts):
             out[key] = _one("%s/%d" % (NO_DATA, limit), UNKNOWN)
-        else:
-            stock = sum(stock for stock, _limit in counts)
-            out[key] = _one("%d/%d" % (stock, limit), _done(stock == 0))
+            continue
+        stock = sum(stock for stock, _limit in counts)
+        # **What is left and what is not yet on sale can be the same
+        # number**, and then there is nothing to buy however red the
+        # row looks. See `LOCKED_PAGES`.
+        state = LOCKED_PAGES if shut and stock == shut else _done(stock == 0)
+        out[key] = _one("%d/%d" % (stock, limit), state)
 
     _add_shop_totals(out, raw, amounts, tracked, now)
     return out
@@ -3512,6 +3686,8 @@ def _add_shop_totals(out, raw, amounts, tracked, now):
     for title, _fixed, shops, _events in COLUMNS:
         period = PERIOD_BY_COLUMN.get(title)
         for shop in shops if period else ():
+            if shop_shut_for_now(shop, period, raw, now):
+                continue
             bill, unknown = 0, False
             for product_id, define in shop_products(shop, period, raw):
                 if tracked is not None and not tracked(product_id):
@@ -3903,19 +4079,31 @@ def _row_tracked(tracked, key):
     return all(tracked(product_id) for product_id in _products_of(key))
 
 
-def _shop_rows(raw):
-    """[(row key, ((product id, definition), ...))] for every sub-row.
+def _shop_rows(raw, now):
+    """[(key, ((product id, definition), ...), shut)] per shop sub-row.
 
     Off the COLUMNS rather than off the definitions whole, because a
     merged row's key is only knowable from the shop and period that
     merged it -- and a reading keyed differently from its row is a
     reading nothing draws. See `shop_display_rows`.
+
+    `shut` is how much of the row's cap sits on a page that has not
+    opened: nought for every shop but the seasonal one, and nought
+    there too once its last page is up. See `shop_pages_open`.
     """
     out = []
     for title, _fixed, shops, _events in COLUMNS:
         period = PERIOD_BY_COLUMN.get(title)
         for shop in shops if period else ():
-            out.extend(shop_display_rows(shop, period, raw))
+            if shop_shut_for_now(shop, period, raw, now):
+                continue
+            opened = shop_pages_open(shop, period, raw, now)
+            for key, group in shop_display_rows(shop, period, raw):
+                shut = 0 if opened is None else sum(
+                    define.get("limit_count") or 0
+                    for _pid, define in group
+                    if define.get("link_shop_sub_category_id") not in opened)
+                out.append((key, group, shut))
     return out
 
 

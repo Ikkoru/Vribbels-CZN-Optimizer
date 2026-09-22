@@ -1570,6 +1570,20 @@ def _tooltip_columns_align(root, colors):
                 f"the value column sits {gap!r} from the labels where "
                 f"ROW_GAP asks for {px((ROW_GAP, 0))!r}. That pad IS the "
                 f"`label -> its element` gap for every tip drawn this way.")
+        # **And nothing of the Labels' own sits in that gap.** A
+        # tk.Label's box is wider than its words by its padding and
+        # its border, on each side -- so any left on these two lands
+        # between the columns and the pad above stops being what the
+        # eye measures.
+        for at, label in enumerate(labels):
+            slack = [int(label.cget(option) or 0)
+                     for option in ("padx", "borderwidth")]
+            if any(slack):
+                out.append(
+                    f"tip column {at} carries padx/borderwidth {slack}, "
+                    f"which widens its box past its words. Six pixels "
+                    f"of that fall between the columns, on top of the "
+                    f"{px(ROW_GAP)} ROW_GAP is asking for.")
         # **Labels read left, values read RIGHT.** The rows above are
         # a four-figure sum under a five-figure one, which is the case
         # it is for: left-justified they start together and the digits

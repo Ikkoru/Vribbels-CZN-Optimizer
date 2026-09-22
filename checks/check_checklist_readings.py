@@ -93,6 +93,7 @@ def run():
         RATE_RECENT_LABEL, RATE_LONG_LABEL,
         SHOP_RATE_FLOOR, season_estimate,
         BLOCK_TOP, ROW_TAG_PITCH, _row_tags,
+        LOCKED_PAGES, shop_pages_open, shop_shut_for_now,
         ChecklistTab, WRITTEN_TOTALS, written_total,
         unsure_ceiling, EVENT_FINISHED_FIELD,
     )
@@ -1011,38 +1012,48 @@ def run():
             f"stands -- measured against the SORTIE season instead it "
             f"reads as a shelf nobody has touched.")
 
-    # **The three pages merge by the item**, cap summed, and the key
-    # carries every product under the row -- see `shop_display_rows`.
+    # **Pages merge by the item and the PRICE**, cap summed, and the
+    # key carries every product under the row -- `shop_display_rows`.
+    # Two pages at 30 are one row of 400; the page asking 120 for the
+    # same material is a second row, as it is a second tile in game.
     pages = [(f"{season}_14", 3210001, 200, 30),
              (f"{season}_33", 3210001, 200, 30),
              (f"{season}_59", 3210001, 300, 120)]
-    merged = f"shop:{season}_14+{season}_33+{season}_59"
+    merged = f"shop:{season}_14+{season}_33"
+    dearer = f"shop:{season}_59"
     # A purchase of something else, so `shop_list` has ARRIVED: with no
     # rows at all the shelves read a dash, which is a different case.
     untouched = {f"{season}_99": (1, long_ago)}
-    got = _readings(seasonal(pages, untouched), now).get(merged)
-    if got != [("700/700", TODO)]:
+    said = _readings(seasonal(pages, untouched), now)
+    if said.get(merged) != [("400/400", TODO)]:
         failures.append(
-            f"three pages selling one item read {got!r} under {merged}, "
-            f"not 700/700 as one row. The shelves are one shelf to "
-            f"whoever is shopping, and their caps add up.")
+            f"two pages selling one item at one price read "
+            f"{said.get(merged)!r} under {merged}, not 400/400 as one "
+            f"row. The shelves are one shelf to whoever is shopping, "
+            f"and their caps add up.")
+    if said.get(dearer) != [("300/300", TODO)]:
+        failures.append(
+            f"the page asking a different price for the same item read "
+            f"{said.get(dearer)!r} under {dearer}, not 300/300 of its "
+            f"own. A dearer shelf is its own row: merged in, the row "
+            f"would count down from a cap nobody can buy at one price.")
 
-    # And what clearing it costs is summed PER PAGE, because a page
-    # can price the same item differently -- 30, 30 and 120 in the
-    # live season. One price times the summed cap is 21000.
+    # And what clearing the shelf costs is summed PER PRODUCT, since
+    # the rows and the prices do not line up one to one.
     from ui.tabs.checklist_tab import shop_display_rows
     shelf = ("shop_disaster", shop_stock.ALL_SCREENS)
     got = shop_full_cost(shelf, "account", seasonal(pages))
     if got != 200 * 30 + 200 * 30 + 300 * 120:
         failures.append(
-            f"clearing the merged row is billed at {got}, not "
+            f"clearing the shelf is billed at {got}, not "
             f"{200 * 30 + 200 * 30 + 300 * 120}. Its pages carry their "
             f"own prices, so the cost sums per PRODUCT however the rows "
             f"are drawn.")
-    if len(shop_display_rows(shelf, "account", seasonal(pages))) != 1:
+    drawn = shop_display_rows(shelf, "account", seasonal(pages))
+    if len(drawn) != 2:
         failures.append(
-            "the three pages did not draw as one row, so the merge is "
-            "not happening where the tab reads it.")
+            f"the three pages drew {len(drawn)} rows, not 2, so the "
+            f"merge is not happening where the tab reads it.")
 
     # A page the snapshot cannot read leaves the whole row unread: a
     # partial sum drawn as a total says a row is nearly cleared on the
@@ -1050,10 +1061,10 @@ def run():
     # number is what one unreadable page looks like.
     half = _readings(seasonal(pages, {f"{season}_14": ("?", long_ago)}),
                      now).get(merged)
-    if half != [(f"{NO_DATA}/700", UNKNOWN)]:
+    if half != [(f"{NO_DATA}/400", UNKNOWN)]:
         failures.append(
             f"a merged row with one page unreadable reads {half!r}, not "
-            f"a dash over 700.")
+            f"a dash over 400.")
 
     # --- what a season is estimated to pay ----------------------------
     # Hand-counted per season, because the wire carries no achievement
@@ -1073,6 +1084,139 @@ def run():
         failures.append(
             "playing more Chaos a day does not raise the estimate, so "
             "the rate is reaching nothing it multiplies.")
+
+    # --- where a page's own rows land in the merged list --------------
+    # Three orders are possible for a row one page adds and another
+    # has never had, and only one reads as the shop does: beside the
+    # rows it sits beside in game. Page two drops `B` and adds `X`, so
+    # `X` belongs above `C` -- the row it precedes on its own page --
+    # and `B` stays above `X` rather than sinking under it.
+    def two_pages(first, second):
+        rows, at = [], 0
+        for page, items in (("shop_disaster_1", first),
+                            ("shop_disaster_2", second)):
+            for item in items:
+                at += 1
+                rows.append((f"{season}_{at:02d}", 3210000 + item, 5, 30))
+        raw = seasonal(rows)
+        at = 0
+        for page, items in (("shop_disaster_1", first),
+                            ("shop_disaster_2", second)):
+            for _item in items:
+                at += 1
+                raw["shop_res_data"]["shop_disaster"][
+                    f"{season}_{at:02d}"]["link_shop_sub_category_id"] = page
+        return raw
+
+    drawn = shop_display_rows(
+        shelf, "account", two_pages([1, 2, 3], [1, 9, 3]))
+    got = [group[0][1]["product_link_item_id"] for _key, group in drawn]
+    if got != [3210001, 3210002, 3210009, 3210003]:
+        failures.append(
+            f"a row page two adds between two it shares landed at "
+            f"{got}, not [3210001, 3210002, 3210009, 3210003]. It goes "
+            f"just above the row it precedes on its OWN page: at the "
+            f"end of the list it reads as an afterthought, and above "
+            f"the row page two skipped it pushes that one down.")
+
+    # --- which pages are open, and what that colours ------------------
+    # The wire names no shop page, so which are open is read off the
+    # SORTIE rotations inside the season: the first is the preseason
+    # and each one after it opens a page. See `shop_pages_open`.
+    shelf = ("shop_disaster", shop_stock.ALL_SCREENS)
+    # A rotation of ten days and a season of four of them: one
+    # preseason and a page each. `now` sits in the second, so one page
+    # is open and two are not.
+    ROTATION = 10 * DAY
+    opens = int(now - 15 * DAY)
+
+    def three_pages(bought=None):
+        """One item on three pages, and the schedules that date them."""
+        raw = seasonal(
+            [(f"{season}_01", 3210001, 10, 30),
+             (f"{season}_02", 3210001, 10, 30),
+             (f"{season}_03", 3210001, 10, 30)], bought)
+        raw["event_schedules"]["DISASTER_SEASON"] = {season: {
+            "start_time": opens, "end_time": opens + 4 * ROTATION}}
+        raw["event_schedules"]["ASSAULT_SCHEDULE"] = {
+            "r%d" % at: {"start_time": opens + at * ROTATION,
+                         "end_time": opens + (at + 1) * ROTATION}
+            for at in range(4)}
+        for at, pid in enumerate((f"{season}_01", f"{season}_02",
+                                  f"{season}_03")):
+            raw["shop_res_data"]["shop_disaster"][pid][
+                "link_shop_sub_category_id"] = "shop_disaster_%d" % (at + 1)
+        return raw
+
+    for moment, want, why in (
+            (opens + 5 * DAY, set(),
+             "its PRESEASON -- a Galactic Disaster's schedule opens "
+             "three weeks before its shop does"),
+            (now, {"shop_disaster_1"},
+             "one rotation past the preseason, so the first page and "
+             "no other"),
+            (opens + 35 * DAY,
+             {"shop_disaster_1", "shop_disaster_2", "shop_disaster_3"},
+             "three rotations past the preseason, so all of them")):
+        got = shop_pages_open(shelf, "account", three_pages(), moment)
+        if got != want:
+            failures.append(
+                f"{int((moment - opens) / DAY)} days into the season the "
+                f"open pages read {sorted(got or ())}, not "
+                f"{sorted(want)} -- {why}. The first rotation inside a "
+                f"season is its preseason and each one after opens a "
+                f"page.")
+
+    # **A row whose whole remainder is on a shut page is ORANGE.** Red
+    # says there is something to buy; on such a row there is not, and
+    # green would say it was finished when another page is still to
+    # come. Pages two and three hold 20 of the 30, and buying out page
+    # one leaves exactly that.
+    row = f"shop:{season}_01+{season}_02+{season}_03"
+    got = _readings(three_pages({f"{season}_01": (10, int(now - DAY))}),
+                    now)[row]
+    if got != [("20/30", LOCKED_PAGES)]:
+        failures.append(
+            f"with everything on sale bought and 20 still on unopened "
+            f"pages, the row reads {got!r}, not 20/30 in "
+            f"{LOCKED_PAGES!r}. There is nothing to buy, so it is not "
+            f"red; another page is coming, so it is not green.")
+    # One left that CAN be bought and it is red again.
+    got = _readings(three_pages({f"{season}_01": (9, int(now - DAY))}),
+                    now)[row]
+    if got != [("21/30", TODO)]:
+        failures.append(
+            f"with one still buyable the row reads {got!r}, not 21/30 "
+            f"in red. Orange is for a row with nothing left to do "
+            f"today, not for one with a shut page anywhere behind it.")
+
+    # --- and the shop closes with its season --------------------------
+    # The shelves survive on the wire and the standings go on naming
+    # the season live, so nothing else notices it ended.
+    raw = three_pages()
+    if shop_shut_for_now(shelf, "account", raw, now):
+        failures.append(
+            "the seasonal shop reads as shut while its season is "
+            "running.")
+    over = opens + 5 * ROTATION          # past the season's end_time
+    if not shop_shut_for_now(shelf, "account", raw, over):
+        failures.append(
+            "the seasonal shop is still open after its season ended. "
+            "Its currency is wiped, so the block would bill a "
+            "bought-out catalogue in money nobody has.")
+    if not shop_shut_for_now(shelf, "account", raw, opens + 5 * DAY):
+        failures.append(
+            "the seasonal shop is open during its PRESEASON, where the "
+            "game has neither the shop nor the currency.")
+    # A snapshot from before the schedules arrived says nothing either
+    # way, and a shop that vanished on it would read as a bug.
+    bare = three_pages()
+    bare.pop("event_schedules")
+    if shop_shut_for_now(shelf, "account", bare, now):
+        failures.append(
+            "the seasonal shop reads as shut on a snapshot carrying no "
+            "schedules at all. That is a payload not yet arrived, not "
+            "a season that is over.")
 
     # --- a block's first row crosses a boundary -----------------------
     # The top of a COLUMN has nothing over it; the top of a block has

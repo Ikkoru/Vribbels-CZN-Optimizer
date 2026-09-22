@@ -313,6 +313,12 @@ class Tooltip:
                 justify=tk.RIGHT if at else tk.LEFT,
                 bg=self.colors["bg_lighter"], fg=self.colors["fg"],
                 font=("Segoe UI", 9),
+                # **A Label's box is wider than its words** -- one of
+                # padding and two of border, on each side -- and six
+                # pixels of that sit between these two columns, where
+                # `ROW_GAP` is the whole of the gap the rule names.
+                # Zeroed so the pad below is what the eye measures.
+                bd=px(0), padx=px(0),
             ).pack(side=tk.LEFT, anchor=tk.N,
                    padx=px((ROW_GAP, 0)) if at else 0)
         return body

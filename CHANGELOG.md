@@ -10,11 +10,15 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
-- **The Seasonal Shop's season-long shelves are on the Checklist**, at the foot of the `Other` column. An item the shop sells on more than one of its three pages is one row, counting down from their caps together. At the default window size the last few rows fall off the bottom of the column.
+- **The Seasonal Shop's season-long shelves are on the Checklist**, at the foot of the `Other` column. An item the shop sells on more than one of its three pages is one row, counting down from their caps together, in the order the pages themselves imply. Where one page charges more for the same material, that shelf is a row of its own with the price after its name. At the default window size the last few rows fall off the bottom of the column.
 
-- Hovering the Seasonal Shop gives two estimates of what a season pays: at one Chaos run a day, and at one and a half, claiming everything. A season nobody has counted yet shows neither.
+- A Seasonal Shop row turns orange once everything on sale has been bought and the rest is on a page that has not opened yet. Red means there is something to buy today; green would say the row was finished when another page is still to come.
 
-- A tooltip's figures line up by their last digit rather than their first.
+- The Seasonal Shop is on the tab only while the shop is actually open. It goes when the season ends, and stays away through the three weeks before the next one starts, where the game has neither the shop nor its currency.
+
+- Hovering the Seasonal Shop gives two estimates of what a season pays — at one Chaos run a day, and at one and a half, claiming everything — and what it has paid you so far. A season nobody has counted yet shows no estimate.
+
+- A tooltip's figures line up by their last digit rather than their first, and sit closer to their labels.
 
 ### Fixed
 
