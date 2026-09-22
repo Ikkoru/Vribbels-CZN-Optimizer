@@ -1,15 +1,15 @@
 res_id	family	group	tier	rarity	name	icon	amount	where
-2000001	named			Common	Units	currency_unit.png	5332997	currencies
-2000004	named			Mythic	Crystals	currency_paid_crystal.png	4651	currencies
+2000001	named			Common	Units	currency_unit.png	5487589	currencies
+2000004	named			Mythic	Crystals	currency_paid_crystal.png	4836	currencies
 2000010	named			Mythic	Signal Amplification Anchor	currency_gacha_ticket_rateup_supporter.png	129	currencies
-2000027	named			Legendary	Loot Certification Card	currency_chaos_week_reward.png	3	currencies
+2000027	named			Legendary	Loot Certification Card	currency_chaos_week_reward.png	1	currencies
 2000036	named			Legendary	Reason	currency_chaos_assault_stamina.png	5	currencies
 2100001	named			Legendary	Universal Tactical Certificate	currency_combatant_ascend_public.png	243	currencies
 2100002	named			Legendary	Universal Support Certificate	currency_supporter_ascend_public.png	76	currencies
-2100003	named			Legendary	Potential Disk	currency_ego_tree_public.png	219	currencies
+2100003	named			Legendary	Potential Disk	currency_ego_tree_public.png	224	currencies
 3000003	named			Mythic	Undetermined Ego Crystal	icon_item_card_levelup_all_1.png	10	items
 3100001	EXP material	Combatant	Basic	Common	Basic Battle Memory	icon_item_char_level_materal_1.png	20	items
-3100002	EXP material	Combatant	Advanced	Rare	Advanced Battle Memory	icon_item_char_level_materal_2.png	204	items
+3100002	EXP material	Combatant	Advanced	Rare	Advanced Battle Memory	icon_item_char_level_materal_2.png	213	items
 3100003	EXP material	Combatant	Premium	Legendary	Premium Battle Memory	icon_item_char_level_materal_3.png	126	items
 3100021	EXP material	Partner	Basic	Common	Basic Support Data	icon_item_supporter_level_materal_1.png	1781	items
 3100022	EXP material	Partner	Advanced	Rare	Advanced Support Data	icon_item_supporter_level_materal_2.png	217	items
@@ -23,8 +23,8 @@ res_id	family	group	tier	rarity	name	icon	amount	where
 3120012	Growth Stone	Instinct	Great	Rare	Great Growth Stone of Instinct	icon_item_card_levelup_instinct_2.png	75	items
 3120013	Growth Stone	Instinct	Premium	Legendary	Premium Growth Stone of Instinct	icon_item_card_levelup_instinct_3.png	87	items
 3120021	Growth Stone	Void	Common	Common	Common Growth Stone of Void	icon_item_card_levelup_creed_1.png	0	items
-3120022	Growth Stone	Void	Great	Rare	Great Growth Stone of Void	icon_item_card_levelup_creed_2.png	94	items
-3120023	Growth Stone	Void	Premium	Legendary	Premium Growth Stone of Void	icon_item_card_levelup_creed_3.png	60	items
+3120022	Growth Stone	Void	Great	Rare	Great Growth Stone of Void	icon_item_card_levelup_creed_2.png	117	items
+3120023	Growth Stone	Void	Premium	Legendary	Premium Growth Stone of Void	icon_item_card_levelup_creed_3.png	80	items
 3120031	Growth Stone	Order	Common	Common	Common Growth Stone of Order	icon_item_card_levelup_norms_1.png	0	items
 3120032	Growth Stone	Order	Great	Rare	Great Growth Stone of Order	icon_item_card_levelup_norms_2.png	145	items
 3120033	Growth Stone	Order	Premium	Legendary	Premium Growth Stone of Order	icon_item_card_levelup_norms_3.png	40	items
@@ -34,10 +34,10 @@ res_id	family	group	tier	rarity	name	icon	amount	where
 3130001	Combatant Promotion (Manual)	Striker	Common	Common	Common Striker Manual	icon_item_char_ascend_striker_1.png	1	items
 3130002	Combatant Promotion (Manual)	Striker	Advanced	Rare	Advanced Striker Manual	icon_item_char_ascend_striker_2.png	20	items
 3130003	Combatant Promotion (Manual)	Striker	Premium	Legendary	Premium Striker Manual	icon_item_char_ascend_striker_3.png	18	items
-3130011	Combatant Promotion (Manual)	Vanguard	Common	Common	Common Vanguard Manual	icon_item_char_ascend_defender_1.png	6	items
+3130011	Combatant Promotion (Manual)	Vanguard	Common	Common	Common Vanguard Manual	icon_item_char_ascend_defender_1.png	10	items
 3130012	Combatant Promotion (Manual)	Vanguard	Advanced	Rare	Advanced Vanguard Manual	icon_item_char_ascend_defender_2.png	16	items
 3130013	Combatant Promotion (Manual)	Vanguard	Premium	Legendary	Premium Vanguard Manual	icon_item_char_ascend_defender_3.png	35	items
-3130021	Combatant Promotion (Manual)	Hunter	Common	Common	Common Hunter Manual	icon_item_char_ascend_hunter_1.png	14	items
+3130021	Combatant Promotion (Manual)	Hunter	Common	Common	Common Hunter Manual	icon_item_char_ascend_hunter_1.png	18	items
 3130022	Combatant Promotion (Manual)	Hunter	Advanced	Rare	Advanced Hunter Manual	icon_item_char_ascend_hunter_2.png	17	items
 3130023	Combatant Promotion (Manual)	Hunter	Premium	Legendary	Premium Hunter Manual	icon_item_char_ascend_hunter_3.png	12	items
 3130031	Combatant Promotion (Manual)	Ranger	Common	Common	Common Ranger Manual	icon_item_char_ascend_ranger_1.png	0	items
@@ -47,7 +47,7 @@ res_id	family	group	tier	rarity	name	icon	amount	where
 3130042	Combatant Promotion (Manual)	Psionic	Advanced	Rare	Advanced Psionic Manual	icon_item_char_ascend_psionics_2.png	1	items
 3130043	Combatant Promotion (Manual)	Psionic	Premium	Legendary	Premium Psionic Manual	icon_item_char_ascend_psionics_3.png	18	items
 3130051	Combatant Promotion (Manual)	Controller	Common	Common	Common Controller Manual	icon_item_char_ascend_controller_1.png	12	items
-3130052	Combatant Promotion (Manual)	Controller	Advanced	Rare	Advanced Controller Manual	icon_item_char_ascend_controller_2.png	2	items
+3130052	Combatant Promotion (Manual)	Controller	Advanced	Rare	Advanced Controller Manual	icon_item_char_ascend_controller_2.png	5	items
 3130053	Combatant Promotion (Manual)	Controller	Premium	Legendary	Premium Controller Manual	icon_item_char_ascend_controller_3.png	0	items
 3140001	Partner Promotion (Certificate)	Striker	Common	Common	Common Striker Certificate	icon_item_supporter_classup_striker_1.png	0	items
 3140002	Partner Promotion (Certificate)	Striker	Advanced	Rare	Advanced Striker Certificate	icon_item_supporter_classup_striker_2.png	1	items
