@@ -561,6 +561,7 @@ RECORDED_NAMES = {
     9400082: "Witch of the Mere Tenebria",
     9400083: "CZN x Epic Seven",
     9400104: "CZN x Epic Seven",
+    9400107: "Rabbit Veronica",
     # `event_bartender_1`'s final reward, the pair that unlocks only
     # once every other reward has been taken.
     9700001: "The Last of Summer in a Glass",

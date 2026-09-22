@@ -437,6 +437,17 @@ PERIOD_COLOURS = {"period_full": "green", "period_most": "yellow",
 # What a heading countdown says: `18h left`, `5d left`.
 HEADING_LEFT = " left"
 
+# And what the Galactic Disaster's heading says under it, in season
+# and between seasons. Spelled out where the period columns above
+# abbreviate, because this one counts a season rather than a reset
+# and reads in the same words as the deadlines on the rows.
+#
+# **The second is approximate and says so.** The game has only ever
+# announced a season's dates with the previous one still running, so
+# what the wire gives is a date that has moved by a day before now.
+DISASTER_LEFT = "%s left"
+DISASTER_NEXT = "Next Disaster coming in ~%s"
+
 # The countdown's own face and where it sits against the heading. The
 # subtext face, so it reads as a note on the heading rather than as
 # part of it.
@@ -460,7 +471,6 @@ COUNTDOWNS = {
     "matrix": "ZERO_REWARD_LIST",
     "offensive": "REMNANTS_BOSS_PENALTY",
     "supply_season": "SEASON_PASS",
-    "galactic_disaster": "DISASTER_SEASON",
     "shophead:shop_assault/none/account": "ASSAULT_SCHEDULE",
     "shophead:shop_disaster/all/account": "DISASTER_SEASON",
 }
@@ -469,6 +479,25 @@ COUNTDOWNS = {
 # comes from. Every season the account has played keeps its products in
 # the table, so one screen offering one Tear of God reads as three.
 SEASONAL_SHOP_CATEGORY = "shop_disaster"
+
+# The window that bridges one Galactic Disaster season to the next.
+# It opens when a season's content ends and closes when the next
+# one's opens, which makes its END the one date on the wire for when
+# the next shop appears -- nothing states that date by name.
+DISASTER_TAIL_GROUP = "DISASTER_SEASON_END"
+
+# How long the game leaves between one Galactic Disaster's content
+# ending and the next one's shop opening. Three weeks at every
+# handover the account has seen -- 2026-01-14 to 02-04, 04-08 to
+# 04-29, 07-08 to 07-29 -- and the same three the next season spends
+# in preseason.
+#
+# **Only a fallback.** The wire states the date once the next
+# season's schedule arrives, which is what the tail window and the
+# rotations give; this stands in for the hours after a season ends
+# and before the login burst carries its successor, and is why the
+# words it feeds say `~`.
+DISASTER_HANDOVER = 21 * 24 * 3600
 
 # Shop products the tab does not list, by the id the wire gives them.
 # The shop rows are built from `shop_res_data` whole, so this is the
@@ -549,6 +578,75 @@ def shop_shut_for_now(shop, period, raw, now):
     return shop_pages_open(shop, period, raw, now) == set()
 
 
+def disaster_subtext(raw, now):
+    """`(what the Galactic Disaster heading says, how much of its own
+    span is left)`, or `(None, None)` where nothing can be said.
+
+    In season it counts the shop down. Between seasons it counts the
+    next one UP, and neither source names that date: the tail window
+    in `DISASTER_SEASON_END` ends on the day the next season's shop
+    opens, and where the next season's schedule is already running,
+    its first page opens one Sortie rotation in.
+
+    The share is what colours the words, and only a countdown has one
+    -- a wait for something to start is not running out.
+    """
+    shop = (SEASONAL_SHOP_CATEGORY, shop_stock.ALL_SCREENS)
+    _name, season = schedules.live(
+        shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY), raw, now)
+    if isinstance(season, dict) and not shop_shut_for_now(
+            shop, "account", raw, now):
+        left = max(0, (season.get("end_time") or now) - now)
+        span = (season.get("end_time") or now) - (season.get("start_time")
+                                                  or now)
+        return DISASTER_LEFT % schedules.countdown(left), (
+            left / float(span) if span > 0 else None)
+    opens = _next_disaster(raw, season, now)
+    # A date already past is the fallback having run out rather than a
+    # season about to start, and `over` is not a thing to promise.
+    if opens is None or opens <= now:
+        return None, None
+    return DISASTER_NEXT % schedules.countdown(opens - now), None
+
+
+def _next_disaster(raw, season, now):
+    """When the next Galactic Disaster's shop opens, or None."""
+    _name, tail = schedules.live(DISASTER_TAIL_GROUP, raw, now)
+    if isinstance(tail, dict) and _is_count(tail.get("end_time")):
+        return tail["end_time"]
+    # No tail window: the next season's own schedule may already be
+    # running, and its first page opens one rotation past its start.
+    starts = _season_rotations(raw, season)
+    if starts and len(starts) > 1:
+        return starts[1]
+    # And where the wire carries no future season at all -- the hours
+    # after one ends -- the handover is what the last three were.
+    _name, last = schedules.current(
+        shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY), raw, now)
+    if isinstance(last, dict) and _is_count(last.get("end_time")):
+        return last["end_time"] + DISASTER_HANDOVER
+    return None
+
+
+def _season_rotations(raw, season):
+    """When each Sortie rotation inside `season` starts, oldest first.
+
+    None where the snapshot cannot say -- no season running, or no
+    rotation table to read. The FIRST is the season's preseason and
+    each one after it opens a shop page; that is what dates the pages
+    and what dates the next season's opening. See `shop_pages_open`.
+    """
+    if not isinstance(season, dict) or not season.get("start_time"):
+        return None
+    return sorted(
+        window["start_time"]
+        for window in (schedules.groups(raw).get(
+            shop_stock.ACCOUNT_SEASON_GROUP) or {}).values()
+        if isinstance(window, dict)
+        and season["start_time"] <= window.get("start_time", 0)
+        < season.get("end_time", 0))
+
+
 def shop_pages_open(shop, period, raw, now):
     """Which of a seasonal shop's pages are open, as a set, or None.
 
@@ -579,15 +677,9 @@ def shop_pages_open(shop, period, raw, now):
         return None
     _name, season = schedules.live(
         shop_stock.season_group_of(shop[0]), raw, now)
-    if not isinstance(season, dict) or not season.get("start_time"):
+    starts = _season_rotations(raw, season)
+    if starts is None:
         return None
-    starts = sorted(
-        window["start_time"]
-        for window in (schedules.groups(raw).get(
-            shop_stock.ACCOUNT_SEASON_GROUP) or {}).values()
-        if isinstance(window, dict)
-        and season["start_time"] <= window.get("start_time", 0)
-        < season.get("end_time", 0))
     pages = sorted({define.get("link_shop_sub_category_id")
                     for _pid, define in shop_products(shop, period, raw)}
                    - {None})
@@ -935,7 +1027,9 @@ def _event_attendance(raw, name, window, now):
         return [("%d/%d" % (taken, written),
                  DONE if taken >= written else TODO)]
     waiting = _is_count(shown) and shown > taken
-    return [("%d/%d%s" % (taken, taken + (1 if waiting else 0),
+    return [("%d/%d%s" % (taken,
+                          max(taken + (1 if waiting else 0),
+                              ATTENDANCE_FLOOR),
                           UNKNOWN_MORE),
              TODO if waiting else CYCLE_DONE)]
 
@@ -1583,6 +1677,16 @@ ATTENDANCE_SHOWN = "current_days"
 ATTENDANCE_TAKEN = "received_days"
 ATTENDANCE_OVER = "completed"
 
+# The lowest ceiling a login event's row is drawn with, before the
+# wire has shown a higher one. **Nothing states how many rewards one
+# holds** -- not the schedule, not the row, not even the claim, whose
+# reply carries the reward and a `completed` flag and no total -- so
+# the row counts what it has and marks the rest unknown. Counting
+# from what is CLAIMED alone read `1/1+?` a day into a new event,
+# which says finished; no login event in the record has ended under
+# seven.
+ATTENDANCE_FLOOR = 7
+
 
 # An Overclock event doubles the day's first Simulation rewards.
 # `overclock_entities` keeps one row per event, ended ones included:
@@ -1655,16 +1759,14 @@ EVENT_WIDEST = "99/99" + UNKNOWN_MORE
 # three headings because it resets three ways -- a daily set of
 # missions, a weekly set, and the pass itself -- and they are three
 # different things to check rather than one row repeated.
-# The Galactic Disaster's own shelf, which is a BLOCK in the `Other`
-# column rather than a column: a season's shop is a season's worth of
-# rows, and hanging it from the bottom of the column keeps the rows
-# above it where they were.
+# The Galactic Disaster's own column. A season's shop is a season's
+# worth of rows, and a column of its own is the only place they fit
+# without pushing something else off the tab.
 #
-# **It clips rather than scrolls where the column is too short.** The
-# block is as tall as its rows and the column is as tall as the tab,
-# so at the default window size the foot of a full catalogue is cut
-# off -- which is the state of it, not a design.
-SEASONAL_BLOCK = "Galactic Disaster shop"
+# **Its heading outlives its shop.** Between seasons the shelves go
+# and the heading stays, saying when the next one opens -- a column
+# that vanished entirely would read as a tab that had lost a feature.
+SEASONAL_COLUMN = "Galactic Disaster"
 
 COLUMNS = (
     ("Daily", (
@@ -1699,32 +1801,16 @@ COLUMNS = (
          with_countdown("100/100")),
         ("offensive", "Full-Scale Offensive", with_countdown("9/9")),
         ("supply_season", "Arkhianon Supply", with_countdown("70/70")),
-        ("galactic_disaster", "Galactic Disaster (Seasonal)",
-         WIDEST_COUNTDOWN),
     ), (("shop_assault", "none"),), EVENTS_HEADING),
-    # **A block rather than a column**: it is drawn in `Other`'s own
-    # frame, hanging from the bottom of it, and shows no heading of its
-    # own -- the shop's heading row is its title. Last here because the
-    # blocks are built in this order and it is packed against the
-    # opposite edge. See `SEASONAL_BLOCK`.
-    (SEASONAL_BLOCK, (), (("shop_disaster", shop_stock.ALL_SCREENS),), None),
+    # Its heading carries the season's own deadline, so the row that
+    # used to say it here is gone from `Other`.
+    (SEASONAL_COLUMN, (), (("shop_disaster", shop_stock.ALL_SCREENS),),
+     None),
 )
-
-# Which of those are blocks rather than columns: they grid no cell of
-# their own and hang inside the column before them, so the tab has
-# four columns and as many blocks again. **Blocks come LAST**, because
-# a block is built into the column above it in this order.
-BLOCKS = frozenset([SEASONAL_BLOCK])
-
-# What stands above a block's FIRST row, there being no row there to
-# name: the column it hangs under. Only `_crosses_a_block` reads it,
-# and only to charge the boundary pad the row would otherwise skip --
-# see `BLOCK_PAD`.
-BLOCK_TOP = "blocktop:"
 
 # Which period each column's shop products are taken from.
 PERIOD_BY_COLUMN = {"Weekly": "weekly", "Monthly": "monthly",
-                    "Other": "account", SEASONAL_BLOCK: "account"}
+                    "Other": "account", SEASONAL_COLUMN: "account"}
 
 
 # **Countdowns line up in a column of their own**, and there are TWO
@@ -2237,15 +2323,15 @@ class ChecklistTab(BaseTab):
         # lands unequally, the widest column keeping the least.
         for index in range(len(COLUMNS)):
             columns.grid_columnconfigure(2 * index, weight=0)
-        # BETWEEN the columns only -- `len(COLUMNS) - 1` of them. A
+        # BETWEEN the columns only -- one fewer than there are. A
         # trailing spacer would take the whole leftover width itself
         # and leave the last column a hundred pixels short of the
         # edge the first one is four from.
         for index in range(len(COLUMNS) - 1):
             # spacing: content frame -> content frame -- frame, frame ↔
             # NOT TRACKED: the distance is whatever the tab has spare
-            # divided four ways, so it moves with the window. What is
-            # fixed is that the four are equal.
+            # divided five ways, so it moves with the window. What is
+            # fixed is that the five are equal.
             columns.grid_columnconfigure(2 * index + 1, weight=1,
                                          uniform="checklist")
         columns.grid_rowconfigure(0, weight=1)
@@ -2256,33 +2342,10 @@ class ChecklistTab(BaseTab):
         # the row set changes. The frames themselves never move: the
         # audit reaches a column through its position among these.
         self._column_frames = []
-        for index, (title, _fixed, _shops, _events) in enumerate(COLUMNS):
-            if title in BLOCKS:
-                break
+        for index in range(len(COLUMNS)):
             column = ttk.Frame(columns)
             column.grid(row=0, column=2 * index, sticky="nsew")
             self._column_frames.append(column)
-
-        # **The seasonal shelf hangs from the bottom of the last
-        # column**, with that column's own rows in a frame of their
-        # own above it. Both are packed HERE rather than on each
-        # rebuild, and in this order, because pack serves its children
-        # in the order the calls were made: the rows take their height
-        # first, so a window too short for both costs the foot of the
-        # shelf rather than a live row above it. The shelf sits against
-        # the bottom edge whatever is left over, which is the point.
-        host = self._column_frames[-1]
-        stacked = ttk.Frame(host)
-        stacked.pack(side=tk.TOP, fill=tk.X)
-        self._column_frames[-1] = stacked
-        # **Anchored WEST, or it centres.** A block is narrower than
-        # the column it hangs in -- the column is as wide as whichever
-        # of its blocks reaches furthest -- and pack centres a child
-        # that does not fill, which stood the shelf's rows half the
-        # difference right of the ones above them.
-        shelf = ttk.Frame(host)
-        shelf.pack(side=tk.BOTTOM, anchor=tk.SW)
-        self._column_frames.append(shelf)
 
     def _tracked(self, product_id):
         """Whether the user ticked one shop product. See ChecklistManager."""
@@ -2339,7 +2402,7 @@ class ChecklistTab(BaseTab):
         built = columns_for(raw, self._tracked, time.time(),
                             self._definitions)
         for frame, (title, rows) in zip(self._column_frames, built):
-            drawn = self._draw(rows, readings, title)
+            drawn = self._draw(rows, readings)
             if _same_rows(self._rendered.get(title), drawn):
                 continue                    # `_fill` patches or skips
             outgoing = list(frame.winfo_children())
@@ -2381,20 +2444,16 @@ class ChecklistTab(BaseTab):
         show = []
         # The heading and its countdown travel together and the pair is
         # centred, so the heading itself sits a little left of centre.
-        #
-        # **A block under a column has none.** It is part of the column
-        # it hangs in, and its shop's own heading row already names it.
-        if title != SEASONAL_BLOCK:
-            head = ttk.Frame(parent)
-            show.append(lambda: head.pack(anchor=tk.CENTER))
-            make_heading(head, title).pack(side=tk.LEFT, anchor=tk.S)
-            if title in PERIOD_LENGTHS:
-                # spacing: heading ↔ element -- heading, label ↕
-                label = ttk.Label(head, text="", font=HEADING_COUNTDOWN_FONT)
-                label.pack(side=tk.LEFT, anchor=tk.S,
-                           padx=px((HEADING_COUNTDOWN_GAP, 0)),
-                           pady=px((0, HEADING_COUNTDOWN_DROP)))
-                self._period_labels[title] = label
+        head = ttk.Frame(parent)
+        show.append(lambda: head.pack(anchor=tk.CENTER))
+        make_heading(head, title).pack(side=tk.LEFT, anchor=tk.S)
+        if title in PERIOD_LENGTHS or title == SEASONAL_COLUMN:
+            # spacing: heading ↔ element -- heading, label ↕
+            label = ttk.Label(head, text="", font=HEADING_COUNTDOWN_FONT)
+            label.pack(side=tk.LEFT, anchor=tk.S,
+                       padx=px((HEADING_COUNTDOWN_GAP, 0)),
+                       pady=px((0, HEADING_COUNTDOWN_DROP)))
+            self._period_labels[title] = label
 
         if not rows:
             return lambda: [do() for do in show]
@@ -2464,18 +2523,15 @@ class ChecklistTab(BaseTab):
                         + px(CHECKBOX_OVERHEAD))
         holder = tk.Frame(parent, width=max(stop + widest, reach),
                           height=self._block_height(
-                              [key for key, _l, _w in rows], title),
+                              [key for key, _l, _w in rows]),
                           bg=self.colors["bg"])
         holder.pack_propagate(False)
         # spacing: panel ↕ unrelated label -- heading, frame ↕
         # Packed LAST of the three, so it never maps as an empty
         # block waiting for its Text: a child packed into an unmapped
         # parent maps with it, all at once.
-        #
-        # A block with no heading of its own pays no gap under one.
-        pack_holder = lambda: holder.pack(
-            anchor=tk.N,
-            pady=px((0 if title == SEASONAL_BLOCK else HEADING_GAP, 0)))
+        pack_holder = lambda: holder.pack(anchor=tk.N,
+                                          pady=px((HEADING_GAP, 0)))
 
         text = tk.Text(
             holder, wrap=tk.NONE, bd=0, highlightthickness=px(0),
@@ -2602,7 +2658,7 @@ class ChecklistTab(BaseTab):
         return max(tkfont.Font(font=ROW_FONT).metrics("linespace"),
                    self._box_line)
 
-    def _block_height(self, keys, title=None):
+    def _block_height(self, keys):
         """A column's height: its rows and the space around each.
 
         Measured off the face rather than multiplied by a guess -- a
@@ -2620,10 +2676,6 @@ class ChecklistTab(BaseTab):
         -- and a block that counted it as text came up short by the
         difference, per asking row, and clipped the foot of the column.
 
-        **`title` has to be the same one `_draw` was given.** The two
-        walk the rows in step and the pitch of the FIRST turns on what
-        stands over it, so a block sized without it is short by the
-        boundary pad and clips its last line.
         """
         # Each row's pitch counts, not each gap BETWEEN rows:
         # `spacing1` is drawn above EVERY line including the first, so
@@ -2631,8 +2683,7 @@ class ChecklistTab(BaseTab):
         # its last line.
         line = tkfont.Font(font=ROW_FONT).metrics("linespace")
         box = self._checkbox_line()
-        total = 0
-        above = BLOCK_TOP if title in BLOCKS else None
+        total, above = 0, None
         for key in keys:
             total += (box if _is_shop(key) or key in self._finishable
                       else line)
@@ -2818,9 +2869,18 @@ class ChecklistTab(BaseTab):
                     # end of every season, so what was earned of it
                     # last season says nothing about this one and a
                     # lifetime total spans several wipes -- which is
-                    # also why it stays out of the ledger. What it
-                    # answers instead: see `SEASON_ESTIMATE`.
-                    lines = tuple(
+                    # also why it stays out of the ledger.
+                    #
+                    # What the season HAS paid leads, being the one
+                    # measurement among them; the estimates under it
+                    # are guesses at that same figure, and the bill
+                    # below is what it has to cover. `currency_earned`
+                    # answering None is a reading rather than a zero,
+                    # and drops the line.
+                    earned, _kind = currency_earned(raw, money)
+                    lines = () if earned is None else (
+                        (SEASON_EARNED_LABEL, RATE_VALUE % (earned, name)),)
+                    lines += tuple(
                         (SEASON_ESTIMATE_LABEL % written,
                          RATE_VALUE % (paid, name))
                         for written, paid in (
@@ -2846,16 +2906,6 @@ class ChecklistTab(BaseTab):
                     (FULL_COST_LABEL,
                      RATE_VALUE % (shop_full_cost(shop, period, raw,
                                                   self._tracked), name)),)
-                if shop[0] == SEASONAL_SHOP_CATEGORY:
-                    # And what the season HAS paid, last because it is
-                    # the reading the three lines above it are guesses
-                    # or bills against. Absent where the shop payloads
-                    # have not arrived: see `currency_earned`, whose
-                    # None is a reading rather than a zero.
-                    earned, _kind = currency_earned(raw, money)
-                    if earned is not None:
-                        rows += ((SEASON_EARNED_LABEL,
-                                  RATE_VALUE % (earned, name)),)
                 out[shop_head_key(shop, period)] = rows
         return out
 
@@ -2887,9 +2937,22 @@ class ChecklistTab(BaseTab):
         return readings
 
     def _fill_period_headings(self, raw):
-        """Rewrite the countdown beside each period column's heading."""
+        """Rewrite the subtext beside each column heading that has one.
+
+        **The Galactic Disaster's is not a period.** It counts a
+        season rather than a reset, and between seasons it counts the
+        next one up instead -- which has no share of anything left to
+        colour, so it takes the dim ink a note takes.
+        """
         now = time.time()
         for title, label in self._period_labels.items():
+            if title == SEASONAL_COLUMN:
+                words, share = disaster_subtext(raw, now)
+                label.config(
+                    text=words or "",
+                    foreground=self.colors["fg_dim"] if share is None
+                    else self.colors[PERIOD_COLOURS[_share_band(share)]])
+                continue
             left, length = _period_left(title, raw, now)
             if left is None:
                 label.config(text="")
@@ -2914,7 +2977,7 @@ class ChecklistTab(BaseTab):
         with `window_create`, and its left edge lands where an ordinary
         row's words do.
         """
-        drawn = self._draw(rows, readings, title)
+        drawn = self._draw(rows, readings)
         was = self._rendered.get(title)
         if drawn == was:
             return
@@ -2969,7 +3032,7 @@ class ChecklistTab(BaseTab):
                     title, text, key, box))
         text.config(state=tk.DISABLED)
 
-    def _draw(self, rows, readings, title=None):
+    def _draw(self, rows, readings):
         """Every row's drawn form, each told what precedes it.
 
         One place, because the column is built from this twice -- once
@@ -2977,11 +3040,8 @@ class ChecklistTab(BaseTab):
         two loops that drifted apart would compare a column against a
         different column and rewrite it every refresh.
 
-        `title` says which column or block these rows are, which is
-        what tells the first of them whether anything stands over it.
-        See `BLOCK_TOP`.
         """
-        above = BLOCK_TOP if title in BLOCKS else None
+        above = None
         out = []
         for key, label, _widest in rows:
             out.append(self._line(key, label, readings, above))
@@ -3860,7 +3920,11 @@ def _period_left(title, raw, now):
 
 def _period_band(left, length):
     """Which quarter of its period a countdown is in."""
-    share = max(0.0, left) / float(length) if length else 0.0
+    return _share_band(max(0.0, left) / float(length) if length else 0.0)
+
+
+def _share_band(share):
+    """Which quarter a share of a span still to run falls in."""
     for above, band in HEADING_BANDS:
         if share > above:
             return band
@@ -4155,12 +4219,6 @@ def _crosses_a_block(above, key):
     sides of a boundary doubles it wherever two blocks touch, which on
     this tab is every shop but the first in its column.
 
-    `above` is `BLOCK_TOP` for the first row of a block hanging under
-    a column: the top of a COLUMN crosses nothing, but the top of a
-    block has the column's own rows over it and pays the boundary
-    like any other. The two are different Texts, so `spacing1` is the
-    only lever that reaches across -- and it is the same lever every
-    other boundary on the tab uses, which is what keeps them equal.
     """
     if above is None:
         return False                # the top of a column crosses nothing

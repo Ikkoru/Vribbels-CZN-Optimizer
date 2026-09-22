@@ -175,7 +175,7 @@ The maintainer read every live event's totals off the game and reported them. Th
 
 **Two events pay outside their mission rows**, which is what stops "every row claimed" from meaning "finished": `event_bartender_1`'s Special Reward, and `event_summer_01`'s 10 puzzle rewards and 15 story rewards. Both are counted on their own screens and neither is a mission row.
 
-**A named login-streak event has one length.** Rei's Gift is seven rewards every time it runs; the 10-, 14- and 21-day rows in `attendance_entities` belong to other events sharing that table, not to longer instalments of one event. What still cannot be done is telling which event a row belongs to before it ends, which is why the row counts claimed against claimed-plus-one.
+**A named login-streak event has one length.** Rei's Gift is seven rewards every time it runs; the 10-, 14- and 21-day rows in `attendance_entities` belong to other events sharing that table, not to longer instalments of one event. What still cannot be done is telling which event a row belongs to before it ends, which is why the row counts claimed against claimed-plus-one — floored at seven, the shortest any of them has finished at. Counting from what is claimed alone read `1/1+?` on a new event's first day, which says finished; `Golden Autumn's Invitation` was the one that showed it, at 15 rewards. `checklist_tab.ATTENDANCE_FLOOR`.
 
 **The Galactic Disaster is not one event but a season of them** -- three parts of 21 days, each with a supply store, a medal screen, five pages of challenge missions, a story track, three distortion bosses and a Great Rift half. The Checklist reads two of its figures (the weekly chaos progress and the seasonal score) and nothing else. Anything more needs the screens enumerated one at a time.
 
@@ -432,6 +432,8 @@ Claim commands seen so far, all naming the event and the records together:
 ```
 
 So there is nothing to merge: the cached row is patched from `received_days_after`, and the next login sends the real record.
+
+**And the reward rides in `item`**, a top-level totals envelope like any other — not in `reward_list`, which states the same payout as a delta beside it. A key that generic is guarded by its shape rather than trusted by its name; `capture/manager` takes it with `result`. Until it did, a login event's reward reached neither the Capture Log nor the item counts.
 
 **`completed` is the game's own word that the streak has ENDED**, and it is the only one there is. Captured on the claim that finished `event_143` (`websocket_debug_20260914_195103.jsonl`, qid 39): `received_days_before: 6, received_days_after: 7, completed: true`. The addon keeps it on the row AND across the login that follows — the row that login sends is identical to a streak merely claimed for today, so letting it win would lose the answer for good.
 

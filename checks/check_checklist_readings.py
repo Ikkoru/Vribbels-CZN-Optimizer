@@ -91,8 +91,7 @@ def run():
         shop_full_cost,
         _event_attendance,
         RATE_RECENT_LABEL, RATE_LONG_LABEL,
-        SHOP_RATE_FLOOR, season_estimate,
-        BLOCK_TOP, ROW_TAG_PITCH, _row_tags,
+        SHOP_RATE_FLOOR, season_estimate, ATTENDANCE_FLOOR,
         LOCKED_PAGES, shop_pages_open, shop_shut_for_now,
         ChecklistTab, WRITTEN_TOTALS, written_total,
         unsure_ceiling, EVENT_FINISHED_FIELD,
@@ -1218,33 +1217,6 @@ def run():
             "schedules at all. That is a payload not yet arrived, not "
             "a season that is over.")
 
-    # --- a block's first row crosses a boundary -----------------------
-    # The top of a COLUMN has nothing over it; the top of a block has
-    # the column's own rows. They are different Texts, so `spacing1`
-    # on that first line is the only lever that reaches between them --
-    # and skipping it sat the shelf a block pad tighter than every
-    # other boundary on the tab. See `BLOCK_TOP`.
-    head = shop_head_key(("shop_disaster", shop_stock.ALL_SCREENS),
-                         "account")
-    at_block = _row_tags(head, BLOCK_TOP)[0]
-    at_column = _row_tags(head, None)[0]
-    inside = _row_tags(head, "basin")[0]
-    if at_block != inside:
-        failures.append(
-            f"a block's first row takes the {at_block!r} pitch where the "
-            f"same heading inside a column takes {inside!r}. Both cross "
-            f"the same kind of boundary and have to read alike.")
-    if at_block == at_column:
-        failures.append(
-            "a block's first row and a column's take the same pitch, so "
-            "BLOCK_TOP is reaching nothing -- the top of a column has "
-            "nothing above it to be set apart from.")
-    if ROW_TAG_PITCH[at_block] <= ROW_TAG_PITCH[at_column]:
-        failures.append(
-            f"a block's first row is spaced {ROW_TAG_PITCH[at_block]} "
-            f"against a column's {ROW_TAG_PITCH[at_column]}. It has the "
-            f"column's rows above it, so it pays MORE, not less.")
-
     # --- each column heading's own countdown ---------------------------
     # The period splits into four EQUAL parts and the colour says which
     # one is running. A band computed off the wrong length reads as a
@@ -1677,11 +1649,18 @@ def run():
         return _event_attendance(raw, "event_daily_16", WINDOW, now)
 
     cases = (
+        # **Under the floor the ceiling is the FLOOR.** Counting from
+        # what is claimed alone read `1/1+?` a day into a new event,
+        # which says finished; no login event in the record has ended
+        # under seven. See `ATTENDANCE_FLOOR`.
+        (dict(current_days=1, received_days=1),
+         "1/%d" % ATTENDANCE_FLOOR + UNKNOWN_MORE, CYCLE_DONE),
         # claimed up to date -- orange, the streak may have more days
-        (dict(current_days=4, received_days=4), "4/4" + UNKNOWN_MORE,
-         CYCLE_DONE),
+        (dict(current_days=4, received_days=4),
+         "4/%d" % ATTENDANCE_FLOOR + UNKNOWN_MORE, CYCLE_DONE),
         # a day shown up for and not claimed -- red
-        (dict(current_days=5, received_days=4), "4/5" + UNKNOWN_MORE, TODO),
+        (dict(current_days=5, received_days=4),
+         "4/%d" % ATTENDANCE_FLOOR + UNKNOWN_MORE, TODO),
         # the game says the streak is over -- green, and the floor mark
         # comes off with it
         (dict(current_days=7, received_days=7, completed=True), "7/7", DONE),
@@ -1690,8 +1669,12 @@ def run():
         # claimed -- a streak has never been caught more than one
         # apart, and fifty-six over seven would be a tally of nothing.
         (dict(current_days=56, received_days=7), "7/8" + UNKNOWN_MORE, TODO),
+        # And past the floor the claimed count leads again.
+        (dict(current_days=9, received_days=9), "9/9" + UNKNOWN_MORE,
+         CYCLE_DONE),
         # no shown-up count at all: nothing says a day is waiting
-        (dict(received_days=3), "3/3" + UNKNOWN_MORE, CYCLE_DONE),
+        (dict(received_days=3),
+         "3/%d" % ATTENDANCE_FLOOR + UNKNOWN_MORE, CYCLE_DONE),
     )
     for fields, want, state in cases:
         got = _streak(**fields)
@@ -1935,7 +1918,7 @@ def run():
          "current_days": 1},
     ]
     got = _event_attendance(raw, "event_daily_16", WINDOW, now)
-    if got != [("4/4" + UNKNOWN_MORE, CYCLE_DONE)]:
+    if got != [("4/%d" % ATTENDANCE_FLOOR + UNKNOWN_MORE, CYCLE_DONE)]:
         failures.append(
             f"with three streaks on the account the row reads {got!r}, not "
             f"the first one started after the event's own window opened.")

@@ -10,13 +10,15 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
-- **The Seasonal Shop's season-long shelves are on the Checklist**, at the foot of the `Other` column. An item the shop sells on more than one of its three pages is one row, counting down from their caps together, in the order the pages themselves imply. Where one page charges more for the same material, that shelf is a row of its own with the price after its name. At the default window size the last few rows fall off the bottom of the column.
+- **A fifth Checklist column, `Galactic Disaster`**, holding the Seasonal Shop's season-long shelves. Its heading says how long the season has left, and between seasons it says roughly when the next one opens. `Galactic Disaster (Seasonal)` has left the `Other` column, the new heading saying the same thing.
+
+- An item the shop sells on more than one of its three pages is one row, counting down from their caps together, in the order the pages themselves imply. Where one page charges more for the same material, that shelf is a row of its own with the price after its name.
 
 - A Seasonal Shop row turns orange once everything on sale has been bought and the rest is on a page that has not opened yet. Red means there is something to buy today; green would say the row was finished when another page is still to come.
 
-- The Seasonal Shop is on the tab only while the shop is actually open. It goes when the season ends, and stays away through the three weeks before the next one starts, where the game has neither the shop nor its currency.
+- The shelves are there only while the shop is. They go when the season ends, and stay away through the three weeks before the next one starts, where the game has neither the shop nor its currency. The heading stays either way.
 
-- Hovering the Seasonal Shop gives two estimates of what a season pays — at one Chaos run a day, and at one and a half, claiming everything — and what it has paid you so far. A season nobody has counted yet shows no estimate.
+- Hovering the Seasonal Shop says what the season has paid you so far, then two estimates of what a whole one pays — at one Chaos run a day, and at one and a half, claiming everything. A season nobody has counted yet shows no estimate.
 
 - A tooltip's figures line up by their last digit rather than their first, and sit closer to their labels.
 
@@ -27,6 +29,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - The mouse wheel scrolls a Checklist column when the pointer is over a checkbox. It only worked over the gaps before, which is how a column too tall for the window hid its last rows.
 
 - The Weekly column's Seasonal Shop was underlined as if it had a tooltip. It has none: everything it sells is free, so there is no bill and no rate.
+
+- **A login event's reward never reached the Capture Log**, and its count never updated. The claim reports the item under a key nothing was reading.
+
+- A login event on its first day read `1/1+?`, which says finished. The ceiling now starts at seven, the fewest any login event has ever paid, and still counts up from there.
 
 ## [2.1.0] - Checklist of in-game activities, capture archiving
 

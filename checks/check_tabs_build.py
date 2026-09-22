@@ -1835,6 +1835,12 @@ def _checklist_rows_are_all_drawn(tab):
     return out
 
 
+# Short enough that a Checklist column cannot fit, which is the
+# condition the wheel binding exists for. Under the app's own minimum
+# on purpose -- see the function below.
+SHORT_H = 400
+
+
 def _a_wheel_over_a_checkbox_scrolls_its_column(tab):
     """The wheel has to reach the Text under an embedded checkbox.
 
@@ -1844,15 +1850,20 @@ def _a_wheel_over_a_checkbox_scrolls_its_column(tab):
     on this tab is a checkbox for most of the column -- so the scroll
     works everywhere except where the user is likely to be pointing.
 
-    Needs a MAPPED window: an unmapped Text has no view to move. And
-    a window at the app's own MINIMUM, because a column with room for
-    all its rows has nowhere to scroll and nothing to prove. Goes up
-    at alpha 0, like `_checklist_rows_are_all_drawn`.
+    Needs a MAPPED window, an unmapped Text having no view to move,
+    and a SHORT one: a column with room for all its rows has nowhere
+    to scroll and nothing to prove. The height here is deliberately
+    under what the app allows, because what is being exercised is the
+    binding rather than the layout -- at a supported size the tallest
+    column happens to fit, and a check that waits for that to stop
+    being true is a check that never runs.
+
+    Goes up at alpha 0, like `_checklist_rows_are_all_drawn`.
 
     Returns a list of complaints.
     """
     import tkinter as tk
-    from ui.scaling import px, WINDOW_MIN_H, WINDOW_MIN_W
+    from ui.scaling import px, WINDOW_MIN_W
     root = tab.frame.winfo_toplevel()
     notebook = tab.frame.master
     out = []
@@ -1862,7 +1873,7 @@ def _a_wheel_over_a_checkbox_scrolls_its_column(tab):
             notebook.add(tab.frame, text="Checklist")
         notebook.pack(fill=tk.BOTH, expand=True)
         notebook.select(tab.frame)
-        root.geometry("%dx%d" % (px(WINDOW_MIN_W), px(WINDOW_MIN_H)))
+        root.geometry("%dx%d" % (px(WINDOW_MIN_W), px(SHORT_H)))
         root.deiconify()
         root.update_idletasks()
     except tk.TclError as e:
@@ -1948,121 +1959,6 @@ def _a_marked_shop_heading_has_something_to_say(tab):
     return out
 
 
-def _the_seasonal_shelf_hangs_from_the_bottom(tab):
-    """The Galactic Disaster shelf sits against the foot of its column.
-
-    It is a BLOCK inside the `Other` column rather than a column of its
-    own -- see `SEASONAL_BLOCK` -- and what puts it at the bottom is
-    pack being asked for the rows above it FIRST. Get that order the
-    other way round and the shelf claims its full height from the
-    bottom, leaving the live rows above it short by the difference and
-    clipped without a word.
-
-    Both halves are checked, because the two failures look nothing
-    alike: a shelf that is no longer flush, and rows that no longer
-    get the height they asked for.
-
-    **Measured at the app's own MINIMUM size**, which is the whole
-    point: a window tall enough for both blocks hands each its full
-    height whichever order they were packed in, so the order can be
-    wrong for as long as anyone looks at a big window. Squeezed, the
-    two orders differ by the whole of the overflow.
-
-    Needs a MAPPED window for the geometry, so it goes up at alpha 0 --
-    see `_checklist_rows_are_all_drawn`, which does the same.
-
-    Returns a list of complaints.
-    """
-    import tkinter as tk
-    from ui.scaling import px, WINDOW_MIN_H, WINDOW_MIN_W
-    from ui.tabs.checklist_tab import (
-        BLOCKS, COLUMNS as CHECKLIST_COLUMNS, ROW_TAG_PITCH)
-
-    frames = getattr(tab, "_column_frames", None)
-    if not frames or len(frames) != len(CHECKLIST_COLUMNS):
-        return [f"the Checklist built {len(frames or ())} blocks for "
-                f"{len(CHECKLIST_COLUMNS)} entries in COLUMNS, so the two "
-                f"no longer line up and nothing below could be measured."]
-    titles = [one[0] for one in CHECKLIST_COLUMNS]
-    shelves = [(title, frame) for title, frame in zip(titles, frames)
-               if title in BLOCKS]
-    if not shelves:
-        return ["no Checklist entry is a BLOCK any more, so nothing hangs "
-                "from the bottom of a column and this is watching nothing."]
-    root = tab.frame.winfo_toplevel()
-    notebook = tab.frame.master
-    out = []
-    try:
-        root.attributes("-alpha", 0.0)
-        if str(tab.frame) not in notebook.tabs():
-            notebook.add(tab.frame, text="Checklist")
-        notebook.pack(fill=tk.BOTH, expand=True)
-        notebook.select(tab.frame)
-        root.geometry("%dx%d" % (px(WINDOW_MIN_W), px(WINDOW_MIN_H)))
-        root.deiconify()
-        root.update_idletasks()
-    except tk.TclError as e:
-        return [f"the Checklist could not be laid out for measuring: {e}"]
-    try:
-        for title, shelf in shelves:
-            host = shelf.master
-            if not shelf.winfo_ismapped():
-                out.append(f"the {title!r} block never mapped, so its "
-                           f"placing was not measured.")
-                continue
-            slack = ((host.winfo_rooty() + host.winfo_height())
-                     - (shelf.winfo_rooty() + shelf.winfo_height()))
-            if slack:
-                out.append(
-                    f"the {title!r} block's foot sits {slack}px short of "
-                    f"its column's. It is packed against the bottom edge "
-                    f"so that its last row lands there, and anything "
-                    f"packed after it takes that place instead.")
-            # **And its left edge is the column's.** A block is
-            # narrower than the column it hangs in, and pack CENTRES a
-            # child that does not fill -- which stood the shelf's rows
-            # half the difference right of the ones above them.
-            adrift = shelf.winfo_rootx() - host.winfo_rootx()
-            if adrift:
-                out.append(
-                    f"the {title!r} block starts {adrift}px right of its "
-                    f"column. Its rows and the ones above it are one "
-                    f"list to read down, so they share a left edge.")
-            # **And its first row pays the block boundary.** The two
-            # are different Texts, so `spacing1` on that line is the
-            # only lever reaching between them -- skip it and the
-            # shelf sits a pad tighter than every other boundary on
-            # the tab. `_row_tags` knowing this is not enough: `_draw`
-            # has to be the one asking.
-            drawn = (tab._rendered or {}).get(title) or ()
-            pitch = drawn[0][1][0] if drawn else None
-            want = ROW_TAG_PITCH.get("blockrow")
-            if pitch is None:
-                out.append(f"the {title!r} block drew no rows, so its "
-                           f"first row's spacing was not read.")
-            elif ROW_TAG_PITCH.get(pitch) != want:
-                out.append(
-                    f"the {title!r} block's first row is spaced "
-                    f"{ROW_TAG_PITCH.get(pitch)} under the {pitch!r} tag "
-                    f"where a block boundary is {want}. It has the "
-                    f"column's rows above it and reads as part of the "
-                    f"same list, so it is set apart the same way.")
-            above = [child for child in host.winfo_children()
-                     if child is not shelf]
-            for rows in above:
-                if rows.winfo_height() < rows.winfo_reqheight():
-                    out.append(
-                        f"the rows above the {title!r} block got "
-                        f"{rows.winfo_height()}px of the "
-                        f"{rows.winfo_reqheight()}px they asked for, so "
-                        f"the foot of that column is clipped. The block "
-                        f"has to be packed AFTER them for the rows to "
-                        f"take their height first.")
-    finally:
-        root.withdraw()
-    return out
-
-
 def _checklist_columns_come_first(tab):
     """The Checklist tab's columns frame must be its FIRST child.
 
@@ -2078,12 +1974,9 @@ def _checklist_columns_come_first(tab):
 
     Returns a list of complaints.
     """
-    from ui.tabs.checklist_tab import BLOCKS
     from ui.tabs.checklist_tab import COLUMNS as CHECKLIST_COLUMNS
 
-    # A block grids no cell of its own -- it hangs inside the column
-    # before it -- so only the columns are counted here.
-    wanted = len([one for one in CHECKLIST_COLUMNS if one[0] not in BLOCKS])
+    wanted = len(CHECKLIST_COLUMNS)
     children = tab.get_frame().winfo_children()
     if not children:
         return ["the Checklist tab built no children at all"]
@@ -2977,9 +2870,6 @@ def run():
                 _checklist_rows_are_all_drawn(built["ChecklistTab"]))
             failures.extend(
                 _a_marked_shop_heading_has_something_to_say(
-                    built["ChecklistTab"]))
-            failures.extend(
-                _the_seasonal_shelf_hangs_from_the_bottom(
                     built["ChecklistTab"]))
             failures.extend(
                 _a_wheel_over_a_checkbox_scrolls_its_column(

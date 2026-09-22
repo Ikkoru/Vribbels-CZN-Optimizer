@@ -874,13 +874,17 @@ class Addon:
         # `result` is the most OVERLOADED key on the wire -- a string,
         # a bool, a stage's step record -- so it counts only where it
         # carries a rewards payload or nests one. See `_nested_reward`.
+        # **`item` is guarded the same way** for its name rather than
+        # its history: it has only ever arrived as an envelope, on a
+        # login event's claim, and a key that generic is one the game
+        # can reuse for anything.
         for key in ("add_result", "item_result", "dec_result",
-                    "calamity_reward", "result"):
+                    "calamity_reward", "result", "item"):
             payload = data.get(key)
             if not isinstance(payload, dict):
                 continue
-            if key == "result" and not ("currency" in payload
-                                        or "items" in payload):
+            if key in ("result", "item") and not ("currency" in payload
+                                                  or "items" in payload):
                 # **A story episode nests its rewards one deeper**, as
                 # `result.story_reward_result.reward`, and the `result`
                 # around them carries no `currency` or `items` of its
