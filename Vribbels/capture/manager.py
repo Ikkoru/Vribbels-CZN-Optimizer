@@ -1458,8 +1458,23 @@ class Addon:
         because the record that arrives is the record the snapshot
         wants. An id not yet held is appended: a first pickup has no
         entry to update.
+
+        **The receipt is what the CACHE moved, not what the payload
+        says it did.** One payout can arrive in two replies -- a
+        Simulation run's lands under `drop_item_result` and again
+        under the `savedata_result` its clear reports -- and the
+        second writes the same total the first did. Reading `diff` off
+        the payload printed that twice, identical figures and all,
+        for one reward. Where there is no cached entry to measure
+        against the payload's own `diff` is all there is, and a first
+        pickup takes it.
+
+        **What it RETURNS is every id the envelope named**, moved or
+        not: the caller uses it to suppress a run's total where the
+        envelopes already named the same items, and an envelope that
+        restated what another applied still named them.
         """
-        moved = []
+        moved, named = [], set()
         items = result.get("items")
         if isinstance(items, dict) and self.inventory_data is not None:
             held = self.inventory_data.setdefault("items", [])
@@ -1468,8 +1483,14 @@ class Addon:
                     doc = entry.get("doc") if isinstance(entry, dict) else None
                     if not isinstance(doc, dict) or "res_id" not in doc:
                         continue
+                    was = next((row.get("amount") for row in held
+                                if isinstance(row, dict)
+                                and row.get("res_id") == doc["res_id"]), None)
                     self._replace_item(held, doc)
-                    moved.append((doc["res_id"], entry.get("diff")))
+                    named.add(doc["res_id"])
+                    shift = self._shift(was, doc, entry)
+                    if shift:
+                        moved.append((doc["res_id"], shift))
                     self._save_pending = True
 
         currencies = result.get("currency")
@@ -1480,15 +1501,40 @@ class Addon:
                     doc = entry.get("doc") if isinstance(entry, dict) else None
                     if not isinstance(doc, dict) or "res_id" not in doc:
                         continue
+                    was = (held.get(str(doc["res_id"])) or {}).get("amount")
                     held[str(doc["res_id"])] = doc
-                    moved.append((doc["res_id"], entry.get("diff")))
+                    named.add(doc["res_id"])
+                    shift = self._shift(was, doc, entry)
+                    if shift:
+                        moved.append((doc["res_id"], shift))
                     self._save_pending = True
 
         if moved:
             self.log_callback("[LIVE] %s %s"
                               % (self._verb(moved, spent),
                                  self._describe_amounts(moved)))
-        return {res_id for res_id, _diff in moved}
+        return named
+
+    @staticmethod
+    def _shift(was, doc, entry):
+        """What to report for one holding, or None to report nothing.
+
+        **The figure is the payload's `diff` and the DECISION is the
+        cache's.** Whether the total the envelope writes differs from
+        the one already held is the only thing that separates a payout
+        from the same payout restated -- but the difference itself is
+        not the payout: a holding drifts between sightings, Aether
+        regenerating a point every six minutes, and subtracting two
+        totals reports the drift along with the reward.
+
+        A holding never seen has no total to compare and is taken on
+        the payload's word, which is what a first pickup is.
+        """
+        now = doc.get("amount")
+        if not isinstance(was, (int, float)) or not isinstance(now,
+                                                               (int, float)):
+            return entry.get("diff")
+        return entry.get("diff") if now != was else None
 
     @staticmethod
     def _verb(moved, spent):

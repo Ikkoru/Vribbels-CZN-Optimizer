@@ -32,6 +32,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - **A login event's reward never reached the Capture Log**, and its count never updated. The claim reports the item under a key nothing was reading.
 
+- **A Simulation run's reward was listed twice.** The run reports its payout once when the spot pays it and again on the clear, and the Capture Log printed both — identical figures, one reward. Counts were never affected: the second report writes the same total the first did.
+
 - A login event on its first day read `1/1+?`, which says finished. The ceiling now starts at seven, the fewest any login event has ever paid, and still counts up from there.
 
 ## [2.1.0] - Checklist of in-game activities, capture archiving

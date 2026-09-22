@@ -597,4 +597,55 @@ def run():
                         f"RECORDED_NAMES calls it {known!r}. One of the "
                         f"two is out of date and nothing says which.")
 
+    # --- one payout, one receipt, however many replies carry it ------
+    # **A Simulation run's reward arrives twice**: once under
+    # `drop_item_result` when the spot pays it, and again under the
+    # `savedata_result` the clear reports. Both state the same totals,
+    # so applying both is harmless -- and reading each payload's own
+    # `diff` printed the whole reward twice, identical figures and
+    # all. What separates a payout from the same payout restated is
+    # whether the cached total MOVED. See `_apply_totals`.
+    log = []
+    with tempfile.TemporaryDirectory() as tmp:
+        addon = _build_addon(Path(tmp), log)
+        addon.websocket_message(_Flow(_Message(json.dumps([login, roster]))))
+        log.clear()
+
+        paid = _reward(50, 710439)
+        addon.websocket_message(_Flow(_Message(json.dumps(paid))))
+        first = [line for line in log if "Received" in str(line)]
+        log.clear()
+        # The same envelope again, as the second reply sends it.
+        addon.websocket_message(_Flow(_Message(json.dumps(paid))))
+        again = [line for line in log if "Received" in str(line)]
+
+        if len(first) != 1:
+            failures.append(
+                f"one payout wrote {len(first)} receipts, not 1: "
+                f"{first!r}.")
+        if again:
+            failures.append(
+                f"the same payout restated wrote {again!r}. It moved "
+                f"nothing -- the totals were already cached -- so there "
+                f"is no second reward to report, and printing one says "
+                f"a run paid twice what it did.")
+        # And the holding is still what the server said, not double.
+        if _amount(addon, ITEM_ID) != 50:
+            failures.append(
+                f"after the same envelope twice the cached item reads "
+                f"{_amount(addon, ITEM_ID)}, not 50. `doc.amount` is a "
+                f"total and is written in, so a repeat cannot add.")
+
+        # **A payout that really does follow another still reports.**
+        # Suppressing on the figures rather than on the movement would
+        # swallow a second identical reward.
+        log.clear()
+        addon.websocket_message(
+            _Flow(_Message(json.dumps(_reward(51, 760439)))))
+        if not [line for line in log if "Received" in str(line)]:
+            failures.append(
+                "a second, genuine reward wrote no receipt. Only a "
+                "restatement is silent -- one that moves the holding is "
+                "a reward however much it looks like the last.")
+
     return failures
