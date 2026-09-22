@@ -477,7 +477,10 @@ COUNTDOWNS = {
     "offensive": "REMNANTS_BOSS_PENALTY",
     "supply_season": "SEASON_PASS",
     "shophead:shop_assault/none/account": "ASSAULT_SCHEDULE",
-    "shophead:shop_disaster/all/account": "DISASTER_SEASON",
+    # **The Galactic Disaster's shop carries none.** Its column
+    # heading counts the same season down, two rows above it, and the
+    # Sortie shop needs its own only because it sits among rows that
+    # answer to other clocks.
 }
 
 # Shops whose products are kept PER SEASON, and where the live season
