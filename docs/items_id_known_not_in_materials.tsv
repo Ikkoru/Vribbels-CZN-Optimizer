@@ -1,5 +1,5 @@
 res_id	where	amount	Name	Type	Note
-2000002	currencies	11	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
+2000002	currencies	22	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
 2000007	currencies	21	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
 2000011	currencies	359	Moment of the Radiant Hero	Shop Currency	
 2000012	currencies	1068	Moment of the Radiant Traveler	Shop Currency	

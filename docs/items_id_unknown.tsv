@@ -45,7 +45,7 @@ res_id	where	amount	Name	Type	Note
 5100069	items	0			
 5100073	items	0			
 5100074	items	0			
-5110001	items	4			
+5110001	items	4		Omega Code	
 5201003	items	0			Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201005	items	0			Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201009	items	0			Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
