@@ -1379,8 +1379,8 @@ COLUMNS = (
         ("simulation", "Simulation Challenges", "3/3"),
         ("chaos_currency", "Chaos Currency",
          EXPECTED_VALUE + "99/4"),
-        ("modules_soon", "Delegation Module", "99 expiring within 24h!"),
-        ("modules_week", "Delegation Module", "99 expiring within 7 days"),
+        ("modules_soon", "Delegation Module", "7 expiring within 24h!"),
+        ("modules_week", "Delegation Module", "7 expiring within 7 days"),
         ("sortie_currency", "Sortie Currency",
          EXPECTED_VALUE + "99/9"),
         ("chaos_progress", "Galactic Disaster - Chaos", "8000/8000"),
@@ -3102,6 +3102,12 @@ def _readings(raw, now=None, tracked=None):
     if _is_count(week_exp) and not _this_week(record, now):
         week_exp = 0
     week_full = _is_count(week_exp) and week_exp >= PASS_WEEK_EXP_FULL
+    # A maxed pass ends the whole ladder: the dailies feed the week and
+    # the week feeds the level, so once the level is full there is
+    # nothing either of them can still earn. Read before the rows that
+    # use it, the same way `week_full` already settles the dailies.
+    level = record.get("free_reward_rank")
+    season_full = _is_count(level) and level >= PASS_LEVEL_FULL
     missions = raw.get(PASS_MISSION_FIELD)
     if isinstance(missions, dict):
         since = weekly_reset.last_daily_reset(now)
@@ -3111,7 +3117,8 @@ def _readings(raw, now=None, tracked=None):
                       and row["complete_time"] >= since)
         out["supply_daily"] = _one(
             "%d/%d" % (claimed, PASS_DAILY_COUNT),
-            _done(week_full or claimed >= PASS_DAILY_COUNT))
+            _done(season_full or week_full
+                  or claimed >= PASS_DAILY_COUNT))
     else:
         out["supply_daily"] = _one("%s/%d" % (NO_DATA, PASS_DAILY_COUNT), UNKNOWN)
 
@@ -3121,11 +3128,10 @@ def _readings(raw, now=None, tracked=None):
     if _is_count(week_exp):
         out["supply_weekly"] = _one(
             "%d/%d" % (min(week_exp, PASS_WEEK_EXP_FULL), PASS_WEEK_EXP_FULL),
-            _done(week_exp >= PASS_WEEK_EXP_FULL))
+            _done(season_full or week_exp >= PASS_WEEK_EXP_FULL))
     else:
         out["supply_weekly"] = _one("%s/%d" % (NO_DATA, PASS_WEEK_EXP_FULL),
                                 UNKNOWN)
-    level = record.get("free_reward_rank")
     if _is_count(level):
         out["supply_season"] = _one("%d/%d" % (min(level, PASS_LEVEL_FULL),
                                            PASS_LEVEL_FULL),

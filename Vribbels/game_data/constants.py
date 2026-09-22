@@ -105,14 +105,23 @@ CHARACTER_EXP_TABLE = [
 #   confirmed:  (100, 2)     — Douglas at promotion 0/5, in-game level 2
 #               (1800, 10)   — Zatera at promotion 0/5, in-game level 10
 #               (36300, 30)  — Raidel at promotion 2/5, in-game level 30
-#               (93500, 40)  — Yvonne at promotion 3/5, in-game level 40
-#               (181000, 50) — Anteia at promotion 4/5, in-game level 50
-#               (346000, 60) — every max-level partner (May 11 snapshot)
-#   estimated:  the level-5 / -15 / -20 / -25 / -35 / -45 / -55 rows
+#               (346000, 60) — every max-level partner
+#   estimated:  the level-5 / -15 / -20 / -25 / -55 rows
+#
+# **Levels 31-50 are the game's own per-level costs, accumulated.**
+# Read off the promotion screen one level at a time and summed from
+# the confirmed level-30 threshold, which lands on 93500 at level 40
+# and 181000 at level 50 -- both independently confirmed from
+# captures. Two anchors reached by arithmetic is what makes the run
+# trustworthy, and it retired estimates that were 6700 and 14000 low.
 PARTNER_EXP_TABLE = [
     (0, 1), (100, 2), (1000, 5), (1800, 10), (12000, 15),
-    (20000, 20), (28000, 25), (36300, 30), (70000, 35),
-    (93500, 40), (145000, 45), (181000, 50), (251000, 55), (346000, 60),
+    (20000, 20), (28000, 25), (36300, 30),
+    (41400, 31), (46700, 32), (52100, 33), (57600, 34), (63300, 35),
+    (69100, 36), (75000, 37), (81000, 38), (87200, 39), (93500, 40),
+    (100000, 41), (107000, 42), (114500, 43), (122500, 44), (131000, 45),
+    (140000, 46), (149500, 47), (159500, 48), (170000, 49), (181000, 50),
+    (251000, 55), (346000, 60),
 ]
 
 # Affinity bonus rewards. The game calls this Affinity; the

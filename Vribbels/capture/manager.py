@@ -1708,7 +1708,6 @@ class Addon:
                 merged.append(entry)
 
         self.character_data["characters"] = merged
-        self.log_callback(f"[LIVE] Character data updated ({len(incoming)} entries)")
 
     def _save_data(self):
         """
