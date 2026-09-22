@@ -539,7 +539,7 @@ RECORDED_NAMES = {
     3920024: "Core of Potential",
     3920029: "Core of Variables",
     3920030: "Core of Phase",
-    3920031: "Enrapturing Crystal(Seasonal Event Currency)",
+    3920031: "Enrapturing Crystal",
     3930003: "Core of Resonance",
     3930004: "Core of Mutation",
     # Paid once, for finishing a summer event's last puzzle.

@@ -7,10 +7,11 @@ res_id	where	amount	Name	Type	Note
 2000021	currencies	0			
 2000033	currencies	3			Spectral Cube candidate
 2000034	currencies	0			
-3920001				Seasonal Event Currency	Galactic Disaster Season 1 Event Currency
-3920002				Seasonal Event Currency	Galactic Disaster Season 2 Event Currency
+3920001				Pure White Fragments	Galactic Disaster Season 1 Event Currency
+3920002				Radiant Life	Galactic Disaster Season 2 Event Currency
 3920004	items	0			
 3920005	items	0			
+3920006				Flawless Melody	Galactic Disaster Season 3 Event Currency
 3930002					Couldn't find any 10s. Possibly an event item, because it was gone from the snapshot after new patch dropped
 4010001	items	1			Summer 2026 Hilde - Main Screen Background candidate
 4010002	items	1			Summer 2026 Arabella - Main Screen Background candidate
