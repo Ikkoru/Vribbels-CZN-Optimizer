@@ -648,4 +648,25 @@ def run():
                 "restatement is silent -- one that moves the holding is "
                 "a reward however much it looks like the last.")
 
+        # **And a restated envelope suppresses no TOTAL.** A Chaos run
+        # pays at its spots and its clear then restates the whole run,
+        # so the clear's envelope reports nothing -- and a run total
+        # suppressed on what the envelopes NAMED rather than on what
+        # they reported left the run with no summary at all.
+        log.clear()
+        addon.websocket_message(_Flow(_Message(json.dumps({
+            "res": "ok", "qid": 77,
+            "return_info": {
+                # The same totals once more: nothing moves.
+                "result_reward_drop_item": _reward(51, 760439)["add_result"],
+                "confirm_drop_item": [{"id": ITEM_ID, "amount": 1},
+                                      {"id": CURRENCY_ID, "amount": 50000}],
+            }}))))
+        said = [line for line in log if "Total rewards" in str(line)]
+        if not said:
+            failures.append(
+                "a run whose clear only RESTATED its payout wrote no "
+                "`Total rewards` line. The envelope reported nothing, "
+                "so there was nothing for the total to duplicate.")
+
     return failures

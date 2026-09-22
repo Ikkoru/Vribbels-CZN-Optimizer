@@ -1469,12 +1469,14 @@ class Addon:
         against the payload's own `diff` is all there is, and a first
         pickup takes it.
 
-        **What it RETURNS is every id the envelope named**, moved or
-        not: the caller uses it to suppress a run's total where the
-        envelopes already named the same items, and an envelope that
-        restated what another applied still named them.
+        **What it RETURNS is the ids it REPORTED**, which is what the
+        caller suppresses a run's total on. An envelope that only
+        restated what another already applied reported nothing, so it
+        suppresses nothing -- and a Chaos run, whose clear restates
+        the whole run rather than paying again, gets its `Total
+        rewards` line back.
         """
-        moved, named = [], set()
+        moved = []
         items = result.get("items")
         if isinstance(items, dict) and self.inventory_data is not None:
             held = self.inventory_data.setdefault("items", [])
@@ -1487,7 +1489,6 @@ class Addon:
                                 if isinstance(row, dict)
                                 and row.get("res_id") == doc["res_id"]), None)
                     self._replace_item(held, doc)
-                    named.add(doc["res_id"])
                     shift = self._shift(was, doc, entry)
                     if shift:
                         moved.append((doc["res_id"], shift))
@@ -1503,7 +1504,6 @@ class Addon:
                         continue
                     was = (held.get(str(doc["res_id"])) or {}).get("amount")
                     held[str(doc["res_id"])] = doc
-                    named.add(doc["res_id"])
                     shift = self._shift(was, doc, entry)
                     if shift:
                         moved.append((doc["res_id"], shift))
@@ -1513,7 +1513,7 @@ class Addon:
             self.log_callback("[LIVE] %s %s"
                               % (self._verb(moved, spent),
                                  self._describe_amounts(moved)))
-        return named
+        return {res_id for res_id, _diff in moved}
 
     @staticmethod
     def _shift(was, doc, entry):
