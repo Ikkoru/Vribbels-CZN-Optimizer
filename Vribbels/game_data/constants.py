@@ -539,7 +539,7 @@ RECORDED_NAMES = {
     3920024: "Core of Potential",
     3920029: "Core of Variables",
     3920030: "Core of Phase",
-    3920031: "Seasonal Event Currency",
+    3920031: "Enrapturing Crystal(Seasonal Event Currency)",
     3930003: "Core of Resonance",
     3930004: "Core of Mutation",
     # Paid once, for finishing a summer event's last puzzle.
@@ -584,8 +584,6 @@ RECORDED_ONLY = frozenset(RECORDED_NAMES)
 # `docs/items_id_known_not_in_materials.tsv` carries the reason beside
 # each, and an id leaves this set when a second event has confirmed it.
 PROVISIONAL_NAMES = frozenset({
-    3920031,   # "Seasonal Event Currency" -- a placeholder; each
-               # season may spell its own currency differently
     4020001,   # "Midsummer Night Memories" -- one summer's name on an
                # id that looks like a general event-item slot
 })

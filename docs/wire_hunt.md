@@ -169,7 +169,7 @@ A currency in `characters.currencies` keeps three figures, and the third is the 
 
 The three reconcile exactly — Policy Point read 36043 gained against 36020 spent with 23 in hand — and `total_amount` is monotonic: checked across 101 snapshots and five currencies, not one backward step. So the rate a currency is earned at is one subtraction between two readings of it, with nothing to model about what was spent in between. `Vribbels/checklist_manager.py` is what keeps those readings.
 
-**Two of the seven shop currencies are not currencies.** Black Mass (3920007) and the Seasonal Event Currency (3920031) are ordinary `inventory.items` entries with an `amount` and no lifetime anything. **The shops account for them instead:** what is held, plus `shop_list[*].total_count` times each product's price, summed over every product priced in that currency.
+**Two of the seven shop currencies are not currencies.** Black Mass (3920007) and the Enrapturing Crystal (3920031) are ordinary `inventory.items` entries with an `amount` and no lifetime anything. **The shops account for them instead:** what is held, plus `shop_list[*].total_count` times each product's price, summed over every product priced in that currency.
 
 That reconstruction was checked against the wire's own answer for the five currencies that state one — `held + bought` against `total_amount`, at every snapshot carrying both shop payloads:
 
