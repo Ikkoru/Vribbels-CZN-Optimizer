@@ -10,7 +10,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
-- **A fifth Checklist column, `Galactic Disaster`**, holding the Seasonal Shop's season-long shelves. Its heading says how long the season has left, and between seasons it says roughly when the next one opens. `Galactic Disaster (Seasonal)` has left the `Other` column, the new heading saying the same thing.
+- **A fifth Checklist column, `Galactic Disaster`**, holding the Seasonal Shop's season-long shelves. Its heading says how long the season has left; between seasons the shelves go and a line saying roughly when the next one opens stands where the shop's own heading did. `Galactic Disaster (Seasonal)` has left the `Other` column, the new heading saying the same thing.
 
 - An item the shop sells on more than one of its three pages is one row, counting down from their caps together, in the order the pages themselves imply. Where one page charges more for the same material, that shelf is a row of its own with the price after its name.
 
@@ -21,6 +21,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Hovering the Seasonal Shop says what the season has paid you so far, then two estimates of what a whole one pays — at one Chaos run a day, and at one and a half, claiming everything. A season nobody has counted yet shows no estimate.
 
 - A tooltip's figures line up by their last digit rather than their first, and sit closer to their labels.
+
+- The Checklist is about a hundred pixels narrower. A shop heading's line hangs off its own words rather than standing in the column of readings beside it, and it was being counted in both — so every column with a shop in it reserved room twice for the same deadline.
 
 ### Fixed
 

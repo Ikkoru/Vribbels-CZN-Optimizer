@@ -1911,6 +1911,76 @@ def _a_wheel_over_a_checkbox_scrolls_its_column(tab):
     return out
 
 
+def _the_checklist_fits_its_window(tab):
+    """Every Checklist column has to fit the DEFAULT window.
+
+    The columns are fixed-width and the grid cannot shrink them, so a
+    tab that outgrows the window does not reflow -- the last column
+    simply runs off the right edge, and what is missing is invisible
+    because there is nothing beside it to look short.
+
+    **A column reserves more than it draws, and that is the trap.** A
+    shop heading's line hangs off its own words rather than standing
+    in the column of readings, so a heading counted in BOTH places
+    took its widest countdown twice and stood the tab forty pixels
+    wider than anything on it. Nothing about that is visible until the
+    total crosses the window's width.
+
+    Measured with the window at the size the layout is designed for,
+    mapped at alpha 0 like `_checklist_rows_are_all_drawn`.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.scaling import px, WINDOW_H, WINDOW_W
+
+    root = tab.frame.winfo_toplevel()
+    notebook = tab.frame.master
+    out = []
+    try:
+        root.attributes("-alpha", 0.0)
+        if str(tab.frame) not in notebook.tabs():
+            notebook.add(tab.frame, text="Checklist")
+        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.select(tab.frame)
+        root.geometry("%dx%d" % (px(WINDOW_W), px(WINDOW_H)))
+        root.deiconify()
+        root.update_idletasks()
+    except tk.TclError as e:
+        return [f"the Checklist could not be laid out for measuring: {e}"]
+    try:
+        holders = tab.frame.winfo_children()
+        if not holders:
+            return ["the Checklist tab built no children at all"]
+        columns = sorted(holders[0].winfo_children(),
+                         key=lambda w: w.winfo_rootx())
+        if not columns:
+            return ["the Checklist tab built no columns"]
+        edge = root.winfo_rootx() + root.winfo_width()
+        last = columns[-1]
+        over = (last.winfo_rootx() + last.winfo_width()) - edge
+        if over > 0:
+            out.append(
+                f"the Checklist's last column runs {over}px past the "
+                f"right edge of a default-sized window. The columns are "
+                f"fixed-width and the grid cannot shrink them, so what "
+                f"is off the edge is simply not drawn.")
+        # And they do not overlap each other, which is the other way a
+        # tab too wide for its window shows up.
+        for at in range(len(columns) - 1):
+            gap = (columns[at + 1].winfo_rootx()
+                   - (columns[at].winfo_rootx() + columns[at].winfo_width()))
+            if gap < 0:
+                out.append(
+                    f"Checklist columns {at} and {at + 1} overlap by "
+                    f"{-gap}px. Every column is as wide as its own widest "
+                    f"row, so an overlap is the tab asking for more "
+                    f"width than the window has.")
+    finally:
+        root.withdraw()
+    return out
+
+
 def _a_marked_shop_heading_has_something_to_say(tab):
     """A shop heading is underlined only where a tip will appear.
 
@@ -2868,6 +2938,8 @@ def run():
                     built["ChecklistTab"]))
             failures.extend(
                 _checklist_rows_are_all_drawn(built["ChecklistTab"]))
+            failures.extend(
+                _the_checklist_fits_its_window(built["ChecklistTab"]))
             failures.extend(
                 _a_marked_shop_heading_has_something_to_say(
                     built["ChecklistTab"]))

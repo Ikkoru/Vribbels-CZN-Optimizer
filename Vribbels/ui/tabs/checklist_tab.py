@@ -448,6 +448,10 @@ HEADING_LEFT = " left"
 DISASTER_LEFT = "%s left"
 DISASTER_NEXT = "Next Disaster coming in ~%s"
 
+# The key of the row those words go on. It carries no reading, so
+# `_readings` never answers to it -- the words ARE the row.
+NEXT_DISASTER_ROW = "next_disaster"
+
 # The countdown's own face and where it sits against the heading. The
 # subtext face, so it reads as a note on the heading rather than as
 # part of it.
@@ -579,34 +583,42 @@ def shop_shut_for_now(shop, period, raw, now):
 
 
 def disaster_subtext(raw, now):
-    """`(what the Galactic Disaster heading says, how much of its own
-    span is left)`, or `(None, None)` where nothing can be said.
+    """`(what the Galactic Disaster heading says, the share of the
+    season still to run)`, or `(None, None)` out of season.
 
-    In season it counts the shop down. Between seasons it counts the
-    next one UP, and neither source names that date: the tail window
-    in `DISASTER_SEASON_END` ends on the day the next season's shop
-    opens, and where the next season's schedule is already running,
-    its first page opens one Sortie rotation in.
-
-    The share is what colours the words, and only a countdown has one
-    -- a wait for something to start is not running out.
+    Only a live season has anything to count down. The wait for the
+    next one is a ROW rather than a subtext -- see
+    `next_disaster_words` -- because it is a sentence where this is a
+    reading, and because it stands where the shop it replaces stood.
     """
     shop = (SEASONAL_SHOP_CATEGORY, shop_stock.ALL_SCREENS)
     _name, season = schedules.live(
         shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY), raw, now)
-    if isinstance(season, dict) and not shop_shut_for_now(
+    if not isinstance(season, dict) or shop_shut_for_now(
             shop, "account", raw, now):
-        left = max(0, (season.get("end_time") or now) - now)
-        span = (season.get("end_time") or now) - (season.get("start_time")
-                                                  or now)
-        return DISASTER_LEFT % schedules.countdown(left), (
-            left / float(span) if span > 0 else None)
-    opens = _next_disaster(raw, season, now)
-    # A date already past is the fallback having run out rather than a
-    # season about to start, and `over` is not a thing to promise.
-    if opens is None or opens <= now:
         return None, None
-    return DISASTER_NEXT % schedules.countdown(opens - now), None
+    left = max(0, (season.get("end_time") or now) - now)
+    span = (season.get("end_time") or now) - (season.get("start_time") or now)
+    return DISASTER_LEFT % schedules.countdown(left), (
+        left / float(span) if span > 0 else None)
+
+
+def next_disaster_words(raw, now):
+    """What stands where the seasonal shop stood, or None.
+
+    Neither source names the date the next season's shop opens: the
+    tail window in `DISASTER_SEASON_END` ENDS on it, and where the
+    next season's schedule is already running, its first page opens
+    one Sortie rotation in. A date already past is the fallback having
+    run out rather than a season about to start, and `over` is not a
+    thing to promise.
+    """
+    _name, season = schedules.live(
+        shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY), raw, now)
+    opens = _next_disaster(raw, season, now)
+    if opens is None or opens <= now:
+        return None
+    return DISASTER_NEXT % schedules.countdown(opens - now)
 
 
 def _next_disaster(raw, season, now):
@@ -1898,6 +1910,13 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
         # read as a broken tab rather than as data not yet arrived.
         for shop in shops if period else ():
             if shop_shut_for_now(shop, period, raw, now):
+                # **The shop's place is kept, not its shelves.** What
+                # stands where its heading stood is when the next
+                # season opens -- a sentence, so it is the row's WORDS
+                # and the row shows no reading of its own.
+                waiting = next_disaster_words(raw, now)
+                if waiting:
+                    rows.append((NEXT_DISASTER_ROW, waiting, None))
                 continue
             head = shop_head_key(shop, period)
             SHOP_TOTAL_RESERVE[head] = shop_total_widest(shop, period, raw)
@@ -2466,19 +2485,25 @@ class ChecklistTab(BaseTab):
         # A shop product's label is a CHECKBOX, so it reaches further
         # right than its words alone say.
         #
-        # **A row showing NO value has no say in where the value column
-        # sits.** A shop heading is the long one -- `Shop - Exchange
-        # Shop - Prism Module` -- and its total hangs off its own words
-        # rather than standing in the column, so letting it vote pushed
-        # every reading beside it right for a column it does not use.
-        # Shop PRODUCTS still vote: their counts are in that column.
-        measured = [(key, label) for key, label, w in rows if w] or \
-            [(key, label) for key, label, _w in rows]
+        # **A shop HEADING never votes on either.** Its whole line
+        # hangs off its own words -- its total, then its countdown --
+        # and `reach` below is what accounts for it, so a heading that
+        # voted here was counted twice: once in the column of readings
+        # it does not use and once where it actually sits. That stood
+        # the Galactic Disaster's column forty pixels wider than
+        # anything it draws, the `Ends in 99 days` a heading reserves
+        # having claimed room in the column beside `600/600`.
+        #
+        # A row showing NO value has no say either, for the same
+        # reason. Shop PRODUCTS do: their counts are in that column.
+        votes = [(key, label, w) for key, label, w in rows
+                 if w and not key.startswith(SHOP_HEAD_PREFIX)]
+        measured = votes or [(key, label, w) for key, label, w in rows]
         labels = max(font.measure(label)
                      + (px(CHECKBOX_OVERHEAD) if _is_shop(key) else 0)
-                     for key, label in measured)
+                     for key, label, _w in measured)
         stop = labels + TEXT_INSET + LABEL_TO_VALUE
-        widest = max([font.measure(w) for _k, _l, w in rows if w] or [0])
+        widest = max([font.measure(w) for _k, _l, w in votes] or [0])
         # **A shop heading's line is outside that column**, hanging off
         # its own words: its total, then its reserve, then anything
         # else the heading shows. So the block is as wide as whichever

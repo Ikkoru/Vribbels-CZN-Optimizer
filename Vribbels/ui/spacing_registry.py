@@ -4295,8 +4295,8 @@ _checklist_text = _checklist_text_at(0)
 
 
 # (tab, name, target, rule, resolver, axis) for the Checklist tab. Its
-# four columns are built by one function, so a gap read in the first is
-# the same gap in the other three.
+# columns are built by one function, so a gap read in the first is the
+# same gap in every other.
 CHECKLIST_ENTRIES = [
     # The heading against the first row under it. Text to text, so the
     # reading runs baseline to capital.
