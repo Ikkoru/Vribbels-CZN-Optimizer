@@ -124,8 +124,13 @@ from ui.scaling import px
 # id. The id has to be recoverable from the key, since that is what
 # `_readings` looks the product up by. A shop's own heading row takes
 # the second prefix, so the two cannot collide.
+#
+# A row standing for SEVERAL products carries all of their ids, joined
+# -- see `shop_display_rows`. The separator is a character no product
+# id uses, so splitting a key always gives back what built it.
 SHOP_KEY_PREFIX = "shop:"
 SHOP_HEAD_PREFIX = "shophead:"
+SHOP_KEY_JOIN = "+"
 
 # What a shop heading's own reading answers to. A shop is on the tab
 # under as many PERIODS as it sells caps for -- Nono's is both a weekly
@@ -215,6 +220,66 @@ SHOP_RATE_FLOOR = 7
 # windows landing on the same days print once.
 RATE_RECENT_LABEL = "Average per %s, recent:"
 RATE_LONG_LABEL = "Average per %s, long run:"
+
+# **The seasonal shop answers a different question**, and has to: its
+# currency is wiped at the end of every season, so an average off the
+# ledger spans several wipes and last season's says nothing about this
+# one. What a player wants to know is whether the season pays for the
+# shelf, so both lines are a WHOLE SEASON's income at a rate of play
+# -- the one term anybody chooses -- rather than a measured average.
+SEASON_ESTIMATE_LABEL = "Approximate, %s Chaos run/day, all rewards:"
+
+# The two rates of play the lines answer for: how it is written, and
+# what it multiplies.
+SEASON_ESTIMATE_RATES = (("1", 1.0), ("1.5", 1.5))
+
+# What one Galactic Disaster season pays out in its own currency,
+# claiming everything: the weekly content, and every achievement the
+# season offers.
+#
+# **The wire cannot supply this.** Every achievement payload the login
+# sends -- `disaster_achievement_entities`, `achievements`,
+# `mission_accumulate` and the rest -- carries an id, a score and a
+# claim time, and no reward; the season's currency appears nowhere
+# else on the wire but in payouts already made and in the shop's own
+# prices. There is no definitions table to read, so these are counted
+# off the game's screens by hand.
+#
+# **Keyed by SEASON, so a table left behind says nothing rather than
+# something wrong.** A season this does not name gets no estimate,
+# which is the truth about it: the counts are per season and reusing
+# one season's for the next would present a guess as a reading.
+SEASON_ESTIMATE = {
+    "disaster_s04": {
+        # How many days of the season pay a Chaos run, and what one
+        # successful run gives. The only term a rate of play moves.
+        "days": 63,
+        "per_run": 810,
+        # Everything that does not depend on how often it is played.
+        "fixed": (
+            9 * 8000,                               # Chaos weekly progress
+            (4 + 4) * 4000,                         # Great Rift weekly
+            10 * 500,                               # Great Rift records
+            12 * 100 + 200 + 300 + 400 + 30 * 200,  # Mission Records
+            9 * 100 + 52 * 200 + 2 * 2000,          # Chaos Investigation
+            4 * 500 + 4 * 1000 + 2 * 2000,          # Battle Report
+            4 * 3 * (200 + 6 * 100 + 3 * 50),       # Annihilation Reward
+        ),
+    },
+}
+
+
+def season_estimate(season, per_day):
+    """What a season pays at that many Chaos runs a day, or None.
+
+    None for a season `SEASON_ESTIMATE` does not name, which is a
+    reading: nothing has been counted for it yet.
+    """
+    terms = SEASON_ESTIMATE.get(season)
+    if not terms:
+        return None
+    return int(round(sum(terms["fixed"])
+                     + terms["days"] * terms["per_run"] * per_day))
 
 # And what a full period of the shop costs, which is the figure those
 # two are worth comparing against.
@@ -376,6 +441,7 @@ COUNTDOWNS = {
     "supply_season": "SEASON_PASS",
     "galactic_disaster": "DISASTER_SEASON",
     "shophead:shop_assault/none/account": "ASSAULT_SCHEDULE",
+    "shophead:shop_disaster/all/account": "DISASTER_SEASON",
 }
 
 # Shops whose products are kept PER SEASON, and where the live season
@@ -417,6 +483,44 @@ def shop_products(shop, period, raw):
                  if product_id not in HIDDEN_PRODUCTS)
 
 
+# Shops whose screens are one shelf, so whose rows merge by the item
+# they give. The Galactic Disaster's three pages sell the same
+# material two or three times over, and a player asking how many are
+# left means all of them.
+#
+# **The BILL never merges.** Two of the season's materials are priced
+# 30 on two pages and 120 on a third, so one price times a summed cap
+# understates what clearing the row costs. Everything that adds money
+# up reads `shop_products`; only what draws rows reads the other.
+MERGED_SHOPS = frozenset([SEASONAL_SHOP_CATEGORY])
+
+
+def shop_display_rows(shop, period, raw):
+    """[(row key, ((product id, its definition), ...))] for one shop.
+
+    One entry per row the tab draws: per product for most shops, per
+    ITEM for a `MERGED_SHOPS` one.
+
+    Grouped by the item AND how many of it a purchase gives, never by
+    the item alone -- a screen offering five of something and a screen
+    offering one are two rows in the game too, and merging them would
+    label the pair with whichever count came first.
+    """
+    rows = shop_products(shop, period, raw)
+    if shop[0] not in MERGED_SHOPS:
+        return tuple((SHOP_KEY_PREFIX + product_id, ((product_id, define),))
+                     for product_id, define in rows)
+    groups = {}
+    for product_id, define in rows:
+        groups.setdefault(
+            (define.get("product_link_item_id"),
+             define.get("product_count")), []).append((product_id, define))
+    return tuple(
+        (SHOP_KEY_PREFIX + SHOP_KEY_JOIN.join(pid for pid, _d in group),
+         tuple(group))
+        for group in groups.values())
+
+
 def shop_currency(shop, period, raw):
     """The res_id one shop sells for, or None where it has no one.
 
@@ -433,13 +537,14 @@ def shop_currency(shop, period, raw):
     return one if _is_count(one) else None
 
 
-def shop_period(period, raw, now):
+def shop_period(period, raw, now, group=shop_stock.ACCOUNT_SEASON_GROUP):
     """`(what to call one of this shop's periods, how many days it is)`.
 
     Off the wire where the wire states it: a month is however long
     `month_start` to `month_end` runs, and an `account` shelf refreshes
-    with the Sortie SEASON rather than on any calendar. The written
-    lengths stand in where a snapshot carries neither.
+    with a SEASON rather than on any calendar -- `group` says which,
+    since the seasons the tab's shops keep are not one length. The
+    written lengths stand in where a snapshot carries neither.
     """
     word, days = SHOP_PERIODS.get(period, (period, 0))
     if period == "monthly":
@@ -447,8 +552,7 @@ def shop_period(period, raw, now):
         if _is_count(start) and _is_count(end) and end > start:
             days = int(round((end - start) / 86400.0))
     elif period == "account":
-        _name, window = schedules.current(
-            shop_stock.ACCOUNT_SEASON_GROUP, raw, now)
+        _name, window = schedules.current(group, raw, now)
         if isinstance(window, dict):
             span = (window.get("end_time") or 0) - (window.get("start_time") or 0)
             if span > 0:
@@ -459,17 +563,19 @@ def shop_period(period, raw, now):
 def shop_rows(shop, period, raw):
     """The sub-rows for one shop's products in one period.
 
-    `(key, label, widest)` per product, straight off the wire: the
-    shop's own `sort` gives the order, `limit_count` the reserve, and
-    the item the product gives its name. Nothing is hand-written any
-    more -- a product the game adds appears the next time the login
-    burst is captured.
+    `(key, label, widest)` per row, straight off the wire: the shop's
+    own `sort` gives the order, `limit_count` the reserve, and the item
+    the product gives its name. Nothing is hand-written any more -- a
+    product the game adds appears the next time the login burst is
+    captured.
+
+    A merged row reserves for the SUM of its caps, which is what it
+    counts down from. See `shop_display_rows`.
     """
     out = []
-    for product_id, define in shop_products(shop, period, raw):
-        limit = define.get("limit_count")
-        out.append((SHOP_KEY_PREFIX + product_id,
-                    product_label(define),
+    for key, group in shop_display_rows(shop, period, raw):
+        limit = sum(define.get("limit_count") or 0 for _pid, define in group)
+        out.append((key, product_label(group[0][1]),
                     "%d/%d" % (limit, limit)))
     return tuple(out)
 
@@ -1389,6 +1495,17 @@ EVENT_WIDEST = "99/99" + UNKNOWN_MORE
 # three headings because it resets three ways -- a daily set of
 # missions, a weekly set, and the pass itself -- and they are three
 # different things to check rather than one row repeated.
+# The Galactic Disaster's own shelf, which is a BLOCK in the `Other`
+# column rather than a column: a season's shop is a season's worth of
+# rows, and hanging it from the bottom of the column keeps the rows
+# above it where they were.
+#
+# **It clips rather than scrolls where the column is too short.** The
+# block is as tall as its rows and the column is as tall as the tab,
+# so at the default window size the foot of a full catalogue is cut
+# off -- which is the state of it, not a design.
+SEASONAL_BLOCK = "Galactic Disaster shop"
+
 COLUMNS = (
     ("Daily", (
         ("coffee", "Coffee", "Go drink!"),
@@ -1425,11 +1542,23 @@ COLUMNS = (
         ("galactic_disaster", "Galactic Disaster (Seasonal)",
          WIDEST_COUNTDOWN),
     ), (("shop_assault", "none"),), EVENTS_HEADING),
+    # **A block rather than a column**: it is drawn in `Other`'s own
+    # frame, hanging from the bottom of it, and shows no heading of its
+    # own -- the shop's heading row is its title. Last here because the
+    # blocks are built in this order and it is packed against the
+    # opposite edge. See `SEASONAL_BLOCK`.
+    (SEASONAL_BLOCK, (), (("shop_disaster", shop_stock.ALL_SCREENS),), None),
 )
+
+# Which of those are blocks rather than columns: they grid no cell of
+# their own and hang inside the column before them, so the tab has
+# four columns and as many blocks again. **Blocks come LAST**, because
+# a block is built into the column above it in this order.
+BLOCKS = frozenset([SEASONAL_BLOCK])
 
 # Which period each column's shop products are taken from.
 PERIOD_BY_COLUMN = {"Weekly": "weekly", "Monthly": "monthly",
-                    "Other": "account"}
+                    "Other": "account", SEASONAL_BLOCK: "account"}
 
 
 # **Countdowns line up in a column of their own**, and there are TWO
@@ -1526,9 +1655,9 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
                 # on both sides of the split, so ticking one product
                 # moves that product and nothing else.
                 products = ([row for row in products
-                             if tracked(_product_of(row[0]))]
+                             if _row_tracked(tracked, row[0])]
                             + [row for row in products
-                               if not tracked(_product_of(row[0]))])
+                               if not _row_tracked(tracked, row[0])])
             rows.extend(products)
         if events:
             live = event_rows(raw, now)
@@ -1959,18 +2088,41 @@ class ChecklistTab(BaseTab):
         # the row set changes. The frames themselves never move: the
         # audit reaches a column through its position among these.
         self._column_frames = []
-        for index in range(len(COLUMNS)):
+        for index, (title, _fixed, _shops, _events) in enumerate(COLUMNS):
+            if title in BLOCKS:
+                break
             column = ttk.Frame(columns)
             column.grid(row=0, column=2 * index, sticky="nsew")
             self._column_frames.append(column)
+
+        # **The seasonal shelf hangs from the bottom of the last
+        # column**, with that column's own rows in a frame of their
+        # own above it. Both are packed HERE rather than on each
+        # rebuild, and in this order, because pack serves its children
+        # in the order the calls were made: the rows take their height
+        # first, so a window too short for both costs the foot of the
+        # shelf rather than a live row above it. The shelf sits against
+        # the bottom edge whatever is left over, which is the point.
+        host = self._column_frames[-1]
+        stacked = ttk.Frame(host)
+        stacked.pack(side=tk.TOP, fill=tk.X)
+        self._column_frames[-1] = stacked
+        shelf = ttk.Frame(host)
+        shelf.pack(side=tk.BOTTOM, anchor=tk.S)
+        self._column_frames.append(shelf)
 
     def _tracked(self, product_id):
         """Whether the user ticked one shop product. See ChecklistManager."""
         manager = getattr(self.context, "checklist_manager", None)
         return manager.is_tracked(product_id) if manager else True
 
-    def _toggle(self, product_id, variable):
+    def _toggle(self, products, variable):
         """Persist one checkbox, then redraw.
+
+        **Every product under the row**, which for a merged one is
+        several: the row is the unit the user ticks, and leaving the
+        others behind would bill for a shelf the tab draws as
+        untracked. See `_row_tracked`.
 
         **Redrawn on an idle callback, never here.** Ticking changes
         the row ORDER, so the redraw destroys every widget in the
@@ -1979,7 +2131,8 @@ class ChecklistTab(BaseTab):
         """
         manager = getattr(self.context, "checklist_manager", None)
         if manager is not None:
-            manager.set_tracked(product_id, bool(variable.get()))
+            for product_id in products:
+                manager.set_tracked(product_id, bool(variable.get()))
         self.frame.after_idle(self.refresh_checklist)
 
     def _rebuild_columns(self, raw, readings):
@@ -2055,16 +2208,20 @@ class ChecklistTab(BaseTab):
         show = []
         # The heading and its countdown travel together and the pair is
         # centred, so the heading itself sits a little left of centre.
-        head = ttk.Frame(parent)
-        show.append(lambda: head.pack(anchor=tk.CENTER))
-        make_heading(head, title).pack(side=tk.LEFT, anchor=tk.S)
-        if title in PERIOD_LENGTHS:
-            # spacing: heading ↔ element -- heading, label ↕
-            label = ttk.Label(head, text="", font=HEADING_COUNTDOWN_FONT)
-            label.pack(side=tk.LEFT, anchor=tk.S,
-                       padx=px((HEADING_COUNTDOWN_GAP, 0)),
-                       pady=px((0, HEADING_COUNTDOWN_DROP)))
-            self._period_labels[title] = label
+        #
+        # **A block under a column has none.** It is part of the column
+        # it hangs in, and its shop's own heading row already names it.
+        if title != SEASONAL_BLOCK:
+            head = ttk.Frame(parent)
+            show.append(lambda: head.pack(anchor=tk.CENTER))
+            make_heading(head, title).pack(side=tk.LEFT, anchor=tk.S)
+            if title in PERIOD_LENGTHS:
+                # spacing: heading ↔ element -- heading, label ↕
+                label = ttk.Label(head, text="", font=HEADING_COUNTDOWN_FONT)
+                label.pack(side=tk.LEFT, anchor=tk.S,
+                           padx=px((HEADING_COUNTDOWN_GAP, 0)),
+                           pady=px((0, HEADING_COUNTDOWN_DROP)))
+                self._period_labels[title] = label
 
         if not rows:
             return lambda: [do() for do in show]
@@ -2141,8 +2298,11 @@ class ChecklistTab(BaseTab):
         # Packed LAST of the three, so it never maps as an empty
         # block waiting for its Text: a child packed into an unmapped
         # parent maps with it, all at once.
-        pack_holder = lambda: holder.pack(anchor=tk.N,
-                                          pady=px((HEADING_GAP, 0)))
+        #
+        # A block with no heading of its own pays no gap under one.
+        pack_holder = lambda: holder.pack(
+            anchor=tk.N,
+            pady=px((0 if title == SEASONAL_BLOCK else HEADING_GAP, 0)))
 
         text = tk.Text(
             holder, wrap=tk.NONE, bd=0, highlightthickness=px(0),
@@ -2455,28 +2615,41 @@ class ChecklistTab(BaseTab):
         for title, _fixed, shops, _events in COLUMNS:
             period = PERIOD_BY_COLUMN.get(title)
             for shop in shops if period else ():
-                # **The seasonal shop has no rate to give.** Its
-                # currency is wiped at the end of every season, so what
-                # was earned of it last season says nothing about this
-                # one and a lifetime total spans several wipes.
-                if shop[0] == SEASONAL_SHOP_CATEGORY:
-                    continue
                 money = shop_currency(shop, period, raw)
                 if money is None:
                     continue
-                value, kind = currency_earned(raw, money)
-                if value is None:
-                    points = manager.currency_points(money)
-                else:
-                    points = manager.record_currency(
-                        money, value, day, kind, since)
-                word, days = shop_period(period, raw, now)
                 name = ITEM_NAMES.get(money) or str(money)
+                if shop[0] == SEASONAL_SHOP_CATEGORY:
+                    # **The seasonal shop has no rate to give, and
+                    # nothing to record.** Its currency is wiped at the
+                    # end of every season, so what was earned of it
+                    # last season says nothing about this one and a
+                    # lifetime total spans several wipes -- which is
+                    # also why it stays out of the ledger. What it
+                    # answers instead: see `SEASON_ESTIMATE`.
+                    lines = tuple(
+                        (SEASON_ESTIMATE_LABEL % written,
+                         RATE_VALUE % (paid, name))
+                        for written, paid in (
+                            (w, season_estimate(_live_season(raw), rate))
+                            for w, rate in SEASON_ESTIMATE_RATES)
+                        if paid is not None)
+                else:
+                    value, kind = currency_earned(raw, money)
+                    if value is None:
+                        points = manager.currency_points(money)
+                    else:
+                        points = manager.record_currency(
+                            money, value, day, kind, since)
+                    word, days = shop_period(
+                        period, raw, now,
+                        shop_stock.season_group_of(shop[0]))
+                    lines = shop_rates(points, word, days, name)
                 # The rates first, then what a full period costs --
                 # which is the figure they are worth reading against,
                 # and which is there even on a ledger too young to
                 # give a rate at all.
-                rows = shop_rates(points, word, days, name) + (
+                rows = lines + (
                     (FULL_COST_LABEL,
                      RATE_VALUE % (shop_full_cost(shop, period, raw,
                                                   self._tracked), name)),)
@@ -2624,7 +2797,7 @@ class ChecklistTab(BaseTab):
         The fourth field is a shop heading's own total, which sits at a
         stop of its own rather than in the column of readings.
         """
-        tracked = not _is_shop(key) or self._tracked(_product_of(key))
+        tracked = not _is_shop(key) or _row_tracked(self._tracked, key)
         segments = tuple(readings.get(key) or ())
         if not tracked:
             # An untracked product says so in its colour: every segment
@@ -2650,14 +2823,14 @@ class ChecklistTab(BaseTab):
         cut short carries its full name wherever ticking sorts it --
         the box is rebuilt in its new place with the same binding.
         """
-        product_id = _product_of(key)
-        variable = tk.BooleanVar(value=self._tracked(product_id))
+        products = _products_of(key)
+        variable = tk.BooleanVar(value=_row_tracked(self._tracked, key))
         box = make_checkbox(
             parent, self.colors, text=label, variable=variable,
             compact=True, font=ROW_FONT,
             fg=self.colors["fg_dim"] if state is MUTED else None,
-            command=lambda p=product_id, v=variable: self._toggle(p, v))
-        tip = self._product_tip(product_id)
+            command=lambda p=products, v=variable: self._toggle(p, v))
+        tip = self._product_tip(products[0])
         if tip:
             self._tips.bind(box, tip)
         self._boxes.setdefault(title, []).append(box)
@@ -3256,16 +3429,24 @@ def _readings(raw, now=None, tracked=None):
 
     _add_countdowns(out, raw, now)
 
-    for key, product_id, define in _shop_rows(raw):
-        stock, limit = shop_stock.remaining(product_id, define, raw, now)
-        if limit is None:
+    for key, group in _shop_rows(raw):
+        # A merged row counts down from the sum of its shelves, and one
+        # shelf the snapshot cannot read leaves the whole row unread:
+        # a partial sum drawn as a total would say a row is nearly
+        # cleared on the strength of the pages it could see.
+        counts = [shop_stock.remaining(product_id, define, raw, now)
+                  for product_id, define in group]
+        caps = [limit for _stock, limit in counts if limit is not None]
+        if not caps:
             # No cap: it can always be bought, so nothing counts down
             # and nothing is finished. Such a product gets no ROW
             # either -- this is only here for a reading asked of one.
             continue
-        elif stock is None:
+        limit = sum(caps)
+        if any(stock is None for stock, _limit in counts):
             out[key] = _one("%s/%d" % (NO_DATA, limit), UNKNOWN)
         else:
+            stock = sum(stock for stock, _limit in counts)
             out[key] = _one("%d/%d" % (stock, limit), _done(stock == 0))
 
     _add_shop_totals(out, raw, amounts, tracked, now)
@@ -3666,21 +3847,36 @@ def _great_rift(raw, now):
     return score, (target if _is_count(target) else GREAT_RIFT_TARGET)
 
 
-def _product_of(key):
-    """The product id inside a shop row's key."""
-    return key[len(SHOP_KEY_PREFIX):]
+def _products_of(key):
+    """The product ids inside a shop row's key. See `SHOP_KEY_JOIN`."""
+    return tuple(key[len(SHOP_KEY_PREFIX):].split(SHOP_KEY_JOIN))
+
+
+def _row_tracked(tracked, key):
+    """Whether one shop ROW is ticked, merged or not.
+
+    A merged row is ticked only while every product under it is. The
+    manager keeps the answer per PRODUCT and ticking the row writes
+    all of them, so the two disagree only for a product untracked
+    before its row was merged -- which reads as untracked, and one
+    click settles.
+    """
+    return all(tracked(product_id) for product_id in _products_of(key))
 
 
 def _shop_rows(raw):
-    """[(row key, product id, definition)] for every shop sub-row."""
+    """[(row key, ((product id, definition), ...))] for every sub-row.
+
+    Off the COLUMNS rather than off the definitions whole, because a
+    merged row's key is only knowable from the shop and period that
+    merged it -- and a reading keyed differently from its row is a
+    reading nothing draws. See `shop_display_rows`.
+    """
     out = []
-    for category, defines in shop_stock.definitions(raw).items():
-        for product_id, define in defines.items():
-            if not isinstance(define, dict):
-                continue
-            shop = (category, define.get("link_shop_sub_category_id"))
-            if shop in shop_stock.SHOPS:
-                out.append((SHOP_KEY_PREFIX + product_id, product_id, define))
+    for title, _fixed, shops, _events in COLUMNS:
+        period = PERIOD_BY_COLUMN.get(title)
+        for shop in shops if period else ():
+            out.extend(shop_display_rows(shop, period, raw))
     return out
 
 

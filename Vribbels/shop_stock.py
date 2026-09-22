@@ -55,6 +55,12 @@ MONTH_START_FIELD = "month_start"
 # A shop absent here gets no rows, which is what keeps the tab to the
 # shops the maintainer tracks rather than every product table the login
 # sends. `none` is the sub-category of a category with only one shop.
+#
+# `ALL_SCREENS` stands where a category's screens are one shelf to the
+# person shopping: the Galactic Disaster's three pages share a purse
+# and a deadline, and sell the same item on two or three of them.
+ALL_SCREENS = "all"
+
 SHOPS = {
     ("shop_town", "none"): "Nono's Shop",
     ("shop_gacha_dup", "shop_gacha_dup_legend"):
@@ -64,6 +70,7 @@ SHOPS = {
     ("shop_exchange_product", "shop_card_factor"):
         "Shop - Exchange Shop - Prism Module",
     ("shop_disaster", "shop_disaster_1"): "Seasonal Shop",
+    ("shop_disaster", ALL_SCREENS): "Seasonal Shop",
     ("shop_assault", "none"): "Sortie - Chaos Analysis Lab",
 }
 
@@ -89,6 +96,15 @@ PERIOD_BY_LIMIT = {
 # nothing but the seasons themselves.
 ACCOUNT_SEASON_GROUP = "ASSAULT_SCHEDULE"
 
+# **And a shop whose season is not that one says so.** A Galactic
+# Disaster season spans four Sortie seasons, so measuring its shelves
+# against the Sortie boundary read every purchase made before the last
+# three weeks as never made -- the shelf full, the bill for clearing it
+# the whole catalogue. Its products are keyed per season
+# (`disaster_s04_*`), so a row that exists at all belongs to the live
+# one and the boundary only has to be no later than the season's start.
+SEASON_GROUP_BY_SHOP = {"shop_disaster": "DISASTER_SEASON"}
+
 
 def definitions(raw_data):
     """{category: {product id: definition}} from a snapshot."""
@@ -106,9 +122,11 @@ def products(shop, period, raw_data, prefix=None):
     """[(product id, definition)] in one shop and one period, in order.
 
     `shop` is the `(category, sub-category)` pair -- the sub-category
-    being what a screen in the game is. Sorted by the shop's own
-    `sort`, which is the order the game lists them in. A product with
-    no cap is left out: `PERIOD_BY_LIMIT` has no entry for `NONE`.
+    being what a screen in the game is, or `ALL_SCREENS` for every
+    screen of the category at once. Sorted by the shop's own `sort`,
+    which is the order the game lists them in, screen by screen. A
+    product with no cap is left out: `PERIOD_BY_LIMIT` has no entry
+    for `NONE`.
 
     `prefix` keeps only products whose id starts with it. **The
     seasonal shop needs it**: every season the account has played keeps
@@ -120,7 +138,8 @@ def products(shop, period, raw_data, prefix=None):
     for product_id, define in definitions(raw_data).get(category, {}).items():
         if not isinstance(define, dict):
             continue
-        if define.get("link_shop_sub_category_id") != sub:
+        if sub != ALL_SCREENS and define.get(
+                "link_shop_sub_category_id") != sub:
             continue
         if prefix and not str(product_id).startswith(prefix):
             continue
@@ -130,18 +149,34 @@ def products(shop, period, raw_data, prefix=None):
         if not isinstance(limit, int) or limit <= 0:
             continue
         rows.append((product_id, define))
-    return sorted(rows, key=lambda pair: (pair[1].get("sort", 0), pair[0]))
+    # Screen first, then the shop's own order within it: `sort` counts
+    # from 1 again on each screen, so ordering by it alone interleaves
+    # the pages of a shop read whole.
+    return sorted(rows, key=lambda pair: (
+        pair[1].get("link_shop_sub_category_id") or "",
+        pair[1].get("sort", 0), pair[0]))
 
 
-def period_start(period, raw_data, now):
+def season_group_of(category):
+    """Which `event_schedules` group refreshes one shop's `account`
+    shelves. See `SEASON_GROUP_BY_SHOP`."""
+    return SEASON_GROUP_BY_SHOP.get(category, ACCOUNT_SEASON_GROUP)
+
+
+def season_group(define):
+    """The same, for a product that states its own shop."""
+    return season_group_of((define or {}).get("link_shop_category_id"))
+
+
+def period_start(period, raw_data, now, group=ACCOUNT_SEASON_GROUP):
     """When the current period began, epoch seconds, or None.
 
-    The `account` boundary is the Sortie season's own start -- see
-    `ACCOUNT_SEASON_GROUP`. The monthly boundary is the wire's own
-    `month_start`; without it there is no honest answer.
+    The `account` boundary is a SEASON's own start, and which season
+    depends on the shop -- see `season_group`. The monthly boundary is
+    the wire's own `month_start`; without it there is no honest answer.
     """
     if period == "account":
-        return schedules.season_start(ACCOUNT_SEASON_GROUP, raw_data, now)
+        return schedules.season_start(group, raw_data, now)
     if period == "weekly":
         # The reset BEFORE now: `next_reset` looks forward.
         return weekly_reset.next_reset(now) - 7 * 24 * 3600
@@ -174,7 +209,8 @@ def remaining(product_id, define, raw_data, now):
     if not isinstance(count, int) or isinstance(count, bool):
         return None, limit
     started = period_start(
-        PERIOD_BY_LIMIT.get(define.get("limit_type")), raw_data, now)
+        PERIOD_BY_LIMIT.get(define.get("limit_type")), raw_data, now,
+        season_group(define))
     if started is None:
         return None, limit
     touched = row.get("reset_time")

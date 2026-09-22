@@ -91,7 +91,7 @@ def run():
         shop_full_cost,
         _event_attendance,
         RATE_RECENT_LABEL, RATE_LONG_LABEL,
-        SHOP_RATE_FLOOR,
+        SHOP_RATE_FLOOR, season_estimate,
         ChecklistTab, WRITTEN_TOTALS, written_total,
         unsure_ceiling, EVENT_FINISHED_FIELD,
     )
@@ -958,6 +958,120 @@ def run():
     if got != [(f"0/{cap}", DONE)]:
         failures.append(
             f"a monthly row with `month_start` reads {got!r}, not 0/{cap}.")
+
+    # --- the seasonal shelf: its own season, and its merged rows ------
+    # **A Galactic Disaster season spans four Sortie seasons**, and the
+    # `account` boundary used to be the Sortie one for every shop -- so
+    # a purchase made in the first nine weeks of a season read as never
+    # made, the shelf full and the bill for clearing it the whole
+    # catalogue. See `shop_stock.SEASON_GROUP_BY_SHOP`.
+    season = "disaster_s04"
+    long_ago = int(now - 60 * DAY)
+
+    def seasonal(rows, bought=None, sub="shop_disaster_1"):
+        """A snapshot holding one disaster season and those products.
+
+        `rows` are `(product id, item, cap, price)` and `bought` is
+        `{product id: (count, when)}`.
+        """
+        raw = _snapshot(rift=((500, 1, 1),))
+        raw["disaster_boss_rank_entities"] = {season: {"slot": {
+            "score_week_id": 500, "week_total_score": 1,
+            "week_total_score_reward": 1}}}
+        raw["event_schedules"] = {
+            "DISASTER_SEASON": {season: {
+                "start_time": int(now - 70 * DAY),
+                "end_time": int(now + 14 * DAY)}},
+            "ASSAULT_SCHEDULE": {"assault_1_s7": {
+                "start_time": int(now - 7 * DAY),
+                "end_time": int(now + 14 * DAY)}}}
+        raw["shop_res_data"] = {"shop_disaster": {
+            product_id: {
+                "product_link_item_id": item, "product_count": 1,
+                "limit_count": limit, "limit_type": "LIMIT_ACCOUNT",
+                "price_count": price, "price_link_item_id": 3920031,
+                "sort": index, "link_shop_category_id": "shop_disaster",
+                "link_shop_sub_category_id": sub}
+            for index, (product_id, item, limit, price) in enumerate(rows)}}
+        raw["shop_list"] = {product_id: {"count": count,
+                                         "reset_time": when,
+                                         "total_count": count}
+                            for product_id, (count, when)
+                            in (bought or {}).items()}
+        return raw
+
+    one = [(f"{season}_02", 3200001, 4, 100)]
+    got = _readings(seasonal(one, {f"{season}_02": (4, long_ago)}),
+                    now)[f"shop:{season}_02"]
+    if got != [("0/4", DONE)]:
+        failures.append(
+            f"a seasonal shelf bought out two months ago reads {got!r}, "
+            f"not 0/4. Its season is still running, so the purchase "
+            f"stands -- measured against the SORTIE season instead it "
+            f"reads as a shelf nobody has touched.")
+
+    # **The three pages merge by the item**, cap summed, and the key
+    # carries every product under the row -- see `shop_display_rows`.
+    pages = [(f"{season}_14", 3210001, 200, 30),
+             (f"{season}_33", 3210001, 200, 30),
+             (f"{season}_59", 3210001, 300, 120)]
+    merged = f"shop:{season}_14+{season}_33+{season}_59"
+    # A purchase of something else, so `shop_list` has ARRIVED: with no
+    # rows at all the shelves read a dash, which is a different case.
+    untouched = {f"{season}_99": (1, long_ago)}
+    got = _readings(seasonal(pages, untouched), now).get(merged)
+    if got != [("700/700", TODO)]:
+        failures.append(
+            f"three pages selling one item read {got!r} under {merged}, "
+            f"not 700/700 as one row. The shelves are one shelf to "
+            f"whoever is shopping, and their caps add up.")
+
+    # And what clearing it costs is summed PER PAGE, because a page
+    # can price the same item differently -- 30, 30 and 120 in the
+    # live season. One price times the summed cap is 21000.
+    from ui.tabs.checklist_tab import shop_display_rows
+    shelf = ("shop_disaster", shop_stock.ALL_SCREENS)
+    got = shop_full_cost(shelf, "account", seasonal(pages))
+    if got != 200 * 30 + 200 * 30 + 300 * 120:
+        failures.append(
+            f"clearing the merged row is billed at {got}, not "
+            f"{200 * 30 + 200 * 30 + 300 * 120}. Its pages carry their "
+            f"own prices, so the cost sums per PRODUCT however the rows "
+            f"are drawn.")
+    if len(shop_display_rows(shelf, "account", seasonal(pages))) != 1:
+        failures.append(
+            "the three pages did not draw as one row, so the merge is "
+            "not happening where the tab reads it.")
+
+    # A page the snapshot cannot read leaves the whole row unread: a
+    # partial sum drawn as a total says a row is nearly cleared on the
+    # strength of the pages it could see. A `count` that is not a
+    # number is what one unreadable page looks like.
+    half = _readings(seasonal(pages, {f"{season}_14": ("?", long_ago)}),
+                     now).get(merged)
+    if half != [(f"{NO_DATA}/700", UNKNOWN)]:
+        failures.append(
+            f"a merged row with one page unreadable reads {half!r}, not "
+            f"a dash over 700.")
+
+    # --- what a season is estimated to pay ----------------------------
+    # Hand-counted per season, because the wire carries no achievement
+    # reward table at all -- see `SEASON_ESTIMATE`. A season nobody has
+    # counted gets no line rather than the last one's figures.
+    for rate, _written in ((1.0, "1"), (1.5, "1.5")):
+        if season_estimate(season, rate) is None:
+            failures.append(
+                f"the live season {season} has no estimate at {rate} "
+                f"runs/day, so the seasonal shop's tip shows nothing.")
+    if season_estimate("disaster_s99", 1.0) is not None:
+        failures.append(
+            "a season SEASON_ESTIMATE does not name still produced an "
+            "estimate. The counts are per season and do not carry over, "
+            "so one reused reads as a measurement of the wrong season.")
+    if not (season_estimate(season, 1.0) < season_estimate(season, 1.5)):
+        failures.append(
+            "playing more Chaos a day does not raise the estimate, so "
+            "the rate is reaching nothing it multiplies.")
 
     # --- each column heading's own countdown ---------------------------
     # The period splits into four EQUAL parts and the colour says which

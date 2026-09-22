@@ -8,6 +8,16 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ## [2.2.0] - unreleased
 
+### Added
+
+- **The Seasonal Shop's season-long shelves are on the Checklist**, at the foot of the `Other` column. An item the shop sells on more than one of its three pages is one row, counting down from their caps together. At the default window size the last few rows fall off the bottom of the column.
+
+- Hovering the Seasonal Shop gives two estimates of what a season pays: at one Chaos run a day, and at one and a half, claiming everything. A season nobody has counted yet shows neither.
+
+### Fixed
+
+- **The Seasonal Shop counted only the last three weeks of buying.** Its shelves were measured against the Sortie season instead of the Galactic Disaster's own, so purchases made earlier in the season read as never made and the shop's total asked for far more than was actually left.
+
 ## [2.1.0] - Checklist of in-game activities, capture archiving
 
 ### Added

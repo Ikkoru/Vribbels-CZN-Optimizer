@@ -131,6 +131,8 @@ So a reading built from rows the account holds says "at least", and only a state
 
 **A stamp is rewritten, not appended.** A trial slot's `complete_time` is when its reward was LAST taken, so an earlier cycle's claims cannot be recovered from it. Only the live period can be read.
 
+**No achievement states its REWARD.** The shop sends definitions — `shop_res_data`, one per product, naming the item it gives and the price — and nothing else does. Every achievement payload the login burst carries (`achievements`, `disaster_achievement_entities`, `assault_achievement_entities`, `zero_orb_achievement_entities`, `mission_accumulate`, `chapter_achieve`) is the account's own progress: an id, a score, a claim time. Searched every debug capture for the live season's currency and it appears in exactly two places — a payout already made (`drop_item`, `drop_item_info`, `confirm_drop_item`, `result_reward_drop_item`) and the shop's prices. So "how much does this content pay in total" cannot be read off the wire, and anything that needs it counts by hand: `checklist_tab.SEASON_ESTIMATE` is the one place that does.
+
 ## Identifying a mission or a shop product
 
 **`mission_condition` is the fast route.** Any reply to an action that progressed a mission carries it, naming every mission touched, grouped by kind (`season_pass_mission`, `daily_achievement`, `achievement`, `accumulate_condition`, `disaster_achievement`, `event_mission`) and each with a `condition_type` — `CAFE_DRINK`, `VISIT`, `DAILY_LOGIN`, `CLEAR_INGAME_CONTENTS__ID`, `EVENT_BARTENDER_MAKE_COCKTAIL__ID`. One action names its own missions, so a single deliberate action identifies them without a diff.
@@ -149,7 +151,7 @@ Five `limit_type` values across every shop, and which Checklist column each land
 | ------------ | ------ | ----- |
 | `LIMIT_WEEK` | Weekly | 26 |
 | `LIMIT_MONTH` | Monthly | 64 |
-| `LIMIT_ACCOUNT` | Other — a LIFETIME cap that never refreshes; the whole Sortie shop, and the Blackhorn 400 | 261 |
+| `LIMIT_ACCOUNT` | Other — the wire calls it a LIFETIME cap; it refreshes with a SEASON, and which season is the shop's own. The Sortie shop's is the Sortie season, the Galactic Disaster shop's is its own — four times longer | 261 |
 | `NONE` | none — no cap, so nothing counts down and nothing finishes | 130 |
 | `LIMIT_BENEFIT` | none yet — 6 products, unexamined | 6 |
 
