@@ -37,7 +37,8 @@ Which prefix is which shop, all established by buying one and reading the produc
 | `hyperspace_*` | Zeronium Shop — **not** the Basin, which is `hyperspace_entities` |
 | `chaos_*` | Blackhorn Trade |
 | `card_factor_*` | Exchange Shop — Prism Module |
-| `season_pass_*` | Seasonal Shop |
+| `season_pass_*` | Season Pass shop — **not** the Seasonal Shop |
+| `disaster_s0N_*` | Seasonal Shop — the Galactic Disaster's, and every id is renamed each season |
 
 ## The day index, and the week index
 
@@ -161,7 +162,7 @@ Five `limit_type` values across every shop, and which Checklist column each land
 
 **A product whose item no table names shows its res_id**, the same marking the Capture Log uses: a number on screen is an invitation to identify it, where a blank would be a bug nobody can see.
 
-**One shop, one currency.** Every product on a screen the Checklist lists carries the same `price_link_item_id` — checked across all seven — which is what lets a shop's heading total its bill against a single holding: `<held>/<what the ticked products still cost>`. The screens that DO mix them are the ones bought with real money or Crystals, and none of those is on the tab. Two cases read as "no total" rather than as an error: the seasonal supplies are free and carry no price item at all, and the seasonal shop keeps every season it has ever run, each in its own currency, so the live-season filter is what leaves one standing.
+**One shop, one currency.** Every product on a screen the Checklist lists carries the same `price_link_item_id` — checked across every screen it lists — which is what lets a shop's heading total its bill against a single holding: `<held>/<what the ticked products still cost>`. The screens that DO mix them are the ones bought with real money or Crystals, and none of those is on the tab. Two cases read as "no total" rather than as an error: the seasonal supplies are free and carry no price item at all, and the seasonal shop keeps every season it has ever run, each in its own currency, so the live-season filter is what leaves one standing.
 
 ## What a currency has EARNED, and how old the account is
 

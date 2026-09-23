@@ -1987,9 +1987,9 @@ def _the_checklist_fits_its_window(tab):
     **A column reserves more than it draws, and that is the trap.** A
     shop heading's line hangs off its own words rather than standing
     in the column of readings, so a heading counted in BOTH places
-    took its widest countdown twice and stood the tab forty pixels
-    wider than anything on it. Nothing about that is visible until the
-    total crosses the window's width.
+    reserves its widest countdown twice and the tab grows wider than
+    anything on it. Nothing about that is visible until the total
+    crosses the window's width.
 
     Measured with the window at the size the layout is designed for,
     mapped at alpha 0 like `_checklist_rows_are_all_drawn`.

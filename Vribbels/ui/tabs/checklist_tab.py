@@ -1830,8 +1830,8 @@ COLUMNS = (
         ("offensive", "Full-Scale Offensive", with_countdown("9/9")),
         ("supply_season", "Arkhianon Supply", with_countdown("70/70")),
     ), (("shop_assault", "none"),), EVENTS_HEADING),
-    # Its heading carries the season's own deadline, so the row that
-    # used to say it here is gone from `Other`.
+    # Its own heading carries the season's deadline, which is why no
+    # row in `Other` says it.
     (SEASONAL_COLUMN, (), (("shop_disaster", shop_stock.ALL_SCREENS),),
      None),
 )
@@ -2543,11 +2543,11 @@ class ChecklistTab(BaseTab):
         # **A shop HEADING never votes on either.** Its whole line
         # hangs off its own words -- its total, then its countdown --
         # and `reach` below is what accounts for it, so a heading that
-        # voted here was counted twice: once in the column of readings
-        # it does not use and once where it actually sits. That stood
-        # the Galactic Disaster's column forty pixels wider than
-        # anything it draws, the `Ends in 99 days` a heading reserves
-        # having claimed room in the column beside `600/600`.
+        # votes here is counted twice: once in the column of readings
+        # it does not use and once where it actually sits. The column
+        # then reserves room for `Ends in 99 days` beside `600/600`
+        # as well as where the heading draws it, and nothing looks
+        # wrong until the tab outgrows its window.
         #
         # A row showing NO value has no say either, for the same
         # reason. Shop PRODUCTS do: their counts are in that column.

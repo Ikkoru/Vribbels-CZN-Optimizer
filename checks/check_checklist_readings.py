@@ -961,11 +961,11 @@ def run():
             f"a monthly row with `month_start` reads {got!r}, not 0/{cap}.")
 
     # --- the seasonal shelf: its own season, and its merged rows ------
-    # **A Galactic Disaster season spans four Sortie seasons**, and the
-    # `account` boundary used to be the Sortie one for every shop -- so
-    # a purchase made in the first nine weeks of a season read as never
-    # made, the shelf full and the bill for clearing it the whole
-    # catalogue. See `shop_stock.SEASON_GROUP_BY_SHOP`.
+    # **A Galactic Disaster season spans four Sortie seasons**, so an
+    # `account` boundary taken from the Sortie one reads every
+    # purchase before the last three weeks as never made: the shelf
+    # full, and the bill for clearing it the whole catalogue. See
+    # `shop_stock.SEASON_GROUP_BY_SHOP`.
     season = "disaster_s04"
     long_ago = int(now - 60 * DAY)
 
