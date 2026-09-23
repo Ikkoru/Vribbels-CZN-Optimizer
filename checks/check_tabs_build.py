@@ -2437,7 +2437,7 @@ def _gacha_history_draws_its_rows(tab):
 
 
 def _gacha_overall_fits(tab, gh):
-    """The Gacha History's Overall sheet shows all of what it holds.
+    """The Gacha History's Overall Stats sheet shows all it holds.
 
     It is a Text in a holder sized in pixels, with tab stops measured
     from its rows, and three things fail it without a word: a field
@@ -2482,7 +2482,7 @@ def _gacha_overall_fits(tab, gh):
     text = tab.overall_text
     available = tab.summary_tree.master.winfo_reqwidth()
     if int(tab.overall_holder.cget("width")) > available:
-        out.append(f"the Overall sheet is {tab.overall_holder.cget('width')}"
+        out.append(f"the Overall Stats sheet is {tab.overall_holder.cget('width')}"
                    f"px wide, past the Banners list's {available}: it "
                    f"widens their column and squeezes the pulls list.")
     row = text.get("6.0", "6.end").split("\t")
@@ -2504,7 +2504,7 @@ def _gacha_overall_fits(tab, gh):
                  if t in (ROW_TAG, HEADING_TAG, TOP_TAG)]
         want = TOP_TAG if n == 1 else None
         if len(pitch) != 1 or (want and pitch != [want]):
-            out.append(f"Overall line {n} {line!r} carries pitch tags "
+            out.append(f"Overall Stats line {n} {line!r} carries pitch tags "
                        f"{pitch}; every line takes one, and the first "
                        f"{TOP_TAG!r}.")
         if pitch and pitch[0] != ROW_TAG:
@@ -2514,18 +2514,33 @@ def _gacha_overall_fits(tab, gh):
         starts = [0] + stops
         for i, field in enumerate(fields):
             if i + 1 < len(fields) and i + 1 >= len(starts):
-                out.append(f"Overall line {n} {line!r} has more fields "
+                out.append(f"Overall Stats line {n} {line!r} has more fields "
                            f"than the sheet has stops, {stops}")
                 break
             end = starts[i] + font.measure(field)
             limit = starts[i + 1] if i + 1 < len(fields) else width
             if end > limit:
-                out.append(f"Overall line {n}: {field!r} ends at {end}px, "
+                out.append(f"Overall Stats line {n}: {field!r} ends at {end}px, "
                            f"past {limit}, the "
                            f"{'next stop' if i + 1 < len(fields) else 'holder'}"
                            f" -- clipped, or tabbed to where Tk chooses.")
     if headings != [WITHOUT_PRISM, PRISM_ONLY, ALL_BANNERS]:
-        out.append(f"the Overall sheet's headings read {headings}")
+        out.append(f"the Overall Stats sheet's headings read {headings}")
+    # The spacing audit finds this panel by its exact title and these
+    # rows by their words. A rename the registry does not follow leaves
+    # those rows reading nothing, and only an audit would say so.
+    from ui import spacing_registry as registry
+    title = str(tab.overall_holder.master.cget("text"))
+    if registry.GACHA_OVERALL_TITLE != title:
+        out.append(f"the spacing registry looks for a panel titled "
+                   f"{registry.GACHA_OVERALL_TITLE!r}; the tab's is "
+                   f"{title!r}. Update `GACHA_OVERALL_TITLE`.")
+    for needle in registry.GACHA_FIGURE_ROWS:
+        if not text.search(needle, "1.0", "end"):
+            out.append(f"the spacing registry reads the Overall Stats "
+                       f"row {needle.strip()!r}, which the sheet no longer "
+                       f"has. Update `GACHA_RECORD_ROWS` or "
+                       f"`GACHA_FIGURE_ROWS`.")
     # A unit that came more than once is named once and counted, in the
     # order the units first came.
     from ui.tabs.gacha_history_tab import _units
@@ -2539,7 +2554,7 @@ def _gacha_overall_fits(tab, gh):
     need = need[0] if isinstance(need, (tuple, list)) else need
     have = int(tab.overall_holder.cget("height"))
     if need > have:
-        out.append(f"the Overall sheet's lines need {need}px and its holder "
+        out.append(f"the Overall Stats sheet's lines need {need}px and its holder "
                    f"is {have}: the last rows are clipped.")
     tab.refresh()
     return out

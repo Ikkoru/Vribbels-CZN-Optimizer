@@ -933,6 +933,11 @@ def _dropdown_over_panel(prefix, panel):
 # title, and a heading or header control over a panel. One number
 # serves both, which is a RULING rather than a measurement: left to
 # their own devices the two shapes build to different distances.
+# The Gacha History's figures panel, by its title: `find_labelframe`
+# matches a title EXACTLY, so this has to follow the tab's
+# `OVERALL_TITLE`. `check_tabs_build` holds the two together.
+GACHA_OVERALL_TITLE = "Overall Stats"
+
 PANEL_OVER_TEXT_ENTRIES = [
     ("Capture", "Status -> Server Region title", 10, None,
      _panel_gap("Status", "Server Region", "v")),
@@ -973,8 +978,8 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_gap("Requirements", "Capture Log", "v")),
     ("Capture", "Upgrade Log Settings -> Capture Log title", 10, None,
      _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
-    ("Gacha History", "Banners -> Overall title", 10, None,
-     _panel_gap("Banners", "Overall", "v")),
+    ("Gacha History", "Banners -> Overall Stats title", 10, None,
+     _panel_gap("Banners", GACHA_OVERALL_TITLE, "v")),
 
     # Text above, a panel below. The three tab headings differ only in
     # how much container padding stands under them, Setup spending more
@@ -3586,7 +3591,7 @@ EXCEPTION_ENTRIES = {
     "Checklist: shop heading -> its first product": "exception",
     # A section's heading stands four further from the row above it
     # than rows do from one another. Marked at `HEADING_PAD`.
-    "Overall: row -> heading": "exception",
+    "Overall Stats: row -> heading": "exception",
 }
 
 
@@ -4576,7 +4581,7 @@ def _gacha_overall(app):
 
 
 def _gacha_pitch_tags(*names):
-    """The Overall sheet's pitch-tag names, looked up when the audit
+    """The Overall Stats sheet's pitch-tag names, looked up when the audit
     runs -- see `_checklist_pitch_tags`, whose reasoning this shares."""
     def tags():
         from ui.tabs import gacha_history_tab as tab
@@ -4588,45 +4593,48 @@ def _gacha_pitch_tags(*names):
     return tags
 
 
-# The Overall sheet's figures, found by their words and the tab after
+# The Overall Stats sheet's figures, found by their words and the tab after
 # them. Every section's row is read: the stops are the sheet's, so a
 # figure repeated in the Prism Module's section sits on the same ones.
 GACHA_RECORD_ROWS = ("Fastest 5★	", "Slowest 5★	",
-                     "Fastest rate-up Combatant	",
-                     "Slowest rate-up Combatant	",
+                     "Fastest rate-up	",
+                     "Slowest rate-up	",
                      "Most 5★s in 10 pulls	")
 GACHA_FIGURE_ROWS = ("Luck	", "Pulls	", "50/50s won	",
-                     "Pulls per rate-up Combatant	") + GACHA_RECORD_ROWS
+                     "Rate-Up pulls avg	") + GACHA_RECORD_ROWS
 
-# (tab, name, target, rule, resolver, axis) for Gacha History's Overall
-# sheet, a Text whose rows are label rows and whose columns are tab
+# (tab, name, target, rule, resolver, axis) for Gacha History's
+# Overall Stats sheet, a Text whose rows are label rows and whose columns are tab
 # stops. The column gaps are read on the rows that HAVE the next
 # column: a luck row ends at its value. A record's ties follow it as
 # (units, date) pairs, so a unit labels its date and one pair sits
 # beside the next.
 GACHA_ENTRIES = [
-    ("Gacha History", "Overall title -> first heading", 10,
-     RULE_LABEL_ROW_PITCH, _title_to_first_element("Overall"), "v"),
-    ("Gacha History", "Overall: row -> row", 10, RULE_LABEL_ROW_PITCH,
-     _text_line_pitch(_gacha_overall, label="Overall",
+    ("Gacha History", "Overall Stats title -> first heading", 10,
+     RULE_LABEL_ROW_PITCH, _title_to_first_element(GACHA_OVERALL_TITLE),
+     "v"),
+    ("Gacha History", "Overall Stats: row -> row", 10, RULE_LABEL_ROW_PITCH,
+     _text_line_pitch(_gacha_overall, label=GACHA_OVERALL_TITLE,
                       kinds=_gacha_pitch_tags("row")), "v"),
     # Four above the pitch, so each section reads as a block of its
     # own. Marked at `HEADING_PAD`.
-    ("Gacha History", "Overall: row -> heading", 14, RULE_LABEL_ROW_PITCH,
-     _text_line_pitch(_gacha_overall, label="Overall",
+    ("Gacha History", "Overall Stats: row -> heading", 14,
+     RULE_LABEL_ROW_PITCH,
+     _text_line_pitch(_gacha_overall, label=GACHA_OVERALL_TITLE,
                       kinds=_gacha_pitch_tags("heading")), "v"),
-    ("Gacha History", "Overall: figure -> its value", 5, RULE_LABEL_ELEMENT,
+    ("Gacha History", "Overall Stats: figure -> its value", 5,
+     RULE_LABEL_ELEMENT,
      _text_column_gap(_gacha_overall, GACHA_FIGURE_ROWS, index=0,
                       every=True), "h"),
-    ("Gacha History", "Overall: value -> units", 8, RULE_PAIR_GAP,
+    ("Gacha History", "Overall Stats: value -> units", 8, RULE_PAIR_GAP,
      _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=1,
                       every=True), "h"),
-    ("Gacha History", "Overall: units -> date", 5, RULE_LABEL_ELEMENT,
+    ("Gacha History", "Overall Stats: units -> date", 5, RULE_LABEL_ELEMENT,
      _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=2,
                       every=True), "h"),
     # Only a record with a tie has a second pair. With none anywhere,
     # this reads nothing and says so.
-    ("Gacha History", "Overall: date -> next tie", 8, RULE_PAIR_GAP,
+    ("Gacha History", "Overall Stats: date -> next tie", 8, RULE_PAIR_GAP,
      _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=3,
                       every=True), "h"),
 ]
@@ -4653,12 +4661,12 @@ AWAITING_FIRST_READING = {
     # or a distance read off the screen and agreed, and a run measured
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
-    "Overall title -> first heading",
-    "Overall: row -> row",
-    "Overall: row -> heading",
-    "Overall: value -> units",
-    "Overall: units -> date",
-    "Overall: date -> next tie",
+    "Overall Stats title -> first heading",
+    "Overall Stats: row -> row",
+    "Overall Stats: row -> heading",
+    "Overall Stats: value -> units",
+    "Overall Stats: units -> date",
+    "Overall Stats: date -> next tie",
 }
 
 

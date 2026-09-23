@@ -601,7 +601,7 @@ class GachaHistoryTab(BaseTab):
                 fifty, s.fours, _number(s.four_avg), pity, read)
 
     def _overall_rows(self):
-        """The Overall sheet, top to bottom: a section's name as a bare
+        """The Overall Stats sheet, top to bottom: a section's name as a bare
         string, every other row (figure, value), a record's followed by
         a (units, date) pair for each tie."""
         o = self.history.overall if self.history is not None \

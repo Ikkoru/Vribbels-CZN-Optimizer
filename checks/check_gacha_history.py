@@ -422,7 +422,7 @@ def _across(gh, folder, failures):
     rates = _rates()
     per = gh.pulls_per_five(gh.base_rate(rates)) * 1.5
     if o.rate_up_expected is None or abs(o.rate_up_expected - per) > 1e-9:
-        failures.append(f"Overall's game figure per rate-up reads "
+        failures.append(f"Overall's expected avg per rate-up reads "
                         f"{o.rate_up_expected}, not {per}: a cycle, and "
                         f"another after each lost 50/50.")
     fives = [3, 10, 2, 4, 4]
