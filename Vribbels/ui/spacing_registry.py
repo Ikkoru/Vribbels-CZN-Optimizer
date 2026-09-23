@@ -1143,6 +1143,24 @@ def _tab_list_to_first_element(heading=None):
     return resolve
 
 
+def _tab_list_to_widget(find):
+    """Resolver: the tab strip's bottom -> the top of one control.
+
+    For a tab whose first elements are controls beside TEXT: a scan of
+    the whole width would stop at whichever of them paints higher, and
+    the two answer to the rule separately -- a control by its border,
+    text by its capitals. A control's box edge is its border, so its
+    first painted row is the reference.
+    """
+    def resolve(cap, app):
+        box = sa.box_of(sa.current_tab_widget(app))
+        extent = sa.painted_extent_v(cap, sa.box_of(find(app)))
+        if extent is None:
+            return None, "the control painted nothing"
+        return sa.gap_between(box.top - 1, extent[0]), ""
+    return resolve
+
+
 # The rule has nine marker sites and had no entry, which is how Setup
 # came to sit a pixel below the other two headers with nothing
 # reporting it.
@@ -1230,6 +1248,7 @@ TREE_CLASSES = ("Treeview",)
 # owns: if one is reworded the entry stops finding its widget, and the
 # audit reports that as an error rather than as a distance.
 OPTIMIZER_HELP_PREFIX = "The Optimizer finds the six"
+GACHA_HELP_PREFIX = "Records your pulls"
 DEF_CAPTION = "What percent of damage scales off DEF?"
 SHIELD_CAPTION = "How much value should be given"
 FORCE_CAPTION = "Force HP/Ego on a Slot:"
@@ -1973,6 +1992,20 @@ CONTROL_GROUP_ENTRIES = [
     ("Gear Score", "stat grid -> button column", 16, None,
      _class_block_gap("Stat Weight Configuration",
                       SPINBOX_CLASSES, ("TButton", "Button"))),
+    ("Gacha History", "Export JSON -> Show group", 16, None,
+     _gap(_by_text("Export JSON"), _group_of("Show:"), "h")),
+    ("Gacha History", "Show group -> help text", 16, None,
+     _gap(_group_of("Show:"), _by_text(GACHA_HELP_PREFIX), "h")),
+]
+
+# (tab, name, locator) for controls read against the tab list on their
+# own. Gacha History's buttons and filter sit beside its help text,
+# which its own line box seats; see `_tab_list_to_widget`.
+TAB_LIST_WIDGETS = [
+    ("Gacha History", "Gacha History: tab list -> buttons",
+     _by_text("Import JSON")),
+    ("Gacha History", "Gacha History: tab list -> Show dropdown",
+     _group_of("Show:")),
 ]
 
 # (tab, name, target, hand reading, resolver) for a button row against
@@ -4521,6 +4554,15 @@ AWAITING_FIRST_READING = {
     # or a distance read off the screen and agreed, and a run measured
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
+    #
+    # Gacha History's five: read by hand, the buttons and filter sat
+    # 1px under the tab list and the control groups 14 apart. The
+    # levers moved to meet the rules, and no run has seen them since.
+    "Gacha History: tab list -> buttons",
+    "Gacha History: tab list -> Show dropdown",
+    "Gacha History buttons: button -> button",
+    "Export JSON -> Show group",
+    "Show group -> help text",
 }
 
 
@@ -4599,6 +4641,17 @@ def register_all():
             rule=RULE_TAB_LIST,
             target=_tab_list_target(tab),
             resolve=_tab_list_to_first_element(_heading),
+            axis="v",
+            provisional=_name in AWAITING_FIRST_READING,
+        )
+
+    for tab, _name, find in TAB_LIST_WIDGETS:
+        sa.track(
+            name=_name,
+            tab=tab,
+            rule=RULE_TAB_LIST,
+            target=_tab_list_target(tab),
+            resolve=_tab_list_to_widget(find),
             axis="v",
             provisional=_name in AWAITING_FIRST_READING,
         )
@@ -4896,6 +4949,16 @@ def register_all():
             ("TButton", "Button"), 0),
         axis="h",
         provisional=False,
+    )
+    sa.track(
+        name="Gacha History buttons: button -> button",
+        tab="Gacha History",
+        rule=RULE_BUTTON_GAP,
+        target=4,
+        resolve=_gap(_by_text("Import JSON"), _by_text("Export JSON"), "h"),
+        axis="h",
+        provisional="Gacha History buttons: button -> button"
+        in AWAITING_FIRST_READING,
     )
     sa.track(
         name="Setup buttons: button -> button",

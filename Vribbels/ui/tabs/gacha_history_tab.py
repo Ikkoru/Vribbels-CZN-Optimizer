@@ -80,10 +80,16 @@ PULL_COLUMNS = (
     ("time", "Time", ("0000-00-00 00:00",), tk.CENTER),
 )
 
-# What a column adds to its widest text: the cell's own inset and the
-# room before the next column's text. The one lever on how tightly both
-# lists sit.
-COLUMN_PAD = 16
+# This tab's lists, styled apart from every other list in the app: their
+# text insets are three times the shared style's -- 6 against 2 in a
+# cell, 9 against 3 in a heading -- so columns read apart. A column is
+# exactly as wide as its widest text plus those insets on both sides, so
+# the insets ARE the gap between two columns' text.
+TREE_STYLE = "GachaHistory.Treeview"
+CELL_INSET = 6
+HEADING_INSET = 9
+# The heading's height is left as the shared style has it.
+HEADING_INSET_V = 3
 
 # Row colours by rarity. A unit's stars index the rarity table
 # directly -- 5 Mythic, 4 Legendary, 3 Rare. A unit neither the game's
@@ -128,19 +134,27 @@ class GachaHistoryTab(BaseTab):
 
         toolbar = ttk.Frame(content)
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        # spacing: tab list -> first element -- tab, button ↕
         toolbar.pack(fill=tk.X, padx=px(2), pady=px((0, 0)))
 
-        import_btn = ttk.Button(toolbar, text="Import JSON",
+        # The buttons and the filter as one group, so its top pad is the
+        # whole lever on their distance from the tab list. On the
+        # toolbar it would move the help text too, which its own line
+        # box already seats where the rule wants it.
+        controls = ttk.Frame(toolbar)
+        # spacing: tab list -> first element -- tab, button ↕
+        # spacing: tab list -> first element -- tab, dropdown ↕
+        controls.pack(side=tk.LEFT, anchor=tk.N, pady=px((5, 0)))
+
+        import_btn = ttk.Button(controls, text="Import JSON",
                                 command=self._import, width=BUTTON_W_MEDIUM)
         # spacing: button -> button -- button, button ↔
         import_btn.pack(side=tk.LEFT, anchor=tk.N, padx=px((0, 4)))
-        ttk.Button(toolbar, text="Export JSON", command=self._export,
+        ttk.Button(controls, text="Export JSON", command=self._export,
                    width=BUTTON_W_MEDIUM).pack(side=tk.LEFT, anchor=tk.N)
 
-        show = ttk.Frame(toolbar)
+        show = ttk.Frame(controls)
         # spacing: control group ↔ control group -- button, label ↔
-        show.pack(side=tk.LEFT, anchor=tk.N, padx=px((12, 0)))
+        show.pack(side=tk.LEFT, anchor=tk.N, padx=px((14, 0)))
         ttk.Label(show, text="Show:").pack(side=tk.LEFT)
         self.filter_var = tk.StringVar(value=FILTERS[0][0])
         filter_box = ttk.Combobox(
@@ -161,7 +175,7 @@ class GachaHistoryTab(BaseTab):
             foreground=self.colors["fg_dim"],
             wraplength=px(HELP_WRAPLENGTH))
         # spacing: control group ↔ control group -- dropdown, label ↔
-        help_label.pack(side=tk.LEFT, padx=px((12, 0)), fill=tk.X,
+        help_label.pack(side=tk.LEFT, padx=px((14, 0)), fill=tk.X,
                         expand=True, anchor=tk.N)
         help_label.bind("<Configure>", self._rewrap)
 
@@ -209,22 +223,52 @@ class GachaHistoryTab(BaseTab):
         # spacing: tab list -> first element -- tab, frame ↕
         content.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((1, 2)))
 
+    @staticmethod
+    def _style_lists():
+        """This tab's list style: the shared one, with its text insets
+        tripled.
+
+        **A layout with no padding element**, because the shared
+        style's `padding` is two levers at once -- it insets the tree
+        area as well as every cell's text -- and tripled on the area it
+        pulls the heading row in from both ends, leaving a strip of the
+        list's background beside it. Without the element, `padding`
+        reaches only the text. Everything else, colours and row height
+        included, falls through to `Treeview` and `Treeview.Heading`.
+        """
+        style = ttk.Style()
+        try:
+            style.layout(TREE_STYLE, [
+                ("Treeview.treearea", {"sticky": "nswe"})])
+        except tk.TclError:
+            pass
+        # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
+        style.configure(TREE_STYLE,
+                        padding=px((CELL_INSET, 0, CELL_INSET, 0)))
+        # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
+        style.configure(TREE_STYLE + ".Heading",
+                        padding=px((HEADING_INSET, HEADING_INSET_V,
+                                    HEADING_INSET, HEADING_INSET_V)))
+
     def _make_tree(self, parent, columns, height):
+        self._style_lists()
         tree = ttk.Treeview(parent, columns=[c[0] for c in columns],
                             show="headings", height=height,
-                            selectmode="browse")
+                            selectmode="browse", style=TREE_STYLE)
         # Measured, so no `px()` on the text's share -- the fonts already
-        # carry the scale. The pad is a distance and takes it.
+        # carry the scale. The insets are distances and take it.
         cell = tkfont.nametofont("TkDefaultFont")
         head = tkfont.nametofont("TkHeadingFont")
         for index, (col, title, samples, anchor) in enumerate(columns):
             samples = samples() if callable(samples) else samples
-            widest = max([head.measure(title)]
-                         + [cell.measure(text) for text in samples])
+            width = max(
+                head.measure(title) + px(2 * HEADING_INSET),
+                max(cell.measure(text) for text in samples)
+                + px(2 * CELL_INSET))
             # A heading takes its column's anchor: left to Tk it centres
             # over a right-aligned number.
             tree.heading(col, text=title, anchor=anchor)
-            tree.column(col, width=widest + px(COLUMN_PAD), anchor=anchor,
+            tree.column(col, width=width, anchor=anchor,
                         stretch=index == len(columns) - 1)
         return tree
 
