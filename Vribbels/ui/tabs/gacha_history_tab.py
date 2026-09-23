@@ -61,7 +61,7 @@ SUMMARY_COLUMNS = (
     ("pulls", "Pulls", ("99,999",), tk.E),
     ("fives", "5★", ("999",), tk.E),
     ("avg", "Avg 5★ pull", ("99.9",), tk.E),
-    ("game", "Game avg", ("99.9",), tk.E),
+    ("game", "Expected avg", ("99.9",), tk.E),
     ("luck", "Luck", ("Bottom 50%", "Bottom 0.1%", "Bottom <0.1%"), tk.E),
     ("fifty", "50/50 won", ("99 of 99",), tk.E),
     ("fours", "4★", ("999",), tk.E),
@@ -77,7 +77,7 @@ PULL_COLUMNS = (
     ("featured", "Rate-up", _unit_names, tk.W),
     ("outcome", "50/50", (gh.WON, gh.LOST, gh.GUARANTEED, gh.RATE_UP,
                           gh.UNKNOWN), tk.W),
-    ("time", "Time", ("0000-00-00 00:00",), tk.CENTER),
+    ("time", "Time", ("0000-00-00 00:00",), tk.W),
 )
 
 # This tab's lists, styled apart from every other list in the app. Text
@@ -137,8 +137,8 @@ STATUS_WRAPLENGTH = 320
 # the sheet holds and each only from the rows with something after it:
 # a luck row's long value has nothing beside it, so it does not push
 # the units column out.
-OVERALL_TITLE = "Overall"
-WITHOUT_PRISM = "All but Prism Module"
+OVERALL_TITLE = "Overall Stats"
+WITHOUT_PRISM = "All banners, except Prism Module"
 PRISM_ONLY = "Prism Module"
 ALL_BANNERS = "All banners"
 HEADING_FONT = ("Segoe UI", 9, "bold")
@@ -615,18 +615,18 @@ class GachaHistoryTab(BaseTab):
         if o.rate_up_avg is not None:
             per = _number(o.rate_up_avg)
             if o.rate_up_expected is not None:
-                per += " (game avg %s)" % _number(o.rate_up_expected)
+                per += " (expected avg %s)" % _number(o.rate_up_expected)
         streak = "Most 5★s in %d pulls" % gh.STREAK_PULLS
         return (
             WITHOUT_PRISM,
             ("Luck", _rank(o.luck_without_prism)),
             ("Pulls", format(o.pulls_without_prism, ",")),
             ("50/50s won", fifty),
-            ("Pulls per rate-up Combatant", per),
+            ("Rate-Up pulls avg", per),
             ("Fastest 5★",) + _standout(o.fastest),
             ("Slowest 5★",) + _standout(o.slowest),
-            ("Fastest rate-up Combatant",) + _standout(o.fastest_rate_up),
-            ("Slowest rate-up Combatant",) + _standout(o.slowest_rate_up),
+            ("Fastest rate-up",) + _standout(o.fastest_rate_up),
+            ("Slowest rate-up",) + _standout(o.slowest_rate_up),
             (streak,) + _standout(o.streak, streak=True),
             PRISM_ONLY,
             ("Fastest 5★",) + _standout(o.prism_fastest),
