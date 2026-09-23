@@ -35,8 +35,8 @@ HELP_TEXT = (
     "To use: Start a capture. In game open each banner's Probability "
     "Info > Rescue Records. Page through to the last page! Do this for "
     "each banner; they are separate!\n"
-    "Import JSON also reads hub-czn's Export JSON. Luckier than: the "
-    "share of players who needed more pulls for as many 5★s."
+    "Import JSON also reads hub-czn's Export JSON. Luck: where your 5★ "
+    "pulls rank among all players who got as many 5★s."
 )
 
 # (label, the rarities it shows). None shows everything.
@@ -50,7 +50,7 @@ SUMMARY_COLUMNS = (
     ("fives", "5★", 36, tk.E),
     ("avg", "Avg 5★ pull", 84, tk.E),
     ("game", "Game avg", 68, tk.E),
-    ("luck", "Luckier than", 88, tk.E),
+    ("luck", "Luck", 88, tk.E),
     ("fifty", "50/50 won", 72, tk.E),
     ("fours", "4★", 40, tk.E),
     ("four_avg", "Avg 4★ pull", 84, tk.E),
@@ -298,8 +298,7 @@ class GachaHistoryTab(BaseTab):
                 read += " -- the game has newer pulls"
         return (pool.label, format(s.pulls, ","), s.fives,
                 _number(s.avg_pity), _number(s.expected_pity),
-                NO_VALUE if s.luckier_than is None
-                else "%.0f%%" % (100 * s.luckier_than),
+                gh.luck_rank(s.luckier_than) or NO_VALUE,
                 fifty, s.fours, _number(s.four_avg), pity, read)
 
     def _on_pick(self, _event):

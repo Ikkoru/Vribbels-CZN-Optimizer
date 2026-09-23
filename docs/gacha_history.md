@@ -59,6 +59,8 @@ A pickup banner names its unit in its id, `gacha_pickup_combatant_30117`, and **
 
 The names the tab shows are the notices' spelling, in `POOL_LABELS`. Players call the rate-ups the release or limited banners and the reruns the rerun banners; the Normal Rescues the permanent or normal banner; and the Observe Prism Module -- its banner is Eternal Moment, the wire's `card_factor` -- the animation or card banner.
 
+**Two families are not named after their banner's id**, which `PREFIX_POOLS` maps: the Special Rescue Request -- the beginner banner, `gacha_general_first_select_1` -- counts on `gacha_pity_first_select`, and the Partner Special Rescue event, `gacha_partner_reform_1`, on `gacha_pity_partner_reform`. Both guarantee a 5-star within 50 pulls, so the shared schedule below does not describe them, and neither can be opened once over: their rates are never read, and no luck figure is drawn for them.
+
 **Whether a category has a 50/50 is read from its rates**, not from its name: a Combatant rate-up splits the 5-star chance between `ssr_rate_up_success_ratio` and `ssr_ratio`, where a Partner rate-up and the Prism Module put all of it on the target and a Normal Rescue has no target. Until a banner's rates have been read, `FIFTY_FIFTY_POOLS` holds the notices' answer, so an import read before any capture still counts its 50/50s.
 
 ## Rarity
@@ -85,7 +87,9 @@ A 5-star's outcome is `Won`, `Lost`, `Guaranteed`, `Rate-up` -- the featured uni
 
 ## Luck
 
-**Luckier than** is the chance that a player needed MORE pulls for as many 5-stars, with half of any tie counting as luckier. Exact under the schedule: the pulls behind k 5-stars are a sum of k independent cycles, built one 5-star at a time and kept per base rate for the session (`_SUM_ODDS`).
+**Luck** starts from `luckier_than`: the chance that a player needed MORE pulls for as many 5-stars, with half of any tie counting as luckier. Exact under the schedule: the pulls behind k 5-stars are a sum of k independent cycles, built one 5-star at a time and kept per base rate for the session (`_SUM_ODDS`).
+
+**It is shown as a rank from the nearer end** -- `luck_rank`, `Top 12%` or `Bottom 27%` -- so the number is always the small one and the word says which way is good. A bare `Top 93%` reads as praise and means the reverse.
 
 **The tab reads nothing until it is first shown**, so that cost never lands on startup.
 
@@ -106,5 +110,4 @@ A category is **behind** when its pity record's `updateAt` is later than the new
 
 ## Not yet confirmed
 
-- `first_select`'s name, and whether its records can still be opened once the selection is done.
 - The pity record's name for a rerun category. `pity_record_name` guesses `gacha_pity_<pool>`; until a rerun is pulled on during a capture, a rerun shows no game counter.

@@ -85,6 +85,7 @@ def _pools_and_rarity(gh, failures):
         "gacha_general_supporter": ("general_supporter", None),
         "gacha_card_factor": ("card_factor", None),
         "gacha_general_first_select_1": ("first_select", None),
+        "gacha_partner_reform_1": ("partner_reform", None),
     }
     for gacha_id, want in cases.items():
         got = (gh.pool_of(gacha_id), gh.featured_of(gacha_id))
@@ -115,6 +116,14 @@ def _schedule(gh, failures):
     if not gh.schedule_matches(_rates()):
         failures.append("a rates reply stating the official consolidated "
                         "rate does not match the schedule")
+    # The rank is named from the nearer end, so its number is always the
+    # small one: a bare `Top 93%` reads as praise and means the reverse.
+    ranks = {0.88: "Top 12%", 0.5: "Top 50%", 0.27: "Bottom 27%",
+             0.998: "Top <1%", 0.001: "Bottom <1%", None: None}
+    for share, want in ranks.items():
+        if gh.luck_rank(share) != want:
+            failures.append(f"a luckier-than share of {share} ranks as "
+                            f"{gh.luck_rank(share)!r}, not {want!r}")
     middle = gh.luckier_than([47, 46], 0.01)
     worst = gh.luckier_than([70, 70], 0.01)
     best = gh.luckier_than([1, 1], 0.01)

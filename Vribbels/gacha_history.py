@@ -81,12 +81,23 @@ BEHIND_SLACK = 10
 PICKUP_ID = re.compile(
     r"^gacha_pickup_(combatant|supporter)_(\d+)((?:_\d+)*)$")
 
-# The one family whose pity record is not named after its id: the
-# counter is `gacha_pity_first_select`.
-FIRST_SELECT_PREFIX = "gacha_general_first_select"
+# The families whose pity record is not named after their banner's id:
+# `gacha_general_first_select_1` counts on `gacha_pity_first_select`,
+# `gacha_partner_reform_1` on `gacha_pity_partner_reform`. (id prefix,
+# pool.)
+PREFIX_POOLS = (
+    ("gacha_general_first_select", "first_select"),
+    ("gacha_partner_reform", "partner_reform"),
+)
 
-# The game's names for each family, as the Probabilities notices spell
-# them, in the order the tab lists them.
+# The game's names for each family, as the Probabilities notices and
+# the event notices spell them, in the order the tab lists them.
+#
+# **The last two guarantee a 5-star within 50 pulls**, which the shared
+# schedule below does not describe: the Special Rescue Request is the
+# beginner selection, the Partner Special Rescue an event. Neither can be
+# opened once over, so their rates are never read and no luck figure is
+# drawn for them; should one be, `schedule_matches` refuses it.
 POOL_LABELS = {
     "pickup_combatant": "Combatant Rate-Up Rescue",
     "pickup_supporter": "Partner Rate-Up Rescue",
@@ -95,7 +106,8 @@ POOL_LABELS = {
     "general": "Normal Combatant Rescue",
     "general_supporter": "Normal Partner Rescue",
     "card_factor": "Observe Prism Module",
-    "first_select": "First Select Rescue",
+    "partner_reform": "Partner Special Rescue",
+    "first_select": "Special Rescue Request",
 }
 POOL_ORDER = tuple(POOL_LABELS)
 
@@ -106,8 +118,9 @@ def pool_of(gacha_id):
     m = PICKUP_ID.match(gacha_id)
     if m:
         return "pickup_%s%s" % (m.group(1), "_rerun" if m.group(3) else "")
-    if gacha_id.startswith(FIRST_SELECT_PREFIX):
-        return "first_select"
+    for prefix, pool in PREFIX_POOLS:
+        if gacha_id.startswith(prefix):
+            return pool
     return gacha_id[len("gacha_"):] if gacha_id.startswith("gacha_") \
         else gacha_id
 
@@ -439,6 +452,23 @@ def luckier_than(pities, base):
     above = sum(odds[took + 1:])
     same = odds[took] if took < len(odds) else 0.0
     return above + same / 2
+
+
+def luck_rank(luckier):
+    """`Top 12%` or `Bottom 27%`, from `luckier_than`'s share.
+
+    **Named from whichever end the history sits nearer**, so the number
+    is always the small one and the word says which way is good: a bare
+    `Top 93%` would read as praise and mean the opposite. The middle
+    itself is `Top 50%`. Below half a percent reads `<1%` rather than
+    rounding to a `0%` nobody can be in.
+    """
+    if luckier is None:
+        return None
+    word, share = ("Top", 1 - luckier) if luckier >= 0.5 else (
+        "Bottom", luckier)
+    percent = int(100 * share + 0.5)
+    return "%s %s" % (word, "<1%" if percent < 1 else "%d%%" % percent)
 
 
 # ------------------------------------------------------------- the pulls
