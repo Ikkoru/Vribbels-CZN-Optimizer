@@ -2582,8 +2582,7 @@ def _text_columns(cap, box, fill, want=None):
     return columns
 
 
-def _text_column_gap(locator, needles, index=0, from_end=False,
-                     every=False):
+def _text_column_gap(locator, needles, index=0, from_end=False):
     """Resolver: the SMALLEST gap at one column boundary of a Text.
 
     A Text's columns are TAB STOPS, so there is no widget on either side
@@ -2613,22 +2612,7 @@ def _text_column_gap(locator, needles, index=0, from_end=False,
     nothing between them -- has two bands where the others have four, so
     its right-hand pair is at a different index and only the same one
     counting backwards.
-
-    `every` reads every line a needle finds rather than the first, for
-    a sheet whose sections repeat a row's words: its stops are the
-    widget's, so a later section's row is on the same column.
     """
-    def lines(widget, needle):
-        start = "1.0"
-        while True:
-            where = widget.search(needle, start, tk.END)
-            if not where:
-                return
-            yield where
-            if not every:
-                return
-            start = f"{where} lineend"
-
     def resolve(cap, app):
         widget = locator(app)
         if widget is None:
@@ -2639,7 +2623,10 @@ def _text_column_gap(locator, needles, index=0, from_end=False,
         # raises before any scan runs.
         fill = _widget_fill(widget)
         readings = []
-        for where in (w for needle in needles for w in lines(widget, needle)):
+        for needle in needles:
+            where = widget.search(needle, "1.0", tk.END)
+            if not where:
+                continue
             info = widget.dlineinfo(where)
             if info is None:
                 continue
@@ -2675,6 +2662,100 @@ def _text_column_gap(locator, needles, index=0, from_end=False,
         # reported so a row that reads oddly can be told apart from one
         # that is simply tight.
         note = " | ".join(f"{g}[{n}c]: {line[:30]}" for g, line, n in readings)
+        return readings[0][0], note
+    return resolve
+
+
+def _text_field_gap(locator, needles, index=0, advance=False):
+    """Resolver: the SMALLEST gap between two tab-separated FIELDS of a
+    Text's lines, each field's ink taken between the places the Text
+    DREW the fields' first characters.
+
+    `_text_column_gap` finds its columns in the ink alone, merging the
+    tightest gaps until the count comes out right. That cannot work
+    where a boundary between fields is as narrow as a gap inside one:
+    `Nine, Narja` sits 5 from its date and its comma-space is 5 too, so
+    the merge split the units and read the comma. Asking the widget
+    where each field starts makes a field its own ink however narrow
+    the gaps around it.
+
+    `advance` takes the LEFT field's end at its last character's
+    advance rather than its ink, for a field whose last glyph is the
+    data's: a date ending in `1` stops a pixel short of its advance
+    (see "Digits share an advance width but not an ink width" in
+    `docs/ui_spacing.md`), and the gap would read the date rather than
+    the layout -- the same reason `_materials_value_column` reads to a
+    column edge.
+
+    Every line each needle finds is read, not only the first: a sheet
+    whose sections repeat a row's words sets every row on the same
+    stops.
+    """
+    def lines(widget, needle):
+        start = "1.0"
+        while True:
+            where = widget.search(needle, start, tk.END)
+            if not where:
+                return
+            yield int(where.split(".")[0])
+            start = f"{where} lineend"
+
+    def fields_of(widget, n, left):
+        """(first drawn x, last character's advance end) per field, in
+        root coordinates."""
+        found, offset = [], 0
+        for text in widget.get(f"{n}.0", f"{n}.end").split("\t"):
+            body = text.strip()
+            if body:
+                first = offset + len(text) - len(text.lstrip())
+                a = widget.bbox(f"{n}.{first}")
+                b = widget.bbox(f"{n}.{first + len(body) - 1}")
+                if a is None or b is None:
+                    return None
+                found.append((left + a[0], left + b[0] + b[2] - 1))
+            offset += len(text) + 1
+        return found
+
+    def resolve(cap, app):
+        widget = locator(app)
+        if widget is None:
+            return None, "no text widget there"
+        left = sa.box_of(widget).left
+        origin = sa.box_of(widget).top
+        box = _inside_border(widget)
+        fill = _widget_fill(widget)
+        readings = []
+        for n in (n for needle in needles for n in lines(widget, needle)):
+            info = widget.dlineinfo(f"{n}.0")
+            fields = fields_of(widget, n, left)
+            if info is None or not fields or index + 1 >= len(fields):
+                continue
+            top = origin + info[1]
+            band = sa.Box(left=box.left, top=top,
+                          right=box.right, bottom=top + info[3] - 1)
+            runs = sa.painted_runs_h(cap, band, {fill})
+            # A run belongs to the field its MIDDLE falls in: a glyph's
+            # fringe can start a pixel before the place the Text drew
+            # its box.
+            ink = []
+            for i, (start, _end) in enumerate(fields):
+                stop = (fields[i + 1][0] if i + 1 < len(fields)
+                        else box.right + 1)
+                inside = [r for r in runs
+                          if start <= (r[0] + r[1]) // 2 < stop]
+                ink.append((min(r[0] for r in inside),
+                            max(r[1] for r in inside)) if inside else None)
+            if ink[index] is None or ink[index + 1] is None:
+                continue
+            end = fields[index][1] if advance else ink[index][1]
+            gap = sa.gap_between(end, ink[index + 1][0])
+            words = " ".join(widget.get(f"{n}.0", f"{n}.end").split())
+            readings.append((gap, n, words))
+        if not readings:
+            return None, f"no line with that field, of {list(needles)}"
+        readings.sort()
+        note = " | ".join(f"{g}: L{n} {words[:34]}"
+                          for g, n, words in readings)
         return readings[0][0], note
     return resolve
 
@@ -4624,19 +4705,18 @@ GACHA_ENTRIES = [
                       kinds=_gacha_pitch_tags("heading")), "v"),
     ("Gacha History", "Overall Stats: figure -> its value", 5,
      RULE_LABEL_ELEMENT,
-     _text_column_gap(_gacha_overall, GACHA_FIGURE_ROWS, index=0,
-                      every=True), "h"),
+     _text_field_gap(_gacha_overall, GACHA_FIGURE_ROWS, index=0), "h"),
     ("Gacha History", "Overall Stats: value -> units", 8, RULE_PAIR_GAP,
-     _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=1,
-                      every=True), "h"),
+     _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=1), "h"),
     ("Gacha History", "Overall Stats: units -> date", 5, RULE_LABEL_ELEMENT,
-     _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=2,
-                      every=True), "h"),
+     _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=2), "h"),
     # Only a record with a tie has a second pair. With none anywhere,
-    # this reads nothing and says so.
+    # this reads nothing and says so. The date's end is read at its
+    # advance: its last digit is the data's, and a `1` stops a pixel
+    # short of it.
     ("Gacha History", "Overall Stats: date -> next tie", 8, RULE_PAIR_GAP,
-     _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=3,
-                      every=True), "h"),
+     _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=3,
+                     advance=True), "h"),
 ]
 
 
@@ -4661,11 +4741,7 @@ AWAITING_FIRST_READING = {
     # or a distance read off the screen and agreed, and a run measured
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
-    "Overall Stats title -> first heading",
-    "Overall Stats: row -> row",
-    "Overall Stats: row -> heading",
     "Overall Stats: value -> units",
-    "Overall Stats: units -> date",
     "Overall Stats: date -> next tie",
 }
 
