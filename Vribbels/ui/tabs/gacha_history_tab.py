@@ -126,23 +126,47 @@ URGENT_FONT = ("Segoe UI", 9, "bold")
 # toolbar rather than width from the help text beside it.
 STATUS_WRAPLENGTH = 320
 
-# The figures across banners, under the Banners list: a sheet of
-# (figure, value, units, date) rows in three sections, each opened by a
-# bold row of its own. `gh.Overall` says why the Prism Module is kept
-# apart. The figure column is measured from the rows themselves; the
-# units column grows to the widest streak it is given.
+# The figures across banners, under the Banners list: (figure, value,
+# units, date) rows in three sections, each opened by a bold heading.
+# `gh.Overall` says why the Prism Module is kept apart.
+#
+# **A Text, not a list**, because these are label rows: rows sit
+# `label row -> label row` apart and a heading further from the row
+# above it, where a Treeview's rows are all one height and nothing
+# reaches between them. The columns are TAB STOPS, measured from what
+# the sheet holds and each only from the rows with something after it:
+# a luck row's long value has nothing beside it, so it does not push
+# the units column out.
 OVERALL_TITLE = "Overall"
 WITHOUT_PRISM = "All but Prism Module"
 PRISM_ONLY = "Prism Module"
 ALL_BANNERS = "All banners"
-SECTION_TAG = "section"
-SECTION_FONT = ("Segoe UI", 9, "bold")
-OVERALL_COLUMNS = (
-    ("value", "", ("Bottom <0.1%", "999 of 999, Bottom <0.1%",
-                   "999.9 (game 99.9)", "999 pulls", "99,999"), tk.W),
-    ("units", "", _unit_names, tk.W),
-    ("date", "", ("0000-00-00",), tk.CENTER),
-)
+HEADING_FONT = ("Segoe UI", 9, "bold")
+
+# One pitch tag per line, setting its `spacing1` -- the line's own word
+# for what sits above it. Tk resolves two tags setting one option by
+# priority rather than by sum, so a pad stacked on another tag would
+# hang on the order the tags were made in. The first heading takes
+# `TOP_TAG`: it crosses nothing, so nothing is charged above it.
+ROW_TAG = "row"
+HEADING_TAG = "heading"
+TOP_TAG = "top"
+BOLD_TAG = "bold"
+
+# Levers a rendered distance short of their rules: a Text line's box
+# already carries part of the gap, and `spacing1` cannot go negative.
+ROW_PITCH = 3           # spacing: label row -> label row -- run, run ↕
+# A heading stands 4 further from the row above it than rows do from
+# one another, so each section reads as a block of its own.
+HEADING_PAD = 4         # spacing: exception -- label row -> label row -- run, run ↕
+# The panel's title against the first heading, read as two label rows.
+TITLE_GAP = 1           # spacing: label row -> label row -- title, run ↕
+
+# The longest figure against the value column, and each column after
+# it against the next -- a value against its units, the units against
+# the date.
+FIGURE_TO_VALUE = 5     # spacing: label ↔ its element -- run, run ↔
+COLUMN_TO_COLUMN = 8    # spacing: element and its label ↔ element and its label -- run, run ↔
 
 
 def _stars(stars):
@@ -172,9 +196,19 @@ def _standout(record, streak=False):
     else:
         value = "%d pull%s" % (record.count, "" if record.count == 1
                                else "s")
-    units = ", ".join(gh.unit_name(pull.res_id) for pull in record.pulls)
     day = datetime.fromtimestamp(record.pulls[-1].at).strftime("%Y-%m-%d")
-    return value, units, day
+    return value, _units(record.pulls), day
+
+
+def _units(pulls):
+    """`Diana x2, Heidemarie`: each unit once, in the order it first
+    came, counted where it came more than once."""
+    counts = {}
+    for pull in pulls:
+        name = gh.unit_name(pull.res_id)
+        counts[name] = counts.get(name, 0) + 1
+    return ", ".join(name if n == 1 else "%s x%d" % (name, n)
+                     for name, n in counts.items())
 
 
 class GachaHistoryTab(BaseTab):
@@ -290,22 +324,33 @@ class GachaHistoryTab(BaseTab):
         # 2 every panel on this tab has.
         overall_frame.grid(row=1, column=0, sticky="nw", padx=px(2),
                            pady=px((5, 2)))
-        rows = self._overall_rows()
-        stats = [row if isinstance(row, str) else row[0] for row in rows]
-        self.overall_tree = self._make_tree(
-            overall_frame, (("stat", "", stats, tk.W),) + OVERALL_COLUMNS,
-            height=len(rows))
-        # A sheet to read, not a list to pick from: no headings, since
-        # every value says what it is, and no selection.
-        self.overall_tree.configure(show=(), selectmode="none")
-        self.overall_tree.tag_configure(SECTION_TAG, font=SECTION_FONT)
-        # The section rows are bold, which `_make_tree` did not measure.
-        bold = tkfont.Font(font=SECTION_FONT)
-        self._fit_column(self.overall_tree, "stat",
-                         [row for row in rows if isinstance(row, str)],
-                         bold)
-        self._units_width = int(self.overall_tree.column("units", "width"))
-        self.overall_tree.pack(fill=tk.X)
+        # A Text sizes in characters and lines, and this sheet is sized
+        # in pixels -- its rows carry `spacing1` a line count cannot
+        # see -- so the holder is sized and the Text fills it. See
+        # `_fill_overall`.
+        self.overall_holder = tk.Frame(overall_frame, bg=self.colors["bg"],
+                                       width=1, height=1)
+        self.overall_holder.pack_propagate(False)
+        # spacing: label row -> label row -- title, run ↕
+        self.overall_holder.pack(anchor=tk.W, pady=px((TITLE_GAP, 0)))
+        self.overall_text = tk.Text(
+            self.overall_holder, wrap=tk.NONE, bd=0,
+            highlightthickness=px(0), padx=px(0), pady=px(0),
+            bg=self.colors["bg"], fg=self.colors["fg"],
+            font="TkDefaultFont", takefocus=0, insertwidth=px(0),
+            cursor="arrow", selectbackground=self.colors["select"],
+            selectforeground=self.colors["fg"])
+        self.overall_text.pack(fill=tk.BOTH, expand=True)
+        # spacing: label row -> label row -- run, run ↕
+        self.overall_text.tag_configure(ROW_TAG, spacing1=px(ROW_PITCH))
+        # spacing: exception -- label row -> label row -- run, run ↕
+        self.overall_text.tag_configure(
+            HEADING_TAG, spacing1=px(ROW_PITCH + HEADING_PAD))
+        self.overall_text.tag_configure(TOP_TAG, spacing1=px(0))
+        self.overall_text.tag_configure(BOLD_TAG, font=HEADING_FONT)
+        # Written now, with nothing read, so the sheet is already its
+        # full height when the history arrives: only its width moves.
+        self._fill_overall()
 
         self.pulls_frame = ttk.LabelFrame(body, text="Pulls",
                                           padding=px(0),
@@ -561,7 +606,7 @@ class GachaHistoryTab(BaseTab):
         if o.rate_up_avg is not None:
             per = _number(o.rate_up_avg)
             if o.rate_up_expected is not None:
-                per += " (game %s)" % _number(o.rate_up_expected)
+                per += " (game avg %s)" % _number(o.rate_up_expected)
         streak = "Most 5★s in %d pulls" % gh.STREAK_PULLS
         return (
             WITHOUT_PRISM,
@@ -583,30 +628,64 @@ class GachaHistoryTab(BaseTab):
         )
 
     def _fill_overall(self):
-        tree = self.overall_tree
-        tree.delete(*tree.get_children())
+        """Write the sheet, set its stops from what it now holds, and
+        size its holder to the result."""
         rows = self._overall_rows()
-        for row in rows:
+        font = tkfont.nametofont("TkDefaultFont")
+        bold = tkfont.Font(font=HEADING_FONT)
+        stops = self._overall_stops(rows, font)
+        text = self.overall_text
+        text.configure(state=tk.NORMAL, tabs=tuple(stops))
+        text.delete("1.0", tk.END)
+        widest = 0
+        for n, row in enumerate(rows):
+            end = "\n" if n < len(rows) - 1 else ""
             if isinstance(row, str):
-                tree.insert("", tk.END, values=self._spaced((row, "", "", "")),
-                            tags=(SECTION_TAG,))
-            else:
-                tree.insert("", tk.END, values=self._spaced(row))
-        # Back to the width the column was built at, then out to the
-        # widest streak: a history that loses a long one shrinks again.
-        tree.column("units", width=self._units_width)
-        self._fit_column(tree, "units",
-                         [row[2] for row in rows if not isinstance(row, str)],
-                         tkfont.nametofont("TkDefaultFont"))
+                text.insert(tk.END, row + end,
+                            (TOP_TAG if n == 0 else HEADING_TAG, BOLD_TAG))
+                widest = max(widest, bold.measure(row))
+                continue
+            fields = self._fields(row)
+            text.insert(tk.END, "\t".join(fields) + end, (ROW_TAG,))
+            start = stops[len(fields) - 2] if len(fields) > 1 else 0
+            widest = max(widest, start + font.measure(fields[-1]))
+        text.configure(state=tk.DISABLED)
+        # Measured, so no `px()`: the fonts carry the scale, and the
+        # lines' `spacing1` is already in the count.
+        height = text.count("1.0", tk.END, "update", "ypixels")
+        if isinstance(height, (tuple, list)):
+            height = height[0]
+        self.overall_holder.configure(width=widest, height=height or 1)
 
     @staticmethod
-    def _fit_column(tree, column, texts, font):
-        """Widen `column` to its widest text, where that is wider than it
-        is. Measured, so only the inset takes `px()`."""
-        need = max([font.measure(text) for text in texts] + [0]) \
-            + px(2 * TEXT_INSET)
-        if need > int(tree.column(column, "width")):
-            tree.column(column, width=need)
+    def _fields(row):
+        """A row's fields up to its last non-empty one: a row with no
+        units ends at its value, and puts no tab after it."""
+        fields = list(row)
+        while len(fields) > 1 and not fields[-1]:
+            fields.pop()
+        return fields
+
+    @staticmethod
+    def _overall_stops(rows, font):
+        """The sheet's tab stops, in pixels from the line's start.
+
+        Row by row: each column is as wide as its widest text among the
+        rows with something AFTER it -- a row that ends at a column puts
+        no tab after it, so its width stops nobody. The gaps are
+        distances and take `px()`; the text is measured and does not.
+        """
+        stops, start = [], 0
+        for column, gap in ((0, FIGURE_TO_VALUE), (1, COLUMN_TO_COLUMN),
+                            (2, COLUMN_TO_COLUMN)):
+            widest = max([font.measure(row[column]) for row in rows
+                          if not isinstance(row, str)
+                          and any(row[column + 1:])] + [0])
+            # spacing: label ↔ its element -- run, run ↔
+            # spacing: element and its label ↔ element and its label -- run, run ↔
+            start += widest + px(gap)
+            stops.append(start)
+        return stops
 
     def _on_pick(self, _event):
         chosen = self.summary_tree.selection()

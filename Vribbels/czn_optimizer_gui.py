@@ -120,7 +120,11 @@ COLORS = {
     "bg_strip": "#191926",
     "fg": "#cdd6f4", "fg_dim": "#6c7086", "accent": "#89b4fa",
     "green": "#a6e3a1", "red": "#f38ba8", "yellow": "#f9e2af",
-    "purple": "#cba6f7", "orange": "#FF8C00", "select": "#3b6ea5",
+    "purple": "#cba6f7", "orange": "#FF8C00",
+    # Selected rows and text, and hover on headings and scrollbars. Dark
+    # enough that a row keeping its own colour when selected -- rarity,
+    # a warning -- still reads on it.
+    "select": "#254266",
     # `yellow` darkened at the same hue, for a value that is present but
     # is not the one to read -- the FLOOR of a potential range, against
     # the ceiling beside it. A second foreground rather than a second

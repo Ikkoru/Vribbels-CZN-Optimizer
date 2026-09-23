@@ -44,6 +44,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - At the 200% UI scale, the Optimizer's help text and its Have at Least note wrap to the space they have, rather than running past it.
 
+### Changed
+
+- The selection highlight is a much darker blue, in every list and text field, so a row that keeps its own colour when selected still reads on it.
+
 ## [2.1.0] - Checklist of in-game activities, capture archiving
 
 ### Added

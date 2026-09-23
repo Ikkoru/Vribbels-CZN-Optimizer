@@ -3551,6 +3551,9 @@ EXCEPTION_ENTRIES = {
     "Checklist: block division": "exception",
     "Checklist: product -> product": "exception",
     "Checklist: shop heading -> its first product": "exception",
+    # A section's heading stands four further from the row above it
+    # than rows do from one another. Marked at `HEADING_PAD`.
+    "Overall: row -> heading": "exception",
 }
 
 
@@ -4535,6 +4538,58 @@ POPUP_ENTRIES = [
 ]
 
 
+def _gacha_overall(app):
+    return app.gacha_tab_instance.overall_text
+
+
+def _gacha_pitch_tags(*names):
+    """The Overall sheet's pitch-tag names, looked up when the audit
+    runs -- see `_checklist_pitch_tags`, whose reasoning this shares."""
+    def tags():
+        from ui.tabs import gacha_history_tab as tab
+        known = {tab.ROW_TAG, tab.HEADING_TAG, tab.TOP_TAG}
+        missing = [n for n in names if n not in known]
+        if missing:
+            raise LookupError(f"no Overall pitch tag named {missing}")
+        return set(names)
+    return tags
+
+
+# The Overall sheet's figures, found by their words and the tab after
+# them. Only the first of a repeated figure is read, which is the
+# section without the Prism Module; the stops are the sheet's, so the
+# Module's rows sit on the same ones.
+GACHA_RECORD_ROWS = ("Fastest 5★	", "Slowest 5★	",
+                     "Fastest rate-up Combatant	",
+                     "Slowest rate-up Combatant	",
+                     "Most 5★s in 10 pulls	")
+GACHA_FIGURE_ROWS = ("Luck	", "Pulls	", "50/50s won	",
+                     "Pulls per rate-up Combatant	") + GACHA_RECORD_ROWS
+
+# (tab, name, target, rule, resolver, axis) for Gacha History's Overall
+# sheet, a Text whose rows are label rows and whose columns are tab
+# stops. The column gaps are read on the rows that HAVE the next
+# column: a luck row ends at its value.
+GACHA_ENTRIES = [
+    ("Gacha History", "Overall title -> first heading", 10,
+     RULE_LABEL_ROW_PITCH, _title_to_first_element("Overall"), "v"),
+    ("Gacha History", "Overall: row -> row", 10, RULE_LABEL_ROW_PITCH,
+     _text_line_pitch(_gacha_overall, label="Overall",
+                      kinds=_gacha_pitch_tags("row")), "v"),
+    # Four above the pitch, so each section reads as a block of its
+    # own. Marked at `HEADING_PAD`.
+    ("Gacha History", "Overall: row -> heading", 14, RULE_LABEL_ROW_PITCH,
+     _text_line_pitch(_gacha_overall, label="Overall",
+                      kinds=_gacha_pitch_tags("heading")), "v"),
+    ("Gacha History", "Overall: figure -> its value", 5, RULE_LABEL_ELEMENT,
+     _text_column_gap(_gacha_overall, GACHA_FIGURE_ROWS, index=0), "h"),
+    ("Gacha History", "Overall: value -> units", 8, RULE_PAIR_GAP,
+     _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=1), "h"),
+    ("Gacha History", "Overall: units -> date", 8, RULE_PAIR_GAP,
+     _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=2), "h"),
+]
+
+
 # Setup & Settings' archive column. Its own list because the panel's
 # other distances are panel edges and row pitches, which their own
 # loops generate.
@@ -4557,6 +4612,12 @@ AWAITING_FIRST_READING = {
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
     "Banners -> Overall title",
+    "Overall title -> first heading",
+    "Overall: row -> row",
+    "Overall: row -> heading",
+    "Overall: figure -> its value",
+    "Overall: value -> units",
+    "Overall: units -> date",
 }
 
 
@@ -4761,6 +4822,7 @@ def register_all():
 
     for tab, name, target, rule, resolve, axis in (MATERIALS_ENTRIES
                                                   + CHECKLIST_ENTRIES
+                                                  + GACHA_ENTRIES
                                                   + SETTINGS_ENTRIES):
         sa.track(
             name=name,

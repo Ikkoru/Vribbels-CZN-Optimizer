@@ -2437,48 +2437,87 @@ def _gacha_history_draws_its_rows(tab):
 
 
 def _gacha_overall_fits(tab, gh):
-    """Every cell of the Gacha History's Overall sheet fits its column.
+    """The Gacha History's Overall sheet shows all of what it holds.
 
-    Two kinds of cell are wider than what the columns were first
-    measured from: the bold section rows, and a streak's units, which
-    list every 5-star in it. A column too narrow for its text clips it
-    without a word. The history is handed a three-unit streak here.
+    It is a Text in a holder sized in pixels, with tab stops measured
+    from its rows, and three things fail it without a word: a field
+    reaching its next stop, where Tk falls through to a tab spacing of
+    its own; a holder narrower than a line, which clips the line's end;
+    and one shorter than the lines, which clips the last rows. The
+    stops and the holder are worked out again on every fill, so the
+    history is handed a streak of three different units here -- wider
+    than anything the sheet held before it.
+
+    Every line carries exactly one pitch tag, the first heading the
+    one that charges nothing above it: the audit reads the gaps by
+    those tags.
 
     Returns a list of complaints.
     """
     import tkinter.font as tkfont
-    from ui.scaling import px
     from ui.tabs.gacha_history_tab import (
-        ALL_BANNERS, PRISM_ONLY, SECTION_FONT, SECTION_TAG, TEXT_INSET,
-        WITHOUT_PRISM)
+        ALL_BANNERS, HEADING_FONT, HEADING_TAG, PRISM_ONLY, ROW_TAG,
+        TOP_TAG, WITHOUT_PRISM)
 
     out = []
-    five = next((pull for pool in tab.history.ordered()
-                 for pull in pool.pulls if pull.stars == 5), None)
-    if five is None:
-        return ["the Gacha History test history has no 5-star to build "
-                "a streak from"]
-    tab.history.overall.streak = gh.Standout(3, [five] * 3)
+    pulls = [pull for pool in tab.history.ordered() for pull in pool.pulls]
+    units = {pull.res_id: pull for pull in pulls}
+    if len(units) < 3:
+        return ["the Gacha History test history has too few units to "
+                "build a three-unit streak from"]
+    tab.history.overall.streak = gh.Standout(3, list(units.values())[:3])
     tab._fill_overall()
-    tree = tab.overall_tree
+    text = tab.overall_text
     normal = tkfont.nametofont("TkDefaultFont")
-    bold = tkfont.Font(font=SECTION_FONT)
-    sections = []
-    for iid in tree.get_children():
-        item = tree.item(iid)
-        is_section = SECTION_TAG in item["tags"]
-        if is_section:
-            sections.append(str(item["values"][0]))
-        font = bold if is_section else normal
-        for column, text in zip(tree["columns"], item["values"]):
-            need = font.measure(str(text)) + px(2 * TEXT_INSET)
-            have = int(tree.column(column, "width"))
-            if need > have:
-                out.append(f"the Overall sheet's {column!r} column is "
-                           f"{have}px for {str(text)!r}, which needs "
-                           f"{need}: the text is clipped.")
-    if sections != [WITHOUT_PRISM, PRISM_ONLY, ALL_BANNERS]:
-        out.append(f"the Overall sheet's section rows read {sections}")
+    bold = tkfont.Font(font=HEADING_FONT)
+    stops = [int(str(s)) for s in text.tk.splitlist(text.cget("tabs"))
+             if str(s).isdigit()]
+    count = int(text.index("end-1c").split(".")[0])
+    width = int(tab.overall_holder.cget("width"))
+    headings = []
+    for n in range(1, count + 1):
+        line = text.get(f"{n}.0", f"{n}.end")
+        pitch = [t for t in text.tag_names(f"{n}.0")
+                 if t in (ROW_TAG, HEADING_TAG, TOP_TAG)]
+        want = TOP_TAG if n == 1 else None
+        if len(pitch) != 1 or (want and pitch != [want]):
+            out.append(f"Overall line {n} {line!r} carries pitch tags "
+                       f"{pitch}; every line takes one, and the first "
+                       f"{TOP_TAG!r}.")
+        if pitch and pitch[0] != ROW_TAG:
+            headings.append(line)
+        font = normal if pitch == [ROW_TAG] else bold
+        fields = line.split("\t")
+        starts = [0] + stops
+        for i, field in enumerate(fields):
+            if i + 1 < len(fields) and i + 1 >= len(starts):
+                out.append(f"Overall line {n} {line!r} has more fields "
+                           f"than the sheet has stops, {stops}")
+                break
+            end = starts[i] + font.measure(field)
+            limit = starts[i + 1] if i + 1 < len(fields) else width
+            if end > limit:
+                out.append(f"Overall line {n}: {field!r} ends at {end}px, "
+                           f"past {limit}, the "
+                           f"{'next stop' if i + 1 < len(fields) else 'holder'}"
+                           f" -- clipped, or tabbed to where Tk chooses.")
+    if headings != [WITHOUT_PRISM, PRISM_ONLY, ALL_BANNERS]:
+        out.append(f"the Overall sheet's headings read {headings}")
+    # A unit that came more than once is named once and counted, in the
+    # order the units first came.
+    from ui.tabs.gacha_history_tab import _units
+    a, b = list(units.values())[:2]
+    got = _units([a, b, a])
+    want = "%s x2, %s" % (gh.unit_name(a.res_id), gh.unit_name(b.res_id))
+    if got != want:
+        out.append(f"a streak of A, B, A names its units {got!r}, not "
+                   f"{want!r}")
+    need = text.count("1.0", "end", "update", "ypixels")
+    need = need[0] if isinstance(need, (tuple, list)) else need
+    have = int(tab.overall_holder.cget("height"))
+    if need > have:
+        out.append(f"the Overall sheet's lines need {need}px and its holder "
+                   f"is {have}: the last rows are clipped.")
     tab.refresh()
     return out
 
