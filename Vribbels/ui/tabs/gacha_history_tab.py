@@ -29,11 +29,11 @@ from ..utils.button_width import BUTTON_W_MEDIUM
 # and the first rewrap moves nothing. A narrower window rewraps.
 HELP_WRAPLENGTH = 900
 HELP_TEXT = (
-    "Keeps every pull the game has listed, long after the game stops "
-    "listing it — the game only shows about the last half year.\n"
-    "To add yours: start a capture, then in game open each banner's "
-    "Rescue Records and page through to the last page. Each type of "
-    "banner keeps its own records.\n"
+    "Records your pulls long after the game stops. Important! The game "
+    "erases records that are older than about half a year!\n"
+    "To use: Start a capture. In game open each banner's Probability "
+    "Info > Rescue Records. Page through to the last page! Do this for "
+    "each banner; they are separate!\n"
     "Import JSON also reads hub-czn's Export JSON. Luckier than: the "
     "share of players who needed more pulls for as many 5★s."
 )
