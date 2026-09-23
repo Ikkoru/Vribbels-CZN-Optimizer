@@ -42,6 +42,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - A login event on its first day read `1/1+?`, which says finished. The ceiling now starts at seven, the fewest any login event has ever paid, and still counts up from there.
 
+- At the 200% UI scale, the Optimizer's help text and its Have at Least note wrap to the space they have, rather than running past it.
+
 ## [2.1.0] - Checklist of in-game activities, capture archiving
 
 ### Added

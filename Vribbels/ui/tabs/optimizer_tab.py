@@ -602,13 +602,15 @@ class OptimizerTab(BaseTab):
             # REQUESTED width, so a handler that writes unconditionally can
             # bounce the toolbar's layout for an extra pass or two -- and
             # every one of those passes is a full relayout of the tab.
-            new = max(200, event.width - 10)
+            # `event.width` is measured, already at the active scale, so
+            # only the constants take `px()`.
+            new = max(px(200), event.width - px(10))
             try:
                 if int(str(lbl.cget("wraplength"))) == new:
                     return
             except (ValueError, tk.TclError):
                 pass
-            lbl.config(wraplength=px(new))
+            lbl.config(wraplength=new)
 
         help_label.bind("<Configure>", _rewrap)
 
@@ -1248,9 +1250,12 @@ class OptimizerTab(BaseTab):
         )
         # spacing: explanation text -> the controls it explains -- spinbox, label ↕
         hal_note.pack(fill=tk.X, expand=False, pady=px((0, 0)))
+        # `e.width` is measured, already at the active scale, so only the
+        # constants take `px()`.
         parent.bind(
             "<Configure>",
-            lambda e, lbl=hal_note: lbl.config(wraplength=px(max(175, e.width - 19))),
+            lambda e, lbl=hal_note: lbl.config(
+                wraplength=max(px(175), e.width - px(19))),
             add="+",
         )
 

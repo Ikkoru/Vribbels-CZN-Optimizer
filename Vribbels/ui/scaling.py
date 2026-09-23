@@ -35,11 +35,13 @@ rounds, so today the rule costs nothing and buys the fractional steps
 
 **A MEASURED distance must not go through `px` at all.** Anything read
 off a font -- `font.measure(...)`, `winfo_reqheight()`, a Text's
-`dlineinfo` -- has already grown with the font scaling, and wrapping it
-scales it a second time. A pad mixing the two takes `px` on its
-hardcoded part alone: `px(INSET) + indent`, never `px(INSET + indent)`.
+`dlineinfo`, the width a `<Configure>` event carries -- has already
+grown with the font scaling, and wrapping it scales it a second time. A
+pad mixing the two takes `px` on its hardcoded part alone:
+`px(INSET) + indent`, never `px(INSET + indent)`.
 `checks/check_ui_scales.py` catches both halves of this, a pad that did
-not grow and one that grew twice.
+not grow and one that grew twice, and a wraplength worked out from an
+event's width.
 
 **The spacing audit is 100%-only.** Its targets are physical pixels; at
 200% every gap would read double and the run would be a wall of red

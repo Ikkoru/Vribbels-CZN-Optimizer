@@ -53,6 +53,11 @@ TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
              "HeroesTab", "ScoringTab", "MaterialsTab",
              "ChecklistTab", "GachaHistoryTab")
 
+# The width handed to every label that rewraps itself on `<Configure>`.
+# Past every handler's floor even at 200%, so a wraplength wider than
+# this can only have come from scaling the measured width.
+PROBE_WIDTH = 1000
+
 
 def _shadowed_helper():
     """No module may bind `px` to anything but the scaling helper.
@@ -161,6 +166,59 @@ def _distances(widget, out, path=""):
     return out
 
 
+def _walk(widget):
+    yield widget
+    for child in widget.winfo_children():
+        yield from _walk(child)
+
+
+def _rewraps(frame, scale, tab_name):
+    """A wraplength worked out from a `<Configure>` width takes no `px()`.
+
+    The width the event carries is MEASURED -- it has already grown with
+    the scale -- so scaling it again sets a wraplength wider than the
+    space the label was given, twice as wide at 200%, and the text stops
+    wrapping where it should. The pads never show it: a wraplength is
+    not a pack option, and at 100% the two are the same number.
+
+    So every widget with a wraplength is handed a `<Configure>` of a
+    known width, on itself and on its parent, wherever either binds one.
+    A wraplength that MOVES and lands past that width is the failure;
+    one that does not move has no handler and is left alone.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+
+    out = []
+    for widget in _walk(frame):
+        try:
+            before = int(str(widget.cget("wraplength")))
+        except (tk.TclError, ValueError):
+            continue
+        if not before:
+            continue
+        for target in (widget, widget.master):
+            if target is None or "<Configure>" not in target.bind():
+                continue
+            target.winfo_id()      # an unrealised window takes no events
+            target.event_generate("<Configure>", width=PROBE_WIDTH,
+                                  height=PROBE_WIDTH)
+            after = int(str(widget.cget("wraplength")))
+            if after != before and after > PROBE_WIDTH:
+                text = str(widget.cget("text"))[:40]
+                whose = "own" if target is widget else "parent's"
+                out.append(
+                    f"{tab_name} at {scale}: {text!r}... rewraps to "
+                    f"{after}px when its {whose} <Configure> says "
+                    f"{PROBE_WIDTH}px. The event's width is measured and "
+                    f"already scaled; wrapping it in `px()` sets the "
+                    f"wraplength wider than the label, so the text runs "
+                    f"past its space. `px()` the constants around it "
+                    f"instead -- see `ui/scaling.py`.")
+    return out
+
+
 def _font_ratio():
     """How much a FONT grows between the two scales.
 
@@ -185,8 +243,11 @@ def _font_ratio():
     return max(2.0, sizes[1] / sizes[0])
 
 
-def _build(scale, work):
-    """Every tab built at one scale, and the distances under them."""
+def _build(scale, work, problems):
+    """Every tab built at one scale, and the distances under them.
+
+    Each tab's rewrapping labels are probed while it stands -- see
+    `_rewraps` -- and what that finds goes to `problems`."""
     import tkinter as tk
     from tkinter import ttk
 
@@ -233,6 +294,9 @@ def _build(scale, work):
             tab = getattr(tabs_pkg, attr)(notebook, context)
             _distances(tab.get_frame(), found, attr)
             _minsizes(tab.get_frame(), found, attr)
+            # After the distances are read: a rewrap moves requested
+            # sizes, and the comparison wants the tab as built.
+            problems.extend(_rewraps(tab.get_frame(), scale, attr))
     finally:
         try:
             root.destroy()
@@ -280,8 +344,8 @@ def run():
             f"two are spelled separately -- importing one into the other "
             f"is circular -- so they have to be held together here.")
 
-    single = _build("100%", work)
-    double = _build("200%", work)
+    single = _build("100%", work, failures)
+    double = _build("200%", work, failures)
     ratio = _font_ratio()
 
     if not single:
