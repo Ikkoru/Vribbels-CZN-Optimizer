@@ -31,7 +31,7 @@ import json
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 FOLDER = "gacha_history"
@@ -127,6 +127,115 @@ def pool_label(pool):
 def pity_record_name(pool):
     """The `gacha_pity_*` record that counts this pool."""
     return "gacha_pity_" + pool
+
+
+# ------------------------------------------------------- past banners
+
+# **Every rate-up banner, dated, for the pulls whose file lost which
+# banner they came from** -- hub-czn's export files every Combatant
+# rate-up under one name, so its pulls say neither which unit was
+# featured nor whether the banner was a rerun. The game's own records
+# name their banner exactly and never need this. (combatant banner,
+# partner banner, first day, day it closes.)
+#
+# **A release banner changes over at 02:00 UTC** -- 11:00 in Korea,
+# which is what a banner's own definition states -- on the day one
+# closes and the next opens. Every window the captured schedule reaches
+# agrees with this list to the day. Where the list leaves a day between
+# two banners, a pull on it belongs to neither and stays unknown.
+RELEASE_BANNERS = (
+    ("gacha_pickup_combatant_1062", "gacha_pickup_supporter_30045",
+     "2025-10-22", "2025-11-11"),                   # Haru & Asteria
+    ("gacha_pickup_combatant_1057", "gacha_pickup_supporter_30044",
+     "2025-11-12", "2025-12-02"),                   # Yuki & Westmacott
+    ("gacha_pickup_combatant_1060", "gacha_pickup_supporter_30046",
+     "2025-12-03", "2025-12-24"),                   # Chizuru & Itsuku
+    ("gacha_pickup_combatant_30075", "gacha_pickup_supporter_30076",
+     "2025-12-24", "2026-01-14"),                   # Sereniel & Peko
+    ("gacha_pickup_combatant_1052", "gacha_pickup_supporter_20002",
+     "2026-01-14", "2026-02-04"),                   # Narja & Gaya
+    ("gacha_pickup_combatant_30047", "gacha_pickup_supporter_30091",
+     "2026-02-04", "2026-02-25"),                   # Nine & Alcea
+    ("gacha_pickup_combatant_30084", "gacha_pickup_supporter_30085",
+     "2026-02-25", "2026-03-18"),                   # Tiphera & Tiana
+    ("gacha_pickup_combatant_30097", "gacha_pickup_supporter_1025",
+     "2026-03-18", "2026-04-08"),                   # Rita & Ivy
+    ("gacha_pickup_combatant_1061", "gacha_pickup_supporter_30053",
+     "2026-04-08", "2026-05-05"),                   # Diana & Sophia
+    ("gacha_pickup_combatant_30093", "gacha_pickup_supporter_30094",
+     "2026-04-29", "2026-05-27"),                   # Heidemarie & Sylvia
+    ("gacha_pickup_combatant_1055", "gacha_pickup_supporter_30095",
+     "2026-05-27", "2026-06-17"),                   # Adelheid & Clara
+    ("gacha_pickup_combatant_1069", "gacha_pickup_supporter_1070",
+     "2026-06-17", "2026-07-08"),                   # Tenebria & Aria
+    ("gacha_pickup_combatant_30048", "gacha_pickup_supporter_30092",
+     "2026-07-08", "2026-07-29"),                   # Fei & Ruixiang
+    ("gacha_pickup_combatant_30113", "gacha_pickup_supporter_30114",
+     "2026-07-29", "2026-08-19"),                   # Hilde & Eunie
+    ("gacha_pickup_combatant_30115", "gacha_pickup_supporter_30116",
+     "2026-08-19", "2026-09-09"),                   # Arabella & Licinia
+    ("gacha_pickup_combatant_30117", "gacha_pickup_supporter_30118",
+     "2026-09-09", "2026-09-30"),                   # Olga & Emilie
+)
+
+# The reruns, in the same shape. **Their changeover hour varies** -- one
+# opened at 02:00 UTC beside a release, the rest at 18:00 -- so a rerun
+# is taken as open for the whole of its first and last day: a pull near
+# one is left unknown rather than given to the release banner beside it.
+RERUN_BANNERS = (
+    ("gacha_pickup_combatant_1062_1", "gacha_pickup_supporter_30045_1",
+     "2026-06-17", "2026-07-08"),                   # Haru & Asteria
+    ("gacha_pickup_combatant_1057_2", "gacha_pickup_supporter_30044_2",
+     "2026-07-21", "2026-08-11"),                   # Yuki & Westmacott
+    ("gacha_pickup_combatant_1060_1", "gacha_pickup_supporter_30046_1",
+     "2026-08-11", "2026-09-01"),                   # Chizuru & Itsuku
+    ("gacha_pickup_combatant_1052_1", "gacha_pickup_supporter_20002_1",
+     "2026-09-22", "2026-10-13"),                   # Narja & Gaya
+)
+
+CHANGEOVER_HOUR = 2        # UTC
+
+
+def _utc(day, hour=0):
+    return datetime.strptime(day, "%Y-%m-%d").replace(
+        hour=hour, tzinfo=timezone.utc).timestamp()
+
+
+def _windows(banners, opens_hour, closes_after):
+    """[(pool, gacha id, opens, closes)] in epoch seconds."""
+    out = []
+    for combatant, supporter, first, last in banners:
+        for gacha_id in (combatant, supporter):
+            out.append((pool_of(gacha_id), gacha_id,
+                        _utc(first, opens_hour),
+                        _utc(last, opens_hour) + closes_after))
+    return out
+
+
+_RELEASE_WINDOWS = _windows(RELEASE_BANNERS, CHANGEOVER_HOUR, 0)
+_RERUN_WINDOWS = _windows(RERUN_BANNERS, 0, 86400)
+
+
+def dated_banner(pool, at):
+    """The rate-up banner a pull of `pool` at `at` came from, or None.
+
+    Only where exactly one release banner of that kind was open and no
+    rerun of it ran alongside: hub-czn filed a rerun's pulls under the
+    rate-up's name too, so a pull made while both were open could have
+    come from either -- and the two do not share a pity counter.
+    """
+    if beside_a_rerun(pool, at):
+        return None
+    open_now = [g for p, g, opens, closes in _RELEASE_WINDOWS
+                if p == pool and opens <= at < closes]
+    return open_now[0] if len(open_now) == 1 else None
+
+
+def beside_a_rerun(pool, at):
+    """Whether a rerun of `pool`'s kind was open at `at`."""
+    rerun_pool = pool + "_rerun"
+    return any(p == rerun_pool and opens <= at < closes
+               for p, _g, opens, closes in _RERUN_WINDOWS)
 
 
 # -------------------------------------------------------------- rarity
@@ -270,6 +379,15 @@ def schedule_matches(rates):
     if base is None or stated is None:
         return False
     return abs(1.0 / pulls_per_five(base) - stated) <= SCHEDULE_TOLERANCE
+
+
+# The families with a 50/50, for one whose rates have not been read
+# yet: the Probabilities notices give one to both Combatant rate-ups
+# and to nothing else. An import read before any capture would
+# otherwise count no 50/50 at all. Once a banner's rates are read,
+# they decide.
+FIFTY_FIFTY_POOLS = frozenset({"pickup_combatant",
+                               "pickup_combatant_rerun"})
 
 
 def has_fifty_fifty(rates):
@@ -790,6 +908,17 @@ def load(folder, now=None):
             continue
         kept.append(batch)
     history.batches = sorted(game + kept, key=_order)
+    # Pulls a file filed under the rate-up while a rerun ran beside it
+    # may be the rerun's, whose pity is counted apart. Said, because
+    # nothing in the file can settle it.
+    doubtful = sum(len(b["reward"]) for b in kept
+                   if not b["gacha_id"]
+                   and beside_a_rerun(b["pool"], b["createAt"]))
+    if doubtful:
+        history.notes.append(
+            "%d imported pull%s made while a rerun ran beside the "
+            "rate-up, and may be the rerun's"
+            % (doubtful, " was" if doubtful == 1 else "s were"))
 
     tiers = tiers_from_rates(history.rates)
     by_pool = {}
@@ -837,7 +966,8 @@ def _work_out(pool, batches, tiers, history):
     entry = Pool(pool)
     stats = entry.stats
     rates = _pool_rates(pool, history.rates)
-    fifty = has_fifty_fifty(rates)
+    fifty = (has_fifty_fifty(rates) if rates
+             else pool in FIFTY_FIFTY_POOLS)
     record = history.pity.get(pity_record_name(pool))
     if isinstance(record, dict):
         stats.game_pity = _int(record.get("pity_ssr_count"))
@@ -854,7 +984,10 @@ def _work_out(pool, batches, tiers, history):
     guaranteed = None
     number = 0
     for batch in batches:
-        featured = featured_of(batch["gacha_id"])
+        # An imported batch that lost its banner is dated back to one
+        # -- see `dated_banner`. The game's own records never need it.
+        featured = featured_of(batch["gacha_id"] or dated_banner(
+            pool, batch["createAt"]))
         for res_id in batch["reward"]:
             number += 1
             pity += 1

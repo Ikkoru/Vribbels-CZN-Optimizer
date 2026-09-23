@@ -178,11 +178,18 @@ RARITY = {1: "Normal", 2: "Uncommon", 3: "Rare", 4: "Legendary"}
 
 # Legendary reads as gold in-game; orange is used here because it stays
 # legible on the dark background.
+#
+# Mythic is here for the gacha's units, which no Memory Fragment ever
+# is: a 5-star Combatant or Partner is Mythic, a 4-star Legendary and a
+# 3-star Rare, so a unit's stars index this table directly. The purple
+# is lighter than a pure violet, which would sink into the background
+# where the blue and orange beside it stand out.
 RARITY_COLORS = {
     1: "#888888",      # Normal - Gray
     2: "#50C878",      # Uncommon - Green
     3: "#00BFFF",      # Rare - Blue
     4: "#FF8C00",      # Legendary - Orange (gold in-game)
+    5: "#B070FF",      # Mythic - Purple
 }
 
 RARITY_BG_COLORS = {

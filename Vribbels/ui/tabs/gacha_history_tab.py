@@ -19,6 +19,7 @@ from tkinter import ttk, filedialog, messagebox
 
 import gacha_history as gh
 from capture.constants import OUTPUT_DIR
+from game_data.constants import RARITY_COLORS
 from ui.scaling import px
 from ..base_tab import BaseTab
 from ..utils.button_width import BUTTON_W_MEDIUM
@@ -47,12 +48,12 @@ SUMMARY_COLUMNS = (
     ("banner", "Banner", 200, tk.W),
     ("pulls", "Pulls", 52, tk.E),
     ("fives", "5★", 36, tk.E),
-    ("avg", "Avg pity", 64, tk.E),
+    ("avg", "Avg 5★ pull", 84, tk.E),
     ("game", "Game avg", 68, tk.E),
     ("luck", "Luckier than", 88, tk.E),
     ("fifty", "50/50 won", 72, tk.E),
     ("fours", "4★", 40, tk.E),
-    ("four_avg", "Avg 4★ pity", 84, tk.E),
+    ("four_avg", "Avg 4★ pull", 84, tk.E),
     ("pity", "Pity now", 66, tk.E),
     ("read", "Last read from the game", 220, tk.W),
 )
@@ -60,16 +61,19 @@ PULL_COLUMNS = (
     ("number", "#", 50, tk.E),
     ("unit", "Unit", 150, tk.W),
     ("stars", "Rarity", 56, tk.CENTER),
-    ("pity", "Pity", 44, tk.E),
+    ("pull", "Pull", 44, tk.E),
     ("featured", "Rate-up", 150, tk.W),
     ("outcome", "50/50", 96, tk.W),
     ("time", "Time", 160, tk.W),
 )
 
-# Row colours by rarity. A unit neither the game's rate lists nor the
-# tables know is drawn loudly: its pity, and every pity after it, rest
-# on nobody knowing whether it was a 5-star.
-STAR_TAGS = {5: "yellow", 4: "purple", 3: "fg", None: "orange"}
+# Row colours by rarity. A unit's stars index the rarity table
+# directly -- 5 Mythic, 4 Legendary, 3 Rare. A unit neither the game's
+# rate lists nor the tables know is drawn loudly, in a colour no
+# rarity has: its pity, and every pity after it, rest on nobody
+# knowing whether it was a 5-star.
+STAR_COLOURS = {stars: RARITY_COLORS[stars] for stars in (5, 4, 3)}
+UNKNOWN_COLOUR = "red"
 
 NO_VALUE = "-"
 
@@ -172,9 +176,11 @@ class GachaHistoryTab(BaseTab):
         self.pulls_tree.configure(yscrollcommand=scroll.set)
         self.pulls_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        for stars, colour in STAR_TAGS.items():
+        for stars, colour in STAR_COLOURS.items():
             self.pulls_tree.tag_configure(self._star_tag(stars),
-                                          foreground=self.colors[colour])
+                                          foreground=colour)
+        self.pulls_tree.tag_configure(
+            self._star_tag(None), foreground=self.colors[UNKNOWN_COLOUR])
 
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕

@@ -2343,6 +2343,21 @@ def _gacha_history_draws_its_rows(tab):
                 f"the pulls list draws tags {tags}, newest first. A unit "
                 f"of unknown rarity has to stand out, not pass as a 3-star "
                 f"-- which is how a new 5-star broke every pity after it.")
+        # A unit's stars index the rarity table: 5 Mythic, 4 Legendary,
+        # 3 Rare. Unknown takes a colour no rarity has, or it passes for
+        # one of them.
+        from game_data.constants import RARITY_COLORS
+        for stars in (5, 4, 3):
+            got = str(tab.pulls_tree.tag_configure(f"stars_{stars}",
+                                                   "foreground"))
+            if got.lower() != RARITY_COLORS[stars].lower():
+                out.append(f"{stars}-star pulls are drawn in {got}, not the "
+                           f"rarity table's {RARITY_COLORS[stars]}")
+        unknown = str(tab.pulls_tree.tag_configure("stars_unknown",
+                                                   "foreground")).lower()
+        if unknown in {c.lower() for c in RARITY_COLORS.values()}:
+            out.append(f"pulls of unknown rarity are drawn in {unknown}, a "
+                       f"rarity's own colour -- they read as that rarity")
         tab.filter_var.set(FILTERS[-1][0])
         tab._fill_pulls()
         shown = [tab.pulls_tree.item(i)["tags"][0]

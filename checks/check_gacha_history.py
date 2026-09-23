@@ -192,6 +192,66 @@ def _history(gh, folder, failures):
                         f"should be 0 after the last pull's 5-star")
 
 
+def _dated(gh, folder, failures):
+    """An imported pull that lost its banner is dated back to one.
+
+    hub-czn files every Combatant rate-up under one name, so without the
+    dates a whole export's 50/50s read `?`. Real units, so the rarity
+    comes from the tables: Khalipe off-banner, then Narja on hers.
+    """
+    from datetime import datetime, timezone
+
+    def at(text):
+        return int(datetime.strptime(text, "%Y-%m-%d %H:%M").replace(
+            tzinfo=timezone.utc).timestamp())
+
+    cases = {
+        # The changeover is 02:00 UTC on the day one closes and the next
+        # opens -- both sides of it, and a week two releases shared.
+        ("pickup_combatant", "2026-02-04 01:30"):
+            "gacha_pickup_combatant_1052",
+        ("pickup_combatant", "2026-02-04 02:30"):
+            "gacha_pickup_combatant_30047",
+        ("pickup_supporter", "2026-03-20 12:00"):
+            "gacha_pickup_supporter_1025",
+        ("pickup_combatant", "2026-05-01 12:00"): None,
+        # A rerun open beside the release: either could have it.
+        ("pickup_combatant", "2026-06-20 12:00"): None,
+    }
+    for (pool, when), want in cases.items():
+        got = gh.dated_banner(pool, at(when))
+        if got != want:
+            failures.append(
+                f"a {pool} pull at {when} UTC dates to {got}, not {want}. "
+                f"A pull given the wrong banner reads its 50/50 backwards; "
+                f"one where two banners were open must stay unknown.")
+
+    store_dir = gh.folder_in(folder)
+    store_dir.mkdir(parents=True)
+    hub = [{"banner_name": "Seasonal Combatant Rescue Rate-Up", "pulls": [
+        {"pull_number": 1, "res_id": 1008, "timestamp":
+         at("2026-01-14 19:41")},
+        {"pull_number": 2, "res_id": 1052, "timestamp":
+         at("2026-01-14 19:43")},
+        {"pull_number": 3, "res_id": 1052, "timestamp":
+         at("2026-06-20 12:00")}]}]
+    gh.merge_import(folder, gh.parse_import(hub, "hub.json")[0])
+    history = gh.load(folder, now=at("2026-07-01 00:00"))
+    pool = history.pools.get("pickup_combatant")
+    outcomes = [(p.res_id, p.outcome) for p in pool.pulls] if pool else []
+    want = [(1008, gh.LOST), (1052, gh.GUARANTEED), (1052, gh.UNKNOWN)]
+    if outcomes != want:
+        failures.append(
+            f"a dated import reads {outcomes}, not {want}: Khalipe lost on "
+            f"Narja's banner, Narja the guarantee, and a pull in a rerun "
+            f"week unknown.")
+    if not any("rerun" in line for line in history.notes):
+        failures.append(
+            "an imported pull made while a rerun ran beside the rate-up "
+            "was counted toward the rate-up without a word. It may be the "
+            "rerun's, whose pity is kept apart.")
+
+
 def _supersede(gh, folder, failures):
     """An import covering pulls the game's own records hold is dropped."""
     store_dir = gh.folder_in(folder)
@@ -469,6 +529,7 @@ def run():
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         _history(gh, tmp / "history", failures)
+        _dated(gh, tmp / "dated", failures)
         _supersede(gh, tmp / "supersede", failures)
         (tmp / "write").mkdir()
         _verified_write(gh, tmp / "write", failures)

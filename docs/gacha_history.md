@@ -57,9 +57,9 @@ A reply only ever ADDS. A record the game has stopped listing stays in the file,
 
 A pickup banner names its unit in its id, `gacha_pickup_combatant_30117`, and **a rerun appends a suffix**, `gacha_pickup_combatant_1052_1`. A rerun is its own category -- "Normal Combatant Rate-Up" -- with its own counter, so the suffix moves it to a pool of its own rather than being dropped.
 
-The names the tab shows are the notices' spelling, in `POOL_LABELS`.
+The names the tab shows are the notices' spelling, in `POOL_LABELS`. Players call the rate-ups the release or limited banners and the reruns the rerun banners; the Normal Rescues the permanent or normal banner; and the Observe Prism Module -- its banner is Eternal Moment, the wire's `card_factor` -- the animation or card banner.
 
-**Whether a category has a 50/50 is read from its rates**, not from its name: a Combatant rate-up splits the 5-star chance between `ssr_rate_up_success_ratio` and `ssr_ratio`, where a Partner rate-up and the Prism Module put all of it on the target and a Normal Rescue has no target.
+**Whether a category has a 50/50 is read from its rates**, not from its name: a Combatant rate-up splits the 5-star chance between `ssr_rate_up_success_ratio` and `ssr_ratio`, where a Partner rate-up and the Prism Module put all of it on the target and a Normal Rescue has no target. Until a banner's rates have been read, `FIFTY_FIFTY_POOLS` holds the notices' answer, so an import read before any capture still counts its 50/50s.
 
 ## Rarity
 
@@ -67,7 +67,9 @@ The names the tab shows are the notices' spelling, in `POOL_LABELS`.
 
 The default is the thing to never reintroduce. hub-czn read an unknown unit as a 3-star, so every 5-star released after it stopped being updated counted as a 3-star and its pity ran on through them.
 
-The Prism Module lists card items (`card_factor_ssr_5201083`), not units, and its entries never match. The rates are kept per banner in the file, so a unit keeps its tier after its banner closes.
+The Prism Module lists card items (`card_factor_ssr_5201083`), not units, and its entries never match. The rates are kept per banner in the file, so a unit keeps its tier after its banner closes. Every 3-star is a Partner.
+
+**A unit's stars index `RARITY_COLORS` directly** -- 5 Mythic, 4 Legendary, 3 Rare -- which is what the tab draws its rows in.
 
 ## Pity and the 50/50
 
@@ -95,13 +97,14 @@ A category is **behind** when its pity record's `updateAt` is later than the new
 
 `parse_import` says which files it reads. hub-czn's `Export JSON` is the one that loses things:
 
-- **Each pull's banner is gone.** Every Combatant rate-up, reruns included, became one name, so its pulls have no known rate-up unit and their 50/50s read `?`. Anything with `supporter` in its id became another, which files the Normal Partner Rescue under the Partner rate-up.
+- **Each pull's banner is gone.** Every Combatant rate-up, reruns included, became one name, and anything with `supporter` in its id became another -- which files the Normal Partner Rescue under the Partner rate-up.
 - **Its `rarity`, `pity` and `is_featured` are ignored**, and worked out again: the rarity was the default above, the pity followed it, and `is_featured` is `prism` masked to what it believed were 5-stars.
+
+**A pull with no banner is dated back to one** -- `dated_banner`, over `RELEASE_BANNERS` and `RERUN_BANNERS`. A release banner changes over at 02:00 UTC, on the day one closes and the next opens, and a pull gets a banner only where exactly one release of its kind was open and no rerun ran beside it. Where two releases overlapped, the pull stays unknown; where a rerun was open too, it could be the rerun's, whose pity is kept apart, and the tab says how many such pulls there are. Only imports need this: the game's own records name their banner.
 
 **The game's own records win wherever they cover the same pulls.** An import is matched to them by record `id`, by category and second, or by second and every unit in the batch -- the last because only the units can say that two batches filed under different categories are one.
 
 ## Not yet confirmed
 
-- The in-game path the tab's instructions name.
 - `first_select`'s name, and whether its records can still be opened once the selection is done.
 - The pity record's name for a rerun category. `pity_record_name` guesses `gacha_pity_<pool>`; until a rerun is pulled on during a capture, a rerun shows no game counter.
