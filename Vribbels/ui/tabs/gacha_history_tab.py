@@ -67,7 +67,7 @@ SUMMARY_COLUMNS = (
     ("fours", "4★", ("999",), tk.E),
     ("four_avg", "Avg 4★ pull", ("99.9",), tk.E),
     ("pity", "Pity now", ("99",), tk.E),
-    ("read", "Last read", ("0000-00-00 00:00 (behind)",), tk.W),
+    ("read", "Last read", ("0000-00-00 00:00 (behind)",), tk.CENTER),
 )
 PULL_COLUMNS = (
     ("number", "#", ("99999",), tk.E),
@@ -77,7 +77,7 @@ PULL_COLUMNS = (
     ("featured", "Rate-up", _unit_names, tk.W),
     ("outcome", "50/50", (gh.WON, gh.LOST, gh.GUARANTEED, gh.RATE_UP,
                           gh.UNKNOWN), tk.W),
-    ("time", "Time", ("0000-00-00 00:00",), tk.W),
+    ("time", "Time", ("0000-00-00 00:00",), tk.CENTER),
 )
 
 # What a column adds to its widest text: the cell's own inset and the
