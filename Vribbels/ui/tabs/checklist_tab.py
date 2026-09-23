@@ -564,6 +564,12 @@ MERGED_SHOPS = frozenset([SEASONAL_SHOP_CATEGORY])
 # already says on every row that needs it.
 PRICE_APART = " (%d)"
 
+# What the settings file stores a SEASONAL product's tick under, its
+# own id being renamed every season. Built from `_merged_as`, which is
+# what the row is merged on, so the token names the offer rather than
+# the season's spelling of it. See `ChecklistTab._tracking_id`.
+SEASONAL_TRACKING = "disaster:%s:%s:%s"
+
 
 def shop_shut_for_now(shop, period, raw, now):
     """Whether a shop has no shelves to show at all right now.
@@ -2379,7 +2385,45 @@ class ChecklistTab(BaseTab):
     def _tracked(self, product_id):
         """Whether the user ticked one shop product. See ChecklistManager."""
         manager = getattr(self.context, "checklist_manager", None)
-        return manager.is_tracked(product_id) if manager else True
+        return manager.is_tracked(
+            self._tracking_id(product_id)) if manager else True
+
+    def _tracking_id(self, product_id):
+        """What `checklist.json` stores one product's tick under.
+
+        The product id itself, for every shop whose shelves outlive a
+        season: `town_shop_goods_005` names the same one for ever.
+
+        **A seasonal product's id carries its season** --
+        `disaster_s04_14` -- and every one of them is renamed when the
+        next season opens, so a tick stored under it is lost at the
+        turn of the season. Those are stored under what their ROW is
+        merged on instead: the item, how many a purchase gives, and
+        the price. See `_merged_as`.
+
+        A season that reprices something starts that row at its
+        default again, which is the smallest loss on offer -- nothing
+        else about a shelf is certain to survive a season.
+        """
+        define = self._define_of(product_id)
+        if (not define or define.get("link_shop_category_id")
+                != SEASONAL_SHOP_CATEGORY):
+            return product_id
+        return SEASONAL_TRACKING % _merged_as(define)
+
+    def _define_of(self, product_id):
+        """One product's definition, or None.
+
+        Off the REMEMBERED definitions rather than off the snapshot:
+        the rows are built from those too, so this answers on a
+        capture's first save while its row is still drawn.
+        """
+        for defines in (self._definitions or {}).values():
+            define = (defines or {}).get(product_id) if isinstance(
+                defines, dict) else None
+            if isinstance(define, dict):
+                return define
+        return None
 
     def _toggle(self, products, variable):
         """Persist one checkbox, then redraw.
@@ -2396,8 +2440,9 @@ class ChecklistTab(BaseTab):
         """
         manager = getattr(self.context, "checklist_manager", None)
         if manager is not None:
-            for product_id in products:
-                manager.set_tracked(product_id, bool(variable.get()))
+            for stored in {self._tracking_id(product_id)
+                           for product_id in products}:
+                manager.set_tracked(stored, bool(variable.get()))
         self.frame.after_idle(self.refresh_checklist)
 
     def _rebuild_columns(self, raw, readings):
@@ -3176,16 +3221,12 @@ class ChecklistTab(BaseTab):
     def _product_tip(self, product_id):
         """One product's full name, or None where its row shows it.
 
-        Off the remembered definitions rather than off the snapshot:
-        the rows are built from those too, so a tip cannot go missing
-        on a capture's first save while its row is still drawn.
+        Off the remembered definitions -- see `_define_of` -- so a
+        tip cannot go missing on a capture's first save while its row
+        is still drawn.
         """
-        for defines in (self._definitions or {}).values():
-            define = (defines or {}).get(product_id) if isinstance(
-                defines, dict) else None
-            if isinstance(define, dict):
-                return product_tip(define)
-        return None
+        define = self._define_of(product_id)
+        return product_tip(define) if define else None
 
 
 

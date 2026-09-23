@@ -1600,6 +1600,71 @@ def _tooltip_columns_align(root, colors):
     return out
 
 
+def _a_seasonal_tick_outlives_its_season(tab):
+    """A Galactic Disaster tick must survive the season turning over.
+
+    Every one of that shop's product ids carries its season --
+    `disaster_s04_14` becomes `disaster_s05_14` -- so a tick stored
+    under one is lost the day the next season opens, and every shelf
+    the user had unticked comes back ticked. Nothing about that looks
+    broken: the rows are all there, reading their defaults.
+
+    So the settings store the OFFER -- the item, how many a purchase
+    gives, and the price -- and this renames a whole season's
+    products to prove the answers follow.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs import checklist_tab as mod
+
+    out = []
+    shop = (mod.SEASONAL_SHOP_CATEGORY, mod.shop_stock.ALL_SCREENS)
+    live = (tab._definitions or {}).get(mod.SEASONAL_SHOP_CATEGORY) or {}
+    season = mod._live_season(getattr(tab.optimizer, "raw_data", None) or {})
+    mine = {product: define for product, define in live.items()
+            if season and str(product).startswith(season)}
+    if not mine:
+        return ["no seasonal shop products to rename, so this is "
+                "watching nothing."]
+
+    # The same shelves under next season's spelling.
+    ahead = season[:-2] + "%02d" % (int(season[-2:]) + 1)
+    renamed = {product.replace(season, ahead): dict(define, id=product.replace(
+        season, ahead)) for product, define in mine.items()}
+
+    was = tab._definitions
+    try:
+        for product in sorted(mine):
+            tab._definitions = {mod.SEASONAL_SHOP_CATEGORY: mine}
+            here = tab._tracking_id(product)
+            tab._definitions = {mod.SEASONAL_SHOP_CATEGORY: renamed}
+            later = tab._tracking_id(product.replace(season, ahead))
+            if here != later:
+                out.append(
+                    f"{product} is stored under {here!r} and its {ahead} "
+                    f"twin under {later!r}. Every tick on this shop is "
+                    f"lost the day the season turns.")
+                break
+            if season in str(here):
+                out.append(
+                    f"{product} is stored under {here!r}, which names "
+                    f"the season. The id changes every season and the "
+                    f"tick goes with it.")
+                break
+    finally:
+        tab._definitions = was
+    # And a shop whose ids outlive a season is still stored under them.
+    for product in ("town_shop_goods_005", "card_factor_4"):
+        if tab._define_of(product) and tab._tracking_id(product) != product:
+            out.append(
+                f"{product} is stored under "
+                f"{tab._tracking_id(product)!r} rather than its own id. "
+                f"Only the seasonal shop renames its products, and "
+                f"rewriting the others' keys would lose their ticks "
+                f"instead.")
+    return out
+
+
 def _checklist_short_names_keep_their_tip(tab):
     """A row whose name is cut short has to carry the full one.
 
@@ -2928,6 +2993,8 @@ def run():
                 _checklist_redraw_replaces_nothing(built["ChecklistTab"]))
             failures.extend(
                 _checklist_block_is_tall_enough(built["ChecklistTab"]))
+            failures.extend(
+                _a_seasonal_tick_outlives_its_season(built["ChecklistTab"]))
             failures.extend(
                 _checklist_short_names_keep_their_tip(built["ChecklistTab"]))
             failures.extend(

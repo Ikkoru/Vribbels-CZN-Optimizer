@@ -163,6 +163,12 @@ DEFAULTS = {
     'hyperspace_3': False,               # Multidimensional Alignment Material
     'card_factor_4': False,              # Prism Module - Nominate
     'assault_shop_product_7': False,     # Multidimensional Alignment Material
+    # The Galactic Disaster's shelves, keyed by the OFFER rather than
+    # by the product: its ids carry the season and are all renamed
+    # when the next one opens. See `checklist_tab.SEASONAL_TRACKING`.
+    'disaster:3210002:1:4000': False,    # Multidimensional Alignment Material
+    'disaster:3100002:1:120': False,     # Advanced Battle Memory, dearest page
+    'disaster:3100022:1:120': False,     # Advanced Support Data, dearest page
 }
 
 

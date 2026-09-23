@@ -20,6 +20,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Hovering the Seasonal Shop says what the season has paid you so far, then what a whole one pays at one Chaos run a day, claiming everything. A season nobody has counted yet shows no estimate.
 
+- Which Seasonal Shop rows you have ticked survives the season ending. The game renames every one of that shop's products each season, so the answers are kept against the item and its price instead.
+
 - A tooltip's figures line up by their last digit rather than their first, and sit closer to their labels.
 
 - The Checklist is about a hundred pixels narrower. A shop heading's line hangs off its own words rather than standing in the column of readings beside it, and it was being counted in both — so every column with a shop in it reserved room twice for the same deadline.
