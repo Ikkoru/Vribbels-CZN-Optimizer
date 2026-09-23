@@ -116,9 +116,9 @@ NO_VALUE = "-"
 # fitting the default window.
 BEHIND_TAG = "behind"
 URGENT_TAG = "urgent"
-BEHIND_NOTE = "Orange banners have newer pulls in game: read them again"
-URGENT_NOTE = ("⚠ Red banners were last read over %d days ago. Read them "
-               "NOW, before the game erases their pulls for good!"
+BEHIND_NOTE = "Orange banners have unread pulls"
+URGENT_NOTE = ("⚠ Red banners were last read over %d days ago.\n"
+               "Read them NOW, before the game erases their history!"
                % gh.URGENT_AFTER_DAYS)
 URGENT_FONT = ("Segoe UI", 9, "bold")
 
