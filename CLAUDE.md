@@ -52,6 +52,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | Shipping `default_settings/` — maintainer workflow                           | `docs/how_to_maintain_default_settings.md`                                                                               |
 | `capture/`, snapshot parsing, char-vs-partner classification                 | `docs/capture_pipeline.md`                                                                                               |
 | Folding superseded captures into the archive                                 | `Vribbels/capture/archive.py`, run by hand with `docs/snapshots_archive.py`                                              |
+| The Gacha History: pull records, pity, 50/50s, luck, imports                 | `docs/gacha_history.md`                                                                                                  |
 | `game_data/*.py`, the launch-time validator, stat vocabularies               | `docs/game_data_files.md`                                                                                                |
 | Which item res_ids are known, used, or still to identify                     | `docs/items_id_dump.py` and the item TSVs it writes                                                                      |
 | What each shop sells, at what price and cap                                  | `docs/items_shops.tsv`                                                                                                   |

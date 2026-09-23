@@ -148,8 +148,9 @@ def _history(gh, folder, failures):
                  "pity_ssr_count": 0, "updateAt": "3000",
                  "createAt": "1000", "version": 9}},
              "read": {BANNER: "2026-01-01T00:00:00"}}
-    folder.mkdir(parents=True)
-    (folder / gh.CAPTURED).write_text(json.dumps(store), encoding="utf-8")
+    store_dir = gh.folder_in(folder)
+    store_dir.mkdir(parents=True)
+    (store_dir / gh.CAPTURED).write_text(json.dumps(store), encoding="utf-8")
     # An import between them: a 5-star whose banner hub-czn threw away.
     hub = [{"banner_name": "Seasonal Combatant Rescue Rate-Up",
             "pulls": [{"pull_number": 2, "res_id": IMPORTED_FIVE,
@@ -193,13 +194,14 @@ def _history(gh, folder, failures):
 
 def _supersede(gh, folder, failures):
     """An import covering pulls the game's own records hold is dropped."""
-    folder.mkdir(parents=True)
+    store_dir = gh.folder_in(folder)
+    store_dir.mkdir(parents=True)
     general_supporter = "gacha_general_supporter"
     store = {"kind": gh.STORE_KIND, "version": 1, "records": [
         _record(10, BANNER, 5000, [THREE, THREE]),
         _record(11, general_supporter, 6000, [THREE, FOUR])],
         "rates": {BANNER: _rates()}, "pity": {}, "read": {}}
-    (folder / gh.CAPTURED).write_text(json.dumps(store), encoding="utf-8")
+    (store_dir / gh.CAPTURED).write_text(json.dumps(store), encoding="utf-8")
     hub = [{"banner_name": "Seasonal Combatant Rescue Rate-Up", "pulls": [
                 {"pull_number": 1, "res_id": THREE, "timestamp": 5000},
                 {"pull_number": 2, "res_id": THREE, "timestamp": 5000},
@@ -397,13 +399,17 @@ def _addon(gh, root, failures):
     path.write_text("{ not json", encoding="utf-8")
     _send(addon, _ask(11, "history", id=BANNER, last_db_id=0),
           _page(11, [_record(23, BANNER, 1300, [THREE])], True))
-    store = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        store = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        store = {}
     ids = sorted(r["id"] for r in store.get("records", []))
     if not {"21", "22", "23"} <= set(ids):
         failures.append(
-            f"with {gh.CAPTURED} unreadable the addon wrote {ids}. It "
-            f"must build on the backup; starting again throws the "
-            f"history away at the next write.")
+            f"with {gh.CAPTURED} unreadable the addon kept {ids or 'nothing'}"
+            f". It must build on the backup: the file is renamed to it "
+            f"before each new copy lands, so a capture killed between the "
+            f"two leaves only the backup.")
 
 
 # ------------------------------------------------------------ real data

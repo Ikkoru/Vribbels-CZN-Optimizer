@@ -10,6 +10,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
+- **A `Gacha History` tab**, right of `Setup & Settings`: every pull the game has listed, kept after the game stops listing it, with each banner type's pity, 50/50s and how its luck compares with the game's published rates. Open each banner's records in game while capturing to add them. `Import JSON` also reads hub-czn's `Export JSON`, re-reading every rarity, so its newer 5★ units no longer count as 3★ and the pity after them is right.
+
 - **A fifth Checklist column, `Galactic Disaster`**, holding the Seasonal Shop's season-long shelves. Its heading says how long the season has left, and the shop's own row no longer repeats it; between seasons the shelves go and a line saying roughly when the next one opens stands where the shop's own heading did. `Galactic Disaster (Seasonal)` has left the `Other` column, the new heading saying the same thing.
 
 - An item the shop sells on more than one of its three pages is one row, counting down from their caps together, in the order the pages themselves imply. Where one page charges more for the same material, that shelf is a row of its own with the price after its name.

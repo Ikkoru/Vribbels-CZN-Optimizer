@@ -2296,6 +2296,66 @@ def _materials_figures_fit(tab):
     return out
 
 
+def _gacha_history_draws_its_rows(tab):
+    """The Gacha History tab draws what its folder holds, by rarity.
+
+    Built against a history of its own, never the maintainer's: the tab
+    reads through `_folder`, which is pointed at a temp folder here. A
+    unit nobody knows the rarity of must be drawn LOUDLY -- every pity
+    after it rests on it -- and the `5-star only` filter must show
+    nothing else.
+
+    Returns a list of complaints.
+    """
+    import json as _json
+    import gacha_history as gh
+    from ui.tabs.gacha_history_tab import FILTERS
+
+    out = []
+    banner = "gacha_pickup_combatant_990002"
+    five, four, three, nobody = 990002, 990011, 990021, 990099
+    record = {"id": "1", "gacha_id": banner, "createAt": "1000",
+              "reward": _json.dumps([three, four, five, nobody])}
+    rates = {"pools": {"ssr_rate_up_success_pool_ids":
+                       ["pickup_c_1_rateup_ssr_c_%d" % five],
+                       "sr_combatant_pool_ids":
+                       ["pickup_c_1_sr_c_%d" % four],
+                       "r_pool_ids": ["general_r_s_%d" % three]}}
+    work = Path(tempfile.mkdtemp())
+    try:
+        folder = gh.folder_in(work)
+        folder.mkdir(parents=True)
+        (folder / gh.CAPTURED).write_text(_json.dumps({
+            "kind": gh.STORE_KIND, "records": [record],
+            "rates": {banner: rates}, "pity": {}, "read": {}}),
+            encoding="utf-8")
+        tab._folder = lambda: folder
+        tab.refresh()
+        rows = tab.summary_tree.get_children()
+        if list(rows) != ["pickup_combatant"]:
+            out.append(f"the Gacha History's banner list holds {list(rows)} "
+                       f"for a history of one Combatant rate-up")
+        pulls = [tab.pulls_tree.item(i) for i in tab.pulls_tree.get_children()]
+        tags = [tuple(p["tags"]) for p in pulls]
+        if tags != [("stars_unknown",), ("stars_5",), ("stars_4",),
+                    ("stars_3",)]:
+            out.append(
+                f"the pulls list draws tags {tags}, newest first. A unit "
+                f"of unknown rarity has to stand out, not pass as a 3-star "
+                f"-- which is how a new 5-star broke every pity after it.")
+        tab.filter_var.set(FILTERS[-1][0])
+        tab._fill_pulls()
+        shown = [tab.pulls_tree.item(i)["tags"][0]
+                 for i in tab.pulls_tree.get_children()]
+        if shown != ["stars_5"]:
+            out.append(f"the 5-star-only filter shows {shown}; it "
+                       f"must show the 5-stars and nothing else")
+    finally:
+        tab.filter_var.set(FILTERS[0][0])
+        shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
 def _materials_rows_each_register(tab):
     """Every Materials row must own a figures block, and its own.
 
@@ -3019,6 +3079,9 @@ def run():
         if "InventoryTab" in built:
             failures.extend(
                 _set_filters_redraw_replaces_nothing(built["InventoryTab"]))
+        if "GachaHistoryTab" in built:
+            failures.extend(
+                _gacha_history_draws_its_rows(built["GachaHistoryTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))

@@ -56,6 +56,12 @@ The reply to `lobby / lobby_update` carries `event_schedules.GACHA`: every banne
 
 `checks/check_capture_banners.py` builds the addon through `_generate_addon_script` rather than from the template alone, so it also catches a global the template reads and the generator stops supplying.
 
+## The pull history is kept in a file of its own
+
+`gacha/history` pages, `gacha/get_rate` replies and the pity records go to `snapshots/gacha_history/captured.json` through `_merge_gacha`, never into the snapshot. **It is the one record here a later capture cannot rebuild**: the game stops listing a pull after about half a year, so the file only ever gains, and every write goes through a checked copy that keeps the previous file as `.bak`.
+
+The app refreshes the Gacha History tab on `GACHA_MARKER`, not `SAVE_MARKER`: a history page is no reason to reload the whole snapshot, which a `[LIVE]` line would also cost. The file's location and name are handed to the generated addon from `gacha_history.py` rather than spelled twice. Everything else -- the wire shapes, the write, the reading -- is in `docs/gacha_history.md`.
+
 ## Payloads kept aside and written out later
 
 The excursion board and the Great Rift standings arrive in a frame carrying no roster and no inventory, as the banner schedule does. `_save_data` returns early without `inventory_data`, so each is held on the addon and written by whatever save comes next:

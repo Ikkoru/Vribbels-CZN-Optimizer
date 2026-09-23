@@ -24,12 +24,13 @@ from ..base_tab import BaseTab
 from ..utils.button_width import BUTTON_W_MEDIUM
 
 # The instructions under the tab strip, in the Optimizer's explanation
-# style. `HELP_WRAPLENGTH` is the width it settles at in the default
-# window: starting there keeps the first layout the settled one.
+# style. `HELP_WRAPLENGTH` is where the text starts wrapped: wider than
+# its longest line, so the default window shows the three lines whole
+# and the first rewrap moves nothing. A narrower window rewraps.
 HELP_WRAPLENGTH = 900
 HELP_TEXT = (
     "Keeps every pull the game has listed, long after the game stops "
-    "listing it -- the game only shows about the last half year.\n"
+    "listing it — the game only shows about the last half year.\n"
     "To add yours: start a capture, then in game open each banner's "
     "Rescue Records and page through to the last page. Each type of "
     "banner keeps its own records.\n"
