@@ -29,7 +29,11 @@ def newest_snapshot():
     SKIPPING rather than failing -- otherwise a fresh clone reports
     breakage that isn't there.
     """
-    snaps = glob.glob(str(SOURCE_ROOT / "snapshots" / "*.json"))
+    # By name, not `*.json`: the folder also holds whatever the
+    # maintainer drops in it -- an export from another program, say --
+    # and the newest of THOSE would be loaded as the account.
+    snaps = glob.glob(str(SOURCE_ROOT / "snapshots"
+                          / "memory_fragments_*.json"))
     return max(snaps, key=os.path.getmtime) if snaps else None
 
 
