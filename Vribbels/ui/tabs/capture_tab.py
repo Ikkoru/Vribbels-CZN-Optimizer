@@ -1,5 +1,6 @@
 """Capture tab for intercepting game data."""
 
+import queue
 import re
 import time
 import tkinter as tk
@@ -8,7 +9,7 @@ import threading
 from capture import check_prerequisites, CaptureError
 from capture.constants import SERVERS
 from game_data.characters import CHARACTERS, ATTRIBUTE_COLORS
-from game_data.constants import PROVISIONAL_NAMES, item_names
+from game_data.constants import PROVISIONAL_NAMES, RARITY_COLORS, item_names
 from ..base_tab import BaseTab
 from ..utils.alert import BLINK_MS, TabAlert
 from ..utils.button_width import BUTTON_W_MEDIUM
@@ -30,6 +31,10 @@ from ui.scaling import px
 # sends the request -- so a line that is late with all four small was
 # held by the game, which the program cannot shorten.
 LAG_TAG = "lag"
+
+# An Upgraded line's ceiling, in the Mythic colour, where it beats what
+# the preset's combatant already wears in that slot.
+MYTHIC_TAG = "value_mythic"
 
 
 def lag_text(stamp, shown):
@@ -191,6 +196,11 @@ class CaptureTab(BaseTab):
         # behind by an earlier run: (message, tag) for the UI thread to
         # log, or None when the file was clean.
         self._stale_hosts_note = None
+        # What other threads hand this tab: log lines, the status text,
+        # the detected region. Put on by them, taken off on the UI
+        # thread by `drain_inbox`. See `capture_log_msg` for why no
+        # other thread touches Tk.
+        self._inbox = queue.Queue()
 
         self.setup_ui()
         self.refresh_log_presets()
@@ -613,6 +623,11 @@ class CaptureTab(BaseTab):
         # nothing about the line says it is guessed.
         self.capture_log.tag_configure("item_provisional",
                                        foreground=self.colors["red"])
+        # An Upgraded line's ceiling that beats what the preset's one
+        # combatant wears. Created after the value tags, which colour the
+        # same number, so it outranks them there.
+        self.capture_log.tag_configure(MYTHIC_TAG,
+                                       foreground=RARITY_COLORS[5])
         # Debug WS's timing after a line: a reading about the program,
         # not part of what the game did.
         self.capture_log.tag_configure(LAG_TAG,
@@ -688,30 +703,58 @@ class CaptureTab(BaseTab):
 
         Safe to call from any thread. Tk is single-threaded, and this is
         reached from the capture manager's proxy-reader thread and the
-        prerequisite worker as well as from the UI, so an off-thread call
-        is marshalled onto the UI thread rather than touching the widget
-        directly.
+        prerequisite worker as well as from the UI, so an off-thread
+        call goes into `_inbox` and the UI thread writes it at its next
+        `drain_inbox`.
+
+        **Never `root.after` from the other thread.** tkinter hands a
+        call from another thread to the UI thread and WAITS for it, so
+        a reader thread that schedules a line sits until the UI thread
+        is free -- behind a snapshot reload, a second -- and meanwhile
+        reads nothing off the proxy's pipe. The pipe fills, and the
+        proxy stops at its next print, with the game's traffic behind
+        it.
 
         `stamp` is a Debug WS line's timing -- see `split_lag` in
         `capture/manager.py` -- shown after the line. Its last moment is
-        taken HERE, on the UI thread, so the hop above is inside it.
+        taken HERE, on the UI thread, so the wait in the inbox is inside
+        it.
         """
         if threading.current_thread() is not threading.main_thread():
-            try:
-                self.root.after(0, lambda: self.capture_log_msg(msg, tag,
-                                                                stamp))
-            except (RuntimeError, tk.TclError):
-                # after() from another thread needs the main thread to be
-                # inside mainloop. Outside it (startup, shutdown) there is
-                # no log to write into anyway, so drop the line rather
-                # than kill the calling thread.
-                pass
+            self._inbox.put(("log", (msg, tag, stamp)))
             return
         start = self.capture_log.index("end-1c")
         self.capture_log.insert(tk.END, msg, tag)
         self._insert_lag(stamp, tag)
         self._colour_log_line(start, msg)
         self.capture_log.see(tk.END)
+
+    def set_capture_status(self, text):
+        """Set the status readout, from any thread -- see
+        `capture_log_msg`."""
+        if threading.current_thread() is not threading.main_thread():
+            self._inbox.put(("status", text))
+            return
+        if self.capture_status_label is not None:
+            self.capture_status_label.config(text=text)
+
+    def drain_inbox(self):
+        """Write out everything other threads have handed this tab.
+
+        UI thread only. Everything waiting goes in one pass, so a burst
+        of lines costs one wake-up rather than one each.
+        """
+        while True:
+            try:
+                kind, value = self._inbox.get_nowait()
+            except queue.Empty:
+                return
+            if kind == "log":
+                self.capture_log_msg(*value)
+            elif kind == "status":
+                self.set_capture_status(value)
+            elif kind == "region":
+                self.set_detected_region(value)
 
     def _insert_lag(self, stamp, tag):
         """End the line being written, with its timing where it has one."""
@@ -720,12 +763,16 @@ class CaptureTab(BaseTab):
                                     LAG_TAG)
         self.capture_log.insert(tk.END, "\n", tag)
 
-    def log_upgrade_msg(self, msg: str, tag: str = None, stamp=None):
+    def log_upgrade_msg(self, msg: str, tag: str = None, stamp=None,
+                        beats=()):
         """capture_log_msg for '[LIVE] Upgraded' lines: also remembers the
         line's extent via Tk marks so a Log Presets toggle can rewrite the
         LAST Upgraded line in place (rewrite_last_upgrade_line). LEFT
         gravity on both marks keeps them pinned to this line while later
-        messages append after it."""
+        messages append after it.
+
+        `beats` names the presets whose ceiling goes in the Mythic
+        colour -- see `_mark_beaten`."""
         t = self.capture_log
         t.mark_set("upg_start", "end-1c")
         t.mark_gravity("upg_start", tk.LEFT)
@@ -733,12 +780,14 @@ class CaptureTab(BaseTab):
         t.insert(tk.END, msg, tag)
         self._insert_lag(stamp, tag)
         self._colour_log_line(start, msg)
+        self._mark_beaten(start, msg, beats)
         t.mark_set("upg_end", "end-1c")
         t.mark_gravity("upg_end", tk.LEFT)
         self._has_upgrade_marks = True
         t.see(tk.END)
 
-    def rewrite_last_upgrade_line(self, msg: str, tag: str = None):
+    def rewrite_last_upgrade_line(self, msg: str, tag: str = None,
+                                  beats=()):
         """Replace the last Upgraded line (recorded by log_upgrade_msg)
         with `msg`. The end mark flips to RIGHT gravity for the insert so
         it lands after the new text, then back to LEFT so subsequent
@@ -752,9 +801,27 @@ class CaptureTab(BaseTab):
             start = t.index("upg_start")
             t.insert("upg_start", f"{msg}\n", tag)
             self._colour_log_line(start, msg)
+            self._mark_beaten(start, msg, beats)
             t.mark_gravity("upg_end", tk.LEFT)
         except tk.TclError:
             pass
+
+    def _mark_beaten(self, start: str, msg: str, beats):
+        """Draw a ceiling in the Mythic colour where it beats what the
+        preset's combatant wears -- `_beats_equipped` in the main window
+        decides which.
+
+        An entry reads `low-high Name` or `high Name`, and ends at a
+        comma or at the line's end, which is what keeps `Nine` from
+        matching inside `Nine (Line of Justice)`. The number before the
+        name is the ceiling either way.
+        """
+        for name in beats or ():
+            found = re.search(r"(\d+) %s(?=,|$)" % re.escape(name), msg)
+            if found:
+                self.capture_log.tag_add(
+                    MYTHIC_TAG, f"{start}+{found.start(1)}c",
+                    f"{start}+{found.end(1)}c")
 
     def _on_tab_changed(self, event):
         """Rebuild the Log Presets checklist when this tab becomes the
@@ -1202,8 +1269,12 @@ class CaptureTab(BaseTab):
         """Show which server region the capture actually talked to.
 
         Reached from the proxy reader thread as well as from
-        stop_capture, so it only touches a StringVar.
+        stop_capture. A StringVar is Tk too, so the reader's call goes
+        through the inbox like a log line -- see `capture_log_msg`.
         """
+        if threading.current_thread() is not threading.main_thread():
+            self._inbox.put(("region", region_id))
+            return
         if region_id in (None, ""):
             self.region_var.set(REGION_UNKNOWN)
             return

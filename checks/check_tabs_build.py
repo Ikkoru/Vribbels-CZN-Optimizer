@@ -2916,6 +2916,102 @@ def _a_tooltip_marks_what_it_is_bound_to(root):
     return out
 
 
+def _upgraded_line_marks_what_beats(tab):
+    """An Upgraded line draws a beaten ceiling in the Mythic colour.
+
+    Only the ceiling of the preset named, and only where the name ENDS
+    the entry: `Nine` must not take the number before `Nine (Line of
+    Justice)`. And the Mythic tag has to outrank the value tag already
+    on that number, or the ceiling keeps its ordinary colour and nothing
+    says the fragment beats anything.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs.capture_tab import MYTHIC_TAG
+
+    out = []
+    log = tab.capture_log
+    line = ("[LIVE] Upgraded Set Slot IV +3. Highest Potential: "
+            "10-89 Nine (Line of Justice), 9-87 Nine, 12-84 Amir")
+    tab.log_upgrade_msg(line, "info", None, {"Nine"})
+    row = int(log.index("end-2l").split(".")[0])
+
+    def top(needle):
+        col = line.index(needle)
+        names = log.tag_names(f"{row}.{col}")
+        return names[-1] if names else None
+
+    if top("87 Nine") != MYTHIC_TAG:
+        out.append(
+            f"the ceiling of `Nine` in {line!r} is drawn by "
+            f"{top('87 Nine')!r}, not {MYTHIC_TAG!r}: the Mythic tag has "
+            f"to be created after the value tags to outrank them.")
+    for needle in ("89 Nine", "84 Amir", "10-"):
+        if MYTHIC_TAG in log.tag_names(f"{row}.{line.index(needle)}"):
+            out.append(
+                f"{needle.split()[0]!r} in {line!r} is marked Mythic; only "
+                f"the ceiling of the preset named `Nine` beats its wearer.")
+    return out
+
+
+def _capture_hand_offs_never_wait(tab):
+    """Another thread hands the Capture tab a line without waiting.
+
+    The capture's reader thread passes every line, the status and the
+    region to this tab. tkinter hands a Tk call made from another
+    thread to the UI thread and WAITS for it -- `root.after` included
+    -- so a reader that scheduled its lines sat behind every snapshot
+    reload, a second at a time, reading nothing off the proxy's pipe:
+    lines arrived seconds late and the proxy itself could stall once
+    the pipe filled. Nothing failed; the log was just slow.
+
+    So the UI thread is held here while a worker hands over all three,
+    and the worker must be done long before it is free. Held OUTSIDE
+    the event loop, which a Tk call from another thread waits on just
+    the same -- a second, and then it raises -- without running every
+    other timer the tabs have pending. Then the tab's own drain has to
+    write the line.
+
+    Returns a list of complaints.
+    """
+    import threading
+    import time as _time
+
+    out = []
+    took = {}
+    held = 0.5
+
+    def worker():
+        start = _time.perf_counter()
+        tab.capture_log_msg("[LIVE] handed over from another thread", "info")
+        tab.set_capture_status("handed over from another thread")
+        tab.set_detected_region(None)
+        took["secs"] = _time.perf_counter() - start
+
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+    _time.sleep(held)
+    thread.join(timeout=3)
+    secs = took.get("secs")
+    if secs is None or secs > held / 2:
+        out.append(
+            f"handing the Capture tab a line from another thread took "
+            f"{secs if secs is None else round(secs, 2)}s while the UI "
+            f"thread was held for {held}s. The capture's reader waits "
+            f"like that behind every reload, and stops reading the "
+            f"proxy's pipe while it does.")
+    tab.drain_inbox()
+    last = tab.capture_log.get("end-2l linestart", "end-1c").strip()
+    if last != "[LIVE] handed over from another thread":
+        out.append(f"after the drain the log's last line reads {last!r}, "
+                   f"not the line handed over.")
+    if str(tab.capture_status_label.cget("text")) != \
+            "handed over from another thread":
+        out.append("after the drain the status readout was not the one "
+                   "handed over.")
+    return out
+
+
 def _the_failure_mark_lights_and_clears(tab):
     """The tab's mark goes up on a failure and comes off when read.
 
@@ -3293,6 +3389,10 @@ def run():
                 _log_preset_columns_leave_the_gap(built["CaptureTab"]))
             failures.extend(
                 _log_presets_redraw_replaces_nothing(built["CaptureTab"]))
+            failures.extend(
+                _capture_hand_offs_never_wait(built["CaptureTab"]))
+            failures.extend(
+                _upgraded_line_marks_what_beats(built["CaptureTab"]))
     finally:
         try:
             root.destroy()

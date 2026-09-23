@@ -28,7 +28,11 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - With `Debug WS` on, each Capture Log line says how long it took to arrive: the server answering the game, the capture reading the reply, and the app passing the line to the log, in milliseconds. A line that is late while all of them are small was held back by the game itself.
 
+- An `Upgraded` line draws a preset's ceiling in the Mythic colour when the fragment, at +3 or past, could beat what that preset's one combatant wears in the same slot.
+
 ### Fixed
+
+- **Capture Log lines arrive as they happen.** In a busy session each line had come a second or more late, and later ones several: every action reloaded the whole snapshot up to four times, and the capture waited on the window before reading on. A save now reloads it once, and nothing the capture does waits on the window. An `Upgraded` line's Highest Potential also always reflects the upgrade -- a reload could run before the save and score the fragment as it was.
 
 - The Checklist fits a narrower window. Every column with a shop in it was reserving room twice for the same deadline.
 

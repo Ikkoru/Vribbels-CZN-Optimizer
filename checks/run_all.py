@@ -74,6 +74,7 @@ from checks import (                                    # noqa: E402
     check_type_ahead,
     check_ui_scales,
     check_upgrade_log_filters,
+    check_upgraded_beats,
 )
 
 # Cheapest and most locally-caused first, so a broken edit reports
@@ -118,6 +119,7 @@ CHECKS = [
     check_type_ahead,
     check_ui_scales,
     check_upgrade_log_filters,
+    check_upgraded_beats,
     check_breakdown_reconciles,
     check_optimizer_parity,
 ]

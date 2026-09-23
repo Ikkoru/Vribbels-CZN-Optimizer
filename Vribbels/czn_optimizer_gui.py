@@ -106,6 +106,17 @@ from upgrade_log_filters import (
 )
 
 
+# How often the UI thread takes what the capture's threads have handed
+# it -- log lines, the status, a reload asked for. The longest a line
+# waits when nothing else is running.
+CAPTURE_POLL_MS = 40
+
+# The level an upgraded fragment has to reach before an Upgraded line
+# weighs it against what its preset's combatant already wears. See
+# `_beats_equipped`.
+MYTHIC_FROM_LEVEL = 3
+
+
 # The dark palette every tab reads through `context.colors`. Module level
 # rather than built in OptimizerGUI.__init__ so anything that needs the
 # theme -- a tab, a test harness -- can have it without constructing the
@@ -211,9 +222,13 @@ class OptimizerGUI:
         self.capture_manager = CaptureManager(
             output_folder=OUTPUT_DIR,
             log_callback=lambda msg, tag=None, stamp=None: self.capture_tab_instance.capture_log_msg(msg, tag, stamp) if hasattr(self, 'capture_tab_instance') else None,
-            status_callback=lambda status: self.capture_tab_instance.capture_status_label.config(text=status) if hasattr(self, 'capture_tab_instance') else None,
-            live_update_callback=lambda: self.root.after(0, self._handle_live_update)
+            status_callback=lambda status: self.capture_tab_instance.set_capture_status(status) if hasattr(self, 'capture_tab_instance') else None,
+            live_update_callback=self._want_live_update
         )
+        # Set from the capture's reader thread, acted on by
+        # `_poll_capture` on the UI thread. See `_want_live_update`.
+        self._live_update_wanted = False
+        self._gacha_written = False
 
         # Create AppContext for UI tabs
         self.app_context = AppContext(
@@ -243,6 +258,9 @@ class OptimizerGUI:
         _t = _time.perf_counter()
         self._reveal_window()
         perf_log.log("startup:reveal", secs=_time.perf_counter() - _t)
+        # Started after the reveal, so startup's own `update()` passes
+        # never run a reload. Anything handed over before then waits.
+        self.root.after(CAPTURE_POLL_MS, self._poll_capture)
         # Only now that the window is up and mapped can a modal dialog
         # be shown safely, so the game-data report waits until here.
         self._report_data_problems()
@@ -1114,14 +1132,48 @@ class OptimizerGUI:
     def _on_gacha_written(self):
         """The capture wrote the Gacha History's file.
 
-        Runs on the proxy-reader thread, so it only schedules. `after()`
-        from a worker works inside mainloop and raises outside it, where
-        there is no tab left to refresh -- see `docs/ui_runtime.md`.
+        Runs on the proxy-reader thread, so it only sets a flag for
+        `_poll_capture` -- see `_want_live_update`.
+        """
+        self._gacha_written = True
+
+    def _want_live_update(self):
+        """The capture saved: reload once the UI thread gets to it.
+
+        Runs on the proxy-reader thread, so it only sets a flag.
+        **Nothing on that thread may call into Tk**, `root.after`
+        included: tkinter hands a call from another thread to the UI
+        thread and waits for it, so the reader would sit behind a
+        reload and stop reading the proxy's pipe -- see
+        `CaptureTab.capture_log_msg`.
+
+        A flag also COALESCES: however many saves land while a reload
+        runs, one more reload follows, reading the newest file.
+        """
+        self._live_update_wanted = True
+
+    def _poll_capture(self):
+        """Take what the capture's threads handed over, on the UI thread.
+
+        Lines first, so what arrived is on screen before a reload holds
+        the thread; then the reload, if one was asked for; then the
+        lines that arrived during it.
         """
         try:
-            self.root.after(0, self.gacha_tab_instance.on_capture_update)
-        except (RuntimeError, tk.TclError):
-            pass
+            tab = self.capture_tab_instance
+            tab.drain_inbox()
+            if self._gacha_written:
+                self._gacha_written = False
+                self.gacha_tab_instance.on_capture_update()
+            if self._live_update_wanted:
+                self._live_update_wanted = False
+                self._handle_live_update()
+                tab.drain_inbox()
+        finally:
+            try:
+                self.root.after(CAPTURE_POLL_MS, self._poll_capture)
+            except tk.TclError:
+                pass                    # the window is closing
 
     def _handle_live_update(self):
         """Handle live update from capture — reload latest snapshot and refresh UI.
@@ -1205,14 +1257,14 @@ class OptimizerGUI:
                     self.capture_manager.pending_upgrade_lines.get_nowait())
             except queue.Empty:
                 break
-            augmented = self._augment_upgrade_log(line)
+            augmented, beats = self._augment_upgrade_log(line)
             if hasattr(self, "capture_tab_instance"):
                 # log_upgrade_msg (not capture_log_msg): records the line's
                 # extent so Log Presets toggles can rewrite it in place.
                 # Its Debug WS timing includes the wait for the reload
                 # above, which is what this line is held for.
                 self.capture_tab_instance.log_upgrade_msg(
-                    augmented, "info", stamp
+                    augmented, "info", stamp, beats
                 )
 
     def _selected_log_presets(self) -> dict:
@@ -1260,9 +1312,13 @@ class OptimizerGUI:
         label = "Highest GS" if singular else "Highest Potential"
         return f"{label}: " + ", ".join(parts)
 
-    def _upgrade_potentials_suffix(self, fragment) -> str:
-        """The ". Highest Potential: ..." suffix for an Upgraded log line:
-        top 5 presets by max high across the SELECTED assigned presets
+    def _upgrade_potentials_suffix(self, fragment):
+        """(suffix, beats): the ". Highest Potential: ..." suffix for an
+        Upgraded log line, and the presets in it whose ceiling beats what
+        their combatant wears -- see `_beats_equipped`.
+
+        The suffix is the top 5 presets by max high across the SELECTED
+        assigned presets
         (see _selected_log_presets), each with ITS OWN (low, high)
         pair -- never a synthetic min/max combined across presets, whose
         ends could come from different presets and mislead. Philosophy B:
@@ -1275,9 +1331,9 @@ class OptimizerGUI:
         preset shared by combatants of different elements or scaling
         stays as long as one of them wants the fragment.
 
-        Returns "" when presets exist but none survives selection and
-        filtering. When NO user presets exist at all, falls back to the
-        default-weight range so there's still something useful to
+        The suffix is "" when presets exist but none survives selection
+        and filtering. When NO user presets exist at all, it falls back
+        to the default-weight range so there's still something useful to
         display."""
         pm = self.preset_manager
         main_name = fragment.main_stat.name if fragment.main_stat else None
@@ -1286,17 +1342,17 @@ class OptimizerGUI:
             weights = {}
             bounds = compute_gs_bounds(weights, exclude_stat=main_name)
             low, high = compute_fragment_potential(fragment, weights, bounds)
-            return ". " + self._potentials_phrase([(low, high, "")])
+            return ". " + self._potentials_phrase([(low, high, "")]), set()
 
         selected = self._selected_log_presets()
         if not selected:
-            return ""
+            return "", set()
 
         names = presets_for_fragment(
             fragment, selected, self._upgrade_log_filter_flags(),
             getattr(self, "optimizer_settings_manager", None))
         if not names:
-            return ""
+            return "", set()
 
         scored = []
         for name in sorted(names):
@@ -1307,7 +1363,62 @@ class OptimizerGUI:
         # Sort by high desc -- ties broken by low desc (a tighter high-end
         # with a higher floor is preferable when ceilings tie). Top 5.
         scored.sort(key=lambda t: (-t[1], -t[0]))
-        return ". " + self._potentials_phrase(scored[:5])
+        shown = scored[:5]
+        return (". " + self._potentials_phrase(shown),
+                self._beats_equipped(fragment, shown))
+
+    def _beats_equipped(self, fragment, scored):
+        """The preset names in `scored` whose ceiling for `fragment` is
+        above what the preset's combatant wears in its slot now.
+
+        Only a preset assigned to exactly ONE combatant: with two, there
+        is no one wearer to compare against. Only a fragment upgraded to
+        `MYTHIC_FROM_LEVEL` or past it, whose range has closed enough to
+        be worth weighing against a fragment already in use.
+
+        What the combatant wears is scored as the Memory Fragments tab
+        scores it -- under the same preset, with ITS OWN main stat left
+        out of the bounds -- and its ceiling taken: a fragment with no
+        upgrades left has a ceiling that is its Potential. **An empty
+        slot marks nothing**: a combatant with nothing on is one not in
+        use, and counting an empty slot as beaten would light up every
+        line for every such combatant. A combatant wearing this very fragment
+        compares it with itself, equal, and is never beaten. Compared as
+        the line prints them, whole numbers, so a ceiling coloured as
+        higher never reads the same as the one it beat.
+        """
+        if (getattr(fragment, "level", 0) or 0) < MYTHIC_FROM_LEVEL:
+            return set()
+        cpm = getattr(self, "character_preset_manager", None)
+        pm = self.preset_manager
+        if cpm is None or pm is None:
+            return set()
+        wearers = {}
+        for rid, preset in cpm.assignments_by_id.items():
+            if preset:
+                wearers.setdefault(preset, []).append(rid)
+        beats = set()
+        for _low, high, name in scored:
+            rids = wearers.get(name, [])
+            if len(rids) != 1:
+                continue
+            try:
+                owner = int(rids[0])
+            except (TypeError, ValueError):
+                continue
+            worn = next((f for f in self.optimizer.fragments
+                         if f.equipped_char_id == owner
+                         and f.slot_num == fragment.slot_num), None)
+            if worn is None:
+                continue
+            weights = pm.get_preset(name) or {}
+            bounds = compute_gs_bounds(
+                weights, exclude_stat=(worn.main_stat.name
+                                       if worn.main_stat else None))
+            ceiling = compute_fragment_potential(worn, weights, bounds)[1]
+            if round(high) > round(ceiling):
+                beats.add(name)
+        return beats
 
     def recompute_last_upgrade_line(self):
         """Re-render the LAST "[LIVE] Upgraded" capture-log line against
@@ -1321,10 +1432,11 @@ class OptimizerGUI:
             return
         if not hasattr(self, "capture_tab_instance"):
             return
-        text = f"{base}{self._upgrade_potentials_suffix(fragment)}"
-        self.capture_tab_instance.rewrite_last_upgrade_line(text, "info")
+        suffix, beats = self._upgrade_potentials_suffix(fragment)
+        self.capture_tab_instance.rewrite_last_upgrade_line(
+            f"{base}{suffix}", "info", beats)
 
-    def _augment_upgrade_log(self, line: str) -> str:
+    def _augment_upgrade_log(self, line: str):
         """Strip the internal [pid=N] marker from `line`, find the upgraded
         fragment, and append its Highest Potential under the selected
         assigned presets (see _upgrade_potentials_suffix for the exact
@@ -1334,20 +1446,21 @@ class OptimizerGUI:
         a later Log Presets toggle can re-render this line in place
         (recompute_last_upgrade_line) with the stats as of this upgrade.
 
-        Returns the augmented line. On any failure (marker missing,
-        fragment not found) returns the marker-stripped line WITHOUT
-        appending Highest Potential -- never leaks the [pid=N] token to
-        the user.
+        Returns (line, beats): the augmented line, and the presets in it
+        whose ceiling beats what their combatant wears. On any failure
+        (marker missing, fragment not found) the line comes back
+        marker-stripped WITHOUT Highest Potential -- never leaking the
+        [pid=N] token to the user -- and beats nothing.
         """
         # Pull the marker; if absent, just show the line unchanged.
         m = re.search(r"\s*\[pid=(\d+)\]\s*$", line)
         if not m:
-            return line
+            return line, set()
         base = line[: m.start()].rstrip()
         try:
             pid = int(m.group(1))
         except ValueError:
-            return base
+            return base, set()
 
         # Find the upgraded fragment.
         fragment = next(
@@ -1355,13 +1468,14 @@ class OptimizerGUI:
             None,
         )
         if fragment is None:
-            return base
+            return base, set()
 
         # Retain for in-place re-render on Log Presets toggles.
         self._last_upgrade_fragment = fragment
         self._last_upgrade_base = base
 
-        return f"{base}{self._upgrade_potentials_suffix(fragment)}"
+        suffix, beats = self._upgrade_potentials_suffix(fragment)
+        return f"{base}{suffix}", beats
 
     def _ensure_characters_in_preset_file(self):
         """Make sure every character currently in optimizer data has an entry

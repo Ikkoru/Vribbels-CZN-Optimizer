@@ -3348,6 +3348,16 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                     continue
 
                 # Route live updates with info tag, everything else with default tag
+                #
+                # **Neither a `[LIVE]` line nor the `Saved:` line asks
+                # for a reload; only the save marker above does.** A
+                # `[LIVE]` line is printed while the reply is handled,
+                # BEFORE the save it leads to, so a reload it asked for
+                # would read the file as it was -- and an `Upgraded`
+                # line drained after that would score the fragment as
+                # it stood before the upgrade. Each extra ask is also a
+                # whole reload on the UI thread, four to a forge, with
+                # every line behind them waiting.
                 if "[LIVE]" in line:
                     # Defer [LIVE] Upgraded lines: they carry a [pid=N]
                     # marker that lets the main app fill in Highest Pot.
@@ -3358,17 +3368,8 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                         self.pending_upgrade_lines.put((line, stamp))
                     else:
                         self._log_line(line, "info", stamp)
-                    if self.live_update_callback:
-                        self.live_update_callback()
                 else:
                     self._log_line(line, None, stamp)
-
-                # Auto-reload on any save (initial capture + deltas)
-                if "Saved:" in line and "Memory Fragments" in line:
-                    if self.status_callback:
-                        self.status_callback("[OK] Data Captured!")
-                    if self.live_update_callback:
-                        self.live_update_callback()
 
             # Check exit code when process ends
             if self.proxy_process:
