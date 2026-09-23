@@ -24,9 +24,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - A tooltip's figures line up by their last digit rather than their first, and sit closer to their labels.
 
-- The Checklist is about a hundred pixels narrower. A shop heading's line hangs off its own words rather than standing in the column of readings beside it, and it was being counted in both — so every column with a shop in it reserved room twice for the same deadline.
-
 ### Fixed
+
+- The Checklist fits a narrower window. Every column with a shop in it was reserving room twice for the same deadline.
 
 - **The Seasonal Shop counted only the last three weeks of buying.** Its shelves were measured against the Sortie season instead of the Galactic Disaster's own, so purchases made earlier in the season read as never made and the shop's total asked for far more than was actually left.
 
