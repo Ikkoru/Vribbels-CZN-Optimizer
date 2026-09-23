@@ -2452,9 +2452,13 @@ def _gacha_overall_fits(tab, gh):
     one that charges nothing above it: the audit reads the gaps by
     those tags.
 
+    A record's ties sit beside it, as many as fit the Banners list's
+    width and the oldest first; forty are handed over here.
+
     Returns a list of complaints.
     """
     import tkinter.font as tkfont
+    from datetime import datetime
     from ui.tabs.gacha_history_tab import (
         ALL_BANNERS, HEADING_FONT, HEADING_TAG, PRISM_ONLY, ROW_TAG,
         TOP_TAG, WITHOUT_PRISM)
@@ -2465,9 +2469,28 @@ def _gacha_overall_fits(tab, gh):
     if len(units) < 3:
         return ["the Gacha History test history has too few units to "
                 "build a three-unit streak from"]
-    tab.history.overall.streak = gh.Standout(3, list(units.values())[:3])
+    tab.history.overall.streak = [
+        gh.Standout(3, list(units.values())[:3])]
+    # More ties than the Banners list's width can hold, a day apart and
+    # handed over oldest first, as the history lists them.
+    day = 86400
+    first = pulls[0]
+    tab.history.overall.fastest = [
+        gh.Standout(1, [gh.Pull(res_id=first.res_id, at=1000 + i * day,
+                                number=i)]) for i in range(40)]
     tab._fill_overall()
     text = tab.overall_text
+    available = tab.summary_tree.master.winfo_reqwidth()
+    if int(tab.overall_holder.cget("width")) > available:
+        out.append(f"the Overall sheet is {tab.overall_holder.cget('width')}"
+                   f"px wide, past the Banners list's {available}: it "
+                   f"widens their column and squeezes the pulls list.")
+    row = text.get("6.0", "6.end").split("\t")
+    dates = row[3::2]
+    oldest = datetime.fromtimestamp(1000).strftime("%Y-%m-%d")
+    if len(dates) < 2 or dates != sorted(dates) or dates[0] != oldest:
+        out.append(f"forty tied fastest 5-stars show the dates {dates}: "
+                   f"as many as fit, oldest first from {oldest}.")
     normal = tkfont.nametofont("TkDefaultFont")
     bold = tkfont.Font(font=HEADING_FONT)
     stops = [int(str(s)) for s in text.tk.splitlist(text.cget("tabs"))

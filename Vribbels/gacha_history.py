@@ -674,11 +674,12 @@ class Overall:
         # 50/50 make that on average.
         self.rate_up_avg = None
         self.rate_up_expected = None
-        self.fastest = self.slowest = None
-        self.fastest_rate_up = self.slowest_rate_up = None
-        self.streak = None
-        self.prism_fastest = self.prism_slowest = None
-        self.prism_streak = None
+        # The records, each every `Standout` tied for it, oldest first.
+        self.fastest, self.slowest = [], []
+        self.fastest_rate_up, self.slowest_rate_up = [], []
+        self.streak = []
+        self.prism_fastest, self.prism_slowest = [], []
+        self.prism_streak = []
 
 
 # ------------------------------------------------------------ batches
@@ -1284,10 +1285,11 @@ RATE_UP_OUTCOMES = frozenset({WON, GUARANTEED, RATE_UP})
 def across_pools(history):
     """The figures the pools add up to together. See `Overall`.
 
-    **Ties go to the earliest**: a record stands until something beats
-    it. Records rest on the same pulls the averages do -- a history
-    that starts mid-cycle does not know its first 5-star's pity, so
-    that 5-star is never the fastest or the slowest.
+    **A record is every pull that ties for it**, oldest first: a list
+    of `Standout`s, empty where there is nothing to hold one. Records
+    rest on the same pulls the averages do -- a history that starts
+    mid-cycle does not know its first 5-star's pity, so that 5-star is
+    never the fastest or the slowest.
     """
     overall = Overall()
     pools = history.ordered()
@@ -1325,17 +1327,17 @@ def across_pools(history):
             overall.rate_up_expected = sum(
                 e for _n, _p, e in costs) / len(costs)
         rate_ups = [(n, pull) for n, pull, _e in costs]
-        overall.fastest_rate_up = _record(rate_ups, fastest=True)
-        overall.slowest_rate_up = _record(rate_ups, fastest=False)
+        overall.fastest_rate_up = _records(rate_ups, fastest=True)
+        overall.slowest_rate_up = _records(rate_ups, fastest=False)
 
     for entries, fast, slow, streak in (
             (others, "fastest", "slowest", "streak"),
             (prism, "prism_fastest", "prism_slowest", "prism_streak")):
         fives = [(pull.pity, pull) for e in entries
                  for pull in _complete_fives(e)]
-        setattr(overall, fast, _record(fives, fastest=True))
-        setattr(overall, slow, _record(fives, fastest=False))
-        setattr(overall, streak, _best_streak(entries))
+        setattr(overall, fast, _records(fives, fastest=True))
+        setattr(overall, slow, _records(fives, fastest=False))
+        setattr(overall, streak, _best_streaks(entries))
     return overall
 
 
@@ -1378,27 +1380,36 @@ def _rate_up_costs(entry):
             since = None
 
 
-def _record(candidates, fastest):
-    """The fewest or the most pulls among `(pulls, pull)`, earliest on
-    a tie."""
+def _when(pull):
+    """Oldest-first order: the pull's second, then its place in its
+    pool, which is what orders the pulls of one 10-pull."""
+    return pull.at or 0, pull.number or 0
+
+
+def _records(candidates, fastest):
+    """Every `(pulls, pull)` at the fewest or the most pulls, oldest
+    first. Empty where there is no candidate."""
     if not candidates:
-        return None
-    sign = 1 if fastest else -1
-    n, pull = min(candidates, key=lambda c: (sign * c[0], c[1].at or 0))
-    return Standout(n, [pull])
+        return []
+    best = (min if fastest else max)(n for n, _pull in candidates)
+    tied = sorted((pull for n, pull in candidates if n == best), key=_when)
+    return [Standout(best, [pull]) for pull in tied]
 
 
-def _best_streak(entries):
-    """The most 5-stars in any `STREAK_PULLS` pulls in a row on one
-    pool, earliest on a tie. None where there is no 5-star."""
-    best = None
+def _best_streaks(entries):
+    """Every run of `STREAK_PULLS` pulls in a row on one pool holding
+    the most 5-stars, oldest first by the run's last 5-star. A run is
+    read from each 5-star forward, so each holds a different set of
+    them. Empty where there is no 5-star."""
+    runs = []
     for entry in entries:
         at = [i for i, pull in enumerate(entry.pulls) if pull.stars == 5]
         for k, start in enumerate(at):
-            run = [entry.pulls[i] for i in at[k:]
-                   if i - start < STREAK_PULLS]
-            if best is None or len(run) > len(best) or (
-                    len(run) == len(best)
-                    and (run[-1].at or 0) < (best[-1].at or 0)):
-                best = run
-    return Standout(len(best), best) if best else None
+            runs.append([entry.pulls[i] for i in at[k:]
+                         if i - start < STREAK_PULLS])
+    if not runs:
+        return []
+    most = max(len(run) for run in runs)
+    tied = sorted((run for run in runs if len(run) == most),
+                  key=lambda run: _when(run[-1]))
+    return [Standout(most, run) for run in tied]

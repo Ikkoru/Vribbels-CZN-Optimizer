@@ -155,18 +155,23 @@ BOLD_TAG = "bold"
 
 # Levers a rendered distance short of their rules: a Text line's box
 # already carries part of the gap, and `spacing1` cannot go negative.
-ROW_PITCH = 3           # spacing: label row -> label row -- run, run ↕
+ROW_PITCH = 4           # spacing: label row -> label row -- run, run ↕
 # A heading stands 4 further from the row above it than rows do from
 # one another, so each section reads as a block of its own.
 HEADING_PAD = 4         # spacing: exception -- label row -> label row -- run, run ↕
 # The panel's title against the first heading, read as two label rows.
-TITLE_GAP = 1           # spacing: label row -> label row -- title, run ↕
+TITLE_GAP = 2           # spacing: label row -> label row -- title, run ↕
 
-# The longest figure against the value column, and each column after
-# it against the next -- a value against its units, the units against
-# the date.
+# The columns. A record is followed by every tie for it as a (units,
+# date) pair, the units labelling their date and one pair sitting
+# beside the next -- as many pairs as fit the Banners list's width,
+# oldest first.
 FIGURE_TO_VALUE = 5     # spacing: label ↔ its element -- run, run ↔
-COLUMN_TO_COLUMN = 8    # spacing: element and its label ↔ element and its label -- run, run ↔
+# A pixel short of its rule: the widest value is always `N pulls`,
+# whose `s` stops a pixel inside its own advance.
+VALUE_TO_UNITS = 7      # spacing: element and its label ↔ element and its label -- run, run ↔
+UNITS_TO_DATE = 5       # spacing: label ↔ its element -- run, run ↔
+TIE_TO_TIE = 8          # spacing: element and its label ↔ element and its label -- run, run ↔
 
 
 def _stars(stars):
@@ -185,19 +190,22 @@ def _rank(luckier):
     return gh.luck_rank(luckier) or NO_VALUE
 
 
-def _standout(record, streak=False):
-    """(value, units, date) for one of `gh.Overall`'s records. A streak
-    counts 5-stars; the rest count pulls. The date is the last 5-star's,
-    when the record was set."""
-    if record is None:
-        return NO_VALUE, "", ""
-    if streak:
-        value = str(record.count)
-    else:
-        value = "%d pull%s" % (record.count, "" if record.count == 1
-                               else "s")
-    day = datetime.fromtimestamp(record.pulls[-1].at).strftime("%Y-%m-%d")
-    return value, _units(record.pulls), day
+def _standout(records, streak=False):
+    """(value, units, date, units, date, ...) for one of `gh.Overall`'s
+    records: its value once, then a pair for every tie, oldest first. A
+    streak counts 5-stars; the rest count pulls. A date is its last
+    5-star's, when the record was set."""
+    if not records:
+        return (NO_VALUE,)
+    count = records[0].count
+    value = str(count) if streak else "%d pull%s" % (
+        count, "" if count == 1 else "s")
+    pairs = ()
+    for record in records:
+        day = datetime.fromtimestamp(record.pulls[-1].at).strftime(
+            "%Y-%m-%d")
+        pairs += (_units(record.pulls), day)
+    return (value,) + pairs
 
 
 def _units(pulls):
@@ -594,7 +602,8 @@ class GachaHistoryTab(BaseTab):
 
     def _overall_rows(self):
         """The Overall sheet, top to bottom: a section's name as a bare
-        string, every other row (figure, value, units, date)."""
+        string, every other row (figure, value), a record's followed by
+        a (units, date) pair for each tie."""
         o = self.history.overall if self.history is not None \
             else gh.Overall()
         fifty = NO_VALUE
@@ -610,10 +619,10 @@ class GachaHistoryTab(BaseTab):
         streak = "Most 5★s in %d pulls" % gh.STREAK_PULLS
         return (
             WITHOUT_PRISM,
-            ("Luck", _rank(o.luck_without_prism), "", ""),
-            ("Pulls", format(o.pulls_without_prism, ","), "", ""),
-            ("50/50s won", fifty, "", ""),
-            ("Pulls per rate-up Combatant", per, "", ""),
+            ("Luck", _rank(o.luck_without_prism)),
+            ("Pulls", format(o.pulls_without_prism, ",")),
+            ("50/50s won", fifty),
+            ("Pulls per rate-up Combatant", per),
             ("Fastest 5★",) + _standout(o.fastest),
             ("Slowest 5★",) + _standout(o.slowest),
             ("Fastest rate-up Combatant",) + _standout(o.fastest_rate_up),
@@ -624,31 +633,26 @@ class GachaHistoryTab(BaseTab):
             ("Slowest 5★",) + _standout(o.prism_slowest),
             (streak,) + _standout(o.prism_streak, streak=True),
             ALL_BANNERS,
-            ("Luck", _rank(o.luck_with_prism), "", ""),
+            ("Luck", _rank(o.luck_with_prism)),
         )
 
     def _fill_overall(self):
         """Write the sheet, set its stops from what it now holds, and
         size its holder to the result."""
-        rows = self._overall_rows()
         font = tkfont.nametofont("TkDefaultFont")
         bold = tkfont.Font(font=HEADING_FONT)
-        stops = self._overall_stops(rows, font)
+        rows = self._fit_ties(self._overall_rows(), font, bold)
+        stops, widest = self._overall_layout(rows, font, bold)
         text = self.overall_text
         text.configure(state=tk.NORMAL, tabs=tuple(stops))
         text.delete("1.0", tk.END)
-        widest = 0
         for n, row in enumerate(rows):
             end = "\n" if n < len(rows) - 1 else ""
             if isinstance(row, str):
                 text.insert(tk.END, row + end,
                             (TOP_TAG if n == 0 else HEADING_TAG, BOLD_TAG))
-                widest = max(widest, bold.measure(row))
-                continue
-            fields = self._fields(row)
-            text.insert(tk.END, "\t".join(fields) + end, (ROW_TAG,))
-            start = stops[len(fields) - 2] if len(fields) > 1 else 0
-            widest = max(widest, start + font.measure(fields[-1]))
+            else:
+                text.insert(tk.END, "\t".join(row) + end, (ROW_TAG,))
         text.configure(state=tk.DISABLED)
         # Measured, so no `px()`: the fonts carry the scale, and the
         # lines' `spacing1` is already in the count.
@@ -657,35 +661,56 @@ class GachaHistoryTab(BaseTab):
             height = height[0]
         self.overall_holder.configure(width=widest, height=height or 1)
 
-    @staticmethod
-    def _fields(row):
-        """A row's fields up to its last non-empty one: a row with no
-        units ends at its value, and puts no tab after it."""
-        fields = list(row)
-        while len(fields) > 1 and not fields[-1]:
-            fields.pop()
-        return fields
+    def _fit_ties(self, rows, font, bold):
+        """`rows` with each record's ties cut to as many pairs as fit
+        the Banners list's width, keeping the OLDEST. The sheet sits in
+        that list's column, and a wider sheet would widen the column
+        and take the difference from the pulls list beside it.
+
+        Every record keeps its first pair, which is the record itself;
+        only its ties are ever cut.
+        """
+        available = self.summary_tree.master.winfo_reqwidth()
+        pairs = max([(len(row) - 2) // 2 for row in rows
+                     if not isinstance(row, str)] + [1])
+        while True:
+            cut = [row if isinstance(row, str) else row[:2 + 2 * pairs]
+                   for row in rows]
+            if pairs <= 1 or self._overall_layout(
+                    cut, font, bold)[1] <= available:
+                return cut
+            pairs -= 1
 
     @staticmethod
-    def _overall_stops(rows, font):
-        """The sheet's tab stops, in pixels from the line's start.
+    def _overall_layout(rows, font, bold):
+        """(tab stops, widest line), in pixels from the line's start.
 
         Row by row: each column is as wide as its widest text among the
         rows with something AFTER it -- a row that ends at a column puts
         no tab after it, so its width stops nobody. The gaps are
         distances and take `px()`; the text is measured and does not.
         """
+        cells = [row for row in rows if not isinstance(row, str)]
         stops, start = [], 0
-        for column, gap in ((0, FIGURE_TO_VALUE), (1, COLUMN_TO_COLUMN),
-                            (2, COLUMN_TO_COLUMN)):
-            widest = max([font.measure(row[column]) for row in rows
-                          if not isinstance(row, str)
-                          and any(row[column + 1:])] + [0])
+        for column in range(max([len(row) for row in cells] + [1]) - 1):
+            if column == 0:
+                gap = FIGURE_TO_VALUE
+            elif column == 1:
+                gap = VALUE_TO_UNITS
+            else:
+                # A pair's units against its date; a date against the
+                # next pair.
+                gap = UNITS_TO_DATE if column % 2 == 0 else TIE_TO_TIE
+            widest = max(font.measure(row[column]) for row in cells
+                         if len(row) > column + 1)
             # spacing: label ↔ its element -- run, run ↔
             # spacing: element and its label ↔ element and its label -- run, run ↔
             start += widest + px(gap)
             stops.append(start)
-        return stops
+        ends = [bold.measure(row) for row in rows if isinstance(row, str)]
+        ends += [(stops[len(row) - 2] if len(row) > 1 else 0)
+                 + font.measure(row[-1]) for row in cells]
+        return stops, max(ends + [1])
 
     def _on_pick(self, _event):
         chosen = self.summary_tree.selection()

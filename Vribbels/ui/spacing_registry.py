@@ -267,6 +267,10 @@ def _capital_span(text, font):
     face where those clear the caps. Narrowing a scan to one capital is
     what puts a reading on the rule's own reference with no glyph
     correction to model.
+
+    **For a Label's text only**: one font, and no tab. A Text line has
+    neither guarantee, so `_capital_band` asks the widget where it drew
+    the capital instead of measuring the string.
     """
     index = next((i for i, c in enumerate(text) if c.isupper()), None)
     if index is None:
@@ -292,10 +296,17 @@ def _capital_band(widget, n):
     """The box of the first CAPITAL on one line of a Text, or None.
 
     In root coordinates. None where the line has no capital on it, or
-    where the capital falls past the line's own width -- a caller then
-    falls back to the whole line and says so, rather than reporting a
-    number taken from a different reference than the one the rule
-    names.
+    where the capital is not drawn on the line's first row -- a caller
+    then falls back to the whole line and says so, rather than
+    reporting a number taken from a different reference than the one
+    the rule names.
+
+    **Where the Text DREW the capital, not where measuring the string
+    puts it.** A tab before the capital goes to a stop, and a tag can
+    set a font of its own, and `font.measure` knows neither: on a row
+    reading `50/50s won<tab>Bottom`, a measured offset lands inside the
+    figure, and the scan reads whatever glyph is there -- a slash two
+    below the baseline -- as if it were the capital.
     """
     box = sa.box_of(widget)
     line = widget.get(f"{n}.0", f"{n}.end")
@@ -304,17 +315,20 @@ def _capital_band(widget, n):
     info = widget.dlineinfo(f"{n}.0")
     if info is None:
         return None
-    font = tkfont.Font(font=widget.cget("font"))
-    span = _capital_span(line, font)
-    if span is None:
+    # Found by the Text, not by counting the string: an embedded window
+    # takes an index `get` does not return, so a count from the string
+    # lands a character early on any line that holds one.
+    where = widget.search("[[:upper:]]", f"{n}.0", f"{n}.end",
+                          regexp=True)
+    if not where:
         return None
-    # A wrapped line puts later characters on a row of their own, where
-    # this offset would land on the wrong one.
-    if span[1] > info[2]:
+    drawn = widget.bbox(where)
+    # A wrapped line puts later characters on a row of their own, and
+    # the band below is the first row's.
+    if drawn is None or drawn[1] >= info[1] + info[3]:
         return None
-    left = box.left + info[0] + span[0]
-    return sa.Box(left=left, top=box.top + info[1],
-                  right=box.left + info[0] + span[1] - 1,
+    return sa.Box(left=box.left + drawn[0], top=box.top + info[1],
+                  right=box.left + drawn[0] + drawn[2] - 1,
                   bottom=box.top + info[1] + info[3] - 1)
 
 
@@ -2563,7 +2577,8 @@ def _text_columns(cap, box, fill, want=None):
     return columns
 
 
-def _text_column_gap(locator, needles, index=0, from_end=False):
+def _text_column_gap(locator, needles, index=0, from_end=False,
+                     every=False):
     """Resolver: the SMALLEST gap at one column boundary of a Text.
 
     A Text's columns are TAB STOPS, so there is no widget on either side
@@ -2593,7 +2608,22 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
     nothing between them -- has two bands where the others have four, so
     its right-hand pair is at a different index and only the same one
     counting backwards.
+
+    `every` reads every line a needle finds rather than the first, for
+    a sheet whose sections repeat a row's words: its stops are the
+    widget's, so a later section's row is on the same column.
     """
+    def lines(widget, needle):
+        start = "1.0"
+        while True:
+            where = widget.search(needle, start, tk.END)
+            if not where:
+                return
+            yield where
+            if not every:
+                return
+            start = f"{where} lineend"
+
     def resolve(cap, app):
         widget = locator(app)
         if widget is None:
@@ -2604,10 +2634,7 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
         # raises before any scan runs.
         fill = _widget_fill(widget)
         readings = []
-        for needle in needles:
-            where = widget.search(needle, "1.0", tk.END)
-            if not where:
-                continue
+        for where in (w for needle in needles for w in lines(widget, needle)):
             info = widget.dlineinfo(where)
             if info is None:
                 continue
@@ -2866,11 +2893,17 @@ def _text_line_reading(locator, kinds=None, label=None):
             #
             # A row whose label is an embedded CHECKBOX has no capital
             # to find -- the widget is the label -- so it keeps its ink
-            # reading and the note says which rows those were.
+            # reading and the note says which rows those were. Not
+            # narrowed even where its value holds a capital: the widget
+            # is what reaches furthest up and down its line. A row with
+            # a box at its END has words for a label, and is read at
+            # their capital like any other.
             if any(kind == "window" for kind, _v, _i
                    in widget.dump(f"{n}.0", f"{n}.end", window=True)):
                 boxed.add(n)
-            caps = _capital_band(widget, n)
+            label_is_box = bool(widget.dump(f"{n}.0", f"{n}.0 + 1c",
+                                            window=True))
+            caps = None if label_is_box else _capital_band(widget, n)
             if caps is not None:
                 narrow = sa.Box(left=caps.left, top=band.top,
                                 right=caps.right, bottom=band.bottom)
@@ -4556,9 +4589,8 @@ def _gacha_pitch_tags(*names):
 
 
 # The Overall sheet's figures, found by their words and the tab after
-# them. Only the first of a repeated figure is read, which is the
-# section without the Prism Module; the stops are the sheet's, so the
-# Module's rows sit on the same ones.
+# them. Every section's row is read: the stops are the sheet's, so a
+# figure repeated in the Prism Module's section sits on the same ones.
 GACHA_RECORD_ROWS = ("Fastest 5★	", "Slowest 5★	",
                      "Fastest rate-up Combatant	",
                      "Slowest rate-up Combatant	",
@@ -4569,7 +4601,9 @@ GACHA_FIGURE_ROWS = ("Luck	", "Pulls	", "50/50s won	",
 # (tab, name, target, rule, resolver, axis) for Gacha History's Overall
 # sheet, a Text whose rows are label rows and whose columns are tab
 # stops. The column gaps are read on the rows that HAVE the next
-# column: a luck row ends at its value.
+# column: a luck row ends at its value. A record's ties follow it as
+# (units, date) pairs, so a unit labels its date and one pair sits
+# beside the next.
 GACHA_ENTRIES = [
     ("Gacha History", "Overall title -> first heading", 10,
      RULE_LABEL_ROW_PITCH, _title_to_first_element("Overall"), "v"),
@@ -4582,11 +4616,19 @@ GACHA_ENTRIES = [
      _text_line_pitch(_gacha_overall, label="Overall",
                       kinds=_gacha_pitch_tags("heading")), "v"),
     ("Gacha History", "Overall: figure -> its value", 5, RULE_LABEL_ELEMENT,
-     _text_column_gap(_gacha_overall, GACHA_FIGURE_ROWS, index=0), "h"),
+     _text_column_gap(_gacha_overall, GACHA_FIGURE_ROWS, index=0,
+                      every=True), "h"),
     ("Gacha History", "Overall: value -> units", 8, RULE_PAIR_GAP,
-     _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=1), "h"),
-    ("Gacha History", "Overall: units -> date", 8, RULE_PAIR_GAP,
-     _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=2), "h"),
+     _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=1,
+                      every=True), "h"),
+    ("Gacha History", "Overall: units -> date", 5, RULE_LABEL_ELEMENT,
+     _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=2,
+                      every=True), "h"),
+    # Only a record with a tie has a second pair. With none anywhere,
+    # this reads nothing and says so.
+    ("Gacha History", "Overall: date -> next tie", 8, RULE_PAIR_GAP,
+     _text_column_gap(_gacha_overall, GACHA_RECORD_ROWS, index=3,
+                      every=True), "h"),
 ]
 
 
@@ -4611,13 +4653,12 @@ AWAITING_FIRST_READING = {
     # or a distance read off the screen and agreed, and a run measured
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
-    "Banners -> Overall title",
     "Overall title -> first heading",
     "Overall: row -> row",
     "Overall: row -> heading",
-    "Overall: figure -> its value",
     "Overall: value -> units",
     "Overall: units -> date",
+    "Overall: date -> next tie",
 }
 
 

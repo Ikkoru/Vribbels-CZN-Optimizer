@@ -365,11 +365,11 @@ def _across(gh, folder, failures):
         pull 20  featured    Guaranteed  pity 4, cost 2 + 4 = 6
         pull 24  off-banner  Lost        pity 4
 
-    Pulls 14 to 23 and 16 to 25 hold three 5-stars each, and the
-    earlier run is the record; an 11-pull window would find four. The
-    Prism Module pays a 5-star on each of its three pulls, which must
-    reach none of the figures without it, and its last two tie at a
-    pity of 1 -- the earlier is the record.
+    Pulls 14 to 23 and 16 to 25 hold three 5-stars each, so both are
+    the record, the earlier first; an 11-pull window would find four.
+    The Prism Module pays a 5-star on each of its three pulls, which
+    must reach none of the figures without it, and its last two tie at
+    a pity of 1 -- both the fastest and the slowest, the earlier first.
     """
     store_dir = gh.folder_in(folder)
     store_dir.mkdir(parents=True)
@@ -390,28 +390,27 @@ def _across(gh, folder, failures):
                                          encoding="utf-8")
     o = gh.load(folder).overall
 
-    def said(record):
-        if record is None:
-            return None
-        return (record.count, [p.res_id for p in record.pulls],
-                record.pulls[-1].at)
+    def said(records):
+        return [(r.count, [p.res_id for p in r.pulls], r.pulls[-1].at)
+                for r in records]
 
     want = {
         "pulls_without_prism": 24,
         "fifty_won": 1, "fifty_lost": 3,
         "rate_up_avg": 8.0,
-        "fastest": (2, [OFF_BANNER], 4000),
-        "slowest": (10, [FEATURED], 3000),
-        "fastest_rate_up": (6, [FEATURED], 5000),
-        "slowest_rate_up": (10, [FEATURED], 3000),
-        "streak": (3, [FEATURED, OFF_BANNER, FEATURED], 5000),
-        "prism_fastest": (1, [FEATURED], 6000),
-        "prism_slowest": (1, [FEATURED], 6000),
-        "prism_streak": (3, [FEATURED] * 3, 7000),
+        "fastest": [(2, [OFF_BANNER], 4000)],
+        "slowest": [(10, [FEATURED], 3000)],
+        "fastest_rate_up": [(6, [FEATURED], 5000)],
+        "slowest_rate_up": [(10, [FEATURED], 3000)],
+        "streak": [(3, [FEATURED, OFF_BANNER, FEATURED], 5000),
+                   (3, [OFF_BANNER, FEATURED, OFF_BANNER], 5500)],
+        "prism_fastest": [(1, [FEATURED], 6000), (1, [FEATURED], 7000)],
+        "prism_slowest": [(1, [FEATURED], 6000), (1, [FEATURED], 7000)],
+        "prism_streak": [(3, [FEATURED] * 3, 7000)],
     }
     for field, expected in want.items():
         value = getattr(o, field)
-        got = said(value) if isinstance(value, gh.Standout) else value
+        got = said(value) if isinstance(value, list) else value
         if got != expected:
             failures.append(f"Overall's {field} reads {got}, not "
                             f"{expected}, on a history laid out to give "
