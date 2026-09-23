@@ -47,7 +47,7 @@ Six tables name every item the Materials tab draws, and `ITEM_TABLES` is the tup
 
 A rarity that no table prices costs a whole family its plates at once, and the only symptom is icons drawn with no background. `checks/check_item_art.py` is what catches that, along with a filename naming a file that is not there.
 
-### Which ids are known, and which are still to identify
+### The three id tables
 
 `docs/items_id_dump.py` rewrites three tables from the newest snapshot, and which one an id lands in says what is left to do with it:
 

@@ -7,7 +7,7 @@ description: Audit the repo's prose — docs/, CLAUDE.md, .claude/rules/, skills
 
 The written guidelines are elsewhere and are not repeated here: `~/.claude/CLAUDE.md` (comment style, mechanism-not-output, no change narration), `CLAUDE.md` (what belongs in which file), `docs/repo_conventions.md` (`tasks.md`, `plan.md`, CHANGELOG, release notes). This skill is the detection and judgement half — how to find breaches, which apparent ones are not, and what a pass must leave alone.
 
-## What this pass may change on its own
+## Changes this pass may make alone
 
 **Correct freely; remove only with approval.** A dead path, a constant named against the wrong file, a value the code has already moved past — fix those and say so. Anything that DELETES content, moves a fact to another file, or rewrites a passage wholesale is proposed with the text quoted, and waits.
 
@@ -102,7 +102,7 @@ When a claim cannot be settled without data, say so and leave both sites marked,
 
 **Split a contradiction into clauses before resolving it.** A passage is rarely wrong end to end. One catalogued case was wrong in two clauses of three, and replacing the whole passage would have lost the true one.
 
-## What must survive the pass
+## Lines that must survive
 
 A density pass run without this gate removes the most valuable lines in the corpus.
 

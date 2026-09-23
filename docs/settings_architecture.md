@@ -2,7 +2,7 @@
 
 Read before touching any `*_manager.py`, `defaults_sync.py`, or the Setup & Settings tab's Restore Defaults panel. Runtime behaviour only — the maintainer side (what ships, how it is regenerated) is `how_to_maintain_default_settings.md`.
 
-## Where state lives
+## User state against shipped defaults
 
 User state in `Vribbels/settings/` (gitignored); shipped defaults in `Vribbels/default_settings/` (tracked). Reconciliation is `defaults_sync.py`, which runs in `OptimizerGUI.__init__` BEFORE any manager calls `load()`.
 

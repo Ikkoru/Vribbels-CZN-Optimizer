@@ -6,7 +6,7 @@ A worklist, not a reference. Every Checklist row that shows no value is here wit
 
 Columns: `Row`, `What we need`, `Read on <date>`, `Suspect`, `Confidence`, `Evidence / what would settle it`. The third holds what the account actually showed when the note was taken, which is what a later capture is diffed against.
 
-## How a field gets confirmed
+## Confirming a field
 
 Two ways, and only these two count:
 
@@ -164,7 +164,7 @@ Five `limit_type` values across every shop, and which Checklist column each land
 
 **One shop, one currency.** Every product on a screen the Checklist lists carries the same `price_link_item_id` — checked across every screen it lists — which is what lets a shop's heading total its bill against a single holding: `<held>/<what the ticked products still cost>`. The screens that DO mix them are the ones bought with real money or Crystals, and none of those is on the tab. Two cases read as "no total" rather than as an error: the seasonal supplies are free and carry no price item at all, and the seasonal shop keeps every season it has ever run, each in its own currency, so the live-season filter is what leaves one standing.
 
-## What a currency has EARNED, and how old the account is
+## A currency's lifetime total, and the account's age
 
 A currency in `characters.currencies` keeps three figures, and the third is the one worth having:
 
@@ -233,6 +233,6 @@ So a row could read **claimed today** (`vi1` against `weekly_reset.day_index(now
 
 **Do not generalise the field meanings past `subscription_1`.** The other row in the same collection, `season_subscription_ticket_1`, carries `issued_limit_type: 4` against this one's `1`, and its span is 27.4 days for a `count` of 1 — a different product with its own arithmetic.
 
-## What `content_*` is
+## `content_*`
 
 **The Basin of Hyperspace's objectives**, three per stage, arriving with the reply to `hyperspace/get_list` — not story records. `mission_seasson_entities` (the game's own spelling) holds them per Basin season and `season_entities` the stages; the Checklist reads the scored tally as the Basin's progress. `missions_id_dump.py` skips the family for that reason: thirty rows nobody annotates.

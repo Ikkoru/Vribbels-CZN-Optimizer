@@ -169,7 +169,7 @@ This is what a Sortie pays at its report screen, and reading only the reply's ow
 
 **The log's word is picked from the SIGNS, not from the key.** A Sortie's entry fee is CHARGED through `item_result`, so reading the key announces it as a receipt: `Received Aether -10`. Where every figure in a payload moved the same way that is the answer; a payload with movement both ways falls back to the key.
 
-### What a Sortie sends that nothing reads
+### A Sortie's fields nothing reads
 
 Kept here rather than in the wire catalogue because they are one content's, and a reader for any of them starts by knowing which frame carries it. The two per-combatant ladders are the exception — those ARE read, by `sortie_progress.py`.
 
@@ -202,7 +202,7 @@ Both measured off the captures on disk rather than estimated.
 
 **Two things grow with the capture, and neither bounds itself.** `saved_path` is chosen once per addon instance and rewritten on every save, so without a rotation a month of capture is one `memory_fragments_*.json` — the newest state, with no history behind it. The debug log has no ceiling at all and is flushed on every frame. What each is answered with is below.
 
-### Where a debug log's bytes go
+### A debug log's size, per session
 
 | | one login | a session with play |
 | - | ---------- | -------------------- |
@@ -279,7 +279,7 @@ It MERGES with what is on disk: counts add, the first sighting is the earlier. I
 
 **Qids restart at 1 with each `helo`**, which is why `_forget_pending` exists: the pending-intent maps are keyed by qid, and an intent left unanswered by a game that went away would otherwise be claimed by an unrelated reply from the next one.
 
-### What the capture log says about saving
+### Saving reports itself only when it changes
 
 **A save reports itself only when it would say something new** — a different file, or different counts. The suppression is keyed on those figures and not on the last line logged: any `[LIVE]` line in between, and there is one after every upgrade, delete and reward, would otherwise put the same numbers back on screen, and an evening of capture reads as that one sentence repeated.
 

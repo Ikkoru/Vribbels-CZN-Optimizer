@@ -55,7 +55,7 @@ After the table come the baseline lines, from `compare_baseline`:
 
 An entry the baseline has never seen is not reported; it prints yellow in the table instead.
 
-## What to do with a miss
+## Resolving a miss
 
 Doc-first, as everywhere in this repo. **A distance that does not answer to its rule is an `exception` or a `unique`, never an unexplained number.** So a miss resolves one of three ways:
 

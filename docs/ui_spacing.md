@@ -77,7 +77,7 @@ Where a side has background on NO line — the list spans that panel's full widt
 
 It shows up as a single pixel, in whichever column a formula sizes from a measured string: the ATK/DEF row's name column wanting one more than the damage rows', or `4pc` sitting a different distance from its indicator than `2pc`.
 
-**`FRINGE_LIGHTNESS` is what closed most of it.** Counting a column as ink only past a lightness threshold puts the ink edge where the eye puts it, which is usually where the advance is — see "What the audit counts as ink". A pixel that survives that is a real difference between two strings, and a per-site constant for it would tie a number to today's text.
+**`FRINGE_LIGHTNESS` is what closed most of it.** Counting a column as ink only past a lightness threshold puts the ink edge where the eye puts it, which is usually where the advance is — see "The audit's definition of ink". A pixel that survives that is a real difference between two strings, and a per-site constant for it would tie a number to today's text.
 
 **A grid `minsize` is a FLOOR, not a width, and a fixed-width label's slack lands on the side its anchor points away from.** Two ways a column that looks pinned is not:
 
@@ -93,7 +93,7 @@ That scenario writes to the app's own variables, and is only safe because no com
 
 This bites where one label carries an entry on each side of it: the two gaps look like they trade against each other and do not.
 
-### Which rule wins — PROXIMITY
+### PROXIMITY decides which rule wins
 
 **Where two rules could govern one gap, the nearer element decides.** Only one case has been tested against; report others as they turn up.
 
@@ -272,7 +272,7 @@ Segoe UI 9 only; re-measure for another face, and re-MEASURE rather than reason.
 - **Element colouring** reaches: Set Configuration indicators; Capture's Log Presets (only where every combatant assigned to the preset shares one Element — a preset spanning two, or covering an unknown combatant, stays on the default foreground); Memory Fragments' five elemental Main Stat filters; and Memory Fragments' Sets, where a two-Element set colours its NAME with the first and its COUNT with the second.
 - **Gear cells put the slot name on the main stat's row**, right-aligned against the main stat's left, so a cell reserves one bold line rather than two.
 
-### What can be measured
+### The measurable gaps
 
 **A marker says which rule a value answers to, not that the value is on target.**
 
@@ -286,7 +286,7 @@ Both inset the box by what the widget paints around its own content: a cell with
 
 **Two entries measure to the Capture Log title, one per column above it** — the only place the ledger watches an ALIGNMENT. `left_col` is the taller of the two columns, so its height is the grid row's, and whatever pad sits below its last panel pushes the row down — carrying the right column's border with it and leaving the left one where it was. The two entries then read different numbers, and the difference is exactly that pad. Keeping it at 0 is what keeps the columns ending level.
 
-### What the audit does not reach
+### The gaps the audit cannot reach
 
 An entry named in `AWAITING_FIRST_READING` prints yellow, in the short run as well as the verbose one, until a run agrees with it. The set is EMPTY: every registered gap is on target and confirmed against a hand reading, so a row printing at all is a regression. What follows is the parts of the app no entry measures at all, so a drift there shows up on screen and nowhere else.
 
@@ -368,7 +368,7 @@ The three border colours reach only a scrollbar's edges; the two that fill it ar
 
 **Every scrollbar in the app is a `ttk.Scrollbar`**, so this one style paints all of them. `scrolledtext.ScrolledText` would not be: it builds its own `tk.Frame` and `tk.Scrollbar` that no constructor keyword reaches, which is why `ui/utils/scrolled_text.py` builds the pair itself instead. See `ui_runtime.md`.
 
-### What the audit counts as ink
+### The audit's definition of ink
 
 The audit's question is not "is this pixel painted" but **"would the eye put the edge here"** — a gap measured to a pixel nobody can see reads as misaligned when it looks fine. Antialiasing puts such a pixel at both ends of every string.
 
@@ -490,7 +490,7 @@ A `unique` names no rule, so nothing derives its number — and the registry's r
 
 **The Setup Status pitch is read on the first CAPITAL of each row**, not on the row's whole painted extent. Those rows read `[OK] Python 3.13` once they have checked, and a bracket rises above the cap and drops below the baseline — so a whole-row scan reports a pitch two overshoots short, and one that changes the moment the panel leaves its `Checking ...` state. Narrowing the scan to one letter puts both ends of the reading on the rule's own reference with no glyph correction to model. The same panel's gaps to its own border are still read from the ink, so they are not this number.
 
-### Where the Checklist breaks `label row -> label row`
+### The Checklist's two breaks from `label row -> label row`
 
 Two entries on that tab carry targets its rule does not supply, and both are marked at their site:
 

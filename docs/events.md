@@ -33,7 +33,7 @@ Generic implies Tallied — it is a Tallied event with a second property — and
 
 It comes off in exactly one case — the game itself says the event is finished, below — and that is also the only way such a row goes green.
 
-### Why Generic is worth naming
+### A Generic event's own past is on the wire
 
 **A Generic event's own past is on the wire, and that is better than hardcoding it.** Because it has run before, the records of every earlier run are still in the account — and what could not be derived from the live event alone can often be read off the finished ones.
 
@@ -46,7 +46,7 @@ Two guards make that safe:
 
 Where a number genuinely resists derivation, a Generic event is still the one place hardcoding does not go stale — the event returns with the same shape, so the number is right next time. The cost is a standing obligation to notice if the game changes it, and the Overclock cap HAS changed before.
 
-### What the two Overclock shapes MEAN in game
+### The two Overclock shapes in game
 
 The shape is not arbitrary: it follows the kind of Simulation mission the event doubles, and the two kinds are different contents with different economics.
 
@@ -73,7 +73,7 @@ So `count` is today's tally, zeroed lazily at the daily reset, and `total_count`
 
 **It nearly did not answer, for a reason worth keeping.** The row rides under `return_info`, not at the top level of the reply, so an earlier attempt read nothing and looked exactly like "this event does not double Memory Fragment runs". Two Memory Fragment runs on another day left the snapshot's Overclock row untouched for that reason alone.
 
-### Why Forced Daily is orange, not green
+### Forced Daily is orange, not green
 
 Claiming everything on offer does not finish a Forced Daily event: tomorrow brings more, and today's are gone whether or not they were taken. A green row means "nothing left to think about", which would be wrong for the rest of the run — so a finished day reads orange.
 
@@ -252,7 +252,7 @@ Run against the whole account, every family answers, and the answers match what 
 
 A batch that varies both indices says nothing and is ignored; `event_devil_*` has one of those too. One clean batch is enough.
 
-## What the last instalment held
+## A finished instalment's rows are its whole total
 
 **A FINISHED instalment's mission rows are its whole total.** The game issues a row when it issues the mission, so a live event's rows are what has been handed out so far — but an event whose window has closed has handed out everything it ever will, and counting its rows is counting the event.
 
@@ -312,7 +312,7 @@ Both endings of one day were captured minutes apart: `HIDDEN` at 20:04 wrote `hi
 
 **Nothing here is read yet**, though it IS captured: `event_bartender_entities` rides the login burst into the snapshot with every other `event_*` table. It is the one Open-ended event whose progress the wire states outright.
 
-### What `event_bartender_1`'s pages really are
+### `event_bartender_1`'s pages are one kind of task each
 
 The 7/7/10 is real structure, not decoration: the page number is the middle segment of the mission id, and each page is one KIND of task. `mission_condition` on an action names the kind:
 
@@ -326,7 +326,7 @@ So the total is 7 + 7 + 10 rather than any product, and the only unknown is page
 
 The guestbook itself is elsewhere: `event_bartender_entities` keys on `bartender_01_day_<NN>_story_1` and each row carries THREE stamps — `normal_complete_time`, `hidden_complete_time`, `fail_complete_time`. The two guestbook entries a day is the normal ending and the hidden one; the third is a failure nobody has triggered. A row appears once its day has been played.
 
-### What the summer define entity really holds
+### The summer define entity's two counters
 
 `event_summer_define_entity` has two counters and neither is a reward count:
 
@@ -388,7 +388,7 @@ Matching is on a segment boundary, so `event_daily_1` cannot swallow `event_dail
 
 **Attendance and trial events do not follow this** — their records are numbered in a different space entirely, and `wire_hunt.md` says how each is paired.
 
-## Where an event's data arrives
+## The payloads an event's data arrives in
 
 * **`event/get_list`** is the master payload, sent when the events screen opens. It carries every event entity at once: `event_bartender_entities`, `event_summer_define_entity`, `event_summer_set_entities`, `remnants_entities`, `marble_*`, `story_event_*`, `event_arena_*`. **It carries no trial entity**, which is why the trial slot lists have to be learned.
 * **`event_mission_entities`** arrives with the login's `mission` reply and holds every event mission the account has been issued.
@@ -421,7 +421,7 @@ Claim commands seen so far, all naming the event and the records together:
 | `event_mission_entities` | login | its own rows, under the BARE key `entities` — not under its own name |
 | `event_summer_set_entities` | the `event/get_list` payload | the one row that changed, under the SINGULAR `event_summer_set_entity` |
 
-### What a Daily Check-in claim actually answers
+### A Daily Check-in claim's reply
 
 `attendance / reward` with an `event_id`, and the reply names no entity:
 
@@ -470,7 +470,7 @@ Three things have been ruled out as ways to tell it apart:
 
 What `current_days: 56` counts is still unknown: the account is 326 days old with 325 login days, so it is neither. Until that is explained, nothing here should be built on it.
 
-### What sets the completion flag
+### The completion flag's source
 
 `mission / reward_event_limit` with an `event_mission_id` — the claim of the final reward that unlocks only once every other has been taken. Captured on `event_bartender_1` (`websocket_debug_20260914_195103.jsonl`, qid 100):
 

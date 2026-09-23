@@ -9,7 +9,7 @@ Maintainer workflow: what ships, what to hand-edit before a release, and how to 
 3. Check `zCreate exe.bat` reports a successful `optimizer_settings.json` cleanup.
 4. Run the release build in `dist\`.
 
-## What ships
+## The shipped files
 
 Three files, bundled from `default_settings/`. Everything else under `settings/` is the user's own and is never shipped.
 

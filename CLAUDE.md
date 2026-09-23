@@ -43,7 +43,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 
 Snapshots are the maintainer's captured game data. Read them; never write to `Vribbels/snapshots/` or `Vribbels/settings/`.
 
-## Where the detail lives
+## The topic docs
 
 | Area                                                                         | Doc                                                                                                                      |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
