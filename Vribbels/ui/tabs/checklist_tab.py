@@ -225,18 +225,18 @@ RATE_LONG_LABEL = "Average per %s, long run:"
 # currency is wiped at the end of every season, so an average off the
 # ledger spans several wipes and last season's says nothing about this
 # one. What a player wants to know is whether the season pays for the
-# shelf, so both lines are a WHOLE SEASON's income at a rate of play
-# -- the one term anybody chooses -- rather than a measured average.
-SEASON_ESTIMATE_LABEL = "Approximate, %s Chaos run/day, all rewards:"
-
-# The two rates of play the lines answer for: how it is written, and
-# what it multiplies.
-SEASON_ESTIMATE_RATES = (("1", 1.0), ("1.5", 1.5))
+# shelf, so the line is a WHOLE SEASON's income at one run a day.
+#
+# **One line, revised each season.** A second at another rate of play
+# read as a range the numbers could not support: every term but the
+# runs is fixed, so the two moved together and said nothing the one
+# does not.
+SEASON_ESTIMATE_LABEL = "Approximate, 1 Chaos run/day, all rewards:"
 
 # And what the season has actually paid out so far, which is the line
-# the two estimates are there to be read against. Held plus every one
-# of it ever spent -- and for THIS shop that really is the season's
-# own total, the currency and the products both being per season.
+# the estimate is there to be read against. Held plus every one of it
+# ever spent -- and for THIS shop that really is the season's own
+# total, the currency and the products both being per season.
 SEASON_EARNED_LABEL = "You have earned this Season:"
 
 # What one Galactic Disaster season pays out in its own currency,
@@ -258,7 +258,7 @@ SEASON_EARNED_LABEL = "You have earned this Season:"
 SEASON_ESTIMATE = {
     "disaster_s04": {
         # How many days of the season pay a Chaos run, and what one
-        # successful run gives. The only term a rate of play moves.
+        # run gives on average.
         #
         # **Not the length of the season's SCHEDULE.** `DISASTER_SEASON`
         # opens three weeks before the event does, and neither the shop
@@ -266,8 +266,14 @@ SEASON_ESTIMATE = {
         # the wire runs 84 days where the content runs 63. Season 3's
         # ran 70: the parts are three rotations long and one of them
         # was four.
+        #
+        # `per_run` is measured rather than written down: the two
+        # bosses and the Core of Discord pay a fixed 420 and the rest
+        # is which modifiers the run happened to roll, so a run's take
+        # swings by hundreds. `_tmp/chaos_runs.py` keeps the record
+        # every whole run in every capture, and this is its mean.
         "days": 63,
-        "per_run": 810,
+        "per_run": 562,
         # Everything that does not depend on how often it is played.
         "fixed": (
             9 * 8000,                               # Chaos weekly progress
@@ -283,8 +289,8 @@ SEASON_ESTIMATE = {
 }
 
 
-def season_estimate(season, per_day):
-    """What a season pays at that many Chaos runs a day, or None.
+def season_estimate(season):
+    """What a season pays at one Chaos run a day, or None.
 
     None for a season `SEASON_ESTIMATE` does not name, which is a
     reading: nothing has been counted for it yet.
@@ -293,7 +299,7 @@ def season_estimate(season, per_day):
     if not terms:
         return None
     return int(round(sum(terms["fixed"])
-                     + terms["days"] * terms["per_run"] * per_day))
+                     + terms["days"] * terms["per_run"]))
 
 # And what a full period of the shop costs, which is the figure those
 # two are worth comparing against.
@@ -2901,21 +2907,18 @@ class ChecklistTab(BaseTab):
                     # also why it stays out of the ledger.
                     #
                     # What the season HAS paid leads, being the one
-                    # measurement among them; the estimates under it
-                    # are guesses at that same figure, and the bill
-                    # below is what it has to cover. `currency_earned`
+                    # measurement among them; the estimate under it is
+                    # a guess at that same figure, and the bill below
+                    # is what it has to cover. `currency_earned`
                     # answering None is a reading rather than a zero,
                     # and drops the line.
                     earned, _kind = currency_earned(raw, money)
                     lines = () if earned is None else (
                         (SEASON_EARNED_LABEL, RATE_VALUE % (earned, name)),)
-                    lines += tuple(
-                        (SEASON_ESTIMATE_LABEL % written,
-                         RATE_VALUE % (paid, name))
-                        for written, paid in (
-                            (w, season_estimate(_live_season(raw), rate))
-                            for w, rate in SEASON_ESTIMATE_RATES)
-                        if paid is not None)
+                    whole = season_estimate(_live_season(raw))
+                    if whole is not None:
+                        lines += ((SEASON_ESTIMATE_LABEL,
+                                   RATE_VALUE % (whole, name)),)
                 else:
                     value, kind = currency_earned(raw, money)
                     if value is None:

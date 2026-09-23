@@ -18,7 +18,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - The shelves are there only while the shop is. They go when the season ends, and stay away through the three weeks before the next one starts, where the game has neither the shop nor its currency. The heading stays either way.
 
-- Hovering the Seasonal Shop says what the season has paid you so far, then two estimates of what a whole one pays — at one Chaos run a day, and at one and a half, claiming everything. A season nobody has counted yet shows no estimate.
+- Hovering the Seasonal Shop says what the season has paid you so far, then what a whole one pays at one Chaos run a day, claiming everything. A season nobody has counted yet shows no estimate.
 
 - A tooltip's figures line up by their last digit rather than their first, and sit closer to their labels.
 

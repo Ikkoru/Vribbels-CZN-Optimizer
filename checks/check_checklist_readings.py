@@ -91,7 +91,7 @@ def run():
         shop_full_cost,
         _event_attendance,
         RATE_RECENT_LABEL, RATE_LONG_LABEL,
-        SHOP_RATE_FLOOR, season_estimate, ATTENDANCE_FLOOR,
+        SHOP_RATE_FLOOR, season_estimate, ATTENDANCE_FLOOR, SEASON_ESTIMATE,
         LOCKED_PAGES, shop_pages_open, shop_shut_for_now,
         ChecklistTab, WRITTEN_TOTALS, written_total,
         unsure_ceiling, EVENT_FINISHED_FIELD,
@@ -1069,20 +1069,25 @@ def run():
     # Hand-counted per season, because the wire carries no achievement
     # reward table at all -- see `SEASON_ESTIMATE`. A season nobody has
     # counted gets no line rather than the last one's figures.
-    for rate, _written in ((1.0, "1"), (1.5, "1.5")):
-        if season_estimate(season, rate) is None:
-            failures.append(
-                f"the live season {season} has no estimate at {rate} "
-                f"runs/day, so the seasonal shop's tip shows nothing.")
-    if season_estimate("disaster_s99", 1.0) is not None:
+    if season_estimate(season) is None:
+        failures.append(
+            f"the live season {season} has no estimate, so the seasonal "
+            f"shop's tip shows nothing where it should show one.")
+    if season_estimate("disaster_s99") is not None:
         failures.append(
             "a season SEASON_ESTIMATE does not name still produced an "
             "estimate. The counts are per season and do not carry over, "
             "so one reused reads as a measurement of the wrong season.")
-    if not (season_estimate(season, 1.0) < season_estimate(season, 1.5)):
+    # **Every term counts.** A table whose runs or whose fixed rewards
+    # stopped reaching the total would still answer, and a figure that
+    # is merely plausible is the one nobody checks.
+    terms = SEASON_ESTIMATE[season]
+    if season_estimate(season) != (sum(terms["fixed"])
+                                   + terms["days"] * terms["per_run"]):
         failures.append(
-            "playing more Chaos a day does not raise the estimate, so "
-            "the rate is reaching nothing it multiplies.")
+            f"the estimate for {season} is not its own terms added up. "
+            f"Every one of them is hand-counted, so one that stopped "
+            f"reaching the total would go unnoticed.")
 
     # --- where a page's own rows land in the merged list --------------
     # Three orders are possible for a row one page adds and another
