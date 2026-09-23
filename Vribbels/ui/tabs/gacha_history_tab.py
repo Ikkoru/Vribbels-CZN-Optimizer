@@ -107,12 +107,24 @@ UNKNOWN_COLOUR = "red"
 
 NO_VALUE = "-"
 
-# A banner type the game has newer pulls for is drawn red, and the
-# status line says what that means. A red row rather than words in
-# `Last read`: at this tab's column inset, the width those words took
-# was what kept the two lists from fitting the default window.
+# A banner type the game has newer pulls for is drawn orange, and red
+# where its records were last read more than `URGENT_AFTER_DAYS` ago --
+# the pulls it is missing may be halfway to the game erasing them. A
+# line at the toolbar's right end says what each colour means. A
+# coloured row rather than words in `Last read`: at this tab's column
+# inset, the width those words took was what kept the two lists from
+# fitting the default window.
 BEHIND_TAG = "behind"
-BEHIND_NOTE = "Red banners have newer pulls in game: read them again"
+URGENT_TAG = "urgent"
+BEHIND_NOTE = "Orange banners have newer pulls in game: read them again"
+URGENT_NOTE = ("⚠ Red banners were last read over %d days ago. Read them "
+               "NOW, before the game erases their pulls for good!"
+               % gh.URGENT_AFTER_DAYS)
+URGENT_FONT = ("Segoe UI", 9, "bold")
+
+# Where the status lines wrap, so a long one takes height from the
+# toolbar rather than width from the help text beside it.
+STATUS_WRAPLENGTH = 320
 
 
 def _stars(stars):
@@ -179,9 +191,21 @@ class GachaHistoryTab(BaseTab):
         filter_box.bind("<<ComboboxSelected>>",
                         lambda _e: self._fill_pulls())
 
-        self.status_label = ttk.Label(toolbar, text="",
-                                      foreground=self.colors["fg_dim"])
-        self.status_label.pack(side=tk.RIGHT, anchor=tk.N)
+        # The status lines, stacked at the toolbar's right end: the two
+        # warnings, most severe first, then anything else there is to
+        # say. `_show_status` packs only those with something to say.
+        status = ttk.Frame(toolbar)
+        status.pack(side=tk.RIGHT, anchor=tk.N)
+        self.urgent_label = ttk.Label(
+            status, text="", font=URGENT_FONT,
+            foreground=self.colors["red"],
+            wraplength=px(STATUS_WRAPLENGTH))
+        self.behind_label = ttk.Label(
+            status, text="", foreground=self.colors["orange"],
+            wraplength=px(STATUS_WRAPLENGTH))
+        self.status_label = ttk.Label(
+            status, text="", foreground=self.colors["fg_dim"],
+            wraplength=px(STATUS_WRAPLENGTH))
 
         help_label = ttk.Label(
             toolbar, text=HELP_TEXT, justify=tk.LEFT,
@@ -212,6 +236,8 @@ class GachaHistoryTab(BaseTab):
         self.summary_tree.pack(fill=tk.X)
         self.summary_tree.bind("<<TreeviewSelect>>", self._on_pick)
         self.summary_tree.tag_configure(BEHIND_TAG,
+                                        foreground=self.colors["orange"])
+        self.summary_tree.tag_configure(URGENT_TAG,
                                         foreground=self.colors["red"])
 
         self.pulls_frame = ttk.LabelFrame(body, text="Pulls",
@@ -249,6 +275,15 @@ class GachaHistoryTab(BaseTab):
         list's background beside it. Without the element, `padding`
         reaches only the text. Everything else, colours and row height
         included, falls through to `Treeview` and `Treeview.Heading`.
+
+        **An empty foreground map, and NOT a no-op.** A style's state
+        map outranks a row's tag colour, and `Treeview` maps `selected`
+        to the plain foreground -- so without this a selected row loses
+        its rarity or warning colour. The first style in the chain that
+        maps an option answers for it alone, so an empty map here stops
+        the lookup before it reaches `Treeview`'s. Removing the line
+        changes nothing `style.map` can show; the check probes the
+        lookup itself.
         """
         style = ttk.Style()
         try:
@@ -256,6 +291,7 @@ class GachaHistoryTab(BaseTab):
                 ("Treeview.treearea", {"sticky": "nswe"})])
         except tk.TclError:
             pass
+        style.map(TREE_STYLE, foreground=[])
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
         style.configure(TREE_STYLE,
                         padding=px((TEXT_INSET, 0, TEXT_INSET, 0)))
@@ -354,28 +390,47 @@ class GachaHistoryTab(BaseTab):
             self.history = gh.load(self._folder())
         except Exception as e:                       # noqa: BLE001
             self.history = None
-            self.status_label.configure(
-                text="The history could not be read: %s" % e,
-                foreground=self.colors["red"])
+            self._show_status("The history could not be read: %s" % e,
+                              "red")
             self._fill_summary()
             self._fill_pulls()
             return
         notes = self.history.notes
         if notes:
-            self.status_label.configure(text="; ".join(notes),
-                                        foreground=self.colors["red"])
+            # Yellow, not red: red is the urgent banners' colour.
+            self._show_status("; ".join(notes), "yellow")
         elif any(pool.stats.behind for pool in self._shown_pools()):
-            self.status_label.configure(text=BEHIND_NOTE,
-                                        foreground=self.colors["red"])
+            # The pull count gives way to the warnings, which keeps the
+            # toolbar within the help text's height.
+            self._show_status("", "fg_dim")
         elif self.history.total:
-            self.status_label.configure(
-                text="%s pulls kept" % format(self.history.total, ","),
-                foreground=self.colors["fg_dim"])
+            self._show_status(
+                "%s pulls kept" % format(self.history.total, ","),
+                "fg_dim")
         else:
-            self.status_label.configure(text="No history yet",
-                                        foreground=self.colors["fg_dim"])
+            self._show_status("No history yet", "fg_dim")
         self._fill_summary()
         self._fill_pulls()
+
+    def _show_status(self, text, colour):
+        """Set the status lines: the warnings the shown banners call
+        for, then `text`. A line with nothing to say is not packed, so
+        it leaves no blank line behind."""
+        pools = self._shown_pools()
+        lines = (
+            (self.urgent_label, URGENT_NOTE
+             if any(p.stats.urgent for p in pools) else ""),
+            (self.behind_label, BEHIND_NOTE
+             if any(p.stats.behind and not p.stats.urgent for p in pools)
+             else ""),
+            (self.status_label, text))
+        self.status_label.configure(foreground=self.colors[colour])
+        for label, line in lines:
+            label.pack_forget()
+            label.configure(text=line)
+        for label, line in lines:
+            if line:
+                label.pack(side=tk.TOP, anchor=tk.W)
 
     def _shown_pools(self):
         """Families with pulls, and families whose records have been
@@ -393,13 +448,21 @@ class GachaHistoryTab(BaseTab):
         for pool in pools:
             tree.insert("", tk.END, iid=pool.pool,
                         values=self._spaced(self._summary_row(pool)),
-                        tags=(BEHIND_TAG,) if pool.stats.behind else ())
+                        tags=self._summary_tags(pool))
         tree.configure(height=max(1, len(pools)))
         keep = self._pool if self._pool in {p.pool for p in pools} else (
             pools[0].pool if pools else None)
         self._pool = keep
         if keep:
             tree.selection_set(keep)
+
+    @staticmethod
+    def _summary_tags(pool):
+        if pool.stats.urgent:
+            return (URGENT_TAG,)
+        if pool.stats.behind:
+            return (BEHIND_TAG,)
+        return ()
 
     def _summary_row(self, pool):
         s = pool.stats

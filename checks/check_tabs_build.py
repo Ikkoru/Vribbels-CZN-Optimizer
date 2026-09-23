@@ -2309,46 +2309,96 @@ def _gacha_history_draws_its_rows(tab):
     """
     import json as _json
     import time as _time
+    from datetime import datetime as _datetime
+    from tkinter import ttk
     import gacha_history as gh
-    from ui.tabs.gacha_history_tab import BEHIND_NOTE, BEHIND_TAG, FILTERS
+    from ui.tabs.gacha_history_tab import (
+        BEHIND_NOTE, BEHIND_TAG, FILTERS, TREE_STYLE, URGENT_NOTE,
+        URGENT_TAG)
 
     out = []
     banner = "gacha_pickup_combatant_990002"
+    partner_banner = "gacha_pickup_supporter_990021"
     five, four, three, nobody = 990002, 990011, 990021, 990099
     record = {"id": "1", "gacha_id": banner, "createAt": "1000",
               "reward": _json.dumps([three, four, five, nobody])}
+    partner_record = {"id": "2", "gacha_id": partner_banner,
+                      "createAt": "1000", "reward": _json.dumps([three])}
     rates = {"pools": {"ssr_rate_up_success_pool_ids":
                        ["pickup_c_1_rateup_ssr_c_%d" % five],
                        "sr_combatant_pool_ids":
                        ["pickup_c_1_sr_c_%d" % four],
                        "r_pool_ids": ["general_r_s_%d" % three]}}
+    now = _time.time()
+
+    def days_ago(days):
+        # Local time, as the addon stamps a read.
+        return _datetime.fromtimestamp(now - days * 86400).isoformat(
+            timespec="seconds")
+
+    def pity(pool):
+        return {"res_id": "gacha_pity_" + pool, "pity_ssr_count": 1,
+                "createAt": "1", "updateAt": str(int(now))}
+
     work = Path(tempfile.mkdtemp())
     try:
         folder = gh.folder_in(work)
         folder.mkdir(parents=True)
         (folder / gh.CAPTURED).write_text(_json.dumps({
-            "kind": gh.STORE_KIND, "records": [record],
+            "kind": gh.STORE_KIND, "records": [record, partner_record],
             "rates": {banner: rates},
-            # The game counted a pull after the newest record held, on a
-            # banner that has been read: behind, and it must say so.
-            "pity": {"gacha_pity_pickup_combatant": {
-                "res_id": "gacha_pity_pickup_combatant",
-                "pity_ssr_count": 1, "createAt": "1",
-                "updateAt": str(int(_time.time()))}},
-            "read": {banner: "2026-01-01T00:00:00"}}),
+            # The game counted a pull after the newest record held on
+            # both banners: behind, and each must say so -- urgently
+            # where the records were last read longer ago than the
+            # pulls it is missing can safely wait.
+            "pity": {"gacha_pity_pickup_combatant":
+                     pity("pickup_combatant"),
+                     "gacha_pity_pickup_supporter":
+                     pity("pickup_supporter")},
+            "read": {banner: days_ago(gh.URGENT_AFTER_DAYS + 1),
+                     partner_banner: days_ago(1)}}),
             encoding="utf-8")
         tab._folder = lambda: folder
         tab.refresh()
         rows = tab.summary_tree.get_children()
-        if list(rows) != ["pickup_combatant"]:
+        want = {"pickup_combatant": (URGENT_TAG, tab.urgent_label,
+                                     URGENT_NOTE),
+                "pickup_supporter": (BEHIND_TAG, tab.behind_label,
+                                     BEHIND_NOTE)}
+        if sorted(rows) != sorted(want):
             out.append(f"the Gacha History's banner list holds {list(rows)} "
-                       f"for a history of one Combatant rate-up")
-        elif (BEHIND_TAG not in tab.summary_tree.item(rows[0])["tags"]
-              or tab.status_label.cget("text") != BEHIND_NOTE):
+                       f"for a history of a Combatant and a Partner "
+                       f"rate-up")
+        else:
+            for row, (tag, label, note) in want.items():
+                tags = tuple(tab.summary_tree.item(row)["tags"])
+                if tags != (tag,) or label.cget("text") != note \
+                        or label not in label.master.pack_slaves():
+                    out.append(
+                        f"{row}, behind and last read "
+                        f"{'over' if tag == URGENT_TAG else 'under'} "
+                        f"{gh.URGENT_AFTER_DAYS} days ago, is drawn with "
+                        f"tags {tags} and the status line "
+                        f"{label.cget('text')!r}. The row's colour and "
+                        f"its line are the only sign that its records "
+                        f"need reading again before the game forgets them.")
+        # A selected row keeps its tag's colour. The shared list style
+        # maps `selected` to a foreground of its own, which outranks any
+        # tag, so this tab's style must answer for `selected` itself.
+        style = ttk.Style()
+        saved = style.map("Treeview", "foreground")
+        style.map("Treeview", foreground=[("selected", "#010203")])
+        try:
+            chosen = str(style.lookup(TREE_STYLE, "foreground",
+                                      ["selected"]))
+        finally:
+            style.map("Treeview", foreground=saved)
+        if chosen.lower() == "#010203":
             out.append(
-                "a banner the game has newer pulls for is not drawn red "
-                "with the status saying why. It is the only sign that its "
-                "records need reading again before the game forgets them.")
+                f"{TREE_STYLE} takes its selected-row foreground from "
+                f"the shared Treeview style, so a selected row drops its "
+                f"rarity or warning colour. Its own empty foreground map "
+                f"is what stops that, and looks like a no-op.")
         pulls = [tab.pulls_tree.item(i) for i in tab.pulls_tree.get_children()]
         tags = [tuple(p["tags"]) for p in pulls]
         if tags != [("stars_unknown",), ("stars_5",), ("stars_4",),

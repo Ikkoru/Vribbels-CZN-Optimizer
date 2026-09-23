@@ -93,7 +93,9 @@ A 5-star's outcome is `Won`, `Lost`, `Guaranteed`, `Rate-up` -- the featured uni
 
 **The tab reads nothing until it is first shown**, so that cost never lands on startup.
 
-A category is **behind** when the game's counters have moved past its history: the count since the last 5-star or the last 4-star disagreeing with what the history adds up to. **Not the pity record's `updateAt`** -- a captured single pull ticked the counters and the record's `version` and left it where it was -- though a stamp that does move past the newest record counts too, while it is within `GAME_KEEPS_DAYS`. Only for a category that has been read at least once: a finished beginner selection may have no screen left to open. The tab draws such a banner red and says why in its status line.
+A category is **behind** when the game's counters have moved past its history: the count since the last 5-star or the last 4-star disagreeing with what the history adds up to. **Not the pity record's `updateAt`** -- a captured single pull ticked the counters and the record's `version` and left it where it was -- though a stamp that does move past the newest record counts too, while it is within `GAME_KEEPS_DAYS`. Only for a category that has been read at least once: a finished beginner selection may have no screen left to open.
+
+**Behind is urgent once the category's records were last read more than `URGENT_AFTER_DAYS` ago**: the pulls it is missing were made since that read, so the oldest may already be past halfway to `GAME_KEEPS_DAYS`. The tab draws a behind banner orange and an urgent one red, with a line for each colour at the toolbar's right end. A category that is not behind is never urgent, however long ago it was read: it has nothing left to lose.
 
 **No Crystals-spent figure.** hub-czn showed pulls times 160, which is wrong for the Prism Module: it spends Prism Lens.
 

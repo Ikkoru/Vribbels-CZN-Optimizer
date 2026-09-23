@@ -66,6 +66,11 @@ GAME_KEEPS_DAYS = 183
 # after the batch it counts.
 BEHIND_SLACK = 10
 
+# How long ago a behind pool's records may have been read before it is
+# urgent. Its missing pulls were made since that read, so the oldest may
+# be this old already -- past halfway to `GAME_KEEPS_DAYS`.
+URGENT_AFTER_DAYS = 90
+
 
 # --------------------------------------------------------------- pools
 
@@ -529,6 +534,8 @@ class PoolStats:
         self.game_four = None
         self.game_updated = None
         self.behind = False
+        # Behind, and last read more than `URGENT_AFTER_DAYS` ago.
+        self.urgent = False
         self.read_at = None
         self.first_at = None
         self.last_at = None
@@ -1124,6 +1131,9 @@ def _judge_freshness(entry, now):
     Only a pool whose list has been read at least once: a banner family
     nobody has opened -- a finished beginner selection, say -- may have
     no screen left to open, and asking for it would never stop.
+
+    `read_at` is the addon's local time, as `datetime.now()` wrote it,
+    so it is read back as local time.
     """
     stats = entry.stats
     if not stats.read_at:
@@ -1138,3 +1148,9 @@ def _judge_freshness(entry, now):
         and now - stats.game_updated <= GAME_KEEPS_DAYS * 86400
         and stats.game_updated > (stats.last_at or 0) + BEHIND_SLACK)
     stats.behind = bool(counted or stamped)
+    try:
+        read = datetime.fromisoformat(stats.read_at).timestamp()
+    except (TypeError, ValueError, OverflowError, OSError):
+        read = None
+    stats.urgent = bool(stats.behind and read is not None
+                        and now - read > URGENT_AFTER_DAYS * 86400)

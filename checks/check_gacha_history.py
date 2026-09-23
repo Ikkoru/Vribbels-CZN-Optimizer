@@ -269,27 +269,47 @@ def _behind_by_counters(gh, folder, failures):
     The pity record's `updateAt` did not move on a captured single pull,
     so the stamp cannot be what finds it: here it stays on the newest
     record, and only the count since the last 5-star moves on.
+
+    Behind turns urgent once the records were last read more than
+    `URGENT_AFTER_DAYS` ago, and only behind: a pool with nothing to
+    read has nothing to lose.
     """
+    from datetime import datetime
+
     store_dir = gh.folder_in(folder)
     store_dir.mkdir(parents=True)
     records = [_record(1, BANNER, 1000, [THREE, FEATURED, THREE, THREE])]
-    for game_count, want in ((2, False), (3, True)):
+    now = datetime(2026, 9, 23, 12).timestamp()
+
+    def days_ago(days):
+        # Local time, as the addon stamps a read.
+        return datetime.fromtimestamp(now - days * 86400).isoformat(
+            timespec="seconds")
+
+    urgent_at = gh.URGENT_AFTER_DAYS
+    for game_count, read_days, want in (
+            (2, 1, (False, False)), (3, 1, (True, False)),
+            (3, urgent_at - 1, (True, False)),
+            (3, urgent_at + 1, (True, True)),
+            (2, urgent_at + 1, (False, False))):
         store = {"kind": gh.STORE_KIND, "version": 1, "records": records,
                  "rates": {BANNER: _rates()},
                  "pity": {"gacha_pity_pickup_combatant": {
                      "res_id": "gacha_pity_pickup_combatant",
                      "pity_ssr_count": game_count, "createAt": "1",
                      "updateAt": "1000"}},
-                 "read": {BANNER: "2026-01-01T00:00:00"}}
+                 "read": {BANNER: days_ago(read_days)}}
         (store_dir / gh.CAPTURED).write_text(json.dumps(store),
                                              encoding="utf-8")
-        pool = gh.load(folder, now=2000).pools["pickup_combatant"]
-        if pool.stats.behind != want:
+        stats = gh.load(folder, now=now).pools["pickup_combatant"].stats
+        if (stats.behind, stats.urgent) != want:
             failures.append(
-                f"with the history counting 2 pulls since its last 5-star "
-                f"and the game counting {game_count}, behind reads "
-                f"{pool.stats.behind}. A pull made since the records were "
-                f"read would go unnoticed until the game forgot it.")
+                f"with the history counting 2 pulls since its last 5-star, "
+                f"the game counting {game_count} and the records last read "
+                f"{read_days} days ago, (behind, urgent) reads "
+                f"{(stats.behind, stats.urgent)}, not {want}. A pull made "
+                f"since the records were read would go unnoticed, or "
+                f"unhurried, until the game forgot it.")
 
 
 def _supersede(gh, folder, failures):
