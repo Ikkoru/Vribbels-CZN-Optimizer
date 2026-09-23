@@ -26,6 +26,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - A tooltip's figures line up by their last digit rather than their first, and sit closer to their labels.
 
+- With `Debug WS` on, each Capture Log line says how long it took to arrive: the server answering the game, the capture reading the reply, and the app passing the line to the log, in milliseconds. A line that is late while all of them are small was held back by the game itself.
+
 ### Fixed
 
 - The Checklist fits a narrower window. Every column with a shop in it was reserving room twice for the same deadline.

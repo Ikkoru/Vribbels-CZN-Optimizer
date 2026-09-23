@@ -210,7 +210,7 @@ class OptimizerGUI:
         # Initialize capture manager
         self.capture_manager = CaptureManager(
             output_folder=OUTPUT_DIR,
-            log_callback=lambda msg, tag=None: self.capture_tab_instance.capture_log_msg(msg, tag) if hasattr(self, 'capture_tab_instance') else None,
+            log_callback=lambda msg, tag=None, stamp=None: self.capture_tab_instance.capture_log_msg(msg, tag, stamp) if hasattr(self, 'capture_tab_instance') else None,
             status_callback=lambda status: self.capture_tab_instance.capture_status_label.config(text=status) if hasattr(self, 'capture_tab_instance') else None,
             live_update_callback=lambda: self.root.after(0, self._handle_live_update)
         )
@@ -1201,15 +1201,18 @@ class OptimizerGUI:
         import queue
         while True:
             try:
-                line = self.capture_manager.pending_upgrade_lines.get_nowait()
+                line, stamp = (
+                    self.capture_manager.pending_upgrade_lines.get_nowait())
             except queue.Empty:
                 break
             augmented = self._augment_upgrade_log(line)
             if hasattr(self, "capture_tab_instance"):
                 # log_upgrade_msg (not capture_log_msg): records the line's
                 # extent so Log Presets toggles can rewrite it in place.
+                # Its Debug WS timing includes the wait for the reload
+                # above, which is what this line is held for.
                 self.capture_tab_instance.log_upgrade_msg(
-                    augmented, "info"
+                    augmented, "info", stamp
                 )
 
     def _selected_log_presets(self) -> dict:

@@ -65,6 +65,32 @@ SAVE_MARKER = "[SYNC] saved"
 # tab. Held equal to the addon's by the same check.
 GACHA_MARKER = "[SYNC] gacha"
 
+# What opens the timing the addon puts after a line under Debug WS:
+# when the request went out, when its reply came in, when the line was
+# printed. The reader takes it off before anything else reads the line;
+# the Capture Log turns it into the delays between. Held equal to the
+# addon's by the same check.
+LAG_MARKER = " [@lag "
+_LAG_TRAILER = re.compile(re.escape(LAG_MARKER)
+                          + r"([0-9.]*),([0-9.]+),([0-9.]+)\]$")
+
+
+def split_lag(line):
+    """(line, stamp): the line without its timing, and the timing.
+
+    `stamp` is None where the line carries none, else epoch seconds for
+    `sent` (None where no request is known -- a message the server
+    pushed), `got`, `said`, and `read`, the moment this took it off the
+    pipe.
+    """
+    found = _LAG_TRAILER.search(line)
+    if found is None:
+        return line, None
+    return line[:found.start()], {
+        "sent": float(found.group(1)) if found.group(1) else None,
+        "got": float(found.group(2)), "said": float(found.group(3)),
+        "read": time.time()}
+
 # What says this is a working copy rather than a released build, and so
 # that the developer tooling may run. The `zRUN*.bat` launchers set it;
 # a frozen exe has no way to, which is the point -- a user's capture
@@ -115,6 +141,13 @@ SAVE_MARKER = "[SYNC] saved"
 # the same way. The app refreshes that one tab on it: a history page is
 # no reason to reload the whole snapshot, which a `[LIVE]` line costs.
 GACHA_MARKER = "[SYNC] gacha"
+
+# Put after every line printed while a reply is handled, in debug mode
+# only: when its request went out, when the reply came in and when the
+# line was printed, in epoch seconds. The app takes it off and shows the
+# delays between -- so a line that arrives late says whether the game
+# or the program held it.
+LAG_MARKER = " [@lag "
 
 # How much of a payload the wire catalogue keeps as an example, and how
 # many entries it will hold. The sample says what SHAPE a field is, not
@@ -200,6 +233,15 @@ class Addon:
         sink = log_callback or (lambda msg: print(msg, flush=True))
         self._last_line = None
 
+        # Under debug mode every line printed while a reply is handled
+        # carries `LAG_MARKER` and three times. `_reply_times` is the
+        # (request sent, reply received) of the reply being handled,
+        # None between replies; `qid_sent` is when each request went
+        # out, by qid.
+        self.debug_mode = bool(debug_mode)
+        self._reply_times = None
+        self.qid_sent = {}
+
         def remember(msg, *args, **kwargs):
             # **The save marker is not a line for this purpose.** It
             # goes out on every save, so remembering it would put it
@@ -207,6 +249,11 @@ class Addon:
             # reading as a repeat.
             if msg != SAVE_MARKER:
                 self._last_line = msg
+            if self.debug_mode and self._reply_times is not None:
+                sent, got = self._reply_times
+                msg = "%s%s%s,%.3f,%.3f]" % (
+                    msg, LAG_MARKER, "" if sent is None else "%.3f" % sent,
+                    got, time.time())
             sink(msg, *args, **kwargs)
 
         self.log_callback = remember
@@ -531,6 +578,9 @@ class Addon:
             flow: mitmproxy flow object containing WebSocket messages
         """
         msg = flow.websocket.messages[-1]
+        # When the proxy took the message off the wire, which is the
+        # reference the lag stamp measures from.
+        at = getattr(msg, "timestamp", None) or time.time()
         if msg.from_client:
             # Decode and parse the client request once. The parsed form is
             # needed for two purposes: (1) tracking disassemble_piece intents
@@ -557,6 +607,7 @@ class Addon:
             # list-of-commands wire shape where one client message can
             # contain multiple commands, so we scan every entry.
             self._track_client_request(parsed)
+            self._note_sent(parsed, at)
 
             # Optional debug log of the raw client message.
             if self.debug_file and content is not None:
@@ -597,6 +648,8 @@ class Addon:
                 return
 
             for payload in payloads:
+                self._reply_times = (self.qid_sent.pop(payload.get("qid"),
+                                                       None), at)
                 self._handle_server_payload(payload, len(content))
 
             if self._save_pending:
@@ -605,6 +658,19 @@ class Addon:
 
         except Exception as e:
             self.log_callback(f"Error: {e}")
+        finally:
+            self._reply_times = None
+
+    def _note_sent(self, parsed, at):
+        """When each request in a client message went out, by qid, for
+        the lag stamp. Debug mode only: nothing else reads it."""
+        if not self.debug_mode or not isinstance(parsed, list):
+            return
+        for entry in parsed:
+            if isinstance(entry, dict) and entry.get("qid") is not None:
+                if len(self.qid_sent) > CATALOGUE_MAX:
+                    self.qid_sent.clear()
+                self.qid_sent[entry["qid"]] = at
 
     def server_connect(self, data):
         """Point this connection at its own region's server.
@@ -2554,6 +2620,7 @@ class Addon:
         what the client asked for, and a qid means nothing across
         connections -- see the note in `_track_client_request`.
         """
+        self.qid_sent.clear()
         if not (self.pending_disassembles or self.pending_unequips
                 or self.pending_coffees or self.gacha_requests):
             return
@@ -2784,7 +2851,7 @@ class CaptureManager:
         # them straight to log_callback; the main app drains the queue
         # after the post-upgrade reload finishes and emits the augmented
         # version. Thread-safe by design (proxy reader thread puts; main
-        # thread gets).
+        # thread gets). Each item is (line, stamp) -- see `split_lag`.
         import queue as _queue  # avoid polluting module namespace
         self.pending_upgrade_lines = _queue.Queue()
 
@@ -3188,6 +3255,15 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
             return "conflict"
         return None
 
+    def _log_line(self, line, tag, stamp):
+        """Forward one of the addon's lines, with its Debug WS timing
+        where it carries one. Passed only then, so a log callback that
+        takes no timing keeps working."""
+        if stamp is None:
+            self.log_callback(line, tag)
+        else:
+            self.log_callback(line, tag, stamp=stamp)
+
     def _read_proxy_output(self):
         """
         Read proxy process output and forward to log callback.
@@ -3226,6 +3302,10 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                 line = line.strip()
                 if not line:
                     continue
+                # Off before anything reads the line: every test below,
+                # and what the log shows, is the line as the addon wrote
+                # it. Only Debug WS lines carry one.
+                line, stamp = split_lag(line)
 
                 # The addon reports which server region a connection
                 # actually went to; both hostnames are redirected, so
@@ -3264,7 +3344,7 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                         self.gacha_update_callback()
                     continue
                 if "[GACHA]" in line:
-                    self.log_callback(line, "info")
+                    self._log_line(line, "info", stamp)
                     continue
 
                 # Route live updates with info tag, everything else with default tag
@@ -3275,13 +3355,13 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                     # [LIVE] events (Equipped / Unequipped / Swapped /
                     # Created / Deleted) log immediately as before.
                     if "[LIVE] Upgraded" in line and "[pid=" in line:
-                        self.pending_upgrade_lines.put(line)
+                        self.pending_upgrade_lines.put((line, stamp))
                     else:
-                        self.log_callback(line, "info")
+                        self._log_line(line, "info", stamp)
                     if self.live_update_callback:
                         self.live_update_callback()
                 else:
-                    self.log_callback(line, None)
+                    self._log_line(line, None, stamp)
 
                 # Auto-reload on any save (initial capture + deltas)
                 if "Saved:" in line and "Memory Fragments" in line:

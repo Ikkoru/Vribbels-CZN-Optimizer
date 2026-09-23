@@ -202,6 +202,14 @@ A redirect block left in the hosts file by a run that ended without removing it 
 
 `CaptureManager`'s `live_update_callback` has the same cross-thread shape and is safe only because capture cannot start before mainloop is running.
 
+### Timing a line, under Debug WS
+
+**A line that reaches the Capture Log late was held by the game or by the program**, and Debug WS says which. The addon puts `LAG_MARKER` and three times after every line it prints while handling a reply: when that reply's request went out (by qid, from the proxy's own message timestamp), when the reply came in, and when the line was printed. `split_lag` takes it off in the reader, first thing, so every later test of the line sees the text the addon wrote; the reader adds when it read the line, and `capture_log_msg` shows the four gaps after it in dim text -- `server`, `capture`, `pipe`, `UI`, in milliseconds. `UI` is taken on the UI thread, so the `root.after` hop is inside it, and an `Upgraded` line's includes the reload it waits for (below).
+
+**What none of them can see is the game holding an action before it sends the request.** A late line whose four numbers are small was held there, and nothing here can shorten that. A message the server pushes unasked has no request, so it shows no `server`.
+
+The marker exists twice, the addon's and the reader's, and `checks/check_capture_lag.py` holds them equal and drives the real addon with and without debug mode.
+
 ## A capture left running, and what a debug log costs
 
 Both measured off the captures on disk rather than estimated.

@@ -1,6 +1,7 @@
 """Capture tab for intercepting game data."""
 
 import re
+import time
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
@@ -15,6 +16,33 @@ from ..utils.checkbox import make_checkbox
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 from ui.scaling import px
+
+
+# What Debug WS puts after each line the capture prints while handling a
+# reply: how long each stage held it, in milliseconds.
+#
+#   server   the request going out, to its reply coming back
+#   capture  the reply coming in, to the addon printing the line
+#   pipe     the addon printing it, to the app reading it
+#   UI       the app reading it, to the log showing it
+#
+# What none of them can see is the game sitting on an action before it
+# sends the request -- so a line that is late with all four small was
+# held by the game, which the program cannot shorten.
+LAG_TAG = "lag"
+
+
+def lag_text(stamp, shown):
+    """The timing shown after a Debug WS line. See `LAG_TAG`."""
+    def ms(since, until):
+        return "%d" % round(1000 * (until - since))
+    parts = []
+    if stamp.get("sent") is not None:
+        parts.append("server " + ms(stamp["sent"], stamp["got"]))
+    parts.append("capture " + ms(stamp["got"], stamp["said"]))
+    parts.append("pipe " + ms(stamp["said"], stamp["read"]))
+    parts.append("UI " + ms(stamp["read"], shown))
+    return "  (%s ms)" % ", ".join(parts)
 
 
 # Log Preset checkboxes per row when the checklist's width is not
@@ -585,6 +613,10 @@ class CaptureTab(BaseTab):
         # nothing about the line says it is guessed.
         self.capture_log.tag_configure("item_provisional",
                                        foreground=self.colors["red"])
+        # Debug WS's timing after a line: a reading about the program,
+        # not part of what the game did.
+        self.capture_log.tag_configure(LAG_TAG,
+                                       foreground=self.colors["fg_dim"])
 
     def _colour_log_line(self, start: str, msg: str):
         """Tag the parts of one log line that carry a verdict.
@@ -651,7 +683,7 @@ class CaptureTab(BaseTab):
         except ValueError:
             return "value_good"
 
-    def capture_log_msg(self, msg: str, tag: str = None):
+    def capture_log_msg(self, msg: str, tag: str = None, stamp=None):
         """Add a message to the capture log.
 
         Safe to call from any thread. Tk is single-threaded, and this is
@@ -659,10 +691,15 @@ class CaptureTab(BaseTab):
         prerequisite worker as well as from the UI, so an off-thread call
         is marshalled onto the UI thread rather than touching the widget
         directly.
+
+        `stamp` is a Debug WS line's timing -- see `split_lag` in
+        `capture/manager.py` -- shown after the line. Its last moment is
+        taken HERE, on the UI thread, so the hop above is inside it.
         """
         if threading.current_thread() is not threading.main_thread():
             try:
-                self.root.after(0, lambda: self.capture_log_msg(msg, tag))
+                self.root.after(0, lambda: self.capture_log_msg(msg, tag,
+                                                                stamp))
             except (RuntimeError, tk.TclError):
                 # after() from another thread needs the main thread to be
                 # inside mainloop. Outside it (startup, shutdown) there is
@@ -671,11 +708,19 @@ class CaptureTab(BaseTab):
                 pass
             return
         start = self.capture_log.index("end-1c")
-        self.capture_log.insert(tk.END, f"{msg}\n", tag)
+        self.capture_log.insert(tk.END, msg, tag)
+        self._insert_lag(stamp, tag)
         self._colour_log_line(start, msg)
         self.capture_log.see(tk.END)
 
-    def log_upgrade_msg(self, msg: str, tag: str = None):
+    def _insert_lag(self, stamp, tag):
+        """End the line being written, with its timing where it has one."""
+        if stamp is not None:
+            self.capture_log.insert(tk.END, lag_text(stamp, time.time()),
+                                    LAG_TAG)
+        self.capture_log.insert(tk.END, "\n", tag)
+
+    def log_upgrade_msg(self, msg: str, tag: str = None, stamp=None):
         """capture_log_msg for '[LIVE] Upgraded' lines: also remembers the
         line's extent via Tk marks so a Log Presets toggle can rewrite the
         LAST Upgraded line in place (rewrite_last_upgrade_line). LEFT
@@ -685,7 +730,8 @@ class CaptureTab(BaseTab):
         t.mark_set("upg_start", "end-1c")
         t.mark_gravity("upg_start", tk.LEFT)
         start = t.index("end-1c")
-        t.insert(tk.END, f"{msg}\n", tag)
+        t.insert(tk.END, msg, tag)
+        self._insert_lag(stamp, tag)
         self._colour_log_line(start, msg)
         t.mark_set("upg_end", "end-1c")
         t.mark_gravity("upg_end", tk.LEFT)
