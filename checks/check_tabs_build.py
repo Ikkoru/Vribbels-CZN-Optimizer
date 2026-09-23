@@ -2308,8 +2308,9 @@ def _gacha_history_draws_its_rows(tab):
     Returns a list of complaints.
     """
     import json as _json
+    import time as _time
     import gacha_history as gh
-    from ui.tabs.gacha_history_tab import FILTERS
+    from ui.tabs.gacha_history_tab import BEHIND_NOTE, BEHIND_TAG, FILTERS
 
     out = []
     banner = "gacha_pickup_combatant_990002"
@@ -2327,7 +2328,14 @@ def _gacha_history_draws_its_rows(tab):
         folder.mkdir(parents=True)
         (folder / gh.CAPTURED).write_text(_json.dumps({
             "kind": gh.STORE_KIND, "records": [record],
-            "rates": {banner: rates}, "pity": {}, "read": {}}),
+            "rates": {banner: rates},
+            # The game counted a pull after the newest record held, on a
+            # banner that has been read: behind, and it must say so.
+            "pity": {"gacha_pity_pickup_combatant": {
+                "res_id": "gacha_pity_pickup_combatant",
+                "pity_ssr_count": 1, "createAt": "1",
+                "updateAt": str(int(_time.time()))}},
+            "read": {banner: "2026-01-01T00:00:00"}}),
             encoding="utf-8")
         tab._folder = lambda: folder
         tab.refresh()
@@ -2335,6 +2343,12 @@ def _gacha_history_draws_its_rows(tab):
         if list(rows) != ["pickup_combatant"]:
             out.append(f"the Gacha History's banner list holds {list(rows)} "
                        f"for a history of one Combatant rate-up")
+        elif (BEHIND_TAG not in tab.summary_tree.item(rows[0])["tags"]
+              or tab.status_label.cget("text") != BEHIND_NOTE):
+            out.append(
+                "a banner the game has newer pulls for is not drawn red "
+                "with the status saying why. It is the only sign that its "
+                "records need reading again before the game forgets them.")
         pulls = [tab.pulls_tree.item(i) for i in tab.pulls_tree.get_children()]
         tags = [tuple(p["tags"]) for p in pulls]
         if tags != [("stars_unknown",), ("stars_5",), ("stars_4",),

@@ -4554,15 +4554,6 @@ AWAITING_FIRST_READING = {
     # or a distance read off the screen and agreed, and a run measured
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
-    #
-    # Gacha History's five: read by hand, the buttons and filter sat
-    # 1px under the tab list and the control groups 14 apart. The
-    # levers moved to meet the rules, and no run has seen them since.
-    "Gacha History: tab list -> buttons",
-    "Gacha History: tab list -> Show dropdown",
-    "Gacha History buttons: button -> button",
-    "Export JSON -> Show group",
-    "Show group -> help text",
 }
 
 

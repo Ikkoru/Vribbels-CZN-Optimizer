@@ -65,7 +65,7 @@ The names the tab shows are the notices' spelling, in `POOL_LABELS`. Players cal
 
 ## Rarity
 
-**The rate lists are the only statement of a unit's rarity the game makes**, and they name a unit the week it is released: `general_ssr_c_1004`, `pickup_c_16_rateup_ssr_c_30117`, `general_r_s_20010`. `stars_of` reads them first, the `CHARACTERS` and `PARTNERS` tables second, and **returns None where neither knows** -- drawn orange in the tab, never defaulted.
+**The rate lists are the only statement of a unit's rarity the game makes**, and they name a unit the week it is released: `general_ssr_c_1004`, `pickup_c_16_rateup_ssr_c_30117`, `general_r_s_20010`. `stars_of` reads them first, the `CHARACTERS` and `PARTNERS` tables second, and **returns None where neither knows** -- drawn red in the tab, a colour no rarity has, never defaulted.
 
 The default is the thing to never reintroduce. hub-czn read an unknown unit as a 3-star, so every 5-star released after it stopped being updated counted as a 3-star and its pity ran on through them.
 
@@ -93,7 +93,7 @@ A 5-star's outcome is `Won`, `Lost`, `Guaranteed`, `Rate-up` -- the featured uni
 
 **The tab reads nothing until it is first shown**, so that cost never lands on startup.
 
-A category is **behind** when its pity record's `updateAt` is later than the newest record held: pulls made since its records were last read. Only for a category that has been read at least once -- a finished beginner selection may have no screen left to open -- and not past `GAME_KEEPS_DAYS`, when those pulls are gone from the game anyway.
+A category is **behind** when its pity record's `updateAt` is later than the newest record held: pulls made since its records were last read. Only for a category that has been read at least once -- a finished beginner selection may have no screen left to open -- and not past `GAME_KEEPS_DAYS`, when those pulls are gone from the game anyway. The tab draws such a banner red and says why in its status line.
 
 **No Crystals-spent figure.** hub-czn showed pulls times 160, which is wrong for the Prism Module: it spends Prism Lens.
 

@@ -67,7 +67,7 @@ SUMMARY_COLUMNS = (
     ("fours", "4★", ("999",), tk.E),
     ("four_avg", "Avg 4★ pull", ("99.9",), tk.E),
     ("pity", "Pity now", ("99",), tk.E),
-    ("read", "Last read", ("0000-00-00 00:00 (behind)",), tk.CENTER),
+    ("read", "Last read", ("0000-00-00 00:00",), tk.CENTER),
 )
 PULL_COLUMNS = (
     ("number", "#", ("99999",), tk.E),
@@ -80,14 +80,13 @@ PULL_COLUMNS = (
     ("time", "Time", ("0000-00-00 00:00",), tk.CENTER),
 )
 
-# This tab's lists, styled apart from every other list in the app: their
-# text insets are three times the shared style's -- 6 against 2 in a
-# cell, 9 against 3 in a heading -- so columns read apart. A column is
-# exactly as wide as its widest text plus those insets on both sides, so
-# the insets ARE the gap between two columns' text.
+# This tab's lists, styled apart from every other list in the app: text
+# sits 12px in from its column's edges, in a cell and a heading alike,
+# so columns read apart and a heading lines up with its cells. A column
+# is exactly as wide as its widest text plus that inset on both sides,
+# so twice the inset IS the gap between two columns' text.
 TREE_STYLE = "GachaHistory.Treeview"
-CELL_INSET = 6
-HEADING_INSET = 9
+TEXT_INSET = 12
 # The heading's height is left as the shared style has it.
 HEADING_INSET_V = 3
 
@@ -100,6 +99,13 @@ STAR_COLOURS = {stars: RARITY_COLORS[stars] for stars in (5, 4, 3)}
 UNKNOWN_COLOUR = "red"
 
 NO_VALUE = "-"
+
+# A banner type the game has newer pulls for is drawn red, and the
+# status line says what that means. A red row rather than words in
+# `Last read`: at this tab's column inset, the width those words took
+# was what kept the two lists from fitting the default window.
+BEHIND_TAG = "behind"
+BEHIND_NOTE = "Red banners have newer pulls in game: read them again"
 
 
 def _stars(stars):
@@ -198,6 +204,8 @@ class GachaHistoryTab(BaseTab):
                                             height=1)
         self.summary_tree.pack(fill=tk.X)
         self.summary_tree.bind("<<TreeviewSelect>>", self._on_pick)
+        self.summary_tree.tag_configure(BEHIND_TAG,
+                                        foreground=self.colors["red"])
 
         self.pulls_frame = ttk.LabelFrame(body, text="Pulls",
                                           padding=px(0),
@@ -225,12 +233,11 @@ class GachaHistoryTab(BaseTab):
 
     @staticmethod
     def _style_lists():
-        """This tab's list style: the shared one, with its text insets
-        tripled.
+        """This tab's list style: the shared one, with wider text insets.
 
         **A layout with no padding element**, because the shared
         style's `padding` is two levers at once -- it insets the tree
-        area as well as every cell's text -- and tripled on the area it
+        area as well as every cell's text -- and widened on the area it
         pulls the heading row in from both ends, leaving a strip of the
         list's background beside it. Without the element, `padding`
         reaches only the text. Everything else, colours and row height
@@ -244,11 +251,11 @@ class GachaHistoryTab(BaseTab):
             pass
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
         style.configure(TREE_STYLE,
-                        padding=px((CELL_INSET, 0, CELL_INSET, 0)))
+                        padding=px((TEXT_INSET, 0, TEXT_INSET, 0)))
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
         style.configure(TREE_STYLE + ".Heading",
-                        padding=px((HEADING_INSET, HEADING_INSET_V,
-                                    HEADING_INSET, HEADING_INSET_V)))
+                        padding=px((TEXT_INSET, HEADING_INSET_V,
+                                    TEXT_INSET, HEADING_INSET_V)))
 
     def _make_tree(self, parent, columns, height):
         self._style_lists()
@@ -256,15 +263,14 @@ class GachaHistoryTab(BaseTab):
                             show="headings", height=height,
                             selectmode="browse", style=TREE_STYLE)
         # Measured, so no `px()` on the text's share -- the fonts already
-        # carry the scale. The insets are distances and take it.
+        # carry the scale. The inset is a distance and takes it.
         cell = tkfont.nametofont("TkDefaultFont")
         head = tkfont.nametofont("TkHeadingFont")
         for index, (col, title, samples, anchor) in enumerate(columns):
             samples = samples() if callable(samples) else samples
-            width = max(
-                head.measure(title) + px(2 * HEADING_INSET),
-                max(cell.measure(text) for text in samples)
-                + px(2 * CELL_INSET))
+            width = max([head.measure(title)]
+                        + [cell.measure(text) for text in samples]) \
+                + px(2 * TEXT_INSET)
             # A heading takes its column's anchor: left to Tk it centres
             # over a right-aligned number.
             tree.heading(col, text=title, anchor=anchor)
@@ -326,6 +332,9 @@ class GachaHistoryTab(BaseTab):
         if notes:
             self.status_label.configure(text="; ".join(notes),
                                         foreground=self.colors["red"])
+        elif any(pool.stats.behind for pool in self._shown_pools()):
+            self.status_label.configure(text=BEHIND_NOTE,
+                                        foreground=self.colors["red"])
         elif self.history.total:
             self.status_label.configure(
                 text="%s pulls kept" % format(self.history.total, ","),
@@ -351,7 +360,8 @@ class GachaHistoryTab(BaseTab):
         pools = self._shown_pools()
         for pool in pools:
             tree.insert("", tk.END, iid=pool.pool,
-                        values=self._summary_row(pool))
+                        values=self._summary_row(pool),
+                        tags=(BEHIND_TAG,) if pool.stats.behind else ())
         tree.configure(height=max(1, len(pools)))
         keep = self._pool if self._pool in {p.pool for p in pools} else (
             pools[0].pool if pools else None)
@@ -368,9 +378,6 @@ class GachaHistoryTab(BaseTab):
         read = NO_VALUE
         if s.read_at:
             read = s.read_at.replace("T", " ")[:16]
-            if s.behind:
-                # The game has pulls this history lacks: read again.
-                read += " (behind)"
         return (pool.label, format(s.pulls, ","), s.fives,
                 _number(s.avg_pity), _number(s.expected_pity),
                 gh.luck_rank(s.luckier_than) or NO_VALUE,

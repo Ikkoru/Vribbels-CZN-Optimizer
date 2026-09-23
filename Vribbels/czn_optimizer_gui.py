@@ -585,11 +585,15 @@ class OptimizerGUI:
         # of it is the only thing between the last row and the widget's
         # edge -- 0 there closes a gap that has no matching one at the
         # top, where the heading sits instead. It is shared by every
-        # list in the app, so this moves all six.
+        # list in the app but Gacha History's, whose style has a layout
+        # of its own -- so this moves all the others at once.
+        #
+        # 3 at the sides, the heading's own inset, so a cell's text sits
+        # as far from its column's edge as its heading's does.
         self.style.configure("Treeview", background=self.colors["bg_light"],
                              foreground=self.colors["fg"],
                              fieldbackground=self.colors["bg_light"],
-                             padding=px((2, 0, 2, 0)), rowheight=px(21))
+                             padding=px((3, 0, 3, 0)), rowheight=px(21))
         # No outline. The border's WIDTH is not a style option -- clam's
         # `Treeview.field` exposes only colours -- so the only way to drop
         # it is a layout with no field element, the same trick
