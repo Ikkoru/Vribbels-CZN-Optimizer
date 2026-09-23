@@ -2399,6 +2399,7 @@ def _gacha_history_draws_its_rows(tab):
                 f"the shared Treeview style, so a selected row drops its "
                 f"rarity or warning colour. Its own empty foreground map "
                 f"is what stops that, and looks like a no-op.")
+        out.extend(_gacha_overall_fits(tab, gh))
         pulls = [tab.pulls_tree.item(i) for i in tab.pulls_tree.get_children()]
         tags = [tuple(p["tags"]) for p in pulls]
         if tags != [("stars_unknown",), ("stars_5",), ("stars_4",),
@@ -2432,6 +2433,53 @@ def _gacha_history_draws_its_rows(tab):
     finally:
         tab.filter_var.set(FILTERS[0][0])
         shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
+def _gacha_overall_fits(tab, gh):
+    """Every cell of the Gacha History's Overall sheet fits its column.
+
+    Two kinds of cell are wider than what the columns were first
+    measured from: the bold section rows, and a streak's units, which
+    list every 5-star in it. A column too narrow for its text clips it
+    without a word. The history is handed a three-unit streak here.
+
+    Returns a list of complaints.
+    """
+    import tkinter.font as tkfont
+    from ui.scaling import px
+    from ui.tabs.gacha_history_tab import (
+        ALL_BANNERS, PRISM_ONLY, SECTION_FONT, SECTION_TAG, TEXT_INSET,
+        WITHOUT_PRISM)
+
+    out = []
+    five = next((pull for pool in tab.history.ordered()
+                 for pull in pool.pulls if pull.stars == 5), None)
+    if five is None:
+        return ["the Gacha History test history has no 5-star to build "
+                "a streak from"]
+    tab.history.overall.streak = gh.Standout(3, [five] * 3)
+    tab._fill_overall()
+    tree = tab.overall_tree
+    normal = tkfont.nametofont("TkDefaultFont")
+    bold = tkfont.Font(font=SECTION_FONT)
+    sections = []
+    for iid in tree.get_children():
+        item = tree.item(iid)
+        is_section = SECTION_TAG in item["tags"]
+        if is_section:
+            sections.append(str(item["values"][0]))
+        font = bold if is_section else normal
+        for column, text in zip(tree["columns"], item["values"]):
+            need = font.measure(str(text)) + px(2 * TEXT_INSET)
+            have = int(tree.column(column, "width"))
+            if need > have:
+                out.append(f"the Overall sheet's {column!r} column is "
+                           f"{have}px for {str(text)!r}, which needs "
+                           f"{need}: the text is clipped.")
+    if sections != [WITHOUT_PRISM, PRISM_ONLY, ALL_BANNERS]:
+        out.append(f"the Overall sheet's section rows read {sections}")
+    tab.refresh()
     return out
 
 

@@ -126,6 +126,24 @@ URGENT_FONT = ("Segoe UI", 9, "bold")
 # toolbar rather than width from the help text beside it.
 STATUS_WRAPLENGTH = 320
 
+# The figures across banners, under the Banners list: a sheet of
+# (figure, value, units, date) rows in three sections, each opened by a
+# bold row of its own. `gh.Overall` says why the Prism Module is kept
+# apart. The figure column is measured from the rows themselves; the
+# units column grows to the widest streak it is given.
+OVERALL_TITLE = "Overall"
+WITHOUT_PRISM = "All but Prism Module"
+PRISM_ONLY = "Prism Module"
+ALL_BANNERS = "All banners"
+SECTION_TAG = "section"
+SECTION_FONT = ("Segoe UI", 9, "bold")
+OVERALL_COLUMNS = (
+    ("value", "", ("Bottom <0.1%", "999 of 999, Bottom <0.1%",
+                   "999.9 (game 99.9)", "999 pulls", "99,999"), tk.W),
+    ("units", "", _unit_names, tk.W),
+    ("date", "", ("0000-00-00",), tk.CENTER),
+)
+
 
 def _stars(stars):
     return "%d★" % stars if stars else "?"
@@ -137,6 +155,26 @@ def _number(value, digits=1):
 
 def _when(epoch):
     return datetime.fromtimestamp(epoch).strftime("%Y-%m-%d %H:%M")
+
+
+def _rank(luckier):
+    return gh.luck_rank(luckier) or NO_VALUE
+
+
+def _standout(record, streak=False):
+    """(value, units, date) for one of `gh.Overall`'s records. A streak
+    counts 5-stars; the rest count pulls. The date is the last 5-star's,
+    when the record was set."""
+    if record is None:
+        return NO_VALUE, "", ""
+    if streak:
+        value = str(record.count)
+    else:
+        value = "%d pull%s" % (record.count, "" if record.count == 1
+                               else "s")
+    units = ", ".join(gh.unit_name(pull.res_id) for pull in record.pulls)
+    day = datetime.fromtimestamp(record.pulls[-1].at).strftime("%Y-%m-%d")
+    return value, units, day
 
 
 class GachaHistoryTab(BaseTab):
@@ -217,12 +255,14 @@ class GachaHistoryTab(BaseTab):
         help_label.bind("<Configure>", self._rewrap)
 
         # The two lists side by side: the banners at their own width on
-        # the left, the pulls taking whatever the window has left. The
-        # space under the banners is free for later.
+        # the left with the figures across them beneath, the pulls taking
+        # whatever the window has left. The pulls span both rows, and
+        # the second takes the slack, so the figures sit right under the
+        # banners however tall the pulls list is.
         body = ttk.Frame(content)
         body.pack(fill=tk.BOTH, expand=True)
         body.grid_columnconfigure(1, weight=1)
-        body.grid_rowconfigure(0, weight=1)
+        body.grid_rowconfigure(1, weight=1)
 
         summary_frame = ttk.LabelFrame(body, text="Banners",
                                        padding=px(0),
@@ -240,13 +280,40 @@ class GachaHistoryTab(BaseTab):
         self.summary_tree.tag_configure(URGENT_TAG,
                                         foreground=self.colors["red"])
 
+        overall_frame = ttk.LabelFrame(body, text=OVERALL_TITLE,
+                                       padding=px(0),
+                                       style="Borderless.TLabelframe")
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        # The leading pad is the lever on the gap from the banners above
+        # to this title, which the text rule sets; the banners keep the
+        # 2 every panel on this tab has.
+        overall_frame.grid(row=1, column=0, sticky="nw", padx=px(2),
+                           pady=px((5, 2)))
+        rows = self._overall_rows()
+        stats = [row if isinstance(row, str) else row[0] for row in rows]
+        self.overall_tree = self._make_tree(
+            overall_frame, (("stat", "", stats, tk.W),) + OVERALL_COLUMNS,
+            height=len(rows))
+        # A sheet to read, not a list to pick from: no headings, since
+        # every value says what it is, and no selection.
+        self.overall_tree.configure(show=(), selectmode="none")
+        self.overall_tree.tag_configure(SECTION_TAG, font=SECTION_FONT)
+        # The section rows are bold, which `_make_tree` did not measure.
+        bold = tkfont.Font(font=SECTION_FONT)
+        self._fit_column(self.overall_tree, "stat",
+                         [row for row in rows if isinstance(row, str)],
+                         bold)
+        self._units_width = int(self.overall_tree.column("units", "width"))
+        self.overall_tree.pack(fill=tk.X)
+
         self.pulls_frame = ttk.LabelFrame(body, text="Pulls",
                                           padding=px(0),
                                           style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- label, title ↕
-        self.pulls_frame.grid(row=0, column=1, sticky="nsew", padx=px(2),
-                              pady=px(2))
+        self.pulls_frame.grid(row=0, column=1, rowspan=2, sticky="nsew",
+                              padx=px(2), pady=px(2))
         self.pulls_tree = self._make_tree(self.pulls_frame, PULL_COLUMNS,
                                           height=20)
         scroll = ttk.Scrollbar(self.pulls_frame, orient=tk.VERTICAL,
@@ -393,6 +460,7 @@ class GachaHistoryTab(BaseTab):
             self._show_status("The history could not be read: %s" % e,
                               "red")
             self._fill_summary()
+            self._fill_overall()
             self._fill_pulls()
             return
         notes = self.history.notes
@@ -410,6 +478,7 @@ class GachaHistoryTab(BaseTab):
         else:
             self._show_status("No history yet", "fg_dim")
         self._fill_summary()
+        self._fill_overall()
         self._fill_pulls()
 
     def _show_status(self, text, colour):
@@ -477,6 +546,67 @@ class GachaHistoryTab(BaseTab):
                 _number(s.avg_pity), _number(s.expected_pity),
                 gh.luck_rank(s.luckier_than) or NO_VALUE,
                 fifty, s.fours, _number(s.four_avg), pity, read)
+
+    def _overall_rows(self):
+        """The Overall sheet, top to bottom: a section's name as a bare
+        string, every other row (figure, value, units, date)."""
+        o = self.history.overall if self.history is not None \
+            else gh.Overall()
+        fifty = NO_VALUE
+        if o.fifty_won or o.fifty_lost:
+            fifty = "%d of %d" % (o.fifty_won, o.fifty_won + o.fifty_lost)
+            if o.fifty_luck is not None:
+                fifty += ", " + gh.luck_rank(o.fifty_luck)
+        per = NO_VALUE
+        if o.rate_up_avg is not None:
+            per = _number(o.rate_up_avg)
+            if o.rate_up_expected is not None:
+                per += " (game %s)" % _number(o.rate_up_expected)
+        streak = "Most 5★s in %d pulls" % gh.STREAK_PULLS
+        return (
+            WITHOUT_PRISM,
+            ("Luck", _rank(o.luck_without_prism), "", ""),
+            ("Pulls", format(o.pulls_without_prism, ","), "", ""),
+            ("50/50s won", fifty, "", ""),
+            ("Pulls per rate-up Combatant", per, "", ""),
+            ("Fastest 5★",) + _standout(o.fastest),
+            ("Slowest 5★",) + _standout(o.slowest),
+            ("Fastest rate-up Combatant",) + _standout(o.fastest_rate_up),
+            ("Slowest rate-up Combatant",) + _standout(o.slowest_rate_up),
+            (streak,) + _standout(o.streak, streak=True),
+            PRISM_ONLY,
+            ("Fastest 5★",) + _standout(o.prism_fastest),
+            ("Slowest 5★",) + _standout(o.prism_slowest),
+            (streak,) + _standout(o.prism_streak, streak=True),
+            ALL_BANNERS,
+            ("Luck", _rank(o.luck_with_prism), "", ""),
+        )
+
+    def _fill_overall(self):
+        tree = self.overall_tree
+        tree.delete(*tree.get_children())
+        rows = self._overall_rows()
+        for row in rows:
+            if isinstance(row, str):
+                tree.insert("", tk.END, values=self._spaced((row, "", "", "")),
+                            tags=(SECTION_TAG,))
+            else:
+                tree.insert("", tk.END, values=self._spaced(row))
+        # Back to the width the column was built at, then out to the
+        # widest streak: a history that loses a long one shrinks again.
+        tree.column("units", width=self._units_width)
+        self._fit_column(tree, "units",
+                         [row[2] for row in rows if not isinstance(row, str)],
+                         tkfont.nametofont("TkDefaultFont"))
+
+    @staticmethod
+    def _fit_column(tree, column, texts, font):
+        """Widen `column` to its widest text, where that is wider than it
+        is. Measured, so only the inset takes `px()`."""
+        need = max([font.measure(text) for text in texts] + [0]) \
+            + px(2 * TEXT_INSET)
+        if need > int(tree.column(column, "width")):
+            tree.column(column, width=need)
 
     def _on_pick(self, _event):
         chosen = self.summary_tree.selection()

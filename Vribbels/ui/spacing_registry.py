@@ -959,6 +959,8 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_gap("Requirements", "Capture Log", "v")),
     ("Capture", "Upgrade Log Settings -> Capture Log title", 10, None,
      _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
+    ("Gacha History", "Banners -> Overall title", 10, None,
+     _panel_gap("Banners", "Overall", "v")),
 
     # Text above, a panel below. The three tab headings differ only in
     # how much container padding stands under them, Setup spending more
@@ -4554,6 +4556,7 @@ AWAITING_FIRST_READING = {
     # or a distance read off the screen and agreed, and a run measured
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
+    "Banners -> Overall title",
 }
 
 
@@ -4622,6 +4625,7 @@ def register_all():
             resolve=resolve,
             axis="v",
             hand=hand,
+            provisional=name in AWAITING_FIRST_READING,
         )
 
     for tab, _heading in TAB_LIST_TABS:

@@ -312,6 +312,131 @@ def _behind_by_counters(gh, folder, failures):
                 f"unhurried, until the game forgot it.")
 
 
+def _across_math(gh, failures):
+    """Luck across pools, against the sums it stands for.
+
+    Pools on one base rate must come out as one history of all their
+    5-stars, and two base rates as the full convolution the tail read
+    shortcuts. The 50/50 share against the binomial it is on even odds.
+    """
+    from math import comb
+
+    split = gh.luckier_than_across([(0.01, [50, 60]), (0.01, [40])])
+    whole = gh.luckier_than([50, 60, 40], 0.01)
+    if abs(split - whole) > 1e-12:
+        failures.append(f"two pools on one base rate read {split} across "
+                        f"them and {whole} as one history of the same "
+                        f"5-stars; they are one sum of cycles.")
+    low, high = [50, 60], [20, 30, 10]
+    odds = gh._convolve(gh._sum_odds(0.01, len(low)),
+                        gh._sum_odds(0.03, len(high)))
+    took = sum(low) + sum(high)
+    brute = sum(odds[took + 1:]) + odds[took] / 2
+    got = gh.luckier_than_across([(0.03, high), (0.01, low)])
+    if abs(got - brute) > 1e-12:
+        failures.append(f"luck across a 1% and a 3% pool reads {got}, where "
+                        f"the full convolution says {brute}.")
+    want = (sum(comb(12, i) for i in range(4)) + comb(12, 4) / 2) / 2 ** 12
+    got = gh.won_fewer([0.5] * 12, 4)
+    if abs(got - want) > 1e-12:
+        failures.append(f"4 50/50s won of 12 read {got} as the share who "
+                        f"won fewer; the binomial says {want}.")
+
+
+def _prism_rates():
+    """The Prism Module's rates: a 3% base, no 50/50."""
+    return {"rates": {"total_ratio": 100000, "ssr_ratio": 3000},
+            "total_rate_info": {"total_ssr_pool_pct": 3527.34},
+            "pools": {}}
+
+
+def _across(gh, folder, failures):
+    """The Overall figures, on a history laid out to give each one a
+    known answer.
+
+    Combatant rate-up, oldest first -- the history starts mid-cycle,
+    so its first 5-star's pity and the cost of the rate-up after it are
+    unknown:
+
+        pull  1  off-banner  Lost        pity 1, only a floor
+        pull  4  featured    Guaranteed  cost unknown: started before
+        pull 14  featured    Won         pity 10, cost 10
+        pull 16  off-banner  Lost        pity 2
+        pull 20  featured    Guaranteed  pity 4, cost 2 + 4 = 6
+        pull 24  off-banner  Lost        pity 4
+
+    Pulls 14 to 23 and 16 to 25 hold three 5-stars each, and the
+    earlier run is the record; an 11-pull window would find four. The
+    Prism Module pays a 5-star on each of its three pulls, which must
+    reach none of the figures without it, and its last two tie at a
+    pity of 1 -- the earlier is the record.
+    """
+    store_dir = gh.folder_in(folder)
+    store_dir.mkdir(parents=True)
+    prism = "gacha_card_factor"
+    records = [
+        _record(1, BANNER, 1000, [OFF_BANNER]),
+        _record(2, BANNER, 2000, [THREE] * 2 + [FEATURED]),
+        _record(3, BANNER, 3000, [THREE] * 9 + [FEATURED]),
+        _record(4, BANNER, 4000, [THREE] + [OFF_BANNER]),
+        _record(5, BANNER, 5000, [THREE] * 3 + [FEATURED]),
+        _record(6, BANNER, 5500, [THREE] * 3 + [OFF_BANNER]),
+        _record(7, prism, 6000, [FEATURED, FEATURED]),
+        _record(8, prism, 7000, [FEATURED]),
+    ]
+    store = {"kind": gh.STORE_KIND, "version": 1, "records": records,
+             "rates": {BANNER: _rates(), prism: _prism_rates()}}
+    (store_dir / gh.CAPTURED).write_text(json.dumps(store),
+                                         encoding="utf-8")
+    o = gh.load(folder).overall
+
+    def said(record):
+        if record is None:
+            return None
+        return (record.count, [p.res_id for p in record.pulls],
+                record.pulls[-1].at)
+
+    want = {
+        "pulls_without_prism": 24,
+        "fifty_won": 1, "fifty_lost": 3,
+        "rate_up_avg": 8.0,
+        "fastest": (2, [OFF_BANNER], 4000),
+        "slowest": (10, [FEATURED], 3000),
+        "fastest_rate_up": (6, [FEATURED], 5000),
+        "slowest_rate_up": (10, [FEATURED], 3000),
+        "streak": (3, [FEATURED, OFF_BANNER, FEATURED], 5000),
+        "prism_fastest": (1, [FEATURED], 6000),
+        "prism_slowest": (1, [FEATURED], 6000),
+        "prism_streak": (3, [FEATURED] * 3, 7000),
+    }
+    for field, expected in want.items():
+        value = getattr(o, field)
+        got = said(value) if isinstance(value, gh.Standout) else value
+        if got != expected:
+            failures.append(f"Overall's {field} reads {got}, not "
+                            f"{expected}, on a history laid out to give "
+                            f"{expected}.")
+    expected = gh.won_fewer([0.5] * 4, 1)
+    if o.fifty_luck != expected:
+        failures.append(f"Overall's 50/50 luck reads {o.fifty_luck} for 1 "
+                        f"won of 4, not {expected}.")
+    rates = _rates()
+    per = gh.pulls_per_five(gh.base_rate(rates)) * 1.5
+    if o.rate_up_expected is None or abs(o.rate_up_expected - per) > 1e-9:
+        failures.append(f"Overall's game figure per rate-up reads "
+                        f"{o.rate_up_expected}, not {per}: a cycle, and "
+                        f"another after each lost 50/50.")
+    fives = [3, 10, 2, 4, 4]
+    without = gh.luckier_than_across([(0.01, fives)])
+    with_prism = gh.luckier_than_across([(0.01, fives), (0.03, [1, 1])])
+    if (o.luck_without_prism, o.luck_with_prism) != (without, with_prism):
+        failures.append(
+            f"Overall's luck reads {o.luck_without_prism} without the "
+            f"Prism Module and {o.luck_with_prism} with it, not {without} "
+            f"and {with_prism}: the first must leave the Module out, and "
+            f"both must leave out every pool's first cycle cut short.")
+
+
 def _supersede(gh, folder, failures):
     """An import covering pulls the game's own records hold is dropped."""
     store_dir = gh.folder_in(folder)
@@ -591,6 +716,8 @@ def run():
         _history(gh, tmp / "history", failures)
         _dated(gh, tmp / "dated", failures)
         _behind_by_counters(gh, tmp / "behind", failures)
+        _across_math(gh, failures)
+        _across(gh, tmp / "across", failures)
         _supersede(gh, tmp / "supersede", failures)
         (tmp / "write").mkdir()
         _verified_write(gh, tmp / "write", failures)

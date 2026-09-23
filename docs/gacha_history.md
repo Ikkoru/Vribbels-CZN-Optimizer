@@ -99,6 +99,15 @@ A category is **behind** when the game's counters have moved past its history: t
 
 **No Crystals-spent figure.** hub-czn showed pulls times 160, which is wrong for the Prism Module: it spends Prism Lens.
 
+## Across categories
+
+The Overall sheet under the Banners list is `across_pools`, into `Overall`. **The Observe Prism Module is kept apart**: it spends its own currency and pays a 5-star three times as often, so a figure it would dominate is given without it, and its records are its own. The two 50-pull categories never reach a luck figure, having no schedule to compare against.
+
+- **Luck across categories is `luckier_than_across`**: the chance that a player who pulled the same categories and got as many 5-stars on each needed more pulls IN TOTAL. It is not an average of the categories' own figures -- a little unlucky on each adds up, and the whole can sit further out than any one of them. Categories on one base rate are one sum of cycles; different base rates are convolved.
+- **The 50/50 record** counts every Combatant rate-up's wins and losses, reruns included, and ranks them with `won_fewer`: the share of players who won fewer, each 50/50 at the chance its rates give.
+- **A rate-up Combatant's cost** is the pulls since the rate-up before it, a lost 50/50 included -- `_rate_up_costs`. Only where the start is known: a history starting mid-cycle does not know the first one's, and a 5-star of unknown outcome may have been the rate-up, so the one after it is unknown too. The game's figure beside the average is `pulls_per_five` times `2 - p`, `p` the chance of winning the 50/50: one cycle, and a second after each loss.
+- **The records rest on the same pulls as the averages** -- a first 5-star whose pity is only a floor is never the fastest or the slowest -- and **a tie goes to the earliest**, since a record stands until something beats it. A streak is any `STREAK_PULLS` pulls in a row on one category, not only a single 10-pull.
+
 ## Importing
 
 `parse_import` says which files it reads. hub-czn's `Export JSON` is the one that loses things:

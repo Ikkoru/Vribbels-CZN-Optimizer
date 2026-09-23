@@ -421,6 +421,29 @@ def has_fifty_fifty(rates):
         r.get("ssr_ratio"))
 
 
+def fifty_chance(rates):
+    """The chance a 50/50 is won, from the split `has_fifty_fifty`
+    reads. The notices' one half where the rates have not been read."""
+    r = (rates or {}).get("rates") or {}
+    up = r.get("ssr_rate_up_success_ratio") or 0
+    other = r.get("ssr_ratio") or 0
+    return up / (up + other) if up and other else 0.5
+
+
+def won_fewer(trials, won):
+    """The share of players who won fewer 50/50s than `won`, out of
+    `trials` -- each trial its chance of a win -- with half of a tie,
+    as `luckier_than` counts one."""
+    odds = [1.0]
+    for p in trials:
+        odds = [(odds[k] if k < len(odds) else 0.0) * (1 - p)
+                + (odds[k - 1] * p if k else 0.0)
+                for k in range(len(odds) + 1)]
+    if not trials:
+        return None
+    return sum(odds[:won]) + odds[won] / 2
+
+
 # (base rate) -> [odds of the total pulls k 5-stars took], k = 0, 1, ...
 # Built one 5-star at a time and kept for the session, so a new 5-star
 # costs one step rather than the whole table.
@@ -458,6 +481,57 @@ def luckier_than(pities, base):
     above = sum(odds[took + 1:])
     same = odds[took] if took < len(odds) else 0.0
     return above + same / 2
+
+
+def luckier_than_across(groups):
+    """`luckier_than` over several pools at once.
+
+    `groups` is `(base, pities)` per pool. The share of players who
+    needed more pulls IN TOTAL for as many 5-stars on each pool as this
+    history got. **Not an average of the pools' own figures**: being a
+    little unlucky on each adds up, so the whole can sit further out
+    than any one of them.
+
+    Pools on one base rate are one sum of cycles. Different base rates
+    are convolved, all but the last in full -- the last is read off its
+    tail, which is what keeps two long histories from costing a full
+    product of their tables.
+    """
+    by_base = {}
+    for base, pities in groups:
+        if base and pities:
+            by_base.setdefault(base, []).extend(pities)
+    if not by_base:
+        return None
+    took = sum(sum(pities) for pities in by_base.values())
+    tables = [_sum_odds(base, len(pities))
+              for base, pities in sorted(by_base.items())]
+    odds = [1.0]
+    for table in tables[:-1]:
+        odds = _convolve(odds, table)
+    last = tables[-1]
+    tail = [0.0] * (len(last) + 1)          # tail[i] = P(last >= i)
+    for i in range(len(last) - 1, -1, -1):
+        tail[i] = tail[i + 1] + last[i]
+    luckier = 0.0
+    for before, p in enumerate(odds):
+        if p < 1e-18:
+            continue
+        need = took - before
+        above = tail[max(0, need + 1)] if need + 1 < len(tail) else 0.0
+        same = last[need] if 0 <= need < len(last) else 0.0
+        luckier += p * (above + same / 2)
+    return luckier
+
+
+def _convolve(a, b):
+    out = [0.0] * (len(a) + len(b) - 1)
+    for i, p in enumerate(a):
+        if p < 1e-18:
+            continue
+        for j, q in enumerate(b):
+            out[i + j] += p * q
+    return out
 
 
 def luck_rank(luckier):
@@ -558,6 +632,7 @@ class History:
         self.rates = {}
         self.pity = {}
         self.batches = []
+        self.overall = Overall()
 
     def ordered(self):
         known = [self.pools[p] for p in POOL_ORDER if p in self.pools]
@@ -567,6 +642,43 @@ class History:
     @property
     def total(self):
         return sum(len(p.pulls) for p in self.pools.values())
+
+
+class Standout:
+    """One record: how many pulls it took, or how many 5-stars a streak
+    held, and the 5-star pulls behind it, oldest first."""
+
+    def __init__(self, count, pulls):
+        self.count = count
+        self.pulls = pulls
+
+
+class Overall:
+    """What the pools add up to together -- `across_pools`.
+
+    **The Observe Prism Module is kept apart**, because it spends its
+    own currency and pays a 5-star three times as often: where it would
+    dominate a figure, the figure is given without it, and the Module's
+    records are its own.
+    """
+
+    def __init__(self):
+        # `luckier_than` shares.
+        self.luck_without_prism = None
+        self.luck_with_prism = None
+        self.pulls_without_prism = 0
+        # Every Combatant rate-up's 50/50s, reruns included.
+        self.fifty_won = self.fifty_lost = 0
+        self.fifty_luck = None
+        # Pulls per rate-up Combatant, and what the schedule and the
+        # 50/50 make that on average.
+        self.rate_up_avg = None
+        self.rate_up_expected = None
+        self.fastest = self.slowest = None
+        self.fastest_rate_up = self.slowest_rate_up = None
+        self.streak = None
+        self.prism_fastest = self.prism_slowest = None
+        self.prism_streak = None
 
 
 # ------------------------------------------------------------ batches
@@ -990,6 +1102,7 @@ def load(folder, now=None):
     now = time.time() if now is None else now
     for entry in history.pools.values():
         _judge_freshness(entry, now)
+    history.overall = across_pools(history)
     return history
 
 
@@ -1154,3 +1267,138 @@ def _judge_freshness(entry, now):
         read = None
     stats.urgent = bool(stats.behind and read is not None
                         and now - read > URGENT_AFTER_DAYS * 86400)
+
+
+# -------------------------------------------------------- across pools
+
+PRISM_POOL = "card_factor"
+
+# How many pulls in a row a streak counts 5-stars over: any run of that
+# many consecutive pulls in one pool, not only a single 10-pull.
+STREAK_PULLS = 10
+
+# The outcomes that were the rate-up unit.
+RATE_UP_OUTCOMES = frozenset({WON, GUARANTEED, RATE_UP})
+
+
+def across_pools(history):
+    """The figures the pools add up to together. See `Overall`.
+
+    **Ties go to the earliest**: a record stands until something beats
+    it. Records rest on the same pulls the averages do -- a history
+    that starts mid-cycle does not know its first 5-star's pity, so
+    that 5-star is never the fastest or the slowest.
+    """
+    overall = Overall()
+    pools = history.ordered()
+    others = [e for e in pools if e.pool != PRISM_POOL]
+    prism = [e for e in pools if e.pool == PRISM_POOL]
+
+    groups = {e.pool: _luck_group(e, history) for e in pools}
+    overall.luck_without_prism = luckier_than_across(
+        [groups[e.pool] for e in others if groups[e.pool]])
+    overall.luck_with_prism = luckier_than_across(
+        [g for g in groups.values() if g])
+    overall.pulls_without_prism = sum(len(e.pulls) for e in others)
+
+    trials = []
+    costs = []                       # (pulls, the rate-up 5-star, expected)
+    for entry in pools:
+        if entry.stats.won is None:
+            continue
+        rates = _pool_rates(entry.pool, history.rates)
+        chance = fifty_chance(rates)
+        trials += [(chance, pull.outcome == WON) for pull in entry.pulls
+                   if pull.outcome in (WON, LOST)]
+        expected = None
+        if schedule_matches(rates):
+            expected = pulls_per_five(base_rate(rates)) * (2 - chance)
+        costs += [(n, pull, expected) for n, pull in _rate_up_costs(entry)]
+    if trials:
+        overall.fifty_won = sum(1 for _p, won in trials if won)
+        overall.fifty_lost = len(trials) - overall.fifty_won
+        overall.fifty_luck = won_fewer([p for p, _won in trials],
+                                       overall.fifty_won)
+    if costs:
+        overall.rate_up_avg = sum(n for n, _p, _e in costs) / len(costs)
+        if all(e is not None for _n, _p, e in costs):
+            overall.rate_up_expected = sum(
+                e for _n, _p, e in costs) / len(costs)
+        rate_ups = [(n, pull) for n, pull, _e in costs]
+        overall.fastest_rate_up = _record(rate_ups, fastest=True)
+        overall.slowest_rate_up = _record(rate_ups, fastest=False)
+
+    for entries, fast, slow, streak in (
+            (others, "fastest", "slowest", "streak"),
+            (prism, "prism_fastest", "prism_slowest", "prism_streak")):
+        fives = [(pull.pity, pull) for e in entries
+                 for pull in _complete_fives(e)]
+        setattr(overall, fast, _record(fives, fastest=True))
+        setattr(overall, slow, _record(fives, fastest=False))
+        setattr(overall, streak, _best_streak(entries))
+    return overall
+
+
+def _complete_fives(entry):
+    """A pool's 5-star pulls whose pity is a whole cycle."""
+    fives = [pull for pull in entry.pulls if pull.stars == 5]
+    return fives[1:] if entry.stats.first_partial else fives
+
+
+def _luck_group(entry, history):
+    """`(base, pities)` for `luckier_than_across`, or None where the
+    pool's luck cannot be drawn -- see `schedule_matches`."""
+    rates = _pool_rates(entry.pool, history.rates)
+    pities = [pull.pity for pull in _complete_fives(entry)]
+    if not pities or not schedule_matches(rates):
+        return None
+    return base_rate(rates), pities
+
+
+def _rate_up_costs(entry):
+    """`(pulls, pull)` for each rate-up 5-star: the pulls since the one
+    before it, a lost 50/50 included -- what that unit cost.
+
+    Only where the start is known: the pool's first pull, where the
+    history reaches back to it, or the rate-up before. A 5-star whose
+    outcome nobody knows may have been the rate-up, so the next one's
+    cost is not known either.
+    """
+    since = None if entry.stats.first_partial else 0
+    for pull in entry.pulls:
+        if since is not None:
+            since += 1
+        if pull.stars != 5:
+            continue
+        if pull.outcome in RATE_UP_OUTCOMES:
+            if since is not None:
+                yield since, pull
+            since = 0
+        elif pull.outcome != LOST:
+            since = None
+
+
+def _record(candidates, fastest):
+    """The fewest or the most pulls among `(pulls, pull)`, earliest on
+    a tie."""
+    if not candidates:
+        return None
+    sign = 1 if fastest else -1
+    n, pull = min(candidates, key=lambda c: (sign * c[0], c[1].at or 0))
+    return Standout(n, [pull])
+
+
+def _best_streak(entries):
+    """The most 5-stars in any `STREAK_PULLS` pulls in a row on one
+    pool, earliest on a tie. None where there is no 5-star."""
+    best = None
+    for entry in entries:
+        at = [i for i, pull in enumerate(entry.pulls) if pull.stars == 5]
+        for k, start in enumerate(at):
+            run = [entry.pulls[i] for i in at[k:]
+                   if i - start < STREAK_PULLS]
+            if best is None or len(run) > len(best) or (
+                    len(run) == len(best)
+                    and (run[-1].at or 0) < (best[-1].at or 0)):
+                best = run
+    return Standout(len(best), best) if best else None
