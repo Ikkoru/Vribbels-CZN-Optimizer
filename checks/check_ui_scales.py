@@ -51,7 +51,7 @@ PIXEL_OPTIONS = ("padx", "pady", "ipadx", "ipady")
 
 TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
              "HeroesTab", "ScoringTab", "MaterialsTab",
-             "ChecklistTab")
+             "ChecklistTab", "GachaHistoryTab")
 
 
 def _shadowed_helper():

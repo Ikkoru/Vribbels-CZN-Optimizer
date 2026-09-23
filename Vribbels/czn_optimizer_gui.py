@@ -86,7 +86,7 @@ from optimizer import GearOptimizer
 # same set.
 from optimizer.optimizer import SLOT5_ELEMENT_MAINS
 from config import AppConfig
-from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, ChecklistTab
+from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, ChecklistTab, GachaHistoryTab
 from ui.utils.button_width import BUTTON_PAD_X
 from ui import scaling
 from ui.scaling import px
@@ -848,6 +848,14 @@ class OptimizerGUI:
         self.setup_tab_instance = SetupTab(self.notebook, self.app_context)
         self.setup_tab = self.setup_tab_instance.get_frame()
 
+        self.gacha_tab_instance = GachaHistoryTab(self.notebook,
+                                                  self.app_context)
+        self.gacha_tab = self.gacha_tab_instance.get_frame()
+        # The addon's history writes arrive on the proxy-reader thread,
+        # and a worker must not reach Tk directly -- see
+        # `_on_gacha_written`.
+        self.capture_manager.gacha_update_callback = self._on_gacha_written
+
         # Set cross-tab refs BEFORE ScoringTab is created — it uses both at init.
         self.app_context.inventory_tab = self.inventory_tab_instance
         self.app_context.heroes_tab = self.heroes_tab_instance
@@ -869,8 +877,7 @@ class OptimizerGUI:
 
         # ---- Add tabs to notebook in display order ----
         # Optimizer | Memory Fragments | Gear Score | Combatants | Materials |
-        #   Capture | Setup & Settings, with Checklist between
-        #   Materials and Capture
+        #   Checklist | Capture | Setup & Settings | Gacha History
         self.notebook.add(self.optimizer_tab, text="Optimizer")
         self.notebook.add(self.inventory_tab, text="Memory Fragments")
         self.notebook.add(self.scoring_tab, text="Gear Score")
@@ -879,6 +886,7 @@ class OptimizerGUI:
         self.notebook.add(self.checklist_tab, text="Checklist")
         self.notebook.add(self.capture_tab, text="Capture")
         self.notebook.add(self.setup_tab, text="Setup & Settings")
+        self.notebook.add(self.gacha_tab, text="Gacha History")
 
         # First-launch default: switch to the Setup & Settings tab so the user lands
         # on the proxy/cert installation flow before trying to use the
@@ -1094,6 +1102,18 @@ class OptimizerGUI:
             messagebox.showerror("Error", f"Failed to load: {e}")
             import traceback
             traceback.print_exc()
+
+    def _on_gacha_written(self):
+        """The capture wrote the Gacha History's file.
+
+        Runs on the proxy-reader thread, so it only schedules. `after()`
+        from a worker works inside mainloop and raises outside it, where
+        there is no tab left to refresh -- see `docs/ui_runtime.md`.
+        """
+        try:
+            self.root.after(0, self.gacha_tab_instance.on_capture_update)
+        except (RuntimeError, tk.TclError):
+            pass
 
     def _handle_live_update(self):
         """Handle live update from capture — reload latest snapshot and refresh UI.

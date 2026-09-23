@@ -47,7 +47,7 @@ NAME = "tabs build"
 # it is here too.
 TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
              "HeroesTab", "ScoringTab", "MaterialsTab",
-             "ChecklistTab")
+             "ChecklistTab", "GachaHistoryTab")
 
 
 def _make_checkbox_forces_its_window():

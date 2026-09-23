@@ -61,6 +61,10 @@ def is_loopback_address(ip: str) -> bool:
 # them equal -- drift means the app silently stops reloading.
 SAVE_MARKER = "[SYNC] saved"
 
+# The same for the Gacha History's file, which refreshes only its own
+# tab. Held equal to the addon's by the same check.
+GACHA_MARKER = "[SYNC] gacha"
+
 # What says this is a working copy rather than a released build, and so
 # that the developer tooling may run. The `zRUN*.bat` launchers set it;
 # a frozen exe has no way to, which is the point -- a user's capture
@@ -79,6 +83,7 @@ Extracts Memory Fragment inventory and character data from game API responses.
 
 import json
 import gzip
+import os
 import time
 import zlib
 from collections import deque
@@ -105,6 +110,11 @@ SAVE_REPLACE_WAIT = 0.2
 # reload riding on it was skipped for exactly the login-burst saves
 # that carry the shops. The reader consumes this and does not show it.
 SAVE_MARKER = "[SYNC] saved"
+
+# Printed after every write of the Gacha History's file, and consumed
+# the same way. The app refreshes that one tab on it: a history page is
+# no reason to reload the whole snapshot, which a `[LIVE]` line costs.
+GACHA_MARKER = "[SYNC] gacha"
 
 # How much of a payload the wire catalogue keeps as an example, and how
 # many entries it will hold. The sample says what SHAPE a field is, not
@@ -373,6 +383,15 @@ class Addon:
         # the server answers res='ok'. A set of qids; the request
         # carries nothing else worth keeping.
         self.pending_coffees = set()
+
+        # What each gacha request asked for, by qid: ("history", banner,
+        # cursor) or ("get_rate", banner, None). **Neither reply says**
+        # -- a rates reply does not name its banner, and a history page
+        # does not say whether it is the first. See `_merge_gacha`.
+        self.gacha_requests = {}
+        # Set once the Gacha History's file has refused to be read, so
+        # the complaint is made once rather than on every page.
+        self._gacha_refused = False
 
         # Load zstd dictionary if available
         if dict_path and dict_path.exists() and HAS_ZSTD:
@@ -1372,6 +1391,254 @@ class Addon:
             self.disaster_seasons = data["disaster_entities"]
             self._save_pending = True
 
+        # The Gacha History: pages of the game's Rescue records, a
+        # banner's rates, the pity counters. Its own file, not the
+        # snapshot -- see `_merge_gacha` -- and a failure there must
+        # never cost the rest of the capture.
+        asked = self.gacha_requests.pop(qid, None) if qid is not None \\
+            else None
+        try:
+            self._merge_gacha(asked, data)
+        except Exception as e:
+            self.log_callback("[X] Gacha History: " + str(e))
+
+    # ------------------------------------------------ the gacha history
+
+    def _merge_gacha(self, asked, data):
+        """Fold one reply's history page, rates or pity counters into
+        the Gacha History's file.
+
+        **The one record here a later capture cannot rebuild.** The game
+        lists about half a year of pulls and drops the rest, so the file
+        lives in `gacha_history/`, where neither the snapshot rotation
+        nor the archive reaches, and a reply only ever ADDS to it: a
+        record the game has stopped listing stays, which is the point.
+        `gacha_history.py` does the reading.
+
+        Records are kept exactly as the wire sent them, keyed by the `id`
+        the game gives each one.
+        """
+        records = data.get("gacha_history_list")
+        records = records if isinstance(records, list) else None
+        rates = None
+        if (asked and asked[0] == "get_rate"
+                and isinstance(data.get("rates"), dict)):
+            rates = {key: data.get(key)
+                     for key in ("rates", "total_rate_info", "pools")}
+        pities = []
+        for key in ("gacha_pity_entity_list", "gacha_pities"):
+            if isinstance(data.get(key), list):
+                pities.extend(row for row in data[key]
+                              if isinstance(row, dict))
+        if isinstance(data.get("gacha_pity_entity"), dict):
+            pities.append(data["gacha_pity_entity"])
+        if records is None and rates is None and not pities:
+            return
+
+        store = self._read_gacha_store()
+        if store is None:
+            return
+        held = {}
+        for row in store["records"]:
+            if isinstance(row, dict) and row.get("id") not in (None, ""):
+                held[str(row["id"])] = row
+        before = list(held.values())
+        added = 0
+        for row in records or ():
+            if not isinstance(row, dict) or row.get("id") in (None, ""):
+                continue
+            if str(row["id"]) not in held:
+                held[str(row["id"])] = row
+                added += self._gacha_pulls_in(row)
+        changed = bool(added)
+        when = datetime.now().isoformat(timespec="seconds")
+
+        # The FIRST page -- no cursor -- is the newest pulls, so reading
+        # it is what brings a banner up to date. The rest only reach
+        # further back.
+        if records is not None and asked and asked[0] == "history" \\
+                and not asked[2]:
+            store["read"][asked[1]] = when
+            changed = True
+        if rates is not None:
+            was = store["rates"].get(asked[1])
+            if not isinstance(was, dict) or any(
+                    was.get(key) != value for key, value in rates.items()):
+                store["rates"][asked[1]] = dict(rates, seen=when)
+                changed = True
+        for row in pities:
+            name = row.get("res_id")
+            was = store["pity"].get(name)
+            if not name or was == row:
+                continue
+            # `version` is the record's write counter, so an older copy
+            # arriving late cannot overwrite a newer one.
+            if isinstance(was, dict) and self._gacha_int(
+                    row.get("version")) < self._gacha_int(was.get("version")):
+                continue
+            store["pity"][name] = row
+            changed = True
+        if not changed:
+            return
+
+        # Newest first, the order the game lists them in.
+        store["records"] = sorted(
+            held.values(), reverse=True,
+            key=lambda r: (self._gacha_int(r.get("createAt")),
+                           self._gacha_int(r.get("id"))))
+        if not self._write_gacha_store(store, before):
+            return
+        if added:
+            total = sum(self._gacha_pulls_in(r) for r in store["records"])
+            self.log_callback(
+                "[GACHA] Rescue records: +%d pulls, %d kept" % (added, total))
+        self.log_callback(GACHA_MARKER)
+
+    @staticmethod
+    def _gacha_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _gacha_pulls_in(record):
+        """How many pulls one record is. `reward` is JSON TEXT on the
+        wire -- `"[1009,30117]"` -- not a list."""
+        reward = record.get("reward")
+        if isinstance(reward, str):
+            try:
+                reward = json.loads(reward)
+            except ValueError:
+                return 0
+        return len(reward) if isinstance(reward, list) else 0
+
+    def _gacha_path(self):
+        return self.output_dir / GACHA_FOLDER / GACHA_FILE
+
+    def _read_gacha_store(self):
+        """The Gacha History's file, or a fresh one where there is none.
+
+        **Falls back to the backup** where the file is missing or will
+        not parse: a write renames the file to its backup before the new
+        copy takes its place, so a capture killed between the two leaves
+        only the backup. Starting fresh there would put a one-page
+        history over the whole of it at the next write.
+
+        None where something is there and cannot be read at all --
+        writing then would do the same.
+        """
+        path = self._gacha_path()
+        problems = []
+        for candidate in (path, path.with_name(path.name + ".bak")):
+            if not candidate.exists():
+                continue
+            try:
+                with open(candidate, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except (OSError, ValueError) as e:
+                problems.append(candidate.name + ": " + str(e))
+                continue
+            if not isinstance(data, dict):
+                problems.append(candidate.name + ": not a history file")
+                continue
+            for key, empty in (("records", list), ("rates", dict),
+                               ("pity", dict), ("read", dict)):
+                if not isinstance(data.get(key), empty):
+                    data[key] = empty()
+            return data
+        if problems:
+            if not self._gacha_refused:
+                self._gacha_refused = True
+                self.log_callback(
+                    "[X] Gacha History could not be read ("
+                    + "; ".join(problems) + "). Nothing new is kept "
+                    "until it can be.")
+            return None
+        return {"kind": GACHA_KIND, "version": 1, "records": [],
+                "rates": {}, "pity": {}, "read": {}}
+
+    def _write_gacha_store(self, store, before):
+        """Write the Gacha History through a checked copy.
+
+        The copy is written and read back, and must equal what was meant
+        and still hold every record `before` held, unchanged. Only then
+        does the file become `<name>.bak` -- which replaces the older
+        backup, and is how the older one goes -- and the copy take its
+        place. A failure before that leaves the file exactly as it was.
+
+        The same procedure as `gacha_history.write_verified`, which the
+        app uses for its imports; a generated addon cannot import it.
+        `checks/check_gacha_history.py` drives both.
+        """
+        path = self._gacha_path()
+        tmp = path.with_name(path.name + ".tmp")
+        bak = path.with_name(path.name + ".bak")
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(store, f, indent=1)
+                f.flush()
+                os.fsync(f.fileno())
+            with open(tmp, "r", encoding="utf-8") as f:
+                back = json.load(f)
+        except (OSError, ValueError) as e:
+            self._gacha_discard(tmp)
+            self.log_callback(
+                "[X] Gacha History: the copy could not be written: " + str(e))
+            return False
+        problems = [] if back == store else ["it does not read back as "
+                                             "what was written"]
+        kept = {}
+        if isinstance(back, dict) and isinstance(back.get("records"), list):
+            kept = {str(r.get("id")): r for r in back["records"]
+                    if isinstance(r, dict)}
+        lost = [row for row in before if kept.get(str(row.get("id"))) != row]
+        if lost:
+            problems.append("%d records went missing or changed" % len(lost))
+        if problems:
+            self._gacha_discard(tmp)
+            self.log_callback(
+                "[X] Gacha History: the new copy failed its check ("
+                + "; ".join(problems) + "), so " + path.name
+                + " is unchanged.")
+            return False
+        try:
+            if path.exists():
+                self._gacha_replace(path, bak)
+            self._gacha_replace(tmp, path)
+        except OSError as e:
+            # The file went to its backup and the copy could not follow:
+            # put it back rather than leave the history on the backup.
+            if not path.exists() and bak.exists():
+                try:
+                    self._gacha_replace(bak, path)
+                except OSError:
+                    pass
+            self._gacha_discard(tmp)
+            self.log_callback(
+                "[X] Gacha History: " + path.name + " could not be "
+                "replaced: " + str(e))
+            return False
+        return True
+
+    @staticmethod
+    def _gacha_replace(src, dst):
+        for attempt in range(SAVE_REPLACE_TRIES):
+            try:
+                os.replace(src, dst)
+                return
+            except PermissionError:
+                if attempt == SAVE_REPLACE_TRIES - 1:
+                    raise
+                time.sleep(SAVE_REPLACE_WAIT)
+
+    @staticmethod
+    def _gacha_discard(path):
+        try:
+            path.unlink()
+        except OSError:
+            pass
 
     @staticmethod
     def _nested_reward(payload):
@@ -2263,11 +2530,12 @@ class Addon:
         connections -- see the note in `_track_client_request`.
         """
         if not (self.pending_disassembles or self.pending_unequips
-                or self.pending_coffees):
+                or self.pending_coffees or self.gacha_requests):
             return
         self.pending_disassembles.clear()
         self.pending_unequips.clear()
         self.pending_coffees.clear()
+        self.gacha_requests.clear()
 
     def _track_client_request(self, parsed):
         """Scan a parsed client message for command(s) we want to remember
@@ -2350,6 +2618,14 @@ class Addon:
 
             elif inner_cmd == "order_coffee":
                 self.pending_coffees.add(qid)
+
+            elif entry.get("cmd") == "gacha" and inner_cmd in (
+                    "history", "get_rate"):
+                banner = params.get("id" if inner_cmd == "history"
+                                    else "gacha_id")
+                if banner:
+                    self.gacha_requests[qid] = (
+                        inner_cmd, str(banner), params.get("last_db_id"))
 
             elif inner_cmd == "reward_combatant_trial":
                 # **The only place the two ids appear together.** A
@@ -2451,6 +2727,9 @@ class CaptureManager:
         # Called with a region_id, or "conflict" when two servers
         # answer in one session. Set by the Capture tab.
         self.region_callback = None
+        # Called when the addon has written the Gacha History's file.
+        # Set by the main window; runs on the proxy-reader thread.
+        self.gacha_update_callback = None
 
         self.capturing = False
         self.proxy_process = None
@@ -2833,6 +3112,12 @@ class CaptureManager:
                 for host, ip in self.game_server_ips.items()
             }
 
+            # Where the Gacha History's file lives and what it calls
+            # itself. `gacha_history.py` owns all three and reads what
+            # the addon writes, so they are handed over rather than
+            # spelled a second time.
+            import gacha_history
+
             # Generate standalone script using embedded template
             addon_code = f'''{ADDON_TEMPLATE}
 
@@ -2845,6 +3130,9 @@ SET_NAMES = {set_names}
 SLOT_NAMES = {slot_names}
 KNOWN_UNIT_IDS = {known_unit_ids}
 REGION_ROUTES = {region_routes}
+GACHA_FOLDER = {gacha_history.FOLDER!r}
+GACHA_FILE = {gacha_history.CAPTURED!r}
+GACHA_KIND = {gacha_history.STORE_KIND!r}
 
 addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                 catalogue_path=CATALOGUE_PATH)]
@@ -2945,6 +3233,13 @@ addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                         self.status_callback("[OK] Data Captured!")
                     if self.live_update_callback:
                         self.live_update_callback()
+                    continue
+                if GACHA_MARKER in line:
+                    if self.gacha_update_callback:
+                        self.gacha_update_callback()
+                    continue
+                if "[GACHA]" in line:
+                    self.log_callback(line, "info")
                     continue
 
                 # Route live updates with info tag, everything else with default tag
