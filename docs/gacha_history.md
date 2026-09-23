@@ -25,7 +25,7 @@ A record is `{"id", "user_id", "gacha_id", "count", "reward", "prism", "createAt
 
 `gacha/run`'s own reply is not kept: the records restate every pull in it, with an id, the next time they are read.
 
-A pity record carries `pity_ssr_count` (pulls since the last 5-star), `pity_sr_count` (since the last 4-star -- **a 5-star does not reset it**), `createAt` (the category's first pull ever), `updateAt` (its last pull) and `version`, the record's write counter.
+A pity record carries `pity_ssr_count` (pulls since the last 5-star), `pity_sr_count` (since the last 4-star -- **a 5-star does not reset it**), `createAt` (the category's first pull ever), `updateAt` -- which moves with some pulls and not others -- and `version`, the record's write counter.
 
 ## The files
 
@@ -93,7 +93,7 @@ A 5-star's outcome is `Won`, `Lost`, `Guaranteed`, `Rate-up` -- the featured uni
 
 **The tab reads nothing until it is first shown**, so that cost never lands on startup.
 
-A category is **behind** when its pity record's `updateAt` is later than the newest record held: pulls made since its records were last read. Only for a category that has been read at least once -- a finished beginner selection may have no screen left to open -- and not past `GAME_KEEPS_DAYS`, when those pulls are gone from the game anyway. The tab draws such a banner red and says why in its status line.
+A category is **behind** when the game's counters have moved past its history: the count since the last 5-star or the last 4-star disagreeing with what the history adds up to. **Not the pity record's `updateAt`** -- a captured single pull ticked the counters and the record's `version` and left it where it was -- though a stamp that does move past the newest record counts too, while it is within `GAME_KEEPS_DAYS`. Only for a category that has been read at least once: a finished beginner selection may have no screen left to open. The tab draws such a banner red and says why in its status line.
 
 **No Crystals-spent figure.** hub-czn showed pulls times 160, which is wrong for the Prism Module: it spends Prism Lens.
 

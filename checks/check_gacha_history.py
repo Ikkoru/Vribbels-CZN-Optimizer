@@ -263,6 +263,35 @@ def _dated(gh, folder, failures):
             "rerun's, whose pity is kept apart.")
 
 
+def _behind_by_counters(gh, folder, failures):
+    """A pull the history lacks shows in the game's counters.
+
+    The pity record's `updateAt` did not move on a captured single pull,
+    so the stamp cannot be what finds it: here it stays on the newest
+    record, and only the count since the last 5-star moves on.
+    """
+    store_dir = gh.folder_in(folder)
+    store_dir.mkdir(parents=True)
+    records = [_record(1, BANNER, 1000, [THREE, FEATURED, THREE, THREE])]
+    for game_count, want in ((2, False), (3, True)):
+        store = {"kind": gh.STORE_KIND, "version": 1, "records": records,
+                 "rates": {BANNER: _rates()},
+                 "pity": {"gacha_pity_pickup_combatant": {
+                     "res_id": "gacha_pity_pickup_combatant",
+                     "pity_ssr_count": game_count, "createAt": "1",
+                     "updateAt": "1000"}},
+                 "read": {BANNER: "2026-01-01T00:00:00"}}
+        (store_dir / gh.CAPTURED).write_text(json.dumps(store),
+                                             encoding="utf-8")
+        pool = gh.load(folder, now=2000).pools["pickup_combatant"]
+        if pool.stats.behind != want:
+            failures.append(
+                f"with the history counting 2 pulls since its last 5-star "
+                f"and the game counting {game_count}, behind reads "
+                f"{pool.stats.behind}. A pull made since the records were "
+                f"read would go unnoticed until the game forgot it.")
+
+
 def _supersede(gh, folder, failures):
     """An import covering pulls the game's own records hold is dropped."""
     store_dir = gh.folder_in(folder)
@@ -541,6 +570,7 @@ def run():
         tmp = Path(tmp)
         _history(gh, tmp / "history", failures)
         _dated(gh, tmp / "dated", failures)
+        _behind_by_counters(gh, tmp / "behind", failures)
         _supersede(gh, tmp / "supersede", failures)
         (tmp / "write").mkdir()
         _verified_write(gh, tmp / "write", failures)

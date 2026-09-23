@@ -80,13 +80,20 @@ PULL_COLUMNS = (
     ("time", "Time", ("0000-00-00 00:00",), tk.CENTER),
 )
 
-# This tab's lists, styled apart from every other list in the app: text
-# sits 12px in from its column's edges, in a cell and a heading alike,
-# so columns read apart and a heading lines up with its cells. A column
-# is exactly as wide as its widest text plus that inset on both sides,
-# so twice the inset IS the gap between two columns' text.
+# This tab's lists, styled apart from every other list in the app. Text
+# sits TEXT_INSET in from its column's edges, in a cell and a heading
+# alike, so a heading lines up with its cells.
+#
+# **Between two columns sits an empty one, COLUMN_GAP wide.** Tk's
+# padding is one pair of values for every column of a list, so it
+# cannot keep the outermost columns close to the list's edges and the
+# rest far apart; a spacer can. A column is exactly as wide as its
+# widest text plus the inset on both sides, so the tightest two columns'
+# text is `2 * TEXT_INSET + COLUMN_GAP` apart. Any column's slack lands
+# on the side away from its anchor, and only widens that.
 TREE_STYLE = "GachaHistory.Treeview"
-TEXT_INSET = 12
+TEXT_INSET = 3
+COLUMN_GAP = 18
 # The heading's height is left as the shared style has it.
 HEADING_INSET_V = 3
 
@@ -259,9 +266,14 @@ class GachaHistoryTab(BaseTab):
 
     def _make_tree(self, parent, columns, height):
         self._style_lists()
-        tree = ttk.Treeview(parent, columns=[c[0] for c in columns],
-                            show="headings", height=height,
-                            selectmode="browse", style=TREE_STYLE)
+        ids = []
+        for index, (col, _title, _samples, _anchor) in enumerate(columns):
+            if index:
+                ids.append(self._spacer(index))
+            ids.append(col)
+        tree = ttk.Treeview(parent, columns=ids, show="headings",
+                            height=height, selectmode="browse",
+                            style=TREE_STYLE)
         # Measured, so no `px()` on the text's share -- the fonts already
         # carry the scale. The inset is a distance and takes it.
         cell = tkfont.nametofont("TkDefaultFont")
@@ -276,7 +288,27 @@ class GachaHistoryTab(BaseTab):
             tree.heading(col, text=title, anchor=anchor)
             tree.column(col, width=width, anchor=anchor,
                         stretch=index == len(columns) - 1)
+            if index:
+                gap = self._spacer(index)
+                tree.heading(gap, text="")
+                # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
+                tree.column(gap, width=px(COLUMN_GAP),
+                            minwidth=px(COLUMN_GAP), stretch=False)
         return tree
+
+    @staticmethod
+    def _spacer(index):
+        return "gap%d" % index
+
+    @staticmethod
+    def _spaced(values):
+        """A row's values with the empty spacer cells between them."""
+        out = []
+        for index, value in enumerate(values):
+            if index:
+                out.append("")
+            out.append(value)
+        return tuple(out)
 
     def _rewrap(self, event):
         """Keep the help text wrapped to the width its row gives it.
@@ -360,7 +392,7 @@ class GachaHistoryTab(BaseTab):
         pools = self._shown_pools()
         for pool in pools:
             tree.insert("", tk.END, iid=pool.pool,
-                        values=self._summary_row(pool),
+                        values=self._spaced(self._summary_row(pool)),
                         tags=(BEHIND_TAG,) if pool.stats.behind else ())
         tree.configure(height=max(1, len(pools)))
         keep = self._pool if self._pool in {p.pool for p in pools} else (
@@ -403,11 +435,12 @@ class GachaHistoryTab(BaseTab):
             if wanted is not None and pull.stars not in wanted:
                 continue
             tree.insert("", tk.END, tags=(self._star_tag(pull.stars),),
-                        values=(pull.number, gh.unit_name(pull.res_id),
-                                _stars(pull.stars), pull.pity,
-                                gh.unit_name(pull.featured)
-                                if pull.featured else "",
-                                pull.outcome or "", _when(pull.at)))
+                        values=self._spaced((
+                            pull.number, gh.unit_name(pull.res_id),
+                            _stars(pull.stars), pull.pity,
+                            gh.unit_name(pull.featured)
+                            if pull.featured else "",
+                            pull.outcome or "", _when(pull.at))))
 
     # ------------------------------------------------------ import/export
 

@@ -55,14 +55,15 @@ VERSION = 1
 REPLACE_TRIES = 5
 REPLACE_WAIT = 0.2
 
-# About how long the game goes on listing a pull. A pool whose last pull
-# is older than this cannot be caught up by reading the game again, so it
-# is never reported as behind.
+# About how long the game goes on listing a pull. A pity record stamped
+# longer ago than this names pulls that reading the game again cannot
+# bring back, so its stamp never calls a pool behind.
 GAME_KEEPS_DAYS = 183
 
 # How far the pity record's `updateAt` may run past the newest pull this
-# history holds before it counts as a pull the history is missing. The
-# record is stamped a second or so after the batch it counts.
+# history holds before it counts as a pull the history is missing, on
+# the pulls that move it at all. The record is stamped a second or so
+# after the batch it counts.
 BEHIND_SLACK = 10
 
 
@@ -522,6 +523,10 @@ class PoolStats:
         # None where the pool has no 50/50 to count.
         self.won = self.lost = self.guaranteed = None
         self.game_pity = None
+        # Pulls since the last 4-star, the history's and the game's. A
+        # 5-star does not reset it -- the game's counter says so.
+        self.four_now = 0
+        self.game_four = None
         self.game_updated = None
         self.behind = False
         self.read_at = None
@@ -1006,7 +1011,12 @@ def _work_out(pool, batches, tiers, history):
              else pool in FIFTY_FIFTY_POOLS)
     record = history.pity.get(pity_record_name(pool))
     if isinstance(record, dict):
-        stats.game_pity = _int(record.get("pity_ssr_count"))
+        # None where a counter is absent: read as 0, a missing count
+        # would disagree with the history and call the pool behind.
+        for field, name in (("game_pity", "pity_ssr_count"),
+                            ("game_four", "pity_sr_count")):
+            if record.get(name) is not None:
+                setattr(stats, field, _int(record.get(name)))
         stats.game_updated = _int(record.get("updateAt")) or None
         # The record is created by the pool's first pull ever, so a
         # history reaching back that far has no cycle cut short.
@@ -1051,6 +1061,7 @@ def _work_out(pool, batches, tiers, history):
                 outcome=outcome, source=batch.get("from")))
     stats.pulls = number
     stats.pity_now = pity
+    stats.four_now = four
     if batches:
         stats.first_at = batches[0]["createAt"]
         stats.last_at = batches[-1]["createAt"]
@@ -1098,16 +1109,32 @@ def _fifty_fifty(res_id, featured, guaranteed):
 
 
 def _judge_freshness(entry, now):
-    """Mark a pool whose game counter has moved past its history.
+    """Mark a pool whose game counters have moved past its history.
+
+    **The counters, not the stamp.** The pity record's `updateAt` does
+    not move on every pull -- a captured single pull ticked the counter
+    and the record's `version` and left it where it was -- so the test
+    that catches a pull is the game's count since the last 5-star, or
+    since the last 4-star, disagreeing with what the history adds up
+    to. Each is compared only where the history holds one such pull,
+    since before it the history's count is only a floor. The stamp is
+    still read: where it DOES move past the newest record, that is a
+    pull too.
 
     Only a pool whose list has been read at least once: a banner family
     nobody has opened -- a finished beginner selection, say -- may have
     no screen left to open, and asking for it would never stop.
     """
     stats = entry.stats
-    if not stats.game_updated or not stats.read_at:
+    if not stats.read_at:
         return
-    if now - stats.game_updated > GAME_KEEPS_DAYS * 86400:
-        return
-    newest = stats.last_at or 0
-    stats.behind = stats.game_updated > newest + BEHIND_SLACK
+    counted = (
+        (stats.fives and stats.game_pity is not None
+         and stats.game_pity != stats.pity_now)
+        or (stats.fours and stats.game_four is not None
+            and stats.game_four != stats.four_now))
+    stamped = bool(
+        stats.game_updated
+        and now - stats.game_updated <= GAME_KEEPS_DAYS * 86400
+        and stats.game_updated > (stats.last_at or 0) + BEHIND_SLACK)
+    stats.behind = bool(counted or stamped)
