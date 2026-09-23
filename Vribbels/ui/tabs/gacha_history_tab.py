@@ -2,8 +2,8 @@
 was.
 
 `gacha_history.py` does the reading and the arithmetic; this draws it.
-Two lists: one row per banner family with its luck, and the pulls of
-whichever family is selected, newest first.
+Two lists side by side: one row per banner family with its luck on the
+left, and the pulls of whichever family is selected, newest first.
 
 **Nothing is read until the tab is first shown.** The luck figures are
 an exact convolution over every 5-star the history holds, which is a
@@ -13,6 +13,7 @@ be on every launch whether or not anyone opens the tab.
 
 import json
 import tkinter as tk
+import tkinter.font as tkfont
 from datetime import datetime
 from pathlib import Path
 from tkinter import ttk, filedialog, messagebox
@@ -43,29 +44,46 @@ HELP_TEXT = (
 FILTERS = (("All pulls", None), ("4★ and 5★", {4, 5}),
            ("5★ only", {5}))
 
-# (id, heading, width, anchor). The LAST column of each list stretches.
+def _unit_names():
+    """Every name a unit column can show, for sizing one."""
+    from game_data import CHARACTERS, PARTNERS
+    return [unit["name"] for table in (CHARACTERS, PARTNERS)
+            for unit in table.values()
+            if isinstance(unit, dict) and unit.get("name")] + ["#99999"]
+
+
+# (id, heading, the widest things it will hold, anchor). **Widths are
+# MEASURED** from those, in the list's own fonts, so a column fits its
+# text at either scale and nothing here is a pixel count. A callable is
+# read when the list is built. The LAST column of each list stretches.
 SUMMARY_COLUMNS = (
-    ("banner", "Banner", 200, tk.W),
-    ("pulls", "Pulls", 52, tk.E),
-    ("fives", "5★", 36, tk.E),
-    ("avg", "Avg 5★ pull", 84, tk.E),
-    ("game", "Game avg", 68, tk.E),
-    ("luck", "Luck", 88, tk.E),
-    ("fifty", "50/50 won", 72, tk.E),
-    ("fours", "4★", 40, tk.E),
-    ("four_avg", "Avg 4★ pull", 84, tk.E),
-    ("pity", "Pity now", 66, tk.E),
-    ("read", "Last read from the game", 220, tk.W),
+    ("banner", "Banner", tuple(gh.POOL_LABELS.values()), tk.W),
+    ("pulls", "Pulls", ("99,999",), tk.E),
+    ("fives", "5★", ("999",), tk.E),
+    ("avg", "Avg 5★ pull", ("99.9",), tk.E),
+    ("game", "Game avg", ("99.9",), tk.E),
+    ("luck", "Luck", ("Bottom 50%", "Bottom 0.1%", "Bottom <0.1%"), tk.E),
+    ("fifty", "50/50 won", ("99 of 99",), tk.E),
+    ("fours", "4★", ("999",), tk.E),
+    ("four_avg", "Avg 4★ pull", ("99.9",), tk.E),
+    ("pity", "Pity now", ("99",), tk.E),
+    ("read", "Last read", ("0000-00-00 00:00 (behind)",), tk.W),
 )
 PULL_COLUMNS = (
-    ("number", "#", 50, tk.E),
-    ("unit", "Unit", 150, tk.W),
-    ("stars", "Rarity", 56, tk.CENTER),
-    ("pull", "Pull", 44, tk.E),
-    ("featured", "Rate-up", 150, tk.W),
-    ("outcome", "50/50", 96, tk.W),
-    ("time", "Time", 160, tk.W),
+    ("number", "#", ("99999",), tk.E),
+    ("unit", "Unit", _unit_names, tk.W),
+    ("stars", "Rarity", ("5★",), tk.CENTER),
+    ("pull", "Pull", ("70",), tk.E),
+    ("featured", "Rate-up", _unit_names, tk.W),
+    ("outcome", "50/50", (gh.WON, gh.LOST, gh.GUARANTEED, gh.RATE_UP,
+                          gh.UNKNOWN), tk.W),
+    ("time", "Time", ("0000-00-00 00:00",), tk.W),
 )
+
+# What a column adds to its widest text: the cell's own inset and the
+# room before the next column's text. The one lever on how tightly both
+# lists sit.
+COLUMN_PAD = 16
 
 # Row colours by rarity. A unit's stars index the rarity table
 # directly -- 5 Mythic, 4 Legendary, 3 Rare. A unit neither the game's
@@ -147,28 +165,33 @@ class GachaHistoryTab(BaseTab):
                         expand=True, anchor=tk.N)
         help_label.bind("<Configure>", self._rewrap)
 
-        summary_frame = ttk.LabelFrame(content, text="Banners",
+        # The two lists side by side: the banners at their own width on
+        # the left, the pulls taking whatever the window has left. The
+        # space under the banners is free for later.
+        body = ttk.Frame(content)
+        body.pack(fill=tk.BOTH, expand=True)
+        body.grid_columnconfigure(1, weight=1)
+        body.grid_rowconfigure(0, weight=1)
+
+        summary_frame = ttk.LabelFrame(body, text="Banners",
                                        padding=px(0),
                                        style="Borderless.TLabelframe")
-        # spacing: content frame -> content frame -- frame, frame ↔
+        # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- label, title ↕
-        # spacing: panel ↕ unrelated label -- panel, title ↕
-        # The trailing 5 is the whole lever on the gap down to the
-        # Pulls title, stacked panels answering to the text rule rather
-        # than the frame rule -- the same shape as the Optimizer's
-        # Exclude panel above its Results.
-        summary_frame.pack(fill=tk.X, padx=px(2), pady=px((2, 5)))
+        summary_frame.grid(row=0, column=0, sticky="nw", padx=px(2),
+                           pady=px(2))
         self.summary_tree = self._make_tree(summary_frame, SUMMARY_COLUMNS,
                                             height=1)
         self.summary_tree.pack(fill=tk.X)
         self.summary_tree.bind("<<TreeviewSelect>>", self._on_pick)
 
-        self.pulls_frame = ttk.LabelFrame(content, text="Pulls",
+        self.pulls_frame = ttk.LabelFrame(body, text="Pulls",
                                           padding=px(0),
                                           style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        self.pulls_frame.pack(fill=tk.BOTH, expand=True, padx=px(2),
-                              pady=px((0, 2)))
+        # spacing: panel ↕ unrelated label -- label, title ↕
+        self.pulls_frame.grid(row=0, column=1, sticky="nsew", padx=px(2),
+                              pady=px(2))
         self.pulls_tree = self._make_tree(self.pulls_frame, PULL_COLUMNS,
                                           height=20)
         scroll = ttk.Scrollbar(self.pulls_frame, orient=tk.VERTICAL,
@@ -190,11 +213,18 @@ class GachaHistoryTab(BaseTab):
         tree = ttk.Treeview(parent, columns=[c[0] for c in columns],
                             show="headings", height=height,
                             selectmode="browse")
-        for index, (col, title, width, anchor) in enumerate(columns):
+        # Measured, so no `px()` on the text's share -- the fonts already
+        # carry the scale. The pad is a distance and takes it.
+        cell = tkfont.nametofont("TkDefaultFont")
+        head = tkfont.nametofont("TkHeadingFont")
+        for index, (col, title, samples, anchor) in enumerate(columns):
+            samples = samples() if callable(samples) else samples
+            widest = max([head.measure(title)]
+                         + [cell.measure(text) for text in samples])
             # A heading takes its column's anchor: left to Tk it centres
             # over a right-aligned number.
             tree.heading(col, text=title, anchor=anchor)
-            tree.column(col, width=px(width), anchor=anchor,
+            tree.column(col, width=widest + px(COLUMN_PAD), anchor=anchor,
                         stretch=index == len(columns) - 1)
         return tree
 
@@ -295,7 +325,8 @@ class GachaHistoryTab(BaseTab):
         if s.read_at:
             read = s.read_at.replace("T", " ")[:16]
             if s.behind:
-                read += " -- the game has newer pulls"
+                # The game has pulls this history lacks: read again.
+                read += " (behind)"
         return (pool.label, format(s.pulls, ","), s.fives,
                 _number(s.avg_pity), _number(s.expected_pity),
                 gh.luck_rank(s.luckier_than) or NO_VALUE,

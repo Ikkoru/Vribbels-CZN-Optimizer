@@ -460,15 +460,21 @@ def luck_rank(luckier):
     **Named from whichever end the history sits nearer**, so the number
     is always the small one and the word says which way is good: a bare
     `Top 93%` would read as praise and mean the opposite. The middle
-    itself is `Top 50%`. Below half a percent reads `<1%` rather than
-    rounding to a `0%` nobody can be in.
+    itself is `Top 50%`. Under 1% it takes a decimal, `Top 0.4%`, and
+    under a tenth reads `<0.1%` rather than rounding to a `0%` nobody
+    can be in.
     """
     if luckier is None:
         return None
     word, share = ("Top", 1 - luckier) if luckier >= 0.5 else (
         "Bottom", luckier)
-    percent = int(100 * share + 0.5)
-    return "%s %s" % (word, "<1%" if percent < 1 else "%d%%" % percent)
+    # Decided on the tenths: rounding to whole percents first would put
+    # 0.8% at `1%` before the decimal was ever reached.
+    tenths = int(1000 * share + 0.5)
+    if tenths >= 10:
+        return "%s %d%%" % (word, int(100 * share + 0.5))
+    return "%s %s" % (word, "<0.1%" if tenths < 1
+                      else "%.1f%%" % (tenths / 10))
 
 
 # ------------------------------------------------------------- the pulls

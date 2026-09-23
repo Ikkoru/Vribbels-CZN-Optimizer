@@ -119,7 +119,9 @@ def _schedule(gh, failures):
     # The rank is named from the nearer end, so its number is always the
     # small one: a bare `Top 93%` reads as praise and means the reverse.
     ranks = {0.88: "Top 12%", 0.5: "Top 50%", 0.27: "Bottom 27%",
-             0.998: "Top <1%", 0.001: "Bottom <1%", None: None}
+             0.996: "Top 0.4%", 0.001: "Bottom 0.1%",
+             0.9996: "Top <0.1%", 0.992: "Top 0.8%", 0.994: "Top 0.6%",
+             None: None}
     for share, want in ranks.items():
         if gh.luck_rank(share) != want:
             failures.append(f"a luckier-than share of {share} ranks as "
