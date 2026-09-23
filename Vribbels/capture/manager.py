@@ -306,6 +306,11 @@ class Addon:
         # three times and announces it three times.
         self._save_pending = False
 
+        # What the last `Received` line said, {res_id: amount}. A run
+        # whose clear only restates a payout the line before it already
+        # reported has nothing to add -- see `_report_run_total`.
+        self._last_receipt = None
+
         # The qids whose drops have already been applied. A drop
         # list carries deltas rather than totals, so applying one
         # twice doubles it; a short ring is enough, a retransmit
@@ -1777,10 +1782,19 @@ class Addon:
                     self._save_pending = True
 
         if moved:
+            verb = self._verb(moved, spent)
             self.log_callback("[LIVE] %s %s"
-                              % (self._verb(moved, spent),
-                                 self._describe_amounts(moved)))
+                              % (verb, self._describe_amounts(moved)))
+            if verb == "Received":
+                self._note_receipt(moved)
         return {res_id for res_id, _diff in moved}
+
+    def _note_receipt(self, moved):
+        """Remember what a `Received` line said. See `_last_receipt`."""
+        receipt = {}
+        for res_id, amount in moved:
+            receipt[res_id] = receipt.get(res_id, 0) + amount
+        self._last_receipt = receipt
 
     @staticmethod
     def _shift(was, doc, entry):
@@ -1896,6 +1910,7 @@ class Addon:
         if applied:
             self.log_callback("[LIVE] Received %s"
                               % self._describe_amounts(applied))
+            self._note_receipt(applied)
 
     def _report_run_total(self, drops, already_named=()):
         """Say what a whole run paid, without changing a single count.
@@ -1918,7 +1933,17 @@ class Addon:
                 totals[res_id] = totals.get(res_id, 0) + amount
         # Nothing to add where every item was already named by an
         # envelope in the same reply: that line IS this one.
-        if totals and not set(totals) <= set(already_named or ()):
+        #
+        # Nor where the last `Received` line said exactly this. A
+        # Simulation's payout arrives twice -- its drops pay it, and
+        # its clear restates the same totals -- and the restatement
+        # moves nothing, so it names nothing above; the receipt a line
+        # earlier is what already said it. A Chaos run pays at its
+        # spots in pieces, so no one receipt matches its total, and
+        # the total stays: it is the one line saying what the whole
+        # run paid.
+        if (totals and not set(totals) <= set(already_named or ())
+                and totals != self._last_receipt):
             self.log_callback("[LIVE] Total rewards: %s"
                               % self._describe_amounts(totals.items()))
 
