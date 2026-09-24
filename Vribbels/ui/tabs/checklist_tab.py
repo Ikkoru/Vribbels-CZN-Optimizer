@@ -2145,7 +2145,8 @@ CHAOS_PROGRESS_FULL = 8000
 
 # The Great Rift's weekly score. The standings nest season -> rank
 # slot -> record, and the threshold that pays out rides in the same
-# record -- `GREAT_RIFT_TARGET` is only what stands in when it does not.
+# record once the week's reward is claimed -- it reads 0 before that.
+# `GREAT_RIFT_TARGET` is what stands in where it is 0 or absent.
 GREAT_RIFT_FIELD = "disaster_boss_rank_entities"
 GREAT_RIFT_TARGET = 300000
 
@@ -4174,8 +4175,10 @@ def _great_rift(raw, now):
     be last week's: its `score_week_id` is what says which, and a stale
     one scores nothing this week. See `_this_week`.
 
-    The threshold rides in the chosen row; `GREAT_RIFT_TARGET` stands
-    in only where it does not.
+    The threshold rides in the chosen row once the week's reward is
+    claimed, and reads 0 until then; `GREAT_RIFT_TARGET` stands in for
+    a 0 as for a row with none. A 0 taken at its word is a target every
+    score clears.
     """
     seasons = raw.get(GREAT_RIFT_FIELD)
     live = None
@@ -4196,7 +4199,8 @@ def _great_rift(raw, now):
     target = row.get("week_total_score_reward")
     score = row["week_total_score"] if _this_week(
         row, now, GREAT_RIFT_WEEK_STAMP) else 0
-    return score, (target if _is_count(target) else GREAT_RIFT_TARGET)
+    return score, (target if _is_count(target) and target > 0
+                   else GREAT_RIFT_TARGET)
 
 
 def _products_of(key):

@@ -73,6 +73,8 @@ The excursion board and the Great Rift standings arrive in a frame carrying no r
 
 Each is replaced whole rather than merged: the reply IS the board, so a row's absence is a reading. `excursions.py` reads `char_visits`; `checklist_tab.py` reads `disaster_boss_rank_entities` for the Great Rift.
 
+**The standings arrive whole only when the Great Rift's screen lists them** (`disaster/get_list`). Every reply about one rank -- entering it, finishing a run, claiming its weekly reward -- carries that rank's row alone, as `disaster_boss_rank_entity`, singular, and it is merged into its season and slot. Without it a run's new score waits for the next time the list is opened. The row's `week_total_score_reward` reads 0 until the week's reward is claimed and the threshold after, so a 0 there is not a target.
+
 Three more join them, for what the recurring tasks stand at. The Checklist tab reads the Activities claim off `point_entity` and lists `mission_entities`; `season_pass` is captured so a snapshot taken before anything needs it already carries the history:
 
 | Attribute | Wire key | What it is |

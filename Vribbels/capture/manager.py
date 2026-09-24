@@ -1429,6 +1429,22 @@ class Addon:
         if isinstance(data.get("disaster_boss_rank_entities"), dict):
             self.disaster_ranks = data["disaster_boss_rank_entities"]
             self._save_pending = True
+        # **And one rank's row, on every reply about that rank** --
+        # entering it, finishing a run, claiming its weekly reward --
+        # as `disaster_boss_rank_entity`, singular. The whole standings
+        # come only when the Great Rift's screen lists them, so without
+        # this a run's new score waits for the next time it is opened.
+        row = data.get("disaster_boss_rank_entity")
+        if isinstance(row, dict) and row.get("season_id") \
+                and row.get("define_id"):
+            ranks = dict(self.disaster_ranks) \
+                if isinstance(self.disaster_ranks, dict) else {}
+            season = ranks.get(row["season_id"])
+            season = dict(season) if isinstance(season, dict) else {}
+            season[row["define_id"]] = row
+            ranks[row["season_id"]] = season
+            self.disaster_ranks = ranks
+            self._save_pending = True
         # **The two Sortie ladders, per combatant.** Both arrive whole
         # on the login burst and again as they are earned, and both are
         # SPARSE: nothing is sent for a rung the game has not offered

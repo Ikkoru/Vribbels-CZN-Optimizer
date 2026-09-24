@@ -289,6 +289,21 @@ def run():
                     f"reset, so its `week_id` is the only thing that says "
                     f"whether the figure beside it is this week's.")
 
+    # **A Great Rift row states its threshold only once the week's
+    # reward is claimed**, and 0 until then. Taken at its word, that 0
+    # is a target every score clears: a week barely started reads done.
+    raw = _snapshot()
+    raw["disaster_boss_rank_entities"] = {"disaster_s04": {"rank_02": {
+        "score_week_id": this_week, "week_total_score": 1200,
+        "week_total_score_reward": 0}}}
+    got = _readings(raw, now)["seasonal_score"]
+    if got != [("1200/300000", TODO)]:
+        failures.append(
+            f"a Great Rift row whose weekly reward is not yet claimed -- "
+            f"`week_total_score_reward` 0 -- reads {got!r}, not "
+            f"{[('1200/300000', TODO)]!r}. The 0 is not a threshold; "
+            f"the stated one stands in for it.")
+
     # A record with NO stamp is read at face value: nothing about it
     # can say otherwise, and blanking it would lose a live reading.
     raw = _snapshot()

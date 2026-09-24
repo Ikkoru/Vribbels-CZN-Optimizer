@@ -144,8 +144,50 @@ def run():
             "sends that holds the Great Rift weekly score, and the frame "
             "it arrives in is otherwise dropped whole."
         )
+    failures.extend(_one_rank_row_is_merged())
 
     return failures
+
+
+def _one_rank_row_is_merged():
+    """A run's reply updates its rank's row among the standings.
+
+    The whole standings arrive only when the Great Rift's screen lists
+    them; a run, and a claim, send the one rank's row as
+    `disaster_boss_rank_entity`. Dropped, the score a run just set
+    waits for the list to be opened again, and the Checklist reads last
+    week's row as nothing done this week. Merged, it must replace only
+    its own slot.
+    """
+    import tempfile
+    from pathlib import Path
+    from .check_capture_rewards import _build_addon
+
+    out = []
+    old = {"score_week_id": 194, "week_total_score": 1115731}
+    other = {"score_week_id": 193, "week_total_score": 1396064}
+    new = {"season_id": "disaster_s04", "define_id": "disaster_s04_rank_02",
+           "score_week_id": 195, "week_total_score": 1102801}
+    with tempfile.TemporaryDirectory() as tmp:
+        addon = _build_addon(Path(tmp), [])
+        addon._handle_server_payload({
+            "res": "ok", "qid": 1, "disaster_boss_rank_entities": {
+                "disaster_s04": {"disaster_s04_rank_01": other,
+                                 "disaster_s04_rank_02": old}}}, 100)
+        addon._handle_server_payload({
+            "res": "ok", "qid": 2, "disaster_boss_rank_entity": new}, 100)
+        ranks = addon.disaster_ranks or {}
+    season = ranks.get("disaster_s04") or {}
+    if season.get("disaster_s04_rank_02") != new:
+        out.append(
+            f"a run's reply carrying one Great Rift rank's row left that "
+            f"rank at {season.get('disaster_s04_rank_02')!r}. The new "
+            f"score waits for the standings to be listed again, and the "
+            f"Checklist reads this week's runs as none.")
+    if season.get("disaster_s04_rank_01") != other:
+        out.append("merging one Great Rift rank's row lost the other "
+                   "rank's row beside it.")
+    return out
 
 
 def _town(spent):
