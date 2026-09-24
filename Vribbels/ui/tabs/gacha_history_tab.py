@@ -169,9 +169,10 @@ SORTIE_TITLE = "Sortie Stats"
 RIFT_TITLE = "Great Rift Stats"
 OFFENSIVE_TITLE = "Full-Scale Offensive Stats"
 # Beside each title: what to open in game to fill the list.
-SORTIE_NOTE = ("Start a capture. Open Hardcore Rankings, then Previous "
-               "Sortie Ranking.")
-RIFT_NOTE = "Start a capture. Open Merit Ranking. Tap each division."
+SORTIE_NOTE = ("Start a capture. Open Sortie. Press Hardcore Rankings, "
+               "then Previous Sortie Ranking.")
+RIFT_NOTE = ("Start a capture. Go the the Great Rift. Open Merit Ranking. "
+            "Press each division.")
 OFFENSIVE_NOTE = "Start a capture. Open the Full-Scale Offensive."
 # The heading over the rows' names, which says what the columns are.
 SEASON_HEADING = "Season"
