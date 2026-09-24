@@ -104,15 +104,15 @@ def _node_lists(ct):
             "to its missions, and without a window it would link to all "
             "of them.")
 
-    # Its completion record sits on the ACHIEVEMENT page, under the
-    # instalment's own id.
+    # Four of the seven lists on record keep their completion record on
+    # the ACHIEVEMENT page, under the instalment's own id.
     flagged = dict(raw, event_mission_reward_entities=[{
         "res_id": "event_node_30115_achievement", "reward_step": 0,
         "version": 0, ct.EVENT_DONE_FLAG: ct.EVENT_DONE_VALUE}])
     if not ct._event_finished(flagged, "event_nodelist_007"):
         out.append(
             "event_node_30115_achievement did not finish event_nodelist_007. "
-            "The later Node Lists keep their completion record on the "
+            "Node Lists can keep their completion record on the "
             "achievement page, under the instalment the list owns.")
     if ct._event_finished(flagged, "event_nodelist_006"):
         out.append("one Node List's completion record finished another.")

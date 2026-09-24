@@ -1350,8 +1350,8 @@ def _event_finished(raw, name):
 def _event_records(raw, name):
     """The completion records belonging to one event.
 
-    A record sits at one of the event's roots or UNDER it: the later
-    Node Lists keep theirs on the achievement page, so
+    A record sits at one of the event's roots or UNDER it: most Node
+    Lists keep theirs on the achievement page, so
     `event_node_30115_achievement` is `event_nodelist_007`'s. On a
     segment boundary, like every pairing here.
     """
@@ -1832,11 +1832,9 @@ WEEK_STAMP = "week_id"
 # looks like. One row per event, `res_id` naming the event and
 # `event_achieve_state` flipping to 1 once its final reward is taken.
 #
-# The same row carries `reward_step` and `version`, which look like a
-# reward track's size and how much of it is claimed -- across every
-# row ever captured the state is 1 exactly when the two are equal.
-# NOT READ, because a second reading fits the same numbers; the
-# measurement that separates them is in `docs/events.md`.
+# The same row carries `reward_step` and `version`, which on a STEP
+# TRACK are read as the steps claimed and the claims made -- see
+# `STEP_FIELD` -- and are 0 and 0 on a row holding only a final reward.
 EVENT_DONE_FIELD = "event_mission_reward_entities"
 EVENT_DONE_FLAG = "event_achieve_state"
 EVENT_DONE_VALUE = 1
@@ -3047,9 +3045,9 @@ class ChecklistTab(BaseTab):
         family pay one before -- see `ChecklistManager.remember_final`.
 
         Every event on the schedule is looked at, ended ones included,
-        and recording cannot wait: the record is purged some weeks
-        after its instalment ends. A step track's flag is its ladder's,
-        not a final reward, and is left out.
+        and recording cannot wait: the records are purged in batches.
+        A step track's flag is its ladder's, not a final reward, and is
+        left out.
 
         What comes back is written onto `raw` under
         `EVENT_FINALS_FIELD` for the readers.

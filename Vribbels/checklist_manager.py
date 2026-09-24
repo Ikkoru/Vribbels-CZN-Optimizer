@@ -130,9 +130,10 @@ Reward -- is invisible until its claim writes a completion record, and
 nothing before the claim hints that it is there. So the one way to
 know the next instalment has one is to remember that this one did.
 
-Written down for the same reason as the totals: the game purges an
-instalment's completion record some weeks after it ends. **One
-instalment is enough here**, unlike a total -- being wrong costs a row
+Written down for the same reason as the totals: the game purges
+completion records in batches, months after some of their events
+ended. **One instalment is enough here**, unlike a total -- being
+wrong costs a row
 that asks `Finished?` over a reward that is not there, which the user
 answers in one click, where missing it costs the reward.
 """

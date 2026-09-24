@@ -102,7 +102,7 @@ Over and over the wire describes one thing in two places under ids that do not m
 
 ## Events
 
-**`docs/events.md` is the canonical write-up** — the categories, how to classify one, where each kind keeps its progress, the totals the wire never states, and how to add an event nobody has mapped.
+**`docs/events.md` is the canonical write-up** — the categories, how to classify one, where each kind keeps its progress, the totals the wire never states, and how to process a new event.
 
 Two things from it are worth repeating here because they are general:
 

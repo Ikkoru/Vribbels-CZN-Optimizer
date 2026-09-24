@@ -60,7 +60,8 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | Which mission res_ids are known, and which set each belongs to               | `docs/missions_id_dump.py` and `docs/missions_id.tsv`                                                                    |
 | Which wire field carries a Checklist row, and the suspects for the rest      | `docs/wire_hunt.md` and `docs/wire_hunt.tsv`                                                                             |
 | What the wire has sent that nothing reads                                    | `docs/wire_catalogue.py`, over `settings/wire_catalogue.json`; `docs/wire_catalogue_backfill.py` folds in older captures |
-| Event categories, how to classify one, and what the Checklist does with each | `docs/events.md`                                                                                                         |
+| Standings, lifetime counters, collections the wire sends and nothing shows   | `docs/unread_stats.md`                                                                                                   |
+| Event categories, how to classify one, and what the Checklist does with each | `docs/events.md`; `docs/events_replay.py` replays every login through its readers                                        |
 | Tk threading, startup, display quirks                                        | `docs/ui_runtime.md`                                                                                                     |
 | Panel layout, spacing rules, the ledger, ttk styles                          | `docs/ui_spacing.md`                                                                                                     |
 | Running a spacing audit and reading its table                                | `.claude/skills/spacing-audit/SKILL.md`                                                                                  |

@@ -30,7 +30,15 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - An `Upgraded` line draws a preset's ceiling in the Mythic colour when the fragment, at +3 or past, could beat what that preset's one combatant wears in the same slot. A note above the Upgrade Log Settings filters says so.
 
+- **The Checklist counts an event's Special Reward**, the one that unlocks once everything else is claimed. An event whose earlier runs had one stays red after its last ordinary reward until this run's is claimed; tick `Finished?` if this run turns out not to have one.
+
 ### Fixed
+
+- Node List events show their progress on the Checklist, not just their deadline.
+
+- Events with a single score and a ladder of rewards on it, like the Love events, count the rewards claimed instead of reading `0/1+?` for their whole run.
+
+- An event's total taken from its earlier runs no longer counts an earlier run's leftover rewards, and one run the game schedules under two names no longer passes for two runs that agree.
 
 - **A capture sitting in the snapshots folder both compressed and not is archived once.** The two copies are the same capture, and compaction stored each as its own entry under the same name. Where the two copies differ, neither is archived or deleted; both stay in the folder for a look. An archive that already holds a capture twice drops the identical copy at its next compaction.
 
