@@ -37,10 +37,9 @@ LAG_TAG = "lag"
 MYTHIC_TAG = "value_mythic"
 # What that colour means, under Upgrade Log Settings. The rule itself
 # is `_beats_equipped` in the main window.
-MYTHIC_NOTE = ("Highest Potential max will be colored purple if its GS is "
-               "higher than the character's whose preset is shown. Only "
-               "works on MFs lvl 3+, and on presets assigned to only 1 "
-               "character")
+MYTHIC_NOTE = ("Purple max: higher than the Potential of the MF that "
+               "preset's character wears in the same slot. Only for "
+               "MFs +3 and up, and presets assigned to one character.")
 
 
 def lag_text(stamp, shown):
