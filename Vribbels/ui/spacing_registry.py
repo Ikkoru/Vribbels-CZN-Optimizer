@@ -937,9 +937,11 @@ def _dropdown_over_panel(prefix, panel):
 # matches a title EXACTLY, so this has to follow the tab's
 # `OVERALL_TITLE`. `check_tabs_build` holds the two together.
 GACHA_OVERALL_TITLE = "Overall Gacha Stats"
-# The two standings sheets under it, on the same terms.
+# The standings lists beside it, on the same terms. Their titles are
+# labelwidgets, which `find_labelframe` reads as well.
 GACHA_SORTIE_TITLE = "Sortie Stats"
 GACHA_RIFT_TITLE = "Great Rift Stats"
+GACHA_OFFENSIVE_TITLE = "Full-Scale Offensive Stats"
 
 PANEL_OVER_TEXT_ENTRIES = [
     ("Capture", "Status -> Server Region title", 10, None,
@@ -983,10 +985,15 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
     ("Stats & Gacha History", "Banners -> Overall Gacha Stats title", 10, None,
      _panel_gap("Banners", GACHA_OVERALL_TITLE, "v")),
-    ("Stats & Gacha History", "Overall Gacha Stats -> Sortie Stats title", 10,
-     None, _panel_gap(GACHA_OVERALL_TITLE, GACHA_SORTIE_TITLE, "v")),
+    # The standings stand beside the gacha sheet, so their first title
+    # sits under the banners as that sheet's does.
+    ("Stats & Gacha History", "Banners -> Sortie Stats title", 10, None,
+     _panel_gap("Banners", GACHA_SORTIE_TITLE, "v")),
     ("Stats & Gacha History", "Sortie Stats -> Great Rift Stats title", 10,
      None, _panel_gap(GACHA_SORTIE_TITLE, GACHA_RIFT_TITLE, "v")),
+    ("Stats & Gacha History",
+     "Great Rift Stats -> Full-Scale Offensive Stats title", 10, None,
+     _panel_gap(GACHA_RIFT_TITLE, GACHA_OFFENSIVE_TITLE, "v")),
 
     # Text above, a panel below. The three tab headings differ only in
     # how much container padding stands under them, Setup spending more
@@ -4671,19 +4678,10 @@ def _gacha_overall(app):
     return app.gacha_tab_instance.overall_text
 
 
-def _gacha_sortie(app):
-    return app.gacha_tab_instance.sortie_text
-
-
-def _gacha_rift(app):
-    return app.gacha_tab_instance.rift_text
-
-
 def _gacha_pitch_tags(*names):
-    """The Stats & Gacha History sheets' pitch-tag names, looked up when
+    """The Overall Gacha Stats sheet's pitch-tag names, looked up when
     the audit runs -- see `_checklist_pitch_tags`, whose reasoning this
-    shares. All three sheets are built by one method on one set of
-    tags."""
+    shares."""
     def tags():
         from ui.tabs import gacha_history_tab as tab
         known = {tab.ROW_TAG, tab.HEADING_TAG, tab.TOP_TAG}
@@ -4739,29 +4737,34 @@ GACHA_ENTRIES = [
                      advance=True), "h"),
 ]
 
-# The standings sheets' figures, by their words: a season's row by the
-# word every season shares. What a sheet says with nothing read is
-# found too, so an empty sheet still has a row to measure.
-GACHA_SORTIE_ROWS = ("Clears\t", "Season ", "Rankings\t")
-GACHA_RIFT_ROWS = ("Season ", "Top scores\t", "Merit Ranking\t")
+def _labelwidget_title_to_tree(title):
+    """Resolver: the ink of a labelwidget title -> the list below it.
 
-# The two standings sheets, on the Overall Gacha Stats sheet's levers:
-# `_make_sheet` builds all three. Their first line is a row rather than
-# a heading, so the title's gap ends at a row's ink.
-for _title, _text, _rows in ((GACHA_SORTIE_TITLE, _gacha_sortie,
-                              GACHA_SORTIE_ROWS),
-                             (GACHA_RIFT_TITLE, _gacha_rift,
-                              GACHA_RIFT_ROWS)):
-    GACHA_ENTRIES += [
-        ("Stats & Gacha History", f"{_title} title -> first row", 10,
-         RULE_LABEL_ROW_PITCH, _title_to_first_element(_title), "v"),
-        ("Stats & Gacha History", f"{_title}: row -> row", 10,
-         RULE_LABEL_ROW_PITCH,
-         _text_line_pitch(_text, label=_title,
-                          kinds=_gacha_pitch_tags("row")), "v"),
-        ("Stats & Gacha History", f"{_title}: figure -> its value", 5,
-         RULE_LABEL_ELEMENT, _text_field_gap(_text, _rows, index=0), "h"),
-    ]
+    A labelwidget can hold more than the title -- the standings put a
+    note on the title's line -- and a scan across the panel's top takes
+    the lowest ink on that line, which is the note's wherever it has a
+    descender. So the title's own Label is the top of the gap, as
+    `_results_title_to_tree` reads its one.
+    """
+    def resolve(cap, app):
+        frame = _panel(app, title)
+        header = frame.nametowidget(str(frame.cget("labelwidget")))
+        label = sa.find_descendant_text(header, title)
+        tree = sa.find_descendant_class(frame, "Treeview")
+        if label is None or tree is None:
+            return None, f"no title label or no Treeview in {title!r}"
+        return restate_from_reference(
+            *sa.vertical_gap(cap, label, tree), ink_below_baseline(title))
+    return resolve
+
+
+# The standings lists: each title over its list, the rule the Results
+# panel's labelwidget title answers to.
+GACHA_STANDINGS_TITLE_ENTRIES = [
+    ("Stats & Gacha History", f"{title} title -> its list", 5, None,
+     _labelwidget_title_to_tree(title))
+    for title in (GACHA_SORTIE_TITLE, GACHA_RIFT_TITLE,
+                  GACHA_OFFENSIVE_TITLE)]
 
 
 # Setup & Settings' archive column. Its own list because the panel's
@@ -4786,16 +4789,14 @@ AWAITING_FIRST_READING = {
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
     "purple note -> the filters",
-    # The Sortie and Great Rift sheets, at the Overall Gacha Stats
-    # sheet's targets and on its levers.
-    "Overall Gacha Stats -> Sortie Stats title",
+    # The standings lists, at their rules' targets and on the gacha
+    # sheet's levers.
+    "Banners -> Sortie Stats title",
     "Sortie Stats -> Great Rift Stats title",
-    "Sortie Stats title -> first row",
-    "Sortie Stats: row -> row",
-    "Sortie Stats: figure -> its value",
-    "Great Rift Stats title -> first row",
-    "Great Rift Stats: row -> row",
-    "Great Rift Stats: figure -> its value",
+    "Great Rift Stats -> Full-Scale Offensive Stats title",
+    "Sortie Stats title -> its list",
+    "Great Rift Stats title -> its list",
+    "Full-Scale Offensive Stats title -> its list",
 }
 
 
@@ -4971,6 +4972,8 @@ def register_all():
             (RULE_CONTENT_FRAME, WINDOW_EDGE_ENTRIES, "h", "rule"),
             (RULE_LABEL_ELEMENT, CELL_LABEL_ENTRIES, "h", None),
             (RULE_TITLE_ELEMENT, RESULTS_TITLE_ENTRIES, "v", "rule"),
+            (RULE_TITLE_ELEMENT, GACHA_STANDINGS_TITLE_ENTRIES, "v",
+             "rule"),
             (RULE_CHECKBOX_PITCH, OPTIONS_CHECKBOX_ENTRIES, "v", "rule"),
             (RULE_BORDER_EDGE_CONTENT, OPTIONS_EDGE_ENTRIES, "h", "rule"),
             (RULE_BORDER_EDGE_CONTENT, SHOW_MISSING_ENTRIES, "v", "rule"),

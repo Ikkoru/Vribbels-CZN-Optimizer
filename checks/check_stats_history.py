@@ -1,5 +1,5 @@
 """The stats read out of old debug captures, and the standings the Stats
-sheets work out from them.
+lists work out from them.
 
 `stats_history.py` runs the capture addon over every old log ONCE, and
 decides "once" by the file it writes. Each way that goes wrong is quiet:
@@ -14,7 +14,10 @@ decides "once" by the file it writes. Each way that goes wrong is quiet:
 * **other players' rows** reach the ranking frames this reads, and no
   name, id or team may reach the file;
 * **the field's size** is worked out from subdivision tops, and a
-  wrong share turns every "#2,481 of ~47,160" into a plausible lie.
+  wrong share turns every `~47,160` under Out of into a plausible lie;
+* **a finished Great Rift half's place** is its `last_rank`, and its
+  `rank` -- the last one computed while the account was looking --
+  reads a little higher and plausible.
 
 No Tk and no captured data needed: the logs are written here.
 """
@@ -36,11 +39,18 @@ IDENTITY = frozenset({"user_id", "name", "display_id", "record_nickname",
 
 LIVE = {"season_id": "disaster_s04", "define_id": "disaster_s04_rank_02",
         "rank": 2481, "rank_id": "disaster_s04_rank_best_2_24",
-        "last_rank_id": None, "best_score": 1115731}
+        "last_rank": 0, "last_rank_id": None, "best_score": 1115731}
 FINISHED = {"season_id": "disaster_s04", "define_id": "disaster_s04_rank_01",
             "rank": 3473, "rank_id": "disaster_s04_rank_best_1_24",
-            "last_rank_id": "disaster_s04_rank_best_1_24",
+            "last_rank": 3502, "last_rank_id": "disaster_s04_rank_best_1_24",
             "best_score": 984946}
+
+
+def _stage(n, score):
+    """One of the Full-Scale Offensive's three stages, as a board row."""
+    return {"user_id": 300001105178, "define_id": "remnants_boss_penalty_005",
+            "list_id": "remnants_boss_s05_%02d" % n, "best_score": score,
+            "star_count": 3, "deployed_heroes": [1056]}
 
 
 def _stranger(rank, rank_id, best_score):
@@ -55,13 +65,23 @@ def _stranger(rank, rank_id, best_score):
 def _frames():
     """Server replies, in the order a session would send them."""
     return [
-        # Login: the standings of every half, and the Sortie's clears.
+        # Login: the standings of every half, the Sortie's clears, and
+        # the Offensive's rank with its three stages.
         [{"res": "ok", "service_server_time": 1790000000,
           "disaster_boss_rank_entities": {"disaster_s04": {
               "disaster_s04_rank_01": FINISHED,
               "disaster_s04_rank_02": dict(LIVE, rank=2600)}},
           "chaos_assault_entity": {"total_clear_count": 40,
-                                   "highest_clear_level": 5}}],
+                                   "highest_clear_level": 5},
+          "remnants_entity": {"define_id": "remnants_boss_penalty_005",
+                              "rank": 441, "reward_count": 9},
+          "remnants_entities": {"remnants_boss_s05_%02d" % n: _stage(n, score)
+                                for n, score in ((1, 1130418), (2, 1060877),
+                                                 (3, 1255815))}}],
+        # Entering the Offensive: its share of the field.
+        [{"res": "ok", "service_server_time": 1790000050,
+          "define_id": "remnants_boss_penalty_005", "rank": 441,
+          "rank_percent": 0.83, "reward_count": 9, "entities": {}}],
         # Merit Ranking, Master's page and then Bronze's.
         [{"res": "ok", "service_server_time": 1790000100,
           "result_list": [_stranger(1, "disaster_s04_rank_best_2_30",
@@ -186,27 +206,63 @@ def _readings(sh):
     return out
 
 
-def _sheet_values():
-    """What the sheets say, where the arithmetic shows."""
-    from ui.tabs.gacha_history_tab import _rift_value, _sortie_value
+def _tables(sh):
+    """What the lists say, where the arithmetic shows: each column's
+    cells, top to bottom, and the columns newest first."""
     out = []
-    tops = {"disaster_s04_rank_best_2_5": [{"rank": 35368}]}
-    got = _rift_value(LIVE, tops)
-    if "Diamond II (top 7%)" not in got or \
-            "#2,481 of ~47,160 (5.3%)" not in got:
-        out.append(f"the running half reads {got!r}: its subdivision's share "
-                   f"as the game states it, then its place in the field "
-                   f"worked out from the tops.")
-    got = _rift_value(FINISHED, tops)
-    if "#" in got:
-        out.append(f"a finished half reads {got!r}. Its `rank` and "
-                   f"`last_rank` disagree and which is its final placing "
-                   f"is not known, so it states no place.")
-    got = _sortie_value({"tab": "complete", "rank": 1914,
-                         "total_count": 24684, "score": 42343})
-    if not got.startswith("final #1,914 of 24,684 (top 7.8%)"):
-        out.append(f"a finished Sortie season reads {got!r}; its rank is "
-                   f"its final one and says so.")
+    top = {"read_at": 1}
+    raw = {
+        "disaster_boss_rank_entities": {"disaster_s04": {
+            "disaster_s04_rank_01": FINISHED,
+            "disaster_s04_rank_02": LIVE}},
+        "disaster_boss_rank_tops": {"disaster_s04": {"disaster_s04_rank_02": {
+            "disaster_s04_rank_best_2_30": [dict(top, rank=1,
+                                                 best_score=1635631)],
+            "disaster_s04_rank_best_2_25": [dict(top, rank=941,
+                                                 best_score=1219348)],
+            "disaster_s04_rank_best_2_5": [dict(top, rank=35368,
+                                                best_score=416283)]}}},
+        "chaos_assault_rankings": {
+            "assault_1_s6": {"readings": [{
+                "tab": "complete", "rank": 1914, "total_count": 24684,
+                "score": 42343, "top_score": 66265, "read_at": 2}]},
+            "assault_1_s7": {"readings": [{
+                "tab": "ongoing", "rank": 740, "total_count": 19607,
+                "score": 45512, "top_score": 65084, "read_at": 3}]}},
+        "remnants_rankings": {
+            "remnants_boss_penalty_004": {"readings": [
+                {"rank": 900, "rank_percent": None, "read_at": 4}]},
+            "remnants_boss_penalty_005": {
+                "stages": {"a": 1130418, "b": 1060877, "c": 1255815},
+                "readings": [{"rank": 441, "rank_percent": 0.83,
+                              "read_at": 5}]}}}
+    for name, table, rows, columns, why in (
+            ("Sortie", sh.sortie_table, sh.SORTIE_ROWS,
+             [("7", ["3.8%", "740", "19,607", "45,512", "65,084"]),
+              ("6", ["7.8%", "1,914", "24,684", "42,343", "66,265"])],
+             "the share of the field is the rank over total_count"),
+            ("Great Rift", sh.rift_table,
+             sh.RIFT_ROWS[:-1] + ("Top Diamond I",),
+             [("4 p2", ["5.3%", "7%", "2,481", "~47,160", "1,115,731",
+                        "1,635,631", "1,219,348"]),
+              ("4 p1", [None, "7%", "3,502", None, "984,946", None, None])],
+             "a finished half's place is its last_rank, the running one's "
+             "its rank against the field Bronze's top gives; the last row "
+             "is the own division's subdivision I, since no other "
+             "subdivision's top is ever sent"),
+            ("Full-Scale Offensive", sh.offensive_table, sh.OFFENSIVE_ROWS,
+             [("5", ["0.83%", "441", "~53,100", "3,447,110"]),
+              ("4", [None, "900", None, None])],
+             "the field is the rank over rank_percent, to the hundred, and "
+             "the score the stages' best scores summed")):
+        got = table(raw, None)
+        if got != (rows, columns):
+            out.append(f"the {name} list reads {got}, not {(rows, columns)}: "
+                       f"{why}.")
+        empty = table({}, None)
+        if empty != (empty[0], []) or len(empty[0]) != len(rows):
+            out.append(f"the {name} list with nothing read reads {empty}; "
+                       f"its rows and no columns.")
     return out
 
 
@@ -256,6 +312,15 @@ def _reading(sh):
         if len(clears) != 1 or clears[0].get("total_clear_count") != 40:
             out.append(f"the Sortie's clears read {clears}; the same count "
                        f"at every login is one sample.")
+        offensive = (data.get("remnants_rankings", {})
+                     .get("remnants_boss_penalty_005", {}))
+        got = [(r.get("rank"), r.get("rank_percent"), r.get("score"))
+               for r in offensive.get("readings", [])]
+        if got != [(441, None, 3447110), (441, 0.83, 3447110)]:
+            out.append(f"the Offensive's readings from the log are {got}: "
+                       f"the login's rank, then entering it adds the share "
+                       f"of the field. MARKERS must let both frames "
+                       f"through.")
         leaked = _keys(data, set()) & IDENTITY
         if leaked:
             out.append(f"the stats file would carry {sorted(leaked)} -- "
@@ -362,7 +427,7 @@ def run():
     import stats_history as sh
     failures = []
     failures.extend(_readings(sh))
-    failures.extend(_sheet_values())
+    failures.extend(_tables(sh))
     failures.extend(_reading(sh))
     failures.extend(_addon_saves_nothing(sh))
     failures.extend(_once(sh))

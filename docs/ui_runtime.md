@@ -101,6 +101,12 @@ Checkbuttons are created once per combatant (`_exclude_checkbutton`) and positio
 
 The panel's own width is an explicit layout preference, never derived from its children — content-driven width closes a content → width → `<Configure>` → content loop. Only the height follows the content.
 
+## A mapped Treeview asks for a new size only on `configure`
+
+Once a Treeview is mapped, a column's new width changes what it draws but not what it asks its container for, and reassigning `columns` asks for 200px a column whatever widths follow. Before the first map it tracks its columns, so a list built once and never rewritten is never caught out; one rewritten while shown keeps its old size, and the only symptom is a list too wide or clipped for its content.
+
+The Stats & Gacha History tab's standings lists rebuild their columns on every load, so `_write_standings` ends each list with a `configure(height=...)` that looks redundant: it is what makes the list ask again. `check_tabs_build` writes them twice while mapped and holds every list's requested width to its columns'.
+
 ## The frozen build re-launches itself for every worker
 
 Windows spawn relaunches the executable per multiprocessing worker. `multiprocessing.freeze_support()` must stay the FIRST statement in the `__main__` guard: it detects those launches and runs the multiprocessing bootstrap instead of the GUI. Every other side effect (single-instance lock, admin prompt, Tk roots) must stay inside `main()`, so a spawned worker importing the module never triggers them and never trips the single-instance lock. The parallel path keeps a persistent session pool, so the onefile spawn cost is paid once.

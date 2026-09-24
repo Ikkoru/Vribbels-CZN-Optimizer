@@ -750,12 +750,36 @@ def find_labelframe(root, title: str):
     while stack:
         w = stack.pop()
         try:
-            if w.winfo_class() == "TLabelframe" and w.cget("text") == title:
+            if w.winfo_class() == "TLabelframe" and (
+                    w.cget("text") == title
+                    or _labelwidget_reads(w, title)):
                 return w
         except tk.TclError:
             pass
         stack.extend(w.winfo_children())
     return None
+
+
+def _labelwidget_reads(frame, title: str) -> bool:
+    """Whether a LabelFrame's labelwidget holds a label reading `title`.
+
+    A panel whose title shares its line with something else -- a status,
+    a note -- carries it as a labelwidget and has no `text` of its own.
+    """
+    name = str(frame.cget("labelwidget") or "")
+    if not name:
+        return False
+    try:
+        header = frame.nametowidget(name)
+    except KeyError:
+        return False
+    for w in [header] + header.winfo_children():
+        try:
+            if w.cget("text") == title:
+                return True
+        except tk.TclError:
+            pass
+    return False
 
 
 def first_child(widget):

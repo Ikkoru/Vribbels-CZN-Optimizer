@@ -178,7 +178,7 @@ The maintainer read every live event's totals off the game and reported them. Th
 | Zero System (Chaos Matrix) | 100 rewards | 100/100 | agrees |
 | Galactic Disaster, weekly chaos | 8000 | 8000/8000 | agrees |
 | Great Rift score | 300000 | 0/300000 | agrees |
-| Event Node List (past instalments) | 25 | the grid: 5 x 5, once its last index is issued; 26 with the final reward its completion record says was claimed | agrees on the 25. Whether the game's 25 already counts that reward is open -- see *Still open* |
+| Event Node List (past instalments) | 20 nodes and 5 stage clears, plus Clear All Missions -- the update notes' reward table | the grid: 5 x 5, once its last index is issued; 26 with the final reward its completion record says was claimed | agrees |
 
 **Two events pay outside their mission rows**, which is what stops "every row claimed" from meaning "finished": `event_bartender_1`'s Special Reward, and `event_summer_01`'s 10 puzzle rewards and 15 story rewards. Both are counted on their own screens and neither is a mission row. The tab counts the Special Reward once it knows the event has one (*A final reward the wire has not mentioned yet*); the summer's puzzles and stories are in tables nothing reads yet (`event_summer_define_entity`, `story_event_entities`).
 
@@ -457,6 +457,22 @@ What does link them is time. **An instalment's rows are first issued inside its 
 
 A list's rows are its missions (four pages of five, `event_node_<id>_<page>_<n>`) and its achievement page (`event_node_<id>_achievement_<n>`), 25 in all. Its completion record sits on the achievement page on four of the seven lists and on the list itself on the other three, with no pattern in the dates; `_event_records` takes a record at or UNDER the list's instalment, so both count.
 
+**What the rows are, by the update notes.** Arabella's list runs Prologue, three interrogations, and a Final Interrogation, five nodes to each interrogation, and pays a reward per node, one per stage cleared, and one for clearing everything. On the wire that is pages 2 to 5 -- the Prologue has no nodes, so there is no page 1 -- then `achievement_1` to `_5`, the stage clears -- each issued as its stage's last node opens, the Prologue's as the Prologue ends -- and the completion record, `Clear All Missions`. Every one of the 26 is on the wire. Adelheid's, Hilde's and Tiphera's lists share the screen. The story-map lists are their nodes and one final reward: Nine's 15, Diana's 16, Heidemarie's 19.
+
+The lists on record, numbered without a gap -- a combatant with no list had another kind of event, Olga's being her Secret Diary (`event_schedule_devil_001`):
+
+| List | Missions | Combatant | First row issued | Shape |
+| ---- | -------- | --------- | ---------------- | ----- |
+| `event_nodelist_001` | `event_node_30047` | Nine | 2026-02-04 | story map, 15 |
+| `event_nodelist_002` | `event_node_30084` | Tiphera | 2026-02-25 | achievement page, 25 |
+| `event_nodelist_003` | `event_node_1061` | Diana | 2026-04-08 | story map, 16 |
+| `event_nodelist_004` | `event_node_30093` | Heidemarie | 2026-04-29 | story map, 19 |
+| `event_nodelist_005` | `event_node_1055` | Adelheid | 2026-05-27 | achievement page, 25 |
+| `event_nodelist_006` | `event_node_30113` | Hilde | 2026-07-29 | achievement page, 25 |
+| `event_nodelist_007` | `event_node_30115` | Arabella | 2026-08-19 | achievement page, 25 |
+
+002 is placed by elimination: the story tables name the schedules of 001, 003 and 004, and the logs keep the windows of 005 to 007 only.
+
 **Attendance and trial events do not follow this** — their records are numbered in a different space entirely, and `wire_hunt.md` says how each is paired.
 
 ## The payloads an event's data arrives in
@@ -629,11 +645,10 @@ Every event row needs the same three answers -- rewards claimed, rewards held, a
 
 * **A ragged family's page lengths.** The bartender's three pages are 7, 7 and 10, and two of the three can be read in full from the rows the account holds — but only because those pages were played. Page 1 hands out a row a day and will read short all week. Nothing distinguishes "this page is finished" from "this page is still being issued", which is the same wall every Open-ended reading hits. The completion flag answers the only question that really matters — *is there anything left* — without answering this one.
 * **`reward_step` vs `version`.** Read as a tally on the evidence under *`reward_step` and `version`*, which also says how to settle it: on the next LIVE step track, most likely a love instalment. Nothing has moved either number on a live track yet: an ordinary event reward claim does not touch `event_mission_reward_entities`, and the bartender's final reward CREATED its row rather than moving one.
-* **Whether every flagged family pays a SEPARATE final reward.** Only the bartender's was captured being claimed, and there the game's screen shows it apart from the 24. The Node Lists -- the events featuring one combatant, most recently Adelheid, Hilde and Arabella -- flag on their achievement page; were that flag set by claiming the last achievement rather than by a reward of its own, a list reads one higher than the game's 25, in both figures. The next Node List settles it: once everything is claimed, whether a reward is left after the 25.
 * **A grid under-reads a Node List until its last index is issued.** `event_nodelist_007`'s grid came to 8 on its third day, where it held 25: the batch that makes it a grid spanned its pages but only two of its five indices. The family's history knows 25, but a grid is this instalment speaking and outranks the past, so the smaller number wins. Which should win when a grid and a history disagree is open.
 * **Rhythm games, the Disaster Marble, Trauma Codes and the collab coupon read nothing.** Their schedules share no word with their records (`ds_s3_event_rhythm_game` owns `event_rhythm_*`; `marble_s01` keeps its ladder in `marble_achievement_entities`), and each is one instalment on record, too few to pair by rule.
 * **Telling the launch login event from a streak one day behind.** Three ways have been ruled out and none is left — see *A streak has no stated length*, which also says what a next attempt would have to explain first.
-* **Event display names.** Every row shows an id, because the wire never sends a name — the client has them in a localisation table.
+* **Event display names.** Every row shows an id, because the wire never sends a name — the client has them in a localisation table. The game's update notes (`page.onstove.com/chaoszeronightmare/en/list/142421`) name every event with its schedule, and usually its reward table, which is how the Node Lists' final reward was settled.
 
 Settled, and kept so they are not re-suggested:
 

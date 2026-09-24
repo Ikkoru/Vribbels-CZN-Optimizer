@@ -1,12 +1,13 @@
 """Stats & Gacha History tab: every pull the game has listed, how lucky
-it was, and the account's Sortie and Great Rift standings.
+it was, and the account's Sortie, Great Rift and Full-Scale Offensive
+standings.
 
 `gacha_history.py` does the gacha reading and arithmetic, and
 `stats_history.py` the standings'; this draws them. Two lists side by
 side: one row per banner family with its luck on the left, and the pulls
-of whichever family is selected, newest first. Under the banners, three
-sheets: the gacha figures across banners, then the Sortie's and the
-Great Rift's.
+of whichever family is selected, newest first. Under the banners, the
+gacha figures across banners, and beside them a list per standing with
+a column per season.
 
 **Nothing is read until the tab is first shown.** The luck figures are
 an exact convolution over every 5-star the history holds, which is a
@@ -20,6 +21,7 @@ import tkinter.font as tkfont
 from datetime import datetime
 from pathlib import Path
 from tkinter import ttk, filedialog, messagebox
+from types import SimpleNamespace
 
 import gacha_history as gh
 import stats_history as sh
@@ -147,25 +149,36 @@ PRISM_ONLY = "Prism Module"
 ALL_BANNERS = "All banners"
 HEADING_FONT = ("Segoe UI", 9, "bold")
 
-# The two standings sheets under it, built and written like it: a row
-# per season, figure then value. What they read is the loaded snapshot's
-# ranking history and whatever `stats_history.py` read out of the
-# captures taken before snapshots kept it.
+# Beside it, the account's standings: three lists with a column per
+# season, newest first, and the rows' names held still at the left. The
+# tables are `sh.sortie_table`, `sh.rift_table` and `sh.offensive_table`,
+# over the loaded snapshot's ranking history and whatever
+# `stats_history.py` read out of the captures from before snapshots
+# kept it.
+#
+# **Beside the gacha sheet, not under it.** Stacked under it, the three
+# run past the default window's bottom edge, where the rows cut off
+# leave nothing beside them to look short -- and the gacha sheet leaves
+# most of the Banners list's width empty beside it anyway.
+#
+# **A list grows a column a season and stops at the Banners list's
+# right edge**, past which its seasons scroll sideways. Held at that
+# width instead, a list of two seasons is mostly empty heading, with a
+# scrollbar under it that has nothing to scroll.
 SORTIE_TITLE = "Sortie Stats"
 RIFT_TITLE = "Great Rift Stats"
-# What a sheet says where no ranking has ever been read: the one action
-# that fills it.
-SORTIE_EMPTY = "Open Hardcore Rankings while capturing"
-RIFT_EMPTY = "Open Merit Ranking while capturing"
-TOPS_EMPTY = "Open Merit Ranking and its divisions while capturing"
-ROMAN = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X")
-ORDINALS = {1: "1st", 2: "2nd", 3: "3rd"}
-# The newest seasons a standings sheet shows. The history keeps every
-# season it has read, and a Great Rift season is two rows: uncapped,
-# the left column outgrows the default window and its last rows are
-# cut off the bottom without a word. `check_tabs_build` fills every
-# sheet to this cap and measures the column against the window.
-SEASONS_SHOWN = 4
+OFFENSIVE_TITLE = "Full-Scale Offensive Stats"
+# Beside each title: what to open in game to fill the list.
+SORTIE_NOTE = ("Start a capture. Open Hardcore Rankings, then Previous "
+               "Sortie Ranking.")
+RIFT_NOTE = "Start a capture. Open Merit Ranking. Tap each division."
+OFFENSIVE_NOTE = "Start a capture. Open the Full-Scale Offensive."
+# The heading over the rows' names, which says what the columns are.
+SEASON_HEADING = "Season"
+# How much of the Banners list's width the gacha sheet may take with its
+# ties; the standings have the rest. A share, because the room either
+# side could take is decided by the other.
+OVERALL_SHARE = 0.5
 
 # One pitch tag per line, setting its `spacing1` -- the line's own word
 # for what sits above it. Tk resolves two tags setting one option by
@@ -188,8 +201,8 @@ TITLE_GAP = 2           # spacing: label row -> label row -- title, run ↕
 
 # The columns. A record is followed by every tie for it as a (units,
 # date) pair, the units labelling their date and one pair sitting
-# beside the next -- as many pairs as fit the Banners list's width,
-# oldest first.
+# beside the next -- as many pairs as fit the sheet's share of the
+# Banners list's width, `OVERALL_SHARE`, oldest first.
 FIGURE_TO_VALUE = 5     # spacing: label ↔ its element -- run, run ↔
 # A pixel short of its rule: the widest value is always `N pulls`,
 # whose `s` stops a pixel inside its own advance.
@@ -230,77 +243,6 @@ def _standout(records, streak=False):
             "%Y-%m-%d")
         pairs += (_units(record.pulls), day)
     return (value,) + pairs
-
-
-def _share(rank, field):
-    """How far down a field of `field` rank `rank` is, as `5.2`."""
-    return "%.1f" % (100.0 * rank / field)
-
-
-def _sortie_value(reading):
-    """`#740 of 19,607 (top 3.8%), best 45,512, top score 65,084`. A
-    finished season's rank is its final one and says so."""
-    parts = []
-    rank, field = reading.get("rank"), reading.get("total_count")
-    if isinstance(rank, int) and rank > 0:
-        where = "#" + format(rank, ",")
-        if isinstance(field, int) and field > 0:
-            where += " of %s (top %s%%)" % (format(field, ","),
-                                            _share(rank, field))
-        if reading.get("tab") == "complete":
-            where = "final " + where
-        parts.append(where)
-    if isinstance(reading.get("score"), int):
-        parts.append("best " + format(reading["score"], ","))
-    if isinstance(reading.get("top_score"), int):
-        parts.append("top score " + format(reading["top_score"], ","))
-    return ", ".join(parts) or NO_VALUE
-
-
-def _rift_value(standing, tops):
-    """`Diamond II (top 7%), #2,481 of ~47,160 (5.3%), best 1,115,731`.
-
-    The subdivision and its share are what the game shows; the rank
-    against the field is the more exact figure, worked out from the
-    division tops where the ranking has been opened -- and only for the
-    half still running, since a finished half's `rank` and `last_rank`
-    disagree and which is its final placing is not known.
-    """
-    parts = []
-    found = sh.subdivision(standing.get("rank_id"))
-    if found:
-        parts.append("%s (top %g%%)" % (found[1], found[2] * 100))
-    rank = standing.get("rank")
-    if not standing.get("last_rank_id") and isinstance(rank, int) \
-            and rank > 0:
-        field = sh.field_size(tops)
-        where = "#" + format(rank, ",")
-        if field:
-            where += " of ~%s (%s%%)" % (format(round(field, -1), ","),
-                                         _share(rank, field))
-        parts.append(where)
-    if isinstance(standing.get("best_score"), int):
-        parts.append("best " + format(standing["best_score"], ","))
-    return ", ".join(parts) or NO_VALUE
-
-
-def _rift_tops(standing, tops):
-    """The running half's best score, and its own division's: `Master I
-    1,635,631, Diamond I 1,219,348`."""
-    wanted = [len(sh.SHARES)]
-    found = sh.subdivision(standing.get("rank_id"))
-    if found:
-        own = (found[0] - 1) // len(sh.TIERS) * len(sh.TIERS) + len(sh.TIERS)
-        if own not in wanted:
-            wanted.append(own)
-    parts = []
-    for rank_id, samples in sorted(tops.items()):
-        found = sh.subdivision(rank_id)
-        if found and found[0] in wanted and samples and isinstance(
-                samples[-1].get("best_score"), int):
-            parts.append((wanted.index(found[0]), "%s %s" % (
-                found[1], format(samples[-1]["best_score"], ","))))
-    return ", ".join(p for _order, p in sorted(parts)) or TOPS_EMPTY
 
 
 def _units(pulls):
@@ -401,9 +343,7 @@ class GachaHistoryTab(BaseTab):
         body = ttk.Frame(content)
         body.pack(fill=tk.BOTH, expand=True)
         body.grid_columnconfigure(1, weight=1)
-        # The LAST sheet's row takes the slack, so the sheets above it
-        # stack at their own heights under the banners.
-        body.grid_rowconfigure(3, weight=1)
+        body.grid_rowconfigure(1, weight=1)
 
         summary_frame = ttk.LabelFrame(body, text="Banners",
                                        padding=px(0),
@@ -421,15 +361,23 @@ class GachaHistoryTab(BaseTab):
         self.summary_tree.tag_configure(URGENT_TAG,
                                         foreground=self.colors["red"])
 
-        self.overall_holder, self.overall_text = self._make_sheet(
-            body, OVERALL_TITLE, row=1)
-        self.sortie_holder, self.sortie_text = self._make_sheet(
-            body, SORTIE_TITLE, row=2)
-        self.rift_holder, self.rift_text = self._make_sheet(
-            body, RIFT_TITLE, row=3)
+        # Under the banners, two columns of their own: the gacha figures,
+        # and the standings beside them. Unpadded -- the panels in it
+        # carry their pads, so they line up with the banners' edges.
+        below = ttk.Frame(body)
+        below.grid(row=1, column=0, sticky="nw")
+        self.overall_holder, self.overall_text = self._make_sheet(below)
+        standings = ttk.Frame(below)
+        standings.grid(row=0, column=1, sticky="nw")
+        self.sortie_list = self._make_standings(
+            standings, SORTIE_TITLE, SORTIE_NOTE, row=0)
+        self.rift_list = self._make_standings(
+            standings, RIFT_TITLE, RIFT_NOTE, row=1)
+        self.offensive_list = self._make_standings(
+            standings, OFFENSIVE_TITLE, OFFENSIVE_NOTE, row=2)
         # Written now, with nothing read. The gacha sheet is then already
         # its full height, and only its width moves when the history
-        # arrives; the standings sheets grow a row per season they read.
+        # arrives; the standings are always as tall as their rows.
         self._fill_overall()
         self._fill_standings()
 
@@ -438,7 +386,7 @@ class GachaHistoryTab(BaseTab):
                                           style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- label, title ↕
-        self.pulls_frame.grid(row=0, column=1, rowspan=4, sticky="nsew",
+        self.pulls_frame.grid(row=0, column=1, rowspan=2, sticky="nsew",
                               padx=px(2), pady=px(2))
         self.pulls_tree = self._make_tree(self.pulls_frame, PULL_COLUMNS,
                                           height=20)
@@ -457,21 +405,16 @@ class GachaHistoryTab(BaseTab):
         # spacing: tab list -> first element -- tab, frame ↕
         content.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((1, 2)))
 
-    def _make_sheet(self, body, title, row):
-        """(holder, Text) for one label-row sheet in the left column.
-
-        All three sheets are built here, so they share one set of
-        levers: a sheet sits under the one above as the first sits under
-        the banners, and its rows keep the same pitch.
-        """
-        frame = ttk.LabelFrame(body, text=title, padding=px(0),
+    def _make_sheet(self, parent):
+        """(holder, Text) for the gacha sheet under the banners."""
+        frame = ttk.LabelFrame(parent, text=OVERALL_TITLE, padding=px(0),
                                style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
         # The leading pad is the lever on the gap from the panel above
         # to this title, which the text rule sets; the banners keep the
         # 2 every panel on this tab has.
-        frame.grid(row=row, column=0, sticky="nw", padx=px(2),
+        frame.grid(row=0, column=0, sticky="nw", padx=px(2),
                    pady=px((5, 2)))
         # A Text sizes in characters and lines, and a sheet is sized in
         # pixels -- its rows carry `spacing1` a line count cannot see --
@@ -496,6 +439,64 @@ class GachaHistoryTab(BaseTab):
         text.tag_configure(TOP_TAG, spacing1=px(0))
         text.tag_configure(BOLD_TAG, font=HEADING_FONT)
         return holder, text
+
+    def _make_standings(self, parent, title, note, row):
+        """One standings list, as its parts: the rows' names in a list of
+        their own, and the seasons in a list beside it that scrolls
+        sideways once it reaches its room. Two lists, because a Treeview
+        cannot hold one column still while the rest scroll; they share
+        this tab's list style, so their rows and headings line up.
+        """
+        self._style_lists()
+        frame = ttk.LabelFrame(parent, padding=px(0),
+                               style="Borderless.TLabelframe")
+        # A labelwidget, so the note sits on the title's line. It
+        # bypasses the label style, so the title's colour is set here,
+        # as the Optimizer's Results panel does.
+        header = ttk.Frame(frame)
+        ttk.Label(header, text=title,
+                  foreground=self.colors["accent"]).pack(side=tk.LEFT)
+        hint = ttk.Label(header, text=note,
+                         foreground=self.colors["fg_dim"])
+        # spacing: header subtext -- label, label ↔
+        hint.pack(side=tk.LEFT, padx=px((10, 0)))
+        frame.configure(labelwidget=header)
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        # The gacha sheet's levers, so the first list's title sits under
+        # the banners exactly as that sheet's does.
+        frame.grid(row=row, column=0, sticky="nw", padx=px(2),
+                   pady=px((5, 2)))
+        lists = ttk.Frame(frame)
+        # spacing: title above, element below -- title, tree ↕
+        lists.pack(anchor=tk.W, pady=px((0, 0)))
+        labels = ttk.Treeview(lists, columns=("label", "gap"),
+                              show="headings", height=1, selectmode="none",
+                              style=TREE_STYLE, takefocus=0)
+        labels.heading("label", text=SEASON_HEADING, anchor=tk.W)
+        labels.heading("gap", text="")
+        labels.column("label", anchor=tk.W, stretch=False)
+        # The spacer every two columns of this tab's lists have, here
+        # between the names and the first season.
+        # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
+        labels.column("gap", width=px(COLUMN_GAP), minwidth=px(COLUMN_GAP),
+                      stretch=False)
+        labels.grid(row=0, column=0, sticky="nw")
+        # The seasons' list is as wide as its holder, which
+        # `_size_standings` sets: narrower than its columns, it scrolls.
+        holder = tk.Frame(lists, bg=self.colors["bg"], width=1, height=1)
+        holder.pack_propagate(False)
+        holder.grid(row=0, column=1, sticky="nw")
+        data = ttk.Treeview(holder, show="headings", height=1,
+                            selectmode="none", style=TREE_STYLE, takefocus=0)
+        data.pack(fill=tk.BOTH, expand=True)
+        scroll = ttk.Scrollbar(lists, orient=tk.HORIZONTAL,
+                               command=data.xview)
+        data.configure(xscrollcommand=scroll.set)
+        scroll.grid(row=1, column=1, sticky="ew")
+        scroll.grid_remove()
+        return SimpleNamespace(frame=frame, labels=labels, holder=holder,
+                               data=data, scroll=scroll)
 
     @staticmethod
     def _style_lists():
@@ -611,7 +612,7 @@ class GachaHistoryTab(BaseTab):
             self.refresh_standings()
 
     def refresh_standings(self):
-        """Redraw the Sortie and Great Rift sheets from the loaded
+        """Redraw the standings lists from the loaded
         snapshot and the file of old captures.
 
         Called after every snapshot load and after the old captures have
@@ -765,63 +766,123 @@ class GachaHistoryTab(BaseTab):
         )
 
     def _fill_overall(self):
-        """Write the gacha sheet, its ties cut to the banners' width."""
+        """Write the gacha sheet, its ties cut to its share of the
+        banners' width, and give the standings what it leaves."""
         font = tkfont.nametofont("TkDefaultFont")
         bold = tkfont.Font(font=HEADING_FONT)
         self._write_sheet(self.overall_text, self.overall_holder,
                           self._fit_ties(self._overall_rows(), font, bold))
+        self._size_standings()
 
     def _fill_standings(self):
-        """Write the Sortie and Great Rift sheets from what is loaded."""
-        self._write_sheet(self.sortie_text, self.sortie_holder,
-                          self._sortie_rows())
-        self._write_sheet(self.rift_text, self.rift_holder,
-                          self._rift_rows())
+        """Write the three standings lists from what is loaded."""
+        raw = self._raw()
+        for parts, table in ((self.sortie_list, sh.sortie_table),
+                             (self.rift_list, sh.rift_table),
+                             (self.offensive_list, sh.offensive_table)):
+            self._write_standings(parts, *table(raw, self.stats))
+        self._size_standings()
 
     def _raw(self):
         return getattr(self.optimizer, "raw_data", None) or {}
 
-    def _sortie_rows(self):
-        """The Sortie sheet: the account's clears, then a row per season
-        the rankings have been read for, newest first."""
-        raw = self._raw()
-        rows = []
-        entity = raw.get("chaos_assault_entity")
-        if isinstance(entity, dict) and isinstance(
-                entity.get("total_clear_count"), int):
-            clears = format(entity["total_clear_count"], ",")
-            level = entity.get("highest_clear_level")
-            if isinstance(level, int) and 1 <= level <= len(ROMAN):
-                clears += ", up to Difficulty " + ROMAN[level - 1]
-            rows.append(("Clears", clears))
-        seasons = sh.sortie_seasons(raw, self.stats)[:SEASONS_SHOWN]
-        for number, reading, _reset in seasons:
-            rows.append(("Season %d" % number, _sortie_value(reading)))
-        if not seasons:
-            rows.append(("Rankings", SORTIE_EMPTY))
-        return rows
+    def _banners_width(self):
+        """The Banners list's width, which the column under it keeps to.
+        The list's own rather than its panel's: a Treeview's is known as
+        soon as its columns are, where a frame's waits for Tk to lay it
+        out."""
+        return self.summary_tree.winfo_reqwidth()
 
-    def _rift_rows(self):
-        """The Great Rift sheet: a row per half the account has a
-        standing in, newest first, the running half's followed by the
-        tops it is being ranked against."""
-        halves = sh.rift_halves(self._raw(), self.stats)
-        newest = sorted({h[0] for h in halves}, reverse=True)[:SEASONS_SHOWN]
-        live = next((h for h in halves if not h[2].get("last_rank_id")),
-                    None)
-        rows = []
-        for entry in halves:
-            season, half, standing, tops = entry
-            if season not in newest:
-                continue
-            rows.append(("Season %d, %s" % (
-                season, ORDINALS.get(half, "%dth" % half)),
-                _rift_value(standing, tops)))
-            if entry is live:
-                rows.append(("Top scores", _rift_tops(standing, tops)))
-        if not halves:
-            rows.append(("Merit Ranking", RIFT_EMPTY))
-        return rows
+    @staticmethod
+    def _columns_width(tree):
+        """A list's columns, summed: its width in this tab's list style,
+        which draws no edge -- and known whatever the list last asked
+        for."""
+        return sum(int(tree.column(column, "width"))
+                   for column in tree["columns"])
+
+    def _panel_edges(self):
+        """What a panel on this tab adds to its content's width: nothing
+        where the borderless style is configured, as it is in the app,
+        and a border where a theme draws one. Read off the Banners
+        panel, whose content keeps one width once built."""
+        return max(0, self.summary_tree.master.winfo_reqwidth()
+                   - self.summary_tree.winfo_reqwidth())
+
+    def _write_standings(self, parts, rows, columns):
+        """Write one standings list: the rows' names, then a column per
+        season with a spacer between every two, each column as wide as
+        its widest text -- `_make_tree`'s arithmetic. A list with nothing
+        read keeps one empty column, so it still reads as a table."""
+        font = tkfont.nametofont("TkDefaultFont")
+        head = tkfont.nametofont("TkHeadingFont")
+        labels, data = parts.labels, parts.data
+        # Measured, so no `px()` on the text's share -- the fonts already
+        # carry the scale. The inset is a distance and takes it.
+        width = max([head.measure(SEASON_HEADING)]
+                    + [font.measure(name) for name in rows]) \
+            + px(2 * TEXT_INSET)
+        labels.column("label", width=width, minwidth=width)
+        # **NOT redundant** when the row count is unchanged: a mapped
+        # Treeview asks for a new size only on `configure`, never on a
+        # column's new width. Without it a longer row name -- the own
+        # division's, when it changes -- is cut off at the old width.
+        # `check_tabs_build` pins it.
+        labels.configure(height=len(rows))
+        labels.delete(*labels.get_children())
+        for name in rows:
+            labels.insert("", tk.END, values=(name, ""))
+        columns = columns or [(NO_VALUE, [None] * len(rows))]
+        ids = []
+        for index in range(len(columns)):
+            if index:
+                ids.append(self._spacer(index))
+            ids.append("season%d" % index)
+        data.configure(columns=ids)
+        for index, (heading, cells) in enumerate(columns):
+            column = "season%d" % index
+            width = max([head.measure(heading)]
+                        + [font.measure(cell or NO_VALUE) for cell in cells]) \
+                + px(2 * TEXT_INSET)
+            data.heading(column, text=heading, anchor=tk.E)
+            data.column(column, width=width, minwidth=width, anchor=tk.E,
+                        stretch=False)
+            if index:
+                gap = self._spacer(index)
+                data.heading(gap, text="")
+                # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
+                data.column(gap, width=px(COLUMN_GAP),
+                            minwidth=px(COLUMN_GAP), stretch=False)
+        # After the widths, for the reason above -- and reassigning
+        # `columns` on a mapped list asks for 200 a column meanwhile.
+        data.configure(height=len(rows))
+        data.delete(*data.get_children())
+        for row in range(len(rows)):
+            data.insert("", tk.END, values=self._spaced(
+                [cells[row] or NO_VALUE for _heading, cells in columns]))
+
+    def _size_standings(self):
+        """Fit each standings list to the room beside the gacha sheet: as
+        wide as its seasons, up to the Banners list's right edge, the
+        seasons past it scrolling sideways under a scrollbar that shows
+        only then. Newest first, so what scrolls out of sight is the
+        oldest."""
+        # The two panels' pads stand between the sheet and the lists, and
+        # a list's panel adds its edges; the sheet's panel adds the same
+        # as the banners', so those two cancel.
+        room = (self._banners_width() - int(self.overall_holder.cget("width"))
+                - 2 * px(2) - self._panel_edges())
+        for parts in (self.sortie_list, self.rift_list, self.offensive_list):
+            natural = self._columns_width(parts.data)
+            shown = max(1, min(natural,
+                               room - self._columns_width(parts.labels)))
+            parts.holder.configure(width=shown,
+                                   height=parts.data.winfo_reqheight())
+            if natural > shown:
+                parts.scroll.grid()
+            else:
+                parts.scroll.grid_remove()
+                parts.data.xview_moveto(0)
 
     def _write_sheet(self, text, holder, rows):
         """Write a sheet, set its stops from what it now holds, and size
@@ -852,14 +913,15 @@ class GachaHistoryTab(BaseTab):
 
     def _fit_ties(self, rows, font, bold):
         """`rows` with each record's ties cut to as many pairs as fit
-        the Banners list's width, keeping the OLDEST. The sheet sits in
-        that list's column, and a wider sheet would widen the column
-        and take the difference from the pulls list beside it.
+        the sheet's share of the Banners list's width, keeping the
+        OLDEST. The sheet and the standings beside it share that list's
+        column, and a wider pair would widen the column and take the
+        difference from the pulls list beside it.
 
         Every record keeps its first pair, which is the record itself;
         only its ties are ever cut.
         """
-        available = self.summary_tree.master.winfo_reqwidth()
+        available = int(self._banners_width() * OVERALL_SHARE)
         pairs = max([(len(row) - 2) // 2 for row in rows
                      if not isinstance(row, str)] + [1])
         while True:

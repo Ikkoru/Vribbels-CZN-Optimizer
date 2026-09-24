@@ -2507,8 +2507,9 @@ def _gacha_overall_fits(tab, gh):
     than anything the sheet held before it. `_sheet_complaints` says
     what a fill can get wrong.
 
-    A record's ties sit beside it, as many as fit the Banners list's
-    width and the oldest first; forty are handed over here.
+    A record's ties sit beside it, as many as fit the sheet's share of
+    the Banners list's width and the oldest first; forty are handed
+    over here.
 
     Returns a list of complaints.
     """
@@ -2524,8 +2525,9 @@ def _gacha_overall_fits(tab, gh):
                 "build a three-unit streak from"]
     tab.history.overall.streak = [
         gh.Standout(3, list(units.values())[:3])]
-    # More ties than the Banners list's width can hold, a day apart and
-    # handed over oldest first, as the history lists them.
+    # More ties than the sheet's share of the Banners list's width can
+    # hold, a day apart and handed over oldest first, as the history
+    # lists them.
     day = 86400
     first = pulls[0]
     tab.history.overall.fastest = [
@@ -2578,155 +2580,202 @@ def _gacha_overall_fits(tab, gh):
     return out
 
 
-def _standings(newest):
-    """A snapshot's standings: `newest` seasons of the Sortie and of the
-    Great Rift, the newest Rift season's second half still running."""
+def _standings(seasons):
+    """A snapshot's standings: `seasons` of the Sortie, the Great Rift
+    and the Full-Scale Offensive, the newest Great Rift season's second
+    half still running with its division tops read. The account stands
+    in Diamond II in every half."""
     def rift(season, half):
         rank_id = "disaster_s%02d_rank_best_%d_24" % (season, half)
-        running = (season, half) == (newest, 2)
+        running = (season, half) == (seasons, 2)
         return {"rank": 2481, "best_score": 1115731, "rank_id": rank_id,
+                "last_rank": 0 if running else 2500,
                 "last_rank_id": None if running else rank_id}
-    live = "disaster_s%02d" % newest
+    live = "disaster_s%02d" % seasons
     return {
-        "chaos_assault_entity": {"total_clear_count": 40,
-                                 "highest_clear_level": 5},
         "chaos_assault_rankings": {
-            "assault_1_s%d" % s: {"reset_time": s, "readings": [{
-                "tab": "ongoing" if s == newest else "complete",
+            "assault_1_s%d" % s: {"readings": [{
+                "tab": "ongoing" if s == seasons else "complete",
                 "total_count": 24684, "rank": 1914, "score": 42343,
                 "top_score": 66265, "read_at": s}]}
-            for s in range(1, newest + 1)},
+            for s in range(1, seasons + 1)},
         "disaster_boss_rank_entities": {
             "disaster_s%02d" % s: {"disaster_s%02d_rank_%02d" % (s, h):
                                    rift(s, h) for h in (1, 2)}
-            for s in range(1, newest + 1)},
+            for s in range(1, seasons + 1)},
         "disaster_boss_rank_tops": {live: {live + "_rank_02": {
             "%s_rank_best_2_%d" % (live, n): [
                 {"rank": rank, "best_score": score, "read_at": 1}]
             for n, rank, score in ((30, 1, 1635631), (25, 941, 1219348),
                                    (5, 35368, 416283))}}},
+        "remnants_rankings": {
+            "remnants_boss_penalty_%03d" % s: {
+                "stages": {"a": 1130418, "b": 1060877, "c": 1255815},
+                "readings": [{"rank": 441, "rank_percent": 0.83,
+                              "read_at": s}]}
+            for s in range(1, seasons + 1)},
     }
 
 
-def _standings_sheets_fit(tab):
-    """The Sortie and Great Rift sheets show their newest seasons, and
-    the left column holds every sheet in the default window.
+def _standings_lists_fit(tab):
+    """The standings lists show every season read, newest first, and fit
+    the room beside the gacha sheet in the default window.
 
-    Handed one season more than `SEASONS_SHOWN` of each, a sheet must
-    stop at the cap: the history keeps every season it reads, a Great
-    Rift season is two rows, and an uncapped column runs past the
-    window's bottom edge -- where the rows cut off leave nothing beside
-    them to look short. The running half is followed by the tops it is
-    ranked against. The column is measured at its tallest, a Banners
-    row for every family, mapped at alpha 0 like
-    `_the_checklist_fits_its_window`.
+    Handed more seasons than that room holds, a list must stop at the
+    Banners list's right edge and scroll the rest, the newest in view:
+    one that grows past it widens the column and takes the difference
+    from the pulls list, and one cut off anywhere simply stops drawing.
+    Measured with the gacha sheet at its widest -- more ties than its
+    share holds -- and a Banners row for every banner family, mapped at
+    alpha 0 like `_the_checklist_fits_its_window`, and written AFTER
+    mapping, as the tab's first show writes them.
 
-    The spacing audit finds these panels by their exact titles and
-    their rows by their words, the words of an empty sheet included.
+    **A mapped Treeview asks for a new size only on `configure`, never
+    on a column's new width**, so a list written while mapped has to
+    configure itself after its widths or keep its old size. The lists
+    are written here twice while mapped, the row names' widest changing
+    between the two, and every list's size is held to its columns'.
+
+    The spacing audit finds these panels by their exact titles, which
+    their labelwidgets hold.
 
     Returns a list of complaints.
     """
+    import tkinter as tk
     import gacha_history as gh
+    import stats_history as sh
+    from ui import spacing_audit as sa
     from ui import spacing_registry as registry
+    from ui.scaling import px, WINDOW_H, WINDOW_W
     from ui.tabs.gacha_history_tab import (
-        OVERALL_TITLE, RIFT_TITLE, SEASONS_SHOWN, SORTIE_TITLE)
+        NO_VALUE, OFFENSIVE_TITLE, RIFT_TITLE, SORTIE_TITLE)
 
     out = []
-    newest = SEASONS_SHOWN + 1
-    shown = range(newest, newest - SEASONS_SHOWN, -1)
+    lists = ((SORTIE_TITLE, tab.sortie_list, sh.sortie_table,
+              registry.GACHA_SORTIE_TITLE),
+             (RIFT_TITLE, tab.rift_list, sh.rift_table,
+              registry.GACHA_RIFT_TITLE),
+             (OFFENSIVE_TITLE, tab.offensive_list, sh.offensive_table,
+              registry.GACHA_OFFENSIVE_TITLE))
     optimizer = tab.optimizer
     saved = getattr(optimizer, "raw_data", None), tab.stats
-    words = {SORTIE_TITLE: "", RIFT_TITLE: ""}
-    try:
-        optimizer.raw_data, tab.stats = {}, None
-        tab._fill_standings()
-        for title, text in ((SORTIE_TITLE, tab.sortie_text),
-                            (RIFT_TITLE, tab.rift_text)):
-            words[title] += text.get("1.0", "end-1c")
-        optimizer.raw_data = _standings(newest)
-        tab._fill_standings()
-        want = {SORTIE_TITLE: ["Clears"] + ["Season %d" % s for s in shown],
-                RIFT_TITLE: []}
-        for s in shown:
-            want[RIFT_TITLE] += ["Season %d, 2nd" % s]
-            want[RIFT_TITLE] += ["Top scores"] if s == newest else []
-            want[RIFT_TITLE] += ["Season %d, 1st" % s]
-        for title, text, holder, registered, needles in (
-                (SORTIE_TITLE, tab.sortie_text, tab.sortie_holder,
-                 registry.GACHA_SORTIE_TITLE, registry.GACHA_SORTIE_ROWS),
-                (RIFT_TITLE, tab.rift_text, tab.rift_holder,
-                 registry.GACHA_RIFT_TITLE, registry.GACHA_RIFT_ROWS)):
-            content = text.get("1.0", "end-1c")
-            words[title] += content
-            got = [line.split("\t")[0] for line in content.split("\n")]
-            if got != want[title]:
-                out.append(f"handed {newest} seasons, the {title} sheet "
-                           f"reads {got}, not {want[title]}: the newest "
-                           f"{SEASONS_SHOWN}, newest first.")
-            problems, headings = _sheet_complaints(title, text, holder)
-            out.extend(problems)
-            if headings:
-                out.append(f"the {title} sheet sets {headings} as "
-                           f"headings; it has none.")
-            frame = str(holder.master.cget("text"))
-            if registered != frame:
-                out.append(f"the spacing registry looks for a panel titled "
-                           f"{registered!r}; the tab's is {frame!r}.")
-            for needle in needles:
-                if needle not in words[title]:
-                    out.append(f"the spacing registry reads the {title} "
-                               f"row {needle.strip()!r}, which the sheet "
-                               f"never writes, full or empty.")
-        out.extend(_left_column_fits(tab, (
-            ("Banners", tab.summary_tree.master),
-            (OVERALL_TITLE, tab.overall_holder.master),
-            (SORTIE_TITLE, tab.sortie_holder.master),
-            (RIFT_TITLE, tab.rift_holder.master)), len(gh.POOL_ORDER)))
-    finally:
-        optimizer.raw_data, tab.stats = saved
-        tab._fill_standings()
-    return out
-
-
-def _left_column_fits(tab, panels, banners):
-    """Complaints for any panel of the Stats & Gacha History tab's left
-    column cut short in a default-sized window, with the Banners list
-    `banners` rows tall."""
-    import tkinter as tk
-    from ui.scaling import px, WINDOW_H, WINDOW_W
-
+    banner_rows = tab.summary_tree.cget("height")
+    history = tab.history
+    fastest = history.overall.fastest if history is not None else None
     root = tab.frame.winfo_toplevel()
     notebook = tab.frame.master
     before = notebook.select()
     added = str(tab.frame) not in notebook.tabs()
-    rows = tab.summary_tree.cget("height")
-    out = []
+
+    def shown(parts):
+        """(headings, [row name, cells...] per row) as the lists draw
+        them, spacers left out."""
+        data = parts.data
+        seasons = [c for c in data["columns"]
+                   if not str(c).startswith("gap")]
+        heads = [str(data.heading(c)["text"]) for c in seasons]
+        rows = [[str(parts.labels.item(a)["values"][0])]
+                + [str(v) for v in data.item(b)["values"][::2]]
+                for a, b in zip(parts.labels.get_children(),
+                                data.get_children())]
+        return heads, rows
+
     try:
-        root.attributes("-alpha", 0.0)
-        if added:
-            notebook.add(tab.frame, text="Stats & Gacha History")
-        notebook.pack(fill=tk.BOTH, expand=True)
-        notebook.select(tab.frame)
-        tab.summary_tree.configure(height=banners)
-        root.geometry("%dx%d" % (px(WINDOW_W), px(WINDOW_H)))
-        root.deiconify()
+        # Nothing read: one empty column, so the list reads as a table.
+        optimizer.raw_data, tab.stats = {}, None
+        tab._fill_standings()
+        for title, parts, table, _registered in lists:
+            heads, rows = shown(parts)
+            if heads != [NO_VALUE] or any(r[1:] != [NO_VALUE] for r in rows):
+                out.append(f"the {title} list with nothing read shows "
+                           f"{heads} over {rows}; one {NO_VALUE!r} column.")
+        try:
+            root.attributes("-alpha", 0.0)
+            if added:
+                notebook.add(tab.frame, text="Stats & Gacha History")
+            notebook.pack(fill=tk.BOTH, expand=True)
+            notebook.select(tab.frame)
+            tab.summary_tree.configure(height=len(gh.POOL_ORDER))
+            root.geometry("%dx%d" % (px(WINDOW_W), px(WINDOW_H)))
+            root.deiconify()
+            root.update_idletasks()
+        except tk.TclError as e:
+            return out + [f"the Stats & Gacha History tab could not be laid "
+                          f"out for measuring: {e}"]
+        # The gacha sheet at its widest: more ties than its share holds.
+        if history is not None and any(pool.pulls
+                                       for pool in history.ordered()):
+            first = next(pull for pool in history.ordered()
+                         for pull in pool.pulls)
+            history.overall.fastest = [
+                gh.Standout(1, [gh.Pull(res_id=first.res_id,
+                                        at=1000 + i * 86400, number=i)])
+                for i in range(40)]
+        raw = _standings(12)
+        optimizer.raw_data = raw
+        tab._fill_overall()
+        tab._fill_standings()
         root.update_idletasks()
-    except tk.TclError as e:
-        return [f"the Stats & Gacha History tab could not be laid out for "
-                f"measuring: {e}"]
-    try:
+        for title, parts, table, registered in lists:
+            rows, columns = table(raw, None)
+            heads, drawn = shown(parts)
+            want = [[name] + [cells[n] or NO_VALUE for _h, cells in columns]
+                    for n, name in enumerate(rows)]
+            if heads != [h for h, _cells in columns] or drawn != want:
+                out.append(f"the {title} list draws {heads} over {drawn}, "
+                           f"not its table's {[h for h, _c in columns]} "
+                           f"over {want}: every season, newest first.")
+            for tree, what in ((parts.labels, "row names"),
+                               (parts.data, "seasons")):
+                need = tab._columns_width(tree)
+                if tree.winfo_reqwidth() != need:
+                    out.append(
+                        f"the {title} list's {what} ask for "
+                        f"{tree.winfo_reqwidth()}px across columns of "
+                        f"{need}px, written while mapped. A mapped "
+                        f"Treeview re-asks only on `configure`; the "
+                        f"`configure(height=...)` after the widths is "
+                        f"what does it, and looks redundant.")
+            if sa.find_labelframe(tab.frame, registered) is not parts.frame:
+                out.append(f"the spacing registry looks for a panel titled "
+                           f"{registered!r} and does not find the {title} "
+                           f"list's.")
+        edge = tab.summary_tree.master
+        right = edge.winfo_rootx() + edge.winfo_width()
         bottom = tab.frame.winfo_rooty() + tab.frame.winfo_height()
-        for title, frame in panels:
+        for title, parts, _table, _registered in lists:
+            frame = parts.frame
+            over = frame.winfo_rootx() + frame.winfo_width() - right
+            if over > 0:
+                out.append(f"the {title} list runs {over}px past the Banners "
+                           f"list's right edge in a default-sized window, "
+                           f"widening their column into the pulls list.")
             short = max(frame.winfo_reqheight() - frame.winfo_height(),
                         frame.winfo_rooty() + frame.winfo_height() - bottom)
             if short > 0:
-                out.append(
-                    f"in a default-sized window the {title} panel is cut "
-                    f"{short}px short: the left column is taller than the "
-                    f"tab, and what is cut off the bottom is simply not "
-                    f"drawn. Lower `SEASONS_SHOWN`.")
+                out.append(f"the {title} list is cut {short}px short at the "
+                           f"bottom of a default-sized window.")
+            wide = tab._columns_width(parts.data) > int(
+                parts.holder.cget("width"))
+            if not wide:
+                out.append(f"the {title} list holds twelve seasons without "
+                           f"scrolling; the test no longer reaches its edge.")
+            if wide != bool(parts.scroll.winfo_ismapped()):
+                out.append(f"the {title} list's scrollbar is "
+                           f"{'hidden' if wide else 'shown'} with its "
+                           f"seasons {'past' if wide else 'inside'} its "
+                           f"room.")
+            if parts.data.xview()[0] != 0:
+                out.append(f"the {title} list opens scrolled to "
+                           f"{parts.data.xview()}; the newest season, at "
+                           f"its left, belongs in view.")
     finally:
-        tab.summary_tree.configure(height=rows)
+        optimizer.raw_data, tab.stats = saved
+        if history is not None:
+            history.overall.fastest = fastest
+        tab.summary_tree.configure(height=banner_rows)
+        tab._fill_overall()
+        tab._fill_standings()
         if added:
             notebook.forget(tab.frame)
         if before:
@@ -3609,7 +3658,7 @@ def run():
             failures.extend(
                 _gacha_history_draws_its_rows(built["GachaHistoryTab"]))
             failures.extend(
-                _standings_sheets_fit(built["GachaHistoryTab"]))
+                _standings_lists_fit(built["GachaHistoryTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))

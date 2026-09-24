@@ -1,6 +1,6 @@
 """What the capture keeps as HISTORY, and what it must never keep.
 
-Three records a snapshot carries for a reader that will chart them:
+Four records a snapshot carries for a reader that will chart them:
 
 * **the lifetime counters, the Achievements screen and the daily
   tasks**, merged by id -- and what each counter COUNTS, which the wire
@@ -9,9 +9,12 @@ Three records a snapshot carries for a reader that will chart them:
 * **the Great Rift's subdivision tops**, one sample per change, from
   pages of twenty OTHER players each;
 * **the Sortie's standings**, a season per schedule, since the game
-  keeps only the current season and the one before.
+  keeps only the current season and the one before;
+* **the Full-Scale Offensive's standing**, a season per Offensive,
+  since the login's table holds only the one running -- with its share
+  of the field, which only entering the Offensive states.
 
-The last two and the counters' meanings are carried from one capture
+The last three and the counters' meanings are carried from one capture
 to the next through the newest snapshot, so a session that does not
 see them again cannot write them away. And the ranking pages are other
 players' rows: **no name, id, profile or team may reach a snapshot** --
@@ -199,6 +202,41 @@ def run():
             f"season each, from the first page only -- the one holding "
             f"rank 1; a later page has no top to give.")
 
+    # --- the Full-Scale Offensive, a season per Offensive ------------------
+    def stage(n, score):
+        return {"user_id": 300001105178, "list_id": "remnants_boss_s05_%02d" % n,
+                "define_id": "remnants_boss_penalty_005",
+                "best_score": score, "star_count": 3}
+    login = {"res": "ok", "service_server_time": 1790000000,
+             "remnants_entity": {"define_id": "remnants_boss_penalty_005",
+                                 "rank": 441, "reward_count": 9},
+             "remnants_entities": {"remnants_boss_s05_%02d" % n:
+                                   stage(n, 1000000 + n) for n in (1, 2, 3)}}
+    addon.websocket_message(_Flow([login]))
+    # Entering the Offensive: the same rank, and its share of the field.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "define_id": "remnants_boss_penalty_005", "rank": 441,
+        "rank_percent": 0.83, "reward_count": 9,
+        "service_server_time": 1790000100,
+        "entities": {"remnants_boss_s05_01": stage(1, 1200000)}}]))
+    # A later login with the rank unmoved, then one with it moved.
+    addon.websocket_message(_Flow([dict(login, service_server_time=1790000200,
+                                        remnants_entities={})]))
+    moved = dict(login, service_server_time=1790000300, remnants_entities={},
+                 remnants_entity=dict(login["remnants_entity"], rank=460))
+    addon.websocket_message(_Flow([moved]))
+    season = addon.remnants_rankings.get("remnants_boss_penalty_005", {})
+    got = [(r.get("rank"), r.get("rank_percent"), r.get("score"))
+           for r in season.get("readings", [])]
+    want = [(441, None, 3000006), (441, 0.83, 3200005), (460, None, 3200005)]
+    if got != want:
+        failures.append(
+            f"the Offensive's readings are {got}, not {want}. Entering it "
+            f"adds the share of the field; a login that finds the rank "
+            f"unmoved carries that share and adds nothing, and one that "
+            f"finds it moved leaves the share unknown. The score is the "
+            f"stages' best scores summed, each as last read.")
+
     # --- saved, and carried into the next capture ------------------------
     addon.inventory_data = {"memory_fragments": []}
     addon._save_data()
@@ -207,7 +245,8 @@ def run():
                          ("achievements", list), ("daily_achieve", list),
                          ("login_total_count", int),
                          ("disaster_boss_rank_tops", dict),
-                         ("chaos_assault_rankings", dict)):
+                         ("chaos_assault_rankings", dict),
+                         ("remnants_rankings", dict)):
         if not isinstance(saved.get(field), shape) or not saved.get(field):
             failures.append(
                 f"a saved snapshot's {field} is {saved.get(field)!r}. A "
@@ -223,12 +262,14 @@ def run():
 
     again = Addon(folder, log_callback=lambda *a, **k: None)
     if again.rift_tops != addon.rift_tops or \
-            again.sortie_rankings != addon.sortie_rankings:
+            again.sortie_rankings != addon.sortie_rankings or \
+            again.remnants_rankings != addon.remnants_rankings:
         failures.append(
             "the ranking history did not carry into the next capture. The "
-            "game keeps two Sortie seasons and nothing older, and a Great "
-            "Rift top is read once per visit to its screen; a capture that "
-            "starts empty writes the history away at its first save.")
+            "game keeps two Sortie seasons and nothing older, the login "
+            "holds only the Offensive running, and a Great Rift top is "
+            "read once per visit to its screen; a capture that starts "
+            "empty writes the history away at its first save.")
     again.websocket_message(_Flow([{
         "res": "ok", "mission_accumulate": [
             {"res_id": "ac_collection_003", "score": 182300000}]}]))
