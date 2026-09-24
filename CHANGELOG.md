@@ -32,7 +32,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Fixed
 
-- **A capture sitting in the snapshots folder both compressed and not is archived once.** The two copies are the same capture, and compaction stored each as its own entry under the same name. Where the two copies differ, neither is archived or deleted; both stay in the folder for a look.
+- **A capture sitting in the snapshots folder both compressed and not is archived once.** The two copies are the same capture, and compaction stored each as its own entry under the same name. Where the two copies differ, neither is archived or deleted; both stay in the folder for a look. An archive that already holds a capture twice drops the identical copy at its next compaction.
 
 - **The Checklist's Seasonal Accumulated Score follows a Great Rift run.** The capture kept the standings only when the Great Rift's screen listed them, and a run reports its new score for that one rank alone -- so the row stayed on last week's figure, read as nothing done, until the list was opened again. Before the week's reward is claimed, its threshold is no longer read as 0.
 

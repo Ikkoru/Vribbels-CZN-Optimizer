@@ -30,11 +30,14 @@ member of a name, so the two are grouped by member name and go in once
 -- and only where their contents agree; twins that differ are both left
 loose for a human. Deleting is per FILE: a loose file goes only when its
 own content matched the member this pass, which is what keeps a twin
-from being deleted on the strength of the other one's check.
+from being deleted on the strength of the other one's check. A rebuild
+carries the archive's own members across one per name and content, so
+an identical repeat already inside is shed by the next compaction.
 """
 
 import gzip
 import hashlib
+import io
 import lzma
 import os
 import tarfile
@@ -218,6 +221,43 @@ def _plan(adding: list, say) -> list:
     return plan
 
 
+def _copy_old(old: tarfile.TarFile, out: tarfile.TarFile, fresh: set, say):
+    """Carry the archive's members into the rebuild, one per capture.
+
+    A name added this pass is skipped: the fresh copy replaces it. A
+    name held more than once keeps one copy per distinct CONTENT, so a
+    repeat identical to one already carried is dropped and a repeat
+    that differs is kept beside it -- two members of one name are an
+    anomaly, but dropping either would lose what only it holds.
+
+    Only a repeated name is read into memory to be fingerprinted; every
+    other member streams straight across.
+    """
+    members = [info for info in old.getmembers()
+               if info.isfile() and info.name not in fresh]
+    counts = {}
+    for info in members:
+        counts[info.name] = counts.get(info.name, 0) + 1
+    carried = {}
+    for info in members:
+        handle = old.extractfile(info)
+        if handle is None:
+            continue
+        if counts[info.name] == 1:
+            out.addfile(info, handle)
+            continue
+        body = handle.read()
+        sha = hashlib.sha256(body).hexdigest()
+        if sha in carried.setdefault(info.name, set()):
+            continue
+        carried[info.name].add(sha)
+        out.addfile(info, io.BytesIO(body))
+    for name, prints in carried.items():
+        if len(prints) > 1:
+            say("[!] %s is archived %d times with different contents; "
+                "all kept." % (name, len(prints)))
+
+
 def _build(folder: Path, adding: list, preset: int, say):
     """Write the `.tmp` holding the old members plus `adding`.
 
@@ -241,12 +281,7 @@ def _build(folder: Path, adding: list, preset: int, say):
     with tarfile.open(tmp, "w:xz", preset=preset) as out:
         if book.exists():
             with tarfile.open(book, "r:xz") as old:
-                for info in old.getmembers():
-                    if not info.isfile() or info.name in fresh:
-                        continue
-                    handle = old.extractfile(info)
-                    if handle is not None:
-                        out.addfile(info, handle)
+                _copy_old(old, out, fresh, say)
         for name, path, (size, sha), paths in plan:
             def add(path=path, name=name, size=size):
                 with _source(path) as stream:

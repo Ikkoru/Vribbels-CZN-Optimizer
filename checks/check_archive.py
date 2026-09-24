@@ -19,6 +19,7 @@ real `Vribbels/snapshots/`.
 """
 
 import gzip
+import io
 import json
 import sys
 import shutil
@@ -305,6 +306,51 @@ def _one_capture_loose_twice_is_one_member():
     return out
 
 
+def _a_repeat_already_inside_is_shed():
+    """An archive that already holds one capture twice sheds the copy.
+
+    A rebuild copies the old members across, so a repeat written before
+    the fold grouped twins would be carried forward by every pass. The
+    next compaction keeps one copy per name and CONTENT: an identical
+    repeat goes, and two members of one name that differ both stay --
+    either may be the only copy of what it holds.
+    """
+    out = []
+    high = archive.KINDS[archive.SNAPSHOTS][1]
+    work = _folder(snapshots=high)
+    try:
+        same = "websocket_debug_20251201_000001.jsonl"
+        differ = "websocket_debug_20251201_000002.jsonl"
+        with tarfile.open(work / archive.ARCHIVE_NAME, "w:xz") as tf:
+            for name, body in ((same, b"one\n"), (differ, b"first\n"),
+                               (same, b"one\n"), (differ, b"second\n")):
+                archive._add(tf, name, io.BytesIO(body), len(body))
+        said = []
+        result = archive.compact(work, say=lambda m, *a, **k: said.append(m))
+        if result["failed"]:
+            return [f"compacting over a repeat failed: {result['failed']}"]
+        names = [name for name, _size in archive.contents(work)]
+        if names.count(same) != 1:
+            out.append(
+                f"{same} is still in the archive {names.count(same)} times "
+                f"after a compaction. A rebuild carries the old members "
+                f"across, so an identical repeat it does not shed stays "
+                f"forever and every walk counts that capture twice.")
+        if names.count(differ) != 2:
+            out.append(
+                f"{differ}, held twice with different contents, came out "
+                f"{names.count(differ)} time(s). Dropping either loses "
+                f"what only it holds.")
+        if not any(differ in line for line in said):
+            out.append(
+                f"a name held twice with different contents passed without "
+                f"a word ({said!r}). It is an anomaly a human has to "
+                f"settle, and nothing else will say so.")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
 def _the_report_says_a_number_once_when_it_means_once():
     """Short form only where all three counts agree.
 
@@ -576,8 +622,9 @@ def run():
                   _sweep_clears_an_interrupted_build,
                   _twice_leaves_one_member_each,
                   _one_capture_loose_twice_is_one_member,
+                  _a_repeat_already_inside_is_shed,
                   _the_report_says_a_number_once_when_it_means_once,
-        _dry_run_deletes_nothing,
+                  _dry_run_deletes_nothing,
                   _background_run_reports_instead_of_dying,
                   _the_setting_reaches_the_launch_path,
                   _a_walk_reaches_archived_captures):
