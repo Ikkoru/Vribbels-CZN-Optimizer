@@ -35,6 +35,12 @@ LAG_TAG = "lag"
 # An Upgraded line's ceiling, in the Mythic colour, where it beats what
 # the preset's combatant already wears in that slot.
 MYTHIC_TAG = "value_mythic"
+# What that colour means, under Upgrade Log Settings. The rule itself
+# is `_beats_equipped` in the main window.
+MYTHIC_NOTE = ("Highest Potential max will be colored purple if its GS is "
+               "higher than the character's whose preset is shown. Only "
+               "works on MFs lvl 3+, and on presets assigned to only 1 "
+               "character")
 
 
 def lag_text(stamp, shown):
@@ -335,6 +341,14 @@ class CaptureTab(BaseTab):
         options_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=px((17, 0)))
         options_frame.grid_columnconfigure(1, weight=1)
 
+        # What a purple ceiling in an Upgraded line means, at the head
+        # of the block. One line at the default window; unwrapped, like
+        # the caption at the panel's top.
+        ttk.Label(
+            options_frame, text=MYTHIC_NOTE,
+            foreground=self.colors["fg_dim"], justify=tk.LEFT,
+        ).grid(row=0, column=0, columnspan=2, sticky=tk.W)
+
         sm = self.context.settings_manager
 
         def _filter_checkbox(text, key, row, column):
@@ -346,27 +360,31 @@ class CaptureTab(BaseTab):
                 options_frame, self.colors, text=text, variable=var,
                 command=lambda: self._on_log_filter_toggle(key, var),
             # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
+            # spacing: explanation text -> the controls it explains -- label, checkbox ↕
             # These sit below the `checkboxes -> unrelated checkboxes`
             # division, and needed the ordinary pitch of their own -- the
             # division says how far the block starts from what is above
-            # it, not how its rows sit among themselves.
+            # it, not how its rows sit among themselves. The first row's
+            # top is the gap under the note above it, 0 like the gap
+            # under the panel's caption: a label's line box already
+            # carries the rule's distance.
             ).grid(row=row, column=column, sticky=tk.W,
                    padx=px((0, 4) if column == 0 else 0),
-                   pady=px((0 if row == 0 else 3, 0)))
+                   pady=px((0 if row == 1 else 3, 0)))
             return var
 
         self.ignore_atkdef_var = _filter_checkbox(
             "Don't show presets on ATK/DEF mismatch",
-            "upgrade_log_ignore_atkdef_mismatch", 0, 0)
+            "upgrade_log_ignore_atkdef_mismatch", 1, 0)
         self.ignore_element_var = _filter_checkbox(
             "Don't show presets on Element mismatch",
-            "upgrade_log_ignore_element_mismatch", 1, 0)
+            "upgrade_log_ignore_element_mismatch", 2, 0)
         self.ignore_dps_hp_var = _filter_checkbox(
             "Don't show DPS presets for HP% MFs",
-            "upgrade_log_ignore_dps_hp", 0, 1)
+            "upgrade_log_ignore_dps_hp", 1, 1)
         self.ignore_dps_ego_var = _filter_checkbox(
             "Don't show DPS presets for Ego MFs",
-            "upgrade_log_ignore_dps_ego", 1, 1)
+            "upgrade_log_ignore_dps_ego", 2, 1)
 
         self.log_presets_list_frame = ttk.Frame(right_col)
         self.log_presets_list_frame.pack(fill=tk.BOTH, expand=True)

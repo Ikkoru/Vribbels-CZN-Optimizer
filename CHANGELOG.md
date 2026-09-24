@@ -28,7 +28,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - With `Debug WS` on, each Capture Log line says how long it took to arrive: the server answering the game, the capture reading the reply, and the app passing the line to the log, in milliseconds. A line that is late while all of them are small was held back by the game itself.
 
-- An `Upgraded` line draws a preset's ceiling in the Mythic colour when the fragment, at +3 or past, could beat what that preset's one combatant wears in the same slot.
+- An `Upgraded` line draws a preset's ceiling in the Mythic colour when the fragment, at +3 or past, could beat what that preset's one combatant wears in the same slot. A note above the Upgrade Log Settings filters says so.
 
 ### Fixed
 

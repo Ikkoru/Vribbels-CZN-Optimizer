@@ -2264,6 +2264,9 @@ EXPLANATION_ENTRIES = [
     ("Capture", "presets caption -> the checklist", 7, None, "rule",
      _label_over_controls("Upgrade Log Settings",
                           "Assigned presets compared", *CHECKBOX_CLASSES)),
+    ("Capture", "purple note -> the filters", 7, None, "rule",
+     _label_over_controls("Upgrade Log Settings",
+                          "Highest Potential max", *CHECKBOX_CLASSES)),
     # The Settings panel's two notes, each under the dropdown it
     # explains. Measured to the DROPDOWN rather than to the label
     # beside it: a combobox paints lower than a label on the same row,
@@ -4741,6 +4744,7 @@ AWAITING_FIRST_READING = {
     # or a distance read off the screen and agreed, and a run measured
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
+    "purple note -> the filters",
 }
 
 
