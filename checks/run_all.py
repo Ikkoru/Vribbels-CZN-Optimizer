@@ -51,6 +51,7 @@ from checks import (                                    # noqa: E402
 
     check_day_index,
     check_dot_types,
+    check_event_shapes,
     check_excursions,
     check_expiry_captions,
     check_fringe_lightness,
@@ -115,6 +116,7 @@ CHECKS = [
     check_expiry_captions,
     check_day_index,
     check_checklist_readings,
+    check_event_shapes,
     check_tabs_build,
     check_type_ahead,
     check_ui_scales,

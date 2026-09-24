@@ -487,6 +487,10 @@ def run():
     # a different claim from `20/20` anywhere else on the tab. The
     # suffix carries that difference, and comes off only where
     # `event_mission_reward_entities` says the event is over.
+    #
+    # The flag is set by claiming the event's FINAL reward, which is
+    # one more reward than its rows -- so a flagged event counts it in
+    # both figures. `check_event_shapes` has the rest of that.
     def _event(rows_held, claimed, finished):
         raw = _snapshot()
         raw[PASS_MISSION_FIELD] = {
@@ -507,9 +511,9 @@ def run():
              "every row in hand claimed, with nothing to say that is all"),
             (20, 20, 0, "20/20" + unknown, FLOOR,
              "a completion record that says NOT finished"),
-            (20, 20, EVENT_DONE_VALUE, "20/20", DONE,
+            (20, 20, EVENT_DONE_VALUE, "21/21", DONE,
              "the game's own word that the event is finished"),
-            (20, 16, EVENT_DONE_VALUE, "16/20" + unknown, FLOOR,
+            (20, 16, EVENT_DONE_VALUE, "17/21" + unknown, FLOOR,
              "a finished flag over a tally that is not full")):
         got = _event(held, claimed, finished)
         if got != [(want, state)]:

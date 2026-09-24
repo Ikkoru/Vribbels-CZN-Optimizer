@@ -288,6 +288,52 @@ def _event_totals_survive_the_file(root):
     return out
 
 
+def _final_rewards_survive_the_file(root):
+    """Which families pay a final reward outlives the record it was read off.
+
+    The completion record that says so is purged some weeks after its
+    instalment ends, and the whole value of remembering it is to the
+    NEXT instalment -- which starts after the record is gone.
+
+    Returns a list of complaints.
+    """
+    import checklist_manager as cm
+    out = []
+    m = cm.ChecklistManager(root)
+    m.load()
+    if m.pays_final("event_nodelist"):
+        out.append("a fresh manager already says event_nodelist pays a "
+                   "final reward.")
+    m.remember_final("event_nodelist", "event_nodelist_006")
+    m.remember_final("event_nodelist", "event_nodelist_006")
+
+    again = cm.ChecklistManager(root)
+    again.load()
+    if again.finals.get("event_nodelist") != ["event_nodelist_006"]:
+        out.append(
+            f"the final-reward record came back as {again.finals!r}. It is "
+            f"read off a completion record the game purges, so what does "
+            f"not reach the file is gone before the next instalment "
+            f"needs it.")
+    if again.pays_final("event_devil"):
+        out.append("a family nobody saw pay a final reward came back as one.")
+
+    # Rot costs the entry it is in and nothing else.
+    path = Path(root) / "settings" / "checklist.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    rows = data.setdefault("finals", {})
+    rows["broken"] = "not a list"
+    rows["worse"] = [7, None]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    rotted = cm.ChecklistManager(root)
+    rotted.load()
+    if not rotted.pays_final("event_nodelist"):
+        out.append("a malformed entry cost the record its good families too.")
+    if rotted.pays_final("broken") or rotted.pays_final("worse"):
+        out.append(f"rot survived the load: {rotted.finals!r}.")
+    return out
+
+
 def _finished_answers_survive_the_file(root):
     """The user's `Finished?` answers outlive the session.
 
@@ -367,6 +413,7 @@ def run():
         failures.extend(_currency_ledger_keeps_its_shape(ledger_root))
         failures.extend(_streak_memory_survives_the_file(ledger_root))
         failures.extend(_event_totals_survive_the_file(ledger_root))
+        failures.extend(_final_rewards_survive_the_file(ledger_root))
         failures.extend(_finished_answers_survive_the_file(ledger_root))
     finally:
         shutil.rmtree(ledger_root, ignore_errors=True)

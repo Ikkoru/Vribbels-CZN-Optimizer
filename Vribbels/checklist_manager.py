@@ -118,6 +118,23 @@ family is what it is for.
 **Two agreeing instalments before any of it is believed.** One is not
 evidence that a family repeats itself: the login streaks run 7, 10, 14
 or 21 days depending on the instalment. See `event_total`.
+
+## Event families that pay a final reward
+
+    "finals": {"event_nodelist": ["event_nodelist_006",
+                                  "event_nodelist_007"]}
+
+**The wire says an event HAS a final reward only once it is claimed.**
+The reward that unlocks after every other one -- the game's Special
+Reward -- is invisible until its claim writes a completion record, and
+nothing before the claim hints that it is there. So the one way to
+know the next instalment has one is to remember that this one did.
+
+Written down for the same reason as the totals: the game purges an
+instalment's completion record some weeks after it ends. **One
+instalment is enough here**, unlike a total -- being wrong costs a row
+that asks `Finished?` over a reward that is not there, which the user
+answers in one click, where missing it costs the reward.
 """
 
 import json
@@ -193,6 +210,9 @@ class ChecklistManager:
         # Event id (str) -> [claimed, total] when the user ticked
         # `Finished?`. See the module note.
         self.finished = {}
+        # Event family (str) -> [instalment ids] whose final reward the
+        # game has recorded as taken. See the module note.
+        self.finals = {}
 
     def load(self):
         """Read the flags. An unreadable file behaves like a fresh one.
@@ -227,6 +247,8 @@ class ChecklistManager:
                                     if isinstance(data, dict) else None)
         self.finished = _clean_finished(data.get("finished")
                                         if isinstance(data, dict) else None)
+        self.finals = _clean_finals(data.get("finals")
+                                    if isinstance(data, dict) else None)
 
     def is_tracked(self, product_id) -> bool:
         """Whether a product is ticked. Absent ids take the default."""
@@ -344,7 +366,7 @@ class ChecklistManager:
         held[event_id] = int(count)
         self._write()
 
-    def event_total(self, family, live_id=None):
+    def event_total(self, family, live_id=None, same=str):
         """What an instalment of `family` holds, or None.
 
         Every FINISHED instalment on record has to agree, and there
@@ -356,13 +378,43 @@ class ChecklistManager:
         `live_id` is left out of the count. A live instalment's rows
         are what has been issued so far, so letting it vote would be
         the floor this exists to replace, voting for itself.
+
+        **`same` says which ids are one instalment**, and they vote
+        once. The game can schedule one instalment twice --
+        `event_schedule_arena_2` and `event_arena_2` are the same
+        arena -- and counted as two it agrees with itself.
         """
         held = self.events.get(str(family)) or {}
-        past = [count for event_id, count in held.items()
-                if event_id != str(live_id)]
+        live = same(str(live_id)) if live_id is not None else None
+        votes = {}
+        for event_id, count in held.items():
+            key = same(event_id)
+            if key != live:
+                votes[key] = max(votes.get(key, 0), count)
+        past = list(votes.values())
         if len(past) < 2 or len(set(past)) != 1:
             return None
         return past[0]
+
+    # ------------------------------------------------- final rewards seen
+
+    def remember_final(self, family, event_id):
+        """Note that an instalment of `family` paid a final reward.
+
+        Re-noting one already held writes nothing, so an ordinary load
+        costs no disk.
+        """
+        family, event_id = str(family), str(event_id)
+        held = self.finals.setdefault(family, [])
+        if event_id in held:
+            return
+        held.append(event_id)
+        held.sort()
+        self._write()
+
+    def pays_final(self, family):
+        """Whether any instalment of `family` has paid a final reward."""
+        return bool(self.finals.get(str(family)))
 
     # ------------------------------------------------- the currency ledger
 
@@ -425,7 +477,7 @@ class ChecklistManager:
         data = {"version": CHECKLIST_VERSION, "tracked": self.tracked,
                 "seen": self.seen, "currency": self.currency,
                 "streaks": self.streaks, "events": self.events,
-                "finished": self.finished}
+                "finished": self.finished, "finals": self.finals}
         tmp = self.file.with_suffix(self.file.suffix + ".tmp")
         tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         tmp.replace(self.file)
@@ -448,6 +500,23 @@ def _clean_finished(raw):
         if (isinstance(pair, (list, tuple)) and len(pair) == 2
                 and all(_is_count(n) and n >= 0 for n in pair)):
             out[str(event_id)] = [int(pair[0]), int(pair[1])]
+    return out
+
+
+def _clean_finals(raw):
+    """The final-reward record off disk, with the rot taken out.
+
+    A list of instalment ids per family or nothing, the same contract
+    as `_clean_events`.
+    """
+    out = {}
+    for family, held in (raw or {}).items() if isinstance(raw, dict) else ():
+        if not isinstance(held, list):
+            continue
+        ids = sorted({str(event_id) for event_id in held
+                      if isinstance(event_id, str) and event_id})
+        if ids:
+            out[str(family)] = ids
     return out
 
 

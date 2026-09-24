@@ -360,11 +360,11 @@ def run():
             "reading needs.")
 
     # --- an event's own table is kept whether or not anything reads it
-    # **These are what say how BIG an event is.** The bartender's is
-    # one row per day of it, each with the day's outcome stamps, and a
-    # count over it is the denominator a Checklist row cannot derive
-    # from mission rows alone. They arrive at LOGIN and nowhere else,
-    # so a table not kept is a table that cannot be read later.
+    # **The next event's reader is written from what these kept.** The
+    # bartender's guestbook, one row per day PLAYED with the day's
+    # outcome stamps, is the kind of record no mission row carries.
+    # They arrive at LOGIN and nowhere else, so a table not kept is a
+    # table that cannot be read later.
     addon.websocket_message(_Flow([{
         "res": "ok",
         "event_bartender_entities": {"bartender_01_day_01_story_1": {
@@ -379,7 +379,45 @@ def run():
                 f"yet costs a couple of kilobytes, and one nobody KEPT is "
                 f"gone -- it rides the login burst and nothing else.")
 
-    # --- and both reach the snapshot as LISTS -----------------------
+    # --- and the login tables whose names do not say `event_` --------
+    # A story event's episodes, the Disaster Marble's ladder, the
+    # Full-Scale Offensive's rank and the Sortie's standing. Same
+    # reason as above; the sweep cannot find them by name. Shapes from
+    # `websocket_debug_20260924_003939.jsonl`'s `event/get_list`.
+    kept = {
+        "story_event_entities": {"event_132": {"event_summer_2026_01_01": {
+            "event_id": "event_132", "story_id": "event_summer_2026_01_01",
+            "state": 2, "complete_time": 1785340232}}},
+        "marble_achievement_entities": {"marble_s01": {"s01_achievement_1": {
+            "marble_define_id": "marble_s01", "res_id": "s01_achievement_1",
+            "score": 1, "complete_time": 1778193693}}},
+        "marble_mission_entities": {"marble_s01": {"s01_mission_chaos_1": {
+            "marble_define_id": "marble_s01",
+            "res_id": "s01_mission_chaos_1", "score": 0}}},
+        "remnants_entity": {"define_id": "remnants_boss_penalty_005",
+                            "rank": 441, "reward_count": 9},
+        "chaos_assault_entity": {"schedule_id": "assault_1_s7",
+                                 "highest_clear_level": 5,
+                                 "total_clear_count": 40},
+    }
+    addon.websocket_message(_Flow([dict(kept, res="ok")]))
+    # Watching an episode answers with its one row, singular, keyed by
+    # event and story. `story_event/complete_event_story`'s shape.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "story_event_entity": {
+            "event_id": "event_132", "story_id": "event_summer_2026_03_01",
+            "state": 2, "complete_time": 1789300000}}]))
+    stories = addon.login_tables.get("story_event_entities", {}).get(
+        "event_132", {})
+    if sorted(stories) != ["event_summer_2026_01_01",
+                           "event_summer_2026_03_01"]:
+        failures.append(
+            f"a story event's episodes read {sorted(stories)!r} after the "
+            f"login and one watched. The reply sends the one row that "
+            f"changed, singular, and it has to join the login's table "
+            f"rather than replace it or sit beside it.")
+
+    # --- and every one of them reaches the snapshot ------------------
     # The shape the wire uses and the shape every snapshot on disk
     # already carries, so `_event_finished` and `_event_attendance`
     # read old captures and new ones the same way.
@@ -391,7 +429,8 @@ def run():
     # two event records as lists, the limit tables keyed by res_id.
     for field, shape in (("attendance_entities", list),
                          ("event_mission_reward_entities", list),
-                         ("issued_limit_entities", dict)):
+                         ("issued_limit_entities", dict),
+                         *((field, dict) for field in kept)):
         rows = saved.get(field)
         if not isinstance(rows, shape) or not rows:
             failures.append(

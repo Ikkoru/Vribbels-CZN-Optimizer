@@ -354,6 +354,17 @@ HEAD_STATE_TAGS = {DONE: "headdone", TODO: "headtodo"}
 FLOOR = "floor"
 STALE_FLOOR = "floor_stale"
 
+# An event whose every mission row is claimed and whose FINAL reward --
+# the one that unlocks after all the others -- is not. Red, because a
+# reward is waiting; and it never settles orange, because waiting is
+# not evidence of anything.
+#
+# **Known only from the family's past** where this instalment has not
+# paid one yet: the wire says nothing about a final reward until its
+# claim. So the row also asks `Finished?`, for the instalment that
+# turns out not to have one. See `_recall_finals`.
+FINAL_WAITING = "final_waiting"
+
 # A seasonal shop row whose whole remainder sits on a page that has
 # not opened yet: everything the shop is currently selling of it has
 # been bought. Orange rather than green, because the row is not
@@ -940,6 +951,53 @@ def _stem(key):
     return "_".join(parts[:-1]) if parts and parts[-1].isdigit() else key
 
 
+def _event_window(raw, name):
+    """An event's `{start_time, end_time}` off `event_schedules`, or {}."""
+    for group in ((raw or {}).get("event_schedules") or {}).values():
+        if isinstance(group, dict) and isinstance(group.get(name), dict):
+            return group[name]
+    return {}
+
+
+def _event_roots(raw, name):
+    """The normalised ids an event's mission rows and records sit under.
+
+    Its own key, and for a family in `EVENT_ROW_FAMILIES` the mission
+    instalment the event's window saw issued first: `event_nodelist_007`
+    adds `event_node_30115`. An instalment's rows are all issued inside
+    its window, so the FIRST of them is what places it -- later rows of
+    the same instalment are issued days in and prove nothing about
+    which schedule they came from.
+
+    **Time is the only link, so it has to be exclusive.** An instalment
+    first issued outside the window is some other schedule's, however
+    much of it arrived later; and a schedule with no window takes
+    nothing, rather than every instalment ever issued.
+    """
+    want = _event_key(name)
+    family = EVENT_ROW_FAMILIES.get(_stem(want))
+    if family is None:
+        return [want]
+    window = _event_window(raw, name)
+    start, end = window.get("start_time"), window.get("end_time")
+    if not (_is_count(start) and _is_count(end)):
+        return [want]
+    missions = (raw or {}).get(PASS_MISSION_FIELD)
+    depth = family.count("_") + 2
+    first = {}
+    for res_id, row in (missions.items() if isinstance(missions, dict)
+                        else ()):
+        key = _event_key(res_id)
+        if not _under(key, family) or not isinstance(row, dict):
+            continue
+        root = "_".join(key.split("_")[:depth])
+        stamp = row.get("issued_time")
+        if _is_count(stamp) and stamp:
+            first[root] = min(first.get(root, stamp), stamp)
+    return [want] + sorted(root for root, stamp in first.items()
+                           if start <= stamp < end)
+
+
 def _event_rows(raw, name):
     """The mission ids belonging to one event, as a sorted list.
 
@@ -964,12 +1022,16 @@ def _event_rows(raw, name):
     account holds, and `event_schedule_chaos_mission_5` stems to
     `event_chaos` and would take the Sortie's. Requiring one row under
     the full key rules both out, because neither has any.
+
+    **A Node List shares no word with its missions at all**, and is
+    paired by when its rows were issued instead -- see `_event_roots`.
     """
     missions = (raw or {}).get(PASS_MISSION_FIELD)
     missions = missions if isinstance(missions, dict) else {}
     want = _event_key(name)
+    roots = _event_roots(raw, name)
     keyed = {res_id for res_id in missions
-             if _under(_event_key(res_id), want)}
+             if any(_under(_event_key(res_id), root) for root in roots)}
     if not keyed:
         return sorted(keyed)
     root = _stem(want)
@@ -979,6 +1041,7 @@ def _event_rows(raw, name):
               for group in ((raw or {}).get("event_schedules") or {}).values()
               if isinstance(group, dict) for other in group}
     others.discard(want)
+    since = _first_issued(missions, keyed)
     for res_id in missions:
         if res_id in keyed:
             continue
@@ -987,8 +1050,25 @@ def _event_rows(raw, name):
             continue
         if any(_under(key, other) for other in others):
             continue
+        # **A row issued before every row of the event's own is an
+        # EARLIER instalment's**, whose schedule has gone while its
+        # rows have not been purged yet: `event_arena_1_*` outlived
+        # its schedule and the stem took all 23 into arena_2's count.
+        # A later day of the same event is issued with or after the
+        # first -- the devil's grid arrives as a batch on day one.
+        stamp = (missions.get(res_id) or {}).get("issued_time")
+        if since is not None and _is_count(stamp) and stamp and stamp < since:
+            continue
         keyed.add(res_id)
     return sorted(keyed)
+
+
+def _first_issued(missions, res_ids):
+    """The earliest `issued_time` among `res_ids`, or None."""
+    stamps = [(missions.get(res_id) or {}).get("issued_time")
+              for res_id in res_ids]
+    stamps = [stamp for stamp in stamps if _is_count(stamp) and stamp]
+    return min(stamps) if stamps else None
 
 
 def event_label(name):
@@ -1258,17 +1338,60 @@ def _event_finished(raw, name):
     go green.
 
     The record's id is the event's own rather than the schedule's, so
-    it goes through `_event_key` like every other pairing here.
+    it goes through `_event_key` like every other pairing here -- see
+    `_event_records` for which records an event owns. Every one of them
+    has to say finished.
+    """
+    records = _event_records(raw, name)
+    return bool(records) and all(
+        row.get(EVENT_DONE_FLAG) == EVENT_DONE_VALUE for row in records)
+
+
+def _event_records(raw, name):
+    """The completion records belonging to one event.
+
+    A record sits at one of the event's roots or UNDER it: the later
+    Node Lists keep theirs on the achievement page, so
+    `event_node_30115_achievement` is `event_nodelist_007`'s. On a
+    segment boundary, like every pairing here.
     """
     rows = (raw or {}).get(EVENT_DONE_FIELD)
-    rows = rows if isinstance(rows, list) else []
-    want = _event_key(name)
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        if _event_key(row.get("res_id")) == want:
-            return row.get(EVENT_DONE_FLAG) == EVENT_DONE_VALUE
-    return False
+    roots = _event_roots(raw, name)
+    return [row for row in (rows if isinstance(rows, list) else ())
+            if isinstance(row, dict) and any(
+                _under(_event_key(row.get("res_id")), root)
+                for root in roots)]
+
+
+def _step_records(raw, name):
+    """An event's STEP-TRACK records: those with steps on them.
+
+    **A step-track event has one mission row and a ladder of rewards on
+    it.** The row accumulates a score and is never itself claimed --
+    `event_love_04_01` stood at 2190 with no `complete_time` long after
+    its event ended -- and the rewards are thresholds on that score,
+    counted on the completion record instead. So the row in hand says
+    nothing about rewards and the record says everything the wire does.
+    See `STEP_FIELD`.
+    """
+    return [row for row in _event_records(raw, name)
+            if _is_count(row.get(STEP_FIELD)) and row[STEP_FIELD] > 0]
+
+
+def _final_reward(raw, name):
+    """(does the event pay a final reward, has it been taken).
+
+    Taken where the game has said so -- its record flagged and not a
+    step track, which flags on its own ladder. Known to exist beyond
+    that only from the FAMILY's past: see `_recall_finals`, which is
+    what writes `EVENT_FINALS_FIELD`.
+    """
+    records = _event_records(raw, name)
+    taken = bool(records) and all(
+        row.get(EVENT_DONE_FLAG) == EVENT_DONE_VALUE
+        and not row.get(STEP_FIELD) for row in records)
+    known = name in ((raw or {}).get(EVENT_FINALS_FIELD) or ())
+    return taken or known, taken
 
 
 def _event_missions(raw, name, _window, _now):
@@ -1397,13 +1520,34 @@ def _event_progress(raw, name):
     The exception is an event the game itself calls finished. See
     `_event_finished`: the suffix comes off and the row goes green,
     because the question has an answer rather than an estimate.
+
+    **A final reward is one more reward**, counted in both figures once
+    it is known to exist -- so the bartender's 24 mission rows and its
+    Special Reward read `25/25`, which is what the game's own screens
+    add up to. While it waits behind a full set of rows the reading is
+    `FINAL_WAITING`. See `_final_reward`.
+
+    A step-track event is read off its record instead: see
+    `_step_progress`.
     """
     rows = _event_mission_rows(raw, name)
     if not rows:
         return []
+    steps = _step_records(raw, name)
+    if steps:
+        return _step_progress(raw, name, steps)
     claimed = sum(1 for row in rows if row.get("complete_time"))
+    final, taken = _final_reward(raw, name)
+    final, taken = int(final), int(taken)
+
+    def _state(mission_total, usual):
+        """`usual`, unless all that is left is a known final reward."""
+        if final and not taken and claimed >= mission_total:
+            return FINAL_WAITING
+        return usual
+
     if claimed >= len(rows) and _event_finished(raw, name):
-        return [("%d/%d" % (claimed, len(rows)), DONE)]
+        return [("%d/%d" % (claimed + taken, len(rows) + final), DONE)]
     # **What the family's finished instalments held**, where two of
     # them agree -- see `ChecklistManager.event_total`. Taken only
     # where it is BIGGER than the rows in hand, so the reading can
@@ -1422,20 +1566,56 @@ def _event_progress(raw, name):
     # the family's history because it is THIS instalment speaking.
     grid = _grid_total(rows)
     if grid is not None:
-        return [("%d/%d" % (claimed, grid), FLOOR)]
+        return [("%d/%d" % (claimed + taken, grid + final),
+                 _state(grid, FLOOR))]
     total = ((raw or {}).get(EVENT_TOTALS_FIELD) or {}).get(name)
     if _is_count(total) and total > len(rows):
-        return [("%s%d/%d" % (EXPECTED_VALUE, claimed, total), TODO)]
+        return [("%s%d/%d" % (EXPECTED_VALUE, claimed + taken,
+                              total + final), TODO)]
     # **Every page issued WHOLE makes the denominator a statement**,
     # so the floor mark comes off -- see `_page_totals`. The row is
     # still not green on it: a page nobody has been issued yet is
     # invisible here, and an event can pay outside its mission rows
-    # (`event_bartender_1`'s final reward is not one). `_event_finished` is
-    # what ends an event.
+    # (`event_summer_01`'s puzzles and stories are not rows).
+    # `_event_finished` is what ends an event.
     whole, trickling = _page_totals(rows)
     if whole and not trickling:
-        return [("%d/%d" % (claimed, whole), FLOOR)]
-    return [("%d/%d%s" % (claimed, len(rows), UNKNOWN_MORE), FLOOR)]
+        return [("%d/%d" % (claimed + taken, whole + final),
+                 _state(whole, FLOOR))]
+    return [("%d/%d%s" % (claimed + taken, len(rows) + final, UNKNOWN_MORE),
+             _state(len(rows), FLOOR))]
+
+
+def _step_progress(raw, name, steps):
+    """[(words, state)] for a step-track event. See `_step_records`.
+
+    **`reward_step` is read as the steps CLAIMED**, so a step track is
+    a floor like any other: the claimed count over itself, `+?`. Its
+    total comes from the family's finished instalments where two
+    agree, exactly as a mission family's does -- `_recall_event_totals`
+    files a finished step track under its steps. Green only on the
+    game's own flag, which a finished track carries.
+    """
+    claimed = max(row[STEP_FIELD] for row in steps)
+    if all(row.get(EVENT_DONE_FLAG) == EVENT_DONE_VALUE for row in steps):
+        return [("%d/%d" % (claimed, claimed), DONE)]
+    total = ((raw or {}).get(EVENT_TOTALS_FIELD) or {}).get(name)
+    if _is_count(total) and total > claimed:
+        return [("%s%d/%d" % (EXPECTED_VALUE, claimed, total), TODO)]
+    return [("%d/%d%s" % (claimed, claimed, UNKNOWN_MORE), FLOOR)]
+
+
+def _instalment_size(raw, name):
+    """How many rewards a FINISHED instalment held, or 0.
+
+    Its mission rows, or where it is a step track the steps on its
+    record: the one accumulating row it holds is not a reward at all,
+    and filed as one it recorded `event_love` as a family of 1.
+    """
+    steps = _step_records(raw, name)
+    if steps:
+        return max(row[STEP_FIELD] for row in steps)
+    return len(_event_mission_rows(raw, name))
 
 
 def _grid_total(rows):
@@ -1667,12 +1847,34 @@ EVENT_DONE_VALUE = 1
 # its deadline and no tally.
 EVENT_MISSIONS = {}
 
+# Schedule families whose instalments name their missions after
+# something the schedule id does not carry, as {schedule family:
+# mission family}. **A Node List is scheduled by its own number and
+# its missions carry the combatant's**: `event_nodelist_007` owns
+# `event_node_30115_*`, and nothing on the wire links the two numbers.
+# What does is the ISSUE time -- an instalment's rows are first handed
+# out inside its own window -- so a mission-family instalment belongs
+# to the schedule whose window saw its first row. See `_event_roots`.
+EVENT_ROW_FAMILIES = {"event_nodelist": "event_node"}
+
 # Where `_recall_event_totals` leaves what a live event is expected to
 # hold, as {event id: rewards}. **This program's own key, not the
 # wire's** -- it is written onto the loaded snapshot in memory so the
 # readers can take it off `raw` like anything else, the way a recalled
 # streak is written back onto its row. Nothing saves it.
 EVENT_TOTALS_FIELD = "_checklist_event_totals"
+
+# Where `_recall_finals` leaves the live events whose FAMILY has paid a
+# final reward before, as a set of event ids. Same arrangement as the
+# field above: the program's own key, on `raw`, saved by nothing.
+EVENT_FINALS_FIELD = "_checklist_event_finals"
+
+# The two fields of a completion record that make it a STEP TRACK: an
+# event whose rewards are thresholds on one accumulating mission row
+# rather than rows of their own. `reward_step` is read as the steps
+# CLAIMED; `docs/events.md`, *`reward_step` and `version`*, has why,
+# and the one observation that would make it the track's size instead.
+STEP_FIELD = "reward_step"
 
 # **Progress is read per GROUP, not per event.** Each kind of event
 # keeps its state somewhere else entirely -- missions, a login streak,
@@ -2687,6 +2889,7 @@ class ChecklistTab(BaseTab):
         text.tag_configure(FLOOR, foreground=self.colors["red"])
         text.tag_configure(STALE_FLOOR,
                            foreground=self.colors["orange"])
+        text.tag_configure(FINAL_WAITING, foreground=self.colors["red"])
         text.tag_configure(CYCLE_DONE, foreground=self.colors["orange"])
         # Bought out of everything on sale, with the rest on a page
         # still to open. See `LOCKED_PAGES`.
@@ -2783,6 +2986,7 @@ class ChecklistTab(BaseTab):
         raw = getattr(self.optimizer, "raw_data", None) or {}
         self._recall_streaks(raw)
         self._recall_event_totals(raw, time.time())
+        self._recall_finals(raw, time.time())
         readings = self._settle_floors(
             _readings(raw, tracked=self._tracked))
         # Before the columns are built: the sort reads the answers off
@@ -2821,17 +3025,47 @@ class ChecklistTab(BaseTab):
             return
         for group in EVENT_GROUPS:
             for name, _window in schedules.ended(group, raw, now):
-                rows = _event_mission_rows(raw, name)
-                if rows:
+                size = _instalment_size(raw, name)
+                if size:
                     manager.record_event_total(
-                        _stem(_event_key(name)), name, len(rows))
+                        _stem(_event_key(name)), name, size)
         totals = {}
         for group in EVENT_GROUPS:
             for name, _window in schedules.all_live(group, raw, now):
-                total = manager.event_total(_stem(_event_key(name)), name)
+                total = manager.event_total(_stem(_event_key(name)), name,
+                                            same=_event_key)
                 if total is not None:
                     totals[name] = total
         raw[EVENT_TOTALS_FIELD] = totals
+
+    def _recall_finals(self, raw, now):
+        """Record which families pay a final reward; mark live ones.
+
+        **The wire says a final reward exists only by recording its
+        claim.** Nothing before that hints there is one, so the only
+        way to show it waiting on a live event is to have seen the
+        family pay one before -- see `ChecklistManager.remember_final`.
+
+        Every event on the schedule is looked at, ended ones included,
+        and recording cannot wait: the record is purged some weeks
+        after its instalment ends. A step track's flag is its ladder's,
+        not a final reward, and is left out.
+
+        What comes back is written onto `raw` under
+        `EVENT_FINALS_FIELD` for the readers.
+        """
+        manager = getattr(self.context, "checklist_manager", None)
+        if manager is None or not isinstance(raw, dict):
+            return
+        for group in EVENT_GROUPS:
+            for name, _window in (schedules.ended(group, raw, now)
+                                  + schedules.all_live(group, raw, now)):
+                if _final_reward(raw, name)[1]:
+                    manager.remember_final(_stem(_event_key(name)), name)
+        raw[EVENT_FINALS_FIELD] = frozenset(
+            name for group in EVENT_GROUPS
+            for name, _window in schedules.all_live(group, raw, now)
+            if manager.pays_final(_stem(_event_key(name))))
 
     def _mark_finished(self, raw, readings):
         """Fold the user's `Finished?` answers into the readings.
@@ -3346,7 +3580,12 @@ def unsure_ceiling(segments):
     if state is DONE:
         return None
     pair = _tally(words)
-    if pair is None or pair[0] < pair[1]:
+    if pair is None:
+        return None
+    # A final reward known only from the family's past is short of
+    # its total by exactly that reward, and the question is the same
+    # one: is there anything left? See `FINAL_WAITING`.
+    if pair[0] < pair[1] and state is not FINAL_WAITING:
         return None
     return pair
 

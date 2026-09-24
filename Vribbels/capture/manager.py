@@ -302,6 +302,9 @@ class Addon:
         # {field: record} -- an event's own progress, by the key
         # it arrives under. See the event branch below.
         self.event_defines = {}
+        # {field: table} -- login tables kept for a reader that does
+        # not exist yet. See the branch after the event sweep.
+        self.login_tables = {}
         # {trial event id: [slot ids]}, learned from claims and
         # kept forever -- see `reward_combatant_trial`.
         self.trial_slots = {}
@@ -1119,17 +1122,15 @@ class Addon:
         # Each kind of event has its own field and they share nothing
         # but the naming, so they are kept by the field they arrive
         # under and the Checklist reads whichever it knows -- a set of
-        # puzzles here, a stated total there.
+        # puzzles here, a guestbook there.
         #
-        # **Every `event_*` table, not a list of the ones in use.**
-        # These are what say how BIG an event is -- `event_bartender_1`'s is
-        # one row per day of it -- and the total a Checklist row needs
-        # is a count over them. A table nobody reads yet costs a few
-        # kilobytes; a table nobody KEPT cannot be read later, because
-        # it only ever arrives at login. Eight of them on this account
-        # come to 16KB against a 2.2MB snapshot, and the bulky
-        # story-node payloads in the same reply do not carry the
-        # prefix. See `docs/events.md`.
+        # **Every `event_*` table, not a list of the ones in use.** A
+        # table nobody reads yet costs a few kilobytes; a table nobody
+        # KEPT cannot be read later, because it only ever arrives at
+        # login -- and a reader for the next event is written from
+        # what captures of the last one kept. The bulky story-node
+        # payloads in the same reply do not carry the prefix. See
+        # `docs/events.md`.
         for key, value in data.items():
             if not isinstance(value, dict) or not value or not key.startswith(
                     "event_"):
@@ -1165,6 +1166,29 @@ class Addon:
             if key.endswith("_entity") or key.endswith("_entities"):
                 self.event_defines[key] = value
                 self._save_pending = True
+        # **Login tables with no reader yet whose names do not say
+        # `event_`**, kept whole for the sweep's reason. A story event's
+        # episodes, the Disaster Marble's reward ladder and missions,
+        # the Full-Scale Offensive's rank, the Sortie's standing: each
+        # rides the login burst and next to nothing else. Named here
+        # rather than swept, since nothing about their names marks
+        # them. `docs/unread_stats.md` has what each holds.
+        for key in ("story_event_entities", "marble_achievement_entities",
+                    "marble_mission_entities", "remnants_entity",
+                    "chaos_assault_entity"):
+            if isinstance(data.get(key), dict) and data[key]:
+                self.login_tables[key] = data[key]
+                self._save_pending = True
+        # Watching an episode answers with its ONE row, keyed by the
+        # event and the story rather than by a `res_id` -- folded in
+        # for the same reason a summer set is.
+        story = data.get("story_event_entity")
+        if (isinstance(story, dict) and story.get("event_id") is not None
+                and story.get("story_id") is not None):
+            table = self.login_tables.setdefault("story_event_entities", {})
+            table.setdefault(str(story["event_id"]), {})[
+                str(story["story_id"])] = story
+            self._save_pending = True
         # The login-streak events: days shown up, days claimed.
         #
         # **Merged by event, never replaced.** The login burst sends
@@ -2173,6 +2197,7 @@ class Addon:
                 list(self.event_rewards.values()) or None,
             "reward_entities": self.season_rewards or None,
             **self.event_defines,
+            **self.login_tables,
             "combat_trial_entities": self.combat_trials or None,
             "combatant_trial_slots": self.trial_slots or None,
             "season_pass_entity": self.season_pass,
