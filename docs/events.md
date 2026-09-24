@@ -254,18 +254,18 @@ Two readings fit every row: *"`reward_step` is the track's size and `version` is
 * **The love family moved its ladder.** `event_love_01` held 21 mission rows, thresholds from 100 to 2110 on one score, and the account claimed all 21 of them within six days, in 15 separate claims. `event_love_02`, `_03` and `_04` hold ONE row each -- score 2190, never claimed -- and a record with `reward_step` 21. The same 21 steps, moved from rows to the record.
 * **`version` counts the claims after the record is made.** A record is created at `version` 0 by the claim that first touches it, as the bartender's was. Read as a tally, love_02 to _04 took their 21 steps in 13, 12 and 8 claims, where love_01 took 15; and `event_daily_mission_check_1`'s ten steps, one a day, run `version` 0 to 9, with its final reward's claim making the 10 and setting the flag. Read as a size, the three love instalments would each have ended with 9, 10 and 14 steps reached and left unclaimed, at a maxed score, on an account that claimed every one of love_01's.
 
-**What would overturn it, from cheapest:**
+**What would overturn it needs a LIVE step track**, and none is running -- the next love instalment is the likeliest. Either of these settles it:
 
-1. **Look at the Sortie's clear-level rewards in game.** `event_chaos_assault_1` reads `reward_step 3, version 2` beside `chaos_assault_entity.highest_clear_level` 5. Three rewards on the track with two claimed means `reward_step` is the size; three or more claimed means it is the tally.
-2. **Claim ONE step of a live track with a capture running.** `reward_step` moving by one makes it a tally; `version` moving with `reward_step` fixed makes it a size. An AREA reward is not a step -- a capture across a whole Sortie run with two `receive_area_reward` claims moved neither number -- so for the Sortie the claim is a clear-level reward.
+1. **Its reward screen against a capture.** With a capture running, note how many rewards the event's screen lists and how many are claimed; the snapshot's `reward_step` equalling the claimed count makes it a tally, equalling the list makes it a size.
+2. **Claim ONE step with a capture running.** `reward_step` moving by one makes it a tally; `version` moving with `reward_step` fixed makes it a size.
 
 Overturned, `_step_progress` would take `version` as the claimed count and `reward_step` as the total, and `_instalment_size` would stay as it is: a finished track's size is `reward_step` under both readings, where it was claimed to the end.
 
-**The reading to rule out first is that `event_chaos_assault_1` has no track at all.** An event row also exists for a permanent content RELEASE — the entry that puts the mode on the event list and is never claimed against — and one of those would sit at fixed numbers forever, which is exactly what it has done since May. A clear-level claim that moves neither number says this row is a release notice, and the question has to be settled on some other track.
+**`event_chaos_assault_1` cannot settle it.** Its one row was issued the day after the Sortie opened, and none of the Sortie's own screens -- walked end to end by the maintainer, and mapped in `docs/unread_stats.md`, *The Sortie's screens* -- holds a reward track: it is what is left of the Sortie's LAUNCH event, which has ended.
 
 ### Step tracks
 
-**A step-track event has one mission row and a ladder of rewards on it.** The row accumulates a score and is never itself claimed -- `event_love_04_01` stood at 2190 with `complete_time` 0 long after its event ended -- and the rewards are thresholds on that score, counted on the completion record once the first is claimed. Seen on love (from its second instalment), `event_half_year_mission_1`, `event_anniversary_gacha_1`, `event_daily_mission_check_1` and the Sortie's `event_chaos_assault_1`.
+**A step-track event has one mission row and a ladder of rewards on it.** The row accumulates a score and is never itself claimed -- `event_love_04_01` stood at 2190 with `complete_time` 0 long after its event ended -- and the rewards are thresholds on that score, counted on the completion record once the first is claimed. Seen on love (from its second instalment), `event_half_year_mission_1`, `event_anniversary_gacha_1`, `event_daily_mission_check_1` and the Sortie's launch event, `event_chaos_assault_1`.
 
 `_step_records` finds them -- a record paired to the event with `reward_step` above 0 -- and `_step_progress` reads the record instead of the row: the steps over themselves with `+?` while nothing else is known, `~7/21` where two finished instalments agree, green on the flag. **Before the first step is claimed there is no record**, and the lone row reads `0/1+?`, which is true: at least one reward, none taken. A finished step track is filed under its steps; filed by its rows, every love instalment held 1.
 
@@ -307,6 +307,25 @@ A live event takes its denominator from that record when, and only when:
 Such a row reads `~1/20` rather than `1/3+?`: the tilde is the tab's mark for a number worked out rather than read. **It does not go green on it** — `event_achieve_state` is still the only thing that ends an event — so the worst an over-large inherited total can do is leave a finished row looking unfinished.
 
 A step-track instalment is filed under the steps on its record, not its one accumulating row (`_instalment_size`). The record starts empty and fills as instalments end; `python docs/events_replay.py` prints what it would hold after every login on hand.
+
+### Instalments on record, by type
+
+What every capture on hand holds, which is what a decision about trusting a type's past rests on. A type's instalments count as one family only where they share a name.
+
+| Type | Instalments | Rewards each | |
+| ---- | ----------- | ------------ | - |
+| Seven-day story event: devil, director, idol, recorder | 4, each under its own name | 21, seven days of three | stable, but no two share a family |
+| Galactic Disaster challenge event, `event_chaos_mission_*` | 4 | 28, seven days of four | stable |
+| Policy, `event_policy_*` | 5 | 6 | stable |
+| Love, `event_love_*` | 4 | 21 -- as mission rows once, as a step track since | stable |
+| Node List, `event_nodelist_*` | 7 | 15, 16 and 19 on the three with a story map; 25 on the four with an achievement page, every list since May among them | two shapes |
+| Arena | 2 | 23, then 17 | not stable |
+| Login streak | 24 | 7 on nineteen, 14 on two, 21 on two, 10 on one | by event, not by type |
+| Overclock | 13 | a cap of 6 runs a day, or 2 | two shapes |
+| Combatant Trial | every banner | 3 per banner combatant | stable |
+| Seen once: summer, stock, bartender, operation, rhythm, new year, messenger, codex, and four step tracks | 1 each | -- | unknown |
+
+The step tracks seen once are the half-year, anniversary, daily-mission-check and Sortie-launch events, whose `reward_step` is read as steps claimed, not as their size.
 
 ## Totals the wire does not state
 
@@ -609,8 +628,8 @@ Every event row needs the same three answers -- rewards claimed, rewards held, a
 ## Still open
 
 * **A ragged family's page lengths.** The bartender's three pages are 7, 7 and 10, and two of the three can be read in full from the rows the account holds — but only because those pages were played. Page 1 hands out a row a day and will read short all week. Nothing distinguishes "this page is finished" from "this page is still being issued", which is the same wall every Open-ended reading hits. The completion flag answers the only question that really matters — *is there anything left* — without answering this one.
-* **`reward_step` vs `version`.** Read as a tally on the evidence under *`reward_step` and `version`*, which also lists the two ways to settle it, cheapest first. Nothing has moved either number on a live track yet: an ordinary event reward claim does not touch `event_mission_reward_entities`, and the bartender's final reward CREATED its row rather than moving one. `event_chaos_assault_1` -- `chaos_assault` is the code's inherited word for Sortie -- is the readiest track, at `reward_step 3, version 2` since May beside a clear level of 5.
-* **Whether every flagged family pays a SEPARATE final reward.** Only the bartender's was captured being claimed, and there the game's screen shows it apart from the 24. The Node Lists flag on their achievement page; were that flag set by claiming the last achievement rather than by a reward of its own, a list reads one higher than the game's 25, in both figures. The next Node List settles it: count its rewards on screen once the last is claimed, or capture that claim.
+* **`reward_step` vs `version`.** Read as a tally on the evidence under *`reward_step` and `version`*, which also says how to settle it: on the next LIVE step track, most likely a love instalment. Nothing has moved either number on a live track yet: an ordinary event reward claim does not touch `event_mission_reward_entities`, and the bartender's final reward CREATED its row rather than moving one.
+* **Whether every flagged family pays a SEPARATE final reward.** Only the bartender's was captured being claimed, and there the game's screen shows it apart from the 24. The Node Lists -- the events featuring one combatant, most recently Adelheid, Hilde and Arabella -- flag on their achievement page; were that flag set by claiming the last achievement rather than by a reward of its own, a list reads one higher than the game's 25, in both figures. The next Node List settles it: once everything is claimed, whether a reward is left after the 25.
 * **A grid under-reads a Node List until its last index is issued.** `event_nodelist_007`'s grid came to 8 on its third day, where it held 25: the batch that makes it a grid spanned its pages but only two of its five indices. The family's history knows 25, but a grid is this instalment speaking and outranks the past, so the smaller number wins. Which should win when a grid and a history disagree is open.
 * **Rhythm games, the Disaster Marble, Trauma Codes and the collab coupon read nothing.** Their schedules share no word with their records (`ds_s3_event_rhythm_game` owns `event_rhythm_*`; `marble_s01` keeps its ladder in `marble_achievement_entities`), and each is one instalment on record, too few to pair by rule.
 * **Telling the launch login event from a streak one day behind.** Three ways have been ruled out and none is left — see *A streak has no stated length*, which also says what a next attempt would have to explain first.

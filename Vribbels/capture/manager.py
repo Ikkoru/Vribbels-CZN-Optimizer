@@ -1538,10 +1538,12 @@ class Addon:
                 record = row.get("score")
                 sample = {
                     "rank": row["rank"], "score_record": record,
-                    # The record is the best score times 10**8 plus a
-                    # tie-break that favours the earlier clear.
+                    # The record is the best score times 10**8, then the
+                    # list level times 10**7, then a countdown to the
+                    # clear -- the order the board sorts on.
                     "best_score": record // 10 ** 8
                     if isinstance(record, int) else None,
+                    "list_level": row.get("list_level"),
                     "clear_time": row.get("clear_time"),
                     "turn": row.get("turn"),
                     "read_at": data.get("service_server_time"),

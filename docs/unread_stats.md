@@ -14,11 +14,12 @@ A reader can only work off a snapshot if the capture wrote the field into one. T
 | ---- | ----- | ------------------------- |
 | **Kept whole under `characters`** | the `load/user` reply, which the capture stores entire | nothing -- read `raw["characters"][<key>]` |
 | **Kept by name** | the tuple beside the `event_*` sweep in `capture/manager.py`, with `story_event_entities` and the Sortie and Offensive records | nothing |
+| **Kept as history** | the lifetime tables, and the Great Rift and Sortie ranking readings, carried from one snapshot to the next by `_seed_from_previous` | nothing; `check_capture_history` pins them |
 | **Not kept** | only in the debug logs | add the key to that tuple -- a login table is kept whole by one string -- and pin it in `check_capture_event_state` |
 
 Each entry below says which. **A key that is not kept has no history**: the first snapshot to carry it is the first reading there will ever be, so a reader that wants a trend should start keeping before it starts reading.
 
-**Other players are never kept.** `chaos_assault/get_ranking` sends twenty strangers per page with their names and profile cards, and `load/user` carries a `friend_list`. A reader takes the account's own row and the counts beside it.
+**Other players are never kept, only their numbers.** A ranking page is twenty strangers with their names, profile cards and teams, and `load/user` carries a `friend_list`. What the capture takes from a ranking page is ranks, scores and times; `check_capture_history` fails if a name, id, profile or team reaches a snapshot.
 
 ## Standings
 
@@ -33,20 +34,24 @@ Each entry below says which. **A key that is not kept has no history**: the firs
 | `schedule_highest_clear_level` | the same within this season; 0 before its first clear |
 | `total_clear_count` | lifetime clears, one per finished run |
 
-**`chaos_assault/get_ranking`** -- not kept, and sent only while the ranking screen is open, one page per request (`tab` `ongoing`, `page` 1 to `page_max`).
+**`chaos_assault/get_ranking`** -- the Hardcore Rankings screen, sent only while it is open, one page per request: `tab` `ongoing` for the season running, `complete` for the one before, `page` 1 to `page_max`. **The game keeps those two seasons and no others.**
 
 | Field | Is |
 | ----- | -- |
-| `my_rank` | the account's own row: `rank`, `score`, `record_timestamp`, the four `char_res_ids` and `assault_char_titles` of the run that set it |
-| `chaos_assault_rank_entity` | the same standing as a record: `rank`, `best_score`, `best_score_record`, `best_record_timestamp`, `best_clear_time_sec`, `last_rank` |
-| `total_count` | how many accounts are ranked this season -- the denominator a percentile needs |
+| `schedule_id` | the season the page is of: `assault_1_s7` on `ongoing`, `assault_1_s6` on `complete` |
+| `my_rank` | the account's own row: `rank`, `score`, `record_timestamp`, the four `char_res_ids` and `assault_char_titles` of the run that set it. On `complete`, `rank` is the FINAL placing |
+| `chaos_assault_rank_entity` | the same standing as a record: `rank`, `best_score`, `best_score_record`, `best_record_timestamp`, `best_clear_time_sec`, `last_rank`. On a finished season `last_rank` is the final placing and `rank` is wherever the record stood when last written -- 383 beside a final 1914 |
+| `total_count` | how many accounts are ranked that season -- the denominator a percentile needs, stated outright here and nowhere on the Great Rift |
 | `max_rank`, `page_max` | how far the listed board goes: 100 places in pages of 20 |
 | `reset_time` | when the season's board closes, epoch seconds |
-| `rank_list` | the page of OTHER players. Never kept |
+| `refresh_id` | the board's generation; pages read under one `refresh_id` are one state of it |
+| `rank_list` | the page of OTHER players. Only rank 1's `score`, `clear_time_sec` and `penalty_level` are kept |
 
-`best_score_record` is the score with seven more digits after it -- `430339747707` against a score of `43033` -- which reads as the score followed by a tie-break. Nothing has been measured about the tail.
+**Kept as history** under `chaos_assault_rankings`, one entry per season: its `reset_time`, and a reading per change of the first page -- `tab`, `total_count`, `rank`, `score`, `last_rank`, `top_score`, `top_clear_time_sec`, `top_penalty_level`, `read_at`, `refresh_id`. Carried from snapshot to snapshot, so a season the game has dropped stays in the newest snapshot.
 
-**`chaos_assault/get_records`** -- not kept; sent when the records screen opens. One row per attempt this season, **the best one first with `is_best: true`, then every attempt newest first -- the best one again among them**. A reader that counts attempts skips the flagged row.
+**`best_score_record` is the score times 10**7 plus a tie-break**: `reset_time + 8189199 − record_timestamp`, so on equal scores the earlier record sorts first. It holds on all 147 rows read, over both seasons on hand.
+
+**`chaos_assault/get_records`** -- the Sortie Logs screen; not kept; sent when it opens. One row per attempt this season, **the best one first with `is_best: true`, then every attempt newest first -- the best one again among them**. A reader that counts attempts skips the flagged row.
 
 | Field | Is |
 | ----- | -- |
@@ -61,7 +66,19 @@ Each entry below says which. **A key that is not kept has no history**: the firs
 
 **The run's own breakdown** -- `score_detail` in `return_info.chaos_assault_result` -- says where a score came from: `district_score`, `card_score`, `fate_score`, `equip_score`, `total_score`, `final_score`, `bonus_multiplier`, `bonus_ratio`, `score_counts`, with `clear_area` and `is_best_score` beside it.
 
-**The account's Sortie ladders** -- `assault_achievement_entities` (not kept) is the account-wide Sortie Data ladder, ids `assault_achievement_NNN`, sent with `mission/get_list` and answered row by row by the `..._reward_all` claim. It is the claimable-reward row shape (`docs/events.md`, *One shape for every claimable reward*). Whether an unfinished rung is issued is untested -- every row on hand is stamped -- so a reader takes `complete_time`, not row presence. The two per-combatant ladders ARE read, by `sortie_progress.py`. `assault_tactical_skill_node_entities` is the Tactical Authority tree, one row per node, ids `a_skill_s<season>_<tier>_a<branch>_<step>`; `chaos_assault/check_season_reset` sends it whole and `assault_tactical_skill_level_up` one node back.
+#### The Sortie's screens, and what each is read from
+
+| Screen, as the game names it | On the wire |
+| ---------------------------- | ----------- |
+| Hardcore Rankings | `get_ranking`, above |
+| Sortie Logs | `get_records`, above; the screen lists the last ten |
+| Engagement Data → Sortie Data | `assault_achievement_entities`, not kept, sent with `mission/get_list`: **CLAIMED rungs only**. The screen's 23 of 35 are 23 rows, every one stamped with the date the screen shows; the 12 unfinished have no row, and their ids are the gaps in the `assault_achievement_NNN` sequence. The screen's 40/50 and 40/100 are `total_clear_count` |
+| Engagement Data → Combatant Data | the two per-combatant ladders, read by `sortie_progress.py` |
+| Archive | `chaos_assault_archive_entities`, not kept, from `stage/get_list`: one `collection` per category, id to count. `assault_01` is Equipment, each piece counting up to 5 -- the screen's Equipment figure is the SUM, 71 pieces at 5 for 355 of 455; `assault_02` Monsters; `assault_03` Bosses, each to 3, with one boss more on the wire than on the screen; `assault_04` Cards; `assault_05` Fates |
+| Tactical Optimization | `assault_tactical_skill_node_entities`, not kept, from `chaos_assault/check_season_reset`, and one node back from `assault_tactical_skill_level_up`: `a_skill_s1_*` the permanent tree, `a_skill_s2_*` the seasonal one, `level` per node. **An unlevelled node has no row** -- 16 rows for a seasonal tree of 17 |
+| Tactical Data | item 3000008, the amount held. What has been earned in all is not on the wire |
+
+None of them is a reward track for clear levels: the step record `event_chaos_assault_1` belongs to the Sortie's launch event, which `docs/events.md` covers.
 
 ### The Full-Scale Offensive
 
@@ -70,6 +87,44 @@ Each entry below says which. **A key that is not kept has no history**: the firs
 **`remnants_boss_penalty/enter_remnants`** answers with the same `rank` and `reward_count` fresher, plus **`rank_percent`** -- the rank as a percentage of the field -- and the board under `entities`.
 
 **The rank moves when the account does nothing.** Two entries six days apart read rank 386 at 0.8 and rank 441 at 0.83, with every best score on the board unchanged: others overtook it. A reader shows the rank with the date it was read. `reward_count` read 9 with nine stars held, three on each of three bosses; whether it counts stars or ranking rewards is untested.
+
+### The Great Rift's divisions
+
+**The account's own standing is in every snapshot already**: `disaster_boss_rank_entities`, from `disaster/get_list` at login and merged row by row from any reply about a half, per season and per half (`define_id` `disaster_s04_rank_01`, `_02`):
+
+| Field | Is |
+| ----- | -- |
+| `rank`, `rank_id` | the placing, and the SUBDIVISION it falls in -- see the table below |
+| `best_score`, `best_score_turn`, `best_score_record` | the best run, the turn it ended on, and the score with its tie-break |
+| `week_total_score`, `week_total_score_reward`, `score_week_id` | the week's figure the Checklist reads |
+| `last_rank`, `last_rank_id` | 0 and null on the half running; on a finished half a placing a little lower than `rank` in every one on hand. Which of the two the end-of-half reward is paid on is untested |
+
+**`rank_id` names the subdivision**: `disaster_s<season>_rank_best_<half>_<N>`, N counting up from Bronze V to Master I. The account's `disaster_s04_rank_best_2_24` is Diamond II. The shares are the game's own, each the part of the field its subdivision reaches down to:
+
+| Division | I | II | III | IV | V |
+| -------- | - | -- | --- | -- | - |
+| Master | 30 · 0.1% | 29 · 0.5% | 28 · 1% | 27 · 1.5% | 26 · 2% |
+| Diamond | 25 · 5% | 24 · 7% | 23 · 8% | 22 · 9% | 21 · 10% |
+| Platinum | 20 · 15% | 19 · 19% | 18 · 22% | 17 · 24% | 16 · 26% |
+| Gold | 15 · 34% | 14 · 40% | 13 · 44% | 12 · 48% | 11 · 50% |
+| Silver | 10 · 55% | 9 · 60% | 8 · 65% | 7 · 70% | 6 · 75% |
+| Bronze | 5 · 80% | 4 · 85% | 3 · 90% | 2 · 95% | 1 · 100% |
+
+The first season named them otherwise, `disaster_s01_h<half>_<n>`, on a scale of its own.
+
+**The ranking screen asks one division at a time**:
+
+| Command | Answers with |
+| ------- | ------------ |
+| `disaster/enter_disaster_rank` (`season_id`, `define_id`) | the page of the account's own division, and `disaster_boss_rank_entity` |
+| `disaster/request_rank_list` (`rank_id`, `page`) | that division's page -- the screen asks for each division's I -- with `refresh_id`, the board's generation |
+| `disaster/get_user_savedata` (`target_user_id`) | another player's deck. Never kept |
+
+A page is twenty rows of one subdivision: `rank`, `score`, `damage_score`, `damage_score_team2`, `heal_score`, `shield_score`, `bonus_score`, `clear_time`, `list_level`, `turn_bonus`, `turn`, `rank_id` -- and who, which is not kept. **`score` is a record**: the best score times 10**8, plus `list_level` times 10**7, plus `1793239200 − clear_time` in season 4 -- so the board sorts on best score, then the higher list level, then the earlier clear. That holds on all 172 rows read, the account's own `disaster_rank_info` included; the constant is the season's own.
+
+**Kept as history** under `disaster_boss_rank_tops`: per season, per half, per subdivision seen, a sample per change of its top row -- `rank`, `best_score`, `score_record`, `list_level`, `clear_time`, `turn`, `read_at`, `refresh_id`. Carried from snapshot to snapshot, so the samples are that subdivision's top over the season.
+
+**No percentage and no field size ever arrive** -- nothing like the Sortie's `total_count`. Both follow from the division pages: a division's first rank, less one, over the share above it is the field. On 2026-09-24 Diamond started at 941 below Master's 2%, Platinum at 4704 below 10%, Gold at 12228 below 26%, Silver at 23516 below 50% and Bronze at 35273 below 75%: a field of 47,000 to 47,030 by every one of them. The account's 2474 is then 5.3% down the field, inside Diamond II's band of 5 to 7%.
 
 ### The Galactic Disaster
 
@@ -87,7 +142,9 @@ The Great Rift standings (`disaster_boss_rank_entities`) and the seasons (`disas
 
 ### `mission_accumulate`
 
-Not kept. Sent with `mission/get_list`, one row per counter: `res_id` `ac_collection_<n>` and a `score` that only climbs. **These are the account's lifetime statistics** -- the collection achievements count off them -- and `ac_collection_003` equals Units' `total_amount` to the unit in every reply that carried both, 36 of them.
+Kept, as history. Sent with `mission/get_list`, one row per counter: `res_id` `ac_collection_<n>` and a `score` that only climbs. **These are the account's lifetime statistics** -- the collection achievements count off them -- and `ac_collection_003` equals Units' `total_amount` to the unit in every reply that carried both, 36 of them.
+
+**The capture writes what a counter counts onto its row**, as `condition_type`, the first time it sees the counter move, and keeps it: the login sends the rows without it, and the next capture starts from the newest snapshot's. So a snapshot's counters say what they mean as far as any capture on this install has seen them move.
 
 **The wire names what a counter counts only when it moves**: the reply to an action that advanced one carries `mission_condition.condition.accumulate_condition`, with the counter's `condition_type`. So the meanings below are the ones captures have seen move; the rest have not moved on a capture yet.
 
@@ -131,13 +188,15 @@ Not kept. Sent with `mission/get_list`, one row per counter: `res_id` `ac_collec
 
 Not yet seen moving: 002, 004, 007, 011, 015, 017, 021, 023, 026, 027, 028, 043, 051, 057, 059, 066, 076, 078, 082, 084, 085. **A counter sharing a type with others splits it by a parameter the row does not carry** -- rarity, level band, faction -- so which of 070 to 073 is which rarity is readable only off the Achievements screen, whose text is client-side. Of the glosses above, 003's is measured; 024's and 032's only translate `PIECE`, which is the wire's word for a Memory Fragment. Everything else is the condition's own name and nothing more.
 
-`lobby/lobby_update` sends **`login_total_count`**, not kept, which read the same as counter 033 on 2026-09-24.
+`lobby/lobby_update` sends **`login_total_count`**, kept, which read the same as counter 033 on 2026-09-24.
 
 ### The Achievements screen
 
-`achievements` -- not kept, from `mission/get_list` -- is the Achievements screen in the claimable-reward row shape without `issued_time`: ids `battle_*`, `collection_*`, `ingame_*`, `outgame_*`, a `score` and a `complete_time`. Claimed one at a time by `achievement/acquire_achievement_reward`, answering under `achievement_entity`. Rows claimed over rows held is the screen's completion.
+`achievements` -- kept, from `mission/get_list` -- is the Achievements screen in the claimable-reward row shape without `issued_time`: ids `battle_*`, `collection_*`, `ingame_*`, `outgame_*`, a `score` and a `complete_time`. Claimed one at a time by `achievement/acquire_achievement_reward`, answering under `achievement_entity`. Rows claimed over rows held is the screen's completion.
 
-### Also in `mission/get_list`, none kept
+### Also in `mission/get_list`
+
+`daily_achieve` is kept; the rest are not.
 
 | Field | Is |
 | ----- | -- |
