@@ -5,6 +5,7 @@ Provides shared state and services to all tabs without tight coupling.
 """
 
 from dataclasses import dataclass
+from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional, TYPE_CHECKING
@@ -97,6 +98,9 @@ class AppContext:
     # Which Checklist shop products the user tracks. See
     # checklist_manager.py.
     checklist_manager: Optional['ChecklistManager'] = None
+    # Where `stats_history.py` keeps what it read out of old debug
+    # captures: the user's settings folder.
+    stats_dir: Optional[Path] = None
     # Re-renders the LAST "[LIVE] Upgraded" capture-log line against the
     # current Log Presets selection. Set by the main GUI; the Capture
     # tab calls it after a checklist toggle. Optional -- callers must

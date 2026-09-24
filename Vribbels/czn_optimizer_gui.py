@@ -229,6 +229,9 @@ class OptimizerGUI:
         # `_poll_capture` on the UI thread. See `_want_live_update`.
         self._live_update_wanted = False
         self._gacha_written = False
+        # Set from the thread reading old captures for stats, acted on
+        # by `_poll_capture` the same way.
+        self._stats_written = False
 
         # Create AppContext for UI tabs
         self.app_context = AppContext(
@@ -272,7 +275,7 @@ class OptimizerGUI:
         # After the reveal for the same reason the audit is: the window
         # is up and the user is looking at it, so a rebuild that takes a
         # second has nothing to block.
-        self._start_capture_archiver()
+        self._start_stats_history(self._start_capture_archiver())
         _t0 = getattr(self, "_startup_t0", None)
         if _t0 is not None:
             perf_log.log("startup:TOTAL", secs=_time.perf_counter() - _t0)
@@ -607,8 +610,9 @@ class OptimizerGUI:
         # of it is the only thing between the last row and the widget's
         # edge -- 0 there closes a gap that has no matching one at the
         # top, where the heading sits instead. It is shared by every
-        # list in the app but Gacha History's, whose style has a layout
-        # of its own -- so this moves all the others at once.
+        # list in the app but the Stats & Gacha History tab's, whose
+        # style has a layout of its own -- so this moves all the others
+        # at once.
         #
         # 3 at the sides, the heading's own inset, so a cell's text sits
         # as far from its column's edge as its heading's does.
@@ -843,6 +847,7 @@ class OptimizerGUI:
         self.app_context.optimizer_settings_manager = self.optimizer_settings_manager
         self.app_context.log_presets_manager = self.log_presets_manager
         self.app_context.checklist_manager = self.checklist_manager
+        self.app_context.stats_dir = program_dir / "settings"
         self.app_context.recompute_upgrade_line_callback = (
             self.recompute_last_upgrade_line
         )
@@ -903,7 +908,7 @@ class OptimizerGUI:
 
         # ---- Add tabs to notebook in display order ----
         # Optimizer | Memory Fragments | Gear Score | Combatants | Materials |
-        #   Checklist | Capture | Setup & Settings | Gacha History
+        #   Checklist | Capture | Setup & Settings | Stats & Gacha History
         self.notebook.add(self.optimizer_tab, text="Optimizer")
         self.notebook.add(self.inventory_tab, text="Memory Fragments")
         self.notebook.add(self.scoring_tab, text="Gear Score")
@@ -912,7 +917,7 @@ class OptimizerGUI:
         self.notebook.add(self.checklist_tab, text="Checklist")
         self.notebook.add(self.capture_tab, text="Capture")
         self.notebook.add(self.setup_tab, text="Setup & Settings")
-        self.notebook.add(self.gacha_tab, text="Gacha History")
+        self.notebook.add(self.gacha_tab, text="Stats & Gacha History")
 
         # First-launch default: switch to the Setup & Settings tab so the user lands
         # on the proxy/cert installation flow before trying to use the
@@ -1050,28 +1055,49 @@ class OptimizerGUI:
 
         `Off` is the one setting that stops it, and it is read here
         rather than inside the archiver so that no thread starts at all.
+
+        Returns the archiving thread, or None where none started.
         """
         from capture import archive
         chosen = self.config.capture_archive
         if chosen not in archive.PRESETS:
-            return
+            return None
         folder = self.capture_manager.output_folder
-        # The Capture Log colours by TAG, not by prefix, so the two are
-        # paired here rather than left for the reader to match up.
-        tags = {"[OK]": "success", "[!]": "warning", "[X]": "error"}
+        return archive.compact_in_background(folder, preset=chosen,
+                                             say=self._background_say)
 
-        def say(msg):
-            tag = tags.get(str(msg).split(" ", 1)[0])
-            self.capture_tab_instance.capture_log_msg(msg, tag)
-            # Only the aborts. The retry-and-carry-on cases put a line
-            # in the log and leave the folder correct, and a mark
-            # raised for something that fixed itself is one nobody
-            # reads the next time it means something.
-            if tag == "error":
-                self.root.after(
-                    0, self.capture_tab_instance.flag_failure)
+    def _start_stats_history(self, archiver):
+        """Read the old debug captures for stats, if they want reading.
 
-        archive.compact_in_background(folder, preset=chosen, say=say)
+        Once: `stats_history.py` keeps a file that says it has been done,
+        and a current one starts no thread at all. **After the archiver**,
+        which rewrites the archive this reads -- so the reading waits on
+        that thread rather than racing it.
+        """
+        import stats_history
+
+        def done():
+            self._stats_written = True
+
+        stats_history.read_in_background(
+            self.capture_manager.output_folder, self.app_context.stats_dir,
+            self._background_say, done, wait_for=archiver)
+
+    def _background_say(self, msg):
+        """A line from a startup job's thread, into the Capture Log.
+
+        The Capture Log colours by TAG, not by prefix, so the two are
+        paired here rather than left for the reader to match up.
+        """
+        tag = {"[OK]": "success", "[!]": "warning",
+               "[X]": "error"}.get(str(msg).split(" ", 1)[0])
+        self.capture_tab_instance.capture_log_msg(msg, tag)
+        # Only the aborts. The retry-and-carry-on cases put a line in
+        # the log and leave the folder correct, and a mark raised for
+        # something that fixed itself is one nobody reads the next time
+        # it means something.
+        if tag == "error":
+            self.root.after(0, self.capture_tab_instance.flag_failure)
 
     def auto_load(self):
         latest = self.capture_manager.get_latest_capture()
@@ -1108,6 +1134,7 @@ class OptimizerGUI:
             self.inventory_tab_instance.populate_set_filters()
             self.materials_tab_instance.refresh_materials()
             self.checklist_tab_instance.refresh_checklist()
+            self.gacha_tab_instance.refresh_standings()
 
             # Re-score fragments using the currently-active scoring weights
             # (preset or custom), so loading fresh data doesn't wipe them out.
@@ -1165,6 +1192,9 @@ class OptimizerGUI:
             if self._gacha_written:
                 self._gacha_written = False
                 self.gacha_tab_instance.on_capture_update()
+            if self._stats_written:
+                self._stats_written = False
+                self.gacha_tab_instance.refresh_standings()
             if self._live_update_wanted:
                 self._live_update_wanted = False
                 self._handle_live_update()
@@ -1209,6 +1239,7 @@ class OptimizerGUI:
                     self.inventory_tab_instance.populate_set_filters()
                     self.materials_tab_instance.refresh_materials()
                     self.checklist_tab_instance.refresh_checklist()
+                    self.gacha_tab_instance.refresh_standings()
                     # apply_active_weights re-scores and refreshes the
                     # Memory Fragments tab, and the Combatants tab unless
                     # told the latter has nothing new to show. An

@@ -60,7 +60,7 @@ The reply to `lobby / lobby_update` carries `event_schedules.GACHA`: every banne
 
 `gacha/history` pages, `gacha/get_rate` replies and the pity records go to `snapshots/gacha_history/captured.json` through `_merge_gacha`, never into the snapshot. **It is the one record here a later capture cannot rebuild**: the game stops listing a pull after about half a year, so the file only ever gains, and every write goes through a checked copy that keeps the previous file as `.bak`.
 
-The app refreshes the Gacha History tab on `GACHA_MARKER`, not `SAVE_MARKER`: a history page is no reason to reload the whole snapshot, which a `[LIVE]` line would also cost. The file's location and name are handed to the generated addon from `gacha_history.py` rather than spelled twice. Everything else -- the wire shapes, the write, the reading -- is in `docs/gacha_history.md`.
+The app refreshes the Stats & Gacha History tab's pull history on `GACHA_MARKER`, not `SAVE_MARKER`: a history page is no reason to reload the whole snapshot, which a `[LIVE]` line would also cost. The tab's standings sheets are the snapshot's, redrawn on every load. The file's location and name are handed to the generated addon from `gacha_history.py` rather than spelled twice. Everything else -- the wire shapes, the write, the reading -- is in `docs/gacha_history.md`.
 
 ## Payloads kept aside and written out later
 

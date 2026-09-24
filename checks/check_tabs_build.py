@@ -2297,7 +2297,8 @@ def _materials_figures_fit(tab):
 
 
 def _gacha_history_draws_its_rows(tab):
-    """The Gacha History tab draws what its folder holds, by rarity.
+    """The Stats & Gacha History tab draws what its folder holds, by
+    rarity.
 
     Built against a history of its own, never the maintainer's: the tab
     reads through `_folder`, which is pointed at a temp folder here. A
@@ -2436,32 +2437,84 @@ def _gacha_history_draws_its_rows(tab):
     return out
 
 
+def _sheet_complaints(label, text, holder):
+    """(complaints, the lines set as headings) for one Stats & Gacha
+    History sheet as it is written.
+
+    A sheet is a Text in a holder sized in pixels, with tab stops
+    measured from its rows, and three things fail it without a word: a
+    field reaching its next stop, where Tk falls through to a tab
+    spacing of its own; a holder narrower than a line, which clips the
+    line's end; and one shorter than the lines, which clips the last
+    rows.
+
+    Every line carries exactly one pitch tag -- the first line the one
+    that charges nothing above it, a heading its own, every other row
+    the row's: the audit reads the gaps by those tags.
+    """
+    import tkinter.font as tkfont
+    from ui.tabs.gacha_history_tab import (
+        BOLD_TAG, HEADING_FONT, HEADING_TAG, ROW_TAG, TOP_TAG)
+
+    out, headings = [], []
+    normal = tkfont.nametofont("TkDefaultFont")
+    bold = tkfont.Font(font=HEADING_FONT)
+    stops = [int(str(s)) for s in text.tk.splitlist(text.cget("tabs"))
+             if str(s).isdigit()]
+    count = int(text.index("end-1c").split(".")[0])
+    width = int(holder.cget("width"))
+    for n in range(1, count + 1):
+        line = text.get(f"{n}.0", f"{n}.end")
+        tags = text.tag_names(f"{n}.0")
+        heading = BOLD_TAG in tags
+        if heading:
+            headings.append(line)
+        pitch = [t for t in tags if t in (ROW_TAG, HEADING_TAG, TOP_TAG)]
+        want = (TOP_TAG if n == 1 else HEADING_TAG if heading else ROW_TAG)
+        if pitch != [want]:
+            out.append(f"{label} line {n} {line!r} carries pitch tags "
+                       f"{pitch}, not [{want!r}]: every line takes one, "
+                       f"the first {TOP_TAG!r}.")
+        font = bold if heading else normal
+        fields = line.split("\t")
+        starts = [0] + stops
+        for i, field in enumerate(fields):
+            if i + 1 < len(fields) and i + 1 >= len(starts):
+                out.append(f"{label} line {n} {line!r} has more fields "
+                           f"than the sheet has stops, {stops}")
+                break
+            end = starts[i] + font.measure(field)
+            limit = starts[i + 1] if i + 1 < len(fields) else width
+            if end > limit:
+                out.append(f"{label} line {n}: {field!r} ends at {end}px, "
+                           f"past {limit}, the "
+                           f"{'next stop' if i + 1 < len(fields) else 'holder'}"
+                           f" -- clipped, or tabbed to where Tk chooses.")
+    need = text.count("1.0", "end", "update", "ypixels")
+    need = need[0] if isinstance(need, (tuple, list)) else need
+    have = int(holder.cget("height"))
+    if need > have:
+        out.append(f"the {label} sheet's lines need {need}px and its "
+                   f"holder is {have}: the last rows are clipped.")
+    return out, headings
+
+
 def _gacha_overall_fits(tab, gh):
-    """The Gacha History's Overall Stats sheet shows all it holds.
+    """The Overall Gacha Stats sheet shows all it holds.
 
-    It is a Text in a holder sized in pixels, with tab stops measured
-    from its rows, and three things fail it without a word: a field
-    reaching its next stop, where Tk falls through to a tab spacing of
-    its own; a holder narrower than a line, which clips the line's end;
-    and one shorter than the lines, which clips the last rows. The
-    stops and the holder are worked out again on every fill, so the
+    The stops and the holder are worked out again on every fill, so the
     history is handed a streak of three different units here -- wider
-    than anything the sheet held before it.
-
-    Every line carries exactly one pitch tag, the first heading the
-    one that charges nothing above it: the audit reads the gaps by
-    those tags.
+    than anything the sheet held before it. `_sheet_complaints` says
+    what a fill can get wrong.
 
     A record's ties sit beside it, as many as fit the Banners list's
     width and the oldest first; forty are handed over here.
 
     Returns a list of complaints.
     """
-    import tkinter.font as tkfont
     from datetime import datetime
     from ui.tabs.gacha_history_tab import (
-        ALL_BANNERS, HEADING_FONT, HEADING_TAG, PRISM_ONLY, ROW_TAG,
-        TOP_TAG, WITHOUT_PRISM)
+        ALL_BANNERS, OVERALL_TITLE, PRISM_ONLY, WITHOUT_PRISM)
 
     out = []
     pulls = [pull for pool in tab.history.ordered() for pull in pool.pulls]
@@ -2482,50 +2535,21 @@ def _gacha_overall_fits(tab, gh):
     text = tab.overall_text
     available = tab.summary_tree.master.winfo_reqwidth()
     if int(tab.overall_holder.cget("width")) > available:
-        out.append(f"the Overall Stats sheet is {tab.overall_holder.cget('width')}"
-                   f"px wide, past the Banners list's {available}: it "
-                   f"widens their column and squeezes the pulls list.")
+        out.append(f"the {OVERALL_TITLE} sheet is "
+                   f"{tab.overall_holder.cget('width')}px wide, past the "
+                   f"Banners list's {available}: it widens their column "
+                   f"and squeezes the pulls list.")
     row = text.get("6.0", "6.end").split("\t")
     dates = row[3::2]
     oldest = datetime.fromtimestamp(1000).strftime("%Y-%m-%d")
     if len(dates) < 2 or dates != sorted(dates) or dates[0] != oldest:
         out.append(f"forty tied fastest 5-stars show the dates {dates}: "
                    f"as many as fit, oldest first from {oldest}.")
-    normal = tkfont.nametofont("TkDefaultFont")
-    bold = tkfont.Font(font=HEADING_FONT)
-    stops = [int(str(s)) for s in text.tk.splitlist(text.cget("tabs"))
-             if str(s).isdigit()]
-    count = int(text.index("end-1c").split(".")[0])
-    width = int(tab.overall_holder.cget("width"))
-    headings = []
-    for n in range(1, count + 1):
-        line = text.get(f"{n}.0", f"{n}.end")
-        pitch = [t for t in text.tag_names(f"{n}.0")
-                 if t in (ROW_TAG, HEADING_TAG, TOP_TAG)]
-        want = TOP_TAG if n == 1 else None
-        if len(pitch) != 1 or (want and pitch != [want]):
-            out.append(f"Overall Stats line {n} {line!r} carries pitch tags "
-                       f"{pitch}; every line takes one, and the first "
-                       f"{TOP_TAG!r}.")
-        if pitch and pitch[0] != ROW_TAG:
-            headings.append(line)
-        font = normal if pitch == [ROW_TAG] else bold
-        fields = line.split("\t")
-        starts = [0] + stops
-        for i, field in enumerate(fields):
-            if i + 1 < len(fields) and i + 1 >= len(starts):
-                out.append(f"Overall Stats line {n} {line!r} has more fields "
-                           f"than the sheet has stops, {stops}")
-                break
-            end = starts[i] + font.measure(field)
-            limit = starts[i + 1] if i + 1 < len(fields) else width
-            if end > limit:
-                out.append(f"Overall Stats line {n}: {field!r} ends at {end}px, "
-                           f"past {limit}, the "
-                           f"{'next stop' if i + 1 < len(fields) else 'holder'}"
-                           f" -- clipped, or tabbed to where Tk chooses.")
+    problems, headings = _sheet_complaints(OVERALL_TITLE, text,
+                                           tab.overall_holder)
+    out.extend(problems)
     if headings != [WITHOUT_PRISM, PRISM_ONLY, ALL_BANNERS]:
-        out.append(f"the Overall Stats sheet's headings read {headings}")
+        out.append(f"the {OVERALL_TITLE} sheet's headings read {headings}")
     # The spacing audit finds this panel by its exact title and these
     # rows by their words. A rename the registry does not follow leaves
     # those rows reading nothing, and only an audit would say so.
@@ -2537,7 +2561,7 @@ def _gacha_overall_fits(tab, gh):
                    f"{title!r}. Update `GACHA_OVERALL_TITLE`.")
     for needle in registry.GACHA_FIGURE_ROWS:
         if not text.search(needle, "1.0", "end"):
-            out.append(f"the spacing registry reads the Overall Stats "
+            out.append(f"the spacing registry reads the {OVERALL_TITLE} "
                        f"row {needle.strip()!r}, which the sheet no longer "
                        f"has. Update `GACHA_RECORD_ROWS` or "
                        f"`GACHA_FIGURE_ROWS`.")
@@ -2550,13 +2574,164 @@ def _gacha_overall_fits(tab, gh):
     if got != want:
         out.append(f"a streak of A, B, A names its units {got!r}, not "
                    f"{want!r}")
-    need = text.count("1.0", "end", "update", "ypixels")
-    need = need[0] if isinstance(need, (tuple, list)) else need
-    have = int(tab.overall_holder.cget("height"))
-    if need > have:
-        out.append(f"the Overall Stats sheet's lines need {need}px and its holder "
-                   f"is {have}: the last rows are clipped.")
     tab.refresh()
+    return out
+
+
+def _standings(newest):
+    """A snapshot's standings: `newest` seasons of the Sortie and of the
+    Great Rift, the newest Rift season's second half still running."""
+    def rift(season, half):
+        rank_id = "disaster_s%02d_rank_best_%d_24" % (season, half)
+        running = (season, half) == (newest, 2)
+        return {"rank": 2481, "best_score": 1115731, "rank_id": rank_id,
+                "last_rank_id": None if running else rank_id}
+    live = "disaster_s%02d" % newest
+    return {
+        "chaos_assault_entity": {"total_clear_count": 40,
+                                 "highest_clear_level": 5},
+        "chaos_assault_rankings": {
+            "assault_1_s%d" % s: {"reset_time": s, "readings": [{
+                "tab": "ongoing" if s == newest else "complete",
+                "total_count": 24684, "rank": 1914, "score": 42343,
+                "top_score": 66265, "read_at": s}]}
+            for s in range(1, newest + 1)},
+        "disaster_boss_rank_entities": {
+            "disaster_s%02d" % s: {"disaster_s%02d_rank_%02d" % (s, h):
+                                   rift(s, h) for h in (1, 2)}
+            for s in range(1, newest + 1)},
+        "disaster_boss_rank_tops": {live: {live + "_rank_02": {
+            "%s_rank_best_2_%d" % (live, n): [
+                {"rank": rank, "best_score": score, "read_at": 1}]
+            for n, rank, score in ((30, 1, 1635631), (25, 941, 1219348),
+                                   (5, 35368, 416283))}}},
+    }
+
+
+def _standings_sheets_fit(tab):
+    """The Sortie and Great Rift sheets show their newest seasons, and
+    the left column holds every sheet in the default window.
+
+    Handed one season more than `SEASONS_SHOWN` of each, a sheet must
+    stop at the cap: the history keeps every season it reads, a Great
+    Rift season is two rows, and an uncapped column runs past the
+    window's bottom edge -- where the rows cut off leave nothing beside
+    them to look short. The running half is followed by the tops it is
+    ranked against. The column is measured at its tallest, a Banners
+    row for every family, mapped at alpha 0 like
+    `_the_checklist_fits_its_window`.
+
+    The spacing audit finds these panels by their exact titles and
+    their rows by their words, the words of an empty sheet included.
+
+    Returns a list of complaints.
+    """
+    import gacha_history as gh
+    from ui import spacing_registry as registry
+    from ui.tabs.gacha_history_tab import (
+        OVERALL_TITLE, RIFT_TITLE, SEASONS_SHOWN, SORTIE_TITLE)
+
+    out = []
+    newest = SEASONS_SHOWN + 1
+    shown = range(newest, newest - SEASONS_SHOWN, -1)
+    optimizer = tab.optimizer
+    saved = getattr(optimizer, "raw_data", None), tab.stats
+    words = {SORTIE_TITLE: "", RIFT_TITLE: ""}
+    try:
+        optimizer.raw_data, tab.stats = {}, None
+        tab._fill_standings()
+        for title, text in ((SORTIE_TITLE, tab.sortie_text),
+                            (RIFT_TITLE, tab.rift_text)):
+            words[title] += text.get("1.0", "end-1c")
+        optimizer.raw_data = _standings(newest)
+        tab._fill_standings()
+        want = {SORTIE_TITLE: ["Clears"] + ["Season %d" % s for s in shown],
+                RIFT_TITLE: []}
+        for s in shown:
+            want[RIFT_TITLE] += ["Season %d, 2nd" % s]
+            want[RIFT_TITLE] += ["Top scores"] if s == newest else []
+            want[RIFT_TITLE] += ["Season %d, 1st" % s]
+        for title, text, holder, registered, needles in (
+                (SORTIE_TITLE, tab.sortie_text, tab.sortie_holder,
+                 registry.GACHA_SORTIE_TITLE, registry.GACHA_SORTIE_ROWS),
+                (RIFT_TITLE, tab.rift_text, tab.rift_holder,
+                 registry.GACHA_RIFT_TITLE, registry.GACHA_RIFT_ROWS)):
+            content = text.get("1.0", "end-1c")
+            words[title] += content
+            got = [line.split("\t")[0] for line in content.split("\n")]
+            if got != want[title]:
+                out.append(f"handed {newest} seasons, the {title} sheet "
+                           f"reads {got}, not {want[title]}: the newest "
+                           f"{SEASONS_SHOWN}, newest first.")
+            problems, headings = _sheet_complaints(title, text, holder)
+            out.extend(problems)
+            if headings:
+                out.append(f"the {title} sheet sets {headings} as "
+                           f"headings; it has none.")
+            frame = str(holder.master.cget("text"))
+            if registered != frame:
+                out.append(f"the spacing registry looks for a panel titled "
+                           f"{registered!r}; the tab's is {frame!r}.")
+            for needle in needles:
+                if needle not in words[title]:
+                    out.append(f"the spacing registry reads the {title} "
+                               f"row {needle.strip()!r}, which the sheet "
+                               f"never writes, full or empty.")
+        out.extend(_left_column_fits(tab, (
+            ("Banners", tab.summary_tree.master),
+            (OVERALL_TITLE, tab.overall_holder.master),
+            (SORTIE_TITLE, tab.sortie_holder.master),
+            (RIFT_TITLE, tab.rift_holder.master)), len(gh.POOL_ORDER)))
+    finally:
+        optimizer.raw_data, tab.stats = saved
+        tab._fill_standings()
+    return out
+
+
+def _left_column_fits(tab, panels, banners):
+    """Complaints for any panel of the Stats & Gacha History tab's left
+    column cut short in a default-sized window, with the Banners list
+    `banners` rows tall."""
+    import tkinter as tk
+    from ui.scaling import px, WINDOW_H, WINDOW_W
+
+    root = tab.frame.winfo_toplevel()
+    notebook = tab.frame.master
+    before = notebook.select()
+    added = str(tab.frame) not in notebook.tabs()
+    rows = tab.summary_tree.cget("height")
+    out = []
+    try:
+        root.attributes("-alpha", 0.0)
+        if added:
+            notebook.add(tab.frame, text="Stats & Gacha History")
+        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.select(tab.frame)
+        tab.summary_tree.configure(height=banners)
+        root.geometry("%dx%d" % (px(WINDOW_W), px(WINDOW_H)))
+        root.deiconify()
+        root.update_idletasks()
+    except tk.TclError as e:
+        return [f"the Stats & Gacha History tab could not be laid out for "
+                f"measuring: {e}"]
+    try:
+        bottom = tab.frame.winfo_rooty() + tab.frame.winfo_height()
+        for title, frame in panels:
+            short = max(frame.winfo_reqheight() - frame.winfo_height(),
+                        frame.winfo_rooty() + frame.winfo_height() - bottom)
+            if short > 0:
+                out.append(
+                    f"in a default-sized window the {title} panel is cut "
+                    f"{short}px short: the left column is taller than the "
+                    f"tab, and what is cut off the bottom is simply not "
+                    f"drawn. Lower `SEASONS_SHOWN`.")
+    finally:
+        tab.summary_tree.configure(height=rows)
+        if added:
+            notebook.forget(tab.frame)
+        if before:
+            notebook.select(before)
+        root.withdraw()
     return out
 
 
@@ -3433,6 +3608,8 @@ def run():
         if "GachaHistoryTab" in built:
             failures.extend(
                 _gacha_history_draws_its_rows(built["GachaHistoryTab"]))
+            failures.extend(
+                _standings_sheets_fit(built["GachaHistoryTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))

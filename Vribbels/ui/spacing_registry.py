@@ -933,10 +933,13 @@ def _dropdown_over_panel(prefix, panel):
 # title, and a heading or header control over a panel. One number
 # serves both, which is a RULING rather than a measurement: left to
 # their own devices the two shapes build to different distances.
-# The Gacha History's figures panel, by its title: `find_labelframe`
+# The Overall Gacha Stats panel, by its title: `find_labelframe`
 # matches a title EXACTLY, so this has to follow the tab's
 # `OVERALL_TITLE`. `check_tabs_build` holds the two together.
-GACHA_OVERALL_TITLE = "Overall Stats"
+GACHA_OVERALL_TITLE = "Overall Gacha Stats"
+# The two standings sheets under it, on the same terms.
+GACHA_SORTIE_TITLE = "Sortie Stats"
+GACHA_RIFT_TITLE = "Great Rift Stats"
 
 PANEL_OVER_TEXT_ENTRIES = [
     ("Capture", "Status -> Server Region title", 10, None,
@@ -978,8 +981,12 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_gap("Requirements", "Capture Log", "v")),
     ("Capture", "Upgrade Log Settings -> Capture Log title", 10, None,
      _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
-    ("Gacha History", "Banners -> Overall Stats title", 10, None,
+    ("Stats & Gacha History", "Banners -> Overall Gacha Stats title", 10, None,
      _panel_gap("Banners", GACHA_OVERALL_TITLE, "v")),
+    ("Stats & Gacha History", "Overall Gacha Stats -> Sortie Stats title", 10,
+     None, _panel_gap(GACHA_OVERALL_TITLE, GACHA_SORTIE_TITLE, "v")),
+    ("Stats & Gacha History", "Sortie Stats -> Great Rift Stats title", 10,
+     None, _panel_gap(GACHA_SORTIE_TITLE, GACHA_RIFT_TITLE, "v")),
 
     # Text above, a panel below. The three tab headings differ only in
     # how much container padding stands under them, Setup spending more
@@ -2013,19 +2020,19 @@ CONTROL_GROUP_ENTRIES = [
     ("Gear Score", "stat grid -> button column", 16, None,
      _class_block_gap("Stat Weight Configuration",
                       SPINBOX_CLASSES, ("TButton", "Button"))),
-    ("Gacha History", "Export JSON -> Show group", 16, None,
+    ("Stats & Gacha History", "Export JSON -> Show group", 16, None,
      _gap(_by_text("Export JSON"), _group_of("Show:"), "h")),
-    ("Gacha History", "Show group -> help text", 16, None,
+    ("Stats & Gacha History", "Show group -> help text", 16, None,
      _gap(_group_of("Show:"), _by_text(GACHA_HELP_PREFIX), "h")),
 ]
 
 # (tab, name, locator) for controls read against the tab list on their
-# own. Gacha History's buttons and filter sit beside its help text,
+# own. Stats & Gacha History's buttons and filter sit beside its help text,
 # which its own line box seats; see `_tab_list_to_widget`.
 TAB_LIST_WIDGETS = [
-    ("Gacha History", "Gacha History: tab list -> buttons",
+    ("Stats & Gacha History", "Stats & Gacha History: tab list -> buttons",
      _by_text("Import JSON")),
-    ("Gacha History", "Gacha History: tab list -> Show dropdown",
+    ("Stats & Gacha History", "Stats & Gacha History: tab list -> Show dropdown",
      _group_of("Show:")),
 ]
 
@@ -3675,7 +3682,7 @@ EXCEPTION_ENTRIES = {
     "Checklist: shop heading -> its first product": "exception",
     # A section's heading stands four further from the row above it
     # than rows do from one another. Marked at `HEADING_PAD`.
-    "Overall Stats: row -> heading": "exception",
+    "Overall Gacha Stats: row -> heading": "exception",
 }
 
 
@@ -4664,20 +4671,30 @@ def _gacha_overall(app):
     return app.gacha_tab_instance.overall_text
 
 
+def _gacha_sortie(app):
+    return app.gacha_tab_instance.sortie_text
+
+
+def _gacha_rift(app):
+    return app.gacha_tab_instance.rift_text
+
+
 def _gacha_pitch_tags(*names):
-    """The Overall Stats sheet's pitch-tag names, looked up when the audit
-    runs -- see `_checklist_pitch_tags`, whose reasoning this shares."""
+    """The Stats & Gacha History sheets' pitch-tag names, looked up when
+    the audit runs -- see `_checklist_pitch_tags`, whose reasoning this
+    shares. All three sheets are built by one method on one set of
+    tags."""
     def tags():
         from ui.tabs import gacha_history_tab as tab
         known = {tab.ROW_TAG, tab.HEADING_TAG, tab.TOP_TAG}
         missing = [n for n in names if n not in known]
         if missing:
-            raise LookupError(f"no Overall pitch tag named {missing}")
+            raise LookupError(f"no sheet pitch tag named {missing}")
         return set(names)
     return tags
 
 
-# The Overall Stats sheet's figures, found by their words and the tab after
+# The Overall Gacha Stats sheet's figures, found by their words and the tab after
 # them. Every section's row is read: the stops are the sheet's, so a
 # figure repeated in the Prism Module's section sits on the same ones.
 GACHA_RECORD_ROWS = ("Fastest 5★	", "Slowest 5★	",
@@ -4687,40 +4704,64 @@ GACHA_RECORD_ROWS = ("Fastest 5★	", "Slowest 5★	",
 GACHA_FIGURE_ROWS = ("Luck	", "Pulls	", "50/50s won	",
                      "Rate-Up pulls avg	") + GACHA_RECORD_ROWS
 
-# (tab, name, target, rule, resolver, axis) for Gacha History's
-# Overall Stats sheet, a Text whose rows are label rows and whose columns are tab
+# (tab, name, target, rule, resolver, axis) for the Stats & Gacha History
+# tab's Overall Gacha Stats sheet, a Text whose rows are label rows and whose columns are tab
 # stops. The column gaps are read on the rows that HAVE the next
 # column: a luck row ends at its value. A record's ties follow it as
 # (units, date) pairs, so a unit labels its date and one pair sits
 # beside the next.
 GACHA_ENTRIES = [
-    ("Gacha History", "Overall Stats title -> first heading", 10,
+    ("Stats & Gacha History", "Overall Gacha Stats title -> first heading", 10,
      RULE_LABEL_ROW_PITCH, _title_to_first_element(GACHA_OVERALL_TITLE),
      "v"),
-    ("Gacha History", "Overall Stats: row -> row", 10, RULE_LABEL_ROW_PITCH,
+    ("Stats & Gacha History", "Overall Gacha Stats: row -> row", 10, RULE_LABEL_ROW_PITCH,
      _text_line_pitch(_gacha_overall, label=GACHA_OVERALL_TITLE,
                       kinds=_gacha_pitch_tags("row")), "v"),
     # Four above the pitch, so each section reads as a block of its
     # own. Marked at `HEADING_PAD`.
-    ("Gacha History", "Overall Stats: row -> heading", 14,
+    ("Stats & Gacha History", "Overall Gacha Stats: row -> heading", 14,
      RULE_LABEL_ROW_PITCH,
      _text_line_pitch(_gacha_overall, label=GACHA_OVERALL_TITLE,
                       kinds=_gacha_pitch_tags("heading")), "v"),
-    ("Gacha History", "Overall Stats: figure -> its value", 5,
+    ("Stats & Gacha History", "Overall Gacha Stats: figure -> its value", 5,
      RULE_LABEL_ELEMENT,
      _text_field_gap(_gacha_overall, GACHA_FIGURE_ROWS, index=0), "h"),
-    ("Gacha History", "Overall Stats: value -> units", 8, RULE_PAIR_GAP,
+    ("Stats & Gacha History", "Overall Gacha Stats: value -> units", 8, RULE_PAIR_GAP,
      _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=1), "h"),
-    ("Gacha History", "Overall Stats: units -> date", 5, RULE_LABEL_ELEMENT,
+    ("Stats & Gacha History", "Overall Gacha Stats: units -> date", 5, RULE_LABEL_ELEMENT,
      _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=2), "h"),
     # Only a record with a tie has a second pair. With none anywhere,
     # this reads nothing and says so. The date's end is read at its
     # advance: its last digit is the data's, and a `1` stops a pixel
     # short of it.
-    ("Gacha History", "Overall Stats: date -> next tie", 8, RULE_PAIR_GAP,
+    ("Stats & Gacha History", "Overall Gacha Stats: date -> next tie", 8, RULE_PAIR_GAP,
      _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=3,
                      advance=True), "h"),
 ]
+
+# The standings sheets' figures, by their words: a season's row by the
+# word every season shares. What a sheet says with nothing read is
+# found too, so an empty sheet still has a row to measure.
+GACHA_SORTIE_ROWS = ("Clears\t", "Season ", "Rankings\t")
+GACHA_RIFT_ROWS = ("Season ", "Top scores\t", "Merit Ranking\t")
+
+# The two standings sheets, on the Overall Gacha Stats sheet's levers:
+# `_make_sheet` builds all three. Their first line is a row rather than
+# a heading, so the title's gap ends at a row's ink.
+for _title, _text, _rows in ((GACHA_SORTIE_TITLE, _gacha_sortie,
+                              GACHA_SORTIE_ROWS),
+                             (GACHA_RIFT_TITLE, _gacha_rift,
+                              GACHA_RIFT_ROWS)):
+    GACHA_ENTRIES += [
+        ("Stats & Gacha History", f"{_title} title -> first row", 10,
+         RULE_LABEL_ROW_PITCH, _title_to_first_element(_title), "v"),
+        ("Stats & Gacha History", f"{_title}: row -> row", 10,
+         RULE_LABEL_ROW_PITCH,
+         _text_line_pitch(_text, label=_title,
+                          kinds=_gacha_pitch_tags("row")), "v"),
+        ("Stats & Gacha History", f"{_title}: figure -> its value", 5,
+         RULE_LABEL_ELEMENT, _text_field_gap(_text, _rows, index=0), "h"),
+    ]
 
 
 # Setup & Settings' archive column. Its own list because the panel's
@@ -4745,6 +4786,16 @@ AWAITING_FIRST_READING = {
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
     "purple note -> the filters",
+    # The Sortie and Great Rift sheets, at the Overall Gacha Stats
+    # sheet's targets and on its levers.
+    "Overall Gacha Stats -> Sortie Stats title",
+    "Sortie Stats -> Great Rift Stats title",
+    "Sortie Stats title -> first row",
+    "Sortie Stats: row -> row",
+    "Sortie Stats: figure -> its value",
+    "Great Rift Stats title -> first row",
+    "Great Rift Stats: row -> row",
+    "Great Rift Stats: figure -> its value",
 }
 
 
@@ -5135,13 +5186,13 @@ def register_all():
         provisional=False,
     )
     sa.track(
-        name="Gacha History buttons: button -> button",
-        tab="Gacha History",
+        name="Stats & Gacha History buttons: button -> button",
+        tab="Stats & Gacha History",
         rule=RULE_BUTTON_GAP,
         target=4,
         resolve=_gap(_by_text("Import JSON"), _by_text("Export JSON"), "h"),
         axis="h",
-        provisional="Gacha History buttons: button -> button"
+        provisional="Stats & Gacha History buttons: button -> button"
         in AWAITING_FIRST_READING,
     )
     sa.track(

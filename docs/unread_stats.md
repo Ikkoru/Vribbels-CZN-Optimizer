@@ -1,6 +1,6 @@
 # Stats the wire sends that nothing reads
 
-What the game sends about the account's standings, lifetime counters, collections and mini-games, written down so that a reader for any of it starts from the fields rather than from a capture. Nothing here is shown by the program yet.
+What the game sends about the account's standings, lifetime counters, collections and mini-games, written down so that a reader for any of it starts from the fields rather than from a capture. The Sortie's and the Great Rift's standings are shown, on the Stats & Gacha History tab's Sortie Stats and Great Rift Stats sheets; nothing else here is shown yet.
 
 **The scope is stats a player would look up**: ranks, best scores, counts, what is collected. Left out are a run's own state, battle traffic, UI settings and other players' data -- *What is left out* at the end says which commands those are and why. `python docs/wire_catalogue.py` lists every key nothing reads; this is the part of that list worth a reader.
 
@@ -18,6 +18,8 @@ A reader can only work off a snapshot if the capture wrote the field into one. T
 | **Not kept** | only in the debug logs | add the key to that tuple -- a login table is kept whole by one string -- and pin it in `check_capture_event_state` |
 
 Each entry below says which. **A key that is not kept has no history**: the first snapshot to carry it is the first reading there will ever be, so a reader that wants a trend should start keeping before it starts reading.
+
+**The history from before snapshots kept it is read out of the debug logs, once.** `Vribbels/stats_history.py` runs the capture addon over every old log in `snapshots/`, archived and loose, into `settings/stats_history.json`: the ranking readings, the lifetime counters, and a sample per change of the account's own Great Rift and Sortie standings at every login, which no snapshot keeps as history at all. The file records the `VERSION` of the reading that wrote it, and a launch reads the logs again only where the file is missing, broken or of another version -- so a newly kept field reaches the old logs by bumping `VERSION`. The sheets join the file's readings with the loaded snapshot's (`stats_history.merged`), one taken at the same moment counting once.
 
 **Other players are never kept, only their numbers.** A ranking page is twenty strangers with their names, profile cards and teams, and `load/user` carries a `friend_list`. What the capture takes from a ranking page is ranks, scores and times; `check_capture_history` fails if a name, id, profile or team reaches a snapshot.
 
@@ -125,6 +127,8 @@ A page is twenty rows of one subdivision: `rank`, `score`, `damage_score`, `dama
 **Kept as history** under `disaster_boss_rank_tops`: per season, per half, per subdivision seen, a sample per change of its top row -- `rank`, `best_score`, `score_record`, `list_level`, `clear_time`, `turn`, `read_at`, `refresh_id`. Carried from snapshot to snapshot, so the samples are that subdivision's top over the season.
 
 **No percentage and no field size ever arrive** -- nothing like the Sortie's `total_count`. Both follow from the division pages: a division's first rank, less one, over the share above it is the field. On 2026-09-24 Diamond started at 941 below Master's 2%, Platinum at 4704 below 10%, Gold at 12228 below 26%, Silver at 23516 below 50% and Bronze at 35273 below 75%: a field of 47,000 to 47,030 by every one of them. The account's 2474 is then 5.3% down the field, inside Diamond II's band of 5 to 7%.
+
+The Great Rift Stats sheet works the field out the same way, for the half still running, from the lowest subdivision read (`stats_history.field_size`): the higher the share above it, the smaller a rank's rounding weighs. The page Merit Ranking opens on gives the account's own division; Bronze's page gives the field most exactly, and Master's gives the best score of all. A finished half states no place against the field, since which of `rank` and `last_rank` is final is untested.
 
 ### The Galactic Disaster
 

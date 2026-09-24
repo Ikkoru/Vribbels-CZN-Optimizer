@@ -41,7 +41,7 @@ In the results, scores run 0–100 with the run's best build at 100. `(E)` marks
 - **The Combatants tab lists every potential node**, and its `Nodes` column is a combatant's node levels summed against the maximum.
 - **The Materials tab** counts your promotion and levelling material by class, and your growth stones by Element. Each row's figures are that row's own holdings in bottom-tier equivalents, then what share that is of what a target costs.
 - **The Checklist tab** shows what resets when — daily, weekly, monthly and seasonal — and what is left to do on each, updating while the game is captured. Tick or untick a shop's products to track only what you actually buy: the shop's heading then reads what you hold against what clearing it costs, and hovering it says what that currency earns in a rotation.
-- **The Gacha History tab** keeps every pull the game has listed, which the game itself does for only about half a year, and says how lucky each banner type has been against the game's published rates. Open each banner's Probability Info → Rescue Records in game while capturing to add them. The history lives in `snapshots/gacha_history/`, apart from the captures, with a `.bak` of the previous version beside each file.
+- **The Stats & Gacha History tab** keeps every pull the game has listed, which the game itself does for only about half a year, and says how lucky each banner type has been against the game's published rates. Under the pulls' figures, your Sortie and Great Rift standings season by season: open Hardcore Rankings and Merit Ranking in game while capturing to fill them. Open each banner's Probability Info → Rescue Records in game while capturing to add them. The history lives in `snapshots/gacha_history/`, apart from the captures, with a `.bak` of the previous version beside each file.
 
 ## Contributing
 
@@ -55,7 +55,7 @@ Inspired by [Fribbels Epic 7 Gear Optimizer](https://github.com/fribbels/Fribbel
 
 Thanks to [EpicSevenAssetRipper](https://github.com/CeciliaBot/EpicSevenAssetRipper) for asset extraction tools.
 
-The Gacha History tab takes its idea from [hub-czn](https://github.com/sostenesfreitas/hub-czn)'s Rescue Records, and reads its Export JSON.
+The Stats & Gacha History tab's pull history takes its idea from [hub-czn](https://github.com/sostenesfreitas/hub-czn)'s Rescue Records, and reads its Export JSON.
 
 ## License
 
