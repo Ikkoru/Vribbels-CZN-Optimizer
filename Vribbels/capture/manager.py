@@ -305,6 +305,19 @@ class Addon:
         # {field: table} -- login tables kept for a reader that does
         # not exist yet. See the branch after the event sweep.
         self.login_tables = {}
+        # {table: {res_id: row}} -- the lifetime counters, the
+        # Achievements screen and the daily tasks; and {table: {res_id:
+        # condition_type}}, what each row COUNTS, learned as rows move
+        # and carried across restarts. See the lifetime branch below.
+        self.lifetime = {}
+        self.lifetime_types = {}
+        self.login_total_count = None
+        # Ranking HISTORY, carried across restarts: {season: {rank
+        # slot: {rank_id: [sample, ...]}}} for the Great Rift's
+        # subdivision tops, {schedule: {"reset_time", "readings"}} for
+        # the Sortie's. See the ranking branches below.
+        self.rift_tops = {}
+        self.sortie_rankings = {}
         # {trial event id: [slot ids]}, learned from claims and
         # kept forever -- see `reward_combatant_trial`.
         self.trial_slots = {}
@@ -458,18 +471,22 @@ class Addon:
             except Exception as e:
                 self.log_callback(f"Warning: Failed to load zstd dictionary: {e}")
 
-        self._seed_trial_slots()
+        self._seed_from_previous()
 
-    def _seed_trial_slots(self):
-        """Carry the trial pairing over from the newest snapshot.
+    def _seed_from_previous(self):
+        """Carry over, from the newest snapshot, what the wire cannot restate.
 
-        **The only state here that cannot be rebuilt from the wire.**
         Everything else this addon caches arrives again at the next
-        login; which trial slots an event offers is named ONLY by the
-        request that claims one, so a session with no claim in it would
-        write an empty table over what an earlier one worked out --
-        and the pairing would last exactly as long as the capture that
-        saw it.
+        login. These do not, and a session that did not see them again
+        would write empty tables over what earlier ones worked out:
+
+        * **which trial slots an event offers**, named ONLY by the
+          request that claims one;
+        * **the ranking history** -- the game keeps the Sortie's
+          current and previous season and nothing older, and a Great
+          Rift's division tops are one reading per visit to its screen;
+        * **what each lifetime counter counts**, named only by the
+          reply to whatever moved it.
 
         Read once, at startup, and failures are silent: a missing or
         unreadable snapshot means starting empty, which is where this
@@ -481,13 +498,36 @@ class Addon:
                 return
             with open(saved[-1], "r", encoding="utf-8") as f:
                 previous = json.load(f)
-            known = previous.get("combatant_trial_slots")
-            if isinstance(known, dict):
-                for event, slots in known.items():
-                    if isinstance(slots, list):
-                        self.trial_slots[str(event)] = [str(s) for s in slots]
         except Exception:
-            pass
+            return
+        known = previous.get("combatant_trial_slots")
+        if isinstance(known, dict):
+            for event, slots in known.items():
+                if isinstance(slots, list):
+                    self.trial_slots[str(event)] = [str(s) for s in slots]
+        tops = previous.get("disaster_boss_rank_tops")
+        if isinstance(tops, dict):
+            self.rift_tops = tops
+        rankings = previous.get("chaos_assault_rankings")
+        if isinstance(rankings, dict):
+            self.sortie_rankings = rankings
+        for key in ("mission_accumulate", "achievements", "daily_achieve"):
+            for row in previous.get(key) or ():
+                if (isinstance(row, dict) and row.get("res_id") is not None
+                        and row.get("condition_type")):
+                    self.lifetime_types.setdefault(key, {})[
+                        str(row["res_id"])] = row["condition_type"]
+
+    def _typed(self, table, row):
+        """`row` with what it counts written on it, where that is known.
+
+        The login's rows never carry `condition_type`, so without this
+        every login would wash the learned meanings back out.
+        """
+        kind = self.lifetime_types.get(table, {}).get(str(row.get("res_id")))
+        if kind and row.get("condition_type") != kind:
+            row = dict(row, condition_type=kind)
+        return row
 
     def _detect_region(self):
         """The region this session's connections actually went to.
@@ -1469,6 +1509,133 @@ class Addon:
             ranks[row["season_id"]] = season
             self.disaster_ranks = ranks
             self._save_pending = True
+        # **A Great Rift ranking page**: `enter_disaster_rank` answers
+        # with the player's own division, `request_rank_list` with the
+        # one asked for -- twenty rows of OTHER players each, and one
+        # subdivision per page. Kept: each subdivision's TOP row, and
+        # only its numbers -- what it takes to lead it and where it
+        # starts -- never who. One sample per change, so the samples are
+        # the division's top over the season. `docs/unread_stats.md`,
+        # *The Great Rift's divisions*.
+        page = data.get("result_list")
+        mine = data.get("disaster_boss_rank_entity")
+        if (isinstance(page, list) and isinstance(mine, dict)
+                and mine.get("season_id") and mine.get("define_id")):
+            board = self.rift_tops.setdefault(
+                str(mine["season_id"]), {}).setdefault(
+                str(mine["define_id"]), {})
+            tops = {}
+            for entry in page:
+                row = entry.get("rank_list") if isinstance(entry, dict) \
+                    else None
+                if (not isinstance(row, dict) or not row.get("rank_id")
+                        or not isinstance(row.get("rank"), int)):
+                    continue
+                held = tops.get(row["rank_id"])
+                if held is None or row["rank"] < held["rank"]:
+                    tops[row["rank_id"]] = row
+            for rank_id, row in tops.items():
+                record = row.get("score")
+                sample = {
+                    "rank": row["rank"], "score_record": record,
+                    # The record is the best score times 10**8 plus a
+                    # tie-break that favours the earlier clear.
+                    "best_score": record // 10 ** 8
+                    if isinstance(record, int) else None,
+                    "clear_time": row.get("clear_time"),
+                    "turn": row.get("turn"),
+                    "read_at": data.get("service_server_time"),
+                    "refresh_id": data.get("refresh_id")}
+                history = board.setdefault(str(rank_id), [])
+                if not history or (history[-1].get("rank"),
+                                   history[-1].get("score_record")) != (
+                        sample["rank"], sample["score_record"]):
+                    history.append(sample)
+                    self._save_pending = True
+        # **A Sortie ranking page**: `get_ranking`, `ongoing` for the
+        # season running and `complete` for the one before. The game
+        # keeps no season older than that, so these are kept as history
+        # across seasons: the player's own standing, the field's size,
+        # and the TOP score -- never who holds it. The first page only,
+        # the one the screen opens on and the one holding rank 1.
+        standing = data.get("my_rank")
+        schedule = data.get("schedule_id")
+        if (isinstance(standing, dict) and schedule
+                and data.get("page") == 1):
+            season = self.sortie_rankings.setdefault(str(schedule), {})
+            season["reset_time"] = data.get("reset_time")
+            entity = data.get("chaos_assault_rank_entity")
+            entity = entity if isinstance(entity, dict) else {}
+            first = next(iter(data.get("rank_list") or ()), None)
+            top = first if isinstance(first, dict) \
+                and first.get("rank") == 1 else {}
+            sample = {
+                "tab": data.get("tab"),
+                "total_count": data.get("total_count"),
+                "rank": standing.get("rank"),
+                "score": standing.get("score"),
+                "last_rank": entity.get("last_rank"),
+                "top_score": top.get("score"),
+                "top_clear_time_sec": top.get("clear_time_sec"),
+                "top_penalty_level": top.get("penalty_level"),
+                "read_at": data.get("service_server_time"),
+                "refresh_id": data.get("refresh_id")}
+            readings = season.setdefault("readings", [])
+            fields = ("total_count", "rank", "score", "top_score")
+            if not readings or [readings[-1].get(f) for f in fields] != [
+                    sample[f] for f in fields]:
+                readings.append(sample)
+                self._save_pending = True
+        # **The account's lifetime statistics**, for the history a
+        # reader would chart: the counters the collection achievements
+        # count off, the Achievements screen, and the seven daily
+        # tasks, whose `version` tallies the days each was done. The
+        # login sends them whole and nothing else does. Merged by id,
+        # so a claim's one row and a moved score each update their own.
+        for key in ("mission_accumulate", "achievements", "daily_achieve"):
+            rows = data.get(key)
+            if not isinstance(rows, list):
+                continue
+            table = self.lifetime.setdefault(key, {})
+            for row in rows:
+                if isinstance(row, dict) and row.get("res_id") is not None:
+                    table[str(row["res_id"])] = self._typed(key, row)
+            self._save_pending = True
+        claimed = data.get("achievement_entity")
+        if isinstance(claimed, dict) and claimed.get("res_id") is not None:
+            self.lifetime.setdefault("achievements", {})[
+                str(claimed["res_id"])] = self._typed("achievements", claimed)
+            self._save_pending = True
+        # **What a counter COUNTS arrives only when it moves**: the reply
+        # to whatever moved it carries `mission_condition`, naming each
+        # row it touched with its new score and its `condition_type`.
+        # The type is kept on the row and carried across restarts --
+        # the login's rows never carry it -- so a snapshot says what
+        # its counters mean as far as any capture has seen them move.
+        condition = data.get("mission_condition")
+        condition = condition.get("condition") \
+            if isinstance(condition, dict) else None
+        if isinstance(condition, dict):
+            for wire, key in (("accumulate_condition", "mission_accumulate"),
+                              ("achievement", "achievements"),
+                              ("daily_achievement", "daily_achieve")):
+                for moved in condition.get(wire) or ():
+                    if not isinstance(moved, dict) or moved.get(
+                            "res_id") is None:
+                        continue
+                    res_id = str(moved["res_id"])
+                    if moved.get("condition_type"):
+                        self.lifetime_types.setdefault(key, {})[
+                            res_id] = moved["condition_type"]
+                    table = self.lifetime.setdefault(key, {})
+                    held = dict(table.get(res_id) or {"res_id": moved["res_id"]})
+                    if "score" in moved:
+                        held["score"] = moved["score"]
+                    table[res_id] = self._typed(key, held)
+                    self._save_pending = True
+        count = data.get("login_total_count")
+        if isinstance(count, int) and not isinstance(count, bool):
+            self.login_total_count = count
         # **The two Sortie ladders, per combatant.** Both arrive whole
         # on the login burst and again as they are earned, and both are
         # SPARSE: nothing is sent for a rung the game has not offered
@@ -2198,6 +2365,18 @@ class Addon:
             "reward_entities": self.season_rewards or None,
             **self.event_defines,
             **self.login_tables,
+            # Lists, the shape the login sends them in, merged by id
+            # while the capture runs.
+            "mission_accumulate":
+                list(self.lifetime.get("mission_accumulate", {}).values())
+                or None,
+            "achievements":
+                list(self.lifetime.get("achievements", {}).values()) or None,
+            "daily_achieve":
+                list(self.lifetime.get("daily_achieve", {}).values()) or None,
+            "login_total_count": self.login_total_count,
+            "disaster_boss_rank_tops": self.rift_tops or None,
+            "chaos_assault_rankings": self.sortie_rankings or None,
             "combat_trial_entities": self.combat_trials or None,
             "combatant_trial_slots": self.trial_slots or None,
             "season_pass_entity": self.season_pass,
