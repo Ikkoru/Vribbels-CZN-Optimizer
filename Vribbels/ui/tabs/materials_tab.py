@@ -572,12 +572,20 @@ class MaterialsTab(BaseTab):
         # uses it: the hover state belongs to the pointer, not to a
         # widget.
         self._tooltip = Tooltip(self.colors)
+        # Set when a refresh was skipped because another tab was
+        # showing; the next time this one is shown, it catches up. See
+        # `refresh_materials`.
+        self._stale = False
         self.setup_ui()
         # Drawn at once with zero counts, so the tab is icons rather
         # than a wall of text before the first capture -- the images
         # are static assets and only the numbers need data.
         self._render_icons({})
         self._schedule_expiry_tick()
+        notebook = getattr(self.context, "notebook", None)
+        if notebook is not None:
+            notebook.bind("<<NotebookTabChanged>>",
+                          self._on_tab_changed, add="+")
 
     # ------------------------------------------------------------ build
 
@@ -1092,8 +1100,16 @@ class MaterialsTab(BaseTab):
     def refresh_materials(self):
         """Redraw counts and figures from the loaded snapshot.
 
-        Called automatically after data loads.
+        Called automatically after data loads -- which, during a
+        capture, is after every save. **Skipped while another tab is
+        showing**, and caught up when this one is selected: the redraw
+        is the costliest part of a live reload, and every Capture Log
+        line waits behind that reload.
         """
+        if self._hidden():
+            self._stale = True
+            return
+        self._stale = False
         if not self.optimizer.raw_data:
             return
         # Items and currencies together: the three generic materials
@@ -1106,6 +1122,23 @@ class MaterialsTab(BaseTab):
         self._expiries = period_items.held(
             self.optimizer.raw_data.get("inventory", {}))
         self._render_icons(quantities)
+
+    def _hidden(self):
+        """Whether another tab is the one showing. A notebook with none
+        selected -- the tab built on its own, as the checks build it --
+        counts as showing this one."""
+        notebook = getattr(self.context, "notebook", None)
+        try:
+            shown = notebook.select() if notebook is not None else ""
+            return bool(shown) and notebook.nametowidget(shown) \
+                is not self.frame
+        except (tk.TclError, KeyError):
+            return False
+
+    def _on_tab_changed(self, _event=None):
+        """Catch up on a refresh skipped while this tab was hidden."""
+        if self._stale and not self._hidden():
+            self.refresh_materials()
 
     def _render_icons(self, item_quantities: dict):
         """(Re)draw every icon and every figure beside it.

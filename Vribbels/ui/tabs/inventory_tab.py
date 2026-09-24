@@ -1185,6 +1185,15 @@ class InventoryTab(BaseTab):
         fragment's own main stat, so there is no one answer for the list.
         What can be hoisted out of the loop is hoisted: the selection and
         the flags are read once here.
+
+        **One answer per MAIN STAT, kept for the whole refresh.** The
+        filters read nothing of a fragment but its main stat -- see
+        `combatant_accepts_main` -- and the list asks once per fragment
+        per preset, which ran them over a million times a refresh: most
+        of what a capture's reload cost, and every Capture Log line
+        waiting behind it. `check_upgrade_log_filters` hands the filters
+        a fragment carrying nothing else, so one that starts reading more
+        fails there before it can make this cache wrong.
         """
         if not (self.inv_use_log_filters_var
                 and self.inv_use_log_filters_var.get()):
@@ -1198,8 +1207,14 @@ class InventoryTab(BaseTab):
         flags = filter_flags(getattr(ctx, "settings_manager", None))
         osm = getattr(ctx, "optimizer_settings_manager", None)
 
+        answers = {}
+
         def allowed(fragment):
-            return set(presets_for_fragment(fragment, selected, flags, osm))
+            main = fragment.main_stat.name if fragment.main_stat else None
+            if main not in answers:
+                answers[main] = frozenset(
+                    presets_for_fragment(fragment, selected, flags, osm))
+            return answers[main]
         return allowed
 
     def _on_use_log_filters_toggle(self):

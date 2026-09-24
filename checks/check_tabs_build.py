@@ -2560,6 +2560,55 @@ def _gacha_overall_fits(tab, gh):
     return out
 
 
+def _materials_catches_up_when_shown(tab):
+    """The Materials tab skips a redraw while hidden and makes it up.
+
+    A capture reloads the snapshot after every save, and every Capture
+    Log line waits behind that reload -- so the Materials redraw, the
+    costliest part of it after the fragment list, is skipped while
+    another tab is showing. What that risks is quiet: a tab that never
+    catches up shows the counts of whenever it was last visible. So the
+    redraw must NOT happen while hidden, and MUST happen when the tab
+    is selected.
+
+    Returns a list of complaints.
+    """
+    from tkinter import ttk
+
+    if not tab.optimizer.raw_data:
+        return []                       # nothing loaded to redraw from
+    notebook = tab.context.notebook
+    other = ttk.Frame(notebook)
+    notebook.add(tab.frame, text="Materials")
+    notebook.add(other, text="Other")
+    drawn = []
+    real = tab._render_icons
+    tab._render_icons = lambda quantities: drawn.append(quantities)
+    try:
+        notebook.select(other)
+        tab.refresh_materials()
+        while_hidden = len(drawn)
+        notebook.select(tab.frame)
+        # Handled at once rather than queued, so no other pending
+        # timer of the tabs runs with it.
+        notebook.event_generate("<<NotebookTabChanged>>")
+        when_shown = len(drawn) - while_hidden
+    finally:
+        tab._render_icons = real
+        notebook.forget(other)
+        notebook.forget(tab.frame)
+    out = []
+    if while_hidden:
+        out.append("the Materials tab redrew while another tab was "
+                   "showing. That redraw sits in every capture reload, "
+                   "and every Capture Log line waits behind it.")
+    if when_shown != 1:
+        out.append(f"the Materials tab redrew {when_shown} times when "
+                   f"selected after a skipped refresh, not once. It would "
+                   f"show the counts of whenever it was last visible.")
+    return out
+
+
 def _materials_rows_each_register(tab):
     """Every Materials row must own a figures block, and its own.
 
@@ -3341,6 +3390,8 @@ def run():
                 _materials_rows_each_register(built["MaterialsTab"]))
             failures.extend(
                 _materials_figures_fit(built["MaterialsTab"]))
+            failures.extend(
+                _materials_catches_up_when_shown(built["MaterialsTab"]))
         if "SetupTab" in built:
             failures.extend(_restore_dialog_frames_follow_the_rules(
                 built["SetupTab"], root))
