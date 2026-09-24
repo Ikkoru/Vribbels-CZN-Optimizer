@@ -1,9 +1,10 @@
 """Standings and lifetime stats: the history a snapshot carries, and the
 part of it only old debug captures hold.
 
-The capture keeps the Great Rift's and the Sortie's ranking readings and
-the lifetime counters in every snapshot, each carried forward into the
-next (`capture/manager.py`, `_seed_from_previous`). Captures taken before
+The capture keeps the Great Rift's, the Sortie's and the Full-Scale
+Offensive's ranking readings and the lifetime counters in every
+snapshot, each carried forward into the next (`capture/manager.py`,
+`_seed_from_previous`). Captures taken before
 it did have them only in their debug logs. **Those are read out ONCE**,
 into `settings/stats_history.json`, by the capture addon's own code --
 exec'd from its template the way the checks run it -- so what is read
@@ -22,8 +23,9 @@ anything wanted them. Only the frames that can carry what is kept are
 parsed at all -- see `MARKERS` -- so a pass is mostly the archive's own
 decompression.
 
-What the Stats sheets show is worked out here too, as plain data --
-`sortie_seasons` and `rift_halves` -- so it is testable without Tk.
+What the Stats lists show is worked out here too, as plain data --
+`sortie_table`, `rift_table` and `offensive_table` -- so it is testable
+without Tk.
 """
 
 import gzip
@@ -39,7 +41,7 @@ FILE_NAME = "stats_history.json"
 KIND = "vribbels stats history"
 # What the reading reads. Bump it and the next launch reads every log
 # again, which is how a newly kept field reaches the captures before it.
-VERSION = 1
+VERSION = 2
 
 # A frame is parsed only where its text carries one of these: the keys
 # of everything the reading keeps. Every other frame is skipped unread,
@@ -47,7 +49,14 @@ VERSION = 1
 MARKERS = ('"my_rank"', '"result_list"', '"mission_accumulate"',
            '"disaster_boss_rank_entit', '"login_total_count"',
            '"accumulate_condition"', '"achievement_entity"',
-           '"chaos_assault_entity"')
+           '"chaos_assault_entity"', '"remnants_entit', '"rank_percent"')
+
+# The lists' rows, top to bottom. The Great Rift's last row is named for
+# the account's own division when it is known -- see `rift_table`.
+SORTIE_ROWS = ("Top%", "Top #", "Out of", "Score", "Top score")
+RIFT_ROWS = ("Top% apx.", "Top% official", "Top #", "Out of", "Score",
+             "Top Master I", "Top own division")
+OFFENSIVE_ROWS = ("Top%", "Top #", "Out of", "Score")
 
 # The Great Rift's thirty subdivisions, by the number that ends a
 # `rank_id`: (division, tier, the share of the field it reaches down
@@ -159,6 +168,7 @@ def read_logs(snapshots_dir):
             "cut_short": cut_short,
             "disaster_boss_rank_tops": addon.rift_tops,
             "chaos_assault_rankings": addon.sortie_rankings,
+            "remnants_rankings": addon.remnants_rankings,
             "disaster_boss_rank_standings": standings,
             "chaos_assault_standings": sortie,
             "mission_accumulate":
@@ -263,15 +273,21 @@ def merged(raw, history, key):
     """The snapshot's history under `key` joined with the file's.
 
     Rankings are {season: ...} tables of readings; a reading is one
-    sample, and one taken at the same moment is the same sample.
+    sample, and one taken at the same moment is the same sample. Beside
+    its readings a season holds values the snapshot's copy of wins --
+    the Sortie's `reset_time`, the Offensive's stage scores.
     """
     out = json.loads(json.dumps((history or {}).get(key) or {}))
     for season, value in ((raw or {}).get(key) or {}).items():
         mine = out.setdefault(season, {})
-        if key == "chaos_assault_rankings":
-            mine["reset_time"] = value.get("reset_time",
-                                           mine.get("reset_time"))
-            _join(mine.setdefault("readings", []), value.get("readings"))
+        if key in ("chaos_assault_rankings", "remnants_rankings"):
+            for field, held in (value or {}).items():
+                if field == "readings":
+                    _join(mine.setdefault("readings", []), held)
+                elif isinstance(held, dict):
+                    mine.setdefault(field, {}).update(held)
+                elif held is not None:
+                    mine[field] = held
         else:
             for half, subdivisions in (value or {}).items():
                 held = mine.setdefault(half, {})
@@ -291,9 +307,11 @@ def subdivision(rank_id):
     """(number, 'Diamond II', share reached) for a Great Rift `rank_id`,
     or None where it is not on the thirty-step scale."""
     found = RANK_ID.search(str(rank_id or ""))
-    if not found:
-        return None
-    number = int(found.group(2))
+    return numbered(int(found.group(2))) if found else None
+
+
+def numbered(number):
+    """`subdivision` for the subdivision's number, 1 to 30."""
     if not 1 <= number <= len(SHARES):
         return None
     division = DIVISIONS[(number - 1) // len(TIERS)]
@@ -352,3 +370,117 @@ def rift_halves(raw, history):
                             standing,
                             tops.get(season_id, {}).get(define_id, {})))
     return sorted(out, key=lambda h: (-h[0], -h[1]))
+
+
+# ------------------------------------------------------------- the lists
+#
+# Each table is (row labels, [(column heading, [cell, ...]), ...]), the
+# newest column first. A cell is text, or None where nothing was read.
+
+def _count(value):
+    return value if isinstance(value, int) and value > 0 else None
+
+
+def _thousands(value):
+    return format(value, ",") if isinstance(value, int) else None
+
+
+def _share_of(rank, field):
+    return "%.1f%%" % (100.0 * rank / field) if rank and field else None
+
+
+def sortie_table(raw, history):
+    """The Sortie list: a column per season. A finished season's rank is
+    its final one where Previous Sortie Ranking was opened after it
+    ended, and the last one read during it otherwise."""
+    columns = []
+    for number, reading, _reset in sortie_seasons(raw, history):
+        rank = _count(reading.get("rank"))
+        field = _count(reading.get("total_count"))
+        columns.append((str(number), [
+            _share_of(rank, field), _thousands(rank), _thousands(field),
+            _thousands(reading.get("score")),
+            _thousands(reading.get("top_score"))]))
+    return SORTIE_ROWS, columns
+
+
+def _top_of(tops, number):
+    """The best score heading subdivision `number`'s list, as read last."""
+    for rank_id, samples in (tops or {}).items():
+        found = subdivision(rank_id)
+        if found and found[0] == number and samples:
+            return _thousands(samples[-1].get("best_score"))
+    return None
+
+
+def rift_table(raw, history):
+    """The Great Rift list: a column per half, `4 p2` for season 4's
+    second.
+
+    **A division's list starts at its subdivision I**, and the game lists
+    a hundred places of each -- so the top score it shows for a division
+    is subdivision I's, and no other subdivision's top is ever sent. The
+    last row is that: the top of the account's own division, named for
+    the division of the newest half with a subdivision, and read in
+    every half from the same subdivision so the row is one series.
+
+    A finished half's place is its `last_rank`, which is 0 while a half
+    runs and set when it ends: read as the placing it finished on.
+    `rank` on a finished half is the last one computed while the account
+    was looking, and sits a little higher. The share of the field is
+    worked out only where that half's division tops were read.
+    """
+    halves = rift_halves(raw, history)
+    own = next((found for found in (subdivision(h[2].get("rank_id"))
+                                    for h in halves) if found), None)
+    rows = RIFT_ROWS
+    division = None
+    if own:
+        division = ((own[0] - 1) // len(TIERS) + 1) * len(TIERS)
+        rows = rows[:-1] + ("Top " + numbered(division)[1],)
+    columns = []
+    for season, half, standing, tops in halves:
+        finished = bool(standing.get("last_rank_id"))
+        rank = (_count(standing.get("last_rank")) if finished else None) \
+            or _count(standing.get("rank"))
+        found = subdivision(standing.get("last_rank_id")
+                            or standing.get("rank_id"))
+        field = field_size(tops)
+        columns.append(("%d p%d" % (season, half), [
+            _share_of(rank, field),
+            "%g%%" % (found[2] * 100) if found else None,
+            _thousands(rank),
+            "~" + format(int(round(field, -1)), ",") if field else None,
+            _thousands(standing.get("best_score")),
+            _top_of(tops, len(SHARES)),
+            _top_of(tops, division) if division else None]))
+    return rows, columns
+
+
+def offensive_table(raw, history):
+    """The Full-Scale Offensive list: a column per Offensive, numbered as
+    the game numbers them. The field is the rank over `rank_percent`,
+    which the game states to two decimals -- so it is given to the
+    hundred. The score is the stages' best scores summed."""
+    columns = []
+    for define_id, season in merged(raw, history,
+                                    "remnants_rankings").items():
+        found = re.search(r"(\d+)$", str(define_id))
+        readings = season.get("readings") or []
+        if not found or not readings:
+            continue
+        last = readings[-1]
+        rank = _count(last.get("rank"))
+        percent = last.get("rank_percent")
+        if not isinstance(percent, (int, float)) or percent <= 0:
+            percent = None
+        stages = [v for v in (season.get("stages") or {}).values()
+                  if isinstance(v, int)]
+        columns.append((int(found.group(1)), [
+            "%g%%" % percent if percent else None,
+            _thousands(rank),
+            "~" + format(int(round(rank * 100.0 / percent, -2)), ",")
+            if rank and percent else None,
+            _thousands(sum(stages)) if stages else None]))
+    columns.sort(key=lambda c: -c[0])
+    return OFFENSIVE_ROWS, [(str(n), cells) for n, cells in columns]

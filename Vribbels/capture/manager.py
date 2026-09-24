@@ -315,9 +315,11 @@ class Addon:
         # Ranking HISTORY, carried across restarts: {season: {rank
         # slot: {rank_id: [sample, ...]}}} for the Great Rift's
         # subdivision tops, {schedule: {"reset_time", "readings"}} for
-        # the Sortie's. See the ranking branches below.
+        # the Sortie's, {Offensive: {"stages", "readings"}} for the
+        # Full-Scale Offensive's. See the ranking branches below.
         self.rift_tops = {}
         self.sortie_rankings = {}
+        self.remnants_rankings = {}
         # {trial event id: [slot ids]}, learned from claims and
         # kept forever -- see `reward_combatant_trial`.
         self.trial_slots = {}
@@ -511,6 +513,9 @@ class Addon:
         rankings = previous.get("chaos_assault_rankings")
         if isinstance(rankings, dict):
             self.sortie_rankings = rankings
+        offensives = previous.get("remnants_rankings")
+        if isinstance(offensives, dict):
+            self.remnants_rankings = offensives
         for key in ("mission_accumulate", "achievements", "daily_achieve"):
             for row in previous.get(key) or ():
                 if (isinstance(row, dict) and row.get("res_id") is not None
@@ -1588,6 +1593,49 @@ class Addon:
                     sample[f] for f in fields]:
                 readings.append(sample)
                 self._save_pending = True
+        # **The Full-Scale Offensive's standing**, kept a season per
+        # Offensive like the Sortie's: the login table holds only the
+        # one running. The login's `remnants_entity` carries the rank,
+        # and entering the Offensive answers with it again beside
+        # `rank_percent` -- the one statement of the field on any of
+        # its screens. A reading keeps the percentage its rank was read
+        # with: a login that finds the rank unmoved carries it over,
+        # and one that finds it moved leaves it unknown. The stages'
+        # best scores come with both, and their sum is the total.
+        # `docs/unread_stats.md`, *The Full-Scale Offensive*.
+        offensive = data.get("remnants_entity")
+        if not isinstance(offensive, dict) and "rank_percent" in data:
+            offensive = data
+        stages = data.get("remnants_entities")
+        if not isinstance(stages, dict) and "rank_percent" in data:
+            stages = data.get("entities")
+        for row in (stages.values() if isinstance(stages, dict) else ()):
+            if (isinstance(row, dict) and row.get("define_id")
+                    and row.get("list_id")
+                    and isinstance(row.get("best_score"), int)):
+                self.remnants_rankings.setdefault(
+                    str(row["define_id"]), {}).setdefault(
+                    "stages", {})[str(row["list_id"])] = row["best_score"]
+        if (isinstance(offensive, dict) and offensive.get("define_id")
+                and isinstance(offensive.get("rank"), int)):
+            season = self.remnants_rankings.setdefault(
+                str(offensive["define_id"]), {})
+            readings = season.setdefault("readings", [])
+            last = readings[-1] if readings else {}
+            percent = offensive.get("rank_percent")
+            if percent is None and last.get("rank") == offensive["rank"]:
+                percent = last.get("rank_percent")
+            scores = season.get("stages") or {}
+            sample = {
+                "rank": offensive["rank"],
+                "rank_percent": percent,
+                "reward_count": offensive.get("reward_count"),
+                "score": sum(scores.values()) if scores else None,
+                "read_at": data.get("service_server_time")}
+            fields = ("rank", "rank_percent", "reward_count", "score")
+            if [last.get(f) for f in fields] != [sample[f] for f in fields]:
+                readings.append(sample)
+                self._save_pending = True
         # **The account's lifetime statistics**, for the history a
         # reader would chart: the counters the collection achievements
         # count off, the Achievements screen, and the seven daily
@@ -2379,6 +2427,7 @@ class Addon:
             "login_total_count": self.login_total_count,
             "disaster_boss_rank_tops": self.rift_tops or None,
             "chaos_assault_rankings": self.sortie_rankings or None,
+            "remnants_rankings": self.remnants_rankings or None,
             "combat_trial_entities": self.combat_trials or None,
             "combatant_trial_slots": self.trial_slots or None,
             "season_pass_entity": self.season_pass,
