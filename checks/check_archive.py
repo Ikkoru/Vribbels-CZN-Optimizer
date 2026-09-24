@@ -171,8 +171,7 @@ def _deleter_refuses_what_it_should():
         (work / "_capture_addon.py").write_text("x", encoding="utf-8")
         outside = Path(tempfile.mkdtemp(prefix="czn_outside_"))
         stray = _snapshot(outside, "20260101_000099")
-        verified = {archive.member_name(p): (1, "x")
-                    for p in work.glob("memory_fragments_*.json")}
+        verified = set(work.glob("memory_fragments_*.json"))
         cases = [
             ("a file that sits in another directory", stray),
             ("a file that is not a capture", work / "_capture_addon.py"),
@@ -236,6 +235,71 @@ def _twice_leaves_one_member_each():
                 f"`extractfile` answers with whichever it reaches last.")
         if sorted(first["archived"]) != sorted(second["archived"]):
             out.append("the two passes archived different sets.")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
+def _twin(path, changed=False):
+    """`X.jsonl` beside `X.jsonl.gz`: the log decompressed in place, as
+    reading one leaves it. `changed` makes the twin's content differ."""
+    twin = path.with_name(archive.member_name(path))
+    with gzip.open(path, "rb") as handle:
+        body = handle.read()
+    twin.write_bytes(body + (b'{"edited": true}\n' if changed else b""))
+    return twin
+
+
+def _one_capture_loose_twice_is_one_member():
+    """A log loose both as `.jsonl.gz` and as its `.jsonl` goes in once.
+
+    `member_name` gives both the same name, and tar stores a second
+    member of a name without complaint -- so a pass that took both
+    wrote the capture twice, and everything that walks the archive
+    counted its runs twice. Nothing failed. And both loose files were
+    deleted on the strength of ONE name being verified, so a twin whose
+    content differed would have gone without its own check.
+    """
+    out = []
+    high = archive.KINDS[archive.LOGS][1]
+    work = _folder(logs=high)
+    try:
+        oldest = sorted(work.glob("websocket_debug_*.jsonl.gz"))[0]
+        twin = _twin(oldest)
+        result = archive.compact(work, say=_quiet)
+        if result["failed"]:
+            return [f"archiving a log beside its twin failed: "
+                    f"{result['failed']}"]
+        names = [name for name, _size in archive.contents(work)]
+        if names.count(twin.name) != 1:
+            out.append(
+                f"{twin.name} is in the archive {names.count(twin.name)} "
+                f"times after one pass over it and {oldest.name}. They are "
+                f"one capture: a second member makes everything that reads "
+                f"the archive count its runs twice.")
+        if twin.exists() or oldest.exists():
+            out.append(
+                f"a twin that matched the archived capture was left loose "
+                f"({[p.name for p in (twin, oldest) if p.exists()]}). Each "
+                f"is proven by its own content and can go.")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+    # Twins that DIFFER: neither may go in, and neither may go.
+    work = _folder(logs=high)
+    try:
+        oldest = sorted(work.glob("websocket_debug_*.jsonl.gz"))[0]
+        twin = _twin(oldest, changed=True)
+        result = archive.compact(work, say=_quiet)
+        names = [name for name, _size in archive.contents(work)]
+        if twin.name in names or not (twin.exists() and oldest.exists()):
+            out.append(
+                f"twins with different contents ended archived "
+                f"{names.count(twin.name)} time(s), with "
+                f"{[p.name for p in (twin, oldest) if not p.exists()]} "
+                f"deleted. Taking either and deleting it, the next pass "
+                f"would replace it with the other, and its content would "
+                f"be nowhere.")
     finally:
         shutil.rmtree(work, ignore_errors=True)
     return out
@@ -511,6 +575,7 @@ def run():
                   _deleter_refuses_what_it_should,
                   _sweep_clears_an_interrupted_build,
                   _twice_leaves_one_member_each,
+                  _one_capture_loose_twice_is_one_member,
                   _the_report_says_a_number_once_when_it_means_once,
         _dry_run_deletes_nothing,
                   _background_run_reports_instead_of_dying,

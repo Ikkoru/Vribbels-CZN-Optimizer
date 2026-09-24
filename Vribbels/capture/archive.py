@@ -23,6 +23,14 @@ candidates however long ago they were written.
 on the way in recovers about 85% of a log's archived size. The member
 keeps the `.jsonl` name; `gzip.open` streams straight into the tar, so
 no temporary file is involved.
+
+**So a log loose in both forms is ONE capture**, `X.jsonl` beside the
+`X.jsonl.gz` it was decompressed from. Tar does not refuse a second
+member of a name, so the two are grouped by member name and go in once
+-- and only where their contents agree; twins that differ are both left
+loose for a human. Deleting is per FILE: a loose file goes only when its
+own content matched the member this pass, which is what keeps a twin
+from being deleted on the strength of the other one's check.
 """
 
 import gzip
@@ -154,24 +162,82 @@ def _add(tf: tarfile.TarFile, name: str, stream, size: int):
     tf.addfile(info, stream)
 
 
-def _build(folder: Path, adding: list, preset: int, say) -> dict:
+def _retried(work, path, say):
+    """`work()`, retried on the `OSError` a held file raises. None once
+    `TRIES` attempts have failed, with the file named."""
+    for attempt in range(TRIES):
+        try:
+            return work()
+        except OSError as exc:
+            if attempt + 1 == TRIES:
+                say("[!] %s could not be read (%s); left in place, the "
+                    "next compaction will take it."
+                    % (path.name, type(exc).__name__))
+                return None
+            time.sleep(BACKOFF)
+
+
+def _plan(adding: list, say) -> list:
+    """[(member name, the file to add, its fingerprint, every file it
+    stands for)], one per member name.
+
+    **One capture can be loose twice**: a log as `X.jsonl` beside the
+    `X.jsonl.gz` it was decompressed from, both of which `member_name`
+    calls `X.jsonl`. Added as they come, the tar holds two members of
+    one name and everything that walks it counts that capture twice.
+    So the files are grouped by member name first, and a group goes in
+    ONCE, as its first file, standing for every file in it whose own
+    content matched.
+
+    A group is all or nothing. Twins whose contents differ, or one that
+    will not read, leave the whole group loose: archiving one of them
+    and deleting it, the next pass would take the other under the same
+    name and replace the first -- whose content would then be nowhere.
+    """
+    groups = {}
+    for path in adding:
+        groups.setdefault(member_name(path), []).append(path)
+    plan = []
+    for name, paths in groups.items():
+        prints = {}
+        for path in paths:
+            def fingerprint(path=path):
+                with _source(path) as stream:
+                    return _digest(stream)
+            got = _retried(fingerprint, path, say)
+            if got is None:
+                break
+            prints[path] = got
+        if len(prints) < len(paths):
+            continue
+        if len(set(prints.values())) > 1:
+            say("[!] %s are one capture with different contents; all "
+                "left in place." % " and ".join(p.name for p in paths))
+            continue
+        plan.append((name, paths[0], prints[paths[0]], paths))
+    return plan
+
+
+def _build(folder: Path, adding: list, preset: int, say):
     """Write the `.tmp` holding the old members plus `adding`.
 
-    Returns {member name: (size, sha256)} for the files just added --
-    the fingerprints the verify step demands before anything is
-    deleted. A file that will not open after `TRIES` attempts is left
-    out and stays loose; the archive is correct without it and the next
-    compaction takes it.
+    Returns (wanted, covered): {member name: (size, sha256)} for the
+    members just added -- the fingerprints the verify step demands
+    before anything is deleted -- and the loose files whose OWN content
+    each matched the member added for it. A file that will not open
+    after `TRIES` attempts is left out and stays loose; the archive is
+    correct without it and the next compaction takes it.
     """
     book = folder / ARCHIVE_NAME
     tmp = folder / TMP_NAME
-    wanted = {}
+    wanted, covered = {}, set()
+    plan = _plan(adding, say)
     # **A name added this pass wins over the copy already inside.** A
     # loose file can legitimately still be there after an interrupted
     # or dry run, and tar does not reject a second member of the same
     # name -- it stores both, so the archive grows by a copy every
     # pass and `extractfile` answers with whichever it reaches last.
-    fresh = {member_name(path) for path in adding}
+    fresh = {name for name, _path, _print, _paths in plan}
     with tarfile.open(tmp, "w:xz", preset=preset) as out:
         if book.exists():
             with tarfile.open(book, "r:xz") as old:
@@ -181,24 +247,15 @@ def _build(folder: Path, adding: list, preset: int, say) -> dict:
                     handle = old.extractfile(info)
                     if handle is not None:
                         out.addfile(info, handle)
-        for path in adding:
-            name = member_name(path)
-            for attempt in range(TRIES):
-                try:
-                    with _source(path) as stream:
-                        size, sha = _digest(stream)
-                    with _source(path) as stream:
-                        _add(out, name, stream, size)
-                    wanted[name] = (size, sha)
-                    break
-                except OSError as exc:
-                    if attempt + 1 == TRIES:
-                        say("[!] %s could not be read (%s); left in place, "
-                            "the next compaction will take it."
-                            % (path.name, type(exc).__name__))
-                    else:
-                        time.sleep(BACKOFF)
-    return wanted
+        for name, path, (size, sha), paths in plan:
+            def add(path=path, name=name, size=size):
+                with _source(path) as stream:
+                    _add(out, name, stream, size)
+                return True
+            if _retried(add, path, say):
+                wanted[name] = (size, sha)
+                covered.update(paths)
+    return wanted, covered
 
 
 def _verify(book: Path, wanted: dict) -> list:
@@ -231,7 +288,7 @@ def _replace(tmp: Path, book: Path):
             time.sleep(BACKOFF)
 
 
-def _delete(folder: Path, path: Path, verified: dict, say) -> bool:
+def _delete(folder: Path, path: Path, verified: set, say) -> bool:
     """Remove one loose file, refusing anything not proven archived.
 
     THREE conditions, and all of them are the point: the file sits
@@ -239,13 +296,17 @@ def _delete(folder: Path, path: Path, verified: dict, say) -> bool:
     its content was matched against the archive in this same pass.
     `_capture_addon.py` and `__pycache__/` live in this directory, and
     nothing here may ever reach them.
+
+    **`verified` holds FILES, not member names.** Two loose files can
+    share one member name -- see `_plan` -- and a name in the book says
+    only that one of them matched.
     """
     if path.parent.resolve() != folder.resolve():
         raise Refused("%s is not directly in %s" % (path, folder))
     patterns = [p for globs, _h, _l in KINDS.values() for p in globs]
     if not any(path.match(pattern) for pattern in patterns):
         raise Refused("%s is not a capture file" % path.name)
-    if member_name(path) not in verified:
+    if path not in verified:
         raise Refused("%s was not verified in this pass" % path.name)
     for attempt in range(TRIES):
         try:
@@ -279,7 +340,7 @@ def compact(folder, preset=DEFAULT_PRESET, say=print, delete=True) -> dict:
     book = folder / ARCHIVE_NAME
     tmp = folder / TMP_NAME
     try:
-        wanted = _build(folder, adding, PRESETS[preset], say)
+        wanted, covered = _build(folder, adding, PRESETS[preset], say)
         problems = _verify(tmp, wanted)
         if problems:
             # A mismatch is not something a retry can fix: either the
@@ -306,7 +367,7 @@ def compact(folder, preset=DEFAULT_PRESET, say=print, delete=True) -> dict:
             % len(wanted))
         return result
     for path in adding:
-        if member_name(path) in wanted and _delete(folder, path, wanted, say):
+        if path in covered and _delete(folder, path, covered, say):
             result["deleted"].append(path.name)
     # Three counts that usually say one thing. They diverge only when
     # a file would not delete, or when the archive already held members

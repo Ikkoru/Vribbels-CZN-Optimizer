@@ -32,6 +32,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Fixed
 
+- **A capture sitting in the snapshots folder both compressed and not is archived once.** The two copies are the same capture, and compaction stored each as its own entry under the same name. Where the two copies differ, neither is archived or deleted; both stay in the folder for a look.
+
 - **The Checklist's Seasonal Accumulated Score follows a Great Rift run.** The capture kept the standings only when the Great Rift's screen listed them, and a run reports its new score for that one rank alone -- so the row stayed on last week's figure, read as nothing done, until the list was opened again. Before the week's reward is claimed, its threshold is no longer read as 0.
 
 - **Capture Log lines arrive as they happen.** In a busy session each line had come a second or more late, and later ones several: every action reloaded the whole snapshot up to four times, and the capture waited on the window before reading on. A save now reloads it once, and nothing the capture does waits on the window. The reload itself is several times quicker: the Memory Fragments list worked out which presets each fragment survives once per fragment per preset, and the Materials tab redrew while nobody was looking at it. An `Upgraded` line's Highest Potential also always reflects the upgrade -- a reload could run before the save and score the fragment as it was.
