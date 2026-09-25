@@ -81,6 +81,19 @@ RIFT_CODENAMES = {
 }
 RIFT_UNNAMED = "TBD"
 
+# Final tops no capture here holds, by (server, season, part): the
+# part's top score -- Master I's first place -- and where it was read.
+# **A final stands over any reading of that top**: a reading is taken
+# while a part runs, and the final is its last word. A part here on the
+# account's server gets a column like a shipped one.
+OFFICIAL_S1 = ("Official "
+               "https://page.onstove.com/chaoszeronightmare/en/view/12183147")
+RIFT_FINAL_TOPS = {
+    ("global", 1, 1): (1728670, OFFICIAL_S1),   # Mochi
+    ("global", 1, 2): (1536416, OFFICIAL_S1),   # Haku
+    ("asia", 1, 2): (1567592, OFFICIAL_S1),     # Haku
+}
+
 # The lists' rows, top to bottom. The Great Rift's start with the
 # part's codename and end with every division's top score, Master's
 # first -- see `rift_table` for why a division's is its subdivision I's.
@@ -437,6 +450,12 @@ def rift_halves(raw, history, shipped=None):
                     and (season_id, define_id) not in seen):
                 out.append((int(season.group(1)), int(half.group(1)), {},
                             subdivisions))
+    # And a part with only a recorded final on the account's server.
+    listed = {(h[0], h[1]) for h in out}
+    region = (raw or {}).get("detected_region")
+    out += [(season, half, {}, {})
+            for (server, season, half) in RIFT_FINAL_TOPS
+            if server == region and (season, half) not in listed]
     return sorted(out, key=lambda h: (-h[0], -h[1]))
 
 
@@ -498,10 +517,15 @@ def rift_table(raw, history, shipped=None):
     worked out only where that half's division tops were read.
     """
     halves = rift_halves(raw, history, shipped)
+    region = (raw or {}).get("detected_region")
     # Each division's subdivision I, Master's first: 30, 25, .. 5.
     tops_of = range(len(SHARES), 0, -len(TIERS))
     columns = []
     for season, half, standing, tops in halves:
+        final = RIFT_FINAL_TOPS.get((region, season, half))
+        division_tops = [_top_of(tops, number) for number in tops_of]
+        if final:
+            division_tops[0] = _thousands(final[0])
         finished = bool(standing.get("last_rank_id"))
         rank = (_count(standing.get("last_rank")) if finished else None) \
             or _count(standing.get("rank"))
@@ -514,8 +538,7 @@ def rift_table(raw, history, shipped=None):
             "%g%%" % (found[2] * 100) if found else None,
             _thousands(rank),
             "~" + format(int(round(field, -1)), ",") if field else None,
-            _thousands(standing.get("best_score"))]
-            + [_top_of(tops, number) for number in tops_of]))
+            _thousands(standing.get("best_score"))] + division_tops))
     return RIFT_ROWS, columns
 
 

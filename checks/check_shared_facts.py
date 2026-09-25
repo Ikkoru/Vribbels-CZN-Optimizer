@@ -419,7 +419,15 @@ def _readers(sf):
             "rank": 900, "best_score": 1300000, "read_at": 1791000000}}}}}})
     raw = {"detected_region": "global", "disaster_boss_rank_entities": {
         SEASON: {HALF: {"rank": 2474, "best_score": 1115731}}}}
-    rows, columns = sh.rift_table(raw, None, shipped)
+    # The hand-recorded finals set aside: they add columns of their own,
+    # which `check_stats_history` holds.
+    finals, sh.RIFT_FINAL_TOPS = sh.RIFT_FINAL_TOPS, {}
+    try:
+        rows, columns = sh.rift_table(raw, None, shipped)
+        asia_rows, asia = sh.rift_table(dict(raw, detected_region="asia"),
+                                        None, shipped)
+    finally:
+        sh.RIFT_FINAL_TOPS = finals
     cells = {heading: dict(zip(rows, values)) for heading, values in columns}
     if not cells.get("4 p2", {}).get("Out of") \
             or cells.get("5 p1", {}).get("Top #") is not None \
@@ -428,10 +436,8 @@ def _readers(sf):
                    f"half has to take its field from a shipped top, and "
                    f"a shipped half it never played gets a column of the "
                    f"field's figures alone.")
-    rows, columns = sh.rift_table(dict(raw, detected_region="asia"), None,
-                                  shipped)
-    if [heading for heading, _v in columns] != ["4 p2"] or dict(
-            zip(rows, columns[0][1])).get("Out of"):
+    if [heading for heading, _v in asia] != ["4 p2"] or dict(
+            zip(asia_rows, asia[0][1])).get("Out of"):
         out.append("an Asia account's Great Rift list took Global tops. "
                    "The two servers rank different players.")
 

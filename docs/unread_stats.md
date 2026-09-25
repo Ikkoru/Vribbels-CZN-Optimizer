@@ -132,7 +132,7 @@ A page is twenty rows of one subdivision: `rank`, `score`, `damage_score`, `dama
 
 **No percentage and no field size ever arrive** -- nothing like the Sortie's `total_count`. Both follow from the division pages: a division's first rank, less one, over the share above it is the field. On 2026-09-24 Diamond started at 941 below Master's 2%, Platinum at 4704 below 10%, Gold at 12228 below 26%, Silver at 23516 below 50% and Bronze at 35273 below 75%: a field of 47,000 to 47,030 by every one of them. The account's 2474 is then 5.3% down the field, inside Diamond II's band of 5 to 7%.
 
-The Great Rift Stats list works the field out the same way, from the lowest subdivision read that half (`stats_history.field_size`): the higher the share above it, the smaller a rank's rounding weighs. The page Merit Ranking opens on gives the account's own division, and with it the field to about fifty; Bronze's page gives the field most exactly, and Master's the best score of all. Its last rows are each division's top, Master's first -- each division's subdivision I, since no other subdivision's top is sent.
+The Great Rift Stats list works the field out the same way, from the lowest subdivision read that half (`stats_history.field_size`): the higher the share above it, the smaller a rank's rounding weighs. The page Merit Ranking opens on gives the account's own division, and with it the field to about fifty; Bronze's page gives the field most exactly, and Master's the best score of all. Its last rows are each division's top, Master's first -- each division's subdivision I, since no other subdivision's top is sent. A part's FINAL top that no capture holds -- season 1's, from the game's own announcements -- is written in by hand in `stats_history.RIFT_FINAL_TOPS`, each with its source, and stands over any reading of that top.
 
 ### The Galactic Disaster
 
@@ -140,11 +140,37 @@ The Great Rift standings (`disaster_boss_rank_entities`) and the seasons (`disas
 
 | Field | Holds |
 | ----- | ----- |
-| `board_entities` | one row per season: the MEDAL screen. `info.rank_<n>` is each Great Rift half's `best_score` and `total_score`; `sticker_hash` maps every medal earned to the epoch second it was earned; `equip_total`, `spark_total`, `credit_total`, `mon_card_total`, `achievement_count`, `stage_clear_count`, `stage_enter_count`, `monster_kill_count` are season tallies, all 0 on the account's first season |
+| `board_entities` | one row per FINISHED season: the profile's Display Case -- *The Display Case*, below |
 | `disaster_boss_penalty_entities` | per season, per distortion boss: `highest_clear_level`, `best_score`, and `clear_penalty`, which penalty sets each level was cleared under |
 | `step1_clear_record` | the season's best Great Rift first step: `score`, `define_id`, `step1_turn`, `turn_bonus`, `heal_score` |
 | `disaster_achievement_entities` | the season's challenge pages, in the claimable-reward row shape, per season. Claimed by `achievement/acquire_disaster_achievement_reward_all`, answering under `achievement_entities` |
 | `disaster_collection_entities`, `disaster_chaos_entities`, `story_node_mission_disaster_entities` | what each season's Chaos stages have collected, their options, and the story track's conditions |
+
+#### The Display Case
+
+The profile's Display Case and its medal lists draw from `board_entities`, a row per finished season -- the running one is not there. **It arrives with every login** and nothing else: opening Profile, the Display Case or a season's medal list sends no request at all, so a capture running through one login holds all of it.
+
+| Field | The game calls it |
+| ----- | ----------------- |
+| `info.equip_total` | Obtained Equipment |
+| `info.spark_total` | Epiphanies |
+| `info.credit_total` | Total Credits |
+| `info.mon_card_total` | Monster Cards |
+| `info.stage_enter_count` | Chaos Operation |
+| `info.stage_clear_count` | Chaos Core Ravage |
+| `info.monster_kill_count` | Enemies Defeated |
+| `info.rank_1`, `info.rank_2` | each Great Rift half's `best_score` and `total_score`, the same figures `disaster_boss_rank_entities` holds |
+| `info.achievement_count`, `story_cleared_count`, `story_total_count` | season tallies, not yet matched to the screen |
+| `info.clear_penalty_1` .. `_3` | per distortion boss, the levels cleared |
+| `sticker_hash` | every medal earned, with the epoch second it was earned |
+| `achievement_hash` | the season's progress counters by achievement; `_126` to `_132` are the tallies above over again |
+| `shop_hash` | a count per season shop product |
+
+The tallies are all 0 on the first season, which predates them.
+
+**The season running has no row here.** Its Display Case reads the same tallies off `disaster_achievement_entities`: the rows `_126` to `_132` hold, as their `score`, Total Credits, Obtained Equipment, Epiphanies, Monster Cards, Chaos Operation, Chaos Core Ravage and Enemies Defeated, in that order -- checked figure for figure against the screen in season 4. A row with a `complete_time` is a medal earned.
+
+**The Display Case's Contribution is not on the wire.** The maintainer's account shows 1061 for season 2, 1133 for season 3 and 1100 for season 4, and none of the three is in any frame. It is not a count of medals either: season 4 has the most, 268 against 237 and 233, and the second-lowest figure. The game's own description of it says why: points accumulated per category, combined with Chaos Operation performance, **by criteria adjusted every season**. The weights live in the client, change each season, and never cross the wire -- so plain sums of the case's figures that give one season miss the others, and it cannot be worked out from a capture.
 
 ## Lifetime counters
 

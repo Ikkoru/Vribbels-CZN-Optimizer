@@ -434,12 +434,50 @@ def _once(sh):
     return out
 
 
+def _recorded_finals(sh):
+    """A recorded final top stands over any reading of that top, and a
+    part with only a final gets a column -- on its own server only.
+
+    Finals of the check's own, so the maintainer recording real ones
+    cannot move what this expects."""
+    out = []
+    saved = sh.RIFT_FINAL_TOPS
+    sh.RIFT_FINAL_TOPS = {("global", 9, 1): (1728670, "test"),
+                          ("asia", 9, 2): (1567592, "test")}
+    raw = {"detected_region": "global",
+           "disaster_boss_rank_entities": {"disaster_s09": {
+               "disaster_s09_rank_01": {"rank": 5759,
+                                        "best_score": 761582}}},
+           "disaster_boss_rank_tops": {"disaster_s09": {
+               "disaster_s09_rank_01": {"disaster_s09_rank_best_1_30": [
+                   {"rank": 1, "best_score": 1500000, "read_at": 5}]}}}}
+    try:
+        cells = {heading: dict(zip(rows_, values)) for rows_, columns in
+                 [sh.rift_table(raw, None)] for heading, values in columns}
+        asia = {heading for heading, _v in sh.rift_table(
+            dict(raw, detected_region="asia"), None)[1]}
+    finally:
+        sh.RIFT_FINAL_TOPS = saved
+    if cells.get("9 p1", {}).get("Top Master I") != "1,728,670" \
+            or "9 p2" in cells:
+        out.append(f"with a recorded final for the part the account "
+                   f"played, the Great Rift list reads {cells}: the final "
+                   f"stands over a reading of the same top, and another "
+                   f"server's final adds no column.")
+    if "9 p2" not in asia:
+        out.append(f"an Asia account's Great Rift list has columns "
+                   f"{sorted(asia)}: a part with only a recorded final on "
+                   f"its server gets a column of its own.")
+    return out
+
+
 def run():
     add_source_to_path()
     import stats_history as sh
     failures = []
     failures.extend(_readings(sh))
     failures.extend(_tables(sh))
+    failures.extend(_recorded_finals(sh))
     failures.extend(_reading(sh))
     failures.extend(_addon_saves_nothing(sh))
     failures.extend(_once(sh))
