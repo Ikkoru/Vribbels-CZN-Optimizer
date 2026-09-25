@@ -117,9 +117,8 @@ CAPTURE_POLL_MS = 40
 MYTHIC_FROM_LEVEL = 3
 
 
-# Every scrollbar's thickness. They are a thumb in a groove with no arrow
-# buttons -- at this thickness an arrow is a few pixels of glyph, and the
-# thumb and the wheel do the scrolling. See `configure_styles`.
+# Every scrollbar's thickness, arrow buttons included. See
+# `configure_styles`.
 SCROLLBAR_WIDTH = 12
 
 
@@ -562,21 +561,11 @@ class OptimizerGUI:
             background=[("active", self.colors["select"])],
             arrowcolor=[("active", self.colors["fg"])],
         )
-        # A groove and a thumb, no arrow buttons, in both orientations.
-        # `arrowsize` is a clam scrollbar's thickness, arrows or not; no
-        # grip lines on a thumb this narrow.
-        for orient, across in (("Horizontal", "we"), ("Vertical", "ns")):
-            try:
-                self.style.layout("%s.TScrollbar" % orient, [
-                    ("%s.Scrollbar.trough" % orient, {
-                        "sticky": across, "children": [
-                            ("%s.Scrollbar.thumb" % orient,
-                             {"expand": "1", "sticky": "nswe"})]})])
-            except tk.TclError:
-                pass
-            # spacing: unique -- scrollbar thickness, a style option -- scrollbar, scrollbar ↔↕
-            self.style.configure("%s.TScrollbar" % orient,
-                                 arrowsize=px(SCROLLBAR_WIDTH), gripcount=0)
+        # `arrowsize` is a clam scrollbar's thickness as well as its arrow
+        # buttons' size; no grip lines on a thumb this narrow.
+        # spacing: unique -- scrollbar thickness, a style option -- scrollbar, scrollbar ↔↕
+        self.style.configure("TScrollbar", arrowsize=px(SCROLLBAR_WIDTH),
+                             gripcount=0)
         self.style.configure("TNotebook", background=self.colors["bg_strip"])
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # Clam's Notebook.client element insets its content by 2px on every

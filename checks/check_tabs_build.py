@@ -2633,9 +2633,9 @@ def _standings_lists_fit(tab):
     """The standings lists show every season read, newest first, and fit
     the room under the gacha sheet in the default window.
 
-    The Great Rift's list is held at the Banners list's width; the two
-    under it share that width, half each, and are as wide as their
-    seasons up to it. Handed more seasons than that room holds, a list
+    The Great Rift's list has the Banners list's width; the two under
+    it share that width, half each. Each is as wide as its seasons up to
+    its room. Handed more seasons than that room holds, a list
     must stop at its edge and scroll the rest, the newest in view: one
     that grows past it widens the column and takes the difference from
     the pulls list, and one cut off anywhere simply stops drawing.
@@ -2731,47 +2731,41 @@ def _standings_lists_fit(tab):
             tab._natural[str(tab.pulls_tree)])
         gained = (int(tab.summary_tree.column(b_col, "width")) - b_nat,
                   int(tab.pulls_tree.column(p_col, "width")) - p_nat)
-        if min(gained) < 0 or abs(gained[0] - gained[1]) > 1:
+        if gained[0] <= 0 or gained[1] != 0:
             out.append(f"in a default-sized window the Banners and Pulls "
                        f"lists' last columns gained {gained}px: the width "
-                       f"both leave is theirs half each.")
+                       f"both leave is the Banners list's, which the "
+                       f"standings under it grow into.")
         # A resize, with the list mapped. The first share lands before
         # the list is, when Tk still follows its columns; after that a
         # Treeview asks for a new width only on `configure`, and its
         # stretching last column fills the old width back out.
+        # A step inside the spare width, so none of it is clamped.
+        step = min(px(20), gained[0])
         wide = tab.summary_tree.winfo_reqwidth()
-        tab._share_excess(SimpleNamespace(width=body.winfo_width() - px(40)))
+        tab._share_excess(SimpleNamespace(width=body.winfo_width() - step))
         root.update_idletasks()
-        # Within a pixel: halving an odd spare width rounds.
-        if abs(wide - tab.summary_tree.winfo_reqwidth() - px(40) // 2) > 1:
-            out.append(f"40px off the window took "
+        if wide - tab.summary_tree.winfo_reqwidth() != step:
+            out.append(f"{step}px off the window took "
                        f"{wide - tab.summary_tree.winfo_reqwidth()}px off "
-                       f"the Banners list, not its half: a mapped list "
+                       f"the Banners list, not all of it: a mapped list "
                        f"keeps its size through a new column width. "
                        f"`_fit_banners`' `configure` is what makes it ask "
                        f"again.")
         tab._share_excess(SimpleNamespace(width=body.winfo_width()))
         root.update_idletasks()
-        # The Great Rift's list is held at the banners' width even with
-        # one column to show; the two under it are as narrow as theirs.
+        # With one column to show, every list is as narrow as it.
         tab._fill_standings()
         root.update_idletasks()
-        edge = tab.summary_tree.master
-        right = edge.winfo_rootx() + edge.winfo_width()
-        rift = tab.rift_list.frame
-        if rift.winfo_rootx() + rift.winfo_width() != right:
-            out.append(f"with nothing read the {RIFT_TITLE} list ends at "
-                       f"{rift.winfo_rootx() + rift.winfo_width()}, the "
-                       f"Banners list at {right}: it is held at that "
-                       f"list's width whatever it shows.")
-        for parts, title in ((tab.offensive_list, OFFENSIVE_TITLE),
+        for parts, title in ((tab.rift_list, RIFT_TITLE),
+                             (tab.offensive_list, OFFENSIVE_TITLE),
                              (tab.sortie_list, SORTIE_TITLE)):
             if int(parts.holder.cget("width")) != tab._columns_width(
                     parts.data):
                 out.append(f"with nothing read the {title} list's seasons "
                            f"are {parts.holder.cget('width')}px wide across "
                            f"{tab._columns_width(parts.data)}px of columns; "
-                           f"it is as wide as its seasons up to its half.")
+                           f"it is as wide as its seasons up to its room.")
         # The gacha sheet at its widest: more ties than it holds.
         if history is not None and any(pool.pulls
                                        for pool in history.ordered()):
@@ -2823,10 +2817,10 @@ def _standings_lists_fit(tab):
                        f"standings under it run off the window.")
         rift = tab.rift_list.frame
         if rift.winfo_rootx() + rift.winfo_width() != right:
-            out.append(f"the {RIFT_TITLE} list ends at "
+            out.append(f"past its room the {RIFT_TITLE} list ends at "
                        f"{rift.winfo_rootx() + rift.winfo_width()}, the "
-                       f"Banners list at {right}: it is held at that "
-                       f"list's width.")
+                       f"Banners list at {right}: it grows up to that "
+                       f"list's width and stops there.")
         half = tab._banners_width() // 2 - px(2) - tab._panel_edges()
         for parts, title in ((tab.offensive_list, OFFENSIVE_TITLE),
                              (tab.sortie_list, SORTIE_TITLE)):

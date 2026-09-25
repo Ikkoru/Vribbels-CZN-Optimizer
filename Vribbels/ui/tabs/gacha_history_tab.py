@@ -30,6 +30,7 @@ from game_data.constants import RARITY_COLORS
 from ui.scaling import px
 from ..base_tab import BaseTab
 from ..utils.button_width import BUTTON_W_MEDIUM
+from ..utils.panel_title import panel_title_style
 
 # The instructions under the tab strip, in the Optimizer's explanation
 # style. `HELP_WRAPLENGTH` is where the text starts wrapped: wider than
@@ -111,11 +112,6 @@ LIST_ROW_HEIGHT = 19
 # with every banner family listed, the standings under it would run past
 # the default window's bottom edge.
 BANNER_ROWS = 7
-# The standings' titles are labelwidgets, set in this label style: the
-# LabelFrame title's own layout, text and fill. A plain `TLabel` puts its
-# text inside a 1px border and a 1px padding, which sets it 2px right of
-# every `text=` title on the tab and 2px further from what is under it.
-TITLE_STYLE = "GachaHistory.Title.TLabel"
 
 # Row colours by rarity. A unit's stars index the rarity table
 # directly -- 5 Mythic, 4 Legendary, 3 Rare. A unit neither the game's
@@ -145,6 +141,11 @@ URGENT_FONT = ("Segoe UI", 9, "bold")
 # Where the status lines wrap, so a long one takes height from the
 # toolbar rather than width from the help text beside it.
 STATUS_WRAPLENGTH = 320
+# The status lines' label style: a `TLabel`'s own inset above and below,
+# none at the sides. They end the toolbar at the window's right edge,
+# and a plain `TLabel` would set their text 2px short of the pads that
+# put it the window-edge rule's distance in.
+STATUS_STYLE = "GachaHistory.Status.TLabel"
 
 # The figures across banners, under the Banners list: (figure, value,
 # units, date) rows in three sections, each opened by a bold heading.
@@ -165,16 +166,15 @@ HEADING_FONT = ("Segoe UI", 9, "bold")
 
 # Under it, the account's standings: three lists with a column per
 # season, newest first, and the rows' names held still at the left --
-# the Great Rift's as wide as the Banners list, then the Full-Scale
-# Offensive's and the Sortie's side by side, half of it each. The
+# the Great Rift's up to the Banners list's width, then the Full-Scale
+# Offensive's and the Sortie's side by side, up to half of it each. The
 # tables are `sh.sortie_table`, `sh.rift_table` and `sh.offensive_table`,
 # over the loaded snapshot's ranking history and whatever
 # `stats_history.py` read out of the captures from before snapshots
 # kept it.
 #
-# **The two half-width lists grow a column a season and stop at their
-# half**, past which their seasons scroll sideways, as the Great Rift's
-# do past the banners' edge. Held at their half instead, a list of two
+# **A list grows a column a season and stops at its room**, past which
+# its seasons scroll sideways. Held at its room instead, a list of two
 # seasons is mostly empty heading, with a scrollbar under it that has
 # nothing to scroll.
 SORTIE_TITLE = "Sortie Stats"
@@ -354,15 +354,24 @@ class GachaHistoryTab(BaseTab):
         # say. `_show_status` packs only those with something to say.
         status = ttk.Frame(toolbar)
         status.pack(side=tk.RIGHT, anchor=tk.N)
+        try:
+            # spacing: unique -- a label's own inset, a style option -- label, label ↕
+            ttk.Style().layout(STATUS_STYLE, [("Label.padding", {
+                "sticky": "nswe", "border": "0 %d" % px(2),
+                "children": [("Label.label", {"sticky": "nswe"})]})])
+        except tk.TclError:
+            pass
         self.urgent_label = ttk.Label(
-            status, text="", font=URGENT_FONT,
+            status, text="", font=URGENT_FONT, style=STATUS_STYLE,
             foreground=self.colors["red"],
             wraplength=px(STATUS_WRAPLENGTH))
         self.behind_label = ttk.Label(
-            status, text="", foreground=self.colors["orange"],
+            status, text="", style=STATUS_STYLE,
+            foreground=self.colors["orange"],
             wraplength=px(STATUS_WRAPLENGTH))
         self.status_label = ttk.Label(
-            status, text="", foreground=self.colors["fg_dim"],
+            status, text="", style=STATUS_STYLE,
+            foreground=self.colors["fg_dim"],
             wraplength=px(STATUS_WRAPLENGTH))
 
         help_label = ttk.Label(
@@ -501,11 +510,12 @@ class GachaHistoryTab(BaseTab):
         # A labelwidget, so the note sits on the title's line. It
         # bypasses the label style, so the title's colour is set here,
         # as the Optimizer's Results panel does -- and both labels take
-        # `TITLE_STYLE`, which seats the title where a `text=` title sits.
+        # the panel title style, which seats the title where a `text=`
+        # title sits (`ui/utils/panel_title.py`).
         header = ttk.Frame(frame)
-        ttk.Label(header, text=title, style=TITLE_STYLE,
+        ttk.Label(header, text=title, style=panel_title_style(),
                   foreground=self.colors["accent"]).pack(side=tk.LEFT)
-        hint = ttk.Label(header, text=note, style=TITLE_STYLE,
+        hint = ttk.Label(header, text=note, style=panel_title_style(),
                          foreground=self.colors["fg_dim"])
         # The whole gap between the two: neither label insets its text.
         # spacing: header subtext -- label, label ↔
@@ -582,12 +592,6 @@ class GachaHistoryTab(BaseTab):
                         padding=px((TEXT_INSET, 0, TEXT_INSET, 0)))
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↕
         style.configure(TREE_STYLE, rowheight=px(LIST_ROW_HEIGHT))
-        try:
-            style.layout(TITLE_STYLE, [("Label.fill", {
-                "sticky": "nswe",
-                "children": [("Label.text", {"sticky": "nswe"})]})])
-        except tk.TclError:
-            pass
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
         style.configure(TREE_STYLE + ".Heading",
                         padding=px((TEXT_INSET, HEADING_INSET_V,
@@ -790,12 +794,11 @@ class GachaHistoryTab(BaseTab):
             self._fit_banners()
 
     def _fit_banners(self):
-        """Give the Banners list half the width the window leaves beyond
-        what both lists measure, the pulls list keeping the other half.
-        Each list's LAST column takes its share, so every column before
-        it keeps its measured width; the pulls list's stretches into
-        what its grid column is given. Then the standings, which keep
-        to the Banners list's width, are fitted again.
+        """Give the Banners list all the width the window leaves beyond
+        what both lists measure, in its LAST column, so every column
+        before it keeps its measured width: the standings under it grow
+        to its width, and the pulls list has nothing to gain from more.
+        Then the standings are fitted again.
         """
         if self._body_width is not None:
             banners, pulls = self.summary_tree, self.pulls_tree
@@ -806,7 +809,7 @@ class GachaHistoryTab(BaseTab):
                 used += self.summary_scroll.winfo_reqwidth()
             # Both panels' pads, either side of each.
             spare = self._body_width - used - 4 * px(2)
-            banners.column(column, width=width + max(0, spare) // 2)
+            banners.column(column, width=width + max(0, spare))
             # NOT redundant: a mapped Treeview asks for a new width only
             # on `configure` (docs/ui_runtime.md), so without it the
             # column widens inside a list that stays its old size.
@@ -973,29 +976,27 @@ class GachaHistoryTab(BaseTab):
                 [cells[row] or NO_VALUE for _heading, cells in columns]))
 
     def _size_standings(self):
-        """Fit each standings list to its room. The Great Rift's is the
-        Banners list's width and is held there; the two beneath it have
-        half of it each and are as wide as their seasons up to that. Past
-        its room a list's seasons scroll sideways under a scrollbar that
-        shows only then -- newest first, so what scrolls out of sight is
-        the oldest."""
+        """Fit each standings list to its room: the Great Rift's is the
+        Banners list's width, and the two beneath it have half of it
+        each. A list is as wide as its seasons up to its room, and past
+        it they scroll sideways under a scrollbar that shows only then
+        -- newest first, so what scrolls out of sight is the oldest."""
         width, edges = self._banners_width(), self._panel_edges()
         # Each half less its share of the two pads between the panels. A
         # title and note wider than its half takes the difference from
         # the neighbour's list, so the pair never runs past the banners.
         half = width // 2 - px(2)
         pair = (self.offensive_list, self.sortie_list)
-        rooms = [(self.rift_list, width, True)]
+        rooms = [(self.rift_list, width)]
         for parts, other in zip(pair, pair[::-1]):
             beside = max(other.header.winfo_reqwidth() + edges,
                          min(half, self._columns_width(other.labels)
                              + self._columns_width(other.data) + edges))
-            rooms.append((parts, min(half, width - 2 * px(2) - beside),
-                          False))
-        for parts, room, held in rooms:
+            rooms.append((parts, min(half, width - 2 * px(2) - beside)))
+        for parts, room in rooms:
             natural = self._columns_width(parts.data)
             space = max(1, room - edges - self._columns_width(parts.labels))
-            shown = space if held else min(natural, space)
+            shown = min(natural, space)
             parts.holder.configure(width=shown,
                                    height=parts.data.winfo_reqheight())
             if natural > shown:

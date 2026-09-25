@@ -52,6 +52,7 @@ from ui.utils.button_width import BUTTON_W_SMALL
 from ui.utils.checkbox import make_checkbox
 from ui.utils.escape import close_on_escape
 from ui.utils.label_width import LABEL_REQUEST_INSET
+from ui.utils.panel_title import panel_title_style
 from ui.utils.spinbox_clamp import blink, clamp_on_commit, commit_clamp
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import (
@@ -784,28 +785,30 @@ class OptimizerTab(BaseTab):
         # The whole gap: the Results panel below packs with no pady of
         # its own, so this trailing component is the only lever on the
         # distance from this panel's border to the Results title.
-        exclude_frame.pack(fill=tk.X, pady=px((0, 5)))
+        exclude_frame.pack(fill=tk.X, pady=px((0, 7)))
         self._build_exclude_gear(exclude_frame)
         # The Results panel's title is a labelwidget rather than plain
         # `text=` so the run status can sit beside it on the title line
         # instead of taking a row above the tree. A labelwidget bypasses
         # the Borderless.TLabelframe.Label style, so the accent colour is
-        # applied here directly.
+        # applied here directly, and both labels take the panel title
+        # style, which seats the title where a `text=` title sits
+        # (`ui/utils/panel_title.py`).
         results_header = ttk.Frame(self._col2_container)
-        ttk.Label(results_header, text="Results",
+        ttk.Label(results_header, text="Results", style=panel_title_style(),
                   foreground=self.colors["accent"]).pack(side=tk.LEFT)
         self.progress_label = ttk.Label(
             results_header, text="Ready to optimize",
-            foreground=self.colors["fg_dim"]
+            style=panel_title_style(), foreground=self.colors["fg_dim"]
         )
         # spacing: header subtext -- label, label ↔
         # The pad is the whole lever. Seating the status on the title's
         # line needs nothing, unlike every other site under this rule:
-        # both are plain Labels in one font with no padding and the same
-        # anchor, so they share a line box and align by construction.
-        # Give either one a font or a padding of its own and that stops
-        # being true.
-        self.progress_label.pack(side=tk.LEFT, padx=px((10, 0)))
+        # both are Labels in one font and one style and the same anchor,
+        # so they share a line box and align by construction. Give
+        # either one a font or a padding of its own and that stops being
+        # true. Neither insets its text, so this is the whole gap.
+        self.progress_label.pack(side=tk.LEFT, padx=px((14, 0)))
         # spacing: title above, element below -- title, tree ↕
         # padding is 0 all round: the tree inside sits flush with the
         # frame's bottom edge, matching Selected Build beside it. The
@@ -1633,7 +1636,7 @@ class OptimizerTab(BaseTab):
         # LabelFrame's padding: the Tight.Borderless style's top padding
         # does not move it. See setup_ui, where the frame is built.
         self.result_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
-                              pady=px((1, 0)))
+                              pady=px((3, 0)))
         result_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.result_tree.bind("<<TreeviewSelect>>", self.on_result_select)
 

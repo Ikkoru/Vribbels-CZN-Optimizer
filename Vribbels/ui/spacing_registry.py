@@ -2141,6 +2141,11 @@ WINDOW_EDGE_ENTRIES = [
          lambda app: app.optimizer_tab_instance.status_label.master)),
     ("Combatants", "Partner -> window edge", 4, None,
      _to_window_edge(_panel_at("Partner"))),
+    # The status lines, stacked at the toolbar's right end. Read on the
+    # line that is showing; with none, the entry says it painted nothing.
+    ("Stats & Gacha History", "status lines -> window edge", 4, None,
+     _to_window_edge(
+         lambda app: app.gacha_tab_instance.status_label.master)),
     # The Materials tab's two ends are window-edge gaps as well, and
     # they live in MATERIALS_ENTRIES instead -- their locator is one of
     # that tab's, defined further down than this table is.
@@ -4810,14 +4815,7 @@ AWAITING_FIRST_READING = {
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
     "purple note -> the filters",
-    # The standings lists, at their rules' targets and on the gacha
-    # sheet's levers.
-    "Overall Gacha Stats -> Great Rift Stats title",
-    "Great Rift Stats -> Full-Scale Offensive Stats title",
-    "Great Rift Stats -> Sortie Stats title",
-    "Sortie Stats title -> its list",
-    "Great Rift Stats title -> its list",
-    "Full-Scale Offensive Stats title -> its list",
+    "status lines -> window edge",
 }
 
 

@@ -70,7 +70,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - The selection highlight is a much darker blue, in every list and text field, so a row that keeps its own colour when selected still reads on it.
 
-- Every scrollbar is slimmer, a thumb in a groove without arrow buttons.
+- Every scrollbar is slimmer.
 
 ## [2.1.0] - Checklist of in-game activities, capture archiving
 
