@@ -274,7 +274,7 @@ SEASON_ESTIMATE = {
         # swings by hundreds. `docs/chaos_runs.py` keeps the record of
         # every whole run in every capture, and this is its mean.
         "days": 63,
-        "per_run": 562,
+        "per_run": 541,
         # Everything that does not depend on how often it is played.
         "fixed": (
             9 * 8000,                               # Chaos weekly progress
