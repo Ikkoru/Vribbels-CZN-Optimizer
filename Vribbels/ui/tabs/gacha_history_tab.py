@@ -71,7 +71,7 @@ SUMMARY_COLUMNS = (
     ("fours", "4★", ("999",), tk.E),
     ("four_avg", "Avg 4★ pull", ("99.9",), tk.E),
     ("pity", "Pity now", ("99",), tk.E),
-    ("read", "Last read", ("0000-00-00 00:00",), tk.CENTER),
+    ("read", "Last read", ("0000-00-00 00:00",), tk.W),
 )
 PULL_COLUMNS = (
     ("number", "#", ("99999",), tk.E),
@@ -112,7 +112,7 @@ BANNER_ROWS = 7
 # this thickness an arrow is a few pixels of glyph, and the thumb and the
 # wheel do the scrolling -- this thick. Colours are the app's own.
 SCROLL_STYLE = "GachaHistory.%s.TScrollbar"
-SCROLLBAR_WIDTH = 8
+SCROLLBAR_WIDTH = 12
 
 # Row colours by rarity. A unit's stars index the rarity table
 # directly -- 5 Mythic, 4 Legendary, 3 Rare. A unit neither the game's
@@ -227,7 +227,7 @@ TIE_TO_TIE = 8          # spacing: element and its label ↔ element and its lab
 # A section set beside another on the same lines -- every banner's, by
 # the first section's opening lines -- starts this far past the furthest
 # of them, and its own rows keep the sheet's figure-to-value gap.
-BESIDE_GAP = 14         # spacing: heading ↔ element -- run, run ↔
+BESIDE_GAP = 16         # spacing: control group ↔ control group -- run, run ↔
 
 
 class Beside:
