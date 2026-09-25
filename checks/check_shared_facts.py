@@ -419,15 +419,15 @@ def _readers(sf):
             "rank": 900, "best_score": 1300000, "read_at": 1791000000}}}}}})
     raw = {"detected_region": "global", "disaster_boss_rank_entities": {
         SEASON: {HALF: {"rank": 2474, "best_score": 1115731}}}}
-    # The hand-recorded finals set aside: they add columns of their own,
+    # The hand-recorded tops set aside: they add columns of their own,
     # which `check_stats_history` holds.
-    finals, sh.RIFT_FINAL_TOPS = sh.RIFT_FINAL_TOPS, {}
+    finals, sh.RIFT_RECORDED_TOPS = sh.RIFT_RECORDED_TOPS, {}
     try:
         rows, columns = sh.rift_table(raw, None, shipped)
         asia_rows, asia = sh.rift_table(dict(raw, detected_region="asia"),
                                         None, shipped)
     finally:
-        sh.RIFT_FINAL_TOPS = finals
+        sh.RIFT_RECORDED_TOPS = finals
     cells = {heading: dict(zip(rows, values)) for heading, values in columns}
     if not cells.get("4 p2", {}).get("Out of") \
             or cells.get("5 p1", {}).get("Top #") is not None \

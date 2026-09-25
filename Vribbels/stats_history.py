@@ -81,17 +81,61 @@ RIFT_CODENAMES = {
 }
 RIFT_UNNAMED = "TBD"
 
-# Final tops no capture here holds, by (server, season, part): the
-# part's top score -- Master I's first place -- and where it was read.
-# **A final stands over any reading of that top**: a reading is taken
-# while a part runs, and the final is its last word. A part here on the
-# account's server gets a column like a shipped one.
+# Division tops no capture here holds, by (server, season, part): when
+# they were read, where, and each division's top score in the list's
+# order, Master's first -- None where the source does not say.
+#
+# **A `FINAL` stands over any reading of its tops**: a reading is taken
+# while a part runs, and the final is its last word. The rest are
+# readings like the capture's own, dated in UTC, and the list shows
+# whichever of the two was read later. A part here on the account's
+# server gets a column like a shipped one.
+FINAL = "final"
 OFFICIAL_S1 = ("Official "
                "https://page.onstove.com/chaoszeronightmare/en/view/12183147")
-RIFT_FINAL_TOPS = {
-    ("global", 1, 1): (1728670, OFFICIAL_S1),   # Mochi
-    ("global", 1, 2): (1536416, OFFICIAL_S1),   # Haku
-    ("asia", 1, 2): (1567592, OFFICIAL_S1),     # Haku
+# The site keeps each division's top hundred on both servers, as the
+# game's own rows; only each list's first score is taken, never who.
+CZNMETADECKS = "https://cznmetadecks.com/meta?define=%s, Leaderboard"
+RIFT_RECORDED_TOPS = {
+    ("global", 1, 1): (FINAL, OFFICIAL_S1, (1728670,)),           # Mochi
+    ("global", 1, 2): (FINAL, OFFICIAL_S1, (1536416,)),           # Haku
+    ("asia", 1, 2): (FINAL, OFFICIAL_S1, (1567592,)),             # Haku
+    ("global", 2, 1): ("2026-03-18 00:49:48",
+                       CZNMETADECKS % "disaster_s02_rank_01",
+                       (1397969, 1047250, 736926, 525751, 269900, 110312)),
+    ("asia", 2, 1): ("2026-03-18 00:40:38",
+                     CZNMETADECKS % "disaster_s02_rank_01",
+                     (1424292, 1112343, 796263, 578230, 334351, 139225)),
+    ("global", 2, 2): ("2026-04-08 00:51:08",
+                       CZNMETADECKS % "disaster_s02_rank_02",
+                       (1497905, 894228, 601625, 402653, 188373, 71744)),
+    ("asia", 2, 2): ("2026-04-08 00:40:30",
+                     CZNMETADECKS % "disaster_s02_rank_02",
+                     (1497830, 965349, 647991, 486669, 243747, 85894)),
+    ("global", 3, 1): ("2026-06-17 00:50:28",
+                       CZNMETADECKS % "disaster_s03_rank_01",
+                       (1675662, 1354972, 978677, 699163, 404741, 161035)),
+    ("asia", 3, 1): ("2026-06-17 00:41:00",
+                     CZNMETADECKS % "disaster_s03_rank_01",
+                     (1659034, 1410271, 1009865, 745441, 435893, 214147)),
+    ("global", 3, 2): ("2026-07-08 00:50:57",
+                       CZNMETADECKS % "disaster_s03_rank_02",
+                       (1477426, 1123095, 876418, 583861, 381375, 206278)),
+    ("asia", 3, 2): ("2026-07-08 00:39:34",
+                     CZNMETADECKS % "disaster_s03_rank_02",
+                     (1463021, 1179361, 931392, 635757, 419411, 249431)),
+    ("global", 4, 1): ("2026-09-08 23:45:20",
+                       CZNMETADECKS % "disaster_s04_rank_01",
+                       (1588505, 1167835, 870728, 608926, 417017, 182427)),
+    ("asia", 4, 1): ("2026-09-08 23:52:59",
+                     CZNMETADECKS % "disaster_s04_rank_01",
+                     (1588974, 1274196, 984909, 710213, 454282, 284966)),
+    ("global", 4, 2): ("2026-09-23 06:47:46",
+                       CZNMETADECKS % "disaster_s04_rank_02",
+                       (1635631, 1217377, 1015317, 645125, 417038, 177955)),
+    ("asia", 4, 2): ("2026-09-23 02:14:27",
+                     CZNMETADECKS % "disaster_s04_rank_02",
+                     (1636166, 1285444, 1080181, 788671, 443000, 300118)),
 }
 
 # The lists' rows, top to bottom. The Great Rift's start with the
@@ -367,8 +411,11 @@ def field_size(tops):
         found = subdivision(rank_id)
         if not found or not samples or found[0] >= len(SHARES):
             continue
-        rank = samples[-1].get("rank")
-        if not isinstance(rank, int) or rank < 2:
+        # The latest sample that HAS a rank: a recorded top carries
+        # only its score.
+        rank = next((s.get("rank") for s in reversed(samples)
+                     if isinstance(s.get("rank"), int)), None)
+        if rank is None or rank < 2:
             continue
         above = SHARES[found[0]]
         if best is None or above > best[0]:
@@ -423,10 +470,11 @@ def rift_halves(raw, history, shipped=None):
     fill a half the account played; a half it has no standing in gets
     no column however many tops ship for it."""
     tops = merged(raw, history, "disaster_boss_rank_tops")
+    region = (raw or {}).get("detected_region")
     if shipped:
         import shared_facts
-        tops = shared_facts.tops_with(tops, shipped,
-                                      (raw or {}).get("detected_region"))
+        tops = shared_facts.tops_with(tops, shipped, region)
+    _join_recorded(tops, region)
     out, seen = [], set()
     for season_id, halves in ((raw or {}).get(
             "disaster_boss_rank_entities") or {}).items():
@@ -452,11 +500,38 @@ def rift_halves(raw, history, shipped=None):
                             subdivisions))
     # And a part with only a recorded final on the account's server.
     listed = {(h[0], h[1]) for h in out}
-    region = (raw or {}).get("detected_region")
     out += [(season, half, {}, {})
-            for (server, season, half) in RIFT_FINAL_TOPS
+            for (server, season, half) in RIFT_RECORDED_TOPS
             if server == region and (season, half) not in listed]
     return sorted(out, key=lambda h: (-h[0], -h[1]))
+
+
+def _division_ids(season, half):
+    """Each division's subdivision I's `rank_id`, in the list's order."""
+    return ["disaster_s%02d_rank_best_%d_%d" % (season, half, number)
+            for number in range(len(SHARES), 0, -len(TIERS))]
+
+
+def _join_recorded(tops, region):
+    """Join `region`'s recorded READINGS into `tops` as samples of their
+    division tops, oldest first, so a list's latest sample is whichever
+    of a capture's and a record's was read later. Finals are not joined:
+    `rift_table` puts them over everything."""
+    import calendar
+    import time
+    for (server, season, half), (read, _source, scores) in \
+            RIFT_RECORDED_TOPS.items():
+        if server != region or read == FINAL:
+            continue
+        at = calendar.timegm(time.strptime(read, "%Y-%m-%d %H:%M:%S"))
+        held = tops.setdefault("disaster_s%02d" % season, {}).setdefault(
+            "disaster_s%02d_rank_%02d" % (season, half), {})
+        for rank_id, score in zip(_division_ids(season, half), scores):
+            samples = held.setdefault(rank_id, [])
+            if score is not None and at not in {x.get("read_at")
+                                                for x in samples}:
+                samples.append({"best_score": score, "read_at": at})
+                samples.sort(key=lambda x: x.get("read_at") or 0)
 
 
 # ------------------------------------------------------------- the lists
@@ -522,10 +597,13 @@ def rift_table(raw, history, shipped=None):
     tops_of = range(len(SHARES), 0, -len(TIERS))
     columns = []
     for season, half, standing, tops in halves:
-        final = RIFT_FINAL_TOPS.get((region, season, half))
         division_tops = [_top_of(tops, number) for number in tops_of]
-        if final:
-            division_tops[0] = _thousands(final[0])
+        read, _source, scores = RIFT_RECORDED_TOPS.get(
+            (region, season, half), (None, None, ()))
+        if read == FINAL:
+            for n, score in enumerate(scores):
+                if score is not None:
+                    division_tops[n] = _thousands(score)
         finished = bool(standing.get("last_rank_id"))
         rank = (_count(standing.get("last_rank")) if finished else None) \
             or _count(standing.get("rank"))

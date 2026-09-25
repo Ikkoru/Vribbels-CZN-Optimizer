@@ -434,40 +434,60 @@ def _once(sh):
     return out
 
 
-def _recorded_finals(sh):
-    """A recorded final top stands over any reading of that top, and a
-    part with only a final gets a column -- on its own server only.
+def _recorded_tops(sh):
+    """Recorded division tops: a final stands over any reading of its
+    top, a recorded reading and a captured one show whichever was read
+    later, and a part with only a record gets a column -- on its own
+    server only.
 
-    Finals of the check's own, so the maintainer recording real ones
+    A table of the check's own, so the maintainer recording real tops
     cannot move what this expects."""
     out = []
-    saved = sh.RIFT_FINAL_TOPS
-    sh.RIFT_FINAL_TOPS = {("global", 9, 1): (1728670, "test"),
-                          ("asia", 9, 2): (1567592, "test")}
+    at = 1767225600                       # 2026-01-01 00:00:00 UTC
+    saved = sh.RIFT_RECORDED_TOPS
+    sh.RIFT_RECORDED_TOPS = {
+        ("global", 9, 1): (sh.FINAL, "test", (1728670,)),
+        ("global", 9, 2): ("2026-01-01 00:00:00", "test",
+                           (1500000, 1100000)),
+        ("asia", 9, 2): (sh.FINAL, "test", (1567592,))}
+
+    def top(number, score, read_at):
+        return {"rank": 1, "best_score": score, "read_at": read_at}
     raw = {"detected_region": "global",
            "disaster_boss_rank_entities": {"disaster_s09": {
                "disaster_s09_rank_01": {"rank": 5759,
                                         "best_score": 761582}}},
            "disaster_boss_rank_tops": {"disaster_s09": {
                "disaster_s09_rank_01": {"disaster_s09_rank_best_1_30": [
-                   {"rank": 1, "best_score": 1500000, "read_at": 5}]}}}}
+                   top(30, 1500000, 5)]},
+               # Master's read before the record, Diamond's after it.
+               "disaster_s09_rank_02": {
+                   "disaster_s09_rank_best_2_30": [top(30, 1400000, 5)],
+                   "disaster_s09_rank_best_2_25": [
+                       top(25, 1200000, at + 100)]}}}}
     try:
         cells = {heading: dict(zip(rows_, values)) for rows_, columns in
                  [sh.rift_table(raw, None)] for heading, values in columns}
-        asia = {heading for heading, _v in sh.rift_table(
-            dict(raw, detected_region="asia"), None)[1]}
+        # No captured tops here: a part's own tops give it a column
+        # anyway, and this is to see the record give one alone.
+        asia = {heading: dict(zip(rows_, values)) for rows_, columns in
+                [sh.rift_table({"detected_region": "asia"}, None)]
+                for heading, values in columns}
     finally:
-        sh.RIFT_FINAL_TOPS = saved
-    if cells.get("9 p1", {}).get("Top Master I") != "1,728,670" \
-            or "9 p2" in cells:
-        out.append(f"with a recorded final for the part the account "
-                   f"played, the Great Rift list reads {cells}: the final "
-                   f"stands over a reading of the same top, and another "
-                   f"server's final adds no column.")
-    if "9 p2" not in asia:
-        out.append(f"an Asia account's Great Rift list has columns "
-                   f"{sorted(asia)}: a part with only a recorded final on "
-                   f"its server gets a column of its own.")
+        sh.RIFT_RECORDED_TOPS = saved
+    got = (cells.get("9 p1", {}).get("Top Master I"),
+           cells.get("9 p2", {}).get("Top Master I"),
+           cells.get("9 p2", {}).get("Top Diamond I"))
+    if got != ("1,728,670", "1,500,000", "1,200,000"):
+        out.append(f"the Great Rift list shows Master tops {got[:2]} and "
+                   f"Diamond {got[2]}, not the final 1,728,670 over a "
+                   f"captured reading, the record's 1,500,000 over an "
+                   f"earlier capture, and a later capture's 1,200,000 "
+                   f"over the record.")
+    if asia.get("9 p2", {}).get("Top Master I") != "1,567,592":
+        out.append(f"an Asia account's Great Rift list reads {asia}: a "
+                   f"part with only a recorded final on its server gets a "
+                   f"column of its own, and another server's records none.")
     return out
 
 
@@ -477,7 +497,7 @@ def run():
     failures = []
     failures.extend(_readings(sh))
     failures.extend(_tables(sh))
-    failures.extend(_recorded_finals(sh))
+    failures.extend(_recorded_tops(sh))
     failures.extend(_reading(sh))
     failures.extend(_addon_saves_nothing(sh))
     failures.extend(_once(sh))
