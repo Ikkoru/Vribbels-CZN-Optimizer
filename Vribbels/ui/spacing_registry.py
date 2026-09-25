@@ -697,6 +697,9 @@ PANEL_EDGES = [
     # capital rather than to whatever the interior scan meets first,
     # and is registered in `register_all`.
     ("Setup & Settings", "Update Status", "bottom"),
+    # Share Game Data's top meets its button. Its right and bottom are
+    # slack: the panel is stretched to the row Update Status shares.
+    ("Setup & Settings", "Share Game Data", "top"),
     ("Setup & Settings", "Settings", "top"),
     ("Setup & Settings", "Settings", "bottom"),
     ("Setup & Settings", "Links", "top"),
@@ -725,6 +728,7 @@ PANEL_EDGE_RULES = {
     # The lowest thing in Update Status is the Check Now button, so the
     # BUTTON rule applies rather than the one for text.
     ("Update Status", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
+    ("Share Game Data", "top"): (RULE_BORDER_EDGE_BUTTON, 3),
     # Each Memory Fragments filter panel ends in its All/None row, so
     # its bottom edge meets BUTTONS and takes their rule.
     ("Slots", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
@@ -802,6 +806,8 @@ CONTENT_FRAME_ENTRIES = [
     # rule applies -- see PANEL_OVER_TEXT_ENTRIES.
     ("Setup & Settings", "Setup Status -> Restore Defaults", 4, "h",
      _panel_gap("Setup Status", "Restore Defaults", "h")),
+    ("Setup & Settings", "Update Status -> Share Game Data", 4, "h",
+     _panel_gap("Update Status", "Share Game Data", "h")),
     ("Combatants", "character list -> Equipped Memory Fragments", 4, "h",
      _list_to_panel_gap("Equipped Memory Fragments")),
     # Four more pairs of panels sitting side by side. The rule's other
@@ -1651,6 +1657,11 @@ LABEL_ELEMENT_ENTRIES = [
     ("Setup & Settings", "Restore Defaults button -> its explanation", 5, None,
      lambda app: _by_text("Presets")(app).master,
      ("TButton", "Button") + LABEL_CLASSES, 0),
+    # Share Game Data's status line, beside its button the way an
+    # explanation sits beside each Restore Defaults button.
+    ("Setup & Settings", "Export Facts -> its status", 5, None,
+     lambda app: _by_text("Export Facts")(app).master,
+     ("TButton", "Button") + LABEL_CLASSES, 0),
     # The first of the three averages. Its pad is shared by all three,
     # so one entry reports the lever; the gap BETWEEN the pairs is
     # `Set Config averages` under the other rule.
@@ -2295,6 +2306,9 @@ EXPLANATION_ENTRIES = [
                           "Preset Name:", *ENTRY_CLASSES)),
     # One label, two gaps: the status line sits between the stat grid
     # and the preset list, so moving it trades one against the other.
+    ("Setup & Settings", "Export Facts -> the note under it", 7, None, "rule",
+     _controls_over_label("Share Game Data", "Saves the game facts",
+                          "TButton", "Button")),
     ("Gear Score", "stat grid -> Applied status", 7, None, "rule",
      _controls_over_label("Stat Weight Configuration",
                           "Applied ", *SPINBOX_CLASSES)),
@@ -3421,7 +3435,7 @@ PANELS = {
     # centred in a height `Links` decides, so no edge of it is a
     # distance. It carries a `unique` marker instead.
     "Setup & Settings": ["Setup Status", "Restore Defaults", "Setup Instructions",
-              "Update Status", "Settings", "Links"],
+              "Update Status", "Share Game Data", "Settings", "Links"],
 }
 
 # Panels whose left inset is NOT the border-edge rule.
@@ -3451,6 +3465,9 @@ LEFT_INSET_OVERRIDES = {
     # A different rule, at that rule's own number: the first element is
     # a button, so the button rule applies rather than the one for text.
     "Restore Defaults": (RULE_BORDER_EDGE_BUTTON, 3, "rule"),
+    # The same, for the same reason: Export Facts is the first thing in
+    # Share Game Data.
+    "Share Game Data": (RULE_BORDER_EDGE_BUTTON, 3, "rule"),
     # THIS rule, deliberately missed. The panel is built to be legible
     # before anything else on the tab, in Segoe UI 11 rather than 9, and
     # 7 is where its left edge is meant to sit. Tracked at what it is so
@@ -4814,8 +4831,14 @@ AWAITING_FIRST_READING = {
     # or a distance read off the screen and agreed, and a run measured
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
-    "purple note -> the filters",
     "status lines -> window edge",
+    # Share Game Data, registered at the rules table's targets.
+    "Share Game Data: title -> first element",
+    "Share Game Data: left edge -> content",
+    "Share Game Data: top edge -> content",
+    "Update Status -> Share Game Data",
+    "Export Facts -> its status",
+    "Export Facts -> the note under it",
 }
 
 

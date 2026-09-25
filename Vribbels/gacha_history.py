@@ -34,6 +34,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import shared_facts
+
 FOLDER = "gacha_history"
 CAPTURED = "captured.json"
 IMPORTED = "imported.json"
@@ -1025,10 +1027,13 @@ def export(history, path):
 
 # ------------------------------------------------------------- reading
 
-def load(folder, now=None):
+def load(folder, now=None, shipped=None):
     """Everything in the history folder, merged and worked out.
 
     `folder` is the snapshots folder or the history folder itself.
+    `shipped` is the program's own game facts (`shared_facts.py`): a
+    banner whose rates were never read here takes the shipped ones,
+    which is what gives an imported banner its 50/50s.
     """
     folder = Path(folder)
     if folder.name != FOLDER:
@@ -1041,8 +1046,7 @@ def load(folder, now=None):
     if note:
         history.notes.append(note)
 
-    history.rates = captured.get("rates") if isinstance(
-        captured.get("rates"), dict) else {}
+    history.rates = shared_facts.with_rates(captured.get("rates"), shipped)
     history.pity = captured.get("pity") if isinstance(
         captured.get("pity"), dict) else {}
     read = captured.get("read") if isinstance(captured.get("read"),

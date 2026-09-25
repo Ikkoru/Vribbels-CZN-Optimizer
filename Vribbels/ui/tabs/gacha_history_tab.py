@@ -15,6 +15,7 @@ few tenths of a second the first time -- spent at startup, that would
 be on every launch whether or not anyone opens the tab.
 """
 
+import functools
 import json
 import tkinter as tk
 import tkinter.font as tkfont
@@ -632,7 +633,7 @@ class GachaHistoryTab(BaseTab):
                 tree.column(gap, width=px(COLUMN_GAP),
                             minwidth=px(COLUMN_GAP), stretch=False)
         # (last column, its measured width, every column's): what
-        # `_fit_banners` shares the window's spare width from.
+        # `_fit_banners` works the window's spare width out from.
         self._natural[str(tree)] = (columns[-1][0], width,
                                     self._columns_width(tree))
         return tree
@@ -707,7 +708,7 @@ class GachaHistoryTab(BaseTab):
         """Read the history folder again and redraw both lists."""
         self._loaded = True
         try:
-            self.history = gh.load(self._folder())
+            self.history = gh.load(self._folder(), shipped=self._shipped())
         except Exception as e:                       # noqa: BLE001
             self.history = None
             self._show_status("The history could not be read: %s" % e,
@@ -892,11 +893,18 @@ class GachaHistoryTab(BaseTab):
     def _fill_standings(self):
         """Write the three standings lists from what is loaded."""
         raw = self._raw()
+        # The shipped division tops fill the Great Rift's; the other
+        # two lists have nothing a shipped fact could fill.
+        rift = functools.partial(sh.rift_table, shipped=self._shipped())
         for parts, table in ((self.sortie_list, sh.sortie_table),
-                             (self.rift_list, sh.rift_table),
+                             (self.rift_list, rift),
                              (self.offensive_list, sh.offensive_table)):
             self._write_standings(parts, *table(raw, self.stats))
         self._size_standings()
+
+    def _shipped(self):
+        """The program's own game facts, or None -- see shared_facts.py."""
+        return getattr(self.context, "shared_facts", None)
 
     def _raw(self):
         return getattr(self.optimizer, "raw_data", None) or {}

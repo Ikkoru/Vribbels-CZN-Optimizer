@@ -4,9 +4,16 @@ TWO COLUMNS, and the split is what the widths mean. The LEFT is fixed
 to what the instructions need to read without wrapping, so `Setup
 Status`, the two setup buttons and `Setup Instructions` share one edge
 down the column's whole length. Everything left over goes to the RIGHT,
-where `Restore Defaults`, `Update Status` and `Settings` stack at one
-width and one x. The last row is `Links` and `Application Information`,
-one in each column, held to ONE height.
+where `Restore Defaults`, a row of `Update Status` and `Share Game
+Data`, and `Settings` stack at one width and one x. The last row is
+`Links` and `Application Information`, one in each column, held to ONE
+height.
+
+`Share Game Data` saves the game facts the account's captures hold and
+the program does not ship (`shared_facts.py`), for the user to send in,
+and says in yellow or green whether there are any. It shares its row's
+height with `Update Status`, and its button sits under `Window Size`:
+`align_share_button` gives Update Status the width that puts it there.
 
 `Setup Instructions` is as tall as its text and no taller: a fixed
 block that never grows, so a panel sized to hold it exactly holds all
@@ -27,10 +34,11 @@ whether the right frame shows a Rename column (presets only).
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, filedialog, messagebox
 from tkinter import font as tkfont
 import json
 import copy
+from datetime import date
 import subprocess
 import ctypes
 import threading
@@ -38,6 +46,7 @@ import webbrowser
 from pathlib import Path
 import sys
 from capture import setup_certificate, open_certificate, find_mitmdump
+import shared_facts
 from ..base_tab import BaseTab
 from ..title_bar import apply_title_bar
 from ..utils.all_none_row import make_all_none_row
@@ -102,6 +111,24 @@ RESTORE_TEXT_TRIM = -2  # spacing: button -> button -- button, button ↕
 # column's own width is its widest explanation, so this is the whole of
 # the distance between the two.
 RESTORE_COLUMN_GAP = 8  # spacing: control group ↔ control group -- label, button ↔
+
+# Share Game Data, beside Update Status. Its button's left edge sits on
+# Window Size's, and Update Status takes whatever width puts it there --
+# see `align_share_button`. The inset is the button rule on every side:
+# the top and the left meet the button, and the right and the bottom
+# are slack, the panel being stretched to its row.
+SHARE_EDGE_PAD = 3      # spacing: border edge -> button -- panel, button ↔↕
+SHARE_STATUS_GAP = 2    # spacing: label ↔ its element -- button, label ↔
+SHARE_NOTE_GAP = 2      # spacing: explanation text -> the controls it explains -- button, label ↕
+# Each panel's half of the gap between Update Status and Share Game Data.
+SHARE_PANEL_PAD = 2     # spacing: content frame -> content frame -- frame, frame ↔
+SHARE_NOTE = (
+    "Saves the game facts your captures hold that the program does not "
+    "have yet. Nothing about your account goes in. Attach the file to a "
+    "new issue on GitHub and the next release passes them on to "
+    "everyone: the game stops showing most of them after a while, so "
+    "players who start later have no other way to get them.")
+SHARE_ISSUE_URL = f"https://github.com/{GITHUB_REPO}/issues/new"
 
 # The face the instructions are set in, and what a panel adds around a
 # text block of that face. The width of the LEFT COLUMN is computed
@@ -339,11 +366,22 @@ class SetupTab(BaseTab):
         self._build_setup_buttons(left)
         self._build_instructions(left)
         self._build_restore(right)
+        # Update Status and Share Game Data share a row and its height.
+        # Update Status' WIDTH is set once the tab is laid out -- see
+        # `align_share_button` -- and Share Game Data takes the rest.
+        row = self._update_row = ttk.Frame(right)
         # spacing: content frame -> content frame -- frame, frame ↔
         # spacing: panel ↕ unrelated label -- panel, title ↕
+        row.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
+        row.grid_columnconfigure(1, weight=1)
         self.update_status = UpdateStatus(
-            right, self.colors, self.root, self.context.settings_manager)
-        self.update_status.panel.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
+            row, self.colors, self.root, self.context.settings_manager)
+        # spacing: content frame -> content frame -- frame, frame ↔
+        # Each panel carries half of the gap between them.
+        self.update_status.panel.grid(row=0, column=0, sticky="nsew",
+                                      padx=px((0, SHARE_PANEL_PAD)))
+        self._build_share(row).grid(row=0, column=1, sticky="nsew",
+                                    padx=px((SHARE_PANEL_PAD, 0)))
         self._build_settings(right)
 
         # The last row of each column, and the two are held to ONE
@@ -509,8 +547,11 @@ class SetupTab(BaseTab):
 
         # The window's own size is a default like any other, and this
         # is the panel that puts defaults back.
-        ttk.Button(second, text="Window Size", width=BUTTON_W_LARGE,
-                   command=self._restore_window_size).pack(anchor=tk.NW)
+        # Held: Share Game Data's button lines up under it.
+        self._window_size_button = ttk.Button(
+            second, text="Window Size", width=BUTTON_W_LARGE,
+            command=self._restore_window_size)
+        self._window_size_button.pack(anchor=tk.NW)
 
         for index, (label, explanation, kind) in enumerate(button_specs):
             row = ttk.Frame(rows)
@@ -560,6 +601,118 @@ class SetupTab(BaseTab):
         """
         self.root.geometry("%dx%d" % (px(scaling.WINDOW_W),
                                      px(scaling.WINDOW_H)))
+
+    def _build_share(self, parent):
+        """Share Game Data: the export, whether there is anything to
+        export, and how to send it. Returns the panel for the row to
+        place."""
+        panel = self._share_panel = ttk.LabelFrame(
+            parent, text="Share Game Data", padding=px(SHARE_EDGE_PAD))
+        top = ttk.Frame(panel)
+        top.pack(fill=tk.X, anchor=tk.NW)
+        top.grid_columnconfigure(1, weight=1)
+        self._export_button = ttk.Button(
+            top, text="Export Facts", width=BUTTON_W_LARGE,
+            command=self._export_facts)
+        self._export_button.grid(row=0, column=0, sticky="nw")
+        # Filled by `_check_share`, when the tab is shown: what the
+        # account holds that the program does not, yellow, or green
+        # where it holds nothing new.
+        self._share_status = ttk.Label(top, text="")
+        # spacing: label ↔ its element -- button, label ↔
+        # **`we`, not `w`.** The label wraps at the width it is given,
+        # and a label held to its own requested width is only ever
+        # given that -- so one long line would narrow it for good.
+        self._share_status.grid(row=0, column=1, sticky="we",
+                                padx=px((SHARE_STATUS_GAP, 0)))
+        note = ttk.Label(panel, text=SHARE_NOTE, justify=tk.LEFT,
+                         foreground=self.colors["fg_dim"])
+        # spacing: explanation text -> the controls it explains -- button, label ↕
+        note.pack(fill=tk.X, anchor=tk.W, pady=px((SHARE_NOTE_GAP, 0)))
+        # Both texts wrap at the width they are given. **Before the
+        # first `<Configure>` the note asks for its whole length on one
+        # line**, and the grid lets the panel's weight absorb it; after
+        # it, each asks for what its width holds.
+        for label in (note, self._share_status):
+            label.bind("<Configure>", lambda e, w=label: w.configure(
+                wraplength=max(1, e.width)), add="+")
+        self.context.notebook.bind(
+            "<<NotebookTabChanged>>", self._on_share_tab_changed, add="+")
+        return panel
+
+    def _on_share_tab_changed(self, event):
+        """Check again whenever this tab is the one selected: a capture
+        can have added facts since it was last looked at."""
+        try:
+            if event.widget.nametowidget(event.widget.select()) is self.frame:
+                self._check_share()
+        except Exception:
+            pass
+
+    def _facts_to_share(self):
+        """(facts the account holds that the program does not ship,
+        the snapshot they came from or None)."""
+        program_dir = getattr(self.context, "program_dir", None)
+        if program_dir is None:
+            return shared_facts.empty(), None
+        raw = getattr(self.context.optimizer, "raw_data", None) or None
+        mine = shared_facts.collect_from(program_dir, raw=raw)
+        return (shared_facts.missing(mine, self.context.shared_facts),
+                raw)
+
+    def _check_share(self):
+        """Say, in the panel, whether there is anything to export."""
+        try:
+            facts, _raw = self._facts_to_share()
+        # A file too broken to read must cost this line, not the tab:
+        # anything raised here would leave it saying the last answer.
+        except Exception as exc:                            # noqa: BLE001
+            self._share_status.configure(
+                text="Could not read your captures: %s" % exc,
+                foreground=self.colors["red"])
+            return
+        what = shared_facts.describe(shared_facts.tally(facts))
+        if what:
+            self._share_status.configure(
+                text="Not in the program yet: " + what,
+                foreground=self.colors["yellow"])
+        else:
+            self._share_status.configure(
+                text="Nothing new: the program already has every fact "
+                     "your captures hold.",
+                foreground=self.colors["green"])
+
+    def _export_facts(self):
+        """Save what the program does not have yet, and offer to open a
+        new GitHub issue to attach it to."""
+        self._check_share()
+        facts, raw = self._facts_to_share()
+        if not any(shared_facts.tally(facts).values()):
+            messagebox.showinfo(
+                "Export Facts",
+                "Nothing to export: the program already has every fact "
+                "your captures hold.")
+            return
+        today = date.today().isoformat()
+        path = filedialog.asksaveasfilename(
+            title="Export Facts", defaultextension=".json",
+            initialfile="shared_facts_%s.json" % today,
+            filetypes=[("JSON", "*.json")])
+        if not path:
+            return
+        try:
+            shared_facts.write(path, shared_facts.document(
+                facts, app_version=current_version(),
+                region=(raw or {}).get("detected_region"), exported=today))
+        except OSError as exc:
+            messagebox.showerror("Export Facts",
+                                 "The file could not be saved: %s" % exc)
+            return
+        if messagebox.askyesno(
+                "Export Facts",
+                "Saved %s.\n\nOpen a new issue on GitHub to attach it to?"
+                % Path(path).name):
+            webbrowser.open(SHARE_ISSUE_URL)
 
     def _build_settings(self, parent):
         """Settings: the program's own switches, both restart-scoped."""
@@ -883,8 +1036,51 @@ class SetupTab(BaseTab):
         if getattr(self, "_bottom_row_linked", False):
             return
         self._bottom_row_linked = True
+        # Everything that can change the row's height first -- the
+        # status line's words, then the verdict rewrapped to Update
+        # Status' width -- since the two alignments after read it.
+        self._check_share()
+        self.align_share_button()
         self.align_columns()
         self.link_bottom_heights()
+
+    def align_share_button(self):
+        """Give Update Status the width that puts Export Facts' left
+        edge on Window Size's.
+
+        **Worked out from edges Update Status' own width cannot move**:
+        where Window Size sits against the row, less where Export Facts
+        sits inside its panel and the gap between the two panels. So a
+        verdict wider than the panel -- a failed check's error -- does
+        not skew the answer; it is wrapped to the width instead.
+
+        In ROOT coordinates, after layout, and idempotent: public
+        because a check calls it. See `_on_first_map`.
+        """
+        self.frame.update_idletasks()
+        # The COLUMN's width, which holds Update Status' own right pad:
+        # a grid pad sits inside its cell. Share Game Data's left pad
+        # is the next column's.
+        column = (self._window_size_button.winfo_rootx()
+                  - self._update_row.winfo_rootx()
+                  - (self._export_button.winfo_rootx()
+                     - self._share_panel.winfo_rootx())
+                  - px(SHARE_PANEL_PAD))
+        width = column - px(SHARE_PANEL_PAD)
+        if width <= 0:
+            return
+        self._update_row.grid_columnconfigure(0, minsize=column)
+        # A column's `minsize` is a floor, so the verdict is held to the
+        # width too: the panel's inset is the same on both sides, and
+        # the frame of readings starts at it. Read off that frame's
+        # POSITION -- its width is the panel's, which a long verdict
+        # has already stretched.
+        panel = self.update_status.panel
+        inset = (self.update_status.latest_label.master.winfo_rootx()
+                 - panel.winfo_rootx())
+        self.update_status.verdict.configure(
+            wraplength=max(1, width - 2 * inset))
+        self.frame.update_idletasks()
 
     def align_columns(self):
         """Line the two columns' panel edges up across the tab.
@@ -906,7 +1102,9 @@ class SetupTab(BaseTab):
         useful before the tab has been laid out -- see `_on_first_map`.
         """
         self.frame.update_idletasks()
-        pairs = ((self._instr_frame, self.update_status.panel, "top"),
+        # Update Status by its ROW: the row is what is packed, and its
+        # top is both panels' tops.
+        pairs = ((self._instr_frame, self._update_row, "top"),
                  (self._instr_frame, self._settings_frame, "bottom"))
         for first, second, edge in pairs:
             self.frame.update_idletasks()

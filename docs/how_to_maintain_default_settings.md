@@ -8,10 +8,11 @@ Maintainer workflow: what ships, what to hand-edit before a release, and how to 
 2. Check every character has a preset assigned.
 3. Check `zCreate exe.bat` reports a successful `optimizer_settings.json` cleanup.
 4. Run the release build in `dist\`.
+5. Review `shared_facts.json`'s diff: the build folded your own captures' game facts into it.
 
 ## The shipped files
 
-Three files, bundled from `default_settings/`. Everything else under `settings/` is the user's own and is never shipped.
+Three files, bundled from `default_settings/`, and a fourth that is not a setting: `shared_facts.json`, below. Everything else under `settings/` is the user's own and is never shipped.
 
 | File                      | Holds                            |
 | ------------------------- | -------------------------------- |
@@ -19,11 +20,21 @@ Three files, bundled from `default_settings/`. Everything else under `settings/`
 | `character_preset.json`   | Which preset each combatant uses |
 | `optimizer_settings.json` | Per-combatant Optimizer config   |
 
-Deleting the three from `default_settings/` and running the program copies your own `settings/` across — that is step 1, and it fires only while `default_settings/` is empty.
+Deleting the three from `default_settings/` and running the program copies your own `settings/` across — that is step 1, and it fires only for the ones missing there.
 
 `zCreate exe.bat` then runs `normalize_defaults.py`, which strips the per-user state that copy brings with it: exclude lists, the level-seen map, the levels you optimize at. Its line in the build output is step 3.
 
-**Review the diff before committing** — the copy takes your working state wholesale, so watch for anything you were mid-experiment on. The build fails outright on an empty `default_settings/`, so you cannot ship without this.
+**Review the diff before committing** — the copy takes your working state wholesale, so watch for anything you were mid-experiment on. The build fails outright while any of the three is missing, so you cannot ship without this.
+
+## Shared game facts
+
+`shared_facts.json` is built rather than copied. `zCreate exe.bat` runs `normalize/fold_shared_facts.py`, which folds the game facts your own captures hold into it and prints each one it adds. What the file is and how the program reads it: `settings_architecture.md`, *Shared game facts*.
+
+A player's `Export Facts` file arrives attached to a GitHub issue. Save it anywhere and fold it in, from `Vribbels/`:
+
+    python "default_settings/normalize/fold_shared_facts.py" path/to/shared_facts_2026-09-25.json
+
+The file goes through the same whitelist as your own facts, so nothing but game facts can land in the shipped copy, and a file that is not an export stops the run before anything is written. **Read what it prints, then the diff.** A `!` line is a banner whose rates differ from the ones held; the held ones stay, and replacing them is a hand edit once you know which are right. A later reading of a Great Rift top replacing an earlier one, and a bigger instalment total replacing a smaller one, are the fold working.
 
 ## Getting a user unstuck
 

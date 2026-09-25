@@ -10,6 +10,10 @@ cd /d "%~dp0Vribbels" || (echo CANNOT FIND Vribbels NEXT TO THIS FILE & pause & 
 
 python "./default_settings/normalize/normalize_defaults.py" || (echo NORMALIZE FAILED & pause & exit /b 1)
 
+REM The game facts every copy reads beside its own captures: yours are
+REM folded into the shipped file here. Review its diff before committing.
+python "./default_settings/normalize/fold_shared_facts.py" || (echo SHARED FACTS FOLD FAILED & pause & exit /b 1)
+
 REM Tcl/Tk 9 keeps its library inside the DLL, where PyInstaller cannot
 REM find it -- and its runtime hook then raises on the built exe's first
 REM line. This unpacks the library only when PyInstaller needs the help;
@@ -29,6 +33,7 @@ pyinstaller --onefile --windowed ^
   --add-data "default_settings\presets.json;default_settings" ^
   --add-data "default_settings\character_preset.json;default_settings" ^
   --add-data "default_settings\optimizer_settings.json;default_settings" ^
+  --add-data "default_settings\shared_facts.json;default_settings" ^
   %TCLDATA% ^
   --hidden-import "PIL._tkinter_finder" ^
   czn_optimizer_gui.py

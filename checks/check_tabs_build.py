@@ -2224,13 +2224,14 @@ def _setup_columns_hold_their_shape(tab):
             f"Setup Status, Setup Instructions and Links. Those three "
             f"share the column's fixed width; anything else in there is "
             f"pinned to a width chosen for something it is not.")
-    if set(right_panels) != {"Restore Defaults", "Update Status", "Settings",
+    if set(right_panels) != {"Restore Defaults", "Update Status",
+                             "Share Game Data", "Settings",
                              "Application Information"}:
         out.append(
             f"the Setup & Settings tab's right column holds {sorted(right_panels)}, "
-            f"not Restore Defaults, Update Status, Settings and "
-            f"Application Information. The four are stacked so they share "
-            f"one width and one x.")
+            f"not Restore Defaults, Update Status beside Share Game "
+            f"Data, Settings and Application Information. They are "
+            f"stacked so they share one width and one x.")
 
     # The two bottom panels are held to ONE height, so the row they
     # make ends on a straight edge. The linking runs on an idle
@@ -2261,6 +2262,115 @@ def _setup_columns_hold_their_shape(tab):
                 f"for {text.cget('height')}. The panel is meant to end "
                 f"where the text does -- a taller one leaves dead space "
                 f"and a shorter one hides a line behind a scrollbar.")
+    return out
+
+
+def _share_panel_lines_up(tab):
+    """Share Game Data sits beside Update Status at one height, with
+    Export Facts' left edge on Window Size's -- whatever the verdict.
+
+    The edge is set by `align_share_button`, which gives Update Status
+    the width that puts it there. A failed update check's error is the
+    widest thing Update Status can hold, and left unwrapped it widens
+    the panel past that width: the grid's `minsize` is a floor. So the
+    check sets one first. Mapped at alpha 0 at the default window size,
+    like `_the_checklist_fits_its_window`.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.scaling import px, WINDOW_H, WINDOW_W
+
+    root = tab.frame.winfo_toplevel()
+    notebook = tab.frame.master
+    verdict = tab.update_status.verdict
+    saved = verdict.cget("text")
+    out = []
+    try:
+        root.attributes("-alpha", 0.0)
+        if str(tab.frame) not in notebook.tabs():
+            notebook.add(tab.frame, text="Setup & Settings")
+        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.select(tab.frame)
+        root.geometry("%dx%d" % (px(WINDOW_W), px(WINDOW_H)))
+        root.deiconify()
+        root.update_idletasks()
+        verdict.configure(text=(
+            "Check failed: Network: [WinError 10060] A connection attempt "
+            "failed because the connected party did not properly respond "
+            "after a period of time"))
+        tab.align_share_button()
+        root.update_idletasks()
+    except tk.TclError as e:
+        return [f"Setup & Settings could not be laid out for measuring: {e}"]
+    try:
+        under, export = (tab._window_size_button.winfo_rootx(),
+                         tab._export_button.winfo_rootx())
+        if under != export:
+            out.append(
+                f"Export Facts' left edge is at x={export} and Window "
+                f"Size's at x={under}, with a failed check's error in "
+                f"Update Status. `align_share_button` sizes Update Status "
+                f"to line them up, and wraps the verdict to that width.")
+        status, share = tab.update_status.panel, tab._share_panel
+        if status.winfo_height() != share.winfo_height():
+            out.append(
+                f"Update Status is {status.winfo_height()}px tall and "
+                f"Share Game Data {share.winfo_height()}px. They share a "
+                f"row and are meant to share its height.")
+        edge = root.winfo_rootx() + root.winfo_width()
+        over = share.winfo_rootx() + share.winfo_width() - edge
+        if over > 0:
+            out.append(f"Share Game Data runs {over}px past the right "
+                       f"edge of a default-sized window.")
+    finally:
+        verdict.configure(text=saved)
+        root.withdraw()
+    out.extend(_share_status_colours(tab))
+    return out
+
+
+def _share_status_colours(tab):
+    """Share Game Data's line is yellow while the account holds facts
+    the program does not ship, and green once it holds none.
+
+    Driven through the panel's own reading of the files -- a temp
+    folder standing in for the program's, and the loaded snapshot set
+    aside -- so what is checked is what the panel does, not a copy of
+    it. Returns a list of complaints.
+    """
+    import json as _json
+    import shared_facts as sf
+
+    context, optimizer = tab.context, tab.context.optimizer
+    saved = (context.program_dir, context.shared_facts,
+             getattr(optimizer, "raw_data", None))
+    work = Path(tempfile.mkdtemp())
+    out = []
+    try:
+        (work / "settings").mkdir()
+        (work / "settings" / "checklist.json").write_text(_json.dumps(
+            {"events": {"event_stock": {"event_stock_09": 17}}}),
+            encoding="utf-8")
+        context.program_dir = work
+        optimizer.raw_data = None
+        held = sf.clean({sf.TOTALS: {"event_stock": {"event_stock_09": 17}}})
+        for shipped, colour, words in (
+                (sf.empty(), "yellow", "1 event reward total"),
+                (held, "green", "")):
+            context.shared_facts = shipped
+            tab._check_share()
+            text = str(tab._share_status.cget("text"))
+            got = str(tab._share_status.cget("foreground")).lower()
+            if got != tab.colors[colour].lower() or words not in text:
+                out.append(
+                    f"with {'nothing' if colour == 'yellow' else 'it'} "
+                    f"shipped, an account holding one instalment total "
+                    f"reads {text!r} in {got}, not {colour}"
+                    f"{' naming ' + repr(words) if words else ''}.")
+    finally:
+        context.program_dir, context.shared_facts, optimizer.raw_data = saved
+        shutil.rmtree(work, ignore_errors=True)
     return out
 
 
@@ -3805,6 +3915,7 @@ def run():
                 built["SetupTab"], root))
             failures.extend(
                 _setup_columns_hold_their_shape(built["SetupTab"]))
+            failures.extend(_share_panel_lines_up(built["SetupTab"]))
         if "ChecklistTab" in built:
             failures.extend(
                 _checklist_columns_come_first(built["ChecklistTab"]))

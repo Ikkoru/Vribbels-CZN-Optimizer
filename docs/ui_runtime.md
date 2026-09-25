@@ -107,7 +107,7 @@ Once a Treeview is mapped, a column's new width changes what it draws but not wh
 
 The Stats & Gacha History tab's standings lists rebuild their columns on every load, so `_write_standings` ends each list with a `configure(height=...)` that looks redundant: it is what makes the list ask again. `check_tabs_build` writes them twice while mapped and holds every list's requested width to its columns'.
 
-The same tab's Banners list takes half the window's spare width in its last column, again on every resize, and `_fit_banners` follows it with the same `configure`. There the symptom hides itself: a stretching last column fills the list's OLD width back out, so the columns always add up and the list simply never changes size. `check_tabs_build` resizes and holds the change the list's width makes.
+The same tab's Banners list takes the window's spare width in its last column, again on every resize, and `_fit_banners` follows it with the same `configure`. There the symptom hides itself: a stretching last column fills the list's OLD width back out, so the columns always add up and the list simply never changes size. `check_tabs_build` resizes and holds the change the list's width makes.
 
 ## The frozen build re-launches itself for every worker
 

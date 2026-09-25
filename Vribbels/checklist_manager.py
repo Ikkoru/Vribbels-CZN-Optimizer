@@ -141,6 +141,8 @@ answers in one click, where missing it costs the reward.
 import json
 from pathlib import Path
 
+import shared_facts
+
 CHECKLIST_VERSION = 1
 
 # How many daily points a currency keeps. A year, plus the day at the
@@ -367,8 +369,13 @@ class ChecklistManager:
         held[event_id] = int(count)
         self._write()
 
-    def event_total(self, family, live_id=None, same=str):
+    def event_total(self, family, live_id=None, same=str, shipped=None):
         """What an instalment of `family` holds, or None.
+
+        `shipped` is the program's own game facts (`shared_facts.py`):
+        the instalments they hold vote beside the ones recorded here,
+        the bigger count per instalment standing for it, so an account
+        that missed a family's past instalments still has their pattern.
 
         Every FINISHED instalment on record has to agree, and there
         have to be at least two of them: a family that repeats itself
@@ -385,7 +392,9 @@ class ChecklistManager:
         `event_schedule_arena_2` and `event_arena_2` are the same
         arena -- and counted as two it agrees with itself.
         """
-        held = self.events.get(str(family)) or {}
+        family = str(family)
+        held = shared_facts.totals_with(
+            {family: self.events.get(family) or {}}, shipped).get(family, {})
         live = same(str(live_id)) if live_id is not None else None
         votes = {}
         for event_id, count in held.items():
@@ -413,9 +422,13 @@ class ChecklistManager:
         held.sort()
         self._write()
 
-    def pays_final(self, family):
-        """Whether any instalment of `family` has paid a final reward."""
-        return bool(self.finals.get(str(family)))
+    def pays_final(self, family, shipped=None):
+        """Whether any instalment of `family` has paid a final reward --
+        one recorded here, or one the program ships (`shared_facts.py`).
+        """
+        family = str(family)
+        return bool(shared_facts.finals_with(
+            {family: self.finals.get(family) or []}, shipped).get(family))
 
     # ------------------------------------------------- the currency ledger
 

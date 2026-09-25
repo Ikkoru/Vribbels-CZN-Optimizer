@@ -1,0 +1,625 @@
+{
+ "facts": {
+  "banner_rates": {
+   "gacha_card_factor": {
+    "pools": {
+     "r_pool_ids": [
+      "general_r_s_20010",
+      "general_r_s_20012",
+      "general_r_s_20013",
+      "general_r_s_20015",
+      "general_r_s_20016",
+      "general_r_s_20026"
+     ],
+     "sr_combatant_pool_ids": [],
+     "sr_pool_ids": [
+      "card_factor_sr_5201040",
+      "card_factor_sr_5201050",
+      "card_factor_sr_5201056",
+      "card_factor_sr_5201005",
+      "card_factor_sr_5201021",
+      "card_factor_sr_5201028",
+      "card_factor_sr_5201009",
+      "card_factor_sr_5201017",
+      "card_factor_sr_5201039",
+      "card_factor_sr_5201003",
+      "card_factor_sr_5201049"
+     ],
+     "sr_rate_up_success_pool_ids": [],
+     "sr_supporter_pool_ids": [],
+     "ssr_pool_ids": [
+      "card_factor_ssr_5201004",
+      "card_factor_ssr_5201008",
+      "card_factor_ssr_5201010",
+      "card_factor_ssr_5201018",
+      "card_factor_ssr_5201024",
+      "card_factor_ssr_5201027",
+      "card_factor_ssr_5201033",
+      "card_factor_ssr_5201041",
+      "card_factor_ssr_5201043",
+      "card_factor_ssr_5201062",
+      "card_factor_ssr_5201064",
+      "card_factor_ssr_5201057",
+      "card_factor_ssr_5201060",
+      "card_factor_ssr_5201072",
+      "card_factor_ssr_5201052",
+      "card_factor_ssr_5201073",
+      "card_factor_ssr_5201074",
+      "card_factor_ssr_5201075",
+      "card_factor_ssr_5201061",
+      "card_factor_ssr_5201078",
+      "card_factor_ssr_5201079",
+      "card_factor_ssr_5201080",
+      "card_factor_ssr_5201077",
+      "card_factor_ssr_5201081",
+      "card_factor_ssr_5201082",
+      "card_factor_ssr_5201083"
+     ],
+     "ssr_rate_up_success_pool_ids": []
+    },
+    "rates": {
+     "r_ratio": 91000,
+     "sr_combatant_ratio": 0,
+     "sr_rate_up_success_ratio": 0,
+     "sr_ratio": 6000,
+     "sr_supporter_ratio": 0,
+     "ssr_rate_up_success_ratio": 0,
+     "ssr_ratio": 3000,
+     "total_ratio": 100000
+    },
+    "total_rate_info": {
+     "total_r_pool_pct": 83503.69,
+     "total_sr_combatant_pool_pct": 0,
+     "total_sr_pool_pct": 12968.97,
+     "total_sr_rate_up_pool_pct": 0,
+     "total_sr_supporter_pool_pct": 0,
+     "total_ssr_pool_pct": 0,
+     "total_ssr_rate_up_pool_pct": 3527.34
+    }
+   },
+   "gacha_general": {
+    "pools": {
+     "r_pool_ids": [
+      "general_r_s_20010",
+      "general_r_s_20012",
+      "general_r_s_20013",
+      "general_r_s_20015",
+      "general_r_s_20016",
+      "general_r_s_20026"
+     ],
+     "sr_combatant_pool_ids": [
+      "general_sr_c_1040",
+      "general_sr_c_1050",
+      "general_sr_c_1056",
+      "general_sr_c_1005",
+      "general_sr_c_1021",
+      "general_sr_c_1028",
+      "general_sr_c_1009",
+      "general_sr_c_1017",
+      "general_sr_c_1039",
+      "general_sr_c_1003",
+      "general_sr_c_1049"
+     ],
+     "sr_pool_ids": [],
+     "sr_rate_up_success_pool_ids": [],
+     "sr_supporter_pool_ids": [
+      "general_sr_s_20001",
+      "general_sr_s_20003",
+      "general_sr_s_20007",
+      "general_sr_s_20024",
+      "general_sr_s_20025",
+      "general_sr_s_20027",
+      "general_sr_s_20035",
+      "general_sr_s_20036",
+      "general_sr_s_20032",
+      "general_sr_s_20033",
+      "general_sr_s_20011"
+     ],
+     "ssr_pool_ids": [
+      "general_ssr_c_1004",
+      "general_ssr_c_1008",
+      "general_ssr_c_1010",
+      "general_ssr_c_1018",
+      "general_ssr_c_1024",
+      "general_ssr_c_1027",
+      "general_ssr_c_1033",
+      "general_ssr_c_1041",
+      "general_ssr_c_1043",
+      "general_ssr_c_1064",
+      "general_ssr_c_1062",
+      "general_ssr_c_1057",
+      "general_ssr_c_1060",
+      "general_ssr_c_1052",
+      "general_ssr_c_30047",
+      "general_ssr_c_30084",
+      "general_ssr_c_30097",
+      "general_ssr_c_1061",
+      "general_ssr_c_1055",
+      "general_ssr_c_1069",
+      "general_ssr_c_30048",
+      "general_ssr_c_30113"
+     ],
+     "ssr_rate_up_success_pool_ids": []
+    },
+    "rates": {
+     "r_ratio": 93000,
+     "sr_combatant_ratio": 3000,
+     "sr_rate_up_success_ratio": 0,
+     "sr_ratio": 0,
+     "sr_supporter_ratio": 3000,
+     "ssr_rate_up_success_ratio": 0,
+     "ssr_ratio": 1000,
+     "total_ratio": 100000
+    },
+    "total_rate_info": {
+     "total_r_pool_pct": 84873.45,
+     "total_sr_combatant_pool_pct": 6491.57,
+     "total_sr_pool_pct": 0,
+     "total_sr_rate_up_pool_pct": 0,
+     "total_sr_supporter_pool_pct": 6491.57,
+     "total_ssr_pool_pct": 2143.43,
+     "total_ssr_rate_up_pool_pct": 0
+    }
+   },
+   "gacha_general_supporter": {
+    "pools": {
+     "r_pool_ids": [
+      "general_r_s_20010",
+      "general_r_s_20012",
+      "general_r_s_20013",
+      "general_r_s_20015",
+      "general_r_s_20016",
+      "general_r_s_20026"
+     ],
+     "sr_combatant_pool_ids": [
+      "general_sr_c_1040",
+      "general_sr_c_1050",
+      "general_sr_c_1056",
+      "general_sr_c_1005",
+      "general_sr_c_1021",
+      "general_sr_c_1028",
+      "general_sr_c_1009",
+      "general_sr_c_1017",
+      "general_sr_c_1039",
+      "general_sr_c_1003",
+      "general_sr_c_1049"
+     ],
+     "sr_pool_ids": [],
+     "sr_rate_up_success_pool_ids": [],
+     "sr_supporter_pool_ids": [
+      "general_sr_s_20001",
+      "general_sr_s_20003",
+      "general_sr_s_20007",
+      "general_sr_s_20024",
+      "general_sr_s_20025",
+      "general_sr_s_20027",
+      "general_sr_s_20035",
+      "general_sr_s_20036",
+      "general_sr_s_20032",
+      "general_sr_s_20033",
+      "general_sr_s_20011"
+     ],
+     "ssr_pool_ids": [
+      "general_ssr_s_20004",
+      "general_ssr_s_20009",
+      "general_ssr_s_20021",
+      "general_ssr_s_20030",
+      "general_ssr_s_20034",
+      "general_ssr_s_20037",
+      "general_ssr_s_20038",
+      "general_ssr_s_30051",
+      "general_ssr_s_30052",
+      "general_ssr_s_30054",
+      "general_ssr_s_30045",
+      "general_ssr_s_30044",
+      "general_ssr_s_30046",
+      "general_ssr_s_20002",
+      "general_ssr_s_30091",
+      "general_ssr_s_30085",
+      "general_ssr_s_1025",
+      "general_ssr_s_30053",
+      "general_ssr_s_30095",
+      "general_ssr_s_1070",
+      "general_ssr_s_30092",
+      "general_ssr_s_30114"
+     ],
+     "ssr_rate_up_success_pool_ids": []
+    },
+    "rates": {
+     "r_ratio": 93000,
+     "sr_combatant_ratio": 3000,
+     "sr_rate_up_success_ratio": 0,
+     "sr_ratio": 0,
+     "sr_supporter_ratio": 3000,
+     "ssr_rate_up_success_ratio": 0,
+     "ssr_ratio": 1000,
+     "total_ratio": 100000
+    },
+    "total_rate_info": {
+     "total_r_pool_pct": 84873.45,
+     "total_sr_combatant_pool_pct": 6491.57,
+     "total_sr_pool_pct": 0,
+     "total_sr_rate_up_pool_pct": 0,
+     "total_sr_supporter_pool_pct": 6491.57,
+     "total_ssr_pool_pct": 2143.43,
+     "total_ssr_rate_up_pool_pct": 0
+    }
+   },
+   "gacha_pickup_combatant_1052_1": {
+    "pools": {
+     "r_pool_ids": [
+      "general_r_s_20010",
+      "general_r_s_20012",
+      "general_r_s_20013",
+      "general_r_s_20015",
+      "general_r_s_20016",
+      "general_r_s_20026"
+     ],
+     "sr_combatant_pool_ids": [
+      "pickup_c_5_sr_c_1040",
+      "pickup_c_5_sr_c_1050",
+      "pickup_c_5_sr_c_1056",
+      "pickup_c_5_sr_c_1005",
+      "pickup_c_5_sr_c_1009",
+      "pickup_c_5_sr_c_1017",
+      "pickup_c_5_sr_c_1039",
+      "pickup_c_5_sr_c_1003",
+      "pickup_c_5_sr_c_1049"
+     ],
+     "sr_pool_ids": [],
+     "sr_rate_up_success_pool_ids": [
+      "pickup_c_5_rateup_sr_c_1021",
+      "pickup_c_5_rateup_sr_c_1028"
+     ],
+     "sr_supporter_pool_ids": [
+      "general_sr_s_20001",
+      "general_sr_s_20003",
+      "general_sr_s_20007",
+      "general_sr_s_20024",
+      "general_sr_s_20025",
+      "general_sr_s_20027",
+      "general_sr_s_20035",
+      "general_sr_s_20036",
+      "general_sr_s_20032",
+      "general_sr_s_20033",
+      "general_sr_s_20011"
+     ],
+     "ssr_pool_ids": [
+      "general_ssr_c_1052_1_1004",
+      "general_ssr_c_1052_1_1008",
+      "general_ssr_c_1052_1_1010",
+      "general_ssr_c_1052_1_1018",
+      "general_ssr_c_1052_1_1024",
+      "general_ssr_c_1052_1_1027",
+      "general_ssr_c_1052_1_1033",
+      "general_ssr_c_1052_1_1041",
+      "general_ssr_c_1052_1_1043",
+      "general_ssr_c_1052_1_1064",
+      "general_ssr_c_1052_1_1062",
+      "general_ssr_c_1052_1_1057",
+      "general_ssr_c_1052_1_1060",
+      "general_ssr_c_1052_1_30047",
+      "general_ssr_c_1052_1_30084",
+      "general_ssr_c_1052_1_30097",
+      "general_ssr_c_1052_1_1061",
+      "general_ssr_c_1052_1_1055",
+      "general_ssr_c_1052_1_1069",
+      "general_ssr_c_1052_1_30048",
+      "general_ssr_c_1052_1_30113"
+     ],
+     "ssr_rate_up_success_pool_ids": [
+      "pickup_c_5_rateup_ssr_c_1052"
+     ]
+    },
+    "rates": {
+     "r_ratio": 93000,
+     "sr_combatant_ratio": 1500,
+     "sr_rate_up_success_ratio": 3000,
+     "sr_ratio": 0,
+     "sr_supporter_ratio": 1500,
+     "ssr_rate_up_success_ratio": 500,
+     "ssr_ratio": 500,
+     "total_ratio": 100000
+    },
+    "total_rate_info": {
+     "total_r_pool_pct": 84873.45,
+     "total_sr_combatant_pool_pct": 2163.86,
+     "total_sr_pool_pct": 0,
+     "total_sr_rate_up_pool_pct": 8655.42,
+     "total_sr_supporter_pool_pct": 2163.86,
+     "total_ssr_pool_pct": 714.48,
+     "total_ssr_rate_up_pool_pct": 1428.95
+    }
+   },
+   "gacha_pickup_combatant_30117": {
+    "pools": {
+     "r_pool_ids": [
+      "general_r_s_20010",
+      "general_r_s_20012",
+      "general_r_s_20013",
+      "general_r_s_20015",
+      "general_r_s_20016",
+      "general_r_s_20026"
+     ],
+     "sr_combatant_pool_ids": [
+      "pickup_c_16_sr_c_1040",
+      "pickup_c_16_sr_c_1050",
+      "pickup_c_16_sr_c_1056",
+      "pickup_c_16_sr_c_1005",
+      "pickup_c_16_sr_c_1021",
+      "pickup_c_16_sr_c_1028",
+      "pickup_c_16_sr_c_1017",
+      "pickup_c_16_sr_c_1003",
+      "pickup_c_16_sr_c_1049"
+     ],
+     "sr_pool_ids": [],
+     "sr_rate_up_success_pool_ids": [
+      "pickup_c_16_rateup_sr_c_1009",
+      "pickup_c_16_rateup_sr_c_1039"
+     ],
+     "sr_supporter_pool_ids": [
+      "general_sr_s_20001",
+      "general_sr_s_20003",
+      "general_sr_s_20007",
+      "general_sr_s_20024",
+      "general_sr_s_20025",
+      "general_sr_s_20027",
+      "general_sr_s_20035",
+      "general_sr_s_20036",
+      "general_sr_s_20032",
+      "general_sr_s_20033",
+      "general_sr_s_20011"
+     ],
+     "ssr_pool_ids": [
+      "general_ssr_c_1004",
+      "general_ssr_c_1008",
+      "general_ssr_c_1010",
+      "general_ssr_c_1018",
+      "general_ssr_c_1024",
+      "general_ssr_c_1027",
+      "general_ssr_c_1033",
+      "general_ssr_c_1041",
+      "general_ssr_c_1043",
+      "general_ssr_c_1064",
+      "general_ssr_c_1062",
+      "general_ssr_c_1057",
+      "general_ssr_c_1060",
+      "general_ssr_c_1052",
+      "general_ssr_c_30047",
+      "general_ssr_c_30084",
+      "general_ssr_c_30097",
+      "general_ssr_c_1061",
+      "general_ssr_c_1055",
+      "general_ssr_c_1069",
+      "general_ssr_c_30048",
+      "general_ssr_c_30113"
+     ],
+     "ssr_rate_up_success_pool_ids": [
+      "pickup_c_16_rateup_ssr_c_30117"
+     ]
+    },
+    "rates": {
+     "r_ratio": 93000,
+     "sr_combatant_ratio": 1500,
+     "sr_rate_up_success_ratio": 3000,
+     "sr_ratio": 0,
+     "sr_supporter_ratio": 1500,
+     "ssr_rate_up_success_ratio": 500,
+     "ssr_ratio": 500,
+     "total_ratio": 100000
+    },
+    "total_rate_info": {
+     "total_r_pool_pct": 84873.45,
+     "total_sr_combatant_pool_pct": 2163.86,
+     "total_sr_pool_pct": 0,
+     "total_sr_rate_up_pool_pct": 8655.42,
+     "total_sr_supporter_pool_pct": 2163.86,
+     "total_ssr_pool_pct": 714.48,
+     "total_ssr_rate_up_pool_pct": 1428.95
+    }
+   },
+   "gacha_pickup_supporter_20002_1": {
+    "pools": {
+     "r_pool_ids": [
+      "general_r_s_20010",
+      "general_r_s_20012",
+      "general_r_s_20013",
+      "general_r_s_20015",
+      "general_r_s_20016",
+      "general_r_s_20026"
+     ],
+     "sr_combatant_pool_ids": [
+      "general_1_sr_c_1040",
+      "general_1_sr_c_1050",
+      "general_1_sr_c_1056",
+      "general_1_sr_c_1005",
+      "general_1_sr_c_1021",
+      "general_1_sr_c_1028",
+      "general_1_sr_c_1009",
+      "general_1_sr_c_1017",
+      "general_1_sr_c_1039",
+      "general_1_sr_c_1003",
+      "general_1_sr_c_1049"
+     ],
+     "sr_pool_ids": [],
+     "sr_rate_up_success_pool_ids": [
+      "pickup_s_5_rateup_sr_s_20007",
+      "pickup_s_5_rateup_sr_s_20032"
+     ],
+     "sr_supporter_pool_ids": [
+      "pickup_s_5_sr_s_20001",
+      "pickup_s_5_sr_s_20003",
+      "pickup_s_5_sr_s_20024",
+      "pickup_s_5_sr_s_20025",
+      "pickup_s_5_sr_s_20027",
+      "pickup_s_5_sr_s_20035",
+      "pickup_s_5_sr_s_20036",
+      "pickup_s_5_sr_s_20033",
+      "pickup_s_5_sr_s_20011"
+     ],
+     "ssr_pool_ids": [],
+     "ssr_rate_up_success_pool_ids": [
+      "pickup_s_5_rateup_ssr_s_20002"
+     ]
+    },
+    "rates": {
+     "r_ratio": 93000,
+     "sr_combatant_ratio": 1500,
+     "sr_rate_up_success_ratio": 3000,
+     "sr_ratio": 0,
+     "sr_supporter_ratio": 1500,
+     "ssr_rate_up_success_ratio": 1000,
+     "ssr_ratio": 0,
+     "total_ratio": 100000
+    },
+    "total_rate_info": {
+     "total_r_pool_pct": 84873.45,
+     "total_sr_combatant_pool_pct": 2163.86,
+     "total_sr_pool_pct": 0,
+     "total_sr_rate_up_pool_pct": 8655.42,
+     "total_sr_supporter_pool_pct": 2163.86,
+     "total_ssr_pool_pct": 0,
+     "total_ssr_rate_up_pool_pct": 2143.43
+    }
+   },
+   "gacha_pickup_supporter_30118": {
+    "pools": {
+     "r_pool_ids": [
+      "general_r_s_20010",
+      "general_r_s_20012",
+      "general_r_s_20013",
+      "general_r_s_20015",
+      "general_r_s_20016",
+      "general_r_s_20026"
+     ],
+     "sr_combatant_pool_ids": [
+      "general_sr_c_1040",
+      "general_sr_c_1050",
+      "general_sr_c_1056",
+      "general_sr_c_1005",
+      "general_sr_c_1021",
+      "general_sr_c_1028",
+      "general_sr_c_1009",
+      "general_sr_c_1017",
+      "general_sr_c_1039",
+      "general_sr_c_1003",
+      "general_sr_c_1049"
+     ],
+     "sr_pool_ids": [],
+     "sr_rate_up_success_pool_ids": [
+      "pickup_s_16_rateup_sr_s_20003",
+      "pickup_s_16_rateup_sr_s_20027"
+     ],
+     "sr_supporter_pool_ids": [
+      "pickup_s_16_sr_s_20001",
+      "pickup_s_16_sr_s_20007",
+      "pickup_s_16_sr_s_20024",
+      "pickup_s_16_sr_s_20025",
+      "pickup_s_16_sr_s_20035",
+      "pickup_s_16_sr_s_20036",
+      "pickup_s_16_sr_s_20032",
+      "pickup_s_16_sr_s_20033",
+      "pickup_s_16_sr_s_20011"
+     ],
+     "ssr_pool_ids": [],
+     "ssr_rate_up_success_pool_ids": [
+      "pickup_s_16_rateup_ssr_s_30118"
+     ]
+    },
+    "rates": {
+     "r_ratio": 93000,
+     "sr_combatant_ratio": 1500,
+     "sr_rate_up_success_ratio": 3000,
+     "sr_ratio": 0,
+     "sr_supporter_ratio": 1500,
+     "ssr_rate_up_success_ratio": 1000,
+     "ssr_ratio": 0,
+     "total_ratio": 100000
+    },
+    "total_rate_info": {
+     "total_r_pool_pct": 84873.45,
+     "total_sr_combatant_pool_pct": 2163.86,
+     "total_sr_pool_pct": 0,
+     "total_sr_rate_up_pool_pct": 8655.42,
+     "total_sr_supporter_pool_pct": 2163.86,
+     "total_ssr_pool_pct": 0,
+     "total_ssr_rate_up_pool_pct": 2143.43
+    }
+   }
+  },
+  "final_rewards": {
+   "event_bartender": [
+    "event_bartender_01"
+   ],
+   "event_nodelist": [
+    "event_nodelist_006",
+    "event_nodelist_007"
+   ],
+   "event_stock": [
+    "event_stock_01"
+   ]
+  },
+  "instalment_totals": {
+   "event_love": {
+    "event_schedule_love_4": 21
+   },
+   "event_nodelist": {
+    "event_nodelist_006": 25,
+    "event_nodelist_007": 25
+   },
+   "event_policy": {
+    "event_schedule_policy_005": 6
+   },
+   "event_stock": {
+    "event_stock_01": 17
+   }
+  },
+  "rift_tops": {
+   "global": {
+    "disaster_s04": {
+     "disaster_s04_rank_02": {
+      "disaster_s04_rank_best_2_10": {
+       "best_score": 416150,
+       "rank": 23681,
+       "read_at": 1790291697
+      },
+      "disaster_s04_rank_best_2_15": {
+       "best_score": 641179,
+       "rank": 12314,
+       "read_at": 1790291696
+      },
+      "disaster_s04_rank_best_2_20": {
+       "best_score": 1013210,
+       "rank": 4737,
+       "read_at": 1790291695
+      },
+      "disaster_s04_rank_best_2_25": {
+       "best_score": 1219348,
+       "rank": 948,
+       "read_at": 1790291693
+      },
+      "disaster_s04_rank_best_2_30": {
+       "best_score": 1635631,
+       "rank": 1,
+       "read_at": 1790272379
+      },
+      "disaster_s04_rank_best_2_5": {
+       "best_score": 171853,
+       "rank": 35521,
+       "read_at": 1790291697
+      }
+     }
+    }
+   }
+  },
+  "trial_slots": {
+   "event_combatant_trial_4": [
+    "combatant_trial_1052",
+    "combatant_trial_1021",
+    "combatant_trial_1028"
+   ]
+  }
+ },
+ "kind": "vribbels shared facts",
+ "version": 1
+}

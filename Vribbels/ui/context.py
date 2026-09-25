@@ -101,6 +101,13 @@ class AppContext:
     # Where `stats_history.py` keeps what it read out of old debug
     # captures: the user's settings folder.
     stats_dir: Optional[Path] = None
+    # The game facts that ship with the program, read beside the
+    # account's own -- see shared_facts.py. None reads as none shipped,
+    # which is what a tab built without the app gets.
+    shared_facts: Optional[dict] = None
+    # Where the account's own facts are read from for the Share Game
+    # Data panel: the folder holding `settings/` and `snapshots/`.
+    program_dir: Optional[Path] = None
     # Re-renders the LAST "[LIVE] Upgraded" capture-log line against the
     # current Log Presets selection. Set by the main GUI; the Capture
     # tab calls it after a checklist toggle. Optional -- callers must

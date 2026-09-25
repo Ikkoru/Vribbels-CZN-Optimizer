@@ -90,6 +90,7 @@ import excursions
 import item_amounts
 import period_items
 import schedules
+import shared_facts
 import shop_stock
 import weekly_reset
 from game_data.constants import item_names
@@ -1356,7 +1357,8 @@ def _event_trials(raw, name, window, now):
     if not isinstance(window, dict) or not _is_count(window.get("start_time")):
         return []
     most = _trial_count(raw, window)
-    pairs = (raw or {}).get(TRIAL_SLOTS_FIELD)
+    raw = raw or {}
+    pairs = raw.get(TRIAL_SLOTS_KNOWN, raw.get(TRIAL_SLOTS_FIELD))
     slots = pairs.get(name) if isinstance(pairs, dict) else None
     if slots:
         began, ends = window["start_time"], window.get("end_time")
@@ -1996,9 +1998,20 @@ OVERCLOCK_SHAPE_SIGHTINGS = 2
 # to one by its date. The pairing is learned from the claim itself --
 # `reward_combatant_trial` names both ids -- and the capture keeps it
 # under `combatant_trial_slots`. Until a slot has been claimed once
-# with a capture running, the row shows its deadline alone.
+# with a capture running, the row shows its deadline alone -- unless the
+# program ships the pairing (`shared_facts.py`).
 TRIAL_SLOTS_FIELD = "combatant_trial_slots"
 TRIAL_FIELD = "combat_trial_entities"
+# Where `refresh_checklist` leaves the capture's pairings with the
+# shipped ones added. The program's own key, on `raw` and saved by
+# nothing, like `EVENT_TOTALS_FIELD`; a reader handed a snapshot
+# without it reads the capture's own.
+TRIAL_SLOTS_KNOWN = "_checklist_trial_slots"
+
+
+def _shipped(context):
+    """The program's own game facts, or None -- see shared_facts.py."""
+    return getattr(context, "shared_facts", None)
 
 # Three trials PER COMBATANT BANNER running: the event offers the
 # banner combatants, so a second banner doubles the trials. Counted off
@@ -3032,6 +3045,8 @@ class ChecklistTab(BaseTab):
         Called automatically after data loads.
         """
         raw = getattr(self.optimizer, "raw_data", None) or {}
+        raw[TRIAL_SLOTS_KNOWN] = shared_facts.with_slots(
+            raw.get(TRIAL_SLOTS_FIELD), _shipped(self.context))
         self._recall_streaks(raw)
         self._recall_event_totals(raw, time.time())
         self._recall_finals(raw, time.time())
@@ -3081,7 +3096,8 @@ class ChecklistTab(BaseTab):
         for group in EVENT_GROUPS:
             for name, _window in schedules.all_live(group, raw, now):
                 total = manager.event_total(_stem(_event_key(name)), name,
-                                            same=_event_key)
+                                            same=_event_key,
+                                            shipped=_shipped(self.context))
                 if total is not None:
                     totals[name] = total
         raw[EVENT_TOTALS_FIELD] = totals
@@ -3113,7 +3129,8 @@ class ChecklistTab(BaseTab):
         raw[EVENT_FINALS_FIELD] = frozenset(
             name for group in EVENT_GROUPS
             for name, _window in schedules.all_live(group, raw, now)
-            if manager.pays_final(_stem(_event_key(name))))
+            if manager.pays_final(_stem(_event_key(name)),
+                                  shipped=_shipped(self.context)))
 
     def _mark_finished(self, raw, readings):
         """Fold the user's `Finished?` answers into the readings.

@@ -20,7 +20,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 
 - **Build: `zCreate exe.bat`** (PyInstaller, onefile).
   - **Edit the bat, never the spec.** `--add-data` is passed on the command line, so `Vribbels_CZN_Optimizer_Ikkoru.spec` is an artifact the build overwrites.
-  - Two scripts run first, and either failing stops the build. `Vribbels/default_settings/normalize/normalize_defaults.py` fails if `Vribbels/default_settings/` is missing its three JSONs — workflow in `docs/how_to_maintain_default_settings.md`. `Vribbels/build_tcl/prepare_tcl_data.py` unpacks Tcl/Tk's library only when PyInstaller cannot collect it.
+  - Three scripts run first, and any failing stops the build. `Vribbels/default_settings/normalize/normalize_defaults.py` fails if `Vribbels/default_settings/` is missing its three JSONs — workflow in `docs/how_to_maintain_default_settings.md`. `fold_shared_facts.py`, beside it, folds the maintainer's game facts into the shipped `shared_facts.json`. `Vribbels/build_tcl/prepare_tcl_data.py` unpacks Tcl/Tk's library only when PyInstaller cannot collect it.
   - **Tcl 9 keeps its library inside the DLL.** PyInstaller then finds no data files and its own runtime hook raises on the exe's first line: the build succeeds and the executable dies before any window.
 - Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its target. It photographs the screen and needs the maintainer at the keyboard — **ask before running one.** A normal launch never imports it. The launchers, the preconditions and how to read the table: the `spacing-audit` skill.
 
@@ -48,7 +48,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | Area                                                                         | Doc                                                                                                                      |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Game math: damage, shield/heal, set effects, scoring                         | `docs/game_formulas.md` (canonical)                                                                                      |
-| `*_manager.py`, `defaults_sync.py`, Restore Defaults, settings files         | `docs/settings_architecture.md`                                                                                          |
+| `*_manager.py`, `defaults_sync.py`, Restore Defaults, settings files, shared game facts | `docs/settings_architecture.md`                                                                               |
 | Shipping `default_settings/` — maintainer workflow                           | `docs/how_to_maintain_default_settings.md`                                                                               |
 | `capture/`, snapshot parsing, char-vs-partner classification                 | `docs/capture_pipeline.md`                                                                                               |
 | Folding superseded captures into the archive                                 | `Vribbels/capture/archive.py`, run by hand with `docs/snapshots_archive.py`                                              |

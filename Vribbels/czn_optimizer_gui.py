@@ -97,6 +97,7 @@ from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
 # Reconciles bundled defaults in `default_settings/` with the user's
 # `settings/` folder. Must run BEFORE any manager loads.
 from defaults_sync import sync_defaults
+import shared_facts
 # The Upgrade Log Settings, as a decision rather than as widgets:
 # the Memory Fragments columns can ask the same question the
 # Upgraded line asks, and get the same answer.
@@ -862,6 +863,10 @@ class OptimizerGUI:
         self.app_context.log_presets_manager = self.log_presets_manager
         self.app_context.checklist_manager = self.checklist_manager
         self.app_context.stats_dir = program_dir / "settings"
+        self.app_context.program_dir = program_dir
+        # Read once: the shipped copy never changes while the app runs.
+        self.app_context.shared_facts = shared_facts.load(
+            shared_facts.shipped_path(defaults_dir))
         self.app_context.recompute_upgrade_line_callback = (
             self.recompute_last_upgrade_line
         )

@@ -359,11 +359,20 @@ def sortie_seasons(raw, history):
     return sorted(out, key=lambda s: -s[0])
 
 
-def rift_halves(raw, history):
+def rift_halves(raw, history, shipped=None):
     """[(season, half, standing, tops)] for every Great Rift half the
     account has a standing in, newest first. `tops` is that half's
-    {rank_id: samples}, empty where its ranking was never opened."""
+    {rank_id: samples}, empty where its ranking was never opened here
+    and the program ships none for the account's server.
+
+    `shipped` is the program's own game facts (`shared_facts.py`). They
+    fill a half the account played; a half it has no standing in gets
+    no column however many tops ship for it."""
     tops = merged(raw, history, "disaster_boss_rank_tops")
+    if shipped:
+        import shared_facts
+        tops = shared_facts.tops_with(tops, shipped,
+                                      (raw or {}).get("detected_region"))
     out = []
     for season_id, halves in ((raw or {}).get(
             "disaster_boss_rank_entities") or {}).items():
@@ -418,9 +427,9 @@ def _top_of(tops, number):
     return None
 
 
-def rift_table(raw, history):
+def rift_table(raw, history, shipped=None):
     """The Great Rift list: a column per half, `4 p2` for season 4's
-    second.
+    second. `shipped` as `rift_halves` takes it.
 
     **A division's list starts at its subdivision I**, and the game lists
     a hundred places of each -- so the top score it shows for a division
@@ -433,7 +442,7 @@ def rift_table(raw, history):
     was looking, and sits a little higher. The share of the field is
     worked out only where that half's division tops were read.
     """
-    halves = rift_halves(raw, history)
+    halves = rift_halves(raw, history, shipped)
     # Each division's subdivision I, Master's first: 30, 25, .. 5.
     tops_of = range(len(SHARES), 0, -len(TIERS))
     columns = []
