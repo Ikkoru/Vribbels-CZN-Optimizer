@@ -160,7 +160,7 @@ What a family would need, then, is not a number but a RULE: `{page prefix: (whic
 | **Likely finished** | claimed equals the floor and the tally has not moved for two days | orange — see `FLOOR_SETTLES_AFTER` |
 | **Unknown** | anything else | red, with `+?` where the denominator is a floor |
 
-**Nothing on the wire closes the gap between the second row and the fourth.** What would is a statement that an event's rewards are all mission rows, which nothing makes and which `event_bartender_1` and `event_summer_01` are both counter-examples to. So the tab asks instead: a row at an unproven ceiling carries a `Finished?` checkbox, and the person who can see the game answers it. That answer is evidence of a different kind from the rest of this page -- it is not checkable, so it is held to the reading it was given for and retired the moment that reading moves.
+**Nothing on the wire closes the gap between the page-whole `Finished` and `Likely finished`.** What would is a statement that an event's rewards are all mission rows, which nothing makes and which `event_bartender_1` and `event_summer_01` are both counter-examples to. So the tab asks instead: a row at an unproven ceiling carries a `Finished?` checkbox, and the person who can see the game answers it. That answer is evidence of a different kind from the rest of this page -- it is not checkable, so it is held to the reading it was given for and retired the moment that reading moves.
 
 ### What the game's own screens say, and what the program derives
 

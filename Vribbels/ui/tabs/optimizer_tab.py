@@ -2227,7 +2227,8 @@ class OptimizerTab(BaseTab):
             # one until the real id is known. Writing it into the
             # settings leaves an entry keyed to a number that will
             # change, and an exclusion nobody can find the character
-            # for. See `docs/game_data_files.md`.
+            # for. See `docs/game_data_files.md`, *Finding a newly
+            # released unit's res_id*.
             if rid < 0:
                 continue
             rid_str = str(rid)

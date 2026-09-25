@@ -77,7 +77,7 @@ The whole potential tree in one tuple — display order, the game's numbering, t
 
 A capture is ownership-scoped, so a unit you do not have appears nowhere — hence the negative placeholder keys. Two exceptions:
 
-**The gacha schedule.** Each pickup banner is named `gacha_pickup_<combatant|supporter>_<res_id>[_<rerun>]`, a server-side definition indifferent to what the account owns. Banners come in Combatant/Supporter pairs sharing a window, so a release names both halves the day it opens. A capture records the schedule under `event_schedules.GACHA` and logs `Banner ... names res_id N, which is not in game_data` for anything the tables cannot place. See `capture_pipeline.md`.
+**The gacha schedule.** Each pickup banner is named `gacha_pickup_<combatant|supporter>_<res_id>[_<rerun>]`, a server-side definition indifferent to what the account owns. Banners come in Combatant/Supporter pairs sharing a window, so a release names both halves the day it opens. A capture records the schedule under `event_schedules.GACHA` and logs `Banner ... names res_id N, which is not in game_data` for anything the tables cannot place. See `capture_pipeline.md`, *The gacha schedule names unreleased units*.
 
 **The duplicate-exchange shop**, which also gives a class: `shop_res_data.shop_gacha_dup`, sub-category `shop_gacha_dup_unique_2`, one product per grade-5 supporter, tagged `..._supporter_<class>`. It says `knight` where `partners.py` says `Vanguard`, and it reaches further back than the schedule.
 

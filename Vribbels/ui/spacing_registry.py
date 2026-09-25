@@ -1863,7 +1863,8 @@ def _box_to_window_edge(locator):
     """Resolver: a widget's BOX right edge -> the window's.
 
     For a `content frame -> content frame` gap against the edge, which
-    is the one rule measured box to box -- see `ui_spacing.md`. The
+    is the one rule measured box to box -- see `ui_spacing.md`,
+    *Checking spacing*. The
     painted version cannot answer it here: a Checklist column reserves
     room for the widest reading any of its rows COULD show, so its
     last painted pixel sits wherever the widest row it happens to hold

@@ -461,14 +461,15 @@ def _shipped_fields(raw, shipped, kind):
 
 
 def rift_halves(raw, history, shipped=None):
-    """[(season, half, standing, tops)] for every Great Rift half the
-    account has a standing in, newest first. `tops` is that half's
-    {rank_id: samples}, empty where its ranking was never opened here
-    and the program ships none for the account's server.
+    """[(season, half, standing, tops)] for every Great Rift half known
+    on the account's server, newest first: one it has a standing in,
+    one it read or the program ships tops of, and one with a recorded
+    top (`RIFT_RECORDED_TOPS`). `standing` is empty for a half the
+    account did not play, and `tops` is the half's {rank_id: samples},
+    empty where nothing about its divisions is known.
 
-    `shipped` is the program's own game facts (`shared_facts.py`). They
-    fill a half the account played; a half it has no standing in gets
-    no column however many tops ship for it."""
+    `shipped` is the program's own game facts (`shared_facts.py`), on
+    the account's server only."""
     tops = merged(raw, history, "disaster_boss_rank_tops")
     region = (raw or {}).get("detected_region")
     if shipped:

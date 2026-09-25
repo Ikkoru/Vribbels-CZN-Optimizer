@@ -385,7 +385,7 @@ The three border colours reach only a scrollbar's edges; the two that fill it ar
 
 `TScale` splits the same way — trough is `troughcolor`, slider is `background`. Both are configured on `TScrollbar` / `TScale` rather than per-orientation; the horizontal and vertical variants inherit from one style.
 
-**Every scrollbar in the app is a `ttk.Scrollbar`**, so this one style paints all of them: the colours above, `SCROLLBAR_WIDTH` thick (`czn_optimizer_gui.py`). `scrolledtext.ScrolledText` would not be: it builds its own `tk.Frame` and `tk.Scrollbar` that no constructor keyword reaches, which is why `ui/utils/scrolled_text.py` builds the pair itself instead. See `ui_runtime.md`.
+**Every scrollbar in the app is a `ttk.Scrollbar`**, so this one style paints all of them: the colours above, `SCROLLBAR_WIDTH` thick (`czn_optimizer_gui.py`). `scrolledtext.ScrolledText` would not be: it builds its own `tk.Frame` and `tk.Scrollbar` that no constructor keyword reaches, which is why `ui/utils/scrolled_text.py` builds the pair itself instead. See `ui_runtime.md`, *A ScrolledText flashes for a SECOND reason*.
 
 ### The audit's definition of ink
 

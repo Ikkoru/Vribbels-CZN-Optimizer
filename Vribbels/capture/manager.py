@@ -1081,8 +1081,8 @@ class Addon:
         #
         # **`drop_item` is NOT a third name for it.** It is the run's
         # accumulated tally, re-sent after every battle and never the
-        # payout -- see `docs/capture_pipeline.md` and the check that
-        # pins it.
+        # payout -- see `docs/capture_pipeline.md`, *The item counts
+        # arrive once*, and `check_capture_rewards`, which pins it.
         for key in ("drop_item_result", "chaos_free_reward_result"):
             drops = data.get(key)
             if isinstance(drops, list) and drops:
