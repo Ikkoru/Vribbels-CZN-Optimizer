@@ -833,6 +833,24 @@ def _panel_over_label(panel, prefix):
     return resolve
 
 
+def _sheet_over_panel(locator, panel):
+    """Resolver: a Text sheet's last line -> the title of the panel below.
+
+    `_panel_gap` over a sheet reads from its lowest INK, which is a
+    descender wherever the last line has one -- `pulls` hangs three
+    below the baseline the rule measures from. So the reading is
+    restated from that line's baseline, as `_label_over_panel` restates
+    a label's.
+    """
+    def resolve(cap, app):
+        text = locator(app)
+        last = text.get("end-1c linestart", "end-1c")
+        return restate_from_reference(
+            *sa.vertical_gap(cap, text, _panel(app, panel)),
+            ink_below_baseline(last))
+    return resolve
+
+
 def _label_over_panel(prefix, panel, bold14=False):
     """Resolver: a label's ink -> the title of the panel below it.
 
@@ -990,7 +1008,8 @@ PANEL_OVER_TEXT_ENTRIES = [
     # The standings under the gacha sheet: the Great Rift's list, then
     # the Offensive's and the Sortie's side by side under it.
     ("Stats & Gacha History", "Overall Gacha Stats -> Great Rift Stats title",
-     10, None, _panel_gap(GACHA_OVERALL_TITLE, GACHA_RIFT_TITLE, "v")),
+     10, None, _sheet_over_panel(
+         lambda app: app.gacha_tab_instance.overall_text, GACHA_RIFT_TITLE)),
     ("Stats & Gacha History",
      "Great Rift Stats -> Full-Scale Offensive Stats title", 10, None,
      _panel_gap(GACHA_RIFT_TITLE, GACHA_OFFENSIVE_TITLE, "v")),
@@ -1285,7 +1304,7 @@ TREE_CLASSES = ("Treeview",)
 # owns: if one is reworded the entry stops finding its widget, and the
 # audit reports that as an error rather than as a distance.
 OPTIMIZER_HELP_PREFIX = "The Optimizer finds the six"
-GACHA_HELP_PREFIX = "Records your pulls"
+GACHA_HELP_PREFIX = "Important! The game erases"
 DEF_CAPTION = "What percent of damage scales off DEF?"
 SHIELD_CAPTION = "How much value should be given"
 FORCE_CAPTION = "Force HP/Ego on a Slot:"
@@ -4793,7 +4812,6 @@ AWAITING_FIRST_READING = {
     "purple note -> the filters",
     # The standings lists, at their rules' targets and on the gacha
     # sheet's levers.
-    "Import JSON -> Banners title",
     "Overall Gacha Stats -> Great Rift Stats title",
     "Great Rift Stats -> Full-Scale Offensive Stats title",
     "Great Rift Stats -> Sortie Stats title",

@@ -2573,6 +2573,12 @@ def _gacha_overall_fits(tab, gh):
                        f"row {needle.strip()!r}, which the sheet no longer "
                        f"has. Update `GACHA_RECORD_ROWS` or "
                        f"`GACHA_FIGURE_ROWS`.")
+    # The tab's help text, found by its opening words the same way.
+    from ui import spacing_audit as sa
+    if sa.find_descendant_text(tab.frame, registry.GACHA_HELP_PREFIX) is None:
+        out.append(f"the spacing registry finds the tab's help text by "
+                   f"{registry.GACHA_HELP_PREFIX!r}, which it no longer "
+                   f"starts with. Update `GACHA_HELP_PREFIX`.")
     # A unit that came more than once is named once and counted, in the
     # order the units first came.
     from ui.tabs.gacha_history_tab import _units
@@ -2711,6 +2717,41 @@ def _standings_lists_fit(tab):
         except tk.TclError as e:
             return out + [f"the Stats & Gacha History tab could not be laid "
                           f"out for measuring: {e}"]
+        # The window's spare width is the two lists' to share, half each,
+        # in their last columns. The body's <Configure> delivers it in the
+        # app; `update` would too, but it also runs every pending `after`
+        # -- the Capture tab's prerequisite check among them, which
+        # writes into the log a later check reads line by line -- so the
+        # handler is handed the body's width directly.
+        body = tab.summary_tree.master.master
+        tab._share_excess(SimpleNamespace(width=body.winfo_width()))
+        root.update_idletasks()
+        (b_col, b_nat, _b), (p_col, p_nat, _p) = (
+            tab._natural[str(tab.summary_tree)],
+            tab._natural[str(tab.pulls_tree)])
+        gained = (int(tab.summary_tree.column(b_col, "width")) - b_nat,
+                  int(tab.pulls_tree.column(p_col, "width")) - p_nat)
+        if min(gained) < 0 or abs(gained[0] - gained[1]) > 1:
+            out.append(f"in a default-sized window the Banners and Pulls "
+                       f"lists' last columns gained {gained}px: the width "
+                       f"both leave is theirs half each.")
+        # A resize, with the list mapped. The first share lands before
+        # the list is, when Tk still follows its columns; after that a
+        # Treeview asks for a new width only on `configure`, and its
+        # stretching last column fills the old width back out.
+        wide = tab.summary_tree.winfo_reqwidth()
+        tab._share_excess(SimpleNamespace(width=body.winfo_width() - px(40)))
+        root.update_idletasks()
+        # Within a pixel: halving an odd spare width rounds.
+        if abs(wide - tab.summary_tree.winfo_reqwidth() - px(40) // 2) > 1:
+            out.append(f"40px off the window took "
+                       f"{wide - tab.summary_tree.winfo_reqwidth()}px off "
+                       f"the Banners list, not its half: a mapped list "
+                       f"keeps its size through a new column width. "
+                       f"`_fit_banners`' `configure` is what makes it ask "
+                       f"again.")
+        tab._share_excess(SimpleNamespace(width=body.winfo_width()))
+        root.update_idletasks()
         # The Great Rift's list is held at the banners' width even with
         # one column to show; the two under it are as narrow as theirs.
         tab._fill_standings()

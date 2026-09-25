@@ -98,6 +98,9 @@ PULL_COLUMNS = (
 TREE_STYLE = "GachaHistory.Treeview"
 TEXT_INSET = 3
 COLUMN_GAP = 18
+# The standings' spacer, narrower: their columns are short figures that
+# read as one table, where the banners' and pulls' are separate facts.
+STANDINGS_COLUMN_GAP = 8
 # The heading's height is left as the shared style has it.
 HEADING_INSET_V = 3
 # This tab's rows are shorter than every other list's: it is what lets
@@ -108,11 +111,11 @@ LIST_ROW_HEIGHT = 19
 # with every banner family listed, the standings under it would run past
 # the default window's bottom edge.
 BANNER_ROWS = 7
-# This tab's scrollbars: a thumb in a groove with no arrow buttons -- at
-# this thickness an arrow is a few pixels of glyph, and the thumb and the
-# wheel do the scrolling -- this thick. Colours are the app's own.
-SCROLL_STYLE = "GachaHistory.%s.TScrollbar"
-SCROLLBAR_WIDTH = 12
+# The standings' titles are labelwidgets, set in this label style: the
+# LabelFrame title's own layout, text and fill. A plain `TLabel` puts its
+# text inside a 1px border and a 1px padding, which sets it 2px right of
+# every `text=` title on the tab and 2px further from what is under it.
+TITLE_STYLE = "GachaHistory.Title.TLabel"
 
 # Row colours by rarity. A unit's stars index the rarity table
 # directly -- 5 Mythic, 4 Legendary, 3 Rare. A unit neither the game's
@@ -186,12 +189,11 @@ OFFENSIVE_NOTE = "Start a capture. Open the Full-Scale Offensive."
 # The heading over the rows' names, which says what the columns are.
 SEASON_HEADING = "Season"
 # A title's leading pad against the panel above it, the lever on
-# `panel ↕ unrelated label`. Under the gacha sheet it is nothing: the
-# sheet's last line box already reaches past its baseline by more than
-# the banners' list does past its last row. Under the Great Rift's
-# list, less than the gacha sheet's under the banners.
-UNDER_SHEET_PAD = 0    # spacing: panel ↕ unrelated label -- run, title ↕
-UNDER_LIST_PAD = 3     # spacing: panel ↕ unrelated label -- panel, title ↕
+# `panel ↕ unrelated label`. Under the gacha sheet it is less than
+# under a list: the sheet's last line box already reaches past its
+# baseline by more than a list does past its last row.
+UNDER_SHEET_PAD = 2    # spacing: panel ↕ unrelated label -- run, title ↕
+UNDER_LIST_PAD = 5     # spacing: panel ↕ unrelated label -- panel, title ↕
 
 # One pitch tag per line, setting its `spacing1` -- the line's own word
 # for what sits above it. Tk resolves two tags setting one option by
@@ -296,6 +298,8 @@ class GachaHistoryTab(BaseTab):
         self.stats = None
         self._loaded = False
         self._pool = None               # the family the pulls list shows
+        self._natural = {}              # see `_make_tree`
+        self._body_width = None         # see `_share_excess`
         self.setup_ui()
         self.frame.bind("<Map>", self._first_show, add="+")
 
@@ -379,6 +383,7 @@ class GachaHistoryTab(BaseTab):
         body.pack(fill=tk.BOTH, expand=True)
         body.grid_columnconfigure(1, weight=1)
         body.grid_rowconfigure(3, weight=1)
+        body.bind("<Configure>", self._share_excess, add="+")
 
         summary_frame = ttk.LabelFrame(body, text="Banners",
                                        padding=px(0),
@@ -393,8 +398,7 @@ class GachaHistoryTab(BaseTab):
         # Packed only while there are more families than `BANNER_ROWS`.
         self.summary_scroll = ttk.Scrollbar(
             summary_frame, orient=tk.VERTICAL,
-            command=self.summary_tree.yview,
-            style=SCROLL_STYLE % "Vertical")
+            command=self.summary_tree.yview)
         self.summary_tree.configure(yscrollcommand=self.summary_scroll.set)
         self.summary_tree.bind("<<TreeviewSelect>>", self._on_pick)
         self.summary_tree.tag_configure(BEHIND_TAG,
@@ -433,12 +437,12 @@ class GachaHistoryTab(BaseTab):
                               padx=px(2), pady=px(2))
         self.pulls_tree = self._make_tree(self.pulls_frame, PULL_COLUMNS,
                                           height=20)
-        scroll = ttk.Scrollbar(self.pulls_frame, orient=tk.VERTICAL,
-                               command=self.pulls_tree.yview,
-                               style=SCROLL_STYLE % "Vertical")
-        self.pulls_tree.configure(yscrollcommand=scroll.set)
+        self.pulls_scroll = ttk.Scrollbar(self.pulls_frame,
+                                          orient=tk.VERTICAL,
+                                          command=self.pulls_tree.yview)
+        self.pulls_tree.configure(yscrollcommand=self.pulls_scroll.set)
         self.pulls_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.pulls_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         for stars, colour in STAR_COLOURS.items():
             self.pulls_tree.tag_configure(self._star_tag(stars),
                                           foreground=colour)
@@ -496,14 +500,16 @@ class GachaHistoryTab(BaseTab):
                                style="Borderless.TLabelframe")
         # A labelwidget, so the note sits on the title's line. It
         # bypasses the label style, so the title's colour is set here,
-        # as the Optimizer's Results panel does.
+        # as the Optimizer's Results panel does -- and both labels take
+        # `TITLE_STYLE`, which seats the title where a `text=` title sits.
         header = ttk.Frame(frame)
-        ttk.Label(header, text=title,
+        ttk.Label(header, text=title, style=TITLE_STYLE,
                   foreground=self.colors["accent"]).pack(side=tk.LEFT)
-        hint = ttk.Label(header, text=note,
+        hint = ttk.Label(header, text=note, style=TITLE_STYLE,
                          foreground=self.colors["fg_dim"])
+        # The whole gap between the two: neither label insets its text.
         # spacing: header subtext -- label, label ↔
-        hint.pack(side=tk.LEFT, padx=px((10, 0)))
+        hint.pack(side=tk.LEFT, padx=px((14, 0)))
         frame.configure(labelwidget=header)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
@@ -524,8 +530,8 @@ class GachaHistoryTab(BaseTab):
         # The spacer every two columns of this tab's lists have, here
         # between the names and the first season.
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
-        labels.column("gap", width=px(COLUMN_GAP), minwidth=px(COLUMN_GAP),
-                      stretch=False)
+        labels.column("gap", width=px(STANDINGS_COLUMN_GAP),
+                      minwidth=px(STANDINGS_COLUMN_GAP), stretch=False)
         labels.grid(row=0, column=0, sticky="nw")
         # The seasons' list is as wide as its holder, which
         # `_size_standings` sets: narrower than its columns, it scrolls.
@@ -536,8 +542,7 @@ class GachaHistoryTab(BaseTab):
                             selectmode="none", style=TREE_STYLE, takefocus=0)
         data.pack(fill=tk.BOTH, expand=True)
         scroll = ttk.Scrollbar(lists, orient=tk.HORIZONTAL,
-                               command=data.xview,
-                               style=SCROLL_STYLE % "Horizontal")
+                               command=data.xview)
         data.configure(xscrollcommand=scroll.set)
         scroll.grid(row=1, column=1, sticky="ew")
         scroll.grid_remove()
@@ -577,19 +582,12 @@ class GachaHistoryTab(BaseTab):
                         padding=px((TEXT_INSET, 0, TEXT_INSET, 0)))
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↕
         style.configure(TREE_STYLE, rowheight=px(LIST_ROW_HEIGHT))
-        for orient, across in (("Horizontal", "we"), ("Vertical", "ns")):
-            name = SCROLL_STYLE % orient
-            try:
-                style.layout(name, [("%s.Scrollbar.trough" % orient, {
-                    "sticky": across, "children": [
-                        ("%s.Scrollbar.thumb" % orient,
-                         {"expand": "1", "sticky": "nswe"})]})])
-            except tk.TclError:
-                pass
-            # `arrowsize` is a clam scrollbar's thickness, arrows or not;
-            # no grip lines on a thumb this narrow.
-            # spacing: unique -- scrollbar thickness, a style option -- scrollbar, scrollbar ↔↕
-            style.configure(name, arrowsize=px(SCROLLBAR_WIDTH), gripcount=0)
+        try:
+            style.layout(TITLE_STYLE, [("Label.fill", {
+                "sticky": "nswe",
+                "children": [("Label.text", {"sticky": "nswe"})]})])
+        except tk.TclError:
+            pass
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
         style.configure(TREE_STYLE + ".Heading",
                         padding=px((TEXT_INSET, HEADING_INSET_V,
@@ -625,6 +623,10 @@ class GachaHistoryTab(BaseTab):
                 # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
                 tree.column(gap, width=px(COLUMN_GAP),
                             minwidth=px(COLUMN_GAP), stretch=False)
+        # (last column, its measured width, every column's): what
+        # `_fit_banners` shares the window's spare width from.
+        self._natural[str(tree)] = (columns[-1][0], width,
+                                    self._columns_width(tree))
         return tree
 
     @staticmethod
@@ -777,6 +779,38 @@ class GachaHistoryTab(BaseTab):
             self.summary_scroll.pack(side=tk.LEFT, fill=tk.Y)
         else:
             self.summary_scroll.pack_forget()
+        self._fit_banners()
+
+    def _share_excess(self, event):
+        """The body has a new width: share it out again. Only on a
+        change -- widening the Banners list lays the body out again and
+        comes back here at the same width."""
+        if event.width != self._body_width:
+            self._body_width = event.width
+            self._fit_banners()
+
+    def _fit_banners(self):
+        """Give the Banners list half the width the window leaves beyond
+        what both lists measure, the pulls list keeping the other half.
+        Each list's LAST column takes its share, so every column before
+        it keeps its measured width; the pulls list's stretches into
+        what its grid column is given. Then the standings, which keep
+        to the Banners list's width, are fitted again.
+        """
+        if self._body_width is not None:
+            banners, pulls = self.summary_tree, self.pulls_tree
+            column, width, measured = self._natural[str(banners)]
+            used = (measured + self._natural[str(pulls)][2]
+                    + self.pulls_scroll.winfo_reqwidth())
+            if self.summary_scroll.winfo_manager():
+                used += self.summary_scroll.winfo_reqwidth()
+            # Both panels' pads, either side of each.
+            spare = self._body_width - used - 4 * px(2)
+            banners.column(column, width=width + max(0, spare) // 2)
+            # NOT redundant: a mapped Treeview asks for a new width only
+            # on `configure` (docs/ui_runtime.md), so without it the
+            # column widens inside a list that stays its old size.
+            banners.configure(height=banners.cget("height"))
         self._size_standings()
 
     @staticmethod
@@ -928,8 +962,8 @@ class GachaHistoryTab(BaseTab):
                 gap = self._spacer(index)
                 data.heading(gap, text="")
                 # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
-                data.column(gap, width=px(COLUMN_GAP),
-                            minwidth=px(COLUMN_GAP), stretch=False)
+                data.column(gap, width=px(STANDINGS_COLUMN_GAP),
+                            minwidth=px(STANDINGS_COLUMN_GAP), stretch=False)
         # After the widths, for the reason above -- and reassigning
         # `columns` on a mapped list asks for 200 a column meanwhile.
         data.configure(height=len(rows))
