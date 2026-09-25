@@ -123,11 +123,12 @@ SHARE_NOTE_GAP = 2      # spacing: explanation text -> the controls it explains 
 # Each panel's half of the gap between Update Status and Share Game Data.
 SHARE_PANEL_PAD = 2     # spacing: content frame -> content frame -- frame, frame ↔
 SHARE_NOTE = (
-    "Saves the game facts your captures hold that the program does not "
-    "have yet. Nothing about your account goes in. Attach the file to a "
-    "new issue on GitHub and the next release passes them on to "
-    "everyone: the game stops showing most of them after a while, so "
-    "players who start later have no other way to get them.")
+    "Saves game facts you have that the program does not. Please share "
+    "them with me so the next release passes them on to everyone: the "
+    "game doesn't store them forever, so players who start later lack them.\n"
+    "Instructions: Press Export Facts and save the file. A popup will "
+    "lead you to GitHub. Attach the file to the new issue. Write something "
+    "nice in the title! Press Create. Nothing about your account is shared.")
 SHARE_ISSUE_URL = f"https://github.com/{GITHUB_REPO}/issues/new"
 
 # The face the instructions are set in, and what a panel adds around a
@@ -233,14 +234,13 @@ SCALE_NOTE = "Applies on the next launch."
 # The instructions, as a module constant: the LEFT COLUMN's width is
 # computed from their widest line before any widget exists, so they
 # cannot be built inside the function that lays them out.
-INSTRUCTIONS = """STEP 1: Generate and install certificate
-  - Click "Generate & Install Cert" button
-  - When the certificate dialog opens:
+INSTRUCTIONS = """STEP 1: Install Certificate
+  - Click "Generate & Install Cert". When the certificate menu opens:
     1. Click "Install Certificate"
-    2. Select "Local Machine"
-    3. Click Next
-    4. Select "Place all certificates in the following store"
-    5. Click Browse and select "Trusted Root Certification Authorities"
+    2. Select "Local Machine"!
+    3. Click Next. Click Yes in the UAC popup
+    4. Select "Place all certificates in the following store"!
+    5. Click Browse -> Select "Trusted Root Certification Authorities"!
     6. Click OK, Next, then Finish
 
 STEP 2: Verify setup
