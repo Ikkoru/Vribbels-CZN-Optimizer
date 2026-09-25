@@ -70,9 +70,14 @@ RANK_ID = re.compile(r"_rank_best_(\d+)_(\d+)$")
 # nothing on the wire names one. Every part has its own, and a part not
 # here shows `RIFT_UNNAMED`.
 RIFT_CODENAMES = {
-    (1, 2): "Mochi",
-    (1, 3): "Haku",
-    (2, 2): "Hands",
+    (1, 1): "Mochi",
+    (1, 2): "Haku",
+    (2, 1): "Hands",
+    (2, 2): "Lion?",
+    (3, 1): "3 Heroes",
+    (3, 2): "Fingers",
+    (4, 1): "Tardigrade",
+    (4, 2): "Anis <3",
 }
 RIFT_UNNAMED = "TBD"
 
