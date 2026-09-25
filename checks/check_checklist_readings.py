@@ -19,6 +19,7 @@ No Tk and no snapshot needed.
 """
 
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -1145,7 +1146,13 @@ def run():
     # --- which pages are open, and what that colours ------------------
     # The wire names no shop page, so which are open is read off the
     # SORTIE rotations inside the season: the first is the preseason
-    # and each one after it opens a page. See `shop_pages_open`.
+    # and each one after it opens a page. See `shop_pages_open`. That
+    # is the reading for a season `SUPPLY_ROUNDS` does not name, and
+    # the test season is one it names, so the table is emptied here
+    # and tested on its own below.
+    import ui.tabs.checklist_tab as checklist_tab
+    supply = checklist_tab.SUPPLY_ROUNDS
+    checklist_tab.SUPPLY_ROUNDS = {}
     shelf = ("shop_disaster", shop_stock.ALL_SCREENS)
     # A rotation of ten days and a season of four of them: one
     # preseason and a page each. `now` sits in the second, so one page
@@ -1240,6 +1247,27 @@ def run():
             "the seasonal shop reads as shut on a snapshot carrying no "
             "schedules at all. That is a payload not yet arrived, not "
             "a season that is over.")
+
+    # --- the update notices' Supply rounds, where they are copied in ----
+    # They outrank the Sortie seasons: a season whose parts are not one
+    # Sortie season long is dated by nothing else. Rounds two and three
+    # days in and a third weeks away: at `now` two pages are open, where
+    # the Sortie seasons would open one.
+    def day_of(moment):
+        return time.strftime("%Y-%m-%d", time.gmtime(moment))
+    checklist_tab.SUPPLY_ROUNDS = {season: (
+        day_of(opens + 2 * DAY), day_of(opens + 3 * DAY),
+        day_of(opens + 60 * DAY))}
+    try:
+        got = shop_pages_open(shelf, "account", three_pages(), now)
+    finally:
+        checklist_tab.SUPPLY_ROUNDS = supply
+    if got != {"shop_disaster_1", "shop_disaster_2"}:
+        failures.append(
+            f"with Supply rounds copied in for the season, the open pages "
+            f"read {sorted(got or ())}, not the first two. The update "
+            f"notice's dates outrank the Sortie seasons, which date a "
+            f"season whose parts are not one of them long wrongly.")
 
     # --- each column heading's own countdown ---------------------------
     # The period splits into four EQUAL parts and the colour says which

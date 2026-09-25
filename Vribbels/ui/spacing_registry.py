@@ -968,6 +968,8 @@ PANEL_OVER_TEXT_ENTRIES = [
      _button_over_panel("Start Capture", "Requirements")),
     ("Setup & Settings", "Setup buttons -> Setup Instructions title", 10, None,
      _button_over_panel("Check Status", "Setup Instructions")),
+    ("Stats & Gacha History", "Import JSON -> Banners title", 10, None,
+     _button_over_panel("Import JSON", "Banners")),
 
     # BOTH columns of the Capture tab's top grid, against the same
     # title below them. Requirements is the one the rule is read off:
@@ -985,15 +987,15 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
     ("Stats & Gacha History", "Banners -> Overall Gacha Stats title", 10, None,
      _panel_gap("Banners", GACHA_OVERALL_TITLE, "v")),
-    # The standings stand beside the gacha sheet, so their first title
-    # sits under the banners as that sheet's does.
-    ("Stats & Gacha History", "Banners -> Sortie Stats title", 10, None,
-     _panel_gap("Banners", GACHA_SORTIE_TITLE, "v")),
-    ("Stats & Gacha History", "Sortie Stats -> Great Rift Stats title", 10,
-     None, _panel_gap(GACHA_SORTIE_TITLE, GACHA_RIFT_TITLE, "v")),
+    # The standings under the gacha sheet: the Great Rift's list, then
+    # the Offensive's and the Sortie's side by side under it.
+    ("Stats & Gacha History", "Overall Gacha Stats -> Great Rift Stats title",
+     10, None, _panel_gap(GACHA_OVERALL_TITLE, GACHA_RIFT_TITLE, "v")),
     ("Stats & Gacha History",
      "Great Rift Stats -> Full-Scale Offensive Stats title", 10, None,
      _panel_gap(GACHA_RIFT_TITLE, GACHA_OFFENSIVE_TITLE, "v")),
+    ("Stats & Gacha History", "Great Rift Stats -> Sortie Stats title", 10,
+     None, _panel_gap(GACHA_RIFT_TITLE, GACHA_SORTIE_TITLE, "v")),
 
     # Text above, a panel below. The three tab headings differ only in
     # how much container padding stands under them, Setup spending more
@@ -4791,9 +4793,10 @@ AWAITING_FIRST_READING = {
     "purple note -> the filters",
     # The standings lists, at their rules' targets and on the gacha
     # sheet's levers.
-    "Banners -> Sortie Stats title",
-    "Sortie Stats -> Great Rift Stats title",
+    "Import JSON -> Banners title",
+    "Overall Gacha Stats -> Great Rift Stats title",
     "Great Rift Stats -> Full-Scale Offensive Stats title",
+    "Great Rift Stats -> Sortie Stats title",
     "Sortie Stats title -> its list",
     "Great Rift Stats title -> its list",
     "Full-Scale Offensive Stats title -> its list",

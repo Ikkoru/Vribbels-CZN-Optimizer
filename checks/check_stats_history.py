@@ -241,20 +241,23 @@ def _tables(sh):
              [("7", ["3.8%", "740", "19,607", "45,512", "65,084"]),
               ("6", ["7.8%", "1,914", "24,684", "42,343", "66,265"])],
              "the share of the field is the rank over total_count"),
-            ("Great Rift", sh.rift_table,
-             sh.RIFT_ROWS[:-1] + ("Top Diamond I",),
+            ("Great Rift", sh.rift_table, sh.RIFT_ROWS,
              [("4 p2", ["5.3%", "7%", "2,481", "~47,160", "1,115,731",
-                        "1,635,631", "1,219,348"]),
-              ("4 p1", [None, "7%", "3,502", None, "984,946", None, None])],
+                        "1,635,631", "1,219,348", None, None, None,
+                        "416,283"]),
+              ("4 p1", [None, "7%", "3,502", None, "984,946"]
+               + [None] * 6)],
              "a finished half's place is its last_rank, the running one's "
-             "its rank against the field Bronze's top gives; the last row "
-             "is the own division's subdivision I, since no other "
-             "subdivision's top is ever sent"),
+             "its rank against the field Bronze's top gives; then each "
+             "division's top, Master's first, as its subdivision I -- no "
+             "other subdivision's top is ever sent"),
             ("Full-Scale Offensive", sh.offensive_table, sh.OFFENSIVE_ROWS,
-             [("5", ["0.83%", "441", "~53,100", "3,447,110"]),
-              ("4", [None, "900", None, None])],
-             "the field is the rank over rank_percent, to the hundred, and "
-             "the score the stages' best scores summed")):
+             [("5", ["0.83%", "441", "~53,100", "3,447,110",
+                     "1,130,418", "1,060,877", "1,255,815"]),
+              ("4", [None, "900", None, None, None, None, None])],
+             "the field is the rank over rank_percent, to the hundred, the "
+             "total the stages' best scores summed, and each stage's in "
+             "the order of their ids")):
         got = table(raw, None)
         if got != (rows, columns):
             out.append(f"the {name} list reads {got}, not {(rows, columns)}: "

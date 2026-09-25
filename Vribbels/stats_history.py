@@ -51,12 +51,6 @@ MARKERS = ('"my_rank"', '"result_list"', '"mission_accumulate"',
            '"accumulate_condition"', '"achievement_entity"',
            '"chaos_assault_entity"', '"remnants_entit', '"rank_percent"')
 
-# The lists' rows, top to bottom. The Great Rift's last row is named for
-# the account's own division when it is known -- see `rift_table`.
-SORTIE_ROWS = ("Top%", "Top #", "Out of", "Score", "Top score")
-RIFT_ROWS = ("Top% apx.", "Top% official", "Top #", "Out of", "Score",
-             "Top Master I", "Top own division")
-OFFENSIVE_ROWS = ("Top%", "Top #", "Out of", "Score")
 
 # The Great Rift's thirty subdivisions, by the number that ends a
 # `rank_id`: (division, tier, the share of the field it reaches down
@@ -70,6 +64,17 @@ SHARES = (1.00, 0.95, 0.90, 0.85, 0.80,           # Bronze V .. I
           0.10, 0.09, 0.08, 0.07, 0.05,           # Diamond
           0.02, 0.015, 0.01, 0.005, 0.001)        # Master
 RANK_ID = re.compile(r"_rank_best_(\d+)_(\d+)$")
+
+# The lists' rows, top to bottom. The Great Rift's end with every
+# division's top score, Master's first -- see `rift_table` for why a
+# division's is its subdivision I's.
+SORTIE_ROWS = ("Top%", "Top #", "Out of", "Score", "Top score")
+RIFT_ROWS = ("Top% apx.", "Top% official", "Top #", "Out of", "Score") + tuple(
+    "Top %s I" % division for division in reversed(DIVISIONS))
+# An Offensive is three stages; the list gives each its own score row.
+OFFENSIVE_STAGES = 3
+OFFENSIVE_ROWS = ("Top%", "Top #", "Out of", "Total") + tuple(
+    "Score %d" % n for n in range(1, OFFENSIVE_STAGES + 1))
 
 
 def path_in(settings_dir):
@@ -420,9 +425,7 @@ def rift_table(raw, history):
     **A division's list starts at its subdivision I**, and the game lists
     a hundred places of each -- so the top score it shows for a division
     is subdivision I's, and no other subdivision's top is ever sent. The
-    last row is that: the top of the account's own division, named for
-    the division of the newest half with a subdivision, and read in
-    every half from the same subdivision so the row is one series.
+    last rows are those, a division each, Master's first.
 
     A finished half's place is its `last_rank`, which is 0 while a half
     runs and set when it ends: read as the placing it finished on.
@@ -431,13 +434,8 @@ def rift_table(raw, history):
     worked out only where that half's division tops were read.
     """
     halves = rift_halves(raw, history)
-    own = next((found for found in (subdivision(h[2].get("rank_id"))
-                                    for h in halves) if found), None)
-    rows = RIFT_ROWS
-    division = None
-    if own:
-        division = ((own[0] - 1) // len(TIERS) + 1) * len(TIERS)
-        rows = rows[:-1] + ("Top " + numbered(division)[1],)
+    # Each division's subdivision I, Master's first: 30, 25, .. 5.
+    tops_of = range(len(SHARES), 0, -len(TIERS))
     columns = []
     for season, half, standing, tops in halves:
         finished = bool(standing.get("last_rank_id"))
@@ -451,17 +449,17 @@ def rift_table(raw, history):
             "%g%%" % (found[2] * 100) if found else None,
             _thousands(rank),
             "~" + format(int(round(field, -1)), ",") if field else None,
-            _thousands(standing.get("best_score")),
-            _top_of(tops, len(SHARES)),
-            _top_of(tops, division) if division else None]))
-    return rows, columns
+            _thousands(standing.get("best_score"))]
+            + [_top_of(tops, number) for number in tops_of]))
+    return RIFT_ROWS, columns
 
 
 def offensive_table(raw, history):
     """The Full-Scale Offensive list: a column per Offensive, numbered as
     the game numbers them. The field is the rank over `rank_percent`,
     which the game states to two decimals -- so it is given to the
-    hundred. The score is the stages' best scores summed."""
+    hundred. The total is the stages' best scores summed, and each
+    stage's follows it, in the order of their ids."""
     columns = []
     for define_id, season in merged(raw, history,
                                     "remnants_rankings").items():
@@ -474,13 +472,16 @@ def offensive_table(raw, history):
         percent = last.get("rank_percent")
         if not isinstance(percent, (int, float)) or percent <= 0:
             percent = None
-        stages = [v for v in (season.get("stages") or {}).values()
-                  if isinstance(v, int)]
+        held = season.get("stages") or {}
+        stages = [held[stage] for stage in sorted(held)
+                  if isinstance(held[stage], int)]
+        scores = (stages + [None] * OFFENSIVE_STAGES)[:OFFENSIVE_STAGES]
         columns.append((int(found.group(1)), [
             "%g%%" % percent if percent else None,
             _thousands(rank),
             "~" + format(int(round(rank * 100.0 / percent, -2)), ",")
             if rank and percent else None,
-            _thousands(sum(stages)) if stages else None]))
+            _thousands(sum(stages)) if stages else None]
+            + [_thousands(score) for score in scores]))
     columns.sort(key=lambda c: -c[0])
     return OFFENSIVE_ROWS, [(str(n), cells) for n, cells in columns]

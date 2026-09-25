@@ -80,7 +80,7 @@ is forty of them.
 
 import math
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
@@ -524,6 +524,19 @@ DISASTER_TAIL_GROUP = "DISASTER_SEASON_END"
 # words it feeds say `~`.
 DISASTER_HANDOVER = 21 * 24 * 3600
 
+# When each Supply Store round of a Galactic Disaster season opens -- its
+# shop pages, first to last -- as the season's first update notice lists
+# them ("1st Supply: 07/29/2026 after the maintenance"). The wire names
+# no round, so this is the one statement of them; a season it does not
+# name has its pages dated off the Sortie seasons instead, which opened
+# with the rounds through season 4. Dates only, in UTC: a round opens
+# when that day's maintenance ends, and every schedule starting that day
+# starts then, so the hour is read off the wire (`_supply_rounds`).
+# Add each new season from its notice.
+SUPPLY_ROUNDS = {
+    "disaster_s04": ("2026-07-29", "2026-08-19", "2026-09-09"),
+}
+
 # Shop products the tab does not list, by the id the wire gives them.
 # The shop rows are built from `shop_res_data` whole, so this is the
 # only way to leave one out -- untracking a product mutes it and keeps
@@ -640,24 +653,24 @@ def next_disaster_words(raw, now):
     run out rather than a season about to start, and `over` is not a
     thing to promise.
     """
-    _name, season = schedules.live(
+    name, season = schedules.live(
         shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY), raw, now)
-    opens = _next_disaster(raw, season, now)
+    opens = _next_disaster(raw, name, season, now)
     if opens is None or opens <= now:
         return None
     return DISASTER_NEXT % schedules.countdown(opens - now)
 
 
-def _next_disaster(raw, season, now):
+def _next_disaster(raw, name, season, now):
     """When the next Galactic Disaster's shop opens, or None."""
     _name, tail = schedules.live(DISASTER_TAIL_GROUP, raw, now)
     if isinstance(tail, dict) and _is_count(tail.get("end_time")):
         return tail["end_time"]
     # No tail window: the next season's own schedule may already be
-    # running, and its first page opens one rotation past its start.
-    starts = _season_rotations(raw, season)
-    if starts and len(starts) > 1:
-        return starts[1]
+    # running, and its first Supply round is when its shop opens.
+    starts = _page_openings(raw, name, season)
+    if starts:
+        return starts[0]
     # And where the wire carries no future season at all -- the hours
     # after one ends -- the handover is what the last three were.
     _name, last = schedules.current(
@@ -686,46 +699,83 @@ def _season_rotations(raw, season):
         < season.get("end_time", 0))
 
 
+def _supply_rounds(raw, name):
+    """When each of season `name`'s Supply rounds opens, from
+    `SUPPLY_ROUNDS`, or None where the table does not name the season.
+
+    A round's day is the notice's; its moment is the earliest schedule
+    on the wire starting that day, which is the maintenance ending, and
+    the day's start where the wire has none.
+    """
+    days = SUPPLY_ROUNDS.get(name)
+    if not days:
+        return None
+    starts = sorted(window["start_time"]
+                    for group in schedules.groups(raw).values()
+                    for window in (group.values()
+                                   if isinstance(group, dict) else ())
+                    if isinstance(window, dict)
+                    and _is_count(window.get("start_time")))
+    out = []
+    for day in days:
+        midnight = int(datetime.strptime(day, "%Y-%m-%d").replace(
+            tzinfo=timezone.utc).timestamp())
+        out.append(next((s for s in starts
+                         if midnight <= s < midnight + 86400), midnight))
+    return out
+
+
+def _page_openings(raw, name, season):
+    """When each of a season's shop pages opens, first to last, or None:
+    the notice's Supply rounds where `SUPPLY_ROUNDS` has them, and the
+    Sortie seasons after the preseason otherwise."""
+    rounds = _supply_rounds(raw, name)
+    if rounds is not None:
+        return rounds
+    starts = _season_rotations(raw, season)
+    return None if starts is None else starts[1:]
+
+
 def shop_pages_open(shop, period, raw, now):
     """Which of a seasonal shop's pages are open, as a set, or None.
 
     None where the question does not arise -- a shop that is not kept
-    per season, or a season whose rotations the snapshot cannot give.
-    Every page counts as open then, which is what the shop looked like
-    before anything asked.
+    per season, or a season whose pages nothing dates. Every page counts
+    as open then, which is what the shop looked like before anything
+    asked.
 
     **Nothing on the wire says a page is open.** No schedule names
     one, and `shop_res_data` sends all three from the season's first
-    login. So it is read off the SORTIE rotations falling inside the
-    season: the first of them is the preseason -- a Galactic Disaster
-    season's schedule opens three weeks before its content does, with
-    no shop and no currency in between -- and each one after it opens
-    the next page.
+    login. The update notices do -- each page is a Supply round, and
+    `SUPPLY_ROUNDS` holds their dates where they have been copied in.
+    Past those, the pages are read off the SORTIE seasons falling
+    inside the season: the first of them is the preseason -- a Galactic
+    Disaster season's schedule opens three weeks before its content
+    does, with no shop and no currency in between -- and each one after
+    it opens the next page.
 
-    Checked against the purchase record, which stamps every buy: this
-    account's first purchase on each page lands on a rotation boundary
-    (nine more inside ten minutes of the second page's, ten of the
-    third's), which is somebody shopping the hour a page opened.
-
-    **A season whose parts are not one rotation long is misdated.**
-    Season three ran 28 days and then two of 21. What that costs is a
-    colour on a row, so the inference is worth making and the error is
-    worth having.
+    The Sortie reading was checked against the purchase record, which
+    stamps every buy: this account's first purchase on each page lands
+    on a Sortie season's start (nine more inside ten minutes of the
+    second page's, ten of the third's), which is somebody shopping the
+    hour a page opened. **A season whose parts are not one Sortie
+    season long is misdated by it** -- season three ran 28 days and
+    then two of 21 -- which costs the colour of a row until its rounds
+    are in the table.
     """
     if shop[0] != SEASONAL_SHOP_CATEGORY:
         return None
-    _name, season = schedules.live(
+    name, season = schedules.live(
         shop_stock.season_group_of(shop[0]), raw, now)
-    starts = _season_rotations(raw, season)
+    starts = _page_openings(raw, name, season)
     if starts is None:
         return None
     pages = sorted({define.get("link_shop_sub_category_id")
                     for _pid, define in shop_products(shop, period, raw)}
                    - {None})
-    # The preseason is the first rotation and opens no page, so the
-    # pages take the rest -- and a season with fewer rotations than
-    # pages leaves the ones it cannot date open.
-    opens = dict(zip(pages, starts[1:]))
+    # A season with fewer dates than pages leaves the ones it cannot
+    # date open.
+    opens = dict(zip(pages, starts))
     return {page for page in pages if opens.get(page, 0) <= now}
 
 

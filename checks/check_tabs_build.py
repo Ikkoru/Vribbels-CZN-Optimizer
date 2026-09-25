@@ -2477,7 +2477,12 @@ def _sheet_complaints(label, text, holder):
                        f"the first {TOP_TAG!r}.")
         font = bold if heading else normal
         fields = line.split("\t")
-        starts = [0] + stops
+        # A line setting two sections side by side carries stops of its
+        # own, on a tag of its own.
+        own = [[int(str(v)) for v in text.tk.splitlist(text.tag_cget(t, "tabs"))
+                if str(v).isdigit()] for t in tags
+               if str(text.tag_cget(t, "tabs"))]
+        starts = [0] + (own[0] if own else stops)
         for i, field in enumerate(fields):
             if i + 1 < len(fields) and i + 1 >= len(starts):
                 out.append(f"{label} line {n} {line!r} has more fields "
@@ -2541,7 +2546,7 @@ def _gacha_overall_fits(tab, gh):
                    f"{tab.overall_holder.cget('width')}px wide, past the "
                    f"Banners list's {available}: it widens their column "
                    f"and squeezes the pulls list.")
-    row = text.get("6.0", "6.end").split("\t")
+    row = text.get("5.0", "5.end").split("\t")
     dates = row[3::2]
     oldest = datetime.fromtimestamp(1000).strftime("%Y-%m-%d")
     if len(dates) < 2 or dates != sorted(dates) or dates[0] != oldest:
@@ -2550,7 +2555,8 @@ def _gacha_overall_fits(tab, gh):
     problems, headings = _sheet_complaints(OVERALL_TITLE, text,
                                            tab.overall_holder)
     out.extend(problems)
-    if headings != [WITHOUT_PRISM, PRISM_ONLY, ALL_BANNERS]:
+    # Every banner's section sits beside the first, on its heading's line.
+    if headings != [WITHOUT_PRISM + "\t" + ALL_BANNERS, PRISM_ONLY]:
         out.append(f"the {OVERALL_TITLE} sheet's headings read {headings}")
     # The spacing audit finds this panel by its exact title and these
     # rows by their words. A rename the registry does not follow leaves
@@ -2619,16 +2625,19 @@ def _standings(seasons):
 
 def _standings_lists_fit(tab):
     """The standings lists show every season read, newest first, and fit
-    the room beside the gacha sheet in the default window.
+    the room under the gacha sheet in the default window.
 
-    Handed more seasons than that room holds, a list must stop at the
-    Banners list's right edge and scroll the rest, the newest in view:
-    one that grows past it widens the column and takes the difference
-    from the pulls list, and one cut off anywhere simply stops drawing.
-    Measured with the gacha sheet at its widest -- more ties than its
-    share holds -- and a Banners row for every banner family, mapped at
-    alpha 0 like `_the_checklist_fits_its_window`, and written AFTER
-    mapping, as the tab's first show writes them.
+    The Great Rift's list is held at the Banners list's width; the two
+    under it share that width, half each, and are as wide as their
+    seasons up to it. Handed more seasons than that room holds, a list
+    must stop at its edge and scroll the rest, the newest in view: one
+    that grows past it widens the column and takes the difference from
+    the pulls list, and one cut off anywhere simply stops drawing.
+    Measured at the worst the tab gets -- the gacha sheet at its widest,
+    every banner family listed, every list scrolling, and the warning
+    lines the test history raises showing -- mapped at alpha 0 like
+    `_the_checklist_fits_its_window`, and written AFTER mapping, as the
+    tab's first show writes them.
 
     **A mapped Treeview asks for a new size only on `configure`, never
     on a column's new width**, so a list written while mapped has to
@@ -2648,7 +2657,7 @@ def _standings_lists_fit(tab):
     from ui import spacing_registry as registry
     from ui.scaling import px, WINDOW_H, WINDOW_W
     from ui.tabs.gacha_history_tab import (
-        NO_VALUE, OFFENSIVE_TITLE, RIFT_TITLE, SORTIE_TITLE)
+        BANNER_ROWS, NO_VALUE, OFFENSIVE_TITLE, RIFT_TITLE, SORTIE_TITLE)
 
     out = []
     lists = ((SORTIE_TITLE, tab.sortie_list, sh.sortie_table,
@@ -2659,7 +2668,7 @@ def _standings_lists_fit(tab):
               registry.GACHA_OFFENSIVE_TITLE))
     optimizer = tab.optimizer
     saved = getattr(optimizer, "raw_data", None), tab.stats
-    banner_rows = tab.summary_tree.cget("height")
+    families = len(tab._shown_pools())
     history = tab.history
     fastest = history.overall.fastest if history is not None else None
     root = tab.frame.winfo_toplevel()
@@ -2695,14 +2704,34 @@ def _standings_lists_fit(tab):
                 notebook.add(tab.frame, text="Stats & Gacha History")
             notebook.pack(fill=tk.BOTH, expand=True)
             notebook.select(tab.frame)
-            tab.summary_tree.configure(height=len(gh.POOL_ORDER))
+            tab._show_banner_rows(len(gh.POOL_ORDER))
             root.geometry("%dx%d" % (px(WINDOW_W), px(WINDOW_H)))
             root.deiconify()
             root.update_idletasks()
         except tk.TclError as e:
             return out + [f"the Stats & Gacha History tab could not be laid "
                           f"out for measuring: {e}"]
-        # The gacha sheet at its widest: more ties than its share holds.
+        # The Great Rift's list is held at the banners' width even with
+        # one column to show; the two under it are as narrow as theirs.
+        tab._fill_standings()
+        root.update_idletasks()
+        edge = tab.summary_tree.master
+        right = edge.winfo_rootx() + edge.winfo_width()
+        rift = tab.rift_list.frame
+        if rift.winfo_rootx() + rift.winfo_width() != right:
+            out.append(f"with nothing read the {RIFT_TITLE} list ends at "
+                       f"{rift.winfo_rootx() + rift.winfo_width()}, the "
+                       f"Banners list at {right}: it is held at that "
+                       f"list's width whatever it shows.")
+        for parts, title in ((tab.offensive_list, OFFENSIVE_TITLE),
+                             (tab.sortie_list, SORTIE_TITLE)):
+            if int(parts.holder.cget("width")) != tab._columns_width(
+                    parts.data):
+                out.append(f"with nothing read the {title} list's seasons "
+                           f"are {parts.holder.cget('width')}px wide across "
+                           f"{tab._columns_width(parts.data)}px of columns; "
+                           f"it is as wide as its seasons up to its half.")
+        # The gacha sheet at its widest: more ties than it holds.
         if history is not None and any(pool.pulls
                                        for pool in history.ordered()):
             first = next(pull for pool in history.ordered()
@@ -2743,6 +2772,39 @@ def _standings_lists_fit(tab):
         edge = tab.summary_tree.master
         right = edge.winfo_rootx() + edge.winfo_width()
         bottom = tab.frame.winfo_rooty() + tab.frame.winfo_height()
+        if int(tab.summary_tree.cget("height")) > BANNER_ROWS or \
+                not tab.summary_scroll.winfo_ismapped():
+            out.append(f"with every banner family listed the Banners list "
+                       f"shows {tab.summary_tree.cget('height')} rows, "
+                       f"scrollbar mapped: "
+                       f"{bool(tab.summary_scroll.winfo_ismapped())}. It "
+                       f"shows {BANNER_ROWS} and scrolls past them, or the "
+                       f"standings under it run off the window.")
+        rift = tab.rift_list.frame
+        if rift.winfo_rootx() + rift.winfo_width() != right:
+            out.append(f"the {RIFT_TITLE} list ends at "
+                       f"{rift.winfo_rootx() + rift.winfo_width()}, the "
+                       f"Banners list at {right}: it is held at that "
+                       f"list's width.")
+        half = tab._banners_width() // 2 - px(2) - tab._panel_edges()
+        for parts, title in ((tab.offensive_list, OFFENSIVE_TITLE),
+                             (tab.sortie_list, SORTIE_TITLE)):
+            used = tab._columns_width(parts.labels) + int(
+                parts.holder.cget("width"))
+            if used > half:
+                out.append(f"the {title} list is {used}px wide, past the "
+                           f"{half}px half of the Banners list's width each "
+                           f"of the two side by side has.")
+        # Both past their room, the pair takes the banners' whole width
+        # between them: half each, less what a title wider than its half
+        # takes from its neighbour.
+        pair = tab.sortie_list.frame
+        if pair.winfo_rootx() + pair.winfo_width() != right:
+            out.append(f"with both lists past their room, the "
+                       f"{OFFENSIVE_TITLE} and {SORTIE_TITLE} lists end at "
+                       f"{pair.winfo_rootx() + pair.winfo_width()}, the "
+                       f"Banners list at {right}: between them they take "
+                       f"its whole width.")
         for title, parts, _table, _registered in lists:
             frame = parts.frame
             over = frame.winfo_rootx() + frame.winfo_width() - right
@@ -2773,7 +2835,7 @@ def _standings_lists_fit(tab):
         optimizer.raw_data, tab.stats = saved
         if history is not None:
             history.overall.fastest = fastest
-        tab.summary_tree.configure(height=banner_rows)
+        tab._show_banner_rows(families)
         tab._fill_overall()
         tab._fill_standings()
         if added:
@@ -3515,6 +3577,12 @@ def run():
             shutil.copytree(live, work / "settings")
 
         import czn_optimizer_gui as gui
+        # The app's own styles, so the geometry measured below is what
+        # the app draws -- its row heights, its borderless panels. Built
+        # on the theme alone, every panel grows a border the app has
+        # not, and a fit read here is wrong by that much.
+        gui.OptimizerGUI.configure_styles(SimpleNamespace(
+            style=style, colors=dict(gui.COLORS)))
         complaint = _scrolled_text_packs_the_pair(root, dict(gui.COLORS))
         if complaint:
             failures.append(complaint)
