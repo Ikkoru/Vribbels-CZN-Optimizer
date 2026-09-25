@@ -32,7 +32,7 @@ Three things the Checklist needed and no payload carries. Each is written up whe
 | Pages open | s04: 07-29, 08-19, 09-09 |
 | Currency | One item id per season: `3920001` s01, `3920002` s02, `3920006` s03, `3920031` s04 |
 | Earned per season | s01 157,660 · s02 168,510 · s04 175,490 and running. s03 unrecoverable — only a mid-season capture survives |
-| A Chaos run | Mean 562 over six whole runs, 344 to 810. `_tmp/chaos_runs.py` keeps the record and is where new runs go |
+| A Chaos run | Mean 562 over six whole runs, 344 to 810. `docs/chaos_runs.py` keeps the record and is where new runs go |
 
 **A run's take is measured through the addon's own cache, not off the wire.** Counting the wire's deltas over-counts about sevenfold: `drop_item` under a `battle/reward_complete` is the reward MENU being offered, `drop_item_info` under the merchant is a price list, and the clear's envelope restates the whole run rather than adding to it. Two bosses and the Core of Discord pay a fixed 420; the rest is which modifiers the run rolled.
 

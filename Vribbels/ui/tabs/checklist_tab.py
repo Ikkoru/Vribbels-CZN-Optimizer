@@ -271,7 +271,7 @@ SEASON_ESTIMATE = {
         # `per_run` is measured rather than written down: the two
         # bosses and the Core of Discord pay a fixed 420 and the rest
         # is which modifiers the run happened to roll, so a run's take
-        # swings by hundreds. `_tmp/chaos_runs.py` keeps the record
+        # swings by hundreds. `docs/chaos_runs.py` keeps the record of
         # every whole run in every capture, and this is its mean.
         "days": 63,
         "per_run": 562,

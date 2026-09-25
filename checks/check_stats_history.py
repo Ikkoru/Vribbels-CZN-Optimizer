@@ -242,15 +242,16 @@ def _tables(sh):
               ("6", ["7.8%", "1,914", "24,684", "42,343", "66,265"])],
              "the share of the field is the rank over total_count"),
             ("Great Rift", sh.rift_table, sh.RIFT_ROWS,
-             [("4 p2", ["5.3%", "7%", "2,481", "~47,160", "1,115,731",
-                        "1,635,631", "1,219,348", None, None, None,
-                        "416,283"]),
-              ("4 p1", [None, "7%", "3,502", None, "984,946"]
-               + [None] * 6)],
-             "a finished half's place is its last_rank, the running one's "
-             "its rank against the field Bronze's top gives; then each "
-             "division's top, Master's first, as its subdivision I -- no "
-             "other subdivision's top is ever sent"),
+             [("4 p2", ["Test Four", "5.3%", "7%", "2,481", "~47,160",
+                        "1,115,731", "1,635,631", "1,219,348", None,
+                        None, None, "416,283"]),
+              ("4 p1", ["Test Four", None, "7%", "3,502", None,
+                        "984,946"] + [None] * 6)],
+             "both halves open on their season's codename; a finished "
+             "half's place is its last_rank, the running one's its rank "
+             "against the field Bronze's top gives; then each division's "
+             "top, Master's first, as its subdivision I -- no other "
+             "subdivision's top is ever sent"),
             ("Full-Scale Offensive", sh.offensive_table, sh.OFFENSIVE_ROWS,
              [("5", ["0.83%", "441", "~53,100", "3,447,110",
                      "1,130,418", "1,060,877", "1,255,815"]),
@@ -258,7 +259,14 @@ def _tables(sh):
              "the field is the rank over rank_percent, to the hundred, the "
              "total the stages' best scores summed, and each stage's in "
              "the order of their ids")):
-        got = table(raw, None)
+        # A codename of the check's own, so the maintainer naming the
+        # real season 4 cannot move what this expects.
+        saved = sh.RIFT_CODENAMES
+        sh.RIFT_CODENAMES = {4: "Test Four"}
+        try:
+            got = table(raw, None)
+        finally:
+            sh.RIFT_CODENAMES = saved
         if got != (rows, columns):
             out.append(f"the {name} list reads {got}, not {(rows, columns)}: "
                        f"{why}.")
@@ -266,6 +274,14 @@ def _tables(sh):
         if empty != (empty[0], []) or len(empty[0]) != len(rows):
             out.append(f"the {name} list with nothing read reads {empty}; "
                        f"its rows and no columns.")
+    sh.RIFT_CODENAMES = {}
+    try:
+        named = [cells[0] for _h, cells in sh.rift_table(raw, None)[1]]
+    finally:
+        sh.RIFT_CODENAMES = saved
+    if named != [sh.RIFT_UNNAMED] * 2:
+        out.append(f"a Great Rift season with no codename reads {named}, "
+                   f"not {sh.RIFT_UNNAMED!r} in each half.")
     return out
 
 

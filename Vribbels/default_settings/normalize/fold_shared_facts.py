@@ -8,9 +8,12 @@ too: the `Export Facts` files players attach to a GitHub issue.
 
 Every file goes through `shared_facts`' whitelist on the way in, so
 nothing but the kinds of game fact it names can land in the shipped
-copy whatever a file holds. What each fold added is printed, and so is
-anything it refused -- a banner whose rates differ from the ones held
-is a question to settle by hand, not an update.
+copy whatever a file holds. What each fold added is printed (`+`), and
+so is anything it refused (`!`) -- a banner whose rates differ from the
+ones held is a question to settle by hand, not an update -- and any
+later reading whose figures went down (`?`), which is folded: a ban
+shrinks a field for real, and only the maintainer can tell that from a
+wrong server or a doctored file.
 
 **It stops, writing nothing, rather than lose anything.** A shipped
 file that will not read, or holds entries the whitelist drops, is
@@ -80,15 +83,20 @@ def main(paths) -> int:
               "settings or gacha history under %s?" % SOURCE)
     held, report = before, []
     for name, facts in [("your captures", own)] + contributed:
-        held, added, refused = shared_facts.fold(held, facts)
-        report.append((name, added, refused))
+        held, added, refused, down = shared_facts.fold(held, facts)
+        report.append((name, added, refused, down))
 
-    for name, added, refused in report:
-        print("%s: %d added, %d refused" % (name, len(added), len(refused)))
+    fell = 0
+    for name, added, refused, down in report:
+        print("%s: %d added, %d refused, %d went down" % (
+            name, len(added), len(refused), len(down)))
         for line in added:
             print("  + " + line)
         for line in refused:
             print("  ! " + line)
+        for line in down:
+            print("  ? " + line)
+        fell += len(down)
 
     gone = shared_facts.lost(before, held)
     if gone:
@@ -103,6 +111,9 @@ def main(paths) -> int:
     print("%s: CHANGED, review its diff -- now holding %s" % (
         TARGET.name, shared_facts.describe(shared_facts.tally(held))
         or "nothing"))
+    if fell:
+        print("%d reading(s) went DOWN, the `?` lines above: a ban is "
+              "real, a wrong server or a doctored file is not." % fell)
     return 0
 
 

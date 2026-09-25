@@ -36,7 +36,7 @@ A player's `Export Facts` file arrives attached to a GitHub issue. Save it anywh
 
     python "default_settings/normalize/fold_shared_facts.py" path/to/shared_facts_2026-09-25.json
 
-The file goes through the same whitelist as your own facts, so nothing but game facts can land in the shipped copy, and a file that is not an export stops the run before anything is written. **Read what it prints, then the diff.** A `!` line is a banner whose rates differ from the ones held; the held ones stay, and replacing them is a hand edit once you know which are right. A later ranking reading replacing an earlier one, and a bigger instalment total replacing a smaller one, are the fold working.
+The file goes through the same whitelist as your own facts, so nothing but game facts can land in the shipped copy, and a file that is not an export stops the run before anything is written. **Read what it prints, then the diff.** A `!` line is a banner whose rates differ from the ones held; the held ones stay, and replacing them is a hand edit once you know which are right. A later ranking reading replacing an earlier one, and a bigger instalment total replacing a smaller one, are the fold working. A `?` line is a later reading whose figures went DOWN — fewer players, a lower top score. It is folded, since bans shrink a field for real; a reading from the wrong server or a doctored file looks the same, so check it against the rest of what that file sent.
 
 ## Getting a user unstuck
 

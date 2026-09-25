@@ -111,7 +111,7 @@ LIST_ROW_HEIGHT = 19
 # The Banners list shows at most this many rows and scrolls past them:
 # with every banner family listed, the standings under it would run past
 # the default window's bottom edge.
-BANNER_ROWS = 7
+BANNER_ROWS = 6
 
 # Row colours by rarity. A unit's stars index the rarity table
 # directly -- 5 Mythic, 4 Legendary, 3 Rare. A unit neither the game's

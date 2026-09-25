@@ -65,11 +65,20 @@ SHARES = (1.00, 0.95, 0.90, 0.85, 0.80,           # Bronze V .. I
           0.02, 0.015, 0.01, 0.005, 0.001)        # Master
 RANK_ID = re.compile(r"_rank_best_(\d+)_(\d+)$")
 
-# The lists' rows, top to bottom. The Great Rift's end with every
-# division's top score, Master's first -- see `rift_table` for why a
-# division's is its subdivision I's.
+# Each Great Rift season's codename, by its number -- the `4` of
+# `disaster_s04` -- written in by hand: nothing on the wire names a
+# season. Both halves of a season show it, and a season not here shows
+# `RIFT_UNNAMED`.
+RIFT_CODENAMES = {
+}
+RIFT_UNNAMED = "TBD"
+
+# The lists' rows, top to bottom. The Great Rift's start with the
+# season's codename and end with every division's top score, Master's
+# first -- see `rift_table` for why a division's is its subdivision I's.
 SORTIE_ROWS = ("Top%", "Top #", "Out of", "Score", "Top score")
-RIFT_ROWS = ("Top% apx.", "Top% official", "Top #", "Out of", "Score") + tuple(
+RIFT_ROWS = ("Codename", "Top% apx.", "Top% official", "Top #", "Out of",
+             "Score") + tuple(
     "Top %s I" % division for division in reversed(DIVISIONS))
 # An Offensive is three stages; the list gives each its own score row.
 OFFENSIVE_STAGES = 3
@@ -492,6 +501,7 @@ def rift_table(raw, history, shipped=None):
                             or standing.get("rank_id"))
         field = field_size(tops)
         columns.append(("%d p%d" % (season, half), [
+            RIFT_CODENAMES.get(season, RIFT_UNNAMED),
             _share_of(rank, field),
             "%g%%" % (found[2] * 100) if found else None,
             _thousands(rank),

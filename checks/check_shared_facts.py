@@ -184,16 +184,16 @@ def _fold_rules(sf):
              sf.FINALS: {"event_f": ["event_f_1"]},
              sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: top}}}},
              sf.SORTIE: {"global": {"assault_1_s7": field}}}
-    held, added, _refused = sf.fold(sf.empty(), first)
-    again, added_again, refused_again = sf.fold(held, first)
-    if again != held or added_again or refused_again:
+    held, added, _refused, _down = sf.fold(sf.empty(), first)
+    again, added_again, refused_again, down_again = sf.fold(held, first)
+    if again != held or added_again or refused_again or down_again:
         out.append(f"folding the same facts twice changed the result or "
                    f"reported {added_again + refused_again}. The build "
                    f"folds the maintainer's own facts on every run, so a "
                    f"fold that is not idempotent rewrites the shipped "
                    f"file each time.")
     other = dict(RATES, rates={"total_ratio": 1})
-    held, _added, refused = sf.fold(held, {
+    held, _added, refused, _down = sf.fold(held, {
         sf.RATES: {"gacha_a": other},
         sf.SLOTS: {"event_t": ["slot_2"]},
         sf.TOTALS: {"event_f": {"event_f_1": 21}},
@@ -201,7 +201,7 @@ def _fold_rules(sf):
             top, read_at=200, best_score=12)}}}},
         sf.SORTIE: {"global": {"assault_1_s7": dict(
             field, read_at=300)}}})
-    held, _added, _refused = sf.fold(held, {
+    held, _added, _refused, _down = sf.fold(held, {
         sf.TOTALS: {"event_f": {"event_f_1": 12}},
         sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: dict(
             top, read_at=50, best_score=9)}}}}})
@@ -223,6 +223,18 @@ def _fold_rules(sf):
             f"and a later reading that says something new win in either "
             f"order, and one that says the same changes nothing -- or "
             f"every build rewrites the shipped file for a new timestamp.")
+    # Fewer players later: folded -- a ban is real -- but listed apart,
+    # since a wrong server or a doctored file reads the same.
+    fewer = dict(field, players=18000, read_at=400)
+    held, added, _refused, down = sf.fold(held, {
+        sf.SORTIE: {"global": {"assault_1_s7": fewer}}})
+    if held[sf.SORTIE]["global"]["assault_1_s7"]["players"] != 18000 \
+            or added or len(down) != 1 or "19000 -> 18000" not in down[0]:
+        out.append(
+            f"a later Sortie reading with fewer players folded to "
+            f"{held[sf.SORTIE]['global']['assault_1_s7']} and reported "
+            f"added {added}, down {down}. It is folded, and said apart "
+            f"with both figures, for the maintainer to judge.")
     return out
 
 

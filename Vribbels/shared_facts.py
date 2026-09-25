@@ -481,9 +481,20 @@ def describe(counts):
 
 # -------------------------------------------------------------- folding
 
+def _change(kind, before, reading):
+    """(`players 19552 -> 19716`, whether any figure went down)."""
+    parts, down = [], False
+    for field in SAYS[kind]:
+        old, new = before.get(field), reading.get(field)
+        if old != new:
+            parts.append("%s %s -> %s" % (field, old, new))
+            down = down or (_is_int(old) and _is_int(new) and new < old)
+    return ", ".join(parts), down
+
+
 def fold(into, facts):
     """`facts` folded into `into`: (the result, [what it added],
-    [what it refused]).
+    [what it refused], [what went down]).
 
     Slots and final rewards are unioned, the bigger instalment total
     wins, and a later reading that says something different replaces
@@ -493,9 +504,16 @@ def fold(into, facts):
     question for the maintainer, not an update. Folding the same facts
     twice changes nothing the second time, and nothing held is ever
     dropped -- `lost` holds a fold to that.
+
+    **A later reading whose figures went DOWN is folded and listed
+    apart.** Every ranking figure kept -- a field's size, a top score, a
+    subdivision's starting rank -- only grows while a season runs,
+    except when the game bans players, which is real. A reading from
+    the wrong server or a doctored file looks the same, and only the
+    maintainer can tell them apart, so it is said rather than refused.
     """
     out, facts = clean(into), clean(facts)
-    added, refused = [], []
+    added, refused, down = [], [], []
     for banner, entry in facts[RATES].items():
         held = out[RATES].get(banner)
         if held is None:
@@ -523,12 +541,18 @@ def fold(into, facts):
             held = out[kind].setdefault(region, {})
             for path, reading in _walk(tree, DEPTH[kind]):
                 before = _get(held, path)
-                if _is_news(kind, path, reading, before, None):
-                    added.append("%s %s of %s, %s" % (
-                        region, WORDS[kind][0], "/".join(path),
-                        "new" if before is None else "a later reading"))
-                    _put(held, path, reading)
-    return clean(out), added, refused
+                if not _is_news(kind, path, reading, before, None):
+                    continue
+                line = "%s %s of %s" % (region, WORDS[kind][0],
+                                        "/".join(path))
+                if before is None:
+                    added.append(line + ", new")
+                else:
+                    change, fell = _change(kind, before, reading)
+                    (down if fell else added).append(
+                        "%s: %s" % (line, change))
+                _put(held, path, reading)
+    return clean(out), added, refused, down
 
 
 def lost(before, after):
