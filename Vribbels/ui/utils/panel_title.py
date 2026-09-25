@@ -13,18 +13,19 @@ returns the style's name. Everything in the header takes it, so the
 labels share one line box and the gap between them is their pad alone.
 """
 
-import tkinter as tk
 from tkinter import ttk
 
 PANEL_TITLE_STYLE = "PanelTitle.TLabel"
 
 
 def panel_title_style():
-    """Define the style if it is not yet, and return its name."""
-    try:
-        ttk.Style().layout(PANEL_TITLE_STYLE, [("Label.fill", {
-            "sticky": "nswe",
-            "children": [("Label.text", {"sticky": "nswe"})]})])
-    except tk.TclError:
-        pass
+    """Define the style, and return its name.
+
+    No `try` around the layout: a refused one leaves the dotted name on
+    `TLabel`'s layout, which looks exactly like no change.
+    `check_tabs_build` holds these labels to their text's width.
+    """
+    ttk.Style().layout(PANEL_TITLE_STYLE, [("Label.fill", {
+        "sticky": "nswe",
+        "children": [("Label.text", {"sticky": "nswe"})]})])
     return PANEL_TITLE_STYLE

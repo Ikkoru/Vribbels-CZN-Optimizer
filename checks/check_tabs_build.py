@@ -2435,6 +2435,7 @@ def _gacha_history_draws_its_rows(tab):
                 f"rarity or warning colour. Its own empty foreground map "
                 f"is what stops that, and looks like a no-op.")
         out.extend(_gacha_overall_fits(tab, gh))
+        out.extend(_no_inset_labels_hug_their_text(tab))
         pulls = [tab.pulls_tree.item(i) for i in tab.pulls_tree.get_children()]
         tags = [tuple(p["tags"]) for p in pulls]
         if tags != [("stars_unknown",), ("stars_5",), ("stars_4",),
@@ -2468,6 +2469,51 @@ def _gacha_history_draws_its_rows(tab):
     finally:
         tab.filter_var.set(FILTERS[0][0])
         shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
+def _no_inset_labels_hug_their_text(tab):
+    """The status lines and the labelwidget titles ask for their text's
+    width and no more.
+
+    Both styles replace `TLabel`'s layout, whose 1px border and 1px
+    padding sit the text 2px in on every side. A refused layout is
+    silent -- the dotted style falls back to `TLabel`'s -- and then the
+    status lines sit 2px off the window's edge and every such title 2px
+    right of its column's others. Only the size can tell.
+
+    Returns a list of complaints.
+    """
+    from tkinter import font as tkfont, ttk
+    from ui.scaling import px
+    from ui.utils.panel_title import panel_title_style
+
+    out = []
+    text = "Wide enough to measure"
+    title = ttk.Label(tab.frame, text=text, style=panel_title_style())
+    try:
+        labels = [(tab.status_label, 2 * px(2)), (title, 0)]
+        for label, vertical in labels:
+            saved = label.cget("text")
+            label.configure(text=text)
+            label.update_idletasks()
+            face = label.cget("font") or ttk.Style().lookup(
+                label.cget("style"), "font") or "TkDefaultFont"
+            face = tkfont.nametofont(face) if isinstance(face, str) \
+                and face in tkfont.names() else tkfont.Font(font=face)
+            want = (face.measure(text),
+                    face.metrics("linespace") + vertical)
+            got = (label.winfo_reqwidth(), label.winfo_reqheight())
+            label.configure(text=saved)
+            if got != want:
+                out.append(
+                    f"a {label.cget('style')} label asks for {got[0]}x"
+                    f"{got[1]} where its text and the style's own inset "
+                    f"take {want[0]}x{want[1]}. A refused layout falls "
+                    f"back to TLabel's, which sets the text 2px in on "
+                    f"every side.")
+    finally:
+        title.destroy()
     return out
 
 

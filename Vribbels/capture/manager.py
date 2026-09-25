@@ -1552,7 +1552,11 @@ class Addon:
                     "clear_time": row.get("clear_time"),
                     "turn": row.get("turn"),
                     "read_at": data.get("service_server_time"),
-                    "refresh_id": data.get("refresh_id")}
+                    "refresh_id": data.get("refresh_id"),
+                    # The two servers rank different players, so a
+                    # top is a fact about ONE of them -- which is what
+                    # lets `shared_facts` keep them apart.
+                    "region": self._detect_region()}
                 history = board.setdefault(str(rank_id), [])
                 if not history or (history[-1].get("rank"),
                                    history[-1].get("score_record")) != (
@@ -1586,7 +1590,10 @@ class Addon:
                 "top_clear_time_sec": top.get("clear_time_sec"),
                 "top_penalty_level": top.get("penalty_level"),
                 "read_at": data.get("service_server_time"),
-                "refresh_id": data.get("refresh_id")}
+                "refresh_id": data.get("refresh_id"),
+                # The field and its top are one server's, as the Great
+                # Rift's tops are.
+                "region": self._detect_region()}
             readings = season.setdefault("readings", [])
             fields = ("total_count", "rank", "score", "top_score")
             if not readings or [readings[-1].get(f) for f in fields] != [

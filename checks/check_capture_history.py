@@ -146,6 +146,10 @@ def run():
             "achievement it names.")
 
     # --- the Great Rift's subdivision tops ------------------------------
+    # The session's server, as a connection's SNI names it. Every
+    # ranking sample below must carry it: the two servers rank
+    # different players, and `shared_facts` keeps them apart by it.
+    addon._note_region("global")
     page = [_stranger(1, "disaster_s04_rank_best_2_30", 163563143483397),
             _stranger(2, "disaster_s04_rank_best_2_30", 163000043483397)]
     addon.websocket_message(_Flow([{
@@ -201,6 +205,15 @@ def run():
             f"the Sortie standings read {got!r}. Both tabs are kept, a "
             f"season each, from the first page only -- the one holding "
             f"rank 1; a later page has no top to give.")
+    stamps = {s.get("region") for s in samples} | {
+        r.get("region") for season in seasons.values()
+        for r in season.get("readings", [])}
+    if stamps != {"global"}:
+        failures.append(
+            f"ranking samples carry the servers {sorted(map(str, stamps))}, "
+            f"not the session's own. A field size or a division's top "
+            f"is a fact about one server, and a sample without its "
+            f"server cannot be shared without guessing which.")
 
     # --- the Full-Scale Offensive, a season per Offensive ------------------
     def stage(n, score):

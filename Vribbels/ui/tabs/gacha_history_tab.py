@@ -354,13 +354,17 @@ class GachaHistoryTab(BaseTab):
         # say. `_show_status` packs only those with something to say.
         status = ttk.Frame(toolbar)
         status.pack(side=tk.RIGHT, anchor=tk.N)
-        try:
-            # spacing: unique -- a label's own inset, a style option -- label, label ↕
-            ttk.Style().layout(STATUS_STYLE, [("Label.padding", {
-                "sticky": "nswe", "border": "0 %d" % px(2),
-                "children": [("Label.label", {"sticky": "nswe"})]})])
-        except tk.TclError:
-            pass
+        # A layout's `border` is a flag -- the element surrounds its
+        # children -- and the inset is the style's `padding`: here a
+        # label's own 2 above and below, and none at the sides. No `try`:
+        # a refused layout leaves the dotted name on `TLabel`'s, which
+        # looks like no change at all.
+        style = ttk.Style()
+        style.layout(STATUS_STYLE, [("Label.padding", {
+            "sticky": "nswe", "border": "1",
+            "children": [("Label.label", {"sticky": "nswe"})]})])
+        # spacing: unique -- a label's own inset, a style option -- label, label ↕
+        style.configure(STATUS_STYLE, padding=px((0, 2)))
         self.urgent_label = ttk.Label(
             status, text="", font=URGENT_FONT, style=STATUS_STYLE,
             foreground=self.colors["red"],
