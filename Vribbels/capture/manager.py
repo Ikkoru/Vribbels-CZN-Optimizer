@@ -1638,7 +1638,10 @@ class Addon:
                 "rank_percent": percent,
                 "reward_count": offensive.get("reward_count"),
                 "score": sum(scores.values()) if scores else None,
-                "read_at": data.get("service_server_time")}
+                "read_at": data.get("service_server_time"),
+                # The field it implies is one server's, as the Great
+                # Rift's tops are.
+                "region": self._detect_region()}
             fields = ("rank", "rank_percent", "reward_count", "score")
             if [last.get(f) for f in fields] != [sample[f] for f in fields]:
                 readings.append(sample)

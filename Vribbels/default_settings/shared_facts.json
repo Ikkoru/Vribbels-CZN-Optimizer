@@ -574,6 +574,14 @@
     "event_stock_01": 17
    }
   },
+  "offensive_fields": {
+   "global": {
+    "remnants_boss_penalty_005": {
+     "players": 57500,
+     "read_at": 1790291707
+    }
+   }
+  },
   "rift_tops": {
    "global": {
     "disaster_s04": {
@@ -609,6 +617,20 @@
        "read_at": 1790291697
       }
      }
+    }
+   }
+  },
+  "sortie_fields": {
+   "global": {
+    "assault_1_s6": {
+     "players": 24684,
+     "read_at": 1790272436,
+     "top_score": 66265
+    },
+    "assault_1_s7": {
+     "players": 19716,
+     "read_at": 1790291677,
+     "top_score": 65084
     }
    }
   },

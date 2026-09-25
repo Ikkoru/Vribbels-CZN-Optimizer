@@ -2,7 +2,7 @@
 about the player's account: which ship with the program, which a
 player could add, and the file they send in.
 
-Five kinds, each something the game stops listing after a while, so a
+Seven kinds, each something the game stops listing after a while, so a
 player who installs late or never opened the right screen can never
 read it for themselves:
 
@@ -14,29 +14,44 @@ read it for themselves:
 * `final_rewards` -- which instalments paid a final reward.
 * `rift_tops` -- each Great Rift subdivision's top row, per server: its
   rank and score, never who.
+* `sortie_fields` -- each Sortie season's field, per server: how many
+  players it ranked and its top score.
+* `offensive_fields` -- each Full-Scale Offensive's field, per server:
+  how many players it ranked, to the hundred.
 
 **A whitelist.** `collect` names every field it copies and `clean`
 checks every value's shape, so a field the wire adds later cannot reach
 a file by default -- and nothing about the account ever does: no id, no
 name, no rank or score of its own. An id must look like one of the
 game's (`ID`), which keeps text of any other kind out of every key.
+**The Offensive's field is worked out from the account's own rank**,
+which is why it is kept to the hundred the Stats list shows: to more
+than that, it and the percentage the game states would give the rank
+back.
 
 **Read beside the user's own, never merged into it.** The shipped copy
 is `default_settings/shared_facts.json`, read-only, and each reader
 combines it with what the account holds, in memory -- `with_rates`,
-`with_slots`, `totals_with`, `finals_with`, `tops_with`. The account's
-files are never rewritten with it, so a wrong shipped fact goes away
-with the release that fixes it and leaves nothing behind.
+`with_slots`, `totals_with`, `finals_with`, `tops_with`,
+`fields_for`. The account's files are never rewritten with it, so a
+wrong shipped fact goes away with the release that fixes it and leaves
+nothing behind.
 
-**The tops are per server.** The two rank different players, so a
-field size read on one is wrong on the other; every other kind is the
-same game on both. A sample the capture stamped names its server, and
-one from before the stamp takes the newest snapshot's.
+**The rankings are per server.** The two rank different players, so a
+field read on one is wrong on the other; every other kind is the same
+game on both. A reading the capture stamped names its server, and one
+from before the stamp takes the newest snapshot's.
+
+**A later reading is news only for a season that is over**: a running
+one's figures move every week, and counting each move would ask every
+active account to send the same season again. Over means an older one
+than the newest the two sides know of -- see `_is_news`.
 
 `missing` is what the panel asks and the export writes: what the
 account holds that the shipped file does not. `fold` is the
 maintainer's merge of the account's own facts and of the files players
-send, run by `default_settings/normalize/fold_shared_facts.py`.
+send, run by `default_settings/normalize/fold_shared_facts.py`; `lost`
+is its guard against a fold that would drop anything.
 """
 
 import copy
@@ -53,7 +68,11 @@ SLOTS = "trial_slots"
 TOTALS = "instalment_totals"
 FINALS = "final_rewards"
 TOPS = "rift_tops"
-KINDS = (RATES, SLOTS, TOTALS, FINALS, TOPS)
+SORTIE = "sortie_fields"
+OFFENSIVE = "offensive_fields"
+KINDS = (RATES, SLOTS, TOTALS, FINALS, TOPS, SORTIE, OFFENSIVE)
+# The kinds kept per server, as {server: {season, ...: reading}}.
+RANKINGS = (TOPS, SORTIE, OFFENSIVE)
 
 # What each kind is called, one and many, in the order the Share Game
 # Data panel names them.
@@ -61,7 +80,9 @@ WORDS = {RATES: ("banner's rates", "banners' rates"),
          SLOTS: ("Combatant Trial slot", "Combatant Trial slots"),
          TOTALS: ("event reward total", "event reward totals"),
          FINALS: ("final reward", "final rewards"),
-         TOPS: ("Great Rift division top", "Great Rift division tops")}
+         TOPS: ("Great Rift division top", "Great Rift division tops"),
+         SORTIE: ("Sortie season", "Sortie seasons"),
+         OFFENSIVE: ("Full-Scale Offensive", "Full-Scale Offensives")}
 
 # `capture.constants.SERVERS`' keys, written out rather than imported:
 # importing the capture package pulls in far more than this module
@@ -77,10 +98,20 @@ ID = re.compile(r"^[A-Za-z0-9_]{1,80}$")
 RATE_TABLES = ("rates", "total_rate_info")
 RATE_POOLS = "pools"
 
-# A top's sample: where it stands, what it scored and when it was read.
-# The rank and the moment are what a sample IS; a score is optional,
-# as the capture's own samples allow.
-TOP_FIELDS = ("rank", "best_score", "read_at")
+# What a ranking reading SAYS, per kind, as against when it was read:
+# a later reading that says the same is not a new fact. A top is where
+# a subdivision starts and what leads it; a field is its size and, for
+# the Sortie, its top score.
+SAYS = {TOPS: ("rank", "best_score"),
+        SORTIE: ("players", "top_score"),
+        OFFENSIVE: ("players",)}
+
+# How many levels a ranking kind nests under its server: a top sits
+# under its season, its half and its subdivision, a field under its
+# season alone. The SEASON -- what is over or running -- is the first
+# `UNIT` levels.
+DEPTH = {TOPS: 3, SORTIE: 1, OFFENSIVE: 1}
+UNIT = {TOPS: 2, SORTIE: 1, OFFENSIVE: 1}
 
 # No instalment holds more rewards than this. A bigger count is not the
 # game's, and a file claiming one is refused the entry.
@@ -126,11 +157,13 @@ def clean(facts):
     reaches a reader unchecked.
     """
     facts = facts if isinstance(facts, dict) else {}
-    return {RATES: _clean_rates(facts.get(RATES)),
-            SLOTS: _clean_lists(facts.get(SLOTS)),
-            TOTALS: _clean_totals(facts.get(TOTALS)),
-            FINALS: _clean_lists(facts.get(FINALS)),
-            TOPS: _clean_tops(facts.get(TOPS))}
+    out = {RATES: _clean_rates(facts.get(RATES)),
+           SLOTS: _clean_lists(facts.get(SLOTS)),
+           TOTALS: _clean_totals(facts.get(TOTALS)),
+           FINALS: _clean_lists(facts.get(FINALS))}
+    for kind in RANKINGS:
+        out[kind] = _clean_rankings(kind, facts.get(kind))
+    return out
 
 
 def _clean_rates(raw):
@@ -177,31 +210,63 @@ def _clean_totals(raw):
     return out
 
 
-def _clean_sample(sample):
-    if not isinstance(sample, dict):
-        return None
-    rank, read_at = sample.get("rank"), sample.get("read_at")
-    if not (_is_int(rank) and rank > 0 and _is_int(read_at) and read_at > 0):
-        return None
-    score = sample.get("best_score")
-    return {"rank": rank, "read_at": read_at,
-            "best_score": score if _is_int(score) and score >= 0 else None}
+def _count(value, least=1):
+    return value if _is_int(value) and value >= least else None
 
 
-def _clean_tops(raw):
-    """{server: {season: {half: {subdivision: sample}}}}."""
+def _clean_reading(kind, reading):
+    """One ranking reading with only its kind's fields, or None."""
+    if not isinstance(reading, dict):
+        return None
+    read_at = _count(reading.get("read_at"))
+    if read_at is None:
+        return None
+    if kind == TOPS:
+        rank = _count(reading.get("rank"))
+        return None if rank is None else {
+            "rank": rank, "read_at": read_at,
+            "best_score": _count(reading.get("best_score"), 0)}
+    players = _count(reading.get("players"))
+    if players is None:
+        return None
+    out = {"players": players, "read_at": read_at}
+    if kind == SORTIE:
+        out["top_score"] = _count(reading.get("top_score"), 0)
+    return out
+
+
+def _clean_rankings(kind, raw):
+    """{server: {season, ...: reading}}, `DEPTH[kind]` levels deep."""
     out = {}
-    for region, seasons in _items(raw):
+    for region, tree in _items(raw):
         if region not in REGIONS:
             continue
-        for season, halves in _items(seasons):
-            for half, tops in _items(halves):
-                for rank_id, sample in _items(tops):
-                    sample = _clean_sample(sample)
-                    if sample and all(map(_is_id, (season, half, rank_id))):
-                        out.setdefault(region, {}).setdefault(
-                            season, {}).setdefault(half, {})[rank_id] = sample
+        for path, reading in _walk(tree, DEPTH[kind]):
+            reading = _clean_reading(kind, reading)
+            if reading and all(map(_is_id, path)):
+                _put(out.setdefault(region, {}), path, reading)
     return out
+
+
+def _walk(tree, depth, path=()):
+    """(path, leaf) for every leaf `depth` levels into nested dicts."""
+    for key, value in _items(tree):
+        if depth == 1:
+            yield path + (key,), value
+        else:
+            yield from _walk(value, depth - 1, path + (key,))
+
+
+def _put(tree, path, value):
+    for key in path[:-1]:
+        tree = tree.setdefault(key, {})
+    tree[path[-1]] = value
+
+
+def _get(tree, path):
+    for key in path:
+        tree = tree.get(key) if isinstance(tree, dict) else None
+    return tree
 
 
 # ----------------------------------------------------------- gathering
@@ -216,45 +281,79 @@ def collect(raw, history, captured, checklist):
     raw = raw if isinstance(raw, dict) else {}
     captured = captured if isinstance(captured, dict) else {}
     checklist = checklist if isinstance(checklist, dict) else {}
-    return clean({
-        RATES: captured.get("rates"),
-        SLOTS: raw.get("combatant_trial_slots"),
-        TOTALS: checklist.get("events"),
-        FINALS: checklist.get("finals"),
-        TOPS: _tops_by_region(raw, history),
-    })
+    facts = {RATES: captured.get("rates"),
+             SLOTS: raw.get("combatant_trial_slots"),
+             TOTALS: checklist.get("events"),
+             FINALS: checklist.get("finals")}
+    facts.update(_rankings_by_region(raw, history))
+    return clean(facts)
 
 
-def _tops_by_region(raw, history):
-    """The latest sample of each subdivision's top, by server.
+# Where each ranking kind comes from, in a snapshot and in
+# `stats_history.json` alike.
+SOURCES = {TOPS: "disaster_boss_rank_tops",
+           SORTIE: "chaos_assault_rankings",
+           OFFENSIVE: "remnants_rankings"}
+
+
+def _rankings_by_region(raw, history):
+    """The latest reading of each season's field and each subdivision's
+    top, by server.
 
     Read through `stats_history.merged`, the way the Stats lists read
-    them, so a top only an old debug capture held is shared too. A
-    sample without a server of its own -- read before the capture
+    them, so what only an old debug capture held is shared too. A
+    reading without a server of its own -- read before the capture
     stamped one, or out of an old log -- takes the snapshot's.
     """
     import stats_history
     fallback = raw.get("detected_region")
-    out = {}
-    tops = stats_history.merged(raw, history, "disaster_boss_rank_tops")
-    for season, halves in _items(tops):
-        for half, subdivisions in _items(halves):
-            for rank_id, samples in _items(subdivisions):
-                for sample in samples if isinstance(samples, list) else ():
-                    region = (sample.get("region") if isinstance(
-                        sample, dict) else None) or fallback
-                    kept = _clean_sample(sample)
-                    if kept is None or region not in REGIONS:
-                        continue
-                    held = out.setdefault(region, {}).setdefault(
-                        str(season), {}).setdefault(str(half), {})
-                    if _later(kept, held.get(str(rank_id))):
-                        held[str(rank_id)] = kept
+    out = {kind: {} for kind in RANKINGS}
+    for kind in RANKINGS:
+        merged = stats_history.merged(raw, history, SOURCES[kind])
+        for path, readings in _ranking_readings(kind, merged):
+            for reading in readings:
+                region = reading.get("region") or fallback
+                kept = _clean_reading(kind, _field_of(kind, reading))
+                if kept is None or region not in REGIONS:
+                    continue
+                held = out[kind].setdefault(region, {})
+                if _later(kept, _get(held, path)):
+                    _put(held, path, kept)
     return out
 
 
-def _later(sample, than):
-    return than is None or sample["read_at"] > than["read_at"]
+def _ranking_readings(kind, merged):
+    """(path, [readings]) out of one kind's merged history."""
+    if kind == TOPS:
+        for path, samples in _walk(merged, 3):
+            yield tuple(map(str, path)), [
+                s for s in (samples if isinstance(samples, list) else ())
+                if isinstance(s, dict)]
+        return
+    for season, held in _items(merged):
+        readings = held.get("readings") if isinstance(held, dict) else None
+        yield (str(season),), [r for r in readings or ()
+                               if isinstance(r, dict)]
+
+
+def _field_of(kind, reading):
+    """What a reading says about the whole field -- never the
+    account's own place in it."""
+    if kind == TOPS:
+        return reading
+    if kind == SORTIE:
+        return {"players": reading.get("total_count"),
+                "top_score": reading.get("top_score"),
+                "read_at": reading.get("read_at")}
+    rank, percent = reading.get("rank"), reading.get("rank_percent")
+    players = None
+    if _count(rank) and _is_number(percent) and percent > 0:
+        players = int(round(rank * 100.0 / percent, -2))
+    return {"players": players, "read_at": reading.get("read_at")}
+
+
+def _later(reading, than):
+    return than is None or reading["read_at"] > than["read_at"]
 
 
 def collect_from(program_dir, raw=None):
@@ -283,13 +382,57 @@ def _read_json(path):
 
 # ------------------------------------------------------------ comparing
 
+def _season_order(kind, path):
+    """Where a season stands among its kind's, as a tuple to compare,
+    or None where its ids say nothing."""
+    if kind == TOPS:
+        season = re.search(r"_s(\d+)$", path[0])
+        half = re.search(r"_rank_(\d+)$", path[1])
+        return ((int(season.group(1)), int(half.group(1)))
+                if season and half else None)
+    found = re.search(r"(\d+)$", path[0])
+    return (int(found.group(1)),) if found else None
+
+
+def _newest(kind, trees):
+    """The newest season any of `trees` -- one server's readings of one
+    kind -- knows of, or None."""
+    orders = [_season_order(kind, path[:UNIT[kind]])
+              for tree in trees for path, _r in _walk(tree, DEPTH[kind])]
+    orders = [order for order in orders if order is not None]
+    return max(orders) if orders else None
+
+
+def _is_news(kind, path, reading, held, newest):
+    """Whether `reading` tells anything `held` does not.
+
+    A season `held` has no reading of is news. **So is a later reading
+    that says something different, but only of a season that is
+    over**: one older than `newest`. The season running has figures
+    that move every week, and counting those would make the same
+    season news again every week. None for `newest` counts every
+    season as over -- the maintainer's fold, where a later figure of
+    the season running is the one to ship.
+    """
+    if held is None:
+        return True
+    if reading["read_at"] <= held["read_at"]:
+        return False
+    if [reading.get(f) for f in SAYS[kind]] == [held.get(f)
+                                                for f in SAYS[kind]]:
+        return False
+    if newest is None:
+        return True
+    order = _season_order(kind, path[:UNIT[kind]])
+    return order is not None and order < newest
+
+
 def missing(mine, shipped):
     """What `mine` holds that `shipped` does not: the facts worth sending.
 
-    A key the shipped facts lack, or an instalment total bigger than the
-    one they hold. **A later sample of a top they already hold is not
-    missing**: every active account reads one every week, and counting
-    it would ask all of them to send the same half again.
+    A key the shipped facts lack, a bigger instalment total, or a
+    later reading that says something new of a season that is over --
+    see `_is_news`.
     """
     mine, shipped = clean(mine), clean(shipped)
     out = empty()
@@ -306,29 +449,28 @@ def missing(mine, shipped):
         new = {e: c for e, c in rows.items() if c > have.get(e, 0)}
         if new:
             out[TOTALS][family] = new
-    for region, seasons in mine[TOPS].items():
-        for season, halves in seasons.items():
-            for half, tops in halves.items():
-                have = shipped[TOPS].get(region, {}).get(
-                    season, {}).get(half, {})
-                new = {r: s for r, s in tops.items() if r not in have}
-                if new:
-                    out[TOPS].setdefault(region, {}).setdefault(
-                        season, {})[half] = new
+    for kind in RANKINGS:
+        for region, tree in mine[kind].items():
+            held = shipped[kind].get(region, {})
+            newest = _newest(kind, (tree, held))
+            for path, reading in _walk(tree, DEPTH[kind]):
+                if _is_news(kind, path, reading, _get(held, path), newest):
+                    _put(out[kind].setdefault(region, {}), path, reading)
     return out
 
 
 def tally(facts):
-    """{kind: how many entries of it}, the tops counted a subdivision
-    each and the lists an id each."""
+    """{kind: how many entries of it}: a banner, an id in a list, an
+    instalment, a subdivision's top or a season's field each."""
     facts = clean(facts)
-    return {RATES: len(facts[RATES]),
-            SLOTS: sum(map(len, facts[SLOTS].values())),
-            TOTALS: sum(map(len, facts[TOTALS].values())),
-            FINALS: sum(map(len, facts[FINALS].values())),
-            TOPS: sum(len(tops) for seasons in facts[TOPS].values()
-                      for halves in seasons.values()
-                      for tops in halves.values())}
+    counts = {RATES: len(facts[RATES]),
+              SLOTS: sum(map(len, facts[SLOTS].values())),
+              TOTALS: sum(map(len, facts[TOTALS].values())),
+              FINALS: sum(map(len, facts[FINALS].values()))}
+    for kind in RANKINGS:
+        counts[kind] = sum(len(list(_walk(tree, DEPTH[kind])))
+                           for tree in facts[kind].values())
+    return counts
 
 
 def describe(counts):
@@ -344,11 +486,13 @@ def fold(into, facts):
     [what it refused]).
 
     Slots and final rewards are unioned, the bigger instalment total
-    wins and a later sample of a top replaces an earlier one. **A
-    banner already held with DIFFERENT rates is refused rather than
-    replaced**: the same banner read two ways is a question for the
-    maintainer, not an update. Folding the same facts twice changes
-    nothing the second time.
+    wins, and a later reading that says something different replaces
+    an earlier one -- of a running season too, whose latest figure is
+    the one to ship. **A banner already held with DIFFERENT rates is
+    refused rather than replaced**: the same banner read two ways is a
+    question for the maintainer, not an update. Folding the same facts
+    twice changes nothing the second time, and nothing held is ever
+    dropped -- `lost` holds a fold to that.
     """
     out, facts = clean(into), clean(facts)
     added, refused = [], []
@@ -374,18 +518,42 @@ def fold(into, facts):
                     event, count, "" if event not in held
                     else " (was %d)" % held[event]))
                 held[event] = count
-    for region, seasons in facts[TOPS].items():
-        for season, halves in seasons.items():
-            for half, tops in halves.items():
-                held = out[TOPS].setdefault(region, {}).setdefault(
-                    season, {}).setdefault(half, {})
-                for rank_id, sample in tops.items():
-                    if _later(sample, held.get(rank_id)):
-                        added.append("%s top of %s, %s" % (
-                            region, rank_id, "new" if rank_id not in held
-                            else "a later reading"))
-                        held[rank_id] = sample
+    for kind in RANKINGS:
+        for region, tree in facts[kind].items():
+            held = out[kind].setdefault(region, {})
+            for path, reading in _walk(tree, DEPTH[kind]):
+                before = _get(held, path)
+                if _is_news(kind, path, reading, before, None):
+                    added.append("%s %s of %s, %s" % (
+                        region, WORDS[kind][0], "/".join(path),
+                        "new" if before is None else "a later reading"))
+                    _put(held, path, reading)
     return clean(out), added, refused
+
+
+def lost(before, after):
+    """What `before` held that `after` does not, or holds less of: a
+    banner, an id, an instalment count, a reading now older. Empty for
+    any fold -- the guard is against the code, not the data."""
+    before, after = clean(before), clean(after)
+    gone = ["rates of %s" % banner for banner in before[RATES]
+            if banner not in after[RATES]]
+    for kind in (SLOTS, FINALS):
+        for key, ids in before[kind].items():
+            gone += ["%s %s of %s" % (WORDS[kind][0], i, key) for i in ids
+                     if i not in after[kind].get(key, ())]
+    for family, rows in before[TOTALS].items():
+        gone += ["%s: %d rewards" % (event, count)
+                 for event, count in rows.items()
+                 if after[TOTALS].get(family, {}).get(event, 0) < count]
+    for kind in RANKINGS:
+        for region, tree in before[kind].items():
+            for path, reading in _walk(tree, DEPTH[kind]):
+                now = _get(after[kind].get(region, {}), path)
+                if now is None or now["read_at"] < reading["read_at"]:
+                    gone.append("%s %s of %s" % (
+                        region, WORDS[kind][0], "/".join(path)))
+    return gone
 
 
 # ---------------------------------------------------------------- files
@@ -405,6 +573,17 @@ def read_document(data):
             or data.get("version") != VERSION:
         return None
     return clean(data.get("facts"))
+
+
+def whole(data):
+    """Whether a shared facts file loses nothing through `clean`: of
+    its kind and version, every kind it holds one `clean` knows, every
+    entry kept. A kind it does not hold is only older than this code."""
+    facts = read_document(data)
+    stored = data.get("facts") if isinstance(data, dict) else None
+    return (facts is not None and isinstance(stored, dict)
+            and all(kind in facts and facts[kind] == value
+                    for kind, value in stored.items()))
 
 
 def load(path):
@@ -471,13 +650,16 @@ def tops_with(tops, shipped, region):
     """
     out = copy.deepcopy(tops) if isinstance(tops, dict) else {}
     seasons = ((shipped or {}).get(TOPS) or {}).get(region) or {}
-    for season, halves in seasons.items():
-        for half, subdivisions in halves.items():
-            for rank_id, sample in subdivisions.items():
-                samples = out.setdefault(season, {}).setdefault(
-                    half, {}).setdefault(rank_id, [])
-                if sample["read_at"] not in {s.get("read_at")
-                                             for s in samples}:
-                    samples.append(dict(sample))
-                    samples.sort(key=lambda s: s.get("read_at") or 0)
+    for path, sample in _walk(seasons, DEPTH[TOPS]):
+        samples = out.setdefault(path[0], {}).setdefault(
+            path[1], {}).setdefault(path[2], [])
+        if sample["read_at"] not in {s.get("read_at") for s in samples}:
+            samples.append(dict(sample))
+            samples.sort(key=lambda s: s.get("read_at") or 0)
     return out
+
+
+def fields_for(shipped, kind, region):
+    """{season: reading} of `kind` -- `SORTIE` or `OFFENSIVE` -- that
+    the program ships for `region`."""
+    return dict(((shipped or {}).get(kind) or {}).get(region) or {})

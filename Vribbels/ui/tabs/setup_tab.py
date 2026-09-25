@@ -115,13 +115,20 @@ RESTORE_COLUMN_GAP = 8  # spacing: control group ↔ control group -- label, but
 # Share Game Data, beside Update Status. Its button's left edge sits on
 # Window Size's, and Update Status takes whatever width puts it there --
 # see `align_share_button`. The inset is the button rule on every side:
-# the top and the left meet the button, and the right and the bottom
-# are slack, the panel being stretched to its row.
+# the top and the left meet the button, the right is slack, and the
+# bottom is Update Status' to decide -- see `SHARE_NOTE_TRIM`.
 SHARE_EDGE_PAD = 3      # spacing: border edge -> button -- panel, button ↔↕
 SHARE_STATUS_GAP = 2    # spacing: label ↔ its element -- button, label ↔
 SHARE_NOTE_GAP = 2      # spacing: explanation text -> the controls it explains -- button, label ↕
 # Each panel's half of the gap between Update Status and Share Game Data.
 SHARE_PANEL_PAD = 2     # spacing: content frame -> content frame -- frame, frame ↔
+# What the note gives back below its last line. A `ttk.Label` carries
+# about two pixels of inset under its glyphs, and handing them back is
+# what keeps the panel no taller than Update Status: the row takes the
+# taller of the two, and Update Status stretched moves its own bottom
+# gap. `check_tabs_build` holds the panel to that, so a longer note
+# says so there rather than on screen.
+SHARE_NOTE_TRIM = -2    # spacing: border edge -> first non-button element -- panel, label ↕
 SHARE_NOTE = (
     "Saves game facts you have that the program does not. Please share "
     "them with me so the next release passes them on to everyone: the "
@@ -618,24 +625,24 @@ class SetupTab(BaseTab):
         # Filled by `_check_share`, when the tab is shown: what the
         # account holds that the program does not, yellow, or green
         # where it holds nothing new.
+        # ONE line, whatever there is: a count rather than the list, so
+        # the row is the button's height and the panel keeps to Update
+        # Status'. What the count is made of is said when exporting.
         self._share_status = ttk.Label(top, text="")
         # spacing: label ↔ its element -- button, label ↔
-        # **`we`, not `w`.** The label wraps at the width it is given,
-        # and a label held to its own requested width is only ever
-        # given that -- so one long line would narrow it for good.
-        self._share_status.grid(row=0, column=1, sticky="we",
+        self._share_status.grid(row=0, column=1, sticky="w",
                                 padx=px((SHARE_STATUS_GAP, 0)))
         note = ttk.Label(panel, text=SHARE_NOTE, justify=tk.LEFT,
-                         foreground=self.colors["fg_dim"])
+                         foreground=self.colors["fg_dim"],
+                         padding=px((0, 0, 0, SHARE_NOTE_TRIM)))
         # spacing: explanation text -> the controls it explains -- button, label ↕
         note.pack(fill=tk.X, anchor=tk.W, pady=px((SHARE_NOTE_GAP, 0)))
-        # Both texts wrap at the width they are given. **Before the
-        # first `<Configure>` the note asks for its whole length on one
-        # line**, and the grid lets the panel's weight absorb it; after
-        # it, each asks for what its width holds.
-        for label in (note, self._share_status):
-            label.bind("<Configure>", lambda e, w=label: w.configure(
-                wraplength=max(1, e.width)), add="+")
+        # The note wraps at the width it is given. **Before the first
+        # `<Configure>` it asks for its whole length on one line**, and
+        # the grid lets the panel's weight absorb it; after it, it asks
+        # for what its width holds.
+        note.bind("<Configure>", lambda e: note.configure(
+            wraplength=max(1, e.width)), add="+")
         self.context.notebook.bind(
             "<<NotebookTabChanged>>", self._on_share_tab_changed, add="+")
         return panel
@@ -671,10 +678,11 @@ class SetupTab(BaseTab):
                 text="Could not read your captures: %s" % exc,
                 foreground=self.colors["red"])
             return
-        what = shared_facts.describe(shared_facts.tally(facts))
-        if what:
+        count = sum(shared_facts.tally(facts).values())
+        if count:
             self._share_status.configure(
-                text="Not in the program yet: " + what,
+                text="Not in the program yet: %d fact%s"
+                     % (count, "" if count == 1 else "s"),
                 foreground=self.colors["yellow"])
         else:
             self._share_status.configure(
@@ -710,8 +718,9 @@ class SetupTab(BaseTab):
             return
         if messagebox.askyesno(
                 "Export Facts",
-                "Saved %s.\n\nOpen a new issue on GitHub to attach it to?"
-                % Path(path).name):
+                "Saved %s: %s.\n\nOpen a new issue on GitHub to attach "
+                "it to?" % (Path(path).name, shared_facts.describe(
+                    shared_facts.tally(facts)))):
             webbrowser.open(SHARE_ISSUE_URL)
 
     def _build_settings(self, parent):

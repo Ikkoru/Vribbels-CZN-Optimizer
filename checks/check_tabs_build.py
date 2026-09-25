@@ -2356,7 +2356,7 @@ def _share_status_colours(tab):
         optimizer.raw_data = None
         held = sf.clean({sf.TOTALS: {"event_stock": {"event_stock_09": 17}}})
         for shipped, colour, words in (
-                (sf.empty(), "yellow", "1 event reward total"),
+                (sf.empty(), "yellow", "1 fact"),
                 (held, "green", "")):
             context.shared_facts = shipped
             tab._check_share()
@@ -2368,6 +2368,19 @@ def _share_status_colours(tab):
                     f"shipped, an account holding one instalment total "
                     f"reads {text!r} in {got}, not {colour}"
                     f"{' naming ' + repr(words) if words else ''}.")
+            # The row takes the taller panel, and Update Status
+            # stretched moves its own bottom gap: Share Game Data has
+            # to fit inside it, in either colour, at the note's width
+            # in a default-sized window.
+            tab.frame.update_idletasks()
+            share = tab._share_panel.winfo_reqheight()
+            status = tab.update_status.panel.winfo_reqheight()
+            if share > status:
+                out.append(
+                    f"Share Game Data asks for {share}px with its {colour} "
+                    f"line, taller than Update Status' {status}: the row "
+                    f"stretches Update Status and its bottom gap grows by "
+                    f"the difference. Shorten `SHARE_NOTE` or its trim.")
     finally:
         context.program_dir, context.shared_facts, optimizer.raw_data = saved
         shutil.rmtree(work, ignore_errors=True)

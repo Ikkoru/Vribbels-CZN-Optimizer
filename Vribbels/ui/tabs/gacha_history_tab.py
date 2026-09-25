@@ -15,7 +15,6 @@ few tenths of a second the first time -- spent at startup, that would
 be on every launch whether or not anyone opens the tab.
 """
 
-import functools
 import json
 import tkinter as tk
 import tkinter.font as tkfont
@@ -892,14 +891,13 @@ class GachaHistoryTab(BaseTab):
 
     def _fill_standings(self):
         """Write the three standings lists from what is loaded."""
-        raw = self._raw()
-        # The shipped division tops fill the Great Rift's; the other
-        # two lists have nothing a shipped fact could fill.
-        rift = functools.partial(sh.rift_table, shipped=self._shipped())
+        # The shipped facts add a column for every season they know of
+        # on the account's server, and fill what its own readings lack.
+        raw, shipped = self._raw(), self._shipped()
         for parts, table in ((self.sortie_list, sh.sortie_table),
-                             (self.rift_list, rift),
+                             (self.rift_list, sh.rift_table),
                              (self.offensive_list, sh.offensive_table)):
-            self._write_standings(parts, *table(raw, self.stats))
+            self._write_standings(parts, *table(raw, self.stats, shipped))
         self._size_standings()
 
     def _shipped(self):

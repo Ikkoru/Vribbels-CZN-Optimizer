@@ -18,9 +18,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - On the first launch of this version, the stats above are read out of any old debug captures kept in `snapshots/`, once, into `settings/stats_history.json`. It takes a few seconds, runs in the background, and says in the Capture Log when it is done.
 
-- **Game facts ship with the program** and fill in what your own captures missed: banner rates, so a banner whose rates you never opened still counts its 50/50s; which slots a Combatant Trial event offers; how many rewards earlier runs of an event held and which paid a Special Reward; and each Great Rift division's top, from your own server only. Your own readings always win.
+- **Game facts ship with the program** and fill in what your own captures missed: banner rates, so a banner whose rates you never opened still counts its 50/50s; which slots a Combatant Trial event offers; how many rewards earlier runs of an event held and which paid a Special Reward; and, from your own server only, each Great Rift division's top and how many players each Great Rift half, Sortie season and Full-Scale Offensive ranked, with the Sortie's top score. The Stats lists give each of those seasons a column, including ones you never took part in. Your own readings always win.
 
-- **Setup & Settings → Share Game Data**: `Export Facts` saves the game facts your captures hold that the program does not have yet, and nothing about your account, to attach to a new GitHub issue. The line beside it says in yellow when there is something to send.
+- **Setup & Settings → Share Game Data**: `Export Facts` saves the game facts your captures hold that the program does not have yet, and nothing about your account, to attach to a new GitHub issue. The line beside it says in yellow how many there are to send.
 
 - **A fifth Checklist column, `Galactic Disaster`**, holding the Seasonal Shop's season-long shelves. Its heading says how long the season has left, and the shop's own row no longer repeats it; between seasons the shelves go and a line saying roughly when the next one opens stands where the shop's own heading did. `Galactic Disaster (Seasonal)` has left the `Other` column, the new heading saying the same thing.
 

@@ -1316,6 +1316,22 @@ SHIELD_CAPTION = "How much value should be given"
 FORCE_CAPTION = "Force HP/Ego on a Slot:"
 
 
+def _opening(text):
+    """The first words of a note the tab keeps as a constant: read off
+    the constant, so rewording the note moves the prefix with it."""
+    return text[:16]
+
+
+def _mythic_note():
+    from .tabs.capture_tab import MYTHIC_NOTE
+    return _opening(MYTHIC_NOTE)
+
+
+def _share_note():
+    from .tabs.setup_tab import SHARE_NOTE
+    return _opening(SHARE_NOTE)
+
+
 def _controls_beyond(cap, frame, classes, edge, side):
     """The nearest painted edge of `classes` on one side of `edge`.
 
@@ -1347,9 +1363,10 @@ def _label_over_controls(panel, prefix, *classes):
     """
     def resolve(cap, app):
         frame = _panel(app, panel)
-        label = sa.find_descendant_text(frame, prefix)
+        words = prefix() if callable(prefix) else prefix
+        label = sa.find_descendant_text(frame, words)
         if label is None:
-            return None, f"no label starting {prefix!r} in {panel!r}"
+            return None, f"no label starting {words!r} in {panel!r}"
         ink = sa.painted_extent_v(cap, sa.box_of(label))
         if ink is None:
             return None, "label painted nothing"
@@ -1371,9 +1388,10 @@ def _controls_over_label(panel, prefix, *classes):
     """
     def resolve(cap, app):
         frame = _panel(app, panel)
-        label = sa.find_descendant_text(frame, prefix)
+        words = prefix() if callable(prefix) else prefix
+        label = sa.find_descendant_text(frame, words)
         if label is None:
-            return None, f"no label starting {prefix!r} in {panel!r}"
+            return None, f"no label starting {words!r} in {panel!r}"
         ink = sa.painted_extent_v(cap, sa.box_of(label))
         if ink is None:
             return None, "label painted nothing"
@@ -2307,7 +2325,7 @@ EXPLANATION_ENTRIES = [
     # One label, two gaps: the status line sits between the stat grid
     # and the preset list, so moving it trades one against the other.
     ("Setup & Settings", "Export Facts -> the note under it", 7, None, "rule",
-     _controls_over_label("Share Game Data", "Saves the game facts",
+     _controls_over_label("Share Game Data", _share_note,
                           "TButton", "Button")),
     ("Gear Score", "stat grid -> Applied status", 7, None, "rule",
      _controls_over_label("Stat Weight Configuration",
@@ -2319,8 +2337,8 @@ EXPLANATION_ENTRIES = [
      _label_over_controls("Upgrade Log Settings",
                           "Assigned presets compared", *CHECKBOX_CLASSES)),
     ("Capture", "purple note -> the filters", 7, None, "rule",
-     _label_over_controls("Upgrade Log Settings",
-                          "Highest Potential max", *CHECKBOX_CLASSES)),
+     _label_over_controls("Upgrade Log Settings", _mythic_note,
+                          *CHECKBOX_CLASSES)),
     # The Settings panel's two notes, each under the dropdown it
     # explains. Measured to the DROPDOWN rather than to the label
     # beside it: a combobox paints lower than a label on the same row,
@@ -4831,13 +4849,6 @@ AWAITING_FIRST_READING = {
     # or a distance read off the screen and agreed, and a run measured
     # each against the levers it has now. They are the tab's normal
     # state, so a row of it printing again is a regression.
-    "status lines -> window edge",
-    # Share Game Data, registered at the rules table's targets.
-    "Share Game Data: title -> first element",
-    "Share Game Data: left edge -> content",
-    "Share Game Data: top edge -> content",
-    "Update Status -> Share Game Data",
-    "Export Facts -> its status",
     "Export Facts -> the note under it",
 }
 

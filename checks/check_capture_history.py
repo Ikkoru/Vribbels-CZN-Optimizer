@@ -249,6 +249,12 @@ def run():
             f"unmoved carries that share and adds nothing, and one that "
             f"finds it moved leaves the share unknown. The score is the "
             f"stages' best scores summed, each as last read.")
+    stamps = {r.get("region") for r in season.get("readings", [])}
+    if stamps != {"global"}:
+        failures.append(
+            f"the Offensive's readings carry the servers "
+            f"{sorted(map(str, stamps))}, not the session's own. The "
+            f"field its rank implies is one server's.")
 
     # --- saved, and carried into the next capture ------------------------
     addon.inventory_data = {"memory_fragments": []}

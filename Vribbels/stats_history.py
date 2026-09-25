@@ -346,17 +346,41 @@ def field_size(tops):
     return None if best is None else round((best[1] - 1) / best[0])
 
 
-def sortie_seasons(raw, history):
-    """[(season number, latest reading, reset_time)], newest first."""
+def sortie_seasons(raw, history, shipped=None):
+    """[(season number, latest reading, reset_time)], newest first.
+
+    `shipped` is the program's own game facts (`shared_facts.py`). A
+    season the account never read that they hold for its server comes
+    as a reading of the field alone: no rank or score of its own. A
+    season it did read keeps its own reading whole, so its share of the
+    field is always of one moment."""
     seasons = merged(raw, history, "chaos_assault_rankings")
-    out = []
+    out, read = [], set()
     for schedule, season in seasons.items():
         found = re.search(r"_s(\d+)$", schedule)
         readings = season.get("readings") or []
         if found and readings:
             out.append((int(found.group(1)), readings[-1],
                         season.get("reset_time")))
+            read.add(schedule)
+    for schedule, field in _shipped_fields(raw, shipped, "SORTIE").items():
+        found = re.search(r"_s(\d+)$", schedule)
+        if found and schedule not in read:
+            out.append((int(found.group(1)),
+                        {"total_count": field["players"],
+                         "top_score": field.get("top_score")}, None))
     return sorted(out, key=lambda s: -s[0])
+
+
+def _shipped_fields(raw, shipped, kind):
+    """{season: field} of one shared kind, by its name in
+    `shared_facts`, for the account's server. The module is imported
+    only where something is shipped."""
+    if not shipped:
+        return {}
+    import shared_facts
+    return shared_facts.fields_for(shipped, getattr(shared_facts, kind),
+                                   (raw or {}).get("detected_region"))
 
 
 def rift_halves(raw, history, shipped=None):
@@ -373,7 +397,7 @@ def rift_halves(raw, history, shipped=None):
         import shared_facts
         tops = shared_facts.tops_with(tops, shipped,
                                       (raw or {}).get("detected_region"))
-    out = []
+    out, seen = [], set()
     for season_id, halves in ((raw or {}).get(
             "disaster_boss_rank_entities") or {}).items():
         season = re.search(r"_s(\d+)$", season_id)
@@ -383,6 +407,19 @@ def rift_halves(raw, history, shipped=None):
                 out.append((int(season.group(1)), int(half.group(1)),
                             standing,
                             tops.get(season_id, {}).get(define_id, {})))
+                seen.add((season_id, define_id))
+    # A half with tops and no standing -- one the account only read the
+    # ranking of, or one the program ships -- is a column of the field's
+    # figures alone.
+    for season_id, halves in tops.items():
+        season = re.search(r"_s(\d+)$", str(season_id))
+        for define_id, subdivisions in (halves.items() if isinstance(
+                halves, dict) else ()):
+            half = re.search(r"_rank_(\d+)$", str(define_id))
+            if (season and half and subdivisions
+                    and (season_id, define_id) not in seen):
+                out.append((int(season.group(1)), int(half.group(1)), {},
+                            subdivisions))
     return sorted(out, key=lambda h: (-h[0], -h[1]))
 
 
@@ -403,12 +440,13 @@ def _share_of(rank, field):
     return "%.1f%%" % (100.0 * rank / field) if rank and field else None
 
 
-def sortie_table(raw, history):
+def sortie_table(raw, history, shipped=None):
     """The Sortie list: a column per season. A finished season's rank is
     its final one where Previous Sortie Ranking was opened after it
-    ended, and the last one read during it otherwise."""
+    ended, and the last one read during it otherwise. `shipped` as
+    `sortie_seasons` takes it."""
     columns = []
-    for number, reading, _reset in sortie_seasons(raw, history):
+    for number, reading, _reset in sortie_seasons(raw, history, shipped):
         rank = _count(reading.get("rank"))
         field = _count(reading.get("total_count"))
         columns.append((str(number), [
@@ -463,19 +501,26 @@ def rift_table(raw, history, shipped=None):
     return RIFT_ROWS, columns
 
 
-def offensive_table(raw, history):
+def offensive_table(raw, history, shipped=None):
     """The Full-Scale Offensive list: a column per Offensive, numbered as
     the game numbers them. The field is the rank over `rank_percent`,
     which the game states to two decimals -- so it is given to the
     hundred. The total is the stages' best scores summed, and each
-    stage's follows it, in the order of their ids."""
-    columns = []
+    stage's follows it, in the order of their ids.
+
+    `shipped` is the program's own game facts (`shared_facts.py`). An
+    Offensive the account never read that they hold for its server is a
+    column of the field alone, and one whose last reading states no
+    percentage takes its field from them."""
+    fields = _shipped_fields(raw, shipped, "OFFENSIVE")
+    columns, read = [], set()
     for define_id, season in merged(raw, history,
                                     "remnants_rankings").items():
         found = re.search(r"(\d+)$", str(define_id))
         readings = season.get("readings") or []
         if not found or not readings:
             continue
+        read.add(str(define_id))
         last = readings[-1]
         rank = _count(last.get("rank"))
         percent = last.get("rank_percent")
@@ -485,12 +530,19 @@ def offensive_table(raw, history):
         stages = [held[stage] for stage in sorted(held)
                   if isinstance(held[stage], int)]
         scores = (stages + [None] * OFFENSIVE_STAGES)[:OFFENSIVE_STAGES]
+        field = (int(round(rank * 100.0 / percent, -2)) if rank and percent
+                 else (fields.get(str(define_id)) or {}).get("players"))
         columns.append((int(found.group(1)), [
             "%g%%" % percent if percent else None,
             _thousands(rank),
-            "~" + format(int(round(rank * 100.0 / percent, -2)), ",")
-            if rank and percent else None,
+            "~" + format(field, ",") if field else None,
             _thousands(sum(stages)) if stages else None]
             + [_thousands(score) for score in scores]))
+    for define_id, field in fields.items():
+        found = re.search(r"(\d+)$", define_id)
+        if found and define_id not in read:
+            columns.append((int(found.group(1)), [
+                None, None, "~" + format(field["players"], ","), None]
+                + [None] * OFFENSIVE_STAGES))
     columns.sort(key=lambda c: -c[0])
     return OFFENSIVE_ROWS, [(str(n), cells) for n, cells in columns]

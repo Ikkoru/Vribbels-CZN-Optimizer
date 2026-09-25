@@ -28,13 +28,15 @@ Deleting the three from `default_settings/` and running the program copies your 
 
 ## Shared game facts
 
-`shared_facts.json` is built rather than copied. `zCreate exe.bat` runs `normalize/fold_shared_facts.py`, which folds the game facts your own captures hold into it and prints each one it adds. What the file is and how the program reads it: `settings_architecture.md`, *Shared game facts*.
+`shared_facts.json` is built rather than copied. `zCreate exe.bat` runs `normalize/fold_shared_facts.py`, which folds the game facts your own captures hold into it and prints each one it adds, ending on `CHANGED` when the file was rewritten. What the file is and how the program reads it: `settings_architecture.md`, *Shared game facts*.
+
+**The fold only adds**: a new entry, a bigger instalment total, a later reading that says something different. It stops the build, writing nothing, rather than lose anything: when the shipped file will not read or holds entries the whitelist would drop, and when a fold would leave out anything the file held. The first means the file was damaged or hand-edited — compare it with git. Git is the backup; the write itself goes through a temp copy, so an interrupted run leaves the old file whole.
 
 A player's `Export Facts` file arrives attached to a GitHub issue. Save it anywhere and fold it in, from `Vribbels/`:
 
     python "default_settings/normalize/fold_shared_facts.py" path/to/shared_facts_2026-09-25.json
 
-The file goes through the same whitelist as your own facts, so nothing but game facts can land in the shipped copy, and a file that is not an export stops the run before anything is written. **Read what it prints, then the diff.** A `!` line is a banner whose rates differ from the ones held; the held ones stay, and replacing them is a hand edit once you know which are right. A later reading of a Great Rift top replacing an earlier one, and a bigger instalment total replacing a smaller one, are the fold working.
+The file goes through the same whitelist as your own facts, so nothing but game facts can land in the shipped copy, and a file that is not an export stops the run before anything is written. **Read what it prints, then the diff.** A `!` line is a banner whose rates differ from the ones held; the held ones stay, and replacing them is a hand edit once you know which are right. A later ranking reading replacing an earlier one, and a bigger instalment total replacing a smaller one, are the fold working.
 
 ## Getting a user unstuck
 

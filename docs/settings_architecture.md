@@ -76,9 +76,11 @@ After Restore, `_refresh_dependent_tabs(kind)` fires the cross-tab refresh: `pre
 
 ## Shared game facts
 
-`default_settings/shared_facts.json` holds facts about the GAME rather than any account's: banner rates, Combatant Trial slot pairings, finished instalments' reward totals, which instalments paid a final reward, and the Great Rift's division tops per server. It is never copied into `settings/` and never merged: `defaults_sync` does not know it, the app reads it once at startup into `AppContext.shared_facts`, and each reader combines it with the account's own data in memory, the account's own value winning. `shared_facts.py` holds the whitelist, the rules, and the list of readers.
+`default_settings/shared_facts.json` holds facts about the GAME rather than any account's: banner rates, Combatant Trial slot pairings, finished instalments' reward totals, which instalments paid a final reward, and per server the Great Rift's division tops and the Sortie's and the Full-Scale Offensive's fields. It is never copied into `settings/` and never merged: `defaults_sync` does not know it, the app reads it once at startup into `AppContext.shared_facts`, and each reader combines it with the account's own data in memory, the account's own value winning. `shared_facts.py` holds the whitelist, the rules, and the list of readers.
 
-**The Great Rift's tops are per server**, `global` or `asia`; every other kind is taken as the same on both. A reader takes only the tops of the loaded snapshot's `detected_region`.
+**The rankings are per server**, `global` or `asia`; every other kind is taken as the same on both. A reader takes only the rankings of the loaded snapshot's `detected_region`. The Stats lists give every season they ship a column, so a season the account never read shows the field's figures and leaves its own rows empty; a season it did read keeps its own reading.
+
+**What counts as something to send** is a key the shipped file lacks, a bigger instalment total, or a later ranking reading that says something new of a season that is over. A later reading of the season running is not: its figures move every week. Over means older than the newest season either side knows of (`shared_facts._is_news`).
 
 `Setup & Settings → Share Game Data` writes the account's facts that the shipped file lacks, through the same whitelist, for a player to attach to a GitHub issue. Folding one in is the maintainer's job: `how_to_maintain_default_settings.md`.
 
