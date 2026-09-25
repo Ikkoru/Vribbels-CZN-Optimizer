@@ -763,6 +763,40 @@ def _all_none_panels_carry_no_left_padding(built):
     return out
 
 
+def _title_bar_takes_its_colours(root):
+    """Windows takes every title bar attribute the app sets.
+
+    DWM answers an attribute id, size or value it does not know with an
+    error code rather than an exception, and the caption simply stays
+    Windows' default -- nothing else would ever say so. Set on a window
+    at alpha 0, which is mapped and so has a frame, but never seen.
+
+    Returns a list of complaints.
+    """
+    import sys
+    import tkinter as tk
+    from ui.title_bar import FIRST_DARK_BUILD, style_title_bar
+    if sys.platform != "win32":
+        return []
+    top = tk.Toplevel(root)
+    try:
+        top.attributes("-alpha", 0.0)
+        top.update_idletasks()
+        results = style_title_bar(top, "#cdd6f4")
+    finally:
+        top.destroy()
+    build = sys.getwindowsversion().build
+    if build >= FIRST_DARK_BUILD and not results:
+        return [f"Windows build {build} takes a title bar colour, and "
+                f"`style_title_bar` set nothing."]
+    failed = [hex(r & 0xFFFFFFFF) for r in results if r != 0]
+    if failed:
+        return [f"Windows refused title bar attributes with {failed}: the "
+                f"caption stays its default colour and nothing says so. "
+                f"Check the attribute ids and sizes in `ui/title_bar.py`."]
+    return []
+
+
 def _every_popup_closes_on_escape():
     """Every window the app opens over the main one answers to Escape.
 
@@ -3622,6 +3656,7 @@ def run():
         if complaint:
             failures.append(complaint)
         failures.extend(_tooltip_columns_align(root, dict(gui.COLORS)))
+        failures.extend(_title_bar_takes_its_colours(root))
         import ui.tabs as tabs_pkg
         from ui.context import AppContext
         from optimizer.optimizer import GearOptimizer

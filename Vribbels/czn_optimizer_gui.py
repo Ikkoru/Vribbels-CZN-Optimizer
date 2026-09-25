@@ -396,6 +396,10 @@ class OptimizerGUI:
         perf_log.log("startup:reveal.settle_loop",
                      secs=_time.perf_counter() - _t, passes=passes,
                      per_pass=pass_secs)
+        # The caption's colours, while the window is still invisible: set
+        # once it shows, the title bar paints in the default first.
+        from ui.title_bar import apply_title_bar
+        apply_title_bar(self.root, self.colors["fg"])
         if self._hidden_via == "alpha":
             self.root.attributes("-alpha", 1.0)
         else:

@@ -39,6 +39,7 @@ from pathlib import Path
 import sys
 from capture import setup_certificate, open_certificate, find_mitmdump
 from ..base_tab import BaseTab
+from ..title_bar import apply_title_bar
 from ..utils.all_none_row import make_all_none_row
 from ..utils.button_width import (BUTTON_W_LARGE, BUTTON_W_MEDIUM,
                                  BUTTON_W_SMALL)
@@ -1293,6 +1294,8 @@ class SetupTab(BaseTab):
         # land slightly narrower than the rename entry needs; minsize is
         # a cheap safety net.
         dlg.update_idletasks()
+        # Mapped by the line above, so its frame exists to colour.
+        apply_title_bar(dlg, self.colors["fg"])
         try:
             natural_w = dlg.winfo_reqwidth()
             natural_h = dlg.winfo_reqheight()

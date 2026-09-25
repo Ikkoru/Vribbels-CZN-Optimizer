@@ -53,6 +53,7 @@ from ui.utils.checkbox import make_checkbox
 from ui.utils.escape import close_on_escape
 from ui.utils.label_width import LABEL_REQUEST_INSET
 from ui.utils.panel_title import panel_title_style
+from ui.title_bar import apply_title_bar
 from ui.utils.spinbox_clamp import blink, clamp_on_commit, commit_clamp
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import (
@@ -3660,6 +3661,8 @@ class OptimizerTab(BaseTab):
         -- Escape aside.
         """
         top.update_idletasks()
+        # Mapped by the line above, so its frame exists to colour.
+        apply_title_bar(top, self.colors["fg"])
         width = min(top.winfo_reqwidth() - trim_width,
                     top.winfo_screenwidth() - 80)
         height = min(top.winfo_reqheight() + add_height,

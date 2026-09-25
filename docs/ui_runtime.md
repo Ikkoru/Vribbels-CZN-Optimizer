@@ -113,6 +113,10 @@ The same tab's Banners list takes half the window's spare width in its last colu
 
 Windows spawn relaunches the executable per multiprocessing worker. `multiprocessing.freeze_support()` must stay the FIRST statement in the `__main__` guard: it detects those launches and runs the multiprocessing bootstrap instead of the GUI. Every other side effect (single-instance lock, admin prompt, Tk roots) must stay inside `main()`, so a spawned worker importing the module never triggers them and never trips the single-instance lock. The parallel path keeps a persistent session pool, so the onefile spawn cost is paid once.
 
+## The title bar is Windows' own, coloured through DWM
+
+Tk cannot draw the caption; `ui/title_bar.py` sets it as window attributes, the colours on Windows 11 and dark or light by the system's app theme on Windows 10, and says which builds take which. It is set on the main window at the end of `_reveal_window`, still at alpha 0, so the caption never paints in the default first; the two Toplevel dialogs set it where they first map. The native message and file dialogs keep Windows' default. Its height is Windows' too and has no attribute: changing it means drawing a title bar of our own. `check_tabs_build` holds every attribute to Windows accepting it, since a refusal is an error code the caption simply ignores.
+
 ## Display rules that look like bugs
 
 - **Memory Fragments, Highest Potential column:** for fully-levelled MFs (low == high under every preset) the display is `-`, not `low-high`. The Highest GS column already shows the value.
