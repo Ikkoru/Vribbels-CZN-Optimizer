@@ -165,7 +165,10 @@ class HiddenTabSettler:
         if showing in self._skip or _user_is_busy(self.root):
             self._after(RETRY_MS)
             return
-        self._settle(self._queue.pop(0), showing)
+        try:
+            self._settle(self._queue.pop(0), showing)
+        except tk.TclError:
+            return      # closed during the step: the drain ran its close
         self._after(GAP_MS)
 
     def _settle(self, tab, showing):
