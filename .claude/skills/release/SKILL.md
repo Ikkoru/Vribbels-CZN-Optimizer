@@ -41,7 +41,7 @@ Then the register. The CHANGELOG is written for a player who wants the smaller c
 - **Entries that generalise together.** A popup resized, a tick glyph swapped, a dialog respaced, a tooltip recoloured — four entries and one line. Run `repo_conventions`' three questions over any run of small visual changes. A first pass that tightened each one separately still left four.
 - **Entries that group under a tab.** Three or more naming the same tab become a parent with sub-bullets.
 - **Bold that has stopped marking anything.** Count the bolded leads against the entries: near 1:1 in a `Fixed` section means the bold is decoration.
-- **Entries that should not exist.** A settings-file shape, a build fix caught before release, churn inside a feature the last release called unfinished.
+- **Entries that should not exist.** A settings-file shape, a build fix caught before release, churn inside a feature the last release called unfinished, and a FIX to anything this release adds — that is the Added entry not having been true yet. Check a `Fixed` entry's feature against the last release's own CHANGELOG section before keeping it: the Seasonal Shop's purchase count read as a fix and was inside shelves new that release.
 
 **Then check each surviving entry states the whole fix.** Tightening is where half a claim goes missing: a guard against both a typed `1e9` and a typed `abc` reads as one or the other unless the line is written to cover both.
 
@@ -53,13 +53,20 @@ Verify by diffing the bolded lead of every entry before and after, and name each
 
 Expect most entries not to survive, and expect `Fixed` and `Changed` to come out empty or nearly so. That is the normal shape of this document, not a sign of a missed step.
 
+**Read the maintainer's annotated drafts first**: `.old/RELEASE_NOTES_*_with_notes.md` are past drafts with every edit and cut explained, and they calibrate these calls better than any rule here.
+
 The judgement calls worth slowing down for:
 
 - **Is it unmissable, or merely visible?** Unmissable goes. A player meets a `Delete Archive` button by opening the panel; they do not meet a behaviour that only shows in one state.
 - **Does the absence of something read as broken?** One case behaving unlike every comparable case, with nothing on screen explaining it, earns a line. Apply strictly.
 - **Could this be over-read?** Say what the change does not do. That is what the relaunch line is for.
+- **Does the player have to DO something for it to work?** Then give the steps whole — what to open, how far, how often: open a banner's Rescue Records while capturing, go to its last page, and do it for every banner. Name the way in for someone whose data is elsewhere, such as an import.
+- **Would a player ever notice it?** A guarantee they cannot observe ("your own readings always win") is implementation, however true.
+- **Is it a fix to something they never had?** A fix inside a feature this release adds, or one the last release called unfinished, is news to nobody installing.
+- **Is it the player's word?** "Player count", not "field size"; an event family's internal name ("Love events") is not what the game shows. Where unsure what the game calls it, say it generally ("more events").
+- **Is it what they will see?** "Arrive faster", not "arrive as they happen": say the effect, not an absolute the next slow line disproves.
 
-Write what survives as what, then where. Group by tab, order by importance inside each group. A little whimsy is welcome.
+Write what survives as what, then where. Group by tab, order by importance inside each group, and fold lines about one thing into one bullet — a column and its tooltip. Two short sentences read better than one long one. Where the release asks something of players, such as sharing data, ask it in the maintainer's own voice. A little whimsy is welcome.
 
 ## README
 
@@ -76,7 +83,6 @@ Re-check these rather than re-deriving them — all five were open at v2.1.0:
 ## Verifying
 
 - Entry counts per section, CHANGELOG against release notes, with every difference named and intended.
-- No bullet in the notes carrying a second sentence.
 - `version.py` matches the new section header.
 - `run_all.py` green, including `check_repo_root.py` — it fails both ways, and a new root file needs an allowlist line while a gitignored one must NOT have one.
 

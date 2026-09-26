@@ -75,6 +75,8 @@ EXPECTED_ABSENT = {
     "imported.json",           # into `snapshots/gacha_history/`
     "memory_fragments_*.json", # a capture's snapshots
     "config.json",             # a legacy file old versions left behind
+    ".old/RELEASE_NOTES_*_with_notes.md",  # the maintainer's annotated
+                                           # drafts, gitignored and local
 }
 
 # Folders the PROGRAM writes, not the repo: a clone has neither, so a

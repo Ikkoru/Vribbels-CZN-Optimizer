@@ -43,7 +43,6 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Events with a single score and a ladder of rewards, like the Love events, count the rewards claimed.
   - An event's total taken from its earlier runs leaves out their leftover rewards, and counts a run the game schedules under two names as one run.
   - The Seasonal Accumulated Score follows each Great Rift run without the Great Rift's screen being opened again, and reads the week's threshold before its reward is claimed.
-  - The Seasonal Shop counts every purchase of the season, not only the last three weeks', so its total asks for what is actually left.
   - A login event's first day counts toward a ceiling of seven, the fewest any login event has paid, rather than reading as finished.
   - The mouse wheel scrolls a column over a checkbox too, so a column taller than the window shows its last rows.
   - The Weekly column's Seasonal Shop carries no tooltip underline: everything it sells is free, so it has no tooltip.
