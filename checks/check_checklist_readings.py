@@ -76,7 +76,7 @@ def run():
         DELEGATION_CURRENCY, DELEGATION_DONE, DELEGATION_TODO,
         ENDS_IN, LATER, SOON, WARN,
         PASS_DAILY_COUNT, PERIOD_LENGTHS,
-        _period_band, _period_left, _period_words,
+        _period_band, _period_left, _period_words, _heading_colour,
         DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
         MODULE_WINDOWS, NO_DATA,
         SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
@@ -1289,6 +1289,21 @@ def run():
                 f"{_period_band(left, length)!r}, not {band!r}. The "
                 f"period splits into four equal parts, the first green "
                 f"and the last red.")
+
+    # A red heading's last day is the deeper red, and only a RED one's:
+    # a month or a season is red for days, and the last of them has to
+    # stand out. A band that is not red keeps its colour however little
+    # time is left in it.
+    for band, left, want in (("period_last", 30 * HOUR, "red"),
+                             ("period_last", 23 * HOUR, "red_last"),
+                             ("period_some", 10 * HOUR, "orange"),
+                             ("period_full", 5 * HOUR, "green")):
+        got = _heading_colour(band, left)
+        if got != want:
+            failures.append(
+                f"a {band} heading with {left / HOUR:.0f}h left is drawn "
+                f"{got!r}, not {want!r}. Only a red countdown turns the "
+                f"deeper red, and only in its last day.")
 
     # Hours under a day, days above it, rounded DOWN so nothing is
     # promised time it does not have.

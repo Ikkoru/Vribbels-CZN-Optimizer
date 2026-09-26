@@ -393,11 +393,17 @@ EVENT_SETTLED_STATES = frozenset({DONE, CYCLE_DONE})
 # finished or stopped.
 FLOOR_SETTLES_AFTER = 48 * 3600
 
+# A countdown's last day. Every countdown on the tab that is red then
+# takes `red_last`, a shade deeper: a heading is red for the last
+# quarter of its period, which is days, and the last of them has to
+# stand out of the rest.
+LAST_DAY_HOURS = 24
+
 # A countdown's own colours, by how long is left. Nothing to do with
 # whether the row's work is done -- a finished content still runs out.
 # (hours under which it applies, the state). Read top down.
 SOON, WARN, LATER = "soon", "warn", "later"
-COUNTDOWN_STATES = ((24, SOON), (72, WARN), (None, LATER))
+COUNTDOWN_STATES = ((LAST_DAY_HOURS, SOON), (72, WARN), (None, LATER))
 
 # What a countdown segment says before its time.
 ENDS_IN = "Ends in "
@@ -626,7 +632,8 @@ def shop_shut_for_now(shop, period, raw, now):
 
 def disaster_subtext(raw, now):
     """`(what the Galactic Disaster heading says, the share of the
-    season still to run)`, or `(None, None)` out of season.
+    season still to run, the seconds still to run)`, or
+    `(None, None, None)` out of season.
 
     Only a live season has anything to count down. The wait for the
     next one is a ROW rather than a subtext -- see
@@ -638,11 +645,11 @@ def disaster_subtext(raw, now):
         shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY), raw, now)
     if not isinstance(season, dict) or shop_shut_for_now(
             shop, "account", raw, now):
-        return None, None
+        return None, None, None
     left = max(0, (season.get("end_time") or now) - now)
     span = (season.get("end_time") or now) - (season.get("start_time") or now)
     return DISASTER_LEFT % schedules.countdown(left), (
-        left / float(span) if span > 0 else None)
+        left / float(span) if span > 0 else None), left
 
 
 def next_disaster_words(raw, now):
@@ -2984,8 +2991,10 @@ class ChecklistTab(BaseTab):
         for _words, colour in SHOP_LABEL_COLOURS:
             text.tag_configure(colour, foreground=self.colors[colour])
         # A countdown reddens as it runs out. The middle band is the
-        # Materials tab's own warning colour, so the two agree.
-        text.tag_configure(SOON, foreground=self.colors["red"])
+        # Materials tab's own warning colour, so the two agree. SOON is
+        # a countdown's last day, in the deeper red every last day on
+        # the tab takes -- see `LAST_DAY_HOURS`.
+        text.tag_configure(SOON, foreground=self.colors["red_last"])
         text.tag_configure(WARN, foreground=self.colors["orange"])
         text.tag_configure(LATER, foreground=self.colors["yellow"])
         self.column_texts[title] = (text, rows)
@@ -3348,19 +3357,20 @@ class ChecklistTab(BaseTab):
         now = time.time()
         for title, label in self._period_labels.items():
             if title == SEASONAL_COLUMN:
-                words, share = disaster_subtext(raw, now)
+                words, share, left = disaster_subtext(raw, now)
                 label.config(
                     text=words or "",
                     foreground=self.colors["fg_dim"] if share is None
-                    else self.colors[PERIOD_COLOURS[_share_band(share)]])
+                    else self.colors[_heading_colour(_share_band(share),
+                                                     left)])
                 continue
             left, length = _period_left(title, raw, now)
             if left is None:
                 label.config(text="")
                 continue
             label.config(text=_period_words(left),
-                         foreground=self.colors[
-                             PERIOD_COLOURS[_period_band(left, length)]])
+                         foreground=self.colors[_heading_colour(
+                             _period_band(left, length), left)])
 
     def _fill(self, title, text, rows, readings):
         """Rewrite one column: its rows, and any reading beside one.
@@ -4323,6 +4333,16 @@ def _period_left(title, raw, now):
 def _period_band(left, length):
     """Which quarter of its period a countdown is in."""
     return _share_band(max(0.0, left) / float(length) if length else 0.0)
+
+
+def _heading_colour(band, left):
+    """The palette key a heading countdown is drawn in: its band's, and
+    in the red band's last day the deeper red. See `LAST_DAY_HOURS`."""
+    colour = PERIOD_COLOURS[band]
+    if colour == "red" and left is not None \
+            and left < LAST_DAY_HOURS * 3600:
+        return "red_last"
+    return colour
 
 
 def _share_band(share):

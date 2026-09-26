@@ -156,6 +156,11 @@ COLORS = {
     # -- so the two read as the same yes and no without the heading's
     # answer being mistaken for one of theirs.
     "green_deep": "#8ee387", "red_deep": "#f76e94",
+    # `red` a shade deeper again, and redder rather than pinker, for a
+    # red countdown in its last 24 hours: the Checklist's headings stay
+    # red for the last quarter of a period, which is days on a month
+    # or a season, and the last day has to stand out of that.
+    "red_last": "#f5617f",
     # The preset NAME in an Upgraded line. Off-white and warm, so it
     # reads as a label beside the coloured numbers rather than as one
     # more value to compare.
