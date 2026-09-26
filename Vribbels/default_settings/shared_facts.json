@@ -577,8 +577,8 @@
   "offensive_fields": {
    "global": {
     "remnants_boss_penalty_005": {
-     "players": 57500,
-     "read_at": 1790291707
+     "players": 59000,
+     "read_at": 1790457587
     }
    }
   },
@@ -587,24 +587,24 @@
     "disaster_s04": {
      "disaster_s04_rank_02": {
       "disaster_s04_rank_best_2_10": {
-       "best_score": 416150,
-       "rank": 23681,
-       "read_at": 1790291697
+       "best_score": 415140,
+       "rank": 24523,
+       "read_at": 1790455979
       },
       "disaster_s04_rank_best_2_15": {
-       "best_score": 641179,
-       "rank": 12314,
-       "read_at": 1790291696
+       "best_score": 636377,
+       "rank": 12752,
+       "read_at": 1790455978
       },
       "disaster_s04_rank_best_2_20": {
-       "best_score": 1013210,
-       "rank": 4737,
-       "read_at": 1790291695
+       "best_score": 1012120,
+       "rank": 4905,
+       "read_at": 1790455978
       },
       "disaster_s04_rank_best_2_25": {
-       "best_score": 1219348,
-       "rank": 948,
-       "read_at": 1790291693
+       "best_score": 1221467,
+       "rank": 981,
+       "read_at": 1790455975
       },
       "disaster_s04_rank_best_2_30": {
        "best_score": 1635631,
@@ -612,9 +612,9 @@
        "read_at": 1790272379
       },
       "disaster_s04_rank_best_2_5": {
-       "best_score": 171853,
-       "rank": 35521,
-       "read_at": 1790291697
+       "best_score": 166752,
+       "rank": 36784,
+       "read_at": 1790455979
       }
      }
     }
@@ -628,8 +628,8 @@
      "top_score": 66265
     },
     "assault_1_s7": {
-     "players": 19716,
-     "read_at": 1790291677,
+     "players": 20373,
+     "read_at": 1790457595,
      "top_score": 65084
     }
    }
