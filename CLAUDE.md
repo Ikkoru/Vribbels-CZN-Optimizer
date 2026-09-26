@@ -20,8 +20,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 
 - **Build: `zCreate exe.bat`** (PyInstaller, onefile).
   - **Edit the bat, never the spec.** `--add-data` is passed on the command line, so `Vribbels_CZN_Optimizer_Ikkoru.spec` is an artifact the build overwrites.
-  - Three scripts run first, and any failing stops the build. `Vribbels/default_settings/normalize/normalize_defaults.py` fails if `Vribbels/default_settings/` is missing its three JSONs — workflow in `docs/how_to_maintain_default_settings.md`. `fold_shared_facts.py`, beside it, folds the maintainer's game facts into the shipped `shared_facts.json`. `Vribbels/build_tcl/prepare_tcl_data.py` unpacks Tcl/Tk's library only when PyInstaller cannot collect it.
-  - **Tcl 9 keeps its library inside the DLL.** PyInstaller then finds no data files and its own runtime hook raises on the exe's first line: the build succeeds and the executable dies before any window.
+  - Three scripts run first, and any failing stops the build: `normalize_defaults.py` and `fold_shared_facts.py` in `Vribbels/default_settings/normalize/` (workflow: `docs/how_to_maintain_default_settings.md`), and `Vribbels/build_tcl/prepare_tcl_data.py`.
 - Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its target. It photographs the screen and needs the maintainer at the keyboard — **ask before running one.** A normal launch never imports it. The launchers, the preconditions and how to read the table: the `spacing-audit` skill.
 
 ## Headless verification
@@ -87,14 +86,15 @@ Version string: `Vribbels/version.py`.
 
 **Identifiers inherited from upstream do not use the game's words**, and that mismatch is deliberate — renaming them cascades through saved settings, presets and captured-data keys. User-visible TEXT uses the game's term; identifiers keep upstream's.
 
-| Code says                                        | The game says   |
-| ------------------------------------------------ | --------------- |
-| `heroes_tab.py`, `hero`                          | Combatant       |
-| `inventory_tab.py`, `piece`                      | Memory Fragment |
-| `materials_tab.py`                               | growth stones   |
-| `FRIENDSHIP_BONUSES`, `friendship_index`         | Affinity        |
-| `chaos_assault`, `assault_*`, `ASSAULT_SCHEDULE` | Sortie          |
-| `dot_pct`, `dot_share`                           | the Agony share |
+| Code says                                        | The game says              |
+| ------------------------------------------------ | -------------------------- |
+| `heroes_tab.py`, `hero`                          | Combatant                  |
+| `inventory_tab.py`, `piece`                      | Memory Fragment            |
+| `materials_tab.py`                               | growth stones              |
+| `FRIENDSHIP_BONUSES`, `friendship_index`         | Affinity                   |
+| `chaos_assault`, `assault_*`, `ASSAULT_SCHEDULE` | Sortie                     |
+| `half`, `rift_halves`, `disaster_sNN_rank_0N`    | a Great Rift season's part |
+| `dot_pct`, `dot_share`                           | the Agony share            |
 
 The last row is the sharp one: the `DoT%` STAT is called DoT% in game and improves all three DoT types, while the damage TYPE the program calls DoT is only Agony. `docs/game_formulas.md` §3.4 is canonical.
 

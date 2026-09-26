@@ -33,6 +33,8 @@ The reason is not caution in general. It is that an audit reads a hundred passag
 
 *Found this way:* `SET_STAT_NAME_MAP` was cited against `optimizer/core.py` by two docs and by `sets.py`'s own docstring, sixty-nine lines above the definition.
 
+**Recover what an ordinal meant before repairing it.** `git log -S '<the sentence>' -- <file>` finds the commit that wrote it, and `git show <commit>:<file>` shows the list as it stood then; name the rows it meant. Guessing from today's list names whatever was inserted since.
+
 ## Sweeps
 
 Cheap, and each has caught something. Run them over `docs/`, `.claude/**/*.md` and `CLAUDE.md` for prose — in `CHANGELOG.md`, only the `unreleased` section, since narrating change is what the file is for and released sections are edited only to fix them, and over `Vribbels/` and `checks/` for docstrings and comments — the change-narration and stale-output sweeps are worth as much in a comment as in a doc, and the false positives below were all found in code. **`past_plans/` is exempt from all of them** — it is an archive and its dates and `[IMPLEMENTED]` tags are the record.
@@ -48,12 +50,16 @@ Cheap, and each has caught something. Run them over `docs/`, `.claude/**/*.md` a
 | Headings that name nothing | `^#+ (What|Why|Where|How|Which|When)\b`; headings with ` and ` or a comma; pronouns |
 | Emphasis inflation | count `^\*\*` per file against the heading count; above ~1:1 the bold marks nothing |
 
+**Run the density sweep over what changed since the last audit**, not the whole corpus: corpus-wide it returns more sentences than anyone can act on. The last audit's commit is `git log --grep '^Doc audit' -1`; diff from there.
+
+**A de-bolding pass keeps bold on the lines *Lines that must survive* protects**, and on a field name that heads its paragraph as a sub-heading. Prove it changed nothing else: each file must equal its committed version with `**` stripped from both.
+
 **In the unreleased CHANGELOG the narration sweep is a question, not a verdict.** An entry stating what the program does now is right; one that also describes the old state is spending a clause on what `### Changed` already implies. Report the lines and ask — some changes are not binary, and there the contrast belongs folded into the sentence rather than deleted.
 
 Two mechanical traps, both of which have produced wrong numbers:
 
 - **A heading detector must skip fenced blocks.** `grep '^#'` counts shell and Python comments at column 0 inside code fences. Validate any detector against a file you have counted by hand before quoting what it returns.
-- **Resolve backticked paths and identifiers against the tree.** `checks/check_instruction_files.py` does this for `CLAUDE.md`, `.claude/rules/` and `.claude/skills/`, but NOT for `docs/` — so a `docs/` path that names nothing has no guard and must be checked by hand.
+- **Resolve backticked identifiers against the tree by hand.** `checks/check_instruction_files.py` resolves every backticked PATH in `CLAUDE.md`, `.claude/rules/`, `.claude/skills/` and `docs/`, but not identifiers, and not paths in code comments — a constant or a function a doc names has no guard.
 
 ## False positives in this repo
 
@@ -62,7 +68,7 @@ Do not "fix" these. Each has been mistaken for a breach at least once.
 - **"Used to exchange for Chaos run rewards"** — that is *in order to*, not history. Read the sentence before matching on the word.
 - **Dates that are evidence.** The wire's day-zero epoch, an observed reset time, a sample JSON timestamp. The rule bars narrating change, not recording a fact that happens to be a date.
 - **A number a check pins.** `POTENTIAL_MAX_TOTAL`'s 45 is held in three places on purpose, one of them a check whose comment says so. Deleting it throws away a deliberate cross-copy. `grep -rn "<the number>" checks/` before touching any figure.
-- **The `# spacing:` markers and `ui_spacing.md`'s contract tables.** A check parses them; density edits break the build. See the hard gate below.
+- **The `# spacing:` markers and `ui_spacing.md`'s contract tables.** A check parses them; density edits break the build. See *Hard gate*.
 - **A digit inside a name.** `Potential 7`, `Slot 5`, `Level 61`, `Season 8` — the game and the code both name things with numbers, and no sweep can tell those from a tally. A capitalised word before the digit is the tell.
 - **A `past_plans/` entry that reads stale.** It is the record of a decision, not a description of today.
 
@@ -117,9 +123,7 @@ A density pass run without this gate removes the most valuable lines in the corp
 
 ## Hard gate
 
-**`docs/ui_spacing.md` is parsed by two checks**, which navigate it by exact heading text and compare its tables against `RULE_*` constants and the `# spacing:` comments. Two of its headings are exactly the shape the heading rule says to rewrite. Do not.
-
-**`grep -rn "<the literal heading or table text>" checks/` before rewriting any heading or table in any doc.** This is the one place a prose edit can fail the build. A coordinated rename is possible — the check names the constant to update — but it is a code change, not a doc edit.
+`CLAUDE.md`'s rule on `docs/ui_spacing.md` holds for everything this pass touches: the file is parsed, and a renamed heading fails a check. The same grep covers a table's text, which the checks compare too. **Two of its headings are exactly the shape the heading sweep says to rewrite — leave them.** A coordinated rename is a code change, not a doc edit.
 
 ## Reporting
 

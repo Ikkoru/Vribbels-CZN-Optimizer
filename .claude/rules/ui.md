@@ -25,6 +25,8 @@ Loads when a file under `Vribbels/ui/` is read. Panel layout, the spacing ledger
 
 Mapping a window puts it on the maintainer's screen — **ask first**. `withdraw()` is not enough (`tk.Tk()` maps on construction, so withdrawing on the next line still flashes a frame). The app's own answer is `_hide_until_ready()`: alpha 0, which is mapped and therefore measurable but invisible. Use that for any probe that needs real geometry.
 
+**In a check, never `root.update()`.** It runs every tab's pending `after()` callbacks as well, and the Capture tab's prerequisite check then writes into its log, so a check reading that log fails on lines it never wrote. Map with `deiconify()` and `update_idletasks()`, as `check_tabs_build` does, and call a `<Map>`- or `<Configure>`-bound handler directly: no event loop runs to call it.
+
 | To check                        | Do this                                                                                             |
 | ------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Which widgets a change moved    | Build the tabs the `check_tabs_build.py` way, snapshot every row's values before and after, diff     |

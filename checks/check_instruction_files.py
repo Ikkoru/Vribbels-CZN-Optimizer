@@ -1,8 +1,9 @@
-"""Every path an instruction file names still exists.
+"""Every path an instruction file or a doc names still exists.
 
 `CLAUDE.md`, `.claude/rules/*.md` and `.claude/skills/*/SKILL.md` tell
-Claude what to run and where to look. They cite paths the way a doc
-does, and a rename leaves the citation pointing at nothing.
+Claude what to run and where to look, and `docs/*.md` are what they
+point to. All of them cite paths, and a rename leaves the citation
+pointing at nothing.
 
 **A rule or a skill fails more quietly than a doc.** A doc is read while
 working in the area it covers, so a dead path in it surfaces on the next
@@ -11,7 +12,8 @@ a skill loads only when its description triggers -- so a stale one sits
 unread until the moment it is needed, which is the worst moment to find
 out. The `paths:` globs have the same shape of failure: a rule scoped to
 a directory that no longer exists never loads at all, and nothing says
-so.
+so. A doc surfaces its dead path sooner, but only to a reader who
+tries to follow it, and nothing else ever did.
 
 What is checked, per file:
 
@@ -68,7 +70,16 @@ EXPECTED_ABSENT = {
     "RELEASE_NOTES.md",        # assembled at release
     "_tmp/skill_notes.md",     # the improvement queue, written as
                                # lessons land and cleared on review
+    "_capture_addon.py",       # generated into `snapshots/` per capture
+    "captured.json",           # the Gacha History's own files, written
+    "imported.json",           # into `snapshots/gacha_history/`
+    "memory_fragments_*.json", # a capture's snapshots
+    "config.json",             # a legacy file old versions left behind
 }
+
+# Folders the PROGRAM writes, not the repo: a clone has neither, so a
+# citation into them names what a run creates.
+RUNTIME_DIRS = ("settings/", "snapshots/")
 
 
 def _instruction_files():
@@ -77,6 +88,8 @@ def _instruction_files():
     root_md = REPO_ROOT / "CLAUDE.md"
     if root_md.exists():
         found.append(("CLAUDE.md", root_md))
+    for path in sorted((REPO_ROOT / "docs").glob("*.md")):
+        found.append((f"docs/{path.name}", path))
     for path in sorted((REPO_ROOT / ".claude" / "rules").glob("*.md")):
         found.append((f".claude/rules/{path.name}", path))
     for path in sorted(
@@ -106,6 +119,11 @@ def _looks_like_a_path(token: str) -> bool:
     """
     if token.startswith("~") or ":" in token:
         return False                     # outside the repo, or a URL
+    if "<" in token or token in FILE_SUFFIXES:
+        return False                     # a placeholder, or a bare
+        # extension like `.py`
+    if token.split("Vribbels/", 1)[-1].startswith(RUNTIME_DIRS):
+        return False                     # made by a run, not shipped
     if " " in token and not token.endswith(".bat"):
         return False                     # a command line; only the
         # launchers have spaces in their names
