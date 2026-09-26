@@ -408,16 +408,16 @@ Captured in full — the last mission claimed, the last reward taken, the last p
 
 | | Reads |
 | --- | --- |
-| `event_summer_define_entity` | `event_item_count` 88, `reward_count` **84** — the event's whole cost, and it stops there |
+| `event_summer_define_entity` | `reward_count` is the event's whole cost and stops there; `event_item_count` can run past it |
 | every mission row | has a `complete_time` |
 | `event_summer_set_entities` | every set has a `complete_time` |
 | `story_event_entities["event_132"]` | every story complete |
-| the balance of `4020001` | 4 — less than one reward's 8, so nothing is affordable |
+| the balance of `4020001` | not zero: what is left once every reward is claimed, too little for another |
 | **`event_mission_reward_entities`** | **no summer row at all** |
 
-**So the general completion flag does not cover this event**, and none of the other five is a proof. Each is a floor in the same old way: a fourth mission wave, a fourth set, another story or more items would each make the "complete" reading move again, and nothing on the wire rules that out. The 84 is only recognisable as a total because the maintainer counted it in game.
+**So the general completion flag does not cover this event**, and none of the other five is a proof. Each is a floor in the same old way: a fourth mission wave, a fourth set, another story or more items would each make the "complete" reading move again, and nothing on the wire rules that out. `reward_count` is only recognisable as the whole cost because the maintainer counted the rewards in game.
 
-The one thing that IS exact is a different question: **`amount // 8` is how many rewards are waiting**, and it needs no total at all. `0` there means nothing to collect right now — which is what a checklist is actually for — while "the event is over" stays unanswerable.
+The one thing that IS exact is a different question: **The balance over one reward's price is how many rewards are waiting**, and it needs no total at all. `0` there means nothing to collect right now — which is what a checklist is actually for — while "the event is over" stays unanswerable.
 
 Finishing the last puzzle also pays a one-off item (`4010003` here), which would serve as a per-event completion marker. That is a hardcode per event and worth it only if a general answer never turns up.
 

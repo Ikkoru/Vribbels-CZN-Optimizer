@@ -214,15 +214,7 @@ Two things grow with the capture, and neither bounds itself. `saved_path` is cho
 
 ### A debug log's size, per session
 
-| | one login | a session with play |
-| - | ---------- | -------------------- |
-| total | 1.81 MB over 58 frames | 4.33 MB over 263 frames |
-| `piece_items` | 490 KB (27%) | 1465 KB (33%) |
-| `savedata` | 213 KB (12%) | 639 KB (14%) |
-| `shop_res_data` | 278 KB (15%) | 278 KB (6%) |
-| `snapshot` (battle) | — | 562 KB (13%) |
-
-A capture averages 2.7 MB uncompressed, so a month of daily play is on the order of 80 MB — multiply rather than trusting a total, since the folder is never pruned and only grows.
+The inventory, `piece_items`, is the largest payload in a debug log, and grows with it; `savedata` and `shop_res_data` follow, and in a session with play a battle's `snapshot`. The folder is never pruned and only grows.
 
 ### Compressing and rotating the debug log
 
