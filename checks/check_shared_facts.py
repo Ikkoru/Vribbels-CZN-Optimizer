@@ -235,6 +235,25 @@ def _fold_rules(sf):
             f"{held[sf.SORTIE]['global']['assault_1_s7']} and reported "
             f"added {added}, down {down}. It is folded, and said apart "
             f"with both figures, for the maintainer to judge.")
+    # A subdivision's top: its boundary is a share of the field, so a
+    # bigger field puts it deeper and lower. Only a lower score with the
+    # rank no deeper -- or a shallower rank -- is growth not explaining.
+    base = {"rank": 4737, "best_score": 1013210, "read_at": 500}
+    for label, later, is_down in (
+            ("deeper and lower", dict(rank=4905, best_score=1012120), False),
+            ("as deep and lower", dict(rank=4737, best_score=1012120), True),
+            ("shallower", dict(rank=4600, best_score=1013210), True)):
+        start = sf.fold(sf.empty(), {sf.TOPS: {"global": {SEASON: {HALF: {
+            MASTER_I: base}}}}})[0]
+        _held, added, _refused, down = sf.fold(start, {
+            sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: dict(
+                base, read_at=600, **later)}}}}})
+        if bool(down) != is_down or bool(added) == is_down:
+            out.append(
+                f"a subdivision top read later {label} was reported added "
+                f"{added}, down {down}; it {'went' if is_down else 'did not go'}"
+                f" down. A bigger field sinks a subdivision's boundary to a "
+                f"deeper rank and a lower score with nobody's score falling.")
     return out
 
 

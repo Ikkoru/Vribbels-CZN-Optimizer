@@ -481,14 +481,27 @@ def describe(counts):
 
 # -------------------------------------------------------------- folding
 
+def _fell(before, reading, field):
+    old, new = before.get(field), reading.get(field)
+    return _is_int(old) and _is_int(new) and new < old
+
+
 def _change(kind, before, reading):
-    """(`players 19552 -> 19716`, whether any figure went down)."""
-    parts, down = [], False
-    for field in SAYS[kind]:
-        old, new = before.get(field), reading.get(field)
-        if old != new:
-            parts.append("%s %s -> %s" % (field, old, new))
-            down = down or (_is_int(old) and _is_int(new) and new < old)
+    """(`players 19552 -> 19716`, whether it went down in a way a
+    growing field cannot explain)."""
+    parts = ["%s %s -> %s" % (field, before.get(field), reading.get(field))
+             for field in SAYS[kind] if before.get(field) != reading.get(field)]
+    down = any(_fell(before, reading, field) for field in SAYS[kind])
+    if kind == TOPS and not _fell(before, reading, "rank"):
+        # **A subdivision's top is wherever the boundary with the one
+        # above it falls**, and that boundary is a share of the field.
+        # Players who join late join low, so a bigger field puts it at
+        # a deeper rank, where the score is lower, with nobody's score
+        # having fallen. Only a score that fell with the rank no deeper
+        # is one growth does not explain.
+        old, new = before.get("rank"), reading.get("rank")
+        deeper = _is_int(old) and _is_int(new) and new > old
+        down = _fell(before, reading, "best_score") and not deeper
     return ", ".join(parts), down
 
 
@@ -506,11 +519,13 @@ def fold(into, facts):
     dropped -- `lost` holds a fold to that.
 
     **A later reading whose figures went DOWN is folded and listed
-    apart.** Every ranking figure kept -- a field's size, a top score, a
-    subdivision's starting rank -- only grows while a season runs,
-    except when the game bans players, which is real. A reading from
-    the wrong server or a doctored file looks the same, and only the
-    maintainer can tell them apart, so it is said rather than refused.
+    apart.** A field's size, its top score and a subdivision's starting
+    rank only grow while a season runs, except when the game bans
+    players, which is real. A reading from the wrong server or a
+    doctored file looks the same, and only the maintainer can tell them
+    apart, so it is said rather than refused. A subdivision's top SCORE
+    is the exception: it falls as the field grows, since its boundary
+    sinks to a deeper rank -- see `_change`.
     """
     out, facts = clean(into), clean(facts)
     added, refused, down = [], [], []
