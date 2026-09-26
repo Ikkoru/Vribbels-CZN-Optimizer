@@ -73,7 +73,7 @@ The same reply settled what the fields mean, which a login payload alone never c
 
 So `count` is today's tally, zeroed lazily at the daily reset, and `total_count` is the event's lifetime one. A run adds one to both.
 
-**It nearly did not answer, for a reason worth keeping.** The row rides under `return_info`, not at the top level of the reply, so an earlier attempt read nothing and looked exactly like "this event does not double Memory Fragment runs". Two Memory Fragment runs on another day left the snapshot's Overclock row untouched for that reason alone.
+**The row rides under `return_info`, not at the top level of the reply.** A reader of the top level finds nothing, which looks exactly like "this event does not double Memory Fragment runs". Two Memory Fragment runs on another day left the snapshot's Overclock row untouched for that reason alone.
 
 ### Forced Daily is orange, not green
 

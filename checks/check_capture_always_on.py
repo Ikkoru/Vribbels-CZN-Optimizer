@@ -21,8 +21,7 @@ each of which fails quietly:
 
 3. **The wire catalogue accumulates rather than doubling.** It is the
    record of which request carries which field, kept so that a field
-   nobody reads is visible -- `entity` and `issued_limit_entities` were
-   both on the wire for months. It merges with what is already on disk,
+   nobody reads is visible. It merges with what is already on disk,
    and a merge that also folded in its own starting point would read
    one sighting as three.
 

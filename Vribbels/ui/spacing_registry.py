@@ -3322,9 +3322,8 @@ ROW_PITCH_ENTRIES = [
     # button-to-button gap read vertically.
     ("Setup & Settings", "Restore Defaults", RULE_BUTTON_GAP,
      ("TButton", "Button"), 4),
-    # Main Stats had a row DIVISION entry and no row pitch, so the gap
-    # between its ordinary rows went unread while the wide one between
-    # its blocks was watched.
+    # Main Stats' row DIVISION entry watches only the wide gap between
+    # its blocks; this is its ordinary rows' pitch.
     ("Memory Fragments", "Main Stats", RULE_CHECKBOX_PITCH,
      CHECKBOX_CLASSES, 6),
     # The exclude list places its rows itself, at `row * row_h`, rather

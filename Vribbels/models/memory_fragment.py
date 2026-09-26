@@ -162,7 +162,7 @@ def compute_gs_bounds(
     be high-weighted under the preset would cap below 100 even with
     perfectly-rolled substats, which misleads users.
 
-    Pass exclude_stat=None to get the old preset-wide bounds (useful when
+    Pass exclude_stat=None to get the preset-wide bounds (useful when
     the caller genuinely wants "best any fragment could be" semantics, or
     in tests).
 

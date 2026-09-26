@@ -401,7 +401,7 @@ Three things about that last test are load-bearing.
 
 **The palette therefore has to be complete.** `Capture.of_window` adds the rarity and element tables to it, because three of the four rarity row fills sit within L\* 6 of the window background and nothing about their own lightness would save them. **A widget painted in a shade from some new table must have that table added there too.**
 
-`FRINGE_LIGHTNESS` was fitted against graded judgements of real glyph edges at life size, and `checks/check_fringe_lightness.py` holds that grading — it is the only record of it. Set the constant to 0 for the old exact-match behaviour.
+`FRINGE_LIGHTNESS` was fitted against graded judgements of real glyph edges at life size, and `checks/check_fringe_lightness.py` holds that grading — it is the only record of it. Set it to 0 to count every pixel that is not exactly the background as ink.
 
 ## Column alignment, and what it cannot have both of
 

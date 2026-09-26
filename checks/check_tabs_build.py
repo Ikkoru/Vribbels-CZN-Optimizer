@@ -1333,9 +1333,9 @@ def _set_filters_redraw_replaces_nothing(tab):
 def _countdowns_line_up(tab):
     """Deadlines sit in a column, and the Events block has its own.
 
-    A countdown used to follow its row's reading by two spaces, so the
-    `Ends in` of five rows started at five different places. Each is
-    written to a TAB STOP now -- one for the rows above the shops and
+    A countdown placed after its row's reading starts wherever that
+    reading ends: five rows, five places. Each is written to a TAB
+    STOP -- one for the rows above the shops and
     one for the Events block below them, each measured against its own
     members, so a long reading in one does not push the other's
     deadlines across.

@@ -282,9 +282,9 @@ class OptimizerTab(BaseTab):
         return None
 
     def _on_notebook_tab_changed(self, _event):
-        """Refresh per-tab state whenever the Notebook switches. Currently
-        used to keep the Preset label in sync with CharacterPresetManager
-        when the user reassigns from another tab. Self-gates on "is this
+        """Refresh per-tab state whenever the Notebook switches. Keeps
+        the Preset label in sync with CharacterPresetManager when the
+        user reassigns from another tab. Self-gates on "is this
         tab now active?" so it's a no-op for other tabs."""
         nb = self._find_notebook()
         if nb is None:

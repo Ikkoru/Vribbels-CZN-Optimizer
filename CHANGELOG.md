@@ -18,7 +18,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - On the first launch of this version, the stats above are read out of any old debug captures kept in `snapshots/`, once, into `settings/stats_history.json`. It takes a few seconds, runs in the background, and says in the Capture Log when it is done.
 
-- **Game facts ship with the program** and fill in what your own captures missed: banner rates, so a banner whose rates you never opened still counts its 50/50s; which slots a Combatant Trial event offers; how many rewards earlier runs of an event held and which paid a Special Reward; and, from your own server only, each Great Rift division's top and how many players each Great Rift half, Sortie season and Full-Scale Offensive ranked, with the Sortie's top score. The Stats lists give each of those seasons a column, including ones you never took part in. Your own readings always win.
+- **Game facts ship with the program** and fill in what your own captures missed. Your own readings always win.
+  - Banner rates: a banner whose rates you never opened still counts its 50/50s.
+  - Checklist: which slots a Combatant Trial event offers, how many rewards earlier runs of an event held, and which paid a Special Reward.
+  - Stats lists, from your own server only: each Great Rift division's top, how many players each season ranked, and the Sortie's top score, in a column per season, including seasons you never took part in.
 
 - **Setup & Settings → Share Game Data**: `Export Facts` saves the game facts your captures hold that the program does not have yet, and nothing about your account, to attach to a new GitHub issue. The line beside it says in yellow how many there are to send.
 
@@ -46,19 +49,19 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Node List events show their progress on the Checklist, not just their deadline.
 
-- Events with a single score and a ladder of rewards on it, like the Love events, count the rewards claimed instead of reading `0/1+?` for their whole run.
+- Events with a single score and a ladder of rewards on it, like the Love events, count the rewards claimed.
 
-- An event's total taken from its earlier runs no longer counts an earlier run's leftover rewards, and one run the game schedules under two names no longer passes for two runs that agree.
+- An event's total taken from its earlier runs leaves out an earlier run's leftover rewards, and counts a run the game schedules under two names as one run.
 
 - **A capture sitting in the snapshots folder both compressed and not is archived once.** The two copies are the same capture, and compaction stored each as its own entry under the same name. Where the two copies differ, neither is archived or deleted; both stay in the folder for a look. An archive that already holds a capture twice drops the identical copy at its next compaction.
 
-- **The Checklist's Seasonal Accumulated Score follows a Great Rift run.** The capture kept the standings only when the Great Rift's screen listed them, and a run reports its new score for that one rank alone -- so the row stayed on last week's figure, read as nothing done, until the list was opened again. Before the week's reward is claimed, its threshold is no longer read as 0.
+- **The Checklist's Seasonal Accumulated Score follows each Great Rift run** without the Great Rift's list being opened again. Before the week's reward is claimed, its threshold is read, not taken as 0.
 
-- **Capture Log lines arrive as they happen.** In a busy session each line had come a second or more late, and later ones several: every action reloaded the whole snapshot up to four times, and the capture waited on the window before reading on. A save now reloads it once, and nothing the capture does waits on the window. The reload itself is several times quicker: the Memory Fragments list worked out which presets each fragment survives once per fragment per preset, and the Materials tab redrew while nobody was looking at it. An `Upgraded` line's Highest Potential also always reflects the upgrade -- a reload could run before the save and score the fragment as it was.
+- **Capture Log lines arrive as they happen**, even in a busy session: a save reloads the snapshot once, the reload is several times quicker, and nothing the capture does waits on the window. An `Upgraded` line's Highest Potential always reflects the upgrade.
 
 - The Checklist fits a narrower window. Every column with a shop in it was reserving room twice for the same deadline.
 
-- **The Seasonal Shop counted only the last three weeks of buying.** Its shelves were measured against the Sortie season instead of the Galactic Disaster's own, so purchases made earlier in the season read as never made and the shop's total asked for far more than was actually left.
+- **The Seasonal Shop counts every purchase of the Galactic Disaster season**, not only the last three weeks', so its total asks for what is actually left.
 
 - The mouse wheel scrolls a Checklist column when the pointer is over a checkbox. It only worked over the gaps before, which is how a column too tall for the window hid its last rows.
 
@@ -68,7 +71,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - **A run's reward was listed twice.** A run reports its payout once where it is paid and again on the clear, and the Capture Log printed both — identical figures, one reward. Counts were never affected: the second report writes the same total the first did. A Simulation's `Total rewards` line, which only repeated the receipt just above it, is gone too; a Chaos run, paid in pieces along the way, keeps its line as the one statement of the whole run.
 
-- A login event on its first day read `1/1+?`, which says finished. The ceiling now starts at seven, the fewest any login event has ever paid, and still counts up from there.
+- A login event's first day reads against a ceiling of seven, the fewest any login event has paid, rather than as finished, and still counts up from there.
 
 - At the 200% UI scale, the Optimizer's help text and its Have at Least note wrap to the space they have, rather than running past it.
 

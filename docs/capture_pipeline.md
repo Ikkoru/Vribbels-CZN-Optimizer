@@ -162,7 +162,7 @@ so a x6 run sends six entries for the same item and the total is their sum. Noth
 
 Without these branches nothing on the wire moves an item count: the Materials tab reads what the account had at login, no save is triggered, and no line reaches the Capture Log — a capture that has gone stale looks exactly like one where nothing has happened. `checks/check_capture_rewards.py` drives all seven keys.
 
-**A key missing from the list is close to invisible**, which is why two of them went unread for months. The client asks for the inventory again after a run, so the counts still end up right; the only symptom is the Capture Log staying quiet about something the player watched arrive. `calamity_reward` and `chaos_free_reward_result` were both found by the wire catalogue rather than by reading anything.
+**A key missing from the list is close to invisible.** The client asks for the inventory again after a run, so the counts still end up right; the only symptom is the Capture Log staying quiet about something the player watched arrive. `calamity_reward` and `chaos_free_reward_result` were both found by the wire catalogue rather than by reading anything.
 
 **Three keys are payout-shaped and must NOT be applied.** `battle/reward_complete` answers with `drop_item`, a list in exactly the drop shape — and it is the RUN's running tally rather than the battle's payout: the same entries come back after every battle and grow as spots are picked up, while the counts they name stay put. One capture sent `[Units 2000, Traces of Memory 2]` four times in fifty seconds with the Units balance unchanged throughout, then carried those entries plus the spot pickups for the rest of the run. `world/get_stage_info|drop_item` and `merchant/*|drop_item_info` carry the same accumulated list. Applied, a five-battle run pays five times over. `checks/check_capture_rewards.py` holds the line.
 
@@ -281,7 +281,7 @@ One entry per `command|key` seen, with a count, first and last sighting, the typ
 
 The command comes from the qid the reply answers, which the addon has seen go past on the request. A reply with no qid, or one whose request predates the capture, is filed under `?`.
 
-**It is the record that makes an unread field visible.** `entity` and `issued_limit_entities` were both on the wire for months, and no amount of reading the addon would have said so — a field nobody reads leaves no trace in the code. `docs/wire_catalogue.py` prints the catalogue against the keys the addon actually asks for, deriving the second half from the source so the two cannot drift.
+**It is the record that makes an unread field visible.** `entity` and `issued_limit_entities` were both found this way: no amount of reading the addon would have said so — a field nobody reads leaves no trace in the code. `docs/wire_catalogue.py` prints the catalogue against the keys the addon actually asks for, deriving the second half from the source so the two cannot drift.
 
 **The captures taken before it exists are foldable in**: `docs/wire_catalogue_backfill.py` replays a debug log through the real addon with only the clock replaced, so each sighting is filed under the frame's own timestamp. It reports by default and writes on `--write`, and it reads the uncompressed captures only — compression and the catalogue arrived together, so a `.jsonl.gz` has been catalogued already and folding it in would count one sighting twice.
 

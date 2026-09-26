@@ -1301,7 +1301,7 @@ class CaptureTab(BaseTab):
         config = SERVERS.get(region_id)
         self.region_var.set(config.display_name if config else str(region_id))
         # Remembered only so the readout can open on the last known
-        # answer; nothing about the capture depends on it any more.
+        # answer; nothing about the capture depends on it.
         try:
             self.context.config.server_region = region_id
         except Exception:

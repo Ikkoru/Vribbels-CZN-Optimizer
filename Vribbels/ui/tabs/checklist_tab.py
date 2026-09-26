@@ -889,7 +889,7 @@ def shop_rows(shop, period, raw):
 
     `(key, label, widest)` per row, straight off the wire: the shop's
     own `sort` gives the order, `limit_count` the reserve, and the item
-    the product gives its name. Nothing is hand-written any more -- a
+    the product gives its name. Nothing is hand-written -- a
     product the game adds appears the next time the login burst is
     captured.
 
