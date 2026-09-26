@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut a release — bump the version, close the CHANGELOG section, write RELEASE_NOTES.md for players, and re-check the README. Invoked by hand only. Anything typed after the command is read as part of the request: a version number, a theme for the release name, a step to skip.
+description: Cut a release — bump the version, close the CHANGELOG section, write the release notes for players into .old/, and re-check the README. Invoked by hand only. Anything typed after the command is read as part of the request: a version number, a theme for the release name, a step to skip.
 ---
 
 # Release
@@ -16,12 +16,23 @@ The conventions are in `docs/repo_conventions.md`; this is the procedure and the
 Run the doc audit first (`doc-audit` skill) — it moves facts between files, and doing it after the CHANGELOG pass means auditing prose you have just rewritten.
 
 1. **Commit whatever is uncommitted** before touching anything.
-2. **Doc audit.** At minimum, the sweeps.
-3. **CHANGELOG pass** — accuracy, then register.
-4. **`version.py`**, and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list.
-5. **`RELEASE_NOTES.md`** — a different document, see below.
-6. **README re-check** — report only; it is not edited as part of a release.
-7. `python checks/run_all.py`, then commit.
+2. **Read the maintainer's edits** to the last release, and ask what they leave unclear — see below. Asking first lets the answers arrive while the audit runs.
+3. **Doc audit.** At minimum, the sweeps.
+4. **CHANGELOG pass** — accuracy, then register.
+5. **`version.py`**, and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list.
+6. **`.old/RELEASE_NOTES_<X.Y.Z>.md`** — a different document, see below.
+7. **README re-check** — report only; it is not edited as part of a release.
+8. `python checks/run_all.py`, then commit.
+
+## The maintainer's edits
+
+What the last release produced, the maintainer edited, and those edits calibrate this release better than any rule below. For the last version, `.old/` holds:
+
+- `.old/CHANGELOG_<X.Y.Z>.md`: its CHANGELOG section as this skill delivered it. Diffed against the repo's section, it shows the maintainer's edits.
+- `.old/RELEASE_NOTES_<X.Y.Z>.md`: its release notes as delivered, where the maintainer kept them.
+- A `_with_notes` sibling of either: the maintainer's revision, with each edit and cut explained. A CHANGELOG without one was edited in place, unexplained.
+
+Read the older versions' files too. An edit pass can stop partway, and the commit that carries it says where; a section left alone is not an endorsement of it. Where an edit's intent or degree is unclear — a one-off or a rule, how far to take it — ask. The maintainer welcomes those questions, notes or no notes.
 
 ## CHANGELOG pass
 
@@ -30,9 +41,12 @@ Run the doc audit first (`doc-audit` skill) — it moves facts between files, an
 Then the register. The CHANGELOG is written for a player who wants the smaller changes too — not for a maintainer. Cut, in this order of frequency:
 
 - **Anything that argues.** A figure defending a decision, worth-it framing, the reason an alternative was rejected. These documents notify; they never persuade. This applies to the CHANGELOG as much as to the notes.
-- **Internal mechanism a user cannot act on** — "three pixels short per shop product and Tk clipped the difference".
-- **Words.** Default to one line per entry. Most changes need no more, and a paragraph where a line would do is the most common defect in this file.
+- **Internal mechanism a user cannot act on** — "three pixels short per shop product and Tk clipped the difference" — and the explanation of a reading: "a late line with all three small was held back by the game itself".
+- **Words.** Default to one line per entry. Most changes need no more, and a paragraph where a line would do is the most common defect in this file. Passes have still come out wordy by the maintainer's reading: cut further than feels complete.
+- **Where something is, when opening the program shows it** — a new tab's place in the tab bar.
 - **The program's word where the game has one.** Check `CLAUDE.md` § Naming, and check the game's own screens for anything it does not cover. Where the game names a thing nowhere recognisable, describe it instead of inventing a name.
+
+**The release-notes calls below apply here too**, and the maintainer's edits have made each of them: a step the player must take given whole, the player's word ("player count", not "field"), a source linked, and an estimate saying what it assumes ("one Chaos run a day") rather than when the program shows it.
 
 **An entry earns its place by the confusion it prevents**, not by the size of the edit — `docs/repo_conventions.md` has the test. The commit history is the complete record, so nothing is kept here merely to be thorough.
 
@@ -47,13 +61,11 @@ Then the register. The CHANGELOG is written for a player who wants the smaller c
 
 Verify by diffing the bolded lead of every entry before and after, and name each delta. A rewrite that silently loses an entry looks exactly like a rewrite that tightened one.
 
-## RELEASE_NOTES.md
+## Release notes
 
-**Not a shorter CHANGELOG.** It is what a player installing this version is told; `docs/repo_conventions.md` has the cut rules and the two overrides. Gitignored, rewritten per release, pasted into the GitHub release, and it always links the CHANGELOG — that link is what licenses every cut.
+**Not a shorter CHANGELOG.** It is what a player installing this version is told; `docs/repo_conventions.md` has the cut rules and the two overrides. Written straight to `.old/RELEASE_NOTES_<X.Y.Z>.md`, never the repo root. The maintainer pastes it into the GitHub release, then deletes it or keeps a `_with_notes` revision beside it. It always links the CHANGELOG — that link is what licenses every cut.
 
 Expect most entries not to survive, and expect `Fixed` and `Changed` to come out empty or nearly so. That is the normal shape of this document, not a sign of a missed step.
-
-**Read the maintainer's annotated drafts first**: `.old/RELEASE_NOTES_*_with_notes.md` are past drafts with every edit and cut explained, and they calibrate these calls better than any rule here.
 
 The judgement calls worth slowing down for:
 
@@ -63,7 +75,7 @@ The judgement calls worth slowing down for:
 - **Does the player have to DO something for it to work?** Then give the steps whole — what to open, how far, how often: open a banner's Rescue Records while capturing, go to its last page, and do it for every banner. Name the way in for someone whose data is elsewhere, such as an import.
 - **Would a player ever notice it?** A guarantee they cannot observe ("your own readings always win") is implementation, however true.
 - **Is it a fix to something they never had?** A fix inside a feature this release adds, or one the last release called unfinished, is news to nobody installing.
-- **Is it the player's word?** "Player count", not "field size"; an event family's internal name ("Love events") is not what the game shows. Where unsure what the game calls it, say it generally ("more events").
+- **Is it the player's word?** "Player count", not "field size"; an event family's internal name ("Love events") is not what the game shows. Where unsure what the game calls it, say it generally ("more events") and ask, saying what the thing is — the maintainer then chooses the game's name or keeps it general.
 - **Is it what they will see?** "Arrive faster", not "arrive as they happen": say the effect, not an absolute the next slow line disproves.
 
 Write what survives as what, then where. Group by tab, order by importance inside each group, and fold lines about one thing into one bullet — a column and its tooltip. Two short sentences read better than one long one. Where the release asks something of players, such as sharing data, ask it in the maintainer's own voice. A little whimsy is welcome.

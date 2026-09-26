@@ -1,6 +1,6 @@
 # Repo conventions
 
-How `tasks.md`, `plan.md`, `CHANGELOG.md` and `RELEASE_NOTES.md` are kept. Nothing here affects the program.
+How `tasks.md`, `plan.md`, `CHANGELOG.md` and the release notes are kept. Nothing here affects the program.
 
 ## `tasks.md` — the triaged backlog
 
@@ -24,7 +24,7 @@ Three documents, one audience, three depths. **The reader is a mobile or PC gach
 |                    | Reader                                     | Depth                                         |
 | ------------------ | ------------------------------------------ | --------------------------------------------- |
 | `README.md`        | someone who has just heard of the program  | how to run it, and what it is for             |
-| `RELEASE_NOTES.md` | a player installing this version           | what changed that they would notice or act on |
+| release notes      | a player installing this version           | what changed that they would notice or act on |
 | `CHANGELOG.md`     | a player who wants the smaller changes too | everything worth knowing about                |
 
 **The commit history is the complete record; these three are not.** They are written to be read, so a document nobody finishes is a document that failed — length is spent on what a reader will act on, and anything else belongs in the log.
@@ -81,9 +81,9 @@ At release, `unreleased` is replaced by a short release name (`- Multi-core`), w
 
 **A released entry is edited only to fix it**, never to restate what shipped. Correcting a mistake, an inconsistency or a dead reference is fine; changing what the entry claims happened is not, and neither is tidying prose that is merely verbose — the risk of quietly rewriting history is what the caution is for, not the wording.
 
-## `RELEASE_NOTES.md` — what a player is told
+## Release notes — what a player is told
 
-Gitignored, rewritten per release, pasted into the GitHub release. **Always links `CHANGELOG.md`**: a reader who wants the rest will take one click, and that link is what lets everything below be cut.
+Written per release to `.old/RELEASE_NOTES_<X.Y.Z>.md`, which is gitignored, and pasted into the GitHub release. **Always links `CHANGELOG.md`**: a reader who wants the rest will take one click, and that link is what lets everything below be cut.
 
 Most entries do not survive. Cut an entry when any of these is true:
 

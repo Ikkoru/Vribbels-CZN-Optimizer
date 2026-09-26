@@ -67,7 +67,6 @@ EXPECTED_ABSENT = {
     "plan.md",                 # created only while a task is being planned
     ".defaults_sync.json",     # written beside the settings at runtime
     "paused_task.md",          # written to be deleted
-    "RELEASE_NOTES.md",        # assembled at release
     "_tmp/skill_notes.md",     # the improvement queue, written as
                                # lessons land and cleared on review
     "_capture_addon.py",       # generated into `snapshots/` per capture
@@ -75,8 +74,6 @@ EXPECTED_ABSENT = {
     "imported.json",           # into `snapshots/gacha_history/`
     "memory_fragments_*.json", # a capture's snapshots
     "config.json",             # a legacy file old versions left behind
-    ".old/RELEASE_NOTES_*_with_notes.md",  # the maintainer's annotated
-                                           # drafts, gitignored and local
 }
 
 # Folders the PROGRAM writes, not the repo: a clone has neither, so a
