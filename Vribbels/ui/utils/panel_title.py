@@ -15,17 +15,24 @@ labels share one line box and the gap between them is their pad alone.
 
 from tkinter import ttk
 
+from .style_once import first_time
+
 PANEL_TITLE_STYLE = "PanelTitle.TLabel"
 
 
 def panel_title_style():
-    """Define the style, and return its name.
+    """Define the style if it is not yet, and return its name.
+
+    Once per interpreter -- see `style_once.py` for what a second
+    definition costs every widget already laid out.
 
     No `try` around the layout: a refused one leaves the dotted name on
     `TLabel`'s layout, which looks exactly like no change.
     `check_tabs_build` holds these labels to their text's width.
     """
-    ttk.Style().layout(PANEL_TITLE_STYLE, [("Label.fill", {
-        "sticky": "nswe",
-        "children": [("Label.text", {"sticky": "nswe"})]})])
+    style = ttk.Style()
+    if first_time(style, PANEL_TITLE_STYLE):
+        style.layout(PANEL_TITLE_STYLE, [("Label.fill", {
+            "sticky": "nswe",
+            "children": [("Label.text", {"sticky": "nswe"})]})])
     return PANEL_TITLE_STYLE

@@ -31,6 +31,7 @@ from ui.scaling import px
 from ..base_tab import BaseTab
 from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.panel_title import panel_title_style
+from ..utils.style_once import first_time
 
 # The instructions under the tab strip, in the Optimizer's explanation
 # style. `HELP_WRAPLENGTH` is where the text starts wrapped: wider than
@@ -288,6 +289,33 @@ def _units(pulls):
                      for name, n in counts.items())
 
 
+def _style_status():
+    """The status lines' label style, once per interpreter -- see
+    `ui/utils/style_once.py`.
+
+    A layout's `border` is a flag -- the element surrounds its
+    children -- and the inset is the style's `padding`: here a label's
+    own 2 above and below, and none at the sides. No `try`: a refused
+    layout leaves the dotted name on `TLabel`'s, which looks like no
+    change at all.
+    """
+    style = ttk.Style()
+    if not first_time(style, STATUS_STYLE):
+        return
+    style.layout(STATUS_STYLE, [("Label.padding", {
+        "sticky": "nswe", "border": "1",
+        "children": [("Label.label", {"sticky": "nswe"})]})])
+    # spacing: unique -- a label's own inset, a style option -- label, label ↕
+    style.configure(STATUS_STYLE, padding=px((0, 2)))
+
+
+def register_styles():
+    """Every style this tab defines, for the app to define at startup,
+    before anything is laid out. See `ui/utils/style_once.py`."""
+    _style_status()
+    GachaHistoryTab._style_lists()
+
+
 class GachaHistoryTab(BaseTab):
     """The Stats & Gacha History tab."""
 
@@ -359,12 +387,7 @@ class GachaHistoryTab(BaseTab):
         # label's own 2 above and below, and none at the sides. No `try`:
         # a refused layout leaves the dotted name on `TLabel`'s, which
         # looks like no change at all.
-        style = ttk.Style()
-        style.layout(STATUS_STYLE, [("Label.padding", {
-            "sticky": "nswe", "border": "1",
-            "children": [("Label.label", {"sticky": "nswe"})]})])
-        # spacing: unique -- a label's own inset, a style option -- label, label ↕
-        style.configure(STATUS_STYLE, padding=px((0, 2)))
+        _style_status()
         self.urgent_label = ttk.Label(
             status, text="", font=URGENT_FONT, style=STATUS_STYLE,
             foreground=self.colors["red"],
@@ -585,6 +608,11 @@ class GachaHistoryTab(BaseTab):
         lookup itself.
         """
         style = ttk.Style()
+        # Once per interpreter, and at startup in the app: see
+        # `ui/utils/style_once.py` for what a second definition costs
+        # every tab already laid out.
+        if not first_time(style, TREE_STYLE):
+            return
         try:
             style.layout(TREE_STYLE, [
                 ("Treeview.treearea", {"sticky": "nswe"})])

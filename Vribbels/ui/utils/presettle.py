@@ -124,9 +124,12 @@ class HiddenTabSettler:
     """Settles every tab but the one showing and `skip`, one per idle
     moment, `first` before the rest. See the module docstring."""
 
-    def __init__(self, root, notebook, skip=(), first=()):
+    def __init__(self, root, notebook, skip=(), first=(), lazy=None):
         self.root = root
         self.notebook = notebook
+        # The app's `LazyTabs`, or None: a queued page may be a
+        # placeholder, built in its own step. See `lazy_tabs.py`.
+        self._lazy = lazy
         self._skip = {str(w) for w in skip}
         self._settled = {notebook.select()}
         ahead = [str(w) for w in first]
@@ -154,8 +157,14 @@ class HiddenTabSettler:
         except tk.TclError:
             pass                        # the window is closing
 
+    def _current(self, tab):
+        """What stands at `tab` now: a placeholder's built page, once it
+        has been built -- by a step, a click, or a reload."""
+        return self._lazy.current(tab) if self._lazy is not None else tab
+
     def _next(self):
-        self._queue = [t for t in self._queue if t not in self._settled]
+        self._queue = [t for t in self._queue
+                       if self._current(t) not in self._settled]
         if not self._queue:
             return
         try:
@@ -166,7 +175,17 @@ class HiddenTabSettler:
             self._after(RETRY_MS)
             return
         try:
-            self._settle(self._queue.pop(0), showing)
+            tab = self._queue[0]
+            if self._lazy is not None and not self._lazy.is_built(tab):
+                # A tab not built yet is built in a step of its own and
+                # settled in the next: each half is a pause of its own,
+                # and the two in one step would be the longest pause the
+                # user could meet. Nothing is mapped by a build, so it
+                # needs painting off no more than the ordinary loop does.
+                self._lazy.build_page(tab)
+            else:
+                self._queue.pop(0)
+                self._settle(self._current(tab), showing)
         except tk.TclError:
             return      # closed during the step: the drain ran its close
         self._after(GAP_MS)
@@ -205,10 +224,10 @@ class HiddenTabSettler:
         self._settled.add(tab)
 
 
-def settle_hidden_tabs(root, notebook, skip=(), first=()):
+def settle_hidden_tabs(root, notebook, skip=(), first=(), lazy=None):
     """Start settling every tab but the one showing and `skip`, in
-    idle moments, `first` before the rest. Returns the settler, which
-    the caller keeps."""
-    settler = HiddenTabSettler(root, notebook, skip, first)
+    idle moments, `first` before the rest; a placeholder of `lazy` is
+    built in its step. Returns the settler, which the caller keeps."""
+    settler = HiddenTabSettler(root, notebook, skip, first, lazy)
     settler.start()
     return settler

@@ -34,6 +34,28 @@ The pattern that works, used by both prerequisite probes, by `_report_data_probl
 
 Two consequences: startup code MAY pump the event loop to realize geometry (the exclude flow layout depends on this to measure its true width), and anything added to the startup path must not reveal the root early or pop its own window.
 
+## Most tabs are built after the reveal
+
+Startup builds three tabs:
+
+- the Optimizer, which a launch opens on;
+- Gear Score, whose weights score every fragment on every load;
+- Capture, where the capture's and the startup jobs' log lines land.
+
+Setup & Settings joins them on a first launch, which opens on it. Every other tab is a slot of `ui/utils/lazy_tabs.py`: an empty placeholder page under the tab's title, replaced by the tab when it is built. That happens on the first of:
+
+- the idle settler's step for it (below), the ordinary case;
+- the user selecting it first, which builds it with painting off and paints it once, whole;
+- anything that needs the tab itself: a reload the Checklist has to record from first, or the spacing audit.
+
+Until then the app's handle on the tab is None. Three rules follow, and `checks/check_lazy_tabs.py` holds them:
+
+- **Nothing calls through a handle that may be None.** A load tells only the tabs built so far (`_refresh_built_tabs`). A tab built later reads the data current then, in its `after_build`.
+- **Both load paths build the Checklist before replacing a snapshot it has not read** (`_let_the_checklist_record`). It records from every snapshot, and the game purges what it records.
+- **A tab built on a click comes back with painting on and painted**, in a `finally`.
+
+One more, held by `checks/check_style_once.py`: **no tab's build may change a ttk style.** Any style change re-measures every themed widget, and after the reveal that lays out again the tabs already laid out. A stretching Treeview column then asks for the space it had filled, and the Combatants list keeps 6px of its detail pane for the session. So each style a tab uses is defined once per interpreter (`ui/utils/style_once.py`), at startup, from `OptimizerGUI.configure_styles`.
+
 ## Unopened tabs are laid out after the reveal, unseen
 
 A notebook sizes only the page it shows, so every other page is 1px square until it is first opened, and that open lays the whole page out again after its first paint: the user watches it assemble. `_reveal_window` settles the Optimizer tab while the window is still hidden, and pays for it in startup time. Every other tab is settled by `ui/utils/presettle.py` after the reveal, one tab per idle moment:
@@ -41,6 +63,8 @@ A notebook sizes only the page it shows, so every other page is 1px square until
 1. Painting on the notebook is switched off with `WM_SETREDRAW`. The screen keeps the pixels it had.
 2. The tab is selected, and its window events and idle work run: the `<Configure>` cascade, and its `<Map>` and `<<NotebookTabChanged>>` first-show work.
 3. The tab that was showing is selected again, drained the same way, and painting switched back on.
+
+A tab not built yet is built in an idle step of its own, and settled in the next. Nothing is mapped by a build, so it needs no painting off; and each half is a pause of its own, shorter than the two together.
 
 Four rules keep it unseen, and breaking any of them fails silently. `checks/check_presettle.py` holds all four:
 
@@ -57,9 +81,9 @@ The Checklist and Memory Fragments are settled first. Both leave their drawing t
 
 Tk defers creating a widget's Win32 window until first MAP, and a window created at map time is erased to the system default — near-white — before Tk paints it in the widget's own colours. So the first time a tab opens, its classic Tk widgets appear as blank light-grey blocks for a frame.
 
-`_reveal_window` walks the tree and calls `winfo_id()` on every widget (`ui/utils/realize.py`), creating the windows while the app is still invisible, so there is nothing left to erase. ~55ms over ~500 widgets.
+`_reveal_window` walks the tree and calls `winfo_id()` on every widget (`ui/utils/realize.py`), creating the windows while the app is still invisible, so there is nothing left to erase. `TabSlot.build` walks each tab built after the reveal the same way, before anything maps it.
 
-**`make_checkbox` makes the same call per widget, and that is not redundant.** Three panels rebuild their checkboxes after startup — Capture's log presets, Memory Fragments' Sets and its unknown main stats — long after the walk has run. Both callers are needed.
+**`make_checkbox` makes the same call per widget, and that is not redundant.** Three panels rebuild their checkboxes after startup — Capture's log presets, Memory Fragments' Sets and its unknown main stats — long after either walk has run. All three callers are needed.
 
 What the flash is and is not:
 

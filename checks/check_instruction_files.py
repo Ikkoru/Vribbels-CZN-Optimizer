@@ -74,6 +74,8 @@ EXPECTED_ABSENT = {
     "imported.json",           # into `snapshots/gacha_history/`
     "memory_fragments_*.json", # a capture's snapshots
     "config.json",             # a legacy file old versions left behind
+    "perf_log.txt",            # written into `settings/` while perf
+    "hang_traceback.txt",      # logging is on, and its hang watchdog
 }
 
 # Folders the PROGRAM writes, not the repo: a clone has neither, so a

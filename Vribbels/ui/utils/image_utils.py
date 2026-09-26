@@ -15,7 +15,9 @@ panel colour before Tk sees it, and the label carries no border.
 """
 
 import functools
+import os
 import threading
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageTk
 
@@ -64,6 +66,9 @@ RARITY_PLATE_RATIO = 101 / 112
 
 # Where the rarity plates live, under the images folder.
 RARITY_DIR = "bg"
+# The images folder: beside `ui/`, in the source tree and in a frozen
+# build's unpacked copy alike.
+IMAGES_DIR = Path(__file__).resolve().parent.parent.parent / "images"
 
 # The plate's side at the native icon size. **Every overlay below is a
 # share of the PLATE, not of the canvas.** The canvas is taller than it
@@ -180,7 +185,7 @@ def _plated(icon, plate_path, size):
     """
     if not plate_path:
         return icon
-    plate = Image.open(plate_path).convert("RGBA")
+    plate = _image(plate_path)
     side = _plate_side(size)
     plate = plate.resize((side, side), _resample(plate.size, (side, side)))
     canvas = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
@@ -200,12 +205,48 @@ def _art_on_disk(icon_path, plate_path, size):
     Shared -- `_art` is what callers take, since they draw on it.
     """
     if icon_path:
-        img = Image.open(icon_path).convert("RGBA")
+        img = _image(icon_path)
         if img.size != size:
             img = img.resize(size, _resample(img.size, size))
     else:
         img = Image.new("RGBA", size, (0, 0, 0, 0))
     return _plated(img, plate_path, size)
+
+
+@functools.lru_cache(maxsize=None)
+def _image_at(key):
+    return Image.open(key).convert("RGBA")
+
+
+def _image(path):
+    """A picture off disk, decoded once per session.
+
+    Keyed by its absolute path, so two spellings of one file share one
+    decode. **SHARED:** a caller resizes it or composites it onto
+    something else, and never draws on it.
+    """
+    return _image_at(os.path.normcase(os.path.abspath(str(path))))
+
+
+def preload_images():
+    """Decode every picture under `IMAGES_DIR` on a worker thread.
+
+    A frozen build unpacks the art afresh on every launch, and a file's
+    first read is its slowest: on the UI thread, that is the first
+    draw of the Materials tab waiting on the disk. PIL releases the
+    interpreter while it reads and decodes, so this costs the UI thread
+    next to nothing.
+    """
+    paths = sorted(IMAGES_DIR.rglob("*.png"))
+
+    def work():
+        for path in paths:
+            try:
+                _image(path)
+            except Exception:                               # noqa: BLE001
+                pass            # the draw reads it again and reports it
+
+    threading.Thread(target=work, daemon=True).start()
 
 
 def _art(icon_path, plate_path, size):

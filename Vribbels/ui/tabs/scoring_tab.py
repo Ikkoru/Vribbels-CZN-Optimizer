@@ -619,8 +619,11 @@ STAT MIN - MAX ROLLS:
 
         self._applied_weights = dict(weights)
 
-        self.context.inventory_tab.refresh_inventory()
-        if refresh_heroes:
+        # Either may not be built yet -- see `ui/utils/lazy_tabs.py` --
+        # and building it reads these scores then.
+        if self.context.inventory_tab is not None:
+            self.context.inventory_tab.refresh_inventory()
+        if refresh_heroes and self.context.heroes_tab is not None:
             self.context.heroes_tab.refresh_heroes()
 
     def refresh_presets(self):

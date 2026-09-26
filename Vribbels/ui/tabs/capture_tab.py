@@ -12,6 +12,7 @@ from game_data.characters import CHARACTERS, ATTRIBUTE_COLORS
 from game_data.constants import PROVISIONAL_NAMES, RARITY_COLORS, item_names
 from ..base_tab import BaseTab
 from ..utils.alert import BLINK_MS, TabAlert
+from ..utils.style_once import first_time
 from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.checkbox import make_checkbox
 from ..utils.scrolled_text import make_scrolled_text
@@ -231,9 +232,11 @@ class CaptureTab(BaseTab):
         # A failure reported while the user is on another tab. The
         # pulse is held for their arrival rather than spent before it.
         self._title_pending = False
-        self.context.style.configure(
-            "Alert.TLabelframe.Label",
-            background=self.colors["red"], foreground=self.colors["bg"])
+        # Once per interpreter: see `ui/utils/style_once.py`.
+        if first_time(self.context.style, "Alert.TLabelframe.Label"):
+            self.context.style.configure(
+                "Alert.TLabelframe.Label",
+                background=self.colors["red"], foreground=self.colors["bg"])
         try:
             self._alert = TabAlert(self.context.notebook, self.frame,
                                    self.colors["red"])

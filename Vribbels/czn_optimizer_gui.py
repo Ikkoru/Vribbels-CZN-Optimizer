@@ -278,18 +278,22 @@ class OptimizerGUI:
         # the audit reads pixels off the screen, so the window has to be
         # up, settled and painted.
         self._maybe_schedule_spacing_audit()
-        # Every other tab laid out in idle moments, unseen, so that no
-        # first open assembles in view -- see `ui/utils/presettle.py`.
-        # Not under the spacing audit, which switches tabs itself and
-        # reads what it finds. NOT the Capture tab, whose switch
-        # handlers act on what the user saw. The Checklist and Memory
-        # Fragments FIRST: both leave their drawing to their first
-        # show, which makes them the costliest to open unsettled.
+        # Every other tab built where it is not yet, and laid out, in
+        # idle moments and unseen, so that no first open assembles in
+        # view -- see `ui/utils/presettle.py`. Not under the spacing
+        # audit, which switches tabs itself and reads what it finds.
+        # NOT the Capture tab, whose switch handlers act on what the
+        # user saw. The Checklist and Memory Fragments FIRST: both leave
+        # their drawing to their first show, which makes them the
+        # costliest to open unsettled.
         if not self._spacing_audit_wanted():
             from ui.utils.presettle import settle_hidden_tabs
+            slots = self.lazy_tabs.slots
             self._tab_settler = settle_hidden_tabs(
-                self.root, self.notebook, skip=(self.capture_tab,),
-                first=(self.checklist_tab, self.inventory_tab))
+                self.root, self.notebook,
+                skip=(self.capture_tab_instance.get_frame(),),
+                first=(slots["checklist"].page, slots["inventory"].page),
+                lazy=self.lazy_tabs)
         # After the reveal for the same reason the audit is: the window
         # is up and the user is looking at it, so a rebuild that takes a
         # second has nothing to block.
@@ -462,6 +466,9 @@ class OptimizerGUI:
         freeze = "--spacing-audit-freeze" in sys.argv
 
         def _run():
+            # The audit measures every tab, and a tab not built yet has
+            # nothing on it to measure.
+            self.lazy_tabs.build_all()
             try:
                 from ui import spacing_audit
                 from ui import spacing_registry  # noqa: F401  (registers)
@@ -733,6 +740,15 @@ class OptimizerGUI:
         self.style.configure("Gear.Borderless.TLabelframe",
                              labelmargins="0 0 0 0")
 
+        # The styles tabs define for themselves, defined HERE, before
+        # anything is laid out: a tab built after the reveal would
+        # otherwise change a style under every tab already laid out,
+        # and all of them re-measure. See `ui/utils/style_once.py`.
+        from ui.utils.panel_title import panel_title_style
+        from ui.tabs import gacha_history_tab
+        panel_title_style()
+        gacha_history_tab.register_styles()
+
     def setup_ui(self):
         self.notebook = ttk.Notebook(self.root, style="Flush.TNotebook")
         self.notebook.pack(fill=tk.BOTH, expand=True)
@@ -885,67 +901,51 @@ class OptimizerGUI:
         # back to level-60-baseline behavior when this is None.
         self.optimizer.settings_manager = self.settings_manager
 
-        # ---- Create tab instances (order is unrelated to display order) ----
-        self.optimizer_tab_instance = OptimizerTab(self.notebook, self.app_context)
-        self.optimizer_tab = self.optimizer_tab_instance.get_frame()
-
-        self.inventory_tab_instance = InventoryTab(self.notebook, self.app_context)
-        self.inventory_tab = self.inventory_tab_instance.get_frame()
-
-        self.materials_tab_instance = MaterialsTab(self.notebook, self.app_context)
-        self.materials_tab = self.materials_tab_instance.get_frame()
-
-        self.checklist_tab_instance = ChecklistTab(self.notebook, self.app_context)
-        self.checklist_tab = self.checklist_tab_instance.get_frame()
-
-        self.heroes_tab_instance = HeroesTab(self.notebook, self.app_context)
-        self.heroes_tab = self.heroes_tab_instance.get_frame()
-
+        # ---- The tabs ----
+        # Built here: the Optimizer, the tab a launch opens on; Gear
+        # Score, whose weights score every fragment on every load; and
+        # Capture, where the capture's and the startup jobs' log lines
+        # land. Every other tab is a SLOT, built the first time it is
+        # needed -- see `ui/utils/lazy_tabs.py`.
+        from ui.utils.lazy_tabs import LazyTabs
+        from ui.utils.image_utils import preload_images
+        # Read before any tab wants it: the Materials tab's art, which
+        # its build or a click on it would otherwise wait on.
+        preload_images()
+        self.optimizer_tab_instance = OptimizerTab(self.notebook,
+                                                   self.app_context)
+        # Setup & Settings' Restore Defaults refreshes the Optimizer tab
+        # through this after restoring per-combatant settings.
+        self.app_context.optimizer_tab = self.optimizer_tab_instance
+        self.scoring_tab_instance = ScoringTab(self.notebook, self.app_context)
+        # The Combatants tab refreshes the preset list's assignment
+        # markers through this after a preset change there.
+        self.app_context.scoring_tab = self.scoring_tab_instance
         self.capture_tab_instance = CaptureTab(self.notebook, self.app_context)
-        self.capture_tab = self.capture_tab_instance.get_frame()
-
-        self.setup_tab_instance = SetupTab(self.notebook, self.app_context)
-        self.setup_tab = self.setup_tab_instance.get_frame()
-
-        self.gacha_tab_instance = GachaHistoryTab(self.notebook,
-                                                  self.app_context)
-        self.gacha_tab = self.gacha_tab_instance.get_frame()
         # The addon's history writes arrive on the proxy-reader thread,
         # and a worker must not reach Tk directly -- see
         # `_on_gacha_written`.
         self.capture_manager.gacha_update_callback = self._on_gacha_written
 
-        # Set cross-tab refs BEFORE ScoringTab is created — it uses both at init.
-        self.app_context.inventory_tab = self.inventory_tab_instance
-        self.app_context.heroes_tab = self.heroes_tab_instance
-        # Setup & Settings tab's Restore Defaults flow refreshes the Optimizer tab
-        # through this ref after restoring per-combatant settings.
-        self.app_context.optimizer_tab = self.optimizer_tab_instance
+        def make(cls):
+            return lambda: cls(self.notebook, self.app_context)
 
-        self.scoring_tab_instance = ScoringTab(self.notebook, self.app_context)
-        self.scoring_tab = self.scoring_tab_instance.get_frame()
-        # Heroes tab uses this to refresh the preset listbox's assignment
-        # markers after a Combatants-tab preset change. Set after creation;
-        # the heroes_tab queries via the context and no-ops if None.
-        self.app_context.scoring_tab = self.scoring_tab_instance
-        # The Memory Fragments tab names the active scoring weights, which
-        # only the Scoring tab knows -- and it didn't exist when that label
-        # was built. Set it now, so it reads correctly even on a launch
-        # with no snapshot to load.
-        self.inventory_tab_instance.refresh_active_preset_label()
-
-        # ---- Add tabs to notebook in display order ----
-        # Optimizer | Memory Fragments | Gear Score | Combatants | Materials |
-        #   Checklist | Capture | Setup & Settings | Stats & Gacha History
-        self.notebook.add(self.optimizer_tab, text="Optimizer")
-        self.notebook.add(self.inventory_tab, text="Memory Fragments")
-        self.notebook.add(self.scoring_tab, text="Gear Score")
-        self.notebook.add(self.heroes_tab, text="Combatants")
-        self.notebook.add(self.materials_tab, text="Materials")
-        self.notebook.add(self.checklist_tab, text="Checklist")
-        self.notebook.add(self.capture_tab, text="Capture")
-        self.notebook.add(self.setup_tab, text="Setup & Settings")
-        self.notebook.add(self.gacha_tab, text="Stats & Gacha History")
+        # In display order, placeholders and all.
+        self.lazy_tabs = lazy = LazyTabs(self.root, self.notebook)
+        self.notebook.add(self.optimizer_tab_instance.get_frame(),
+                          text="Optimizer")
+        lazy.add("inventory", "Memory Fragments", make(InventoryTab),
+                 after_build=self._inventory_built)
+        self.notebook.add(self.scoring_tab_instance.get_frame(),
+                          text="Gear Score")
+        lazy.add("heroes", "Combatants", make(HeroesTab),
+                 after_build=self._heroes_built)
+        lazy.add("materials", "Materials", make(MaterialsTab))
+        lazy.add("checklist", "Checklist", make(ChecklistTab))
+        self.notebook.add(self.capture_tab_instance.get_frame(),
+                          text="Capture")
+        lazy.add("setup", "Setup & Settings", make(SetupTab))
+        lazy.add("gacha", "Stats & Gacha History", make(GachaHistoryTab))
 
         # First-launch default: switch to the Setup & Settings tab so the user lands
         # on the proxy/cert installation flow before trying to use the
@@ -955,8 +955,49 @@ class OptimizerGUI:
         # tab (Optimizer, leftmost). Clearing settings.json -- e.g. as a
         # "reset to factory state" -- correctly re-triggers this.
         if not self.settings_manager.get("first_launch_done"):
-            self.notebook.select(self.setup_tab)
+            self.notebook.select(lazy.build("setup").get_frame())
             self.settings_manager.set("first_launch_done", True)
+
+    # The tabs built on first need. Each is None until built, and every
+    # caller allows for that: building one reads the data current then.
+    inventory_tab_instance = property(lambda self: self._lazy_tab("inventory"))
+    heroes_tab_instance = property(lambda self: self._lazy_tab("heroes"))
+    materials_tab_instance = property(lambda self: self._lazy_tab("materials"))
+    checklist_tab_instance = property(lambda self: self._lazy_tab("checklist"))
+    setup_tab_instance = property(lambda self: self._lazy_tab("setup"))
+    gacha_tab_instance = property(lambda self: self._lazy_tab("gacha"))
+
+    def _lazy_tab(self, name):
+        lazy = getattr(self, "lazy_tabs", None)
+        return lazy.instance(name) if lazy is not None else None
+
+    def _inventory_built(self, tab):
+        """A Memory Fragments tab built after the data it shows: its
+        Sets are filled as it builds, and the rest follows here."""
+        self.app_context.inventory_tab = tab
+        # It names the active scoring weights, which only Gear Score
+        # knows.
+        tab.refresh_active_preset_label()
+        tab.refresh_inventory()
+
+    def _heroes_built(self, tab):
+        """A Combatants tab built after the data it shows."""
+        self.app_context.heroes_tab = tab
+        tab.refresh_heroes()
+
+    def _let_the_checklist_record(self):
+        """Build the Checklist before a reload replaces the snapshot, if
+        it has not read that snapshot yet.
+
+        **Its refresh records as it reads** -- event totals, final
+        rewards, the floor clock, the currency ledger -- from what the
+        game later purges, so every snapshot has to pass through it.
+        Building it is what reads the one loaded now. A session's first
+        load has no snapshot before it, and needs nothing.
+        """
+        if getattr(self.optimizer, "raw_data", None) \
+                and self.checklist_tab_instance is None:
+            self.lazy_tabs.build("checklist")
 
     def _start_hang_watchdog(self, program_dir):
         """With `debug_perf_log` on, dump every thread's stack to
@@ -1143,6 +1184,7 @@ class OptimizerGUI:
 
     def load_data(self, filepath: str):
         try:
+            self._let_the_checklist_record()
             self.optimizer.load_data(filepath)
 
             # Ensure every character we just loaded has a row in
@@ -1159,10 +1201,7 @@ class OptimizerGUI:
             # previous scores anyway, since the re-score happens inside
             # apply_active_weights. The live-update path relies on
             # apply_active_weights alone for the same reason.
-            self.inventory_tab_instance.populate_set_filters()
-            self.materials_tab_instance.refresh_materials()
-            self.checklist_tab_instance.refresh_checklist()
-            self.gacha_tab_instance.refresh_standings()
+            self._refresh_built_tabs()
 
             # Re-score fragments using the currently-active scoring weights
             # (preset or custom), so loading fresh data doesn't wipe them out.
@@ -1183,6 +1222,17 @@ class OptimizerGUI:
             messagebox.showerror("Error", f"Failed to load: {e}")
             import traceback
             traceback.print_exc()
+
+    def _refresh_built_tabs(self):
+        """A load, told to the slot tabs built so far. One not built yet
+        reads the loaded data when it is."""
+        for name, method in (("inventory", "populate_set_filters"),
+                             ("materials", "refresh_materials"),
+                             ("checklist", "refresh_checklist"),
+                             ("gacha", "refresh_standings")):
+            tab = self._lazy_tab(name)
+            if tab is not None:
+                getattr(tab, method)()
 
     def _on_gacha_written(self):
         """The capture wrote the Gacha History's file.
@@ -1217,12 +1267,17 @@ class OptimizerGUI:
         try:
             tab = self.capture_tab_instance
             tab.drain_inbox()
+            # A Stats & Gacha History tab not built yet reads both when
+            # it is, so the flags are simply spent.
+            gacha = self.gacha_tab_instance
             if self._gacha_written:
                 self._gacha_written = False
-                self.gacha_tab_instance.on_capture_update()
+                if gacha is not None:
+                    gacha.on_capture_update()
             if self._stats_written:
                 self._stats_written = False
-                self.gacha_tab_instance.refresh_standings()
+                if gacha is not None:
+                    gacha.refresh_standings()
             if self._live_update_wanted:
                 self._live_update_wanted = False
                 self._handle_live_update()
@@ -1257,6 +1312,7 @@ class OptimizerGUI:
                 # e.g. upgrading or forging a fragment nobody has equipped.
                 before = self._combatants_signature()
                 try:
+                    self._let_the_checklist_record()
                     self.optimizer.load_data(str(latest))
                     self._ensure_characters_in_preset_file()
                     # Optimizer tab needs its hero combo + exclude-heroes list
@@ -1264,10 +1320,7 @@ class OptimizerGUI:
                     # too. Both load paths must call it -- the manual one and
                     # this live one -- or the tab reads stale after a capture.
                     self.optimizer_tab_instance.refresh_after_load()
-                    self.inventory_tab_instance.populate_set_filters()
-                    self.materials_tab_instance.refresh_materials()
-                    self.checklist_tab_instance.refresh_checklist()
-                    self.gacha_tab_instance.refresh_standings()
+                    self._refresh_built_tabs()
                     # apply_active_weights re-scores and refreshes the
                     # Memory Fragments tab, and the Combatants tab unless
                     # told the latter has nothing new to show. An
@@ -1292,9 +1345,13 @@ class OptimizerGUI:
     def _combatants_signature(self):
         """HeroesTab.display_signature(), or None if it can't be taken.
         None means "assume it changed" -- a stale Combatants tab is worse
-        than a redundant refresh."""
+        than a redundant refresh. A tab not built yet has nothing to
+        refresh, and says so the same way."""
+        tab = self.heroes_tab_instance
+        if tab is None:
+            return None
         try:
-            return self.heroes_tab_instance.display_signature()
+            return tab.display_signature()
         except Exception:
             return None
 

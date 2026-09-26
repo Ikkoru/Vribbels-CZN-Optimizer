@@ -54,6 +54,8 @@ SOLE_CONSTRUCTORS = {
     "ScrolledText": "ui/utils/scrolled_text.py",
 }
 CHECKBOX_HELPER = SOLE_CONSTRUCTORS["Checkbutton"]
+# Where a tab built after the reveal is built. See 1b below.
+LAZY_TABS = "ui/utils/lazy_tabs.py"
 
 # The modules each widget may be constructed from, so `tk.Checkbutton`,
 # `ttk.Checkbutton` and `scrolledtext.ScrolledText` are all caught.
@@ -112,9 +114,23 @@ def run():
             failures.append(
                 "realize_windows() is called, but not from _reveal_window(). "
                 "It has to run while the window is still hidden and after "
-                "every tab is built, or the widgets it misses flash on "
-                "first map."
+                "every tab built at startup is, or the widgets it misses "
+                "flash on first map."
             )
+
+    # 1b. A tab built after the reveal, which that walk never saw.
+    lazy = _parse(LAZY_TABS)
+    built = next((n for n in ast.walk(lazy)
+                  if isinstance(n, ast.FunctionDef) and n.name == "build"),
+                 None)
+    if built is None or not any(
+            isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+            and c.func.id == "realize_windows" for c in ast.walk(built)):
+        failures.append(
+            f"{LAZY_TABS}'s TabSlot.build no longer calls "
+            f"realize_windows(). A tab built after the reveal was never "
+            f"reached by the startup walk, so its classic Tk widgets "
+            f"flash near-white the first time it is shown.")
 
     # 2. The helper's own call, for widgets built after that walk.
     checkbox = _parse(CHECKBOX_HELPER)
