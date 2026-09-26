@@ -6,79 +6,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
-## [2.2.0] - unreleased
+## [2.2.0] - Pull Tracker, Player Stats, Galactic Disaster Shop
 
 ### Added
 
-- **The title bar matches the app**: on Windows 11 it takes the app's dark colours, and on Windows 10 it follows the system's dark or light app theme.
-
-- **A `Stats & Gacha History` tab**, right of `Setup & Settings`: every pull the game has listed, kept after the game stops listing it, with each banner type's pity, 50/50s and how its luck compares with the game's published rates. Beneath the banners, an Overall Gacha Stats sheet: luck across every banner with and without the Prism Module, all 50/50s won, the average pulls a rate-up Combatant took against the expected average, and the fastest, slowest and most-5★-in-10-pulls records, each with its ties beside it. Open each banner's Probability Info → Rescue Records while capturing to add them. A banner type with pulls the game lists and the tab does not yet turns orange, and red once its records were last read over 90 days ago. `Import JSON` also reads hub-czn's `Export JSON`, re-reading every rarity — its newer 5★ units no longer count as 3★ — and dating each pull back to its banner, so its 50/50s count too.
-
-- **Great Rift Stats, Full-Scale Offensive Stats and Sortie Stats**, under the gacha sheet: a column per season, newest first, scrolling sideways once there are more than fit. The Great Rift's, up to as wide as the Banners list and a column per part: its codename, your place in the whole field, estimated from the division tops and more exact than the percentage the game gives your subdivision, then that percentage, your rank, the field's size, your best score, and every division's top score, including seasons you never opened Merit Ranking in: season 1's final top scores from the game's announcements, and seasons 2 to 4 on both servers from cznmetadecks.com. Under it, side by side, the Full-Scale Offensive's -- its percentage, rank, field, your total and each stage's score -- and the Sortie's: your top percentage, rank, out of how many, your best score and the season's top score, a finished season showing its final rank once Previous Sortie Ranking has been opened. The note beside each title says what to open while capturing. The tab's lists have shorter rows than the rest of the app's, and the Banners list scrolls past six banner types, so all of it fits the default window; the Banners list takes whatever width the window has spare.
-
-- On the first launch of this version, the stats above are read out of any old debug captures kept in `snapshots/`, once, into `settings/stats_history.json`. It takes a few seconds, runs in the background, and says in the Capture Log when it is done.
-
+- **A `Stats & Gacha History` tab**, right of `Setup & Settings`:
+  - Every pull the game has listed, kept after the game stops listing it, with each banner type's pity, 50/50s and luck against the game's published rates. Open each banner's Probability Info → Rescue Records while capturing to add them.
+  - A banner type turns orange while the game lists pulls the tab has not read, and red once its records were last read over 90 days ago.
+  - An Overall Gacha Stats sheet: luck across every banner with and without the Prism Module, all 50/50s won, the average pulls a rate-up Combatant took against the expected average, and the fastest, slowest and most-5★-in-10-pulls records, each with its ties.
+  - `Import JSON` also reads hub-czn's `Export JSON`, dating each pull back to its banner so its 50/50s count.
+  - Great Rift, Full-Scale Offensive and Sortie Stats, a column per season. The Great Rift's shows each part's codename, your place in the whole field, the percentage the game gives your subdivision, your rank, the field's size, your best score and every division's top score. The Offensive's shows its percentage, your rank, the field, your total and each stage's score; the Sortie's your top percentage, rank, field, best score and the season's top score. The note beside each title says what to open while capturing.
+  - On the first launch of this version, the stats are read out of any old debug captures in `snapshots/`, once, in the background; the Capture Log says when it is done.
 - **Game facts ship with the program** and fill in what your own captures missed. Your own readings always win.
   - Banner rates: a banner whose rates you never opened still counts its 50/50s.
   - Checklist: which slots a Combatant Trial event offers, how many rewards earlier runs of an event held, and which paid a Special Reward.
-  - Stats lists, from your own server only: each Great Rift division's top, how many players each season ranked, and the Sortie's top score, in a column per season, including seasons you never took part in.
-
-- **Setup & Settings → Share Game Data**: `Export Facts` saves the game facts your captures hold that the program does not have yet, and nothing about your account, to attach to a new GitHub issue. The line beside it says in yellow how many there are to send.
-
-- **A fifth Checklist column, `Galactic Disaster`**, holding the Seasonal Shop's season-long shelves. Its heading says how long the season has left, and the shop's own row no longer repeats it; between seasons the shelves go and a line saying roughly when the next one opens stands where the shop's own heading did. `Galactic Disaster (Seasonal)` has left the `Other` column, the new heading saying the same thing.
-
-- An item the shop sells on more than one of its three pages is one row, counting down from their caps together, in the order the pages themselves imply. Where one page charges more for the same material, that shelf is a row of its own with the price after its name.
-
-- A Seasonal Shop row turns orange once everything on sale has been bought and the rest is on a page that has not opened yet. Red means there is something to buy today; green would say the row was finished when another page is still to come. Each page opens on the date its Supply round is given in the season's first update notice, for the seasons copied into the program; for any other, when the Sortie season it began with did.
-
-- The shelves are there only while the shop is. They go when the season ends, and stay away through the three weeks before the next one starts, where the game has neither the shop nor its currency. The heading stays either way.
-
-- Hovering the Seasonal Shop says what the season has paid you so far, then what a whole one pays at one Chaos run a day, claiming everything. A season nobody has counted yet shows no estimate.
-
-- Which Seasonal Shop rows you have ticked survives the season ending. The game renames every one of that shop's products each season, so the answers are kept against the item and its price instead.
-
-- A tooltip's figures line up by their last digit rather than their first, and sit closer to their labels.
-
-- With `Debug WS` on, each Capture Log line says how long it took to arrive: the server answering the game, the capture reading the reply, and the app passing the line to the log, in milliseconds. A line that is late while all of them are small was held back by the game itself.
-
-- An `Upgraded` line draws a preset's ceiling in the Mythic colour when the fragment, at +3 or past, could beat what that preset's one combatant wears in the same slot. A note above the Upgrade Log Settings filters says so.
-
-- **The Checklist counts an event's Special Reward**, the one that unlocks once everything else is claimed. An event whose earlier runs had one stays red after its last ordinary reward until this run's is claimed; tick `Finished?` if this run turns out not to have one.
+  - Stats lists, from your own server only: each Great Rift division's top, how many players each season ranked, and the Sortie's top score, in a column for every season they cover, including ones you never took part in. Season 1's Great Rift tops come from the game's announcements, seasons 2 to 4 from cznmetadecks.com.
+- Setup & Settings → Share Game Data: `Export Facts` saves the game facts your captures hold that the program does not have yet, and nothing about your account, to attach to a new GitHub issue. The line beside it says in yellow how many there are.
+- **Checklist:**
+  - A fifth column, `Galactic Disaster`, holds the Seasonal Shop's season-long shelves under a heading counting the season down; between seasons it says roughly when the next one opens. It replaces `Galactic Disaster (Seasonal)` in the `Other` column.
+  - An item sold on more than one of the shop's pages is one row, counting down from their caps together. A page charging more for the same material gets a row of its own, with the price after its name.
+  - A Seasonal Shop row turns orange once everything on sale is bought and the rest is on a page not open yet. A page opens on its Supply round's date from the season's first update notice, or, for a season the program does not have, with the Sortie season it began with.
+  - The shelves show only while the shop is open, and stay away through the three weeks before the next season.
+  - Hovering the Seasonal Shop says what the season has paid so far, and, for a season that has been counted, what a whole one pays at one Chaos run a day.
+  - Which Seasonal Shop rows you have ticked survives the season ending.
+  - An event's Special Reward, the one that unlocks once everything else is claimed, is counted. An event whose earlier runs had one stays red after its last ordinary reward until this run's is claimed; tick `Finished?` if this run turns out not to have one.
+- **Capture tab:**
+  - With `Debug WS` on, each Capture Log line says in milliseconds how long it took the server, the capture and the app to deliver it. A late line with all three small was held back by the game itself.
+  - An `Upgraded` line draws a preset's ceiling in the Mythic colour when the fragment, at +3 or past, could beat what that preset's one combatant wears in the same slot.
+- The title bar matches the app: dark on Windows 11, and following the system's app theme on Windows 10.
+- A tooltip's figures line up by their last digit, closer to their labels.
 
 ### Fixed
 
-- Node List events show their progress on the Checklist, not just their deadline.
-
-- Events with a single score and a ladder of rewards on it, like the Love events, count the rewards claimed.
-
-- An event's total taken from its earlier runs leaves out an earlier run's leftover rewards, and counts a run the game schedules under two names as one run.
-
-- **A capture sitting in the snapshots folder both compressed and not is archived once.** The two copies are the same capture, and compaction stored each as its own entry under the same name. Where the two copies differ, neither is archived or deleted; both stay in the folder for a look. An archive that already holds a capture twice drops the identical copy at its next compaction.
-
-- **The Checklist's Seasonal Accumulated Score follows each Great Rift run** without the Great Rift's list being opened again. Before the week's reward is claimed, its threshold is read, not taken as 0.
-
-- **Capture Log lines arrive as they happen**, even in a busy session: a save reloads the snapshot once, the reload is several times quicker, and nothing the capture does waits on the window. An `Upgraded` line's Highest Potential always reflects the upgrade.
-
-- The Checklist fits a narrower window. Every column with a shop in it was reserving room twice for the same deadline.
-
-- **The Seasonal Shop counts every purchase of the Galactic Disaster season**, not only the last three weeks', so its total asks for what is actually left.
-
-- The mouse wheel scrolls a Checklist column when the pointer is over a checkbox. It only worked over the gaps before, which is how a column too tall for the window hid its last rows.
-
-- The Weekly column's Seasonal Shop was underlined as if it had a tooltip. It has none: everything it sells is free, so there is no bill and no rate.
-
-- **A login event's reward never reached the Capture Log**, and its count never updated. The claim reports the item under a key nothing was reading.
-
-- **A run's reward was listed twice.** A run reports its payout once where it is paid and again on the clear, and the Capture Log printed both — identical figures, one reward. Counts were never affected: the second report writes the same total the first did. A Simulation's `Total rewards` line, which only repeated the receipt just above it, is gone too; a Chaos run, paid in pieces along the way, keeps its line as the one statement of the whole run.
-
-- A login event's first day reads against a ceiling of seven, the fewest any login event has paid, rather than as finished, and still counts up from there.
-
-- At the 200% UI scale, the Optimizer's help text and its Have at Least note wrap to the space they have, rather than running past it.
+- **Checklist:**
+  - Node List events show their progress, not just their deadline.
+  - Events with a single score and a ladder of rewards, like the Love events, count the rewards claimed.
+  - An event's total taken from its earlier runs leaves out their leftover rewards, and counts a run the game schedules under two names as one run.
+  - The Seasonal Accumulated Score follows each Great Rift run without the Great Rift's screen being opened again, and reads the week's threshold before its reward is claimed.
+  - The Seasonal Shop counts every purchase of the season, not only the last three weeks', so its total asks for what is actually left.
+  - A login event's first day counts toward a ceiling of seven, the fewest any login event has paid, rather than reading as finished.
+  - The mouse wheel scrolls a column over a checkbox too, so a column taller than the window shows its last rows.
+  - The Weekly column's Seasonal Shop carries no tooltip underline: everything it sells is free, so it has no tooltip.
+  - The tab fits a narrower window.
+- **Capture Log:**
+  - Lines arrive as they happen, even in a busy session, and an `Upgraded` line's Highest Potential always reflects the upgrade.
+  - A login event's reward is logged, and its count updates.
+  - A run's reward is listed once; the counts were always right. A Simulation's `Total rewards` line is gone, and a Chaos run, paid in pieces along the way, keeps its line as the one statement of the whole run.
+- A capture sitting in the snapshots folder both compressed and not is archived once; where the two copies differ, both stay in the folder. An archive already holding one twice drops the identical copy at its next compaction.
+- At the 200% UI scale, the Optimizer's help text and its Have at Least note wrap to the space they have.
 
 ### Changed
 
 - The selection highlight is a much darker blue, in every list and text field, so a row that keeps its own colour when selected still reads on it.
-
 - Every scrollbar is slimmer.
 
 ## [2.1.0] - Checklist of in-game activities, capture archiving
