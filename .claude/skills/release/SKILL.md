@@ -42,7 +42,7 @@ Then the register. The CHANGELOG is written for a player who wants the smaller c
 
 - **Anything that argues.** A figure defending a decision, worth-it framing, the reason an alternative was rejected. These documents notify; they never persuade. This applies to the CHANGELOG as much as to the notes.
 - **Internal mechanism a user cannot act on** — "three pixels short per shop product and Tk clipped the difference" — and the explanation of a reading: "a late line with all three small was held back by the game itself".
-- **Words.** Default to one line per entry. Most changes need no more, and a paragraph where a line would do is the most common defect in this file. Passes have still come out wordy by the maintainer's reading: cut further than feels complete.
+- **Words.** Default to one line per entry. Most changes need no more, and a paragraph where a line would do is the most common defect in this file. Passes have still come out wordy by the maintainer's reading: cut further than feels complete. Wordy means slow to absorb as much as long: an entry carrying several things becomes a headline with its parts under it, even where that adds words, and prose is not required. `docs/repo_conventions.md` has the maintainer's own before and after.
 - **Where something is, when opening the program shows it** — a new tab's place in the tab bar.
 - **The program's word where the game has one.** Check `CLAUDE.md` § Naming, and check the game's own screens for anything it does not cover. Where the game names a thing nowhere recognisable, describe it instead of inventing a name.
 

@@ -33,6 +33,18 @@ Three documents, one audience, three depths. **The reader is a mobile or PC gach
 
 **Default to one line per change in all three.** Length is earned by a reader needing it, and most changes do not earn it. "Fixed fresh install UI being unfilled" is a complete entry.
 
+**Written to be absorbed, not admired.** These convey information, so fragments are fine wherever they stay understandable. Wordiness is how slowly an entry reads, not how many words it has. An entry that carries several things is broken into parts: a headline, the parts under it, and any steps as a bullet of their own. That holds even where the parts cost more words than the sentence did. This single sentence:
+
+> Every pull the game has listed, kept even after the game stops listing it, with each banner type's pity, 50/50s and luck against the game's published rates. While capturing, open each banner's Probability Info → Rescue Records, then **click through to the last page** to add them. You need to do this separately for each banner.
+
+reads faster as:
+
+> - Records your pull history. Includes additional stats:
+>   - Banner type's pity;
+>   - 50/50s won;
+>   - Your luck.
+> - Start Capture, for each banner open Probability Info → Rescue Records, then **click through to the last page** to add them. Needs to be done separately for each banner. The game deletes old records after around half a year, so **grab them while you can!**
+
 Several small changes of one kind become one entry. "Adjusted popup window style to match the rest of the app", not four lines about a popup's size, its tick glyphs, a dialog's spacing and a tooltip's colours. Three questions decide it, in order:
 
 1. **Is the change purely visual?** If anything about what the program DOES moved, it keeps its own entry.
