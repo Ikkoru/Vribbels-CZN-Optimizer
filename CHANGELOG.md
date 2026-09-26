@@ -13,6 +13,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Faster:
   - Startup.
   - Opening a tab for the first time. Tabs not opened yet are laid out while the program sits idle, so none of them assembles in view.
+  - Live updates while capturing.
 - Gear Score marks a preset assigned to a combatant with ∞.
 
 ### Fixed
