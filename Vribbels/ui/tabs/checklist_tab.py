@@ -78,6 +78,7 @@ the geometry managers over every widget on the page, and forty labels
 is forty of them.
 """
 
+import functools
 import math
 import time
 from datetime import datetime, timezone
@@ -972,9 +973,14 @@ def event_rows(raw, now=None):
                  for _settled, _end, name in sorted(found))
 
 
+@functools.lru_cache(maxsize=None)
 def _event_key(name):
     """An event or mission id with the differences between the two
-    normalised away. See `EVENT_NOISE_WORDS`."""
+    normalised away. See `EVENT_NOISE_WORDS`.
+
+    Cached: every event's rows are found by normalising every mission
+    id the account holds, so one refresh asks for the same few hundred
+    ids once per event."""
     parts = [part for part in str(name).split("_")
              if part not in EVENT_NOISE_WORDS]
     return "_".join(part.lstrip("0") or "0" if part.isdigit() else part

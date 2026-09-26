@@ -34,6 +34,7 @@ from checks._harness import Skip, take_notes           # noqa: E402
 from checks import (                                    # noqa: E402
     check_addon_template,
     check_archive,
+    check_bmp_glyphs,
     check_breakdown_reconciles,
     check_capital_band,
     check_capture_banners,
@@ -117,6 +118,7 @@ CHECKS = [
     check_shared_facts,
     check_settings_roundtrip,
     check_no_flash,
+    check_bmp_glyphs,
     check_optimizer_starts_unselected,
     check_period_items,
     check_expiry_captions,

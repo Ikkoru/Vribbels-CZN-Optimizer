@@ -343,6 +343,37 @@ def _across_math(gh, failures):
                         f"won fewer; the binomial says {want}.")
 
 
+def _sum_tables(gh, failures):
+    """The pull-sum tables, against the plain loop they shortcut.
+
+    `_one_more_cycle` slices its way through each convolution so the
+    multiply-adds run in C, and the slice bounds are where it can go
+    wrong: an edge off by one still sums to about 1, still reads as a
+    percentage, and moves every luck figure a little.
+    """
+    for base in (0.01, 0.03):
+        step = gh.cycle_odds(base)
+        want = [1.0]
+        gh._SUM_ODDS.pop(base, None)
+        for count in range(1, 9):
+            nxt = [0.0] * (len(want) + gh.HARD_PITY)
+            for total, p in enumerate(want):
+                for n in range(1, gh.HARD_PITY + 1):
+                    nxt[total + n] += p * step[n]
+            want = nxt
+            got = gh._sum_odds(base, count)
+            worst = max((abs(a - b) for a, b in zip(got, want)),
+                        default=0.0)
+            if len(got) != len(want) or worst > 1e-15:
+                failures.append(
+                    f"the pulls {count} 5-stars took at a {base:.0%} base "
+                    f"differ from the plain convolution (lengths "
+                    f"{len(got)} and {len(want)}, worst {worst:.2e}). "
+                    f"Every luck figure reads off these tables.")
+                break
+        gh._SUM_ODDS.pop(base, None)
+
+
 def _prism_rates():
     """The Prism Module's rates: a 3% base, no 50/50."""
     return {"rates": {"total_ratio": 100000, "ssr_ratio": 3000},
@@ -716,6 +747,7 @@ def run():
         _dated(gh, tmp / "dated", failures)
         _behind_by_counters(gh, tmp / "behind", failures)
         _across_math(gh, failures)
+        _sum_tables(gh, failures)
         _across(gh, tmp / "across", failures)
         _supersede(gh, tmp / "supersede", failures)
         (tmp / "write").mkdir()

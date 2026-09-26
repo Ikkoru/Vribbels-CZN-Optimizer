@@ -190,6 +190,9 @@ ARCHIVE_NOTE = "Archives old captures. Applies on the next launch."
 # left column's last LABEL its gap back. The button is the lowest thing
 # in the panel, so it carries its own rule's distance here.
 ARCHIVE_BUTTON_EDGE = 3  # spacing: border edge -> button -- panel, button ↕
+# How often the UI thread looks for the archive count its worker is
+# making. See `_count_archive`.
+ARCHIVE_COUNT_POLL_MS = 100
 
 
 def _megabytes(count: int) -> str:
@@ -833,9 +836,18 @@ class SetupTab(BaseTab):
         self._archive_size_label.pack(side=tk.LEFT)
         # The file on disk is the figure that fits; what it HOLDS is
         # the one that says whether deleting it is worth anything, and
-        # that only fits on hover.
+        # that only fits on hover. Bound once, to a callable: the count
+        # arrives from a worker after the label is drawn, and a string
+        # bound here would hold whatever was known at the time.
+        self._archive_held = (0, 0)
+        self._archive_error = None
+        self._archive_current = None
+        self._archive_counted = None
+        self._archive_counting = None
+        self._archive_box = None
         self._archive_tip = Tooltip(self.colors)
-        self._archive_tip.bind(self._archive_size_label, "")
+        self._archive_tip.bind(self._archive_size_label,
+                               self._archive_tip_text)
         # spacing: element and its label ↔ element and its label -- label, label ↔
         self._folder_size_label = ttk.Label(sizes, text="")
         self._folder_size_label.pack(side=tk.LEFT,
@@ -857,9 +869,8 @@ class SetupTab(BaseTab):
     def _on_archive_tab_changed(self, event):
         """Re-read the two sizes when this tab becomes the selected one.
 
-        On SELECT rather than on a timer: both figures come off a
-        directory walk and a tar header scan, and neither changes while
-        the user is looking at another tab.
+        On SELECT rather than on a timer: neither changes while the user
+        is looking at another tab.
         """
         try:
             if event.widget.nametowidget(event.widget.select()) is self.frame:
@@ -892,7 +903,8 @@ class SetupTab(BaseTab):
 
         folder = self._archive_folder()
         book = folder / archive.ARCHIVE_NAME if folder else None
-        packed = book.stat().st_size if book and book.exists() else 0
+        key = self._archive_key(book)
+        packed = key[0] if key else 0
         loose = 0
         if folder:
             for path in folder.iterdir():
@@ -907,19 +919,89 @@ class SetupTab(BaseTab):
             text="Loose: %s" % _megabytes(loose))
         state = tk.NORMAL if packed else tk.DISABLED
         self._delete_archive_button.configure(state=state)
-        self._archive_held = (0, 0)
+        self._archive_current = key if packed else None
         if packed:
-            held = archive.contents(folder)
-            self._archive_held = (len(held), sum(s for _n, s in held))
+            self._count_archive(folder, key)
+
+    @staticmethod
+    def _archive_key(book):
+        """(size, modification time) of the archive file, or None where
+        there is none. A rebuild or a delete changes it; nothing else
+        writes the file."""
+        try:
+            stat = book.stat() if book else None
+        except OSError:
+            return None
+        return (stat.st_size, stat.st_mtime_ns) if stat else None
+
+    def _count_archive(self, folder, key):
+        """Count what the archive holds, on a worker, once per file.
+
+        **Not on the UI thread.** Listing a `.tar.xz` decompresses the
+        whole of it -- a tar's headers sit between its members -- which
+        is most of a second on a grown archive, and this tab asks on
+        every visit. The count is kept against `_archive_key` and redone
+        only when the file changes; the tip says it is counting
+        meanwhile.
+        """
+        if key in (self._archive_counted, self._archive_counting):
+            return
+        from capture import archive
+        self._archive_counting = key
+        # The hand-off: the worker fills it, `_take_archive_count`
+        # empties it on the UI thread. A newer count replaces it, and
+        # the older worker's answer then lands nowhere.
+        box = self._archive_box = {"key": key}
+
+        def work():
+            try:
+                held = archive.contents(folder)
+                box["held"] = (len(held), sum(s for _n, s in held))
+            except Exception as exc:                        # noqa: BLE001
+                box["error"] = exc
+
+        threading.Thread(target=work, daemon=True).start()
+        self._take_archive_count()
+
+    def _take_archive_count(self):
+        """Collect the worker's count on the UI thread, when it is in.
+
+        Kept only for the file still on disk: a count that finishes
+        after a rebuild describes an archive that is gone.
+        """
+        box = self._archive_box
+        if box is None:
+            return
+        if "held" not in box and "error" not in box:
+            try:
+                self.frame.after(ARCHIVE_COUNT_POLL_MS,
+                                 self._take_archive_count)
+            except tk.TclError:
+                pass                    # the window is closing
+            return
+        self._archive_box = None
+        key = box["key"]
+        if self._archive_counting == key:
+            self._archive_counting = None
+        if key != self._archive_current:
+            return
+        self._archive_held = box.get("held", (0, 0))
+        self._archive_error = box.get("error")
+        self._archive_counted = key
+
+    def _archive_tip_text(self):
+        """What the archive holds, as far as it has been counted."""
+        if self._archive_current is None:
+            return "Nothing archived yet."
+        if self._archive_counted != self._archive_current:
+            return "Counting the archived captures..."
+        if self._archive_error is not None:
+            return "The archive could not be read: %s" % self._archive_error
         count, inside = self._archive_held
-        # Rebound rather than re-texted: `Tooltip.bind` closes over the
-        # string it was given, so a stale binding would keep answering
-        # with the figures from the last time the tab was opened.
-        self._archive_tip.bind(
-            self._archive_size_label,
-            "%d archived capture%s, %s of captures inside."
-            % (count, "" if count == 1 else "s", _megabytes(inside))
-            if count else "Nothing archived yet.")
+        if not count:
+            return "Nothing archived yet."
+        return ("%d archived capture%s, %s of captures inside."
+                % (count, "" if count == 1 else "s", _megabytes(inside)))
 
     def _delete_archive(self):
         """Delete the archive, to the Recycle Bin where there is one.
@@ -936,7 +1018,16 @@ class SetupTab(BaseTab):
         book = folder / archive.ARCHIVE_NAME if folder else None
         if not book or not book.exists():
             return
-        count, inside = getattr(self, "_archive_held", (0, 0))
+        # The prompt names what is lost, so a count still being made is
+        # made here instead: a click on Delete can wait for it.
+        if self._archive_counted == self._archive_key(book):
+            count, inside = self._archive_held
+        else:
+            try:
+                held = archive.contents(folder)
+            except Exception:                               # noqa: BLE001
+                held = []
+            count, inside = len(held), sum(s for _n, s in held)
         if not messagebox.askyesno(
                 "Delete Archive",
                 "Delete %d archived capture%s (%s of history, %s on disk)?\n\n"

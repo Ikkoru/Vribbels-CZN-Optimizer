@@ -28,6 +28,8 @@ sweeps its top level.
 """
 
 import json
+import math
+import operator
 import os
 import re
 import time
@@ -456,15 +458,48 @@ def _sum_odds(base, count):
     table = _SUM_ODDS.setdefault(base, [[1.0]])
     step = cycle_odds(base)
     while len(table) <= count:
-        prev = table[-1]
-        out = [0.0] * (len(prev) + HARD_PITY)
-        for total, p in enumerate(prev):
-            if p < 1e-18:
-                continue
-            for n in range(1, HARD_PITY + 1):
-                out[total + n] += p * step[n]
-        table.append(out)
+        table.append(_one_more_cycle(table[-1], step))
     return table[count]
+
+
+def _one_more_cycle(prev, step):
+    """`prev` convolved with one cycle: out[j] = the sum over n of
+    prev[j - n] * step[n], n = 1..HARD_PITY.
+
+    Each output is one `_sumprod` over a slice, which runs the
+    multiply-adds in C: the tables are built on the UI thread when the
+    Stats & Gacha History tab first opens, and are most of what that
+    open costs.
+
+    Odds under 1e-18 at either end of `prev` are left out -- nothing
+    they add survives into a figure the tab shows.
+    """
+    lo, hi = 0, len(prev)
+    while lo < hi and prev[lo] < 1e-18:
+        lo += 1
+    while hi > lo and prev[hi - 1] < 1e-18:
+        hi -= 1
+    out = [0.0] * (len(prev) + HARD_PITY)
+    core = prev[lo:hi]
+    back = step[HARD_PITY:0:-1]         # step[HARD_PITY], ..., step[1]
+    m = len(core)
+    for j in range(1, m + HARD_PITY):
+        # core[i] meets step[j - i], for i in [first, last).
+        first = j - HARD_PITY if j > HARD_PITY else 0
+        last = j if j < m else m
+        if last - first == HARD_PITY:
+            out[lo + j] = _sumprod(core[first:last], back)
+        else:
+            out[lo + j] = _sumprod(
+                core[first:last],
+                back[HARD_PITY - j + first:HARD_PITY - j + last])
+    return out
+
+
+# `math.sumprod` arrived in Python 3.12. The same sum without it, for an
+# older interpreter running from source.
+_sumprod = getattr(math, "sumprod", None) or (
+    lambda a, b: sum(map(operator.mul, a, b)))
 
 
 def luckier_than(pities, base):

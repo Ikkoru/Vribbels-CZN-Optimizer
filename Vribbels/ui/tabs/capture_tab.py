@@ -942,21 +942,25 @@ class CaptureTab(BaseTab):
 
         # **Decided BEFORE anything is destroyed.** This runs on every
         # snapshot load, and a login burst saves several times in a few
-        # seconds -- so rebuilding unconditionally destroyed and
-        # recreated every checkbox here two or three times while the
-        # user watched, which shows as a dot blinking in the corner of
-        # the first one.
+        # seconds -- so an unconditional rebuild destroys and recreates
+        # every checkbox here two or three times while the user
+        # watches, which shows as a dot blinking in the corner of the
+        # first one.
         #
-        # The width is in the signature because the column count is
-        # SOLVED from how wide the built checkboxes turn out to be, so a
-        # resized panel has to rebuild even when its content has not
-        # moved.
-        signature = (frame.winfo_width(), tuple(
+        # The content, and the column count the built checkboxes need
+        # at the frame's width now. The count is SOLVED from how wide
+        # they turned out, so a resized panel still rebuilds when it has
+        # to -- but the raw width is NOT in the signature: the frame is
+        # 1px wide until the tab is first shown, and a width recorded
+        # then would rebuild everything in view on the second visit,
+        # for a count that has not changed.
+        signature = tuple(
             (name, self._preset_element_colour(preset_to_ids[name]),
              (any(lpm.is_selected(r) for r in preset_to_ids[name])
               if lpm is not None else True))
-            for name in sorted(preset_to_ids)))
-        if signature == self._log_preset_signature:
+            for name in sorted(preset_to_ids))
+        if signature == self._log_preset_signature and (
+                not preset_to_ids or self._log_presets_fit(frame)):
             return
         self._log_preset_signature = signature
 
@@ -1065,15 +1069,20 @@ class CaptureTab(BaseTab):
         frame = self.log_presets_list_frame
         if frame is None or not self._log_preset_vars:
             return
+        if not self._log_presets_fit(frame):
+            self.refresh_log_presets()
+
+    def _log_presets_fit(self, frame):
+        """Whether the checkboxes on screen are in the column count
+        their widths call for at the frame's width now."""
         # Creation order is the order they were placed in, so a child's
         # index is what decides its column -- reading the widths in this
         # order is what lets the solver ask what each column costs.
         widths = [w.winfo_reqwidth() for w in frame.winfo_children()]
         if not widths:
-            return
-        if self._log_preset_columns(frame, widths) != \
-                getattr(self, "_log_preset_columns_shown", None):
-            self.refresh_log_presets()
+            return True
+        return self._log_preset_columns(frame, widths) == \
+            getattr(self, "_log_preset_columns_shown", None)
 
     def _preset_element_colour(self, res_ids):
         """The shared Element colour of a preset's combatants, or None.

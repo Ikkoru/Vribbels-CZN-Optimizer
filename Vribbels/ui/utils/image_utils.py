@@ -14,6 +14,8 @@ answered here and at the call site: the icon is flattened onto the
 panel colour before Tk sees it, and the label carries no border.
 """
 
+import functools
+
 from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 from .. import scaling
@@ -187,6 +189,43 @@ def _plated(icon, plate_path, size):
     return canvas
 
 
+@functools.lru_cache(maxsize=None)
+def _art_on_disk(icon_path, plate_path, size):
+    """The icon over its plate at `size`, before any words go on it.
+
+    Read once per item: the counts and captions drawn over an icon
+    change with every snapshot, the art under them never does, and
+    every file opened here costs more than the drawing that follows.
+    Shared -- `_art` is what callers take, since they draw on it.
+    """
+    if icon_path:
+        img = Image.open(icon_path).convert("RGBA")
+        if img.size != size:
+            img = img.resize(size, _resample(img.size, size))
+    else:
+        img = Image.new("RGBA", size, (0, 0, 0, 0))
+    return _plated(img, plate_path, size)
+
+
+def _art(icon_path, plate_path, size):
+    """A COPY of `_art_on_disk`, to draw on. `_badged` composites in
+    place, and the cached original would carry every count ever drawn
+    on it."""
+    return _art_on_disk(icon_path or "", plate_path or None,
+                        tuple(size)).copy()
+
+
+@functools.lru_cache(maxsize=None)
+def _font(name, size):
+    """A TrueType face, loaded once per name and size.
+
+    Given a bare file name, `ImageFont.truetype` walks the Windows fonts
+    folder to find it on every call, and every icon asks for the same
+    faces. A face that will not load raises, and is not cached.
+    """
+    return ImageFont.truetype(name, size)
+
+
 def _ink(font, text):
     """The tight ink rect of `text`, relative to its draw origin.
 
@@ -275,24 +314,17 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
         A PhotoImage ready for a Label, or None if the file could not
         be read.
     """
-    size = icon_size() if size is None else size
+    size = tuple(icon_size() if size is None else size)
     try:
-        if icon_path:
-            img = Image.open(icon_path).convert("RGBA")
-            if img.size != tuple(size):
-                img = img.resize(tuple(size), _resample(img.size, size))
-        else:
-            img = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
-        img = _plated(img, plate_path, tuple(size))
+        img = _art(icon_path, plate_path, size)
 
-        frame = _frame_rect(tuple(size), bool(plate_path))
+        frame = _frame_rect(size, bool(plate_path))
         span = frame[2] - frame[0] + 1
         qty_text = str(quantity)
         margin = max(0, round(span * BADGE_MARGIN_RATIO))
         pad = max(1, round(span * BADGE_PADDING_RATIO))
         try:
-            font = ImageFont.truetype(
-                "arial.ttf", max(8, round(span * BADGE_FONT_RATIO)))
+            font = _font("arial.ttf", max(8, round(span * BADGE_FONT_RATIO)))
         except OSError:
             font = ImageFont.load_default()
 
@@ -305,8 +337,7 @@ def create_icon_with_quantity(icon_path: str, quantity: int,
 
         if corner_text:
             try:
-                caption = ImageFont.truetype(CORNER_FONT_FILE,
-                                             max(8, corner_font_px))
+                caption = _font(CORNER_FONT_FILE, max(8, corner_font_px))
             except OSError:
                 caption = font
             edge = max(0, round(span * CORNER_MARGIN_RATIO))
@@ -335,11 +366,10 @@ def create_plate_icon(plate_path, size=None, background=None):
     transparent out to the same margin, so a gap either side of a tile
     measures the same as a gap either side of an icon.
     """
-    size = icon_size() if size is None else size
+    size = tuple(icon_size() if size is None else size)
     try:
-        blank = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
         return ImageTk.PhotoImage(
-            _flattened(_plated(blank, plate_path, tuple(size)), background))
+            _flattened(_art("", plate_path, size), background))
     except Exception as e:
         print(f"Error creating plate icon: {e}")
         return None

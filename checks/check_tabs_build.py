@@ -1236,6 +1236,47 @@ def _log_presets_redraw_replaces_nothing(tab):
     return []
 
 
+def _log_presets_keep_through_a_new_width(tab):
+    """A new width that needs no new column count rebuilds nothing.
+
+    The panel is 1px wide until the Capture tab is first shown, so a
+    signature holding the raw width sees it change on the first visit
+    and rebuilds every checkbox in view on the second -- for a column
+    count that has not moved. The count is what decides.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs.capture_tab import _log_preset_grid_width
+
+    frame = getattr(tab, "log_presets_list_frame", None)
+    shown = getattr(tab, "_log_preset_columns_shown", None)
+    if frame is None or not tab._log_preset_vars or not shown:
+        return []
+    widths = [w.winfo_reqwidth() for w in frame.winfo_children()]
+    width = _log_preset_grid_width(widths, shown) + 1
+    # The width the frame reports, and nothing else: an instance
+    # attribute over the method, taken off again below.
+    frame.winfo_width = lambda: width
+    try:
+        if tab._log_preset_columns(frame, widths) != shown:
+            return []           # no width holds this count: nothing to ask
+        before = list(frame.winfo_children())
+        tab.refresh_log_presets()
+        after = list(frame.winfo_children())
+    finally:
+        del frame.winfo_width
+    if len(before) != len(after) or any(a is not b for a, b in
+                                        zip(before, after)):
+        return [
+            f"Log Presets rebuilt its checkboxes when the panel's width "
+            f"changed and its column count ({shown}) did not. The panel "
+            f"first gets its width when the Capture tab is shown, so "
+            f"this rebuilds the list in view on the second visit. See "
+            f"`CaptureTab.refresh_log_presets`."
+        ]
+    return []
+
+
 def _set_filters_redraw_replaces_nothing(tab):
     """The Memory Fragments filters rebuild only when their words change.
 
@@ -3729,6 +3770,71 @@ def _archive_size_carries_its_tooltip(tab):
     return out
 
 
+def _archive_count_stays_off_the_ui_thread(tab):
+    """The archive's contents are counted on a worker, once per file.
+
+    Listing a `.tar.xz` decompresses the whole of it, and the Setup tab
+    asks on every visit. On the UI thread that is a freeze of most of a
+    second on each switch to the tab, growing with the archive, and the
+    freeze is the only symptom.
+
+    `archive.contents` is replaced for the duration, so no real archive
+    is read. Returns a list of complaints.
+    """
+    import threading
+    import time
+    from capture import archive
+
+    out = []
+    folder = Path(tempfile.mkdtemp())
+    (folder / archive.ARCHIVE_NAME).write_bytes(b"never read")
+    calls = []
+    real = archive.contents
+
+    def counted(_where):
+        calls.append(threading.get_ident())
+        return [("memory_fragments_1.json", 10), ("websocket_debug_1.jsonl",
+                                                  20)]
+
+    was = tab.context.capture_manager
+    tab.context.capture_manager = SimpleNamespace(output_folder=folder)
+    archive.contents = counted
+    try:
+        tab._refresh_archive_sizes()
+        # The same file again, as a second visit to the tab: no second
+        # count.
+        tab._refresh_archive_sizes()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            box = tab._archive_box
+            if box is None or "held" in box or "error" in box:
+                break
+            time.sleep(0.01)
+        tab._take_archive_count()
+        if threading.get_ident() in calls:
+            out.append(
+                "the Setup tab counted the capture archive on the UI "
+                "thread. Listing a .tar.xz decompresses all of it, so "
+                "every switch to the tab freezes the window for as long "
+                "as that takes. See `SetupTab._count_archive`.")
+        if len(calls) != 1:
+            out.append(
+                f"the archive was counted {len(calls)} times for two "
+                f"visits to one unchanged file, not once. The count is "
+                f"kept against the file's size and modification time.")
+        tip = tab._archive_tip_text()
+        if "2 archived captures" not in tip:
+            out.append(
+                f"once the count is in, the archive's tip reads {tip!r} "
+                f"rather than the two captures it holds.")
+    finally:
+        archive.contents = real
+        tab.context.capture_manager = was
+        tab._refresh_archive_sizes()
+        shutil.rmtree(folder, ignore_errors=True)
+    return out
+
+
 def _messagebox_defaults_name_their_own_buttons():
     """A dialog's `default` has to be one of the buttons it draws.
 
@@ -3901,6 +4007,8 @@ def run():
             failures.extend(_messagebox_defaults_name_their_own_buttons())
             failures.extend(_archive_size_carries_its_tooltip(
                 built["SetupTab"]))
+            failures.extend(_archive_count_stays_off_the_ui_thread(
+                built["SetupTab"]))
             failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
             failures.extend(
                 _level_stepper_offers_auto(built["OptimizerTab"]))
@@ -3974,6 +4082,8 @@ def run():
                 _log_preset_columns_leave_the_gap(built["CaptureTab"]))
             failures.extend(
                 _log_presets_redraw_replaces_nothing(built["CaptureTab"]))
+            failures.extend(
+                _log_presets_keep_through_a_new_width(built["CaptureTab"]))
             failures.extend(
                 _capture_hand_offs_never_wait(built["CaptureTab"]))
             failures.extend(

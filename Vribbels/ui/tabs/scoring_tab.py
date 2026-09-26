@@ -58,10 +58,16 @@ PANEL_INSET = (2, 5)
 # holds this so it always renders in a fixed-width gutter on the left,
 # keeping the preset names themselves vertically aligned regardless of
 # which rows are linked. Unlinked rows get an empty string in the same
-# column. If the link emoji doesn't render on a particular system (rare
-# on Windows 10+, but possible elsewhere), swap this constant for a
-# plain ASCII marker like "*" -- everything else flows from here.
-ASSIGNED_ICON = "\U0001F517"   # link symbol (U+1F517)
+# column. Everything else flows from here.
+#
+# **Keep it inside the Basic Multilingual Plane.** The link emoji
+# (U+1F517) draws the same shape, but no font's character map claims a
+# code point past U+FFFF, so Tk's first draw of one loads the ranges of
+# EVERY installed font looking for it -- most of this tab's first open,
+# and more on a machine with more fonts. `\u221E` draws as a link at
+# this size and costs no more than a letter. `check_bmp_glyphs` holds
+# the whole UI to this.
+ASSIGNED_ICON = "\u221E"   # infinity, drawn as a chain link
 
 
 class ScoringTab(BaseTab):
