@@ -57,6 +57,7 @@ timer**, which is why the drawing of it is split out from the rest.
 """
 
 import math
+import functools
 import time
 import tkinter as tk
 from tkinter import ttk
@@ -76,7 +77,8 @@ import weekly_reset
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
 from ..utils.image_utils import (
-    RARITY_DIR, create_icon_with_quantity, create_plate_icon, icon_size,
+    RARITY_DIR, create_blank_icon, create_icon_with_quantity,
+    create_plate_icon, icon_size, preload_art,
 )
 from ..utils.tab_header import make_heading
 from ..utils.tooltip import Tooltip
@@ -92,6 +94,24 @@ from ui.scaling import px
 # three switches answer three separate questions.
 def include_generic_key(column_key):
     return f"materials_include_generic_{column_key}"
+
+
+@functools.lru_cache(maxsize=None)
+def _art_paths(res_id):
+    """(icon path or "", plate path or None, whether it draws) for one
+    item. Fixed for the session: the art ships with the program.
+
+    An item whose art is not in the repo draws its PLATE alone --
+    `item_art` gives it an empty icon name, which is not the same as
+    an id no table knows, and only the latter draws as text.
+    """
+    images_dir = Path(__file__).parent.parent.parent / "images"
+    art = item_art(res_id)
+    icon_path = images_dir / art.icon if art and art.icon else None
+    plate = images_dir / RARITY_DIR / art.plate if art and art.plate else None
+    drawable = art is not None and (icon_path is None or icon_path.exists())
+    return (str(icon_path) if icon_path else "",
+            str(plate) if plate and plate.exists() else None, drawable)
 
 # The six classes, in the order the game lists them. NOT the order of
 # their res_id group digits, which runs Striker, Vanguard, Hunter,
@@ -577,10 +597,16 @@ class MaterialsTab(BaseTab):
         # `refresh_materials`.
         self._stale = False
         self.setup_ui()
-        # Drawn at once with zero counts, so the tab is icons rather
-        # than a wall of text before the first capture -- the images
-        # are static assets and only the numbers need data.
-        self._render_icons({})
+        # The art is drawn the first time the tab is SHOWN, with the
+        # counts it has then: the tab is hidden at startup, and reading
+        # and drawing every icon for nobody is most of what building it
+        # costs. Until then each label holds a blank of an icon's size,
+        # so the layout is already the one the icons will have, and the
+        # art is read on a worker so that first draw finds it waiting.
+        self._icons_drawn = False
+        self._hold_icon_places()
+        self._render_stats({})
+        preload_art(self._art_to_read())
         self._schedule_expiry_tick()
         notebook = getattr(self.context, "notebook", None)
         if notebook is not None:
@@ -1111,6 +1137,9 @@ class MaterialsTab(BaseTab):
             return
         self._stale = False
         if not self.optimizer.raw_data:
+            # Nothing captured yet: the art still goes up, at zero.
+            if not self._icons_drawn:
+                self._render_icons({})
             return
         # Items and currencies together: the three generic materials
         # are currencies, which a snapshot keeps apart from its item
@@ -1136,9 +1165,30 @@ class MaterialsTab(BaseTab):
             return False
 
     def _on_tab_changed(self, _event=None):
-        """Catch up on a refresh skipped while this tab was hidden."""
-        if self._stale and not self._hidden():
+        """Catch up on a refresh skipped while this tab was hidden, and
+        draw the art the first time the tab is shown."""
+        if (self._stale or not self._icons_drawn) and not self._hidden():
             self.refresh_materials()
+
+    def _hold_icon_places(self):
+        """Give every icon label an icon's size before any art is drawn:
+        a blank where `_draw_icon` would put art, the count as text
+        where it would put text."""
+        self._icon_holder = create_blank_icon(self.colors["bg"])
+        labels = [(label, res_id)
+                  for res_id, label in self.material_icons.items()]
+        labels += [(label, MODULE_ITEM) for label, _h, _c in
+                   self.module_labels]
+        for label, res_id in labels:
+            if _art_paths(res_id)[2]:
+                label.config(image=self._icon_holder, text="")
+            else:
+                label.config(text="0", image="")
+
+    def _art_to_read(self):
+        """(icon path, plate path) for every item this tab draws."""
+        ids = list(self.material_icons) + [MODULE_ITEM]
+        return [_art_paths(r)[:2] for r in ids if _art_paths(r)[2]]
 
     def _render_icons(self, item_quantities: dict):
         """(Re)draw every icon and every figure beside it.
@@ -1147,6 +1197,7 @@ class MaterialsTab(BaseTab):
         is 0, which is also how the tab looks before any snapshot is
         loaded.
         """
+        self._icons_drawn = True
         self._quantities = item_quantities
         timed = {res_id for res_id, _floor in RESET_ITEMS}
         for res_id, label in self.material_icons.items():
@@ -1216,19 +1267,11 @@ class MaterialsTab(BaseTab):
         still carries its count -- `item_art` gives it an empty icon
         name, which is not the same as an id no table knows.
         """
-        images_dir = Path(__file__).parent.parent.parent / "images"
-        art = item_art(res_id)
-        icon_path = images_dir / art.icon if art and art.icon else None
-        plate = (images_dir / RARITY_DIR / art.plate
-                 if art and art.plate else None)
-        drawable = art is not None and (icon_path is None
-                                        or icon_path.exists())
+        icon_path, plate_path, drawable = _art_paths(res_id)
         photo = (create_icon_with_quantity(
-            str(icon_path) if icon_path else "", quantity,
-            background=self.colors["bg"],
-            plate_path=str(plate) if plate and plate.exists() else None,
-            corner_text=caption, corner_font_px=CORNER_FONT_PX,
-            corner_fill=caption_fill)
+            icon_path, quantity, background=self.colors["bg"],
+            plate_path=plate_path, corner_text=caption,
+            corner_font_px=CORNER_FONT_PX, corner_fill=caption_fill)
             if drawable else None)
         if photo is not None:
             label.config(image=photo, text="")

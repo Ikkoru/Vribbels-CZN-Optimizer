@@ -15,6 +15,7 @@ panel colour before Tk sees it, and the label carries no border.
 """
 
 import functools
+import threading
 
 from PIL import Image, ImageDraw, ImageFont, ImageTk
 
@@ -213,6 +214,39 @@ def _art(icon_path, plate_path, size):
     on it."""
     return _art_on_disk(icon_path or "", plate_path or None,
                         tuple(size)).copy()
+
+
+def preload_art(pairs, size=None):
+    """Read each `(icon path, plate path)` into `_art_on_disk`, on a
+    worker thread, so the first draw that needs them finds them there.
+
+    PIL releases the interpreter while it reads and decodes, so this
+    runs beside the UI thread's own work rather than in its way. Only
+    PIL is touched here: the PhotoImage every icon becomes is made on
+    the UI thread, where Tk objects have to be.
+    """
+    size = tuple(icon_size() if size is None else size)
+    pairs = list(dict.fromkeys(pairs))
+
+    def work():
+        for icon_path, plate_path in pairs:
+            try:
+                _art_on_disk(icon_path or "", plate_path or None, size)
+            except Exception:                               # noqa: BLE001
+                pass            # the draw reads it again and reports it
+
+    threading.Thread(target=work, daemon=True).start()
+
+
+def create_blank_icon(background, size=None):
+    """An icon's size of `background` and nothing else, as a PhotoImage.
+
+    What an icon label holds until its art is drawn: a label asks for
+    its image's size, so a blank the size of an icon lays the tab out
+    exactly as the icons will.
+    """
+    size = tuple(icon_size() if size is None else size)
+    return ImageTk.PhotoImage(Image.new("RGB", size, background))
 
 
 @functools.lru_cache(maxsize=None)
