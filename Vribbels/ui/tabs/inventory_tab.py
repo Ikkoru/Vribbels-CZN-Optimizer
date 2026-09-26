@@ -195,7 +195,33 @@ class InventoryTab(BaseTab):
         self.inv_main_stat_frame_inner = None
         self.inv_main_unknown_frame = None  # row container for unknowns; hidden if empty.
 
+        # Set when a refresh was skipped because another tab was
+        # showing; the next time this one is shown, it catches up. See
+        # `refresh_inventory`.
+        self._stale = False
+
         self.setup_ui()
+        notebook = getattr(self.context, "notebook", None)
+        if notebook is not None:
+            notebook.bind("<<NotebookTabChanged>>",
+                          self._on_tab_changed, add="+")
+
+    def _hidden(self):
+        """Whether another tab is the one showing. A notebook with none
+        selected -- the tab built on its own, as the checks build it,
+        or before the tabs are added -- counts as showing this one."""
+        notebook = getattr(self.context, "notebook", None)
+        try:
+            shown = notebook.select() if notebook is not None else ""
+            return bool(shown) and notebook.nametowidget(shown) \
+                is not self.frame
+        except (tk.TclError, KeyError):
+            return False
+
+    def _on_tab_changed(self, _event=None):
+        """Catch up on a refresh skipped while this tab was hidden."""
+        if self._stale and not self._hidden():
+            self.refresh_inventory()
 
     def setup_ui(self):
         """Setup the Inventory tab UI."""
@@ -900,7 +926,18 @@ class InventoryTab(BaseTab):
         self.active_preset_label.config(text=f"Preset: {name}")
 
     def refresh_inventory(self):
-        """Refresh inventory display based on current filter settings."""
+        """Refresh inventory display based on current filter settings.
+
+        **Skipped while another tab is showing**, and caught up when this
+        one is selected. Scoring every fragment under every preset and
+        rewriting the list is the costliest part of a snapshot load, a
+        capture reloads after every save, and nothing outside this tab
+        reads what it works out.
+        """
+        if self._hidden():
+            self._stale = True
+            return
+        self._stale = False
         # The tree is NOT cleared here: _display_inventory_sorted() clears
         # it right after reading the current selection, so the highlight
         # can be restored onto the same fragments. Clearing here as well

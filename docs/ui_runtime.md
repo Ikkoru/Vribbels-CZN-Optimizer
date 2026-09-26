@@ -51,6 +51,8 @@ Four rules keep it unseen, and breaking any of them fails silently. `checks/chec
 
 A step still holds the UI thread while its tab lays out. So a step waits for `IDLE_MS` without input while the window is in front, and nothing is settled under the spacing audit, which switches tabs itself.
 
+The Checklist and Memory Fragments are settled first. Both leave their drawing to their first show (see *A hidden tab draws when shown, but records now*), so they are the costliest to open before their step.
+
 ## Every widget's window is created before its tab is first shown
 
 Tk defers creating a widget's Win32 window until first MAP, and a window created at map time is erased to the system default — near-white — before Tk paints it in the widget's own colours. So the first time a tab opens, its classic Tk widgets appear as blank light-grey blocks for a frame.
@@ -109,6 +111,20 @@ Four panels rebuild real widgets after startup, and each is gated on a SIGNATURE
 `checks/check_tabs_build.py` holds each of these to widget IDENTITY: same inputs in, the same objects still on screen. Comparing the labels would pass while every widget behind them was replaced.
 
 Treeview and Listbox rebuilds are not this: their rows are not widgets, and clearing one repaints inside a single widget with no hole to see.
+
+## A hidden tab draws when shown, but records now
+
+A snapshot load while another tab is showing skips three tabs' drawing, and each catches up in its `<<NotebookTabChanged>>` handler when shown:
+
+- Materials: `refresh_materials`, with a `_stale` flag.
+- Memory Fragments: `refresh_inventory`, the same way.
+- The Checklist: `refresh_checklist`, which redraws on every show anyway.
+
+A capture reloads after every save while the user is usually on another tab, and startup loads with the Optimizer tab showing.
+
+**Only drawing may wait.** The Checklist's refresh records as it reads: event totals, final rewards, the floor clock, the currency ledger. A record has to come from every snapshot, because the game purges what it is read from. So that refresh runs all of its recording and returns just before its columns are built.
+
+`_hidden()` counts a notebook with nothing selected as showing. That is how the checks build a tab, and how every tab is built before the notebook gets its pages.
 
 ## The exclude checklist's flow layout must not create widgets per re-flow
 

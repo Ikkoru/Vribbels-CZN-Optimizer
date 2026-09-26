@@ -2584,14 +2584,25 @@ class ChecklistTab(BaseTab):
         # blank before the first capture.
         self.refresh_checklist()
 
-        # And again whenever the tab is shown. Both load paths already
-        # call the refresh, so this catches only the case where one of
-        # them did not run -- and the cost of a redraw nobody needed is
-        # four small Texts rewritten while the user is looking at them.
+        # And again whenever the tab is shown. **NOT redundant with the
+        # load paths:** a refresh while another tab is showing records
+        # and skips the drawing, and this is what draws it.
         notebook = getattr(self.context, "notebook", None)
         if notebook is not None:
             notebook.bind("<<NotebookTabChanged>>",
                           self._on_tab_changed, add="+")
+
+    def _hidden(self):
+        """Whether another tab is the one showing. A notebook with none
+        selected -- the tab built on its own, as the checks build it,
+        or before the tabs are added -- counts as showing this one."""
+        notebook = getattr(self.context, "notebook", None)
+        try:
+            shown = notebook.select() if notebook is not None else ""
+            return bool(shown) and notebook.nametowidget(shown) \
+                is not self.frame
+        except (tk.TclError, KeyError):
+            return False
 
     def _on_tab_changed(self, _event=None):
         """Redraw when this tab becomes the visible one."""
@@ -3062,6 +3073,13 @@ class ChecklistTab(BaseTab):
         # `raw`, and the rows are built from that.
         self._finishable = self._mark_finished(raw, readings)
         self._shop_tips = self._rates(raw, time.time())
+        # Everything above records something and runs on every load.
+        # What follows only draws, so it waits while another tab is
+        # showing: `_on_tab_changed` refreshes the moment this one is.
+        # It is most of a refresh, and a capture reloads after every
+        # save while the user is usually elsewhere.
+        if self._hidden():
+            return
         # A rebuilt column is filled inside the rebuild, before it is
         # shown; this fills the ones that were left standing.
         self._rebuild_columns(raw, readings)

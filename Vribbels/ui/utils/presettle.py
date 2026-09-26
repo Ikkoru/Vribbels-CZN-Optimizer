@@ -46,8 +46,9 @@ import tkinter as tk
 from _tkinter import DONT_WAIT, IDLE_EVENTS, WINDOW_EVENTS
 
 # When the first step is tried, after the reveal. Long enough for the
-# startup's own after-callbacks to have run.
-START_MS = 1000
+# startup's own after-callbacks to have run; short, because a tab
+# opened before its step pays for its whole layout in view.
+START_MS = 500
 # How long the user must have left the program alone before a step.
 IDLE_MS = 400
 # The pause between one step and the next, so the ordinary event loop
@@ -121,14 +122,16 @@ def _drain(root, deadline):
 
 class HiddenTabSettler:
     """Settles every tab but the one showing and `skip`, one per idle
-    moment. See the module docstring."""
+    moment, `first` before the rest. See the module docstring."""
 
-    def __init__(self, root, notebook, skip=()):
+    def __init__(self, root, notebook, skip=(), first=()):
         self.root = root
         self.notebook = notebook
         self._skip = {str(w) for w in skip}
         self._settled = {notebook.select()}
-        self._queue = [t for t in notebook.tabs()
+        ahead = [str(w) for w in first]
+        order = ahead + [t for t in notebook.tabs() if t not in ahead]
+        self._queue = [t for t in order
                        if t not in self._skip and t not in self._settled]
         # A tab the user opens is settled by being opened.
         notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed,
@@ -199,9 +202,10 @@ class HiddenTabSettler:
         self._settled.add(tab)
 
 
-def settle_hidden_tabs(root, notebook, skip=()):
+def settle_hidden_tabs(root, notebook, skip=(), first=()):
     """Start settling every tab but the one showing and `skip`, in
-    idle moments. Returns the settler, which the caller keeps."""
-    settler = HiddenTabSettler(root, notebook, skip)
+    idle moments, `first` before the rest. Returns the settler, which
+    the caller keeps."""
+    settler = HiddenTabSettler(root, notebook, skip, first)
     settler.start()
     return settler

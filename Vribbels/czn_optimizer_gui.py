@@ -282,11 +282,14 @@ class OptimizerGUI:
         # first open assembles in view -- see `ui/utils/presettle.py`.
         # Not under the spacing audit, which switches tabs itself and
         # reads what it finds. NOT the Capture tab, whose switch
-        # handlers act on what the user saw.
+        # handlers act on what the user saw. The Checklist and Memory
+        # Fragments FIRST: both leave their drawing to their first
+        # show, which makes them the costliest to open unsettled.
         if not self._spacing_audit_wanted():
             from ui.utils.presettle import settle_hidden_tabs
             self._tab_settler = settle_hidden_tabs(
-                self.root, self.notebook, skip=(self.capture_tab,))
+                self.root, self.notebook, skip=(self.capture_tab,),
+                first=(self.checklist_tab, self.inventory_tab))
         # After the reveal for the same reason the audit is: the window
         # is up and the user is looking at it, so a rebuild that takes a
         # second has nothing to block.

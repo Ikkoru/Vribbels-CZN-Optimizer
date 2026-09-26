@@ -3125,6 +3125,109 @@ def _standings_lists_fit(tab):
     return out
 
 
+def _hidden_tab_catches_up(tab, title, refresh, draws):
+    """Refresh `tab` while another tab shows, then show it: which of
+    `draws` (method names) ran each time. Returns (while hidden, when
+    shown) as {name: calls}."""
+    from tkinter import ttk
+
+    notebook = tab.context.notebook
+    other = ttk.Frame(notebook)
+    notebook.add(tab.frame, text=title)
+    notebook.add(other, text="Other")
+    counts = {name: [0, 0] for name in draws}
+    phase = [0]
+    real = {name: getattr(tab, name) for name in draws}
+
+    def spy(name):
+        def wrapped(*a, **k):
+            counts[name][phase[0]] += 1
+            return real[name](*a, **k)
+        return wrapped
+
+    for name in draws:
+        setattr(tab, name, spy(name))
+    try:
+        notebook.select(other)
+        refresh()
+        phase[0] = 1
+        notebook.select(tab.frame)
+        # Handled at once rather than queued, so no other pending
+        # timer of the tabs runs with it.
+        notebook.event_generate("<<NotebookTabChanged>>")
+    finally:
+        for name in draws:
+            setattr(tab, name, real[name])
+        notebook.forget(other)
+        notebook.forget(tab.frame)
+    return ({n: c[0] for n, c in counts.items()},
+            {n: c[1] for n, c in counts.items()})
+
+
+def _checklist_records_while_hidden(tab):
+    """A hidden Checklist records from the snapshot and draws later.
+
+    The refresh RECORDS as it reads -- event totals, final rewards, the
+    floor clock, the currency ledger -- and the game purges what those
+    are read from, so a record skipped on one snapshot can be gone by
+    the next. Only the drawing may wait for the tab to be shown, and
+    it must happen when it is.
+
+    Returns a list of complaints.
+    """
+    records = ("_recall_event_totals", "_recall_finals", "_settle_floors",
+               "_rates")
+    hidden, shown = _hidden_tab_catches_up(
+        tab, "Checklist", tab.refresh_checklist,
+        records + ("_rebuild_columns",))
+    out = []
+    skipped = [n for n in records if not hidden[n]]
+    if skipped:
+        out.append(
+            f"a Checklist refresh while another tab showed skipped "
+            f"{', '.join(skipped)}. Those record from the snapshot, and "
+            f"what they read is purged by the game; only the drawing may "
+            f"wait for the tab to be shown.")
+    if hidden["_rebuild_columns"]:
+        out.append(
+            "a Checklist refresh while another tab showed built its "
+            "columns anyway. That is most of a refresh, and it sits in "
+            "every capture reload for a tab nobody is looking at.")
+    if shown["_rebuild_columns"] != 1:
+        out.append(
+            f"showing the Checklist after a hidden refresh built its "
+            f"columns {shown['_rebuild_columns']} times, not once. It "
+            f"would show the rows of whenever it was last visible.")
+    return out
+
+
+def _inventory_catches_up_when_shown(tab):
+    """The Memory Fragments list skips a hidden refresh and makes it up.
+
+    Scoring every fragment under every preset and rewriting the list is
+    the costliest part of a snapshot load, and a capture reloads after
+    every save. So it must NOT run while another tab shows, and MUST
+    run, once, when this tab is shown -- or the list shows the scores
+    of whenever it was last visible.
+
+    Returns a list of complaints.
+    """
+    hidden, shown = _hidden_tab_catches_up(
+        tab, "Memory Fragments", tab.refresh_inventory,
+        ("_display_inventory_sorted",))
+    out = []
+    if hidden["_display_inventory_sorted"]:
+        out.append("the Memory Fragments list redrew while another tab "
+                   "was showing. That redraw sits in every capture "
+                   "reload.")
+    if shown["_display_inventory_sorted"] != 1:
+        out.append(
+            f"the Memory Fragments list redrew "
+            f"{shown['_display_inventory_sorted']} times when shown after "
+            f"a skipped refresh, not once.")
+    return out
+
+
 def _materials_catches_up_when_shown(tab):
     """The Materials tab skips a redraw while hidden and makes it up.
 
@@ -4043,6 +4146,8 @@ def run():
             failures.extend(
                 _checklist_redraw_replaces_nothing(built["ChecklistTab"]))
             failures.extend(
+                _checklist_records_while_hidden(built["ChecklistTab"]))
+            failures.extend(
                 _checklist_block_is_tall_enough(built["ChecklistTab"]))
             failures.extend(
                 _a_seasonal_tick_outlives_its_season(built["ChecklistTab"]))
@@ -4070,6 +4175,8 @@ def run():
         if "InventoryTab" in built:
             failures.extend(
                 _set_filters_redraw_replaces_nothing(built["InventoryTab"]))
+            failures.extend(
+                _inventory_catches_up_when_shown(built["InventoryTab"]))
         if "GachaHistoryTab" in built:
             failures.extend(
                 _gacha_history_draws_its_rows(built["GachaHistoryTab"]))
