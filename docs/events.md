@@ -378,13 +378,13 @@ Both endings of one day were captured minutes apart: `HIDDEN` at 20:04 wrote `hi
 
 The 7/7/10 is real structure, not decoration: the page number is the middle segment of the mission id, and each page is one KIND of task. `mission_condition` on an action names the kind:
 
-| Page | `condition_type` | Shape | Seen |
+| Page | `condition_type` | Shape | Rows |
 | ---- | ---------------- | ----- | ---- |
-| `_01_*` | `EVENT_BARTENDER_CLEAR_DAY__ID` | one row per day of the story | 3 of 7 |
-| `_02_*` | `EVENT_BARTENDER_GUESTBOOK_CLEAR` | a ladder, all seven sharing one running score | 7 of 7 |
-| `_03_*` | `EVENT_BARTENDER_MAKE_COCKTAIL__ID` | a ladder | 10 of 10 |
+| `_01_*` | `EVENT_BARTENDER_CLEAR_DAY__ID` | one row per day of the story | 7 |
+| `_02_*` | `EVENT_BARTENDER_GUESTBOOK_CLEAR` | a ladder, all seven sharing one running score | 7 |
+| `_03_*` | `EVENT_BARTENDER_MAKE_COCKTAIL__ID` | a ladder | 10 |
 
-So the total is 7 + 7 + 10 rather than any product, and the only unknown is page 1, whose rows arrive a day at a time. **Summing each page's own maximum is the right shape of derivation** — it gets 3 + 7 + 10 today — but each page is a floor, so the sum is too.
+So the total is 7 + 7 + 10 rather than any product, and the only unknown is page 1, whose rows arrive a day at a time. **Summing each page's own maximum is the right shape of derivation**, but a page still arriving counts only what has arrived: each page is a floor, and so is the sum.
 
 The guestbook itself is elsewhere: `event_bartender_entities` keys on `bartender_01_day_<NN>_story_1` and each row carries THREE stamps — `normal_complete_time`, `hidden_complete_time`, `fail_complete_time`. The two guestbook entries a day is the normal ending and the hidden one; the third is a failure nobody has triggered. A row appears once its day has been played.
 
@@ -409,9 +409,9 @@ Captured in full — the last mission claimed, the last reward taken, the last p
 | | Reads |
 | --- | --- |
 | `event_summer_define_entity` | `event_item_count` 88, `reward_count` **84** — the event's whole cost, and it stops there |
-| every mission row | 20 of 20 with a `complete_time` |
-| `event_summer_set_entities` | three sets, all with a `complete_time` |
-| `story_event_entities["event_132"]` | 14 stories, 14 complete |
+| every mission row | has a `complete_time` |
+| `event_summer_set_entities` | every set has a `complete_time` |
+| `story_event_entities["event_132"]` | every story complete |
 | the balance of `4020001` | 4 — less than one reward's 8, so nothing is affordable |
 | **`event_mission_reward_entities`** | **no summer row at all** |
 
@@ -659,4 +659,4 @@ Settled, and kept so they are not re-suggested:
 * **A third id space.** The mission commands name an event by a bare number — `event_142` is `event_devil_*`, `event_143` the login streak, `event_146` is `event_bartender_1` — alongside the schedule's `event_schedule_devil_001` and the reward record's `event_bartender_1`. Nothing needs the numeric one: every reader pairs on the normalised key.
 * **`event_devil_*`'s last claim produces no completion flag.** Claiming the seventh day's three rewards answered with the mission rows and the items and nothing else — no `event_achieve_state`, because the event has no final reward to unlock one. It stays a floor, correctly.
 * **The message that unlocks when an event's rewards are all claimed** is most likely client-side and not on the wire at all. It is an EVENT screen's own message rather than anything in `messenger_entities`, which is the separate Combatant messenger. Nothing needs it: `event_achieve_state` names the event outright and arrives on the claim.
-* **`mission_event_node_list_story_node_entities`** and **`story_event_node_list_entities`** look like define lists — 81 and 43 rows for an event long finished — but they are the account's own records, complete only because the event was completed. They say nothing about a live one.
+* **`mission_event_node_list_story_node_entities`** and **`story_event_node_list_entities`** look like define lists, long and whole for an event long finished, but they are the account's own records, complete only because the event was completed. They say nothing about a live one.

@@ -17,7 +17,7 @@ the number of characters. The count here is how many indexes it names,
 which is how many of the visit TYPES that combatant has been through.
 
 Nothing else in a row is a count: `experienced_visit_order` and
-`normal_visit_reward_received` were the same for all 34 rows of the
+`normal_visit_reward_received` were the same for every row of the
 capture this was written against, and `version` is the row's write
 counter -- every entity in the payload carries one.
 

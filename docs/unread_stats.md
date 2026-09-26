@@ -51,7 +51,7 @@ The history from before snapshots kept it is read out of the debug logs, once. `
 
 Kept as history under `chaos_assault_rankings`, one entry per season: its `reset_time`, and a reading per change of the first page -- `tab`, `total_count`, `rank`, `score`, `last_rank`, `top_score`, `top_clear_time_sec`, `top_penalty_level`, `read_at`, `refresh_id`. Carried from snapshot to snapshot, so a season the game has dropped stays in the newest snapshot.
 
-**`best_score_record` is the score times 10**7 plus a tie-break**: `reset_time + 8189199 − record_timestamp`, so on equal scores the earlier record sorts first. It holds on all 147 rows read, over both seasons on hand.
+**`best_score_record` is the score times 10**7 plus a tie-break**: `reset_time + 8189199 − record_timestamp`, so on equal scores the earlier record sorts first. It holds on every row read, across both seasons on hand.
 
 **`chaos_assault/get_records`** -- the Sortie Logs screen; not kept; sent when it opens. One row per attempt this season, **the best one first with `is_best: true`, then every attempt newest first -- the best one again among them**. A reader that counts attempts skips the flagged row.
 
@@ -74,10 +74,10 @@ The run's own breakdown -- `score_detail` in `return_info.chaos_assault_result` 
 | ---------------------------- | ----------- |
 | Hardcore Rankings | `get_ranking`, above |
 | Sortie Logs | `get_records`, above; the screen lists the last ten |
-| Engagement Data → Sortie Data | `assault_achievement_entities`, not kept, sent with `mission/get_list`: **CLAIMED rungs only**. The screen's 23 of 35 are 23 rows, every one stamped with the date the screen shows; the 12 unfinished have no row, and their ids are the gaps in the `assault_achievement_NNN` sequence. The screen's 40/50 and 40/100 are `total_clear_count` |
+| Engagement Data → Sortie Data | `assault_achievement_entities`, not kept, sent with `mission/get_list`: **claimed rungs only**, every one stamped with the date the screen shows; a rung not yet claimed has no row, and its id is a gap in the `assault_achievement_NNN` sequence. The screen's `n/50` and `n/100` are both `total_clear_count` |
 | Engagement Data → Combatant Data | the two per-combatant ladders, read by `sortie_progress.py` |
-| Archive | `chaos_assault_archive_entities`, not kept, from `stage/get_list`: one `collection` per category, id to count. `assault_01` is Equipment, each piece counting up to 5 -- the screen's Equipment figure is the SUM, 71 pieces at 5 for 355 of 455; `assault_02` Monsters; `assault_03` Bosses, each to 3, with one boss more on the wire than on the screen; `assault_04` Cards; `assault_05` Fates |
-| Tactical Optimization | `assault_tactical_skill_node_entities`, not kept, from `chaos_assault/check_season_reset`, and one node back from `assault_tactical_skill_level_up`: `a_skill_s1_*` the permanent tree, `a_skill_s2_*` the seasonal one, `level` per node. **An unlevelled node has no row** -- 16 rows for a seasonal tree of 17 |
+| Archive | `chaos_assault_archive_entities`, not kept, from `stage/get_list`: one `collection` per category, id to count. `assault_01` is Equipment, each piece counting up to 5 -- the screen's Equipment figure is the SUM of every piece's count; `assault_02` Monsters; `assault_03` Bosses, each to 3, with a boss on the wire that the screen does not show; `assault_04` Cards; `assault_05` Fates |
+| Tactical Optimization | `assault_tactical_skill_node_entities`, not kept, from `chaos_assault/check_season_reset`, and one node back from `assault_tactical_skill_level_up`: `a_skill_s1_*` the permanent tree, `a_skill_s2_*` the seasonal one, `level` per node. **An unlevelled node has no row**, so a tree's rows are its levelled nodes, not its size |
 | Tactical Data | item 3000008, the amount held. What has been earned in all is not on the wire |
 
 None of them is a reward track for clear levels: the step record `event_chaos_assault_1` belongs to the Sortie's launch event, which `docs/events.md` covers.
@@ -126,7 +126,7 @@ The ranking screen asks one division at a time:
 
 **A division's list is its top hundred** -- `max_rank` 100, five pages of twenty -- which is always its subdivision I. No other subdivision's top is ever sent, so the best score in the account's own subdivision is not on the wire; its division's is.
 
-A page is twenty rows of one subdivision: `rank`, `score`, `damage_score`, `damage_score_team2`, `heal_score`, `shield_score`, `bonus_score`, `clear_time`, `list_level`, `turn_bonus`, `turn`, `rank_id` -- and who, which is not kept. **`score` is a record**: the best score times 10**8, plus `list_level` times 10**7, plus `1793239200 − clear_time` in season 4 -- so the board sorts on best score, then the higher list level, then the earlier clear. That holds on all 172 rows read, the account's own `disaster_rank_info` included; the constant is the season's own.
+A page is twenty rows of one subdivision: `rank`, `score`, `damage_score`, `damage_score_team2`, `heal_score`, `shield_score`, `bonus_score`, `clear_time`, `list_level`, `turn_bonus`, `turn`, `rank_id` -- and who, which is not kept. **`score` is a record**: the best score times 10**8, plus `list_level` times 10**7, plus `1793239200 − clear_time` in season 4 -- so the board sorts on best score, then the higher list level, then the earlier clear. That holds on every row read, the account's own `disaster_rank_info` included; the constant is the season's own.
 
 Kept as history under `disaster_boss_rank_tops`: per season, per half, per subdivision seen, a sample per change of its top row -- `rank`, `best_score`, `score_record`, `list_level`, `clear_time`, `turn`, `read_at`, `refresh_id`. Carried from snapshot to snapshot, so the samples are that subdivision's top over the season.
 

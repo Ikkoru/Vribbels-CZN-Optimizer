@@ -124,7 +124,7 @@ A recurring confusion worth stating once. Two different things:
 * **A REWARD's Memory Fragments are shaped nothing like a forged one's.** Forging answers with a top-level `pieces` LIST of documents; a reward answers with a `pieces` DICT keyed by the fragment's id, each value a `{diff, doc}` pair, and always a level down — under `item_result` (a Chaos week reward) or inside `return_info` (a Simulation run, doubled or not). Beside it sits `auto_disassemble_piece`, whose `pieces` are fragments broken down on the way in: they never reach the inventory and must not be added. `capture/manager._reward_pieces`.
 * **WHERE in the reply is a fourth.** A stage reply nests its whole outcome under **`return_info`**, so a handler reading only the top level sees nothing: `result_overclock_entities` rode there for a whole session while `result_reward_drop_overclock` paid out beside it. When a record does not update from an action that obviously changed it, search the reply for the key before concluding the wire is silent.
 * **And a claim may answer with no record at all.** A Daily Check-in claim sends `event_id`, `received_days_before`, `received_days_after` and `completed` — numbers, not an entity. Nothing to merge; the cached row has to be patched from them.
-* **The existence of a record** is not. The game issues a mission row when it issues the mission, so a total counted from the rows in hand is a FLOOR: the Basin's live season carried 15 rows of 26, and a summer event read 12 of 12 with a third wave unissued.
+* **The existence of a record** is not. The game issues a mission row when it issues the mission, so a total counted from the rows in hand is a FLOOR: a live Basin season carries only the rows issued so far, and a summer event can read every row claimed with a third wave still unissued.
 
 So a reading built from rows the account holds says "at least", and only a stated total — a completed season's row count — makes it exact.
 
@@ -174,7 +174,7 @@ A currency in `characters.currencies` keeps three figures, and the third is the 
 | `total_amount` | lifetime GAINED |
 | `total_use_amount` | lifetime spent |
 
-The three reconcile exactly — Policy Point read 36043 gained against 36020 spent with 23 in hand — and `total_amount` is monotonic: checked across 101 snapshots and five currencies, not one backward step. So the rate a currency is earned at is one subtraction between two readings of it, with nothing to model about what was spent in between. `Vribbels/checklist_manager.py` is what keeps those readings.
+The three reconcile exactly — Policy Point read 36043 gained against 36020 spent with 23 in hand — and `total_amount` is monotonic: checked across every snapshot on hand and all five currencies, not one backward step. So the rate a currency is earned at is one subtraction between two readings of it, with nothing to model about what was spent in between. `Vribbels/checklist_manager.py` is what keeps those readings.
 
 **Two of the seven shop currencies are not currencies.** Black Mass (3920007) and the Enrapturing Crystal (3920031) are ordinary `inventory.items` entries with an `amount` and no lifetime anything. **The shops account for them instead:** what is held, plus `shop_list[*].total_count` times each product's price, summed over every product priced in that currency.
 
@@ -188,7 +188,7 @@ That reconstruction was checked against the wire's own answer for the five curre
 | Prism Film | 36 | 36 | — |
 | Crystal of Discord | 36 | 33 | 3, by up to +300 |
 
-The three misses are all in the same direction — the derived figure HIGH — which is a capture that caught `shop_list` updated and `currencies` not yet. Black Mass derives monotonically across all 36 readings and exactly one shop prices in it, which is the Sortie shop itself.
+The three misses are all in the same direction — the derived figure HIGH — which is a capture that caught `shop_list` updated and `currencies` not yet. Black Mass derives monotonically across every reading and exactly one shop prices in it, which is the Sortie shop itself.
 
 The method needs both shop payloads. `shop_list` absent is not "nothing bought": it is the payload not having arrived, and reading the holding alone would put a total in the record that every later reading has to climb back over.
 

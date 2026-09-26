@@ -53,16 +53,16 @@ recorded because one is stated and the other is worked out:
 
 * `total` -- the wire states it. A currency in `characters.currencies`
   carries `total_amount` beside `total_use_amount` and the holding,
-  and the three reconcile exactly. Across 101 snapshots and five
-  currencies it never steps backwards.
+  and the three reconcile exactly. Across every snapshot on hand and
+  all five currencies it never steps backwards.
 * `shop` -- the wire does not, and the shops account for it. Two shop
   currencies are ordinary inventory items with an `amount` and no
   lifetime anything; what is held plus everything ever bought with it
   (`shop_list[*].total_count` times the product's price) is the same
   figure. Checked against the wire's own answer for the five
   currencies that have one: exact at every reading for four of them,
-  and within 300 in 3 readings of 36 for the fifth, where a capture
-  caught a purchase between the two payloads.
+  and within 300 for the fifth, only where a capture caught a
+  purchase between the two payloads.
 
 Points are kept for a year and a day. Past that the oldest fall off,
 which is what turns the seeded reading into a rolling one.

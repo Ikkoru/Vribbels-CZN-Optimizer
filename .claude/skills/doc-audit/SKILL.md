@@ -52,6 +52,8 @@ Cheap, and each has caught something. Run them over `docs/`, `.claude/**/*.md` a
 
 **Run the density sweep over what changed since the last audit**, not the whole corpus: corpus-wide it returns more sentences than anyone can act on. The last audit's commit is `git log --grep '^Doc audit' -1`; diff from there.
 
+**A count stays only where the number is the content**: the figures an argument rests on, or a named past event's own structure a derivation is worked from. A tally that only vouches that a claim held ("all 147 rows read"), one account's figures standing in for a shape ("23 of 35 are 23 rows"), or a count that will grow, is said as what it shows instead: "every row read, across both seasons on hand", "claimed rungs only", "`n/50`". The reader needs the scope and the shape, and nothing refreshes a tally.
+
 **A de-bolding pass keeps bold on the lines *Lines that must survive* protects**, and on a field name that heads its paragraph as a sub-heading. Prove it changed nothing else: each file must equal its committed version with `**` stripped from both.
 
 **In the unreleased CHANGELOG the narration sweep is a question, not a verdict.** An entry stating what the program does now is right; one that also describes the old state is spending a clause on what `### Changed` already implies. Report the lines and ask — some changes are not binary, and there the contrast belongs folded into the sentence rather than deleted.
@@ -100,7 +102,7 @@ The same note twice within a screen. Repetition a few lines apart reads as two i
 
 ## Verify against the artifact, not the mechanism
 
-**Measure the whole corpus, not the part that is easy to reach.** `event_bartender_entities` is absent from all 113 archived snapshots and present in 8 of the 10 loose ones — the archive predates the capture change, so sampling it alone gives the confident wrong answer, twice over: the field looks uncaptured, and the doc saying so looks correct. Snapshots on disk are one population and the archive is another; a claim about "every capture" has to read both.
+**Measure the whole corpus, not the part that is easy to reach.** `event_bartender_entities` is absent from every archived snapshot and present in most loose ones — the archive predates the capture change, so sampling it alone gives the confident wrong answer, twice over: the field looks uncaptured, and the doc saying so looks correct. Snapshots on disk are one population and the archive is another; a claim about "every capture" has to read both.
 
 The same discipline in the other direction: **a passage that describes itself is a hypothesis.** A sentence saying "the code owns this table" is not evidence that it does. Open the constant and diff the columns; a doc table that adds a column the code has no field for is not a mirror.
 
