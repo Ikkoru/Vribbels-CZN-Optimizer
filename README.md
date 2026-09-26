@@ -1,6 +1,6 @@
 # Vribbels CZN Optimizer (Ikkoru)
 
-A fork of Vribbels, a Fribbels-inspired gear management and optimization tool for the mobile game **Chaos Zero Nightmare**. It reads your Memory Fragments from the game and works out the best six for a combatant.
+A fork of Vribbels, a Fribbels-inspired gear management and optimization tool for the game **Chaos Zero Nightmare**. It reads your Memory Fragments from the game and works out the best six for a combatant. Features a **Pull Tracker** that shows your luck.
 
 ## Installation & Usage
 

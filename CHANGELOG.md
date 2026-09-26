@@ -10,28 +10,28 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
-- **A `Stats & Gacha History` tab**, right of `Setup & Settings`:
-  - Every pull the game has listed, kept after the game stops listing it, with each banner type's pity, 50/50s and luck against the game's published rates. Open each banner's Probability Info → Rescue Records while capturing to add them.
-  - A banner type turns orange while the game lists pulls the tab has not read, and red once its records were last read over 90 days ago.
+- **A `Stats & Gacha History` tab**:
+  - Every pull the game has listed, kept even after the game stops listing it, with each banner type's pity, 50/50s and luck against the game's published rates. While capturing, open each banner's Probability Info → Rescue Records, then **click through to the last page** to add them. You need to do this separately for each banner.
+  - A banner type turns orange while the game lists pulls the tab has not read, and red if its records were last read over 90 days ago.
   - An Overall Gacha Stats sheet: luck across every banner with and without the Prism Module, all 50/50s won, the average pulls a rate-up Combatant took against the expected average, and the fastest, slowest and most-5★-in-10-pulls records, each with its ties.
-  - `Import JSON` also reads hub-czn's `Export JSON`, dating each pull back to its banner so its 50/50s count.
-  - Great Rift, Full-Scale Offensive and Sortie Stats, a column per season. The Great Rift's shows each part's codename, your place in the whole field, the percentage the game gives your subdivision, your rank, the field's size, your best score and every division's top score. The Offensive's shows its percentage, your rank, the field, your total and each stage's score; the Sortie's your top percentage, rank, field, best score and the season's top score. The note beside each title says what to open while capturing.
+  - `Import JSON` also reads **hub-czn**'s `Export JSON`, dating each pull back to its banner so its 50/50s count.
+  - Great Rift, Full-Scale Offensive and Sortie Stats, a column per season. The Great Rift's shows each part's codename (assigned by yours truly), your placement, the percentage the game gives your subdivision, your rank, the season's player count, your best score and every division's top score. The Offensive's shows its percentage, your rank, player count, your total and each stage's score; the Sortie's your top percentage, rank, player count, best score and the season's top score. The note beside each title explains how to capture the data.
   - On the first launch of this version, the stats are read out of any old debug captures in `snapshots/`, once, in the background; the Capture Log says when it is done.
 - **Game facts ship with the program** and fill in what your own captures missed. Your own readings always win.
   - Banner rates: a banner whose rates you never opened still counts its 50/50s.
   - Checklist: which slots a Combatant Trial event offers, how many rewards earlier runs of an event held, and which paid a Special Reward.
-  - Stats lists, from your own server only: each Great Rift division's top, how many players each season ranked, and the Sortie's top score, in a column for every season they cover, including ones you never took part in. Season 1's Great Rift tops come from the game's announcements, seasons 2 to 4 from cznmetadecks.com.
+  - Stats lists, from your own server only: each Great Rift division's top, how many players each season ranked, and the Sortie's top score, in a column for every season they cover, including ones you never took part in. Season 1's Great Rift tops come from the official announcements from [the forum](https://page.onstove.com/chaoszeronightmare/en/view/12183147), seasons 2 to 4 from cznmetadecks.com.
 - Setup & Settings → Share Game Data: `Export Facts` saves the game facts your captures hold that the program does not have yet, and nothing about your account, to attach to a new GitHub issue. The line beside it says in yellow how many there are.
 - **Checklist:**
   - A fifth column, `Galactic Disaster`, holds the Seasonal Shop's season-long shelves under a heading counting the season down; between seasons it says roughly when the next one opens. It replaces `Galactic Disaster (Seasonal)` in the `Other` column.
   - An item sold on more than one of the shop's pages is one row, counting down from their caps together. A page charging more for the same material gets a row of its own, with the price after its name.
   - A Seasonal Shop row turns orange once everything on sale is bought and the rest is on a page not open yet. A page opens on its Supply round's date from the season's first update notice, or, for a season the program does not have, with the Sortie season it began with.
   - The shelves show only while the shop is open, and stay away through the three weeks before the next season.
-  - Hovering the Seasonal Shop says what the season has paid so far, and, for a season that has been counted, what a whole one pays at one Chaos run a day.
+  - Hovering the Seasonal Shop says what the season has paid so far, and an estimate of how much you can earn assuming you do 1 Chaos run per day, and get all rewards that contain seasonal currency.
   - Which Seasonal Shop rows you have ticked survives the season ending.
   - An event's Special Reward, the one that unlocks once everything else is claimed, is counted. An event whose earlier runs had one stays red after its last ordinary reward until this run's is claimed; tick `Finished?` if this run turns out not to have one.
 - **Capture tab:**
-  - With `Debug WS` on, each Capture Log line says in milliseconds how long it took the server, the capture and the app to deliver it. A late line with all three small was held back by the game itself.
+  - With `Debug WS` on, each Capture Log line says in milliseconds how long it took the server, the capture and the app to deliver it.
   - An `Upgraded` line draws a preset's ceiling in the Mythic colour when the fragment, at +3 or past, could beat what that preset's one combatant wears in the same slot.
 - The title bar matches the app: dark on Windows 11, and following the system's app theme on Windows 10.
 - A tooltip's figures line up by their last digit, closer to their labels.
