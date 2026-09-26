@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
+## [2.2.1] - unreleased
+
+### Changed
+
+- Faster:
+  - Startup.
+  - Opening a tab for the first time. Tabs not opened yet are laid out while the program sits idle, so none of them assembles in view.
+- Gear Score marks a preset assigned to a combatant with ∞.
+
+### Fixed
+
+- Setup & Settings no longer freezes for a moment each time it is opened.
+- Capture's Log Presets no longer rebuild in view on the second visit to the tab.
+
 ## [2.2.0] - Pull Tracker, Player Stats, Galactic Disaster Shop
 
 ### Added

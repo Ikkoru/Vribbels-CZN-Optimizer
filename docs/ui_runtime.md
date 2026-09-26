@@ -34,6 +34,23 @@ The pattern that works, used by both prerequisite probes, by `_report_data_probl
 
 Two consequences: startup code MAY pump the event loop to realize geometry (the exclude flow layout depends on this to measure its true width), and anything added to the startup path must not reveal the root early or pop its own window.
 
+## Unopened tabs are laid out after the reveal, unseen
+
+A notebook sizes only the page it shows, so every other page is 1px square until it is first opened, and that open lays the whole page out again after its first paint: the user watches it assemble. `_reveal_window` settles the Optimizer tab while the window is still hidden, and pays for it in startup time. Every other tab is settled by `ui/utils/presettle.py` after the reveal, one tab per idle moment:
+
+1. Painting on the notebook is switched off with `WM_SETREDRAW`. The screen keeps the pixels it had.
+2. The tab is selected, and its window events and idle work run: the `<Configure>` cascade, and its `<Map>` and `<<NotebookTabChanged>>` first-show work.
+3. The tab that was showing is selected again, drained the same way, and painting switched back on.
+
+Four rules keep it unseen, and breaking any of them fails silently. `checks/check_presettle.py` holds all four:
+
+- **Painting comes back on in a `finally`.** Otherwise the notebook stays frozen on its last picture.
+- **The drain runs window and idle events only, never `update()`.** Timers would run with painting off, and a capture reload's redraw would never reach the screen.
+- **The way back is drained with painting still off.** Left to the ordinary loop, the notebook repaints the page area's background, and the page's widgets never paint over it.
+- **The Capture tab is skipped.** Its switch handlers clear its failure mark and start and stop its log title's pulse.
+
+A step still holds the UI thread while its tab lays out. So a step waits for `IDLE_MS` without input while the window is in front, and nothing is settled under the spacing audit, which switches tabs itself.
+
 ## Every widget's window is created before its tab is first shown
 
 Tk defers creating a widget's Win32 window until first MAP, and a window created at map time is erased to the system default — near-white — before Tk paints it in the widget's own colours. So the first time a tab opens, its classic Tk widgets appear as blank light-grey blocks for a frame.

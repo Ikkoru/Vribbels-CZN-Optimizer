@@ -278,6 +278,15 @@ class OptimizerGUI:
         # the audit reads pixels off the screen, so the window has to be
         # up, settled and painted.
         self._maybe_schedule_spacing_audit()
+        # Every other tab laid out in idle moments, unseen, so that no
+        # first open assembles in view -- see `ui/utils/presettle.py`.
+        # Not under the spacing audit, which switches tabs itself and
+        # reads what it finds. NOT the Capture tab, whose switch
+        # handlers act on what the user saw.
+        if not self._spacing_audit_wanted():
+            from ui.utils.presettle import settle_hidden_tabs
+            self._tab_settler = settle_hidden_tabs(
+                self.root, self.notebook, skip=(self.capture_tab,))
         # After the reveal for the same reason the audit is: the window
         # is up and the user is looking at it, so a rebuild that takes a
         # second has nothing to block.
@@ -349,25 +358,18 @@ class OptimizerGUI:
         # opens it: the Optimizer tab's help text re-wraps, which changes the
         # toolbar height and shifts every panel below it.
         #
-        # NAMED tabs only. Cycling all eight cost 2.6-3.8s of startup
-        # (measured) -- more than every other phase combined -- because each
-        # select() + update() forces a full layout and draw of a tab the user
-        # may never open. Two have a known Configure-driven layout
-        # dependency; if another turns out to shift, add it here by name
-        # rather than going back to cycling everything.
-        #
-        # Setup & Settings is the other: its panels are laid out one after
-        # another and then RESIZED, so opening it cold shows the frames
-        # arriving and the contents settling into them over about a second.
+        # The Optimizer tab ONLY: it is the one a first launch, which opens
+        # on Setup & Settings, is likeliest to open next. Every pass here is
+        # a full layout and draw that startup waits for, so the other tabs
+        # are settled after the reveal instead, unseen and in idle moments
+        # -- see `ui/utils/presettle.py`.
         import time as _time
         import perf_log
         _t = _time.perf_counter()
         try:
             originally_selected = self.notebook.select()
-            for instance in (self.optimizer_tab_instance,
-                             self.setup_tab_instance):
-                if instance is None:
-                    continue
+            instance = self.optimizer_tab_instance
+            if instance is not None:
                 tab_id = str(instance.frame)
                 if tab_id != originally_selected:
                     self.notebook.select(tab_id)
@@ -428,6 +430,14 @@ class OptimizerGUI:
         except tk.TclError:
             pass
 
+    @staticmethod
+    def _spacing_audit_wanted():
+        """Whether this launch runs the spacing audit."""
+        return ("--spacing-audit" in sys.argv
+                or "--spacing-audit-verbose" in sys.argv
+                or "--spacing-audit-freeze" in sys.argv
+                or os.environ.get("CZN_SPACING_AUDIT") in ("1", "verbose"))
+
     def _maybe_schedule_spacing_audit(self):
         """Run the UI spacing audit when asked for on the command line or
         via CZN_SPACING_AUDIT=1. No-op otherwise.
@@ -442,11 +452,7 @@ class OptimizerGUI:
         for it, and so a problem in the audit (or a missing ImageGrab on
         a non-Windows host) can't stop the app starting.
         """
-        wanted = ("--spacing-audit" in sys.argv
-                  or "--spacing-audit-verbose" in sys.argv
-                  or "--spacing-audit-freeze" in sys.argv
-                  or os.environ.get("CZN_SPACING_AUDIT") in ("1", "verbose"))
-        if not wanted:
+        if not self._spacing_audit_wanted():
             return
         verbose = ("--spacing-audit-verbose" in sys.argv
                    or os.environ.get("CZN_SPACING_AUDIT") == "verbose")
