@@ -33,13 +33,13 @@ Three documents, one audience, three depths. **The reader is a mobile or PC gach
 
 **Default to one line per change in all three.** Length is earned by a reader needing it, and most changes do not earn it. "Fixed fresh install UI being unfilled" is a complete entry.
 
-**Several small changes of one kind become one entry.** "Adjusted popup window style to match the rest of the app", not four lines about a popup's size, its tick glyphs, a dialog's spacing and a tooltip's colours. Three questions decide it, in order:
+Several small changes of one kind become one entry. "Adjusted popup window style to match the rest of the app", not four lines about a popup's size, its tick glyphs, a dialog's spacing and a tooltip's colours. Three questions decide it, in order:
 
 1. **Is the change purely visual?** If anything about what the program DOES moved, it keeps its own entry.
 2. **Would missing it cause a mistake?** A change nobody notices, and which costs nothing when unnoticed, did not need announcing.
 3. **Do the specifics help anyone use the program better** — or would they be hard to work out unaided? If yes, name them; if no, the general line is the entry.
 
-**Prefer the noun where it reaches the subject sooner.** "The sum of a combatant's Potential node levels" beats "a combatant's Potential node levels summed"; "Removed bright flashes when a tab first opens" beats "Nothing flashes light grey when a tab first opens". Not at the cost of plainness — a nominalisation that makes the sentence harder to read has lost the only argument for it.
+Prefer the noun where it reaches the subject sooner. "The sum of a combatant's Potential node levels" beats "a combatant's Potential node levels summed"; "Removed bright flashes when a tab first opens" beats "Nothing flashes light grey when a tab first opens". Not at the cost of plainness — a nominalisation that makes the sentence harder to read has lost the only argument for it.
 
 ## `README.md` — the front door
 
@@ -55,7 +55,7 @@ Only section 3 takes the self-evident filter. Sections 1 and 2 exist for a reade
 
 Active work goes under the top `## [X.Y.Z] - unreleased` section as it lands: new features → `### Added`, polish → `### Changed`, bug fixes → `### Fixed`.
 
-**Summarize at USER-FACING level** in simple English, not implementation detail. "Memory Fragments tab: the Highest Potential column shows the preset used for the score" — not "refactored `_presets_for_highest_gs` to return tuples".
+Summarize at USER-FACING level in simple English, not implementation detail. "Memory Fragments tab: the Highest Potential column shows the preset used for the score" — not "refactored `_presets_for_highest_gs` to return tuples".
 
 **Write the entry in that register when it LANDS.** An entry written from the implementation and rewritten at release costs the rewrite and loses detail nobody can recover months later.
 
@@ -63,19 +63,19 @@ Active work goes under the top `## [X.Y.Z] - unreleased` section as it lands: ne
 
 **Before adding an entry, search the unreleased section for its subject**, and amend the entry already there rather than appending a second. A fix to something this cycle added is not a separate change — it is the Added entry not having been true yet.
 
-**Churn inside a feature that shipped unfinished is not recorded at all.** Where a release said a feature was not done — `## [2.0.0]` says "The Checklist tab and the UI work are both unfinished" — fixing and reshaping it is finishing it, not changing it, and belongs in neither document. The entries that survive are the ones a player of the LAST release would notice.
+Churn inside a feature that shipped unfinished is not recorded at all. Where a release said a feature was not done — `## [2.0.0]` says "The Checklist tab and the UI work are both unfinished" — fixing and reshaping it is finishing it, not changing it, and belongs in neither document. The entries that survive are the ones a player of the LAST release would notice.
 
 **State what the program does now; the section heading says it changed.** "The Combatants tab keeps the combatant you are looking at" is the entry. Adding "it used to drop back to the first row" spends a clause on something `### Changed` already implies, and a binary change implies its own opposite. Where the new statement alone would not say WHICH thing moved, fold the contrast into it — "counts the runs you have taken, not the ones left" — rather than adding a sentence of history. This is what makes `used to` and `previously` worth grepping for in the unreleased section.
 
-**Bold marks the few entries worth catching an eye, not every entry.** A `Fixed` section usually carries none at all — a fix is expected, and bolding all of them says nothing. Where most leads are bold, none of them is.
+Bold marks the few entries worth catching an eye, not every entry. A `Fixed` section usually carries none at all — a fix is expected, and bolding all of them says nothing. Where most leads are bold, none of them is.
 
-**Group a tab's entries under the tab.** Three or more in one release become a bolded `**Combatants tab:**` parent with plain sub-bullets, rather than three entries each opening with the tab's name.
+Group a tab's entries under the tab. Three or more in one release become a bolded `**Combatants tab:**` parent with plain sub-bullets, rather than three entries each opening with the tab's name.
 
-**Nothing about hand-editing a settings file gets an entry.** Editing the JSON by hand is a fallback for when something breaks, and a way for a power user to make a bulk change; it is not a feature, and its shape moving is not news.
+Nothing about hand-editing a settings file gets an entry. Editing the JSON by hand is a fallback for when something breaks, and a way for a power user to make a bulk change; it is not a feature, and its shape moving is not news.
 
-**A fix nobody could have hit gets no entry.** A build that produced a broken executable, caught before a release went out, changed nothing a player ever ran — there is no version they could be coming from where it was wrong.
+A fix nobody could have hit gets no entry. A build that produced a broken executable, caught before a release went out, changed nothing a player ever ran — there is no version they could be coming from where it was wrong.
 
-**Use the game's own capitalisation** for anything it names: Potential, Neutrals, Combatant, Memory Fragment.
+Use the game's own capitalisation for anything it names: Potential, Neutrals, Combatant, Memory Fragment.
 
 At release, `unreleased` is replaced by a short release name (`- Multi-core`), which is also when `version.py` is bumped.
 

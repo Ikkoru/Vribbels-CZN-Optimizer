@@ -72,7 +72,7 @@ A skill is prose and takes every sweep above, plus three of its own.
 
 **The `description:` line is the trigger, and it is the part that rots.** It decides when the skill fires and nothing else does. Read it against the body: a procedure that has grown a step the description does not mention will not be reached at the moment it is needed.
 
-**Check the description against the skill's invocation mode** in `.claude/settings.local.json`. A skill set to `user-invocable-only` whose description is written as auto-fire conditions ("Use when the maintainer says…") is describing something that cannot happen; it should say what the skill DOES, since the listing is all the maintainer sees. A skill left on `on` needs the opposite — conditions concrete enough to match.
+Check the description against the skill's invocation mode in `.claude/settings.local.json`. A skill set to `user-invocable-only` whose description is written as auto-fire conditions ("Use when the maintainer says…") is describing something that cannot happen; it should say what the skill DOES, since the listing is all the maintainer sees. A skill left on `on` needs the opposite — conditions concrete enough to match.
 
 **A skill must not restate a rule another file owns.** Skills are written last and are the likeliest place for a second copy of something in `CLAUDE.md`, `.claude/rules/` or `docs/repo_conventions.md`. They hold procedure and judgement; the rules stay where they live, reached by a pointer.
 
@@ -90,7 +90,7 @@ Two shapes, both found in `constants.py`, both costing words and trust.
 
 **A comment confirming a constant is correct.** "DEF% only appears on slot 6 (game data confirmed)" tells a reader nothing they can act on, and implies that a constant WITHOUT such a line is less trustworthy. Whatever research established the value belongs in the process that set it, not beside it. Delete these; keep a note only where it says what BREAKS if the value is wrong, or why the obvious-looking alternative is not available.
 
-**The same note twice within a screen.** Repetition a few lines apart reads as two independent facts and doubles the cost of changing one. Keep the copy nearest the thing it constrains.
+The same note twice within a screen. Repetition a few lines apart reads as two independent facts and doubles the cost of changing one. Keep the copy nearest the thing it constrains.
 
 ## Verify against the artifact, not the mechanism
 

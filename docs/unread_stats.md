@@ -2,7 +2,7 @@
 
 What the game sends about the account's standings, lifetime counters, collections and mini-games, written down so that a reader for any of it starts from the fields rather than from a capture. The Sortie's, the Great Rift's and the Full-Scale Offensive's standings are shown, in the Stats & Gacha History tab's three standings lists, whose tables `Vribbels/stats_history.py` works out; nothing else here is shown yet.
 
-**The scope is stats a player would look up**: ranks, best scores, counts, what is collected. Left out are a run's own state, battle traffic, UI settings and other players' data -- *What is left out* at the end says which commands those are and why. `python docs/wire_catalogue.py` lists every key nothing reads; this is the part of that list worth a reader.
+The scope is stats a player would look up: ranks, best scores, counts, what is collected. Left out are a run's own state, battle traffic, UI settings and other players' data -- *What is left out* at the end says which commands those are and why. `python docs/wire_catalogue.py` lists every key nothing reads; this is the part of that list worth a reader.
 
 Event progress is in `docs/events.md`, which owns everything a Checklist event row needs; this file covers the rest.
 
@@ -19,7 +19,7 @@ A reader can only work off a snapshot if the capture wrote the field into one. T
 
 Each entry below says which. **A key that is not kept has no history**: the first snapshot to carry it is the first reading there will ever be, so a reader that wants a trend should start keeping before it starts reading.
 
-**The history from before snapshots kept it is read out of the debug logs, once.** `Vribbels/stats_history.py` runs the capture addon over every old log in `snapshots/`, archived and loose, into `settings/stats_history.json`: the ranking readings, the lifetime counters, and a sample per change of the account's own Great Rift and Sortie standings at every login, which no snapshot keeps as history at all. The file records the `VERSION` of the reading that wrote it, and a launch reads the logs again only where the file is missing, broken or of another version -- so a newly kept field reaches the old logs by bumping `VERSION`. The lists join the file's readings with the loaded snapshot's (`stats_history.merged`), one taken at the same moment counting once.
+The history from before snapshots kept it is read out of the debug logs, once. `Vribbels/stats_history.py` runs the capture addon over every old log in `snapshots/`, archived and loose, into `settings/stats_history.json`: the ranking readings, the lifetime counters, and a sample per change of the account's own Great Rift and Sortie standings at every login, which no snapshot keeps as history at all. The file records the `VERSION` of the reading that wrote it, and a launch reads the logs again only where the file is missing, broken or of another version -- so a newly kept field reaches the old logs by bumping `VERSION`. The lists join the file's readings with the loaded snapshot's (`stats_history.merged`), one taken at the same moment counting once.
 
 **Other players are never kept, only their numbers.** A ranking page is twenty strangers with their names, profile cards and teams, and `load/user` carries a `friend_list`. What the capture takes from a ranking page is ranks, scores and times; `check_capture_history` fails if a name, id, profile or team reaches a snapshot.
 
@@ -49,7 +49,7 @@ Each entry below says which. **A key that is not kept has no history**: the firs
 | `refresh_id` | the board's generation; pages read under one `refresh_id` are one state of it |
 | `rank_list` | the page of OTHER players. Only rank 1's `score`, `clear_time_sec` and `penalty_level` are kept |
 
-**Kept as history** under `chaos_assault_rankings`, one entry per season: its `reset_time`, and a reading per change of the first page -- `tab`, `total_count`, `rank`, `score`, `last_rank`, `top_score`, `top_clear_time_sec`, `top_penalty_level`, `read_at`, `refresh_id`. Carried from snapshot to snapshot, so a season the game has dropped stays in the newest snapshot.
+Kept as history under `chaos_assault_rankings`, one entry per season: its `reset_time`, and a reading per change of the first page -- `tab`, `total_count`, `rank`, `score`, `last_rank`, `top_score`, `top_clear_time_sec`, `top_penalty_level`, `read_at`, `refresh_id`. Carried from snapshot to snapshot, so a season the game has dropped stays in the newest snapshot.
 
 **`best_score_record` is the score times 10**7 plus a tie-break**: `reset_time + 8189199 − record_timestamp`, so on equal scores the earlier record sorts first. It holds on all 147 rows read, over both seasons on hand.
 
@@ -66,7 +66,7 @@ Each entry below says which. **A key that is not kept has no history**: the firs
 
 `chaos_assault/get_record_detail` (`timestamp`, `schedule_id`) expands one into `record_detail`: the same fields plus `penalty_ids`, `area_stage_component_ids` and `area_spot_histories` -- every spot of the run by floor, with its type and whether it was cleared.
 
-**The run's own breakdown** -- `score_detail` in `return_info.chaos_assault_result` -- says where a score came from: `district_score`, `card_score`, `fate_score`, `equip_score`, `total_score`, `final_score`, `bonus_multiplier`, `bonus_ratio`, `score_counts`, with `clear_area` and `is_best_score` beside it.
+The run's own breakdown -- `score_detail` in `return_info.chaos_assault_result` -- says where a score came from: `district_score`, `card_score`, `fate_score`, `equip_score`, `total_score`, `final_score`, `bonus_multiplier`, `bonus_ratio`, `score_counts`, with `clear_area` and `is_best_score` beside it.
 
 #### The Sortie's screens, and what each is read from
 
@@ -90,7 +90,7 @@ None of them is a reward track for clear levels: the step record `event_chaos_as
 
 **The rank moves when the account does nothing.** Two entries six days apart read rank 386 at 0.8 and rank 441 at 0.83, with every best score on the board unchanged: others overtook it. A reader shows the rank with the date it was read. **The login's rank is the one the last entry computed**, not a fresh one: a login on 2026-09-24 said 441, the entry of 09-15's, and entering a minute later said 506. Only entering the Offensive reads where it stands. `reward_count` read 9 with nine stars held, three on each of three bosses; whether it counts stars or ranking rewards is untested.
 
-**Kept as history** under `remnants_rankings`, one entry per Offensive: `stages`, each stage's best score as last read, and a reading per change -- `rank`, `rank_percent`, `reward_count`, `score` (the stages summed), `read_at`. A login's reading keeps the percentage entering the Offensive last gave where the rank has not moved since, and has none where it has. The Full-Scale Offensive Stats list gives the field as the rank over `rank_percent`, to the hundred, since the percentage comes to two decimals, then the stages' sum and each stage's score in the order of their ids; that the Offensive ranks on the sum is untested.
+Kept as history under `remnants_rankings`, one entry per Offensive: `stages`, each stage's best score as last read, and a reading per change -- `rank`, `rank_percent`, `reward_count`, `score` (the stages summed), `read_at`. A login's reading keeps the percentage entering the Offensive last gave where the rank has not moved since, and has none where it has. The Full-Scale Offensive Stats list gives the field as the rank over `rank_percent`, to the hundred, since the percentage comes to two decimals, then the stages' sum and each stage's score in the order of their ids; that the Offensive ranks on the sum is untested.
 
 ### The Great Rift's divisions
 
@@ -103,7 +103,7 @@ None of them is a reward track for clear levels: the step record `event_chaos_as
 | `week_total_score`, `week_total_score_reward`, `score_week_id` | the week's figure the Checklist reads |
 | `last_rank`, `last_rank_id` | 0 and null on the half running; on a finished half a placing a little lower than `rank` in every one on hand. Which of the two the end-of-half reward is paid on is untested. The Great Rift Stats list reads `last_rank` as where the half finished, `rank` being the last one computed while the account was looking |
 
-**`rank_id` names the subdivision**: `disaster_s<season>_rank_best_<half>_<N>`, N counting up from Bronze V to Master I. The account's `disaster_s04_rank_best_2_24` is Diamond II. The shares are the game's own, each the part of the field its subdivision reaches down to:
+`rank_id` names the subdivision: `disaster_s<season>_rank_best_<half>_<N>`, N counting up from Bronze V to Master I. The account's `disaster_s04_rank_best_2_24` is Diamond II. The shares are the game's own, each the part of the field its subdivision reaches down to:
 
 | Division | I | II | III | IV | V |
 | -------- | - | -- | --- | -- | - |
@@ -116,7 +116,7 @@ None of them is a reward track for clear levels: the step record `event_chaos_as
 
 The first season named them otherwise, `disaster_s01_h<half>_<n>`, on a scale of its own.
 
-**The ranking screen asks one division at a time**:
+The ranking screen asks one division at a time:
 
 | Command | Answers with |
 | ------- | ------------ |
@@ -128,7 +128,7 @@ The first season named them otherwise, `disaster_s01_h<half>_<n>`, on a scale of
 
 A page is twenty rows of one subdivision: `rank`, `score`, `damage_score`, `damage_score_team2`, `heal_score`, `shield_score`, `bonus_score`, `clear_time`, `list_level`, `turn_bonus`, `turn`, `rank_id` -- and who, which is not kept. **`score` is a record**: the best score times 10**8, plus `list_level` times 10**7, plus `1793239200 − clear_time` in season 4 -- so the board sorts on best score, then the higher list level, then the earlier clear. That holds on all 172 rows read, the account's own `disaster_rank_info` included; the constant is the season's own.
 
-**Kept as history** under `disaster_boss_rank_tops`: per season, per half, per subdivision seen, a sample per change of its top row -- `rank`, `best_score`, `score_record`, `list_level`, `clear_time`, `turn`, `read_at`, `refresh_id`. Carried from snapshot to snapshot, so the samples are that subdivision's top over the season.
+Kept as history under `disaster_boss_rank_tops`: per season, per half, per subdivision seen, a sample per change of its top row -- `rank`, `best_score`, `score_record`, `list_level`, `clear_time`, `turn`, `read_at`, `refresh_id`. Carried from snapshot to snapshot, so the samples are that subdivision's top over the season.
 
 **No percentage and no field size ever arrive** -- nothing like the Sortie's `total_count`. Both follow from the division pages: a division's first rank, less one, over the share above it is the field. On 2026-09-24 Diamond started at 941 below Master's 2%, Platinum at 4704 below 10%, Gold at 12228 below 26%, Silver at 23516 below 50% and Bronze at 35273 below 75%: a field of 47,000 to 47,030 by every one of them. The account's 2474 is then 5.3% down the field, inside Diamond II's band of 5 to 7%.
 

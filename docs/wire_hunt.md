@@ -46,14 +46,14 @@ The wire counts days from **2022-12-31 18:00 UTC** and stamps the number on anyt
 
 18:00 UTC is the same hour the week turns on, so `RESET_HOUR` and `DAY_EPOCH` are two measurements of one boundary and correcting either means correcting both. `checks/check_day_index.py` pins them to day numbers the game itself sent.
 
-**It does the same thing a week up.** Anything that resets weekly carries a `week_id` — the season pass's record, a disaster season's `week_clear_score`, `point_entity`, and the Great Rift standings under their own spelling `score_week_id`. `week_index(now)` is the number to compare it against: weeks are groups of seven day numbers ending on a multiple of seven, so week 193 ran days 1345–1351 and opened Sunday 18:00 UTC. Two routes reach that boundary — `next_reset` from the weekday, `week_index` from the day number — and the check holds them together.
+It does the same thing a week up. Anything that resets weekly carries a `week_id` — the season pass's record, a disaster season's `week_clear_score`, `point_entity`, and the Great Rift standings under their own spelling `score_week_id`. `week_index(now)` is the number to compare it against: weeks are groups of seven day numbers ending on a multiple of seven, so week 193 ran days 1345–1351 and opened Sunday 18:00 UTC. Two routes reach that boundary — `next_reset` from the weekday, `week_index` from the day number — and the check holds them together.
 
 **A period-stamped record is written lazily, exactly like a shop's `count`.** Nothing rolls it at the reset: the old record survives untouched into the new period and only says which period it belongs to. So the reading is the COMPARISON, not the value:
 
 * `day_id == day_index(now)` means the thing happened today, and anything lower means today is untouched. `point_entity.day_point` can read a full 100 on a day whose real total is 20.
 * `week_id == week_index(now)` likewise, and this one is worse because the figures are bigger: on the Monday after a reset the pass read a full `10000/10000`, the disaster season a full `8000/8000` and the Great Rift `300000+/300000` — three rows all saying the week's work was done in a week nothing had been done in.
 
-**A record with no stamp is read at face value.** Nothing about it can say otherwise, and refusing it blanks a row that may be perfectly current.
+A record with no stamp is read at face value. Nothing about it can say otherwise, and refusing it blanks a row that may be perfectly current.
 
 ## A weekly ALLOWANCE is topped up, not zeroed
 
@@ -72,7 +72,7 @@ So once the week has rolled past the record, what the record holds is a leftover
 
 `min(leftover + grant, cap)` covers both. **The cap is HARD** — tested in game, no amount of buying takes a holding past it — so the top-up simply stops there. 60 Aether buys one of either, which is the only thing that can move the figure between the reset and the next time the content is opened.
 
-**These are the only two numbers on the Checklist that are the game's rule rather than a reading**, so what the row shows is an EXPECTATION and is marked `~4`, `~8/9` until a capture replaces it with the real figure. A different mark from the `+?` an event floor carries: that one means *at least this much*, this one means *this, unless something the snapshot cannot see has happened*. Corroboration rather than proof: `total_amount` moved by exactly +4 and +3 across each of the last four week boundaries, and `0 → 4` and `5 → 8` are what the game showed after the reset that prompted this. `total_amount` also takes one-off gains — the cards picked up a stray +1 twice — so it confirms a rate without deriving one.
+These are the only two numbers on the Checklist that are the game's rule rather than a reading, so what the row shows is an EXPECTATION and is marked `~4`, `~8/9` until a capture replaces it with the real figure. A different mark from the `+?` an event floor carries: that one means *at least this much*, this one means *this, unless something the snapshot cannot see has happened*. Corroboration rather than proof: `total_amount` moved by exactly +4 and +3 across each of the last four week boundaries, and `0 → 4` and `5 → 8` are what the game showed after the reset that prompted this. `total_amount` also takes one-off gains — the cards picked up a stray +1 twice — so it confirms a rate without deriving one.
 
 **An Aether exchange does NOT date the record.** `item / recharge_item` with `recharge_id: recharge_6` spends 60 Aether and pays one Card, and the reply's own `doc` carries a `last_update` from hours earlier — so buying one cannot make the row exact. That is the right way round: `last_update` tracks the WEEK's grant and nothing else, which is exactly what the comparison needs.
 
@@ -86,23 +86,23 @@ Over and over the wire describes one thing in two places under ids that do not m
 
 **Its failure mode is a PARTIAL match, which looks like a small answer rather than a wrong one.** `event_devil_*` leaves its index out entirely and number the DAY in that position, so the normalised key matched day one and dropped six more days — a 21-reward event reading `3/3` with nothing to see. Where a family can be counted independently, count it and compare; `docs/events.md` has the recovery.
 
-**Use it whenever the two ids share a stem.** It fails silently if a rename breaks the stem, so it belongs with a case that shows on screen rather than one that only feeds a calculation.
+Use it whenever the two ids share a stem. It fails silently if a rename breaks the stem, so it belongs with a case that shows on screen rather than one that only feeds a calculation.
 
 **2. Match on the WINDOW.** Where both things are scheduled, two entries covering the same second-exact span are the same period. Every Combatant Trial event's window equals a `gacha_pickup_combatant_*` banner's, which is what says the event runs that banner's combatant — and where two banners share a window they share the trial event, which is then twice the size. `checklist_tab._trial_banners`.
 
-**Use it when the ids share nothing but both are dated.** It is exact when spans match to the second; treat a near-match as no match, since an off-by-an-hour pairing is a guess.
+Use it when the ids share nothing but both are dated. It is exact when spans match to the second; treat a near-match as no match, since an off-by-an-hour pairing is a guess.
 
 **3. Count inside the window instead of naming.** Where the members cannot be named, count what falls inside the period. It answers "how many" without answering "which". The trap is overlap: two trial events run together for the last week of each, and a claim then falls inside both. What rescues it is that each window names a banner, so a record named for the OTHER event's combatant belongs to that one — and the rest is capped at this event's own size, since an overlap must not read as more than a full one.
 
-**Use it when 2 pairs the periods but not the members.** Cap it, always: over-counting reads as finished, which is the one wrong answer a checklist must not give.
+Use it when 2 pairs the periods but not the members. Cap it, always: over-counting reads as finished, which is the one wrong answer a checklist must not give.
 
 **4. Learn it from the action.** Where nothing derives, one message usually names both ids at once — a claim, a purchase, an unlock. Remember the pair when it goes past, and carry it forward. `reward_combatant_trial` names the trial event and the slot; `purchase_card_animation` names the combatant and the unlock item.
 
-**Use it last, and keep what it learns.** It only sees what happens while a capture runs, so a table built this way must be seeded from the previous snapshot or it lasts one session — `capture/manager._seed_from_previous` is the pattern. Prefer it as an OVERRIDE on a derivation rather than as the only source, so a fresh install still reads something.
+Use it last, and keep what it learns. It only sees what happens while a capture runs, so a table built this way must be seeded from the previous snapshot or it lasts one session — `capture/manager._seed_from_previous` is the pattern. Prefer it as an OVERRIDE on a derivation rather than as the only source, so a fresh install still reads something.
 
 ## Events
 
-**`docs/events.md` is the canonical write-up** — the categories, how to classify one, where each kind keeps its progress, the totals the wire never states, and how to process a new event.
+`docs/events.md` is the canonical write-up — the categories, how to classify one, where each kind keeps its progress, the totals the wire never states, and how to process a new event.
 
 Two things from it are worth repeating here because they are general:
 
@@ -110,7 +110,7 @@ Two things from it are worth repeating here because they are general:
 
 **A completion FLAG beats a total.** `event_mission_reward_entities.event_achieve_state` answers "is anything left" without answering "how much was there", which turns out to be the question a checklist actually asks. Look for one of these before trying to derive a denominator.
 
-**A reading that cannot be proved complete gets a third colour.** Orange, after the floor has stood at its own ceiling for 48 hours — long enough that an event still handing out rewards daily would have moved it. It needs memory, so the record lives in `settings/checklist.json`: when a row last moved is a fact about the past and a snapshot holds only the present.
+A reading that cannot be proved complete gets a third colour. Orange, after the floor has stood at its own ceiling for 48 hours — long enough that an event still handing out rewards daily would have moved it. It needs memory, so the record lives in `settings/checklist.json`: when a row last moved is a fact about the past and a snapshot holds only the present.
 
 ## What is on the wire and what is not
 
@@ -128,19 +128,19 @@ A recurring confusion worth stating once. Two different things:
 
 So a reading built from rows the account holds says "at least", and only a stated total — a completed season's row count — makes it exact.
 
-**But WHEN a row was created is itself information.** `issued_time` is the second the game decided the row was relevant, so rows sharing one are one act of the game, and what such a batch varies says how the family is laid out: vary an early index and hold the last, and the same task is repeating per day, which makes the family a grid with a computable total. `docs/events.md` has the test and the six families it has been run against.
+But WHEN a row was created is itself information. `issued_time` is the second the game decided the row was relevant, so rows sharing one are one act of the game, and what such a batch varies says how the family is laid out: vary an early index and hold the last, and the same task is repeating per day, which makes the family a grid with a computable total. `docs/events.md` has the test and the six families it has been run against.
 
 **A stamp is rewritten, not appended.** A trial slot's `complete_time` is when its reward was LAST taken, so an earlier cycle's claims cannot be recovered from it. Only the live period can be read.
 
-**A Galactic Disaster season's schedule window is three weeks longer than the event.** `DISASTER_SEASON` opens 21 days before the content does, and through that preseason neither the shop nor the season's currency exists — so a season reading 84 days on the wire runs 63 (s04) or 70 (s03, whose first part ran four rotations instead of three). Both check out against the stated dates: s03 opened 2026.04.29 against a window from 2026.04.08, s04 on 2026.07.29 against 2026.07.08. The window's END is the event's end, so a countdown off it is right and only a LENGTH taken from it is not.
+A Galactic Disaster season's schedule window is three weeks longer than the event. `DISASTER_SEASON` opens 21 days before the content does, and through that preseason neither the shop nor the season's currency exists — so a season reading 84 days on the wire runs 63 (s04) or 70 (s03, whose first part ran four rotations instead of three). Both check out against the stated dates: s03 opened 2026.04.29 against a window from 2026.04.08, s04 on 2026.07.29 against 2026.07.08. The window's END is the event's end, so a countdown off it is right and only a LENGTH taken from it is not.
 
-**And nothing says which of a seasonal shop's PAGES is open.** No `event_schedules` group names a shop page, and `shop_res_data` sends all three from the season's first login, so a page yet to open is indistinguishable from one on sale. What dates them is the SORTIE rotation: the rotations starting inside a Galactic Disaster season are its preseason and then one per page. The purchase record is what confirms it — `shop_list` stamps `reset_time` on every buy, and this account's first purchase on page two lands at 2026-08-19 13:14 with nine more inside ten minutes, on page three at 2026-09-09 12:26 with ten, against rotations opening 08-19 01:00 and 09-09 01:00. **A season whose parts are not one rotation long is misdated** — season three ran 28 days and then two of 21 — and what that costs is the colour of a row.
+And nothing says which of a seasonal shop's PAGES is open. No `event_schedules` group names a shop page, and `shop_res_data` sends all three from the season's first login, so a page yet to open is indistinguishable from one on sale. What dates them is the SORTIE rotation: the rotations starting inside a Galactic Disaster season are its preseason and then one per page. The purchase record is what confirms it — `shop_list` stamps `reset_time` on every buy, and this account's first purchase on page two lands at 2026-08-19 13:14 with nine more inside ten minutes, on page three at 2026-09-09 12:26 with ten, against rotations opening 08-19 01:00 and 09-09 01:00. **A season whose parts are not one rotation long is misdated** — season three ran 28 days and then two of 21 — and what that costs is the colour of a row.
 
-**No achievement states its REWARD.** The shop sends definitions — `shop_res_data`, one per product, naming the item it gives and the price — and nothing else does. Every achievement payload the login burst carries (`achievements`, `disaster_achievement_entities`, `assault_achievement_entities`, `zero_orb_achievement_entities`, `mission_accumulate`, `chapter_achieve`) is the account's own progress: an id, a score, a claim time. Searched every debug capture for the live season's currency and it appears in exactly two places — a payout already made (`drop_item`, `drop_item_info`, `confirm_drop_item`, `result_reward_drop_item`) and the shop's prices. So "how much does this content pay in total" cannot be read off the wire, and anything that needs it counts by hand: `checklist_tab.SEASON_ESTIMATE` is the one place that does.
+No achievement states its REWARD. The shop sends definitions — `shop_res_data`, one per product, naming the item it gives and the price — and nothing else does. Every achievement payload the login burst carries (`achievements`, `disaster_achievement_entities`, `assault_achievement_entities`, `zero_orb_achievement_entities`, `mission_accumulate`, `chapter_achieve`) is the account's own progress: an id, a score, a claim time. Searched every debug capture for the live season's currency and it appears in exactly two places — a payout already made (`drop_item`, `drop_item_info`, `confirm_drop_item`, `result_reward_drop_item`) and the shop's prices. So "how much does this content pay in total" cannot be read off the wire, and anything that needs it counts by hand: `checklist_tab.SEASON_ESTIMATE` is the one place that does.
 
 ## Identifying a mission or a shop product
 
-**`mission_condition` is the fast route.** Any reply to an action that progressed a mission carries it, naming every mission touched, grouped by kind (`season_pass_mission`, `daily_achievement`, `achievement`, `accumulate_condition`, `disaster_achievement`, `event_mission`) and each with a `condition_type` — `CAFE_DRINK`, `VISIT`, `DAILY_LOGIN`, `CLEAR_INGAME_CONTENTS__ID`, `EVENT_BARTENDER_MAKE_COCKTAIL__ID`. One action names its own missions, so a single deliberate action identifies them without a diff.
+`mission_condition` is the fast route. Any reply to an action that progressed a mission carries it, naming every mission touched, grouped by kind (`season_pass_mission`, `daily_achievement`, `achievement`, `accumulate_condition`, `disaster_achievement`, `event_mission`) and each with a `condition_type` — `CAFE_DRINK`, `VISIT`, `DAILY_LOGIN`, `CLEAR_INGAME_CONTENTS__ID`, `EVENT_BARTENDER_MAKE_COCKTAIL__ID`. One action names its own missions, so a single deliberate action identifies them without a diff.
 
 **A row leaves the list when it completes**, so repeating the action and watching who drops out reads a ladder's thresholds off a payload that states none of them.
 
@@ -160,9 +160,9 @@ Five `limit_type` values across every shop, and which Checklist column each land
 | `NONE` | none — no cap, so nothing counts down and nothing finishes | 130 |
 | `LIMIT_BENEFIT` | none yet — 6 products, unexamined | 6 |
 
-**A product whose item no table names shows its res_id**, the same marking the Capture Log uses: a number on screen is an invitation to identify it, where a blank would be a bug nobody can see.
+A product whose item no table names shows its res_id, the same marking the Capture Log uses: a number on screen is an invitation to identify it, where a blank would be a bug nobody can see.
 
-**One shop, one currency.** Every product on a screen the Checklist lists carries the same `price_link_item_id` — checked across every screen it lists — which is what lets a shop's heading total its bill against a single holding: `<held>/<what the ticked products still cost>`. The screens that DO mix them are the ones bought with real money or Crystals, and none of those is on the tab. Two cases read as "no total" rather than as an error: the seasonal supplies are free and carry no price item at all, and the seasonal shop keeps every season it has ever run, each in its own currency, so the live-season filter is what leaves one standing.
+One shop, one currency. Every product on a screen the Checklist lists carries the same `price_link_item_id` — checked across every screen it lists — which is what lets a shop's heading total its bill against a single holding: `<held>/<what the ticked products still cost>`. The screens that DO mix them are the ones bought with real money or Crystals, and none of those is on the tab. Two cases read as "no total" rather than as an error: the seasonal supplies are free and carry no price item at all, and the seasonal shop keeps every season it has ever run, each in its own currency, so the live-season filter is what leaves one standing.
 
 ## A currency's lifetime total, and the account's age
 
@@ -190,7 +190,7 @@ That reconstruction was checked against the wire's own answer for the five curre
 
 The three misses are all in the same direction — the derived figure HIGH — which is a capture that caught `shop_list` updated and `currencies` not yet. Black Mass derives monotonically across all 36 readings and exactly one shop prices in it, which is the Sortie shop itself.
 
-**The method needs both shop payloads.** `shop_list` absent is not "nothing bought": it is the payload not having arrived, and reading the holding alone would put a total in the record that every later reading has to climb back over.
+The method needs both shop payloads. `shop_list` absent is not "nothing bought": it is the payload not having arrived, and reading the holding alone would put a total in the record that every later reading has to climb back over.
 
 It does NOT generalise past shop-only currencies: Crystals read 228721 spent against 248000 of shop purchases, and Moment of the Radiant Hero 2175 against 675 — both are spent and earned outside the shop tables.
 
@@ -227,7 +227,7 @@ The Daily Coronomicon Gift is the monthly subscription's daily reward. Everythin
 | `vi2` | gifts claimed over the pass's life | 321 against 322 days between `reset_time` and today, so one missed day |
 | `vi3` | unknown | 0 on this row |
 
-**Claiming it is `lobby / monthly_subscription_reward`**, which answers with an `item_result` — 90 Crystals (2000004) on the capture — and with the row above under a name of its own: `issued_entities`, a LIST where the login sends a dict keyed by res_id. The capture folds both into the same table, so a claim moves `vi1` and `count` as it happens rather than at the next login.
+Claiming it is `lobby / monthly_subscription_reward`, which answers with an `item_result` — 90 Crystals (2000004) on the capture — and with the row above under a name of its own: `issued_entities`, a LIST where the login sends a dict keyed by res_id. The capture folds both into the same table, so a claim moves `vi1` and `count` as it happens rather than at the next login.
 
 So a row could read **claimed today** (`vi1` against `weekly_reset.day_index(now)`, the same lazy-stamp comparison every other daily row makes) and **days left** (`expire_time` against now — 98.9 on the capture). Nothing further needs capturing.
 
@@ -235,4 +235,4 @@ So a row could read **claimed today** (`vi1` against `weekly_reset.day_index(now
 
 ## `content_*`
 
-**The Basin of Hyperspace's objectives**, three per stage, arriving with the reply to `hyperspace/get_list` — not story records. `mission_seasson_entities` (the game's own spelling) holds them per Basin season and `season_entities` the stages; the Checklist reads the scored tally as the Basin's progress. `missions_id_dump.py` skips the family for that reason: thirty rows nobody annotates.
+The Basin of Hyperspace's objectives, three per stage, arriving with the reply to `hyperspace/get_list` — not story records. `mission_seasson_entities` (the game's own spelling) holds them per Basin season and `season_entities` the stages; the Checklist reads the scored tally as the Basin's progress. `missions_id_dump.py` skips the family for that reason: thirty rows nobody annotates.

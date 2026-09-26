@@ -62,7 +62,7 @@ So the six is the multiplier ceiling of the missions it applies to, and the two 
 
 Nothing in the login payload names the targeted mission type, so this is an action test rather than a derivation — the derivation from ended events is what ships. Keep it as the tie-break for the case the derivation cannot settle: a two and a six are indistinguishable while the day's count is still at 1 or 2.
 
-**Measured, and the rule holds.** One Memory Fragment run (`simulation / enter_savedata_stage`, `res_id piece_10_10`, `drop_count 1`, 60 Aether) came back with its rewards under **`return_info.result_reward_drop_overclock`** — the doubled payout — while the live event was a two-shape. A Memory Fragment run IS what this shape doubles.
+Measured, and the rule holds. One Memory Fragment run (`simulation / enter_savedata_stage`, `res_id piece_10_10`, `drop_count 1`, 60 Aether) came back with its rewards under **`return_info.result_reward_drop_overclock`** — the doubled payout — while the live event was a two-shape. A Memory Fragment run IS what this shape doubles.
 
 The same reply settled what the fields mean, which a login payload alone never could:
 
@@ -81,7 +81,7 @@ Claiming everything on offer does not finish a Forced Daily event: tomorrow brin
 
 This is a different orange from the Open-ended one. Nothing here is unproven; the day is genuinely complete and the category alone says so, with no 48-hour settling involved.
 
-**On the LAST day it goes green.** Orange is a promise that the row comes back; on the final day it does not, and taking that day's runs finishes the event outright. `_last_cycle` asks the event's own window whether the day now running is the one that reaches its end. Where there is no window the answer has to be NO — a row that goes green a day early costs the user the last day's rewards, where one that stays orange costs nothing.
+On the LAST day it goes green. Orange is a promise that the row comes back; on the final day it does not, and taking that day's runs finishes the event outright. `_last_cycle` asks the event's own window whether the day now running is the one that reaches its end. Where there is no window the answer has to be NO — a row that goes green a day early costs the user the last day's rewards, where one that stays orange costs nothing.
 
 ### A total written down, and what takes it back
 
@@ -89,7 +89,7 @@ Some events have no knowable total and no floor worth showing either. The launch
 
 So the total is written down -- `WRITTEN_TOTALS` in `checklist_tab.py`, keyed by normalised event key -- and the event reads as Tallied against it.
 
-**Written down so the wire can take it back.** A reward past the number disproves it: `written_total` answers None from then on and the row goes straight back to reading the way its group reads, floor and all. A number typed into the program is only ever a claim about what the wire has not said yet, and this is the shape that lets one be wrong safely. Without the falsifier an eighth claimed day would read `8/7` in green.
+Written down so the wire can take it back. A reward past the number disproves it: `written_total` answers None from then on and the row goes straight back to reading the way its group reads, floor and all. A number typed into the program is only ever a claim about what the wire has not said yet, and this is the shape that lets one be wrong safely. Without the falsifier an eighth claimed day would read `8/7` in green.
 
 The same applies to a mission-tallied event: the write-down holds while the rows in hand have not gone past it.
 
@@ -125,7 +125,7 @@ A Checklist row about an event is three separate claims, and they have different
 | **A write-down** | a person deciding | the whole event | it is wrong until a reward past it proves so | `WRITTEN_TOTALS`, `written_total` |
 | **The floor** | nothing | a lower bound, always | it is only ever a lower bound | `_event_progress` |
 
-**They stack, and they cross-check.** `_event_progress` tries them in that order and takes the first that answers. Where two would answer and disagree, the weaker one is wrong: an instalment's history is the PAST and rows in hand are the present, so rows win; a write-down loses to any reward past it. A disagreement is worth noticing rather than smoothing over — it means a rule has broken, and the honest fallback is the floor.
+They stack, and they cross-check. `_event_progress` tries them in that order and takes the first that answers. Where two would answer and disagree, the weaker one is wrong: an instalment's history is the PAST and rows in hand are the present, so rows win; a write-down loses to any reward past it. A disagreement is worth noticing rather than smoothing over — it means a rule has broken, and the honest fallback is the floor.
 
 **A final reward is added to whichever of them answers**, once it is known to exist: it is one more reward than the rows, not a total of its own. See *A final reward the wire has not mentioned yet*.
 
@@ -135,7 +135,7 @@ A Checklist row about an event is three separate claims, and they have different
 
 This is the layer that would close most of what is left, and it is not built.
 
-**A page is a kind of source.** The bartender's three pages are one reward per day of the event, a ladder over guestbook entries, and ten cocktails to make. So an event's total is a sum over its pages, and each page is one of three shapes:
+A page is a kind of source. The bartender's three pages are one reward per day of the event, a ladder over guestbook entries, and ten cocktails to make. So an event's total is a sum over its pages, and each page is one of three shapes:
 
 | Page shape | Total | Read from |
 | ---------- | ----- | --------- |
@@ -147,7 +147,7 @@ The census is the middle row: **how many units of content the event has** -- whi
 
 What a family would need, then, is not a number but a RULE: `{page prefix: (which table counts its units, rewards per unit)}`. A rule survives what a number cannot — the next instalment running ten days instead of seven recomputes itself, where a written-down 24 would simply be wrong. And it is falsifiable the same way a write-down is: a page that grows past its census-derived total has disproved the rule, and the row goes back to the floor.
 
-**Worked example, `event_bartender_1`.** 7 days x 1 + 7 (ladder, whole) + 10 (cocktails) = 24 mission rewards, plus one final reward that is not a mission row at all — the one that sets the completion flag. 25 in total. The ladder's 7 is derivable on day one; the days and the cocktails were not, on anything the wire sent, and the 7 x 1 was read off the game's own screen.
+Worked example, `event_bartender_1`. 7 days x 1 + 7 (ladder, whole) + 10 (cocktails) = 24 mission rewards, plus one final reward that is not a mission row at all — the one that sets the completion flag. 25 in total. The ladder's 7 is derivable on day one; the days and the cocktails were not, on anything the wire sent, and the 7 x 1 was read off the game's own screen.
 
 ### Answering question 3
 
@@ -199,7 +199,7 @@ After 48 hours at its own ceiling a floor turns **orange** — long enough that 
 
 ## The one place the game says an event is FINISHED
 
-**`event_mission_reward_entities`.** One row per event the account has a completion record for, and the row is the answer a floor can never give:
+`event_mission_reward_entities`. One row per event the account has a completion record for, and the row is the answer a floor can never give:
 
 | Field | Is |
 | ----- | --- |
@@ -209,9 +209,9 @@ After 48 hours at its own ceiling a floor turns **orange** — long enough that 
 
 That final reward is the one that unlocks only after every other reward in the event is claimed, so the flag is a genuine "all done". `_event_finished` reads it, and a row at its ceiling with the flag set drops the `+?` and goes green. `_event_records` says which records an event owns: those at one of its roots or under it.
 
-**The claim that sets it is `mission / reward_event_limit`**, naming the record by `event_mission_id` -- the same id `complete_nodelist_event_mission_all` calls `event_id`. It answers under the bare key `entity` (*The completion flag's source*, below). **And that claim CREATES the record**: the bartender had none before it and `(0, 0, 1)` after. Nothing before the claim says a final reward is there -- no row, no red dot, nothing in the reply to the claim that took the last ordinary reward, which carried that row and its payout and nothing else.
+The claim that sets it is `mission / reward_event_limit`, naming the record by `event_mission_id` -- the same id `complete_nodelist_event_mission_all` calls `event_id`. It answers under the bare key `entity` (*The completion flag's source*, below). **And that claim CREATES the record**: the bartender had none before it and `(0, 0, 1)` after. Nothing before the claim says a final reward is there -- no row, no red dot, nothing in the reply to the claim that took the last ordinary reward, which carried that row and its payout and nothing else.
 
-**Which families pay one**, from every record the captures on hand have carried:
+Which families pay one, from every record the captures on hand have carried:
 
 | Family | Instalments with a flagged record | Record id |
 | ------ | --------------------------------- | --------- |
@@ -273,7 +273,7 @@ Overturned, `_step_progress` would take `version` as the claimed count and `rewa
 
 Two mission families can look identical — `event_devil_<day>_<task>` and `event_bartender_1_<page>_<index>` are both a name and two numbers — and mean completely different things. `event_devil_*` is a grid, 3 tasks on each of 7 days, so `max × max` is its total. The bartender's is three pages of different lengths, so `max × max` is nonsense.
 
-**`issued_time` separates them, from one snapshot.** The game creates a mission row when the mission first becomes relevant, so rows stamped with the SAME SECOND were created by one act of the game. What such a batch varies is the shape:
+`issued_time` separates them, from one snapshot. The game creates a mission row when the mission first becomes relevant, so rows stamped with the SAME SECOND were created by one act of the game. What such a batch varies is the shape:
 
 * a batch that varies an EARLIER index and holds the LAST one is the same task repeating per day — a **grid**;
 * a batch that varies only the LAST index is one page's ladder — **ragged**.
@@ -289,7 +289,7 @@ Run against the whole account, every family answers, and the answers match what 
 | `event_stock_1_<page>_<n>` | 10 rows varying `n` alone | ragged |
 | `event_policy_<n>_<m>` | 6 rows varying `m` alone | ragged |
 
-**It answers on the event's first afternoon**, which is the only time the answer is worth anything. `event_devil_*`'s grid batch and all seven of its day numbers were in the snapshot taken hours after it opened, so the 21 was derivable from day one — the `3/3` the row actually showed was the id collision under *Naming*, not a shortage of evidence.
+It answers on the event's first afternoon, which is the only time the answer is worth anything. `event_devil_*`'s grid batch and all seven of its day numbers were in the snapshot taken hours after it opened, so the 21 was derivable from day one — the `3/3` the row actually showed was the id collision under *Naming*, not a shortage of evidence.
 
 A batch that varies both indices says nothing and is ignored; `event_devil_*` has one of those too. One clean batch is enough.
 
@@ -341,7 +341,7 @@ Recorded here rather than in the code. **A total typed into the program is wrong
 
 ### The bartender keeps its own per-day record
 
-**`event_bartender_entities` is the guestbook: one row per day PLAYED**, and nothing on the Checklist reads it. It rides `event/get_list` at every login:
+`event_bartender_entities` is the guestbook: one row per day PLAYED, and nothing on the Checklist reads it. It rides `event/get_list` at every login:
 
 ```json
 "bartender_01_day_07_story_1": {
@@ -398,7 +398,7 @@ The guestbook itself is elsewhere: `event_bartender_entities` keys on `bartender
 | `reward_count` | event items SPENT ON REWARDS, lifetime | 48 → 64 when two rewards were claimed |
 | `items[4020001].amount` | what is spendable now | 4 → 0 across four puzzle-piece unlocks |
 
-**A reward costs 8 items**: two of them moved `reward_count` by 16, and the 48 standing before it is the 6 rewards the account had taken. Unlocking a puzzle piece also spends an item but does NOT move `reward_count`, so the three numbers only reconcile as `amount = event_item_count - reward_count - pieces unlocked`.
+A reward costs 8 items: two of them moved `reward_count` by 16, and the 48 standing before it is the 6 rewards the account had taken. Unlocking a puzzle piece also spends an item but does NOT move `reward_count`, so the three numbers only reconcile as `amount = event_item_count - reward_count - pieces unlocked`.
 
 That gives rewards taken (`reward_count // 8`) and rewards waiting (`amount // 8`) exactly. What is still absent is the DENOMINATOR: the event's 10 rewards and its 84 items are nowhere, and 84 ≠ 10 × 8, so the last rewards are not evenly spaced and no rate would find them anyway.
 
@@ -451,13 +451,13 @@ Matching is on a segment boundary, so `event_daily_1` cannot swallow `event_dail
 
 ### A Node List shares no word with its missions
 
-**`event_nodelist_007` owns `event_node_30115_*`**: the schedule is numbered by list and the missions by the combatant it features, and nothing on the wire links the two numbers. The define tables that look like the link (`story_event_node_list_entities`, `mission_event_node_list_story_node_entities`) cover only the oldest lists and stop there.
+`event_nodelist_007` owns `event_node_30115_*`: the schedule is numbered by list and the missions by the combatant it features, and nothing on the wire links the two numbers. The define tables that look like the link (`story_event_node_list_entities`, `mission_event_node_list_story_node_entities`) cover only the oldest lists and stop there.
 
 What does link them is time. **An instalment's rows are first issued inside its own list's window**, so `EVENT_ROW_FAMILIES` maps the schedule family to the mission family and `_event_roots` gives a list the instalment whose FIRST row its window saw. Later rows of the same instalment are issued days in and prove nothing -- `event_node_30113`'s last rows arrived eight days after its first -- so the first is what places it, and a list with no window takes nothing at all rather than every instalment ever issued. Over the three lists the logs cover, each takes exactly one instalment and no instalment goes to two.
 
 A list's rows are its missions (four pages of five, `event_node_<id>_<page>_<n>`) and its achievement page (`event_node_<id>_achievement_<n>`), 25 in all. Its completion record sits on the achievement page on four of the seven lists and on the list itself on the other three, with no pattern in the dates; `_event_records` takes a record at or UNDER the list's instalment, so both count.
 
-**What the rows are, by the update notes.** Arabella's list runs Prologue, three interrogations, and a Final Interrogation, five nodes to each interrogation, and pays a reward per node, one per stage cleared, and one for clearing everything. On the wire that is pages 2 to 5 -- the Prologue has no nodes, so there is no page 1 -- then `achievement_1` to `_5`, the stage clears -- each issued as its stage's last node opens, the Prologue's as the Prologue ends -- and the completion record, `Clear All Missions`. Every one of the 26 is on the wire. Adelheid's, Hilde's and Tiphera's lists share the screen. The story-map lists are their nodes and one final reward: Nine's 15, Diana's 16, Heidemarie's 19.
+What the rows are, by the update notes. Arabella's list runs Prologue, three interrogations, and a Final Interrogation, five nodes to each interrogation, and pays a reward per node, one per stage cleared, and one for clearing everything. On the wire that is pages 2 to 5 -- the Prologue has no nodes, so there is no page 1 -- then `achievement_1` to `_5`, the stage clears -- each issued as its stage's last node opens, the Prologue's as the Prologue ends -- and the completion record, `Clear All Missions`. Every one of the 26 is on the wire. Adelheid's, Hilde's and Tiphera's lists share the screen. The story-map lists are their nodes and one final reward: Nine's 15, Diana's 16, Heidemarie's 19.
 
 The lists on record, numbered without a gap -- a combatant with no list had another kind of event, Olga's being her Secret Diary (`event_schedule_devil_001`):
 
@@ -495,7 +495,7 @@ Claim commands seen so far, all naming the event and the records together:
 | `hyperspace / get_star_reward` | the Basin season, answering with `reward_doc` |
 | `mission / reward_event_limit` | `event_mission_id`, the completion record's id: the FINAL reward, answering under the bare `entity` |
 
-**The command says whether an event is paged.** A flat mission list claims with `complete_event_mission_all`; one with reward pages uses `complete_nodelist_event_mission_all`. The bartender uses the nodelist command although it is scheduled under `EVENT_SCHEDULE` and not `EVENT_NODELIST_PAGE`, so the schedule group is not what decides it. Only a captured claim shows this, which makes it a confirmation rather than a classifier — `issued_time` gets there first and needs no capture.
+The command says whether an event is paged. A flat mission list claims with `complete_event_mission_all`; one with reward pages uses `complete_nodelist_event_mission_all`. The bartender uses the nodelist command although it is scheduled under `EVENT_SCHEDULE` and not `EVENT_NODELIST_PAGE`, so the schedule group is not what decides it. Only a captured claim shows this, which makes it a confirmation rather than a classifier — `issued_time` gets there first and needs no capture.
 
 ### One shape for every claimable reward
 
@@ -511,9 +511,9 @@ Claim commands seen so far, all naming the event and the records together:
 
 Tables carrying it: `event_mission_entities`, the season pass's missions, `assault_achievement_entities` and `assault_char_achievement_entities`, `disaster_achievement_entities`, `achievements`, `chapter_achieve`, `savedata_mission_entities`, `zero_orb_achievement_entities` and `marble_achievement_entities`. `story_event_entities` and `event_summer_set_entities` stamp `complete_time` the same way on rows of another shape.
 
-**The claims share a shape too**: a `complete_*_all` or `*_reward_all` command naming the rows (`mission_ids`, `achievement_ids`), answered with the rows it changed -- under the table's own name, the bare `entities`, or a singular `*_entity` -- and paid under `item_result` or `result`.
+The claims share a shape too: a `complete_*_all` or `*_reward_all` command naming the rows (`mission_ids`, `achievement_ids`), answered with the rows it changed -- under the table's own name, the bare `entities`, or a singular `*_entity` -- and paid under `item_result` or `result`.
 
-**So a new event's rewards are recognisable before anything else is known about it**: a table of rows with `res_id` and `complete_time` is claimable rewards, claimed where the stamp is set. What is NOT shared is where the total comes from, which is the rest of this page.
+So a new event's rewards are recognisable before anything else is known about it: a table of rows with `res_id` and `complete_time` is claimable rewards, claimed where the stamp is set. What is NOT shared is where the total comes from, which is the rest of this page.
 
 ## Fields only ever seen in the login burst
 
@@ -539,7 +539,7 @@ Tables carrying it: `event_mission_entities`, the season pass's missions, `assau
 
 So there is nothing to merge: the cached row is patched from `received_days_after`, and the next login sends the real record.
 
-**And the reward rides in `item`**, a top-level totals envelope like any other — not in `reward_list`, which states the same payout as a delta beside it. A key that generic is guarded by its shape rather than trusted by its name; `capture/manager` takes it with `result`. Until it did, a login event's reward reached neither the Capture Log nor the item counts.
+And the reward rides in `item`, a top-level totals envelope like any other — not in `reward_list`, which states the same payout as a delta beside it. A key that generic is guarded by its shape rather than trusted by its name; `capture/manager` takes it with `result`. Until it did, a login event's reward reached neither the Capture Log nor the item counts.
 
 **`completed` is the game's own word that the streak has ENDED**, and it is the only one there is. Captured on the claim that finished `event_143` (`websocket_debug_20260914_195103.jsonl`, qid 39): `received_days_before: 6, received_days_after: 7, completed: true`. The addon keeps it on the row AND across the login that follows — the row that login sends is identical to a streak merely claimed for today, so letting it win would lose the answer for good.
 
@@ -585,7 +585,7 @@ What `current_days: 56` counts is still unknown: the account is 326 days old wit
  "entity": {"res_id": "event_bartender_1", "event_achieve_state": 1}}
 ```
 
-**Under the bare key `entity`**, which is also what a Combatant Trial claim answers under with a different row — so the addon takes it only when `event_achieve_state` is on it. Read as only the three spelled-out keys, the one reply that ever carries a completion was dropped, and `event_bartender_1` went on reading `24/24+?` with the wire having said outright that it was finished.
+Under the bare key `entity`, which is also what a Combatant Trial claim answers under with a different row — so the addon takes it only when `event_achieve_state` is on it. Read as only the three spelled-out keys, the one reply that ever carries a completion was dropped, and `event_bartender_1` went on reading `24/24+?` with the wire having said outright that it was finished.
 
 ### A completion is kept by the server; a streak's is not
 
@@ -596,7 +596,7 @@ Captured by logging in after finishing both (`websocket_debug_20260914_205131.js
 
 So the addon's copy of `completed` carries the answer through the session that saw the claim, and the program keeps its own across sessions: `ChecklistManager.remember_streak` files the event id in `settings/checklist.json` and `_recall_streaks` writes the flag back onto the login's row. Without that record a finished streak reads orange from the next start until its event ends — the honest answer for a row that cannot be told from one merely claimed today, and not the true one.
 
-**A finished streak's `version` is `2 x received_days - 1`** — 13 at seven days, 19 at ten, 27 at fourteen, 41 at twenty-one — and stops moving when the streak ends, where the year-long event's climbs on. It re-encodes what `current_days` already says and adds nothing, and three of the account's oldest rows carry `version: 0` regardless. Not a signal.
+A finished streak's `version` is `2 x received_days - 1` — 13 at seven days, 19 at ten, 27 at fourteen, 41 at twenty-one — and stops moving when the streak ends, where the year-long event's climbs on. It re-encodes what `current_days` already says and adds nothing, and three of the account's oldest rows carry `version: 0` regardless. Not a signal.
 
 ### The defences
 
@@ -618,13 +618,13 @@ So the capture worked. What it could not do was see a claim that sends no record
 
 Every event row needs the same three answers -- rewards claimed, rewards held, and whether a final reward is still owed -- and each shape seen so far has a known source for each. The work for a new event is finding which shapes it is, from as few captures as possible.
 
-**On its first day, with a capture running:**
+On its first day, with a capture running:
 
 1. **Log in once.** The login burst carries the schedule, `event/get_list` and `mission/get_list`, and the capture keeps every table in them the readers could want.
 2. **Open the event, do ONE thing that moves a mission, and claim ONE reward.** Note the time. The action's `mission_condition` names the family's rows and what each is for; the claim shows its command and where it pays. `wire_hunt.md` has the diffing recipe.
 3. **Log in again a day later.** A table whose row count has not moved was issued whole, and that is the only way to know it.
 
-**Then, from what was captured:**
+Then, from what was captured:
 
 4. **Pair it.** `python docs/events_replay.py <a word of its id>` shows what the row reads at every login; `[]` means no rows were paired. Missions named after something the schedule does not carry go in `EVENT_ROW_FAMILIES`, the way a Node List's combatant does; missions under a fixed name unlike the schedule go in `EVENT_MISSIONS`.
 5. **Recognise its shape:**

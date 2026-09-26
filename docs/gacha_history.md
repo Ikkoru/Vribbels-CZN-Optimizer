@@ -38,7 +38,7 @@ A pity record carries `pity_ssr_count` (pulls since the last 5-star), `pity_sr_c
 
 **One writer per file** is what makes an import mid-capture safe: neither process can write over what the other just wrote.
 
-**Every write goes through a checked copy**, and keeps the file it replaces:
+Every write goes through a checked copy, and keeps the file it replaces:
 
 1. The merged data is written to `<name>.tmp`.
 2. It is read back. It must equal what was meant, and every row the file held before must still be in it, unchanged.
@@ -59,9 +59,9 @@ A pickup banner names its unit in its id, `gacha_pickup_combatant_30117`, and **
 
 The names the tab shows are the notices' spelling, in `POOL_LABELS`. Players call the rate-ups the release or limited banners and the reruns the rerun banners; the Normal Rescues the permanent or normal banner; and the Observe Prism Module -- its banner is Eternal Moment, the wire's `card_factor` -- the animation or card banner.
 
-**Two families are not named after their banner's id**, which `PREFIX_POOLS` maps: the Special Rescue Request -- the beginner banner, `gacha_general_first_select_1` -- counts on `gacha_pity_first_select`, and the Partner Special Rescue event, `gacha_partner_reform_1`, on `gacha_pity_partner_reform`. Both guarantee a 5-star within 50 pulls, so the shared schedule below does not describe them, and neither can be opened once over: their rates are never read, and no luck figure is drawn for them.
+Two families are not named after their banner's id, which `PREFIX_POOLS` maps: the Special Rescue Request -- the beginner banner, `gacha_general_first_select_1` -- counts on `gacha_pity_first_select`, and the Partner Special Rescue event, `gacha_partner_reform_1`, on `gacha_pity_partner_reform`. Both guarantee a 5-star within 50 pulls, so the shared schedule below does not describe them, and neither can be opened once over: their rates are never read, and no luck figure is drawn for them.
 
-**Whether a category has a 50/50 is read from its rates**, not from its name: a Combatant rate-up splits the 5-star chance between `ssr_rate_up_success_ratio` and `ssr_ratio`, where a Partner rate-up and the Prism Module put all of it on the target and a Normal Rescue has no target. Until a banner's rates have been read, `FIFTY_FIFTY_POOLS` holds the notices' answer, so an import read before any capture still counts its 50/50s.
+Whether a category has a 50/50 is read from its rates, not from its name: a Combatant rate-up splits the 5-star chance between `ssr_rate_up_success_ratio` and `ssr_ratio`, where a Partner rate-up and the Prism Module put all of it on the target and a Normal Rescue has no target. Until a banner's rates have been read, `FIFTY_FIFTY_POOLS` holds the notices' answer, so an import read before any capture still counts its 50/50s.
 
 ## Rarity
 
@@ -71,15 +71,15 @@ The default is the thing to never reintroduce. hub-czn read an unknown unit as a
 
 The Prism Module lists card items (`card_factor_ssr_5201083`), not units, and its entries never match. The rates are kept per banner in the file, so a unit keeps its tier after its banner closes. Every 3-star is a Partner.
 
-**A unit's stars index `RARITY_COLORS` directly** -- 5 Mythic, 4 Legendary, 3 Rare -- which is what the tab draws its rows in.
+A unit's stars index `RARITY_COLORS` directly -- 5 Mythic, 4 Legendary, 3 Rare -- which is what the tab draws its rows in.
 
 ## Pity and the 50/50
 
-**Every 5-star resets the count.** The rate-up notices describe a lost 50/50 as the count running on to a guaranteed rate-up at the 140th pull, which reads like a count only a rate-up resets. Only a count reset by every 5-star reproduces the consolidated rates printed beside that text, where the other reading gives 2.78%.
+Every 5-star resets the count. The rate-up notices describe a lost 50/50 as the count running on to a guaranteed rate-up at the 140th pull, which reads like a count only a rate-up resets. Only a count reset by every 5-star reproduces the consolidated rates printed beside that text, where the other reading gives 2.78%.
 
 The schedule is the notices': the base rate to the 57th pull, 4.5 points more on each pull from the 58th through the 69th, certain on the 70th -- `SOFT_PITY_FROM`, `SOFT_PITY_STEP`, `HARD_PITY`. It is not on the wire, so `schedule_matches` holds it to what is: a banner whose stated consolidated rate the schedule does not reproduce gets no expected pity and no luck figure. The check pins it to the two published rates, 2.14343% at a 1% base and 3.52734% at 3%.
 
-**After a lost 50/50 the next 5-star is the rate-up**, whichever banner it lands on. The rate-up share the game prints, two thirds of the 5-star rate, is exactly what that guarantee gives.
+After a lost 50/50 the next 5-star is the rate-up, whichever banner it lands on. The rate-up share the game prints, two thirds of the 5-star rate, is exactly what that guarantee gives.
 
 A 5-star's outcome is `Won`, `Lost`, `Guaranteed`, `Rate-up` -- the featured unit after a stretch where nobody can say whether the last 50/50 was lost -- or `?` where the banner is unknown. A loss still makes the next 5-star a known guarantee even where its banner is unknown; one the history shows was NOT the rate-up is reported as the loss it is.
 
@@ -87,17 +87,17 @@ A 5-star's outcome is `Won`, `Lost`, `Guaranteed`, `Rate-up` -- the featured uni
 
 ## Luck
 
-**Luck** starts from `luckier_than`: the chance that a player needed MORE pulls for as many 5-stars, with half of any tie counting as luckier. Exact under the schedule: the pulls behind k 5-stars are a sum of k independent cycles, built one 5-star at a time and kept per base rate for the session (`_SUM_ODDS`).
+Luck starts from `luckier_than`: the chance that a player needed MORE pulls for as many 5-stars, with half of any tie counting as luckier. Exact under the schedule: the pulls behind k 5-stars are a sum of k independent cycles, built one 5-star at a time and kept per base rate for the session (`_SUM_ODDS`).
 
-**It is shown as a rank from the nearer end** -- `luck_rank`, `Top 12%` or `Bottom 27%` -- so the number is always the small one and the word says which way is good. A bare `Top 93%` reads as praise and means the reverse.
+It is shown as a rank from the nearer end -- `luck_rank`, `Top 12%` or `Bottom 27%` -- so the number is always the small one and the word says which way is good. A bare `Top 93%` reads as praise and means the reverse.
 
 **The tab reads nothing until it is first shown**, so that cost never lands on startup.
 
 A category is **behind** when the game's counters have moved past its history: the count since the last 5-star or the last 4-star disagreeing with what the history adds up to. **Not the pity record's `updateAt`** -- a captured single pull ticked the counters and the record's `version` and left it where it was -- though a stamp that does move past the newest record counts too, while it is within `GAME_KEEPS_DAYS`. Only for a category that has been read at least once: a finished beginner selection may have no screen left to open.
 
-**Behind is urgent once the category's records were last read more than `URGENT_AFTER_DAYS` ago**: the pulls it is missing were made since that read, so the oldest may already be past halfway to `GAME_KEEPS_DAYS`. The tab draws a behind banner orange and an urgent one red, with a line for each colour at the toolbar's right end. A category that is not behind is never urgent, however long ago it was read: it has nothing left to lose.
+Behind is urgent once the category's records were last read more than `URGENT_AFTER_DAYS` ago: the pulls it is missing were made since that read, so the oldest may already be past halfway to `GAME_KEEPS_DAYS`. The tab draws a behind banner orange and an urgent one red, with a line for each colour at the toolbar's right end. A category that is not behind is never urgent, however long ago it was read: it has nothing left to lose.
 
-**No Crystals-spent figure.** hub-czn showed pulls times 160, which is wrong for the Prism Module: it spends Prism Lens.
+No Crystals-spent figure. hub-czn showed pulls times 160, which is wrong for the Prism Module: it spends Prism Lens.
 
 ## Across categories
 
@@ -115,7 +115,7 @@ The Overall Gacha Stats sheet under the Banners list is `across_pools`, into `Ov
 - **Each pull's banner is gone.** Every Combatant rate-up, reruns included, became one name, and anything with `supporter` in its id became another -- which files the Normal Partner Rescue under the Partner rate-up.
 - **Its `rarity`, `pity` and `is_featured` are ignored**, and worked out again: the rarity was the default above, the pity followed it, and `is_featured` is `prism` masked to what it believed were 5-stars.
 
-**A pull with no banner is dated back to one** -- `dated_banner`, over `RELEASE_BANNERS` and `RERUN_BANNERS`. A release banner changes over at 02:00 UTC, on the day one closes and the next opens, and a pull gets a banner only where exactly one release of its kind was open and no rerun ran beside it. Where two releases overlapped, the pull stays unknown; where a rerun was open too, it could be the rerun's, whose pity is kept apart, and the tab says how many such pulls there are. Only imports need this: the game's own records name their banner.
+A pull with no banner is dated back to one -- `dated_banner`, over `RELEASE_BANNERS` and `RERUN_BANNERS`. A release banner changes over at 02:00 UTC, on the day one closes and the next opens, and a pull gets a banner only where exactly one release of its kind was open and no rerun ran beside it. Where two releases overlapped, the pull stays unknown; where a rerun was open too, it could be the rerun's, whose pity is kept apart, and the tab says how many such pulls there are. Only imports need this: the game's own records name their banner.
 
 **The game's own records win wherever they cover the same pulls.** An import is matched to them by record `id`, by category and second, or by second and every unit in the batch -- the last because only the units can say that two batches filed under different categories are one.
 

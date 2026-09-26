@@ -50,7 +50,7 @@ The login burst is the only long stretch of solo commands. Everything after the 
 
 The reply to `lobby / lobby_update` carries `event_schedules.GACHA`: every banner, past and upcoming, keyed `gacha_pickup_<combatant|supporter>_<res_id>[_<rerun>]`. Those ids are server-side definitions and do not depend on what the account owns, which makes them the only res_ids a unit's owner-scoped absence cannot hide. The rerun suffix follows the res_id, so the FIRST number is the unit.
 
-**The schedule is kept ONCE**, as the GACHA group of `event_schedules`; `_banners()` is what reads it out. A second copy under its own key is 2.8 KB of the snapshot saying the same thing twice, and every reader has to be told which one is current. It arrives with no roster and no inventory attached, so it must survive until a save is possible rather than being written on arrival.
+The schedule is kept ONCE, as the GACHA group of `event_schedules`; `_banners()` is what reads it out. A second copy under its own key is 2.8 KB of the snapshot saying the same thing twice, and every reader has to be told which one is current. It arrives with no roster and no inventory attached, so it must survive until a save is possible rather than being written on arrival.
 
 `_report_unknown_units` logs any banner naming a res_id absent from `KNOWN_UNIT_IDS` — the character and partner tables, injected by `_generate_addon_script` the same way `CHAR_NAMES` is. Negative placeholder keys are excluded from that set, so a unit awaiting an id still reports.
 
@@ -73,7 +73,7 @@ The excursion board and the Great Rift standings arrive in a frame carrying no r
 
 Each is replaced whole rather than merged: the reply IS the board, so a row's absence is a reading. `excursions.py` reads `char_visits`; `checklist_tab.py` reads `disaster_boss_rank_entities` for the Great Rift.
 
-**The standings arrive whole only when the Great Rift's screen lists them** (`disaster/get_list`). Every reply about one rank -- entering it, finishing a run, claiming its weekly reward -- carries that rank's row alone, as `disaster_boss_rank_entity`, singular, and it is merged into its season and slot. Without it a run's new score waits for the next time the list is opened. The row's `week_total_score_reward` reads 0 until the week's reward is claimed and the threshold after, so a 0 there is not a target.
+The standings arrive whole only when the Great Rift's screen lists them (`disaster/get_list`). Every reply about one rank -- entering it, finishing a run, claiming its weekly reward -- carries that rank's row alone, as `disaster_boss_rank_entity`, singular, and it is merged into its season and slot. Without it a run's new score waits for the next time the list is opened. The row's `week_total_score_reward` reads 0 until the week's reward is claimed and the threshold after, so a 0 there is not a target.
 
 Three more join them, for what the recurring tasks stand at. The Checklist tab reads the Activities claim off `point_entity` and lists `mission_entities`; `season_pass` is captured so a snapshot taken before anything needs it already carries the history:
 
@@ -85,7 +85,7 @@ Three more join them, for what the recurring tasks stand at. The Checklist tab r
 
 **`mission_entities` arrives in TWO shapes under one key**, which is why it is the only one of the three that is MERGED rather than replaced. The login burst sends `content_01_01_01`-style achievement rows carrying only a `score`; a pass claim sends `pass_mission_<season>_NN` rows carrying `pass_id`, `week_id`, `issued_time` and — the useful part — **`complete_time`**. A wholesale replace keeps only whichever arrived last.
 
-**A pass mission's id carries the SEASON**, which increments: the seven `pass_mission_008_NN` rows a claim sent are the Arkhianon Supply's daily and weekly missions, and season 9 renumbers every one of them.
+A pass mission's id carries the SEASON, which increments: the seven `pass_mission_008_NN` rows a claim sent are the Arkhianon Supply's daily and weekly missions, and season 9 renumbers every one of them.
 
 `docs/missions_id_dump.py` writes `docs/missions_id.tsv` from whichever capture last carried them, for annotating by hand. It reads the newest SNAPSHOT that holds missions and falls back to the newest WebSocket debug log, because a session that claimed nothing saves none and the addon's cache does not survive one. Its rows are keyed on the id with the season replaced by `*`, so a hand-typed name survives the season turning over.
 
@@ -114,15 +114,15 @@ The rest join them, all merged rather than replaced for the same reason:
 | `lifetime`, `lifetime_types`, `login_total_count` | `mission_accumulate`, `achievements`, `daily_achieve`, `achievement_entity`, the `mission_condition` of any reply, `login_total_count` | the lifetime counters, the Achievements screen and the daily tasks, merged by id and saved as lists. **What a counter counts** arrives only in the `mission_condition` of whatever moved it: written onto the row as `condition_type`, kept through the login that sends the row without it, and seeded from the previous snapshot |
 | `rift_tops`, `sortie_rankings` | `result_list` beside a `disaster_boss_rank_entity`; `my_rank` on a ranking's first page | ranking HISTORY: each Great Rift subdivision's top row as one sample per change, and each Sortie season's own standing, field size and top score. Numbers only -- a ranking page is twenty other players, and no name, id, profile or team is kept. Seeded from the previous snapshot, because the game keeps two Sortie seasons and a division top is read once per visit to its screen |
 
-**The town's daily block carries no date, and `town_visit_reset_time` is what dates it.** The coffee flag and the day's Communication Passes say nothing about which day they belong to, so a snapshot left open past a reset read a drunk coffee as still drunk. That field is the moment the game granted the day — lazily, at the first login after the reset — so a block stamped before the last reset is a finished day's and everything in it has come back. Where it is missing, `capture_time` stands in. This is what makes those rows right with no capture running.
+The town's daily block carries no date, and `town_visit_reset_time` is what dates it. The coffee flag and the day's Communication Passes say nothing about which day they belong to, so a snapshot left open past a reset read a drunk coffee as still drunk. That field is the moment the game granted the day — lazily, at the first login after the reset — so a block stamped before the last reset is a finished day's and everything in it has come back. Where it is missing, `capture_time` stands in. This is what makes those rows right with no capture running.
 
 **Two payloads arrive at the TOP LEVEL where the cache holds them nested.** `day_changeable_data` (the coffee flag, the excursion count) belongs under `characters.town_data`, and `new_char_visit` is one row of the `char_visits` board. Ordering a coffee or running an excursion sends each on its own, so without merging them the cache keeps whatever the login said and the Checklist reads a stale flag all session.
 
 **At LOGIN the pass missions arrive somewhere else entirely**, nested as `season_pass_missions[<pass id>][<mission id>]` rather than in the flat `mission_entities` list — which is why a snapshot held the thirty `content_*` rows and none of the twenty-odd pass ones. Both shapes fold into one cache.
 
-**`mission_entity`, singular, is the claim.** A mission's `complete_time` is set when its REWARD IS CLAIMED, not when the task is finished, and the frame that sets it sends that one row rather than the list.
+`mission_entity`, singular, is the claim. A mission's `complete_time` is set when its REWARD IS CLAIMED, not when the task is finished, and the frame that sets it sends that one row rather than the list.
 
-**A Sortie rung is complete only when `complete_time` is set.** `sortie_progress.py` applies that to both ladders.
+A Sortie rung is complete only when `complete_time` is set. `sortie_progress.py` applies that to both ladders.
 
 - Both ladders are sparse — nothing is sent for a rung the game has not offered — so row presence is not completion.
 - An ACHIEVEMENT row is issued while its rung is still in progress. Its presence says only that the rung is live.
@@ -131,11 +131,11 @@ The rest join them, all merged rather than replaced for the same reason:
 - `acquired_count` is not a flag. It reaches 3 on title rungs that count once each.
 - Ladder LENGTHS are constants in `sortie_progress.py`. Unearned rungs send nothing, so the wire cannot state them, and a rung arriving past the end is the one sign the game has lengthened one.
 
-**Every save prints `[SYNC] saved`, and that is what the app reloads on.** The human-readable `Saved:` line is suppressed when it would repeat the previous line word for word — and the login burst saves several times with identical counts, the first as soon as the inventory lands and the later ones carrying the shops, the schedules and the missions. A reload riding on the readable line was therefore skipped for exactly those saves, so the app sat on the first save's snapshot for the whole session. The marker is consumed by the reader and never shown, and it is deliberately not remembered as "the last line" — doing so would sit between two identical reports and stop either reading as a repeat. `checks/check_addon_template.py` holds the reader's copy of the literal equal to the addon's.
+Every save prints `[SYNC] saved`, and that is what the app reloads on. The human-readable `Saved:` line is suppressed when it would repeat the previous line word for word — and the login burst saves several times with identical counts, the first as soon as the inventory lands and the later ones carrying the shops, the schedules and the missions. A reload riding on the readable line was therefore skipped for exactly those saves, so the app sat on the first save's snapshot for the whole session. The marker is consumed by the reader and never shown, and it is deliberately not remembered as "the last line" — doing so would sit between two identical reports and stop either reading as a repeat. `checks/check_addon_template.py` holds the reader's copy of the literal equal to the addon's.
 
 **The snapshot's temp-file replace can be refused.** Windows returns `[WinError 5] Access is denied` while another process holds the destination open — the app reading it, an indexer, an antivirus. `_save_data` retries; a save that still cannot land says so and leaves the previous snapshot intact.
 
-**A Communication Pass is in none of them, because it is in nothing.** Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.
+A Communication Pass is in none of them, because it is in nothing. Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.
 
 ## The item counts arrive once, and change through seven keys and a sweep
 
@@ -150,7 +150,7 @@ The rest join them, all merged rather than replaced for the same reason:
 
 `doc` is the item's whole record in the shape the cache already holds, and **`doc.amount` is the TOTAL, not the change** — so `_apply_totals` writes it in rather than adding `diff`, and a frame arriving twice cannot double a count. Items are a list keyed by `res_id` and currencies a dict keyed by the same id as a string; an id not yet held is appended.
 
-**`drop_item_result` and `chaos_free_reward_result` are the exception**: a stage's rewards and a Chaos or encounter report screen's, as a LIST with one entry per drop and no record at all —
+`drop_item_result` and `chaos_free_reward_result` are the exception: a stage's rewards and a Chaos or encounter report screen's, as a LIST with one entry per drop and no record at all —
 
 ```
 [{"id": 3120012, "amount": 2, "cur_drop_count": 1}, {"id": 3120012, "amount": 3, "cur_drop_count": 2}, ...]
@@ -178,7 +178,7 @@ So `_nested_rewards` sweeps `return_info` by SHAPE rather than by name — the n
 
 This is what a Sortie pays at its report screen, and reading only the reply's own keys is why every Sortie finished in silence. The entry itself is `chaos_assault/enter_assault` (Aether −10) and each area's reward is `chaos_assault/receive_area_reward`, which charges a Reason under `dec_result` and pays under `item_result` — both already read.
 
-**The log's word is picked from the SIGNS, not from the key.** A Sortie's entry fee is CHARGED through `item_result`, so reading the key announces it as a receipt: `Received Aether -10`. Where every figure in a payload moved the same way that is the answer; a payload with movement both ways falls back to the key.
+The log's word is picked from the SIGNS, not from the key. A Sortie's entry fee is CHARGED through `item_result`, so reading the key announces it as a receipt: `Received Aether -10`. Where every figure in a payload moved the same way that is the answer; a payload with movement both ways falls back to the key.
 
 ### A Sortie's fields nothing reads
 
@@ -196,13 +196,13 @@ A redirect block left in the hosts file by a run that ended without removing it 
 
 **Nothing on the reader thread calls into Tk.** tkinter hands a Tk call from another thread to the UI thread and WAITS for it -- `root.after` included -- so a reader that scheduled its lines sat behind every snapshot reload, reading nothing off the proxy's pipe until the UI thread was free, and the proxy stops at its next print once that pipe fills. So `capture_log_msg`, `set_capture_status` and `set_detected_region` put an off-thread call in the Capture tab's inbox, and `live_update_callback` and the gacha callback only set flags. `OptimizerGUI._poll_capture`, every `CAPTURE_POLL_MS` on the UI thread, writes the lines out, then runs the reload if one was asked for, then writes the lines that arrived during it. Keep it that way when adding log callers; `check_tabs_build` holds a hand-off to returning while the UI thread is held.
 
-**Only the save marker asks for a reload.** A `[LIVE]` line is printed while its reply is handled, before the save it leads to, so a reload it asked for would read the old file; and each extra ask is a whole reload on the UI thread. The flag coalesces the rest: saves that land during a reload get one more after it.
+Only the save marker asks for a reload. A `[LIVE]` line is printed while its reply is handled, before the save it leads to, so a reload it asked for would read the old file; and each extra ask is a whole reload on the UI thread. The flag coalesces the rest: saves that land during a reload get one more after it.
 
 ### Timing a line, under Debug WS
 
-**A line that reaches the Capture Log late was held by the game or by the program**, and Debug WS says which. The addon puts `LAG_MARKER` and three times after every line it prints while handling a reply: when that reply's request went out (by qid, from the proxy's own message timestamp), when the reply came in, and when the line was printed. `split_lag` takes it off in the reader, first thing, so every later test of the line sees the text the addon wrote; the reader adds when it read the line, and `capture_log_msg` shows the four gaps after it in dim text -- `server`, `capture`, `pipe`, `UI`, in milliseconds. `UI` is taken on the UI thread, so the wait in the inbox is inside it, and an `Upgraded` line's includes the reload it waits for (below).
+A line that reaches the Capture Log late was held by the game or by the program, and Debug WS says which. The addon puts `LAG_MARKER` and three times after every line it prints while handling a reply: when that reply's request went out (by qid, from the proxy's own message timestamp), when the reply came in, and when the line was printed. `split_lag` takes it off in the reader, first thing, so every later test of the line sees the text the addon wrote; the reader adds when it read the line, and `capture_log_msg` shows the four gaps after it in dim text -- `server`, `capture`, `pipe`, `UI`, in milliseconds. `UI` is taken on the UI thread, so the wait in the inbox is inside it, and an `Upgraded` line's includes the reload it waits for (below).
 
-**What none of them can see is the game holding an action before it sends the request.** A late line whose four numbers are small was held there, and nothing here can shorten that. A message the server pushes unasked has no request, so it shows no `server`.
+What none of them can see is the game holding an action before it sends the request. A late line whose four numbers are small was held there, and nothing here can shorten that. A message the server pushes unasked has no request, so it shows no `server`.
 
 The marker exists twice, the addon's and the reader's, and `checks/check_capture_lag.py` holds them equal and drives the real addon with and without debug mode.
 
@@ -210,7 +210,7 @@ The marker exists twice, the addon's and the reader's, and `checks/check_capture
 
 Both measured off the captures on disk rather than estimated.
 
-**Two things grow with the capture, and neither bounds itself.** `saved_path` is chosen once per addon instance and rewritten on every save, so without a rotation a month of capture is one `memory_fragments_*.json` — the newest state, with no history behind it. The debug log has no ceiling at all and is flushed on every frame. What each is answered with is below.
+Two things grow with the capture, and neither bounds itself. `saved_path` is chosen once per addon instance and rewritten on every save, so without a rotation a month of capture is one `memory_fragments_*.json` — the newest state, with no history behind it. The debug log has no ceiling at all and is flushed on every frame. What each is answered with is below.
 
 ### A debug log's size, per session
 
@@ -226,7 +226,7 @@ A capture averages 2.7 MB uncompressed, so a month of daily play is on the order
 
 ### Compressing and rotating the debug log
 
-**The log is gzipped, one MEMBER per line.** `websocket_debug_*.jsonl.gz`, still one JSON object per line — a reader opens it with `gzip.open(path, "rt", encoding="utf-8")` and changes nothing else.
+The log is gzipped, one MEMBER per line. `websocket_debug_*.jsonl.gz`, still one JSON object per line — a reader opens it with `gzip.open(path, "rt", encoding="utf-8")` and changes nothing else.
 
 A member per line rather than one stream over the file, because **a stream is readable only once its end marker is written** and an always-on capture ends by being killed. A sync-flush does not help: Python's `gzip` refuses the file outright with `EOFError`. Per line, the file is complete after every single write, and the ratio barely moves:
 
@@ -235,7 +235,7 @@ A member per line rather than one stream over the file, because **a stream is re
 | one login | 13.2x | 12.7x |
 | session with play | 12.6x | 10.7x |
 
-**Dedup was measured and not taken.** Two logins three minutes apart were byte-for-byte identical in **1802.7 KB of 1815.9**. Only 13.2 KB differed, and half of that was the auth cookie:
+Dedup was measured and not taken. Two logins three minutes apart were byte-for-byte identical in **1802.7 KB of 1815.9**. Only 13.2 KB differed, and half of that was the auth cookie:
 
   | Payload | Changed |
   | ------- | ------- |
@@ -250,7 +250,7 @@ So the login burst — the bulk of every capture — is almost pure repetition b
 
 Four signals look like a new game and three of them are traps. **This game drops its connection often**, and a reconnect closes and reopens the websocket, redoes the handshake and re-sends the lobby — so `websocket_end` fires, `helo` arrives with its `qid: 1` and its device block, `lobby_update` comes back with `from_title: true`, and a fresh `session` token is issued. An evening with a few dropped connections is indistinguishable from an evening of relaunches by any of them.
 
-**`characters.user.last_login_tm` is the marker**, because a reconnect resumes and only a login logs in. Three snapshots written across one evening of dropped connections carried it identical to the second — as they did `activated_tm` and the account payload's own `server_time` — where the launch before them differed.
+`characters.user.last_login_tm` is the marker, because a reconnect resumes and only a login logs in. Three snapshots written across one evening of dropped connections carried it identical to the second — as they did `activated_tm` and the account payload's own `server_time` — where the launch before them differed.
 
 | Signal | On a relaunch | On a reconnect |
 | ------ | ------------- | --------------- |
@@ -267,9 +267,9 @@ Four signals look like a new game and three of them are traps. **This game drops
 
 Kept in `settings/wire_catalogue.json` — beside the settings rather than among the captures, since the snapshots folder is the one that gets emptied — and whether or not debug logging is on.
 
-**Only on a working copy.** The `zRUN*.bat` launchers set `VRIBBELS_DEV`; a frozen exe has no way to, and without it the catalogue is off entirely: nothing recorded and nothing written, so a released build's capture is untouched by any of it. It is a switch rather than a setting because a setting would ship to everyone and want explaining, and what it guards is of no use to anybody who is not reading the wire.
+Only on a working copy. The `zRUN*.bat` launchers set `VRIBBELS_DEV`; a frozen exe has no way to, and without it the catalogue is off entirely: nothing recorded and nothing written, so a released build's capture is untouched by any of it. It is a switch rather than a setting because a setting would ship to everyone and want explaining, and what it guards is of no use to anybody who is not reading the wire.
 
-**The marker has to survive the elevation.** Capture needs Administrator, so the program relaunches itself through `ShellExecuteW`'s "runas" -- which starts the new process with a FRESH environment. The elevated copy is the one that captures, and it never saw the variable, so every session that accepted the UAC prompt ran with the catalogue off. `DEV_FLAG` rides the relaunch on the command line and `_adopt_dev_flag` reads it back, **only where the program is running from source**: a frozen build ignores the flag whoever types it, so the switch is still closed by construction rather than by trust.
+The marker has to survive the elevation. Capture needs Administrator, so the program relaunches itself through `ShellExecuteW`'s "runas" -- which starts the new process with a FRESH environment. The elevated copy is the one that captures, and it never saw the variable, so every session that accepted the UAC prompt ran with the catalogue off. `DEV_FLAG` rides the relaunch on the command line and `_adopt_dev_flag` reads it back, **only where the program is running from source**: a frozen build ignores the flag whoever types it, so the switch is still closed by construction rather than by trust.
 
 One entry per `command|key` seen, with a count, first and last sighting, the type and a 200-character sample:
 
@@ -281,17 +281,17 @@ One entry per `command|key` seen, with a count, first and last sighting, the typ
 
 The command comes from the qid the reply answers, which the addon has seen go past on the request. A reply with no qid, or one whose request predates the capture, is filed under `?`.
 
-**It is the record that makes an unread field visible.** `entity` and `issued_limit_entities` were both found this way: no amount of reading the addon would have said so — a field nobody reads leaves no trace in the code. `docs/wire_catalogue.py` prints the catalogue against the keys the addon actually asks for, deriving the second half from the source so the two cannot drift.
+It is the record that makes an unread field visible. `entity` and `issued_limit_entities` were both found this way: no amount of reading the addon would have said so — a field nobody reads leaves no trace in the code. `docs/wire_catalogue.py` prints the catalogue against the keys the addon actually asks for, deriving the second half from the source so the two cannot drift.
 
-**The captures taken before it exists are foldable in**: `docs/wire_catalogue_backfill.py` replays a debug log through the real addon with only the clock replaced, so each sighting is filed under the frame's own timestamp. It reports by default and writes on `--write`, and it reads the uncompressed captures only — compression and the catalogue arrived together, so a `.jsonl.gz` has been catalogued already and folding it in would count one sighting twice.
+The captures taken before it exists are foldable in: `docs/wire_catalogue_backfill.py` replays a debug log through the real addon with only the clock replaced, so each sighting is filed under the frame's own timestamp. It reports by default and writes on `--write`, and it reads the uncompressed captures only — compression and the catalogue arrived together, so a `.jsonl.gz` has been catalogued already and folding it in would count one sighting twice.
 
 It MERGES with what is on disk: counts add, the first sighting is the earlier. It must not also start from the file — that would fold the whole history into itself on every write, and one sighting would read as three.
 
-**Qids restart at 1 with each `helo`**, which is why `_forget_pending` exists: the pending-intent maps are keyed by qid, and an intent left unanswered by a game that went away would otherwise be claimed by an unrelated reply from the next one.
+Qids restart at 1 with each `helo`, which is why `_forget_pending` exists: the pending-intent maps are keyed by qid, and an intent left unanswered by a game that went away would otherwise be claimed by an unrelated reply from the next one.
 
 ### Saving reports itself only when it changes
 
-**A save reports itself only when it would say something new** — a different file, or different counts. The suppression is keyed on those figures and not on the last line logged: any `[LIVE]` line in between, and there is one after every upgrade, delete and reward, would otherwise put the same numbers back on screen, and an evening of capture reads as that one sentence repeated.
+A save reports itself only when it would say something new — a different file, or different counts. The suppression is keyed on those figures and not on the last line logged: any `[LIVE]` line in between, and there is one after every upgrade, delete and reward, would otherwise put the same numbers back on screen, and an evening of capture reads as that one sentence repeated.
 
 What is left is the file being written, the numbers moving, and — loudly — a save that FAILS. The write is wrapped for that: unwrapped, an `OSError` surfaces through the frame handler's own catch as a bare `Error:` with no mention of a snapshot, in a log whose every other line is about the game.
 
@@ -303,11 +303,11 @@ What is left is the file being written, the numbers moving, and — loudly — a
 
 **One archive, rebuilt, never appended to.** Consecutive snapshots are near-identical and that only pays inside ONE compression stream: measured over 114 real captures, a solid rebuild came to 242 KB where compressing each file alone came to 7.0 MB. Rebuild cost is proportional to the whole archive, which is what the water marks are for — a rebuild per file would pay the whole cost every time and lose the ratio as well.
 
-**"Old" is positional, not temporal.** A file is a candidate when it is the Nth back from the newest of its own kind, so what the program reads is never in reach however long ago it was written. `KINDS` carries both marks per kind, and is the only place they are written down — snapshots and logs compact at different counts, since a log is the bigger file and nothing shipped reads an old one.
+"Old" is positional, not temporal. A file is a candidate when it is the Nth back from the newest of its own kind, so what the program reads is never in reach however long ago it was written. `KINDS` carries both marks per kind, and is the only place they are written down — snapshots and logs compact at different counts, since a log is the bigger file and nothing shipped reads an old one.
 
 **A loose file is deleted only after its archived copy has been read back and its SHA-256 matched**, in that same pass, and `_delete` refuses anything that is not directly in the folder, not named like a capture, or not verified — `_capture_addon.py` sits in that directory. A verification mismatch is never retried: either the archive is wrong or the file changed underneath, and both want a human, so the run stops with the old archive untouched. A file that will not open, or will not delete, is left loose for the next compaction instead of failing the run.
 
-**Logs go in decompressed.** xz cannot shrink a `.gz`, and ungzipping on the way in recovers about 85% of a log's archived size. `gzip.open` streams straight into the tar, so nothing is written to a temporary file, and the member keeps the `.jsonl` name.
+Logs go in decompressed. xz cannot shrink a `.gz`, and ungzipping on the way in recovers about 85% of a log's archived size. `gzip.open` streams straight into the tar, so nothing is written to a temporary file, and the member keeps the `.jsonl` name.
 
 ## Upgraded-line augmentation
 
@@ -319,6 +319,6 @@ Which presets reach the line is decided in `_upgrade_potentials_suffix`. Beyond 
 - **ATK/DEF** — read off the combatant's ATK/DEF Split: 0-33 rejects a DEF% main, 67-100 rejects an ATK% main, the band between accepts both. Keyed on the main stat rather than the slot, so it covers ATK% in slots IV, V and VI as well as DEF% in slot VI.
 - **DPS HP% / DPS Ego** — a combatant whose Shielding & Healing weight is 45 or less counts as a damage dealer and rejects an HP% main (slots IV, V, VI) or an Ego main (slot VI). Two separate filters.
 
-**A preset survives if ANY of its selected combatants accepts the fragment** — the line lists presets, not combatants, and one preset can be assigned to combatants of different elements, scaling or roles.
+A preset survives if ANY of its selected combatants accepts the fragment — the line lists presets, not combatants, and one preset can be assigned to combatants of different elements, scaling or roles.
 
-**A ceiling in the Mythic colour beats what the preset's combatant wears.** From `MYTHIC_FROM_LEVEL` on, `_beats_equipped` scores the fragment the combatant has in the same slot under the same preset, as the Memory Fragments tab would, and marks the preset where the new fragment's ceiling prints higher than that one's -- its Potential, where it has no upgrades left. Only for a preset assigned to exactly one combatant, and never for an empty slot: a combatant with nothing on is not in use. The capture tab's `_mark_beaten` finds the number by the preset's name ENDING its entry, so `Nine` does not take the ceiling of `Nine (Line of Justice)`.
+A ceiling in the Mythic colour beats what the preset's combatant wears. From `MYTHIC_FROM_LEVEL` on, `_beats_equipped` scores the fragment the combatant has in the same slot under the same preset, as the Memory Fragments tab would, and marks the preset where the new fragment's ceiling prints higher than that one's -- its Potential, where it has no upgrades left. Only for a preset assigned to exactly one combatant, and never for an empty slot: a combatant with nothing on is not in use. The capture tab's `_mark_beaten` finds the number by the preset's name ENDING its entry, so `Nine` does not take the ceiling of `Nine (Line of Justice)`.

@@ -17,13 +17,13 @@ Where text is one end of the gap, the reference is the BASELINE below and the CA
 
 **This holds for every vertical distance involving text, with no exceptions.** Where a string has no capital at all, the reference below it is the baseline of an ordinary non-ascender.
 
-**Two ways to obey it, and the second is better where it is available.** The correction tables below restate a reading taken from the ink as one taken from the reference — which needs a number per glyph class, per face. Narrowing the SCAN to a single capital needs none: both ends of the reading land on the reference by construction. `_capital_row_pitch` and the text panels' top inset do that, and they do it because their strings defeat the tables — `[OK] Python 3.13` opens on a bracket that clears the cap AND drops below the baseline, and Segoe UI Variable Small's ascenders clear its capitals where Segoe UI's do not.
+Two ways to obey it, and the second is better where it is available. The correction tables below restate a reading taken from the ink as one taken from the reference — which needs a number per glyph class, per face. Narrowing the SCAN to a single capital needs none: both ends of the reading land on the reference by construction. `_capital_row_pitch` and the text panels' top inset do that, and they do it because their strings defeat the tables — `[OK] Python 3.13` opens on a bracket that clears the cap AND drops below the baseline, and Segoe UI Variable Small's ascenders clear its capitals where Segoe UI's do not.
 
-**Wherever a row has a capital, read it at the capital.** In a column of rows that means both ends of every pitch, on every row nothing stops from being read that way. The tables and a whole-row ink reading are for what cannot be indexed to a capital: a row with none, a row whose label is an embedded widget, a title found by its own words where the audit has the string but not a font to measure it in. The reading's note names each row that fell back to ink.
+Wherever a row has a capital, read it at the capital. In a column of rows that means both ends of every pitch, on every row nothing stops from being read that way. The tables and a whole-row ink reading are for what cannot be indexed to a capital: a row with none, a row whose label is an embedded widget, a title found by its own words where the audit has the string but not a font to measure it in. The reading's note names each row that fell back to ink.
 
 **The capital's position is where the widget drew it, never where measuring the string puts it.** A Text line can reach its first capital through a tab stop, or under a tag's font, and `font.measure` knows neither: on `50/50s won<tab>Bottom` the measured offset lands inside the words before the tab, the scan reads a slash two below the baseline, and the row comes out two short while still claiming a capital reading. An embedded widget does the same to a count: it takes an index the line's string does not show. `_capital_band` has the Text find the capital and asks it for that character's box; `checks/check_capital_band.py` holds all three cases.
 
-**The audit sees INK, so it corrects what it sees.** A descender hangs below the baseline and a tall ascender clears the capitals, so a raw reading is tighter than the rule asks by however far the string's glyphs overshoot. `ui/spacing_registry.py` adds that back at the point of measurement.
+The audit sees INK, so it corrects what it sees. A descender hangs below the baseline and a tall ascender clears the capitals, so a raw reading is tighter than the rule asks by however far the string's glyphs overshoot. `ui/spacing_registry.py` adds that back at the point of measurement.
 
 **The correction always ADDS, whichever end of the gap the text is on.** Ink overshoots INTO the gap in both directions — a descender hangs down into a gap below the text, an ascender rises up into a gap above it — so the raw reading is short either way. Treating the two as opposites is the one mistake this is easy to make, and it costs 2px: one for the correction going backwards and one for the target having moved to meet it.
 
@@ -79,7 +79,7 @@ Where a side has background on NO line — the list spans that panel's full widt
 
 It shows up as a single pixel, in whichever column a formula sizes from a measured string: the ATK/DEF row's name column wanting one more than the damage rows', or `4pc` sitting a different distance from its indicator than `2pc`.
 
-**`FRINGE_LIGHTNESS` is what closed most of it.** Counting a column as ink only past a lightness threshold puts the ink edge where the eye puts it, which is usually where the advance is — see "The audit's definition of ink". A pixel that survives that is a real difference between two strings, and a per-site constant for it would tie a number to today's text.
+`FRINGE_LIGHTNESS` is what closed most of it. Counting a column as ink only past a lightness threshold puts the ink edge where the eye puts it, which is usually where the advance is — see "The audit's definition of ink". A pixel that survives that is a real difference between two strings, and a per-site constant for it would tie a number to today's text.
 
 **A grid `minsize` is a FLOOR, not a width, and a fixed-width label's slack lands on the side its anchor points away from.** Two ways a column that looks pinned is not:
 
@@ -101,9 +101,9 @@ This bites where one label carries an entry on each side of it: the two gaps loo
 
 Two panels are that case. Side by side, both ends of the gap are borders and `content frame -> content frame` governs. Stacked, the lower panel's topmost ink is its TITLE, drawn above its own border — so what sits across the gap is text, the text rule is nearer, and `panel ↕ unrelated label` governs at 10px. That title belongs to the panel BELOW, so relative to the panel above it is unrelated text.
 
-**A stacked pair's pads therefore do not match a side-by-side pair's**: the content-frame rule's 2+2 renders 7, and 10 needs more.
+A stacked pair's pads therefore do not match a side-by-side pair's: the content-frame rule's 2+2 renders 7, and 10 needs more.
 
-**The 10 serves two shapes**: a panel with the next panel's title beneath it, and text — a tab heading, a header control — with a panel beneath it. A heading above the first panel on its tab is the same distance seen from the other side.
+The 10 serves two shapes: a panel with the next panel's title beneath it, and text — a tab heading, a header control — with a panel beneath it. A heading above the first panel on its tab is the same distance seen from the other side.
 
 ### Markers
 
@@ -200,13 +200,13 @@ A rule name is spelled in three places (this table, a `RULE_*` constant, every m
 
 **A Text sizes in CHARACTERS and LINES, and neither can say what a window needs to the pixel.** `width` reserves whole cells, so what is left after the last glyph lands on the RIGHT inset and nothing inside the widget reaches it; `height` multiplies the font's linespace, so a per-line `spacing3` changes what is drawn and not what the widget asks for. The contributions popup rounds both up and takes the difference off the WINDOW, which its text field absorbs because it is the only child packed to expand.
 
-**A gap inside a window the app opens over the main one names that window.** A screenshot covers one window, so `track(window=...)` takes a callable returning the widget to photograph, and a scenario opens that window first and destroys it after. The Stat Contributions popup and the Restore Defaults dialog are the two.
+A gap inside a window the app opens over the main one names that window. A screenshot covers one window, so `track(window=...)` takes a callable returning the widget to photograph, and a scenario opens that window first and destroys it after. The Stat Contributions popup and the Restore Defaults dialog are the two.
 
-**A window sized to its content is sized to the WIDEST of its children, and the one that expands stretches to whatever wins.** Three things beat the contributions popup's text field to it: the Close button, the minimum width a window manager grants a titled window, and the field's own character grid rounding up. Each puts pixels between the last glyph and the field's border that no padding at the site can reach. **A gap measured inside an expanding child is a reading of that child only while the child sets the size.**
+A window sized to its content is sized to the WIDEST of its children, and the one that expands stretches to whatever wins. Three things beat the contributions popup's text field to it: the Close button, the minimum width a window manager grants a titled window, and the field's own character grid rounding up. Each puts pixels between the last glyph and the field's border that no padding at the site can reach. **A gap measured inside an expanding child is a reading of that child only while the child sets the size.**
 
 **Locate a control in one of those by CLASS as well as by words.** `Restore ` finds the panel titled `Restore Missing` before it finds the Restore button, and reports the 4px between the buttons as 307.
 
-**The tooltip has no measured gap and no scenario.** Its inset is the one thing left that wants a scan inside a filled widget with no second widget to measure against: the tip window IS the label, so there is no pair to read. `_text_inset` reaches the popup's Text because a Text's own box edge is the border its prose is inset from; a Label's is not.
+The tooltip has no measured gap and no scenario. Its inset is the one thing left that wants a scan inside a filled widget with no second widget to measure against: the tip window IS the label, so there is no pair to read. `_text_inset` reaches the popup's Text because a Text's own box edge is the border its prose is inset from; a Label's is not.
 
 - **"Title above, element below" measures to the first painted pixel below the title, INCLUDING a border.** A LabelFrame's title sits above its own top border, so that border is usually what the rule measures to. The border-to-content gap is a separate measurement; adding the two gives a number two or three times the target.
 - **Slack is left alone.** Where a frame is stretched larger than its content, the far edges have space nothing put there (`Character`'s bottom, `Requirements`' right).
@@ -242,9 +242,9 @@ Body text is **Segoe UI 9**; the three panels of running prose are **Segoe UI Va
 | Segoe UI                | 12 bold | 17     | 4       | 21        | the Materials tab's Element names |
 | Consolas                | 10      | 12     | 3       | 15        | the contributions popup, which is ASCII so every character is one 7px cell |
 
-**Variable Small stands a pixel taller than Segoe UI below 11** — one more of ascent, the same descent — and that pixel lands above the first glyph, so a panel changing size owes its `pady` the difference. At 11 the two share a line box, and Variable Small **8** is the exact metric twin of Segoe UI 9 (12/3/15).
+Variable Small stands a pixel taller than Segoe UI below 11 — one more of ascent, the same descent — and that pixel lands above the first glyph, so a panel changing size owes its `pady` the difference. At 11 the two share a line box, and Variable Small **8** is the exact metric twin of Segoe UI 9 (12/3/15).
 
-**Its ascenders clear its capitals, where Segoe UI's do not.** That is why the three panels set in it read their top inset off the first CAPITAL rather than off the line's topmost ink.
+Its ascenders clear its capitals, where Segoe UI's do not. That is why the three panels set in it read their top inset off the first CAPITAL rather than off the line's topmost ink.
 
 A 14 bold heading's ascenders reach above its capitals. Judge it by the capitals anyway.
 
@@ -263,7 +263,7 @@ A minus means the ink falls SHORT of the advance on that side, a plus that it ru
 
 Where that digit is the data's -- a date ending a column -- the reading takes that end at the advance instead, so it follows the layout rather than the date: `_text_field_gap`'s `advance`, and `_materials_value_column` for the same reason.
 
-**Measured through GDI**, the rasteriser Tk draws with on Windows, into a memory DC with no window on screen: a 9pt Segoe UI logfont (`lfHeight` -12 at 96 DPI) reports the same 6px advance for every digit that Tk's own `measure` does, and the ink columns are read back under `FRINGE_LIGHTNESS`, the audit's own test. ClearType, which is what Windows renders text with by default -- the greyscale-antialiased raster gives narrower ink for every digit and does not match what the audit reads off the screen.
+Measured through GDI, the rasteriser Tk draws with on Windows, into a memory DC with no window on screen: a 9pt Segoe UI logfont (`lfHeight` -12 at 96 DPI) reports the same 6px advance for every digit that Tk's own `measure` does, and the ink columns are read back under `FRINGE_LIGHTNESS`, the audit's own test. ClearType, which is what Windows renders text with by default -- the greyscale-antialiased raster gives narrower ink for every digit and does not match what the audit reads off the screen.
 
 Segoe UI 9 only; re-measure for another face, and re-MEASURE rather than reason. An earlier version of this table had `1` flush left and `4` overhanging by a pixel on each side, and neither is what the screen does -- which showed up as a `label -> count` gap reading a pixel wider than its target wherever the count began with a 1.
 
@@ -281,15 +281,15 @@ Segoe UI 9 only; re-measure for another face, and re-MEASURE rather than reason.
 
 **A marker says which rule a value answers to, not that the value is on target.**
 
-**Markers and entries do not count against each other.** One entry can cover several markers (`tab list -> first element` measures every tab, and its extra sites are pads on outer frames feeding those same gaps), and a rule can have more entries than sites, because entries are generated in loops from tables while a marker is written once per lever. Neither ratio is a coverage figure.
+Markers and entries do not count against each other. One entry can cover several markers (`tab list -> first element` measures every tab, and its extra sites are pads on outer frames feeding those same gaps), and a rule can have more entries than sites, because entries are generated in loops from tables while a marker is written once per lever. Neither ratio is a coverage figure.
 
-**Some values cannot be measured at all.** Most of `content frame -> content frame` is pads on a plain `ttk.Frame`, which paints nothing, and a screenshot cannot measure between two things that leave no pixels. The rest are on a `ttk.LabelFrame`, which draws a border, except where the neighbour on the marked side is borderless or absent. Group the sites by what each pad's target was BUILT as, since a container can change class.
+Some values cannot be measured at all. Most of `content frame -> content frame` is pads on a plain `ttk.Frame`, which paints nothing, and a screenshot cannot measure between two things that leave no pixels. The rest are on a `ttk.LabelFrame`, which draws a border, except where the neighbour on the marked side is borderless or absent. Group the sites by what each pad's target was BUILT as, since a container can change class.
 
 Two kinds of gap that look unmeasurable are not, and have their own resolvers. The columns of a Text widget are tab stops with no widget on either side: `_text_column_gap` turns each line into a band of rows with `dlineinfo`, merges painted bands closer together than a column gap into words, and reports the SMALLEST gap across the rows -- these value stops are right-aligned, so a short value leaves a wider gap after its label and only the widest row shows the distance that was set. Its rows are not widgets either, and `_text_line_pitch` reads the painted lines.
 
 Both inset the box by what the widget paints around its own content: a cell with a relief border has painted pixels on every row, so a run scan over the whole box finds one run and never sees the lines inside it.
 
-**Two entries measure to the Capture Log title, one per column above it** — the only place the ledger watches an ALIGNMENT. `left_col` is the taller of the two columns, so its height is the grid row's, and whatever pad sits below its last panel pushes the row down — carrying the right column's border with it and leaving the left one where it was. The two entries then read different numbers, and the difference is exactly that pad. Keeping it at 0 is what keeps the columns ending level.
+Two entries measure to the Capture Log title, one per column above it — the only place the ledger watches an ALIGNMENT. `left_col` is the taller of the two columns, so its height is the grid row's, and whatever pad sits below its last panel pushes the row down — carrying the right column's border with it and leaving the left one where it was. The two entries then read different numbers, and the difference is exactly that pad. Keeping it at 0 is what keeps the columns ending level.
 
 ### The gaps the audit cannot reach
 
@@ -301,7 +301,7 @@ An entry named in `AWAITING_FIRST_READING` prints yellow, in the short run as we
 
 ### Two rulings worth reading before re-opening them
 
-**The `Character` panel is a COLLECTION OF LABELS.** It is one Text widget holding a details block, a Sets line and two columns of build stats, but the Text is a drawing-speed choice rather than what the content is: every stat name and value is a `label ↔ its element` pair, and the two columns sit at `element and its label ↔ element and its label` from each other. Its tab stops are STATED for that reason, like the gear cell's.
+The `Character` panel is a COLLECTION OF LABELS. It is one Text widget holding a details block, a Sets line and two columns of build stats, but the Text is a drawing-speed choice rather than what the content is: every stat name and value is a `label ↔ its element` pair, and the two columns sit at `element and its label ↔ element and its label` from each other. Its tab stops are STATED for that reason, like the gear cell's.
 
 `How Gear Score Works` goes the other way — it is meant to read as ordinary prose, so no distance rule reaches inside it.
 
@@ -311,19 +311,19 @@ An entry named in `AWAITING_FIRST_READING` prints yellow, in the short run as we
 
 Every Treeview but the Stats & Gacha History tab's takes the base `Treeview` style — none passes a `style=` — so they move together. `configure_styles` sets: `Treeview` padding (3, 0, 3, 0), `rowheight` **21**, heading padding **3**, heading borderwidth **0**, and a layout with no `Treeview.field`, so the widget has no outline.
 
-**The Stats & Gacha History tab's lists take `GachaHistory.Treeview`**, set up in that tab: 3 at each side of a column's text, in cells and headings alike, and an empty spacer column between every two columns. **Padding cannot be set per column** — one left and one right value serve every column of a list — so the spacer is what keeps the outermost columns 3 from the list's edges while the rest sit further apart. Its layout has no `Treeview.padding` element, so its `padding` insets the text alone rather than the tree area too. Colours and row height fall through to `Treeview`, except the selected row's text colour: `Treeview` maps it, a style map outranks a row's tag, and this style's own empty map is what keeps a selected row in its rarity or warning colour.
+The Stats & Gacha History tab's lists take `GachaHistory.Treeview`, set up in that tab: 3 at each side of a column's text, in cells and headings alike, and an empty spacer column between every two columns. **Padding cannot be set per column** — one left and one right value serve every column of a list — so the spacer is what keeps the outermost columns 3 from the list's edges while the rest sit further apart. Its layout has no `Treeview.padding` element, so its `padding` insets the text alone rather than the tree area too. Colours and row height fall through to `Treeview`, except the selected row's text colour: `Treeview` maps it, a style map outranks a row's tag, and this style's own empty map is what keeps a selected row in its rarity or warning colour.
 
-**Its Overall Gacha Stats sheet is a Text, not a list**, because its rows are label rows and one kind sits further apart: `label row -> label row` between rows, four more above a section's heading (`HEADING_PAD`, marked as the exception). A Treeview's rows are one height, with nothing reaching between them. Each line carries one pitch tag, which is what the registry's entries read the two gaps by. The columns are tab stops worked out from the rows on every fill, each only from the rows with something after it. A record's ties follow it as (units, date) pairs: units to their date is `label ↔ its element`, one pair to the next `element and its label ↔ element and its label`. As many pairs as fit the Banners list's width are shown, oldest first, since a wider sheet would widen that column and take the difference from the pulls list. **A line can set two sections side by side** (a `Beside`): every banner's section sits beside the first section's opening lines, `BESIDE_GAP` past the furthest of them. Such a line carries stops of its own on a tag of its own, since the sheet's stops are the first section's columns.
+Its Overall Gacha Stats sheet is a Text, not a list, because its rows are label rows and one kind sits further apart: `label row -> label row` between rows, four more above a section's heading (`HEADING_PAD`, marked as the exception). A Treeview's rows are one height, with nothing reaching between them. Each line carries one pitch tag, which is what the registry's entries read the two gaps by. The columns are tab stops worked out from the rows on every fill, each only from the rows with something after it. A record's ties follow it as (units, date) pairs: units to their date is `label ↔ its element`, one pair to the next `element and its label ↔ element and its label`. As many pairs as fit the Banners list's width are shown, oldest first, since a wider sheet would widen that column and take the difference from the pulls list. **A line can set two sections side by side** (a `Beside`): every banner's section sits beside the first section's opening lines, `BESIDE_GAP` past the furthest of them. Such a line carries stops of its own on a tag of its own, since the sheet's stops are the first section's columns.
 
-**The standings stand under it as lists.** The Great Rift's has the Banners list's width for its room; under it, the Full-Scale Offensive's and the Sortie's share that width, half each less the pads between them, a title wider than its half taking the difference from its neighbour's list. Each is two Treeviews in the tab's list style: the rows' names, held still, and the seasons, one column each, in a holder that scrolls sideways past its room. Each list grows a column a season up to its room rather than taking it: held at it, two seasons would be mostly empty heading over a scrollbar with nothing to scroll. Each title is a labelwidget, so a grey note on how to fill the list sits on its line (`header subtext`, as the Optimizer's Results title does). **A labelwidget `ttk.Label` sits 2px in from a `text=` title** on every side: `TLabel` draws its text inside a 1px border and a 1px padding, where a LabelFrame's own title has neither. So the titles take `panel_title_style()` (`ui/utils/panel_title.py`), the title's own layout, and the gap to the note is the note's whole pad. Their columns sit `STANDINGS_COLUMN_GAP` apart, narrower than the Banners and Pulls lists' `COLUMN_GAP`.
+The standings stand under it as lists. The Great Rift's has the Banners list's width for its room; under it, the Full-Scale Offensive's and the Sortie's share that width, half each less the pads between them, a title wider than its half taking the difference from its neighbour's list. Each is two Treeviews in the tab's list style: the rows' names, held still, and the seasons, one column each, in a holder that scrolls sideways past its room. Each list grows a column a season up to its room rather than taking it: held at it, two seasons would be mostly empty heading over a scrollbar with nothing to scroll. Each title is a labelwidget, so a grey note on how to fill the list sits on its line (`header subtext`, as the Optimizer's Results title does). **A labelwidget `ttk.Label` sits 2px in from a `text=` title** on every side: `TLabel` draws its text inside a 1px border and a 1px padding, where a LabelFrame's own title has neither. So the titles take `panel_title_style()` (`ui/utils/panel_title.py`), the title's own layout, and the gap to the note is the note's whole pad. Their columns sit `STANDINGS_COLUMN_GAP` apart, narrower than the Banners and Pulls lists' `COLUMN_GAP`.
 
-**The Banners list takes all of the window's spare width**, in its last column, from `_fit_banners` on every resize of the tab's body. Every column before it keeps its measured width, the Pulls list keeps its own, and the standings have the Banners list's width to grow into, whatever it has become.
+The Banners list takes all of the window's spare width, in its last column, from `_fit_banners` on every resize of the tab's body. Every column before it keeps its measured width, the Pulls list keeps its own, and the standings have the Banners list's width to grow into, whatever it has become.
 
-**What makes the column fit the default window**: every list on the tab at `LIST_ROW_HEIGHT`, shorter than the app's other lists; the Banners list showing at most `BANNER_ROWS` rows and scrolling past them; and the tab's scrollbars at `SCROLLBAR_WIDTH`. `check_tabs_build` measures the worst of it -- a Banners row for every banner type, every list scrolling, the warning lines showing, the gacha sheet at its widest -- in a default-sized window, under the app's own styles.
+What makes the column fit the default window: every list on the tab at `LIST_ROW_HEIGHT`, shorter than the app's other lists; the Banners list showing at most `BANNER_ROWS` rows and scrolling past them; and the tab's scrollbars at `SCROLLBAR_WIDTH`. `check_tabs_build` measures the worst of it -- a Banners row for every banner type, every list scrolling, the warning lines showing, the gacha sheet at its widest -- in a default-sized window, under the app's own styles.
 
-**The titles' leading pads differ by what stands above them**, all three set for `panel ↕ unrelated label`: `UNDER_SHEET_PAD` under the gacha sheet, whose last line box already reaches below its baseline; `UNDER_LIST_PAD` under the Great Rift's list; and the button group's bottom pad for the Banners and Pulls titles under the toolbar, which holds only while the help text beside the buttons is no taller than they are.
+The titles' leading pads differ by what stands above them, all three set for `panel ↕ unrelated label`: `UNDER_SHEET_PAD` under the gacha sheet, whose last line box already reaches below its baseline; `UNDER_LIST_PAD` under the Great Rift's list; and the button group's bottom pad for the Banners and Pulls titles under the toolbar, which holds only while the help text beside the buttons is no taller than they are.
 
-**The audit reads those columns between where the Text drew each field** (`_text_field_gap`), not from the ink alone: a 5px boundary between fields is no wider than the comma-space inside `Nine, Narja`, and inferring columns from the gaps split the units instead. A date's end is read at its advance, since its last digit is the data's.
+The audit reads those columns between where the Text drew each field (`_text_field_gap`), not from the ink alone: a 5px boundary between fields is no wider than the comma-space inside `Nine, Narja`, and inferring columns from the gaps split the units instead. A date's end is read at its advance, since its last digit is the data's.
 
 | Lever                   | What it insets                                                                                                                                                                                                                                                                        | Set to          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
@@ -336,7 +336,7 @@ Every Treeview but the Stats & Gacha History tab's takes the base `Treeview` sty
 
 Heading borderwidth pairs with `relief`, which the theme sets to `raised`: at borderwidth 0 the relief has nothing to draw with, so the headings are deliberately flat.
 
-**Rows are contiguous** — a row is `rowheight` tall and the next begins immediately, so any "row -> row" rule has nothing to attach to. Vertical breathing room comes from `rowheight` alone.
+Rows are contiguous — a row is `rowheight` tall and the next begins immediately, so any "row -> row" rule has nothing to attach to. Vertical breathing room comes from `rowheight` alone.
 
 `bbox()` returns a row's rendered geometry but only once the window is mapped. `_hide_until_ready`'s alpha-0 trick makes that measurable without putting anything on screen.
 
@@ -385,7 +385,7 @@ The three border colours reach only a scrollbar's edges; the two that fill it ar
 
 `TScale` splits the same way — trough is `troughcolor`, slider is `background`. Both are configured on `TScrollbar` / `TScale` rather than per-orientation; the horizontal and vertical variants inherit from one style.
 
-**Every scrollbar in the app is a `ttk.Scrollbar`**, so this one style paints all of them: the colours above, `SCROLLBAR_WIDTH` thick (`czn_optimizer_gui.py`). `scrolledtext.ScrolledText` would not be: it builds its own `tk.Frame` and `tk.Scrollbar` that no constructor keyword reaches, which is why `ui/utils/scrolled_text.py` builds the pair itself instead. See `ui_runtime.md`, *A ScrolledText flashes for a SECOND reason*.
+Every scrollbar in the app is a `ttk.Scrollbar`, so this one style paints all of them: the colours above, `SCROLLBAR_WIDTH` thick (`czn_optimizer_gui.py`). `scrolledtext.ScrolledText` would not be: it builds its own `tk.Frame` and `tk.Scrollbar` that no constructor keyword reaches, which is why `ui/utils/scrolled_text.py` builds the pair itself instead. See `ui_runtime.md`, *A ScrolledText flashes for a SECOND reason*.
 
 ### The audit's definition of ink
 
@@ -395,9 +395,9 @@ So `is_background` runs three tests in order. A pixel matching a background shad
 
 Three things about that last test are load-bearing.
 
-**It is lightness, not colour difference.** These fringes are strongly tinted — Windows renders text with subpixel antialiasing, so a glyph's left edge goes blue and its right edge red rather than both going grey. A ΔE that includes chroma does not separate the visible from the invisible; L\* alone does, cleanly. The eye is not finding these specks by their colour.
+It is lightness, not colour difference. These fringes are strongly tinted — Windows renders text with subpixel antialiasing, so a glyph's left edge goes blue and its right edge red rather than both going grey. A ΔE that includes chroma does not separate the visible from the invisible; L\* alone does, cleanly. The eye is not finding these specks by their colour.
 
-**It only ever judges blends.** A control's fill and a border are palette colours and stay ink by identity. That matters because `bg_light` is a SMALLER lightness step from `bg` than the faintest glyph edge is — it is legible in the app because it covers an area, not because any one of its pixels stands out. A per-pixel test that judged it would look straight through every control.
+It only ever judges blends. A control's fill and a border are palette colours and stay ink by identity. That matters because `bg_light` is a SMALLER lightness step from `bg` than the faintest glyph edge is — it is legible in the app because it covers an area, not because any one of its pixels stands out. A per-pixel test that judged it would look straight through every control.
 
 **The palette therefore has to be complete.** `Capture.of_window` adds the rarity and element tables to it, because three of the four rarity row fills sit within L\* 6 of the window background and nothing about their own lightness would save them. **A widget painted in a shade from some new table must have that table added there too.**
 
@@ -418,7 +418,7 @@ stop_name2 = stop_val1 + 8                      # the pair -> pair gap
 stop_val2  = stop_name2 + col_width(right)      # right-aligned stop
 ```
 
-**Taken row by row, not label-max against value-max separately**, so a row pairing a wide label with a narrow value costs nothing. `Element` is the widest label in the block and would drag the column right if the two maxima were combined.
+Taken row by row, not label-max against value-max separately, so a row pairing a wide label with a narrow value costs nothing. `Element` is the widest label in the block and would drag the column right if the two maxima were combined.
 
 The widest value each stat can hold, as the STRING rather than a character count — Segoe UI's digits are tabular, so a count is exact for digits alone, but `.` and `%` are not digit-width and the right column carries both:
 
@@ -443,11 +443,11 @@ stop_level = max(measure(label) + measure(value))  + 5   # row by row
 stop_desc  = stop_level + 5                              # left-aligned
 ```
 
-**A right stop is placed at the widest label-and-value PAIR across the real rows**, not at the two maxima added together: a value of width `v` starts at the stop less `v`, so what has to clear the label is that row's own pair. The widest pair is a node whose name carries a decimal point beside a one-character `Y`; the two-digit levels sit on shorter names. `checks/check_tabs_build.py` holds both stops to what the rows measure.
+A right stop is placed at the widest label-and-value PAIR across the real rows, not at the two maxima added together: a value of width `v` starts at the stop less `v`, so what has to clear the label is that row's own pair. The widest pair is a node whose name carries a decimal point beside a one-character `Y`; the two-digit levels sit on shorter names. `checks/check_tabs_build.py` holds both stops to what the rows measure.
 
 Tab stops are pixel offsets, not character counts, so a group can be tuned to the pixel. `name_px` is measured in the actual font, which is what survives a font change.
 
-**A value column is anchored at one edge, and which one decides what stays constant:**
+A value column is anchored at one edge, and which one decides what stays constant:
 
 - **Right-aligned** (what `Character` does): last digits line up, so magnitudes are scannable down the column. The gap from label to the value's first glyph then VARIES with the value's length — which is why that panel reads 30px on the left column and 5px on the right. The 5px is the gap to where a FULL-WIDTH value would start.
 - **Left-aligned**: every value starts 5px after the longest label, so the gap is constant and digits no longer line up.
@@ -472,25 +472,25 @@ Worth choosing per group: same-width percentages lose nothing by going left-alig
 
 Every gap inside the panel — top edge to first row, between rows, last row to bottom edge — reads **11px to the ink**. The four rows carry no padding of their own: a Segoe UI 11 label's line box already contributes 7px above its ink and 4 below, which is the whole pitch, so anything added lands on top of it. The frame's top and bottom padding are chosen to make the first and last gaps match the ones between.
 
-**Between the rows the tracked number is 13, not 11**, and the two are the same rendering. Those rows read `[OK] Python 3.13` once they have checked, and a bracket rises above the cap and drops below the baseline — so the ink is not where the rule's references are. The registry reads the pitch on each row's first CAPITAL instead, which puts both ends on a cap top and a baseline with no glyph correction to model, and which does not move when the panel leaves its `Checking ...` state. The gaps to the panel's own border are still read from the ink.
+Between the rows the tracked number is 13, not 11, and the two are the same rendering. Those rows read `[OK] Python 3.13` once they have checked, and a bracket rises above the cap and drops below the baseline — so the ink is not where the rule's references are. The registry reads the pitch on each row's first CAPITAL instead, which puts both ends on a cap top and a baseline with no glyph correction to model, and which does not move when the panel leaves its `Checking ...` state. The gaps to the panel's own border are still read from the ink.
 
-**The top gap is an exception to `border edge -> first non-button element`**, and unavoidably so: that rule's target is below the 7px the label's own line box contributes, so even a top padding of 0 renders 7. The exception is marked at the call site.
+The top gap is an exception to `border edge -> first non-button element`, and unavoidably so: that rule's target is below the 7px the label's own line box contributes, so even a top padding of 0 renders 7. The exception is marked at the call site.
 
 ## The status cluster, and why its rows resist one rule
 
 The Optimizer toolbar's right-hand stack is three things packed `side=TOP` in one frame: a bare status Label, then `Ignore MFs below level:` + spinbox, then `Ignore off-Element MFs` + checkbox. Rows 2 and 3 are frames; row 1 is not.
 
-**Row-level padding is the correct lever and already the only one set.** The widgets inside carry no vertical padding.
+Row-level padding is the correct lever and already the only one set. The widgets inside carry no vertical padding.
 
-**What zeroing the children cannot fix is that the rows are different heights.** A spinbox and a checkbox have intrinsic height — border, indicator, theme insets — that no padding removes, so each row's painted content sits at a different inset inside its box, and equal row padding measures equal box-to-box while looking unequal glyph-to-glyph. Hence two separate `unique` markers rather than one rule. Padding the tallest child does not help: a child's padding moves it INSIDE the row.
+What zeroing the children cannot fix is that the rows are different heights. A spinbox and a checkbox have intrinsic height — border, indicator, theme insets — that no padding removes, so each row's painted content sits at a different inset inside its box, and equal row padding measures equal box-to-box while looking unequal glyph-to-glyph. Hence two separate `unique` markers rather than one rule. Padding the tallest child does not help: a child's padding moves it INSIDE the row.
 
-**The cluster's height is constrained.** It must fit the toolbar, whose height is set by the taller left-hand cluster. `small_font` is what these three rows are set in, so it is a lever on the toolbar's height rather than a cosmetic choice.
+The cluster's height is constrained. It must fit the toolbar, whose height is set by the taller left-hand cluster. `small_font` is what these three rows are set in, so it is a lever on the toolbar's height rather than a cosmetic choice.
 
 ## The uniques, as a table
 
 A `unique` names no rule, so nothing derives its number — and the registry's rule field is what an entry is checked through.
 
-**An entry for a unique carries the marker's own `<what>` there.** `check_spacing_registry` accepts a rule string outside the rules table only when a `unique -- <what> -- ...` marker in the widget code spells it exactly AND the row below gives it the same number. That is the same two-copies-must-agree guarantee a rule name gets, so a typo on either side still fails; what it gives up is the rules table being the only vocabulary the registry may use.
+An entry for a unique carries the marker's own `<what>` there. `check_spacing_registry` accepts a rule string outside the rules table only when a `unique -- <what> -- ...` marker in the widget code spells it exactly AND the row below gives it the same number. That is the same two-copies-must-agree guarantee a rule name gets, so a typo on either side still fails; what it gives up is the rules table being the only vocabulary the registry may use.
 
 **Every unique in the code needs a row here.** A row carrying a number must have an entry measuring it, and a row carrying **—** must have no entry at all — so a unique that ought to be tracked and quietly never was fails the check rather than sitting unwatched.
 
@@ -507,9 +507,9 @@ A `unique` names no rule, so nothing derives its number — and the registry's r
 | `monospace columns inside the contributions text`   | Optimizer, the Stat Contributions popup     | —        | the columns are the `f"{value:>5.1f}"` that built the string, in a face where every character advances the same. No padding reaches between them, and changing one means changing a format |
 | `the Application Information stack is centred in its panel` | Setup & Settings, the bottom row's right panel | — | the block sits in the middle of the panel on both axes, so its distance to each of the four borders is half of whatever the panel has spare — and the panel's height is `Links`' rather than its own content's. There is no distance to hold. The 5px between its three lines rides the same marker: they are set at two faces, and no row-pitch rule spans those |
 
-**The first pair is read from the status text's BASELINE**, taken off its first capital rather than off its ink -- `No data loaded` has no descender and the strings that replace it do, which would move the reading by three without anything on screen moving at all. Text to text the same gap is 11, the spinbox seating its own digits inside its border. The second pair has a border at both ends and no such split.
+The first pair is read from the status text's BASELINE, taken off its first capital rather than off its ink -- `No data loaded` has no descender and the strings that replace it do, which would move the reading by three without anything on screen moving at all. Text to text the same gap is 11, the spinbox seating its own digits inside its border. The second pair has a border at both ends and no such split.
 
-**The Setup Status pitch is read on the first CAPITAL of each row**, not on the row's whole painted extent. Those rows read `[OK] Python 3.13` once they have checked, and a bracket rises above the cap and drops below the baseline — so a whole-row scan reports a pitch two overshoots short, and one that changes the moment the panel leaves its `Checking ...` state. Narrowing the scan to one letter puts both ends of the reading on the rule's own reference with no glyph correction to model. The same panel's gaps to its own border are still read from the ink, so they are not this number.
+The Setup Status pitch is read on the first CAPITAL of each row, not on the row's whole painted extent. Those rows read `[OK] Python 3.13` once they have checked, and a bracket rises above the cap and drops below the baseline — so a whole-row scan reports a pitch two overshoots short, and one that changes the moment the panel leaves its `Checking ...` state. Narrowing the scan to one letter puts both ends of the reading on the rule's own reference with no glyph correction to model. The same panel's gaps to its own border are still read from the ink, so they are not this number.
 
 ### The Checklist's two breaks from `label row -> label row`
 
@@ -520,23 +520,23 @@ Two entries on that tab carry targets its rule does not supply, and both are mar
 | `Checklist: row -> row` | 12 | The tab's face is a point larger than the app's body text. The rows carry more ink each, and the 10 that reads as a list at 9pt reads as a solid block at 10. `ROW_PITCH` |
 | `Checklist: block division` | 16 | What sets a shop or the Events list apart from the rows around it. Four above the pitch, which is what it takes to break a column of near-identical rows into blocks the eye can find without the gap reading as a missing row. `BLOCK_PAD` |
 
-**The division is two levers, not one.** A boundary crossed from an ordinary row and one crossed from a CHECKBOX row sat 2px apart at the same `spacing1` -- the widget's ink reaches lower in its line than a glyph's -- so `BLOCK_PAD_FROM_BOX` pays the difference back. Both are the one distance the eye is meant to see, and the audit reads whichever is widest.
+The division is two levers, not one. A boundary crossed from an ordinary row and one crossed from a CHECKBOX row sat 2px apart at the same `spacing1` -- the widget's ink reaches lower in its line than a glyph's -- so `BLOCK_PAD_FROM_BOX` pays the difference back. Both are the one distance the eye is meant to see, and the audit reads whichever is widest.
 
 | `Checklist: product -> product` | 5 | A shop product's label IS the checkbox, so the row has no capital to read and both this and the gap below are taken between painted boxes. The eye reads 12 on them, the same as every row beside them, measured capital to capital on the labels inside the widgets. `CHECKBOX_PITCH` |
 | `Checklist: shop heading -> its first product` | 5 | The first product sits under the heading's WORDS where the rest sit under another box, and a heading's ink stops at its baseline where a checkbox's stops at its own edge -- two apart at one `spacing1`. `CHECKBOX_UNDER_HEAD` |
 | `Checklist: heading -> its first row` | 12 | The heading's own box and the first row's spend more than the rule's 10 between them before `HEADING_GAP` adds anything, the tab's face being a point larger. |
 
-**One entry, every instance of its gap.** A reading that stands for a run of gaps -- every row pitch in a column, every division in a block -- reports the tightest and carries the rest as siblings, and **one sibling off the target fails the row**. Reporting a single number let the rest drift: the tightest stayed on target while a row two below it sat a pixel out. The **Materials** tab is the exception (`GRID_TABS`): its icons sit in a fixed grid, so a repeat that measures differently is the grid's shape rather than a distance that moved.
+One entry, every instance of its gap. A reading that stands for a run of gaps -- every row pitch in a column, every division in a block -- reports the tightest and carries the rest as siblings, and **one sibling off the target fails the row**. Reporting a single number let the rest drift: the tightest stayed on target while a row two below it sat a pixel out. The **Materials** tab is the exception (`GRID_TABS`): its icons sit in a fixed grid, so a repeat that measures differently is the grid's shape rather than a distance that moved.
 
-**Which gaps an entry covers comes off the tab's own pitch TAGS.** A line carries the tag that sets its `spacing1`, which is the tab's word for what sits above it -- an ordinary row, a block's edge, a shop product, the first product under a heading -- so one scan answers four entries, each about its own pairs and blind to the others. A tag renamed in the tab shows up as an error row naming it rather than as an entry that quietly measures nothing.
+Which gaps an entry covers comes off the tab's own pitch TAGS. A line carries the tag that sets its `spacing1`, which is the tab's word for what sits above it -- an ordinary row, a block's edge, a shop product, the first product under a heading -- so one scan answers four entries, each about its own pairs and blind to the others. A tag renamed in the tab shows up as an error row naming it rather than as an entry that quietly measures nothing.
 
-**A row that is right says only that.** The detail behind a reading -- which lines it came from, what else was on them -- is for working out why a number is wrong, so the short run prints it only for the rows that miss. `--verbose` prints it for all of them. The target's PROVENANCE is not detail and stays either way: `exception` says the number is a hand reading, which is what a reader needs to know before arguing with it.
+A row that is right says only that. The detail behind a reading -- which lines it came from, what else was on them -- is for working out why a number is wrong, so the short run prints it only for the rows that miss. `--verbose` prints it for all of them. The target's PROVENANCE is not detail and stays either way: `exception` says the number is a hand reading, which is what a reader needs to know before arguing with it.
 
 **A row whose label is an embedded WIDGET has no baseline and no capital**, so its end of a gap is read off ink. That is why the two product gaps carry targets of their own: every other row on the tab is read capital to capital, and 5 between painted boxes is the same 12 the eye sees between the labels inside them.
 
-**And a row with a checkbox at the END of it stands taller than its words.** The widget sets the line's height and its ink sits inside that, so the gap above such a row and the gap below it each read a pixel wider at one `spacing1` -- measured down the Events block as 13, 14, 14, 13 against the 12 two rows of text sit at. `BOX_ROW_SLACK` is what gives those pixels back.
+And a row with a checkbox at the END of it stands taller than its words. The widget sets the line's height and its ink sits inside that, so the gap above such a row and the gap below it each read a pixel wider at one `spacing1` -- measured down the Events block as 13, 14, 14, 13 against the 12 two rows of text sit at. `BOX_ROW_SLACK` is what gives those pixels back.
 
-**Both ends of a line-to-line reading are the line's first CAPITAL.** A capital's top IS the cap height and its bottom IS the baseline, so a gap taken between two of them is already on the references the rules name -- with no glyph table in it at all. Read off the whole line instead, each end moves with whatever the row happens to say: an ascender clears the cap by a pixel, a slash drops two below the baseline, and the same pitch reads 11 on one pair and 12 on the next. `_capital_band` narrows the scan; a line with no capital keeps its ink reading and the note names it.
+Both ends of a line-to-line reading are the line's first CAPITAL. A capital's top IS the cap height and its bottom IS the baseline, so a gap taken between two of them is already on the references the rules name -- with no glyph table in it at all. Read off the whole line instead, each end moves with whatever the row happens to say: an ascender clears the cap by a pixel, a slash drops two below the baseline, and the same pitch reads 11 on one pair and 12 on the next. `_capital_band` narrows the scan; a line with no capital keeps its ink reading and the note names it.
 
 ## The unruled rows, as a table
 
@@ -552,19 +552,19 @@ The mechanism is below; the procedure for running one and reading its table is t
 
 `ui/spacing_audit.py` measures registered gaps from a screenshot of the live window, counting background pixels by the convention above, so glyph reference points come out right without a font table. It cycles the tabs itself; the operator keeps the window unobscured and frontmost, the pointer off it (hover repaints and is measured), and a snapshot loaded so the data-driven panels exist.
 
-**It locates panels by their visible title**, not by attribute — most of these frames are locals, and storing each on `self` purely to measure it would touch six tab files for no functional reason. So renaming a panel's title removes it from the audit; the baseline comparison reports that as a missing entry rather than a pass.
+It locates panels by their visible title, not by attribute — most of these frames are locals, and storing each on `self` purely to measure it would touch six tab files for no functional reason. So renaming a panel's title removes it from the audit; the baseline comparison reports that as a missing entry rather than a pass.
 
 Some panels exist only in one app state (the Optimizer's Element override frame, for Unknown-attribute characters) and their presence moves everything beneath them, so the audit runs scenarios: it sets each state up, captures, tears it down, and moves on, all in one run.
 
-**A borderless panel still has an edge to measure to.** `Borderless` drops the frame's own border, but everything these panels hold — a Treeview's `bg_light` field, a gear cell's `RIDGE` — paints a boundary in a colour the tab background never uses. So the reference edge is found by the colour transition, not by scanning for a border run. Pure text is the only thing in the app with no boundary of its own, and the glyph rules cover that case instead.
+A borderless panel still has an edge to measure to. `Borderless` drops the frame's own border, but everything these panels hold — a Treeview's `bg_light` field, a gear cell's `RIDGE` — paints a boundary in a colour the tab background never uses. So the reference edge is found by the colour transition, not by scanning for a border run. Pure text is the only thing in the app with no boundary of its own, and the glyph rules cover that case instead.
 
 **The content-frame rule is measured BOX to box, alone among the rules.** It is the one target defined by the pads that produce it rather than by pixels on screen, and a painted reading gets the vertical case wrong: a LabelFrame's title is drawn above its border and inside its box, so a scan for the lower panel's first painted pixel finds the title's glyphs and adds that title's leading to the gap. It read 7 where the pads give 4. Horizontally the two agree, since a border starts at the box edge.
 
 **A row that is registered but not yet confirmed by a hand reading prints in dark yellow.** The flag is `provisional=True` on the entry, or its name in `AWAITING_FIRST_READING`; it comes off once a reading agrees. In a table of hundreds of rows that is what says which ones nobody has checked.
 
-**The `axis` column is `<>` or `^v`, not the arrows the markers use.** The audit prints to a cp932 console, where a single non-ASCII character raises `UnicodeEncodeError` before the table reaches the screen.
+The `axis` column is `<>` or `^v`, not the arrows the markers use. The audit prints to a cp932 console, where a single non-ASCII character raises `UnicodeEncodeError` before the table reaches the screen.
 
-**The note column names a row that is not simply following its rule.** An ordinary row says nothing there; the two words that appear are:
+The note column names a row that is not simply following its rule. An ordinary row says nothing there; the two words that appear are:
 
 - **`exception`** — the site deliberately misses the rule, and its call site carries an `exception` marker saying so. `Setup Status`' left edge is one. Every miss is one of these, by ruling: a distance that does not answer to its rule is an `exception` or a `unique`, never an unexplained number.
 - **`inferred`** — the rule applies and is followed, but its number cannot be COMPUTED for this case, so it is carried across from elsewhere. No entry uses it today.
@@ -593,7 +593,7 @@ The registry says what each gap SHOULD be and measures it. What it cannot say is
 | A Gear Score stat cell's trailing `padx`                             | Both the gap BETWEEN the two weight columns and the gap out to the button column: the cell's pad sits inside `stats_frame`'s width, so `stat grid -> button column` carries it too. |
 | Memory Fragments' `opt_frame` `pack(padx)` LEADING                   | All four options checkboxes at once — they carry no padding of their own, so this is the only lever on their distance from the Main Stats border. `main_frame`'s trailing pad is 0 to keep it that way; a value there would move the same gap from the other side. |
 
-**"Correct it on the frame or on the first label?" has an answer per panel, not a general one.** The four `ELEMENT_ENTRIES` panels split two ways:
+"Correct it on the frame or on the first label?" has an answer per panel, not a general one. The four `ELEMENT_ENTRIES` panels split two ways:
 
 - **Upgrade Log Settings** takes the FRAME for both, its label and its checkbox column reading the same inset. Its TOP is the exception: the frame's padding cannot go below 0 and the rule asks for less than a label's line box gives, so that one pixel comes off the label.
 - **Important Settings** corrects on the FRAME, because an ordinary 9pt Label is what most of its content is. Correcting on the first label instead puts that one line on target and leaves every other label a pixel out. The one element needing its own pixel is the Shielding & Healing slider: it is the only one starting at the frame's edge rather than after a row label, and a Scale's trough begins at its box edge where a Label's glyphs start inside theirs.
@@ -617,9 +617,9 @@ If a reading looks wrong in one of these shapes, suspect the tool:
 
 ## Padding is not what you see
 
-**Nesting depth varies per tab.** The 2+2 rule assumes exactly two levels between the tab frame and anything with a visible border. Capture has three on its left (`main_frame` → `top_columns` → `left_col`), so `top_columns` carries 0 on top; Memory Fragments has one on the list side, so `tree_frame` carries the full 4. **Count the levels for the specific widget before assigning a value.**
+Nesting depth varies per tab. The 2+2 rule assumes exactly two levels between the tab frame and anything with a visible border. Capture has three on its left (`main_frame` → `top_columns` → `left_col`), so `top_columns` carries 0 on top; Memory Fragments has one on the list side, so `tree_frame` carries the full 4. **Count the levels for the specific widget before assigning a value.**
 
-**Text sits at different offsets inside different widgets**, measured from the widget's own top edge:
+Text sits at different offsets inside different widgets, measured from the widget's own top edge:
 
 | Widget           | Offset                       |
 | ---------------- | ---------------------------- |
