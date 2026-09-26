@@ -398,9 +398,9 @@ The guestbook itself is elsewhere: `event_bartender_entities` keys on `bartender
 | `reward_count` | event items SPENT ON REWARDS, lifetime | 48 → 64 when two rewards were claimed |
 | `items[4020001].amount` | what is spendable now | 4 → 0 across four puzzle-piece unlocks |
 
-A reward costs 8 items: two of them moved `reward_count` by 16, and the 48 standing before it is the 6 rewards the account had taken. Unlocking a puzzle piece also spends an item but does NOT move `reward_count`, so the three numbers only reconcile as `amount = event_item_count - reward_count - pieces unlocked`.
+A reward costs 8 items, all but the last, which costs more: two of them moved `reward_count` by 16, and the 48 standing before it is the 6 rewards the account had taken. Unlocking a puzzle piece also spends an item but does NOT move `reward_count`, so the three numbers only reconcile as `amount = event_item_count - reward_count - pieces unlocked`.
 
-That gives rewards taken (`reward_count // 8`) and rewards waiting (`amount // 8`) exactly. What is still absent is the DENOMINATOR: the event's 10 rewards and its 84 items are nowhere, and 84 ≠ 10 × 8, so the last rewards are not evenly spaced and no rate would find them anyway.
+That gives the rewards taken, and the rewards waiting while each still costs the same. What is still absent is the DENOMINATOR: neither how many rewards there are nor what they cost in all is on the wire, and the last reward costs more than the rest, so no rate would find the end anyway.
 
 ### What a FINISHED summer event looks like, and what it does not say
 
@@ -417,7 +417,7 @@ Captured in full — the last mission claimed, the last reward taken, the last p
 
 **So the general completion flag does not cover this event**, and none of the other five is a proof. Each is a floor in the same old way: a fourth mission wave, a fourth set, another story or more items would each make the "complete" reading move again, and nothing on the wire rules that out. `reward_count` is only recognisable as the whole cost because the maintainer counted the rewards in game.
 
-The one thing that IS exact is a different question: **The balance over one reward's price is how many rewards are waiting**, and it needs no total at all. `0` there means nothing to collect right now — which is what a checklist is actually for — while "the event is over" stays unanswerable.
+The one thing that IS exact is a different question: **the balance over one reward's price is how many rewards are waiting**, until the last reward, which costs more, and it needs no total at all. `0` there means nothing to collect right now — which is what a checklist is actually for — while "the event is over" stays unanswerable.
 
 Finishing the last puzzle also pays a one-off item (`4010003` here), which would serve as a per-event completion marker. That is a hardcode per event and worth it only if a general answer never turns up.
 
