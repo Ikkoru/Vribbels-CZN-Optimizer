@@ -33,6 +33,12 @@ maximums it prints count `total + missed`, since they stand for what a
 run pays played through; `total` stays what was paid. Say in `notes`
 what was missed.
 
+**A lost run that still counts as whole fills its own `missed`** where
+the cell is empty: the lost fight's payout and every boss after it, as
+the latest cleared run of that season part paid them --
+`chaos_estimate.missed`, which also says when a lost run counts. A
+cell you filled is kept, and flagged where the two disagree.
+
 The columns this script owns:
 
 | column    | what it says                                                  |
@@ -44,7 +50,8 @@ The columns this script owns:
 | `total`   | what the run paid in the season's currency                      |
 | `payouts` | every payout in order, `floor:spot:amount`, `+mark` for a mark  |
 | `marked`  | the fights carrying a mark, paid or not: `k5:2 e:1`             |
-| `fought`  | the fights, by spot: `battle:11 elite:4 boss:3`                 |
+| `fought`  | the fights, by spot: `battle:11 elite:4 boss:3`; `unknown` is a fight a `?` encounter offered |
+| `lost`    | where a lost run was lost: `floor:spot:non-boss fights left`, `+mark` for a mark |
 | `SPOT_*`  | the payouts at each kind of spot, `+` between them              |
 | `log`     | the capture it was read from                                    |
 
@@ -62,6 +69,14 @@ from one run to the next, with what else changed there -- the season
 part, the game version -- and then answers four questions per part and
 per version: have the set amounts moved, and have the marks' rates?
 Until a part and a version have changed apart, it says it cannot tell.
+
+**A mark's rate is also tested for a shift in time**, taking a change
+to be sudden and lasting, as a balance patch is: across the whole runs
+in order, the split into a before and an after that fits best, kept
+only if shuffling the runs rarely fits as well (`shifts`). A run inside
+one of `chaos_estimate.RATE_EVENTS` -- something that raised the rates
+for a while -- is left out. Last, the figures `chaos_estimate.SHIPPED`
+wants, for the release step to copy.
 
 **A season is named by the run, not by its currency.** Each season pays
 in an item id of its own, and the capture names the season a run
@@ -82,6 +97,7 @@ import io
 import json
 import math
 import os
+import random
 import re
 import shutil
 import sys
@@ -104,7 +120,7 @@ CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04"}
 # What this script fills in. Anything after them in an existing file
 # is the maintainer's and is carried over by `date`.
 OWNED = ["date", "season", "part", "client", "total", "payouts", "marked",
-         "fought"]
+         "fought", "lost"]
 # The maintainer's column the summary reads: see the module docstring.
 MISSED = "missed"
 SPOT_COLUMN = "SPOT_TYPE_"
@@ -118,7 +134,15 @@ MARKS = {"k5": "Rare Species", "e": "Aether Eater"}
 FEWEST_FIGHTS = 30
 Z_DIFFERS = 2.0
 
+# A shift in a mark's rate needs this many whole runs on each side of
+# it, and holds when fewer than this share of shuffled orders split as
+# well. The shuffles are seeded, so a run of the script is repeatable.
+FEWEST_RUNS = 5
+SHIFT_ALPHA = 0.01
+SHIFT_TRIALS = 999
+
 from capture.manager import CaptureManager                    # noqa: E402
+import chaos_estimate                                          # noqa: E402
 
 
 class _Flow:
@@ -297,16 +321,51 @@ def counts_of(cell):
     return out
 
 
+def lost_token(lost):
+    """A run's `lost` as the column writes it: `floor:spot:left`, and
+    `+mark` for a mark; '' for a cleared run."""
+    if not isinstance(lost, (list, tuple)) or len(lost) < 4:
+        return ""
+    floor, spot, mark, left = lost[:4]
+    return "%s:%s:%s%s" % (floor, str(spot).lower(), left,
+                           "+" + mark if mark else "")
+
+
+def lost_of(cell):
+    """A `lost` cell back as the capture's [floor, SPOT, mark, left], or
+    None."""
+    where, _, mark = (cell or "").partition("+")
+    pieces = where.split(":")
+    if (len(pieces) != 3 or not pieces[0].lstrip("-").isdigit()
+            or not pieces[2].isdigit()):
+        return None
+    return [int(pieces[0]), pieces[1].upper(), mark, int(pieces[2])]
+
+
+def run_of_row(row):
+    """A row in the shape the capture records a run, for
+    `chaos_estimate`'s readers."""
+    paid = [[int(floor) if floor.lstrip("-").isdigit() else floor,
+             spot.upper(), mark, None, amount]
+            for floor, spot, amount, mark in payouts_of(row["payouts"])]
+    return {"paid": paid, "lost": lost_of(row.get("lost")),
+            "marked": counts_of(row.get("marked"))}
+
+
 def row_of(run, source, parts):
     """One run as {column: cell}, over the columns this script owns."""
     currency = currency_of(run)
     season = short(run.get("season")) or CURRENCY.get(currency, "?")
     paid = [p for p in run.get("paid") or () if p[3] == currency]
+    part = part_of(run["closed"], run.get("season"), parts)
+    # The capture's own stamp, for a season no longer live.
+    if part == "?" and isinstance(run.get("part"), int):
+        part = "part %d" % run["part"] if run["part"] else "preseason"
     row = {
         "date": datetime.datetime.fromtimestamp(
             run["closed"], datetime.UTC).strftime("%Y-%m-%d %H:%M"),
         "season": season,
-        "part": part_of(run["closed"], run.get("season"), parts),
+        "part": part,
         "client": run.get("client") or "?",
         "total": str(sum(amount for *_rest, amount in paid)),
         "payouts": " ".join(token(floor, spot, mark, amount)
@@ -315,6 +374,7 @@ def row_of(run, source, parts):
                            sorted((run.get("marked") or {}).items())),
         "fought": " ".join("%s:%d" % (spot.lower(), n) for spot, n in
                            sorted((run.get("fought") or {}).items())),
+        "lost": lost_token(run.get("lost")),
         "log": source,
     }
     by_spot = collections.defaultdict(list)
@@ -512,6 +572,195 @@ def report(rows):
                                            verdict))
 
 
+def _reference(rows, row):
+    """({boss floor: amount}, {mark: amount}) to price a lost run's
+    `missed` by: its part's bosses as the latest cleared run of that
+    season part paid them, and each mark as last paid -- the shipped
+    figures where no run has."""
+    entry = chaos_estimate.shipped_entry("disaster_" + row["season"])
+    marks = {mark: amount for mark, (amount, _rate)
+             in (entry.get("marks") or {}).items()}
+    found = re.match(r"part (\d+)$", row.get("part") or "")
+    bosses = (chaos_estimate.shipped_bosses(entry, int(found.group(1)))
+              if found else {})
+    for date in sorted(rows):
+        other = rows[date]
+        for _floor, spot, amount, mark in payouts_of(other["payouts"]):
+            if mark and spot != "boss":
+                marks[mark] = amount
+        if (other is row or other.get("lost")
+                or (other["season"], other["part"])
+                != (row["season"], row["part"])):
+            continue
+        table = {int(floor): amount for floor, spot, amount, _mark
+                 in payouts_of(other["payouts"])
+                 if spot == "boss" and floor.isdigit()}
+        if table:
+            bosses = table
+    return bosses, marks
+
+
+def fill_missed(rows):
+    """Fill each whole lost run's empty `missed`; flag one filled by
+    hand that the loss does not come to. The dates filled, in order."""
+    filled = []
+    for date in sorted(rows):
+        row = rows[date]
+        run = run_of_row(row)
+        if not run["lost"] or not chaos_estimate.is_full(run):
+            continue
+        due = chaos_estimate.missed(run, *_reference(rows, row))
+        cell = (row.get(MISSED) or "").strip()
+        if not cell:
+            if due:
+                row[MISSED] = str(due)
+                filled.append("%s +%d" % (date, due))
+        elif missed_of(row) != due:
+            print("   ! %s: `missed` says %s; the loss comes to %d"
+                  % (date, cell, due))
+    return filled
+
+
+def _whole_runs(rows):
+    """The rows a rate is counted over, oldest first: whole runs, none
+    inside a `chaos_estimate.RATE_EVENTS` window."""
+    out = []
+    for date in sorted(rows):
+        row = rows[date]
+        when = datetime.datetime.strptime(date, "%Y-%m-%d %H:%M").replace(
+            tzinfo=datetime.UTC).timestamp()
+        if (chaos_estimate.is_full(run_of_row(row))
+                and not chaos_estimate.in_rate_event(when)):
+            out.append(row)
+    return out
+
+
+def _log_likelihood(k, n):
+    """Of k marked fights in n, at their own rate."""
+    if k <= 0 or k >= n:
+        return 0.0
+    p = k / n
+    return k * math.log(p) + (n - k) * math.log(1 - p)
+
+
+def _best_split(ks, ns):
+    """(what the best before-and-after split gains in log-likelihood
+    over one rate throughout, where it falls), with `FEWEST_RUNS` a
+    side; (0.0, None) where no split gains."""
+    total_k, total_n = sum(ks), sum(ns)
+    whole = _log_likelihood(total_k, total_n)
+    best, at, k_left, n_left = 0.0, None, 0, 0
+    for i in range(1, len(ks)):
+        k_left += ks[i - 1]
+        n_left += ns[i - 1]
+        if min(i, len(ks) - i) < FEWEST_RUNS:
+            continue
+        gain = (_log_likelihood(k_left, n_left)
+                + _log_likelihood(total_k - k_left, total_n - n_left)
+                - whole)
+        if gain > best:
+            best, at = gain, i
+    return best, at
+
+
+def split_test(ks, ns, rng):
+    """(where the best split falls, the share of shuffled orders that
+    split as well), or (None, None) where there is no split to test."""
+    gain, at = _best_split(ks, ns)
+    if at is None:
+        return None, None
+    pairs = list(zip(ks, ns))
+    beaten = 0
+    for _ in range(SHIFT_TRIALS):
+        rng.shuffle(pairs)
+        if _best_split([k for k, _n in pairs],
+                       [n for _k, n in pairs])[0] >= gain:
+            beaten += 1
+    return at, (beaten + 1) / (SHIFT_TRIALS + 1)
+
+
+def shifts(ks, ns, rng, offset=0):
+    """[(index, p)] for every shift in a rate over runs in order: the
+    best split where it holds, then each side searched again."""
+    at, p = split_test(ks, ns, rng)
+    if at is None or p >= SHIFT_ALPHA:
+        return []
+    return (shifts(ks[:at], ns[:at], rng, offset) + [(offset + at, p)]
+            + shifts(ks[at:], ns[at:], rng, offset + at))
+
+
+def rate_shifts(rows):
+    """Print each mark's rate over the whole runs, and any shift in it."""
+    runs = _whole_runs(rows)
+    fights = []
+    for row in runs:
+        fought = counts_of(row.get("fought"))
+        fights.append(fought.get("battle", 0) + fought.get("elite", 0))
+    marks = sorted({one for row in runs
+                    for key in counts_of(row.get("marked"))
+                    for one in key.split("+")})
+    print("   Mark rates over time, %d whole run(s)%s:" % (
+        len(runs), "" if len(runs) == len(rows)
+        else ", %d left out" % (len(rows) - len(runs))))
+    for mark in marks:
+        ks = [sum(n for key, n in counts_of(row.get("marked")).items()
+                  if mark in key.split("+")) for row in runs]
+        found = shifts(ks, fights, random.Random(0))
+        if found:
+            edges = [0] + [at for at, _p in found] + [len(ks)]
+            print("   ! %s shifted: %s (p %s)" % (_named(mark), ", ".join(
+                "%.3f a fight from %s" % (sum(ks[a:b]) / max(1, sum(
+                    fights[a:b])), runs[a]["date"][:10])
+                for a, b in zip(edges, edges[1:])),
+                ", ".join("%.3f" % p for _at, p in found)))
+            continue
+        _at, p = split_test(ks, fights, random.Random(0))
+        print("   %s: %d in %d fights, %.3f a fight, %.2f a run; %s" % (
+            _named(mark), sum(ks), sum(fights),
+            sum(ks) / max(1, sum(fights)), sum(ks) / max(1, len(runs)),
+            "no shift (p %.2f)" % p if p is not None
+            else "too few runs to look for a shift (%d a side)"
+            % FEWEST_RUNS))
+
+
+def shipped_figures(rows):
+    """Print, per season, what `chaos_estimate.SHIPPED` wants: each
+    part's bosses as its latest cleared run paid them, each mark's
+    amount as last paid, and each mark per whole run."""
+    by_season = collections.defaultdict(dict)
+    for date, row in rows.items():
+        if row["season"] != "?":
+            by_season[row["season"]][date] = row
+    print("   For chaos_estimate.SHIPPED:")
+    for season in sorted(by_season):
+        members = by_season[season]
+        bosses, amounts = {}, {}
+        for date in sorted(members):
+            row = members[date]
+            for _floor, spot, amount, mark in payouts_of(row["payouts"]):
+                if mark and spot != "boss":
+                    amounts[mark] = amount
+            found = re.match(r"part (\d+)$", row["part"] or "")
+            table = {int(floor): amount for floor, spot, amount, _mark
+                     in payouts_of(row["payouts"])
+                     if spot == "boss" and floor.isdigit()}
+            if found and table and not row.get("lost"):
+                bosses[int(found.group(1))] = table
+        whole = _whole_runs(members)
+        counted = collections.Counter()
+        for row in whole:
+            for key, n in counts_of(row.get("marked")).items():
+                counted[key] += n
+        marks = {mark: (amounts.get(mark, 0),
+                        round(counted[mark] / len(whole), 2) if whole else 0)
+                 for mark in sorted(set(amounts) | set(counted))}
+        print('       "disaster_%s": {' % season)
+        print('           "bosses": %s,' % dict(sorted(bosses.items())))
+        print('           "marks": %s,  # %d whole run(s)' % (marks,
+                                                              len(whole)))
+        print('       },')
+
+
 def main():
     full = "--all" in sys.argv[1:]
     header, rows = existing()
@@ -558,6 +807,7 @@ def main():
         kept[row["date"]] = {**{c: old.get(c, "") for c in theirs}, **row}
     new = len({row_of(run, s, parts)["date"] for run, s in found.values()}
               - set(rows))
+    filled = fill_missed(kept)
 
     spots = {c for row in kept.values() for c in row
              if c.startswith(SPOT_COLUMN)}
@@ -571,6 +821,8 @@ def main():
           "%s" % (len(held), seen, new, len(kept), OUT.relative_to(ROOT)))
     if theirs:
         print("   kept your columns: %s" % ", ".join(theirs))
+    if filled:
+        print("   filled `missed` for whole lost runs: %s" % ", ".join(filled))
     unknown = sorted({row["season"] for row in kept.values()
                       if row["season"] == "?"})
     if unknown:
@@ -599,8 +851,8 @@ def main():
         got = by_part[part]
         print("   %-14s %2d run(s), mean %5.0f, min %5d, max %5d"
               % (part, len(got), sum(got) / len(got), min(got), max(got)))
-    # The season's own line is its `per_run` in the Checklist's
-    # SEASON_ESTIMATE; the parts show whether one pays differently.
+    # What a run pays played through, by part and by season. The
+    # estimate is built from its parts instead -- `shipped_figures`.
     for season in sorted(by_season):
         got = by_season[season]
         print("   %-14s %2d run(s), mean %5.0f, min %5d, max %5d"
@@ -613,6 +865,10 @@ def main():
     print("   payout values: %s"
           % ", ".join("%dx%d" % (n, v) for v, n in sorted(tally.items())))
     report(kept)
+    print()
+    rate_shifts(kept)
+    print()
+    shipped_figures(kept)
 
 
 if __name__ == "__main__":

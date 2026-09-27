@@ -123,6 +123,11 @@ class SettingsManager:
         ("update_last_checked", ""),
         ("update_latest_version", ""),
         ("selected_preset", ""),
+        # Set by hand in this file; nothing on screen edits them.
+        ("#5", "_Settings without UI_"),
+        # How many Galactic Disaster Chaos runs a day the Checklist's
+        # season estimate assumes. See `chaos_estimate.runs_per_day`.
+        ("chaos_runs_per_day", 1),
     )
 
     def apply_layout(self, legacy_config_files=()) -> None:

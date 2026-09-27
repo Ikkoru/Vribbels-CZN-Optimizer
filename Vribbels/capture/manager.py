@@ -176,11 +176,27 @@ CHAOS_CLOSES = "stage/clear_stage"
 CHAOS_ENTERS = "stage/enter_spot"
 CHAOS_FIGHTS = "battle/battle_start"
 CHAOS_PAYS = "spot_reward/get_drop_item"
+# How a fight ends: the reply to an accelerated fight states its result,
+# and a fight played by hand states its own in the `battle_end` the
+# client sends. This result is the run lost on that fight.
+CHAOS_RESOLVES = "battle/acceleration_resolve"
+CHAOS_ENDS = "battle/battle_end"
+CHAOS_LOST = "BATTLE_RESULT_TYPE_STAGE_FAILED"
+# The fights that are not a boss's, as a map's `spot_list` types them.
+CHAOS_NON_BOSS = ("SPOT_TYPE_BATTLE", "SPOT_TYPE_ELITE")
+# The schedule groups a season's parts are dated from: the Galactic
+# Disaster's own window, and the Sortie rotations inside it, the first
+# of which is the preseason. The Checklist dates its shop pages off the
+# same two -- `checklist_tab._season_rotations`.
+CHAOS_SEASON_GROUP = "DISASTER_SEASON"
+CHAOS_PART_GROUP = "ASSAULT_SCHEDULE"
 # What a run pays in: the season's currency, whatever its id this
 # season, is filed under this group.
 CHAOS_PAID_GROUP = "disaster_material"
 # Runs a snapshot keeps, newest last: at one a day, three seasons. What
-# `docs/chaos_runs.py` has read of older ones lives in its TSV.
+# `docs/chaos_runs.py` has read of older ones lives in its TSV, and
+# `chaos_estimate.RATE_RUNS` -- the runs a player's own rates need --
+# has to stay under this.
 CHAOS_RUNS_KEPT = 200
 
 
@@ -349,10 +365,12 @@ class Addon:
         self.sortie_rankings = {}
         self.remnants_rankings = {}
         # Chaos runs, carried across restarts like the rankings, and the
-        # one in progress with the spot it is on. See `_note_chaos`.
+        # one in progress with the spot it is on and its map's
+        # (floor, spot type) pairs. See `_note_chaos`.
         self.chaos_runs = []
         self.chaos_run = None
         self.chaos_spot = (None, None, "")
+        self.chaos_map = []
         # The game client's version, from each connection's `helo`, so
         # that a run can be set against the game update it ran under.
         self.client_version = None
@@ -2819,13 +2837,21 @@ class Addon:
         or not the fight paid, since how often each turns up is counted
         over the fights fought, not the ones won. Every other keyword is
         noted too: the random mini-boss a run can meet once is not
-        identified yet.
+        identified yet. A fight a `?` encounter starts is filed under its
+        spot, `UNKNOWN`.
+
+        **A lost run is filed like a cleared one**, with `lost` saying
+        where: `[floor, spot, mark, non-boss fights left on the map]`.
+        Whether it still counts as a whole run is for the reader to
+        decide -- `chaos_estimate.is_full`. `part` is the season part it
+        cleared in; see `_disaster_part`.
         """
         if asked == CHAOS_OPENS:
             self.chaos_run = {"opened": data.get("service_server_time"),
                               "client": self.client_version,
                               "fought": {}, "marked": {}, "paid": []}
             self.chaos_spot = (None, None, "")
+            self.chaos_map = []
             return
         run = self.chaos_run
         if run is None:
@@ -2836,6 +2862,17 @@ class Addon:
                 spot = str(info.get("spot_type") or "?").replace(
                     "SPOT_TYPE_", "")
                 self.chaos_spot = (info.get("floor"), spot, "")
+            # The map as it stands: each area's floors arrive whole
+            # when the area opens, so this is what a loss is measured
+            # against.
+            stage = data.get("stage_info")
+            spots = stage.get("spot_list") if isinstance(stage, dict) else None
+            if isinstance(spots, list):
+                self.chaos_map = [(spot.get("floor"), spot.get("type"))
+                                  for spot in spots if isinstance(spot, dict)]
+        elif asked == CHAOS_RESOLVES:
+            if data.get("game_result") == CHAOS_LOST:
+                self._chaos_lost()
         elif asked == CHAOS_FIGHTS:
             snapshot = data.get("snapshot")
             cache = snapshot.get("cache") if isinstance(snapshot, dict) \\
@@ -2861,6 +2898,7 @@ class Addon:
         elif asked == CHAOS_CLOSES:
             run["closed"] = data.get("service_server_time")
             run["season"] = self._live_disaster_season()
+            run["part"] = self._disaster_part(run["closed"])
             self.chaos_run = None
             # By the second it cleared, which a replay of the same
             # capture reproduces: a run read twice is one run.
@@ -2868,6 +2906,52 @@ class Addon:
                     if old.get("closed") != run["closed"]]
             self.chaos_runs = (kept + [run])[-CHAOS_RUNS_KEPT:]
             self._save_pending = True
+
+    def _chaos_lost(self):
+        """Mark the run in progress lost on the fight at hand, with how
+        many non-boss fights the map still held after it."""
+        run = self.chaos_run
+        if run is None or run.get("lost"):
+            return
+        floor, spot, mark = self.chaos_spot
+        after = sum(1 for at, kind in self.chaos_map
+                    if isinstance(at, int) and isinstance(floor, int)
+                    and at > floor and kind in CHAOS_NON_BOSS)
+        run["lost"] = [floor, spot, mark, after]
+
+    def _disaster_part(self, when):
+        """Which part of its Galactic Disaster season `when` falls in: 1
+        from the first shop page's opening, 0 in the preseason, None
+        outside a season or where the schedules cannot say.
+
+        The Checklist's reading, less its hand table of Supply rounds
+        (`checklist_tab._page_openings`): a season whose parts are not
+        one Sortie rotation long is misdated here as it is there before
+        the table names it.
+        """
+        groups = self.event_schedules if isinstance(
+            self.event_schedules, dict) else {}
+        if not isinstance(when, (int, float)):
+            return None
+        season = None
+        for window in (groups.get(CHAOS_SEASON_GROUP) or {}).values():
+            if (isinstance(window, dict)
+                    and isinstance(window.get("start_time"), (int, float))
+                    and isinstance(window.get("end_time"), (int, float))
+                    and window["start_time"] <= when < window["end_time"]):
+                season = window
+        if season is None:
+            return None
+        starts = sorted(
+            window["start_time"]
+            for window in (groups.get(CHAOS_PART_GROUP) or {}).values()
+            if isinstance(window, dict)
+            and isinstance(window.get("start_time"), (int, float))
+            and season["start_time"] <= window["start_time"]
+            < season["end_time"])
+        if not starts:
+            return None
+        return sum(1 for start in starts[1:] if start <= when)
 
     def _live_disaster_season(self):
         """The Galactic Disaster season running now, `disaster_s04`, or
@@ -3098,6 +3182,13 @@ class Addon:
                 continue
 
             self._note_command(entry)
+            # A fight played by hand says it was lost in what the client
+            # SENDS; the reply to it does not.
+            sent = entry.get("params")
+            if (self.chaos_run is not None and isinstance(sent, dict)
+                    and self.qid_commands.get(entry.get("qid")) == CHAOS_ENDS
+                    and sent.get("game_result") == CHAOS_LOST):
+                self._chaos_lost()
 
             params = entry.get("params") or {}
             if not isinstance(params, dict):

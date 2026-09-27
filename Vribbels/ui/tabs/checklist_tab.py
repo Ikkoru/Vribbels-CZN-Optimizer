@@ -86,6 +86,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
 
+import chaos_estimate
 import checklist_manager
 import excursions
 import item_amounts
@@ -227,13 +228,20 @@ RATE_LONG_LABEL = "Average per %s, long run:"
 # currency is wiped at the end of every season, so an average off the
 # ledger spans several wipes and last season's says nothing about this
 # one. What a player wants to know is whether the season pays for the
-# shelf, so the line is a WHOLE SEASON's income at one run a day.
+# shelf, so the line is a WHOLE SEASON's income, at the runs a day that
+# `chaos_runs_per_day` in settings.json names.
 #
-# **One line, revised each season.** A second at another rate of play
-# read as a range the numbers could not support: every term but the
-# runs is fixed, so the two moved together and said nothing the one
-# does not.
-SEASON_ESTIMATE_LABEL = "1 lvl 8+ Chaos run/day, all rewards (apx.):"
+# **One line.** A second at another rate of play read as a range the
+# numbers could not support: every term but the runs is fixed, so the
+# two moved together and said nothing the one does not.
+SEASON_ESTIMATE_LABEL = "%s lvl 8+ Chaos %s/day, all rewards (apx.):"
+
+
+def season_estimate_label(runs_a_day):
+    """The estimate's label at a rate of play: `1 ... run/day`, `2 ...
+    runs/day`."""
+    return SEASON_ESTIMATE_LABEL % (runs_a_day,
+                                    "run" if runs_a_day == 1 else "runs")
 
 # And what the season has actually paid out so far, which is the line
 # the estimate is there to be read against. Held plus every one of it
@@ -259,8 +267,9 @@ SEASON_EARNED_LABEL = "You have earned this Season:"
 # one season's for the next would present a guess as a reading.
 SEASON_ESTIMATE = {
     "disaster_s04": {
-        # How many days of the season pay a Chaos run, and what one
-        # run gives on average.
+        # How many days of the season pay a Chaos run, where the wire
+        # cannot date its parts -- see `_season_parts`. What a run pays
+        # is `chaos_estimate`'s.
         #
         # **Not the length of the season's SCHEDULE.** `DISASTER_SEASON`
         # opens three weeks before the event does, and neither the shop
@@ -268,14 +277,7 @@ SEASON_ESTIMATE = {
         # the wire runs 84 days where the content runs 63. Season 3's
         # ran 70: the parts are three rotations long and one of them
         # was four.
-        #
-        # `per_run` is measured rather than written down: the two
-        # bosses and the Core of Discord pay a fixed 420 and the rest
-        # is which modifiers the run happened to roll, so a run's take
-        # swings by hundreds. `docs/chaos_runs.py` keeps the record of
-        # every whole run in every capture, and this is its mean.
         "days": 63,
-        "per_run": 541,
         # Everything that does not depend on how often it is played.
         "fixed": (
             9 * 8000,                               # Chaos weekly progress
@@ -291,17 +293,44 @@ SEASON_ESTIMATE = {
 }
 
 
-def season_estimate(season):
-    """What a season pays at one Chaos run a day, or None.
+def season_estimate(season, raw=None, now=None,
+                    runs_a_day=chaos_estimate.DEFAULT_RUNS_PER_DAY):
+    """What a season pays at `runs_a_day` Chaos runs a day, or None.
 
     None for a season `SEASON_ESTIMATE` does not name, which is a
-    reading: nothing has been counted for it yet.
+    reading: nothing has been counted for it yet. The Chaos share is
+    `chaos_estimate.season_chaos`, over the runs `raw` holds.
     """
     terms = SEASON_ESTIMATE.get(season)
     if not terms:
         return None
-    return int(round(sum(terms["fixed"])
-                     + terms["days"] * terms["per_run"]))
+    starts, part_days = _season_parts(season, terms, raw, now)
+    chaos = chaos_estimate.season_chaos(
+        season, (raw or {}).get("chaos_runs"), part_days, runs_a_day, starts)
+    if chaos is None:
+        return None
+    return int(round(sum(terms["fixed"]) + chaos))
+
+
+def _season_parts(season, terms, raw, now):
+    """(when each of the season's parts opened, the days each runs).
+
+    Off the wire where it dates them, the way the shop's pages are: a
+    part runs from one page's opening to the next, and the last to the
+    season's end. Otherwise no dates, and the written `days` shared
+    evenly among the parts the shipped figures know.
+    """
+    if raw and now is not None:
+        name, window = schedules.live(
+            shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY), raw, now)
+        starts = _page_openings(raw, name, window) if name == season else None
+        end = window.get("end_time") if isinstance(window, dict) else None
+        if starts and _is_count(end) and end > starts[-1]:
+            edges = list(starts) + [end]
+            return list(starts), [int(round((later - earlier) / 86400.0))
+                                  for earlier, later in zip(edges, edges[1:])]
+    parts = chaos_estimate.parts_shipped(season) or 1
+    return None, [terms["days"] / parts] * parts
 
 # And what a full period of the shop costs, which is the figure those
 # two are worth comparing against.
@@ -3293,9 +3322,15 @@ class ChecklistTab(BaseTab):
                     earned, _kind = currency_earned(raw, money)
                     lines = () if earned is None else (
                         (SEASON_EARNED_LABEL, RATE_VALUE % (earned, name)),)
-                    whole = season_estimate(_live_season(raw))
+                    settings = getattr(self.context, "settings_manager",
+                                       None)
+                    runs_a_day = chaos_estimate.runs_per_day(
+                        settings.get("chaos_runs_per_day")
+                        if settings is not None else None)
+                    whole = season_estimate(_live_season(raw), raw, now,
+                                            runs_a_day)
                     if whole is not None:
-                        lines += ((SEASON_ESTIMATE_LABEL,
+                        lines += ((season_estimate_label(runs_a_day),
                                    RATE_VALUE % (whole, name)),)
                 else:
                     value, kind = currency_earned(raw, money)

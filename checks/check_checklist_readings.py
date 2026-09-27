@@ -1100,10 +1100,14 @@ def run():
             "so one reused reads as a measurement of the wrong season.")
     # **Every term counts.** A table whose runs or whose fixed rewards
     # stopped reaching the total would still answer, and a figure that
-    # is merely plausible is the one nobody checks.
+    # is merely plausible is the one nobody checks. With no snapshot to
+    # date the parts, the written days are shared among them.
+    import chaos_estimate
     terms = SEASON_ESTIMATE[season]
-    if season_estimate(season) != (sum(terms["fixed"])
-                                   + terms["days"] * terms["per_run"]):
+    parts = chaos_estimate.parts_shipped(season)
+    chaos = chaos_estimate.season_chaos(season, (),
+                                        [terms["days"] / parts] * parts)
+    if season_estimate(season) != int(round(sum(terms["fixed"]) + chaos)):
         failures.append(
             f"the estimate for {season} is not its own terms added up. "
             f"Every one of them is hand-counted, so one that stopped "

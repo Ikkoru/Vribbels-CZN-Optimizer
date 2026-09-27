@@ -17,10 +17,10 @@ Run the doc audit first (`doc-audit` skill) — it moves facts between files, an
 
 1. **Commit whatever is uncommitted** before touching anything.
 2. **Read the maintainer's edits** to the last release, and ask what they leave unclear — see below. Asking first lets the answers arrive while the audit runs.
-3. **Chaos runs** — the season estimate's per-run figure, and whether what a run pays has moved. See below.
+3. **Chaos runs** — the season estimate's shipped Chaos figures, and whether what a run pays has moved. See below.
 4. **Doc audit.** At minimum, the sweeps.
 5. **CHANGELOG pass** — accuracy, then register.
-6. **`version.py`**, and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list.
+6. **`version.py`** — the version, `RELEASED_ON` (today, UTC) and `RELEASED_IN` (the Galactic Disaster season live today) — and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list. The two `RELEASED_` lines are what tell a player's program how stale its shipped Chaos figures have grown (`chaos_estimate.staleness`), so they move with every release, even one that measured nothing.
 7. **`.old/RELEASE_NOTES_<X.Y.Z>.md`** — a different document, see below.
 8. **README re-check** — report only; it is not edited as part of a release.
 9. `python checks/run_all.py`, then commit.
@@ -37,12 +37,14 @@ Read the older versions' files too. An edit pass can stop partway, and the commi
 
 ## Chaos runs
 
-Run `python docs/chaos_runs.py`, and read what it prints before touching `SEASON_ESTIMATE` in `Vribbels/ui/tabs/checklist_tab.py`:
+Run `python docs/chaos_runs.py`, and read what it prints before touching `SHIPPED` in `Vribbels/chaos_estimate.py` or `SEASON_ESTIMATE` in `Vribbels/ui/tabs/checklist_tab.py`:
 
-- **The live season's `whole` line is its `per_run`.** It counts each run's `missed` in. The part lines show whether one part pays differently.
-- **The four questions come last**: whether a set amount or a mark's rate moved with the season part or with the game version. A moved amount is a CHANGELOG line only where the estimate moved with it. "Can't tell" means part and version changed together, and a capture on the far side of either settles it.
+- **`For chaos_estimate.SHIPPED:` is the block to copy**: each part's bosses as its latest cleared run paid them, each mark's amount and its count per whole run. A part the block lacks was never captured, and borrows its neighbour's in the program; say so in the entry's comment.
+- **The four questions**: whether a set amount or a mark's rate moved with the season part or with the game version. A moved amount is a CHANGELOG line only where the estimate moved with it. "Can't tell" means part and version changed together, and a capture on the far side of either settles it.
+- **`Mark rates over time`** flags a shift in a mark's rate, dated. A shift inside a known event that raised the rates is not one: add the event's window to `chaos_estimate.RATE_EVENTS` and run again.
 - **A run with no season** paid a currency `CURRENCY` does not hold, cleared before any Great Rift standings were read. Add the id.
-- **A new season wants its own `SEASON_ESTIMATE` entry**, whose `days` and `fixed` are hand-counted (`past_plans/seasonal_shop.md`); the script supplies only `per_run`.
+- **`filled missed`** names the lost runs it priced itself. A `!` line where your own `missed` disagrees with the loss wants one of the two corrected.
+- **A new season wants its own `SEASON_ESTIMATE` entry**, whose `days` and `fixed` are hand-counted (`past_plans/seasonal_shop.md`); what a run pays is `SHIPPED`'s.
 
 Commit `docs/chaos_runs.tsv` with the estimate.
 
