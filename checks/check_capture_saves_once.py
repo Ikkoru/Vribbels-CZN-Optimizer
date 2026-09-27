@@ -70,8 +70,8 @@ def run():
     # The tables the generated script appends below the template. Empty
     # is enough here -- every lookup falls back to a res_id -- but they
     # have to EXIST, or a line that names a fragment raises instead.
-    namespace.update(CHAR_NAMES={}, SET_NAMES={}, SLOT_NAMES={},
-                     KNOWN_UNIT_IDS=set(), REGION_ROUTES={})
+    from .check_capture_history import addon_tables
+    namespace.update(addon_tables())
     Addon = namespace["Addon"]
 
     failures = []

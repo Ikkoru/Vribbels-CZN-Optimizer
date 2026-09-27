@@ -87,6 +87,7 @@ from tkinter import ttk
 from tkinter import font as tkfont
 
 import chaos_estimate
+import chaos_store
 import checklist_manager
 import excursions
 import item_amounts
@@ -95,6 +96,7 @@ import schedules
 import shared_facts
 import shop_stock
 import weekly_reset
+from capture.constants import OUTPUT_DIR
 from game_data.constants import item_names
 
 from ..base_tab import BaseTab
@@ -294,19 +296,20 @@ SEASON_ESTIMATE = {
 
 
 def season_estimate(season, raw=None, now=None,
-                    runs_a_day=chaos_estimate.DEFAULT_RUNS_PER_DAY):
+                    runs_a_day=chaos_estimate.DEFAULT_RUNS_PER_DAY,
+                    runs=None):
     """What a season pays at `runs_a_day` Chaos runs a day, or None.
 
     None for a season `SEASON_ESTIMATE` does not name, which is a
     reading: nothing has been counted for it yet. The Chaos share is
-    `chaos_estimate.season_chaos`, over the runs `raw` holds.
+    `chaos_estimate.season_chaos`, over the recorded `runs`.
     """
     terms = SEASON_ESTIMATE.get(season)
     if not terms:
         return None
     starts, part_days = _season_parts(season, terms, raw, now)
-    chaos = chaos_estimate.season_chaos(
-        season, (raw or {}).get("chaos_runs"), part_days, runs_a_day, starts)
+    chaos = chaos_estimate.season_chaos(season, runs, part_days, runs_a_day,
+                                        starts)
     if chaos is None:
         return None
     return int(round(sum(terms["fixed"]) + chaos))
@@ -3327,8 +3330,12 @@ class ChecklistTab(BaseTab):
                     runs_a_day = chaos_estimate.runs_per_day(
                         settings.get("chaos_runs_per_day")
                         if settings is not None else None)
+                    # The runs' own file, and any a snapshot from
+                    # before it still carries.
+                    runs = chaos_store.merged(chaos_store.runs(OUTPUT_DIR),
+                                              raw.get("chaos_runs"))
                     whole = season_estimate(_live_season(raw), raw, now,
-                                            runs_a_day)
+                                            runs_a_day, runs)
                     if whole is not None:
                         lines += ((season_estimate_label(runs_a_day),
                                    RATE_VALUE % (whole, name)),)

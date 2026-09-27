@@ -53,12 +53,23 @@ class _Flow:
             "W", (), {"messages": [_Message(payload, from_client)]})()
 
 
+def addon_tables():
+    """What the generated script appends below the template, for a check
+    that builds the addon from the template itself: the name tables,
+    empty -- every lookup falls back to a res_id -- and where the Chaos
+    runs' file lives, which the addon reads as it starts."""
+    import chaos_store
+    return dict(CHAR_NAMES={}, SET_NAMES={}, SLOT_NAMES={}, ITEM_NAMES={},
+                KNOWN_UNIT_IDS=set(), REGION_ROUTES={},
+                CHAOS_FOLDER=chaos_store.FOLDER, CHAOS_FILE=chaos_store.FILE,
+                CHAOS_KIND=chaos_store.KIND)
+
+
 def _addon_class():
     from capture.manager import ADDON_TEMPLATE
     namespace = {}
     exec(compile(ADDON_TEMPLATE, "<ADDON_TEMPLATE>", "exec"), namespace)
-    namespace.update(CHAR_NAMES={}, SET_NAMES={}, SLOT_NAMES={},
-                     ITEM_NAMES={}, KNOWN_UNIT_IDS=set(), REGION_ROUTES={})
+    namespace.update(addon_tables())
     return namespace["Addon"]
 
 

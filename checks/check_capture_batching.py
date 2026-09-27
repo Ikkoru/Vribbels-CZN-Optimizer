@@ -51,6 +51,8 @@ def run():
 
     namespace = {"__name__": "_addon_under_check"}
     exec(compile(ADDON_TEMPLATE, "<ADDON_TEMPLATE>", "exec"), namespace)
+    from .check_capture_history import addon_tables
+    namespace.update(addon_tables())
     addon_class = namespace["Addon"]
 
     inventory_reply = {

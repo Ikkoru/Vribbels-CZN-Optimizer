@@ -168,17 +168,17 @@ EVENT_FIELDS_HANDLED = frozenset({
 CATALOGUE_SAMPLE = 200
 CATALOGUE_MAX = 4000
 
-# A Chaos run entered through the Galactic Disaster, as the capture
-# follows one: what opens it, what clears it, the spot and the fight
-# each floor holds, and the drop the player takes. See
-# `Addon._note_chaos`.
+# A Chaos run, as the capture follows one: what opens it, what clears
+# it, the spot and the fight each floor holds, and the drop the player
+# takes. See `Addon._note_chaos`.
 #
-# **Only runs entered this way are followed.** Any Chaos run pays the
-# season's currency while a season is on, and meets the marks in or
-# out of one, but no capture has yet held a Chaos run entered any other
-# way, so what opens one is unknown. A debug log of one names it; it
-# belongs beside `CHAOS_OPENS`.
-CHAOS_OPENS = "disaster/enter_disaster_chaos_stage"
+# **Two doors.** The live Galactic Disaster's own Chaos opens from its
+# season's screen; a past season's opens from the Zero System, where
+# the live one goes too once its season ends. While a season is on,
+# either pays its currency -- a past season's Chaos less. The clear
+# names the Chaos by its stage id (`chaos_estimate.CHAOS_NAMES`).
+CHAOS_OPENS = ("disaster/enter_disaster_chaos_stage",
+               "zero_orb/enter_zero_stage")
 CHAOS_CLOSES = "stage/clear_stage"
 CHAOS_ENTERS = "stage/enter_spot"
 CHAOS_FIGHTS = "battle/battle_start"
@@ -200,23 +200,24 @@ CHAOS_PART_GROUP = "ASSAULT_SCHEDULE"
 # What a run pays in: the season's currency, whatever its id this
 # season, is filed under this group.
 CHAOS_PAID_GROUP = "disaster_material"
-# Runs a snapshot keeps, newest last: at one a day, three seasons. What
-# `docs/chaos_runs.py` has read of older ones lives in its TSV, and
-# `chaos_estimate.RATE_RUNS` -- the runs a player's own rates need --
-# has to stay under this.
-CHAOS_RUNS_KEPT = 200
 
 
 def _chaos_mark(fight):
-    """What a Chaos fight carries that could pay: `e` for a battle id
-    ending `_e`, `k<n>` for each keyword on it, joined by `+`; '' for
-    none. Every keyword is kept, not only the one seen paying: how often
-    each turns up is worth counting before anything says it pays."""
+    """What a Chaos fight carries that could pay, joined by `+`; '' for
+    none: `e` for a battle id ending `_e` (the Aether Eater), `k<n>` for
+    each keyword on it (`k5`, the Rare Species), and `b<n>` for a
+    break-in -- a hidden mini-boss that follows a fight on the same
+    spot, `bi_0001` being Senectus. Every keyword is kept, not only the
+    one seen paying: how often each turns up is worth counting before
+    anything says it pays."""
     tags = fight.get("keyword_tag")
     marks = sorted({"k%s" % tag for tag in tags
                     if isinstance(tag, int)}) if isinstance(tags, list) else []
     if str(fight.get("battle_res_id") or "").endswith("_e"):
         marks.insert(0, "e")
+    if fight.get("break_in"):
+        digits = str(fight.get("break_in_res_id") or "").rsplit("_", 1)[-1]
+        marks.insert(0, "b%d" % int(digits) if digits.isdigit() else "b")
     return "+".join(marks)
 
 
@@ -371,13 +372,21 @@ class Addon:
         self.rift_tops = {}
         self.sortie_rankings = {}
         self.remnants_rankings = {}
-        # Chaos runs, carried across restarts like the rankings, and the
+        # Chaos runs, from their own file (`_load_chaos_runs`), and the
         # one in progress with the spot it is on and its map's
         # (floor, spot type) pairs. See `_note_chaos`.
         self.chaos_runs = []
         self.chaos_run = None
         self.chaos_spot = (None, None, "")
         self.chaos_map = []
+        # Whether the run being opened is the Delegation Module's: said
+        # only in what the client sends to open it.
+        self.chaos_delegated = False
+        # Runs an older snapshot still carries, folded into the file
+        # once; and whether the file can be written at all this session
+        # -- not where it is there and will not read.
+        self._legacy_chaos_runs = []
+        self._chaos_writable = True
         # The game client's version, from each connection's `helo`, so
         # that a run can be set against the game update it ran under.
         self.client_version = None
@@ -535,6 +544,7 @@ class Addon:
                 self.log_callback(f"Warning: Failed to load zstd dictionary: {e}")
 
         self._seed_from_previous()
+        self._load_chaos_runs()
 
     def _seed_from_previous(self):
         """Carry over, from the newest snapshot, what the wire cannot restate.
@@ -577,9 +587,12 @@ class Addon:
         offensives = previous.get("remnants_rankings")
         if isinstance(offensives, dict):
             self.remnants_rankings = offensives
+        # Runs recorded before they had a file of their own rode in the
+        # snapshot. See `_load_chaos_runs`.
         runs = previous.get("chaos_runs")
         if isinstance(runs, list):
-            self.chaos_runs = [run for run in runs if isinstance(run, dict)]
+            self._legacy_chaos_runs = [run for run in runs
+                                       if isinstance(run, dict)]
         for key in ("mission_accumulate", "achievements", "daily_achieve"):
             for row in previous.get(key) or ():
                 if (isinstance(row, dict) and row.get("res_id") is not None
@@ -2074,6 +2087,124 @@ class Addon:
         except OSError:
             pass
 
+    def _chaos_path(self):
+        return self.output_dir / CHAOS_FOLDER / CHAOS_FILE
+
+    def _read_chaos_store(self):
+        """The Chaos runs' file as a list of runs; [] where there is no
+        file yet, None where one is there and will not read.
+
+        **Falls back to the backup** like the Gacha History's file, and
+        for the same reason: a write renames the file to its backup
+        before the new copy takes its place. The app reads it the same
+        way -- `chaos_store.read`.
+        """
+        path = self._chaos_path()
+        problems = []
+        for candidate in (path, path.with_name(path.name + ".bak")):
+            if not candidate.exists():
+                continue
+            try:
+                with gzip.open(candidate, "rt", encoding="utf-8") as f:
+                    data = json.load(f)
+            except (OSError, ValueError, EOFError) as e:
+                problems.append(candidate.name + ": " + str(e))
+                continue
+            runs = data.get("runs") if isinstance(data, dict) else None
+            if not isinstance(runs, list):
+                problems.append(candidate.name + ": not a Chaos runs file")
+                continue
+            return [run for run in runs if isinstance(run, dict)]
+        if problems:
+            self.log_callback(
+                "[X] Chaos runs could not be read (" + "; ".join(problems)
+                + "). This session's runs are kept in memory only.")
+            return None
+        return []
+
+    def _write_chaos_store(self, runs, before):
+        """Write the Chaos runs through a checked copy -- the procedure
+        `_write_gacha_store` follows, gzipped. The copy is written and
+        read back, and must equal what was meant and still hold every
+        run `before` held, unchanged; only then does the file become
+        `<name>.bak`, replacing the older backup, and the copy take its
+        place. A failure before that leaves the file exactly as it was.
+        `checks/check_capture_chaos_runs.py` drives it.
+        """
+        path = self._chaos_path()
+        tmp = path.with_name(path.name + ".tmp")
+        bak = path.with_name(path.name + ".bak")
+        store = {"kind": CHAOS_KIND, "version": 1, "runs": runs}
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(tmp, "wb") as raw:
+                with gzip.GzipFile(fileobj=raw, mode="wb") as packed:
+                    packed.write(json.dumps(
+                        store, separators=(",", ":")).encode("utf-8"))
+                raw.flush()
+                os.fsync(raw.fileno())
+            with gzip.open(tmp, "rt", encoding="utf-8") as f:
+                back = json.load(f)
+        except (OSError, ValueError, EOFError) as e:
+            self._gacha_discard(tmp)
+            self.log_callback(
+                "[X] Chaos runs: the copy could not be written: " + str(e))
+            return False
+        problems = [] if back == store else ["it does not read back as "
+                                             "what was written"]
+        kept = {}
+        if isinstance(back, dict) and isinstance(back.get("runs"), list):
+            kept = {run.get("closed"): run for run in back["runs"]
+                    if isinstance(run, dict)}
+        lost = [run for run in before if kept.get(run.get("closed")) != run]
+        if lost:
+            problems.append("%d runs went missing or changed" % len(lost))
+        if problems:
+            self._gacha_discard(tmp)
+            self.log_callback(
+                "[X] Chaos runs: the new copy failed its check ("
+                + "; ".join(problems) + "), so " + path.name
+                + " is unchanged.")
+            return False
+        try:
+            if path.exists():
+                self._gacha_replace(path, bak)
+            self._gacha_replace(tmp, path)
+        except OSError as e:
+            if not path.exists() and bak.exists():
+                try:
+                    self._gacha_replace(bak, path)
+                except OSError:
+                    pass
+            self._gacha_discard(tmp)
+            self.log_callback(
+                "[X] Chaos runs: " + path.name + " could not be replaced: "
+                + str(e))
+            return False
+        return True
+
+    def _load_chaos_runs(self):
+        """The Chaos runs from their file, with any an older snapshot
+        still carries folded in -- once: the next session finds them in
+        the file.
+
+        A file that is there and will not read is left alone for the
+        session, and new runs are kept in memory only: writing would
+        start the file over with this session's runs.
+        """
+        stored = self._read_chaos_store()
+        if stored is None:
+            self._chaos_writable = False
+            self.chaos_runs = list(self._legacy_chaos_runs)
+            return
+        held = {run.get("closed") for run in stored}
+        added = [run for run in self._legacy_chaos_runs
+                 if run.get("closed") not in held]
+        self.chaos_runs = sorted(stored + added,
+                                 key=lambda run: run.get("closed") or 0)
+        if added:
+            self._write_chaos_store(self.chaos_runs, stored)
+
     @staticmethod
     def _nested_reward(payload):
         """A rewards payload buried inside a `result`, or None.
@@ -2534,7 +2665,6 @@ class Addon:
             "disaster_boss_rank_tops": self.rift_tops or None,
             "chaos_assault_rankings": self.sortie_rankings or None,
             "remnants_rankings": self.remnants_rankings or None,
-            "chaos_runs": self.chaos_runs or None,
             "combat_trial_entities": self.combat_trials or None,
             "combatant_trial_slots": self.trial_slots or None,
             "season_pass_entity": self.season_pass,
@@ -2870,23 +3000,33 @@ class Addon:
         run.
 
         **What makes a fight pay is on its `battle_init_wt`**: the Rare
-        Species is `keyword_tag` 5 (60 a fight, every time), and the
-        Aether Eater a battle id ending `_e` (90). Both are noted whether
-        or not the fight paid, since how often each turns up is counted
-        over the fights fought, not the ones won. Every other keyword is
-        noted too: the random mini-boss a run can meet once is not
-        identified yet. A fight a `?` encounter starts is filed under its
-        spot, `UNKNOWN`.
+        Species is `keyword_tag` 5 (60 a fight in the live season's
+        Chaos), and the Aether Eater a battle id ending `_e` (90). Both
+        are noted whether or not the fight paid, since how often each
+        turns up is counted over the fights fought, not the ones won.
+        Every other keyword is noted too. A fight a `?` encounter starts
+        is filed under its spot, `UNKNOWN`; a break-in -- the hidden
+        mini-boss that can follow a fight on the same spot -- as a
+        spot of its own, `BREAK_IN`, so that it is not counted among the
+        ordinary fights a mark's rate is taken over.
 
         **A lost run is filed like a cleared one**, with `lost` saying
         where: `[floor, spot, mark, non-boss fights left on the map]`.
         Whether it still counts as a whole run is for the reader to
         decide -- `chaos_estimate.is_full`. `part` is the season part it
-        cleared in; see `_disaster_part`.
+        cleared in (see `_disaster_part`), `stage` the Chaos by its
+        stage id, `via` the door it came in by -- `disaster` or
+        `zero_orb` -- and `delegated` whether the Delegation Module
+        played it.
+
+        **Filed into its own file** as it clears, with every run before
+        it: `_write_chaos_store`.
         """
-        if asked == CHAOS_OPENS:
+        if asked in CHAOS_OPENS:
             self.chaos_run = {"opened": data.get("service_server_time"),
                               "client": self.client_version,
+                              "via": asked.split("/", 1)[0],
+                              "delegated": self.chaos_delegated,
                               "fought": {}, "marked": {}, "paid": []}
             self.chaos_spot = (None, None, "")
             self.chaos_map = []
@@ -2921,6 +3061,8 @@ class Addon:
                 return
             floor, spot, _mark = self.chaos_spot
             mark = _chaos_mark(fight)
+            if fight.get("break_in"):
+                spot = "BREAK_IN"
             self.chaos_spot = (floor, spot, mark)
             run["fought"][spot] = run["fought"].get(spot, 0) + 1
             if mark:
@@ -2937,12 +3079,18 @@ class Addon:
             run["closed"] = data.get("service_server_time")
             run["season"] = self._live_disaster_season()
             run["part"] = self._disaster_part(run["closed"])
+            run["stage"] = data.get("stage_id")
             self.chaos_run = None
             # By the second it cleared, which a replay of the same
             # capture reproduces: a run read twice is one run.
             kept = [old for old in self.chaos_runs
                     if old.get("closed") != run["closed"]]
-            self.chaos_runs = (kept + [run])[-CHAOS_RUNS_KEPT:]
+            self.chaos_runs = kept + [run]
+            if self._chaos_writable:
+                self._write_chaos_store(self.chaos_runs, kept)
+            # Nothing in the snapshot changes, but a save is what tells
+            # the app to read again, and the Checklist's estimate reads
+            # the runs.
             self._save_pending = True
 
     def _chaos_lost(self):
@@ -3227,6 +3375,15 @@ class Addon:
                     and self.qid_commands.get(entry.get("qid")) == CHAOS_ENDS
                     and sent.get("game_result") == CHAOS_LOST):
                 self._chaos_lost()
+            # A run the Delegation Module plays is asked for with its
+            # `acceleration_info`; one played by hand without it.
+            if (isinstance(sent, dict)
+                    and self.qid_commands.get(entry.get("qid")) in CHAOS_OPENS):
+                chaos = sent.get("chaos_info")
+                accel = chaos.get("acceleration_info") \\
+                    if isinstance(chaos, dict) else None
+                self.chaos_delegated = bool(isinstance(accel, dict)
+                                            and accel.get("enabled"))
 
             params = entry.get("params") or {}
             if not isinstance(params, dict):
@@ -3758,7 +3915,9 @@ class CaptureManager:
             # Where the Gacha History's file lives and what it calls
             # itself. `gacha_history.py` owns all three and reads what
             # the addon writes, so they are handed over rather than
-            # spelled a second time.
+            # spelled a second time -- and the same for the Chaos runs'
+            # file, which `chaos_store.py` owns.
+            import chaos_store
             import gacha_history
 
             # Generate standalone script using embedded template
@@ -3776,6 +3935,9 @@ REGION_ROUTES = {region_routes}
 GACHA_FOLDER = {gacha_history.FOLDER!r}
 GACHA_FILE = {gacha_history.CAPTURED!r}
 GACHA_KIND = {gacha_history.STORE_KIND!r}
+CHAOS_FOLDER = {chaos_store.FOLDER!r}
+CHAOS_FILE = {chaos_store.FILE!r}
+CHAOS_KIND = {chaos_store.KIND!r}
 
 addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                 catalogue_path=CATALOGUE_PATH)]

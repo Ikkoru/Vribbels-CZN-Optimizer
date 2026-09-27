@@ -42,6 +42,11 @@ the one before it, else the one after.
 no non-boss fight was left on its map: every mark it could meet, it met.
 What it would have paid besides is `missed`.
 
+**Only the live season's own Chaos counts** (`is_current`). A past
+season's Chaos pays the live currency too, at lower amounts -- 135 a
+boss and 45 a Rare Species in the past ones captured, against 180 and
+60 -- and the estimate is of the live one.
+
 No Tk: this takes plain data, and `docs/chaos_runs.py` reads it too.
 """
 
@@ -69,10 +74,19 @@ SHIPPED = {
 TOP_SHARE = 0.7
 
 # Rule 4: how many whole runs since the release make the player's own
-# rates. A run's marks pay about 90 either side of their mean, so a
-# hundred runs pin the mean to about 9 a run -- under 600 on a season --
-# and it must stay under `CHAOS_RUNS_KEPT`, the runs a snapshot holds.
-RATE_RUNS = 100
+# rates. A run's marks pay about 90 either side of their mean, so two
+# hundred runs pin the mean to about 6 a run -- some 400 on a season.
+RATE_RUNS = 200
+
+# Each Galactic Disaster's own Chaos, by the stage id its clear names,
+# and the season it came with. Named in the game's update notes;
+# 70000 is inferred from the other three.
+CHAOS_NAMES = {
+    50000: ("Laboratory 0", "disaster_s01"),
+    60000: ("Burning Life", "disaster_s02"),
+    70000: ("Theater of Illusions", "disaster_s03"),
+    80000: ("Kaleidoscope Hatchery", "disaster_s04"),
+}
 
 # Windows in which something raised how often the marks turn up, as
 # (first day, last day, name), UTC. A run inside one says nothing about
@@ -135,6 +149,29 @@ def readable(runs):
     return [run for run in runs or ()
             if isinstance(run, dict)
             and isinstance(run.get("closed"), (int, float))]
+
+
+def is_current(run):
+    """Whether a run was in the live season's own Chaos: entered through
+    the Galactic Disaster. A past season's Chaos, entered through the
+    Zero System, pays the currency too but less, and the estimate is of
+    the live one. A record with no `via` came the Galactic Disaster's
+    way: none other was followed when it was made."""
+    return run.get("via", "disaster") == "disaster"
+
+
+def chaos_name(run):
+    """The Chaos a run was in, by name: its stage id's, else the
+    season's own where it came in through the Galactic Disaster; `?`
+    where the record cannot say."""
+    named = CHAOS_NAMES.get(run.get("stage"))
+    if named:
+        return named[0]
+    if is_current(run):
+        for name, season in CHAOS_NAMES.values():
+            if season == run.get("season"):
+                return name
+    return str(run.get("stage") or "?")
 
 
 def payouts(run):
@@ -254,7 +291,8 @@ def boss_table(live, part, runs, starts=None, shipped=SHIPPED, stale=0):
     wanted = _seasons_read(live, stale)
     seen = collections.defaultdict(list)
     for run in runs:
-        if (season_number(run.get("season")) not in wanted
+        if (not is_current(run)
+                or season_number(run.get("season")) not in wanted
                 or run_part(run, live, starts) != part):
             continue
         for floor, spot, _mark, amount in payouts(run):
@@ -271,7 +309,8 @@ def mark_values(live, runs, shipped=SHIPPED, stale=0):
     wanted = _seasons_read(live, stale)
     seen = collections.defaultdict(list)
     for run in runs:
-        if season_number(run.get("season")) not in wanted:
+        if (not is_current(run)
+                or season_number(run.get("season")) not in wanted):
             continue
         for _floor, spot, mark, amount in payouts(run):
             if mark and spot != BOSS:
@@ -301,8 +340,8 @@ def mark_rates(live, runs, shipped=SHIPPED, stale=0, since=None):
         return rates, None
     after = released_at() if since is None else since
     counted = [run for run in runs
-               if run["closed"] >= after and is_full(run)
-               and not in_rate_event(run["closed"])]
+               if run["closed"] >= after and is_current(run)
+               and is_full(run) and not in_rate_event(run["closed"])]
     if len(counted) < RATE_RUNS:
         return rates, None
     marked = collections.Counter()

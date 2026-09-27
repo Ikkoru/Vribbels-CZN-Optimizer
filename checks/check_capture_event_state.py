@@ -73,8 +73,8 @@ def run():
 
     namespace = {}
     exec(compile(ADDON_TEMPLATE, "<ADDON_TEMPLATE>", "exec"), namespace)
-    namespace.update(CHAR_NAMES={}, SET_NAMES={}, SLOT_NAMES={},
-                     ITEM_NAMES={}, KNOWN_UNIT_IDS=set(), REGION_ROUTES={})
+    from .check_capture_history import addon_tables
+    namespace.update(addon_tables())
     Addon = namespace["Addon"]
 
     failures = []

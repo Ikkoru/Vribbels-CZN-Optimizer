@@ -178,17 +178,21 @@ def _addon(folder):
     """The capture addon, from its template, on an output folder of
     `folder` -- which must be empty, or it seeds itself from the newest
     snapshot there -- and saving nothing into it."""
+    import chaos_store
     from capture.manager import ADDON_TEMPLATE
     namespace = {}
     exec(compile(ADDON_TEMPLATE, "<ADDON_TEMPLATE>", "exec"), namespace)
     namespace.update(CHAR_NAMES={}, SET_NAMES={}, SLOT_NAMES={},
-                     ITEM_NAMES={}, KNOWN_UNIT_IDS=set(), REGION_ROUTES={})
+                     ITEM_NAMES={}, KNOWN_UNIT_IDS=set(), REGION_ROUTES={},
+                     CHAOS_FOLDER=chaos_store.FOLDER,
+                     CHAOS_FILE=chaos_store.FILE, CHAOS_KIND=chaos_store.KIND)
     addon = namespace["Addon"](Path(folder),
                                log_callback=lambda *a, **k: None)
     # **NOT optional.** Left alone, the addon writes a snapshot into its
-    # folder after every frame that moves anything. Pinned by
-    # `check_stats_history`.
+    # folder after every frame that moves anything, and the Chaos runs'
+    # file after every run that clears. Pinned by `check_stats_history`.
     addon._save_data = lambda *a, **k: None
+    addon._write_chaos_store = lambda *a, **k: True
     return addon
 
 

@@ -62,6 +62,12 @@ The schedule is kept ONCE, as the GACHA group of `event_schedules`; `_banners()`
 
 The app refreshes the Stats & Gacha History tab's pull history on `GACHA_MARKER`, not `SAVE_MARKER`: a history page is no reason to reload the whole snapshot, which a `[LIVE]` line would also cost. The tab's standings sheets are the snapshot's, redrawn on every load. The file's location and name are handed to the generated addon from `gacha_history.py` rather than spelled twice. Everything else -- the wire shapes, the write, the reading -- is in `docs/gacha_history.md`.
 
+## The Chaos runs are kept in a file of their own
+
+A Chaos run is followed through its commands -- `disaster/enter_disaster_chaos_stage` or `zero_orb/enter_zero_stage` to `stage/clear_stage` -- and **learned, not received**: one record per run, with its season (from the standings) and season part (from the schedules), the Chaos by its stage id, the door it came in by and whether the Delegation Module played it, the game version (from `helo`), the fights by spot, the marked fights, each payout taken with its floor, spot and mark, and for a lost run where it was lost and how many non-boss fights its map had left. `Addon._note_chaos` says what a payout is and what marks a fight.
+
+Each run goes, as it clears, to `snapshots/chaos_runs/runs.json.gz`, never into the snapshot, through the same checked copy as the pull history and with its one `.bak`. Every run is kept, each once; runs an older snapshot still carries as `chaos_runs` are folded in by the first capture to start after it. `chaos_store.py` owns the file's place and name and reads it for the Checklist's season estimate (`chaos_estimate`) and `docs/chaos_runs.py`.
+
 ## Payloads kept aside and written out later
 
 The excursion board and the Great Rift standings arrive in a frame carrying no roster and no inventory, as the banner schedule does. `_save_data` returns early without `inventory_data`, so each is held on the addon and written by whatever save comes next:
@@ -94,7 +100,7 @@ The rest join them, all merged rather than replaced for the same reason:
 | Attribute | Wire key | What it is |
 | --------- | -------- | ---------- |
 | `shop_products` | `shop_list`, `shop_entity` | one row per shop product; `shop_list` is all of them at login and `shop_entity` is the one just bought |
-| `stage_limits` | `stage_limit_entities` | per-stage run limits. `content_boss` is the Simulation Challenges |
+| `stage_limits` | `stage_limit_entities`; `stage_limit_entity` | per-stage run limits. `content_boss` is the Simulation Challenges. The login sends the table; each run it limits sends its own row again on the clear's reply, as `stage_limit_entity` -- singular, a list |
 | `month_start` / `month_end` | `month_start`, `month_end` | when the month rolls: 18:00 UTC on the last day of it. `weekly_reset.month_bounds` derives the same pair to the second, which is what a fresh install counts down to |
 | `shop_definitions` | `shop_res_data` | every product's item, count, per-period cap, `limit_type`, price and display order. **This is where a shop's MAX comes from** — a `shop_list` row carries only the tally |
 | `season_passes` | `season_pass_entities` | every pass the account has played, the live one among them |
@@ -113,7 +119,6 @@ The rest join them, all merged rather than replaced for the same reason:
 | `login_tables` | `story_event_entities`, `story_event_entity`, the two `marble_*` tables, `remnants_entity`, `chaos_assault_entity` | login tables with no reader yet whose names do not say `event_`, kept whole for the same reason and listed by name beside the sweep. A story episode's claim answers with its one row, keyed by event and story, and it is folded in. `docs/unread_stats.md` says what each holds, and which other tables would be worth adding |
 | `lifetime`, `lifetime_types`, `login_total_count` | `mission_accumulate`, `achievements`, `daily_achieve`, `achievement_entity`, the `mission_condition` of any reply, `login_total_count` | the lifetime counters, the Achievements screen and the daily tasks, merged by id and saved as lists. **What a counter counts** arrives only in the `mission_condition` of whatever moved it: written onto the row as `condition_type`, kept through the login that sends the row without it, and seeded from the previous snapshot |
 | `rift_tops`, `sortie_rankings` | `result_list` beside a `disaster_boss_rank_entity`; `my_rank` on a ranking's first page | ranking HISTORY: each Great Rift subdivision's top row as one sample per change, and each Sortie season's own standing, field size and top score. Numbers only -- a ranking page is twenty other players, and no name, id, profile or team is kept. Seeded from the previous snapshot, because the game keeps two Sortie seasons and a division top is read once per visit to its screen |
-| `chaos_runs` | followed through a run's commands: `disaster/enter_disaster_chaos_stage` to `stage/clear_stage` | **learned, not received**: one record per Galactic Disaster Chaos run -- its season (from the standings) and season part (from the schedules), the game version (from `helo`), the fights by spot, the marked fights, each payout taken with its floor, spot and mark, and for a lost run where it was lost and how many non-boss fights its map had left. Filed by the second the run cleared, the newest `CHAOS_RUNS_KEPT` seeded from the previous snapshot. `Addon._note_chaos` says what a payout is and what marks a fight; `docs/chaos_runs.py` and the Checklist's season estimate (`chaos_estimate`) read the records |
 
 The town's daily block carries no date, and `town_visit_reset_time` is what dates it. The coffee flag and the day's Communication Passes say nothing about which day they belong to, so a snapshot left open past a reset read a drunk coffee as still drunk. That field is the moment the game granted the day — lazily, at the first login after the reset — so a block stamped before the last reset is a finished day's and everything in it has come back. Where it is missing, `capture_time` stands in. This is what makes those rows right with no capture running.
 
@@ -140,7 +145,7 @@ A Communication Pass is in none of them, because it is in nothing. Spending one 
 
 ## The item counts arrive once, and change through seven keys and a sweep
 
-`inventory.items` and `characters.currencies` come down in the login burst and never again. Every later change to either rides on the reply to whatever caused it, in one of two shapes.
+`inventory.items` and `characters.currencies` come down in the login burst whole. Every later change to either rides on the reply to whatever caused it, in one of two shapes -- and the currencies come once more whole, as a LIST of the same records, on every lobby refresh (`lobby/lobby_update`). That list is what carries a weekly currency's top-up, which lands lazily after the reset and would otherwise be seen only when next spent; `version`, each record's write counter, keeps a late older copy from overwriting a newer one.
 
 **Five keys state what a holding NOW IS** — `add_result` (a gain), `item_result` (a use), `dec_result` (a spend), `calamity_reward` (a town calamity) and `result` (an event mission claim, a story episode). One envelope between them:
 

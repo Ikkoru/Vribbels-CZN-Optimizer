@@ -12,7 +12,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Capture: two options in Upgrade Log Settings, both off by default:
   - `Show average Potential` adds where each preset's Potential is expected to end, between the ends of its range: `21-41-80`. The ends are what the best and worst luck reach, and rarely happen.
-  - `Show likely Potential (80%)` narrows each range to where 8 upgrade paths in 10 end.
+  - `Show Potential's middle 80%` narrows each range to where 8 upgrade paths in 10 end.
+- Capture: every Chaos run is recorded in `snapshots/chaos_runs/`, beside the pull history. The season estimate reads it, counting only the live Galactic Disaster's own Chaos.
 
 ### Changed
 

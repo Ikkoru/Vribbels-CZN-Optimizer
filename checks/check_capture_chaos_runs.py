@@ -1,22 +1,26 @@
-"""What the capture records of a Galactic Disaster Chaos run.
+"""What the capture records of a Chaos run, and where it keeps them.
 
-`docs/chaos_runs.py` reads these records out of snapshots and debug
-logs alike, and everything it reports stands on them. Each part fails
+`docs/chaos_runs.py` and the Checklist's season estimate read these
+records, and everything they report stands on them. Each part fails
 quietly:
 
 1. **A payout is the drop the player takes**, in the season's currency
    group. Another item in the same drop is not one.
 2. **A fight's mark is noted whether or not it paid** -- a
-   `keyword_tag`, a battle id ending `_e` -- since how often a mark
-   turns up is counted over the fights fought.
+   `keyword_tag`, a battle id ending `_e`, a break-in -- since how often
+   a mark turns up is counted over the fights fought. A break-in is a
+   fight of its own spot, `BREAK_IN`, so it does not swell the ordinary
+   fights a rate is taken over.
 3. **The run names its season** from the Great Rift standings, and its
    game version from the connection's `helo`. A new season's currency
    is a new item id, and nothing downstream is told which.
 4. **A run is filed once**, by the second it cleared, however often
    the same clear is read.
-5. **The runs carry from one snapshot to the next**, like the ranking
-   history: a capture that starts empty writes them away at its first
-   save.
+5. **The runs live in their own file** (`chaos_store`), every one of
+   them: the snapshot no longer carries them, a new capture reads them
+   back, runs an older snapshot still carries are folded in, a copy
+   that loses a run on its way to disk is refused, and a file that will
+   not read is served from its backup.
 6. **A run names its season part**, off the schedules: a past season's
    parts cannot be dated once it is over, and the estimate's rules read
    last season's runs by part.
@@ -24,11 +28,17 @@ quietly:
    left -- whether it counts as whole turns on that. An accelerated
    fight says so in its reply, one played by hand in what the client
    sends (`websocket_debug_20260926_214843`).
+8. **A run says which Chaos, by which door, and how it was played**:
+   the stage id its clear names, `disaster` or `zero_orb`, and whether
+   the Delegation Module played it -- said only in what the client sent
+   to open it (`websocket_debug_20260927_202839`). A past season's
+   Chaos pays less, and the estimate must leave it out.
 
-Synthetic frames in the shapes of `websocket_debug_20260925_194713`.
-No Tk and no snapshot needed.
+Synthetic frames in the shapes of those captures. No Tk and no
+snapshot needed.
 """
 
+import gzip
 import json
 import tempfile
 from pathlib import Path
@@ -41,39 +51,70 @@ NAME = "capture records Chaos runs"
 CURRENCY = 3920031
 EXPECTED_PAID = [[6, "BATTLE", "k5", CURRENCY, 60],
                  [17, "BOSS", "", CURRENCY, 180]]
+DELEGATED = {"chaos_info": {"acceleration_info": {
+    "enabled": True, "cost_currency_id": 2000048}}}
+
+
+class _Steps:
+    """Request-and-reply pairs, each on its own qid."""
+
+    def __init__(self, addon, first):
+        self.addon, self.qid = addon, first
+
+    def ask(self, command, params=None):
+        self.qid += 1
+        family, _, inner = command.partition("/")
+        self.addon.websocket_message(_Flow([{
+            "cmd": family, "qid": self.qid,
+            "params": {"cmd": inner, **(params or {})}}], from_client=True))
+
+    def answer(self, **reply):
+        self.addon.websocket_message(_Flow([{"res": "ok", "qid": self.qid,
+                                             **reply}]))
+
+    def step(self, command, params=None, **reply):
+        self.ask(command, params)
+        self.answer(**reply)
+
+    def fight(self, floor, spot, battle, **marks):
+        self.step("stage/enter_spot", spot_info={"floor": floor,
+                                                 "spot_type": spot})
+        self.step("battle/battle_start", snapshot={"cache": {
+            "battle_init_wt": {"battle_res_id": battle, "floor": floor,
+                               **marks}}})
 
 
 def _play(addon, closed):
-    """One run: a marked fight that pays, a marked one that does not,
-    and a boss, cleared at `closed`."""
-    qid = [100]
-
-    def step(command, **reply):
-        qid[0] += 1
-        family, _, inner = command.partition("/")
-        addon.websocket_message(_Flow([{
-            "cmd": family, "qid": qid[0], "params": {"cmd": inner}}],
-            from_client=True))
-        addon.websocket_message(_Flow([{"res": "ok", "qid": qid[0],
-                                        **reply}]))
-
-    def fight(floor, spot, battle, **marks):
-        step("stage/enter_spot", spot_info={"floor": floor,
-                                            "spot_type": spot})
-        step("battle/battle_start", snapshot={"cache": {"battle_init_wt": {
-            "battle_res_id": battle, "floor": floor, **marks}}})
-
-    step("disaster/enter_disaster_chaos_stage",
-         service_server_time=closed - 1800)
-    fight(6, "SPOT_TYPE_BATTLE", "base_00160", keyword_tag=[5, 5])
-    step("spot_reward/get_drop_item", drop_item_result=[
+    """The live season's Chaos, by the Delegation Module: a marked fight
+    that pays, a marked one that does not, and a boss."""
+    steps = _Steps(addon, 100)
+    steps.step("disaster/enter_disaster_chaos_stage", DELEGATED,
+               service_server_time=closed - 1800)
+    steps.fight(6, "SPOT_TYPE_BATTLE", "base_00160", keyword_tag=[5, 5])
+    steps.step("spot_reward/get_drop_item", drop_item_result=[
         {"id": CURRENCY, "amount": 60, "group": "disaster_material"},
         {"id": 3000005, "amount": 3, "group": "chaos_orb"}])
-    fight(25, "SPOT_TYPE_BATTLE", "base_00167_e")
-    fight(17, "SPOT_TYPE_BOSS", "base_00000")
-    step("spot_reward/get_drop_item", drop_item_result=[
+    steps.fight(25, "SPOT_TYPE_BATTLE", "base_00167_e")
+    steps.fight(17, "SPOT_TYPE_BOSS", "base_00000")
+    steps.step("spot_reward/get_drop_item", drop_item_result=[
         {"id": CURRENCY, "amount": 180, "group": "disaster_material"}])
-    step("stage/clear_stage", service_server_time=closed)
+    steps.step("stage/clear_stage", service_server_time=closed,
+               stage_id=80000)
+
+
+def _play_zero(addon, closed):
+    """A past season's Chaos, played by hand through the Zero System: a
+    fight, and Senectus breaking in on its spot."""
+    steps = _Steps(addon, 300)
+    steps.step("zero_orb/enter_zero_stage", {"is_psychosis_mode": True},
+               service_server_time=closed - 3600)
+    steps.fight(28, "SPOT_TYPE_BATTLE", "base_00013")
+    steps.step("battle/battle_start", snapshot={"cache": {
+        "battle_init_wt": {"battle_res_id": "base_00243", "floor": 28,
+                           "break_in": True, "break_in_res_id": "bi_0001",
+                           "spot_type": "SPOT_TYPE_ELITE"}}})
+    steps.step("stage/clear_stage", service_server_time=closed,
+               stage_id=60000)
 
 
 def _setup(addon):
@@ -114,63 +155,40 @@ LOST = "BATTLE_RESULT_TYPE_STAGE_FAILED"
 def _play_lost(addon, closed, floor, by_hand):
     """A run that pays its first boss and is lost on `floor`, with the
     loss told the accelerated way or the by-hand way."""
-    qid = [500]
-
-    def ask(command, params=None):
-        qid[0] += 1
-        family, _, inner = command.partition("/")
-        addon.websocket_message(_Flow([{
-            "cmd": family, "qid": qid[0],
-            "params": {"cmd": inner, **(params or {})}}], from_client=True))
-
-    def answer(**reply):
-        addon.websocket_message(_Flow([{"res": "ok", "qid": qid[0],
-                                        **reply}]))
+    steps = _Steps(addon, 500)
 
     def enter(at, spot):
-        ask("stage/enter_spot")
-        answer(spot_info={"floor": at, "spot_type": spot},
-               stage_info={"spot_list": [{"floor": f, "type": t}
-                                         for f, t in MAP]})
+        steps.step("stage/enter_spot",
+                   spot_info={"floor": at, "spot_type": spot},
+                   stage_info={"spot_list": [{"floor": f, "type": t}
+                                             for f, t in MAP]})
 
-    ask("disaster/enter_disaster_chaos_stage")
-    answer(service_server_time=closed - 1800)
+    steps.step("disaster/enter_disaster_chaos_stage",
+               service_server_time=closed - 1800)
     enter(17, "SPOT_TYPE_BOSS")
-    ask("battle/battle_start")
-    answer(snapshot={"cache": {"battle_init_wt": {
+    steps.step("battle/battle_start", snapshot={"cache": {"battle_init_wt": {
         "battle_res_id": "base_00305", "floor": 17}}})
-    ask("spot_reward/get_drop_item")
-    answer(drop_item_result=[{"id": CURRENCY, "amount": 180,
-                              "group": "disaster_material"}])
+    steps.step("spot_reward/get_drop_item", drop_item_result=[
+        {"id": CURRENCY, "amount": 180, "group": "disaster_material"}])
     enter(floor, "SPOT_TYPE_BATTLE")
-    ask("battle/battle_start")
-    answer(snapshot={"cache": {"battle_init_wt": {
+    steps.step("battle/battle_start", snapshot={"cache": {"battle_init_wt": {
         "battle_res_id": "base_00160", "floor": floor, "keyword_tag": [5]}}})
     if by_hand:
-        ask("battle/battle_end", {"game_result": LOST})
-        answer(battle_info={})
+        steps.step("battle/battle_end", {"game_result": LOST}, battle_info={})
     else:
-        ask("battle/acceleration_resolve")
-        answer(game_result=LOST, floor=floor)
-    ask("stage/clear_stage")
-    answer(service_server_time=closed)
+        steps.step("battle/acceleration_resolve", game_result=LOST,
+                   floor=floor)
+    steps.step("stage/clear_stage", service_server_time=closed)
 
 
-def run():
-    add_source_to_path()
-    Addon = _addon_class()
-    failures = []
-    folder = Path(tempfile.mkdtemp(prefix="capture_chaos_"))
-    addon = Addon(folder, log_callback=lambda *a, **k: None)
-    _setup(addon)
-    _play(addon, closed=1790365000)
+def _new(Addon, folder=None, log=None):
+    folder = folder or Path(tempfile.mkdtemp(prefix="capture_chaos_"))
+    return Addon(folder, log_callback=(log.append if log is not None
+                                       else lambda *a, **k: None))
 
-    runs = addon.chaos_runs
-    if len(runs) != 1:
-        return [f"one run played, {len(runs)} recorded. Without its record, "
-                f"the run is in no snapshot and chaos_runs.py never sees "
-                f"it."]
-    run_ = runs[0]
+
+def _the_run(run_, failures):
+    """What one delegated run of the live season's Chaos records."""
     if run_.get("paid") != EXPECTED_PAID:
         failures.append(
             f"the run's payouts read {run_.get('paid')!r}, not "
@@ -205,12 +223,139 @@ def run():
             f"the estimate reads last season's runs by part.")
     if run_.get("lost"):
         failures.append(f"a cleared run reads as lost: {run_['lost']!r}.")
+    if (run_.get("stage"), run_.get("via"), run_.get("delegated")) != (
+            80000, "disaster", True):
+        failures.append(
+            f"a delegated run of the live season's Chaos reads stage "
+            f"{run_.get('stage')!r}, via {run_.get('via')!r}, delegated "
+            f"{run_.get('delegated')!r}, not 80000, 'disaster', True.")
+
+
+def _zero_run(Addon, failures):
+    """A past season's Chaos through the Zero System, and Senectus."""
+    addon = _new(Addon)
+    _setup(addon)
+    _play_zero(addon, closed=1790540000)
+    run_ = addon.chaos_runs[-1] if addon.chaos_runs else {}
+    if (run_.get("stage"), run_.get("via"), run_.get("delegated")) != (
+            60000, "zero_orb", False):
+        failures.append(
+            f"a run opened through the Zero System and played by hand "
+            f"reads stage {run_.get('stage')!r}, via {run_.get('via')!r}, "
+            f"delegated {run_.get('delegated')!r}, not 60000, 'zero_orb', "
+            f"False. A past season's Chaos pays less, and without these "
+            f"its runs are averaged in with the live one's.")
+    if run_.get("marked") != {"b1": 1} or run_.get("fought") != {
+            "BATTLE": 1, "BREAK_IN": 1}:
+        failures.append(
+            f"Senectus breaking in reads marked={run_.get('marked')!r} "
+            f"fought={run_.get('fought')!r}, not b1 once over a battle "
+            f"and a BREAK_IN. A break-in is a fight of its own spot, or it "
+            f"swells the fights a mark's rate is taken over.")
+
+
+def _the_file(Addon, failures):
+    """Where the runs are kept, and what protects them."""
+    import chaos_store
+
+    log = []
+    folder = Path(tempfile.mkdtemp(prefix="capture_chaos_file_"))
+    # A snapshot from before the file, carrying a run of its own.
+    legacy = {"closed": 1790000000, "season": "disaster_s04", "paid": [],
+              "fought": {}, "marked": {}}
+    (folder / "memory_fragments_20260920_000000.json").write_text(
+        json.dumps({"chaos_runs": [legacy]}), encoding="utf-8")
+    addon = _new(Addon, folder, log)
+    _setup(addon)
+    _play(addon, closed=1790365000)
+    stored, note = chaos_store.read(folder)
+    if [r.get("closed") for r in stored] != [1790000000, 1790365000]:
+        failures.append(
+            f"the runs' file holds {[r.get('closed') for r in stored]} "
+            f"({note}), not the older snapshot's run and the one just "
+            f"played. It is the only place a player's runs are kept.")
+    addon.inventory_data = {"memory_fragments": []}
+    addon._save_data()
+    saved = json.loads(Path(addon.saved_path).read_text(encoding="utf-8"))
+    if "chaos_runs" in saved:
+        failures.append("a saved snapshot still carries the Chaos runs, "
+                        "repeating the file in every snapshot.")
+    again_log = []
+    again = _new(Addon, folder, again_log)
+    if again.chaos_runs != stored:
+        failures.append("a new capture did not read the runs back from "
+                        "their file.")
+    _setup(again)
+    _play(again, closed=1790365000)
+    if len(again.chaos_runs) != 2:
+        failures.append(
+            f"the same clear read twice made {len(again.chaos_runs)} runs "
+            f"of two. A run is filed by the second it cleared, or a "
+            f"replayed capture doubles every run in it.")
+
+    # A copy that loses a run on its way to disk is refused.
+    path = chaos_store.path_in(folder)
+    held = gzip.decompress(path.read_bytes())
+    namespace = Addon._write_chaos_store.__globals__
+    real_json = namespace["json"]
+
+    class _Dropping:
+        def __getattr__(self, name):
+            return getattr(real_json, name)
+
+        @staticmethod
+        def load(f):
+            data = real_json.load(f)
+            if isinstance(data, dict) and data.get("runs"):
+                data["runs"] = data["runs"][1:]
+            return data
+
+    namespace["json"] = _Dropping()
+    try:
+        _play(again, closed=1790370000)
+    finally:
+        namespace["json"] = real_json
+    if gzip.decompress(path.read_bytes()) != held:
+        failures.append("a copy that lost a run on its way to disk replaced "
+                        "the file anyway. The read-back check is what "
+                        "stops that.")
+    if not any(line.startswith("[X] Chaos runs") for line in again_log):
+        failures.append("a refused write of the runs' file said nothing")
+    if path.with_name(path.name + ".tmp").exists():
+        failures.append("a refused write left its copy behind")
+
+    # The file lost and its backup there: both readers use the backup.
+    path.write_bytes(b"not gzip")
+    stored, note = chaos_store.read(folder)
+    if len(stored) != 2 or not note:
+        failures.append(
+            f"with the file unreadable the app read {len(stored)} runs "
+            f"({note}), not the backup's two. A write renames the file to "
+            f"its backup before the new copy lands, so a capture killed "
+            f"between the two leaves only the backup.")
+    if len(_new(Addon, folder).chaos_runs) != 2:
+        failures.append("with the file unreadable the capture did not read "
+                        "its backup.")
+
+
+def run():
+    add_source_to_path()
+    Addon = _addon_class()
+    failures = []
+    addon = _new(Addon)
+    _setup(addon)
+    _play(addon, closed=1790365000)
+    if len(addon.chaos_runs) != 1:
+        return [f"one run played, {len(addon.chaos_runs)} recorded. Without "
+                f"its record the run is nowhere, and chaos_runs.py never "
+                f"sees it."]
+    _the_run(addon.chaos_runs[0], failures)
+    _zero_run(Addon, failures)
 
     for by_hand in (False, True):
         how = "by hand" if by_hand else "accelerated"
         for floor, left in ((32, 0), (30, 2)):
-            lost = Addon(Path(tempfile.mkdtemp(prefix="capture_lost_")),
-                         log_callback=lambda *a, **k: None)
+            lost = _new(Addon)
             _setup(lost)
             _play_lost(lost, 1790457173, floor, by_hand)
             got = lost.chaos_runs[-1].get("lost") if lost.chaos_runs else None
@@ -223,23 +368,5 @@ def run():
                     f"its map still held. Whether a lost run counts as "
                     f"whole turns on that last number.")
 
-    # Saved, carried into the next capture, and read again: still one.
-    addon.inventory_data = {"memory_fragments": []}
-    addon._save_data()
-    saved = json.loads(Path(addon.saved_path).read_text(encoding="utf-8"))
-    if saved.get("chaos_runs") != runs:
-        failures.append("a saved snapshot does not carry the Chaos runs, "
-                        "which is the only place a player's runs are kept.")
-    again = Addon(folder, log_callback=lambda *a, **k: None)
-    if again.chaos_runs != runs:
-        failures.append(
-            "the Chaos runs did not carry into the next capture; it would "
-            "write them away at its first save.")
-    _setup(again)
-    _play(again, closed=1790365000)
-    if len(again.chaos_runs) != 1:
-        failures.append(
-            f"the same clear read twice made {len(again.chaos_runs)} runs. "
-            f"A run is filed by the second it cleared, or a replayed "
-            f"capture doubles every run in it.")
+    _the_file(Addon, failures)
     return failures

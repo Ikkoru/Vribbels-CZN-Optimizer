@@ -1,18 +1,24 @@
-"""Write `docs/chaos_runs.tsv`: one Galactic Disaster Chaos run per row,
-and report what pays in a run and whether it has moved.
+"""Write `docs/chaos_runs.tsv`: one Chaos run per row, and report what
+pays in a run and whether it has moved.
 
-    python docs/chaos_runs.py          # snapshots, and logs since the newest row
-    python docs/chaos_runs.py --all    # snapshots, and every log, loose and archived
+    python docs/chaos_runs.py          # the runs' file, snapshots, and logs since the newest row
+    python docs/chaos_runs.py --all    # the same, and every log, loose and archived
 
 `docs/chaos_runs.cmd` runs the first from Explorer.
 
-**A run comes from two places, and is one row.** The capture records
-every Chaos run in its snapshot (`chaos_runs`, carried from each
-snapshot to the next), and a debug log replays through the same capture
-code to the same records -- see `Addon._note_chaos` in
-`Vribbels/capture/manager.py`. A run is keyed by the second it cleared,
-which both give alike, so a run a snapshot and a log both hold is one
-row, whose `log` names the debug log.
+**A run comes from three places, and is one row.** The capture files
+every Chaos run into a file of its own (`Vribbels/chaos_store.py`);
+snapshots from before that file carry theirs as `chaos_runs`; and a
+debug log replays through the same capture code to the same records --
+see `Addon._note_chaos` in `Vribbels/capture/manager.py`. A run is
+keyed by the second it cleared, which all three give alike, so a run
+several hold is one row, whose `log` names the debug log.
+
+**Only the live season's own Chaos is averaged.** A past season's
+Chaos -- entered through the Zero System -- pays the live season's
+currency too, but less, so the means, the report and the shipped
+figures read the season's own Chaos alone, and every other Chaos gets
+its own lines after them.
 
 Re-run it after any capture that holds a run. **By default it reads
 every loose snapshot, and only the logs from the one that holds the
@@ -46,11 +52,13 @@ The columns this script owns:
 | `date`    | when the run was cleared, UTC                                   |
 | `season`  | the Galactic Disaster season it ran in                          |
 | `part`    | which part of the season: the shop page open when it cleared   |
+| `chaos`   | which Chaos it was, by the stage id its clear names -- `chaos_estimate.CHAOS_NAMES` |
+| `mode`    | `delegated`, played by the Delegation Module down one path, or `ordinary` |
 | `client`  | the game client and data patch it ran on: `cznlive 1.464 r688`  |
 | `total`   | what the run paid in the season's currency                      |
 | `payouts` | every payout in order, `floor:spot:amount`, `+mark` for a mark  |
 | `marked`  | the fights carrying a mark, paid or not: `k5:2 e:1`             |
-| `fought`  | the fights, by spot: `battle:11 elite:4 boss:3`; `unknown` is a fight a `?` encounter offered |
+| `fought`  | the fights, by spot: `battle:11 elite:4 boss:3`; `unknown` is a fight a `?` encounter offered, `break_in` a hidden mini-boss |
 | `lost`    | where a lost run was lost: `floor:spot:non-boss fights left`, `+mark` for a mark |
 | `SPOT_*`  | the payouts at each kind of spot, `+` between them              |
 | `log`     | the capture it was read from                                    |
@@ -60,9 +68,8 @@ boss pays a set amount for its floor. Any other fight pays only where
 it carries a mark -- the Rare Species, `keyword_tag` 5 (`k5`), or the
 Aether Eater, a battle id ending `_e` (`e`) -- and each mark pays a set
 amount. So a run's take is set but for how many marked fights it
-meets. The random mini-boss a run can meet once is not identified yet;
-a mark the report has never seen is flagged, which is how it will
-show.
+meets. A hidden mini-boss is a break-in (`b1` is Senectus); a mark the
+report has never seen is flagged.
 
 **The report after the table** flags every set amount that changed
 from one run to the next, with what else changed there -- the season
@@ -119,14 +126,14 @@ CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04"}
 
 # What this script fills in. Anything after them in an existing file
 # is the maintainer's and is carried over by `date`.
-OWNED = ["date", "season", "part", "client", "total", "payouts", "marked",
-         "fought", "lost"]
+OWNED = ["date", "season", "part", "chaos", "mode", "client", "total",
+         "payouts", "marked", "fought", "lost"]
 # The maintainer's column the summary reads: see the module docstring.
 MISSED = "missed"
 SPOT_COLUMN = "SPOT_TYPE_"
 
 # The marks by the game's names; one missing here is new, and flagged.
-MARKS = {"k5": "Rare Species", "e": "Aether Eater"}
+MARKS = {"k5": "Rare Species", "e": "Aether Eater", "b1": "Senectus"}
 
 # A rate comparison with fewer fights than this on either side says
 # nothing, and one whose difference is under this many standard errors
@@ -143,6 +150,12 @@ SHIFT_TRIALS = 999
 
 from capture.manager import CaptureManager                    # noqa: E402
 import chaos_estimate                                          # noqa: E402
+import chaos_store                                             # noqa: E402
+
+# Each Chaos's season, by name, for telling the live season's own
+# Chaos from a past one: `current`.
+CHAOS_SEASONS = {name: season for name, season
+                 in chaos_estimate.CHAOS_NAMES.values()}
 
 
 class _Flow:
@@ -236,9 +249,14 @@ def runs_in(lines, addon):
 
 
 def snapshots():
-    """(runs, newest snapshot) over the loose snapshots: (name, run) for
-    every run any of them holds, and the newest one's contents."""
-    runs, newest = [], None
+    """(runs, newest snapshot): (source, run) for every run the runs'
+    own file and the loose snapshots hold, and the newest snapshot's
+    contents."""
+    stored, note = chaos_store.read("snapshots")
+    if note:
+        print("   ! the runs' file: %s" % note)
+    runs = [(chaos_store.FILE, run) for run in stored if run.get("closed")]
+    newest = None
     for path in sorted(glob.glob("snapshots/memory_fragments_*.json")):
         try:
             with open(path, encoding="utf-8") as fh:
@@ -366,6 +384,9 @@ def row_of(run, source, parts):
             run["closed"], datetime.UTC).strftime("%Y-%m-%d %H:%M"),
         "season": season,
         "part": part,
+        "chaos": chaos_estimate.chaos_name(run),
+        "mode": ("delegated" if run.get("delegated") else "ordinary")
+                if "delegated" in run else "?",
         "client": run.get("client") or "?",
         "total": str(sum(amount for *_rest, amount in paid)),
         "payouts": " ".join(token(floor, spot, mark, amount)
@@ -383,6 +404,19 @@ def row_of(run, source, parts):
     for column, amounts in by_spot.items():
         row[column] = "+".join(amounts)
     return row
+
+
+def current(row):
+    """Whether a row is a run of its own season's Chaos -- what the
+    means, the report and the shipped figures are about. A row that
+    cannot name its Chaos came the Galactic Disaster's way unless its
+    stage is a bare number, which only an unnamed Zero System Chaos
+    leaves."""
+    name = row.get("chaos") or "?"
+    season = CHAOS_SEASONS.get(name)
+    if season is None:
+        return not name.isdigit()
+    return season == "disaster_" + row["season"]
 
 
 def existing():
@@ -589,8 +623,8 @@ def _reference(rows, row):
             if mark and spot != "boss":
                 marks[mark] = amount
         if (other is row or other.get("lost")
-                or (other["season"], other["part"])
-                != (row["season"], row["part"])):
+                or (other["season"], other["part"], other.get("chaos"))
+                != (row["season"], row["part"], row.get("chaos"))):
             continue
         table = {int(floor): amount for floor, spot, amount, _mark
                  in payouts_of(other["payouts"])
@@ -830,45 +864,57 @@ def main():
               "cleared, and its currency is not in CURRENCY")
     if not kept:
         return
+    own = {date: row for date, row in kept.items() if current(row)}
     by_part = collections.defaultdict(list)
+    others = collections.defaultdict(list)
     tally = collections.Counter()
     counted = []
     for row in kept.values():
         missed = missed_of(row)
         if missed:
             counted.append("%s +%d" % (row["date"], missed))
-        by_part["%s %s" % (row["season"], row["part"])].append(
-            int(row["total"] or 0) + missed)
-        for _floor, _spot, amount, _mark in payouts_of(row["payouts"]):
-            tally[amount] += 1
+        paid = int(row["total"] or 0) + missed
+        if current(row):
+            by_part["%s %s" % (row["season"], row["part"])].append(paid)
+            for _floor, _spot, amount, _mark in payouts_of(row["payouts"]):
+                tally[amount] += 1
+        else:
+            others["%s, %s" % (row["chaos"], row["mode"])].append(row)
     if counted:
         print("   counted with what they missed: %s"
               % ", ".join(sorted(counted)))
+
+    def line(label, got):
+        print("   %-14s %2d run(s), mean %5.0f, min %5d, max %5d"
+              % (label, len(got), sum(got) / len(got), min(got), max(got)))
+
+    # What a run of the season's own Chaos pays played through, by part
+    # and by season. The estimate is built from its parts instead --
+    # `shipped_figures`.
     by_season = collections.defaultdict(list)
     for part, got in by_part.items():
         by_season[part.split()[0]].extend(got)
     for part in sorted(by_part):
-        got = by_part[part]
-        print("   %-14s %2d run(s), mean %5.0f, min %5d, max %5d"
-              % (part, len(got), sum(got) / len(got), min(got), max(got)))
-    # What a run pays played through, by part and by season. The
-    # estimate is built from its parts instead -- `shipped_figures`.
+        line(part, by_part[part])
     for season in sorted(by_season):
-        got = by_season[season]
-        print("   %-14s %2d run(s), mean %5.0f, min %5d, max %5d"
-              % (season + " whole", len(got), sum(got) / len(got), min(got),
-                 max(got)))
-    allp = [total for got in by_part.values() for total in got]
-    print("   %-14s %2d run(s), mean %5.0f, min %5d, max %5d"
-          % ("ALL", len(allp), sum(allp) / len(allp), min(allp), max(allp)))
+        line(season + " whole", by_season[season])
+    if by_part:
+        line("ALL", [total for got in by_part.values() for total in got])
     print()
     print("   payout values: %s"
           % ", ".join("%dx%d" % (n, v) for v, n in sorted(tally.items())))
-    report(kept)
+    report(own)
     print()
-    rate_shifts(kept)
+    rate_shifts(own)
     print()
-    shipped_figures(kept)
+    shipped_figures(own)
+    if others:
+        print()
+        print("   Other Chaos, left out of everything above:")
+        for label in sorted(others):
+            rows = others[label]
+            print("   %-30s %s" % (label, _describe(
+                *_group_facts(rows), len(rows))))
 
 
 if __name__ == "__main__":

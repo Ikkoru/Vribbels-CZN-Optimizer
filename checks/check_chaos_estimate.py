@@ -17,7 +17,9 @@ else, so a broken one reads as a plausible figure:
 4. **A lost run is whole only when a boss had paid and no non-boss
    fight was left**, and then misses its own fight's payout and every
    boss after it.
-5. **`chaos_runs_per_day` reads as a sane number or not at all**, sits
+5. **Only the live season's own Chaos counts**: a past season's, entered
+   through the Zero System, pays the live currency at other amounts.
+6. **`chaos_runs_per_day` reads as a sane number or not at all**, sits
    at the foot of settings.json, and names itself in the tip's label.
 """
 
@@ -92,6 +94,20 @@ def run():
     if floor17(LIVE, [_run(LIVE, 3, [(17, 150)])], 0) != 180:
         failures.append("fresh, a lower payout alone overruled the "
                         "shipped 180.")
+    past = _run(LIVE, 3, [(17, 200)], marked={"k5": 9})
+    past.update(via="zero_orb", stage=60000)
+    if floor17(LIVE, [past], 0) != 180 or ce.mark_rates(
+            LIVE, [past] * ce.RATE_RUNS, ce.SHIPPED, 2, 0)[1] is not None:
+        failures.append(
+            "a run of a past season's Chaos, entered through the Zero "
+            "System, moved the live Chaos's figures. It pays the live "
+            "currency at other amounts, and the estimate is of the live "
+            "Chaos alone.")
+    for run_, name in ((past, "Burning Life"),
+                       (_run(LIVE, 3), "Kaleidoscope Hatchery")):
+        if ce.chaos_name(run_) != name:
+            failures.append(f"a run reads as Chaos {ce.chaos_name(run_)!r}, "
+                            f"not {name!r}.")
     last = [_run("disaster_s05", 3, [(17, 200)]),
             _run("disaster_s04", 3, [(17, 260)])]
     if floor17("disaster_s06", last, 1) != 200:
