@@ -77,7 +77,7 @@ def run():
         ENDS_IN, LATER, SOON, WARN,
         PASS_DAILY_COUNT, PERIOD_LENGTHS,
         _period_band, _period_left, _period_words, _heading_colour,
-        DONE, GREAT_RIFT_OVER, GREAT_RIFT_TARGET, MODULE_ITEM,
+        DONE, GREAT_RIFT_TARGET, MODULE_ITEM,
         MODULE_WINDOWS, NO_DATA,
         SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
         CHAOS_CAP, CHAOS_WEEKLY_GRANT, SORTIE_WEEKLY_GRANT,
@@ -280,7 +280,7 @@ def run():
         for key, full, empty in (
                 ("supply_weekly", "10000/10000", "0/10000"),
                 ("chaos_progress", "8000/8000", "0/8000"),
-                ("seasonal_score", "300000+/300000", "0/300000")):
+                ("seasonal_score", "300000/300000", "0/300000")):
             want = (full, DONE) if want_full else (empty, TODO)
             if out[key] != [want]:
                 failures.append(
@@ -671,24 +671,17 @@ def run():
             f"('120000/300000', {TODO!r}). Past seasons keep their rows "
             f"and carry higher totals AND different thresholds, so the "
             f"live one is the latest score_week_id.")
-    # Over the threshold, the display caps AND says it capped.
-    got = _readings(_snapshot(rift=((this_week, 1396064, 300000),)),
-                    now)["seasonal_score"]
-    if got != [(f"300000{GREAT_RIFT_OVER}/300000", DONE)]:
-        failures.append(
-            f"a score past the threshold reads {got!r}, not "
-            f"('300000{GREAT_RIFT_OVER}/300000', {DONE!r}). The figure "
-            f"runs to seven digits and the row is about clearing the "
-            f"threshold, so it caps -- and the sign is what stops a "
-            f"capped reading looking like one that landed on the bar.")
-    # Landing EXACTLY on it takes no sign, and is still done.
-    got = _readings(_snapshot(rift=((this_week, 300000, 300000),)),
-                    now)["seasonal_score"]
-    if got != [("300000/300000", DONE)]:
-        failures.append(
-            f"a score exactly on the threshold reads {got!r}, not "
-            f"('300000/300000', {DONE!r}). Nothing is over, so nothing "
-            f"is capped.")
+    # Over the threshold, or exactly on it, the display caps and says
+    # nothing more: the row is about clearing the bar.
+    for score in (1396064, 300000):
+        got = _readings(_snapshot(rift=((this_week, score, 300000),)),
+                        now)["seasonal_score"]
+        if got != [("300000/300000", DONE)]:
+            failures.append(
+                f"a score of {score} against 300000 reads {got!r}, not "
+                f"('300000/300000', {DONE!r}). The figure runs to seven "
+                f"digits and the row is about clearing the threshold, so "
+                f"it caps, with no sign beside it.")
     got = _readings(_snapshot(), now)["seasonal_score"]
     if got != [(f"{NO_DATA}/{GREAT_RIFT_TARGET}", UNKNOWN)]:
         failures.append(

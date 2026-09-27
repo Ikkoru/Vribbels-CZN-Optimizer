@@ -29,6 +29,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Fixed
 
+- Checklist: Simulation Challenges counts the runs done since the last login, and Sortie Currency shows the real amount after the weekly top-up instead of a `~` guess.
+- Checklist: the Seasonal Accumulated Score no longer carries a `+` past its threshold.
 - Setup & Settings no longer freezes for a moment each time it is opened.
 - Capture's Log Presets no longer rebuild in view on the second visit to the tab.
 

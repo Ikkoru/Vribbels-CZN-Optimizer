@@ -1458,6 +1458,37 @@ class Addon:
                 if isinstance(row, dict):
                     self.stage_limits[str(res_id)] = row
             self._save_pending = True
+        # **And after every run it limits**, as `stage_limit_entity` --
+        # singular, a LIST -- on the clear's reply. The login's table is
+        # the only other source, so without this the week's runs are
+        # never seen until the next launch.
+        taken = data.get("stage_limit_entity")
+        for row in (taken if isinstance(taken, list) else [taken]):
+            if isinstance(row, dict) and row.get("res_id") is not None:
+                self.stage_limits[str(row["res_id"])] = row
+                self._save_pending = True
+
+        # A lobby refresh states the account's currencies too, as a
+        # LIST of the records the login keys by id. The login's copy of
+        # a weekly currency goes stale when the week's top-up lands, and
+        # until it is next spent this list is the only thing carrying
+        # the topped-up record. `version` is each record's write counter,
+        # so an older copy arriving late cannot overwrite a newer one.
+        fresh = data.get("currencies")
+        if isinstance(fresh, list) and self.character_data is not None:
+            held = self.character_data.setdefault("currencies", {})
+            for doc in (fresh if isinstance(held, dict) else ()):
+                if not isinstance(doc, dict) or doc.get("res_id") is None:
+                    continue
+                key = str(doc["res_id"])
+                was = held.get(key)
+                if isinstance(was, dict) and self._gacha_int(
+                        doc.get("version")) < self._gacha_int(
+                            was.get("version")):
+                    continue
+                if was != doc:
+                    held[key] = doc
+                    self._save_pending = True
 
         # The same shape, for what the ACCOUNT has bought rather than
         # what a stage allows: `subscription_1` is the monthly pass,

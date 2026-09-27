@@ -2119,7 +2119,7 @@ COLUMNS = (
         ("sortie_currency", "Sortie Currency",
          EXPECTED_VALUE + "99/9"),
         ("chaos_progress", "Galactic Disaster - Chaos", "8000/8000"),
-        ("seasonal_score", "Seasonal Accumulated Score", "300000+/300000"),
+        ("seasonal_score", "Seasonal Accumulated Score", "300000/300000"),
     ), (("shop_town", "none"),
         ("shop_gacha_dup", "shop_gacha_dup_legend"),
         ("shop_disaster", "shop_disaster_1")), None),
@@ -2459,10 +2459,10 @@ GREAT_RIFT_TARGET = 300000
 # weekly record uses `WEEK_STAMP`.
 GREAT_RIFT_WEEK_STAMP = "score_week_id"
 
-# What a score PAST the threshold reads as. The figure runs to seven
-# digits where the row is about clearing a bar, so it is capped -- and
-# the sign is what keeps a capped reading from being mistaken for one
-# that landed exactly on it.
+# What the Galactic Disaster's Chaos progress reads as PAST its ceiling.
+# It is capped, and the sign is what keeps a capped reading from being
+# mistaken for one that landed exactly on it. The Great Rift row caps
+# without it.
 GREAT_RIFT_OVER = "+"
 
 
@@ -3970,17 +3970,15 @@ def _readings(raw, now=None, tracked=None):
 
     # The Great Rift's weekly score against the threshold that pays.
     # **Capped in the DISPLAY**, because the figure runs to seven digits
-    # and the row is about whether the threshold is cleared. A capped
-    # reading carries `GREAT_RIFT_OVER` so it cannot be read as a score
-    # that landed exactly on the bar.
+    # and the row is about whether the threshold is cleared. Unlike the
+    # Chaos progress row it carries no `GREAT_RIFT_OVER`: the maintainer
+    # reads a full bar as cleared, however far past it the week went.
     score, target = _great_rift(raw, now)
     if score is None:
         out["seasonal_score"] = _one("%s/%d" % (NO_DATA, target), UNKNOWN)
     else:
-        over = GREAT_RIFT_OVER if score > target else ""
-        out["seasonal_score"] = _one("%d%s/%d" % (min(score, target), over,
-                                              target),
-                                 _done(score >= target))
+        out["seasonal_score"] = _one("%d/%d" % (min(score, target), target),
+                                     _done(score >= target))
 
     # The modules, by how long each copy has left. **The two windows
     # NEST**: everything inside 24 hours is inside seven days, so the
