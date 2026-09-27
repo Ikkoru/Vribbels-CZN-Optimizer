@@ -49,12 +49,11 @@ LOG_OPTION_COLUMNS = 3
 # likely middle -- `compute_fragment_potential_band`. The tip's first
 # line is the maintainer's: an Upgraded line does not say which ends it
 # shows, so it is easy to forget the option is on.
-LIKELY_POTENTIAL_LABEL = "Show likely Potential (80%)"
+LIKELY_POTENTIAL_LABEL = "Show Potential's middle 80%"
 LIKELY_POTENTIAL_TIP = (
-    "IMPORTANT! Do not forget if you have this switched on\n\n"
-    "Each Potential range then shows where 8 upgrade paths in 10 end, "
-    "instead of the best and worst luck: 1 in 10 ends below it, 1 in 10 "
-    "above.")
+    "IMPORTANT! Do not forget if you have this switched on!\n\n"
+    "With this ON each Potential range shows 2/10 to 9/10 upgrade luck, "
+    "removing the best and worst luck. This results in more realistic numbers")
 
 
 def lag_text(stamp, shown):
