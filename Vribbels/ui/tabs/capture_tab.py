@@ -41,6 +41,9 @@ MYTHIC_TAG = "value_mythic"
 MYTHIC_NOTE = ("Purple max: higher than the Potential of the MF that "
                "preset's character wears in the same slot. Only for "
                "MFs +3 and up, and presets assigned to one character.")
+# Columns of options under that note: the two of mismatch filters, and
+# the display option beside them.
+LOG_OPTION_COLUMNS = 3
 
 
 def lag_text(stamp, shown):
@@ -341,7 +344,9 @@ class CaptureTab(BaseTab):
         # checklist above is whatever height is left over. The rule's 20 is a MINIMUM here,
         # and the audit compares against a number rather than a floor.
         options_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=px((17, 0)))
-        options_frame.grid_columnconfigure(1, weight=1)
+        # The last column takes the slack, so the others sit at their
+        # own widths from the left.
+        options_frame.grid_columnconfigure(LOG_OPTION_COLUMNS - 1, weight=1)
 
         # What a purple ceiling in an Upgraded line means, at the head
         # of the block. One line at the default window; unwrapped, like
@@ -349,13 +354,14 @@ class CaptureTab(BaseTab):
         ttk.Label(
             options_frame, text=MYTHIC_NOTE,
             foreground=self.colors["fg_dim"], justify=tk.LEFT,
-        ).grid(row=0, column=0, columnspan=2, sticky=tk.W)
+        ).grid(row=0, column=0, columnspan=LOG_OPTION_COLUMNS, sticky=tk.W)
 
         sm = self.context.settings_manager
 
-        def _filter_checkbox(text, key, row, column):
+        def _filter_checkbox(text, key, row, column, default=True):
             var = tk.BooleanVar(
-                value=(bool(sm.get(key, True)) if sm is not None else True)
+                value=(bool(sm.get(key, default)) if sm is not None
+                       else default)
             )
             # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
             make_checkbox(
@@ -371,7 +377,7 @@ class CaptureTab(BaseTab):
             # under the panel's caption: a label's line box already
             # carries the rule's distance.
             ).grid(row=row, column=column, sticky=tk.W,
-                   padx=px((0, 4) if column == 0 else 0),
+                   padx=px((0, 4) if column < LOG_OPTION_COLUMNS - 1 else 0),
                    pady=px((0 if row == 1 else 3, 0)))
             return var
 
@@ -387,6 +393,12 @@ class CaptureTab(BaseTab):
         self.ignore_dps_ego_var = _filter_checkbox(
             "Don't show DPS presets for Ego MFs",
             "upgrade_log_ignore_dps_ego", 2, 1)
+        # Beside the filters rather than under them: a row more would
+        # make this column taller than the left one, and the tab's
+        # spacing is built on the left being the taller.
+        self.show_average_var = _filter_checkbox(
+            "Show average Potential",
+            "upgrade_log_show_average", 1, 2, default=False)
 
         self.log_presets_list_frame = ttk.Frame(right_col)
         self.log_presets_list_frame.pack(fill=tk.BOTH, expand=True)
@@ -1130,8 +1142,8 @@ class CaptureTab(BaseTab):
             recompute()
 
     def _on_log_filter_toggle(self, key: str, var):
-        """Persist one of the Upgrade Log mismatch filters, then re-render
-        the last Upgraded line against the new setting."""
+        """Persist one of the Upgrade Log options, then re-render the
+        last Upgraded line against the new setting."""
         sm = self.context.settings_manager
         if sm is not None:
             sm.set(key, bool(var.get()))

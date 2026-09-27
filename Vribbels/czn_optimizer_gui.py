@@ -93,7 +93,9 @@ from ui.scaling import px
 # Used to augment "[LIVE] Upgraded" log lines with the post-upgrade
 # Highest Pot. range across all currently-defined presets (see
 # _drain_pending_upgrade_lines below).
-from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
+from models.memory_fragment import (compute_gs_bounds,
+                                    compute_fragment_potential,
+                                    compute_fragment_potential_mean)
 # Reconciles bundled defaults in `default_settings/` with the user's
 # `settings/` folder. Must run BEFORE any manager loads.
 from defaults_sync import sync_defaults
@@ -1403,8 +1405,9 @@ class OptimizerGUI:
             getattr(self, "optimizer_settings_manager", None))
 
     @staticmethod
-    def _potentials_phrase(scored) -> str:
-        """`Highest Potential: 21-80 Name, ...`, or the singular form.
+    def _potentials_phrase(scored, averages=None) -> str:
+        """`Highest Potential: 21-80 Name, ...`, or the singular form;
+        with `averages` ({name: mean}), `21-80 (avg 41) Name`.
 
         A fragment with no upgrades left scores the same at both ends of
         its range, so a `21-21` would be reporting a range that cannot
@@ -1423,6 +1426,9 @@ class OptimizerGUI:
         for low, high, name in scored:
             value = (f"{high:.0f}" if singular
                      else f"{low:.0f}-{high:.0f}")
+            # An average says something only inside a range.
+            if averages and not singular and name in averages:
+                value += f" (avg {averages[name]:.0f})"
             parts.append(f"{value} {name}".rstrip())
         label = "Highest GS" if singular else "Highest Potential"
         return f"{label}: " + ", ".join(parts)
@@ -1452,12 +1458,18 @@ class OptimizerGUI:
         display."""
         pm = self.preset_manager
         main_name = fragment.main_stat.name if fragment.main_stat else None
+        sm = getattr(self, "settings_manager", None)
+        show_average = bool(sm.get("upgrade_log_show_average", False)) \
+            if sm is not None else False
         all_names = list(pm.get_preset_names()) if pm is not None else []
         if not all_names:
             weights = {}
             bounds = compute_gs_bounds(weights, exclude_stat=main_name)
             low, high = compute_fragment_potential(fragment, weights, bounds)
-            return ". " + self._potentials_phrase([(low, high, "")]), set()
+            averages = {"": compute_fragment_potential_mean(
+                fragment, weights, bounds)} if show_average else None
+            return (". " + self._potentials_phrase([(low, high, "")],
+                                                   averages), set())
 
         selected = self._selected_log_presets()
         if not selected:
@@ -1479,7 +1491,15 @@ class OptimizerGUI:
         # with a higher floor is preferable when ceilings tie). Top 5.
         scored.sort(key=lambda t: (-t[1], -t[0]))
         shown = scored[:5]
-        return (". " + self._potentials_phrase(shown),
+        averages = None
+        if show_average:
+            averages = {}
+            for _low, _high, name in shown:
+                weights = pm.get_preset(name) or {}
+                averages[name] = compute_fragment_potential_mean(
+                    fragment, weights,
+                    compute_gs_bounds(weights, exclude_stat=main_name))
+        return (". " + self._potentials_phrase(shown, averages),
                 self._beats_equipped(fragment, shown))
 
     def _beats_equipped(self, fragment, scored):

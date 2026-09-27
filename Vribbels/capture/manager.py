@@ -2813,11 +2813,13 @@ class Addon:
         offers, nor the clear's own envelope, which restates the whole
         run.
 
-        **What makes a fight pay is on its `battle_init_wt`**: a
-        `keyword_tag` (5 has paid 60 a fight every time), or a battle
-        id ending `_e` (90). Both are noted whether or not the fight
-        paid, since how often each turns up is counted over the fights
-        fought, not the ones won.
+        **What makes a fight pay is on its `battle_init_wt`**: the Rare
+        Species is `keyword_tag` 5 (60 a fight, every time), and the
+        Aether Eater a battle id ending `_e` (90). Both are noted whether
+        or not the fight paid, since how often each turns up is counted
+        over the fights fought, not the ones won. Every other keyword is
+        noted too: the random mini-boss a run can meet once is not
+        identified yet.
         """
         if asked == CHAOS_OPENS:
             self.chaos_run = {"opened": data.get("service_server_time"),

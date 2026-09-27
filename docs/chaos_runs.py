@@ -50,11 +50,18 @@ The columns this script owns:
 
 **What pays is the fight, and the wire names what makes one pay.** A
 boss pays a set amount for its floor. Any other fight pays only where
-it carries a mark -- a `keyword_tag` (`k5`) or a battle id ending `_e`
-(`e`) -- and each mark pays a set amount. So a run's take is set but
-for how many marked fights it meets, and the report after the table
-answers four questions, per season part and per game version: have the
-set amounts moved, and have the marks' rates?
+it carries a mark -- the Rare Species, `keyword_tag` 5 (`k5`), or the
+Aether Eater, a battle id ending `_e` (`e`) -- and each mark pays a set
+amount. So a run's take is set but for how many marked fights it
+meets. The random mini-boss a run can meet once is not identified yet;
+a mark the report has never seen is flagged, which is how it will
+show.
+
+**The report after the table** flags every set amount that changed
+from one run to the next, with what else changed there -- the season
+part, the game version -- and then answers four questions per part and
+per version: have the set amounts moved, and have the marks' rates?
+Until a part and a version have changed apart, it says it cannot tell.
 
 **A season is named by the run, not by its currency.** Each season pays
 in an item id of its own, and the capture names the season a run
@@ -101,6 +108,9 @@ OWNED = ["date", "season", "part", "client", "total", "payouts", "marked",
 # The maintainer's column the summary reads: see the module docstring.
 MISSED = "missed"
 SPOT_COLUMN = "SPOT_TYPE_"
+
+# The marks by the game's names; one missing here is new, and flagged.
+MARKS = {"k5": "Rare Species", "e": "Aether Eater"}
 
 # A rate comparison with fewer fights than this on either side says
 # nothing, and one whose difference is under this many standard errors
@@ -366,12 +376,62 @@ def _group_facts(rows):
     return amounts, marked, fights
 
 
+def _named(key):
+    """A set amount's or a mark's name as the report prints it."""
+    return MARKS.get(key, key)
+
+
 def _describe(amounts, marked, fights, runs):
-    sets = " ".join("%s=%s" % (name, "/".join(map(str, sorted(values))))
-                    for name, values in sorted(amounts.items()))
-    rates = ", ".join("%s %d in %d fights" % (mark, n, fights)
+    sets = ", ".join("%s %s" % (_named(name),
+                                "/".join(map(str, sorted(values))))
+                     for name, values in sorted(amounts.items()))
+    rates = ", ".join("%s %d in %d fights" % (_named(mark), n, fights)
                       for mark, n in sorted(marked.items())) or "none marked"
     return "%2d run(s): %s | %s" % (runs, sets or "nothing paid", rates)
+
+
+def changes(rows):
+    """Lines flagging, run by run: a set amount that differs from the
+    last run that paid it, with what else changed between the two; a
+    boss floor paying for the first time; a payout with no mark; and a
+    mark never seen before."""
+    out, last, first, unnamed = [], {}, True, set()
+    for date in sorted(rows):
+        row = rows[date]
+        where = ("%s %s" % (row["season"], row["part"]),
+                 row.get("client") or "?")
+        for mark in counts_of(row.get("marked")):
+            if mark not in MARKS and mark not in unnamed:
+                unnamed.add(mark)
+                out.append("   ! %s: a mark never seen before, %s -- add "
+                           "it to MARKS once named" % (date, mark))
+        for floor, spot, amount, mark in payouts_of(row["payouts"]):
+            if mark:
+                key = mark
+            elif spot == "boss":
+                key = "boss %s" % floor
+            else:
+                out.append("   ! %s: floor %s's %s paid %d with no mark -- "
+                           "a paying fight nothing names yet"
+                           % (date, floor, spot, amount))
+                continue
+            if key in last and last[key][0] != amount:
+                was, when, there = last[key]
+                moved = ["the part (%s -> %s)" % (there[0], where[0])
+                         if there[0] != where[0] else None,
+                         "the game version (%s -> %s)" % (there[1], where[1])
+                         if there[1] != where[1] else None]
+                moved = [m for m in moved if m]
+                out.append("   ! %s: %s paid %d, where %s paid %d; %s" % (
+                    date, _named(key), amount, when, was,
+                    "between the two, " + " and ".join(moved) + " changed"
+                    if moved else "nothing else changed between the two"))
+            elif key not in last and key.startswith("boss") and not first:
+                out.append("   ! %s: %s paid for the first time (%d)"
+                           % (date, key, amount))
+            last[key] = (amount, date, where)
+        first = False
+    return out
 
 
 def _compare_amounts(a, b):
@@ -414,6 +474,11 @@ def report(rows):
                 row.get("client") or "?")].append(row)
     facts = {key: _group_facts(members) for key, members in groups.items()}
     print()
+    flagged = changes(rows)
+    print("   Changes, run by run:" if flagged
+          else "   Changes, run by run: none")
+    for line in flagged:
+        print(line)
     print("   What pays, by season part and game version:")
     for key in sorted(groups):
         print("   %-14s %-22s %s" % (key[0], key[1],

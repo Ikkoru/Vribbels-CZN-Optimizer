@@ -60,6 +60,31 @@ Both extremes normalize through the same main-stat-excluding bounds.
 When `low == high` there are no upgrades left and Potential is undefined
 as a range — callers display `-`.
 
+**The ends are bounds, not likely outcomes.** Reaching the top takes
+every remaining level-up landing on the best substat at its best roll:
+for a +1 with four to go, about one path in twenty thousand. The low end
+is as rare.
+
+Average Potential
+=================
+
+Where a fragment is EXPECTED to end: the mean over every way its
+remaining level-ups can land. `compute_fragment_potential_mean`. It
+rests on three rules, the first two measured on the maintainer's
+inventory:
+
+- **A roll is anywhere on its stat's grid alike**, so its mean is the
+  midpoint of `min_value` and `max_value`. Starting rolls, added
+  substats and upgrades all average there.
+- **An upgrade lands on each of the four substats alike.** The fully
+  levelled fragments' spread of four upgrades over four substats matches
+  that, pattern by pattern.
+- **An added substat is any stat the fragment can still gain, alike.**
+  Not measurable from an inventory, which holds only what was kept.
+
+By linearity each level-up adds its expected roll, so the mean is a
+sum, not an enumeration.
+
 Elemental stats and the max_roll sentinel
 =========================================
 
@@ -79,7 +104,8 @@ Module-level helpers vs methods
 ===============================
 
 The numerical core (`_raw_substat_score`, `compute_gs_bounds`,
-`normalize_gs`, `compute_fragment_potential`) is module-level and pure.
+`normalize_gs`, `compute_fragment_potential`,
+`compute_fragment_potential_mean`) is module-level and pure.
 `MemoryFragment.calculate_base_score` / `calculate_potential` delegate to
 it and cache the result for display.
 
@@ -374,6 +400,54 @@ def compute_fragment_potential(
         main_name = fragment.main_stat.name if fragment.main_stat else None
         bounds = compute_gs_bounds(weights, exclude_stat=main_name)
     return (normalize_gs(raw_low, bounds), normalize_gs(raw_high, bounds))
+
+
+def _expected_roll(name, max_roll, min_roll, weights):
+    """One roll's expected raw contribution: the grid's midpoint as a
+    fraction of the maximum, times the weight, times 10."""
+    return weights.get(name, 1.0) * (max_roll + min_roll) / (2 * max_roll) * 10
+
+
+def compute_fragment_potential_mean(
+    fragment, weights: dict, bounds: tuple[float, float] | None = None
+) -> float:
+    """Pure function: the GS `fragment` is expected to end at under
+    `weights`, on the 0-100 scale -- see *Average Potential* in the
+    module docstring. Its current GS where nothing is left to roll."""
+    if weights is None:
+        weights = {}
+    raw = _raw_substat_score(fragment, weights)
+    max_level = MAX_LEVEL_PER_RARITY.get(fragment.rarity_num, MAX_LEVEL)
+    remaining = max(0, max_level - fragment.level)
+    if fragment.rarity_num >= 3 and fragment.substats and remaining:
+        existing = []
+        for sub in fragment.substats:
+            info = STATS.get(sub.raw_name,
+                             (sub.name, sub.name, sub.is_percentage, 1.0, 0.5))
+            if info[3] > 0:
+                existing.append(_expected_roll(sub.name, info[3], info[4],
+                                               weights))
+        # The first level-ups each add a substat, drawn from the stats
+        # the fragment has not got and cannot have (its main).
+        present = {sub.name for sub in fragment.substats}
+        main_name = fragment.main_stat.name if fragment.main_stat else None
+        pool = [_expected_roll(info[0], info[3], info[4], weights)
+                for info in STATS.values()
+                if info[3] > 0 and info[0] not in present
+                and info[0] != main_name]
+        added = min(4 - len(fragment.substats), remaining) if pool else 0
+        pool_mean = sum(pool) / len(pool) if pool else 0.0
+        raw += added * pool_mean
+        # The rest land on one of the substats alike, the added ones
+        # included.
+        into_existing = remaining - added
+        slots = len(existing) + added
+        if into_existing > 0 and slots:
+            raw += into_existing * (sum(existing) + added * pool_mean) / slots
+    if bounds is None:
+        main_name = fragment.main_stat.name if fragment.main_stat else None
+        bounds = compute_gs_bounds(weights, exclude_stat=main_name)
+    return normalize_gs(raw, bounds)
 
 
 @dataclass

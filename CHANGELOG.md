@@ -8,6 +8,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ## [2.2.1] - unreleased
 
+### Added
+
+- Capture: `Show average Potential` in Upgrade Log Settings adds where each preset's Potential is expected to end: `21-80 (avg 41)`. The ends of the range are what the best and worst luck reach, and rarely happen.
+
 ### Changed
 
 - Faster:
