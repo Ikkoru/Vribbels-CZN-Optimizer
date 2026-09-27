@@ -32,10 +32,14 @@ fails silently, and most of it only on a live window:
    pointer moving does not inside the two windows, a click closes them.
 8. **A click that landed behind the notebook during a step** is given
    back when it was on a tab, and only then.
+9. **The input times are read as text.** One not noted yet is Tcl's
+   shared literal 0, which any list read elsewhere turns into a list;
+   read as an object it arrives a tuple, and the settler raising on it
+   stops for the session.
 
-1-6 read the source. 7 and 8 run the settler's own decisions on a
-notebook at alpha 0, which is invisible. The third was found on a live
-window, photographed frame by frame while the tabs settled.
+Most of 1-6 reads the source; the rest runs the settler's own decisions
+on a notebook at alpha 0, which is invisible. The third shows only on a
+live window, frame by frame as the tabs settle.
 """
 
 import ast
@@ -220,10 +224,10 @@ def _run_decisions():
         if never != 0:
             out.append(f"a time not noted yet reads back as {never!r} once "
                        f"some script has read a 0 as a list. The settler "
-                       f"raised on exactly that and stopped for the "
+                       f"raises on exactly that and stops for the "
                        f"session; `_noted` reads the times as text.")
 
-        # A step never makes a first show of the tab it settles.
+        # `LazyTabs` holds nothing inside a step.
         holds = []
         hold = lazy._hold_painting
         lazy._hold_painting = lambda: (holds.append(1), hold())

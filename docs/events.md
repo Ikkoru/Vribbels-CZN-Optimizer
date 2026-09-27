@@ -539,7 +539,7 @@ So a new event's rewards are recognisable before anything else is known about it
 
 So there is nothing to merge: the cached row is patched from `received_days_after`, and the next login sends the real record.
 
-And the reward rides in `item`, a top-level totals envelope like any other — not in `reward_list`, which states the same payout as a delta beside it. A key that generic is guarded by its shape rather than trusted by its name; `capture/manager` takes it with `result`. Until it did, a login event's reward reached neither the Capture Log nor the item counts.
+And the reward rides in `item`, a top-level totals envelope like any other — not in `reward_list`, which states the same payout as a delta beside it. A key that generic is guarded by its shape rather than trusted by its name; `capture/manager` takes it with `result`. Without that, a login event's reward reaches neither the Capture Log nor the item counts.
 
 **`completed` is the game's own word that the streak has ENDED**, and it is the only one there is. Captured on the claim that finished `event_143` (`websocket_debug_20260914_195103.jsonl`, qid 39): `received_days_before: 6, received_days_after: 7, completed: true`. The addon keeps it on the row AND across the login that follows — the row that login sends is identical to a streak merely claimed for today, so letting it win would lose the answer for good.
 
@@ -585,7 +585,7 @@ What `current_days: 56` counts is still unknown: the account is 326 days old wit
  "entity": {"res_id": "event_bartender_1", "event_achieve_state": 1}}
 ```
 
-Under the bare key `entity`, which is also what a Combatant Trial claim answers under with a different row — so the addon takes it only when `event_achieve_state` is on it. Read as only the three spelled-out keys, the one reply that ever carries a completion was dropped, and `event_bartender_1` went on reading `24/24+?` with the wire having said outright that it was finished.
+Under the bare key `entity`, which is also what a Combatant Trial claim answers under with a different row — so the addon takes it only when `event_achieve_state` is on it. Read as only the three spelled-out keys, the one reply that ever carries a completion is dropped, and a finished event goes on reading `24/24+?` with the wire having said outright that it is finished.
 
 ### A completion is kept by the server; a streak's is not
 

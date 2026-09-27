@@ -44,7 +44,7 @@ Startup builds three tabs:
 
 Setup & Settings joins them on a first launch, which opens on it. Every other tab is a slot of `ui/utils/lazy_tabs.py`: an empty placeholder page under the tab's title, replaced by the tab when it is built. That happens on the first of:
 
-- the idle settler's step for it (below), the ordinary case;
+- the idle settler's step for it (*Unopened tabs are laid out after the reveal, unseen*), the ordinary case;
 - the user selecting it first, which builds it with painting off and paints it once, whole;
 - anything that needs the tab itself: a reload the Checklist has to record from first, or the spacing audit.
 
@@ -68,7 +68,7 @@ So `LazyTabs` holds every switch after the reveal:
 3. The copy goes up over the notebook in a window of its own. Painting comes back on, and every window's paint is asked for at once and drawn in one drain, under the copy.
 4. The copy comes off, and the compositor shows the whole new tab in one frame.
 
-Tk draws a widget at a time, straight to the screen, and a tab's worth takes several frames. The copy in step 3 is what makes the tab arrive in one: without it, the new tab paints over the old one for those frames.
+Tk draws a widget at a time, straight to the screen, and a tab's worth takes several frames. The copy is what makes the tab arrive in one: without it, the new tab paints over the old one for those frames.
 
 Four rules keep it whole, and `checks/check_lazy_tabs.py` holds them too:
 
@@ -104,11 +104,15 @@ A step still holds the UI thread while its tab lays out, and while painting is o
 - **Input that reaches the window holds it back** for `IDLE_MS`: the pointer over the window's content, a click, a key, the wheel, noted from the reveal by `track_input`. The title bar and other programs hold nothing back.
 - **A held mouse button holds it back** while the program is in front: a drag of the title bar or a border is nothing else Tk sees.
 - **The pointer moving does not, in two windows**: `LAUNCH_MS` after the reveal, and `SWITCH_MS` after a tab switch, from `SWITCH_WAIT_MS` in. A click, a key or the wheel closes either.
-- **A click during a settle step lands behind the notebook.** One on a tab is given back once painting is (`replay_lost_tab_click`); one on a tab's contents is lost. A build step holds no painting and only delays a click, so the switch window, after which the next click is likely on the new tab's contents, runs builds only.
+- **A click during a settle step lands behind the notebook.** One on a tab is given back once painting is (`replay_lost_tab_click`); one on a tab's contents is lost. A build step holds no painting and only delays a click. So the switch window runs builds only: after a switch, the next click is likely on the new tab's contents.
 
 Nothing is settled under the spacing audit, which switches tabs itself.
 
-With `debug_perf_log` on, the log records what the windows' lengths are chosen from: `presettle:switch` lines, how soon the user acted and switched after the reveal and after each switch; `presettle:step`, each step and what let it start; `lazy_tabs:show`, what each switch cost from click to painted.
+With `debug_perf_log` on, the log records what the windows' lengths are chosen from:
+
+- `presettle:switch`: how soon the user acted, and switched, after the reveal and after each switch.
+- `presettle:step`: each step, and what let it start.
+- `lazy_tabs:show`: what each switch cost, from click to painted.
 
 **The times `track_input` notes are read back as text** (`_noted`). One not noted yet is the literal 0, a single object Tcl shares with every script holding a 0, and any of them reading it as a list makes it one: ttk's own `-padding 0` does. Read through `tk.call`, it then arrives as `('0',)`.
 

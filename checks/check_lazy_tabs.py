@@ -153,13 +153,13 @@ def _first_bound(app):
     if late:
         return [f"czn_optimizer_gui.py creates {', '.join(late)} before "
                 f"`LazyTabs`, so their tab-changed handlers run first on a "
-                f"first show -- and draw in view, before painting goes "
-                f"off. Create `LazyTabs` before any tab."]
+                f"switch -- and draw in view, before painting goes off. "
+                f"Create `LazyTabs` before any tab."]
     return []
 
 
 def _first_show_runs():
-    """A first show, run on a notebook at alpha 0. Complaints."""
+    """Switches, run on a notebook at alpha 0. Complaints."""
     import ctypes
     import tkinter as tk
     from tkinter import ttk
@@ -281,7 +281,7 @@ def run():
                 f"every snapshot, and the game purges what they come "
                 f"from.")
 
-    # 3. A first show ends with painting on, and painted.
+    # 3. A switch ends with painting on, and painted.
     problems += _painting_comes_back(
         ast.parse(LAZY.read_text(encoding="utf-8")))
 
@@ -316,9 +316,9 @@ def run():
     # 7. The still over a repaint comes on in time and comes off.
     problems += _still_rules(ast.parse(STILL.read_text(encoding="utf-8")))
 
-    # 6. And a first show, run.
+    # 6. And switches, run.
     if sys.platform != "win32":
-        note("not Windows: a first show's painting hold was not run.")
+        note("not Windows: a switch's painting hold was not run.")
     else:
         add_source_to_path()
         problems += _first_show_runs()

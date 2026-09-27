@@ -128,7 +128,7 @@ def run():
             and c.func.id == "realize_windows" for c in ast.walk(built)):
         failures.append(
             f"{LAZY_TABS}'s TabSlot.build no longer calls "
-            f"realize_windows(). A tab built after the reveal was never "
+            f"realize_windows(). A tab built after the reveal is never "
             f"reached by the startup walk, so its classic Tk widgets "
             f"flash near-white the first time it is shown.")
 

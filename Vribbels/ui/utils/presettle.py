@@ -158,8 +158,8 @@ def _noted(root, name):
     object's type along with its value. A time not noted yet is the
     literal 0 -- one object Tcl shares with every script holding a 0 --
     and any of those reading it as a list makes it one: ttk's own
-    `-padding 0` does. `tk.call` then returns `('0',)`, and the settler
-    raised on it and stopped for the session."""
+    `-padding 0` does. `tk.call` then returns `('0',)`, and a settler
+    raising on it stops for the session."""
     return root.tk.eval("set ::vribbels_input::" + name)
 
 
@@ -276,8 +276,7 @@ class HiddenTabSettler:
         self._lazy = lazy
         self._skip = {str(w) for w in skip}
         # Shared with `LazyTabs`, whose first shows settle a tab as much
-        # as a step does -- and which must know of a step's tab before
-        # the step selects it.
+        # as a step does.
         self._settled = lazy.shown if lazy is not None else set()
         self._settled.add(notebook.select())
         ahead = [str(w) for w in first]

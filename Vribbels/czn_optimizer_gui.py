@@ -415,7 +415,7 @@ class OptimizerGUI:
         # once it shows, the title bar paints in the default first.
         from ui.title_bar import apply_title_bar
         apply_title_bar(self.root, self.colors["fg"])
-        # From here on the user sees it: a tab's first show is held until
+        # From here on the user sees it: every tab switch is held until
         # the tab is whole, and input reaching the window is noted for
         # the idle settler, from this moment -- see `ui/utils/presettle.py`.
         from ui.utils.presettle import track_input
@@ -925,7 +925,7 @@ class OptimizerGUI:
         preload_images()
         # Before the first tab, whatever the display order: its
         # tab-changed handler has to be the first one bound, so that a
-        # first show has painting off before any tab's own handler runs.
+        # switch has painting off before any tab's own handler runs.
         self.lazy_tabs = lazy = LazyTabs(self.root, self.notebook)
         self.optimizer_tab_instance = OptimizerTab(self.notebook,
                                                    self.app_context)
