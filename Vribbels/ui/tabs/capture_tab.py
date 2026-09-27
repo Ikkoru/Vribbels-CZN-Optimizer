@@ -45,6 +45,15 @@ MYTHIC_NOTE = ("Purple max: higher than the Potential of the MF that "
 # Columns of options under that note: the two of mismatch filters, and
 # the display options beside them.
 LOG_OPTION_COLUMNS = 3
+
+# How many lines the Capture Log holds, and how many of the oldest go
+# at once when it passes that. A Tk Text line costs far more than its
+# text -- about 1,500 bytes for a tagged line of a hundred characters,
+# fourteen times its plain size -- so the cap is what bounds a capture
+# left running for days. Trimming a block at a time keeps the cost to
+# one delete per so many lines.
+LOG_MAX_LINES = 20000
+LOG_TRIM_LINES = 2000
 # The display option that trades each Potential range's ends for its
 # likely middle -- `compute_fragment_potential_band`. The tip's first
 # line is the maintainer's: an Upgraded line does not say which ends it
@@ -775,7 +784,24 @@ class CaptureTab(BaseTab):
         self.capture_log.insert(tk.END, msg, tag)
         self._insert_lag(stamp, tag)
         self._colour_log_line(start, msg)
+        self._trim_log()
         self.capture_log.see(tk.END)
+
+    def _trim_log(self):
+        """Hold the log to `LOG_MAX_LINES`, dropping the oldest
+        `LOG_TRIM_LINES` in one go once it passes them.
+
+        The last Upgraded line's marks are forgotten if it was among
+        them: a rewrite would otherwise land at the top of the log,
+        where the deleted marks collapse to.
+        """
+        t = self.capture_log
+        if int(t.index("end-1c").split(".")[0]) <= LOG_MAX_LINES:
+            return
+        cut = "%d.0" % (LOG_TRIM_LINES + 1)
+        if self._has_upgrade_marks and t.compare("upg_end", "<=", cut):
+            self._has_upgrade_marks = False
+        t.delete("1.0", cut)
 
     def set_capture_status(self, text):
         """Set the status readout, from any thread -- see
@@ -832,6 +858,7 @@ class CaptureTab(BaseTab):
         t.mark_set("upg_end", "end-1c")
         t.mark_gravity("upg_end", tk.LEFT)
         self._has_upgrade_marks = True
+        self._trim_log()
         t.see(tk.END)
 
     def rewrite_last_upgrade_line(self, msg: str, tag: str = None,

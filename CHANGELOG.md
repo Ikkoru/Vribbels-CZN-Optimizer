@@ -23,6 +23,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Switching tabs. The new tab appears whole, in one go.
   - Live updates while capturing.
 - Capture: the Load Latest button is gone, since the newest capture loads by itself at startup and after every save. Upgrade Log Settings gets the room.
+- Capture: the Capture Log keeps its newest 20,000 lines, so a capture left running for days no longer grows it without end.
 - Checklist: a red countdown turns a deeper red in its last 24 hours.
 - Checklist: the Galactic Disaster shop's season estimate counts each part's boss rewards separately, and learns from your own captured Chaos runs once the program's own figures are a season or more old. `chaos_runs_per_day` at the foot of settings.json sets how many runs a day it assumes.
 - Gear Score marks a preset assigned to a combatant with ∞.

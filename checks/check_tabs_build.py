@@ -624,6 +624,45 @@ def _combatant_selection_survives_a_rebuild(tab):
     return out
 
 
+def _capture_log_is_capped(tab):
+    """The Capture Log holds `LOG_MAX_LINES` and drops its oldest in a
+    block past that -- a capture left running for days otherwise grows
+    it without end, at far more than its text's size a line. A trim that
+    takes the last Upgraded line takes its marks too: a rewrite must not
+    land at the top of the log, where deleted marks collapse to.
+
+    Returns a list of complaints.
+    """
+    import ui.tabs.capture_tab as ct
+    log = tab.capture_log
+    kept = ct.LOG_MAX_LINES, ct.LOG_TRIM_LINES
+    ct.LOG_MAX_LINES, ct.LOG_TRIM_LINES = 40, 10
+    out = []
+    try:
+        log.delete("1.0", "end")
+        tab.log_upgrade_msg("[LIVE] Upgraded Set Slot IV +3. "
+                            "Highest Potential: 21-80 Fast")
+        for n in range(60):
+            tab.capture_log_msg("line %d" % n)
+        lines = int(log.index("end-1c").split(".")[0])
+        first = log.get("1.0", "1.end")
+        if lines > ct.LOG_MAX_LINES + 1 or first.startswith("[LIVE]"):
+            out.append(
+                f"with the cap at 40 lines and 61 written, the Capture Log "
+                f"holds {lines}, the first reading {first!r}. A capture "
+                f"left running grows the log without end.")
+        tab.rewrite_last_upgrade_line("rewritten")
+        if "rewritten" in log.get("1.0", "end"):
+            out.append(
+                "an Upgraded line trimmed off the log was still rewritten: "
+                "its marks collapsed to the top of the log, and the "
+                "rewrite landed there.")
+    finally:
+        ct.LOG_MAX_LINES, ct.LOG_TRIM_LINES = kept
+        log.delete("1.0", "end")
+    return out
+
+
 def _capture_log_colours_its_values(tab):
     """The Upgraded line's parts must each keep their own colour.
 
@@ -4240,6 +4279,7 @@ def run():
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))
+            failures.extend(_capture_log_is_capped(built["CaptureTab"]))
             failures.extend(
                 _log_preset_columns_leave_the_gap(built["CaptureTab"]))
             failures.extend(
