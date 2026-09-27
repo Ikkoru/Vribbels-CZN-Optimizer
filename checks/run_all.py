@@ -13,6 +13,7 @@ is not an error.
 """
 
 import argparse
+import gc
 import multiprocessing
 import sys
 import time
@@ -72,6 +73,7 @@ from checks import (                                    # noqa: E402
     check_potential_nodes,
     check_presettle,
     check_repo_root,
+    check_runner_collects,
     check_settings_roundtrip,
     check_shared_facts,
     check_shipped_defaults,
@@ -123,6 +125,7 @@ CHECKS = [
     check_shipped_defaults,
     check_shared_facts,
     check_settings_roundtrip,
+    check_runner_collects,
     check_no_flash,
     check_bmp_glyphs,
     check_presettle,
@@ -177,6 +180,17 @@ def main(argv=None):
                   f"{type(e).__name__}: {e}")
             failed += 1
             continue
+        finally:
+            # NOT redundant. A built tab is a reference cycle, so its Tk
+            # Variables outlive the check as garbage, and the cyclic
+            # collector runs on whichever thread next allocates enough.
+            # On a later check's worker thread, each Variable.__del__
+            # calls Tcl off the thread that made it and prints
+            # "Exception ignored ... main thread is not in main loop"
+            # under a check that had nothing to do with it. Collected
+            # here, they go on the main thread. Pinned by
+            # check_runner_collects.
+            gc.collect()
         elapsed = f"{time.time() - t:.1f}s"
         if problems:
             print(f"{RED}FAIL{RESET} {mod.NAME} {DIM}{elapsed}{RESET}")
