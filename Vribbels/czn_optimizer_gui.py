@@ -62,7 +62,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Callable
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
+from tkinter import ttk, messagebox, scrolledtext
 from datetime import datetime
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 
@@ -252,9 +252,7 @@ class OptimizerGUI:
             capture_manager=self.capture_manager,
             colors=self.colors,
             style=self.style,
-            load_file_callback=self.load_file,
             load_data_callback=self.load_data,
-            switch_tab_callback=self._switch_to_tab,
             config=self.config
         )
 
@@ -1114,10 +1112,6 @@ class OptimizerGUI:
         except Exception:
             pass
 
-    def _switch_to_tab(self, tab_frame: tk.Widget):
-        """Switch notebook to the specified tab frame."""
-        self.notebook.select(tab_frame)
-
     def on_close(self):
         """Handle window close event."""
         if self.capture_manager.is_capturing():
@@ -1186,15 +1180,6 @@ class OptimizerGUI:
         latest = self.capture_manager.get_latest_capture()
         if latest:
             self.load_data(str(latest))
-
-    def load_file(self):
-        filepath = filedialog.askopenfilename(
-            title="Select Memory Fragment Snapshot",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-            initialdir="snapshots"
-        )
-        if filepath:
-            self.load_data(filepath)
 
     def load_data(self, filepath: str):
         try:

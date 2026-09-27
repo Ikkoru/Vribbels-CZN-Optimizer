@@ -41,9 +41,7 @@ class AppContext:
         style: ttk.Style instance for theming
 
         # Callbacks for cross-tab communication
-        load_file_callback: Callback to open file dialog and load data () -> None
         load_data_callback: Callback to load data file (filepath: str) -> None
-        switch_tab_callback: Callback to switch to a tab (tab_frame: tk.Widget) -> None
         refresh_callback: Optional callback to refresh displays after data load
         inventory_tab: Optional reference to InventoryTab for cross-tab refresh
         heroes_tab: Optional reference to HeroesTab for cross-tab refresh
@@ -67,9 +65,7 @@ class AppContext:
     style: ttk.Style
 
     # Callbacks
-    load_file_callback: Callable[[], None]
     load_data_callback: Callable[[str], None]
-    switch_tab_callback: Callable[[tk.Widget], None]
     refresh_callback: Optional[Callable[[], None]] = None
     inventory_tab: Optional['InventoryTab'] = None
     heroes_tab: Optional['HeroesTab'] = None

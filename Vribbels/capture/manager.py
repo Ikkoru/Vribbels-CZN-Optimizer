@@ -2498,7 +2498,7 @@ class Addon:
 
         # Temp file then replace, the way every settings manager writes.
         # A capture rewrites ONE path for the whole session, and the app
-        # reads that same path -- `Load Latest`, and the checks that
+        # reads that same path -- its live reload, and the checks that
         # take the newest snapshot. Written in place, a read landing
         # mid-write gets a truncated file and a JSON error naming a line
         # number, which reads as corrupt data rather than as a race.

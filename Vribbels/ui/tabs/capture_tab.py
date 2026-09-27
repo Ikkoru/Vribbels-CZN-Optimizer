@@ -489,10 +489,10 @@ class CaptureTab(BaseTab):
                                             width=BUTTON_W_MEDIUM, state=tk.DISABLED)
         self.capture_stop_btn.pack(side=tk.LEFT, padx=px((0, 4)))
 
+        # The row's last button, so no pad after it: the gap to the
+        # checkbox is the checkbox's own.
         ttk.Button(btn_frame, text="Open Snapshots",
-                   command=self.open_snapshots_folder, width=BUTTON_W_MEDIUM).pack(side=tk.LEFT, padx=px((0, 4)))
-        ttk.Button(btn_frame, text="Load Latest",
-                   command=self.load_latest_capture, width=BUTTON_W_MEDIUM).pack(side=tk.LEFT)
+                   command=self.open_snapshots_folder, width=BUTTON_W_MEDIUM).pack(side=tk.LEFT)
 
         self.debug_var = tk.BooleanVar(value=False)
         # wraplength breaks the label over two lines so it does not push
@@ -1323,13 +1323,3 @@ class CaptureTab(BaseTab):
         """Open snapshots folder using CaptureManager."""
         self.context.capture_manager.open_snapshots_folder()
 
-    def load_latest_capture(self):
-        """Load most recent capture file using CaptureManager."""
-        latest = self.context.capture_manager.get_latest_capture()
-        if latest:
-            self.context.load_data_callback(str(latest))
-            self.context.switch_tab_callback(self.context.notebook.nametowidget(
-                self.context.notebook.tabs()[0]
-            ))
-        else:
-            messagebox.showinfo("No Captures", "No capture files found.")

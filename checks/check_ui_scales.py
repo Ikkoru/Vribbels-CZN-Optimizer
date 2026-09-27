@@ -277,8 +277,8 @@ def _build(scale, work, problems):
     context = AppContext(
         root=root, notebook=notebook, optimizer=GearOptimizer(),
         capture_manager=None, config=AppConfig(sm), colors=dict(gui.COLORS),
-        style=ttk.Style(), load_file_callback=None, load_data_callback=None,
-        switch_tab_callback=None, refresh_callback=None, inventory_tab=None,
+        style=ttk.Style(), load_data_callback=None,
+        refresh_callback=None, inventory_tab=None,
         heroes_tab=None, scoring_tab=None, optimizer_tab=None,
         recompute_upgrade_line_callback=None, settings_manager=sm,
         preset_manager=load(preset_manager.PresetManager),

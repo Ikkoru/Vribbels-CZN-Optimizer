@@ -2111,8 +2111,8 @@ BUTTON_ROW_ABOVE_ENTRIES = [
 # pair, it is the one non-button after a run of buttons, which is
 # what this rule is about.
 BUTTON_ROW_TAIL_ENTRIES = [
-    ("Capture", "Load Latest -> Debug WS", 4, None,
-     _gap(_by_text("Load Latest"), _by_text("Debug WS"), "h")),
+    ("Capture", "Open Snapshots -> Debug WS", 4, None,
+     _gap(_by_text("Open Snapshots"), _by_text("Debug WS"), "h")),
     # The same checkbox's other side, against the panel that starts the
     # next column. An EXCEPTION at 6 rather than a miss at 4: the rule's
     # 4 is there in the two columns' grid padx, and the extra 2 is the

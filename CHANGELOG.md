@@ -15,6 +15,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Opening a tab for the first time: tabs not opened yet are laid out while the program sits idle.
   - Switching tabs. The new tab appears whole, in one go.
   - Live updates while capturing.
+- Capture: the Load Latest button is gone, since the newest capture loads by itself at startup and after every save. Upgrade Log Settings gets the room.
 - Checklist: a red countdown turns a deeper red in its last 24 hours.
 - Gear Score marks a preset assigned to a combatant with ∞.
 - Stats & Gacha History: each Great Rift division's row is drawn in the division's colour.
