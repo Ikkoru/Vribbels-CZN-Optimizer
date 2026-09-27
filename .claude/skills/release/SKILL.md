@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut a release — bump the version, close the CHANGELOG section, write the release notes for players into .old/, and re-check the README. Invoked by hand only. Anything typed after the command is read as part of the request: a version number, a theme for the release name, a step to skip.
+description: Cut a release — refresh the season estimate from the Chaos runs, bump the version, close the CHANGELOG section, write the release notes for players into .old/, and re-check the README. Invoked by hand only. Anything typed after the command is read as part of the request: a version number, a theme for the release name, a step to skip.
 ---
 
 # Release
@@ -17,12 +17,13 @@ Run the doc audit first (`doc-audit` skill) — it moves facts between files, an
 
 1. **Commit whatever is uncommitted** before touching anything.
 2. **Read the maintainer's edits** to the last release, and ask what they leave unclear — see below. Asking first lets the answers arrive while the audit runs.
-3. **Doc audit.** At minimum, the sweeps.
-4. **CHANGELOG pass** — accuracy, then register.
-5. **`version.py`**, and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list.
-6. **`.old/RELEASE_NOTES_<X.Y.Z>.md`** — a different document, see below.
-7. **README re-check** — report only; it is not edited as part of a release.
-8. `python checks/run_all.py`, then commit.
+3. **Chaos runs** — the season estimate's per-run figure, and whether what a run pays has moved. See below.
+4. **Doc audit.** At minimum, the sweeps.
+5. **CHANGELOG pass** — accuracy, then register.
+6. **`version.py`**, and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list.
+7. **`.old/RELEASE_NOTES_<X.Y.Z>.md`** — a different document, see below.
+8. **README re-check** — report only; it is not edited as part of a release.
+9. `python checks/run_all.py`, then commit.
 
 ## The maintainer's edits
 
@@ -33,6 +34,17 @@ What the last release produced, the maintainer edited, and those edits calibrate
 - A `_with_notes` sibling of either: the maintainer's revision, with each edit and cut explained. A CHANGELOG without one was edited in place, unexplained.
 
 Read the older versions' files too. An edit pass can stop partway, and the commit that carries it says where; a section left alone is not an endorsement of it. Where an edit's intent or degree is unclear — a one-off or a rule, how far to take it — ask. The maintainer welcomes those questions, notes or no notes.
+
+## Chaos runs
+
+Run `python docs/chaos_runs.py`, and read what it prints before touching `SEASON_ESTIMATE` in `Vribbels/ui/tabs/checklist_tab.py`:
+
+- **The live season's `whole` line is its `per_run`.** It counts each run's `missed` in. The part lines show whether one part pays differently.
+- **The four questions come last**: whether a set amount or a mark's rate moved with the season part or with the game version. A moved amount is a CHANGELOG line only where the estimate moved with it. "Can't tell" means part and version changed together, and a capture on the far side of either settles it.
+- **A run with no season** paid a currency `CURRENCY` does not hold, cleared before any Great Rift standings were read. Add the id.
+- **A new season wants its own `SEASON_ESTIMATE` entry**, whose `days` and `fixed` are hand-counted (`past_plans/seasonal_shop.md`); the script supplies only `per_run`.
+
+Commit `docs/chaos_runs.tsv` with the estimate.
 
 ## CHANGELOG pass
 
@@ -101,4 +113,5 @@ Re-check these rather than re-deriving them — all five were open at v2.1.0:
 ## Related
 
 - `docs/repo_conventions.md` — the CHANGELOG and release-notes rules this follows.
-- `.claude/skills/doc-audit/SKILL.md` — step 2.
+- `.claude/skills/doc-audit/SKILL.md` — step 4.
+- `docs/chaos_runs.py` — step 3.

@@ -1,12 +1,12 @@
-date	season	part	total	payouts	SPOT_TYPE_BATTLE	SPOT_TYPE_BOSS	SPOT_TYPE_ELITE	log	missed	notes
-2026-09-07 20:05	s04	part 2	344	17:172 34:172		172+172		websocket_debug_20260907_204525.jsonl		
-2026-09-17 18:21	s04	part 3	510	17:180 21:90 34:180 37:60	90	180+180+60		websocket_debug_20260917_165330.jsonl		
-2026-09-19 21:38	s04	part 3	810	5:90 7:60 14:60 17:180 28:60 31:60 31:60 34:180 37:60	90+60+60+60+60	180+180+60	60	websocket_debug_20260919_221148.jsonl		
-2026-09-22 18:48	s04	part 3	480	17:180 24:60 34:180 37:60	60	180+180+60		websocket_debug_20260922_192459.jsonl		
-2026-09-22 20:49	s04	part 3	540	17:180 28:60 30:60 34:180 37:60	60	180+180+60	60	websocket_debug_20260922_210559.jsonl.gz		
-2026-09-22 21:50	s04	part 3	690	10:60 17:180 18:90 24:60 28:60 34:180 37:60	90+60+60	180+180+60	60	websocket_debug_20260922_222150.jsonl.gz		
-2026-09-23 22:50	s04	part 3	420	17:180 34:180 37:60		180+180+60		websocket_debug_20260923_233435.jsonl.gz		
-2026-09-24 20:50	s04	part 3	420	17:180 34:180 37:60		180+180+60		websocket_debug_20260924_213220.jsonl.gz		
-2026-09-25 19:11	s04	part 3	660	6:60 17:180 25:90 28:90 34:180 37:60	60+90+90	180+180+60		websocket_debug_20260925_194713.jsonl.gz		
-2026-09-25 19:37	s04	part 3	540	7:60 17:180 28:60 34:180 37:60	60	180+180+60	60	websocket_debug_20260925_194713.jsonl.gz		
-2026-09-26 21:12	s04	part 3	420	7:60 17:180 34:180		180+180	60	websocket_debug_20260926_214843.jsonl.gz	60	Lost to Core of Discord boss
+date	season	part	client	total	payouts	marked	fought	SPOT_TYPE_BATTLE	SPOT_TYPE_BOSS	SPOT_TYPE_ELITE	log	missed	notes
+2026-09-07 20:05	s04	part 2	cznlive 1.450 r667	344	17:boss:172 34:boss:172		battle:13 boss:2 elite:2 unknown:2		172+172		websocket_debug_20260907_204525.jsonl		
+2026-09-17 18:21	s04	part 3	cznlive 1.464 r688	510	17:boss:180 21:battle:90+e 34:boss:180 37:boss:60	e:1	battle:11 boss:3 elite:4	90	180+180+60		websocket_debug_20260917_165330.jsonl		
+2026-09-19 21:38	s04	part 3	cznlive 1.464 r688	810	5:battle:90+e 7:battle:60+k5 14:elite:60+k5 17:boss:180 28:battle:60+k5 31:battle:60+k5 31:battle:60+k5 34:boss:180 37:boss:60	e:1 k5:4	battle:11 boss:3 elite:3 unknown:1	90+60+60+60+60	180+180+60	60	websocket_debug_20260919_221148.jsonl		
+2026-09-22 18:48	s04	part 3	cznlive 1.464 r688	480	17:boss:180 24:battle:60+k5 34:boss:180 37:boss:60	k5:1	battle:13 boss:3 elite:1 unknown:2	60	180+180+60		websocket_debug_20260922_192459.jsonl		
+2026-09-22 20:49	s04	part 3	cznlive 1.464 r688	540	17:boss:180 28:elite:60+k5 30:battle:60+k5 34:boss:180 37:boss:60	k5:2	battle:9 boss:3 elite:4 unknown:1	60	180+180+60	60	websocket_debug_20260922_210559.jsonl		
+2026-09-22 21:50	s04	part 3	cznlive 1.464 r688	690	10:elite:60+k5 17:boss:180 18:battle:90+e 24:battle:60+k5 28:battle:60+k5 34:boss:180 37:boss:60	e:1 k5:3	battle:13 boss:3 elite:5 unknown:1	90+60+60	180+180+60	60	websocket_debug_20260922_222150.jsonl		
+2026-09-23 22:50	s04	part 3	cznlive 1.464 r688	420	17:boss:180 34:boss:180 37:boss:60		battle:11 boss:3 elite:3		180+180+60		websocket_debug_20260923_233435.jsonl		
+2026-09-24 20:50	s04	part 3	cznlive 1.464 r688	420	17:boss:180 34:boss:180 37:boss:60		battle:14 boss:3 elite:2		180+180+60		websocket_debug_20260924_213220.jsonl		
+2026-09-25 19:11	s04	part 3	cznlive 1.464 r688	660	6:battle:60+k5 17:boss:180 25:battle:90+e 28:battle:90+e 34:boss:180 37:boss:60	e:2 k5:1	battle:10 boss:3 elite:4 unknown:1	60+90+90	180+180+60		websocket_debug_20260925_194713.jsonl.gz		
+2026-09-25 19:37	s04	part 3	cznlive 1.464 r688	540	7:elite:60+k5 17:boss:180 28:battle:60+k5 34:boss:180 37:boss:60	k5:2	battle:11 boss:3 elite:2	60	180+180+60	60	websocket_debug_20260925_194713.jsonl.gz		
+2026-09-26 21:12	s04	part 3	cznlive 1.464 r688	420	7:elite:60+k5 17:boss:180 34:boss:180	k5:1	battle:10 boss:3 elite:3 unknown:1		180+180	60	websocket_debug_20260926_214843.jsonl.gz	60	Lost to Core of Discord boss

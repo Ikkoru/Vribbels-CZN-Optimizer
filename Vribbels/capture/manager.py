@@ -149,14 +149,6 @@ GACHA_MARKER = "[SYNC] gacha"
 # or the program held it.
 LAG_MARKER = " [@lag "
 
-# How much of a payload the wire catalogue keeps as an example, and how
-# many entries it will hold. The sample says what SHAPE a field is, not
-# what is in it -- a reader who wants the whole thing turns debug
-# logging on and captures one.
-#
-# The cap guards against a key built out of something unbounded rather
-# than against an expected size: one account's vocabulary is a few
-# hundred pairs.
 # Event tables with a reader of their own, kept out of the general
 # `event_*` sweep: the completion record is merged by id and written
 # as a LIST, where the sweep would keep the wire's dict beside it.
@@ -165,8 +157,44 @@ EVENT_FIELDS_HANDLED = frozenset({
     "result_event_mission_reward_entities",
 })
 
+# How much of a payload the wire catalogue keeps as an example, and how
+# many entries it will hold. The sample says what SHAPE a field is, not
+# what is in it -- a reader who wants the whole thing turns debug
+# logging on and captures one.
+#
+# The cap guards against a key built out of something unbounded rather
+# than against an expected size: one account's vocabulary is a few
+# hundred pairs.
 CATALOGUE_SAMPLE = 200
 CATALOGUE_MAX = 4000
+
+# A Galactic Disaster Chaos run, as the capture follows one: what opens
+# it, what clears it, the spot and the fight each floor holds, and the
+# drop the player takes. See `Addon._note_chaos`.
+CHAOS_OPENS = "disaster/enter_disaster_chaos_stage"
+CHAOS_CLOSES = "stage/clear_stage"
+CHAOS_ENTERS = "stage/enter_spot"
+CHAOS_FIGHTS = "battle/battle_start"
+CHAOS_PAYS = "spot_reward/get_drop_item"
+# What a run pays in: the season's currency, whatever its id this
+# season, is filed under this group.
+CHAOS_PAID_GROUP = "disaster_material"
+# Runs a snapshot keeps, newest last: at one a day, three seasons. What
+# `docs/chaos_runs.py` has read of older ones lives in its TSV.
+CHAOS_RUNS_KEPT = 200
+
+
+def _chaos_mark(fight):
+    """What a Chaos fight carries that could pay: `e` for a battle id
+    ending `_e`, `k<n>` for each keyword on it, joined by `+`; '' for
+    none. Every keyword is kept, not only the one seen paying: how often
+    each turns up is worth counting before anything says it pays."""
+    tags = fight.get("keyword_tag")
+    marks = sorted({"k%s" % tag for tag in tags
+                    if isinstance(tag, int)}) if isinstance(tags, list) else []
+    if str(fight.get("battle_res_id") or "").endswith("_e"):
+        marks.insert(0, "e")
+    return "+".join(marks)
 
 
 class Addon:
@@ -320,6 +348,14 @@ class Addon:
         self.rift_tops = {}
         self.sortie_rankings = {}
         self.remnants_rankings = {}
+        # Chaos runs, carried across restarts like the rankings, and the
+        # one in progress with the spot it is on. See `_note_chaos`.
+        self.chaos_runs = []
+        self.chaos_run = None
+        self.chaos_spot = (None, None, "")
+        # The game client's version, from each connection's `helo`, so
+        # that a run can be set against the game update it ran under.
+        self.client_version = None
         # {trial event id: [slot ids]}, learned from claims and
         # kept forever -- see `reward_combatant_trial`.
         self.trial_slots = {}
@@ -516,6 +552,9 @@ class Addon:
         offensives = previous.get("remnants_rankings")
         if isinstance(offensives, dict):
             self.remnants_rankings = offensives
+        runs = previous.get("chaos_runs")
+        if isinstance(runs, list):
+            self.chaos_runs = [run for run in runs if isinstance(run, dict)]
         for key in ("mission_accumulate", "achievements", "daily_achieve"):
             for row in previous.get(key) or ():
                 if (isinstance(row, dict) and row.get("res_id") is not None
@@ -833,6 +872,7 @@ class Addon:
         # pieces were destroyed by matching the response qid to the
         # request we tracked earlier.
         qid = data.get("qid")
+        self._note_chaos(self.qid_commands.get(qid), data)
         if (qid is not None and qid in self.pending_disassembles
                 and self.inventory_data
                 and "piece_items" in self.inventory_data):
@@ -2438,6 +2478,7 @@ class Addon:
             "disaster_boss_rank_tops": self.rift_tops or None,
             "chaos_assault_rankings": self.sortie_rankings or None,
             "remnants_rankings": self.remnants_rankings or None,
+            "chaos_runs": self.chaos_runs or None,
             "combat_trial_entities": self.combat_trials or None,
             "combatant_trial_slots": self.trial_slots or None,
             "season_pass_entity": self.season_pass,
@@ -2747,6 +2788,103 @@ class Addon:
         rows = held.get("keys") if isinstance(held, dict) else None
         return rows if isinstance(rows, dict) else {}
 
+    def _note_client_version(self, params):
+        """The client version and data patch a `helo` announces:
+        `cznlive 1.464 r688`, the patch being its `res` number."""
+        device = params.get("device_data") if isinstance(params, dict) \\
+            else None
+        if not isinstance(device, dict) or not device.get("client_version"):
+            return
+        version = str(device["client_version"])
+        try:
+            patch = json.loads(device.get("patch_version") or "{}")
+            if isinstance(patch, dict) and patch.get("res") is not None:
+                version += " r%s" % patch["res"]
+        except (TypeError, ValueError):
+            pass
+        self.client_version = version
+
+    def _note_chaos(self, asked, data):
+        """Follow the Chaos run in progress, and file it when it clears.
+
+        **What a run paid is the drop the player takes**
+        (`spot_reward/get_drop_item`): its `drop_item_result` is what
+        went into the inventory. Not the menu `battle/reward_complete`
+        offers, nor the clear's own envelope, which restates the whole
+        run.
+
+        **What makes a fight pay is on its `battle_init_wt`**: a
+        `keyword_tag` (5 has paid 60 a fight every time), or a battle
+        id ending `_e` (90). Both are noted whether or not the fight
+        paid, since how often each turns up is counted over the fights
+        fought, not the ones won.
+        """
+        if asked == CHAOS_OPENS:
+            self.chaos_run = {"opened": data.get("service_server_time"),
+                              "client": self.client_version,
+                              "fought": {}, "marked": {}, "paid": []}
+            self.chaos_spot = (None, None, "")
+            return
+        run = self.chaos_run
+        if run is None:
+            return
+        if asked == CHAOS_ENTERS:
+            info = data.get("spot_info")
+            if isinstance(info, dict):
+                spot = str(info.get("spot_type") or "?").replace(
+                    "SPOT_TYPE_", "")
+                self.chaos_spot = (info.get("floor"), spot, "")
+        elif asked == CHAOS_FIGHTS:
+            snapshot = data.get("snapshot")
+            cache = snapshot.get("cache") if isinstance(snapshot, dict) \\
+                else None
+            fight = cache.get("battle_init_wt") if isinstance(cache, dict) \\
+                else None
+            if not isinstance(fight, dict):
+                return
+            floor, spot, _mark = self.chaos_spot
+            mark = _chaos_mark(fight)
+            self.chaos_spot = (floor, spot, mark)
+            run["fought"][spot] = run["fought"].get(spot, 0) + 1
+            if mark:
+                run["marked"][mark] = run["marked"].get(mark, 0) + 1
+        elif asked == CHAOS_PAYS:
+            floor, spot, mark = self.chaos_spot
+            for item in data.get("drop_item_result") or ():
+                if (isinstance(item, dict)
+                        and item.get("group") == CHAOS_PAID_GROUP
+                        and isinstance(item.get("amount"), int)):
+                    run["paid"].append([floor, spot, mark, item.get("id"),
+                                        item["amount"]])
+        elif asked == CHAOS_CLOSES:
+            run["closed"] = data.get("service_server_time")
+            run["season"] = self._live_disaster_season()
+            self.chaos_run = None
+            # By the second it cleared, which a replay of the same
+            # capture reproduces: a run read twice is one run.
+            kept = [old for old in self.chaos_runs
+                    if old.get("closed") != run["closed"]]
+            self.chaos_runs = (kept + [run])[-CHAOS_RUNS_KEPT:]
+            self._save_pending = True
+
+    def _live_disaster_season(self):
+        """The Galactic Disaster season running now, `disaster_s04`, or
+        None: the standings keep a row per season played, and the live
+        one carries the latest `score_week_id`. A Chaos run always pays
+        the live season, and naming it here means nothing downstream has
+        to know which item id each season's currency is."""
+        live = None
+        seasons = self.disaster_ranks if isinstance(
+            self.disaster_ranks, dict) else {}
+        for name, slots in seasons.items():
+            for row in (slots.values() if isinstance(slots, dict) else ()):
+                if not isinstance(row, dict):
+                    continue
+                week = row.get("score_week_id") or 0
+                if live is None or week > live[0]:
+                    live = (week, name)
+        return live[1] if live else None
+
     def _note_command(self, entry):
         """Remember which command a qid belongs to.
 
@@ -2954,6 +3092,7 @@ class Addon:
             if entry.get("cmd") == "helo":
                 self._forget_pending()
                 self.qid_commands.clear()
+                self._note_client_version(entry.get("params"))
                 continue
 
             self._note_command(entry)
