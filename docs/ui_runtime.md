@@ -101,9 +101,9 @@ Six rules keep it unseen, and breaking any of them fails silently. `checks/check
 
 A step still holds the UI thread while its tab lays out, and while painting is off the notebook is out of hit-testing. So when a step may start has rules of its own:
 
-- **Input that reaches the window holds it back** for `IDLE_MS`: the pointer over the window's content, a click, a key, the wheel, noted from the reveal by `track_input`. The title bar and other programs hold nothing back.
-- **A held mouse button holds it back** while the program is in front: a drag of the title bar or a border is nothing else Tk sees.
-- **The pointer moving does not, in two windows**: `LAUNCH_MS` after the reveal, and `SWITCH_MS` after a tab switch, from `SWITCH_WAIT_MS` in. A click, a key or the wheel closes either.
+- Input that reaches the window holds it back for `IDLE_MS`: the pointer over the window's content, a click, a key, the wheel, noted from the reveal by `track_input`. The title bar and other programs hold nothing back. A key another binding takes first -- Tab traversal, the notebook's Ctrl+Tab and arrows -- is noted inside that binding's own script.
+- A held mouse button holds it back while the program is in front: a drag of the title bar or a border is nothing else Tk sees.
+- The pointer moving does not, in two windows: `LAUNCH_MS` after the reveal, and `SWITCH_MS` after a tab switch, from `SWITCH_WAIT_MS` in. A click, a key or the wheel closes either.
 - **A click during a settle step lands behind the notebook.** One on a tab is given back once painting is (`replay_lost_tab_click`); one on a tab's contents is lost. A build step holds no painting and only delays a click. So the switch window runs builds only: after a switch, the next click is likely on the new tab's contents.
 
 Nothing is settled under the spacing audit, which switches tabs itself.

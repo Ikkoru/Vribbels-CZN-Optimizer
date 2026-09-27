@@ -253,6 +253,24 @@ def _run_decisions():
             out.append("`track_input` did not note a motion and a click on "
                        "the window. The settler would step under the "
                        "user's hand.")
+        # Keys a binding takes before `all`'s generic ones: switching
+        # tabs from the keyboard, and Tab traversal. Read off the scripts
+        # rather than typed, which would need the keyboard focus.
+        for tag, sequence, tk_own in (
+                ("TNotebook", "<Control-Key-Tab>", "CycleTab"),
+                ("TNotebook", "<Key-Right>", "CycleTab"),
+                ("all", "<<NextWindow>>", "TabToWindow")):
+            script = str(tcl.call("bind", tag, sequence))
+            if not script.lstrip().startswith("::vribbels_input::acted"):
+                out.append(f"{tag} {sequence} is not noted as input. Its "
+                           f"own binding takes the key first, so a user "
+                           f"switching tabs or moving focus from the "
+                           f"keyboard reads as idle, and steps run under "
+                           f"their hand.")
+            elif tk_own not in script:
+                out.append(f"{tag} {sequence} lost Tk's own `{tk_own}` "
+                           f"when it was claimed for input: the key no "
+                           f"longer does what it did.")
 
         # When a step may start.
         presettle._held_in_front = lambda: False

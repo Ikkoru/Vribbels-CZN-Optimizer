@@ -131,6 +131,22 @@ proc ::vribbels_input::pressed {W X Y} {
     variable act
     variable press [list $act $W $X $Y]
 }
+# Keys, clicks and the wheel that a binding takes before the generic
+# ones below can see them: a more specific binding in `all` itself --
+# Tab traversal, Alt, F10 -- and the notebook's own tab keys, Ctrl+Tab
+# and the arrows, which end in `break`. Noted first thing in their own
+# scripts, which otherwise run as they were.
+proc ::vribbels_input::claim {tag} {
+    foreach sequence [bind $tag] {
+        if {[string match *Release* $sequence]
+                || ![regexp {Key|Button|Wheel|Scroll|Window>>} $sequence]} {
+            continue
+        }
+        bind $tag $sequence "::vribbels_input::acted\n[bind $tag $sequence]"
+    }
+}
+::vribbels_input::claim all
+::vribbels_input::claim TNotebook
 bind all <Motion> {+::vribbels_input::moved}
 bind all <KeyPress> {+::vribbels_input::acted}
 bind all <ButtonPress> {+::vribbels_input::acted}
