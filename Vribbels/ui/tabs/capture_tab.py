@@ -112,10 +112,9 @@ def _log_preset_grid_width(widths, columns):
 
 # What the Region readout says before a capture has seen a connection.
 REGION_UNKNOWN = "not detected yet"
-# ...and when two games on different servers are running at once.
-REGION_CONFLICT = (
-    "two servers at once -- close one game and capture again"
-)
+# ...and when two games on different servers are running at once. The
+# readout changes only when a capture stops, hence the second clause.
+REGION_CONFLICT = "two servers at once -- close a game, capture again"
 
 # At or below this, a fragment's ceiling is not worth reading and is
 # drawn in warning yellow rather than green. A JUDGEMENT, not a
@@ -1316,7 +1315,7 @@ class CaptureTab(BaseTab):
         self.debug_checkbox.config(state=tk.NORMAL)
         self.capture_start_btn.config(state=tk.NORMAL)
         self.capture_stop_btn.config(state=tk.DISABLED)
-        self.capture_info_label.config(text="Check snapshots folder for your data")
+        self.capture_info_label.config(text="Saved in the snapshots folder")
 
         if result:
             captured_file, detected_region = result

@@ -168,9 +168,16 @@ EVENT_FIELDS_HANDLED = frozenset({
 CATALOGUE_SAMPLE = 200
 CATALOGUE_MAX = 4000
 
-# A Chaos run during Galactic Disaster, as the capture follows one: what opens
-# it, what clears it, the spot and the fight each floor holds, and the
-# drop the player takes. See `Addon._note_chaos`.
+# A Chaos run entered through the Galactic Disaster, as the capture
+# follows one: what opens it, what clears it, the spot and the fight
+# each floor holds, and the drop the player takes. See
+# `Addon._note_chaos`.
+#
+# **Only runs entered this way are followed.** Any Chaos run pays the
+# season's currency while a season is on, and meets the marks in or
+# out of one, but no capture has yet held a Chaos run entered any other
+# way, so what opens one is unknown. A debug log of one names it; it
+# belongs beside `CHAOS_OPENS`.
 CHAOS_OPENS = "disaster/enter_disaster_chaos_stage"
 CHAOS_CLOSES = "stage/clear_stage"
 CHAOS_ENTERS = "stage/enter_spot"
