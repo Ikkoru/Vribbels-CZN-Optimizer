@@ -48,11 +48,14 @@ Setup & Settings joins them on a first launch, which opens on it. Every other ta
 - the user selecting it first, which builds it with painting off and paints it once, whole;
 - anything that needs the tab itself: a reload the Checklist has to record from first, or the spacing audit.
 
-Until then the app's handle on the tab is None. Three rules follow, and `checks/check_lazy_tabs.py` holds them:
+**Any tab's first show is held until the tab is whole**, built or not: a placeholder, a tab a step built but has not laid out, or Gear Score and Capture before their step. `LazyTabs` switches painting off in the first tab-changed handler and ends the hold with a queued `<<LazyTabShown>>`, so every tab's own handler runs inside it. A tab built already is never built again. Being built saves only the build's share of its first open: most of it is the layout and first draw, which only a settle step takes away.
+
+Until then the app's handle on the tab is None. Four rules follow, and `checks/check_lazy_tabs.py` holds them:
 
 - **Nothing calls through a handle that may be None.** A load tells only the tabs built so far (`_refresh_built_tabs`). A tab built later reads the data current then, in its `after_build`.
 - **Both load paths build the Checklist before replacing a snapshot it has not read** (`_let_the_checklist_record`). It records from every snapshot, and the game purges what it records.
-- **A tab built on a click comes back with painting on and painted**, in a `finally`.
+- **A first show comes back with painting on and painted**, in a `finally`.
+- **`LazyTabs` is created before any tab.** Its handler has to be the first bound; a tab's own handler ahead of it draws in view, before painting goes off.
 
 One more, held by `checks/check_style_once.py`: **no tab's build may change a ttk style.** Any style change re-measures every themed widget, and after the reveal that lays out again the tabs already laid out. A stretching Treeview column then asks for the space it had filled, and the Combatants list keeps 6px of its detail pane for the session. So each style a tab uses is defined once per interpreter (`ui/utils/style_once.py`), at startup, from `OptimizerGUI.configure_styles`.
 
@@ -60,20 +63,32 @@ One more, held by `checks/check_style_once.py`: **no tab's build may change a tt
 
 A notebook sizes only the page it shows, so every other page is 1px square until it is first opened, and that open lays the whole page out again after its first paint: the user watches it assemble. `_reveal_window` settles the Optimizer tab while the window is still hidden, and pays for it in startup time. Every other tab is settled by `ui/utils/presettle.py` after the reveal, one tab per idle moment:
 
-1. Painting on the notebook is switched off with `WM_SETREDRAW`. The screen keeps the pixels it had.
-2. The tab is selected, and its window events and idle work run: the `<Configure>` cascade, and its `<Map>` and `<<NotebookTabChanged>>` first-show work.
-3. The tab that was showing is selected again, drained the same way, and painting switched back on.
+1. Whatever is pending runs, painting on.
+2. Painting on the notebook is switched off with `WM_SETREDRAW`. The screen keeps the pixels it had.
+3. The tab is selected, and its window events and idle work run: the `<Configure>` cascade, and its `<Map>` and `<<NotebookTabChanged>>` first-show work.
+4. The tab that was showing is selected again, drained the same way, and painting switched back on.
 
 A tab not built yet is built in an idle step of its own, and settled in the next. Nothing is mapped by a build, so it needs no painting off; and each half is a pause of its own, shorter than the two together.
 
-Four rules keep it unseen, and breaking any of them fails silently. `checks/check_presettle.py` holds all four:
+Six rules keep it unseen, and breaking any of them fails silently. `checks/check_presettle.py` holds all six:
 
 - **Painting comes back on in a `finally`.** Otherwise the notebook stays frozen on its last picture.
 - **The drain runs window and idle events only, never `update()`.** Timers would run with painting off, and a capture reload's redraw would never reach the screen.
 - **The way back is drained with painting still off.** Left to the ordinary loop, the notebook repaints the page area's background, and the page's widgets never paint over it.
 - **The Capture tab is skipped.** Its switch handlers clear its failure mark and start and stop its log title's pulse.
+- **A step's tab counts as laid out before it is selected.** The settler shares `LazyTabs.shown`; the selection's event arrives mid-step, and a first show there would switch painting back on with the settled tab on screen.
+- **What is pending runs before painting goes off.** A paint still owed to the tab on screen, spent with painting off, leaves its old pixels showing.
 
-A step still holds the UI thread while its tab lays out. So a step waits for `IDLE_MS` without input while the window is in front, and nothing is settled under the spacing audit, which switches tabs itself.
+A step still holds the UI thread while its tab lays out, and while painting is off the notebook is out of hit-testing. So when a step may start has rules of its own:
+
+- **Input that reaches the window holds it back** for `IDLE_MS`: the pointer over the window's content, a click, a key, the wheel, noted from the reveal by `track_input`. The title bar and other programs hold nothing back.
+- **A held mouse button holds it back** while the program is in front: a drag of the title bar or a border is nothing else Tk sees.
+- **The pointer moving does not, in two windows**: `LAUNCH_MS` after the reveal, and `SWITCH_MS` after a tab switch, from `SWITCH_WAIT_MS` in. A click, a key or the wheel closes either.
+- **A click during a settle step lands behind the notebook.** One on a tab is given back once painting is (`replay_lost_tab_click`); one on a tab's contents is lost. A build step holds no painting and only delays a click, so the switch window, after which the next click is likely on the new tab's contents, runs builds only.
+
+Nothing is settled under the spacing audit, which switches tabs itself.
+
+With `debug_perf_log` on, the log records what the windows' lengths are chosen from: `presettle:switch` lines, how soon the user acted and switched after the reveal and after each switch; `presettle:step`, each step and what let it start; `lazy_tabs:first_show`, what each first show cost.
 
 The Checklist and Memory Fragments are settled first. Both leave their drawing to their first show (see *A hidden tab draws when shown, but records now*), so they are the costliest to open before their step.
 

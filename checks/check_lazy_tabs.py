@@ -1,7 +1,7 @@
 """Tabs built on first need are whole when they arrive, and miss nothing.
 
 Most tabs are built after the window appears (`ui/utils/lazy_tabs.py`).
-Until one is, the app's handle on it is None, and four things about
+Until one is, the app's handle on it is None, and six things about
 that fail without a sound:
 
 1. **A call made through a tab not built yet.** `load_data` and the
@@ -11,20 +11,29 @@ that fail without a sound:
 2. **The Checklist records from every snapshot**, and a tab not built
    yet reads nothing. So both load paths build it before they replace
    the snapshot it has not read.
-3. **A tab the user opens before it is built is built with painting
-   off**, and painting has to come back on whatever happens -- or the
-   notebook freezes on its last picture -- and then paint the new tab,
-   none of which has been drawn.
+3. **A tab's first show holds painting off until the tab is whole** --
+   a placeholder built on the click, or a tab built earlier and never
+   laid out. The hold ends in a queued event, so every tab-changed
+   handler runs inside it, and painting has to come back on whatever
+   happens -- or the notebook freezes on its last picture -- and then
+   paint the new tab, none of which has been drawn.
 4. **Gear Score's rescore reaches Memory Fragments and Combatants**
    through the context, where either is None until built.
+5. **`LazyTabs` is created before any tab**, so its tab-changed handler
+   is the first bound. A tab's own handler bound ahead of it draws
+   before painting goes off -- in view, the thing the hold is for.
+6. **What a first show does, run**: on a notebook at alpha 0, a tab's
+   own handler must run once, with painting off, and painting come back.
 
-Headless, so this reads the source.
+The first five read the source; the sixth maps a window at alpha 0,
+which is invisible, the way `check_tabs_build` measures the Checklist.
 """
 
 import ast
 import re
+import sys
 
-from ._harness import SOURCE_ROOT
+from ._harness import SOURCE_ROOT, add_source_to_path, note
 
 NAME = "tabs built on first need"
 
@@ -36,6 +45,9 @@ SCORING = SOURCE_ROOT / "ui" / "tabs" / "scoring_tab.py"
 LAZY_HANDLES = ("inventory", "heroes", "materials", "checklist", "setup",
                 "gacha")
 UNGUARDED = re.compile(r"\b(?:%s)_tab_instance\." % "|".join(LAZY_HANDLES))
+# The tabs the app builds at startup, each binding a tab-changed handler
+# as it is built.
+EAGER = ("OptimizerTab", "ScoringTab", "CaptureTab")
 
 
 def _function(tree, name):
@@ -53,6 +65,143 @@ def _call_lines(node, name):
                    else func.id if isinstance(func, ast.Name) else None)
             if got == name:
                 out.append(sub.lineno)
+    return out
+
+
+def _in_finally(func, name):
+    """Whether `func` calls `name` inside a `finally`."""
+    return bool(func) and any(
+        _call_lines(stmt, name) for t in ast.walk(func)
+        if isinstance(t, ast.Try) for stmt in t.finalbody)
+
+
+def _painting_comes_back(lazy):
+    """Complaints about the hold's way out, read off the source."""
+    problems = []
+    changed = _function(lazy, "_on_tab_changed")
+    if not _in_finally(changed, "event_generate"):
+        problems.append(
+            "LazyTabs._on_tab_changed does not queue the end of a first "
+            "show inside a `finally`. A build that raises then leaves "
+            "painting off for good: the notebook freezes on its last "
+            "picture.")
+    if not _in_finally(_function(lazy, "_finish_show"), "_release_painting"):
+        problems.append(
+            "LazyTabs._finish_show does not release painting inside a "
+            "`finally`. A layout that raises then leaves the notebook "
+            "frozen on its last picture.")
+    release = _function(lazy, "_release_painting")
+    on = release is not None and any(
+        isinstance(a, ast.Constant) and a.value == 1
+        for c in ast.walk(release) if isinstance(c, ast.Call)
+        and getattr(c.func, "attr", "") == "SendMessageW"
+        for a in c.args[2:3])
+    if not (on and release is not None
+            and _call_lines(release, "RedrawWindow")):
+        problems.append(
+            "LazyTabs._release_painting does not switch painting back on "
+            "AND repaint. Without the first, the notebook freezes on its "
+            "last picture; without the second, the tab the user clicked "
+            "was never drawn.")
+    return problems
+
+
+def _first_bound(app):
+    """Complaints unless `LazyTabs` is created before every eager tab."""
+    made = _call_lines(app, "LazyTabs")
+    eager = {name: _call_lines(app, name) for name in EAGER}
+    if not made:
+        return ["czn_optimizer_gui.py never creates `LazyTabs`."]
+    late = [name for name, lines in eager.items()
+            if lines and min(lines) < min(made)]
+    if late:
+        return [f"czn_optimizer_gui.py creates {', '.join(late)} before "
+                f"`LazyTabs`, so their tab-changed handlers run first on a "
+                f"first show -- and draw in view, before painting goes "
+                f"off. Create `LazyTabs` before any tab."]
+    return []
+
+
+def _first_show_runs():
+    """A first show, run on a notebook at alpha 0. Complaints."""
+    import ctypes
+    import tkinter as tk
+    from tkinter import ttk
+    from ui.utils.lazy_tabs import LazyTabs
+    from ui.utils.presettle import _drain
+
+    user32 = ctypes.windll.user32
+    out = []
+    root = tk.Tk()
+    try:
+        root.withdraw()
+        root.attributes("-alpha", 0.0)
+        root.geometry("400x200")
+        nb = ttk.Notebook(root)
+        lazy = LazyTabs(root, nb)
+        nb.pack(fill=tk.BOTH, expand=True)
+
+        def drain():
+            _drain(root, 10 ** 12)
+
+        def painting():
+            return bool(user32.IsWindowVisible(int(nb.winfo_id())))
+
+        class Tab:
+            """Notes, each time it is shown, whether painting was on."""
+
+            def __init__(self):
+                self.frame = ttk.Frame(nb)
+                ttk.Label(self.frame, text="-").pack()
+                self.seen = []
+                nb.bind("<<NotebookTabChanged>>", self._changed, add="+")
+
+            def get_frame(self):
+                return self.frame
+
+            def _changed(self, _event=None):
+                if nb.select() == str(self.frame):
+                    self.seen.append(painting())
+
+        first, built = Tab(), Tab()
+        nb.add(first.frame, text="First")
+        nb.add(built.frame, text="Built")
+        slot = lazy.add("later", "Later", Tab)
+        root.deiconify()
+        root.update_idletasks()
+        drain()
+        lazy.watch()
+        cases = []
+        nb.select(built.frame)
+        drain()
+        # Copies: `built.seen` is cleared and used again below.
+        cases.append(("a tab built but never shown", list(built.seen),
+                      [False]))
+        nb.select(slot.placeholder)
+        drain()
+        cases.append(("a placeholder, built on the click",
+                      list(slot.instance.seen) if slot.instance else None,
+                      [False]))
+        if not painting():
+            out.append("painting stayed off after a first show: the "
+                       "notebook is frozen on its last picture.")
+        nb.select(first.frame)
+        drain()
+        built.seen.clear()
+        nb.select(built.frame)
+        drain()
+        cases.append(("a tab shown before", built.seen, [True]))
+        for what, seen, want in cases:
+            if seen != want:
+                out.append(
+                    f"{what}: its own tab-changed handler ran with painting "
+                    f"{['off' if not on else 'on' for on in seen or []]}, "
+                    f"not {['off' if not on else 'on' for on in want]}. A "
+                    f"first show runs it once, painting off, so what it "
+                    f"draws appears with the rest; a later show holds "
+                    f"nothing.")
+    finally:
+        root.destroy()
     return out
 
 
@@ -87,22 +236,9 @@ def run():
                 f"every snapshot, and the game purges what they come "
                 f"from.")
 
-    # 3. The build a click asks for ends with painting on, and painted.
-    lazy = ast.parse(LAZY.read_text(encoding="utf-8"))
-    view = _function(lazy, "_build_in_view")
-    finals = [stmt for t in ast.walk(view) if isinstance(t, ast.Try)
-              for stmt in t.finalbody] if view else []
-    on = any(isinstance(a, ast.Constant) and a.value == 1
-             for stmt in finals for c in ast.walk(stmt)
-             if isinstance(c, ast.Call) and getattr(c.func, "attr", "")
-             == "SendMessageW" for a in c.args[2:3])
-    repaint = any(_call_lines(stmt, "RedrawWindow") for stmt in finals)
-    if not (on and repaint):
-        problems.append(
-            "LazyTabs._build_in_view does not switch painting back on AND "
-            "repaint inside a `finally`. Without the first, the notebook "
-            "freezes on its last picture; without the second, the tab the "
-            "user clicked was never drawn.")
+    # 3. A first show ends with painting on, and painted.
+    problems += _painting_comes_back(
+        ast.parse(LAZY.read_text(encoding="utf-8")))
 
     # 4. Gear Score's rescore tests both tabs before reaching them.
     scoring = ast.parse(SCORING.read_text(encoding="utf-8"))
@@ -128,4 +264,14 @@ def run():
                 f"scoring_tab.py:{node.lineno} reaches `context.{handle}` "
                 f"without testing it for None. That tab may not be built "
                 f"yet when Gear Score rescores.")
+
+    # 5. LazyTabs' handler is the first bound.
+    problems += _first_bound(app)
+
+    # 6. And a first show, run.
+    if sys.platform != "win32":
+        note("not Windows: a first show's painting hold was not run.")
+    else:
+        add_source_to_path()
+        problems += _first_show_runs()
     return problems

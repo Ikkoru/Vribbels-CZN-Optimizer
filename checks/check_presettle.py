@@ -1,8 +1,8 @@
 """The tabs settled after the reveal stay unseen, and nothing breaks.
 
 `ui/utils/presettle.py` lays out every unopened tab behind the one on
-screen, with painting on the notebook switched off. Four things in it
-fail silently, and all of them only on a live window:
+screen, with painting on the notebook switched off. Everything in it
+fails silently, and most of it only on a live window:
 
 1. **Painting must come back on whatever happens.** A notebook left
    with `WM_SETREDRAW` off never repaints again -- the program goes on
@@ -19,15 +19,27 @@ fail silently, and all of them only on a live window:
 4. **The Capture tab is skipped.** Its switch handlers clear its
    failure mark and start and stop its log title's pulse, which a tab
    switched behind the user's back would do for nobody.
+5. **A step's tab is known as laid out BEFORE it is selected.** Its
+   tab-changed event arrives inside the step, and `LazyTabs` shows a
+   page it does not know -- painting back on, mid-step, the tab being
+   settled on screen.
+6. **What is pending runs before a step, painting on.** A paint still
+   owed to the tab on screen, spent with painting off, leaves it
+   showing old pixels.
+7. **When a step may start**: input on this window holds it back, the
+   pointer moving does not inside the two windows, a click closes them.
+8. **A click that landed behind the notebook during a step** is given
+   back when it was on a tab, and only then.
 
-Headless, so this reads the source: what is checked is that the lines
-which keep each rule are still there. The third was found on a live
+1-6 read the source. 7 and 8 run the settler's own decisions on a
+notebook at alpha 0, which is invisible. The third was found on a live
 window, photographed frame by frame while the tabs settled.
 """
 
 import ast
+import sys
 
-from ._harness import SOURCE_ROOT
+from ._harness import SOURCE_ROOT, add_source_to_path, note
 
 NAME = "tabs settle unseen after the reveal"
 
@@ -63,13 +75,12 @@ def _redraw_on(call):
             and isinstance(args[2], ast.Constant) and args[2].value == 1)
 
 
-def run():
-    problems = []
-    try:
-        tree = ast.parse(MODULE.read_text(encoding="utf-8"))
-    except (OSError, SyntaxError) as exc:
-        return [f"ui/utils/presettle.py cannot be read: {exc}"]
+def _first_line(calls):
+    return min((c.lineno for c in calls), default=None)
 
+
+def _source_rules(tree):
+    problems = []
     settle = _function(tree, "_settle")
     if settle is None:
         problems.append("presettle.py has no `_settle`, so nothing below "
@@ -97,6 +108,24 @@ def run():
                 "`_settle` calls `update()`, which runs timers with "
                 "painting off -- a capture reload in there redraws the "
                 "tab for nobody. Drain through `_drain`.")
+        marked = _first_line(c for c in _calls(settle, "add")
+                             if "_settled" in ast.unparse(c.func))
+        selected = _first_line(_calls(settle, "select"))
+        if marked is None or selected is None or marked > selected:
+            problems.append(
+                "`_settle` does not count its tab as laid out before it "
+                "selects it. The selection's event arrives mid-step, and "
+                "`LazyTabs` then shows the tab being settled -- painting "
+                "back on, on screen.")
+
+    step = _function(tree, "_next")
+    drained = _first_line(_calls(step, "_drain")) if step else None
+    stepped = _first_line(_calls(step, "_settle")) if step else None
+    if drained is None or stepped is None or drained > stepped:
+        problems.append(
+            "`_next` does not drain what is pending before a step. A paint "
+            "still owed to the tab on screen is then spent with painting "
+            "off, and that tab keeps its old pixels.")
 
     drain = _function(tree, "_drain")
     if drain is None:
@@ -111,13 +140,17 @@ def run():
         if not _calls(drain, "dooneevent"):
             problems.append("`_drain` no longer drains through "
                             "`dooneevent`, so its flags say nothing.")
+    return problems
 
+
+def _app_rules():
     try:
         app = APP.read_text(encoding="utf-8")
     except OSError as exc:
-        return problems + [f"czn_optimizer_gui.py cannot be read: {exc}"]
-    call = next((c for c in _calls(ast.parse(app), "settle_hidden_tabs")),
-                None)
+        return [f"czn_optimizer_gui.py cannot be read: {exc}"]
+    tree = ast.parse(app)
+    problems = []
+    call = next((c for c in _calls(tree, "settle_hidden_tabs")), None)
     if call is None:
         problems.append(
             "czn_optimizer_gui.py never calls `settle_hidden_tabs`, so "
@@ -133,4 +166,165 @@ def run():
                 "Selecting it clears its failure mark and starts its "
                 "title's pulse; a settle would do both behind the user's "
                 "back.")
+    reveal = _function(tree, "_reveal_window")
+    if reveal is None or not _calls(reveal, "track_input"):
+        problems.append(
+            "`_reveal_window` does not start `track_input`. The settler "
+            "then sees no input at all and steps under the user's hand, "
+            "and its launch window opens whenever it happens to start.")
+    return problems
+
+
+def _run_decisions():
+    """The settler's choices, run on a notebook at alpha 0."""
+    import tkinter as tk
+    from tkinter import ttk
+    from ui.utils import presettle
+    from ui.utils.lazy_tabs import LazyTabs
+
+    out = []
+    root = tk.Tk()
+    held = presettle._held_in_front
+    try:
+        root.withdraw()
+        root.attributes("-alpha", 0.0)
+        root.geometry("400x200")
+        nb = ttk.Notebook(root)
+        lazy = LazyTabs(root, nb)
+        nb.pack(fill=tk.BOTH, expand=True)
+        pages = []
+        for text in ("One", "Two", "Three"):
+            page = ttk.Frame(nb)
+            ttk.Label(page, text=text).pack()
+            nb.add(page, text=text)
+            pages.append(page)
+        root.deiconify()
+        root.update_idletasks()
+        presettle._drain(root, 10 ** 12)
+        presettle.track_input(root)
+        lazy.watch()
+        settler = presettle.HiddenTabSettler(root, nb, lazy=lazy)
+        tcl = root.tk
+
+        # A step never makes a first show of the tab it settles.
+        holds = []
+        hold = lazy._hold_painting
+        lazy._hold_painting = lambda: (holds.append(1), hold())
+        try:
+            settler._settle(str(pages[1]), nb.select())
+        finally:
+            lazy._hold_painting = hold
+        if holds:
+            out.append("a settle step's own selection was taken for a first "
+                       "show, which switches painting back on mid-step and "
+                       "puts the tab being settled on screen.")
+        if nb.select() != str(pages[0]):
+            out.append("a settle step left another tab selected than the "
+                       "one it found.")
+
+        # Input reaching the window is noted.
+        pages[0].event_generate("<Motion>", x=3, y=3, when="now")
+        pages[0].event_generate("<ButtonPress-1>", x=3, y=3, when="now")
+        pages[0].event_generate("<ButtonRelease-1>", x=3, y=3, when="now")
+        if not (presettle._input(root, "move")
+                and presettle._input(root, "act")):
+            out.append("`track_input` did not note a motion and a click on "
+                       "the window. The settler would step under the "
+                       "user's hand.")
+
+        # When a step may start.
+        presettle._held_in_front = lambda: False
+        now = presettle._clock_ms(root)
+
+        def wait(since, act, move, switched=None, settle=False):
+            tcl.call("set", "::vribbels_input::act", act)
+            tcl.call("set", "::vribbels_input::move", move)
+            settler._revealed_at, settler._switched_at = since, switched
+            return settler._wait(settle)
+
+        cases = (
+            ("the pointer moving just after the reveal",
+             wait(now - 100, 0, now - 5), lambda w: w == (0, "launch")),
+            ("a settle step just after the reveal",
+             wait(now - 100, 0, now - 5, settle=True),
+             lambda w: w == (0, "launch")),
+            ("a settle step inside a switch window, which holds painting "
+             "while the next click is likely on the tab's contents",
+             wait(now - 5000, now - 151, now - 2, switched=now - 150,
+                  settle=True),
+             lambda w: w[1] == "idle" and w[0] > 0),
+            ("a click just after the reveal",
+             wait(now - 100, now - 50, now - 5),
+             lambda w: w[1] == "idle" and w[0] > 0),
+            ("the pointer moving once the launch window is over",
+             wait(now - 5000, 0, now - 5),
+             lambda w: w[1] == "idle" and w[0] > 0),
+            ("a switch whose tab has not painted yet",
+             wait(now - 5000, now - 31, now - 2, switched=now - 30),
+             lambda w: w[1] == "switch" and w[0] > 0),
+            ("the pointer moving inside a switch window",
+             wait(now - 5000, now - 151, now - 2, switched=now - 150),
+             lambda w: w == (0, "switch")),
+            ("a click after a switch",
+             wait(now - 5000, now - 20, now - 2, switched=now - 150),
+             lambda w: w[1] == "idle" and w[0] > 0),
+            ("nothing on the window for long",
+             wait(now - 5000, now - 4000, now - 3000),
+             lambda w: w == (0, "idle")),
+        )
+        for what, got, good in cases:
+            if not good(got):
+                out.append(f"{what}: the settler would wait {got[0]} ms "
+                           f"for a {got[1]!r} step, which is wrong. See "
+                           f"`HiddenTabSettler._wait`.")
+        presettle._held_in_front = lambda: True
+        if settler._wait(False)[0] <= 0:
+            out.append("a held mouse button in front let a step start: a "
+                       "drag of the window would stutter under it.")
+        presettle._held_in_front = held
+
+        # A click lost behind the notebook, given back on a tab only.
+        root.update_idletasks()
+        spot = next((x for x in range(2, nb.winfo_width(), 2)
+                     if str(tcl.call(str(nb), "identify", "tab", x, 6))
+                     == "2"), None)
+        if spot is None:
+            out.append("no tab found on the tab row to click, so the "
+                       "replay of a lost click went unchecked.")
+        else:
+            x, y = nb.winfo_rootx() + spot, nb.winfo_rooty() + 6
+            stamp = presettle._clock_ms(root)
+            replays = (
+                ("a click behind the notebook, on a tab", ".", stamp, 2),
+                ("a click the notebook got itself", str(nb), stamp, 0),
+                ("a click before the step", ".", stamp - 100, 0),
+                # A path, not a window: a Toplevel would map, visibly.
+                ("a click on another window", ".!toplevel", stamp, 0))
+            for what, widget, when, want in replays:
+                nb.select(pages[0])
+                tcl.call("set", "::vribbels_input::press",
+                         (when, widget, x, y))
+                presettle.replay_lost_tab_click(root, nb, stamp - 5)
+                if nb.index("current") != want:
+                    out.append(f"{what}: the notebook shows tab "
+                               f"{nb.index('current')}, not {want}. Only a "
+                               f"click that landed behind the notebook, on "
+                               f"a tab, during the step is given back.")
+    finally:
+        presettle._held_in_front = held
+        root.destroy()
+    return out
+
+
+def run():
+    try:
+        tree = ast.parse(MODULE.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError) as exc:
+        return [f"ui/utils/presettle.py cannot be read: {exc}"]
+    problems = _source_rules(tree) + _app_rules()
+    if sys.platform != "win32":
+        note("not Windows: the settler's decisions were not run.")
+    else:
+        add_source_to_path()
+        problems += _run_decisions()
     return problems

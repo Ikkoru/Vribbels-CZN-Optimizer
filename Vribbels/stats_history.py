@@ -142,9 +142,11 @@ RIFT_RECORDED_TOPS = {
 # part's codename and end with every division's top score, Master's
 # first -- see `rift_table` for why a division's is its subdivision I's.
 SORTIE_ROWS = ("Top%", "Top #", "Out of", "Score", "Top score")
+# The division each of those last rows is, by the row's name.
+RIFT_DIVISION_ROWS = {"Top %s I" % division: division
+                      for division in reversed(DIVISIONS)}
 RIFT_ROWS = ("Codename", "Top% apx.", "Top% official", "Top #", "Out of",
-             "Score") + tuple(
-    "Top %s I" % division for division in reversed(DIVISIONS))
+             "Score") + tuple(RIFT_DIVISION_ROWS)
 # An Offensive is three stages; the list gives each its own score row.
 OFFENSIVE_STAGES = 3
 OFFENSIVE_ROWS = ("Top%", "Top #", "Out of", "Total") + tuple(

@@ -12,7 +12,8 @@ on the first of these:
 * **The user selecting it** before that step came. Painting on the
   notebook is switched off, the tab built and laid out, and the whole
   of it painted at once -- so the click shows the finished tab late
-  rather than an empty page or a tab assembling.
+  rather than an empty page or a tab assembling. A tab built but not
+  yet laid out is shown the same way, and is never built twice.
 * **Anything that needs the tab itself**: a reload the Checklist must
   record from first, or the spacing audit, which measures every tab.
 
@@ -88,14 +89,54 @@ class TabSlot:
 
 
 class LazyTabs:
-    """The app's slots, and the build that follows selecting one."""
+    """The app's slots, and every tab's first show.
+
+    **A tab is shown whole the first time, whatever state it is in**:
+    a placeholder, a tab built but not yet laid out, or one built at
+    startup that the idle settler has not reached. Painting on the
+    notebook goes off when it is selected, and comes back on once it
+    is built, laid out, and every tab-changed handler has run for it;
+    then all of it is painted at once. Until then the old tab stays on
+    screen. Off Windows, where painting cannot be held, a tab is built
+    and shown as it comes.
+
+    `shown` holds every page already laid out at its real size, by
+    being displayed or settled. The idle settler adds a page to it
+    BEFORE selecting it, so that its own selections are never first
+    shows.
+
+    **Created before any tab**, so that its tab-changed handler is the
+    first one bound: painting must be off before any tab's own handler
+    draws.
+    """
+
+    # Queued behind a first show's tab-changed event: see
+    # `_on_tab_changed`.
+    SHOWN = "<<LazyTabShown>>"
 
     def __init__(self, root, notebook):
         self.root = root
         self.notebook = notebook
         self.slots = {}
+        self.shown = set()
+        # Until the reveal, a page selected is laid out by the reveal's
+        # own passes, unseen.
+        self._watching = False
+        self._holds = 0
+        self._held_since = 0
+        self._showing = []
         notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed,
                       add="+")
+        notebook.bind(self.SHOWN, self._finish_show, add="+")
+
+    def watch(self):
+        """Show every first show whole from now on. The reveal calls it,
+        once the page it shows is laid out."""
+        self._watching = True
+        try:
+            self.shown.add(self.notebook.select())
+        except tk.TclError:
+            pass
 
     def add(self, name, text, factory, after_build=None):
         slot = TabSlot(self.notebook, text, factory, after_build)
@@ -138,37 +179,80 @@ class LazyTabs:
 
     def _on_tab_changed(self, _event=None):
         try:
-            shown = self.notebook.select()
+            page = self.notebook.select()
         except tk.TclError:
             return
-        slot = self._slot_at(shown)
-        if slot is not None and slot.instance is None:
-            self._build_in_view(slot)
-
-    def _build_in_view(self, slot):
-        """Build the slot the user just selected, and show it whole.
-
-        With painting off while it is built and laid out, then all of
-        it painted at once: the old tab stays on screen until the new
-        one is finished. Off Windows, where painting cannot be held, it
-        is built and shown as it comes.
-        """
-        if sys.platform != "win32":
-            slot.build()
+        if not page or page in self.shown:
             return
-        import ctypes
-        from .presettle import (RDW_ALLCHILDREN, RDW_INVALIDATE,
-                                STEP_LIMIT_S, WM_SETREDRAW, _drain)
-        user32 = ctypes.windll.user32
-        hwnd = int(self.notebook.winfo_id())
-        user32.SendMessageW(hwnd, WM_SETREDRAW, 0, 0)
+        self.shown.add(page)
+        slot = self._slot_at(page)
+        unbuilt = slot is not None and slot.instance is None
+        if not self._watching or sys.platform != "win32":
+            if unbuilt:
+                self.shown.add(str(slot.build().get_frame()))
+            return
+        text = slot.text if slot is not None else self._text(page)
+        began = time.perf_counter()
+        self._hold_painting()
         try:
-            slot.build()
+            if unbuilt:
+                # Known as shown before the event its build queued, by
+                # selecting it, arrives: that one is no first show.
+                self.shown.add(str(slot.build().get_frame()))
+        finally:
+            # Queued rather than run here, and in a `finally`: every
+            # tab-changed handler bound after this one -- each tab built
+            # after startup binds its own -- has still to run for this
+            # event, and a build's own selection has still to arrive.
+            # What they draw has to be drawn with painting off too.
+            self._showing.append((text, began, unbuilt))
+            self.notebook.event_generate(self.SHOWN, when="tail")
+
+    def _finish_show(self, _event=None):
+        """Lay out what a first show held back, then paint all of it."""
+        from .presettle import STEP_LIMIT_S, _drain
+        try:
             _drain(self.root, time.monotonic() + STEP_LIMIT_S)
         finally:
-            # NOT optional: a notebook left with painting off never
-            # repaints again. And the repaint is the whole point here:
-            # nothing of the new tab has been drawn yet.
-            user32.SendMessageW(hwnd, WM_SETREDRAW, 1, 0)
-            user32.RedrawWindow(hwnd, None, None,
-                                RDW_INVALIDATE | RDW_ALLCHILDREN)
+            self._release_painting()
+        if self._showing:
+            text, began, unbuilt = self._showing.pop(0)
+            import perf_log
+            perf_log.log("lazy_tabs:first_show", tab=text,
+                         built_now="yes" if unbuilt else "no",
+                         ms=round((time.perf_counter() - began) * 1000))
+
+    def _text(self, page):
+        try:
+            return self.notebook.tab(page, "text")
+        except tk.TclError:
+            return "?"
+
+    def _hold_painting(self):
+        import ctypes
+        from .presettle import WM_SETREDRAW, _clock_ms
+        if self._holds == 0:
+            self._held_since = _clock_ms(self.root)
+            ctypes.windll.user32.SendMessageW(
+                int(self.notebook.winfo_id()), WM_SETREDRAW, 0, 0)
+        self._holds += 1
+
+    def _release_painting(self):
+        import ctypes
+        from .presettle import (RDW_ALLCHILDREN, RDW_INVALIDATE,
+                                WM_SETREDRAW, replay_lost_tab_click)
+        self._holds = max(0, self._holds - 1)
+        if self._holds:
+            return
+        try:
+            hwnd = int(self.notebook.winfo_id())
+        except tk.TclError:
+            return                      # the window is closing
+        user32 = ctypes.windll.user32
+        # NOT optional: a notebook left with painting off never repaints
+        # again. And the repaint is the whole point here: nothing of the
+        # new tab has been drawn yet.
+        user32.SendMessageW(hwnd, WM_SETREDRAW, 1, 0)
+        user32.RedrawWindow(hwnd, None, None,
+                            RDW_INVALIDATE | RDW_ALLCHILDREN)
+        replay_lost_tab_click(self.root, self.notebook, self._held_since)

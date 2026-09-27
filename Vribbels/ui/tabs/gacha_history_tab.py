@@ -187,6 +187,12 @@ SORTIE_NOTE = ("Start a capture. Open Sortie. Press Hardcore Rankings, "
 RIFT_NOTE = ("Start a capture. Go to the Great Rift. Open Merit Ranking. "
              "Press each division.")
 OFFENSIVE_NOTE = "Start a capture. Open the Full-Scale Offensive."
+# A Great Rift division's row, in the division's colour -- lightened
+# where the plain one reads dim on this background.
+DIVISION_COLOURS = {"Master": "#ee62c0", "Diamond": "#b998fa",
+                    "Platinum": "#bbddaa", "Gold": "#f5d7a2",
+                    "Silver": "#6cb6f0", "Bronze": "#d68c79"}
+DIVISION_TAG = "division_%s"
 # The heading over the rows' names, which says what the columns are.
 SEASON_HEADING = "Season"
 # A title's leading pad against the panel above it, the lever on
@@ -583,6 +589,10 @@ class GachaHistoryTab(BaseTab):
         data.configure(xscrollcommand=scroll.set)
         scroll.grid(row=1, column=1, sticky="ew")
         scroll.grid_remove()
+        for tree in (labels, data):
+            for division, colour in DIVISION_COLOURS.items():
+                tree.tag_configure(DIVISION_TAG % division,
+                                   foreground=colour)
         return SimpleNamespace(frame=frame, header=header, labels=labels,
                                holder=holder, data=data, scroll=scroll)
 
@@ -982,8 +992,12 @@ class GachaHistoryTab(BaseTab):
         # `check_tabs_build` pins it.
         labels.configure(height=len(rows))
         labels.delete(*labels.get_children())
-        for name in rows:
-            labels.insert("", tk.END, values=(name, ""))
+        # A division's row takes its colour in both lists, name and
+        # seasons alike.
+        tags = [(DIVISION_TAG % sh.RIFT_DIVISION_ROWS[name],)
+                if name in sh.RIFT_DIVISION_ROWS else () for name in rows]
+        for name, tag in zip(rows, tags):
+            labels.insert("", tk.END, values=(name, ""), tags=tag)
         columns = columns or [(NO_VALUE, [None] * len(rows))]
         ids = []
         for index in range(len(columns)):
@@ -1011,7 +1025,8 @@ class GachaHistoryTab(BaseTab):
         data.delete(*data.get_children())
         for row in range(len(rows)):
             data.insert("", tk.END, values=self._spaced(
-                [cells[row] or NO_VALUE for _heading, cells in columns]))
+                [cells[row] or NO_VALUE for _heading, cells in columns]),
+                tags=tags[row])
 
     def _size_standings(self):
         """Fit each standings list to its room: the Great Rift's is the

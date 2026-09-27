@@ -3125,6 +3125,60 @@ def _standings_lists_fit(tab):
     return out
 
 
+def _rift_divisions_take_their_colours(tab):
+    """Each Great Rift division's row is drawn in that division's
+    colour, its name and its seasons alike, and no other row is.
+
+    The rows are matched to divisions by name, so a division renamed on
+    one side and not the other loses its colour without a word -- the
+    two tables are held to name the same six.
+
+    Returns a list of complaints.
+    """
+    import stats_history as sh
+    from ui.tabs.gacha_history_tab import DIVISION_COLOURS, DIVISION_TAG
+
+    out = []
+    named = set(sh.RIFT_DIVISION_ROWS.values())
+    if named != set(DIVISION_COLOURS):
+        out.append(f"the Great Rift's division rows name {sorted(named)} and "
+                   f"their colours {sorted(DIVISION_COLOURS)}; a division "
+                   f"in one and not the other is drawn uncoloured.")
+    optimizer = tab.optimizer
+    saved = getattr(optimizer, "raw_data", None), tab.stats
+    try:
+        optimizer.raw_data, tab.stats = _standings(2), None
+        tab._fill_standings()
+        parts = tab.rift_list
+        seen = set()
+        for a, b in zip(parts.labels.get_children(),
+                        parts.data.get_children()):
+            name = str(parts.labels.item(a)["values"][0])
+            division = sh.RIFT_DIVISION_ROWS.get(name)
+            want = (DIVISION_TAG % division,) if division else ()
+            for tree, item, which in ((parts.labels, a, "name"),
+                                      (parts.data, b, "seasons")):
+                got = tuple(tree.item(item, "tags") or ())
+                if got != want:
+                    out.append(f"the Great Rift row {name!r}'s {which} "
+                               f"carry tags {got}, not {want}.")
+                elif division and str(tree.tag_configure(
+                        want[0], "foreground")) != DIVISION_COLOURS.get(
+                            division):
+                    out.append(f"the Great Rift row {name!r}'s {which} are "
+                               f"not drawn in its division's colour, "
+                               f"{DIVISION_COLOURS.get(division)}.")
+            if division:
+                seen.add(division)
+        if seen != named:
+            out.append(f"the Great Rift list drew division rows for "
+                       f"{sorted(seen)}, not all of {sorted(named)}.")
+    finally:
+        optimizer.raw_data, tab.stats = saved
+        tab._fill_standings()
+    return out
+
+
 def _hidden_tab_catches_up(tab, title, refresh, draws):
     """Refresh `tab` while another tab shows, then show it: which of
     `draws` (method names) ran each time. Returns (while hidden, when
@@ -4182,6 +4236,8 @@ def run():
                 _gacha_history_draws_its_rows(built["GachaHistoryTab"]))
             failures.extend(
                 _standings_lists_fit(built["GachaHistoryTab"]))
+            failures.extend(
+                _rift_divisions_take_their_colours(built["GachaHistoryTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))

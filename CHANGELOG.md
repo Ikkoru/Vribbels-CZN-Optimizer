@@ -16,6 +16,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Live updates while capturing.
 - Checklist: a red countdown turns a deeper red in its last 24 hours.
 - Gear Score marks a preset assigned to a combatant with ∞.
+- Stats & Gacha History: each Great Rift division's row is drawn in the division's colour.
 
 ### Fixed
 

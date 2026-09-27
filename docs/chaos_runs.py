@@ -19,6 +19,13 @@ Rare Species modifier, an Aether Eater, the Core of Discord -- so
 those are notes only someone who watched the run can add, and
 re-running this must not lose them.
 
+**`missed` is the one of yours this script reads**, and is always
+there to fill in: what a run would have paid but for a mistake -- a
+floor lost to a boss, a reward left behind. The means, minimums and
+maximums it prints count `total + missed`, since they stand for what a
+run pays played through; `total` stays what was paid. Say in `notes`
+what was missed.
+
 The columns this script owns:
 
 | column    | what it says                                            |
@@ -84,6 +91,8 @@ PAYS = "spot_reward/get_drop_item"
 # What this script fills in. Anything after them in an existing file
 # is the maintainer's and is carried over by `date`.
 OWNED = ["date", "season", "part", "total", "payouts"]
+# The maintainer's column the summary reads: see the module docstring.
+MISSED = "missed"
 
 from capture.manager import CaptureManager                    # noqa: E402
 
@@ -279,10 +288,25 @@ def row_of(run):
     return row
 
 
+def missed_of(row):
+    """What a run lost to a mistake: the `missed` cell, blank for none."""
+    cell = (row.get(MISSED) or "").strip()
+    if not cell:
+        return 0
+    try:
+        return int(cell)
+    except ValueError:
+        print("   ! %s: `%s` is %r, not a number -- counted as 0"
+              % (row["date"], MISSED, cell))
+        return 0
+
+
 def main():
     full = "--all" in sys.argv[1:]
     header, rows = existing()
     theirs = header[header.index("log") + 1:] if header else []
+    if MISSED not in theirs:
+        theirs.insert(0, MISSED)
     since = "" if full or not rows else stamp(rows[max(rows)]["log"])
     if since:
         print("Reading Chaos runs from websocket_debug_%s on (the newest "
@@ -328,11 +352,18 @@ def main():
         return
     by_part = collections.defaultdict(list)
     tally = collections.Counter()
+    counted = []
     for row in kept.values():
+        missed = missed_of(row)
+        if missed:
+            counted.append("%s +%d" % (row["date"], missed))
         by_part["%s %s" % (row["season"], row["part"])].append(
-            int(row["total"] or 0))
+            int(row["total"] or 0) + missed)
         for pay in row["payouts"].split():
             tally[int(pay.rsplit(":", 1)[1])] += 1
+    if counted:
+        print("   counted with what they missed: %s"
+              % ", ".join(sorted(counted)))
     for part in sorted(by_part):
         got = by_part[part]
         print("   %-12s %2d run(s), mean %5.0f, min %5d, max %5d"
