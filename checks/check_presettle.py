@@ -19,9 +19,11 @@ fails silently, and most of it only on a live window:
 4. **The Capture tab is skipped.** Its switch handlers clear its
    failure mark and start and stop its log title's pulse, which a tab
    switched behind the user's back would do for nobody.
-5. **A step's tab is known as laid out BEFORE it is selected.** Its
-   tab-changed event arrives inside the step, and `LazyTabs` shows a
-   page it does not know -- painting back on, mid-step, the tab being
+5. **A step counts its own tab as laid out, and `LazyTabs` keeps out
+   of it.** The settler's tab-changed handler ignores a step's own
+   selections, so a tab the step does not count is settled again and
+   again. And `LazyTabs` holds no switch while painting is off: held,
+   its release would switch painting back on mid-step, the tab being
    settled on screen.
 6. **What is pending runs before a step, painting on.** A paint still
    owed to the tab on screen, spent with painting off, leaves it
@@ -110,13 +112,12 @@ def _source_rules(tree):
                 "tab for nobody. Drain through `_drain`.")
         marked = _first_line(c for c in _calls(settle, "add")
                              if "_settled" in ast.unparse(c.func))
-        selected = _first_line(_calls(settle, "select"))
-        if marked is None or selected is None or marked > selected:
+        if marked is None:
             problems.append(
-                "`_settle` does not count its tab as laid out before it "
-                "selects it. The selection's event arrives mid-step, and "
-                "`LazyTabs` then shows the tab being settled -- painting "
-                "back on, on screen.")
+                "`_settle` does not count its tab as laid out. The tab-"
+                "changed handler ignores a step's own selections, so the "
+                "same tab is settled again at every idle moment for the "
+                "rest of the session.")
 
     step = _function(tree, "_next")
     drained = _first_line(_calls(step, "_drain")) if step else None
@@ -206,6 +207,22 @@ def _run_decisions():
         settler = presettle.HiddenTabSettler(root, nb, lazy=lazy)
         tcl = root.tk
 
+        # A time not noted yet is the literal 0, one object Tcl shares
+        # with every script holding a 0, and any of them reading it as a
+        # list makes it one -- ttk's `-padding 0` does. So read one after
+        # a list read of 0 elsewhere.
+        tcl.eval("proc ::vribbels_shimmer {} {lindex 0 0}; "
+                 "::vribbels_shimmer")
+        try:
+            never = presettle._input(root, "act")
+        except TypeError as exc:
+            never = exc
+        if never != 0:
+            out.append(f"a time not noted yet reads back as {never!r} once "
+                       f"some script has read a 0 as a list. The settler "
+                       f"raised on exactly that and stopped for the "
+                       f"session; `_noted` reads the times as text.")
+
         # A step never makes a first show of the tab it settles.
         holds = []
         hold = lazy._hold_painting
@@ -215,9 +232,10 @@ def _run_decisions():
         finally:
             lazy._hold_painting = hold
         if holds:
-            out.append("a settle step's own selection was taken for a first "
-                       "show, which switches painting back on mid-step and "
-                       "puts the tab being settled on screen.")
+            out.append("`LazyTabs` held a settle step's own selection. Its "
+                       "release switches painting back on mid-step and "
+                       "puts the tab being settled on screen; with painting "
+                       "off already, it must hold nothing.")
         if nb.select() != str(pages[0]):
             out.append("a settle step left another tab selected than the "
                        "one it found.")

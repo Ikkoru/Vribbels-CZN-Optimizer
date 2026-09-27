@@ -81,8 +81,10 @@ FIRST_MS = 50
 # outside the two windows.
 IDLE_MS = 400
 # Until this long after the reveal, the pointer moving does not hold a
-# step back.
-LAUNCH_MS = 400
+# step back. The quickest first click in the perf log's
+# `presettle:switch` lines (`first_act_ms`), less the longest step: a
+# step started by then is over before the user can click.
+LAUNCH_MS = 650
 # After a tab switch, how long before a step may start -- the new tab
 # paints first -- and until when the pointer moving does not hold one
 # back.
@@ -100,7 +102,7 @@ RETRY_MS = 300
 STEP_LIMIT_S = 3.0
 
 WM_SETREDRAW = 0x000B
-RDW_INVALIDATE, RDW_ALLCHILDREN = 0x0001, 0x0080
+RDW_INVALIDATE, RDW_ALLCHILDREN, RDW_UPDATENOW = 0x0001, 0x0080, 0x0100
 MOUSE_BUTTONS = (0x01, 0x02, 0x04)      # VK_LBUTTON, VK_RBUTTON, VK_MBUTTON
 
 # In Tcl, so that the bindings cost no trip into Python: a procedure
@@ -140,7 +142,7 @@ bind all <MouseWheel> {+::vribbels_input::acted}
 def track_input(root):
     """Note the time of every input that reaches this program, from
     now on. Once per interpreter; the first call's time is `since`."""
-    if root.tk.call("namespace", "exists", "::vribbels_input"):
+    if root.tk.eval("namespace exists ::vribbels_input") == "1":
         return
     root.tk.eval(_TRACKING)
 
@@ -149,11 +151,23 @@ def _clock_ms(root):
     return int(root.tk.call("clock", "milliseconds"))
 
 
+def _noted(root, name):
+    """What `track_input` holds under `name`, as text.
+
+    **As text, never through `tk.call`**, which hands over the Tcl
+    object's type along with its value. A time not noted yet is the
+    literal 0 -- one object Tcl shares with every script holding a 0 --
+    and any of those reading it as a list makes it one: ttk's own
+    `-padding 0` does. `tk.call` then returns `('0',)`, and the settler
+    raised on it and stopped for the session."""
+    return root.tk.eval("set ::vribbels_input::" + name)
+
+
 def _input(root, name):
     """A time `track_input` noted, in `clock milliseconds`; 0 where it
     has noted none."""
     try:
-        return int(root.tk.call("set", "::vribbels_input::" + name))
+        return int(_noted(root, name))
     except (tk.TclError, ValueError):
         return 0
 
@@ -198,7 +212,7 @@ def replay_lost_tab_click(root, notebook, since_ms):
     """
     try:
         when, widget, x_root, y_root = root.tk.splitlist(
-            root.tk.call("set", "::vribbels_input::press"))
+            _noted(root, "press"))
         if int(when) < since_ms:
             return False
         # Lost means it landed on what holds the notebook. One that
@@ -389,7 +403,8 @@ class HiddenTabSettler:
         if wait > 0:
             self._after(wait)
             return
-        text = _tab_text(self.notebook, tab)
+        # By what stands there now: a built tab's placeholder is gone.
+        text = _tab_text(self.notebook, self._current(tab))
         started, began = _clock_ms(self.root), time.perf_counter()
         try:
             if build:
@@ -415,10 +430,10 @@ class HiddenTabSettler:
         before = _last_input_tick()
         since = _clock_ms(self.root)
         deadline = time.monotonic() + STEP_LIMIT_S
-        # Before the selection, not after: its tab-changed event arrives
-        # inside the drain, and `LazyTabs` shows a page it does not know
-        # to be laid out -- painting back on, mid-step, and the tab
-        # being settled on screen.
+        # Counted here, not by the tab-changed handler, which ignores a
+        # step's own selections: uncounted, the tab is settled again and
+        # again for the rest of the session. (`LazyTabs` holds no switch
+        # while painting is off, which is what keeps it out of a step.)
         self._settled.add(tab)
         self._stepping = True
         user32.SendMessageW(hwnd, WM_SETREDRAW, 0, 0)

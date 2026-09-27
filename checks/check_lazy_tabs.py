@@ -1,7 +1,7 @@
 """Tabs built on first need are whole when they arrive, and miss nothing.
 
-Most tabs are built after the window appears (`ui/utils/lazy_tabs.py`).
-Until one is, the app's handle on it is None, and six things about
+Most tabs are built after the window appears (`ui/utils/lazy_tabs.py`),
+and every tab switch is held until the tab is whole. Seven things about
 that fail without a sound:
 
 1. **A call made through a tab not built yet.** `load_data` and the
@@ -11,22 +11,31 @@ that fail without a sound:
 2. **The Checklist records from every snapshot**, and a tab not built
    yet reads nothing. So both load paths build it before they replace
    the snapshot it has not read.
-3. **A tab's first show holds painting off until the tab is whole** --
-   a placeholder built on the click, or a tab built earlier and never
-   laid out. The hold ends in a queued event, so every tab-changed
-   handler runs inside it, and painting has to come back on whatever
-   happens -- or the notebook freezes on its last picture -- and then
-   paint the new tab, none of which has been drawn.
+3. **A switch holds painting off until the tab is whole** -- a
+   placeholder built on the click, a tab built earlier and never laid
+   out, or one shown before, whose widgets a hidden page unmapped. The
+   hold ends in a queued event, so every tab-changed handler runs
+   inside it, and painting has to come back on whatever happens -- or
+   the notebook freezes on its last picture -- and then paint the new
+   tab, none of which has been drawn.
 4. **Gear Score's rescore reaches Memory Fragments and Combatants**
    through the context, where either is None until built.
 5. **`LazyTabs` is created before any tab**, so its tab-changed handler
    is the first bound. A tab's own handler bound ahead of it draws
    before painting goes off -- in view, the thing the hold is for.
-6. **What a first show does, run**: on a notebook at alpha 0, a tab's
-   own handler must run once, with painting off, and painting come back.
+6. **What a switch does, run**: on a notebook at alpha 0, a tab's own
+   handler must run once, with painting off, and painting come back.
+7. **The still over a repainting tab comes off, and comes on in time**
+   (`ui/utils/still.py`). Its window is destroyed in a `finally`, or
+   the old tab stays on screen over the new one for good; it waits for
+   the compositor to show it before the repaint starts, and has no fade,
+   or the first widgets drawn flash through it; and it copies nothing
+   from a window at alpha 0, whose copy would be of whatever lies
+   behind it.
 
-The first five read the source; the sixth maps a window at alpha 0,
-which is invisible, the way `check_tabs_build` measures the Checklist.
+The first five and most of the seventh read the source; the sixth and
+the last of the seventh map a window at alpha 0, which is invisible,
+the way `check_tabs_build` measures the Checklist.
 """
 
 import ast
@@ -39,6 +48,7 @@ NAME = "tabs built on first need"
 
 APP = SOURCE_ROOT / "czn_optimizer_gui.py"
 LAZY = SOURCE_ROOT / "ui" / "utils" / "lazy_tabs.py"
+STILL = SOURCE_ROOT / "ui" / "utils" / "still.py"
 SCORING = SOURCE_ROOT / "ui" / "tabs" / "scoring_tab.py"
 
 # The app's handles on tabs that may not be built yet.
@@ -103,6 +113,32 @@ def _painting_comes_back(lazy):
             "AND repaint. Without the first, the notebook freezes on its "
             "last picture; without the second, the tab the user clicked "
             "was never drawn.")
+    return problems
+
+
+def _still_rules(still):
+    """Complaints about the still's way on and off, read off the source."""
+    problems = []
+    held = _function(still, "held")
+    if not _in_finally(held, "DestroyWindow"):
+        problems.append(
+            "Still.held does not destroy its window inside a `finally`. "
+            "Anything raised while the tab repaints then leaves the old "
+            "tab's copy on screen over the new one for good.")
+    show = _function(still, "_show")
+    shown = _call_lines(show, "ShowWindow") if show else []
+    flushed = _call_lines(show, "DwmFlush") if show else []
+    if not shown or not flushed or min(flushed) < min(shown):
+        problems.append(
+            "Still._show does not wait for the compositor after showing "
+            "the copy. The repaint can then reach the screen a frame "
+            "before the copy does, and the first widgets drawn flash "
+            "over the old tab.")
+    if not (show and _call_lines(show, "DwmSetWindowAttribute")):
+        problems.append(
+            "Still._show no longer switches the copy's transitions off. "
+            "Faded in, it lets the repaint through as it arrives; faded "
+            "out, it lingers over the finished tab.")
     return problems
 
 
@@ -190,16 +226,25 @@ def _first_show_runs():
         built.seen.clear()
         nb.select(built.frame)
         drain()
-        cases.append(("a tab shown before", built.seen, [True]))
+        cases.append(("a tab shown before", list(built.seen), [False]))
         for what, seen, want in cases:
             if seen != want:
                 out.append(
                     f"{what}: its own tab-changed handler ran with painting "
                     f"{['off' if not on else 'on' for on in seen or []]}, "
-                    f"not {['off' if not on else 'on' for on in want]}. A "
-                    f"first show runs it once, painting off, so what it "
-                    f"draws appears with the rest; a later show holds "
-                    f"nothing.")
+                    f"not {['off' if not on else 'on' for on in want]}. "
+                    f"Every switch runs it once, painting off, so what it "
+                    f"draws appears with the rest of the tab.")
+        if not painting():
+            out.append("painting stayed off after a switch to a tab shown "
+                       "before: the notebook is frozen on its last picture.")
+        from ui.utils.still import Still
+        copy = Still(nb)
+        if copy._copy is not None:
+            copy._free()
+            out.append("a still was copied off a window at alpha 0. What "
+                       "it copies is whatever lies behind the window, and "
+                       "that is what it would hold over the tab.")
     finally:
         root.destroy()
     return out
@@ -267,6 +312,9 @@ def run():
 
     # 5. LazyTabs' handler is the first bound.
     problems += _first_bound(app)
+
+    # 7. The still over a repaint comes on in time and comes off.
+    problems += _still_rules(ast.parse(STILL.read_text(encoding="utf-8")))
 
     # 6. And a first show, run.
     if sys.platform != "win32":
