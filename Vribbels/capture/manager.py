@@ -168,7 +168,7 @@ EVENT_FIELDS_HANDLED = frozenset({
 CATALOGUE_SAMPLE = 200
 CATALOGUE_MAX = 4000
 
-# A Galactic Disaster Chaos run, as the capture follows one: what opens
+# A Chaos run during Galactic Disaster, as the capture follows one: what opens
 # it, what clears it, the spot and the fight each floor holds, and the
 # drop the player takes. See `Addon._note_chaos`.
 CHAOS_OPENS = "disaster/enter_disaster_chaos_stage"

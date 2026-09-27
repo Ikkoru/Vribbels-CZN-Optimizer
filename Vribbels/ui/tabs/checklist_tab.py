@@ -233,7 +233,7 @@ RATE_LONG_LABEL = "Average per %s, long run:"
 # read as a range the numbers could not support: every term but the
 # runs is fixed, so the two moved together and said nothing the one
 # does not.
-SEASON_ESTIMATE_LABEL = "Approximate, 1 Chaos run/day, all rewards:"
+SEASON_ESTIMATE_LABEL = "1 lvl 8+ Chaos run/day, all rewards (apx.):"
 
 # And what the season has actually paid out so far, which is the line
 # the estimate is there to be read against. Held plus every one of it
