@@ -95,6 +95,7 @@ from ui.scaling import px
 # _drain_pending_upgrade_lines below).
 from models.memory_fragment import (compute_gs_bounds,
                                     compute_fragment_potential,
+                                    compute_fragment_potential_band,
                                     compute_fragment_potential_mean)
 # Reconciles bundled defaults in `default_settings/` with the user's
 # `settings/` folder. Must run BEFORE any manager loads.
@@ -1407,7 +1408,8 @@ class OptimizerGUI:
     @staticmethod
     def _potentials_phrase(scored, averages=None) -> str:
         """`Highest Potential: 21-80 Name, ...`, or the singular form;
-        with `averages` ({name: mean}), `21-80 (avg 41) Name`.
+        with `averages` ({name: mean}), the mean between the ends:
+        `21-41-80 Name`.
 
         A fragment with no upgrades left scores the same at both ends of
         its range, so a `21-21` would be reporting a range that cannot
@@ -1424,11 +1426,13 @@ class OptimizerGUI:
         singular = all(low == high for low, high, _ in scored)
         parts = []
         for low, high, name in scored:
-            value = (f"{high:.0f}" if singular
-                     else f"{low:.0f}-{high:.0f}")
+            if singular:
+                value = f"{high:.0f}"
             # An average says something only inside a range.
-            if averages and not singular and name in averages:
-                value += f" (avg {averages[name]:.0f})"
+            elif averages and name in averages:
+                value = f"{low:.0f}-{averages[name]:.0f}-{high:.0f}"
+            else:
+                value = f"{low:.0f}-{high:.0f}"
             parts.append(f"{value} {name}".rstrip())
         label = "Highest GS" if singular else "Highest Potential"
         return f"{label}: " + ", ".join(parts)
@@ -1452,6 +1456,10 @@ class OptimizerGUI:
         preset shared by combatants of different elements or scaling
         stays as long as one of them wants the fragment.
 
+        With `upgrade_log_likely_potential` on, every range -- and so the
+        ranking and what beats the equipped -- is the likely band rather
+        than the bounds.
+
         The suffix is "" when presets exist but none survives selection
         and filtering. When NO user presets exist at all, it falls back
         to the default-weight range so there's still something useful to
@@ -1461,11 +1469,14 @@ class OptimizerGUI:
         sm = getattr(self, "settings_manager", None)
         show_average = bool(sm.get("upgrade_log_show_average", False)) \
             if sm is not None else False
+        ends = compute_fragment_potential_band if (
+            sm is not None and sm.get("upgrade_log_likely_potential", False)
+        ) else compute_fragment_potential
         all_names = list(pm.get_preset_names()) if pm is not None else []
         if not all_names:
             weights = {}
             bounds = compute_gs_bounds(weights, exclude_stat=main_name)
-            low, high = compute_fragment_potential(fragment, weights, bounds)
+            low, high = ends(fragment, weights, bounds)
             averages = {"": compute_fragment_potential_mean(
                 fragment, weights, bounds)} if show_average else None
             return (". " + self._potentials_phrase([(low, high, "")],
@@ -1485,7 +1496,7 @@ class OptimizerGUI:
         for name in sorted(names):
             weights = pm.get_preset(name) or {}
             bounds = compute_gs_bounds(weights, exclude_stat=main_name)
-            low, high = compute_fragment_potential(fragment, weights, bounds)
+            low, high = ends(fragment, weights, bounds)
             scored.append((low, high, name))
         # Sort by high desc -- ties broken by low desc (a tighter high-end
         # with a higher floor is preferable when ceilings tie). Top 5.

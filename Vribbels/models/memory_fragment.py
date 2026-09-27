@@ -85,6 +85,19 @@ inventory:
 By linearity each level-up adds its expected roll, so the mean is a
 sum, not an enumeration.
 
+Likely Potential
+================
+
+The middle of the same outcomes: `compute_fragment_potential_band`
+gives the GS the fragment ends below one time in ten, and the one it
+ends above one time in ten. Same three rules, but a band needs the
+whole distribution, so each roll is taken at every point of its grid
+-- steps of 0.1 for a percentage stat and 1 for a flat one, which is
+where every roll in the maintainer's inventory sits -- and the
+level-ups are convolved, in bins of `_DIST_BIN` GS. An added substat is
+every stat it could be, alike; the later level-ups then land among the
+substats that choice made.
+
 Elemental stats and the max_roll sentinel
 =========================================
 
@@ -105,7 +118,8 @@ Module-level helpers vs methods
 
 The numerical core (`_raw_substat_score`, `compute_gs_bounds`,
 `normalize_gs`, `compute_fragment_potential`,
-`compute_fragment_potential_mean`) is module-level and pure.
+`compute_fragment_potential_mean`, `compute_fragment_potential_band`)
+is module-level and pure.
 `MemoryFragment.calculate_base_score` / `calculate_potential` delegate to
 it and cache the result for display.
 
@@ -115,6 +129,7 @@ back-to-back, and must not clobber the display values, which reflect the
 globally applied preset.
 """
 
+import itertools
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -448,6 +463,145 @@ def compute_fragment_potential_mean(
         main_name = fragment.main_stat.name if fragment.main_stat else None
         bounds = compute_gs_bounds(weights, exclude_stat=main_name)
     return normalize_gs(raw, bounds)
+
+
+# The Potential distribution's resolution, in GS points. The display
+# rounds to whole points; the work grows with the square of this.
+_DIST_BIN = 0.25
+
+# The share of outcomes a likely band leaves out at EACH end.
+BAND_TAIL = 0.1
+
+
+def _roll_grid(info, weight, scale):
+    """Every value one roll of a stat can take, as the GS it adds: its
+    grid runs `min_value` to `max_value` in steps of 0.1 for a
+    percentage stat and 1 for a flat one."""
+    _name, _short, is_pct, max_roll, min_roll = info
+    step = 0.1 if is_pct else 1.0
+    count = max(1, int(round((max_roll - min_roll) / step)) + 1)
+    return tuple(weight * (min_roll + i * step) / max_roll * 10 * scale
+                 for i in range(count))
+
+
+def _dist(grids):
+    """One level-up landing on one of `grids` alike and anywhere on it
+    alike, as (first bin, [chance per bin])."""
+    bins = {}
+    share = 1.0 / len(grids)
+    for grid in grids:
+        each = share / len(grid)
+        for value in grid:
+            at = int(round(value / _DIST_BIN))
+            bins[at] = bins.get(at, 0.0) + each
+    first = min(bins)
+    chances = [0.0] * (max(bins) - first + 1)
+    for at, chance in bins.items():
+        chances[at - first] = chance
+    return first, chances
+
+
+def _convolve(a, b):
+    """The distribution of the sum of two independent ones."""
+    (first_a, chances_a), (first_b, chances_b) = a, b
+    out = [0.0] * (len(chances_a) + len(chances_b) - 1)
+    for i, x in enumerate(chances_a):
+        if x:
+            for j, y in enumerate(chances_b):
+                out[i + j] += x * y
+    return first_a + first_b, out
+
+
+def _power(dist, times):
+    """`dist` added to itself `times` times; the zero distribution for 0."""
+    out = (0, [1.0])
+    for _ in range(times):
+        out = _convolve(out, dist)
+    return out
+
+
+def _mix(dists):
+    """An equal-chance mixture of distributions."""
+    first = min(f for f, _c in dists)
+    out = [0.0] * (max(f + len(c) for f, c in dists) - first)
+    share = 1.0 / len(dists)
+    for f, chances in dists:
+        for i, chance in enumerate(chances):
+            out[f - first + i] += chance * share
+    return first, out
+
+
+def _quantile(dist, share):
+    """The bin at which `share` of a distribution is reached, in GS."""
+    first, chances = dist
+    total = 0.0
+    for i, chance in enumerate(chances):
+        total += chance
+        if total >= share - 1e-9:
+            return (first + i) * _DIST_BIN
+    return (first + len(chances) - 1) * _DIST_BIN
+
+
+def compute_fragment_potential_band(
+    fragment, weights: dict, bounds: tuple[float, float] | None = None,
+    tail: float = BAND_TAIL,
+) -> tuple[float, float]:
+    """Pure function: (low, high) GS on the 0-100 scale between which the
+    middle `1 - 2 * tail` of `fragment`'s outcomes under `weights` end --
+    see *Likely Potential* in the module docstring. Its current GS twice
+    where nothing is left to roll."""
+    if weights is None:
+        weights = {}
+    main_name = fragment.main_stat.name if fragment.main_stat else None
+    if bounds is None:
+        bounds = compute_gs_bounds(weights, exclude_stat=main_name)
+    raw = _raw_substat_score(fragment, weights)
+    max_level = MAX_LEVEL_PER_RARITY.get(fragment.rarity_num, MAX_LEVEL)
+    remaining = max(0, max_level - fragment.level)
+    low_raw, high_raw = bounds
+    if (fragment.rarity_num < 3 or not fragment.substats or not remaining
+            or high_raw <= low_raw):
+        gs = normalize_gs(raw, bounds)
+        return gs, gs
+    scale = 100.0 / (high_raw - low_raw)
+    existing = []
+    for sub in fragment.substats:
+        info = STATS.get(sub.raw_name,
+                         (sub.name, sub.name, sub.is_percentage, 1.0, 0.5))
+        if info[3] > 0:
+            existing.append(_roll_grid(info, weights.get(sub.name, 1.0),
+                                       scale))
+    present = {sub.name for sub in fragment.substats}
+    pool = [_roll_grid(info, weights.get(info[0], 1.0), scale)
+            for info in STATS.values()
+            if info[3] > 0 and info[0] not in present and info[0] != main_name]
+    added = min(4 - len(fragment.substats), remaining) if pool else 0
+    rest = remaining - added
+    if not existing and not added:
+        gs = normalize_gs(raw, bounds)
+        return gs, gs
+    if not added:
+        total = _power(_dist(existing), rest)
+    else:
+        # Every set of stats the added substats could be, alike -- many
+        # grids are equal (a stat the preset weighs 0), and each set
+        # then weighs as often as it occurs.
+        outcomes = []
+        cache = {}
+        for chosen in itertools.combinations(pool, added):
+            key = tuple(sorted(chosen))
+            if key not in cache:
+                first = (0, [1.0])
+                for grid in chosen:
+                    first = _convolve(first, _dist([grid]))
+                grids = existing + list(chosen)
+                cache[key] = _convolve(first, _power(_dist(grids), rest))
+            outcomes.append(cache[key])
+        total = _mix(outcomes)
+    start = (raw - low_raw) * scale
+    return tuple(round(max(0.0, min(100.0, start + _quantile(total, share))),
+                       1)
+                 for share in (tail, 1.0 - tail))
 
 
 @dataclass

@@ -17,6 +17,7 @@ from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.checkbox import make_checkbox
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
+from ..utils.tooltip import Tooltip
 from ui.scaling import px
 
 
@@ -42,8 +43,18 @@ MYTHIC_NOTE = ("Purple max: higher than the Potential of the MF that "
                "preset's character wears in the same slot. Only for "
                "MFs +3 and up, and presets assigned to one character.")
 # Columns of options under that note: the two of mismatch filters, and
-# the display option beside them.
+# the display options beside them.
 LOG_OPTION_COLUMNS = 3
+# The display option that trades each Potential range's ends for its
+# likely middle -- `compute_fragment_potential_band`. The tip's first
+# line is the maintainer's: an Upgraded line does not say which ends it
+# shows, so it is easy to forget the option is on.
+LIKELY_POTENTIAL_LABEL = "Show likely Potential (80%)"
+LIKELY_POTENTIAL_TIP = (
+    "IMPORTANT! Do not forget if you have this switched on\n\n"
+    "Each Potential range then shows where 8 upgrade paths in 10 end, "
+    "instead of the best and worst luck: 1 in 10 ends below it, 1 in 10 "
+    "above.")
 
 
 def lag_text(stamp, shown):
@@ -357,8 +368,9 @@ class CaptureTab(BaseTab):
         ).grid(row=0, column=0, columnspan=LOG_OPTION_COLUMNS, sticky=tk.W)
 
         sm = self.context.settings_manager
+        self._log_option_tips = Tooltip(self.colors)
 
-        def _filter_checkbox(text, key, row, column, default=True):
+        def _filter_checkbox(text, key, row, column, default=True, tip=None):
             var = tk.BooleanVar(
                 value=(bool(sm.get(key, default)) if sm is not None
                        else default)
@@ -379,6 +391,9 @@ class CaptureTab(BaseTab):
             ).grid(row=row, column=column, sticky=tk.W,
                    padx=px((0, 4) if column < LOG_OPTION_COLUMNS - 1 else 0),
                    pady=px((0 if row == 1 else 3, 0)))
+            if tip:
+                self._log_option_tips.bind(
+                    options_frame.grid_slaves(row=row, column=column)[0], tip)
             return var
 
         self.ignore_atkdef_var = _filter_checkbox(
@@ -399,6 +414,9 @@ class CaptureTab(BaseTab):
         self.show_average_var = _filter_checkbox(
             "Show average Potential",
             "upgrade_log_show_average", 1, 2, default=False)
+        self.likely_potential_var = _filter_checkbox(
+            LIKELY_POTENTIAL_LABEL, "upgrade_log_likely_potential", 2, 2,
+            default=False, tip=LIKELY_POTENTIAL_TIP)
 
         self.log_presets_list_frame = ttk.Frame(right_col)
         self.log_presets_list_frame.pack(fill=tk.BOTH, expand=True)

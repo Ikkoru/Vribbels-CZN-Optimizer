@@ -107,6 +107,7 @@ class SettingsManager:
         ("upgrade_log_ignore_dps_hp", True),
         ("upgrade_log_ignore_dps_ego", True),
         ("upgrade_log_show_average", False),
+        ("upgrade_log_likely_potential", False),
         # Setup
         #
         # The UI scale is read before `tk.Tk()` and before this manager

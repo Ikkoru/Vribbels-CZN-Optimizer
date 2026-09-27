@@ -10,7 +10,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
-- Capture: `Show average Potential` in Upgrade Log Settings adds where each preset's Potential is expected to end: `21-80 (avg 41)`. The ends of the range are what the best and worst luck reach, and rarely happen.
+- Capture: two options in Upgrade Log Settings, both off by default:
+  - `Show average Potential` adds where each preset's Potential is expected to end, between the ends of its range: `21-41-80`. The ends are what the best and worst luck reach, and rarely happen.
+  - `Show likely Potential (80%)` narrows each range to where 8 upgrade paths in 10 end.
 
 ### Changed
 
