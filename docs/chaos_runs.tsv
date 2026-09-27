@@ -9,4 +9,4 @@ date	season	part	total	payouts	SPOT_TYPE_BATTLE	SPOT_TYPE_BOSS	SPOT_TYPE_ELITE	l
 2026-09-24 20:50	s04	part 3	420	17:180 34:180 37:60		180+180+60		websocket_debug_20260924_213220.jsonl.gz		
 2026-09-25 19:11	s04	part 3	660	6:60 17:180 25:90 28:90 34:180 37:60	60+90+90	180+180+60		websocket_debug_20260925_194713.jsonl.gz		
 2026-09-25 19:37	s04	part 3	540	7:60 17:180 28:60 34:180 37:60	60	180+180+60	60	websocket_debug_20260925_194713.jsonl.gz		
-2026-09-26 21:12	s04	part 3	420	7:60 17:180 34:180		180+180	60	websocket_debug_20260926_214843.jsonl.gz	60	Missed 60: lost to Core of Discord boss
+2026-09-26 21:12	s04	part 3	420	7:60 17:180 34:180		180+180	60	websocket_debug_20260926_214843.jsonl.gz	60	Lost to Core of Discord boss
