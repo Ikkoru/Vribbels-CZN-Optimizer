@@ -117,6 +117,27 @@ def _play_zero(addon, closed):
                stage_id=60000)
 
 
+def _play_delegated_break_in(addon, closed, told_twice):
+    """The live Chaos by the Delegation Module, Senectus breaking in on
+    a fight: no battle_start of its own, only the reply resolving it
+    (`websocket_debug_20260928_003350`) -- or, `told_twice`, both."""
+    steps = _Steps(addon, 700)
+    steps.step("disaster/enter_disaster_chaos_stage", DELEGATED,
+               service_server_time=closed - 1800)
+    steps.fight(6, "SPOT_TYPE_BATTLE", "base_00159")
+    steps.step("battle/acceleration_resolve", battle_res_id="base_00159",
+               seed=1, game_result="BATTLE_RESULT_TYPE_REWARD")
+    senectus = {"battle_res_id": "base_00242", "seed": 2, "break_in": True,
+                "break_in_res_id": "bi_0001", "spot_type": "SPOT_TYPE_ELITE"}
+    if told_twice:
+        steps.step("battle/battle_start",
+                   snapshot={"cache": {"battle_init_wt": senectus}})
+    steps.step("battle/acceleration_resolve",
+               game_result="BATTLE_RESULT_TYPE_REWARD", **senectus)
+    steps.step("stage/clear_stage", service_server_time=closed,
+               stage_id=80000)
+
+
 def _setup(addon):
     """A connection's `helo`, the standings that name the season, and
     the schedules that date its parts: season 4's, as the wire had it."""
@@ -252,6 +273,21 @@ def _zero_run(Addon, failures):
             f"fought={run_.get('fought')!r}, not b1 once over a battle "
             f"and a BREAK_IN. A break-in is a fight of its own spot, or it "
             f"swells the fights a mark's rate is taken over.")
+    for told_twice in (False, True):
+        addon = _new(Addon)
+        _setup(addon)
+        _play_delegated_break_in(addon, 1790560000, told_twice)
+        run_ = addon.chaos_runs[-1] if addon.chaos_runs else {}
+        if run_.get("marked") != {"b1": 1} or run_.get("fought") != {
+                "BATTLE": 1, "BREAK_IN": 1}:
+            failures.append(
+                f"Senectus breaking in on a delegated run"
+                f"{', told of twice,' if told_twice else ''} reads "
+                f"marked={run_.get('marked')!r} "
+                f"fought={run_.get('fought')!r}, not b1 once over a "
+                f"battle and a BREAK_IN. The Delegation Module resolves "
+                f"a break-in with no battle_start, so the resolving reply "
+                f"is its only record -- counted once however often told.")
 
 
 def _the_file(Addon, failures):

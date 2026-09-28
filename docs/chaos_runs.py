@@ -68,8 +68,10 @@ boss pays a set amount for its floor. Any other fight pays only where
 it carries a mark -- the Rare Species, `keyword_tag` 5 (`k5`), or the
 Aether Eater, a battle id ending `_e` (`e`) -- and each mark pays a set
 amount. So a run's take is set but for how many marked fights it
-meets. A hidden mini-boss is a break-in (`b1` is Senectus); a mark the
-report has never seen is flagged.
+meets. A hidden mini-boss is a break-in (`b1` is Senectus), paying
+nothing of itself; one that breaks in on a Rare Species carries its
+keyword, `b1+k5`, and pays as one. A mark the report has never seen is
+flagged.
 
 **The report after the table** flags every set amount that changed
 from one run to the next, with what else changed there -- the season
@@ -471,8 +473,9 @@ def _group_facts(rows):
 
 
 def _named(key):
-    """A set amount's or a mark's name as the report prints it."""
-    return MARKS.get(key, key)
+    """A set amount's or a mark's name as the report prints it; a fight
+    carrying several marks, each by its name."""
+    return " + ".join(MARKS.get(part, part) for part in key.split("+"))
 
 
 def _describe(amounts, marked, fights, runs):
@@ -495,10 +498,11 @@ def changes(rows):
         where = ("%s %s" % (row["season"], row["part"]),
                  row.get("client") or "?")
         for mark in counts_of(row.get("marked")):
-            if mark not in MARKS and mark not in unnamed:
-                unnamed.add(mark)
-                out.append("   ! %s: a mark never seen before, %s -- add "
-                           "it to MARKS once named" % (date, mark))
+            for part in mark.split("+"):
+                if part not in MARKS and part not in unnamed:
+                    unnamed.add(part)
+                    out.append("   ! %s: a mark never seen before, %s -- "
+                               "add it to MARKS once named" % (date, part))
         for floor, spot, amount, mark in payouts_of(row["payouts"]):
             if mark:
                 key = mark

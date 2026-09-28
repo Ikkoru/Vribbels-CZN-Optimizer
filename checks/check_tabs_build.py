@@ -663,6 +663,43 @@ def _capture_log_is_capped(tab):
     return out
 
 
+def _a_rewrite_keeps_its_timing(tab):
+    """A rewritten Upgraded line keeps its Debug WS timing. A Log Presets
+    or Upgrade Log toggle rewrites the last Upgraded line, and a rewrite
+    that dropped the timing left that one line of the log without it --
+    the first line of a session, as often as not, since that is when the
+    options get tried.
+
+    Returns a list of complaints.
+    """
+    import time
+    import ui.tabs.capture_tab as ct
+    log = tab.capture_log
+    now = time.time()
+    stamp = {"sent": now - 0.3, "got": now - 0.15, "said": now - 0.149,
+             "read": now - 0.148}
+    out = []
+    try:
+        log.delete("1.0", "end")
+        tab.log_upgrade_msg("[LIVE] Upgraded Set Slot IV +1. "
+                            "Highest Potential: 21-80 Fast", "info", stamp)
+        before = log.get("1.0", "1.end")
+        tab.rewrite_last_upgrade_line(
+            "[LIVE] Upgraded Set Slot IV +1. Highest Potential: 29-54 Fast",
+            "info")
+        after = log.get("1.0", "1.end")
+        lag = before[before.index("  ("):] if "  (" in before else None
+        if lag is None or not after.endswith(lag) or "29-54" not in after:
+            out.append(
+                f"a rewritten Upgraded line reads {after!r}, where it read "
+                f"{before!r}: the rewrite must keep the line's timing.")
+        elif ct.LAG_TAG not in log.tag_names("1.%d" % (len(after) - 2)):
+            out.append("a rewritten Upgraded line's timing lost its colour.")
+    finally:
+        log.delete("1.0", "end")
+    return out
+
+
 def _capture_log_colours_its_values(tab):
     """The Upgraded line's parts must each keep their own colour.
 
@@ -4280,6 +4317,7 @@ def run():
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))
             failures.extend(_capture_log_is_capped(built["CaptureTab"]))
+            failures.extend(_a_rewrite_keeps_its_timing(built["CaptureTab"]))
             failures.extend(
                 _log_preset_columns_leave_the_gap(built["CaptureTab"]))
             failures.extend(

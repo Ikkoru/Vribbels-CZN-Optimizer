@@ -214,8 +214,10 @@ class CaptureTab(BaseTab):
         self.ignore_dps_hp_var = None
         self.ignore_dps_ego_var = None
         # True once log_upgrade_msg has set the upg_start/upg_end marks
-        # (rewrite_last_upgrade_line no-ops before the first upgrade).
+        # (rewrite_last_upgrade_line no-ops before the first upgrade),
+        # and that line's Debug WS timing, which a rewrite puts back.
         self._has_upgrade_marks = False
+        self._upgrade_lag = ""
         # Worker hand-off for the prerequisite probe: (status, ips) once
         # _probe_capture_prerequisites finishes, None until then.
         self._prereq_result = None
@@ -532,10 +534,11 @@ class CaptureTab(BaseTab):
                    command=self.open_snapshots_folder, width=BUTTON_W_MEDIUM).pack(side=tk.LEFT)
 
         self.debug_var = tk.BooleanVar(value=False)
-        # wraplength breaks the label over two lines so it does not push
-        # the button row wider. The row is usually the widest thing in
-        # the left column, and the column's width is what the Upgrade
-        # Log Settings panel beside it does not get.
+        # wraplength breaks the label over two lines so the button row
+        # stays inside the column: on one line it would be wider than
+        # the Requirements text, which sets the column's width, and the
+        # column's width is what the Upgrade Log Settings panel beside
+        # it does not get.
         self.debug_checkbox = make_checkbox(
             btn_frame, self.colors, text="Debug WS",
             variable=self.debug_var, wraplength=px(35),
@@ -545,25 +548,11 @@ class CaptureTab(BaseTab):
         # JSON object per line — useful when adding support for new
         # packet types (e.g., fragment create/delete).
         # spacing: border edge -> first non-button element -- button, checkbox ↔
-        # spacing: exception -- border edge -> first non-button element -- checkbox, panel ↔
         # A lone non-button after a run of buttons, which is what this
         # rule is about. Not a second element-and-label pair: there is
-        # no pair here, only the one checkbox.
-        #
-        # Its OTHER side answers to the same rule and misses it by the
-        # widget's own inset, unavoidably. This row is the widest thing
-        # in `left_col` -- `btn_frame` and `left_col` both request the
-        # same width and the row's parts sum to exactly it -- so the
-        # checkbox's box right edge IS the column edge, and what follows
-        # is 2 + 2 of grid padx out to Upgrade Log Settings' border. That
-        # 4 is the rule. The extra 2 is this widget: `padx=1` a side, and
-        # a pixel of the final `g`'s right sidebearing.
-        #
-        # **Neither of those 2 pixels can be spent.** `padx=0` would
-        # narrow the checkbox, and with it the column, and with THAT the
-        # right border of every panel stacked above -- they all fill X,
-        # so `Requirements -> Upgrade Log Settings` would widen by
-        # exactly what this gap lost.
+        # no pair here, only the one checkbox. Its other side is slack
+        # out to the column's edge; the column's own gap is
+        # `Requirements -> Upgrade Log Settings`.
         self.debug_checkbox.pack(side=tk.LEFT, padx=px((2, 0)))
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
@@ -831,11 +820,13 @@ class CaptureTab(BaseTab):
                 self.set_detected_region(value)
 
     def _insert_lag(self, stamp, tag):
-        """End the line being written, with its timing where it has one."""
-        if stamp is not None:
-            self.capture_log.insert(tk.END, lag_text(stamp, time.time()),
-                                    LAG_TAG)
+        """End the line being written, with its timing where it has one.
+        Returns the timing's text, '' for none."""
+        lag = lag_text(stamp, time.time()) if stamp is not None else ""
+        if lag:
+            self.capture_log.insert(tk.END, lag, LAG_TAG)
         self.capture_log.insert(tk.END, "\n", tag)
+        return lag
 
     def log_upgrade_msg(self, msg: str, tag: str = None, stamp=None,
                         beats=()):
@@ -852,7 +843,7 @@ class CaptureTab(BaseTab):
         t.mark_gravity("upg_start", tk.LEFT)
         start = t.index("end-1c")
         t.insert(tk.END, msg, tag)
-        self._insert_lag(stamp, tag)
+        self._upgrade_lag = self._insert_lag(stamp, tag)
         self._colour_log_line(start, msg)
         self._mark_beaten(start, msg, beats)
         t.mark_set("upg_end", "end-1c")
@@ -864,9 +855,10 @@ class CaptureTab(BaseTab):
     def rewrite_last_upgrade_line(self, msg: str, tag: str = None,
                                   beats=()):
         """Replace the last Upgraded line (recorded by log_upgrade_msg)
-        with `msg`. The end mark flips to RIGHT gravity for the insert so
-        it lands after the new text, then back to LEFT so subsequent
-        appends at the log's end don't drag it along."""
+        with `msg`, its Debug WS timing kept: the line still reports the
+        reply that wrote it. The end mark flips to RIGHT gravity for the
+        insert so it lands after the new text, then back to LEFT so
+        subsequent appends at the log's end don't drag it along."""
         if not self._has_upgrade_marks:
             return
         t = self.capture_log
@@ -874,7 +866,11 @@ class CaptureTab(BaseTab):
             t.mark_gravity("upg_end", tk.RIGHT)
             t.delete("upg_start", "upg_end")
             start = t.index("upg_start")
-            t.insert("upg_start", f"{msg}\n", tag)
+            if self._upgrade_lag:
+                t.insert("upg_start", msg, tag, self._upgrade_lag, LAG_TAG,
+                         "\n", tag)
+            else:
+                t.insert("upg_start", f"{msg}\n", tag)
             self._colour_log_line(start, msg)
             self._mark_beaten(start, msg, beats)
             t.mark_gravity("upg_end", tk.LEFT)

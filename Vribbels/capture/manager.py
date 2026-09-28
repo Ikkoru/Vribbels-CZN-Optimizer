@@ -379,6 +379,8 @@ class Addon:
         self.chaos_run = None
         self.chaos_spot = (None, None, "")
         self.chaos_map = []
+        # The fight last counted, as (battle id, seed): see `_chaos_fight`.
+        self.chaos_fight_key = None
         # Whether the run being opened is the Delegation Module's: said
         # only in what the client sends to open it.
         self.chaos_delegated = False
@@ -3030,6 +3032,7 @@ class Addon:
                               "fought": {}, "marked": {}, "paid": []}
             self.chaos_spot = (None, None, "")
             self.chaos_map = []
+            self.chaos_fight_key = None
             return
         run = self.chaos_run
         if run is None:
@@ -3049,6 +3052,11 @@ class Addon:
                 self.chaos_map = [(spot.get("floor"), spot.get("type"))
                                   for spot in spots if isinstance(spot, dict)]
         elif asked == CHAOS_RESOLVES:
+            # A break-in the Delegation Module plays has no battle_start
+            # of its own: the reply resolving it is the only word of it,
+            # and it carries the fight's own fields.
+            if data.get("break_in"):
+                self._chaos_fight(run, data)
             if data.get("game_result") == CHAOS_LOST:
                 self._chaos_lost()
         elif asked == CHAOS_FIGHTS:
@@ -3057,16 +3065,8 @@ class Addon:
                 else None
             fight = cache.get("battle_init_wt") if isinstance(cache, dict) \\
                 else None
-            if not isinstance(fight, dict):
-                return
-            floor, spot, _mark = self.chaos_spot
-            mark = _chaos_mark(fight)
-            if fight.get("break_in"):
-                spot = "BREAK_IN"
-            self.chaos_spot = (floor, spot, mark)
-            run["fought"][spot] = run["fought"].get(spot, 0) + 1
-            if mark:
-                run["marked"][mark] = run["marked"].get(mark, 0) + 1
+            if isinstance(fight, dict):
+                self._chaos_fight(run, fight)
         elif asked == CHAOS_PAYS:
             floor, spot, mark = self.chaos_spot
             for item in data.get("drop_item_result") or ():
@@ -3092,6 +3092,23 @@ class Addon:
             # the app to read again, and the Checklist's estimate reads
             # the runs.
             self._save_pending = True
+
+    def _chaos_fight(self, run, fight):
+        """Count one fight of the run in progress -- once, by its battle
+        id and seed, since a fight can be told of twice: by its
+        battle_start and by the reply resolving it."""
+        key = (fight.get("battle_res_id"), fight.get("seed"))
+        if key == self.chaos_fight_key:
+            return
+        self.chaos_fight_key = key
+        floor, spot, _mark = self.chaos_spot
+        mark = _chaos_mark(fight)
+        if fight.get("break_in"):
+            spot = "BREAK_IN"
+        self.chaos_spot = (floor, spot, mark)
+        run["fought"][spot] = run["fought"].get(spot, 0) + 1
+        if mark:
+            run["marked"][mark] = run["marked"].get(mark, 0) + 1
 
     def _chaos_lost(self):
         """Mark the run in progress lost on the fight at hand, with how

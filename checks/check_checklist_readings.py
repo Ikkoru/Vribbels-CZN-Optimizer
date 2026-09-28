@@ -314,6 +314,13 @@ def run():
             "an unstamped weekly record was not read at face value. "
             "Nothing about it can say which week it belongs to, and "
             "refusing it blanks a row that may be perfectly current.")
+    # Past its ceiling the Chaos progress caps, with no sign beside it.
+    raw["disaster_entities"] = [{"res_id": "d", "week_clear_score": 9500}]
+    got = _readings(raw, now)["chaos_progress"]
+    if got != [("8000/8000", DONE)]:
+        failures.append(
+            f"a Chaos progress of 9500 against its 8000 reads {got!r}, not "
+            f"[('8000/8000', {DONE!r})]: capped, and no sign beside it.")
 
     # --- a weekly ALLOWANCE is topped up, not zeroed ------------------
     # The two spendable currencies gain at the reset ON TOP of what was

@@ -2462,12 +2462,6 @@ GREAT_RIFT_TARGET = 300000
 # weekly record uses `WEEK_STAMP`.
 GREAT_RIFT_WEEK_STAMP = "score_week_id"
 
-# What the Galactic Disaster's Chaos progress reads as PAST its ceiling.
-# It is capped, and the sign is what keeps a capped reading from being
-# mistaken for one that landed exactly on it. The Great Rift row caps
-# without it.
-GREAT_RIFT_OVER = "+"
-
 
 # What a value reads before any snapshot has reached the tab. NOT `0`,
 # which is what an untouched day reads: nothing claimed and nothing
@@ -3977,9 +3971,9 @@ def _readings(raw, now=None, tracked=None):
 
     # The Great Rift's weekly score against the threshold that pays.
     # **Capped in the DISPLAY**, because the figure runs to seven digits
-    # and the row is about whether the threshold is cleared. Unlike the
-    # Chaos progress row it carries no `GREAT_RIFT_OVER`: the maintainer
-    # reads a full bar as cleared, however far past it the week went.
+    # and the row is about whether the threshold is cleared. No sign
+    # marks a capped reading: a full bar reads as cleared, however far
+    # past it the week went -- the Chaos progress row likewise.
     score, target = _great_rift(raw, now)
     if score is None:
         out["seasonal_score"] = _one("%s/%d" % (NO_DATA, target), UNKNOWN)
@@ -4117,16 +4111,15 @@ def _readings(raw, now=None, tracked=None):
     # The shops, one sub-row per product. `-` where the field cannot be
     # read honestly -- see `shop_stock.remaining`.
     # The Galactic Disaster's weekly chaos progress, against a ceiling
-    # the wire does not carry.
+    # the wire does not carry, and capped at it -- see the Great Rift
+    # row above.
     score = _chaos_progress(raw, now)
     if score is None:
         out["chaos_progress"] = _one("%s/%d" % (NO_DATA, CHAOS_PROGRESS_FULL),
                                      UNKNOWN)
     else:
-        over = GREAT_RIFT_OVER if score > CHAOS_PROGRESS_FULL else ""
         out["chaos_progress"] = _one(
-            "%d%s/%d" % (min(score, CHAOS_PROGRESS_FULL), over,
-                         CHAOS_PROGRESS_FULL),
+            "%d/%d" % (min(score, CHAOS_PROGRESS_FULL), CHAOS_PROGRESS_FULL),
             _done(score >= CHAOS_PROGRESS_FULL))
 
     # Every live event: what is left to claim of it, and how long it

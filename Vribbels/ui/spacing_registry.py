@@ -2113,13 +2113,6 @@ BUTTON_ROW_ABOVE_ENTRIES = [
 BUTTON_ROW_TAIL_ENTRIES = [
     ("Capture", "Open Snapshots -> Debug WS", 4, None,
      _gap(_by_text("Open Snapshots"), _by_text("Debug WS"), "h")),
-    # The same checkbox's other side, against the panel that starts the
-    # next column. An EXCEPTION at 6 rather than a miss at 4: the rule's
-    # 4 is there in the two columns' grid padx, and the extra 2 is the
-    # widget's own inset, which cannot be spent without narrowing the
-    # column every panel above it fills. See the call site.
-    ("Capture", "Debug WS -> Upgrade Log Settings", 6, None,
-     _gap(_by_text("Debug WS"), _panel_at("Upgrade Log Settings"), "h")),
 ]
 
 # A checkbox's indicator against its own label. One entry, not one per
@@ -3738,7 +3731,6 @@ DEBUG_PAIR_GAPS = ()
 # every name here has an `exception` marker at its call site saying
 # why -- `check_spacing_registry` enforces the pair.
 EXCEPTION_ENTRIES = {
-    "Debug WS -> Upgrade Log Settings": "exception",
     "Checklist: heading -> its first row": "exception",
     # The Checklist's face is a point larger than the app's body text,
     # so its rows sit 12 apart where the rule asks 10, and the division
@@ -4837,20 +4829,12 @@ SETTINGS_ENTRIES = [
 ]
 
 
-AWAITING_FIRST_READING = {
-    # A name goes in here when an entry is registered at a target the
-    # rules table supplies rather than at a distance somebody has read
-    # off the screen, and comes out again the moment a run confirms it
-    # -- so a row printing yellow is a question, never a regression.
-    # EMPTY is the state to return it to.
-    #
-    # The Checklist's seven came out together after the run that
-    # confirmed all of them: every target is either the rules table's
-    # or a distance read off the screen and agreed, and a run measured
-    # each against the levers it has now. They are the tab's normal
-    # state, so a row of it printing again is a regression.
-    "Export Facts -> the note under it",
-}
+# A name goes in here when an entry is registered at a target the rules
+# table supplies rather than at a distance somebody has read off the
+# screen, and comes out again the moment a run confirms it -- so a row
+# printing yellow is a question, never a regression. EMPTY is the state
+# to return it to.
+AWAITING_FIRST_READING = set()
 
 
 def register_all():
