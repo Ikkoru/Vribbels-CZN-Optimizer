@@ -604,7 +604,20 @@ def _quantile(dist, share):
 # only a fragment or a preset that changed costs anything. Cleared whole
 # past this many.
 _BAND_CACHE = {}
-_BAND_CACHE_MAX = 200000
+_BAND_CACHE_MAX = 50000
+
+# One copy of each set of weights, shared by every key made with it: a
+# key's own copy would be most of what a cached band costs.
+_WEIGHTS_SEEN = {}
+
+
+def _band_key(fragment, weights, bounds, tail, main_name):
+    weights_key = tuple(sorted(weights.items()))
+    weights_key = _WEIGHTS_SEEN.setdefault(weights_key, weights_key)
+    return (fragment.rarity_num, fragment.level, main_name,
+            tuple((s.raw_name, s.value, s.roll_count)
+                  for s in fragment.substats),
+            weights_key, tuple(bounds), tail)
 
 
 def compute_fragment_potential_band(
@@ -620,17 +633,32 @@ def compute_fragment_potential_band(
     main_name = fragment.main_stat.name if fragment.main_stat else None
     if bounds is None:
         bounds = compute_gs_bounds(weights, exclude_stat=main_name)
-    key = (fragment.rarity_num, fragment.level, main_name,
-           tuple((s.raw_name, s.value, s.roll_count)
-                 for s in fragment.substats),
-           tuple(sorted(weights.items())), tuple(bounds), tail)
+    key = _band_key(fragment, weights, bounds, tail, main_name)
     band = _BAND_CACHE.get(key)
     if band is None:
         band = _work_out_band(fragment, weights, bounds, tail, main_name)
         if len(_BAND_CACHE) >= _BAND_CACHE_MAX:
             _BAND_CACHE.clear()
+            _WEIGHTS_SEEN.clear()
         _BAND_CACHE[key] = band
     return band
+
+
+def cached_potential_band(fragment, weights: dict,
+                          bounds: tuple[float, float],
+                          tail: float = BAND_TAIL):
+    """`compute_fragment_potential_band`'s answer where it costs nothing
+    -- worked out already, or nothing left to roll -- else None: for a
+    caller that must not wait for one."""
+    weights = weights or {}
+    max_level = MAX_LEVEL_PER_RARITY.get(fragment.rarity_num, MAX_LEVEL)
+    if (fragment.rarity_num < 3 or not fragment.substats
+            or fragment.level >= max_level or bounds[1] <= bounds[0]):
+        return compute_fragment_potential_band(fragment, weights, bounds,
+                                               tail)
+    main_name = fragment.main_stat.name if fragment.main_stat else None
+    return _BAND_CACHE.get(
+        _band_key(fragment, weights, bounds, tail, main_name))
 
 
 def _work_out_band(fragment, weights, bounds, tail, main_name):

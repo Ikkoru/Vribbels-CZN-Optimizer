@@ -12,7 +12,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Capture: two options in Upgrade Log Settings, both off by default:
   - `Show average Potential` adds where each preset's Potential is expected to end, between the ends of its range: `21-41-80`. The ends are what the best and worst luck reach, and rarely happen.
-  - `Show Potential's middle 80%` narrows each range to where 8 upgrade paths in 10 end. The Memory Fragments tab's Potential and Highest Potential columns follow it while that tab's `Upgrade Log Settings` box is on.
+  - `Show Potential's middle 80%` narrows each range to where 8 upgrade paths in 10 end. The Memory Fragments tab's Potential and Highest Potential columns follow it while that tab's `Upgrade Log Settings` box is on, showing `…` for a moment while they work it out.
 - Capture: every Chaos run is recorded in `snapshots/chaos_runs/`, beside the pull history. The season estimate reads it, counting only the live Galactic Disaster's own Chaos.
 
 ### Changed
@@ -27,6 +27,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: a red countdown turns a deeper red in its last 24 hours.
 - Checklist: the Galactic Disaster shop's season estimate counts each part's boss rewards separately, and learns from your own captured Chaos runs once the program's own figures are a season or more old. `chaos_runs_per_day` at the foot of settings.json sets how many runs a day it assumes.
 - Gear Score marks a preset assigned to a combatant with ∞.
+- Memory Fragments: `Assigned Presets Only` is greyed out while `Upgrade Log Settings` is on, which takes assigned presets only anyway. Its tick applies again once that box is off.
 - Stats & Gacha History: each Great Rift division's row is drawn in the division's colour.
 
 ### Fixed
@@ -34,6 +35,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: Simulation Challenges counts the runs done since the last login, and Sortie Currency shows the real amount after the weekly top-up instead of a `~` guess.
 - Checklist: the Seasonal Accumulated Score and Galactic Disaster – Chaos no longer carry a `+` past their threshold.
 - Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
+- Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
 - Setup & Settings no longer freezes for a moment each time it is opened.
 - Capture's Log Presets no longer rebuild in view on the second visit to the tab.
 

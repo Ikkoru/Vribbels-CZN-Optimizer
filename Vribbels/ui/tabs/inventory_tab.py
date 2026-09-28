@@ -40,6 +40,7 @@ Where to look when you want to change X
                          not best).
 """
 
+import time
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
@@ -49,7 +50,8 @@ from game_data.characters import ATTRIBUTE_COLORS
 # "CDmg" -> "CDMG%"). Applied when rendering the tree's Main / Sub
 # columns so the Memory Fragments tab matches the Optimizer tab.
 from game_data.constants import DISPLAY_NAMES
-from models.memory_fragment import (compute_gs_bounds,
+from models.memory_fragment import (cached_potential_band,
+                                    compute_gs_bounds,
                                     compute_fragment_potential,
                                     compute_fragment_potential_band)
 from ..base_tab import BaseTab
@@ -96,8 +98,21 @@ SETS_PANEL_MIN_W = 741
 # See the call site.
 PRESET_LABEL_TRIM = -3
 
+# How long a refresh works out middle-80% bands itself, and how long
+# each slice of the rest takes between UI events. A band is a
+# millisecond or so; every fragment's under every preset, the first
+# time, is a second or more.
+BAND_BUDGET_S = 0.1
+BAND_SLICE_S = 0.015
 
-def best_potential(fragment, ranked, likely):
+# `best_potential`'s answer while a band it needs is not worked out, and
+# what the Potential columns show for it meanwhile.
+PENDING = object()
+PENDING_CELL = "…"
+
+
+def best_potential(fragment, ranked, likely,
+                   band=compute_fragment_potential_band):
     """(low, high, preset name) for the preset whose Potential reaches
     highest, or None for no presets. `ranked` holds (ceiling, floor,
     preset index, name, weights, bounds) per preset, in list order.
@@ -108,6 +123,9 @@ def best_potential(fragment, ranked, likely):
     the search stops at the first whose ceiling cannot beat the best top
     so far. A tie goes to the higher ceiling, then to the preset listed
     first -- without `likely`, straight to the one listed first.
+
+    `band(fragment, weights, bounds)` gives a band, or None for one not
+    worked out yet, which makes the answer PENDING.
     """
     best = None
     if not likely:
@@ -119,10 +137,48 @@ def best_potential(fragment, ranked, likely):
             ranked, key=lambda entry: (-entry[0], entry[2])):
         if best is not None and high <= best[1]:
             break
-        low, top = compute_fragment_potential_band(fragment, weights, bounds)
+        got = band(fragment, weights, bounds)
+        if got is None:
+            return PENDING
+        low, top = got
         if best is None or top > best[1]:
             best = (low, top, name)
     return best
+
+
+def _stat_order(stat):
+    """A stat cell's sort key: grouped by the stat's name as the cell
+    shows it, the highest value first within one, and no stat last."""
+    if stat is None:
+        return (1, "", 0.0)
+    return (0, DISPLAY_NAMES.get(stat.name, stat.name), -stat.value)
+
+
+def _sub_order(index):
+    return lambda f: _stat_order(
+        f.substats[index] if index < len(f.substats) else None)
+
+
+# Each column's sort key, by the id its heading hands `sort_inventory`.
+# A column missing here sorts by GS, with nothing on screen to say so --
+# `check_tabs_build` holds every column of the list to a key.
+SORT_KEYS = {
+    "slot": lambda f: f.slot_num,
+    "set": lambda f: f.set_name,
+    "main": lambda f: _stat_order(f.main_stat),
+    "lvl": lambda f: f.level,
+    "sub1": _sub_order(0),
+    "sub2": _sub_order(1),
+    "sub3": _sub_order(2),
+    "sub4": _sub_order(3),
+    "gs": lambda f: f.gear_score,
+    "potential": lambda f: f.shown_potential[1],
+    "equipped": lambda f: f.equipped_to or "",
+    "highest_gs": lambda f: f.highest_preset_gs,
+    # By the top, as the Potential column sorts. At max level the top is
+    # the GS under the same preset, so this falls back to Highest GS.
+    "highest_potential": lambda f: f.highest_preset_potential_high,
+}
 
 
 MAIN_STAT_DISPLAY = [
@@ -193,6 +249,7 @@ class InventoryTab(BaseTab):
         self.inv_unequipped_var = None
         self.inv_include_uncommon_var = None
         self.inv_only_assigned_presets_var = None
+        self.inv_only_assigned_check = None
         self.inv_use_log_filters_var = None
 
         # Inventory display state
@@ -202,6 +259,10 @@ class InventoryTab(BaseTab):
         self.inv_sort_col = "potential"
         self.inv_sort_reverse = True
         self.inv_filtered_data = []
+        # Counts `_score_rows` calls, so bands a superseded refresh left
+        # to `_finish_bands` stop being worked out.
+        self._band_generation = 0
+        self._no_presets = True
 
         # Every tip on this tab: the Sets filter's bonus descriptions,
         # and the two Highest columns' headings. The headings are driven
@@ -457,12 +518,15 @@ class InventoryTab(BaseTab):
         # when many presets exist but only a few are actually in use.
         self.inv_only_assigned_presets_var = tk.BooleanVar(value=False)
         # Two-line label -- text after the colon drops to the second line.
+        # Greyed out while Upgrade Log Settings is on: see
+        # `_sync_assigned_only`.
+        self.inv_only_assigned_check = make_checkbox(
+            opt_frame, self.colors,
+            text="Highest GS/Potential:\nAssigned Presets Only",
+            variable=self.inv_only_assigned_presets_var,
+            command=self.refresh_inventory)
         # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
-        make_checkbox(opt_frame, self.colors,
-                      text="Highest GS/Potential:\nAssigned Presets Only",
-                      variable=self.inv_only_assigned_presets_var,
-                      command=self.refresh_inventory).pack(
-                          anchor=tk.W, pady=px((0, 0)))
+        self.inv_only_assigned_check.pack(anchor=tk.W, pady=px((0, 0)))
 
         # The same question the Capture tab's Upgraded line asks, asked of
         # these two columns. Remembered, because it changes what every
@@ -478,6 +542,7 @@ class InventoryTab(BaseTab):
                       variable=self.inv_use_log_filters_var,
                       command=self._on_use_log_filters_toggle).pack(
                           anchor=tk.W, pady=px((0, 0)))
+        self._sync_assigned_only()
 
         # ----- Treeview ---------------------------------------------------
         tree_frame = ttk.Frame(self.frame)
@@ -1044,12 +1109,24 @@ class InventoryTab(BaseTab):
         self._score_rows(filtered)
         self._display_inventory_sorted()
 
+    def _log_settings_on(self):
+        """Whether the Highest columns take the Upgrade Log Settings."""
+        return bool(self.inv_use_log_filters_var
+                    and self.inv_use_log_filters_var.get())
+
+    def _sync_assigned_only(self):
+        """Grey out Assigned Presets Only while Upgrade Log Settings is
+        on, whose Log Presets are assigned ones already. Its tick stays,
+        and counts again once that box is off."""
+        if self.inv_only_assigned_check is not None:
+            self.inv_only_assigned_check.config(
+                state=tk.DISABLED if self._log_settings_on() else tk.NORMAL)
+
     def _likely_potential(self):
         """Whether the Potential columns show each range's middle 80%:
         the Upgrade Log's `Show Potential's middle 80%`, which this tab
         follows while it takes the Upgrade Log Settings."""
-        if not (self.inv_use_log_filters_var
-                and self.inv_use_log_filters_var.get()):
+        if not self._log_settings_on():
             return False
         sm = getattr(self.context, "settings_manager", None)
         return bool(sm is not None
@@ -1063,26 +1140,33 @@ class InventoryTab(BaseTab):
         under every preset is the costliest thing this tab does, and a
         sort changes none of it -- so `sort_inventory` reads what this
         left behind.
+
+        **Middle-80% bands past `BAND_BUDGET_S` wait for idle time.**
+        The first time, every fragment's bands are a second or more, and
+        this runs on the UI thread: inside a capture's reload, and inside
+        the tab's unseen layout after startup, where a click meanwhile
+        is lost. A fragment whose bands are not all worked out by then
+        shows `PENDING_CELL`, and `_finish_bands` works out the rest
+        between events.
         """
         likely = self._likely_potential()
+        self._band_generation += 1
+        deadline = time.perf_counter() + BAND_BUDGET_S
+
+        def band(f, weights, bounds):
+            if time.perf_counter() < deadline:
+                return compute_fragment_potential_band(f, weights, bounds)
+            return cached_potential_band(f, weights, bounds)
+
         # The Potential column: the active weights' range, or its middle
         # 80%. Kept apart from the fragment's own cached range, which
         # the Combatants tab reads too.
+        applied = {}
+        applied_bounds = {}             # main stat name -> bounds
         if likely:
             scoring_tab = getattr(self.context, "scoring_tab", None)
-            weights = scoring_tab.applied_weights() \
+            applied = scoring_tab.applied_weights() \
                 if scoring_tab is not None else {}
-            by_main = {}
-            for f in filtered:
-                main_name = f.main_stat.name if f.main_stat else None
-                if main_name not in by_main:
-                    by_main[main_name] = compute_gs_bounds(
-                        weights, exclude_stat=main_name)
-                f.shown_potential = compute_fragment_potential_band(
-                    f, weights, by_main[main_name])
-        else:
-            for f in filtered:
-                f.shown_potential = (f.potential_low, f.potential_high)
 
         # Compute Highest GS and Highest Potential GS across custom presets
         # (or just assigned ones, if the corresponding checkbox is on).
@@ -1094,8 +1178,7 @@ class InventoryTab(BaseTab):
         # lazily as we encounter each (preset, main_stat) combination --
         # at most P x 16 entries for P presets and 16 possible main stats.
         preset_data = self._presets_for_highest_gs()  # list[(name, weights)]
-        no_presets = not preset_data
-        self._no_presets = no_presets
+        self._no_presets = not preset_data
         bounds_cache: dict = {}  # (preset_idx, main_stat_name) -> bounds
 
         # The Upgrade Log Settings, if the reader asked for them. The
@@ -1105,15 +1188,15 @@ class InventoryTab(BaseTab):
         # setting is off, which the loop reads as "every preset".
         allowed = self._log_filtered_preset_names()
 
+        pending = []
         for f in filtered:
-            if no_presets:
-                f.highest_preset_gs = 0.0
-                f.highest_preset_potential_low = 0.0
-                f.highest_preset_potential_high = 0.0
-                f.highest_preset_potential_name = None
-                continue
-
             main_name = f.main_stat.name if f.main_stat else None
+            shown = (f.potential_low, f.potential_high)
+            if likely:
+                if main_name not in applied_bounds:
+                    applied_bounds[main_name] = compute_gs_bounds(
+                        applied, exclude_stat=main_name)
+                shown = band(f, applied, applied_bounds[main_name])
             best_gs = float("-inf")
             ranked = []
             for pi, (pname, weights) in enumerate(preset_data):
@@ -1136,7 +1219,14 @@ class InventoryTab(BaseTab):
             # range, never a synthetic mix. For fully-leveled MFs the
             # high collapses to the current GS, so "preset with max high"
             # is the same as "preset with max GS".
-            best = best_potential(f, ranked, likely)
+            best = best_potential(f, ranked, likely, band)
+            f.band_pending = shown is None or best is PENDING
+            if f.band_pending:
+                pending.append((f, ranked, applied_bounds[main_name]))
+                # The full ranges, for the sort to read until then.
+                shown = (f.potential_low, f.potential_high)
+                best = best_potential(f, ranked, False)
+            f.shown_potential = shown
             # Every preset filtered out: the fragment is one nobody
             # assigned wants, which is a 0 rather than the -inf the
             # comparisons started at.
@@ -1144,6 +1234,33 @@ class InventoryTab(BaseTab):
             f.highest_preset_potential_low = best[0] if best else 0.0
             f.highest_preset_potential_high = best[1] if best else 0.0
             f.highest_preset_potential_name = best[2] if best else None
+        if pending:
+            self.frame.after(1, self._finish_bands, pending, applied,
+                             self._band_generation)
+
+    def _finish_bands(self, pending, applied, generation):
+        """Work out the bands a refresh left pending, a slice of
+        `BAND_SLICE_S` at a time between events, then show them. A later
+        refresh takes over: it leaves pending what it still needs."""
+        if generation != self._band_generation:
+            return
+        stop = time.perf_counter() + BAND_SLICE_S
+        while pending and time.perf_counter() < stop:
+            f, ranked, bounds = pending.pop()
+            f.shown_potential = compute_fragment_potential_band(
+                f, applied, bounds)
+            best = best_potential(f, ranked, True)
+            f.highest_preset_potential_low = best[0] if best else 0.0
+            f.highest_preset_potential_high = best[1] if best else 0.0
+            f.highest_preset_potential_name = best[2] if best else None
+            f.band_pending = False
+        if pending:
+            self.frame.after(1, self._finish_bands, pending, applied,
+                             generation)
+        elif self._hidden():
+            self._stale = True
+        else:
+            self._display_inventory_sorted()
 
     def _display_inventory_sorted(self):
         """Display filtered inventory with current sort settings, from
@@ -1163,23 +1280,7 @@ class InventoryTab(BaseTab):
         filtered = self.inv_filtered_data
         no_presets = getattr(self, "_no_presets", True)
 
-        sort_key_map = {
-            "slot": lambda f: f.slot_num,
-            "set": lambda f: f.set_name,
-            "lvl": lambda f: f.level,
-            "main": lambda f: f.main_stat.name if f.main_stat else "",
-            "gs": lambda f: f.gear_score,
-            "potential": lambda f: f.shown_potential[1],
-            "equipped": lambda f: f.equipped_to or "",
-            "highest_gs": lambda f: f.highest_preset_gs,
-            # Sort by ceiling (mirrors the regular Potential column). At max
-            # level, ceiling == base GS under the same preset, so sorting by
-            # this naturally falls back to Highest GS — same self-collapsing
-            # behavior the regular Potential column has at max level.
-            "highest_potential": lambda f: f.highest_preset_potential_high,
-        }
-
-        key_func = sort_key_map.get(self.inv_sort_col, lambda f: f.gear_score)
+        key_func = SORT_KEYS.get(self.inv_sort_col, SORT_KEYS["gs"])
         filtered_sorted = sorted(filtered, key=key_func, reverse=self.inv_sort_reverse)
 
         for f in filtered_sorted[:500]:
@@ -1199,8 +1300,12 @@ class InventoryTab(BaseTab):
                 main_str = f"{main_label} {f.main_stat.format_value()}"
             else:
                 main_str = "-"
+            pending = getattr(f, "band_pending", False)
             low, high = f.shown_potential
-            pot = f"{low:.0f}-{high:.0f}" if low != high else "-"
+            if pending:
+                pot = PENDING_CELL
+            else:
+                pot = f"{low:.0f}-{high:.0f}" if low != high else "-"
 
             set_pieces = f.get_set_pieces()
             set_display = f"{f.set_name} ({set_pieces})"
@@ -1220,6 +1325,8 @@ class InventoryTab(BaseTab):
             #                                     redundant.)
             if no_presets:
                 hpot_str = "—"
+            elif pending:
+                hpot_str = PENDING_CELL
             elif f.highest_preset_potential_low != f.highest_preset_potential_high:
                 pname = getattr(f, "highest_preset_potential_name", None)
                 preset_suffix = f" [{pname}]" if pname else ""
@@ -1296,8 +1403,7 @@ class InventoryTab(BaseTab):
         a fragment carrying nothing else, so one that starts reading more
         fails there before it can make this cache wrong.
         """
-        if not (self.inv_use_log_filters_var
-                and self.inv_use_log_filters_var.get()):
+        if not self._log_settings_on():
             return None
 
         ctx = self.context
@@ -1324,6 +1430,7 @@ class InventoryTab(BaseTab):
         if sm is not None:
             sm.set(INV_USE_LOG_FILTERS_KEY,
                    bool(self.inv_use_log_filters_var.get()))
+        self._sync_assigned_only()
         self.refresh_inventory()
 
     def _presets_for_highest_gs(self):
@@ -1332,7 +1439,9 @@ class InventoryTab(BaseTab):
         - All custom presets from the preset_manager (the virtual default
           weights aren't a stored preset, so they're excluded automatically).
         - If "Assigned Presets Only" is checked, narrow to just the presets
-          referenced by an assignment in the character_preset_manager.
+          referenced by an assignment in the character_preset_manager --
+          unless Upgrade Log Settings is on, which greys that box out:
+          `allowed` narrows to its Log Presets, assigned ones already.
 
         Returns a list of (name, weights) tuples. Bounds are NOT pre-computed
         -- under Philosophy B they depend on each fragment's main stat, so
@@ -1354,7 +1463,9 @@ class InventoryTab(BaseTab):
         if not names:
             return []
 
-        if self.inv_only_assigned_presets_var and self.inv_only_assigned_presets_var.get():
+        if (self.inv_only_assigned_presets_var
+                and self.inv_only_assigned_presets_var.get()
+                and not self._log_settings_on()):
             cpm = getattr(self.context, "character_preset_manager", None)
             if cpm is None:
                 return []
@@ -1391,24 +1502,23 @@ class InventoryTab(BaseTab):
         col_name = self._inv_cols[col_idx]
 
         if col_name == "highest_gs":
-            scope = (
-                "assigned Custom Presets"
-                if (self.inv_only_assigned_presets_var
-                    and self.inv_only_assigned_presets_var.get())
-                else "all Custom Presets"
-            )
-            return (f"Shows the highest Gear Score out of {scope}.\n"
+            return (f"Shows the highest Gear Score out of "
+                    f"{self._highest_scope()}.\n"
                     "Useful for finding bad MFs.")
         if col_name == "highest_potential":
-            scope = (
-                "assigned Custom Presets"
-                if (self.inv_only_assigned_presets_var
-                    and self.inv_only_assigned_presets_var.get())
-                else "all Custom Presets"
-            )
-            return (f"Shows the highest Potential Gear Score out of {scope}.\n"
+            return (f"Shows the highest Potential Gear Score out of "
+                    f"{self._highest_scope()}.\n"
                     "Useful for finding bad MFs.")
         return None
+
+    def _highest_scope(self):
+        """The presets the Highest columns choose among, for their tips."""
+        if self._log_settings_on():
+            return "the presets the Upgrade Log would show"
+        if (self.inv_only_assigned_presets_var
+                and self.inv_only_assigned_presets_var.get()):
+            return "assigned Custom Presets"
+        return "all Custom Presets"
 
     def _on_tree_motion(self, event):
         """Track which header the mouse is over; show/hide tooltip accordingly.

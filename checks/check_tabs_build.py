@@ -30,6 +30,7 @@ placed.
 """
 
 import ast
+import contextlib
 import re
 import shutil
 import tempfile
@@ -3358,6 +3359,127 @@ def _inventory_catches_up_when_shown(tab):
     return out
 
 
+def _stand_in_fragment(fid, level, substats):
+    """A Legendary fragment with a Flat ATK main."""
+    from models.memory_fragment import MemoryFragment
+    stats = [{"slot": 0, "type": 0, "stat": "S_ATK_INC_ADD_OUT", "value": 60}]
+    for n, (raw, value) in enumerate(substats, 1):
+        stats.append({"slot": n, "type": 1, "stat": raw, "value": value})
+    return MemoryFragment.from_json({"id": fid, "res_id": 1014101,
+                                     "level": level, "stat_list": stats})
+
+
+def _band_scene():
+    """Stand-ins for the Memory Fragments tab's Potential columns, so
+    every number they show is known: two presets, the weights Gear
+    Score applied, and three fragments -- a +0 with three substats, a
+    +3 with four, and a +5 with nothing left to roll."""
+    from game_data import STATS
+    from models.memory_fragment import (compute_fragment_potential,
+                                        compute_gs_bounds)
+
+    rolled = {info[0]: 0.0 for info in STATS.values() if info[3] > 0}
+    scene = SimpleNamespace(
+        presets=[("Spiky", {**rolled, "Extra DMG%": 1.0, "HP%": 1.0}),
+                 ("Steady", {**rolled, "Flat DEF": 1.0, "DEF%": 1.0,
+                             "CRate": 1.0})],
+        applied={**rolled, "CRate": 1.0, "CDmg": 1.0, "ATK%": 0.5},
+        main="Flat ATK")
+    scene.frags = [
+        _stand_in_fragment(9001, 0, [
+            ("S_CRI_INC_ADD", 1.6), ("S_DEF_INC_ADD_OUT", 4),
+            ("S_HP_INC_RATE_OUT", 1.1)]),
+        _stand_in_fragment(9002, 3, [
+            ("S_DOT_ATK_DMG_RATE_INC_ADD", 2.8), ("S_DEF_INC_ADD_OUT", 5),
+            ("S_ATK_INC_RATE_OUT", 1.0), ("S_CRI_DMG_RATE_INC_ADD", 3.2)]),
+        _stand_in_fragment(9003, 5, [
+            ("S_CRI_INC_ADD", 1.6), ("S_DEF_INC_ADD_OUT", 4),
+            ("S_HP_INC_RATE_OUT", 1.1), ("S_ATK_INC_RATE_OUT", 1.2)]),
+    ]
+    scene.applied_bounds = compute_gs_bounds(scene.applied,
+                                             exclude_stat=scene.main)
+    for f in scene.frags:
+        f.potential_low, f.potential_high = compute_fragment_potential(
+            f, scene.applied, scene.applied_bounds)
+    return scene
+
+
+def _scene_expected(scene, likely):
+    """{id: (Potential, Highest Potential)} as the tab should show them
+    for `scene`, every band worked out plainly."""
+    from models.memory_fragment import (
+        compute_fragment_potential, compute_fragment_potential_band,
+        compute_gs_bounds)
+    out = {}
+    for f in scene.frags:
+        shown = (compute_fragment_potential_band(f, scene.applied,
+                                                 scene.applied_bounds)
+                 if likely else (f.potential_low, f.potential_high))
+        best = None
+        for index, (name, weights) in enumerate(scene.presets):
+            bounds = compute_gs_bounds(weights, exclude_stat=scene.main)
+            low, high = compute_fragment_potential(f, weights, bounds)
+            if likely:
+                band = compute_fragment_potential_band(f, weights, bounds)
+                rank, pair = (band[1], high, -index), band
+            else:
+                rank, pair = (high, -index), (low, high)
+            if best is None or rank > best[0]:
+                best = (rank, (pair[0], pair[1], name))
+        out[f.id] = (shown, best[1])
+    return out
+
+
+def _scene_cells(potential, highest):
+    """The Potential and Highest Potential cells for worked-out values."""
+    low, high = potential
+    pot = f"{low:.0f}-{high:.0f}" if low != high else "-"
+    low, high, name = highest
+    hpot = f"{low:.0f}-{high:.0f} [{name}]" if low != high else "-"
+    return pot, hpot
+
+
+def _scored(f):
+    """What `_score_rows` left on a fragment for its Potential columns."""
+    return (getattr(f, "band_pending", False), f.shown_potential,
+            (f.highest_preset_potential_low, f.highest_preset_potential_high,
+             f.highest_preset_potential_name))
+
+
+@contextlib.contextmanager
+def _staged(tab, scene):
+    """`tab` scoring against `scene`'s presets and applied weights, with
+    no Upgrade Log filter. Yields a setter for the Upgrade Log Settings
+    box and the middle 80%, and puts everything back after."""
+    ctx = tab.context
+    sm = ctx.settings_manager
+    key = "upgrade_log_likely_potential"
+    before = (tab.inv_use_log_filters_var.get(), sm.get(key, False),
+              ctx.scoring_tab, tab.inv_filtered_data, tab._no_presets,
+              tab.inv_sort_col, tab.inv_sort_reverse)
+    tab._presets_for_highest_gs = lambda: list(scene.presets)
+    tab._log_filtered_preset_names = lambda: None
+    ctx.scoring_tab = SimpleNamespace(
+        applied_weights=lambda: dict(scene.applied))
+
+    def stage(box, likely):
+        tab.inv_use_log_filters_var.set(box)
+        sm.set(key, likely)
+
+    try:
+        yield stage
+    finally:
+        del tab._presets_for_highest_gs
+        del tab._log_filtered_preset_names
+        tab.inv_use_log_filters_var.set(before[0])
+        sm.set(key, before[1])
+        ctx.scoring_tab = before[2]
+        tab.inv_filtered_data = before[3]
+        tab._no_presets = before[4]
+        tab.inv_sort_col, tab.inv_sort_reverse = before[5], before[6]
+        tab._display_inventory_sorted()
+
+
 def _potential_columns_take_the_middle_80(tab):
     """The Memory Fragments tab shows the middle 80% exactly when asked.
 
@@ -3367,106 +3489,28 @@ def _potential_columns_take_the_middle_80(tab):
     or the reverse. The Potential column takes the weights Gear Score
     last applied, and the Highest Potential column the band of the
     preset it names -- never another preset's, nor the named one's full
-    range. Presets, weights and fragments are stand-ins, so every number
-    is known; the search that picks the preset is
-    `check_potential_band`'s.
+    range. The search that picks the preset is `check_potential_band`'s.
 
     Returns a list of complaints.
     """
-    from game_data import STATS
-    from models.memory_fragment import (
-        MemoryFragment, compute_fragment_potential,
-        compute_fragment_potential_band, compute_gs_bounds)
-
-    rolled = {info[0]: 0.0 for info in STATS.values() if info[3] > 0}
-    presets = [("Spiky", {**rolled, "Extra DMG%": 1.0, "HP%": 1.0}),
-               ("Steady", {**rolled, "Flat DEF": 1.0, "DEF%": 1.0,
-                           "CRate": 1.0})]
-    applied = {**rolled, "CRate": 1.0, "CDmg": 1.0, "ATK%": 0.5}
-    main = "Flat ATK"
-
-    def fragment(fid, level, substats):
-        stats = [{"slot": 0, "type": 0, "stat": "S_ATK_INC_ADD_OUT",
-                  "value": 60}]
-        for n, (raw, value) in enumerate(substats, 1):
-            stats.append({"slot": n, "type": 1, "stat": raw, "value": value})
-        return MemoryFragment.from_json({"id": fid, "res_id": 1014101,
-                                         "level": level, "stat_list": stats})
-
-    frags = [
-        fragment(9001, 0, [("S_CRI_INC_ADD", 1.6), ("S_DEF_INC_ADD_OUT", 4),
-                           ("S_HP_INC_RATE_OUT", 1.1)]),
-        fragment(9002, 3, [("S_DOT_ATK_DMG_RATE_INC_ADD", 2.8),
-                           ("S_DEF_INC_ADD_OUT", 5),
-                           ("S_ATK_INC_RATE_OUT", 1.0),
-                           ("S_CRI_DMG_RATE_INC_ADD", 3.2)]),
-        fragment(9003, 5, [("S_CRI_INC_ADD", 1.6), ("S_DEF_INC_ADD_OUT", 4),
-                           ("S_HP_INC_RATE_OUT", 1.1),
-                           ("S_ATK_INC_RATE_OUT", 1.2)]),
-    ]
-    applied_bounds = compute_gs_bounds(applied, exclude_stat=main)
-    for f in frags:
-        f.potential_low, f.potential_high = compute_fragment_potential(
-            f, applied, applied_bounds)
-
-    def expected(likely):
-        """{id: (Potential, Highest Potential)} as the tab should show."""
-        out = {}
-        for f in frags:
-            shown = (compute_fragment_potential_band(f, applied,
-                                                     applied_bounds)
-                     if likely else (f.potential_low, f.potential_high))
-            best = None
-            for index, (name, weights) in enumerate(presets):
-                bounds = compute_gs_bounds(weights, exclude_stat=main)
-                low, high = compute_fragment_potential(f, weights, bounds)
-                if likely:
-                    band = compute_fragment_potential_band(f, weights, bounds)
-                    rank, pair = (band[1], high, -index), band
-                else:
-                    rank, pair = (high, -index), (low, high)
-                if best is None or rank > best[0]:
-                    best = (rank, (pair[0], pair[1], name))
-            out[f.id] = (shown, best[1])
-        return out
-
-    def cells(potential, highest):
-        low, high = potential
-        pot = f"{low:.0f}-{high:.0f}" if low != high else "-"
-        low, high, name = highest
-        hpot = f"{low:.0f}-{high:.0f} [{name}]" if low != high else "-"
-        return pot, hpot
-
-    ctx = tab.context
-    sm = ctx.settings_manager
-    key = "upgrade_log_likely_potential"
-    before = (tab.inv_use_log_filters_var.get(), sm.get(key, False),
-              ctx.scoring_tab, getattr(tab, "inv_filtered_data", None),
-              getattr(tab, "_no_presets", True))
-    tab._presets_for_highest_gs = lambda: list(presets)
-    tab._log_filtered_preset_names = lambda: None
-    ctx.scoring_tab = SimpleNamespace(applied_weights=lambda: dict(applied))
+    scene = _band_scene()
     out = []
-    try:
-        if expected(True) == expected(False):
-            out.append("the stand-in fragments show the same numbers with "
-                       "the middle 80% on and off, so this proves nothing: "
-                       "give one of them levels left to roll.")
+    if _scene_expected(scene, True) == _scene_expected(scene, False):
+        out.append("the stand-in fragments show the same numbers with the "
+                   "middle 80% on and off, so this proves nothing: give "
+                   "one of them levels left to roll.")
+    with _staged(tab, scene) as stage:
         for box, likely in ((True, True), (True, False), (False, True)):
-            tab.inv_use_log_filters_var.set(box)
-            sm.set(key, likely)
-            tab._score_rows(frags)
-            tab.inv_filtered_data = list(frags)
+            stage(box, likely)
+            tab._score_rows(scene.frags)
+            tab.inv_filtered_data = list(scene.frags)
             tab._display_inventory_sorted()
-            want = expected(box and likely)
+            want = _scene_expected(scene, box and likely)
             state = (f"with the Upgrade Log Settings box "
                      f"{'on' if box else 'off'} and the middle 80% "
                      f"{'on' if likely else 'off'}")
-            for f in frags:
-                got = (f.shown_potential,
-                       (f.highest_preset_potential_low,
-                        f.highest_preset_potential_high,
-                        f.highest_preset_potential_name))
+            for f in scene.frags:
+                got = _scored(f)[1:]
                 if got != want[f.id]:
                     out.append(
                         f"{state}, a fragment's Potential and Highest "
@@ -3476,21 +3520,209 @@ def _potential_columns_take_the_middle_80(tab):
                     continue
                 shown = (tab.inv_tree.set(str(f.id), "potential"),
                          tab.inv_tree.set(str(f.id), "highest_potential"))
-                if shown != cells(*want[f.id]):
+                if shown != _scene_cells(*want[f.id]):
                     out.append(
                         f"{state}, a fragment's row shows {shown}, where "
                         f"what was worked out reads "
-                        f"{cells(*want[f.id])}. See "
+                        f"{_scene_cells(*want[f.id])}. See "
                         f"`_display_inventory_sorted`.")
+    return out
+
+
+def _bands_left_over_are_finished_later(tab):
+    """Bands a refresh has no time for are worked out between events.
+
+    `_score_rows` works bands out for `BAND_BUDGET_S` and leaves the
+    rest to `_finish_bands`, a slice at a time, so a cold refresh never
+    holds the UI thread for the second or more they take. Four ways to
+    be wrong, none of them loud: a fragment left pending for good;
+    slices that finish without a redraw, leaving `PENDING_CELL` on
+    screen; slices finishing while another tab shows without leaving
+    this one to catch up when shown; and a slice of a superseded
+    refresh writing over the newer one's. With no time at all for
+    bands, every band still to roll is left over; the slices run by
+    hand, as no event loop runs here.
+
+    Returns a list of complaints.
+    """
+    import models.memory_fragment as mf
+    import ui.tabs.inventory_tab as inv
+
+    scene = _band_scene()
+    want = _scene_expected(scene, True)
+    rolling = {f.id for f in scene.frags if f.level < 5}
+    scheduled = []
+    budget = inv.BAND_BUDGET_S
+    out = []
+
+    def run_every_slice():
+        runs = 0
+        while scheduled and runs < 10000:
+            func, args = scheduled.pop(0)
+            func(*args)
+            runs += 1
+
+    with _staged(tab, scene) as stage:
+        stage(True, True)
+        inv.BAND_BUDGET_S = 0
+        tab.frame.after = lambda _ms, func, *args: scheduled.append(
+            (func, args))
+        # Which tab the checks' notebook shows is whatever an earlier
+        # check left, so both answers are set here.
+        tab._hidden = lambda: True
+        try:
+            mf._BAND_CACHE.clear()
+            tab._stale = False
+            tab._score_rows(scene.frags)
+            run_every_slice()
+            if not tab._stale:
+                out.append(
+                    "slices finishing while another tab shows leave the "
+                    "Memory Fragments tab showing `PENDING_CELL` when it "
+                    "is next opened: `_finish_bands` must mark it stale.")
+            tab._hidden = lambda: False
+            mf._BAND_CACHE.clear()
+            tab._score_rows(scene.frags)
+            tab.inv_filtered_data = list(scene.frags)
+            tab._display_inventory_sorted()
+            for f in scene.frags:
+                waiting = tab.inv_tree.set(str(f.id), "potential") \
+                    == inv.PENDING_CELL
+                if waiting != (f.id in rolling):
+                    out.append(
+                        f"with no time for bands, a fragment "
+                        f"{'with' if f.id in rolling else 'without'} "
+                        f"levels left to roll shows "
+                        f"{tab.inv_tree.set(str(f.id), 'potential')!r} "
+                        f"for its Potential. See `_score_rows` and "
+                        f"`cached_potential_band`.")
+            if len(scheduled) != 1:
+                out.append(f"a refresh leaving bands over arranged "
+                           f"{len(scheduled)} slices to finish them, not "
+                           f"one.")
+            tab._score_rows(scene.frags)
+            if scheduled:
+                superseded, args = scheduled.pop(0)
+                before = [_scored(f) for f in scene.frags]
+                superseded(*args)
+                if [_scored(f) for f in scene.frags] != before:
+                    out.append(
+                        "a slice of a superseded refresh still wrote its "
+                        "bands. A newer refresh's weights can then be "
+                        "overwritten by an older one's -- see "
+                        "`_finish_bands`' generation test.")
+            run_every_slice()
+            for f in scene.frags:
+                if _scored(f) != (False, *want[f.id]):
+                    out.append(
+                        f"once every slice has run, a fragment reads "
+                        f"{_scored(f)}, not {(False, *want[f.id])}.")
+                    continue
+                shown = (tab.inv_tree.set(str(f.id), "potential"),
+                         tab.inv_tree.set(str(f.id), "highest_potential"))
+                if shown != _scene_cells(*want[f.id]):
+                    out.append(
+                        f"once every slice has run, a fragment's row "
+                        f"still shows {shown}, not "
+                        f"{_scene_cells(*want[f.id])}: the slices "
+                        f"finished without a redraw.")
+        finally:
+            inv.BAND_BUDGET_S = budget
+            del tab.frame.after
+            del tab._hidden
+            tab._stale = False
+    return out
+
+
+def _assigned_only_steps_aside_for_log_settings(tab):
+    """Assigned Presets Only is greyed out while Upgrade Log Settings is
+    on, keeps its tick, and narrows again once that box is off.
+
+    The Upgrade Log's Log Presets are assigned ones already, so the box
+    changes nothing while the other is on, and a live box that changes
+    nothing reads as broken. Wrong the other way, its tick is lost when
+    the other box goes off, or it goes on narrowing while greyed out.
+    Stand-in presets, one of two assigned, keep every answer known.
+
+    Returns a list of complaints.
+    """
+    ctx = tab.context
+    before = (tab.inv_use_log_filters_var.get(),
+              tab.inv_only_assigned_presets_var.get(),
+              ctx.preset_manager, ctx.character_preset_manager)
+    ctx.preset_manager = SimpleNamespace(
+        get_preset_names=lambda: ["Assigned", "Spare"],
+        get_preset=lambda name: {})
+    ctx.character_preset_manager = SimpleNamespace(
+        assignments={"someone": "Assigned"})
+    tab.refresh_inventory = lambda: None
+    out = []
+
+    def names():
+        return [name for name, _weights in tab._presets_for_highest_gs()]
+
+    try:
+        tab.inv_only_assigned_presets_var.set(True)
+        for box, state, want in ((True, "disabled", ["Assigned", "Spare"]),
+                                 (False, "normal", ["Assigned"])):
+            tab.inv_use_log_filters_var.set(box)
+            tab._on_use_log_filters_toggle()
+            said = f"with Upgrade Log Settings {'on' if box else 'off'}"
+            got = str(tab.inv_only_assigned_check.cget("state"))
+            if got != state:
+                out.append(f"{said}, Assigned Presets Only is {got}, not "
+                           f"{state}. See `_sync_assigned_only`.")
+            if not tab.inv_only_assigned_presets_var.get():
+                out.append(f"{said}, Assigned Presets Only lost its tick.")
+            if names() != want:
+                out.append(f"{said} and Assigned Presets Only ticked, the "
+                           f"Highest columns choose among {names()}, not "
+                           f"{want}. See `_presets_for_highest_gs`.")
     finally:
-        del tab._presets_for_highest_gs
-        del tab._log_filtered_preset_names
+        del tab.refresh_inventory
         tab.inv_use_log_filters_var.set(before[0])
-        sm.set(key, before[1])
-        ctx.scoring_tab = before[2]
-        tab.inv_filtered_data = before[3] if before[3] is not None else []
-        tab._no_presets = before[4]
-        tab._display_inventory_sorted()
+        tab.inv_only_assigned_presets_var.set(before[1])
+        ctx.preset_manager, ctx.character_preset_manager = before[2:]
+        tab._sync_assigned_only()
+    return out
+
+
+def _every_column_sorts_by_itself(tab):
+    """Every column of the Memory Fragments list sorts by its own key.
+
+    A column missing from `SORT_KEYS` sorts by GS when its heading is
+    clicked, which reads as a sort that half works. A Sub column groups
+    its rows by stat as the cells name it, the highest roll first, and
+    a fragment without that substat last.
+
+    Returns a list of complaints.
+    """
+    import ui.tabs.inventory_tab as inv
+
+    out = []
+    missing = [c for c in tab.inv_tree["columns"] if c not in inv.SORT_KEYS]
+    if missing:
+        out.append(f"the Memory Fragments columns {missing} have no sort "
+                   f"key, so clicking one's heading sorts by GS. Add them "
+                   f"to `SORT_KEYS` in ui/tabs/inventory_tab.py.")
+    frags = [
+        _stand_in_fragment(9011, 5, [("S_CRI_INC_ADD", 1.6)]),
+        _stand_in_fragment(9012, 5, [("S_CRI_INC_ADD", 2.0)]),
+        _stand_in_fragment(9013, 5, [("S_ATK_INC_RATE_OUT", 1.0)]),
+        _stand_in_fragment(9014, 5, []),
+    ]
+    with _staged(tab, _band_scene()) as stage:
+        stage(False, False)
+        tab._score_rows(frags)
+        tab.inv_filtered_data = frags
+        tab.inv_sort_col = None
+        tab.sort_inventory("sub1")
+        order = list(tab.inv_tree.get_children())
+    want = ["9013", "9012", "9011", "9014"]
+    if order != want:
+        out.append(f"sorting by Sub1 lists the rows {order}, not {want}: "
+                   f"ATK% before Crit%, the higher Crit% first, and the "
+                   f"fragment without a substat last.")
     return out
 
 
@@ -4444,6 +4676,12 @@ def run():
                 _inventory_catches_up_when_shown(built["InventoryTab"]))
             failures.extend(
                 _potential_columns_take_the_middle_80(built["InventoryTab"]))
+            failures.extend(
+                _bands_left_over_are_finished_later(built["InventoryTab"]))
+            failures.extend(
+                _every_column_sorts_by_itself(built["InventoryTab"]))
+            failures.extend(_assigned_only_steps_aside_for_log_settings(
+                built["InventoryTab"]))
         if "GachaHistoryTab" in built:
             failures.extend(
                 _gacha_history_draws_its_rows(built["GachaHistoryTab"]))
