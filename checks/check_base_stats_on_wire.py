@@ -222,8 +222,8 @@ def _the_readings_resolve():
             bs.solve_base(100, 0, 0, 0) != 100:
         out.append("solve_base does not invert the inner formula: "
                    "round((524 + 155) * 1.531 + 87) is 1127.")
-    (a_id, a, a60), (b_id, b, b60), (c_id, c, c60), (d_id, d, d60), \
-        (e_id, e, e60), (f_id, f, f60), (g_id, g, g60) = _cast()
+    (a_id, _a, a60), (b_id, b, b60), (c_id, c, c60), (d_id, d, d60), \
+        (e_id, e, e60), (f_id, f, _f60), (g_id, g, g60) = _cast()
     bonus = [120, 60, 180]
     g_true = _plus(g60, [9, 0, 0])
     g_inner = bs._half_up((g_true[0] + 155) * 1.2 + 30)
@@ -440,9 +440,10 @@ def _the_formula_holds():
     return out
 
 
-def _the_maintainers_readings():
+def _the_maintainers_readings(snapshots=None):
     import base_stats_store
-    snapshots = SOURCE_ROOT / "snapshots"
+    from game_data import CHARACTERS
+    snapshots = snapshots or SOURCE_ROOT / "snapshots"
     battles, builds, note_ = base_stats_store.read_store(snapshots)
     if not battles:
         note("no base stat readings on file -- `python "
@@ -462,10 +463,21 @@ def _the_maintainers_readings():
         out.append(f"{name} at level {level}: the server says {wire} "
                    f"({how}), characters.py {program}. Fix characters.py "
                    f"(the base is at level 60), or its level gain.")
+    # An entry nothing settles yet waits; one the readings now say
+    # otherwise -- or say and characters.py agrees with -- is stale.
+    bases, _conflicts = base_stats_store.resolve(battles)
+    ids = {c["name"]: rid for rid, c in CHARACTERS.items()
+           if isinstance(c, dict)}
     for (name, level), wire in odd.items():
-        out.append(f"UNEXPLAINED holds {name} at level {level} as {wire}, "
-                   f"and the readings no longer say so: settle it, and "
-                   f"drop the entry.")
+        stats = bases.get((ids.get(name), level))
+        if stats:
+            now = [stats[s][0] if s in stats else None
+                   for s in base_stats_store.STATS]
+            out.append(f"UNEXPLAINED holds {name} at level {level} as "
+                       f"{wire}, and the readings now say {now}, which "
+                       f"differs from it or from nothing in "
+                       f"characters.py: settle it, and update or drop the "
+                       f"entry.")
     for rid, level, wire, _last in found["missing"]:
         out.append(f"the server sent res_id {rid} at level {level} with "
                    f"base {wire}, and characters.py has no such combatant.")

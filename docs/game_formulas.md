@@ -43,6 +43,15 @@ Final_CDmg  = Base_CDmg + Sum(CDmg_contributions)    # base default = 125
 | **Equipment_X**     | Constant; separate gear system not captured (`EQUIPMENT_*` in `optimizer.py`)       |
 | **Set bonuses**     | See §5 — three different landing places depending on `type` and `stat`              |
 
+### Against the server's sheet
+
+Every battle's entry states this formula's layers for each combatant (`capture_pipeline.md`, *The stat sheet a battle's entry carries*). `base_stats_store.formula_gaps` runs the program's formula over every build the capture filed, with the sheet's own base and partner flats, and `checks/check_base_stats_on_wire.py` fails on any layer it does not reproduce. The sheet says four things the formula above does not:
+
+- **The server rounds twice**: the inner value half up, then the final. Final = round(round(inner) × (1 + outer %)). The program keeps the fractions, so the two part by less than a point.
+- **The Potential 7 check reads that rounded inner value** (`potential_base_status`): Partner flats in, Partner passives and Equipment out, which is what the program's `_inner_*` values model (§8).
+- **The sheet has no Equipment term.** It reproduces with `EQUIPMENT_*` left out.
+- **A Potential 7 bonus is on the sheet once its check passes**, and the program does not model it: `base_stats_store.UNMODELLED` holds the ones seen, so the check passes a gap of exactly that much.
+
 ### The potential tree
 
 Ten nodes, and **the numbering on the wire does not match the numbering in the game.** The program keeps all ten and shows all ten; only two feed the stat formulas, and those two are the ones the scoring path reads.

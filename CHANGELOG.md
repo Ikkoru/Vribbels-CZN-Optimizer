@@ -14,7 +14,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - `Show average Potential` adds where each preset's Potential is expected to end, between the ends of its range: `21-41-80`. The ends are what the best and worst luck reach, and rarely happen.
   - `Show Potential's middle 80%` narrows each range to where 8 upgrade paths in 10 end. The Memory Fragments tab's Potential and Highest Potential columns follow it while that tab's `Upgrade Log Settings` box is on, showing `…` for a moment while they work it out.
 - Capture: every Chaos run is recorded in `snapshots/chaos_runs/`, beside the pull history. The season estimate reads it, counting only the live Galactic Disaster's own Chaos.
-- Capture: each battle's combatant base stats, as the server states them, are kept in `snapshots/base_stats/`. They are what the program's own combatant data is checked against.
+- Capture: each battle's stat sheets, as the server states them, are kept in `snapshots/base_stats/`. Where the program's own combatant or partner stats are missing or wrong, level 61 and 62 included, it uses the server's instead.
+- Setup & Settings → Share Game Data: `Export Facts` also saves the combatant and partner stats your battles showed that the program does not have.
 
 ### Changed
 
@@ -28,6 +29,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: a red countdown turns a deeper red in its last 24 hours.
 - Checklist: the Galactic Disaster shop's season estimate counts each part's boss rewards separately, and learns from your own captured Chaos runs once the program's own figures are a season or more old. `chaos_runs_per_day` at the foot of settings.json sets how many runs a day it assumes.
 - Gear Score marks a preset assigned to a combatant with ∞.
+- Gear Score: the shipped presets' weights are worked out from the Optimizer's own score, for an average build of each kind; Restore Defaults picks them up. `Rei (ATK skew)` is now `Rei`, and `Orlea (healing skew)` is new.
 - Memory Fragments: `Assigned Presets Only` is greyed out while `Upgrade Log Settings` is on, which takes assigned presets only anyway. Its tick applies again once that box is off.
 - Stats & Gacha History: each Great Rift division's row is drawn in the division's colour.
 

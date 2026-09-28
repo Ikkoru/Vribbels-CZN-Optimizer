@@ -20,7 +20,7 @@ def _level_gains_follow_their_pair():
     stops at the combatant's own key gives every combatant without one
     the level-60 base, which reads as a plausible stat."""
     from game_data.characters import (LEVEL_BONUS_BY_CLASS,
-                                      get_character_stats_at_level)
+                                      table_stats_at_level)
     out = []
     known = next(k for k, v in LEVEL_BONUS_BY_CLASS.items() if v[61])
     unknown = next((k for k, v in LEVEL_BONUS_BY_CLASS.items()
@@ -28,7 +28,7 @@ def _level_gains_follow_their_pair():
     gain = LEVEL_BONUS_BY_CLASS[known][61]
     entry = {"class": known[0], "grade": known[1], "base_atk": 400,
              "base_def": 150, "base_hp": 300}
-    at = get_character_stats_at_level
+    at = table_stats_at_level
     if at(entry, 61)["base_atk"] != 400 + gain["atk"]:
         out.append(f"a {known[0]} grade {known[1]} combatant with no gain "
                    f"of their own gets {at(entry, 61)['base_atk']} ATK at "

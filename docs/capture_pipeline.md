@@ -78,9 +78,52 @@ Each run goes, as it clears, to `snapshots/chaos_runs/runs.json.gz`, never into 
 
 ## The base stat readings are kept in a file of their own
 
-A battle's entry -- `world/get_stage_info`, answered with `stage_info` -- carries its combatants under `stage_info.enter_chars`, each with its level and a `status.info` block: `BASE_S_ATK`, `BASE_S_DEF` and `BASE_S_HP` are the server's base at that level, `S_PARTNER_BASE_*` the partner's flat stats, and the rest the combatant's final stat sheet. `Addon._note_base_stats` files each distinct battle -- its stage (`playing_stage_info.stage_id`), its mode (`ingame_content_config_id`), whether `zero_system_effs` rides it, and every combatant's readings -- with the first and last time it was seen, into `snapshots/base_stats/readings.json` through a read-back copy that keeps a `.bak`. It is read by the payload's shape rather than the command, so a battle entered another way is filed too.
+A battle's entry -- `world/get_stage_info`, answered with `stage_info` -- carries its combatants under `stage_info.enter_chars` and their partners under `stage_info.enter_supporters`, at the same places in the two lists. Each combatant has its level, `potential_base_status` and a `status.info` block, the stat sheet below. `Addon._note_base_stats` files each distinct battle into `snapshots/base_stats/readings.json`, with the first and last time it was seen:
 
-**The capture files; it does not judge.** Which battles are believed is `base_stats_store.audit`'s call: the Zero System effects of a Chaos, a Zero System run or a Sortie add to the base (+120 ATK, +60 DEF, +180 HP for most), and trials field level-20 copies. What it is for, and how to verify a combatant, is `game_data_files.md`, *Base stats in `characters.py`, against the server*.
+- its stage (`playing_stage_info.stage_id`) and mode (`ingame_content_config_id`);
+- its Zero System effects whose group starts with one of `BASE_EFFECT_GROUPS`, the ones that can move a combatant's sheet, with their values;
+- per combatant: the base, the partner's flat stats as the sheet counts them, the Potential 7 value with the inner layer it was computed from, and the partner beside them -- its id, level, limit break and own flat stats.
+
+Each distinct build goes beside the battles, under `builds`: fragments, potential nodes, partner and the whole status, for `base_stats_store.formula_gaps`. The file is written through a read-back copy that keeps a `.bak`, and read by the payload's shape rather than the command, so a battle entered another way is filed too.
+
+**The capture files; it does not judge.** Which readings are believed is `base_stats_store.resolve`'s call. What they are for, and how to verify a combatant, is `game_data_files.md`, *Base stats in `characters.py`, against the server*.
+
+### The stat sheet a battle's entry carries
+
+`game_formulas.md` §1 has the formula these are the layers of.
+
+| Field | What it is |
+| ----- | ---------- |
+| `BASE_S_ATK`, `_DEF`, `_HP` | the base at the combatant's level, with the mode's bonus in it |
+| `S_PARTNER_BASE_*` | the partner's flat stats, as this sheet counts them |
+| `S_*_INC_RATE_OUT` | the inner %: fragments, sets and potential nodes |
+| `S_*_INC_ADD_OUT` | the inner flat: fragment flats and Affection |
+| `S_*_INC_RATE_IN` | the outer %: the partner's passive |
+| `S_ATK`, `S_DEF`, `S_HP` | the final stats |
+| `S_CRI`, `S_CRI_DMG_RATE`, `S_ADDI_ATK_DMG_RATE`, `S_DOT_ATK_DMG_RATE` | CRate, CDMG, Extra DMG%, DoT% |
+| `potential_base_status` (beside the block) | the inner value of the stat or stats the combatant's Potential 7 check reads, computed outside the battle -- so without the mode's bonus |
+
+Some layers are absent where they are zero. No field carries an Equipment term.
+
+### Battle kinds on the wire
+
+What each `ingame_content_config_id` is in the game, named by what its clears pay (a Simulation stage drops its own material), by `chaos_estimate.CHAOS_NAMES`, and by the modes' own ids:
+
+| `ingame_content_config_id` | In game | What it does to the sheet |
+| -------------------------- | ------- | ------------------------- |
+| `content_piece` | Simulation: Memory Fragment | nothing |
+| `content_ego` | Simulation: Growth Stone, one stage per Element | nothing |
+| `content_promotion_combatant` | Simulation: Manual | nothing |
+| `content_promotion_supporter` | Simulation: Certificate | nothing |
+| `content_boss` | Simulation Challenge | nothing |
+| `content_disaster_boss_rank` | the Great Rift | nothing |
+| `content_tower` | the tower of `spiral_tower_01`: five floors, one wave each, an entry | nothing |
+| `content_combatant_trial` | Combatant Trial | fields level-20 copies |
+| `content_story_event_bartender` | the Bartender event's story | fields level-20 copies |
+| `content_disaster_chaos` | the season's own Chaos | the Zero System's stat nodes (`ZERO_CHARACTER_STAT__TYPE_VALUE`) add one flat amount per stat to every base; which stat each node raises is not on the wire |
+| `content_chaos_zero` | an earlier season's Chaos, entered through the Zero System | the same |
+| `content_chaos_assault` | Sortie | its Max HP nodes multiply the base HP, not the partner's, by 1 + their sum, rounded down; its CRate nodes add CRate |
+| `content_none` | no battle: the world state between them, with no combatants | -- |
 
 ## Payloads kept aside and written out later
 

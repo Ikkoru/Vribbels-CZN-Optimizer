@@ -359,7 +359,10 @@ def readings_of(battles):
             for level, reading in levels.items():
                 out[kind].setdefault(str(key), {})[str(level)] = {
                     field: reading[field], "read_at": reading["read_at"]}
-    return clean(out)
+    # These two kinds only: `collect` updates its facts with this, and
+    # every other kind here is empty.
+    kept = clean(out)
+    return {kind: kept[kind] for kind in LEVELLED}
 
 
 # Where each ranking kind comes from, in a snapshot and in

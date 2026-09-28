@@ -75,11 +75,28 @@ The whole potential tree in one tuple — display order, the game's numbering, t
 
 ## Base stats in `characters.py`, against the server
 
-**The in-game stat screen shows the base with Affection mixed in**, so a base typed in from it is wrong by the Affection bonus unless that is taken off first. The server sends the true figure instead: every battle's entry carries each combatant's `BASE_S_ATK/DEF/HP` at their level. The capture files these (`capture_pipeline.md`, *The base stat readings are kept in a file of their own*), and `checks/check_base_stats_on_wire.py` fails on any combatant a plain battle has shown differently from `characters.py`, or that `characters.py` lacks.
+**The in-game stat screen shows the base with Affection mixed in**, so a base typed in from it is wrong by the Affection bonus unless that is taken off first. The server sends the true figure instead: every battle's entry carries each combatant's `BASE_S_ATK/DEF/HP` at their level, and each partner's own flat stats. The capture files these (`capture_pipeline.md`, *The base stat readings are kept in a file of their own*), and `checks/check_base_stats_on_wire.py` fails on any combatant the readings settle differently from `characters.py`, one it lacks, a level-60 partner unlike `PARTNER_CLASS_STATS`, and any build whose sheet the program's stat formula does not reproduce.
 
-- **To verify a combatant**, take them into any stage outside the Chaos modes during a debug capture: a Promotion, Ego, Piece or Boss stage, the Great Rift or the Tower. The Chaos, the Zero System and Sorties add their Zero System effects to the base, and combatant trials and event stories field level-20 or 25 copies, so none of those count.
-- **To read what the logs hold**, `python docs/base_stats_backfill.py` reports: who is wrong, who is missing, a level gain the program lacks, a base that changed between readings, and who has not been in a plain battle yet. `--write` files the debug logs' battles, the archived ones included; `--battles` lists every battle with its mode and whether it counts.
-- **A level-61 or 62 reading fills `LEVEL_BONUS_BY_CLASS`** where a pair's gain is unknown: the server's base at that level minus the level-60 base.
+**How a reading is settled** (`base_stats_store.resolve`):
+
+1. A battle without Zero System effects -- a Simulation stage, the Great Rift, the tower -- states the base as it is.
+2. Any battle states `potential_base_status`, the Potential 7 check's stat computed outside the battle, and the inner formula has exactly one base that gives it. It covers only the stat or stats that check reads.
+3. A Chaos adds the same amount to everyone in it, so a combatant settled by 1 or 2 gives the bonus, and it comes off the rest. A battle whose combatants disagree on it gives nothing more.
+
+A plain reading wins over a worked-out one. Combatant trials and event stories field level-20 copies and never count.
+
+**The program uses what the server says** where its tables are silent or wrong: `game_data.learned`, filled on every snapshot load from the account's readings and the shipped shared facts, newest first. The order `get_character_stats_at_level` answers in:
+
+1. The reading at the level asked.
+2. Else the nearest reading, walked there by the level gains: the combatant's own, read off two readings; else their `level_6N_bonus` key; else the gain every reading of their class and grade agrees on; else `LEVEL_BONUS_BY_CLASS`.
+3. Else the tables alone, as `table_stats_at_level` gives them.
+
+`get_partner_stats` takes the partner's reading at that level, else one of a partner of the same grade and class, else the linear table. The tables are still worth correcting: they are what a player without readings gets, and what the check holds the server against.
+
+- **To verify a combatant**, take them into any battle during a capture. One outside the Chaos modes settles all three stats directly; a Chaos settles them only beside someone already settled.
+- **To read what the logs hold**, `python docs/base_stats_backfill.py` reports: who is wrong or missing, a level gain the tables lack, a base that changed between plain readings, the Chaos battles set aside, the partners and the formula against the server, and who nothing has settled yet. `--write` files the debug logs' battles, the archived ones included; `--battles` lists every battle with its mode.
+- **A level-61 or 62 reading gives a pair's gain** where `LEVEL_BONUS_BY_CLASS` lacks it: the server's base at that level minus the level-60 base. The check names it; the program uses it meanwhile.
+- **`UNEXPLAINED` in the check** holds a reading that differs for a reason nobody has pinned down. It is noted rather than failed while the reading stays exactly that.
 
 ## Finding a newly released unit's res_id
 

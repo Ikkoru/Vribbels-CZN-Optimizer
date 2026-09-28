@@ -179,7 +179,8 @@ def resolve(battles):
     `how` is `plain`, `solved` (from the inner value) or `offset` (a
     Chaos stage's bonus taken off). A conflict is (stage, content, stat,
     [bonuses], last seen): a battle whose combatants say different
-    bonuses, which gives nothing beyond what each solves alone.
+    bonuses for any stat, which gives nothing beyond what each solves
+    alone.
     """
     plain, derived, conflicts = {}, {}, []
 
@@ -209,11 +210,16 @@ def resolve(battles):
                 bonuses[stat].add(row["base"][STATS.index(stat)] - held[0])
         if not _additive(battle):
             continue
+        split = [stat for stat in STATS if len(bonuses[stat]) > 1]
+        for stat in split:
+            conflicts.append((battle.get("stage"), battle.get("content"),
+                              stat, sorted(bonuses[stat]), when))
+        if split:
+            # One stat's disagreement means a base the offsets were
+            # taken from is wrong, and nothing says which: the other
+            # stats' offsets came from the same combatants.
+            continue
         for i, stat in enumerate(STATS):
-            if len(bonuses[stat]) > 1:
-                conflicts.append((battle.get("stage"), battle.get("content"),
-                                  stat, sorted(bonuses[stat]), when))
-                continue
             if not bonuses[stat]:
                 continue
             bonus = next(iter(bonuses[stat]))

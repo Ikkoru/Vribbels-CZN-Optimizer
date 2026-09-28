@@ -163,7 +163,7 @@ def _clean_refuses(sf):
                 "rank": 9, "read_at": 5, "best_score": 7}}}}},
             sf.SORTIE: {"global": {"assault_1_s7": {
                 "players": 19716, "read_at": 5, "top_score": None}}},
-            sf.OFFENSIVE: {}}
+            sf.OFFENSIVE: {}, sf.BASES: {}, sf.PARTNER_FLATS: {}}
     if got != want:
         return [f"`clean` kept {got!r} of a hostile file, not {want!r}. "
                 f"A rates entry missing a part, an id that is not one, a "
@@ -526,12 +526,121 @@ def _readers(sf):
     return out
 
 
+def _readings(sf):
+    """The two kinds read out of battles: what leaves, what is news,
+    how they fold, and what the program installs from them."""
+    from game_data import CHARACTERS, PARTNERS
+    from game_data.characters import table_stats_at_level
+    from game_data.partners import table_partner_stats
+    out = []
+    rid, char = next((r, c) for r, c in CHARACTERS.items()
+                     if isinstance(c, dict))
+    table = table_stats_at_level(char, 60)
+    table = [table["base_atk"], table["base_def"], table["base_hp"]]
+    pid = next(p for p, v in PARTNERS.items() if isinstance(v, dict))
+    flat = table_partner_stats(pid, 60)
+    flat = [flat["atk"], flat["def"], flat["hp"]]
+    off = [table[0] + 5, table[1], table[2]]
+    battle = {"stage": 1, "zero_system": False, "effects": [],
+              "first": 100, "last": 100, "asked": "world/get_stage_info",
+              "content": "content_ego", "user_id": USER_ID, "chars": [
+                  {"res_id": rid, "level": 60, "base": off,
+                   "partner": flat, "lb": 3, "inner": {"S_ATK": OWN_SCORE},
+                   "layers": {"S_ATK_INC_ADD_OUT": OWN_RANK},
+                   "partner_id": pid, "partner_level": 60, "partner_lb": 4,
+                   "partner_flat": flat, "name": "Ikkoru"}]}
+    facts = sf.collect(None, None, None, None, [battle])
+    text = json.dumps(facts)
+    leaked = [p for p in PLANTED if p in text]
+    if leaked:
+        out.append(f"`collect` let {leaked} out of the base stat readings.")
+    want = {sf.BASES: {str(rid): {"60": {"base": off, "read_at": 100}}},
+            sf.PARTNER_FLATS: {str(pid): {"60": {"flat": flat,
+                                                 "read_at": 100}}}}
+    got = {k: facts[k] for k in want}
+    if got != want:
+        out.append(f"`collect` read the base stat readings as {got}, not "
+                   f"{want}.")
+    hostile = sf.clean({sf.BASES: {
+        "12a": {"60": {"base": [1, 2, 3], "read_at": 5}},
+        str(rid): {"0": {"base": [1, 2, 3], "read_at": 5},
+                   "61": {"base": [1, 2], "read_at": 5},
+                   "62": {"base": [1, -2, 3], "read_at": 5},
+                   "60": {"base": [1, 2, 3], "read_at": 5,
+                          "name": "Stranger"},
+                   "x": {"base": [1, 2, 3], "read_at": 5}},
+        "7": {"60": {"base": [1, 2, 3]}}}})
+    if hostile[sf.BASES] != {str(rid): {"60": {"base": [1, 2, 3],
+                                               "read_at": 5}}}:
+        out.append(f"`clean` kept {hostile[sf.BASES]} of hostile base "
+                   f"stat readings: an id or a level that is not one, a "
+                   f"stat that is not three whole numbers, a reading with "
+                   f"no time and every field it does not name must go.")
+    # News: only what the tables and the shipped file lack.
+    mine = sf.clean({sf.BASES: {
+        str(rid): {"60": {"base": table, "read_at": 200},
+                   "61": {"base": off, "read_at": 200}},
+        "999999": {"60": {"base": [1, 2, 3], "read_at": 200}}},
+        sf.PARTNER_FLATS: {str(pid): {"60": {"flat": flat, "read_at": 200},
+                                      "30": {"flat": [9, 9, 9],
+                                             "read_at": 200}}}})
+    news = sf.missing(mine, sf.empty())
+    if sorted((k, sorted(v)) for k, v in news[sf.BASES].items()) != sorted(
+            [(str(rid), ["61"]), ("999999", ["60"])]) or \
+            news[sf.PARTNER_FLATS] != {str(pid): {"30": {
+                "flat": [9, 9, 9], "read_at": 200}}}:
+        out.append(f"`missing` would send {news[sf.BASES]} and "
+                   f"{news[sf.PARTNER_FLATS]}: a reading the tables "
+                   f"already give is not news, one they get wrong or a "
+                   f"combatant they lack is.")
+    shipped = sf.clean({sf.BASES: {str(rid): {"61": {"base": off,
+                                                     "read_at": 300}}}})
+    for says, when, sends in ((off, 400, False), (table, 250, False),
+                              (table, 400, True)):
+        mine = sf.clean({sf.BASES: {str(rid): {"61": {"base": says,
+                                                      "read_at": when}}}})
+        if bool(sf.missing(mine, shipped)[sf.BASES]) != sends:
+            out.append(f"a reading of {says} at {when}, against a shipped "
+                       f"one of {off} at 300, is "
+                       f"{'not ' if sends else ''}sent: only a later one "
+                       f"that says something new is -- a patch.")
+    held, added, _refused, _down = sf.fold(shipped, sf.clean({sf.BASES: {
+        str(rid): {"61": {"base": table, "read_at": 400},
+                   "60": {"base": table, "read_at": 400}}}}))
+    again = sf.fold(held, sf.clean({sf.BASES: {str(rid): {"61": {
+        "base": table, "read_at": 500}}}}))
+    if held[sf.BASES][str(rid)]["61"]["base"] != table or len(added) != 2 \
+            or again[0] != held or again[1]:
+        out.append(f"folding base stat readings gave "
+                   f"{held[sf.BASES]}, reporting {added}, then {again[1]}: "
+                   f"a later reading that differs replaces the held one, a "
+                   f"new level is added, and one saying the same changes "
+                   f"nothing.")
+    if not sf.lost(held, shipped) or sf.lost(shipped, held):
+        out.append("`lost` does not see a base stat reading dropped, or "
+                   "sees one where a later reading replaced it.")
+    merged = sf.levelled_with(
+        {str(rid): {"61": {"base": table, "read_at": 900}}},
+        sf.clean({sf.BASES: {str(rid): {"61": {"base": off, "read_at": 300},
+                                        "60": {"base": off,
+                                               "read_at": 300}}}}), sf.BASES)
+    if merged != {str(rid): {"61": table, "60": off}}:
+        out.append(f"the program would install {merged}: the later of "
+                   f"the account's and the shipped reading per level, the "
+                   f"shipped one where the account has none.")
+    if sf.describe({sf.BASES: 2, sf.PARTNER_FLATS: 1}) != (
+            "2 combatant base stat readings, 1 partner flat stat reading"):
+        out.append(f"the export would say "
+                   f"{sf.describe({sf.BASES: 2, sf.PARTNER_FLATS: 1})!r}.")
+    return out
+
+
 def run():
     add_source_to_path()
     import shared_facts as sf
     failures = []
     for part in (_whitelist, _clean_refuses, _fold_rules, _missing_rules,
                  _documents, _shipped_file, _fold_script, _regions_agree,
-                 _readers):
+                 _readers, _readings):
         failures.extend(part(sf))
     return failures
