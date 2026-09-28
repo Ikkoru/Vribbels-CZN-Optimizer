@@ -14,15 +14,16 @@ and shield/heal terms, at a reference build. Max rolls, because the
 Gear Score divides every roll by its stat's max roll.
 
 **The reference build is in a vacuum**: the combatant at level 61 with
-their class's 5-star partner, their signature partner's passives at
-limit break 0, potential nodes 5 and 6 maxed and the highest Affection,
-wearing their ARCHETYPE's average fragment stats -- the mean of the
-fragment stats of every archetype member's best Optimizer build -- and
-their own sets. Those averages are derived once and kept in
+their class's 5-star partner, their signature partner's passives (a
+5-star or 4.5-star one at limit break 0, a 4-star one at its highest),
+potential nodes 5 and 6 maxed and the highest Affection, wearing their
+ARCHETYPE's average fragment stats -- the mean of the fragment stats of
+every archetype member's best Optimizer build -- and their own sets.
+Those averages are derived once and kept in
 `docs/preset_weights_archetypes.json`, so the weights are reproducible
 without running the Optimizer; `--derive` and `--check` run it again
 (`--check` also records the season part it ran in, which
-`checks/check_preset_weights_due.py` reads).
+`checks/check_preset_weights.py` reads).
 
 **What the score cannot price keeps the preset's own weight**: Ego, HP,
 and any stat worth exactly nothing to the score -- a tie-breaker the
@@ -53,7 +54,9 @@ sys.path.insert(0, str(SOURCE))
 
 LEVEL = 61
 PARTNER_GRADE = 5          # flat stats: the class's 5-star partner
-PARTNER_LIMIT_BREAK = 0    # the signature partner's passives
+# The signature partner's limit break, by its grade: 5-star and
+# 4.5-star partners at 0, 4-star ones at their highest.
+PARTNER_LIMIT_BREAK = {5: 0, 4.5: 0, 4: 4}
 POTENTIAL_LEVEL = 5        # nodes 5 and 6 (wire 50 and 60), maxed
 
 # The partner a combatant is assumed to wear where it is not the one
@@ -74,7 +77,7 @@ SIGNATURE_PARTNERS = {
 # marks a preset the maintainer's settings do not hold yet, whose
 # tie-breakers come from `like`.
 VARIANTS = {
-    "Beryl (Upgrade Deck)": {"settings": {"extra_pct": 80}},
+    "Beryl (Upgrade Deck)": {"settings": {"extra_pct": 100}},
     "Beryl (no Extra DMG)": {"settings": {"extra_pct": 0}},
     "Heidemarie (no Extra DMG)": {"settings": {"extra_pct": 0}},
     "Haru (Line of Justice)": {"set": 20},
@@ -195,7 +198,8 @@ class World:
         if prid:
             for cond, suffix in ((False, ""), (True, "_cond")):
                 passive = get_partner_passive_stats(
-                    prid, PARTNER_LIMIT_BREAK, conditional=cond)
+                    prid, PARTNER_LIMIT_BREAK.get(partner.get("grade"), 0),
+                    conditional=cond)
                 for stat, key in (("ATK%", "atk_pct"), ("DEF%", "def_pct"),
                                   ("HP%", "hp_pct"), ("CDmg", "cdmg"),
                                   ("Extra DMG%", "extra_dmg"),
@@ -345,7 +349,7 @@ def derive(world):
 def season_part(snapshot, now=None):
     """(season, part) a snapshot's live Galactic Disaster is in at `now`,
     as the Checklist dates its shop pages; (None, None) outside one. Also
-    what `checks/check_preset_weights_due.py` reads."""
+    what `checks/check_preset_weights.py` reads."""
     import schedules
     import shop_stock
     from chaos_estimate import part_of
@@ -539,7 +543,7 @@ def main(argv):
         target = SOURCE / "default_settings" / "presets.json"
         shipped = json.load(io.open(target, encoding="utf-8"))
         shipped["presets"].update(proposal)
-        target.write_text(json.dumps(shipped, indent=4), encoding="utf-8")
+        target.write_text(json.dumps(shipped, indent=2), encoding="utf-8")
         print("Written into %s" % target)
 
 

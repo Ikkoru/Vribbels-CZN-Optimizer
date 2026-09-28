@@ -45,8 +45,17 @@ Levels 61 and 62
 Promotion 5/5 grants +2 levels over the 60 cap. What each adds is kept
 per class and grade in `LEVEL_BONUS_BY_CLASS`, since every combatant of
 a pair observed gains the same; a combatant's own `level_61_bonus` /
-`level_62_bonus` key overrides it. `get_character_stats_at_level` adds
-nothing for a gain nobody has observed, so missing data is a no-op.
+`level_62_bonus` key overrides it. `table_stats_at_level` adds nothing
+for a gain nobody has observed, so missing data is a no-op.
+
+The server's own readings
+=========================
+
+`get_character_stats_at_level`, which the program asks, answers with the
+server's reading where `game_data.learned` holds one, and fills an
+unknown gain from readings too; `table_stats_at_level` and
+`level_bonus` are the tables alone, which the audit and the checks hold
+the server against. `docs/game_data_files.md` has the order.
 
 Lookups
 =======
@@ -859,9 +868,10 @@ LEVEL_BONUS_BY_CLASS = {
 
 
 def level_bonus(char_data: dict, level: int):
-    """What `level` (61 or 62) adds to `char_data`'s base, as
-    {"atk", "def", "hp"}: the combatant's own key, else their class and
-    grade's; None where neither is known."""
+    """What `level` (61 or 62) adds to `char_data`'s base per the
+    tables, as {"atk", "def", "hp"}: the combatant's own key, else their
+    class and grade's; None where neither is known. Never the server's
+    readings -- `get_character_stats_at_level` adds those."""
     own = char_data.get(f"level_{level}_bonus")
     if own is not None:
         return own
@@ -870,16 +880,19 @@ def level_bonus(char_data: dict, level: int):
     return pair.get(level)
 
 
-def get_character_stats_at_level(char_data: dict, level: int) -> dict:
-    """Return effective (base_atk, base_def, base_hp) at the given level.
+def table_stats_at_level(char_data: dict, level: int) -> dict:
+    """(base_atk, base_def, base_hp) at `level` from the tables alone.
 
-    For level <= 60: returns the level-60 base stats unchanged. Those
-    are the optimizer's working baseline, and the default for any
-    consumer that does not explicitly ask for a higher level.
+    For level <= 60: the level-60 base stats unchanged. Those are the
+    optimizer's working baseline, and the default for any consumer that
+    does not explicitly ask for a higher level.
 
     For level >= 61: adds what level 61 gains (and level 62's too, at
     62) on top of base, per `level_bonus`. A gain nobody has observed
     adds nothing, so the level-60 values stand in for it.
+
+    What the audit and the checks hold the server against; the program
+    itself asks `get_character_stats_at_level`.
 
     Args:
         char_data: a CHARACTERS-dict entry (the value, not the key).
@@ -901,3 +914,60 @@ def get_character_stats_at_level(char_data: dict, level: int) -> dict:
             base["base_def"] += gain.get("def", 0)
             base["base_hp"]  += gain.get("hp", 0)
     return base
+
+
+def get_character_stats_at_level(char_data: dict, level: int) -> dict:
+    """(base_atk, base_def, base_hp) at `level`: the server's reading
+    where `game_data.learned` holds one, else the tables'.
+
+    Without a reading at that level, the nearest one is walked to it by
+    the level gains -- the combatant's own, read off two readings; else
+    their characters.py key; else what every reading of their class and
+    grade agrees on; else `LEVEL_BONUS_BY_CLASS`. A level-60 base comes
+    back down from a level-61 or 62 reading only where every gain on the
+    way is known. Levels below 60 read as 60, and above 62 as 62.
+    """
+    from game_data import learned
+    known = learned.BASES.get(char_data.get("name"))
+    if not known and not learned.GAINS:
+        return table_stats_at_level(char_data, level)
+    level = 60 if level <= 60 else min(level, 62)
+    atk, def_, hp = _learned_at(char_data, level, known or {})
+    return {"base_atk": atk, "base_def": def_, "base_hp": hp}
+
+
+def _learned_at(char_data, level, known):
+    if level in known:
+        return known[level]
+    if level == 60:
+        for top in (61, 62):
+            if top in known:
+                gains = [_gain(char_data, step, known)
+                         for step in range(top, 60, -1)]
+                if None not in gains:
+                    return tuple(v - sum(g[k] for g in gains) for v, k in
+                                 zip(known[top], ("atk", "def", "hp")))
+        table = table_stats_at_level(char_data, 60)
+        return table["base_atk"], table["base_def"], table["base_hp"]
+    below = _learned_at(char_data, level - 1, known)
+    gain = _gain(char_data, level, known) or {}
+    return tuple(v + gain.get(k, 0) for v, k in
+                 zip(below, ("atk", "def", "hp")))
+
+
+def _gain(char_data, step, known):
+    """What `step` adds for `char_data`, by the order
+    `get_character_stats_at_level` gives; None where nothing says."""
+    from game_data import learned
+    if step in known and step - 1 in known:
+        return dict(zip(("atk", "def", "hp"),
+                        (a - b for a, b in zip(known[step],
+                                               known[step - 1]))))
+    own = char_data.get(f"level_{step}_bonus")
+    if own is not None:
+        return own
+    pair = (char_data.get("class"), char_data.get("grade"))
+    agreed = (learned.GAINS.get(pair) or {}).get(step)
+    if agreed is not None:
+        return agreed
+    return (LEVEL_BONUS_BY_CLASS.get(pair) or {}).get(step)

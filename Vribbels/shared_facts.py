@@ -2,9 +2,9 @@
 about the player's account: which ship with the program, which a
 player could add, and the file they send in.
 
-Seven kinds, each something the game stops listing after a while, so a
-player who installs late or never opened the right screen can never
-read it for themselves:
+Nine kinds. Seven are something the game stops listing after a while,
+so a player who installs late or never opened the right screen can
+never read it for themselves:
 
 * `banner_rates` -- a banner's rates reply: its odds and its pools.
 * `trial_slots` -- which Combatant Trial slots each trial event offers,
@@ -18,6 +18,19 @@ read it for themselves:
   players it ranked and its top score.
 * `offensive_fields` -- each Full-Scale Offensive's field, per server:
   how many players it ranked, to the hundred.
+
+Two are what the server says the program's own tables should hold,
+read out of battles (`base_stats_store`):
+
+* `base_stats` -- each combatant's base ATK/DEF/HP at each level from
+  60 to 62, which also gives the level gains;
+* `partner_stats` -- each partner's own flat ATK/DEF/HP at each level.
+
+**Only what the program lacks is news for those two**: a reading the
+tables already give (`characters.table_stats_at_level`,
+`partners.table_partner_stats`) is not sent. Where the tables are
+silent or wrong, the program uses them all the same -- the account's
+and the shipped ones, newest first (`game_data.learned`).
 
 **A whitelist.** `collect` names every field it copies and `clean`
 checks every value's shape, so a field the wire adds later cannot reach
@@ -70,7 +83,10 @@ FINALS = "final_rewards"
 TOPS = "rift_tops"
 SORTIE = "sortie_fields"
 OFFENSIVE = "offensive_fields"
-KINDS = (RATES, SLOTS, TOTALS, FINALS, TOPS, SORTIE, OFFENSIVE)
+BASES = "base_stats"
+PARTNER_FLATS = "partner_stats"
+KINDS = (RATES, SLOTS, TOTALS, FINALS, TOPS, SORTIE, OFFENSIVE, BASES,
+         PARTNER_FLATS)
 # The kinds kept per server, as {server: {season, ...: reading}}.
 RANKINGS = (TOPS, SORTIE, OFFENSIVE)
 
@@ -82,7 +98,15 @@ WORDS = {RATES: ("banner's rates", "banners' rates"),
          FINALS: ("final reward", "final rewards"),
          TOPS: ("Great Rift division top", "Great Rift division tops"),
          SORTIE: ("Sortie season", "Sortie seasons"),
-         OFFENSIVE: ("Full-Scale Offensive", "Full-Scale Offensives")}
+         OFFENSIVE: ("Full-Scale Offensive", "Full-Scale Offensives"),
+         BASES: ("combatant base stat reading",
+                 "combatant base stat readings"),
+         PARTNER_FLATS: ("partner flat stat reading",
+                         "partner flat stat readings")}
+
+# The two kinds read per id and level, and the field each reading's
+# three stats sit under.
+LEVELLED = {BASES: "base", PARTNER_FLATS: "flat"}
 
 # `capture.constants.SERVERS`' keys, written out rather than imported:
 # importing the capture package pulls in far more than this module
@@ -163,6 +187,35 @@ def clean(facts):
            FINALS: _clean_lists(facts.get(FINALS))}
     for kind in RANKINGS:
         out[kind] = _clean_rankings(kind, facts.get(kind))
+    for kind, field in LEVELLED.items():
+        out[kind] = _clean_levelled(field, facts.get(kind))
+    return out
+
+
+# No level a reading can be at lies outside this.
+LEVELS = range(1, 100)
+
+
+def _clean_levelled(field, raw):
+    """{id: {level: {field: [atk, def, hp], read_at}}}, ids and levels as
+    the digit strings a JSON file keys them by."""
+    out = {}
+    for key, levels in _items(raw):
+        if not (_is_id(str(key)) and str(key).isdigit()):
+            continue
+        for level, reading in _items(levels):
+            level = str(level)
+            if not (level.isdigit() and int(level) in LEVELS
+                    and isinstance(reading, dict)):
+                continue
+            values = reading.get(field)
+            read_at = _count(reading.get("read_at"))
+            if read_at is None or not isinstance(values, list) \
+                    or len(values) != 3 or not all(
+                        _is_int(v) and v >= 0 for v in values):
+                continue
+            out.setdefault(str(key), {})[level] = {field: list(values),
+                                                    "read_at": read_at}
     return out
 
 
@@ -271,12 +324,13 @@ def _get(tree, path):
 
 # ----------------------------------------------------------- gathering
 
-def collect(raw, history, captured, checklist):
+def collect(raw, history, captured, checklist, battles=None):
     """The account's facts, through the whitelist.
 
     `raw` is the newest snapshot, `history` `stats_history.json`,
-    `captured` the Gacha History's `captured.json` and `checklist`
-    `checklist.json` -- each as loaded, and any of them None.
+    `captured` the Gacha History's `captured.json`, `checklist`
+    `checklist.json` and `battles` the base stat readings' battles --
+    each as loaded, and any of them None.
     """
     raw = raw if isinstance(raw, dict) else {}
     captured = captured if isinstance(captured, dict) else {}
@@ -286,7 +340,26 @@ def collect(raw, history, captured, checklist):
              TOTALS: checklist.get("events"),
              FINALS: checklist.get("finals")}
     facts.update(_rankings_by_region(raw, history))
+    facts.update(readings_of(battles))
     return clean(facts)
+
+
+def readings_of(battles):
+    """{BASES: ..., PARTNER_FLATS: ...} out of the base stat readings'
+    battles: every combatant base and partner flat they settle, in the
+    shape the file keeps."""
+    import base_stats_store
+    battles = [b for b in battles or () if isinstance(b, dict)]
+    out = {BASES: {}, PARTNER_FLATS: {}}
+    for kind, found, field in (
+            (BASES, base_stats_store.learned_bases(battles), "base"),
+            (PARTNER_FLATS, base_stats_store.partner_flats(battles),
+             "flat")):
+        for key, levels in found.items():
+            for level, reading in levels.items():
+                out[kind].setdefault(str(key), {})[str(level)] = {
+                    field: reading[field], "read_at": reading["read_at"]}
+    return clean(out)
 
 
 # Where each ranking kind comes from, in a snapshot and in
@@ -360,6 +433,7 @@ def collect_from(program_dir, raw=None):
     """`collect` over the files under `program_dir` -- the folder that
     holds `settings/` and `snapshots/`. `raw` is the snapshot already
     loaded; without one the newest in `snapshots/` is read."""
+    import base_stats_store
     import gacha_history
     import stats_history
     program_dir = Path(program_dir)
@@ -369,8 +443,9 @@ def collect_from(program_dir, raw=None):
         raw = _read_json(newest[-1]) if newest else None
     captured, _note = gacha_history.read_store(
         gacha_history.folder_in(snapshots) / gacha_history.CAPTURED)
+    battles, _note = base_stats_store.read(snapshots)
     return collect(raw, stats_history.load(settings), captured,
-                   _read_json(settings / "checklist.json"))
+                   _read_json(settings / "checklist.json"), battles)
 
 
 def _read_json(path):
@@ -456,12 +531,42 @@ def missing(mine, shipped):
             for path, reading in _walk(tree, DEPTH[kind]):
                 if _is_news(kind, path, reading, _get(held, path), newest):
                     _put(out[kind].setdefault(region, {}), path, reading)
+    for kind, field in LEVELLED.items():
+        for key, levels in mine[kind].items():
+            for level, reading in levels.items():
+                held = shipped[kind].get(key, {}).get(level)
+                if held is None:
+                    news = reading[field] != _table(kind, key, level)
+                else:
+                    news = reading["read_at"] > held["read_at"] \
+                        and reading[field] != held[field]
+                if news:
+                    out[kind].setdefault(key, {})[level] = reading
     return out
+
+
+def _table(kind, key, level):
+    """What the program's own table gives for one reading: a combatant's
+    base, or a partner's flat stats, at `level`; None for an id the
+    table does not have."""
+    if kind == BASES:
+        from game_data.characters import CHARACTERS, table_stats_at_level
+        char = CHARACTERS.get(int(key))
+        if not isinstance(char, dict):
+            return None
+        got = table_stats_at_level(char, int(level))
+        return [got["base_atk"], got["base_def"], got["base_hp"]]
+    from game_data.partners import PARTNERS, table_partner_stats
+    if int(key) not in PARTNERS:
+        return None
+    got = table_partner_stats(int(key), int(level))
+    return [got["atk"], got["def"], got["hp"]]
 
 
 def tally(facts):
     """{kind: how many entries of it}: a banner, an id in a list, an
-    instalment, a subdivision's top or a season's field each."""
+    instalment, a subdivision's top, a season's field or a reading at a
+    level each."""
     facts = clean(facts)
     counts = {RATES: len(facts[RATES]),
               SLOTS: sum(map(len, facts[SLOTS].values())),
@@ -470,6 +575,8 @@ def tally(facts):
     for kind in RANKINGS:
         counts[kind] = sum(len(list(_walk(tree, DEPTH[kind])))
                            for tree in facts[kind].values())
+    for kind in LEVELLED:
+        counts[kind] = sum(map(len, facts[kind].values()))
     return counts
 
 
@@ -512,11 +619,12 @@ def fold(into, facts):
     Slots and final rewards are unioned, the bigger instalment total
     wins, and a later reading that says something different replaces
     an earlier one -- of a running season too, whose latest figure is
-    the one to ship. **A banner already held with DIFFERENT rates is
-    refused rather than replaced**: the same banner read two ways is a
-    question for the maintainer, not an update. Folding the same facts
-    twice changes nothing the second time, and nothing held is ever
-    dropped -- `lost` holds a fold to that.
+    the one to ship, and of a combatant's base or a partner's flat
+    stats, which a patch moves. **A banner already held with DIFFERENT
+    rates is refused rather than replaced**: the same banner read two
+    ways is a question for the maintainer, not an update. Folding the
+    same facts twice changes nothing the second time, and nothing held
+    is ever dropped -- `lost` holds a fold to that.
 
     **A later reading whose figures went DOWN is folded and listed
     apart.** A field's size, its top score and a subdivision's starting
@@ -567,6 +675,21 @@ def fold(into, facts):
                     (down if fell else added).append(
                         "%s: %s" % (line, change))
                 _put(held, path, reading)
+    for kind, field in LEVELLED.items():
+        for key, levels in facts[kind].items():
+            held = out[kind].setdefault(key, {})
+            for level, reading in levels.items():
+                before = held.get(level)
+                line = "%s %s at level %s" % (WORDS[kind][0], key, level)
+                if before is None:
+                    added.append("%s: %s, new" % (line, reading[field]))
+                elif reading["read_at"] > before["read_at"] \
+                        and reading[field] != before[field]:
+                    added.append("%s: %s -> %s" % (line, before[field],
+                                                   reading[field]))
+                else:
+                    continue
+                held[level] = reading
     return clean(out), added, refused, down
 
 
@@ -592,6 +715,13 @@ def lost(before, after):
                 if now is None or now["read_at"] < reading["read_at"]:
                     gone.append("%s %s of %s" % (
                         region, WORDS[kind][0], "/".join(path)))
+    for kind in LEVELLED:
+        for key, levels in before[kind].items():
+            for level, reading in levels.items():
+                now = after[kind].get(key, {}).get(level)
+                if now is None or now["read_at"] < reading["read_at"]:
+                    gone.append("%s %s at level %s" % (WORDS[kind][0], key,
+                                                       level))
     return gone
 
 
@@ -702,3 +832,21 @@ def fields_for(shipped, kind, region):
     """{season: reading} of `kind` -- `SORTIE` or `OFFENSIVE` -- that
     the program ships for `region`."""
     return dict(((shipped or {}).get(kind) or {}).get(region) or {})
+
+
+def levelled_with(own, shipped, kind):
+    """{id: {level: [atk, def, hp]}} of `kind` -- `BASES` or
+    `PARTNER_FLATS` -- from the account's readings and the shipped ones,
+    the later of the two per id and level: what `game_data.learned`
+    installs."""
+    field = LEVELLED[kind]
+    newest = {}
+    for tree in (((shipped or {}).get(kind) or {}), own or {}):
+        for key, levels in _items(tree):
+            for level, reading in _items(levels):
+                held = newest.get(key, {}).get(level)
+                if held is None or reading["read_at"] >= held["read_at"]:
+                    newest.setdefault(key, {})[level] = reading
+    return {key: {level: list(reading[field])
+                  for level, reading in levels.items()}
+            for key, levels in newest.items()}

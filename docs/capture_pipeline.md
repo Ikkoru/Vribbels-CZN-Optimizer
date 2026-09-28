@@ -64,7 +64,15 @@ The app refreshes the Stats & Gacha History tab's pull history on `GACHA_MARKER`
 
 ## The Chaos runs are kept in a file of their own
 
-A Chaos run is followed through its commands -- `disaster/enter_disaster_chaos_stage` or `zero_orb/enter_zero_stage` to `stage/clear_stage` -- and **learned, not received**: one record per run, with its season (from the standings) and season part (from the schedules), the Chaos by its stage id, the door it came in by and whether the Delegation Module played it, the game version (from `helo`), the fights by spot, the marked fights, each payout taken with its floor, spot and mark, and for a lost run where it was lost and how many non-boss fights its map had left. `Addon._note_chaos` says what a payout is and what marks a fight.
+A Chaos run is followed through its commands, from `disaster/enter_disaster_chaos_stage` or `zero_orb/enter_zero_stage` to `stage/clear_stage`, and is **learned, not received**. One record per run holds:
+
+- its season (from the standings) and season part (from the schedules), and the Chaos by its stage id;
+- the door it came in by, and whether the Delegation Module played it;
+- the game version (from `helo`);
+- the fights by spot, the marked fights, and each payout taken with its floor, spot and mark;
+- for a lost run, where it was lost and how many non-boss fights its map had left.
+
+`Addon._note_chaos` says what a payout is and what marks a fight.
 
 Each run goes, as it clears, to `snapshots/chaos_runs/runs.json.gz`, never into the snapshot, through the same checked copy as the pull history and with its one `.bak`. Every run is kept, each once; runs an older snapshot still carries as `chaos_runs` are folded in by the first capture to start after it. `chaos_store.py` owns the file's place and name and reads it for the Checklist's season estimate (`chaos_estimate`) and `docs/chaos_runs.py`.
 

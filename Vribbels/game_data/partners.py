@@ -2,8 +2,8 @@
 
 Each character equips one partner card, which contributes:
 
-1. **Flat ATK/DEF/HP**, added before the inner-layer multipliers. Scales
-   LINEARLY with partner level.
+1. **Flat ATK/DEF/HP**, added before the inner-layer multipliers. Grows
+   with partner level.
 2. **Passive stat bonuses** (%), varying with limit break (E0-E4). See
    `get_partner_passive_stats`.
 3. A named passive ability whose effect text scales with limit break —
@@ -33,9 +33,13 @@ profiles at that granularity — two 4-star Controllers have the same
 level-60 stats regardless of which they are. Verified against snapshot
 data.
 
-`get_partner_stats(res_id, level)` scales LINEARLY from 0 at level 0 to
-base at level 60. The game may use a slightly different curve, but the
-approximation is within rounding error at the levels that matter (50+).
+Below level 60 the game's curve is not linear. `table_partner_stats`
+scales linearly from 0 at level 0 to base at level 60, which misses the
+server by a point or two at 50 and above and by more lower down.
+`get_partner_stats`, which the program asks, takes the server's reading
+where `game_data.learned` holds one -- this partner's at that level,
+else another of its grade and class, which share their curve -- and the
+linear figure otherwise.
 
 `get_partner_passive_stats` reads the five-tuple in `stats` by limit
 break index (`conditional=True` reads `stats_conditional` instead).
@@ -1100,16 +1104,15 @@ def get_partner_base_stats(res_id: int) -> dict:
     return base
 
 
-def get_partner_stats(res_id: int, level: int) -> dict:
-    """Return effective ATK / DEF / HP for a partner at the given level.
+def table_partner_stats(res_id: int, level: int) -> dict:
+    """ATK / DEF / HP for a partner at the given level, from the table.
 
     Scales LINEARLY from 0 at level 0 to base at level 60:
         scaled = floor(base * (level / 60))
 
-    Linear is an approximation -- the game may use a slightly different
-    curve internally -- but the discrepancy is well within the rounding
-    error that matters for build comparison, especially at endgame
-    levels (50+). For the optimizer's purposes, this is correct.
+    Exact at 60; below it the game's curve differs by a point or two at
+    50 and above and by more lower down. What the audit and the checks
+    hold the server against; the program asks `get_partner_stats`.
 
     Note: a level > 60 partner will return MORE than base stats here
     (scale > 1.0). PARTNER_EXP_TABLE caps at level 60, so in practice
@@ -1123,6 +1126,26 @@ def get_partner_stats(res_id: int, level: int) -> dict:
         "def": int(base["def"] * scale),
         "hp": int(base["hp"] * scale),
     }
+
+
+def get_partner_stats(res_id: int, level: int) -> dict:
+    """ATK / DEF / HP for a partner at the given level: the server's
+    reading where `game_data.learned` holds one -- this partner's, else
+    another's of the same grade and class, which share the curve --
+    else `table_partner_stats`."""
+    from game_data import learned
+    known = (learned.PARTNER_FLATS.get(res_id) or {}).get(level)
+    if known is None and learned.PARTNER_FLATS:
+        mine = get_partner(res_id)
+        pair = (mine.get("grade"), mine.get("class"))
+        known = next((levels[level]
+                      for pid, levels in sorted(learned.PARTNER_FLATS.items())
+                      if level in levels and pid in PARTNERS
+                      and (PARTNERS[pid].get("grade"),
+                           PARTNERS[pid].get("class")) == pair), None)
+    if known is None:
+        return table_partner_stats(res_id, level)
+    return {"atk": known[0], "def": known[1], "hp": known[2]}
 
 
 def get_partner_passive_stats(res_id: int, limit_break: int,

@@ -201,6 +201,15 @@ def main(argv=None):
             # here, they go on the main thread. Pinned by
             # check_runner_collects.
             gc.collect()
+            # NOT redundant either. What the server has said about the
+            # game's tables is process-wide (`game_data.learned`), and
+            # a check that loads data through the app installs it; left
+            # in place, every later check comparing the tables with the
+            # server would read the server back as the tables and pass.
+            # Pinned by check_base_stats_on_wire.
+            learned = sys.modules.get("game_data.learned")
+            if learned is not None:
+                learned.clear()
         elapsed = f"{time.time() - t:.1f}s"
         if problems:
             print(f"{RED}FAIL{RESET} {mod.NAME} {DIM}{elapsed}{RESET}")

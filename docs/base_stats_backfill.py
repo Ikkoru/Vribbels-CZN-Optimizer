@@ -20,11 +20,15 @@ runs, so no snapshot is written. A battle already on file is recognised
 and only its last sighting moves, so running it twice files nothing
 twice.
 
-**The report is `base_stats_store.audit`**: which combatants
-characters.py has wrong or lacks, what a level-61 or 62 gain is where
-the program does not know it, which base stats changed between plain
-readings (a patch), and who has not yet appeared in a plain battle --
-take those into any stage outside Chaos during a debug capture.
+**The report is `base_stats_store.audit` and `formula_gaps`**: which
+combatants characters.py has wrong or lacks -- read in a plain battle,
+or worked out of a Chaos or Sortie one -- what a level-61 or 62 gain is
+where the program does not know it, which base stats changed between
+plain readings (a patch), the Chaos battles whose combatants disagree
+on the bonus, the partners whose flat stats `get_partner_stats` gets
+wrong, where the program's stat formula misses the server's sheet, and
+who nothing has settled yet -- take those into any stage outside Chaos
+during a debug capture.
 """
 
 import glob
@@ -123,40 +127,53 @@ def main(argv):
     folder = SNAPSHOTS if write else Path(tempfile.mkdtemp())
     if not write:
         # A report starts from what is on file, in a scratch copy.
-        stored, _note = base_stats_store.read(SNAPSHOTS)
+        battles, builds, _note = base_stats_store.read_store(SNAPSHOTS)
         target = base_stats_store.path_in(folder)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps({"kind": base_stats_store.KIND,
-                                      "version": 1, "battles": stored}),
+                                      "version": 2, "battles": battles,
+                                      "builds": builds}),
                           encoding="utf-8")
     addon, real_write = _addon(folder)
     for name, open_log in _logs():
         print("%-45s %4d battle entries" % (name, _replay(addon, open_log)))
     battles = addon.base_battles or []
-    print("%d distinct battles on file%s" % (
-        len(battles), "" if write else " (not written: --write files them)"))
+    builds = addon.base_builds or []
+    print("%d distinct battles and %d builds on file%s" % (
+        len(battles), len(builds),
+        "" if write else " (not written: --write files them)"))
     if write and addon.base_battles:
         real_write()
-
-    found = base_stats_store.audit(battles)
     if "--battles" in argv:
-        from game_data.characters import CHARACTERS
-        plain = {id(b) for b in base_stats_store.plain_battles(battles)}
-        print()
-        print("BATTLES: last seen, mode, stage, Zero System, plain, who")
-        for b in sorted(battles, key=lambda b: b.get("last") or 0):
-            who = ", ".join(
-                "%s %s" % ((CHARACTERS.get(r.get("res_id")) or {}).get(
-                    "name", r.get("res_id")), r.get("level"))
-                for r in b.get("chars") or [])
-            print("  %s %-24s %-8s %-5s %-5s %s" % (
-                _when(b.get("last")), b.get("content"), b.get("stage"),
-                b.get("zero_system"), id(b) in plain, who))
+        _list_battles(battles)
+    _report(base_stats_store.audit(battles),
+            base_stats_store.formula_gaps(builds))
+
+
+def _list_battles(battles):
+    from game_data.characters import CHARACTERS
     print()
-    print("WRONG in characters.py (newest plain reading):")
-    for name, level, wire, program, last in found["differs"]:
-        print("  %-12s lvl %-3s server %-17s characters.py %-17s (%s)" % (
-            name, level, wire, program, _when(last)))
+    print("BATTLES: last seen, mode, stage, Zero System stat effects, who")
+    for b in sorted(battles, key=lambda b: b.get("last") or 0):
+        who = ", ".join(
+            "%s %s" % ((CHARACTERS.get(r.get("res_id")) or {}).get(
+                "name", r.get("res_id")), r.get("level"))
+            for r in b.get("chars") or [])
+        groups = sorted({e[0] for e in b.get("effects") or ()
+                         if isinstance(e, list) and e})
+        print("  %s %-30s %-10s %-5s %s %s" % (
+            _when(b.get("last")), b.get("content"), b.get("stage"),
+            b.get("zero_system"), ",".join(g.replace("ZERO_", "")
+                                           for g in groups) or "-", who))
+
+
+def _report(found, gaps):
+    from game_data.characters import CHARACTERS
+    print()
+    print("WRONG in characters.py (newest plain reading, else worked out):")
+    for name, level, wire, program, last, how in found["differs"]:
+        print("  %-12s lvl %-3s server %-17s characters.py %-17s %-7s (%s)" % (
+            name, level, wire, program, how, _when(last)))
     print("MISSING from characters.py:")
     for rid, level, wire, last in found["missing"]:
         print("  res_id %-8s lvl %-3s server %s (%s)" % (rid, level, wire,
@@ -169,9 +186,22 @@ def main(argv):
     for name, level, older, newer, old_last, new_first in found["changed"]:
         print("  %-12s lvl %-3s %s until %s, %s from %s" % (
             name, level, older, _when(old_last), newer, _when(new_first)))
-    print("NOT YET IN A PLAIN BATTLE:")
+    print("SET ASIDE: battles whose combatants say different bonuses:")
+    for stage, content, stat, bonuses, last in found["conflicts"]:
+        print("  stage %s (%s) %s: %s (%s)" % (stage, content, stat, bonuses,
+                                              _when(last)))
+    print("PARTNER flat stats unlike get_partner_stats:")
+    for name, level, wire, program, last in found["partners"]:
+        print("  %-12s lvl %-3s server %-15s program %-15s (%s)" % (
+            name, level, wire, program, _when(last)))
+    print("STAT FORMULA unlike the server's sheet:")
+    for rid, what, server, program in gaps:
+        name = (CHARACTERS.get(rid) or {}).get("name", rid) \
+            if isinstance(CHARACTERS.get(rid), dict) else rid
+        print("  %-12s %-28s server %-12s program %s" % (name, what, server,
+                                                       program))
+    print("NOT YET SETTLED BY ANY BATTLE:")
     print("  " + (", ".join(found["unseen"]) or "-"))
-
 
 if __name__ == "__main__":
     main(sys.argv[1:])

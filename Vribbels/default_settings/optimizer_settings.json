@@ -11,7 +11,7 @@
       "extra_pct": 100,
       "dot_pct": 0,
       "atk_def_split": 0,
-      "shielding_healing_weight": 95,
+      "shielding_healing_weight": 99,
       "force_main": {
         "slot4_hp": false,
         "slot5_hp": false,

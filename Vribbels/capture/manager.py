@@ -172,6 +172,14 @@ CATALOGUE_MAX = 4000
 # seen first. A battle repeated with the same team is one entry, so
 # this is teams and stages, not entries. See `Addon._note_base_stats`.
 BASE_KEEP = 500
+# And of distinct builds -- fragments, nodes and partner -- with the
+# sheet the server stated for each: what `base_stats_store.formula_gaps`
+# runs the stat formula over.
+BUILD_KEEP = 100
+# The Zero System effect groups filed with a battle: the ones that can
+# move a combatant's sheet. A Chaos stage's stat nodes are
+# ZERO_CHARACTER_STAT__TYPE_VALUE; a Sortie's are ZERO_TACTICS_*.
+BASE_EFFECT_GROUPS = ("ZERO_CHARACTER_", "ZERO_TACTICS_")
 
 # A Chaos run, as the capture follows one: what opens it, what clears
 # it, the spot and the fight each floor holds, and the drop the player
@@ -224,6 +232,14 @@ def _chaos_mark(fight):
         digits = str(fight.get("break_in_res_id") or "").rsplit("_", 1)[-1]
         marks.insert(0, "b%d" % int(digits) if digits.isdigit() else "b")
     return "+".join(marks)
+
+
+def _numbers(block):
+    """The numeric entries of a dict, as filed: the rest dropped."""
+    if not isinstance(block, dict):
+        return {}
+    return {k: v for k, v in block.items()
+            if isinstance(v, (int, float)) and not isinstance(v, bool)}
 
 
 class Addon:
@@ -388,8 +404,9 @@ class Addon:
         self.chaos_fight_key = None
         # The base stat readings of every battle entered, from their own
         # file on first need; False where that file will not read. See
-        # `_note_base_stats`.
+        # `_note_base_stats`. The builds come with them.
         self.base_battles = None
+        self.base_builds = []
         # Whether the run being opened is the Delegation Module's: said
         # only in what the client sends to open it.
         self.chaos_delegated = False
@@ -2196,75 +2213,139 @@ class Addon:
         return True
 
     def _note_base_stats(self, asked, data):
-        """File what the server says each combatant's base stats are.
+        """File what the server says each combatant's stats are.
 
         A battle's entry carries its combatants under
-        `stage_info.enter_chars`, each with its level and a `status.info`
-        block: `BASE_S_ATK`, `BASE_S_DEF` and `BASE_S_HP` are the base at
-        that level, `S_PARTNER_BASE_*` the partner's flat stats. Read by
-        the shape rather than the command, so a battle entered another
-        way is filed too. `zero_system` says whether the battle carries
-        Zero System effects, which add to the base; which battles are
-        believed is the reader's call -- `base_stats_store.audit`.
+        `stage_info.enter_chars` and their partners under
+        `stage_info.enter_supporters`, at the same places. Per
+        combatant, from its `status.info` block: `BASE_S_*` is the base
+        at their level, `S_PARTNER_BASE_*` the partner's flat stats as
+        the sheet counts them, and `S_*_INC_RATE_OUT` / `S_*_INC_ADD_OUT`
+        the inner layer. `potential_base_status` is the stat the
+        Potential 7 check reads, computed outside the battle. Read by the
+        shape rather than the command, so a battle entered another way
+        is filed too. `effects` are the Zero System effects whose group
+        starts with one of BASE_EFFECT_GROUPS: the ones that can move a
+        combatant's sheet. Which battles are believed is the reader's
+        call -- `base_stats_store.resolve`.
 
-        One entry per distinct battle -- stage, Zero System and the
-        readings -- with the server time it was first and last seen; the
-        newest BASE_KEEP are kept.
+        One entry per distinct battle, with the server time it was first
+        and last seen; the newest BASE_KEEP are kept. Each distinct build
+        -- fragments, potential nodes, partner and the whole status --
+        goes to the builds the same way, the newest BUILD_KEEP kept.
         """
         info = data.get("stage_info")
         if not isinstance(info, dict):
             return
-        chars = []
-        for rec in info.get("enter_chars") or []:
+        sups = info.get("enter_supporters")
+        sups = sups if isinstance(sups, list) else []
+        effs = data.get("zero_system_effs")
+        chars, builds = [], []
+        for i, rec in enumerate(info.get("enter_chars") or []):
             status = rec.get("status") if isinstance(rec, dict) else None
             st = status.get("info") if isinstance(status, dict) else None
             if not isinstance(st, dict) or "BASE_S_ATK" not in st:
                 continue
-            chars.append({
+            row = {
                 "res_id": rec.get("res_id"), "level": rec.get("level"),
+                "lb": rec.get("limit_break"),
                 "base": [st.get("BASE_S_ATK"), st.get("BASE_S_DEF"),
                          st.get("BASE_S_HP")],
                 "partner": [st.get("S_PARTNER_BASE_ATK"),
                             st.get("S_PARTNER_BASE_DEF"),
-                            st.get("S_PARTNER_BASE_HP")]})
+                            st.get("S_PARTNER_BASE_HP")],
+                "inner": _numbers(rec.get("potential_base_status")),
+                "layers": {k: v for k, v in _numbers(st).items()
+                           if k.endswith(("_INC_RATE_OUT", "_INC_ADD_OUT"))
+                           and k[2:5] in ("ATK", "DEF", "HP_")}}
+            sup = sups[i] if i < len(sups) and isinstance(sups[i], dict) \
+                else {}
+            if sup.get("res_id"):
+                sup_st = (sup.get("status") or {}).get("info") \
+                    if isinstance(sup.get("status"), dict) else None
+                sup_st = sup_st if isinstance(sup_st, dict) else {}
+                row.update(partner_id=sup.get("res_id"),
+                           partner_level=sup.get("level"),
+                           partner_lb=sup.get("limit_break"),
+                           partner_flat=[sup_st.get("S_ATK_INC_ADD_OUT"),
+                                         sup_st.get("S_DEF_INC_ADD_OUT"),
+                                         sup_st.get("S_HP_INC_ADD_OUT")])
+            chars.append(row)
+            pieces = rec.get("equipped_pieces")
+            builds.append({
+                "res_id": row["res_id"], "level": row["level"],
+                "nodes": rec.get("potential_node_ids"),
+                "partner_id": row.get("partner_id"),
+                "partner_lb": row.get("partner_lb"),
+                "pieces": [{k: p.get(k) for k in ("id", "res_id", "level",
+                                                  "stat_list")}
+                           for p in (pieces.values() if isinstance(
+                               pieces, dict) else ())
+                           if isinstance(p, dict)],
+                "inner": row["inner"], "status": _numbers(st),
+                "zero_system": bool(effs)})
         if not chars:
             return
         if self.base_battles is None:
             stored = self._read_base_store()
-            self.base_battles = False if stored is None else stored
+            if stored is None:
+                self.base_battles = False
+            else:
+                self.base_battles, self.base_builds = stored
         if self.base_battles is False:
             return
+        effects = []
+        for group, entries in sorted((effs or {}).items()
+                                     if isinstance(effs, dict) else ()):
+            if not str(group).startswith(BASE_EFFECT_GROUPS):
+                continue
+            for e in entries if isinstance(entries, list) else ():
+                opts = e.get("opt_values") if isinstance(e, dict) else None
+                opts = opts if isinstance(opts, dict) else {}
+                effects.append([group, e.get("zero_system_eff_id")
+                                if isinstance(e, dict) else None,
+                                [v for _k, v in sorted(opts.items())
+                                 if v != -1]])
         playing = data.get("playing_stage_info")
         playing = playing if isinstance(playing, dict) else {}
         when = data.get("service_server_time")
         if not isinstance(when, (int, float)):
             when = int(time.time())
         battle = {"stage": playing.get("stage_id"),
-                  "zero_system": bool(data.get("zero_system_effs")),
+                  "zero_system": bool(effs), "effects": effects,
                   "chars": sorted(chars, key=lambda r: str(r["res_id"]))}
-        same = next((b for b in self.base_battles
-                     if all(b.get(k) == v for k, v in battle.items())), None)
+        self._file_sighting(self.base_battles, battle, when, BASE_KEEP,
+                            asked=asked,
+                            content=playing.get("ingame_content_config_id"))
+        for build in builds:
+            self._file_sighting(self.base_builds, build, when, BUILD_KEEP)
+        self._write_base_store()
+
+    def _file_sighting(self, held, entry, when, keep, **extra):
+        """File `entry` in `held` once: a second sighting moves only its
+        first and last server times -- the earliest and latest, whatever
+        order the frames came in, since a backfill replays old logs after
+        the file has newer ones. A new entry takes `extra` too, and only
+        the newest `keep` by last sighting stay."""
+        same = next((h for h in held
+                     if all(h.get(k) == v for k, v in entry.items())), None)
         if same is not None:
-            # Earliest and latest, whatever order the frames came in: a
-            # backfill replays old logs after the file has newer ones.
             same["first"] = min(same.get("first") or when, when)
             same["last"] = max(same.get("last") or when, when)
-        else:
-            battle.update(first=when, last=when, asked=asked,
-                          content=playing.get("ingame_content_config_id"))
-            self.base_battles.append(battle)
-            self.base_battles.sort(key=lambda b: b.get("last") or 0)
-            del self.base_battles[:-BASE_KEEP]
-        self._write_base_store()
+            return
+        entry.update(first=when, last=when, **extra)
+        held.append(entry)
+        held.sort(key=lambda h: h.get("last") or 0)
+        del held[:-keep]
 
     def _base_path(self):
         return self.output_dir / BASE_FOLDER / BASE_FILE
 
     def _read_base_store(self):
-        """The readings' file as a list of battles: [] where there is no
-        file yet, None where one is there and will not read -- left
-        alone for the session rather than started over. Falls back to
-        the backup, as `base_stats_store.read` does."""
+        """The readings' file as (battles, builds): empty lists where
+        there is no file yet, None where one is there and will not read --
+        left alone for the session rather than started over. Falls back
+        to the backup, as `base_stats_store.read_store` does."""
         path = self._base_path()
         there = False
         for candidate in (path, path.with_name(path.name + ".bak")):
@@ -2278,13 +2359,15 @@ class Addon:
                 continue
             battles = data.get("battles") if isinstance(data, dict) else None
             if isinstance(battles, list):
-                return [b for b in battles if isinstance(b, dict)]
+                builds = data.get("builds")
+                return ([b for b in battles if isinstance(b, dict)],
+                        [b for b in builds or () if isinstance(b, dict)])
         if there:
             self.log_callback(
                 "[X] Base stat readings: " + path.name + " could not be "
                 "read, so this session's are not filed.")
             return None
-        return []
+        return [], []
 
     def _write_base_store(self):
         """Write the readings through a copy that is read back and must
@@ -2293,8 +2376,8 @@ class Addon:
         path = self._base_path()
         tmp = path.with_name(path.name + ".tmp")
         bak = path.with_name(path.name + ".bak")
-        store = {"kind": BASE_KIND, "version": 1,
-                 "battles": self.base_battles}
+        store = {"kind": BASE_KIND, "version": 2,
+                 "battles": self.base_battles, "builds": self.base_builds}
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(tmp, "w", encoding="utf-8") as f:

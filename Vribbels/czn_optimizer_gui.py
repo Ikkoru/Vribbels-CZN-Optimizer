@@ -1187,6 +1187,8 @@ class OptimizerGUI:
     def load_data(self, filepath: str):
         try:
             self._let_the_checklist_record()
+            self._learn_from_readings(
+                self.app_context.program_dir / "snapshots")
             self.optimizer.load_data(filepath)
 
             # Ensure every character we just loaded has a row in
@@ -1224,6 +1226,22 @@ class OptimizerGUI:
             messagebox.showerror("Error", f"Failed to load: {e}")
             import traceback
             traceback.print_exc()
+
+    def _learn_from_readings(self, snapshots):
+        """What the server has said about bases and partner flats --
+        the account's own battle readings and the shipped ones -- into
+        `game_data.learned`, before the load computes a stat. Read on
+        every load, since a capture files new readings as it runs."""
+        import base_stats_store
+        from game_data import learned
+        battles, _note = base_stats_store.read(snapshots)
+        own = shared_facts.readings_of(battles)
+        shipped = self.app_context.shared_facts
+        learned.install(
+            shared_facts.levelled_with(own[shared_facts.BASES], shipped,
+                                       shared_facts.BASES),
+            shared_facts.levelled_with(own[shared_facts.PARTNER_FLATS],
+                                       shipped, shared_facts.PARTNER_FLATS))
 
     def _refresh_built_tabs(self):
         """A load, told to the slot tabs built so far. One not built yet
