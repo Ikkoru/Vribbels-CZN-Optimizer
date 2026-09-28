@@ -42,11 +42,11 @@ Each character has a fixed tier per node from the data file.
 Levels 61 and 62
 ================
 
-Promotion 5/5 grants +2 levels over the 60 cap, and the gains differ per
-character, so they are optional `level_61_bonus` / `level_62_bonus` keys
-of shape `{"atk": +X, "def": +Y, "hp": +Z}`, additive over the level-60
-base. `get_character_stats_at_level` falls back to the level-60 values
-when they are absent, so missing data is a no-op.
+Promotion 5/5 grants +2 levels over the 60 cap. What each adds is kept
+per class and grade in `LEVEL_BONUS_BY_CLASS`, since every combatant of
+a pair observed gains the same; a combatant's own `level_61_bonus` /
+`level_62_bonus` key overrides it. `get_character_stats_at_level` adds
+nothing for a gain nobody has observed, so missing data is a no-op.
 
 Lookups
 =======
@@ -79,7 +79,8 @@ DEFAULT_CHARACTER = {
 
 # Unified character/hero data: res_id -> all character information
 # Contains: name, grade, attribute, class, and base stats at level 60
-# See get_character_stats_at_level() below for how stats at level 61 are applied
+# See get_character_stats_at_level() below for how levels 61 and 62 add
+# to them.
 # Note: Stats marked with # TBC or # Assumed need actual game data
 CHARACTERS = {
     0: None,  # Special case for unequipped
@@ -95,7 +96,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "HP%",
-        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},  # Assumed based on Maribell
     },
     1040: {
         "name": "Beryl",
@@ -219,7 +219,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
-        "level_61_bonus": {"atk": 8, "def": 2, "hp": 7},  # Assumed based on Beryl
     },
     1009: {
         "name": "Tressa",
@@ -246,7 +245,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
-        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},  # Assumed based on Heidemarie
     },
     1064: {
         "name": "Kayron",
@@ -260,7 +258,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Tenebria
     },
     1008: {
         "name": "Khalipe",
@@ -301,7 +298,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "HP%",
-        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},  # Assumed based on Adelheid
     },
     1027: {
         "name": "Mei Lin",
@@ -315,7 +311,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Haru
     },
     1024: {
         "name": "Orlea",
@@ -356,7 +351,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Haru
     },
     1033: {
         "name": "Veronica",
@@ -398,7 +392,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Haru
     },
     1060: {
         "name": "Chizuru",
@@ -564,7 +557,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
-        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},  # Assumed based on Heidemarie
     },
     30115: {
         "name": "Arabella",
@@ -578,7 +570,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},  # Assumed based on Haru
     },
     30117: {
         "name": "Olga",
@@ -832,20 +823,51 @@ def get_character_by_name(name: str) -> dict:
 
 
 # ============================================================================
-# Levels 61 and 62 (added in a later game update; rare in practice)
+# Levels 61 and 62
 # ============================================================================
 #
-# Characters max at level 62: promotion 5/5 grants +2 effective levels over
-# the level-60 cap. The level 61/62 stat bonuses are stored PER CHARACTER
-# rather than as one global table, because the gains differ across
-# characters — Heidemarie gains ATK +9, DEF +3, HP +7 from 60 to 61, and a
-# shared table would have to be wrong for someone.
+# Characters max at level 62: promotion 5/5 grants +2 levels over the
+# level-60 cap. What each of the two adds to the level-60 base is the same
+# for every combatant of one class and grade that has been observed, so
+# it is kept per PAIR: a combatant nobody has observed at 61 takes what
+# the others of their pair gain.
 #
-# To add level-61/62 data for a character, add a `level_61_bonus` (and/or
-# `level_62_bonus`) key to their entry in the CHARACTERS dict above, with
-# the shape `{"atk": +X, "def": +Y, "hp": +Z}` (additive over level-60 base).
-# Characters without those keys silently fall back to their level-60 stats,
-# matching the prior behavior where the global placeholders were all -1.
+# None where no combatant of the pair has been observed at that level --
+# not zeros, which would read as a known gain of nothing. An unknown gain
+# leaves the level-60 base, as it would be with the level reached but its
+# gain not recorded.
+#
+# A combatant's own `level_61_bonus` / `level_62_bonus` key, shape
+# `{"atk": +X, "def": +Y, "hp": +Z}`, overrides their pair's: the room
+# for an exception. The launch-time data check reports one that differs
+# from its pair's, and a pair left unknown while a combatant of it has
+# its own.
+LEVEL_BONUS_BY_CLASS = {
+    ("Controller", 4): {61: {"atk": 6, "def": 3, "hp": 9}, 62: None},
+    ("Controller", 5): {61: {"atk": 6, "def": 4, "hp": 10}, 62: None},
+    ("Hunter", 4): {61: None, 62: None},
+    ("Hunter", 5): {61: None, 62: None},
+    ("Psionic", 4): {61: None, 62: None},
+    ("Psionic", 5): {61: {"atk": 8, "def": 3, "hp": 9}, 62: None},
+    ("Ranger", 4): {61: {"atk": 8, "def": 2, "hp": 7}, 62: None},
+    ("Ranger", 5): {61: {"atk": 9, "def": 3, "hp": 7}, 62: None},
+    ("Striker", 4): {61: None, 62: None},
+    ("Striker", 5): {61: {"atk": 8, "def": 3, "hp": 9}, 62: None},
+    ("Vanguard", 4): {61: {"atk": 6, "def": 3, "hp": 9}, 62: None},
+    ("Vanguard", 5): {61: {"atk": 6, "def": 4, "hp": 10}, 62: None},
+}
+
+
+def level_bonus(char_data: dict, level: int):
+    """What `level` (61 or 62) adds to `char_data`'s base, as
+    {"atk", "def", "hp"}: the combatant's own key, else their class and
+    grade's; None where neither is known."""
+    own = char_data.get(f"level_{level}_bonus")
+    if own is not None:
+        return own
+    pair = LEVEL_BONUS_BY_CLASS.get(
+        (char_data.get("class"), char_data.get("grade"))) or {}
+    return pair.get(level)
 
 
 def get_character_stats_at_level(char_data: dict, level: int) -> dict:
@@ -855,18 +877,12 @@ def get_character_stats_at_level(char_data: dict, level: int) -> dict:
     are the optimizer's working baseline, and the default for any
     consumer that does not explicitly ask for a higher level.
 
-    For level >= 61: adds `level_61_bonus` from char_data (and
-    `level_62_bonus` if level >= 62 and the key exists) on top of base.
-    Missing per-character bonus dicts silently fall back to the level-60
-    values — so until level 61/62 data is observed for a character, this
-    function returns their level-60 stats and the optimizer's behavior
-    matches what it would do at level 60.
+    For level >= 61: adds what level 61 gains (and level 62's too, at
+    62) on top of base, per `level_bonus`. A gain nobody has observed
+    adds nothing, so the level-60 values stand in for it.
 
     Args:
         char_data: a CHARACTERS-dict entry (the value, not the key).
-                   Reads base_atk / base_def / base_hp from it, plus the
-                   optional level_61_bonus / level_62_bonus per-character
-                   keys.
         level: the in-game level (1-62). Levels outside [61, 62] route
                through the level-60 fallback.
     """
@@ -878,16 +894,10 @@ def get_character_stats_at_level(char_data: dict, level: int) -> dict:
     if level <= 60:
         return base
 
-    lvl61 = char_data.get("level_61_bonus")
-    if lvl61:
-        base["base_atk"] += lvl61.get("atk", 0)
-        base["base_def"] += lvl61.get("def", 0)
-        base["base_hp"]  += lvl61.get("hp", 0)
-
-    if level >= 62:
-        lvl62 = char_data.get("level_62_bonus")
-        if lvl62:
-            base["base_atk"] += lvl62.get("atk", 0)
-            base["base_def"] += lvl62.get("def", 0)
-            base["base_hp"]  += lvl62.get("hp", 0)
+    for step in ((61, 62) if level >= 62 else (61,)):
+        gain = level_bonus(char_data, step)
+        if gain:
+            base["base_atk"] += gain.get("atk", 0)
+            base["base_def"] += gain.get("def", 0)
+            base["base_hp"]  += gain.get("hp", 0)
     return base

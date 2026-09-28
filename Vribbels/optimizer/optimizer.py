@@ -506,11 +506,10 @@ class GearOptimizer:
         its own. calculate_build_stats builds it per call for all other
         callers.
 
-        get_character_stats_at_level applies the character's optional
-        level_61_bonus / level_62_bonus (per-character keys in the
-        CHARACTERS dict) when the level is 61/62. Characters without
-        those keys fall back to their level-60 base stats, so for them
-        this is a no-op.
+        get_character_stats_at_level adds what levels 61 and 62 gain
+        -- the character's own key, else their class and grade's -- and
+        nothing for a gain nobody has observed, so the level-60 base
+        stands in for it.
         """
         cs = core.empty_char_static()
         # Equipment constants apply to every build (even char_name=None

@@ -350,6 +350,7 @@ def _check_tier_tuple(rep: _Reporter, key, label: str, field: str,
 def _check_characters(problems: list[str]) -> None:
     from game_data import (CHARACTERS, ATTRIBUTE_COLORS,
                            POTENTIAL_STAT_VALUES, CLASSES)
+    from game_data.characters import LEVEL_BONUS_BY_CLASS
 
     rep = _Reporter("characters.py", _line_map("characters.py", "CHARACTERS"))
     node_stats = tuple(POTENTIAL_STAT_VALUES)
@@ -438,7 +439,61 @@ def _check_characters(problems: list[str]) -> None:
                     rep.add(key, label, f"{field}['{stat}'] {bonus[stat]} "
                                         f"outside {bounds[0]}-{bounds[1]}")
 
+        # A combatant's own level gain against their class and grade's:
+        # every one observed has matched, so a difference is either the
+        # first exception or a mistake in one of the two.
+        pair_key = (data.get("class"), data.get("grade"))
+        pair_name = f"{pair_key[0]} grade {pair_key[1]}"
+        pair = LEVEL_BONUS_BY_CLASS.get(pair_key)
+        if pair is None:
+            rep.add(key, label, f"no LEVEL_BONUS_BY_CLASS row for "
+                                f"{pair_name} -- levels 61 and 62 add "
+                                f"nothing unless the entry has its own")
+            continue
+        for level in (61, 62):
+            own = data.get(f"level_{level}_bonus")
+            known = pair.get(level)
+            if not isinstance(own, dict):
+                continue
+            if known is None:
+                rep.add(key, label, f"has its own level-{level} gain while "
+                                    f"{pair_name}'s is unknown -- fill the "
+                                    f"pair in LEVEL_BONUS_BY_CLASS")
+            elif own != known:
+                rep.add(key, label, f"level_{level}_bonus {own} differs "
+                                    f"from {pair_name}'s {known} -- an "
+                                    f"exception to confirm, or one of the "
+                                    f"two is wrong")
+
+    table = _Reporter("characters.py", {})
+    for pair_key, levels in LEVEL_BONUS_BY_CLASS.items():
+        label = f"LEVEL_BONUS_BY_CLASS {pair_key}"
+        if (not isinstance(pair_key, tuple) or len(pair_key) != 2
+                or pair_key[0] not in CLASSES
+                or pair_key[1] not in range(CHARACTERS_GRADE[0],
+                                            CHARACTERS_GRADE[1] + 1)):
+            table.add(None, label, f"key is not a (class, grade) pair of "
+                                   f"{', '.join(CLASSES)} and grades "
+                                   f"{CHARACTERS_GRADE[0]}-"
+                                   f"{CHARACTERS_GRADE[1]}")
+            continue
+        if not isinstance(levels, dict) or set(levels) != {61, 62}:
+            table.add(None, label, "expected {61: ..., 62: ...}")
+            continue
+        for level, gain in levels.items():
+            if gain is None:
+                continue
+            if not isinstance(gain, dict) or set(gain) != set(bonus_ranges):
+                table.add(None, label, f"{level} is {gain!r}, expected None "
+                                       f"or a dict of atk / def / hp")
+                continue
+            for stat, bounds in bonus_ranges.items():
+                if not _in_range(gain[stat], bounds):
+                    table.add(None, label, f"{level}['{stat}'] {gain[stat]} "
+                                           f"outside {bounds[0]}-{bounds[1]}")
+
     problems.extend(rep.problems)
+    problems.extend(table.problems)
 
 
 def _check_partners(problems: list[str]) -> None:
