@@ -73,6 +73,14 @@ The whole potential tree in one tuple — display order, the game's numbering, t
 
 **The two numberings disagree** and `game_formulas.md` §1 is the table of both. Per-character wording lives in `POTENTIAL_NODE_OVERRIDES`; a stat node states none, its line being built from the stat instead.
 
+## Base stats in `characters.py`, against the server
+
+**The in-game stat screen shows the base with Affection mixed in**, so a base typed in from it is wrong by the Affection bonus unless that is taken off first. The server sends the true figure instead: every battle's entry carries each combatant's `BASE_S_ATK/DEF/HP` at their level. The capture files these (`capture_pipeline.md`, *The base stat readings are kept in a file of their own*), and `checks/check_base_stats_on_wire.py` fails on any combatant a plain battle has shown differently from `characters.py`, or that `characters.py` lacks.
+
+- **To verify a combatant**, take them into any stage outside the Chaos modes during a debug capture: a Promotion, Ego, Piece or Boss stage, the Great Rift or the Tower. The Chaos, the Zero System and Sorties add their Zero System effects to the base, and combatant trials and event stories field level-20 or 25 copies, so none of those count.
+- **To read what the logs hold**, `python docs/base_stats_backfill.py` reports: who is wrong, who is missing, a level gain the program lacks, a base that changed between readings, and who has not been in a plain battle yet. `--write` files the debug logs' battles, the archived ones included; `--battles` lists every battle with its mode and whether it counts.
+- **A level-61 or 62 reading fills `LEVEL_BONUS_BY_CLASS`** where a pair's gain is unknown: the server's base at that level minus the level-60 base.
+
 ## Finding a newly released unit's res_id
 
 A capture is ownership-scoped, so a unit you do not have appears nowhere — hence the negative placeholder keys. Two exceptions:

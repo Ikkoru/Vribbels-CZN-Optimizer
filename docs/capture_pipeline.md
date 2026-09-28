@@ -68,6 +68,12 @@ A Chaos run is followed through its commands -- `disaster/enter_disaster_chaos_s
 
 Each run goes, as it clears, to `snapshots/chaos_runs/runs.json.gz`, never into the snapshot, through the same checked copy as the pull history and with its one `.bak`. Every run is kept, each once; runs an older snapshot still carries as `chaos_runs` are folded in by the first capture to start after it. `chaos_store.py` owns the file's place and name and reads it for the Checklist's season estimate (`chaos_estimate`) and `docs/chaos_runs.py`.
 
+## The base stat readings are kept in a file of their own
+
+A battle's entry -- `world/get_stage_info`, answered with `stage_info` -- carries its combatants under `stage_info.enter_chars`, each with its level and a `status.info` block: `BASE_S_ATK`, `BASE_S_DEF` and `BASE_S_HP` are the server's base at that level, `S_PARTNER_BASE_*` the partner's flat stats, and the rest the combatant's final stat sheet. `Addon._note_base_stats` files each distinct battle -- its stage (`playing_stage_info.stage_id`), its mode (`ingame_content_config_id`), whether `zero_system_effs` rides it, and every combatant's readings -- with the first and last time it was seen, into `snapshots/base_stats/readings.json` through a read-back copy that keeps a `.bak`. It is read by the payload's shape rather than the command, so a battle entered another way is filed too.
+
+**The capture files; it does not judge.** Which battles are believed is `base_stats_store.audit`'s call: the Zero System effects of a Chaos, a Zero System run or a Sortie add to the base (+120 ATK, +60 DEF, +180 HP for most), and trials field level-20 copies. What it is for, and how to verify a combatant, is `game_data_files.md`, *Base stats in `characters.py`, against the server*.
+
 ## Payloads kept aside and written out later
 
 The excursion board and the Great Rift standings arrive in a frame carrying no roster and no inventory, as the banner schedule does. `_save_data` returns early without `inventory_data`, so each is held on the addon and written by whatever save comes next:

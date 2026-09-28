@@ -168,6 +168,11 @@ EVENT_FIELDS_HANDLED = frozenset({
 CATALOGUE_SAMPLE = 200
 CATALOGUE_MAX = 4000
 
+# How many distinct battles' base stat readings are kept, newest last
+# seen first. A battle repeated with the same team is one entry, so
+# this is teams and stages, not entries. See `Addon._note_base_stats`.
+BASE_KEEP = 500
+
 # A Chaos run, as the capture follows one: what opens it, what clears
 # it, the spot and the fight each floor holds, and the drop the player
 # takes. See `Addon._note_chaos`.
@@ -381,6 +386,10 @@ class Addon:
         self.chaos_map = []
         # The fight last counted, as (battle id, seed): see `_chaos_fight`.
         self.chaos_fight_key = None
+        # The base stat readings of every battle entered, from their own
+        # file on first need; False where that file will not read. See
+        # `_note_base_stats`.
+        self.base_battles = None
         # Whether the run being opened is the Delegation Module's: said
         # only in what the client sends to open it.
         self.chaos_delegated = False
@@ -913,6 +922,7 @@ class Addon:
         # request we tracked earlier.
         qid = data.get("qid")
         self._note_chaos(self.qid_commands.get(qid), data)
+        self._note_base_stats(self.qid_commands.get(qid), data)
         if (qid is not None and qid in self.pending_disassembles
                 and self.inventory_data
                 and "piece_items" in self.inventory_data):
@@ -2182,6 +2192,130 @@ class Addon:
             self.log_callback(
                 "[X] Chaos runs: " + path.name + " could not be replaced: "
                 + str(e))
+            return False
+        return True
+
+    def _note_base_stats(self, asked, data):
+        """File what the server says each combatant's base stats are.
+
+        A battle's entry carries its combatants under
+        `stage_info.enter_chars`, each with its level and a `status.info`
+        block: `BASE_S_ATK`, `BASE_S_DEF` and `BASE_S_HP` are the base at
+        that level, `S_PARTNER_BASE_*` the partner's flat stats. Read by
+        the shape rather than the command, so a battle entered another
+        way is filed too. `zero_system` says whether the battle carries
+        Zero System effects, which add to the base; which battles are
+        believed is the reader's call -- `base_stats_store.audit`.
+
+        One entry per distinct battle -- stage, Zero System and the
+        readings -- with the server time it was first and last seen; the
+        newest BASE_KEEP are kept.
+        """
+        info = data.get("stage_info")
+        if not isinstance(info, dict):
+            return
+        chars = []
+        for rec in info.get("enter_chars") or []:
+            status = rec.get("status") if isinstance(rec, dict) else None
+            st = status.get("info") if isinstance(status, dict) else None
+            if not isinstance(st, dict) or "BASE_S_ATK" not in st:
+                continue
+            chars.append({
+                "res_id": rec.get("res_id"), "level": rec.get("level"),
+                "base": [st.get("BASE_S_ATK"), st.get("BASE_S_DEF"),
+                         st.get("BASE_S_HP")],
+                "partner": [st.get("S_PARTNER_BASE_ATK"),
+                            st.get("S_PARTNER_BASE_DEF"),
+                            st.get("S_PARTNER_BASE_HP")]})
+        if not chars:
+            return
+        if self.base_battles is None:
+            stored = self._read_base_store()
+            self.base_battles = False if stored is None else stored
+        if self.base_battles is False:
+            return
+        playing = data.get("playing_stage_info")
+        playing = playing if isinstance(playing, dict) else {}
+        when = data.get("service_server_time")
+        if not isinstance(when, (int, float)):
+            when = int(time.time())
+        battle = {"stage": playing.get("stage_id"),
+                  "zero_system": bool(data.get("zero_system_effs")),
+                  "chars": sorted(chars, key=lambda r: str(r["res_id"]))}
+        same = next((b for b in self.base_battles
+                     if all(b.get(k) == v for k, v in battle.items())), None)
+        if same is not None:
+            # Earliest and latest, whatever order the frames came in: a
+            # backfill replays old logs after the file has newer ones.
+            same["first"] = min(same.get("first") or when, when)
+            same["last"] = max(same.get("last") or when, when)
+        else:
+            battle.update(first=when, last=when, asked=asked,
+                          content=playing.get("ingame_content_config_id"))
+            self.base_battles.append(battle)
+            self.base_battles.sort(key=lambda b: b.get("last") or 0)
+            del self.base_battles[:-BASE_KEEP]
+        self._write_base_store()
+
+    def _base_path(self):
+        return self.output_dir / BASE_FOLDER / BASE_FILE
+
+    def _read_base_store(self):
+        """The readings' file as a list of battles: [] where there is no
+        file yet, None where one is there and will not read -- left
+        alone for the session rather than started over. Falls back to
+        the backup, as `base_stats_store.read` does."""
+        path = self._base_path()
+        there = False
+        for candidate in (path, path.with_name(path.name + ".bak")):
+            if not candidate.exists():
+                continue
+            there = True
+            try:
+                with open(candidate, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except (OSError, ValueError):
+                continue
+            battles = data.get("battles") if isinstance(data, dict) else None
+            if isinstance(battles, list):
+                return [b for b in battles if isinstance(b, dict)]
+        if there:
+            self.log_callback(
+                "[X] Base stat readings: " + path.name + " could not be "
+                "read, so this session's are not filed.")
+            return None
+        return []
+
+    def _write_base_store(self):
+        """Write the readings through a copy that is read back and must
+        equal what was meant; only then does the file become its `.bak`
+        and the copy take its place, as `_write_chaos_store` does."""
+        path = self._base_path()
+        tmp = path.with_name(path.name + ".tmp")
+        bak = path.with_name(path.name + ".bak")
+        store = {"kind": BASE_KIND, "version": 1,
+                 "battles": self.base_battles}
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(json.dumps(store, separators=(",", ":")))
+                f.flush()
+                os.fsync(f.fileno())
+            with open(tmp, "r", encoding="utf-8") as f:
+                if json.load(f) != store:
+                    raise ValueError("it does not read back as written")
+            if path.exists():
+                self._gacha_replace(path, bak)
+            self._gacha_replace(tmp, path)
+        except (OSError, ValueError) as e:
+            if not path.exists() and bak.exists():
+                try:
+                    self._gacha_replace(bak, path)
+                except OSError:
+                    pass
+            self._gacha_discard(tmp)
+            self.log_callback("[X] Base stat readings: " + path.name
+                              + " was not written: " + str(e))
             return False
         return True
 
@@ -3933,7 +4067,9 @@ class CaptureManager:
             # itself. `gacha_history.py` owns all three and reads what
             # the addon writes, so they are handed over rather than
             # spelled a second time -- and the same for the Chaos runs'
-            # file, which `chaos_store.py` owns.
+            # file, which `chaos_store.py` owns, and the base stat
+            # readings', which `base_stats_store.py` owns.
+            import base_stats_store
             import chaos_store
             import gacha_history
 
@@ -3955,8 +4091,11 @@ GACHA_KIND = {gacha_history.STORE_KIND!r}
 CHAOS_FOLDER = {chaos_store.FOLDER!r}
 CHAOS_FILE = {chaos_store.FILE!r}
 CHAOS_KIND = {chaos_store.KIND!r}
+BASE_FOLDER = {base_stats_store.FOLDER!r}
+BASE_FILE = {base_stats_store.FILE!r}
+BASE_KIND = {base_stats_store.KIND!r}
 
-addons = [Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
+addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                 catalogue_path=CATALOGUE_PATH)]
 '''
 
