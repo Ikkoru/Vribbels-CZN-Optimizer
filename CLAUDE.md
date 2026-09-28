@@ -47,6 +47,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | Area                                                                         | Doc                                                                                                                      |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Game math: damage, shield/heal, set effects, scoring                         | `docs/game_formulas.md` (canonical)                                                                                      |
+| The shipped Gear Score presets' weights: how they are derived and redone      | `docs/preset_weights.md` and `docs/preset_weights.py`                                                                    |
 | `*_manager.py`, `defaults_sync.py`, Restore Defaults, settings files, shared game facts | `docs/settings_architecture.md`                                                                               |
 | Shipping `default_settings/` — maintainer workflow                           | `docs/how_to_maintain_default_settings.md`                                                                               |
 | `capture/`, snapshot parsing, char-vs-partner classification                 | `docs/capture_pipeline.md`                                                                                               |
