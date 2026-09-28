@@ -49,7 +49,9 @@ from game_data.characters import ATTRIBUTE_COLORS
 # "CDmg" -> "CDMG%"). Applied when rendering the tree's Main / Sub
 # columns so the Memory Fragments tab matches the Optimizer tab.
 from game_data.constants import DISPLAY_NAMES
-from models.memory_fragment import compute_gs_bounds, compute_fragment_potential
+from models.memory_fragment import (compute_gs_bounds,
+                                    compute_fragment_potential,
+                                    compute_fragment_potential_band)
 from ..base_tab import BaseTab
 from ..utils.all_none_row import make_all_none_row
 from ..utils.checkbox import make_checkbox
@@ -94,6 +96,33 @@ SETS_PANEL_MIN_W = 741
 # See the call site.
 PRESET_LABEL_TRIM = -3
 
+
+def best_potential(fragment, ranked, likely):
+    """(low, high, preset name) for the preset whose Potential reaches
+    highest, or None for no presets. `ranked` holds (ceiling, floor,
+    preset index, name, weights, bounds) per preset, in list order.
+
+    With `likely`, highest by the middle 80%'s top, found without
+    working out every preset's band, which is the slow part: a band's
+    top never passes its ceiling, so presets are tried ceiling first and
+    the search stops at the first whose ceiling cannot beat the best top
+    so far. A tie goes to the higher ceiling, then to the preset listed
+    first -- without `likely`, straight to the one listed first.
+    """
+    best = None
+    if not likely:
+        for high, low, _index, name, _weights, _bounds in ranked:
+            if best is None or high > best[1]:
+                best = (low, high, name)
+        return best
+    for high, _low, _index, name, weights, bounds in sorted(
+            ranked, key=lambda entry: (-entry[0], entry[2])):
+        if best is not None and high <= best[1]:
+            break
+        low, top = compute_fragment_potential_band(fragment, weights, bounds)
+        if best is None or top > best[1]:
+            best = (low, top, name)
+    return best
 
 
 MAIN_STAT_DISPLAY = [
@@ -1012,23 +1041,48 @@ class InventoryTab(BaseTab):
             filtered = new_filtered
 
         self.inv_filtered_data = filtered
+        self._score_rows(filtered)
         self._display_inventory_sorted()
 
-    def _display_inventory_sorted(self):
-        """Display filtered inventory with current sort settings."""
-        # Remember the selected row(s) so the highlight can follow the same
-        # FRAGMENT to wherever it lands after the refresh. Rows are keyed by
-        # fragment id (see the insert below), so an upgrade that changes a
-        # fragment's score -- and therefore its position under the current
-        # sort -- keeps the selection on that fragment instead of leaving it
-        # on whatever row index it used to occupy.
-        previously_selected = self.inv_tree.selection()
-        self.inv_tree.delete(*self.inv_tree.get_children())
+    def _likely_potential(self):
+        """Whether the Potential columns show each range's middle 80%:
+        the Upgrade Log's `Show Potential's middle 80%`, which this tab
+        follows while it takes the Upgrade Log Settings."""
+        if not (self.inv_use_log_filters_var
+                and self.inv_use_log_filters_var.get()):
+            return False
+        sm = getattr(self.context, "settings_manager", None)
+        return bool(sm is not None
+                    and sm.get("upgrade_log_likely_potential", False))
 
-        if not hasattr(self, 'inv_filtered_data'):
-            return
+    def _score_rows(self, filtered):
+        """Work out what the Potential, Highest GS and Highest Potential
+        columns show, onto each fragment.
 
-        filtered = self.inv_filtered_data
+        **Once a refresh, not once a sort.** Scoring every fragment
+        under every preset is the costliest thing this tab does, and a
+        sort changes none of it -- so `sort_inventory` reads what this
+        left behind.
+        """
+        likely = self._likely_potential()
+        # The Potential column: the active weights' range, or its middle
+        # 80%. Kept apart from the fragment's own cached range, which
+        # the Combatants tab reads too.
+        if likely:
+            scoring_tab = getattr(self.context, "scoring_tab", None)
+            weights = scoring_tab.applied_weights() \
+                if scoring_tab is not None else {}
+            by_main = {}
+            for f in filtered:
+                main_name = f.main_stat.name if f.main_stat else None
+                if main_name not in by_main:
+                    by_main[main_name] = compute_gs_bounds(
+                        weights, exclude_stat=main_name)
+                f.shown_potential = compute_fragment_potential_band(
+                    f, weights, by_main[main_name])
+        else:
+            for f in filtered:
+                f.shown_potential = (f.potential_low, f.potential_high)
 
         # Compute Highest GS and Highest Potential GS across custom presets
         # (or just assigned ones, if the corresponding checkbox is on).
@@ -1041,6 +1095,7 @@ class InventoryTab(BaseTab):
         # at most P x 16 entries for P presets and 16 possible main stats.
         preset_data = self._presets_for_highest_gs()  # list[(name, weights)]
         no_presets = not preset_data
+        self._no_presets = no_presets
         bounds_cache: dict = {}  # (preset_idx, main_stat_name) -> bounds
 
         # The Upgrade Log Settings, if the reader asked for them. The
@@ -1060,20 +1115,7 @@ class InventoryTab(BaseTab):
 
             main_name = f.main_stat.name if f.main_stat else None
             best_gs = float("-inf")
-            # Highest Potential GS: find the preset giving the highest
-            # ceiling (potential_high), and store BOTH that ceiling AND
-            # the corresponding floor (potential_low) under that same
-            # preset. Mirrors the regular Potential column's "low-high"
-            # display under the active preset, but generalized across
-            # presets -- the displayed range is always one preset's
-            # actual range, not a synthetic mix.
-            best_high = float("-inf")
-            best_low = 0.0
-            # Track the winning preset's NAME too so the display can append
-            # it in brackets. For fully-leveled MFs the high collapses to
-            # the current GS, so "preset with max high" is the same as
-            # "preset with max GS" -- one annotation works for both cases.
-            best_high_preset = None
+            ranked = []
             for pi, (pname, weights) in enumerate(preset_data):
                 if allowed is not None and pname not in allowed(f):
                     continue
@@ -1087,18 +1129,39 @@ class InventoryTab(BaseTab):
                 if gs > best_gs:
                     best_gs = gs
                 low, high = compute_fragment_potential(f, weights, bounds)
-                if high > best_high:
-                    best_high = high
-                    best_low = low
-                    best_high_preset = pname
+                ranked.append((high, low, pi, pname, weights, bounds))
+            # Highest Potential GS: the preset giving the highest ceiling
+            # (or middle-80% top), with BOTH that ceiling AND the matching
+            # floor under that same preset -- always one preset's actual
+            # range, never a synthetic mix. For fully-leveled MFs the
+            # high collapses to the current GS, so "preset with max high"
+            # is the same as "preset with max GS".
+            best = best_potential(f, ranked, likely)
             # Every preset filtered out: the fragment is one nobody
             # assigned wants, which is a 0 rather than the -inf the
             # comparisons started at.
             f.highest_preset_gs = best_gs if best_gs > float("-inf") else 0.0
-            f.highest_preset_potential_low = best_low
-            f.highest_preset_potential_high = (
-                best_high if best_high > float("-inf") else 0.0)
-            f.highest_preset_potential_name = best_high_preset
+            f.highest_preset_potential_low = best[0] if best else 0.0
+            f.highest_preset_potential_high = best[1] if best else 0.0
+            f.highest_preset_potential_name = best[2] if best else None
+
+    def _display_inventory_sorted(self):
+        """Display filtered inventory with current sort settings, from
+        what `_score_rows` worked out."""
+        # Remember the selected row(s) so the highlight can follow the same
+        # FRAGMENT to wherever it lands after the refresh. Rows are keyed by
+        # fragment id (see the insert below), so an upgrade that changes a
+        # fragment's score -- and therefore its position under the current
+        # sort -- keeps the selection on that fragment instead of leaving it
+        # on whatever row index it used to occupy.
+        previously_selected = self.inv_tree.selection()
+        self.inv_tree.delete(*self.inv_tree.get_children())
+
+        if not hasattr(self, 'inv_filtered_data'):
+            return
+
+        filtered = self.inv_filtered_data
+        no_presets = getattr(self, "_no_presets", True)
 
         sort_key_map = {
             "slot": lambda f: f.slot_num,
@@ -1106,7 +1169,7 @@ class InventoryTab(BaseTab):
             "lvl": lambda f: f.level,
             "main": lambda f: f.main_stat.name if f.main_stat else "",
             "gs": lambda f: f.gear_score,
-            "potential": lambda f: f.potential_high,
+            "potential": lambda f: f.shown_potential[1],
             "equipped": lambda f: f.equipped_to or "",
             "highest_gs": lambda f: f.highest_preset_gs,
             # Sort by ceiling (mirrors the regular Potential column). At max
@@ -1136,7 +1199,8 @@ class InventoryTab(BaseTab):
                 main_str = f"{main_label} {f.main_stat.format_value()}"
             else:
                 main_str = "-"
-            pot = f"{f.potential_low:.0f}-{f.potential_high:.0f}" if f.potential_low != f.potential_high else "-"
+            low, high = f.shown_potential
+            pot = f"{low:.0f}-{high:.0f}" if low != high else "-"
 
             set_pieces = f.get_set_pieces()
             set_display = f"{f.set_name} ({set_pieces})"

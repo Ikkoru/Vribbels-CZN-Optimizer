@@ -32,12 +32,14 @@ from ._harness import add_source_to_path
 NAME = "average Potential is the mean of every outcome"
 
 
-def _fragment(level, substats, main=("S_ATK_INC_ADD_OUT", 60)):
+def _fragment(level, substats, main=("S_ATK_INC_ADD_OUT", 60),
+              res_id=1014101):
+    """A fragment of `res_id`'s rarity: its fourth digit, 4 Legendary."""
     from models.memory_fragment import MemoryFragment
     stats = [{"slot": 0, "type": 0, "stat": main[0], "value": main[1]}]
     for n, (raw, value) in enumerate(substats, 1):
         stats.append({"slot": n, "type": 1, "stat": raw, "value": value})
-    return MemoryFragment.from_json({"id": 1, "res_id": 1014101,
+    return MemoryFragment.from_json({"id": 1, "res_id": res_id,
                                      "level": level, "stat_list": stats})
 
 
@@ -85,6 +87,7 @@ def _band_enumerated(fragment, weights, bounds, tail=0.1):
     upgrade can land on and every point of every roll's grid, weighed
     by its chance. GS unrounded and unclamped."""
     from game_data import STATS
+    from game_data.constants import MAX_LEVEL_PER_RARITY
     from models.memory_fragment import _raw_substat_score
 
     def grid(raw_name):
@@ -106,7 +109,7 @@ def _band_enumerated(fragment, weights, bounds, tail=0.1):
         return out
 
     base = _raw_substat_score(fragment, weights)
-    remaining = 5 - fragment.level
+    remaining = MAX_LEVEL_PER_RARITY[fragment.rarity_num] - fragment.level
     present = {s.name for s in fragment.substats}
     held = [s.raw_name for s in fragment.substats]
     pool = [raw for raw, info in STATS.items()
@@ -118,8 +121,13 @@ def _band_enumerated(fragment, weights, bounds, tail=0.1):
     for extra in choices:
         first = {0.0: 1.0}
         for raw in extra:
-            first = {round(t + v, 9): c / len(grid(raw))
-                     for t, c in first.items() for v in grid(raw)}
+            # Summed, not assigned: a stat weighed 0 rolls the same 0
+            # at every point of its grid.
+            nxt = collections.defaultdict(float)
+            for total, chance in first.items():
+                for value in grid(raw):
+                    nxt[round(total + value, 9)] += chance / len(grid(raw))
+            first = nxt
         slots = held + list(extra)
         # An upgrade: a substat alike, then a point of its grid alike --
         # each point weighed by its substat's share.
@@ -155,7 +163,7 @@ def run():
         compute_fragment_potential_band, compute_fragment_potential_mean,
         compute_gs_bounds, normalize_gs)
     failures = []
-    weights = {"ATK%": 1.0, "Crit Rate": 0.9, "Crit DMG": 0.8, "DoT%": 0.3,
+    weights = {"ATK%": 1.0, "CRate": 0.9, "CDmg": 0.8, "DoT%": 0.3,
                "Flat DEF": 0.0, "Flat HP": 0.1}
     cases = (
         ("a +1 with four substats", _fragment(1, [
@@ -191,6 +199,12 @@ def run():
         ("a +3 with three, which adds its fourth", _fragment(3, [
             ("S_CRI_INC_ADD", 1.6), ("S_DEF_INC_ADD_OUT", 4),
             ("S_HP_INC_RATE_OUT", 1.1)]), 2),
+        ("a +2 with three, which adds its fourth and rolls twice more",
+         _fragment(2, [("S_CRI_INC_ADD", 1.6), ("S_DEF_INC_ADD_OUT", 4),
+                       ("S_HP_INC_RATE_OUT", 1.1)]), 3),
+        ("a Rare +1 with two, which adds two", _fragment(1, [
+            ("S_CRI_INC_ADD", 1.6), ("S_HP_INC_RATE_OUT", 1.1)],
+            res_id=1013101), 3),
     )
     for what, fragment, rolls in band_cases:
         bounds = compute_gs_bounds(weights,

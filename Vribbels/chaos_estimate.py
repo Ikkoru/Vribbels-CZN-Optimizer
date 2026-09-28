@@ -79,8 +79,7 @@ TOP_SHARE = 0.7
 RATE_RUNS = 200
 
 # Each Galactic Disaster's own Chaos, by the stage id its clear names,
-# and the season it came with. Named in the game's update notes;
-# 70000 is inferred from the other three.
+# and the season it came with. Named in the game's update notes.
 CHAOS_NAMES = {
     50000: ("Laboratory 0", "disaster_s01"),
     60000: ("Burning Life", "disaster_s02"),

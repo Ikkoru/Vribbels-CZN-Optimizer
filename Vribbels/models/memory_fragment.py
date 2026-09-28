@@ -129,7 +129,9 @@ back-to-back, and must not clobber the display values, which reflect the
 globally applied preset.
 """
 
+import collections
 import itertools
+import math
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -504,10 +506,17 @@ def _dist(grids):
 def _convolve(a, b):
     """The distribution of the sum of two independent ones."""
     (first_a, chances_a), (first_b, chances_b) = a, b
+    if len(chances_b) > len(chances_a):
+        chances_a, chances_b = chances_b, chances_a
+    # The inner loop takes the shorter side's filled bins only. That
+    # side is mostly one level-up, whose bins are mostly empty: a
+    # substat the preset weighs 0 puts all its rolls in one, and a
+    # weighted one's steps are often wider than a bin.
+    filled = [(j, y) for j, y in enumerate(chances_b) if y]
     out = [0.0] * (len(chances_a) + len(chances_b) - 1)
     for i, x in enumerate(chances_a):
         if x:
-            for j, y in enumerate(chances_b):
+            for j, y in filled:
                 out[i + j] += x * y
     return first_a + first_b, out
 
@@ -520,15 +529,62 @@ def _power(dist, times):
     return out
 
 
-def _mix(dists):
-    """An equal-chance mixture of distributions."""
-    first = min(f for f, _c in dists)
-    out = [0.0] * (max(f + len(c) for f, c in dists) - first)
-    share = 1.0 / len(dists)
-    for f, chances in dists:
+def _blend(parts):
+    """The sum of `share` times `dist` over `(share, dist)` pairs: a
+    mixture where the shares add up to 1."""
+    first = min(f for _share, (f, _c) in parts)
+    out = [0.0] * (max(f + len(c) for _share, (f, c) in parts) - first)
+    for share, (f, chances) in parts:
+        at = f - first
         for i, chance in enumerate(chances):
-            out[f - first + i] += chance * share
+            out[at + i] += chance * share
     return first, out
+
+
+def _added_then_rest(existing, pool, added, rest):
+    """The sum of `added` first rolls on stats drawn from `pool`, no
+    two alike and every draw alike, and `rest` level-ups each landing
+    on one of `existing` and the added substats alike.
+
+    How many of the `rest` land on an added substat, K, is binomial,
+    and given K the existing substats' rolls and the added ones' are
+    independent: the sum is the mixture over K of existing^(rest - K)
+    convolved with H_K, the added substats' first rolls plus K more
+    among them, mixed over every draw. Only H_K depends on the draw,
+    and its grids are the small ones, so the existing substats' rolls
+    are convolved in once rather than once per draw -- by Horner's
+    scheme, one level-up at a time."""
+    rolls = [_dist([grid]) for grid in pool]
+    # Draws that roll alike are one -- every stat the preset weighs 0
+    # rolls a lone 0 -- and weigh as often as they occur.
+    draws = collections.Counter(
+        tuple(sorted(chosen)) for chosen in itertools.combinations(
+            [(first, tuple(chances)) for first, chances in rolls], added))
+    count = sum(draws.values())
+    by_more = [[] for _ in range(rest + 1)]
+    for chosen, times in draws.items():
+        part = chosen[0]
+        for roll in chosen[1:]:
+            part = _convolve(part, roll)
+        more = _blend([(1.0 / added, roll) for roll in chosen])
+        for k in range(rest + 1):
+            if k:
+                part = _convolve(part, more)
+            by_more[k].append((times / count, part))
+    if not existing:
+        return _blend(by_more[rest])
+    step = _dist(existing)
+    chance = added / (len(existing) + added)
+    total = None
+    for k in range(rest + 1):
+        share = (math.comb(rest, k) * chance ** k
+                 * (1.0 - chance) ** (rest - k))
+        mixed = _blend(by_more[k])
+        if total is None:
+            total = _blend([(share, mixed)])
+        else:
+            total = _blend([(1.0, _convolve(total, step)), (share, mixed)])
+    return total
 
 
 def _quantile(dist, share):
@@ -540,6 +596,15 @@ def _quantile(dist, share):
         if total >= share - 1e-9:
             return (first + i) * _DIST_BIN
     return (first + len(chances) - 1) * _DIST_BIN
+
+
+# Bands already worked out, by everything a band depends on. The Memory
+# Fragments tab asks for the same ones again on every refresh -- a
+# filter, a capture's save -- and working one out is the slow part, so
+# only a fragment or a preset that changed costs anything. Cleared whole
+# past this many.
+_BAND_CACHE = {}
+_BAND_CACHE_MAX = 200000
 
 
 def compute_fragment_potential_band(
@@ -555,6 +620,21 @@ def compute_fragment_potential_band(
     main_name = fragment.main_stat.name if fragment.main_stat else None
     if bounds is None:
         bounds = compute_gs_bounds(weights, exclude_stat=main_name)
+    key = (fragment.rarity_num, fragment.level, main_name,
+           tuple((s.raw_name, s.value, s.roll_count)
+                 for s in fragment.substats),
+           tuple(sorted(weights.items())), tuple(bounds), tail)
+    band = _BAND_CACHE.get(key)
+    if band is None:
+        band = _work_out_band(fragment, weights, bounds, tail, main_name)
+        if len(_BAND_CACHE) >= _BAND_CACHE_MAX:
+            _BAND_CACHE.clear()
+        _BAND_CACHE[key] = band
+    return band
+
+
+def _work_out_band(fragment, weights, bounds, tail, main_name):
+    """`compute_fragment_potential_band`, uncached."""
     raw = _raw_substat_score(fragment, weights)
     max_level = MAX_LEVEL_PER_RARITY.get(fragment.rarity_num, MAX_LEVEL)
     remaining = max(0, max_level - fragment.level)
@@ -583,21 +663,7 @@ def compute_fragment_potential_band(
     if not added:
         total = _power(_dist(existing), rest)
     else:
-        # Every set of stats the added substats could be, alike -- many
-        # grids are equal (a stat the preset weighs 0), and each set
-        # then weighs as often as it occurs.
-        outcomes = []
-        cache = {}
-        for chosen in itertools.combinations(pool, added):
-            key = tuple(sorted(chosen))
-            if key not in cache:
-                first = (0, [1.0])
-                for grid in chosen:
-                    first = _convolve(first, _dist([grid]))
-                grids = existing + list(chosen)
-                cache[key] = _convolve(first, _power(_dist(grids), rest))
-            outcomes.append(cache[key])
-        total = _mix(outcomes)
+        total = _added_then_rest(existing, pool, added, rest)
     start = (raw - low_raw) * scale
     return tuple(round(max(0.0, min(100.0, start + _quantile(total, share))),
                        1)

@@ -583,6 +583,13 @@ STAT MIN - MAX ROLLS:
             return "Custom"
         return "Default" if all_default else "Custom"
 
+    def applied_weights(self) -> dict:
+        """The weights the fragments' Gear Score and Potential were last
+        worked out with -- the spinboxes' where nothing is applied yet."""
+        if self._applied_weights is not None:
+            return dict(self._applied_weights)
+        return {stat: var.get() for stat, var in self.stat_weight_vars.items()}
+
     def apply_active_weights(self, refresh_heroes: bool = True):
         """
         Recalculate gear scores for all current fragments using whatever

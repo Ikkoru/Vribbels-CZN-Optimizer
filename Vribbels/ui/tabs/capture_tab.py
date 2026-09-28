@@ -1176,9 +1176,7 @@ class CaptureTab(BaseTab):
         ids = [rid for rid, p in cpm.assignments_by_id.items()
                if p == preset_name]
         lpm.set_selected(ids, bool(var.get()))
-        recompute = self.context.recompute_upgrade_line_callback
-        if recompute is not None:
-            recompute()
+        self._settings_changed()
 
     def _on_log_filter_toggle(self, key: str, var):
         """Persist one of the Upgrade Log options, then re-render the
@@ -1186,9 +1184,19 @@ class CaptureTab(BaseTab):
         sm = self.context.settings_manager
         if sm is not None:
             sm.set(key, bool(var.get()))
+        self._settings_changed()
+
+    def _settings_changed(self):
+        """Re-render what reads the Upgrade Log Settings: the last
+        Upgraded line, and the Memory Fragments tab, which takes them
+        when its own box says so. Its refresh waits while it is hidden,
+        so asking costs nothing then."""
         recompute = self.context.recompute_upgrade_line_callback
         if recompute is not None:
             recompute()
+        inventory = getattr(self.context, "inventory_tab", None)
+        if inventory is not None:
+            inventory.refresh_inventory()
 
     def check_capture_prerequisites(self):
         """Report capture prerequisites in the log.

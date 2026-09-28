@@ -3358,6 +3358,142 @@ def _inventory_catches_up_when_shown(tab):
     return out
 
 
+def _potential_columns_take_the_middle_80(tab):
+    """The Memory Fragments tab shows the middle 80% exactly when asked.
+
+    It follows the Upgrade Log's `Show Potential's middle 80%` while its
+    own Upgrade Log Settings box is on, and only then. Wrong either way
+    reads as ordinary numbers: a full range where a band was asked for,
+    or the reverse. The Potential column takes the weights Gear Score
+    last applied, and the Highest Potential column the band of the
+    preset it names -- never another preset's, nor the named one's full
+    range. Presets, weights and fragments are stand-ins, so every number
+    is known; the search that picks the preset is
+    `check_potential_band`'s.
+
+    Returns a list of complaints.
+    """
+    from game_data import STATS
+    from models.memory_fragment import (
+        MemoryFragment, compute_fragment_potential,
+        compute_fragment_potential_band, compute_gs_bounds)
+
+    rolled = {info[0]: 0.0 for info in STATS.values() if info[3] > 0}
+    presets = [("Spiky", {**rolled, "Extra DMG%": 1.0, "HP%": 1.0}),
+               ("Steady", {**rolled, "Flat DEF": 1.0, "DEF%": 1.0,
+                           "CRate": 1.0})]
+    applied = {**rolled, "CRate": 1.0, "CDmg": 1.0, "ATK%": 0.5}
+    main = "Flat ATK"
+
+    def fragment(fid, level, substats):
+        stats = [{"slot": 0, "type": 0, "stat": "S_ATK_INC_ADD_OUT",
+                  "value": 60}]
+        for n, (raw, value) in enumerate(substats, 1):
+            stats.append({"slot": n, "type": 1, "stat": raw, "value": value})
+        return MemoryFragment.from_json({"id": fid, "res_id": 1014101,
+                                         "level": level, "stat_list": stats})
+
+    frags = [
+        fragment(9001, 0, [("S_CRI_INC_ADD", 1.6), ("S_DEF_INC_ADD_OUT", 4),
+                           ("S_HP_INC_RATE_OUT", 1.1)]),
+        fragment(9002, 3, [("S_DOT_ATK_DMG_RATE_INC_ADD", 2.8),
+                           ("S_DEF_INC_ADD_OUT", 5),
+                           ("S_ATK_INC_RATE_OUT", 1.0),
+                           ("S_CRI_DMG_RATE_INC_ADD", 3.2)]),
+        fragment(9003, 5, [("S_CRI_INC_ADD", 1.6), ("S_DEF_INC_ADD_OUT", 4),
+                           ("S_HP_INC_RATE_OUT", 1.1),
+                           ("S_ATK_INC_RATE_OUT", 1.2)]),
+    ]
+    applied_bounds = compute_gs_bounds(applied, exclude_stat=main)
+    for f in frags:
+        f.potential_low, f.potential_high = compute_fragment_potential(
+            f, applied, applied_bounds)
+
+    def expected(likely):
+        """{id: (Potential, Highest Potential)} as the tab should show."""
+        out = {}
+        for f in frags:
+            shown = (compute_fragment_potential_band(f, applied,
+                                                     applied_bounds)
+                     if likely else (f.potential_low, f.potential_high))
+            best = None
+            for index, (name, weights) in enumerate(presets):
+                bounds = compute_gs_bounds(weights, exclude_stat=main)
+                low, high = compute_fragment_potential(f, weights, bounds)
+                if likely:
+                    band = compute_fragment_potential_band(f, weights, bounds)
+                    rank, pair = (band[1], high, -index), band
+                else:
+                    rank, pair = (high, -index), (low, high)
+                if best is None or rank > best[0]:
+                    best = (rank, (pair[0], pair[1], name))
+            out[f.id] = (shown, best[1])
+        return out
+
+    def cells(potential, highest):
+        low, high = potential
+        pot = f"{low:.0f}-{high:.0f}" if low != high else "-"
+        low, high, name = highest
+        hpot = f"{low:.0f}-{high:.0f} [{name}]" if low != high else "-"
+        return pot, hpot
+
+    ctx = tab.context
+    sm = ctx.settings_manager
+    key = "upgrade_log_likely_potential"
+    before = (tab.inv_use_log_filters_var.get(), sm.get(key, False),
+              ctx.scoring_tab, getattr(tab, "inv_filtered_data", None),
+              getattr(tab, "_no_presets", True))
+    tab._presets_for_highest_gs = lambda: list(presets)
+    tab._log_filtered_preset_names = lambda: None
+    ctx.scoring_tab = SimpleNamespace(applied_weights=lambda: dict(applied))
+    out = []
+    try:
+        if expected(True) == expected(False):
+            out.append("the stand-in fragments show the same numbers with "
+                       "the middle 80% on and off, so this proves nothing: "
+                       "give one of them levels left to roll.")
+        for box, likely in ((True, True), (True, False), (False, True)):
+            tab.inv_use_log_filters_var.set(box)
+            sm.set(key, likely)
+            tab._score_rows(frags)
+            tab.inv_filtered_data = list(frags)
+            tab._display_inventory_sorted()
+            want = expected(box and likely)
+            state = (f"with the Upgrade Log Settings box "
+                     f"{'on' if box else 'off'} and the middle 80% "
+                     f"{'on' if likely else 'off'}")
+            for f in frags:
+                got = (f.shown_potential,
+                       (f.highest_preset_potential_low,
+                        f.highest_preset_potential_high,
+                        f.highest_preset_potential_name))
+                if got != want[f.id]:
+                    out.append(
+                        f"{state}, a fragment's Potential and Highest "
+                        f"Potential work out as {got}, not "
+                        f"{want[f.id]}. See `_score_rows` and "
+                        f"`_likely_potential` in ui/tabs/inventory_tab.py.")
+                    continue
+                shown = (tab.inv_tree.set(str(f.id), "potential"),
+                         tab.inv_tree.set(str(f.id), "highest_potential"))
+                if shown != cells(*want[f.id]):
+                    out.append(
+                        f"{state}, a fragment's row shows {shown}, where "
+                        f"what was worked out reads "
+                        f"{cells(*want[f.id])}. See "
+                        f"`_display_inventory_sorted`.")
+    finally:
+        del tab._presets_for_highest_gs
+        del tab._log_filtered_preset_names
+        tab.inv_use_log_filters_var.set(before[0])
+        sm.set(key, before[1])
+        ctx.scoring_tab = before[2]
+        tab.inv_filtered_data = before[3] if before[3] is not None else []
+        tab._no_presets = before[4]
+        tab._display_inventory_sorted()
+    return out
+
+
 def _materials_catches_up_when_shown(tab):
     """The Materials tab skips a redraw while hidden and makes it up.
 
@@ -4306,6 +4442,8 @@ def run():
                 _set_filters_redraw_replaces_nothing(built["InventoryTab"]))
             failures.extend(
                 _inventory_catches_up_when_shown(built["InventoryTab"]))
+            failures.extend(
+                _potential_columns_take_the_middle_80(built["InventoryTab"]))
         if "GachaHistoryTab" in built:
             failures.extend(
                 _gacha_history_draws_its_rows(built["GachaHistoryTab"]))

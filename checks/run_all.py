@@ -89,6 +89,7 @@ from checks import (                                    # noqa: E402
     check_upgrade_log_filters,
     check_upgraded_beats,
     check_potential_mean,
+    check_potential_band,
 )
 
 # Cheapest and most locally-caused first, so a broken edit reports
@@ -147,6 +148,7 @@ CHECKS = [
     check_upgrade_log_filters,
     check_upgraded_beats,
     check_potential_mean,
+    check_potential_band,
     check_breakdown_reconciles,
     check_optimizer_parity,
 ]
