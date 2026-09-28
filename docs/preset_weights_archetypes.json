@@ -1,0 +1,275 @@
+{
+ "averages": {
+  "ATK DPS": {
+   "ATK%": 32.058,
+   "CDmg": 45.617,
+   "CRate": 47.708,
+   "DEF%": 1.958,
+   "DoT%": 1.258,
+   "Ego": 4.333,
+   "Extra DMG%": 10.225,
+   "Flat ATK": 62.75,
+   "Flat DEF": 25.917,
+   "Flat HP": 48.733,
+   "HP%": 0.867
+  },
+  "ATK DPS, DoT": {
+   "ATK%": 29.5,
+   "CDmg": 30.733,
+   "CRate": 40.533,
+   "DEF%": 1.467,
+   "DoT%": 42.167,
+   "Ego": 5.0,
+   "Extra DMG%": 3.933,
+   "Flat ATK": 41.333,
+   "Flat DEF": 27.333,
+   "Flat HP": 69.65,
+   "HP%": 0.967
+  },
+  "ATK DPS, Extra": {
+   "ATK%": 49.0,
+   "CDmg": 35.471,
+   "CRate": 42.029,
+   "DEF%": 1.829,
+   "DoT%": 0.429,
+   "Ego": 0.0,
+   "Extra DMG%": 53.886,
+   "Flat ATK": 34.0,
+   "Flat DEF": 27.429,
+   "Flat HP": 51.936,
+   "HP%": 1.114
+  },
+  "DEF DPS": {
+   "ATK%": 2.425,
+   "CDmg": 53.8,
+   "CRate": 36.288,
+   "DEF%": 28.925,
+   "DoT%": 2.25,
+   "Ego": 1.75,
+   "Extra DMG%": 2.35,
+   "Flat ATK": 42.875,
+   "Flat DEF": 65.25,
+   "Flat HP": 48.9,
+   "HP%": 2.15
+  },
+  "healer": {
+   "ATK%": 3.0,
+   "CDmg": 26.5,
+   "CRate": 23.667,
+   "DEF%": 17.933,
+   "DoT%": 2.767,
+   "Ego": 48.667,
+   "Extra DMG%": 5.3,
+   "Flat ATK": 46.667,
+   "Flat DEF": 76.0,
+   "Flat HP": 43.317,
+   "HP%": 2.8
+  },
+  "healer, ATK damage": {
+   "ATK%": 19.55,
+   "CDmg": 41.2,
+   "CRate": 43.1,
+   "DEF%": 16.15,
+   "DoT%": 0.0,
+   "Ego": 1.5,
+   "Extra DMG%": 1.35,
+   "Flat ATK": 63.5,
+   "Flat DEF": 46.5,
+   "Flat HP": 41.65,
+   "HP%": 0.65
+  }
+ },
+ "checked": {
+  "at": "2026-09-28",
+  "part": 3,
+  "season": "disaster_s04"
+ },
+ "derived_at": "2026-09-28",
+ "members": {
+  "ATK DPS": [
+   "Chizuru",
+   "Fei",
+   "Haru",
+   "Kayron",
+   "Lucas",
+   "Luke",
+   "Mei Lin",
+   "Owen",
+   "Rita",
+   "Sereniel",
+   "Tenebria",
+   "Yuki"
+  ],
+  "ATK DPS, DoT": [
+   "Arabella",
+   "Olga",
+   "Tressa"
+  ],
+  "ATK DPS, Extra": [
+   "Beryl",
+   "Diana",
+   "Heidemarie",
+   "Hilde",
+   "Hugo",
+   "Selena",
+   "Veronica"
+  ],
+  "DEF DPS": [
+   "Adelheid",
+   "Amir",
+   "Khalipe",
+   "Magna",
+   "Maribell",
+   "Narja",
+   "Nine",
+   "Tiphera"
+  ],
+  "healer": [
+   "Mika",
+   "Nia",
+   "Rei"
+  ],
+  "healer, ATK damage": [
+   "Cassius",
+   "Orlea"
+  ]
+ },
+ "sets": {
+  "Adelheid": {
+   "CDmg": 25.0,
+   "DEF%": 12.0
+  },
+  "Amir": {
+   "CDmg": 25.0,
+   "DEF%": 12.0
+  },
+  "Arabella": {
+   "CDmg": 65.0
+  },
+  "Beryl": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Cassius": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Chizuru": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Diana": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Fei": {
+   "CDmg": 60.0
+  },
+  "Haru": {
+   "CDmg": 25.0,
+   "CRate": 20.0
+  },
+  "Heidemarie": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Hilde": {
+   "CDmg": 60.0
+  },
+  "Hugo": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Kayron": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Khalipe": {
+   "CDmg": 25.0,
+   "CRate": 20.0
+  },
+  "Lucas": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Luke": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Magna": {
+   "CDmg": 25.0,
+   "DEF%": 12.0
+  },
+  "Maribell": {
+   "CDmg": 25.0,
+   "DEF%": 12.0
+  },
+  "Mei Lin": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Mika": {
+   "DEF%": 12.0
+  },
+  "Narja": {
+   "CDmg": 25.0,
+   "DEF%": 12.0
+  },
+  "Nia": {
+   "DEF%": 12.0
+  },
+  "Nine": {
+   "CRate": 19.0
+  },
+  "Olga": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Orlea": {
+   "ATK%": 12.0,
+   "CDmg": 25.0,
+   "DEF%": 12.0
+  },
+  "Owen": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Rei": {
+   "ATK%": 12.0,
+   "CDmg": 25.0,
+   "DEF%": 12.0
+  },
+  "Rita": {
+   "CDmg": 25.0,
+   "CRate": 20.0
+  },
+  "Selena": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Sereniel": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Tenebria": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Tiphera": {
+   "CDmg": 25.0,
+   "DEF%": 12.0
+  },
+  "Tressa": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Veronica": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
+  "Yuki": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  }
+ }
+}

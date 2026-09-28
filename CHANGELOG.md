@@ -14,6 +14,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - `Show average Potential` adds where each preset's Potential is expected to end, between the ends of its range: `21-41-80`. The ends are what the best and worst luck reach, and rarely happen.
   - `Show Potential's middle 80%` narrows each range to where 8 upgrade paths in 10 end. The Memory Fragments tab's Potential and Highest Potential columns follow it while that tab's `Upgrade Log Settings` box is on, showing `…` for a moment while they work it out.
 - Capture: every Chaos run is recorded in `snapshots/chaos_runs/`, beside the pull history. The season estimate reads it, counting only the live Galactic Disaster's own Chaos.
+- Capture: each battle's combatant base stats, as the server states them, are kept in `snapshots/base_stats/`. They are what the program's own combatant data is checked against.
 
 ### Changed
 
@@ -36,6 +37,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: the Seasonal Accumulated Score and Galactic Disaster – Chaos no longer carry a `+` past their threshold.
 - Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
+- Veronica's base ATK, DEF and HP were too high.
 - Setup & Settings no longer freezes for a moment each time it is opened.
 - Capture's Log Presets no longer rebuild in view on the second visit to the tab.
 
