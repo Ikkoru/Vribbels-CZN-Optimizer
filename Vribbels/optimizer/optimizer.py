@@ -455,9 +455,12 @@ class GearOptimizer:
     # three rarities. A regular mode takes it from the deck a Chaos run
     # saved; a Chaos or Sortie run starts without and finds it. Each
     # piece adds its flat after everything else, the outer % included.
-    # Battle entries name each combatant's (`stage_info.equipments`), but
-    # the program does not read them, so it models a level-5 Legendary
-    # piece in each slot -- the most common endgame target. At level 5:
+    # A standard stands in for it on purpose: a player keeps many decks
+    # per combatant and saves more every season, so the Equipment of the
+    # next battle cannot be known -- battle entries name each deck's
+    # (`stage_info.equipments`), and reading them would price one deck
+    # among many. The standard is a level-5 Legendary piece in each slot,
+    # the most common endgame target. At level 5:
     #   Rare:      74 ATK / 28 DEF / 75 HP
     #   Legendary: 82 ATK / 31 DEF / 83 HP    (the values used here)
     #   Mythic:    90 ATK / 34 DEF / 91 HP

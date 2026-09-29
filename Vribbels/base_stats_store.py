@@ -374,10 +374,9 @@ def _base_at(char, level):
 
 # Potential 7 bonuses the server's sheets have shown and the program
 # does not model (docs/game_formulas.md, "The potential tree"), per
-# res_id: `formula_gaps` passes a gap of exactly this much. Owen's is
-# his node 7's once its HP check passes. Diana's +12% Extra DMG% shows
-# with nothing else on her sheet to account for it, and her check reads
-# CRate: her node 7's by the look of it, which the maintainer confirms.
+# res_id: `formula_gaps` passes a gap of exactly this much. Owen's node
+# 7 gives +4% ATK and DEF, +4% more at 700 HP; Diana's +4% Extra DMG%
+# at 10% CRate, +1% per 5% more, +8% at most -- her 55.5% gives 12.
 UNMODELLED = {1050: {"ATK%": 4, "DEF%": 4}, 1061: {"Extra DMG%": 12}}
 
 # Where each such bonus lands among the char statics.
