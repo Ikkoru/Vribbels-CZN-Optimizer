@@ -35,11 +35,11 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Fixed
 
-- Checklist: Simulation Challenges counts the runs done since the last login, and Sortie Currency shows the real amount after the weekly top-up instead of a `~` guess.
+- Checklist: Simulation Challenges counts the runs done since the last login, Galactic Disaster – Chaos the score a Chaos run just added, and Sortie Currency shows the real amount after the weekly top-up instead of a `~` guess.
 - Checklist: the Seasonal Accumulated Score and Galactic Disaster – Chaos no longer carry a `+` past their threshold.
 - Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
-- Veronica's base ATK, DEF and HP were too high.
+- Diana's, Maribell's, Mika's and Veronica's base ATK, DEF and HP were wrong.
 - Setup & Settings no longer freezes for a moment each time it is opened.
 - Capture's Log Presets no longer rebuild in view on the second visit to the tab.
 

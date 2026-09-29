@@ -40,16 +40,16 @@ Final_CDmg  = Base_CDmg + Sum(CDmg_contributions)    # base default = 125
 | **Fragment_FLAT_X** | Sum of substat + main-stat flat across all 6 equipped fragments                     |
 | **Potential_X%**    | Nodes 50 / 60 — the `node_50`/`node_60` fields in characters.py                     |
 | **Affinity_FLAT_X** | Affinity reward bonuses (`FRIENDSHIP_BONUSES`)                                      |
-| **Equipment_X**     | Constant; separate gear system not captured (`EQUIPMENT_*` in `optimizer.py`)       |
+| **Equipment_X**     | Constant: a level-5 Legendary piece per slot (`EQUIPMENT_*` in `optimizer.py`). In game, the saved deck's in regular modes and what the run finds in Chaos and Sortie |
 | **Set bonuses**     | See §5 — three different landing places depending on `type` and `stat`              |
 
 ### Against the server's sheet
 
 Every battle's entry states this formula's layers for each combatant (`capture_pipeline.md`, *The stat sheet a battle's entry carries*). `base_stats_store.formula_gaps` runs the program's formula over every build the capture filed, with the sheet's own base and partner flats, and `checks/check_base_stats_on_wire.py` fails on any layer it does not reproduce. The sheet says four things the formula above does not:
 
-- **The server rounds twice**: the inner value half up, then the final. Final = round(round(inner) × (1 + outer %)). The program keeps the fractions, so the two part by less than a point.
-- **The Potential 7 check reads that rounded inner value** (`potential_base_status`): Partner flats in, Partner passives and Equipment out, which is what the program's `_inner_*` values model (§8).
-- **The sheet has no Equipment term.** It reproduces with `EQUIPMENT_*` left out.
+- **The server rounds as it goes**: the inner flat to a whole number, then the inner value half up, then the final. Final = round(round(inner) × (1 + outer %)). The program keeps the fractions, so the two part by less than a point.
+- **The Potential 7 check reads that rounded inner value** (`potential_base_status`): Partner flats in, Partner passives and Equipment out, which is what the program's `_inner_*` values model (§8). In a Sortie it carries the week's buff and the Sortie's own loadout.
+- **The entered sheet has no Equipment.** The in-run sheet adds each piece's flat after everything else, the outer % included, which is where `EQUIPMENT_FLAT_*` sits; a piece's effect can add more (`capture_pipeline.md`, *Battle kinds on the wire*).
 - **A Potential 7 bonus is on the sheet once its check passes**, and the program does not model it: `base_stats_store.UNMODELLED` holds the ones seen, so the check passes a gap of exactly that much.
 
 ### The potential tree

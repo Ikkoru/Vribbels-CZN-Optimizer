@@ -450,13 +450,17 @@ class GearOptimizer:
         count = min(len(candidates), max(10, count_by_pct))
         return candidates[:count]
 
-    # Equipment is a separate item system from Memory Fragments. The program
-    # doesn't capture which Equipment a character has, so we model it as a
-    # constant — Legendary tier (the most common endgame target). These values
-    # can be edited if the user wants a different default.
+    # Equipment is a separate item system from Memory Fragments: a Weapon
+    # (ATK), an Armor (DEF) and an Accessory (HP), each of five levels and
+    # three rarities. A regular mode takes it from the deck a Chaos run
+    # saved; a Chaos or Sortie run starts without and finds it. Each
+    # piece adds its flat after everything else, the outer % included.
+    # Battle entries name each combatant's (`stage_info.equipments`), but
+    # the program does not read them, so it models a level-5 Legendary
+    # piece in each slot -- the most common endgame target. At level 5:
+    #   Rare:      74 ATK / 28 DEF / 75 HP
     #   Legendary: 82 ATK / 31 DEF / 83 HP    (the values used here)
-    #   Other:     74 ATK / 28 DEF / 75 HP    (lower tier)
-    #              90 ATK / 34 DEF / 91 HP    (rarer/higher tier)
+    #   Mythic:    90 ATK / 34 DEF / 91 HP
     EQUIPMENT_FLAT_ATK = 82
     EQUIPMENT_FLAT_DEF = 31
     EQUIPMENT_FLAT_HP = 83

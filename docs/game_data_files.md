@@ -79,11 +79,11 @@ The whole potential tree in one tuple — display order, the game's numbering, t
 
 **How a reading is settled** (`base_stats_store.resolve`):
 
-1. A battle without Zero System effects -- a Simulation stage, the Great Rift, the tower -- states the base as it is.
-2. Any battle states `potential_base_status`, the Potential 7 check's stat computed outside the battle, and the inner formula has exactly one base that gives it. It covers only the stat or stats that check reads.
+1. A battle without Zero System effects -- a Simulation stage, a Battle Mission, the Great Rift, the Full-Scale Offensive, the Basin, the Tower -- states the base as it is.
+2. A Chaos battle states `potential_base_status`, the Potential 7 check's stat computed without the Chaos's bonus, and the inner formula has exactly one base that gives it. It covers only the stat or stats that check reads.
 3. A Chaos adds the same amount to everyone in it, so a combatant settled by 1 or 2 gives the bonus, and it comes off the rest. A battle whose combatants disagree on it gives nothing more.
 
-A plain reading wins over a worked-out one. Combatant trials and event stories field level-20 copies and never count.
+A plain reading wins over a worked-out one. A Sortie settles nothing: the week's buffs move its buffed combatants' bases, partner flats and Potential 7 values, and which combatants and what buff never ride the wire. Combatant trials and event stories field level-20 copies and never count either.
 
 **The program uses what the server says** where its tables are silent or wrong: `game_data.learned`, filled on every snapshot load from the account's readings and the shipped shared facts, newest first. The order `get_character_stats_at_level` answers in:
 
@@ -93,7 +93,7 @@ A plain reading wins over a worked-out one. Combatant trials and event stories f
 
 `get_partner_stats` takes the partner's reading at that level, else one of a partner of the same grade and class, else the linear table. The tables are still worth correcting: they are what a player without readings gets, and what the check holds the server against.
 
-- **To verify a combatant**, take them into any battle during a capture. One outside the Chaos modes settles all three stats directly; a Chaos settles them only beside someone already settled.
+- **To verify a combatant**, take them into any battle but a Sortie during a capture. One outside the Chaos modes settles all three stats directly; a Chaos settles them only beside someone already settled.
 - **To read what the logs hold**, `python docs/base_stats_backfill.py` reports: who is wrong or missing, a level gain the tables lack, a base that changed between plain readings, the Chaos battles set aside, the partners and the formula against the server, and who nothing has settled yet. `--write` files the debug logs' battles, the archived ones included; `--battles` lists every battle with its mode.
 - **A level-61 or 62 reading gives a pair's gain** where `LEVEL_BONUS_BY_CLASS` lacks it: the server's base at that level minus the level-60 base. The check names it; the program uses it meanwhile.
 - **`UNEXPLAINED` in the check** holds a reading that differs for a reason nobody has pinned down. It is noted rather than failed while the reading stays exactly that.

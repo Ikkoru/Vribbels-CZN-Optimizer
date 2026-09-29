@@ -103,7 +103,7 @@ Each distinct build goes beside the battles, under `builds`: fragments, potentia
 | `S_CRI`, `S_CRI_DMG_RATE`, `S_ADDI_ATK_DMG_RATE`, `S_DOT_ATK_DMG_RATE` | CRate, CDMG, Extra DMG%, DoT% |
 | `potential_base_status` (beside the block) | the inner value of the stat or stats the combatant's Potential 7 check reads, computed outside the battle -- so without the mode's bonus |
 
-Some layers are absent where they are zero. No field carries an Equipment term.
+Some layers are absent where they are zero. Equipment is not among them: see below.
 
 ### Battle kinds on the wire
 
@@ -116,14 +116,19 @@ What each `ingame_content_config_id` is in the game, named by what its clears pa
 | `content_promotion_combatant` | Simulation: Manual | nothing |
 | `content_promotion_supporter` | Simulation: Certificate | nothing |
 | `content_boss` | Simulation Challenge | nothing |
+| `content_story_simulation_abyss` | a Battle Mission on Abyss difficulty, its bonus missions too | nothing |
 | `content_disaster_boss_rank` | the Great Rift | nothing |
-| `content_tower` | the tower of `spiral_tower_01`: five floors, one wave each, an entry | nothing |
+| `content_remnants_boss_penalty` | the Full-Scale Offensive | nothing |
+| `content_hyperspace` | the Basin of Hyperspace; a stage fought by two teams sends an entry per team | nothing |
+| `content_tower` | the Spiral Tower of Screams (the Tower): five floors of `spiral_tower_01`, one wave each, an entry | nothing |
 | `content_combatant_trial` | Combatant Trial | fields level-20 copies |
 | `content_story_event_bartender` | the Bartender event's story | fields level-20 copies |
 | `content_disaster_chaos` | the season's own Chaos | the Zero System's stat nodes (`ZERO_CHARACTER_STAT__TYPE_VALUE`) add one flat amount per stat to every base; which stat each node raises is not on the wire |
 | `content_chaos_zero` | an earlier season's Chaos, entered through the Zero System | the same |
-| `content_chaos_assault` | Sortie | its Max HP nodes multiply the base HP, not the partner's, by 1 + their sum, rounded down; its CRate nodes add CRate |
+| `content_chaos_assault` | Sortie | its Max HP nodes multiply the base HP, not the partner's, by 1 + their sum, rounded down, and its CRate nodes add CRate. The week's buffed combatants' stat % multiplies their base and their partner's flat of that stat alike, and their CRate adds; the Potential 7 value carries it too. Which combatants and what buff is client data, named only by the entry's `rotation_schedule_id`. Memory Fragments are not worn |
 | `content_none` | no battle: the world state between them, with no combatants | -- |
+
+**Equipment is not on the entered sheet.** `stage_info.enter_chars` is the sheet a combatant entered with, and it stays the same from a run's first floor to its last. `stage_info.chars` is the same sheet with Equipment in, listed under `stage_info.equipments`: `char_id` is the combatant's `id` in the entry, `slot_type` 1 a Weapon (ATK), 2 an Armor (DEF), 3 an Accessory (HP), and `star_grade` its level. Each piece adds its flat after everything else, including the outer %. A regular mode's comes from the saved deck, a Chaos run's is what the run has found, and a Sortie's counts a fifth (its Risk Modifier). A piece's own effect can add more on top.
 
 ## Payloads kept aside and written out later
 
@@ -163,7 +168,7 @@ The rest join them, all merged rather than replaced for the same reason:
 | `season_passes` | `season_pass_entities` | every pass the account has played, the live one among them |
 | `basin_stages` / `basin_missions` | `season_entities`, `mission_seasson_entities` | the Basin of Hyperspace's stages and its objectives. The scored tally is what the game shows as its progress |
 | `event_schedules` | `event_schedules` | every content's WINDOW — when each season, event and rotation opened and when it closes. **The only thing that dates any of them**, which is what the Checklist's countdowns read. See `schedules.py` |
-| `disaster_seasons` | `disaster_entities` | one row per Galactic Disaster season, carrying that season's chaos progress and the difficulty cleared |
+| `disaster_seasons` | `disaster_entities`; `disaster_entity`, `return_info.disaster_chaos_result.disaster_chaos_entity` | one row per Galactic Disaster season, carrying that season's chaos progress and the difficulty cleared. The login sends every season's; a Chaos run sends the live one's again, on its stage clear and on the next disaster reply, and that row replaces its season's |
 | `remnants` | `remnants_entities` | the Full-Scale Offensive's stages, each with the stars taken and its best score |
 | `zero_orb` | `zero_orb_entity` | the Zero System Chaos Matrix. `reward_level` is how far up its track has been claimed, out of a hundred |
 | `overclock` | `overclock_entities`, `result_overclock_entities` | an Overclock event's doubled Simulation runs, counted daily. The second name is the rows one run changed |

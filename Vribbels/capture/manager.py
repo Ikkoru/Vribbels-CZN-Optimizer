@@ -1861,11 +1861,29 @@ class Addon:
             self._save_pending = True
 
         # And the season's own row, which carries the WEEKLY CHAOS
-        # score. A different record from the standings above, arriving
-        # in the same frame.
+        # score. A different record from the standings above. The login
+        # sends every season's row as `disaster_entities`; a Chaos run
+        # sends the live season's again once it moves -- under the stage
+        # clear's `return_info.disaster_chaos_result.disaster_chaos_entity`,
+        # and as the next disaster reply's `disaster_entity` -- and each
+        # replaces its season's row. Missed, the Checklist reads the
+        # login's score until the next launch.
         if isinstance(data.get("disaster_entities"), list):
             self.disaster_seasons = data["disaster_entities"]
             self._save_pending = True
+        ret = data.get("return_info")
+        ret = ret.get("disaster_chaos_result") if isinstance(ret, dict) \\
+            else None
+        for row in (data.get("disaster_entity"),
+                    ret.get("disaster_chaos_entity") if isinstance(ret, dict)
+                    else None):
+            if isinstance(row, dict) and row.get("res_id") \\
+                    and "week_clear_score" in row:
+                self.disaster_seasons = [
+                    s for s in self.disaster_seasons or []
+                    if not (isinstance(s, dict)
+                            and s.get("res_id") == row["res_id"])] + [row]
+                self._save_pending = True
 
         # The Gacha History: pages of the game's Rescue records, a
         # banner's rates, the pity counters. Its own file, not the

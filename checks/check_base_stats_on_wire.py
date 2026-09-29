@@ -48,16 +48,12 @@ from .check_capture_history import addon_tables
 NAME = "stat tables and formula match what the server says"
 
 # Readings of the maintainer's that differ from characters.py for a
-# reason nobody has pinned down, as (name, level): the reading. Noted
-# rather than failed while the reading stays exactly this; a different
-# reading, or none, fails, so the entry cannot outlive the question.
-UNEXPLAINED = {
-    # DEF 8% over her base, and her partner's flat DEF 8% over the
-    # partner's own (43 against 40) -- her sheet, not the Sortie's, since
-    # the Potential 7 value says the same. Her limit break or a trait
-    # of hers; one plain battle at limit break 0 would say which.
-    ("Magna", 60): [None, 197, None],
-}
+# reason nobody has pinned down, as (name, level): the reading, e.g.
+# ("Magna", 60): [None, 197, None]. Noted rather than failed while the
+# reading stays exactly this; one that reads otherwise, or that
+# characters.py now agrees with, fails, so the entry cannot outlive the
+# question.
+UNEXPLAINED = {}
 
 CHAOS = [["ZERO_CHARACTER_STAT__TYPE_VALUE", "n", [40]]]
 SORTIE = [["ZERO_TACTICS_MAX_HP_UP_RATE__VALUE", "m", [20]]]
@@ -239,9 +235,11 @@ def _the_readings_resolve():
         _battle([_row(a_id, 60, _plus(a60, bonus)),
                  _row(b_id, 60, _plus(b60, [107, 60, 180])),
                  _row(d_id, 60, _plus(d60, bonus))], effects=CHAOS, stage=3),
-        # A Sortie: A's HP multiplied; no bonus for E.
+        # A Sortie: A's HP multiplied; no bonus for E, and E's inner
+        # value -- which carries the week's buff -- solves nothing.
         _battle([_row(a_id, 60, [a60[0], a60[1], int(a60[2] * 1.8)]),
-                 _row(e_id, 60, [e60[0], e60[1], int(e60[2] * 1.8)])],
+                 _row(e_id, 60, [e60[0], e60[1], int(e60[2] * 1.8)],
+                      inner={"S_ATK": e60[0]})],
                 effects=SORTIE, stage=4),
         # A level-20 copy of F beside a known combatant.
         _battle([_row(a_id, 60, a60), _row(f_id, 20, [100, 50, 90])]),

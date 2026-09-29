@@ -20,14 +20,17 @@ for -- fragments, potential nodes, partner and the whole status -- for
 `formula_gaps`.
 
 **A mode can add to the base.** A Chaos stage adds its Zero System stat
-nodes to every combatant alike; a Sortie multiplies the base HP. So a
-battle without Zero System effects is PLAIN and its bases are the
-combatants' own, and the rest are worked out (`resolve`):
+nodes to every combatant alike. A Sortie multiplies the base HP, and
+the week's buffed combatants' base and partner flats of the buffed
+stat -- a buff list the wire never carries. So a battle without Zero
+System effects is PLAIN and its bases are the combatants' own; a Chaos
+stage's are worked out (`resolve`), and a Sortie's are not:
 
-1. **The inner value solves the base.** `potential_base_status` is
-   computed outside the battle, so no mode's bonus is in it, and the
-   inner formula -- round((base + partner) * (1 + rate) + flat) -- has
-   exactly one base that gives it (`solve_base`).
+1. **The inner value solves the base.** In a Chaos stage,
+   `potential_base_status` is computed without the stage's bonus, and
+   the inner formula -- round((base + partner) * (1 + rate) + flat) --
+   has exactly one base that gives it (`solve_base`). A Sortie's
+   includes the week's buff, so it solves nothing.
 2. **A Chaos stage's bonus is the same for everyone in it**, so the gap
    between a combatant's battle base and their base known another way
    -- solved, or read in a plain battle -- is the battle's bonus, and
@@ -196,7 +199,9 @@ def resolve(battles):
                     put(plain, (row.get("res_id"), row["level"]), stat,
                         row["base"][i], battle.get("last"), "plain")
     for battle in battles:
-        if not battle.get("zero_system"):
+        # A Sortie's inner value carries the week's buff and its bases
+        # carry a buff nobody names, so only a Chaos stage is worked out.
+        if not battle.get("zero_system") or not _additive(battle):
             continue
         rows = [r for r in battle.get("chars") or [] if _comparable(r)]
         when = battle.get("last")
@@ -208,8 +213,6 @@ def resolve(battles):
                 bonuses[stat].add(row["base"][STATS.index(stat)] - base)
             for stat, held in (plain.get(key) or {}).items():
                 bonuses[stat].add(row["base"][STATS.index(stat)] - held[0])
-        if not _additive(battle):
-            continue
         split = [stat for stat in STATS if len(bonuses[stat]) > 1]
         for stat in split:
             conflicts.append((battle.get("stage"), battle.get("content"),
@@ -372,8 +375,10 @@ def _base_at(char, level):
 # Potential 7 bonuses the server's sheets have shown and the program
 # does not model (docs/game_formulas.md, "The potential tree"), per
 # res_id: `formula_gaps` passes a gap of exactly this much. Owen's is
-# his node 7's once its HP check passes.
-UNMODELLED = {1050: {"ATK%": 4, "DEF%": 4}}
+# his node 7's once its HP check passes. Diana's +12% Extra DMG% shows
+# with nothing else on her sheet to account for it, and her check reads
+# CRate: her node 7's by the look of it, which the maintainer confirms.
+UNMODELLED = {1050: {"ATK%": 4, "DEF%": 4}, 1061: {"Extra DMG%": 12}}
 
 # Where each such bonus lands among the char statics.
 _EXTRA_KEYS = {"ATK%": "pot_atk_pct", "DEF%": "pot_def_pct",
@@ -401,8 +406,9 @@ def formula_gaps(builds, allowed=None):
     - `inner %`: fragments, sets and the potential nodes;
     - `flat`: fragment flats plus one row of `FRIENDSHIP_BONUSES`;
     - CRate, CDMG, Extra DMG% and DoT%: their sums;
-    - `inner`: `potential_base_status` is the program's inner value, the
-      one its Potential 7 and Have-at-least comparisons read.
+    - `inner`: `potential_base_status` is the program's inner value --
+      the one its Potential 7 and Have-at-least comparisons read --
+      rounded as the server rounds it.
     """
     from game_data import CHARACTERS, FRIENDSHIP_BONUSES
     from models.memory_fragment import MemoryFragment
@@ -471,9 +477,16 @@ def formula_gaps(builds, allowed=None):
         for field, value in (build.get("inner") or {}).items():
             stat = field[2:] if field.startswith("S_") else field
             if stat in STATS and tier is not None:
+                # The program's inner value rounded as the server rounds
+                # it: the flat to a whole number first, then the sum.
                 gap("inner " + stat, value,
-                    lambda run, stat=stat: _half_up(
-                        run["_inner_" + stat.lower()]), tolerance=0.5)
+                    lambda run, s=stat, i=STATS.index(stat): _half_up(
+                        (st.get("BASE_S_" + s, 0)
+                         + st.get("S_PARTNER_BASE_" + s, 0))
+                        * (1 + (run[s + "%"]
+                                - cs["partner_%s_pct" % s.lower()]
+                                - cs["equip_%s_pct" % s.lower()]) / 100.0)
+                        + _half_up(flats[s] + tier[i])))
     return out
 
 
