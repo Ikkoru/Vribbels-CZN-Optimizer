@@ -185,7 +185,11 @@ def payouts(run):
 
 def is_full(run):
     """Whether a run counts as a whole one: cleared, or lost where a
-    boss had already paid and no non-boss fight was left on the map."""
+    boss had already paid and no non-boss fight was left on the map.
+    A run left by an escape (`gave_up`) never does: where it stopped is
+    not on the wire."""
+    if run.get("gave_up"):
+        return False
     lost = run.get("lost")
     if not lost:
         return True

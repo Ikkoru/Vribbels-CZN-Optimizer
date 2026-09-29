@@ -202,6 +202,10 @@ CHAOS_PAYS = "spot_reward/get_drop_item"
 CHAOS_RESOLVES = "battle/acceleration_resolve"
 CHAOS_ENDS = "battle/battle_end"
 CHAOS_LOST = "BATTLE_RESULT_TYPE_STAGE_FAILED"
+# The close's `return_info.result` for a run left by an escape
+# (`is_emergency_exit`), where a clear says CLEAR and a loss FAIL. Seen
+# on a Simulation stage; a Chaos run is closed by the same command.
+CHAOS_GAVE_UP = "GIVEUP"
 # The fights that are not a boss's, as a map's `spot_list` types them.
 CHAOS_NON_BOSS = ("SPOT_TYPE_BATTLE", "SPOT_TYPE_ELITE")
 # The schedule groups a season's parts are dated from: the Galactic
@@ -3248,9 +3252,10 @@ class Addon:
         ordinary fights a mark's rate is taken over.
 
         **A lost run is filed like a cleared one**, with `lost` saying
-        where: `[floor, spot, mark, non-boss fights left on the map]`.
-        Whether it still counts as a whole run is for the reader to
-        decide -- `chaos_estimate.is_full`. `part` is the season part it
+        where: `[floor, spot, mark, non-boss fights left on the map]`,
+        and one left by an escape with `gave_up`. Whether it still
+        counts as a whole run is for the reader to decide --
+        `chaos_estimate.is_full`. `part` is the season part it
         cleared in (see `_disaster_part`), `stage` the Chaos by its
         stage id, `via` the door it came in by -- `disaster` or
         `zero_orb` -- and `delegated` whether the Delegation Module
@@ -3315,6 +3320,11 @@ class Addon:
             run["season"] = self._live_disaster_season()
             run["part"] = self._disaster_part(run["closed"])
             run["stage"] = data.get("stage_id")
+            # A run left partway is no whole run, and nothing else says
+            # so: no fight was lost.
+            ret = data.get("return_info")
+            if isinstance(ret, dict) and ret.get("result") == CHAOS_GAVE_UP:
+                run["gave_up"] = True
             self.chaos_run = None
             # By the second it cleared, which a replay of the same
             # capture reproduces: a run read twice is one run.

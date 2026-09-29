@@ -847,7 +847,7 @@ class OptimizerTab(BaseTab):
                                   padx=px(2), pady=px(2))
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         exclude_frame = ttk.LabelFrame(
-            self._col2_container, text="Exclude Combatant's MFs", padding=px((0, 2, 0, 2))
+            self._col2_container, text="Exclude Combatant's MFs", padding=px((0, 2, 0, 3))
         )
         # spacing: panel ↕ unrelated label -- panel, title ↕
         # The whole gap: the Results panel below packs with no pady of

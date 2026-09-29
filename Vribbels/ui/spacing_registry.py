@@ -673,6 +673,7 @@ PANEL_EDGES = [
     ("Optimizer", "Important Settings", "bottom"),
     ("Optimizer", "Have at least this much of a stat", "top"),
     ("Optimizer", "Exclude Combatant's MFs", "top"),
+    ("Optimizer", "Exclude Combatant's MFs", "bottom"),
     ("Optimizer", "Set Configuration", "top"),
     ("Optimizer", "Set Configuration", "bottom"),
     ("Capture", "Requirements", "top"),
@@ -729,11 +730,12 @@ PANEL_EDGE_RULES = {
     # BUTTON rule applies rather than the one for text.
     ("Update Status", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
     ("Share Game Data", "top"): (RULE_BORDER_EDGE_BUTTON, 3),
-    # Each Memory Fragments filter panel ends in its All/None row, so
-    # its bottom edge meets BUTTONS and takes their rule.
+    # Each panel with an All/None row ends in it, so its bottom edge
+    # meets BUTTONS and takes their rule.
     ("Slots", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
     ("Sets", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
     ("Main Stats", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
+    ("Exclude Combatant's MFs", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
 }
 
 # Hand readings for PANEL_EDGES rows the resolver and the eye disagree
@@ -4834,7 +4836,9 @@ SETTINGS_ENTRIES = [
 # screen, and comes out again the moment a run confirms it -- so a row
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
-AWAITING_FIRST_READING = set()
+AWAITING_FIRST_READING = {
+    "Exclude Combatant's MFs: bottom edge -> content",
+}
 
 
 def register_all():

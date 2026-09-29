@@ -33,6 +33,8 @@ quietly:
    the Delegation Module played it -- said only in what the client sent
    to open it (`websocket_debug_20260927_202839`). A past season's
    Chaos pays less, and the estimate must leave it out.
+9. **A run left by an escape is never a whole one**: its close says
+   `GIVEUP`, and no lost fight says anything.
 
 Synthetic frames in the shapes of those captures. No Tk and no
 snapshot needed.
@@ -404,5 +406,36 @@ def run():
                     f"its map still held. Whether a lost run counts as "
                     f"whole turns on that last number.")
 
+    failures.extend(_given_up(Addon))
     _the_file(Addon, failures)
     return failures
+
+
+def _given_up(Addon):
+    """A run left by an escape is filed, and never as a whole one.
+
+    The close is the one a Simulation escape was seen answered with
+    (`websocket_debug_20260929_220558`): `clear_stage` saying `GIVEUP`.
+    No fight is lost, so without reading the result the run is filed as
+    cleared, and a whole run's marks are averaged over it.
+    """
+    import chaos_estimate
+    addon = _new(Addon)
+    _setup(addon)
+    steps = _Steps(addon, 700)
+    steps.step("disaster/enter_disaster_chaos_stage",
+               service_server_time=1790460000)
+    steps.fight(6, "SPOT_TYPE_BATTLE", "base_00160", keyword_tag=[5])
+    steps.step("stage/clear_stage", {"is_emergency_exit": True},
+               service_server_time=1790460600, stage_id=80000,
+               return_info={"result": "GIVEUP", "state": "finish"})
+    runs = addon.chaos_runs
+    if len(runs) != 1:
+        return [f"a Chaos run left by an escape files {len(runs)} runs, "
+                f"not 1."]
+    if not runs[0].get("gave_up") or chaos_estimate.is_full(runs[0]):
+        return [f"a Chaos run left by an escape reads "
+                f"gave_up={runs[0].get('gave_up')!r} and counts as whole: "
+                f"its close says GIVEUP and no fight was lost, so the "
+                f"marks per whole run are averaged over a run cut short."]
+    return []

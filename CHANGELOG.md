@@ -40,7 +40,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: the Seasonal Accumulated Score and Galactic Disaster – Chaos no longer carry a `+` past their threshold.
 - Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
-- Diana's, Maribell's, Mika's and Veronica's base ATK, DEF and HP were wrong.
+- Diana's, Maribell's, Mika's, Tressa's, Veronica's and Yuki's base ATK, DEF and HP were wrong, and Tiphera's sixth Potential node raises DEF%, not CDMG%.
 - Setup & Settings no longer freezes for a moment each time it is opened.
 - Capture's Log Presets no longer rebuild in view on the second visit to the tab.
 
