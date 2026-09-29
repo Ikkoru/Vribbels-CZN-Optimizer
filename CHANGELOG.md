@@ -31,6 +31,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Gear Score marks a preset assigned to a combatant with ∞.
 - Gear Score: the shipped presets' weights are worked out from the Optimizer's own score, for an average build of each kind; Restore Defaults picks them up. `Rei (ATK skew)` is now `Rei`, and `Orlea (healing skew)` is new.
 - Memory Fragments: `Assigned Presets Only` is greyed out while `Upgrade Log Settings` is on, which takes assigned presets only anyway. Its tick applies again once that box is off.
+- Optimizer: Important Settings is only as wide as its widest row, and `Have at least this much of a stat` gets the rest.
 - Stats & Gacha History: each Great Rift division's row is drawn in the division's colour.
 
 ### Fixed

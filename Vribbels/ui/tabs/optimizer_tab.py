@@ -15,8 +15,9 @@ UI layout (top to bottom)
                 Set Configuration (Flex Slots + buff spinboxes + sets
                   checklist with per-conditional-set effect share
                   spinboxes)
-                Exclude Combatant's MFs (checklist + All/None buttons)
-    Right:   Results (Treeview)
+                the Potential 7 fill button, centred in the space left
+    Right:   Exclude Combatant's MFs (checklist + All/None buttons)
+             over Results (Treeview)
   Bottom:  Selected Build detail tree
 
 Persistence
@@ -174,6 +175,69 @@ def _dmg_readout_col_px():
             + LABEL_REQUEST_INSET)
 
 
+# The border clam draws each side of a Scale's trough: pixels at every
+# UI scale, where the thumb inside it grows with the scale.
+SCALE_TROUGH_BORDER = 1
+
+
+def _least_scale_length(widget):
+    """The shortest 0-100 Scale on which a drag stops at every integer.
+
+    A drag moves the thumb's centre along the trough less one thumb,
+    and Tk makes the value that run's fraction times 100, which the tab
+    truncates with `int(float(v))`. A run of exactly 100px puts every
+    pixel on an integer, and a fraction with no exact binary form comes
+    out a hair under its integer and truncates to the one below -- so
+    the run takes 101px. The thumb is the theme's `sliderlength`, in
+    points. `checks/check_important_settings.py` sweeps a Scale at this
+    length and one pixel shorter, at both UI scales.
+    """
+    thumb = ttk.Style(widget).lookup("Horizontal.TScale", "sliderlength")
+    return widget.winfo_pixels(thumb) + 2 * SCALE_TROUGH_BORDER + 101
+
+
+def _requested_width(widget):
+    """The width `widget` will ask for, before Tk has laid it out.
+
+    A container's request is set when its geometry manager runs, at
+    idle, and pumping idle while the tab is built puts the root on
+    screen half-drawn (see `setup_ui`). A leaf widget requests its size
+    when it is configured, so a row is summed from its leaves: slaves
+    packed side by side, or gridded in one row with each column at
+    least its `minsize`. Those are the only layouts handled.
+    `checks/check_important_settings.py` holds it to Tk's own figure
+    for every Important Settings row.
+    """
+    packed = widget.pack_slaves()
+    if packed:
+        return sum(_requested_width(w) + _horizontal_pads(w.pack_info())
+                   for w in packed)
+    columns, _rows = widget.grid_size()
+    if not columns:
+        return widget.winfo_reqwidth()
+    widths = [int(widget.grid_columnconfigure(c, "minsize"))
+              for c in range(columns)]
+    for w in widget.grid_slaves():
+        info = w.grid_info()
+        column = int(info["column"])
+        widths[column] = max(widths[column],
+                             _requested_width(w) + _horizontal_pads(info))
+    return sum(widths)
+
+
+def _horizontal_pads(info):
+    """A pack or grid slave's `padx`, both sides, and its `ipadx`.
+
+    A pair can come back as a tuple or as a space-separated string, and
+    one number pads both sides.
+    """
+    padx = info.get("padx", 0)
+    parts = [int(p) for p in (padx if isinstance(padx, (tuple, list))
+                              else str(padx).split())]
+    return (2 * parts[0] if len(parts) == 1 else sum(parts)) \
+        + 2 * int(info.get("ipadx", 0))
+
+
 # Element choices for the Unknown-character override dropdown.
 ELEMENT_CHOICES = ["", "Passion", "Order", "Justice", "Void", "Instinct"]
 
@@ -201,6 +265,8 @@ LEVEL_CHOICES = (LEVEL_AUTO, "60", "61", "62")
 LEVEL_SPIN_W = 41
 LEVEL_TOOLTIP = ("Characters below level 60 are optimized as though "
                  "they were level 60")
+P7_FILL_TOOLTIP = ("Raises the Have-at-least minimums to what this "
+                   "Combatant's Potential 7 asks for in full")
 
 
 # Force-main checkbox definitions. Each entry: (settings key, label, slot).
@@ -407,6 +473,7 @@ class OptimizerTab(BaseTab):
         self.set_grid_frame = None
         self.ad_readout_label = None
         self.sh_readout_label = None
+        self.p7_fill_button = None
         self.preset_label = None
         # One hover-tooltip instance for the whole tab: only one tooltip
         # can be visible at a time, so a second instance would buy
@@ -921,25 +988,21 @@ class OptimizerTab(BaseTab):
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         important_frame = ttk.LabelFrame(top_row, text="Important Settings",
                                          padding=px((2, 0, 2, 1)))
+        # Important Settings is as wide as its widest row and no wider
+        # (see _build_important_settings); Have at Least takes the rest
+        # of the column. No right pad on HAL, so its right edge aligns
+        # with Set Configuration's below.
         # spacing: content frame -> content frame -- frame, frame ↔
-        important_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=px((0, 2)))
+        important_frame.pack(side=tk.LEFT, fill=tk.Y, expand=False, padx=px((0, 2)))
         self._build_important_settings(important_frame)
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
         have_frame = ttk.LabelFrame(
             top_row, text="Have at least this much of a stat", padding=px((2, 3, 4, 4))
         )
-        # HAL frame doesn't expand -- it sizes to its natural width so the
-        # panel hugs its spinboxes; important_frame has expand=True so it
-        # absorbs the freed horizontal space. No right pad, so the frame's
-        # right edge aligns with Set Configuration's below.
-        #
-        # ipadx widens HAL on BOTH sides, and is what keeps its overall
-        # footprint roughly steady as the col-2 spinboxes' character width
-        # changes -- it is tuned against them, not set independently.
         # spacing: content frame -> content frame -- frame, frame ↔
-        have_frame.pack(side=tk.LEFT, fill=tk.Y, expand=False,
-                        padx=px((2, 0)), ipadx=px(6))
+        have_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
+                        padx=px((2, 0)))
         self._build_have_at_least(have_frame)
 
         # Set Configuration
@@ -949,6 +1012,18 @@ class OptimizerTab(BaseTab):
         set_frame.pack(fill=tk.X, pady=px((0, 5)))
         self._set_frame_ref = set_frame
         self._build_set_config(set_frame)
+
+        # The space under Set Configuration, with the Potential 7 button
+        # at its centre. `place` keeps the button out of the column's
+        # requested height, so the space is only what the panels above
+        # leave and the button moves nothing else.
+        p7_space = ttk.Frame(parent)
+        p7_space.pack(fill=tk.BOTH, expand=True)
+        self.p7_fill_button = ttk.Button(
+            p7_space, text="Fill in Potential 7 minimums",
+            command=self._fill_potential_7_minimums, state="disabled")
+        self.p7_fill_button.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        self._tooltip.bind(self.p7_fill_button, P7_FILL_TOOLTIP)
 
         # The "Exclude Combatant's MFs" panel lives in col 2 above the
         # Results frame -- see setup_ui. _build_exclude_gear is called
@@ -968,17 +1043,20 @@ class OptimizerTab(BaseTab):
         # The negative TOP is a different gap: the frame's padding is
         # already 0 there and the rule asks for less than a label's line
         # box gives, so the last pixel comes off this label's own inset.
-        ttk.Label(
+        #
+        # No wraplength here: every caption wraps at the widest row,
+        # which is known only once the rows are built -- see the end of
+        # this method.
+        dmg_caption = ttk.Label(
             parent, text="What percent of damage is Extra, Agony, or Fracture/Scorched DMG?",
-            font=("Segoe UI", 9), wraplength=px(376),
+            font=("Segoe UI", 9),
             padding=px((0, -1, 0, 0)),
-        ).pack(anchor=tk.W, pady=px((0, 0)))
+        )
+        dmg_caption.pack(anchor=tk.W, pady=px((0, 0)))
+        scale_length = _least_scale_length(parent)
 
-        # Each damage type gets a FULL row. Side by side, each slider's
-        # rendered track fell below ~100px at common window widths (the
-        # length=120 request only helps when pack can honor it), so
-        # dragging skipped roughly every 8th integer. A full-width row
-        # gives each track ample travel for every value. A shared
+        # Each damage type gets a full row, so a slider shares the
+        # panel's width with nothing but its name and readout. A shared
         # label column, pinned to the longest name's measured width,
         # keeps the tracks left-aligned with each other.
         ex_row = ttk.Frame(parent)
@@ -992,6 +1070,7 @@ class OptimizerTab(BaseTab):
             ex_row, "Extra", self.extra_pct_var,
             on_change=lambda v: self._save_int("extra_pct", v),
             label_col_px=_dmg_label_col_px(),
+            scale_length=scale_length,
         )
         dot_row = ttk.Frame(parent)
         # spacing: checkbox/slider ↕ checkbox/slider rows -- slider, slider ↕
@@ -1000,6 +1079,7 @@ class OptimizerTab(BaseTab):
             dot_row, "Agony", self.dot_pct_var,
             on_change=lambda v: self._save_int("dot_pct", v),
             label_col_px=_dmg_label_col_px(),
+            scale_length=scale_length,
         )
         # One slider covers Fracture AND Scorched: the two are
         # mechanically identical, so a share each would score the same.
@@ -1013,14 +1093,16 @@ class OptimizerTab(BaseTab):
             frac_row, "Fracture", self.fracture_pct_var,
             on_change=lambda v: self._save_int("fracture_pct", v),
             label_col_px=_dmg_label_col_px(),
+            scale_length=scale_length,
         )
 
         # Block 2: ATK <-> DEF slider
         # spacing: explanation text -> the controls it explains -- label, slider ↕
-        ttk.Label(
+        ad_caption = ttk.Label(
             parent, text="What percent of damage scales off DEF?",
-            font=("Segoe UI", 9), wraplength=px(350),
-        ).pack(anchor=tk.W, pady=px((0, 0)))
+            font=("Segoe UI", 9),
+        )
+        ad_caption.pack(anchor=tk.W, pady=px((0, 0)))
 
         ad_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, label ↕
@@ -1037,7 +1119,7 @@ class OptimizerTab(BaseTab):
             row=0, column=0, sticky="w")
         ad_scale = ttk.Scale(
             ad_row, from_=0, to=100, variable=self.atk_def_split_var,
-            orient=tk.HORIZONTAL, length=120,
+            orient=tk.HORIZONTAL, length=scale_length,
             command=lambda v: self._save_int("atk_def_split", int(float(v))),
         )
         # spacing: label ↔ its element -- label, slider ↔
@@ -1068,17 +1150,18 @@ class OptimizerTab(BaseTab):
 
         # Block 3: Shielding/Healing slider
         # spacing: explanation text -> the controls it explains -- label, slider ↕
-        ttk.Label(
+        sh_caption = ttk.Label(
             parent, text="How much value should be given to Shielding & Healing?",
-            font=("Segoe UI", 9), wraplength=px(350),
-        ).pack(anchor=tk.W, pady=px((0, 0)))
+            font=("Segoe UI", 9),
+        )
+        sh_caption.pack(anchor=tk.W, pady=px((0, 0)))
 
         sh_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, checkbox ↕
         sh_row.pack(fill=tk.X, pady=px((0, 6)))
         sh_scale = ttk.Scale(
             sh_row, from_=0, to=100, variable=self.shielding_healing_weight_var,
-            orient=tk.HORIZONTAL, length=120,
+            orient=tk.HORIZONTAL, length=scale_length,
             command=lambda v: self._save_int("shielding_healing_weight", int(float(v))),
         )
         # spacing: border edge -> first non-button element -- panel, slider ↔
@@ -1133,8 +1216,17 @@ class OptimizerTab(BaseTab):
                 command=lambda k=key: self._save_force_main(k),
             ).pack(side=tk.LEFT, padx=px((0, pad_right)))
 
+        # The panel is as wide as its widest row, with each slider at its
+        # least length, and the captions wrap to that rather than widen
+        # it: Have at Least beside it takes whatever the column has left.
+        # A MEASURED width, so no px().
+        rows = (ex_row, dot_row, frac_row, ad_row, sh_row, fm_row)
+        widest = max(_requested_width(row) for row in rows)
+        for caption in (dmg_caption, ad_caption, sh_caption):
+            caption.configure(wraplength=widest)
+
     def _labeled_slider(self, parent, label, var, on_change=None,
-                        label_col_px=None):
+                        label_col_px=None, scale_length=None):
         """Build a labeled slider + readout inside `parent`. Packs LEFT.
 
         on_change(int) is called whenever the slider moves to a new integer
@@ -1142,7 +1234,8 @@ class OptimizerTab(BaseTab):
         string-formatted float (e.g. "23.0") even on an integer-bound Scale.
 
         `label_col_px` is the pixel width of the name column, shared by
-        every damage row so their sliders line up.
+        every damage row so their sliders line up. `scale_length` is the
+        slider's requested length, `_least_scale_length` unless given.
         """
         wrap = ttk.Frame(parent)
         wrap.pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -1158,13 +1251,12 @@ class OptimizerTab(BaseTab):
         wrap.grid_columnconfigure(0, minsize=label_col_px)
         ttk.Label(wrap, text=label, anchor=tk.W).grid(
             row=0, column=0, sticky="w")
-        # length=120 requests a track at least as long as the 0-100 value
-        # range (ttk's default request is 100px, and after the thumb's
-        # width the drag travel drops below 100px -- so dragging skips
-        # integers). fill=X still lets it grow beyond the request.
+        # The least length at which a drag stops on every integer; the
+        # column's weight lets the track grow past it.
         scale = ttk.Scale(
             wrap, from_=0, to=100, variable=var, orient=tk.HORIZONTAL,
-            length=120,
+            length=(scale_length if scale_length is not None
+                    else _least_scale_length(wrap)),
             command=lambda v: on_change(int(float(v))) if on_change else None,
         )
         # spacing: label ↔ its element -- label, slider ↔
@@ -1195,16 +1287,16 @@ class OptimizerTab(BaseTab):
         integer), Col 2 = CRate/CDmg/Extra DMG%/DoT% (integer + "%").
 
         The label-to-spinbox gap is natural (label sized to fit its text)
-        and the column frames don't expand horizontally, so the
-        surrounding LabelFrame sizes to its natural width.
+        and the column frames don't expand horizontally, so whatever
+        width the panel has past them opens between the two columns.
         """
         cols = ttk.Frame(parent)
         # No extra padding on either side -- col 1 text sits at the
         # LabelFrame's own left padding edge (matching the other config
         # frames), and col 2's spinbox is right-aligned at the LabelFrame's
-        # right padding edge. cols fills X (not Y) so the extra width HAL
-        # gains from Important Settings parks BETWEEN col 1 (LEFT) and
-        # col 2 (RIGHT) instead of pushing col 2 off its right alignment.
+        # right padding edge. cols fills X (not Y) so the width HAL has
+        # past its columns parks BETWEEN col 1 (LEFT) and col 2 (RIGHT)
+        # instead of pushing col 2 off its right alignment.
         # spacing: border edge -> first non-button element -- panel, label ↔
         cols.pack(fill=tk.X, expand=False, padx=px((0, 0)))
         col1_frame = ttk.Frame(cols)
@@ -1240,8 +1332,8 @@ class OptimizerTab(BaseTab):
 
         # Note explaining HAL threshold semantics, packed below the cols
         # grid. wraplength is updated on <Configure> so the text reflows
-        # whenever the HAL frame's width changes (it does -- HAL trades
-        # width with Important Settings).
+        # to whatever width HAL is given -- the column's, less Important
+        # Settings'.
         hal_note = ttk.Label(
             parent,
             text=("Input stats as you expect them to be in the "
@@ -1318,6 +1410,35 @@ class OptimizerTab(BaseTab):
             "write",
             lambda *a, s=stat: self._save_have_at_least(s),
         )
+
+    def _potential_7_minimums(self, hero_name) -> dict:
+        """{Have-at-least stat: the least value that meets `hero_name`'s
+        Potential 7 in full}.
+
+        Empty for every combatant: no Potential 7 is encoded in the game
+        data (see `game_data/characters.py`), so the button that fills
+        these stays disabled.
+        """
+        return {}
+
+    def _update_p7_fill_button(self, hero_name):
+        """Enable the fill button where there is something to fill."""
+        state = "normal" if self._potential_7_minimums(hero_name) else "disabled"
+        self.p7_fill_button.configure(state=state)
+
+    def _fill_potential_7_minimums(self):
+        """Raise each Have-at-least minimum to what Potential 7 asks.
+
+        Raise, never lower: a minimum set above the threshold by hand is
+        a goal of its own. The var traces save each change.
+        """
+        minimums = self._potential_7_minimums(self.selected_character.get())
+        for stat, least in minimums.items():
+            var = self.have_at_least_vars[stat]
+            if stat in HAL_STATS_WITH_PCT:
+                var.set(max(round(float(var.get()), 1), round(float(least), 1)))
+            else:
+                var.set(max(int(var.get()), int(least)))
 
     # --------------------------------------------------- UI: Set Configuration
 
@@ -2382,6 +2503,7 @@ class OptimizerTab(BaseTab):
             self._loading_settings = False
 
         self._update_element_override_visibility(hero_name)
+        self._update_p7_fill_button(hero_name)
 
     # ---- Save callbacks (per-control). Suppressed during loads. ----
 
