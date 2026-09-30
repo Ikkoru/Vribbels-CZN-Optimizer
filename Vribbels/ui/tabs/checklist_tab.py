@@ -1634,17 +1634,16 @@ EVENT_IMPLIES = {GENERIC: TALLIED}
 # behind. Its `current_days` climbs for ever, so what the row would
 # otherwise show is a reward waiting that nobody can claim.
 #
-# The two after it are events whose rows the game issues one at a time,
-# as each task is reached, with their totals in the update notice's
-# reward tables: Guardian Angel's Vacation, three days of three tasks
-# and a day's clear plus one for the lot, and Sereniel's Memoirs, seven
-# days of three.
+# `event_nodelist_8`, Guardian Angel's Vacation, issues a row as each
+# node is played, and nothing on the wire lists the nodes or the days
+# ahead of them; the Node Lists before it held 25, a shape this one is
+# not. The update notice's reward table gives its 13: three days of
+# three tasks and a day's clear, and one for the lot.
 #
 # Keyed by the NORMALISED event key, so an instalment's spelling does
 # not matter. The value is REWARDS, not days.
 WRITTEN_DOWN = "written-down"
-WRITTEN_TOTALS = {"event_daily_1": 7, "event_nodelist_8": 13,
-                  "event_director_2": 21}
+WRITTEN_TOTALS = {"event_daily_1": 7, "event_nodelist_8": 13}
 
 
 def written_total(name, taken):

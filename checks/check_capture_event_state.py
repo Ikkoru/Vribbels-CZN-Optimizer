@@ -226,6 +226,34 @@ def run():
             "is a dict of `list_id` rows, so the guard is a LIST of rows "
             "carrying `res_id` and `complete_time`.")
 
+    # --- a task that MOVES issues its row, in `mission_condition` ------
+    # Dining at the Starshine Diner issued a Memoirs task of day 7 and
+    # moved day 1's (`websocket_debug_20260930_170225`); the only word
+    # of the new row before the next login is the progress report. And
+    # a report on a row already claimed must not unclaim it.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "qid": 92, "mission_condition": {"condition": {
+            "event_mission": [
+                {"res_id": "event_director_2_07_01", "score": 1,
+                 "issued_time": 1790784337, "complete_time": 0,
+                 "condition_type": "EAT_FOOD__ID"},
+                {"res_id": "event_bartender_1_01_04", "score": 2,
+                 "issued_time": 1789328079, "complete_time": 0,
+                 "condition_type": "EVENT_BARTENDER_CLEAR_DAY__ID"}]}}}]))
+    issued = addon.missions.get("event_director_2_07_01") or {}
+    if issued.get("issued_time") != 1790784337:
+        failures.append(
+            "a Memoirs task issued mid-session never reached the mission "
+            "cache. Its row rides the moving reply's `mission_condition` "
+            "and nothing else until the next login, so the event's floor "
+            "and grid stand still all session.")
+    if addon.missions.get("event_bartender_1_01_04", {}).get(
+            "complete_time") != 1789328267:
+        failures.append(
+            "a progress report unclaimed a claimed row: it carries "
+            "`complete_time` 0, and taking that over the claim's stamp "
+            "reads a taken reward as waiting.")
+
     # --- the SINGULAR of a collection is the row that changed --------
     # Finishing a summer puzzle answers with `event_summer_set_entity`,
     # one row, under its own key rather than inside the plural the

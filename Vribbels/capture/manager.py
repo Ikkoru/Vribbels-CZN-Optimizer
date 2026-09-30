@@ -1518,6 +1518,31 @@ class Addon:
                 self._merge_missions(claimed)
                 self._save_pending = True
 
+        # **A task that moves issues its row**, and until the next login
+        # the only word of it is the moving reply's `mission_condition`:
+        # its `event_mission` list names each event mission the act
+        # touched, with its issue time and new score. Folded in, a row
+        # the session issued counts at once -- a Memoirs task done ahead
+        # of its day, a grid's first batch. A progress report carries a
+        # `complete_time` of 0 and never unclaims a row.
+        moving = data.get("mission_condition")
+        moving = moving.get("condition") if isinstance(moving, dict) \\
+            else None
+        for row in (moving.get("event_mission") or ()
+                    if isinstance(moving, dict) else ()):
+            if (not isinstance(row, dict)
+                    or not str(row.get("res_id") or "").startswith("event_")):
+                continue
+            held = dict(self.missions.get(str(row["res_id"])) or {})
+            for key in ("res_id", "score", "issued_time"):
+                if key in row:
+                    held[key] = row[key]
+            if row.get("complete_time"):
+                held["complete_time"] = row["complete_time"]
+            held.setdefault("complete_time", 0)
+            self.missions[str(row["res_id"])] = held
+            self._save_pending = True
+
         # What limits a stage to N runs a period: `content_boss` is the
         # Simulation Challenges. Same shape as a shop row and the same
         # lazy reset -- `count` is the runs TAKEN this period and

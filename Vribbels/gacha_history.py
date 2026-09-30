@@ -91,17 +91,21 @@ URGENT_AFTER_DAYS = 90
 PICKUP_ID = re.compile(
     r"^gacha_pickup_(combatant|supporter)_(\d+)((?:_\d+)*)$")
 
-# **A Seasonal Rescue Rate-Up is a rerun on the RELEASE counter**: a
-# seasonal combatant's return, carrying the rerun suffix, whose pulls
-# count with the Combatant Rate-Ups' -- asking for Sereniel's records
-# answers with Olga's, Arabella's and every release before. Nothing in
-# the id says so, so they are named here, from the notice that calls
-# the banner "Seasonal". The partner half is taken to follow its
-# combatant: its own records have not been read.
-SEASONAL_RERUNS = frozenset({
-    "gacha_pickup_combatant_30075_1",      # Sereniel, 2026-09-30
-    "gacha_pickup_supporter_30076_1",      # Peko, beside her
-})
+# **A Seasonal Rescue Rate-Up is a rerun on the RELEASE counter**: the
+# return of a unit the Normal Rescues never offer -- a Seasonal
+# Combatant or Partner -- with the rerun suffix, whose pulls count with
+# the Combatant Rate-Ups' (asking for Sereniel's records answered with
+# Olga's, Arabella's and every release before). A unit the Normal
+# Rescues do offer returns on a Normal Rescue Rate-Up, the rerun
+# counter: Narja, Nine.
+#
+# **So the rates tell them apart**: every banner's rates list the Normal
+# Rescues' 5-stars (`general_ssr_*` under `ssr_pool_ids`), and a rerun
+# whose unit is not among them is Seasonal. `load` notes the list off
+# every rates reply it has, the account's and the shipped ones
+# (`note_general_pool`); before any, a rerun is a rerun.
+GENERAL_POOL_ID = re.compile(r"^general_ssr_[cs]_(\d+)$")
+_general_units = None
 
 # The families whose pity record is not named after their banner's id:
 # `gacha_general_first_select_1` counts on `gacha_pity_first_select`,
@@ -139,13 +143,31 @@ def pool_of(gacha_id):
     gacha_id = str(gacha_id or "")
     m = PICKUP_ID.match(gacha_id)
     if m:
-        rerun = m.group(3) and gacha_id not in SEASONAL_RERUNS
+        seasonal = (_general_units is not None
+                    and int(m.group(2)) not in _general_units)
+        rerun = m.group(3) and not seasonal
         return "pickup_%s%s" % (m.group(1), "_rerun" if rerun else "")
     for prefix, pool in PREFIX_POOLS:
         if gacha_id.startswith(prefix):
             return pool
     return gacha_id[len("gacha_"):] if gacha_id.startswith("gacha_") \
         else gacha_id
+
+
+def note_general_pool(rates):
+    """Remember which 5-stars the Normal Rescues offer, off every entry
+    of `rates` ({banner: its rates reply}); forgotten where none lists
+    any. See `GENERAL_POOL_ID`."""
+    global _general_units
+    units = set()
+    for entry in (rates or {}).values():
+        pools = entry.get("pools") if isinstance(entry, dict) else None
+        for pool_id in ((pools or {}).get("ssr_pool_ids") or ()
+                        if isinstance(pools, dict) else ()):
+            m = GENERAL_POOL_ID.match(str(pool_id))
+            if m:
+                units.add(int(m.group(1)))
+    _general_units = units or None
 
 
 def featured_of(gacha_id):
@@ -241,19 +263,24 @@ def _utc(day, hour=0):
         hour=hour, tzinfo=timezone.utc).timestamp()
 
 
-def _windows(banners, opens_hour, closes_after):
-    """[(pool, gacha id, opens, closes)] in epoch seconds."""
+def _windows(banners, opens_hour, closes_after, suffix):
+    """[(pool, gacha id, opens, closes)] in epoch seconds, each in the
+    pickup pool of its kind plus `suffix`: which list a banner is in
+    says its counter, a Seasonal rerun's included, before any rates are
+    read to say it."""
     out = []
     for combatant, supporter, first, last in banners:
         for gacha_id in (combatant, supporter):
-            out.append((pool_of(gacha_id), gacha_id,
-                        _utc(first, opens_hour),
+            m = PICKUP_ID.match(gacha_id)
+            pool = ("pickup_%s%s" % (m.group(1), suffix) if m
+                    else pool_of(gacha_id))
+            out.append((pool, gacha_id, _utc(first, opens_hour),
                         _utc(last, opens_hour) + closes_after))
     return out
 
 
-_RELEASE_WINDOWS = _windows(RELEASE_BANNERS, CHANGEOVER_HOUR, 0)
-_RERUN_WINDOWS = _windows(RERUN_BANNERS, 0, 86400)
+_RELEASE_WINDOWS = _windows(RELEASE_BANNERS, CHANGEOVER_HOUR, 0, "")
+_RERUN_WINDOWS = _windows(RERUN_BANNERS, 0, 86400, "_rerun")
 
 
 def dated_banner(pool, at):
@@ -1099,6 +1126,9 @@ def load(folder, now=None, shipped=None):
         history.notes.append(note)
 
     history.rates = shared_facts.with_rates(captured.get("rates"), shipped)
+    # Before any record is given its pool: the rates say which reruns
+    # count with the releases. See `GENERAL_POOL_ID`.
+    note_general_pool(history.rates)
     history.pity = captured.get("pity") if isinstance(
         captured.get("pity"), dict) else {}
     read = captured.get("read") if isinstance(captured.get("read"),

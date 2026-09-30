@@ -174,8 +174,8 @@ The maintainer read every live event's totals off the game and reported them. Th
 | Beach Cafe Festival (summer) | 20 mission rewards, **plus 10 puzzle and 15 story** | 20 mission rows | agrees on the rows; 25 of its rewards are not rows at all |
 | Rei's Gift (`event_daily_16`) | 7, one per login day | claimed against claimed-plus-one | floor, as designed |
 | Virtual Tactical Simulation | 3, one per banner combatant | 3 | agrees |
-| Guardian Angel's Vacation (`event_nodelist_008`) | 13: three days of three tasks and a day's clear, and one for the lot | its rows arrive one at a time as each task is reached, so a write-down (`WRITTEN_TOTALS`) | agrees |
-| Memoirs of the Ark Protection Bureau Chief (`event_schedule_director_002`) | 21, seven days of three | the same: rows one at a time, a write-down | agrees |
+| Guardian Angel's Vacation (`event_nodelist_008`) | 13: three days of three tasks and a day's clear, and one for the lot | a write-down (`WRITTEN_TOTALS`): its rows arrive one at a time as each node is played, and its story tables (`story_event_node_list_entities`, `mission_event_node_list_story_node_entities`) hold only the nodes and conditions reached -- day 1's, on its first day. Without it the Node Lists' past would say `~1/25` | agrees |
+| Memoirs of the Ark Protection Bureau Chief (`event_schedule_director_002`) | 21, seven days of three | the grid, 7 x 3, once a task of another day has moved: a task's row is issued the first time it moves, whatever its day, and one Aether spend issued days 2, 4, 5 and 6's in the same second. `0/1+?` at the first login, before any had | agrees |
 | Basin of Hyperspace | 26 stars | 26/26 | agrees |
 | Full-Scale Offensive | 9 stars | 9/9 | agrees |
 | Zero System (Chaos Matrix) | 100 rewards | 100/100 | agrees |
@@ -317,7 +317,7 @@ What every capture on hand holds, which is what a decision about trusting a type
 
 | Type | Instalments | Rewards each | |
 | ---- | ----------- | ------------ | - |
-| Seven-day story event: devil, director, idol, recorder | 5; director twice (`event_schedule_director_002`, `event_director_2_<day>_<task>`, a task's row issued as it is reached) | 21, seven days of three | stable |
+| Seven-day story event: devil, director, idol, recorder | 5; director twice (`event_schedule_director_002`, `event_director_2_<day>_<task>`, a task's row issued the first time it moves) | 21, seven days of three | stable |
 | Galactic Disaster challenge event, `event_chaos_mission_*` | 4 | 28, seven days of four | stable |
 | Policy, `event_policy_*` | 5 | 6 | stable |
 | Love, `event_love_*` | 4 | 21 -- as mission rows once, as a step track since | stable |
@@ -528,7 +528,7 @@ So a new event's rewards are recognisable before anything else is known about it
 | `attendance_entities` | `load` and `mission` replies at login | **no record at all** — see below |
 | `overclock_entities` | the `unlock` reply at login | `result_overclock_entities`, nested under the stage reply's **`return_info`** |
 | `event_mission_reward_entities` | the `mission` reply at login | the final reward's claim sends its one row under the bare `entity`; an ordinary reward claim sends nothing |
-| `event_mission_entities` | login | its own rows, under the BARE key `entities` — not under its own name |
+| `event_mission_entities` | login | its own rows, under the BARE key `entities` — not under its own name. A task that MOVES, its row issued or its score raised, is in the moving reply's `mission_condition.event_mission` and nowhere else until the next login; merged, never over a claim's `complete_time` |
 | `event_summer_set_entities` | the `event/get_list` payload | the one row that changed, under the SINGULAR `event_summer_set_entity` |
 
 ### A Daily Check-in claim's reply

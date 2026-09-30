@@ -45,7 +45,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - In the weeks between two Galactic Disaster seasons, the Seasonal Shop stays shut and says when it opens, its column keeping its width, and Galactic Disaster – Chaos and the Seasonal Accumulated Score read `Not open`.
   - Arkhianon Supply reads a new pass from its first day, instead of the last one's 70/70 until something is claimed.
   - The Basin of Hyperspace and the Full-Scale Offensive follow what you clear while capturing, and a new Offensive reads 0/9 before its first boss.
-  - An event that hands out its tasks one at a time no longer reads as finished on its first day.
+  - An event that hands out its tasks one at a time no longer reads as finished on its first day, and counts the tasks you start while capturing.
 - Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
 - Capture Log: a Great Rift half's placement reward, paid at the first login after the half ends, is logged, and its counts update.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.

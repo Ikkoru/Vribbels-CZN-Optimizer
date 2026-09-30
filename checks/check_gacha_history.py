@@ -77,13 +77,21 @@ def _record(rid, gacha_id, at, reward):
 
 
 def _pools_and_rarity(gh, failures):
+    # **A Seasonal Rescue Rate-Up**: the rerun suffix on a unit no
+    # Normal Rescue offers, and the release counter -- Sereniel's
+    # records answered with the release banners'. The rates read, as
+    # `load` notes them, say which units the Normal Rescues offer.
+    gh.note_general_pool({
+        "gacha_general": {"pools": {"ssr_pool_ids": [
+            "general_ssr_c_1052", "general_ssr_c_30047"]}},
+        "gacha_general_supporter": {"pools": {"ssr_pool_ids": [
+            "general_ssr_s_20002"]}}})
     cases = {
         "gacha_pickup_combatant_30117": ("pickup_combatant", 30117),
         "gacha_pickup_combatant_1052_1": ("pickup_combatant_rerun", 1052),
         "gacha_pickup_supporter_20002_1": ("pickup_supporter_rerun", 20002),
-        # A Seasonal Rescue Rate-Up: the rerun suffix, the release
-        # counter. Its records answered with the release banners'.
         "gacha_pickup_combatant_30075_1": ("pickup_combatant", 30075),
+        "gacha_pickup_supporter_30076_1": ("pickup_supporter", 30076),
         "gacha_general": ("general", None),
         "gacha_general_supporter": ("general_supporter", None),
         "gacha_card_factor": ("card_factor", None),
@@ -96,7 +104,15 @@ def _pools_and_rarity(gh, failures):
             failures.append(
                 f"{gacha_id} reads as pool/featured {got}, not {want}. Pulls "
                 f"filed under the wrong pool advance the wrong pity counter "
-                f"-- a rerun is a category of its own, with its own.")
+                f"-- a rerun is a category of its own, with its own, but "
+                f"a Seasonal one counts with the releases.")
+    # Before any rates, every suffix is a rerun: nothing says otherwise.
+    gh.note_general_pool({})
+    if gh.pool_of("gacha_pickup_combatant_30075_1") != "pickup_combatant_rerun":
+        failures.append(
+            "with no rates read, a suffixed banner is not filed as a "
+            "rerun. Nothing but the Normal Rescues' list can say it is "
+            "Seasonal, and without it the suffix is the only word.")
     tiers = gh.tiers_from_rates({"x": _rates()})
     want = {FEATURED: 5, OFF_BANNER: 5, LATER: 5, IMPORTED_FIVE: 5,
             FOUR: 4, THREE: 3}
@@ -759,4 +775,30 @@ def run():
         _addon(gh, tmp / "addon", failures)
         (tmp / "replay").mkdir()
         _replay(gh, tmp / "replay", failures)
+        _seasonal_on_load(gh, tmp / "seasonal", failures)
     return failures
+
+
+def _seasonal_on_load(gh, folder, failures):
+    """A Seasonal rerun's pulls land in the release pool off the rates
+    the store holds, with nothing noted beforehand: `load` has to note
+    the Normal Rescues' list before it files a single record."""
+    gh.note_general_pool({})
+    store = {"kind": gh.STORE_KIND, "version": 1,
+             "records": [
+                 _record(1, "gacha_pickup_combatant_30075_1", 1000, [1005]),
+                 _record(2, "gacha_pickup_combatant_1052_1", 1001, [1005])],
+             "rates": {"gacha_general": {"pools": {"ssr_pool_ids": [
+                 "general_ssr_c_1052"]}, "seen": "2026-09-30T00:00:00"}}}
+    store_dir = gh.folder_in(folder)
+    store_dir.mkdir(parents=True)
+    (store_dir / gh.CAPTURED).write_text(json.dumps(store), encoding="utf-8")
+    pools = {b["gacha_id"]: b["pool"] for b in gh.load(folder).batches}
+    gh.note_general_pool({})         # no list left behind for other checks
+    want = {"gacha_pickup_combatant_30075_1": "pickup_combatant",
+            "gacha_pickup_combatant_1052_1": "pickup_combatant_rerun"}
+    if pools != want:
+        failures.append(
+            f"loaded, the two reruns' pulls are filed {pools}, not "
+            f"{want}. Sereniel is in no Normal Rescue's list and Narja "
+            f"is, which is what the rates say and the pity follows.")
