@@ -44,8 +44,6 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
 - Diana's, Maribell's, Mika's, Tressa's, Veronica's and Yuki's base ATK, DEF and HP were wrong, and Tiphera's sixth Potential node raises DEF%, not CDMG%.
-- Setup & Settings opens without freezing for a moment.
-- Capture: the Log Presets stay as they were on a second visit to the tab, instead of rebuilding in view.
 
 ## [2.2.0] - Pull Tracker, Player Stats, Galactic Disaster Shop
 
