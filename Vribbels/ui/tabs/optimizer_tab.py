@@ -70,6 +70,7 @@ from game_data import (
 # ("CRate", "CDmg", "Flat ATK", etc.) remain unchanged; this map is
 # consulted whenever a stat name is shown to the user.
 from game_data.constants import DISPLAY_NAMES
+from game_data.potential_7 import potential_7_minimums
 # Pure GS / Potential helpers — used by _populate_detail to compute the
 # Selected Build tree's GS and Potential columns under the character's
 # ASSIGNED scoring preset (which may differ from the globally-active
@@ -1413,13 +1414,11 @@ class OptimizerTab(BaseTab):
 
     def _potential_7_minimums(self, hero_name) -> dict:
         """{Have-at-least stat: the least value that meets `hero_name`'s
-        Potential 7 in full}.
-
-        Empty for every combatant: no Potential 7 is encoded in the game
-        data (see `game_data/characters.py`), so the button that fills
-        these stays disabled.
-        """
-        return {}
+        Potential 7 in full} -- `game_data.potential_7`'s, empty for a
+        combatant it does not know. Whether node 7 is taken yet does not
+        matter: a minimum is a goal."""
+        res_id = self._resolve_res_id(hero_name) if hero_name else None
+        return potential_7_minimums(res_id) if res_id is not None else {}
 
     def _update_p7_fill_button(self, hero_name):
         """Enable the fill button where there is something to fill."""
@@ -3628,6 +3627,14 @@ class OptimizerTab(BaseTab):
         lines.append("")
         lines.append(f"xDMG%: {_dec(bd['xDMG%'], 4)}")
         lines.append(f"+DMG%: {_dec(bd['+DMG%'], 4)}")
+        # Node 7's bonus, already inside Pot / Other above: this says
+        # how much of those it is.
+        p7 = bd.get("Potential 7") or {}
+        if p7:
+            lines.append("")
+            lines.append("Potential 7: " + ", ".join(
+                f"{DISPLAY_NAMES.get(grants, grants)} +{amount:.1f}"
+                for grants, amount in p7.items()))
         # "Potential 7" ATK/DEF/HP -- the inner values used by the
         # Have-at-least minimum check: Partner flat class stats count,
         # Partner passives and Equipment don't. No blank lines between

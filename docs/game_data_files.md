@@ -71,7 +71,11 @@ An id counts as "known" to the program only when an ITEM table names it. **`RECO
 
 The whole potential tree in one tuple — display order, the game's numbering, the wire's, the maxima, and what each node does. `POTENTIAL_MAX_TOTAL` sums the maxima, which is what the Combatants tab's `Nodes` column counts against.
 
-**The two numberings disagree** and `game_formulas.md` §1 is the table of both. Per-character wording lives in `POTENTIAL_NODE_OVERRIDES`; a stat node states none, its line being built from the stat instead.
+**The two numberings disagree** and `game_formulas.md` §1 is the table of both. Per-character wording lives in `POTENTIAL_NODE_OVERRIDES`; a stat node states none, its line being built from the stat instead, and node 7's line names what `potential_7.py` says it raises.
+
+## `potential_7.py`
+
+Node 7 per combatant: the bonus, the check and its growth, in the shape the module docstring gives; the rules they follow are `game_formulas.md` §1, *Potential 7*. A new combatant needs an entry: the validator reports one without, and its node 7 scores as nothing until it has one. **Check stats are the Have-at-least names** (`CHECK_STATS`) and a misspelt one never passes, which the validator reports too. A new entry's numbers are held to the server by the next plain battle the combatant fights with node 7 taken (`check_base_stats_on_wire`).
 
 ## Base stats in `characters.py`, against the server
 

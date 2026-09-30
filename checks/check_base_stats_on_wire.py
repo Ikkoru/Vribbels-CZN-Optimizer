@@ -28,6 +28,9 @@ combatant in it; the capture files it (`Addon._note_base_stats`) and
    and `run_all` clears the overlay after every check.
 4. **The stat formula is the server's** (`formula_gaps`): a sheet the
    program's formula reproduces passes, and one it does not is caught.
+   Node 7's bonus with it: growth continuous past the threshold, a
+   threshold met at its own value, and the sheet without the bonus, or
+   without node 70, failing.
 5. **The maintainer's own readings, where there are any**: every
    combatant must match characters.py at its level, every partner's
    level-60 flats partners.py, and the formula every plain build.
@@ -418,7 +421,7 @@ def _the_formula_holds():
              "inner": {"S_ATK": base[0] + atk}, "status": status,
              "zero_system": False}
     out = []
-    gaps = bs.formula_gaps([build], {})
+    gaps = bs.formula_gaps([build])
     if gaps:
         out.append(f"a sheet the formula reproduces reads as {gaps}.")
 
@@ -430,12 +433,87 @@ def _the_formula_holds():
               "flat: no Affection row fits": broken(
                   S_ATK_INC_ADD_OUT=atk + 1)}
     for what, fault in faults.items():
-        if not any(g[1] == what for g in bs.formula_gaps([fault], {})):
+        if not any(g[1] == what for g in bs.formula_gaps([fault])):
             out.append(f"a sheet whose {what} the formula cannot give "
                        f"passes. See `base_stats_store.formula_gaps`.")
-    if bs.formula_gaps([faults["CRate"]], {rid: {"CRate": 1}}):
-        out.append("a CRate gap of exactly an allowed bonus still fails.")
-    return out
+    return out + _potential_7_on_the_sheet()
+
+
+def _potential_7_on_the_sheet():
+    """Node 7's bonus is held to the sheet like every other layer.
+
+    Two sheets whose ATK check sits part-way up the growth, so the
+    continuous growth is what they test: Rin's CRate and Heidemarie's
+    Passion damage. Each passes as the server would state it, and fails
+    without the bonus, or with it but without node 70 taken.
+    """
+    import base_stats_store as bs
+    from game_data import CHARACTERS, FRIENDSHIP_BONUSES
+    _lvl, atk, def_, hp = FRIENDSHIP_BONUSES[-1]
+    out = []
+    for rid, field, bonus in ((1018, "S_CRI", 5 + (atk + 30) / 40),
+                              (30093, "S_RED_DMG_RATE",
+                               5 + 2 * (atk + 30) / 20)):
+        char = CHARACTERS[rid]
+        base = [630, 150, 400]
+        status = {"BASE_S_ATK": base[0], "BASE_S_DEF": base[1],
+                  "BASE_S_HP": base[2], "S_ATK_INC_ADD_OUT": atk,
+                  "S_DEF_INC_ADD_OUT": def_, "S_HP_INC_ADD_OUT": hp,
+                  "S_ATK": base[0] + atk, "S_DEF": base[1] + def_,
+                  "S_HP": base[2] + hp,
+                  "S_CRI": char.get("base_crit_rate", 0),
+                  "S_CRI_DMG_RATE": char.get("base_crit_dmg", 125.0),
+                  "S_ADDI_ATK_DMG_RATE": 0, "S_DOT_ATK_DMG_RATE": 0,
+                  "S_RED_DMG_RATE": 0}
+        status[field] += bonus
+        node_70 = int("%d7001" % rid)
+        build = {"res_id": rid, "level": 60, "nodes": [node_70],
+                 "pieces": [], "inner": {"S_ATK": base[0] + atk},
+                 "status": status, "zero_system": False}
+        name = char["name"]
+        gaps = bs.formula_gaps([build])
+        if gaps:
+            out.append(f"{name}'s sheet carrying node 7's {bonus:.3f} at "
+                       f"{base[0] + atk} ATK reads as {gaps}: the growth "
+                       f"past the threshold is continuous, and the check "
+                       f"reads the inner value before the bonus. See "
+                       f"`core.potential_7_bonus`.")
+        without = dict(build, status=dict(status, **{
+            field: status[field] - bonus}))
+        untaken = dict(build, nodes=[])
+        for what, sheet in (("without the bonus", without),
+                            ("with node 70 untaken", untaken)):
+            if not bs.formula_gaps([sheet]):
+                out.append(f"{name}'s sheet {what} passes the formula: "
+                           f"node 7's bonus is not being held to it.")
+    return out + _potential_7_at_its_threshold()
+
+
+def _potential_7_at_its_threshold():
+    """A check met exactly is met: Rita at 800 ATK, her check's own
+    value, carries her +10% ATK in the inner %. No filed sheet sits on
+    a threshold, so without this an exclusive comparison passes."""
+    import base_stats_store as bs
+    from game_data import FRIENDSHIP_BONUSES
+    _lvl, atk, def_, hp = FRIENDSHIP_BONUSES[-1]
+    base = [800 - atk, 150, 400]
+    status = {"BASE_S_ATK": base[0], "BASE_S_DEF": base[1],
+              "BASE_S_HP": base[2], "S_ATK_INC_ADD_OUT": atk,
+              "S_DEF_INC_ADD_OUT": def_, "S_HP_INC_ADD_OUT": hp,
+              "S_ATK_INC_RATE_OUT": 10,
+              "S_ATK": int(base[0] * 1.1 + atk + 0.5),
+              "S_DEF": base[1] + def_, "S_HP": base[2] + hp,
+              "S_CRI": 3.0, "S_CRI_DMG_RATE": 125.0,
+              "S_ADDI_ATK_DMG_RATE": 0, "S_DOT_ATK_DMG_RATE": 0}
+    build = {"res_id": 30097, "level": 60, "nodes": [300977001],
+             "pieces": [], "inner": {"S_ATK": 800}, "status": status,
+             "zero_system": False}
+    gaps = bs.formula_gaps([build])
+    if gaps:
+        return [f"Rita's sheet at exactly 800 ATK, carrying her +10% ATK, "
+                f"reads as {gaps}. Every Potential 7 threshold is met at "
+                f"its value or higher."]
+    return []
 
 
 def _the_maintainers_readings(snapshots=None):

@@ -10,6 +10,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
+- **Potential 7** counts wherever a combatant has it: in their stats, in the Optimizer's score, and in `Show all stat contributions`. Its bonus to a card, a Quest or Weakness Damage is not scored.
+  - Optimizer: the score decides for itself whether meeting a Potential 7 requirement is worth the stats. `Fill in Potential 7 minimums` raises the Have at least minimums to what the combatant's Potential 7 asks for in full.
+  - Combatants: node 7's line says what it raises.
 - Capture: two options in Upgrade Log Settings, both off by default:
   - `Show average Potential` adds where each preset's Potential is expected to end, between the ends of its range: `21-41-80`. The ends are what the best and worst luck reach, and rarely happen.
   - `Show Potential's middle 80%` narrows each range to where 8 upgrade paths in 10 end. The Memory Fragments tab's Potential and Highest Potential columns follow it while that tab's `Upgrade Log Settings` box is on, showing `…` for a moment while they work it out.

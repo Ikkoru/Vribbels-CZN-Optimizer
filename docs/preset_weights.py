@@ -16,7 +16,8 @@ Gear Score divides every roll by its stat's max roll.
 **The reference build is in a vacuum**: the combatant at level 61 with
 their class's 5-star partner, their signature partner's passives (a
 5-star or 4.5-star one at limit break 0, a 4-star one at its highest),
-potential nodes 5 and 6 maxed and the highest Affection, wearing their
+potential nodes 5 and 6 maxed, node 7 taken and the highest Affection,
+wearing their
 ARCHETYPE's average fragment stats -- the mean of the fragment stats of
 every archetype member's best Optimizer build -- and their own sets.
 Those averages are derived once and kept in
@@ -220,6 +221,11 @@ class World:
                    "CDmg": "pot_cdmg"}.get(stat)
             if key:
                 cs[key] += bonus
+        # Node 7 taken, whatever the account's own combatant has: its
+        # growth is part of what a stat buys.
+        from optimizer import core
+        from game_data.potential_7 import get_potential_7
+        cs["potential_7"] = core.potential_7_effects(get_potential_7(rid))
         return cs
 
     def run_settings(self, name, s, forced=None):

@@ -85,7 +85,8 @@ _RATIO_EPS = 1e-6
 # Files parsed by the text layer. constants.py gets a syntax and
 # duplicate-key check but no value checks: the game doesn't add data to
 # it.
-_SYNTAX_CHECKED = ("characters.py", "partners.py", "sets.py", "constants.py")
+_SYNTAX_CHECKED = ("characters.py", "partners.py", "sets.py", "constants.py",
+                   "potential_7.py")
 
 
 # ===========================================================================
@@ -639,6 +640,72 @@ def _check_sets(problems: list[str]) -> None:
     problems.extend(rep.problems)
 
 
+def _check_potential_7(problems: list[str]) -> None:
+    """Every combatant's node 7 is encoded, in the shape its reader
+    expects: a mistake here is a bonus scored as nothing, or a check
+    that never passes, with no other sign."""
+    from game_data import CHARACTERS
+    from game_data.potential_7 import (POTENTIAL_7, GRANTS, UNPRICED,
+                                       CHECK_STATS)
+
+    rep = _Reporter("potential_7.py", _line_map("potential_7.py",
+                                                "POTENTIAL_7"))
+    for rid, data in CHARACTERS.items():
+        if rid and isinstance(data, dict) and rid not in POTENTIAL_7:
+            rep.add(rid, f"{data.get('name', '?')} ({rid})",
+                    "has no Potential 7 entry -- node 7 scores as nothing "
+                    "and the Fill button has nothing to fill")
+    for rid, effects in POTENTIAL_7.items():
+        char = CHARACTERS.get(rid)
+        label = (f"{char['name']} ({rid})" if isinstance(char, dict)
+                 else str(rid))
+        if not isinstance(char, dict):
+            rep.add(rid, label, "is no combatant in CHARACTERS")
+        if not isinstance(effects, tuple) or not effects:
+            rep.add(rid, label, "expected a non-empty tuple of effects")
+            continue
+        for effect in effects:
+            if not isinstance(effect, dict):
+                rep.add(rid, label, f"effect {effect!r} is not a dict")
+                continue
+            grants = effect.get("grants")
+            if grants not in GRANTS:
+                rep.add(rid, label, f"grants {grants!r}, not one of "
+                                    f"{', '.join(GRANTS)}")
+            if not _is_number(effect.get("value")) or effect["value"] < 0:
+                rep.add(rid, label, f"value {effect.get('value')!r} is not "
+                                    f"a number of 0 or more")
+            if grants in UNPRICED and not effect.get("card"):
+                rep.add(rid, label, f"a {grants} effect names no `card`")
+            stat, at = effect.get("stat"), effect.get("at")
+            stats = stat if isinstance(stat, tuple) else (stat,)
+            ats = at if isinstance(at, tuple) else (at,)
+            if stat is not None:
+                if len(stats) != len(ats):
+                    rep.add(rid, label, f"stat {stat!r} and at {at!r} "
+                                        f"differ in length")
+                for one in stats:
+                    if one not in CHECK_STATS:
+                        rep.add(rid, label, f"check stat {one!r} is not "
+                                            f"one of {', '.join(CHECK_STATS)}"
+                                            f" -- the check never passes")
+                for one in ats:
+                    if not _is_number(one) or one <= 0:
+                        rep.add(rid, label, f"threshold {one!r} is not a "
+                                            f"positive number")
+            elif at is not None:
+                rep.add(rid, label, "has a threshold and no check stat")
+            growth = [effect.get(k) for k in ("per", "add", "max")]
+            if any(g is not None for g in growth):
+                if not all(_is_number(g) and g > 0 for g in growth):
+                    rep.add(rid, label, f"per/add/max {growth} must all be "
+                                        f"positive numbers, or all absent")
+                elif stat is None or isinstance(stat, tuple):
+                    rep.add(rid, label, "grows past a threshold it does "
+                                        "not have one single check for")
+    problems.extend(rep.problems)
+
+
 def find_data_problems() -> list[str]:
     """Every value-level problem across the game-data files, as formatted
     report lines. Empty means everything is within parameters.
@@ -648,7 +715,8 @@ def find_data_problems() -> list[str]:
     can't take the program down.
     """
     problems: list[str] = []
-    for check in (_check_characters, _check_partners, _check_sets):
+    for check in (_check_characters, _check_partners, _check_sets,
+                  _check_potential_7):
         try:
             check(problems)
         except Exception as exc:                     # noqa: BLE001

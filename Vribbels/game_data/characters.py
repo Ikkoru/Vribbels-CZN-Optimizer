@@ -29,7 +29,7 @@ kept and shown.
 **Only `node_50` and `node_60` carry a STAT**, though; the rest improve
 card effects or unlock a one-off, and the build score does not model
 them, so a CHARACTERS entry names a stat for those two alone. Node 7
-(`70`) can also move a stat, per character, and is not encoded yet.
+(`70`) can also move a stat, per character: `potential_7.py`.
 Full table, including which in-game node each wire number is:
 `docs/game_formulas.md` §1.
 
@@ -691,7 +691,15 @@ POTENTIAL_NODE_OVERRIDES = {
 
 
 def get_potential_node_does(res_id: int, node) -> str:
-    """The parenthetical for one node on one character."""
+    """The parenthetical for one node on one character. Node 7 names
+    what the character's own Potential 7 raises, where it is known."""
+    if node.wire == 70:
+        from .potential_7 import potential_7_label
+        char = CHARACTERS.get(res_id)
+        label = potential_7_label(
+            res_id, char.get("attribute", "") if isinstance(char, dict) else "")
+        if label:
+            return label
     return POTENTIAL_NODE_OVERRIDES.get(res_id, {}).get(node.wire, node.does)
 
 

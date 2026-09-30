@@ -67,6 +67,7 @@ from game_data import (
 # Direct module-path import to avoid relying on game_data/__init__.py
 # re-exporting it.
 from game_data.characters import get_character_stats_at_level
+from game_data.potential_7 import get_potential_7
 # Pure GS helper for per-character slot pre-filter sorting. optimize()
 # resolves the character's assigned preset weights into the settings
 # dict, then this scores candidate fragments inside get_gear_by_slot
@@ -599,6 +600,9 @@ class GearOptimizer:
             cs["pot_hp_pct"] = potential_stats.get("HP%", 0)
             cs["pot_crate"] = potential_stats.get("CRate", 0)
             cs["pot_cdmg"] = potential_stats.get("CDmg", 0)
+            if char_info.potential_nodes.get(70):
+                cs["potential_7"] = core.potential_7_effects(
+                    get_potential_7(char_info.res_id))
 
         return cs
 
@@ -802,6 +806,7 @@ class GearOptimizer:
         partner_passive = {}
         partner_cond = {}
         potential = {}
+        p7_effects = ()
         if char_name and char_name in self.character_info:
             ci = self.character_info[char_name]
             fb = ci.friendship_bonus
@@ -824,6 +829,9 @@ class GearOptimizer:
                     st, bonus = get_potential_stat_bonus(ci.res_id, node, lvl)
                     if st:
                         potential[st] = potential.get(st, 0) + bonus
+            if ci.potential_nodes.get(70):
+                p7_effects = core.potential_7_effects(
+                    get_potential_7(ci.res_id))
 
         # ----- Separate MF main-stat vs substat contributions -----
         mf_main: dict = {}
@@ -967,6 +975,31 @@ class GearOptimizer:
         inner_hp = _inner(base_hp, partner_flat_hp, mf_hp_pct, set_hp_pct,
                           pot_hp_pct, mf_flat_hp, affection_hp)
 
+        # ----- Potential 7 (reconciles with core.compute_build_stats) -----
+        # Its check reads the values above, before its own bonus; the
+        # bonus then joins "Pot" for ATK/DEF and "Other" for the rest,
+        # and the Pot7 rows subtract it again.
+        p7 = {}
+        if p7_effects:
+            p7 = core.potential_7_bonus(p7_effects, core.potential_7_check(
+                inner_atk, inner_def, inner_hp,
+                base_cr + _m("CRate") + _s("CRate") + set_crate + pot_crate
+                - set_crate_cond,
+                base_cd + _m("CDmg") + _s("CDmg") + set_cdmg + pot_cdmg
+                - set_cdmg_cond,
+                _s("Extra DMG%"), _s("DoT%"), _m("Ego") + _s("Ego")))
+        p7_atk_pct, p7_def_pct = p7.get("ATK%", 0), p7.get("DEF%", 0)
+        p7_crate, p7_cdmg = p7.get("CRate", 0), p7.get("CDmg", 0)
+        p7_extra = p7.get("Extra DMG%", 0)
+        pot_atk_pct += p7_atk_pct
+        pot_def_pct += p7_def_pct
+        sum_atk = _final(base_atk, partner_flat_atk, mf_atk_pct, set_atk_pct,
+                         pot_atk_pct, mf_flat_atk, affection_atk,
+                         partner_atk_pct, self.EQUIPMENT_ATK_PCT, self.EQUIPMENT_FLAT_ATK)
+        sum_def = _final(base_def, partner_flat_def, mf_def_pct, set_def_pct,
+                         pot_def_pct, mf_flat_def, affection_def,
+                         partner_def_pct, self.EQUIPMENT_DEF_PCT, self.EQUIPMENT_FLAT_DEF)
+
         def _other_present(equip_pct):
             # Equipment has its own column in the popup ("Equip (apx.)"),
             # and sets are broken out as "Set Effect Sum", so every
@@ -1020,20 +1053,24 @@ class GearOptimizer:
                 "base": base_cr, "mf_main": _m("CRate"), "mf_sub": _s("CRate"),
                 "set_effect": set_crate,
                 "pot7_excluded": (set_crate_cond + partner_crate
-                                  + partner_crate_cond),
-                "other": pot_crate + partner_crate + partner_crate_cond,
+                                  + partner_crate_cond + p7_crate),
+                "other": (pot_crate + partner_crate + partner_crate_cond
+                          + p7_crate),
             },
             "CDmg": {
                 "base": base_cd, "mf_main": _m("CDmg"), "mf_sub": _s("CDmg"),
                 "set_effect": set_cdmg,
                 "pot7_excluded": (set_cdmg_cond + partner_cdmg
-                                  + partner_cdmg_cond),
-                "other": pot_cdmg + partner_cdmg + partner_cdmg_cond,
+                                  + partner_cdmg_cond + p7_cdmg),
+                "other": (pot_cdmg + partner_cdmg + partner_cdmg_cond
+                          + p7_cdmg),
             },
-            "Element%": {"mf_main": elem_main, "set_effect": 0.0, "other": 0.0},
+            "Element%": {"mf_main": elem_main, "set_effect": 0.0,
+                         "other": p7.get("Element%", 0) if attribute else 0},
             "Extra DMG%": {"mf_sub": _s("Extra DMG%"), "set_effect": 0.0,
-                           "other": partner_extra + partner_extra_cond,
-                           "pot7_excluded": partner_extra + partner_extra_cond},
+                           "other": partner_extra + partner_extra_cond + p7_extra,
+                           "pot7_excluded": (partner_extra + partner_extra_cond
+                                             + p7_extra)},
             "DoT%": {"mf_sub": _s("DoT%"), "set_effect": 0.0,
                      "other": partner_dot + partner_dot_cond,
                      "pot7_excluded": partner_dot + partner_dot_cond},
@@ -1042,6 +1079,8 @@ class GearOptimizer:
                     "pot7_excluded": partner_ego + partner_ego_cond},
             "xDMG%": set_dmg_multi,
             "+DMG%": set_dmg_add,
+            # What node 7 gave, {grants: bonus}, folded in above.
+            "Potential 7": p7,
         }
 
     def _resolve_worker_count(self) -> int:

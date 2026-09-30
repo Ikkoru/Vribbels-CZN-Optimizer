@@ -372,47 +372,44 @@ def _base_at(char, level):
 
 # -------------------------------------------------------------- formula
 
-# Potential 7 bonuses the server's sheets have shown and the program
-# does not model (docs/game_formulas.md, "The potential tree"), per
-# res_id: `formula_gaps` passes a gap of exactly this much. Owen's node
-# 7 gives +4% ATK and DEF, +4% more at 700 HP; Diana's +4% Extra DMG%
-# at 10% CRate, +1% per 5% more, +8% at most -- her 55.5% gives 12.
-UNMODELLED = {1050: {"ATK%": 4, "DEF%": 4}, 1061: {"Extra DMG%": 12}}
+# Where nodes 5 and 6 land among the char statics.
+_POT_KEYS = {"ATK%": "pot_atk_pct", "DEF%": "pot_def_pct",
+             "HP%": "pot_hp_pct", "CRate": "pot_crate", "CDmg": "pot_cdmg"}
 
-# Where each such bonus lands among the char statics.
-_EXTRA_KEYS = {"ATK%": "pot_atk_pct", "DEF%": "pot_def_pct",
-               "HP%": "pot_hp_pct", "CRate": "pot_crate", "CDmg": "pot_cdmg",
-               "Extra DMG%": "partner_extra_dmg", "DoT%": "partner_dot"}
+# The attribute-damage field of each attribute on the sheet.
+ELEMENT_FIELDS = {"Passion": "S_RED_DMG_RATE", "Justice": "S_BLUE_DMG_RATE",
+                  "Instinct": "S_ORANGE_DMG_RATE", "Void": "S_PURPLE_DMG_RATE",
+                  "Order": "S_GREEN_DMG_RATE"}
 
 
-def formula_gaps(builds, allowed=None):
+def formula_gaps(builds):
     """Where the program's stat formula, run on a build the server
     stated a sheet for, disagrees with the sheet: a list of
     (res_id, what, server, program).
 
     Only builds from plain battles. The server's own BASE and partner
     flats go in, so only the formula is tested here -- the tables they
-    come from are `audit`'s. `allowed` is {res_id: {stat: amount}}, a
-    bonus the program does not model -- `UNMODELLED` unless given. A
-    value passes with it or without it, since a Potential 7 node's
-    bonus applies only once the node's own check passes.
+    come from are `audit`'s. Potential 7 is the program's own
+    (`game_data.potential_7`), less what lands at the start of battle,
+    which the sheet does not carry.
 
     What is held, per build:
 
     - `final`: each final stat is round(round(inner) * (1 + outer%))
       over the sheet's own layers -- the shape of the formula;
     - `outer %`: the partner's passive, `partners.py` at its limit break;
-    - `inner %`: fragments, sets and the potential nodes;
+    - `inner %`: fragments, sets and the potential nodes, node 7's
+      bonus included;
     - `flat`: fragment flats plus one row of `FRIENDSHIP_BONUSES`;
     - CRate, CDMG, Extra DMG% and DoT%: their sums;
+    - `<Attribute> dmg`: the fragments' element main stat plus node 7's;
     - `inner`: `potential_base_status` is the program's inner value --
-      the one its Potential 7 and Have-at-least comparisons read --
-      rounded as the server rounds it.
+      the one its Potential 7 and Have-at-least comparisons read,
+      without node 7's own bonus -- rounded as the server rounds it.
     """
     from game_data import CHARACTERS, FRIENDSHIP_BONUSES
     from models.memory_fragment import MemoryFragment
     from optimizer import core
-    allowed = UNMODELLED if allowed is None else allowed
     rows = [(0, 0, 0)] + [(a, d, h) for _lvl, a, d, h in FRIENDSHIP_BONUSES]
     out = []
     for build in builds:
@@ -439,19 +436,12 @@ def formula_gaps(builds, allowed=None):
         else:
             cs["affection_atk"], cs["affection_def"], cs["affection_hp"] = \
                 tier
-        runs = [core.compute_build_stats(gear, cs, {})]
-        if allowed.get(rid):
-            more = dict(cs)
-            for stat, amount in allowed[rid].items():
-                more[_EXTRA_KEYS[stat]] += amount
-            runs.append(core.compute_build_stats(gear, more, {}))
+        run = core.compute_build_stats(gear, cs, {})
+        node_7 = run.get("_p7") or {}
 
-        def gap(what, server, program_of, tolerance=0.051):
-            if server is None:
-                return
-            values = [program_of(run) for run in runs]
-            if not any(abs(server - v) < tolerance for v in values):
-                out.append((rid, what, server, round(values[0], 3)))
+        def gap(what, server, program, tolerance=0.051):
+            if server is not None and abs(server - program) >= tolerance:
+                out.append((rid, what, server, round(program, 3)))
 
         for s in STATS:
             rate_out = st.get("S_%s_INC_RATE_OUT" % s, 0)
@@ -461,31 +451,35 @@ def formula_gaps(builds, allowed=None):
                              * (1 + rate_out / 100.0)
                              + st.get("S_%s_INC_ADD_OUT" % s, 0))
             gap("final " + s, st.get("S_" + s),
-                lambda _run: _half_up(inner * (1 + rate_in / 100.0)),
-                tolerance=0.5)
-            gap("outer %s%%" % s, rate_in,
-                lambda _run, s=s: cs["partner_%s_pct" % s.lower()])
+                _half_up(inner * (1 + rate_in / 100.0)), tolerance=0.5)
+            gap("outer %s%%" % s, rate_in, cs["partner_%s_pct" % s.lower()])
             gap("inner %s%%" % s, rate_out,
-                lambda run, s=s: run[s + "%"]
-                - cs["partner_%s_pct" % s.lower()]
+                run[s + "%"] - cs["partner_%s_pct" % s.lower()]
                 - cs["equip_%s_pct" % s.lower()])
         for what, field in (("CRate", "S_CRI"), ("CDmg", "S_CRI_DMG_RATE"),
                             ("Extra DMG%", "S_ADDI_ATK_DMG_RATE"),
                             ("DoT%", "S_DOT_ATK_DMG_RATE")):
-            gap(what, st.get(field), lambda run, what=what: run[what])
+            gap(what, st.get(field), run[what])
+        attribute = char.get("attribute")
+        if attribute in ELEMENT_FIELDS:
+            gap("%s dmg" % attribute, st.get(ELEMENT_FIELDS[attribute]),
+                sum(p.main_stat.value for p in gear
+                    if p.main_stat and p.main_stat.name == attribute + " DMG%")
+                + node_7.get("Element%", 0))
         for field, value in (build.get("inner") or {}).items():
             stat = field[2:] if field.startswith("S_") else field
             if stat in STATS and tier is not None:
                 # The program's inner value rounded as the server rounds
                 # it: the flat to a whole number first, then the sum.
-                gap("inner " + stat, value,
-                    lambda run, s=stat, i=STATS.index(stat): _half_up(
-                        (st.get("BASE_S_" + s, 0)
-                         + st.get("S_PARTNER_BASE_" + s, 0))
-                        * (1 + (run[s + "%"]
-                                - cs["partner_%s_pct" % s.lower()]
-                                - cs["equip_%s_pct" % s.lower()]) / 100.0)
-                        + _half_up(flats[s] + tier[i])))
+                # Node 7's own % is out of it, as it is out of the check.
+                i = STATS.index(stat)
+                gap("inner " + stat, value, _half_up(
+                    (st.get("BASE_S_" + stat, 0)
+                     + st.get("S_PARTNER_BASE_" + stat, 0))
+                    * (1 + (run[stat + "%"] - node_7.get(stat + "%", 0)
+                            - cs["partner_%s_pct" % stat.lower()]
+                            - cs["equip_%s_pct" % stat.lower()]) / 100.0)
+                    + _half_up(flats[stat] + tier[i])))
     return out
 
 
@@ -494,6 +488,7 @@ def _statics(build, char, st):
     the server's own base and partner flats in."""
     from game_data import (get_partner_passive_stats,
                            get_potential_stat_bonus, parse_potential_node_ids)
+    from game_data.potential_7 import get_potential_7
     from optimizer import core
     rid = build.get("res_id")
     cs = core.empty_char_static()
@@ -515,6 +510,9 @@ def _statics(build, char, st):
     for node in (50, 60):
         if nodes.get(node):
             stat, bonus = get_potential_stat_bonus(rid, node, nodes[node])
-            if stat in _EXTRA_KEYS and _EXTRA_KEYS[stat].startswith("pot_"):
-                cs[_EXTRA_KEYS[stat]] += bonus
+            if stat in _POT_KEYS:
+                cs[_POT_KEYS[stat]] += bonus
+    if nodes.get(70):
+        cs["potential_7"] = core.potential_7_effects(get_potential_7(rid),
+                                                     sheet_only=True)
     return cs

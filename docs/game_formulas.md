@@ -38,7 +38,7 @@ Final_CDmg  = Base_CDmg + Sum(CDmg_contributions)    # base default = 125
 | **Partner_X%**      | Partner card's passive % bonus (by limit break level)                               |
 | **Fragment_X%**     | Sum of substat + main-stat % across all 6 equipped fragments                        |
 | **Fragment_FLAT_X** | Sum of substat + main-stat flat across all 6 equipped fragments                     |
-| **Potential_X%**    | Nodes 50 / 60 — the `node_50`/`node_60` fields in characters.py                     |
+| **Potential_X%**    | Nodes 50 / 60 — the `node_50`/`node_60` fields in characters.py — and node 7's ATK%/DEF% (*Potential 7* below) |
 | **Affinity_FLAT_X** | Affinity reward bonuses (`FRIENDSHIP_BONUSES`)                                      |
 | **Equipment_X**     | Constant: a level-5 Legendary piece per slot (`EQUIPMENT_*` in `optimizer.py`). In game, the saved deck's in regular modes and what the run finds in Chaos and Sortie |
 | **Set bonuses**     | See §5 — three different landing places depending on `type` and `stat`              |
@@ -50,7 +50,7 @@ Every battle's entry states this formula's layers for each combatant (`capture_p
 - **The server rounds as it goes**: the inner flat to a whole number, then the inner value half up, then the final. Final = round(round(inner) × (1 + outer %)). The program keeps the fractions, so the two part by less than a point.
 - **The Potential 7 check reads that rounded inner value** (`potential_base_status`): Partner flats in, Partner passives and Equipment out, which is what the program's `_inner_*` values model (§8). In a Sortie it carries the week's buff and the Sortie's own loadout.
 - **The entered sheet has no Equipment.** The in-run sheet adds each piece's flat after everything else, the outer % included, which is where `EQUIPMENT_FLAT_*` sits; a piece's effect can add more (`capture_pipeline.md`, *Battle kinds on the wire*).
-- **A Potential 7 bonus is on the sheet once its check passes**, and the program does not model it: `base_stats_store.UNMODELLED` holds the ones seen, so the check passes a gap of exactly that much.
+- **A Potential 7 bonus is on the sheet once its check passes**, except one that lands at the start of battle (*Potential 7* below).
 
 ### The potential tree
 
@@ -67,7 +67,7 @@ Ten nodes, and **the numbering on the wire does not match the numbering in the g
 | Node 5.1 | `51`        | 1         | Improves some Basic Cards (Tiphera: her Archetype cards)      | no                   |
 | Node 5.2 | `52`        | 1         | +25% chance of a Divine Epiphany appearing                    | no                   |
 | Node 6   | `60`        | 5         | One stat, per `POTENTIAL_STAT_VALUES`                         | **yes**              |
-| Node 7   | `70`        | 1         | A conditional stat bonus, gated on a per-character stat check | only when modelled   |
+| Node 7   | `70`        | 1         | A bonus per character, gated on a stat check                  | where it is a stat   |
 
 Max levels total **45**, which is what the Combatants tab's `Nodes` column counts against. It is summed from `POTENTIAL_NODES` rather than stated, so this table and that one cannot drift apart on it.
 
@@ -76,9 +76,27 @@ Max levels total **45**, which is what the Combatants tab's `Nodes` column count
 `POTENTIAL_NODES` in `game_data/characters.py` is the one list carrying the display order, both numberings, the maxima and the per-node descriptions. The descriptions live there rather than here on purpose: a second copy of a string the UI already shows is what goes stale.
 
 - **Node 4 is not a stat node**, despite sitting between two that are. Its levels run to 10 while `POTENTIAL_STAT_VALUES` holds five tiers and `get_potential_stat_bonus` rejects `level > 5`, so treating it as one silently returns zero.
-- **Node 7 is the only other node that can move a stat.** Its bonus and unlock condition are unique per character and not yet in `characters.py`.
+- **Node 7 is the only other node that can move a stat** -- see below.
 
 Per-level magnitudes are `POTENTIAL_STAT_VALUES`: 1.6/level for ATK%/DEF%/HP%, 2.0 for CRate, 2.4 for CDmg.
+
+### Potential 7
+
+Each combatant's is in `game_data/potential_7.py`, whose docstring owns the data's shape. An effect is a bonus, a check on one stat, and optionally growth past the check. Every rule here was read off the server's sheets (`checks/check_base_stats_on_wire.py` holds them):
+
+```
+bonus = 0                                              if check < T
+      = X + min(Z, Y × (check − T) / S)                if check ≥ T    ← growth: +Y per S above T, Z at most
+```
+
+- **The check reads the value before any Potential 7 bonus** -- the Have-at-least value (§8), as the server states it: the inner ATK/DEF/HP rounded half up, the percentages as they sum. Rita's +10% ATK at 800 is on her sheet at 902 and absent at 755, where it would have carried her past 800.
+- **A threshold is met at its own value.** The texts say "or higher".
+- **Growth is continuous, not stepped**: 324 DEF against 300, +2 per 10, gives +4.8.
+- **Where a bonus lands**: ATK% and DEF% in the inner %, beside nodes 5 and 6; CRate, CDmg and Extra DMG% on the final stat; attribute damage in the element multiplier (§7), beside the fragments' element main stat.
+- **A start-of-battle bonus is not on the entered sheet** -- Orlea's +6% CRate and Tiphera's +10% CDmg, each given to every ally at the start of battle -- and the score counts it all the same, since "allies" includes the combatant.
+- **Not priced**: a bonus to one card's damage, shield or heal, since which deck a player takes into a battle cannot be known; Cassius' Quest triggers; Mei Lin's Weakness Damage, since the score has no weakness term. Their thresholds still fill the Have-at-least minimums (the Optimizer's `Fill in Potential 7 minimums`).
+- **A Sortie grants every Potential 7 in full**, met or not. The score is for regular modes and does not model it.
+- It applies only where node 70 is taken. The Have-at-least gate and the Pot7 rows keep the values without it.
 
 ## 2. A fragment: main stat, rarity, levels and substats
 
@@ -269,7 +287,7 @@ Each conditional set's share is the spinbox beside its checkbox, persisted per c
 
 ## 7. Element handling
 
-Element DMG% applies as `× (1 + Element_DMG%)` in both damage formulas. The element is `CHARACTERS[res_id]["attribute"]` — Passion / Order / Justice / Void / Instinct.
+Element DMG% applies as `× (1 + Element_DMG%)` in both damage formulas: the fragments' element main stat plus node 7's attribute damage (§1, *Potential 7*). The element is `CHARACTERS[res_id]["attribute"]` — Passion / Order / Justice / Void / Instinct.
 
 For `attribute == "Unknown"` the optimizer shows an **Element override dropdown** in Important Settings; the pick is treated as that character's attribute. Once the character is added to `CHARACTERS` with a real attribute the override is silently ignored.
 
@@ -348,7 +366,7 @@ score = blend + SUBSTAT_TIEBREAK × T
 
 Eight per-character minimums (ATK, DEF, HP, Ego, CRate, CDmg, Extra%, DoT%), all HARD: builds missing ANY are excluded. If no combination satisfies them the optimizer returns an empty list and the UI must surface that.
 
-They exist mainly to help meet the in-game **Potential 7** stat requirements, so **the comparison values mirror what those in-game checks can see**: Potential 7 ignores ALL Partner passive bonuses (unconditional and conditional alike), all Equipment contributions, and conditional set procs — but DOES see the Partner's flat class stats. The optimizer SCORE still models every excluded source; only the Have-at-least gate and the Potential 7 display rows ignore them.
+They exist mainly to help meet the in-game **Potential 7** stat requirements, so **the comparison values mirror what those in-game checks can see**: Potential 7 ignores ALL Partner passive bonuses (unconditional and conditional alike), all Equipment contributions, conditional set procs and its own bonus — but DOES see the Partner's flat class stats. The optimizer SCORE still models every excluded source; only the Have-at-least gate and the Potential 7 display rows ignore them. The score also prices node 7 itself, so it meets a threshold where that is worth the stats without a minimum asking it to.
 
 - **ATK / DEF / HP** compare against the build's INNER value: `(Base + Partner flat) × (1 + Fragment% + Potential%) + Fragment flat + Affinity flat` — no outer `(1 + Partner% + Equipment%)`, no Equipment flat.
 - **CRate / CDmg** compare against the final value minus conditional set contributions and minus all partner passives (both `stats` and `stats_conditional` in `partners.py`).

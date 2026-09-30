@@ -20,6 +20,7 @@ A fragment is judged without knowing what the combatant wears now, so the build 
 | Partner flat stats | Their class's 5★ partner (`PARTNER_CLASS_STATS`) | A weaker partner's smaller flat stat is a smaller base for a % roll to multiply, so it moves the flat-to-% ratio |
 | Partner passives | The combatant's signature partner: 5★ and 4.5★ at limit break 0, 4★ at their highest | Most 5★ combatants wear it; `SIGNATURE_PARTNERS` lists the rest, and a 4.5★ one keeps its passive |
 | Potential nodes 5 and 6 | Maxed | A built combatant has them |
+| Potential node 7 | Taken, whatever the account's own combatant has | Its growth is part of what a stat buys: Rin's ATK buys CRate |
 | Affection | The highest tier of `FRIENDSHIP_BONUSES` | Likewise |
 | Fragment stats | Their ARCHETYPE's average | Below |
 | Sets | Their own best build's, or the preset's named 4-piece | Below |
@@ -55,6 +56,6 @@ The report prints each preset's current and derived weights with the reference b
 
 ## What it does not model
 
-- **Potential node 7**, a conditional stat per combatant; to be redone once the program models it.
+- **Potential 7 bonuses the score does not price**: a card's, an event's, Weakness Damage (`game_formulas.md` §1, *Potential 7*).
 - **Card-level mechanics** the score does not see, like Maribell's shield-scaling card; those are hedges, set by hand in `VARIANTS`.
 - **The Optimizer settings themselves**, which were set by eye; `tasks.md` T20 would derive them from a deck.

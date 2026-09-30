@@ -63,6 +63,8 @@ parent-side display re-blend. The result-tuple shape (gear, score,
 stats) is therefore unchanged.
 """
 
+import math
+
 from game_data import SETS, SLOT_ORDER, SET_STAT_NAME_MAP
 # The Gear Score's own weighted substat sum. The substat tiebreaker
 # prices a build through it rather than through a second reading of the
@@ -127,9 +129,65 @@ def empty_char_static() -> dict:
         "partner_ego_cond": 0,
         "pot_atk_pct": 0, "pot_def_pct": 0, "pot_hp_pct": 0,
         "pot_crate": 0, "pot_cdmg": 0,
+        # Node 7's priced effects, flattened by potential_7_effects;
+        # empty where node 70 is not taken.
+        "potential_7": (),
         "equip_flat_atk": 0, "equip_flat_def": 0, "equip_flat_hp": 0,
         "equip_atk_pct": 0.0, "equip_def_pct": 0.0, "equip_hp_pct": 0.0,
     }
+
+
+def potential_7_effects(effects, sheet_only: bool = False) -> tuple:
+    """A Potential 7's PRICED effects, flattened for the per-combo loop:
+    (grants, value, ((stat, at), ...), per, add, max) each.
+
+    `effects` is `game_data.potential_7`'s tuple for one combatant.
+    `sheet_only` leaves out the effects that land at the start of
+    battle, which the sheet a battle's entry states does not carry --
+    what `base_stats_store.formula_gaps` holds the formula to.
+    """
+    from game_data.potential_7 import PRICED, conditions
+    out = []
+    for effect in effects:
+        if effect["grants"] not in PRICED:
+            continue
+        if sheet_only and effect.get("start"):
+            continue
+        out.append((effect["grants"], effect["value"], conditions(effect),
+                    effect.get("per"), effect.get("add"), effect.get("max")))
+    return tuple(out)
+
+
+def potential_7_bonus(effects: tuple, check: dict) -> dict:
+    """{grants: bonus} for one build: each effect whose check passes, its
+    growth continuous past the threshold. `check` is the build's
+    Potential 7 values -- before any Potential 7 bonus, which is what
+    the server's check reads. See docs/game_formulas.md §1."""
+    out = {}
+    for grants, value, conds, per, add, most in effects:
+        if conds:
+            met = next(((stat, at) for stat, at in conds
+                        if check.get(stat, 0) >= at), None)
+            if met is None:
+                continue
+            if per:
+                value = value + min(most, add * (check[met[0]] - met[1]) / per)
+        out[grants] = out.get(grants, 0) + value
+    return out
+
+
+def potential_7_check(atk, dfn, hp, crate, cdmg, extra, dot, ego) -> dict:
+    """The check values node 7 reads, as the server states them: each
+    inner stat rounded half up to a whole number, the percentages as
+    they sum (to four places, which drops only float noise)."""
+    return {"ATK": _half_up(atk), "DEF": _half_up(dfn), "HP": _half_up(hp),
+            "CRate": round(crate, 4), "CDmg": round(cdmg, 4),
+            "Extra DMG%": round(extra, 4), "DoT%": round(dot, 4),
+            "Ego": round(ego, 4)}
+
+
+def _half_up(value: float) -> int:
+    return int(math.floor(value + 0.5))
 
 
 def compute_build_stats(gear: list, cs: dict,
@@ -300,13 +358,55 @@ def compute_build_stats(gear: list, cs: dict,
         inner = base * inner_mult + partner_flat + gear_flat + affection_flat
         return inner * outer_mult + equip_flat
 
+    # Potential-7 ATK/DEF/HP -- the inner build value: Partner flat
+    # class stats included, no Partner passive % and no Equipment
+    # (% or flat). Used by meets_have_at_least and surfaced as
+    # "Potential 7 X" in the breakdown popup and Stats Comparison.
+    # Taken BEFORE node 7's own bonus, which is what its check reads.
+    inner_atk = _inner(cs["base_atk"], cs["partner_flat_atk"], mf_atk_pct,
+                       potential_atk_pct, gear_flat_atk, cs["affection_atk"])
+    inner_def = _inner(cs["base_def"], cs["partner_flat_def"], mf_def_pct,
+                       potential_def_pct, gear_flat_def, cs["affection_def"])
+    inner_hp = _inner(cs["base_hp"], cs["partner_flat_hp"], mf_hp_pct,
+                      potential_hp_pct, gear_flat_hp, cs["affection_hp"])
+    total_cr = cs["base_cr"] + crit_rate
+    total_cd = cs["base_cd"] + crit_dmg
+    # Have-at-least / Potential-7 comparison values for CRate/CDmg:
+    # the final value MINUS conditional set contributions and MINUS ALL
+    # partner passive contributions. Extra DMG% / DoT% / Ego: the final
+    # value minus all partner passive contributions (no conditional-set
+    # path feeds these). The score keeps the full modelled values.
+    hal_crate = (total_cr - cond_crate
+                 - cs["partner_crate"] - cs["partner_crate_cond"])
+    hal_cdmg = (total_cd - cond_cdmg
+                - cs["partner_cdmg"] - cs["partner_cdmg_cond"])
+    hal_extra = (extra_dmg - cs["partner_extra_dmg"]
+                 - cs["partner_extra_dmg_cond"])
+    hal_dot = dot_dmg - cs["partner_dot"] - cs["partner_dot_cond"]
+    hal_ego = ego - cs["partner_ego"] - cs["partner_ego_cond"]
+
+    # ----- Potential 7 ------------------------------------------------
+    # Its check reads the values above, before its own bonus.
+    p7 = {}
+    if cs["potential_7"]:
+        p7 = potential_7_bonus(cs["potential_7"], potential_7_check(
+            inner_atk, inner_def, inner_hp, hal_crate, hal_cdmg, hal_extra,
+            hal_dot, hal_ego))
+    p7_atk_pct = p7.get("ATK%", 0)
+    p7_def_pct = p7.get("DEF%", 0)
+    total_cr += p7.get("CRate", 0)
+    total_cd += p7.get("CDmg", 0)
+    extra_dmg += p7.get("Extra DMG%", 0)
+
     total_atk = _final(
-        cs["base_atk"], cs["partner_flat_atk"], mf_atk_pct, potential_atk_pct,
+        cs["base_atk"], cs["partner_flat_atk"], mf_atk_pct,
+        potential_atk_pct + p7_atk_pct,
         gear_flat_atk, cs["affection_atk"],
         partner_atk_pct, cs["equip_atk_pct"], cs["equip_flat_atk"],
     )
     total_def = _final(
-        cs["base_def"], cs["partner_flat_def"], mf_def_pct, potential_def_pct,
+        cs["base_def"], cs["partner_flat_def"], mf_def_pct,
+        potential_def_pct + p7_def_pct,
         gear_flat_def, cs["affection_def"],
         partner_def_pct, cs["equip_def_pct"], cs["equip_flat_def"],
     )
@@ -315,23 +415,12 @@ def compute_build_stats(gear: list, cs: dict,
         gear_flat_hp, cs["affection_hp"],
         partner_hp_pct, cs["equip_hp_pct"], cs["equip_flat_hp"],
     )
-    # Potential-7 ATK/DEF/HP -- the inner build value: Partner flat
-    # class stats included, no Partner passive % and no Equipment
-    # (% or flat). Used by meets_have_at_least and surfaced as
-    # "Potential 7 X" in the breakdown popup and Stats Comparison.
-    inner_atk = _inner(cs["base_atk"], cs["partner_flat_atk"], mf_atk_pct,
-                       potential_atk_pct, gear_flat_atk, cs["affection_atk"])
-    inner_def = _inner(cs["base_def"], cs["partner_flat_def"], mf_def_pct,
-                       potential_def_pct, gear_flat_def, cs["affection_def"])
-    inner_hp = _inner(cs["base_hp"], cs["partner_flat_hp"], mf_hp_pct,
-                      potential_hp_pct, gear_flat_hp, cs["affection_hp"])
     shield_heal_def = _final_shield_heal_def(
-        cs["base_def"], cs["partner_flat_def"], mf_def_pct, potential_def_pct,
+        cs["base_def"], cs["partner_flat_def"], mf_def_pct,
+        potential_def_pct + p7_def_pct,
         gear_flat_def, cs["affection_def"],
         partner_def_pct, cs["equip_def_pct"], cs["equip_flat_def"],
     )
-    total_cr = cs["base_cr"] + crit_rate
-    total_cd = cs["base_cd"] + crit_dmg
 
     return {
         "ATK": total_atk, "DEF": total_def, "HP": total_hp,
@@ -340,8 +429,10 @@ def compute_build_stats(gear: list, cs: dict,
         # potential+partner+equipment so the user can see what's
         # contributing. The Final ATK/DEF/HP above already account for
         # the layered formula.
-        "ATK%": mf_atk_pct + potential_atk_pct + partner_atk_pct + cs["equip_atk_pct"],
-        "DEF%": mf_def_pct + potential_def_pct + partner_def_pct + cs["equip_def_pct"],
+        "ATK%": (mf_atk_pct + potential_atk_pct + p7_atk_pct
+                 + partner_atk_pct + cs["equip_atk_pct"]),
+        "DEF%": (mf_def_pct + potential_def_pct + p7_def_pct
+                 + partner_def_pct + cs["equip_def_pct"]),
         "HP%":  mf_hp_pct + potential_hp_pct + partner_hp_pct + cs["equip_hp_pct"],
         "Ego": ego, "Extra DMG%": extra_dmg, "DoT%": dot_dmg,
         # Optimizer-scoring internals (underscore-prefixed). UI display
@@ -349,22 +440,13 @@ def compute_build_stats(gear: list, cs: dict,
         # See compute_score.
         "_base_def_for_shield": cs["base_def"],
         "_shield_heal_def": shield_heal_def,
-        # Have-at-least / Potential-7 comparison values for CRate/CDmg:
-        # the final value MINUS conditional set contributions and MINUS
-        # ALL partner passive contributions. The score keeps using the
-        # full modeled CRate/CDmg; only the minimum gate (and the Pot7
-        # display rows) use these.
-        "_hal_crate": (total_cr - cond_crate
-                       - cs["partner_crate"] - cs["partner_crate_cond"]),
-        "_hal_cdmg": (total_cd - cond_cdmg
-                      - cs["partner_cdmg"] - cs["partner_cdmg_cond"]),
-        # Same for Extra DMG% / DoT% / Ego: final value minus ALL
-        # partner passive contributions (no conditional-set path feeds
-        # these).
-        "_hal_extra": (extra_dmg - cs["partner_extra_dmg"]
-                       - cs["partner_extra_dmg_cond"]),
-        "_hal_dot": dot_dmg - cs["partner_dot"] - cs["partner_dot_cond"],
-        "_hal_ego": ego - cs["partner_ego"] - cs["partner_ego_cond"],
+        # The comparison values, without node 7's bonus: the minimum
+        # gate and the Pot7 display rows read these.
+        "_hal_crate": hal_crate,
+        "_hal_cdmg": hal_cdmg,
+        "_hal_extra": hal_extra,
+        "_hal_dot": hal_dot,
+        "_hal_ego": hal_ego,
         # Inner values (Partner flat included; no Partner% / outer
         # multiplier, no Equipment). Used by meets_have_at_least and
         # displayed as the "Potential 7 X" rows (popup + Stats
@@ -372,6 +454,10 @@ def compute_build_stats(gear: list, cs: dict,
         "_inner_atk": inner_atk,
         "_inner_def": inner_def,
         "_inner_hp":  inner_hp,
+        # What node 7 gave this build, {grants: bonus}: its element
+        # share goes to compute_score_components, the rest is in the
+        # finals above.
+        "_p7": p7,
     }
 
 
@@ -593,6 +679,9 @@ def compute_score_components(gear: list, stats: dict, sp: dict,
         for piece in gear:
             if piece.main_stat and piece.main_stat.name == elem_main_name:
                 element_dmg_pct += piece.main_stat.value
+        # Node 7's attribute damage is the combatant's own attribute,
+        # which is the one every hit is scored as.
+        element_dmg_pct += (stats.get("_p7") or {}).get("Element%", 0)
     element_multiplier = 1 + element_dmg_pct / 100.0
 
     # ----- ATK vs DEF scaling damage formulas -----

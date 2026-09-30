@@ -14,7 +14,7 @@ this holds:
    stat the score cannot price keeps the preset's own tie-breaker.
 2. **The reference build is the one documented**: level 61, the class's
    5-star partner's flat stats, potential nodes 5 and 6 at their fifth
-   level, the highest Affection.
+   level, node 7 taken, the highest Affection.
 3. **The check is not overdue**: from a Galactic Disaster season's part
    2 on, `python docs/preset_weights.py --check` must have run in that
    season, since the archetypes follow the game.
@@ -132,6 +132,12 @@ def _reference_is_documented(tool, world):
             out.append(f"{name}'s reference {stat} from potential nodes is "
                        f"{cs[keys[stat]]}, not {bonus} at level "
                        f"{tool.POTENTIAL_LEVEL}.")
+    from optimizer import core
+    from game_data.potential_7 import get_potential_7
+    if cs.get("potential_7") != core.potential_7_effects(get_potential_7(rid)):
+        out.append(f"{name}'s reference build does not have node 7 taken, "
+                   f"so the weights leave out what its growth makes a "
+                   f"stat worth.")
     return out
 
 
