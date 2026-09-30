@@ -137,9 +137,19 @@ def empty_char_static() -> dict:
     }
 
 
+# The order of the values `potential_7_check` hands the evaluator, and
+# so what a flattened effect's check stat indexes: a position rather
+# than a name, per combo. The first `_CHECK_WHOLE` are inner stats,
+# which the server checks as whole numbers.
+CHECK_ORDER = ("ATK", "DEF", "HP", "CRate", "CDmg", "Extra DMG%", "DoT%",
+               "Ego")
+_CHECK_WHOLE = 3
+
+
 def potential_7_effects(effects, sheet_only: bool = False) -> tuple:
     """A Potential 7's PRICED effects, flattened for the per-combo loop:
-    (grants, value, ((stat, at), ...), per, add, max) each.
+    (grants, value, ((index in CHECK_ORDER, at), ...), per, add, max)
+    each.
 
     `effects` is `game_data.potential_7`'s tuple for one combatant.
     `sheet_only` leaves out the effects that land at the start of
@@ -153,37 +163,44 @@ def potential_7_effects(effects, sheet_only: bool = False) -> tuple:
             continue
         if sheet_only and effect.get("start"):
             continue
-        out.append((effect["grants"], effect["value"], conditions(effect),
+        conds = tuple((CHECK_ORDER.index(stat), at)
+                      for stat, at in conditions(effect))
+        out.append((effect["grants"], effect["value"], conds,
                     effect.get("per"), effect.get("add"), effect.get("max")))
     return tuple(out)
 
 
-def potential_7_bonus(effects: tuple, check: dict) -> dict:
+def potential_7_bonus(effects: tuple, check: tuple) -> dict:
     """{grants: bonus} for one build: each effect whose check passes, its
-    growth continuous past the threshold. `check` is the build's
-    Potential 7 values -- before any Potential 7 bonus, which is what
-    the server's check reads. See docs/game_formulas.md §1."""
+    growth continuous past the threshold. `check` is
+    `potential_7_check`'s: the build's Potential 7 values, before any
+    Potential 7 bonus, which is what the server's check reads. Each is
+    read as the server states it -- an inner stat rounded half up to a
+    whole number, a percentage to four places, which drops only float
+    noise -- and only where an effect reads it. See
+    docs/game_formulas.md §1."""
     out = {}
     for grants, value, conds, per, add, most in effects:
         if conds:
-            met = next(((stat, at) for stat, at in conds
-                        if check.get(stat, 0) >= at), None)
+            met = None
+            for index, at in conds:
+                have = check[index]
+                have = (_half_up(have) if index < _CHECK_WHOLE
+                        else round(have, 4))
+                if have >= at:
+                    met = have - at
+                    break
             if met is None:
                 continue
             if per:
-                value = value + min(most, add * (check[met[0]] - met[1]) / per)
+                value = value + min(most, add * met / per)
         out[grants] = out.get(grants, 0) + value
     return out
 
 
-def potential_7_check(atk, dfn, hp, crate, cdmg, extra, dot, ego) -> dict:
-    """The check values node 7 reads, as the server states them: each
-    inner stat rounded half up to a whole number, the percentages as
-    they sum (to four places, which drops only float noise)."""
-    return {"ATK": _half_up(atk), "DEF": _half_up(dfn), "HP": _half_up(hp),
-            "CRate": round(crate, 4), "CDmg": round(cdmg, 4),
-            "Extra DMG%": round(extra, 4), "DoT%": round(dot, 4),
-            "Ego": round(ego, 4)}
+def potential_7_check(atk, dfn, hp, crate, cdmg, extra, dot, ego) -> tuple:
+    """The values node 7's checks read, in CHECK_ORDER, unrounded."""
+    return (atk, dfn, hp, crate, cdmg, extra, dot, ego)
 
 
 def _half_up(value: float) -> int:
