@@ -564,6 +564,18 @@ DISASTER_TAIL_GROUP = "DISASTER_SEASON_END"
 # words it feeds say `~`.
 DISASTER_HANDOVER = 21 * 24 * 3600
 
+# How far a season's first Sortie rotation may open from the season
+# itself and still be its preseason. The two open in the same
+# maintenance; a first rotation weeks into the window is only the
+# oldest one a snapshot still lists, and says nothing about the start.
+PRESEASON_SAME_START = 24 * 3600
+
+# What the Galactic Disaster's weekly rows read while no season's
+# content is running: between seasons, and through a new season's
+# preseason. There is no weekly Chaos and no Great Rift to do then, so
+# neither red nor green would be true. See `disaster_off_season`.
+DISASTER_NOT_OPEN = "Not open"
+
 # When each Supply Store round of a Galactic Disaster season opens -- its
 # shop pages, first to last -- as the season's first update notice lists
 # them ("1st Supply: 07/29/2026 after the maintenance"). The wire names
@@ -650,16 +662,42 @@ def shop_shut_for_now(shop, period, raw, now):
     """
     if shop[0] != SEASONAL_SHOP_CATEGORY:
         return False
-    _name, live = schedules.live(
-        shop_stock.season_group_of(shop[0]), raw, now)
-    if not isinstance(live, dict):
-        # No live season, or none the snapshot carries. Shut only
-        # where the wire HAS a season table to be silent in: a
-        # snapshot from before the schedules arrived says nothing
-        # about whether a season is running.
-        return bool(schedules.groups(raw).get(
-            shop_stock.season_group_of(shop[0])))
+    if disaster_off_season(raw, now):
+        return True
     return shop_pages_open(shop, period, raw, now) == set()
+
+
+def disaster_off_season(raw, now):
+    """Whether no Galactic Disaster season content is running at `now`:
+    no season live, or the live one still in its preseason. No weekly
+    Chaos, no Great Rift and no seasonal shop then.
+
+    The preseason is read two ways, either enough. The ended season's
+    tail window (`DISASTER_TAIL_GROUP`) is still open: it runs from that
+    season's end to the next one's shop opening. Or `now` falls in the
+    live season's first Sortie rotation, as `shop_pages_open` and the
+    capture's `_disaster_part` count it.
+
+    **The page dates alone cannot tell.** The wire lists a Sortie
+    rotation only once it has begun, so a preseason holds one rotation
+    and dates no page, and an undated page reads as open. The weekly
+    rows would read the ended season's records, stale from the first
+    weekly reset and red.
+
+    False on a snapshot carrying no season table: that says nothing
+    about whether a season is running.
+    """
+    group = shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY)
+    if not schedules.groups(raw).get(group):
+        return False
+    _name, season = schedules.live(group, raw, now)
+    if not isinstance(season, dict):
+        return True
+    _tail, tail = schedules.live(DISASTER_TAIL_GROUP, raw, now)
+    if isinstance(tail, dict):
+        return True
+    ends = _preseason_end(raw, season)
+    return ends is not None and now < ends
 
 
 def disaster_subtext(raw, now):
@@ -712,6 +750,11 @@ def _next_disaster(raw, name, season, now):
     starts = _page_openings(raw, name, season)
     if starts:
         return starts[0]
+    # In its preseason the schedule lists that one rotation and no page
+    # date, and the shop opens as the rotation closes.
+    ends = _preseason_end(raw, season)
+    if ends is not None:
+        return ends
     # And where the wire carries no future season at all -- the hours
     # after one ends -- the handover is what the last three were.
     _name, last = schedules.current(
@@ -738,6 +781,34 @@ def _season_rotations(raw, season):
         if isinstance(window, dict)
         and season["start_time"] <= window.get("start_time", 0)
         < season.get("end_time", 0))
+
+
+def _preseason_end(raw, season):
+    """When `season`'s preseason -- its first Sortie rotation -- ends,
+    or None where the snapshot cannot say: the second rotation's start,
+    else the first one's own end, since the next opens as it closes.
+
+    None too where the first rotation listed did not open with the
+    season (`PRESEASON_SAME_START`): the older ones have dropped off the
+    table, and the one left is not the preseason.
+    """
+    if not isinstance(season, dict) or not season.get("start_time"):
+        return None
+    windows = sorted(
+        (window for window in (schedules.groups(raw).get(
+            shop_stock.ACCOUNT_SEASON_GROUP) or {}).values()
+         if isinstance(window, dict)
+         and _is_count(window.get("start_time"))
+         and season["start_time"] <= window["start_time"]
+         < season.get("end_time", 0)),
+        key=lambda window: window["start_time"])
+    if (not windows or windows[0]["start_time"]
+            >= season["start_time"] + PRESEASON_SAME_START):
+        return None
+    if len(windows) > 1:
+        return windows[1]["start_time"]
+    end = windows[0].get("end_time")
+    return end if _is_count(end) else None
 
 
 def _supply_rounds(raw, name):
@@ -3975,7 +4046,10 @@ def _readings(raw, now=None, tracked=None):
     # marks a capped reading: a full bar reads as cleared, however far
     # past it the week went -- the Chaos progress row likewise.
     score, target = _great_rift(raw, now)
-    if score is None:
+    off_season = disaster_off_season(raw, now)
+    if off_season:
+        out["seasonal_score"] = _one(DISASTER_NOT_OPEN, MUTED)
+    elif score is None:
         out["seasonal_score"] = _one("%s/%d" % (NO_DATA, target), UNKNOWN)
     else:
         out["seasonal_score"] = _one("%d/%d" % (min(score, target), target),
@@ -4114,7 +4188,9 @@ def _readings(raw, now=None, tracked=None):
     # the wire does not carry, and capped at it -- see the Great Rift
     # row above.
     score = _chaos_progress(raw, now)
-    if score is None:
+    if off_season:
+        out["chaos_progress"] = _one(DISASTER_NOT_OPEN, MUTED)
+    elif score is None:
         out["chaos_progress"] = _one("%s/%d" % (NO_DATA, CHAOS_PROGRESS_FULL),
                                      UNKNOWN)
     else:
@@ -4525,10 +4601,22 @@ def _chaos_progress(raw, now):
 def _live_season(raw):
     """The live disaster season's id, or None.
 
-    The standings keep a row per season the account has played, so the
-    live one is the latest `score_week_id` -- the same reading the
-    Great Rift row makes, and for the same reason.
+    The season schedule's newest window, where the snapshot carries
+    one: it opens with the season, the standings gaining a row of it
+    only with its Great Rift, three weeks at the least later; and no
+    season's window has ever been listed before it opened. Else the
+    standings, which keep a row per season
+    the account has played, the live one carrying the latest
+    `score_week_id` -- the same reading the Great Rift row makes.
     """
+    windows = schedules.groups(raw).get(
+        shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY)) or {}
+    newest = max(((window["start_time"], name)
+                  for name, window in windows.items()
+                  if isinstance(window, dict)
+                  and _is_count(window.get("start_time"))), default=None)
+    if newest:
+        return newest[1]
     seasons = raw.get(GREAT_RIFT_FIELD)
     live = None
     for name, slots in (seasons or {}).items() if isinstance(

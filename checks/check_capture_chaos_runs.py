@@ -11,9 +11,11 @@ quietly:
    a mark turns up is counted over the fights fought. A break-in is a
    fight of its own spot, `BREAK_IN`, so it does not swell the ordinary
    fights a rate is taken over.
-3. **The run names its season** from the Great Rift standings, and its
-   game version from the connection's `helo`. A new season's currency
-   is a new item id, and nothing downstream is told which.
+3. **The run names its season** from the season schedule, the Great
+   Rift standings only where no window holds it, and its game version
+   from the connection's `helo`. A new season's currency is a new item
+   id, and nothing downstream is told which. The standings alone name
+   the season before until the new season's Great Rift opens.
 4. **A run is filed once**, by the second it cleared, however often
    the same clear is read.
 5. **The runs live in their own file** (`chaos_store`), every one of
@@ -407,8 +409,44 @@ def run():
                     f"whole turns on that last number.")
 
     failures.extend(_given_up(Addon))
+    failures.extend(_new_season(Addon))
     _the_file(Addon, failures)
     return failures
+
+
+def _new_season(Addon):
+    """A run in a season the account has no Great Rift row of yet.
+
+    Season 5's schedule as season 4's handover had it: the window opens
+    as season 4's closes, a preseason rotation first. The standings still
+    end at season 4, and a run in season 5's first part is season 5's.
+    """
+    addon = _new(Addon)
+    _setup(addon)
+    addon.websocket_message(_Flow([{"res": "ok", "event_schedules": {
+        "DISASTER_SEASON": {
+            "disaster_s04": {"start_time": 1783476000,
+                             "end_time": 1790726400},
+            "disaster_s05": {"start_time": 1790733600,
+                             "end_time": 1797984000}},
+        "ASSAULT_SCHEDULE": {
+            "assault_1_s7": {"start_time": 1788915600,
+                             "end_time": 1790726400},
+            "assault_1_s8": {"start_time": 1790733600,
+                             "end_time": 1792540800},
+            "assault_1_s9": {"start_time": 1792548000,
+                             "end_time": 1794355200}},
+    }}]))
+    _play(addon, closed=1792886400)
+    run_ = addon.chaos_runs[-1] if addon.chaos_runs else {}
+    if (run_.get("season"), run_.get("part")) != ("disaster_s05", 1):
+        return [f"a run in season 5's first part, with the standings "
+                f"still ending at season 4, reads season "
+                f"{run_.get('season')!r} part {run_.get('part')!r}, not "
+                f"'disaster_s05' part 1. The schedule opens with the "
+                f"season; filed under the season before, its payouts "
+                f"are averaged into that season's figures."]
+    return []
 
 
 def _given_up(Addon):

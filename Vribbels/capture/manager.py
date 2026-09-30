@@ -208,10 +208,10 @@ CHAOS_LOST = "BATTLE_RESULT_TYPE_STAGE_FAILED"
 CHAOS_GAVE_UP = "GIVEUP"
 # The fights that are not a boss's, as a map's `spot_list` types them.
 CHAOS_NON_BOSS = ("SPOT_TYPE_BATTLE", "SPOT_TYPE_ELITE")
-# The schedule groups a season's parts are dated from: the Galactic
-# Disaster's own window, and the Sortie rotations inside it, the first
-# of which is the preseason. The Checklist dates its shop pages off the
-# same two -- `checklist_tab._season_rotations`.
+# The schedule groups a run's season is named by and its part dated
+# from: the Galactic Disaster's own window, and the Sortie rotations
+# inside it, the first of which is the preseason. The Checklist dates
+# its shop pages off the same two -- `checklist_tab._season_rotations`.
 CHAOS_SEASON_GROUP = "DISASTER_SEASON"
 CHAOS_PART_GROUP = "ASSAULT_SCHEDULE"
 # What a run pays in: the season's currency, whatever its id this
@@ -3317,7 +3317,7 @@ class Addon:
                                         item["amount"]])
         elif asked == CHAOS_CLOSES:
             run["closed"] = data.get("service_server_time")
-            run["season"] = self._live_disaster_season()
+            run["season"] = self._live_disaster_season(run["closed"])
             run["part"] = self._disaster_part(run["closed"])
             run["stage"] = data.get("stage_id")
             # A run left partway is no whole run, and nothing else says
@@ -3401,12 +3401,29 @@ class Addon:
             return None
         return sum(1 for start in starts[1:] if start <= when)
 
-    def _live_disaster_season(self):
-        """The Galactic Disaster season running now, `disaster_s04`, or
-        None: the standings keep a row per season played, and the live
-        one carries the latest `score_week_id`. A Chaos run always pays
-        the live season, and naming it here means nothing downstream has
-        to know which item id each season's currency is."""
+    def _live_disaster_season(self, when=None):
+        """The Galactic Disaster season running at `when`, `disaster_s04`,
+        or None. A Chaos run always pays the live season, and naming it
+        here means nothing downstream has to know which item id each
+        season's currency is.
+
+        The season schedule's window holding `when`, where there is
+        one: it opens with the season, and the standings gain a season's
+        row only with its Great Rift, three weeks at the least after --
+        runs in between would be filed under the season before. Else
+        the standings, which keep a row per season played, the live one
+        carrying the latest `score_week_id`."""
+        groups = self.event_schedules if isinstance(
+            self.event_schedules, dict) else {}
+        if isinstance(when, (int, float)):
+            for name, window in (groups.get(CHAOS_SEASON_GROUP)
+                                 or {}).items():
+                if (isinstance(window, dict)
+                        and isinstance(window.get("start_time"), (int, float))
+                        and isinstance(window.get("end_time"), (int, float))
+                        and window["start_time"] <= when
+                        < window["end_time"]):
+                    return name
         live = None
         seasons = self.disaster_ranks if isinstance(
             self.disaster_ranks, dict) else {}

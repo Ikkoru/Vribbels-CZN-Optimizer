@@ -66,7 +66,7 @@ The app refreshes the Stats & Gacha History tab's pull history on `GACHA_MARKER`
 
 A Chaos run is followed through its commands, from `disaster/enter_disaster_chaos_stage` or `zero_orb/enter_zero_stage` to `stage/clear_stage`, and is **learned, not received**. One record per run holds:
 
-- its season (from the standings) and season part (from the schedules), and the Chaos by its stage id;
+- its season and season part, from the schedules, and the Chaos by its stage id. The season falls back to the standings only where no season window holds the run: they gain a season's row only with its Great Rift, three weeks at the least after its window opens;
 - the door it came in by, and whether the Delegation Module played it;
 - the game version (from `helo`);
 - the fights by spot, the marked fights, and each payout taken with its floor, spot and mark;

@@ -41,6 +41,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Checklist: Simulation Challenges counts the runs done since the last login, Galactic Disaster – Chaos the score a Chaos run just added, and Sortie Currency shows the real amount after the weekly top-up instead of a `~` guess.
 - Checklist: the Seasonal Accumulated Score and Galactic Disaster – Chaos read their threshold once past it, without a `+`.
+- Checklist: in the weeks between two Galactic Disaster seasons, the Seasonal Shop stays shut until the next one opens, and Galactic Disaster – Chaos and the Seasonal Accumulated Score read `Not open`.
 - Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
 - Diana's, Maribell's, Mika's, Tressa's, Veronica's and Yuki's base ATK, DEF and HP were wrong, and Tiphera's sixth Potential node raises DEF%, not CDMG%.

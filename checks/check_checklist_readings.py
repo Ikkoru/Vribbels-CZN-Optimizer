@@ -94,6 +94,8 @@ def run():
         RATE_RECENT_LABEL, RATE_LONG_LABEL,
         SHOP_RATE_FLOOR, season_estimate, ATTENDANCE_FLOOR, SEASON_ESTIMATE,
         LOCKED_PAGES, shop_pages_open, shop_shut_for_now,
+        DISASTER_NEXT, DISASTER_NOT_OPEN, MUTED, _live_season,
+        next_disaster_words,
         ChecklistTab, WRITTEN_TOTALS, written_total,
         unsure_ceiling, EVENT_FINISHED_FIELD,
     )
@@ -1251,6 +1253,113 @@ def run():
             "the seasonal shop reads as shut on a snapshot carrying no "
             "schedules at all. That is a payload not yet arrived, not "
             "a season that is over.")
+
+    # --- a season handover, as the wire lists one ---------------------
+    # Season 4's handover as its schedules had it: the next season's
+    # window opens as the last one's closes, with a preseason rotation
+    # first and the ended season's tail window over it. The wire lists a
+    # rotation only once it has begun, so the preseason dates no page;
+    # the ended season keeps its shelves, its standings and last week's
+    # weekly record. Either the tail or the lone first rotation must be
+    # enough to call it a preseason.
+    import schedules as windows
+    ended = int(now - 5 * DAY)
+    nxt = "disaster_s05"
+
+    def handover(tail=True, part_one=False, successor=True, rotation=True):
+        raw = seasonal([(f"{season}_02", 3200001, 4, 100)],
+                       {f"{season}_99": (1, long_ago)})
+        raw["shop_res_data"]["shop_disaster"][f"{nxt}_02"] = dict(
+            raw["shop_res_data"]["shop_disaster"][f"{season}_02"])
+        groups = raw["event_schedules"]
+        groups["DISASTER_SEASON"] = {season: {
+            "start_time": int(ended - 84 * DAY), "end_time": ended}}
+        groups["ASSAULT_SCHEDULE"] = {"assault_1_s7": {
+            "start_time": int(ended - 21 * DAY), "end_time": ended}}
+        if successor:
+            groups["DISASTER_SEASON"][nxt] = {
+                "start_time": ended, "end_time": int(ended + 84 * DAY)}
+        if successor and rotation:
+            groups["ASSAULT_SCHEDULE"]["assault_1_s8"] = {
+                "start_time": ended, "end_time": int(ended + 21 * DAY)}
+        if part_one:
+            groups["ASSAULT_SCHEDULE"]["assault_1_s9"] = {
+                "start_time": int(ended + 21 * DAY),
+                "end_time": int(ended + 42 * DAY)}
+        if tail:
+            groups["DISASTER_SEASON_END"] = {season: {
+                "start_time": ended, "end_time": int(ended + 21 * DAY)}}
+        raw["disaster_entities"] = [{"res_id": season,
+                                     "week_clear_score": 8000,
+                                     "week_id": this_week - 1}]
+        return raw
+
+    weekly = ("chaos_progress", "seasonal_score")
+    for tail, rotation, why in (
+            (True, True, "the ended season's tail window is open"),
+            (True, False, "the tail window is open and no rotation of the "
+                          "new season is listed yet"),
+            (False, True, "the new season lists only its first "
+                          "rotation")):
+        raw = handover(tail=tail, rotation=rotation)
+        if not shop_shut_for_now(shelf, "account", raw, now):
+            failures.append(
+                f"five days into a preseason where {why}, the seasonal "
+                f"shop reads as open. No page is dated yet, and the ended "
+                f"season's shelves or the next one's would be offered "
+                f"with no currency to buy them.")
+        said = _readings(raw, now)
+        for key in weekly:
+            if said.get(key) != [(DISASTER_NOT_OPEN, MUTED)]:
+                failures.append(
+                    f"five days into a preseason where {why}, {key} "
+                    f"reads {said.get(key)!r}, not {DISASTER_NOT_OPEN!r} "
+                    f"muted. There is no weekly Chaos or Great Rift until "
+                    f"the season's first part, and the ended season's "
+                    f"records go red at the first weekly reset.")
+        want = DISASTER_NEXT % windows.countdown(ended + 21 * DAY - now)
+        if next_disaster_words(raw, now) != want:
+            failures.append(
+                f"five days into a preseason where {why}, the Galactic "
+                f"Disaster column says {next_disaster_words(raw, now)!r}, "
+                f"not {want!r}: the shop opens as the preseason rotation "
+                f"closes, not a handover after the new season ends.")
+    if _live_season(handover()) != nxt:
+        failures.append(
+            f"with the next season's window open and the standings still "
+            f"ending at the last, the live season reads "
+            f"{_live_season(handover())!r}, not {nxt!r}. The standings "
+            f"gain a season's row only with its Great Rift, weeks after "
+            f"its shop opens, and its shelves are named by the season.")
+
+    # The first part: the next rotation has begun, and everything reads
+    # as it does in any season.
+    raw = handover(tail=False, part_one=True)
+    later = int(ended + 25 * DAY)
+    said = _readings(raw, later)
+    if (shop_shut_for_now(shelf, "account", raw, later)
+            or said.get(f"shop:{nxt}_02") != [("4/4", TODO)]):
+        failures.append(
+            f"four days into the new season's first part, the seasonal "
+            f"shop reads shut or its row reads "
+            f"{said.get(f'shop:{nxt}_02')!r}, not the new season's own "
+            f"shelf at 4/4 in red.")
+    for key in weekly:
+        if said.get(key) == [(DISASTER_NOT_OPEN, MUTED)]:
+            failures.append(
+                f"four days into the new season's first part, {key} "
+                f"still reads {DISASTER_NOT_OPEN!r}. Its weekly content "
+                f"is running, and a week unplayed must read red.")
+
+    # And between seasons, with nothing of the next on the wire yet.
+    raw = handover(tail=False, successor=False)
+    said = _readings(raw, now)
+    for key in weekly:
+        if said.get(key) != [(DISASTER_NOT_OPEN, MUTED)]:
+            failures.append(
+                f"with the season over and no next one on the wire, {key} "
+                f"reads {said.get(key)!r}, not {DISASTER_NOT_OPEN!r} "
+                f"muted.")
 
     # --- the update notices' Supply rounds, where they are copied in ----
     # They outrank the Sortie seasons: a season whose parts are not one
