@@ -23,6 +23,9 @@ res_id -> a tuple of effects, each a dict:
             Tiphera). The score counts it all the same: "allies"
             includes the combatant
     card    what an unpriced effect acts on, for display
+    fill    for an any-of check, the stat the Optimizer's Fill button
+            asks for (Orlea's DEF): no single minimum stands for "ATK or
+            DEF", so the maintainer picks the one her builds go for
 
 `grants`, and where each lands (`docs/game_formulas.md` §1):
 
@@ -136,7 +139,7 @@ POTENTIAL_7 = {
     ),
     1024: (                                                     # Orlea
         {"grants": "CRate", "value": 6, "stat": ("ATK", "DEF"),
-         "at": (700, 300), "start": True},
+         "at": (700, 300), "start": True, "fill": "DEF"},
     ),
     1050: (                                                     # Owen
         {"grants": "ATK%", "value": 4},
@@ -195,28 +198,30 @@ def conditions(effect: dict) -> tuple:
 
 
 def full_at(effect: dict):
-    """The least check value that earns `effect` in full: the threshold,
-    or where the growth past it stops. None for an effect with no check
-    or with an any-of check, which no single minimum stands for."""
+    """(stat, the least value of it that earns `effect` in full): the
+    threshold, or where the growth past it stops. An any-of check
+    answers with its `fill` stat's threshold; None for an effect with
+    no check, or an any-of one with no `fill`."""
     conds = conditions(effect)
+    if len(conds) > 1:
+        conds = tuple(c for c in conds if c[0] == effect.get("fill"))
     if len(conds) != 1:
         return None
-    at = conds[0][1]
+    stat, at = conds[0]
     if effect.get("per"):
-        return at + effect["per"] * effect["max"] / effect["add"]
-    return at
+        return stat, at + effect["per"] * effect["max"] / effect["add"]
+    return stat, at
 
 
 def potential_7_minimums(res_id: int) -> dict:
     """{Have-at-least stat: the least value that earns every effect of
-    the combatant's Potential 7 in full}. An any-of check (Orlea's ATK
-    or DEF) names no single stat, so it adds nothing."""
+    the combatant's Potential 7 in full}."""
     out = {}
     for effect in get_potential_7(res_id):
-        least = full_at(effect)
-        if least is None:
+        full = full_at(effect)
+        if full is None:
             continue
-        stat = conditions(effect)[0][0]
+        stat, least = full
         out[stat] = max(out.get(stat, 0), least)
     return out
 

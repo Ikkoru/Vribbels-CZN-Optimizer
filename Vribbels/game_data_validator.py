@@ -695,6 +695,11 @@ def _check_potential_7(problems: list[str]) -> None:
                                             f"positive number")
             elif at is not None:
                 rep.add(rid, label, "has a threshold and no check stat")
+            fill = effect.get("fill")
+            if fill is not None and fill not in stats:
+                rep.add(rid, label, f"fill {fill!r} is not one of its check "
+                                    f"stats {stats} -- the Fill button "
+                                    f"asks for nothing")
             growth = [effect.get(k) for k in ("per", "add", "max")]
             if any(g is not None for g in growth):
                 if not all(_is_number(g) and g > 0 for g in growth):
