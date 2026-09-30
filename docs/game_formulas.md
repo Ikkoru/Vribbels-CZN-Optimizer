@@ -54,7 +54,7 @@ Every battle's entry states this formula's layers for each combatant (`capture_p
 
 ### The potential tree
 
-Ten nodes, and **the numbering on the wire does not match the numbering in the game.** The program keeps all ten and shows all ten; only two feed the stat formulas, and those two are the ones the scoring path reads.
+Ten nodes, and **the numbering on the wire does not match the numbering in the game.** The program keeps all ten and shows all ten; nodes 5 and 6 feed the stat formulas for every combatant, and node 7 where its bonus is a stat (*Potential 7* below).
 
 | In game  | On the wire | Max level | What it does                                                  | Reaches Final stats? |
 | -------- | ----------- | --------- | ------------------------------------------------------------- | -------------------- |
@@ -71,7 +71,7 @@ Ten nodes, and **the numbering on the wire does not match the numbering in the g
 
 Max levels total **45**, which is what the Combatants tab's `Nodes` column counts against. It is summed from `POTENTIAL_NODES` rather than stated, so this table and that one cannot drift apart on it.
 
-`CharacterInfo.potential_nodes` holds every node's level; `potential_50_level` / `potential_60_level` repeat the two STAT nodes as their own fields, because the scoring path reads them per combo and that loop is not the place for a dict lookup. `characters.py` still stores a stat for `node_50` and `node_60` only — deliberate, not an oversight: the card-effect nodes change card magnitudes, which the build score does not model, so they are displayed and not scored.
+`CharacterInfo.potential_nodes` holds every node's level; `potential_50_level` / `potential_60_level` repeat the two STAT nodes as their own fields, because the scoring path reads them per combo and that loop is not the place for a dict lookup. `characters.py` stores a stat for `node_50` and `node_60` only, and node 7's effects live in `game_data/potential_7.py` — deliberate, not an oversight: the card-effect nodes change card magnitudes, which the build score does not model, so they are displayed and not scored.
 
 `POTENTIAL_NODES` in `game_data/characters.py` is the one list carrying the display order, both numberings, the maxima and the per-node descriptions. The descriptions live there rather than here on purpose: a second copy of a string the UI already shows is what goes stale.
 
@@ -93,8 +93,11 @@ bonus = 0                                              if check < T
 - **A threshold is met at its own value.** The texts say "or higher".
 - **Growth is continuous, not stepped**: 324 DEF against 300, +2 per 10, gives +4.8.
 - **Where a bonus lands**: ATK% and DEF% in the inner %, beside nodes 5 and 6; CRate, CDmg and Extra DMG% on the final stat; attribute damage in the element multiplier (§7), beside the fragments' element main stat.
-- **A start-of-battle bonus is not on the entered sheet** -- Orlea's +6% CRate and Tiphera's +10% CDmg, each given to every ally at the start of battle -- and the score counts it all the same, since "allies" includes the combatant.
-- **Not priced**: a bonus to one card's damage, shield or heal, since which deck a player takes into a battle cannot be known; Cassius' Quest triggers; Mei Lin's Weakness Damage, since the score has no weakness term. Their thresholds still fill the Have-at-least minimums (the Optimizer's `Fill in Potential 7 minimums`).
+- **A start-of-battle bonus is not on the entered sheet**: Orlea's +6% CRate and Tiphera's +10% CDmg, each given to every ally when the battle starts. The score counts it all the same, since "allies" includes the combatant.
+- **Not priced**, though their thresholds still fill the Have-at-least minimums (the Optimizer's `Fill in Potential 7 minimums`):
+  - a bonus to one card's damage, shield or heal, since which deck a player takes into a battle cannot be known;
+  - Cassius' Quest triggers;
+  - Mei Lin's Weakness Damage, since the score has no weakness term.
 - **A Sortie grants every Potential 7 in full**, met or not. The score is for regular modes and does not model it.
 - It applies only where node 70 is taken. The Have-at-least gate and the Pot7 rows keep the values without it.
 

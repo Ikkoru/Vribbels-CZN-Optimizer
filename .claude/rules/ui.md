@@ -27,6 +27,10 @@ Mapping a window puts it on the maintainer's screen — **ask first**. `withdraw
 
 **In a check, never `root.update()`.** It runs every tab's pending `after()` callbacks as well, and the Capture tab's prerequisite check then writes into its log, so a check reading that log fails on lines it never wrote. Map with `deiconify()` and `update_idletasks()`, as `check_tabs_build` does, and call a `<Map>`- or `<Configure>`-bound handler directly: no event loop runs to call it.
 
+**A width of 1 after that is a notebook page that never mapped**, not a measurement. In a fresh root the notebook maps its page on the root's `<Map>`, a window event `update_idletasks()` does not deliver. Follow it with `ui.utils.presettle._drain(root, deadline)`, which runs window events and idle work and no timers (`check_important_settings._build_tab`).
+
+**One UI scale per process when reading rendered text.** Tk caches a font given as a tuple per display, not per interpreter, so a second root in the same process lays some text out at the first root's size and every width read off it is wrong. `check_important_settings.run` measures each scale in a subprocess; `check_ui_scales` builds both in one and is sound only because it reads pads and named-font measures, never rendered widths.
+
 | To check                        | Do this                                                                                             |
 | ------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Which widgets a change moved    | Build the tabs the `check_tabs_build.py` way, snapshot every row's values before and after, diff     |

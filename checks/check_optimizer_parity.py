@@ -8,7 +8,8 @@ counters -- not merely on the best build.
 **Bounded on purpose.** `top_percent=1` puts every slot on the
 10-fragment floor, which is 10^6 combinations: comfortably above
 `PARALLEL_MIN_COMBOS`, so the parallel path really engages, and about
-two seconds per path instead of the many minutes an unbounded run takes.
+two seconds per path instead of the hours an unbounded run can take on
+a full inventory, its parallel half alone.
 The expensive half is the SEQUENTIAL one -- which is the whole reason
 the parallel path exists -- so an unbounded parity check is a check
 nobody runs. Pass `--full` to use each combatant's real settings.

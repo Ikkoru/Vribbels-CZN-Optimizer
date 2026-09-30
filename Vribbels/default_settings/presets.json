@@ -75,7 +75,7 @@
       "CRate": 2.01,
       "CDmg": 1.88,
       "Ego": 0.05,
-      "Extra DMG%": 2.68,
+      "Extra DMG%": 2.51,
       "DoT%": 0.05
     },
     "Fei": {
@@ -153,18 +153,18 @@
       "CRate": 1.78,
       "CDmg": 2.01,
       "Ego": 0.05,
-      "Extra DMG%": 2.89,
+      "Extra DMG%": 2.7,
       "DoT%": 0.05
     },
     "Kayron": {
-      "Flat ATK": 1.02,
+      "Flat ATK": 1.01,
       "ATK%": 1.0,
       "Flat DEF": 0.11,
       "DEF%": 0.05,
       "Flat HP": 0.021,
       "HP%": 0.01,
-      "CRate": 1.73,
-      "CDmg": 1.95,
+      "CRate": 1.7,
+      "CDmg": 1.69,
       "Ego": 0.05,
       "Extra DMG%": 0.0,
       "DoT%": 0.05
@@ -319,8 +319,8 @@
       "DEF%": 1.0,
       "Flat HP": 0.022,
       "HP%": 0.01,
-      "CRate": 2.28,
-      "CDmg": 2.31,
+      "CRate": 2.2,
+      "CDmg": 2.51,
       "Ego": 0.1,
       "Extra DMG%": 0.0,
       "DoT%": 0.03
@@ -332,8 +332,8 @@
       "DEF%": 0.05,
       "Flat HP": 0.021,
       "HP%": 0.01,
-      "CRate": 1.74,
-      "CDmg": 1.96,
+      "CRate": 1.78,
+      "CDmg": 2.01,
       "Ego": 0.05,
       "Extra DMG%": 0.0,
       "DoT%": 0.05
@@ -365,14 +365,14 @@
       "DoT%": 0.05
     },
     "Rin (Conqueror's Aspect)": {
-      "Flat ATK": 0.977,
+      "Flat ATK": 0.98,
       "ATK%": 1.0,
       "Flat DEF": 0.119,
       "DEF%": 0.05,
       "Flat HP": 0.02,
       "HP%": 0.01,
-      "CRate": 1.87,
-      "CDmg": 1.6,
+      "CRate": 1.45,
+      "CDmg": 1.51,
       "Ego": 0.05,
       "Extra DMG%": 0.0,
       "DoT%": 0.05
@@ -384,8 +384,8 @@
       "DEF%": 0.05,
       "Flat HP": 0.021,
       "HP%": 0.01,
-      "CRate": 1.42,
-      "CDmg": 2.13,
+      "CRate": 1.51,
+      "CDmg": 2.27,
       "Ego": 0.05,
       "Extra DMG%": 0.0,
       "DoT%": 0.05
@@ -430,30 +430,30 @@
       "DoT%": 0.05
     },
     "Tiphera": {
-      "Flat ATK": 0.217,
-      "ATK%": 0.152,
+      "Flat ATK": 0.216,
+      "ATK%": 0.151,
       "Flat DEF": 1.58,
       "DEF%": 1.0,
       "Flat HP": 0.022,
       "HP%": 0.01,
-      "CRate": 1.71,
-      "CDmg": 1.63,
+      "CRate": 1.75,
+      "CDmg": 1.7,
       "Ego": 0.05,
       "Extra DMG%": 0.0,
       "DoT%": 0.01
     },
     "Tressa (Agony focus)": {
-      "Flat ATK": 0.948,
+      "Flat ATK": 1.08,
       "ATK%": 1.0,
       "Flat DEF": 0.114,
       "DEF%": 0.05,
       "Flat HP": 0.019,
       "HP%": 0.01,
-      "CRate": 1.57,
-      "CDmg": 1.81,
+      "CRate": 1.6,
+      "CDmg": 1.85,
       "Ego": 0.05,
       "Extra DMG%": 0.0,
-      "DoT%": 1.98
+      "DoT%": 2.02
     },
     "Veronica": {
       "Flat ATK": 0.906,
@@ -469,7 +469,7 @@
       "DoT%": 0.05
     },
     "Yuki (non-Conqueror's Aspect)": {
-      "Flat ATK": 0.996,
+      "Flat ATK": 0.977,
       "ATK%": 1.0,
       "Flat DEF": 0.119,
       "DEF%": 0.05,
@@ -540,8 +540,8 @@
       "DEF%": 1.0,
       "Flat HP": 0.022,
       "HP%": 0.01,
-      "CRate": 0.617,
-      "CDmg": 0.43,
+      "CRate": 0.594,
+      "CDmg": 0.507,
       "Ego": 0.1,
       "Extra DMG%": 0.0,
       "DoT%": 0.03

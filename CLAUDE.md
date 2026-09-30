@@ -25,7 +25,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 
 ## Headless verification
 
-**Run `python checks/run_all.py` before handing work over** (`zRUN Checks.bat` for a window that stays open; same flags). No GUI, and quick enough to run every time. They cover the invariants that fail QUIETLY: optimizer scoring and parity, game data, settings round-trips, the capture pipeline, the spacing markers and registry, and the UI's own construction and geometry at both scales. `--list` names every one — read that rather than a copy of it here. A check with no captured data to work on skips, or notes what it could not cover. Parity runs bounded; `--full` takes minutes.
+**Run `python checks/run_all.py` before handing work over** (`zRUN Checks.bat` for a window that stays open; same flags). No GUI, and quick enough to run every time. They cover the invariants that fail QUIETLY: optimizer scoring and parity, game data, settings round-trips, the capture pipeline, the spacing markers and registry, and the UI's own construction and geometry at both scales. `--list` names every one — read that rather than a copy of it here. A check with no captured data to work on skips, or notes what it could not cover. Parity runs bounded; `--full` can take hours.
 
 **Add a check whenever you fix something that failed silently** — that is what the directory is for. `checks/__init__.py` says how.
 
