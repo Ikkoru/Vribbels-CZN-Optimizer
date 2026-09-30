@@ -39,11 +39,17 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Fixed
 
-- Checklist: Simulation Challenges counts the runs done since the last login, Galactic Disaster – Chaos the score a Chaos run just added, and Sortie Currency shows the real amount after the weekly top-up instead of a `~` guess.
-- Checklist: the Seasonal Accumulated Score and Galactic Disaster – Chaos read their threshold once past it, without a `+`.
-- Checklist: in the weeks between two Galactic Disaster seasons, the Seasonal Shop stays shut until the next one opens, and Galactic Disaster – Chaos and the Seasonal Accumulated Score read `Not open`.
+- **Checklist:**
+  - Simulation Challenges counts the runs done since the last login, Galactic Disaster – Chaos the score a Chaos run just added, and Sortie Currency shows the real amount after the weekly top-up instead of a `~` guess.
+  - The Seasonal Accumulated Score and Galactic Disaster – Chaos read their threshold once past it, without a `+`.
+  - In the weeks between two Galactic Disaster seasons, the Seasonal Shop stays shut and says when it opens, its column keeping its width, and Galactic Disaster – Chaos and the Seasonal Accumulated Score read `Not open`.
+  - Arkhianon Supply reads a new pass from its first day, instead of the last one's 70/70 until something is claimed.
+  - The Basin of Hyperspace and the Full-Scale Offensive follow what you clear while capturing, and a new Offensive reads 0/9 before its first boss.
+  - An event that hands out its tasks one at a time no longer reads as finished on its first day.
 - Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
+- Capture Log: a Great Rift half's placement reward, paid at the first login after the half ends, is logged, and its counts update.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
+- Stats & Gacha History: pulls on a Seasonal Rescue Rate-Up, like Sereniel's, count with the Combatant Rate-Ups whose pity they share, not with the reruns.
 - Diana's, Maribell's, Mika's, Tressa's, Veronica's and Yuki's base ATK, DEF and HP were wrong, and Tiphera's sixth Potential node raises DEF%, not CDMG%.
 
 ## [2.2.0] - Pull Tracker, Player Stats, Galactic Disaster Shop

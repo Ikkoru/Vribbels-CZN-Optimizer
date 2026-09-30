@@ -246,6 +246,14 @@ def _numbers(block):
             if isinstance(v, (int, float)) and not isinstance(v, bool)}
 
 
+def _remnants_row(row):
+    """Whether a row is one Full-Scale Offensive boss's: a `list_id` and
+    a `define_id` both of the Offensive's own naming."""
+    return (isinstance(row, dict)
+            and str(row.get("list_id") or "").startswith("remnants_")
+            and str(row.get("define_id") or "").startswith("remnants_"))
+
+
 class Addon:
     """mitmproxy addon that intercepts WebSocket messages and extracts game data."""
 
@@ -1126,14 +1134,16 @@ class Addon:
         # **`item` is guarded the same way** for its name rather than
         # its history: it has only ever arrived as an envelope, on a
         # login event's claim, and a key that generic is one the game
-        # can reuse for anything.
+        # can reuse for anything. `result_reward` is a finished Great
+        # Rift half's placement reward, claimed at the first login after
+        # the half ends, its envelope one down as `item_result`.
         for key in ("add_result", "item_result", "dec_result",
-                    "calamity_reward", "result", "item"):
+                    "calamity_reward", "result", "item", "result_reward"):
             payload = data.get(key)
             if not isinstance(payload, dict):
                 continue
-            if key in ("result", "item") and not ("currency" in payload
-                                                  or "items" in payload):
+            if key in ("result", "item", "result_reward") and not (
+                    "currency" in payload or "items" in payload):
                 # **A story episode nests its rewards one deeper**, as
                 # `result.story_reward_result.reward`, and the `result`
                 # around them carries no `currency` or `items` of its
@@ -1240,9 +1250,22 @@ class Addon:
             self._save_pending = True
         # The Full-Scale Offensive's stages, one row each with the
         # stars taken and the best score. Replaced whole: the reply IS
-        # the board, and a stage's absence from it is a reading.
+        # the board, and a stage's absence from it is a reading -- a
+        # boss has no row until it is fought. Entering the Offensive
+        # sends the board again under the bare `entities`, beside
+        # `rank_percent`; a reset sends its one row there, and it is
+        # merged. `entities` is shared with the event mission claims,
+        # so a row is taken only by its Offensive shape.
         if isinstance(data.get("remnants_entities"), dict):
             self.remnants = data["remnants_entities"]
+            self._save_pending = True
+        board = data.get("entities")
+        if (isinstance(board, dict) and board
+                and all(_remnants_row(row) for row in board.values())):
+            if "rank_percent" in data or not isinstance(self.remnants, dict):
+                self.remnants = dict(board)
+            else:
+                self.remnants.update(board)
             self._save_pending = True
         # The Chaos Matrix's own record, and the Overclock event's
         # daily counter. **The counter arrives under TWO names**: the
@@ -1835,6 +1858,29 @@ class Addon:
                         held["score"] = moved["score"]
                     table[res_id] = self._typed(key, held)
                     self._save_pending = True
+        # A Basin objective scored mid-session arrives on the stage
+        # clear, as `hyperspace_season_condition`: a row per objective
+        # the clear moved, `group_id` naming its season. The login's
+        # table is the only other carrier, so without folding these in
+        # the Checklist reads the login's objectives until the next
+        # launch.
+        if isinstance(condition, dict):
+            for moved in condition.get("hyperspace_season_condition") or ():
+                if (not isinstance(moved, dict) or not moved.get("res_id")
+                        or not moved.get("group_id")):
+                    continue
+                if not isinstance(self.basin_missions, dict):
+                    self.basin_missions = {}
+                season = self.basin_missions.setdefault(moved["group_id"], {})
+                if not isinstance(season, dict):
+                    continue
+                row = dict(season.get(moved["res_id"]) or {
+                    "season_id": moved["group_id"],
+                    "res_id": moved["res_id"]})
+                if "score" in moved:
+                    row["score"] = moved["score"]
+                season[moved["res_id"]] = row
+                self._save_pending = True
         count = data.get("login_total_count")
         if isinstance(count, int) and not isinstance(count, bool):
             self.login_total_count = count

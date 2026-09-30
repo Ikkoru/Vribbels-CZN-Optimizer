@@ -71,7 +71,7 @@ The same reply settled what the fields mean, which a login payload alone never c
 | `count` | 2 (yesterday's, `reset_time` in yesterday's day) | **1** |
 | `total_count` | 10 | **11** |
 
-So `count` is today's tally, zeroed lazily at the daily reset, and `total_count` is the event's lifetime one. A run adds one to both.
+So `count` is today's tally, zeroed lazily at the daily reset, and `total_count` is the event's lifetime one. A run adds what it multiplies by, up to the day's cap: a Memory Fragment run one, and a x5 Growth Stone run five of a six-shape day's six, the next x5 run the one left (`websocket_debug_20260930_133157`).
 
 **The row rides under `return_info`, not at the top level of the reply.** A reader of the top level finds nothing, which looks exactly like "this event does not double Memory Fragment runs". Two Memory Fragment runs on another day left the snapshot's Overclock row untouched for that reason alone.
 
@@ -102,6 +102,7 @@ The same applies to a mission-tallied event: the write-down holds while the rows
 | `EVENT_COMBATANT_TRIAL` | Tallied, Generic | `combat_trial_entities` | three trials per combatant banner sharing the event's window |
 | `EVENT_SCHEDULE` | Open-ended | `event_mission_entities`, plus `event_mission_reward_entities` for the completion flag | the catch-all: story events, seasonal events, `event_bartender_1`. A step-track event (below) reads its completion record instead |
 | `EVENT_NODELIST_PAGE` | Open-ended | same two | the missions are named after the combatant, not the list: paired by issue time, see *A Node List shares no word with its missions* |
+| `LOBBY_COUNTDOWN` | unmapped | not seen yet | a login event under a group of its own, the Nightmare Carnival's countdown check-in (`countdown_attendance_1st`, from 2026-10-06). Its deadline shows; its record is to be read off its first days |
 
 ## Knowing an event: three questions, and what can answer each
 
@@ -119,7 +120,7 @@ A Checklist row about an event is three separate claims, and they have different
 | ------ | ------------- | ------------- | ------------ | ----- |
 | **The completion flag** | the event's final reward claimed | not a total, but it ends question 3 outright | most events never set one; it exists only where a final reward unlocks after all the others | `_event_finished`, `event_achieve_state` |
 | **A rectangular family** | one snapshot, once a batch spans an axis | the whole event, exactly | the family is ragged, and most are | `_grid_total` |
-| **Pages issued whole** | one snapshot | an exact count for that page | a page not yet issued at all is invisible | `_page_totals` |
+| **Pages issued whole** | one snapshot | an exact count for that page | a page not yet issued at all is invisible; a page of one row counts only where other pages' rows share its second | `_page_totals` |
 | **A per-unit census** | the event's own table, and one rule per family | an exact count for a page that trickles | the table is not captured, or the rule is wrong | **designed, not built** — below |
 | **A finished past instalment** | two instalments of the family agreeing -- their rows, or a step track's steps | the whole event | the family turns out not to repeat itself | `ChecklistManager.event_total`, `_instalment_size` |
 | **A write-down** | a person deciding | the whole event | it is wrong until a reward past it proves so | `WRITTEN_TOTALS`, `written_total` |
@@ -173,6 +174,8 @@ The maintainer read every live event's totals off the game and reported them. Th
 | Beach Cafe Festival (summer) | 20 mission rewards, **plus 10 puzzle and 15 story** | 20 mission rows | agrees on the rows; 25 of its rewards are not rows at all |
 | Rei's Gift (`event_daily_16`) | 7, one per login day | claimed against claimed-plus-one | floor, as designed |
 | Virtual Tactical Simulation | 3, one per banner combatant | 3 | agrees |
+| Guardian Angel's Vacation (`event_nodelist_008`) | 13: three days of three tasks and a day's clear, and one for the lot | its rows arrive one at a time as each task is reached, so a write-down (`WRITTEN_TOTALS`) | agrees |
+| Memoirs of the Ark Protection Bureau Chief (`event_schedule_director_002`) | 21, seven days of three | the same: rows one at a time, a write-down | agrees |
 | Basin of Hyperspace | 26 stars | 26/26 | agrees |
 | Full-Scale Offensive | 9 stars | 9/9 | agrees |
 | Zero System (Chaos Matrix) | 100 rewards | 100/100 | agrees |
@@ -314,11 +317,11 @@ What every capture on hand holds, which is what a decision about trusting a type
 
 | Type | Instalments | Rewards each | |
 | ---- | ----------- | ------------ | - |
-| Seven-day story event: devil, director, idol, recorder | 4, each under its own name | 21, seven days of three | stable, but no two share a family |
+| Seven-day story event: devil, director, idol, recorder | 5; director twice (`event_schedule_director_002`, `event_director_2_<day>_<task>`, a task's row issued as it is reached) | 21, seven days of three | stable |
 | Galactic Disaster challenge event, `event_chaos_mission_*` | 4 | 28, seven days of four | stable |
 | Policy, `event_policy_*` | 5 | 6 | stable |
 | Love, `event_love_*` | 4 | 21 -- as mission rows once, as a step track since | stable |
-| Node List, `event_nodelist_*` | 7 | 15, 16 and 19 on the three with a story map; 25 on the four with an achievement page, every list since May among them | two shapes |
+| Node List, `event_nodelist_*` | 8 | 15, 16 and 19 on the three with a story map; 25 on the four with an achievement page, May to August; 13 on `event_nodelist_008`, three days of stages | three shapes |
 | Arena | 2 | 23, then 17 | not stable |
 | Login streak | 24 | 7 on nineteen, 14 on two, 21 on two, 10 on one | by event, not by type |
 | Overclock | 13 | a cap of 6 runs a day, or 2 | two shapes |
@@ -470,6 +473,7 @@ The lists on record, numbered without a gap -- a combatant with no list had anot
 | `event_nodelist_005` | `event_node_1055` | Adelheid | 2026-05-27 | achievement page, 25 |
 | `event_nodelist_006` | `event_node_30113` | Hilde | 2026-07-29 | achievement page, 25 |
 | `event_nodelist_007` | `event_node_30115` | Arabella | 2026-08-19 | achievement page, 25 |
+| `event_nodelist_008` | `event_node_30075` | Sereniel | 2026-09-30 | three days of stages, 13 by the notice; a row per task as it is reached |
 
 002 is placed by elimination: the story tables name the schedules of 001, 003 and 004, and the logs keep the windows of 005 to 007 only.
 

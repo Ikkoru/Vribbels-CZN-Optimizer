@@ -162,11 +162,19 @@ SHOP_TOTAL_MIN_DIGITS = 4
 # row tuple is three fields wide everywhere it is consumed.
 SHOP_TOTAL_RESERVE = {}
 
+# Column title -> rows the column is measured by and does not draw,
+# filled by `columns_for` the same way. **A shut seasonal shop keeps its
+# shelves' width**: the column would otherwise shrink to the one line
+# standing in for them, every gap between the five columns grow to
+# match, and the whole tab shift at each season's end and back when
+# the next shop opens.
+COLUMN_RESERVE = {}
 
-def shop_total_widest(shop, period, raw):
+
+def shop_total_widest(shop, period, raw, season=None):
     """The widest `held/bill` one shop's heading can render."""
     bill = 0
-    for _product_id, define in shop_products(shop, period, raw):
+    for _product_id, define in shop_products(shop, period, raw, season):
         cap, price = define.get("limit_count"), define.get("price_count")
         if _is_count(cap) and _is_count(price):
             bill += cap * price
@@ -495,16 +503,18 @@ PERIOD_COLOURS = {"period_full": "green", "period_most": "yellow",
 # What a heading countdown says: `18h left`, `5d left`.
 HEADING_LEFT = " left"
 
-# And what the Galactic Disaster's heading says under it, in season
-# and between seasons. Spelled out where the period columns above
-# abbreviate, because this one counts a season rather than a reset
-# and reads in the same words as the deadlines on the rows.
+# And what the Galactic Disaster's heading says under it in season, and
+# what stands where the shop stood until the next one opens. Spelled
+# out where the period columns above abbreviate, because this one
+# counts a season rather than a reset and reads in the same words as
+# the deadlines on the rows. It is the SHOP that is coming: the next
+# season is already running its preseason by then.
 #
 # **The second is approximate and says so.** The game has only ever
 # announced a season's dates with the previous one still running, so
 # what the wire gives is a date that has moved by a day before now.
 DISASTER_LEFT = "%s left"
-DISASTER_NEXT = "Next Disaster coming in ~%s"
+DISASTER_NEXT = "Shop coming in ~%s"
 
 # The key of the row those words go on. It carries no reading, so
 # `_readings` never answers to it -- the words ARE the row.
@@ -605,15 +615,15 @@ def shop_head_key(shop, period):
     return SHOP_HEAD_PREFIX + "/".join(shop + (period,))
 
 
-def shop_products(shop, period, raw):
+def shop_products(shop, period, raw, season=None):
     """[(product id, definition)] the tab lists for one shop and period.
 
     `shop_stock.products` minus the ones this tab does not show: the
     hidden ones, and every season but the live one where the shop
-    keeps its shelves per season.
+    keeps its shelves per season -- or `season`'s, where given.
     """
-    prefix = (_live_season(raw) if shop[0] == SEASONAL_SHOP_CATEGORY
-              else None)
+    prefix = ((season or _live_season(raw))
+              if shop[0] == SEASONAL_SHOP_CATEGORY else None)
     if shop[0] == SEASONAL_SHOP_CATEGORY and not prefix:
         # Without a live season every season's products would show.
         return ()
@@ -891,14 +901,14 @@ def shop_pages_open(shop, period, raw, now):
     return {page for page in pages if opens.get(page, 0) <= now}
 
 
-def shop_display_rows(shop, period, raw):
+def shop_display_rows(shop, period, raw, season=None):
     """[(row key, ((product id, its definition), ...))] for one shop.
 
     One entry per row the tab draws: per product for most shops, per
     OFFER for a `MERGED_SHOPS` one -- see `_merged_as` for what makes
     two products one row and `_merged_order` for where the row goes.
     """
-    rows = shop_products(shop, period, raw)
+    rows = shop_products(shop, period, raw, season)
     if shop[0] not in MERGED_SHOPS:
         return tuple((SHOP_KEY_PREFIX + product_id, ((product_id, define),))
                      for product_id, define in rows)
@@ -995,7 +1005,7 @@ def shop_period(period, raw, now, group=shop_stock.ACCOUNT_SEASON_GROUP):
     return word, max(1, days)
 
 
-def shop_rows(shop, period, raw):
+def shop_rows(shop, period, raw, season=None):
     """The sub-rows for one shop's products in one period.
 
     `(key, label, widest)` per row, straight off the wire: the shop's
@@ -1008,7 +1018,7 @@ def shop_rows(shop, period, raw):
     counts down from. See `shop_display_rows`.
     """
     out = []
-    display = shop_display_rows(shop, period, raw)
+    display = shop_display_rows(shop, period, raw, season)
     twice = _sold_at_more_than_one_price(display)
     for key, group in display:
         define = group[0][1]
@@ -1624,10 +1634,17 @@ EVENT_IMPLIES = {GENERIC: TALLIED}
 # behind. Its `current_days` climbs for ever, so what the row would
 # otherwise show is a reward waiting that nobody can claim.
 #
+# The two after it are events whose rows the game issues one at a time,
+# as each task is reached, with their totals in the update notice's
+# reward tables: Guardian Angel's Vacation, three days of three tasks
+# and a day's clear plus one for the lot, and Sereniel's Memoirs, seven
+# days of three.
+#
 # Keyed by the NORMALISED event key, so an instalment's spelling does
 # not matter. The value is REWARDS, not days.
 WRITTEN_DOWN = "written-down"
-WRITTEN_TOTALS = {"event_daily_1": 7}
+WRITTEN_TOTALS = {"event_daily_1": 7, "event_nodelist_8": 13,
+                  "event_director_2": 21}
 
 
 def written_total(name, taken):
@@ -1858,10 +1875,21 @@ def _page_totals(rows):
         parts = res_id.split("_")
         page = "_".join(parts[:-1]) if len(parts) > 1 else res_id
         pages.setdefault(page, []).append(row.get("issued_time"))
+    # How many rows each second issued, across every page.
+    batches = {}
+    for row in rows:
+        batches[row.get("issued_time")] = batches.get(
+            row.get("issued_time"), 0) + 1
     whole = trickling = 0
     for stamps in pages.values():
         seen = set(stamps)
-        if len(seen) == 1 and all(seen):
+        # **One row alone is no batch.** A page issuing its tasks one at
+        # a time holds a single row on its first day, and a stamp no
+        # other row shares says nothing about whether more are coming:
+        # Guardian Angel's Vacation and Sereniel's Memoirs both read
+        # `1/1` as whole. One row issued with other pages' rows was.
+        if (len(seen) == 1 and all(seen)
+                and (len(stamps) > 1 or batches[stamps[0]] > 1)):
             whole += len(stamps)
         else:
             trickling += len(stamps)
@@ -1944,11 +1972,13 @@ ITEM_NAMES = item_names()
 # from a localisation table the client already holds and the server
 # never sends.
 EVENTS_HEADING = "Events"
+# `LOBBY_COUNTDOWN` is a login event of its own group, the Nightmare
+# Carnival's countdown check-in: its deadline until its record is seen.
 EVENT_GROUPS = ("EVENT_SCHEDULE", "EVENT_COMBATANT_TRIAL",
                 "EVENT_NODELIST_PAGE", "EVENT_DAILY_CHECK",
                 "EVENT_RHYTHM_GAME", "EVENT_ARENA", "EVENT_OVERCLOCK",
                 "EVENT_TRAUMA_CODE", "EVENT_DISASTER_MARBLE",
-                "EVENT_OPERATION")
+                "EVENT_OPERATION", "LOBBY_COUNTDOWN")
 
 # What an event row's key is built from.
 EVENT_KEY_PREFIX = "event:"
@@ -2298,6 +2328,7 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
     out = []
     for title, fixed, shops, events in COLUMNS:
         rows = list(fixed)
+        reserve = []
         period = PERIOD_BY_COLUMN.get(title)
         # **The shop's own heading goes in whether or not its products
         # do.** A snapshot from before `shop_res_data` was captured
@@ -2312,6 +2343,17 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
                 waiting = next_disaster_words(raw, now)
                 if waiting:
                     rows.append((NEXT_DISASTER_ROW, waiting, None))
+                # Its width is kept too, off the newest season whose
+                # shelves the wire still lists. See `COLUMN_RESERVE`.
+                shelf = _shelf_season(raw)
+                if shelf:
+                    head = shop_head_key(shop, period)
+                    SHOP_TOTAL_RESERVE[head] = shop_total_widest(
+                        shop, period, raw, shelf)
+                    reserve.append((head, shop_stock.SHOPS[shop],
+                                    WIDEST_COUNTDOWN if head in COUNTDOWNS
+                                    else None))
+                    reserve.extend(shop_rows(shop, period, raw, shelf))
                 continue
             head = shop_head_key(shop, period)
             SHOP_TOTAL_RESERVE[head] = shop_total_widest(shop, period, raw)
@@ -2332,6 +2374,7 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
             if live:
                 rows.append((EVENT_KEY_PREFIX, events, None))
                 rows.extend(live)
+        COLUMN_RESERVE[title] = tuple(reserve)
         out.append((title, tuple(rows)))
     return tuple(out)
 
@@ -2505,8 +2548,17 @@ BASIN_REWARD_FIELD = "reward_entities"
 # with a `star_count` out of three and a `best_score`. Three stages of
 # three stars is the nine the screen shows, and the denominator is
 # counted from the rows so a fourth stage needs no edit.
+#
+# **A boss has no row until it is fought**, so a new Offensive's board
+# starts empty. The standings history keeps each past Offensive's
+# fought stages, and the most any of them had stands in for the bosses
+# not fought yet -- never fewer than the three every notice has
+# announced, which is also the whole answer for an account with no
+# history. See `_offensive`.
 OFFENSIVE_FIELD = "remnants_entities"
+OFFENSIVE_HISTORY_FIELD = "remnants_rankings"
 OFFENSIVE_STARS = 3
+OFFENSIVE_BOSSES = 3
 
 # The Zero System Chaos Matrix: `reward_level` is how far up its reward
 # track the account has claimed, out of a hundred. The same record's
@@ -2936,9 +2988,12 @@ class ChecklistTab(BaseTab):
         #
         # A row showing NO value has no say either, for the same
         # reason. Shop PRODUCTS do: their counts are in that column.
-        votes = [(key, label, w) for key, label, w in rows
+        #
+        # A shut shop's shelves vote as if drawn: `COLUMN_RESERVE`.
+        measure = list(rows) + list(COLUMN_RESERVE.get(title, ()))
+        votes = [(key, label, w) for key, label, w in measure
                  if w and not key.startswith(SHOP_HEAD_PREFIX)]
-        measured = votes or [(key, label, w) for key, label, w in rows]
+        measured = votes or [(key, label, w) for key, label, w in measure]
         labels = max(font.measure(label)
                      + (px(CHECKBOX_OVERHEAD) if _is_shop(key) else 0)
                      for key, label, _w in measured)
@@ -2953,7 +3008,7 @@ class ChecklistTab(BaseTab):
                      + font.measure(SHOP_TOTAL_RESERVE.get(
                          key, SHOP_TOTAL_FALLBACK))
                      + (font.measure(w) if w else 0)
-                     for key, label, w in rows
+                     for key, label, w in measure
                      if key.startswith(SHOP_HEAD_PREFIX)] or [0])
         # **A stop per group of countdowns**, measured against that
         # group's own readings: the rows above the shops and the
@@ -4082,7 +4137,7 @@ def _readings(raw, now=None, tracked=None):
     # **A full WEEK finishes the row too.** The dailies exist to feed
     # the week's exp, so once that is capped there is nothing left for
     # them to earn and the day's remainder is not work owed.
-    record = _live_pass(raw)
+    record = _live_pass(raw, now)
     week_exp = record.get("week_exp")
     # The pass's own `week_id` says which week that EXP belongs to.
     # Nothing zeroes it at the reset, so last week's full 10000 reads
@@ -4160,14 +4215,10 @@ def _readings(raw, now=None, tracked=None):
     # carries a `star_count` out of three and its own `best_score`; the
     # screen's total score is those scores summed, which is a figure
     # this row has no room for and no deadline to measure it against.
-    stages = raw.get(OFFENSIVE_FIELD)
-    stages = [row for row in (stages or {}).values()
-              if isinstance(row, dict)] if isinstance(stages, dict) else []
-    if not stages:
+    stars, most = _offensive(raw, now)
+    if most is None:
         out["offensive"] = _one(NO_DATA, UNKNOWN)
     else:
-        stars = sum(row.get("star_count") or 0 for row in stages)
-        most = OFFENSIVE_STARS * len(stages)
         out["offensive"] = _one("%d/%d" % (stars, most),
                                 _done(stars >= most))
 
@@ -4470,16 +4521,29 @@ def _period_words(left):
     return "%dh%s" % (left // 3600, HEADING_LEFT)
 
 
-def _live_pass(raw):
+def _live_pass(raw, now):
     """The Arkhianon Supply's own record, or {}.
 
     Two shapes: a claim reply sends the ONE live pass as
     `season_pass_entity`, and the login burst sends every pass the
     account has played as a LIST. Past passes sit at their full 70 and
     10000, so taking the wrong one reads as a finished week -- the live
-    one is the latest `week_id`.
+    one is the schedule's (`SEASON_PASS`), else the latest `week_id`.
+
+    **A new pass has no record until its first claim**: the first login
+    of `season_pass_009` listed only 007 and 008. So a live window
+    naming a pass the account holds no record of is that pass
+    untouched -- no level and no EXP -- and not the last one's 70/70.
     """
     record = raw.get(PASS_FIELD)
+    name, _window = schedules.live(COUNTDOWNS["supply_season"], raw, now)
+    if name:
+        held = [row for row in (raw.get(PASS_LIST_FIELD) or [])
+                if isinstance(row, dict) and row.get("res_id") == name]
+        if isinstance(record, dict) and record.get("res_id") == name:
+            return record
+        return held[-1] if held else {"res_id": name,
+                                      "free_reward_rank": 0, "week_exp": 0}
     if isinstance(record, dict) and record:
         return record
     live = None
@@ -4533,6 +4597,33 @@ def _basin(raw, now):
     done = sum(1 for row in sized[name].values()
                if isinstance(row, dict) and row.get("score"))
     return done, total, _basin_claimed(raw, name)
+
+
+def _offensive(raw, now):
+    """(stars taken in the live Full-Scale Offensive, stars it holds),
+    or (0, None) where the snapshot holds no Offensive at all.
+
+    Its bosses are the rows the board holds, or the most stages a past
+    Offensive on record had, or `OFFENSIVE_BOSSES`, whichever is most: a
+    boss has no row until it is fought. A row of another Offensive than
+    the one running is a past season's and counts nothing.
+    """
+    live, _window = schedules.live(COUNTDOWNS["offensive"], raw, now)
+    board = raw.get(OFFENSIVE_FIELD)
+    rows = [row for row in (board.values() if isinstance(board, dict)
+                            else ())
+            if isinstance(row, dict)
+            and (live is None or row.get("define_id") in (None, live))]
+    if not rows and live is None:
+        return 0, None
+    history = raw.get(OFFENSIVE_HISTORY_FIELD)
+    past = [len(season.get("stages") or {})
+            for name, season in (history.items()
+                                 if isinstance(history, dict) else ())
+            if name != live and isinstance(season, dict)]
+    bosses = max([len(rows), OFFENSIVE_BOSSES] + past)
+    return (sum(row.get("star_count") or 0 for row in rows),
+            OFFENSIVE_STARS * bosses)
 
 
 def _one(text, state):
@@ -4628,6 +4719,21 @@ def _live_season(raw):
             if live is None or week > live[0]:
                 live = (week, name)
     return live[1] if live else None
+
+
+def _shelf_season(raw):
+    """The newest season whose seasonal shelves the wire lists, or None.
+
+    An ended season's products stay in `shop_res_data` long after it:
+    seasons 1, 2 and 4's were all there at season 5's first login.
+    """
+    seasons = {str(product_id).rsplit("_", 1)[0]
+               for product_id in (shop_stock.definitions(raw).get(
+                   SEASONAL_SHOP_CATEGORY) or {})}
+    numbered = [(chaos_estimate.season_number(season), season)
+                for season in seasons
+                if chaos_estimate.season_number(season) is not None]
+    return max(numbered)[1] if numbered else None
 
 
 def _great_rift(raw, now):

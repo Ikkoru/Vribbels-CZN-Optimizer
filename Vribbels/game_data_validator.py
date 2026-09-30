@@ -645,8 +645,8 @@ def _check_potential_7(problems: list[str]) -> None:
     expects: a mistake here is a bonus scored as nothing, or a check
     that never passes, with no other sign."""
     from game_data import CHARACTERS
-    from game_data.potential_7 import (POTENTIAL_7, GRANTS, UNPRICED,
-                                       CHECK_STATS)
+    from game_data.potential_7 import (POTENTIAL_7, POTENTIAL_7_BEFORE,
+                                       GRANTS, UNPRICED, CHECK_STATS)
 
     rep = _Reporter("potential_7.py", _line_map("potential_7.py",
                                                 "POTENTIAL_7"))
@@ -655,12 +655,32 @@ def _check_potential_7(problems: list[str]) -> None:
             rep.add(rid, f"{data.get('name', '?')} ({rid})",
                     "has no Potential 7 entry -- node 7 scores as nothing "
                     "and the Fill button has nothing to fill")
+    # Every entry, today's and the ones a patch replaced, as
+    # (res_id, what the message calls it, its effects).
+    entries = []
     for rid, effects in POTENTIAL_7.items():
         char = CHARACTERS.get(rid)
         label = (f"{char['name']} ({rid})" if isinstance(char, dict)
                  else str(rid))
         if not isinstance(char, dict):
             rep.add(rid, label, "is no combatant in CHARACTERS")
+        entries.append((rid, label, effects))
+    for rid, eras in POTENTIAL_7_BEFORE.items():
+        label = f"{rid} in POTENTIAL_7_BEFORE"
+        if rid not in POTENTIAL_7:
+            rep.add(rid, label, "has no current node 7 in POTENTIAL_7")
+        if not isinstance(eras, tuple) or not all(
+                isinstance(era, tuple) and len(era) == 2
+                and isinstance(era[0], int) and era[0] > 0
+                for era in eras):
+            rep.add(rid, label, "expected a tuple of (the patch's epoch "
+                                "second, the effects before it)")
+            continue
+        if list(eras) != sorted(eras, key=lambda era: era[0]):
+            rep.add(rid, label, "is not oldest first -- a sheet is held to "
+                                "the wrong era")
+        entries.extend((rid, label, era[1]) for era in eras)
+    for rid, label, effects in entries:
         if not isinstance(effects, tuple) or not effects:
             rep.add(rid, label, "expected a non-empty tuple of effects")
             continue

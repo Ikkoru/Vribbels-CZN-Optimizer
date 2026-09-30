@@ -1576,6 +1576,77 @@ def _finished_boxes_ask_only_where_it_is_open(tab):
     return out
 
 
+def _a_shut_seasonal_shop_keeps_its_width(tab):
+    """The Galactic Disaster column is as wide shut as with its shelves.
+
+    Between seasons it draws one line where the shop stood, and a
+    column sized to that line leaves the five columns' spare width to
+    grow every gap -- the whole tab shifting at the season's end and
+    back when the next shop opens. `COLUMN_RESERVE` hands the shut
+    column the newest listed season's shelves to be measured by.
+
+    Built both ways off the snapshot's own shelves, not shown.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from tkinter import ttk
+    from ui.tabs import checklist_tab as mod
+
+    raw = getattr(tab.optimizer, "raw_data", None) or {}
+    shelf = mod._shelf_season(raw)
+    if not shelf:
+        note("no seasonal shelves on the wire, so a shut shop's width "
+             "was not checked")
+        return []
+    shop = (mod.SEASONAL_SHOP_CATEGORY, mod.shop_stock.ALL_SCREENS)
+    period = mod.PERIOD_BY_COLUMN[mod.SEASONAL_COLUMN]
+    head = mod.shop_head_key(shop, period)
+    drawn = ((head, mod.shop_stock.SHOPS[shop], None),) + mod.shop_rows(
+        shop, period, raw, shelf)
+    waiting = ((mod.NEXT_DISASTER_ROW, mod.DISASTER_NEXT % "20 days",
+                None),)
+
+    def width(rows, reserve):
+        mod.SHOP_TOTAL_RESERVE[head] = mod.shop_total_widest(
+            shop, period, raw, shelf)
+        mod.COLUMN_RESERVE[mod.SEASONAL_COLUMN] = reserve
+        parent = ttk.Frame(tab.frame)
+        try:
+            tab._build_column(parent, mod.SEASONAL_COLUMN, rows)
+            holders = [child for child in parent.winfo_children()
+                       if isinstance(child, tk.Frame)
+                       and any(isinstance(inner, tk.Text)
+                               for inner in child.winfo_children())]
+            return int(holders[0].cget("width")) if holders else None
+        finally:
+            parent.destroy()
+
+    # The builder files its Text and heading label on the tab by title;
+    # the tab's own must survive two builds into frames destroyed here.
+    was = mod.COLUMN_RESERVE.get(mod.SEASONAL_COLUMN, ())
+    label = tab._period_labels.get(mod.SEASONAL_COLUMN)
+    text = tab.column_texts.get(mod.SEASONAL_COLUMN)
+    try:
+        open_wide = width(drawn, ())
+        shut_wide = width(waiting, drawn)
+    finally:
+        mod.COLUMN_RESERVE[mod.SEASONAL_COLUMN] = was
+        for held, value in ((tab._period_labels, label),
+                            (tab.column_texts, text)):
+            if value is None:
+                held.pop(mod.SEASONAL_COLUMN, None)
+            else:
+                held[mod.SEASONAL_COLUMN] = value
+    if open_wide is None or shut_wide != open_wide:
+        return [f"the Galactic Disaster column is {shut_wide}px wide shut "
+                f"and {open_wide}px with {shelf}'s shelves drawn. Every "
+                f"gap between the columns takes up the difference, so "
+                f"the tab shifts when the season ends and back when the "
+                f"next shop opens."]
+    return []
+
+
 def _checklist_block_is_tall_enough(tab):
     """A column's fixed height has to match what the Text lays out.
 
@@ -1772,7 +1843,9 @@ def _a_seasonal_tick_outlives_its_season(tab):
     out = []
     shop = (mod.SEASONAL_SHOP_CATEGORY, mod.shop_stock.ALL_SCREENS)
     live = (tab._definitions or {}).get(mod.SEASONAL_SHOP_CATEGORY) or {}
-    season = mod._live_season(getattr(tab.optimizer, "raw_data", None) or {})
+    # The newest season with shelves on the wire: between seasons the
+    # live one has none listed yet.
+    season = mod._shelf_season(getattr(tab.optimizer, "raw_data", None) or {})
     mine = {product: define for product, define in live.items()
             if season and str(product).startswith(season)}
     if not mine:
@@ -4646,6 +4719,8 @@ def run():
                 _checklist_records_while_hidden(built["ChecklistTab"]))
             failures.extend(
                 _checklist_block_is_tall_enough(built["ChecklistTab"]))
+            failures.extend(
+                _a_shut_seasonal_shop_keeps_its_width(built["ChecklistTab"]))
             failures.extend(
                 _a_seasonal_tick_outlives_its_season(built["ChecklistTab"]))
             failures.extend(

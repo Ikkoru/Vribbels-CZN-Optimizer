@@ -272,6 +272,61 @@ def run():
             f"{sorted(map(str, stamps))}, not the session's own. The "
             f"field its rank implies is one server's.")
 
+    # --- the Offensive's board and the Basin's objectives, as they move --
+    # A new Offensive's board arrives empty and gains a boss when one is
+    # fought. Entering the Offensive sends the whole board again beside
+    # `rank_percent`, and a reset its one row -- both under the bare
+    # `entities`, which an event mission claim answers under too
+    # (`websocket_debug_20260930_133157`).
+    live = Addon(Path(tempfile.mkdtemp(prefix="capture_boards_")),
+                 log_callback=lambda *a, **k: None)
+    boss = {"list_id": "remnants_boss_s06_03",
+            "define_id": "remnants_boss_penalty_006",
+            "best_score": 608313, "star_count": 2,
+            "deployed_heroes": [30115, 1055, 30113], "version": 2}
+    live.websocket_message(_Flow([{"res": "ok", "remnants_entities": {}}]))
+    live.websocket_message(_Flow([{
+        "res": "ok", "define_id": "remnants_boss_penalty_006", "rank": 4036,
+        "rank_percent": 44.85, "reward_count": 0,
+        "entities": {"remnants_boss_s06_03": boss}}]))
+    live.websocket_message(_Flow([{
+        "res": "ok", "teams": {"603": {"slot1": -1}},
+        "entities": {"remnants_boss_s06_03": dict(
+            boss, deployed_heroes=[], version=3)}}]))
+    live.websocket_message(_Flow([{
+        "res": "ok", "entities": {"event_director_2_01_01": {
+            "res_id": "event_director_2_01_01", "complete_time": 1}}}]))
+    board = live.remnants if isinstance(live.remnants, dict) else {}
+    held = board.get("remnants_boss_s06_03") or {}
+    if (sorted(board) != ["remnants_boss_s06_03"]
+            or held.get("star_count") != 2 or held.get("deployed_heroes")):
+        failures.append(
+            f"the Offensive's board reads {board!r} after a boss was "
+            f"entered, reset and an event claim answered. Entering sends "
+            f"the board and a reset its row, both under `entities`; "
+            f"without them the Checklist counts the login's empty board "
+            f"all session, and an event claim's rows are no boss.")
+    # A Basin objective scored mid-session comes on the clear, as
+    # `hyperspace_season_condition`, and nowhere else until next login.
+    live.websocket_message(_Flow([{
+        "res": "ok", "mission_seasson_entities": {"hyperspace_02_18": {
+            "content_19_01_01": {"season_id": "hyperspace_02_18",
+                                 "res_id": "content_19_01_01",
+                                 "score": 1}}}}]))
+    live.websocket_message(_Flow([{
+        "res": "ok", "mission_condition": {"condition": {
+            "hyperspace_season_condition": [
+                {"res_id": "content_19_06_01", "group_id": "hyperspace_02_18",
+                 "score": 1, "condition_type": "CLEAR_STAGE_HYPER__ID"}]}}}]))
+    objectives = (live.basin_missions or {}).get("hyperspace_02_18") or {}
+    if (sorted(objectives) != ["content_19_01_01", "content_19_06_01"]
+            or (objectives.get("content_19_06_01") or {}).get("score") != 1):
+        failures.append(
+            f"the Basin season's objectives read {sorted(objectives)} "
+            f"after a clear scored content_19_06_01. The clear's "
+            f"`mission_condition` is the only word of it until the next "
+            f"login, and the Checklist read 15/26 of a season done.")
+
     # --- saved, and carried into the next capture ------------------------
     addon.inventory_data = {"memory_fragments": []}
     addon._save_data()

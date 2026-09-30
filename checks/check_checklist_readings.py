@@ -853,6 +853,28 @@ def run():
             "login's list. A claim sends the one live pass under it, "
             "and that is the fresher reading.")
 
+    # **A new pass has no record until its first claim**: season_pass_009's
+    # first login listed only 007 and 008, both at 70/70. With the
+    # schedule naming 009 live, that is 009 untouched.
+    raw = _snapshot()
+    raw["season_pass_entities"] = [
+        {"res_id": "season_pass_008", "week_id": this_week - 1,
+         "week_exp": 10000, "free_reward_rank": 70}]
+    raw["event_schedules"] = {"SEASON_PASS": {
+        "season_pass_008": {"start_time": int(now - 50 * DAY),
+                            "end_time": int(now - 8 * DAY)},
+        "season_pass_009": {"start_time": int(now - 8 * DAY),
+                            "end_time": int(now + 34 * DAY)}}}
+    said = _readings(raw, now)
+    for key, want in (("supply_season", "0/70"),
+                      ("supply_weekly", "0/10000")):
+        if (said.get(key) or [("", None)])[0] != (want, TODO):
+            failures.append(
+                f"with season_pass_009 live and no record of it, {key} "
+                f"reads {said.get(key)!r}, not {want} in red. The login "
+                f"lists only the passes played, and the last one's full "
+                f"70/70 reads as a finished pass.")
+
     # --- the Basin, and which season it reports --------------------
     # Two seasons at once and one figure on screen, so the row takes
     # the LEAST complete: a fresh season beside a finished one is work
@@ -901,6 +923,50 @@ def run():
     if got != [(NO_DATA, UNKNOWN)]:
         failures.append(
             f"with no Basin data the row reads {got!r}, not a dash.")
+
+    # --- the Full-Scale Offensive, before every boss is fought ---------
+    # A boss has no row until it is fought, so a new Offensive's first
+    # login sends an empty board (remnants_boss_penalty_006's did).
+    def offensive(board, history=None):
+        raw = _snapshot()
+        raw["event_schedules"] = {"REMNANTS_BOSS_PENALTY": {
+            "remnants_boss_penalty_006": {
+                "start_time": int(now - DAY), "end_time": int(now + 41 * DAY)}}}
+        raw["remnants_entities"] = board
+        if history:
+            raw["remnants_rankings"] = history
+        return _readings(raw, now)["offensive"][0]
+
+    def fought(define, n, stars):
+        return {"remnants_boss_%02d" % n: {
+            "list_id": "remnants_boss_%02d" % n, "define_id": define,
+            "star_count": stars, "best_score": 1}}
+
+    for board, history, want, why in (
+            ({}, None, "0/9", "an empty board is the three bosses unfought"),
+            (fought("remnants_boss_penalty_006", 3, 2), None, "2/9",
+             "one boss fought leaves two with no row"),
+            (fought("remnants_boss_penalty_005", 1, 3), None, "0/9",
+             "last Offensive's rows are last season's stars"),
+            ({}, {"remnants_boss_penalty_005": {"stages": {
+                "a": 1, "b": 1, "c": 1, "d": 1}}}, "0/12",
+             "a past Offensive that had four bosses raises the count")):
+        got = offensive(board, history)
+        if got[0] != want:
+            failures.append(
+                f"the Offensive row reads {got!r}, not {want}: {why}.")
+
+    # --- a page with ONE row is no batch -------------------------------
+    # Guardian Angel's Vacation and Sereniel's Memoirs issue each task as
+    # it is reached, so their first day holds one row per page. One
+    # stamp proves nothing about a page being whole.
+    from ui.tabs.checklist_tab import _page_totals
+    got = _page_totals([{"res_id": "event_x_1_01_01", "issued_time": 5}])
+    if got != (0, 1):
+        failures.append(
+            f"a page holding one row reads as (whole, trickling) {got}, "
+            f"not (0, 1). Read as whole, the event's reading drops its "
+            f"`+?` and says 1/1 of an event of 21.")
 
     # --- the shop sub-rows, and the STALE tally -----------------------
     # Built from a snapshot carrying a shop DEFINITION, since that is

@@ -542,6 +542,31 @@ def run():
         failures.append(
             f"a calamity's payout reached no log line. Lines: {log!r}")
 
+    # A finished Great Rift half's placement reward, claimed at the first
+    # login after the half ends (`disaster/get_rank_result_reward`,
+    # `websocket_debug_20260930_133042`): the envelope one down, as
+    # `result_reward.item_result`, beside that half's standing.
+    log.clear()
+    addon._handle_server_payload({
+        "res": "ok", "qid": 80,
+        "result_reward": {
+            "item_result": {"currency": {str(CURRENCY_ID): {
+                "doc": {"res_id": CURRENCY_ID, "amount": 1000004,
+                        "version": 11}, "diff": 5}}},
+            "disaster_boss_rank_entity": {
+                "season_id": "disaster_s04", "define_id":
+                "disaster_s04_rank_02", "rank": 2451, "rank_reward": 1}},
+    }, 100)
+    if _currency(addon, CURRENCY_ID) != 1000004:
+        failures.append(
+            f"a Great Rift placement reward left {CURRENCY_ID} at "
+            f"{_currency(addon, CURRENCY_ID)!r}, not 1000004. It rides "
+            f"`result_reward`, one down, and nothing else carries it.")
+    if not any("Received" in str(line) for line in log):
+        failures.append(
+            f"a Great Rift placement reward reached no log line. Lines: "
+            f"{log!r}")
+
     # --- and the word matches which WAY it went -----------------------
     # The Sortie's entry fee is charged through `item_result`, so a
     # log that reads the KEY rather than the sign announces it as a

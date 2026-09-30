@@ -81,6 +81,9 @@ def _pools_and_rarity(gh, failures):
         "gacha_pickup_combatant_30117": ("pickup_combatant", 30117),
         "gacha_pickup_combatant_1052_1": ("pickup_combatant_rerun", 1052),
         "gacha_pickup_supporter_20002_1": ("pickup_supporter_rerun", 20002),
+        # A Seasonal Rescue Rate-Up: the rerun suffix, the release
+        # counter. Its records answered with the release banners'.
+        "gacha_pickup_combatant_30075_1": ("pickup_combatant", 30075),
         "gacha_general": ("general", None),
         "gacha_general_supporter": ("general_supporter", None),
         "gacha_card_factor": ("card_factor", None),

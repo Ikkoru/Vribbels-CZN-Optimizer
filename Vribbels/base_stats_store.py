@@ -513,6 +513,9 @@ def _statics(build, char, st):
             if stat in _POT_KEYS:
                 cs[_POT_KEYS[stat]] += bonus
     if nodes.get(70):
-        cs["potential_7"] = core.potential_7_effects(get_potential_7(rid),
-                                                     sheet_only=True)
+        # As live when the sheet was first stated: a patch that rewrote
+        # the node leaves the older sheets true to the older node. A
+        # changed sheet is a new build, so `first` dates this one.
+        cs["potential_7"] = core.potential_7_effects(
+            get_potential_7(rid, build.get("first")), sheet_only=True)
     return cs

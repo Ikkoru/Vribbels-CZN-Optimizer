@@ -91,6 +91,18 @@ URGENT_AFTER_DAYS = 90
 PICKUP_ID = re.compile(
     r"^gacha_pickup_(combatant|supporter)_(\d+)((?:_\d+)*)$")
 
+# **A Seasonal Rescue Rate-Up is a rerun on the RELEASE counter**: a
+# seasonal combatant's return, carrying the rerun suffix, whose pulls
+# count with the Combatant Rate-Ups' -- asking for Sereniel's records
+# answers with Olga's, Arabella's and every release before. Nothing in
+# the id says so, so they are named here, from the notice that calls
+# the banner "Seasonal". The partner half is taken to follow its
+# combatant: its own records have not been read.
+SEASONAL_RERUNS = frozenset({
+    "gacha_pickup_combatant_30075_1",      # Sereniel, 2026-09-30
+    "gacha_pickup_supporter_30076_1",      # Peko, beside her
+})
+
 # The families whose pity record is not named after their banner's id:
 # `gacha_general_first_select_1` counts on `gacha_pity_first_select`,
 # `gacha_partner_reform_1` on `gacha_pity_partner_reform`. (id prefix,
@@ -127,7 +139,8 @@ def pool_of(gacha_id):
     gacha_id = str(gacha_id or "")
     m = PICKUP_ID.match(gacha_id)
     if m:
-        return "pickup_%s%s" % (m.group(1), "_rerun" if m.group(3) else "")
+        rerun = m.group(3) and gacha_id not in SEASONAL_RERUNS
+        return "pickup_%s%s" % (m.group(1), "_rerun" if rerun else "")
     for prefix, pool in PREFIX_POOLS:
         if gacha_id.startswith(prefix):
             return pool
@@ -199,6 +212,8 @@ RELEASE_BANNERS = (
      "2026-08-19", "2026-09-09"),                   # Arabella & Licinia
     ("gacha_pickup_combatant_30117", "gacha_pickup_supporter_30118",
      "2026-09-09", "2026-09-30"),                   # Olga & Emilie
+    ("gacha_pickup_combatant_30075_1", "gacha_pickup_supporter_30076_1",
+     "2026-09-30", "2026-10-21"),                   # Sereniel & Peko, Seasonal
 )
 
 # The reruns, in the same shape. **Their changeover hour varies** -- one
@@ -214,6 +229,8 @@ RERUN_BANNERS = (
      "2026-08-11", "2026-09-01"),                   # Chizuru & Itsuku
     ("gacha_pickup_combatant_1052_1", "gacha_pickup_supporter_20002_1",
      "2026-09-22", "2026-10-13"),                   # Narja & Gaya
+    ("gacha_pickup_combatant_30047_1", "gacha_pickup_supporter_30091_1",
+     "2026-10-13", "2026-11-03"),                   # Nine & Alcea
 )
 
 CHANGEOVER_HOUR = 2        # UTC

@@ -121,6 +121,7 @@ What each `ingame_content_config_id` is in the game, named by what its clears pa
 | `content_disaster_boss_rank` | the Great Rift | nothing |
 | `content_remnants_boss_penalty` | the Full-Scale Offensive | nothing |
 | `content_hyperspace` | the Basin of Hyperspace; a stage fought by two teams sends an entry per team | nothing |
+| `content_story_simulation` | an event story's stage (Guardian Angel's Vacation, `story_stage/enter_story_simulation_stage`): the player's own team, and a level-50 guest | nothing |
 | `content_tower` | the Spiral Tower of Screams (the Tower): five floors of `spiral_tower_01`, one wave each, an entry | nothing |
 | `content_combatant_trial` | Combatant Trial | fields level-20 copies |
 | `content_story_event_bartender` | the Bartender event's story | fields level-20 copies |
@@ -169,10 +170,10 @@ The rest join them, all merged rather than replaced for the same reason:
 | `month_start` / `month_end` | `month_start`, `month_end` | when the month rolls: 18:00 UTC on the last day of it. `weekly_reset.month_bounds` derives the same pair to the second, which is what a fresh install counts down to |
 | `shop_definitions` | `shop_res_data` | every product's item, count, per-period cap, `limit_type`, price and display order. **This is where a shop's MAX comes from** — a `shop_list` row carries only the tally |
 | `season_passes` | `season_pass_entities` | every pass the account has played, the live one among them |
-| `basin_stages` / `basin_missions` | `season_entities`, `mission_seasson_entities` | the Basin of Hyperspace's stages and its objectives. The scored tally is what the game shows as its progress |
+| `basin_stages` / `basin_missions` | `season_entities`, `mission_seasson_entities` | the Basin of Hyperspace's stages and its objectives. The scored tally is what the game shows as its progress. A clear sends the objectives it scored in its `mission_condition`, as `hyperspace_season_condition` with the season in `group_id`, and they are merged in |
 | `event_schedules` | `event_schedules` | every content's WINDOW — when each season, event and rotation opened and when it closes. **The only thing that dates any of them**, which is what the Checklist's countdowns read. See `schedules.py` |
 | `disaster_seasons` | `disaster_entities`; `disaster_entity`, `return_info.disaster_chaos_result.disaster_chaos_entity` | one row per Galactic Disaster season, carrying that season's chaos progress and the difficulty cleared. The login sends every season's; a Chaos run sends the live one's again, on its stage clear and on the next disaster reply, and that row replaces its season's |
-| `remnants` | `remnants_entities` | the Full-Scale Offensive's stages, each with the stars taken and its best score |
+| `remnants` | `remnants_entities`; `entities` | the Full-Scale Offensive's stages, each with the stars taken and its best score -- a boss has a row only once fought. Entering the Offensive sends the board again under the bare `entities`, beside `rank_percent`, and a reset (`reset_remnants`) its one row; each is taken only in the Offensive's own shape, `entities` being an event claim's key too |
 | `zero_orb` | `zero_orb_entity` | the Zero System Chaos Matrix. `reward_level` is how far up its track has been claimed, out of a hundred |
 | `overclock` | `overclock_entities`, `result_overclock_entities` | an Overclock event's doubled Simulation runs, counted daily. The second name is the rows one run changed |
 | `attendance` | `attendance_entities` | the login-streak events: days shown up against days claimed |
@@ -208,11 +209,11 @@ Every save prints `[SYNC] saved`, and that is what the app reloads on. The human
 
 A Communication Pass is in none of them, because it is in nothing. Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.
 
-## The item counts arrive once, and change through seven keys and a sweep
+## The item counts arrive once, and change through the reward keys and a sweep
 
 `inventory.items` and `characters.currencies` come down in the login burst whole. Every later change to either rides on the reply to whatever caused it, in one of two shapes -- and the currencies come once more whole, as a LIST of the same records, on every lobby refresh (`lobby/lobby_update`). That list is what carries a weekly currency's top-up, which lands lazily after the reset and would otherwise be seen only when next spent; `version`, each record's write counter, keeps a late older copy from overwriting a newer one.
 
-**Five keys state what a holding NOW IS** — `add_result` (a gain), `item_result` (a use), `dec_result` (a spend), `calamity_reward` (a town calamity) and `result` (an event mission claim, a story episode). One envelope between them:
+**These keys state what a holding NOW IS** — `add_result` (a gain), `item_result` (a use), `dec_result` (a spend), `calamity_reward` (a town calamity), `result` (an event mission claim, a story episode) and `result_reward` (a finished Great Rift half's placement reward, paid at the first login after it, one down as `item_result`). One envelope between them:
 
 ```
 {"items":    {"<res_id>": {"doc": {..., "res_id": 3120013, "amount": 146, ...}, "diff": 10}},
@@ -231,7 +232,7 @@ so a x6 run sends six entries for the same item and the total is their sum. Noth
 
 `result` is the most OVERLOADED key on the wire — a string, a bool, a stage's step record — so it counts only where it carries a rewards payload or nests one, two levels down under an envelope of its own.
 
-Without these branches nothing on the wire moves an item count: the Materials tab reads what the account had at login, no save is triggered, and no line reaches the Capture Log — a capture that has gone stale looks exactly like one where nothing has happened. `checks/check_capture_rewards.py` drives all seven keys.
+Without these branches nothing on the wire moves an item count: the Materials tab reads what the account had at login, no save is triggered, and no line reaches the Capture Log — a capture that has gone stale looks exactly like one where nothing has happened. `checks/check_capture_rewards.py` drives every one of them.
 
 **A key missing from the list is close to invisible.** The client asks for the inventory again after a run, so the counts still end up right; the only symptom is the Capture Log staying quiet about something the player watched arrive. `calamity_reward` and `chaos_free_reward_result` were both found by the wire catalogue rather than by reading anything.
 

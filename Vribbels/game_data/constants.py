@@ -558,8 +558,15 @@ RECORDED_NAMES = {
     5110001: "Omega Code",
     5210000: "Prism Module - Nominate",
     5210001: "Prism Module - Masterpiece",
+    # Season 4's: a save-data background and a Galactic Medal sharing
+    # the season's name, and two whose names may be each other's -- the
+    # item tables keep the doubt.
+    9210049: "Shattered Light and Claw",
     9210051: "Memories of the Beach Café Festival",
+    9300254: "Shattered Light and Claw",
     9300259: "Glorious Allegory",
+    9300261: "Petite Anis",
+    9300271: "Perfect Taxidermy",
     # Animated card unlocks, which the game names after what they
     # unlock rather than after themselves. The last two share a name:
     # the collaboration issued two separate items under it.

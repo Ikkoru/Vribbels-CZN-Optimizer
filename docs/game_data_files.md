@@ -77,6 +77,8 @@ The whole potential tree in one tuple — display order, the game's numbering, t
 
 Node 7 per combatant: the bonus, the check and its growth, in the shape the module docstring gives; the rules they follow are `game_formulas.md` §1, *Potential 7*. A new combatant needs an entry: the validator reports one without, and its node 7 scores as nothing until it has one. **Check stats are the Have-at-least names** (`CHECK_STATS`) and a misspelt one never passes, which the validator reports too. A new entry's numbers are held to the server by the next plain battle the combatant fights with node 7 taken (`check_base_stats_on_wire`).
 
+**A balance patch that rewrites a node 7**: move the old effects into `POTENTIAL_7_BEFORE`, with the first second the new one was live, and write the new ones in `POTENTIAL_7`. The readings keep sheets from both sides of the patch, and each is held to the node 7 it was stated under.
+
 ## Base stats in `characters.py`, against the server
 
 **The in-game stat screen shows the base with Affection mixed in**, so a base typed in from it is wrong by the Affection bonus unless that is taken off first. The server sends the true figure instead: every battle's entry carries each combatant's `BASE_S_ATK/DEF/HP` at their level, and each partner's own flat stats. The capture files these (`capture_pipeline.md`, *The base stat readings are kept in a file of their own*), and `checks/check_base_stats_on_wire.py` fails on:

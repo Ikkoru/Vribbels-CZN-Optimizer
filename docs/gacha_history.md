@@ -57,6 +57,8 @@ A reply only ever ADDS. A record the game has stopped listing stays in the file,
 
 A pickup banner names its unit in its id, `gacha_pickup_combatant_30117`, and **a rerun appends a suffix**, `gacha_pickup_combatant_1052_1`. A rerun is its own category -- "Normal Combatant Rate-Up" -- with its own counter, so the suffix moves it to a pool of its own rather than being dropped.
 
+**A Seasonal Rescue Rate-Up is the exception**: a seasonal combatant's return, `gacha_pickup_combatant_30075_1`, carries the suffix and counts on the Combatant Rate-Up counter -- asking for its records answered with Olga's, Arabella's and every release before. Nothing in the id says so, so `SEASONAL_RERUNS` names each, from the notice that calls the banner Seasonal. Its partner half is taken to follow; its own records have not been read.
+
 The names the tab shows are the notices' spelling, in `POOL_LABELS`. Players call the rate-ups the release or limited banners and the reruns the rerun banners; the Normal Rescues the permanent or normal banner; and the Observe Prism Module -- its banner is Eternal Moment, the wire's `card_factor` -- the animation or card banner.
 
 Two families are not named after their banner's id, which `PREFIX_POOLS` maps: the Special Rescue Request -- the beginner banner, `gacha_general_first_select_1` -- counts on `gacha_pity_first_select`, and the Partner Special Rescue event, `gacha_partner_reform_1`, on `gacha_pity_partner_reform`. Both guarantee a 5-star within 50 pulls, so the shared schedule below does not describe them, and neither can be opened once over: their rates are never read, and no luck figure is drawn for them.

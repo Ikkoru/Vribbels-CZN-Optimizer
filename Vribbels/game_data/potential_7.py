@@ -162,10 +162,8 @@ POTENTIAL_7 = {
         {"grants": "Element%", "value": 4, "stat": "Extra DMG%", "at": 30},
     ),
     30075: (                                                    # Sereniel
-        {"grants": "card", "value": 10, "card": "Homing Laser",
-         "stat": "CRate", "at": 30},
-        {"grants": "card", "value": 5, "card": "Homing Laser",
-         "stat": "CRate", "at": 60},
+        {"grants": "Element%", "value": 10, "stat": "CRate", "at": 20},
+        {"grants": "Element%", "value": 5, "stat": "CRate", "at": 40},
     ),
     1069: (_grow("Element%", 5, "ATK", 600, 20, 1, 10),),        # Tenebria
     30084: ({"grants": "CDmg", "value": 10, "stat": "DEF",       # Tiphera
@@ -180,9 +178,32 @@ POTENTIAL_7 = {
                  card="Flash Slash and Iceberg Cleave"),),
 }
 
+# Node 7 as it stood before a balance patch rewrote it: res_id -> ((the
+# first second the new one was live, UTC, the effects before it), ...),
+# oldest first. The Optimizer scores today's only; this is what a sheet
+# the server stated before the patch is held to, since the readings
+# keep sheets from both sides of it (`base_stats_store.formula_gaps`).
+POTENTIAL_7_BEFORE = {
+    30075: ((1790730000, (                          # Sereniel, to 2026-09-30
+        {"grants": "card", "value": 10, "card": "Homing Laser",
+         "stat": "CRate", "at": 30},
+        {"grants": "card", "value": 5, "card": "Homing Laser",
+         "stat": "CRate", "at": 60},
+    )),),
+}
 
-def get_potential_7(res_id: int) -> tuple:
-    """The combatant's Potential 7 effects; empty where none is known."""
+
+def get_potential_7(res_id: int, when=None) -> tuple:
+    """The combatant's Potential 7 effects; empty where none is known.
+
+    `when`, an epoch second, asks for the ones live then: a sheet read
+    before a patch rewrote a node 7 is held to the one it was read
+    under (`POTENTIAL_7_BEFORE`).
+    """
+    if when is not None:
+        for until, effects in POTENTIAL_7_BEFORE.get(res_id, ()):
+            if when < until:
+                return effects
     return POTENTIAL_7.get(res_id, ())
 
 

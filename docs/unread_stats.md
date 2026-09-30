@@ -88,7 +88,11 @@ None of them is a reward track for clear levels: the step record `event_chaos_as
 
 **`remnants_boss_penalty/enter_remnants`** answers with the same `rank` and `reward_count` fresher, plus **`rank_percent`** -- the rank as a percentage of the field -- and the board under `entities`.
 
-**The rank moves when the account does nothing.** Two entries six days apart read rank 386 at 0.8 and rank 441 at 0.83, with every best score on the board unchanged: others overtook it. A reader shows the rank with the date it was read. **The login's rank is the one the last entry computed**, not a fresh one: a login on 2026-09-24 said 441, the entry of 09-15's, and entering a minute later said 506. Only entering the Offensive reads where it stands. `reward_count` read 9 with nine stars held, three on each of three bosses; whether it counts stars or ranking rewards is untested.
+**The rank moves when the account does nothing.** Two entries six days apart read rank 386 at 0.8 and rank 441 at 0.83, with every best score on the board unchanged: others overtook it. A reader shows the rank with the date it was read. **The login's rank is the one the last entry computed**, not a fresh one: a login on 2026-09-24 said 441, the entry of 09-15's, and entering a minute later said 506. Only entering the Offensive reads where it stands. **`reward_count` is the star rewards CLAIMED**: 0 with two stars won and 2 once `remnants_boss_penalty/get_star_reward` (`penalty_define_id`) took them, answering with this record under the bare `entity` and the payout under `item_result`. A new Offensive has no record, and ranks `-1`, until a boss is fought.
+
+**A boss has no row on the board until it is fought**: Offensive 006's first login sent `remnants_entities` as `{}`. `reset_remnants` (`list_id`) clears one boss's `deployed_heroes`, freeing its three combatants for the other bosses, and answers with that row and the teams; whether it takes back stars is unseen, the one reset captured having none to take. `get_clear_records` and `get_clear_record_detail` are other players' clearing teams per boss, never kept.
+
+**The 9-star Collection Count is not on the wire yet.** Nothing in the Offensive's replies or the lifetime tables carried it on 2026-09-30, and the notice starts counting with Offensive 006, so the first capture after nine stars in it is the one to read.
 
 Kept as history under `remnants_rankings`, one entry per Offensive: `stages`, each stage's best score as last read, and a reading per change -- `rank`, `rank_percent`, `reward_count`, `score` (the stages summed), `read_at`. A login's reading keeps the percentage entering the Offensive last gave where the rank has not moved since, and has none where it has. The Full-Scale Offensive Stats list gives the field as the rank over `rank_percent`, to the hundred, since the percentage comes to two decimals, then the stages' sum and each stage's score in the order of their ids; that the Offensive ranks on the sum is untested.
 
@@ -123,6 +127,7 @@ The ranking screen asks one division at a time:
 | `disaster/enter_disaster_rank` (`season_id`, `define_id`) | the page of the account's own division, and `disaster_boss_rank_entity` |
 | `disaster/request_rank_list` (`rank_id`, `page`) | that division's page -- the screen asks for each division's I -- with `refresh_id`, the board's generation |
 | `disaster/get_user_savedata` (`target_user_id`) | another player's deck. Never kept |
+| `disaster/get_rank_result_reward` (`season_id`, `define_id`) | sent by the first login after a half ends: `result_reward`, holding the half's placement reward as `item_result` and its final row as `disaster_boss_rank_entity`, with `rank_reward` 1 and `best_record_reward` |
 
 **A division's list is its top hundred** -- `max_rank` 100, five pages of twenty -- which is always its subdivision I. No other subdivision's top is ever sent, so the best score in the account's own subdivision is not on the wire; its division's is.
 
@@ -187,8 +192,10 @@ Kept, as history. Sent with `mission/get_list`, one row per counter: `res_id` `a
 | 001, 008, 009, 012, 013 | `COLLECT_CHAR__TYPE_RARITY` |
 | 003 | `GET_ITEM__ID` -- Units earned |
 | 006 | `GACHA` |
+| 011 | `CLEAR_CODEX__RARITY_GRADE_AREA` |
 | 014 | `CLEAR_BATTLE__SPOT_AREA` |
 | 019 | `VISIT` |
+| 021 | `CLEAR_CODEX` |
 | 022, 044, 045, 050, 053 | `CHAR_LEVEL_UP__TYPE_LEVEL` |
 | 024 | `REINFORCE_PIECE__RARITY` -- Memory Fragment upgrades |
 | 025 | `ACTIVATE_POTENTIAL_NODE` |
@@ -219,8 +226,10 @@ Kept, as history. Sent with `mission/get_list`, one row per counter: `res_id` `a
 | 088 | `CHAOS_ASSAULT_CLEAR` |
 | 089, 090 | `ASSULT_KILL_MONSTER__GRADE` |
 | 091 | `ASSULT_KILL_KEYWORD_MONSTER__GRADE` |
+| 092 | `CLEAR_SIMULATION__ID` -- new with the 2026-09-30 patch, counting from it, a x5 run as five |
+| 093 | `CLEAR_INGAME_CONTENTS__ID` -- the same, a Chaos cleared through the Zero System as one |
 
-Not yet seen moving: 002, 004, 007, 011, 015, 017, 021, 023, 026, 027, 028, 043, 051, 057, 059, 066, 076, 078, 082, 084, 085. **A counter sharing a type with others splits it by a parameter the row does not carry** -- rarity, level band, faction -- so which of 070 to 073 is which rarity is readable only off the Achievements screen, whose text is client-side. Of the glosses above, 003's is measured; 024's and 032's only translate `PIECE`, which is the wire's word for a Memory Fragment. Everything else is the condition's own name and nothing more.
+Not yet seen moving: 002, 004, 007, 015, 017, 023, 026, 027, 028, 043, 051, 057, 059, 066, 076, 078, 082, 084, 085. **A counter sharing a type with others splits it by a parameter the row does not carry** -- rarity, level band, faction -- so which of 070 to 073 is which rarity is readable only off the Achievements screen, whose text is client-side. Of the glosses above, 003's is measured; 024's and 032's only translate `PIECE`, which is the wire's word for a Memory Fragment. Everything else is the condition's own name and nothing more.
 
 `lobby/lobby_update` sends **`login_total_count`**, kept, which read the same as counter 033 on 2026-09-24.
 
