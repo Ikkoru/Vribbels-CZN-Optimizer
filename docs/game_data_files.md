@@ -79,7 +79,11 @@ Node 7 per combatant: the bonus, the check and its growth, in the shape the modu
 
 ## Base stats in `characters.py`, against the server
 
-**The in-game stat screen shows the base with Affection mixed in**, so a base typed in from it is wrong by the Affection bonus unless that is taken off first. The server sends the true figure instead: every battle's entry carries each combatant's `BASE_S_ATK/DEF/HP` at their level, and each partner's own flat stats. The capture files these (`capture_pipeline.md`, *The base stat readings are kept in a file of their own*), and `checks/check_base_stats_on_wire.py` fails on any combatant the readings settle differently from `characters.py`, one it lacks, a level-60 partner unlike `PARTNER_CLASS_STATS`, and any build whose sheet the program's stat formula does not reproduce.
+**The in-game stat screen shows the base with Affection mixed in**, so a base typed in from it is wrong by the Affection bonus unless that is taken off first. The server sends the true figure instead: every battle's entry carries each combatant's `BASE_S_ATK/DEF/HP` at their level, and each partner's own flat stats. The capture files these (`capture_pipeline.md`, *The base stat readings are kept in a file of their own*), and `checks/check_base_stats_on_wire.py` fails on:
+
+- a combatant the readings settle differently from `characters.py`, or one it lacks;
+- a level-60 partner unlike `PARTNER_CLASS_STATS`;
+- a build whose sheet the program's stat formula does not reproduce.
 
 **How a reading is settled** (`base_stats_store.resolve`):
 

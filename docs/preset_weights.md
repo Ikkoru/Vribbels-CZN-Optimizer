@@ -2,7 +2,7 @@
 
 The shipped presets (`Vribbels/default_settings/presets.json`) weigh each substat for one combatant. They exist to rank fragments: which ones would make a combatant's top builds, and whether a fragment is worth levelling past +3, where the cost jumps. `docs/preset_weights.py` derives them from the Optimizer's own score, so a weight means the same thing for every combatant.
 
-## What a weight is
+## A weight
 
 **One MAX roll of a stat, as the relative gain it gives the score, divided by one max roll of the preset's scaling stat.** The score is the Optimizer's blend, `(1 - h) × D + h × S`, of `core.compute_score_components`' damage term D and shield/heal term S, with `h` the combatant's shield/heal weight. Its relative gain is `(1 - h) × dD/D + h × dS/S`. The roll is added as a pseudo-fragment carrying nothing else, so every layer of the stat formula (`game_formulas.md` §1) applies to it as to a real substat.
 
@@ -48,13 +48,13 @@ The report prints each preset's current and derived weights with the reference b
 
 **When:** on demand, and once per Galactic Disaster from its part 2. `checks/check_preset_weights.py` fails until `--check` has been run in the season's part 2 or later, because the archetypes follow the game: new sets, new main stats, a change to a roll range all move them. `--check` re-derives, compares, and prints every weight that would move by more than 10%. If any does, re-derive with `--derive` and review.
 
-## What keeps it working
+## Keeping it in step
 
 - **It runs on the program's own code**: `compute_build_stats`, `compute_score_components`, `optimize`, the partner, potential and level helpers. A change to the formulas, a new stat in `STATS`, new set values reach the weights with nothing to update here. `checks/check_preset_weights.py` derives every preset from the stored archetypes on each run, so a refactor that breaks the tool fails there.
 - **A new combatant** needs Optimizer settings and an assigned preset. A signature partner other than the one equipped goes in `SIGNATURE_PARTNERS`, and a preset with its own assumption in `VARIANTS`.
 - **A new kind of combatant** — one `archetype()` does not describe — gets its own group, or borrows a neighbour's averages until it has members.
 
-## What it does not model
+## Outside the model
 
 - **Potential 7 bonuses the score does not price**: a card's, an event's, Weakness Damage (`game_formulas.md` §1, *Potential 7*).
 - **Card-level mechanics** the score does not see, like Maribell's shield-scaling card; those are hedges, set by hand in `VARIANTS`.

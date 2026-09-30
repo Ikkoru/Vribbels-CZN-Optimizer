@@ -76,7 +76,15 @@ After Restore, `_refresh_dependent_tabs(kind)` fires the cross-tab refresh: `pre
 
 ## Shared game facts
 
-`default_settings/shared_facts.json` holds facts about the GAME rather than any account's: banner rates, Combatant Trial slot pairings, finished instalments' reward totals, which instalments paid a final reward, per server the Great Rift's division tops and the Sortie's and the Full-Scale Offensive's fields, and, read out of battles, combatants' base stats at levels 60 to 62 and partners' flat stats per level. It is never copied into `settings/` and never merged: `defaults_sync` does not know it, the app reads it once at startup into `AppContext.shared_facts`, and each reader combines it with the account's own data in memory, the account's own value winning. The exception is the two read out of battles, where the later reading of the account's and the shipped one wins: they go to `game_data.learned` on every snapshot load (`game_data_files.md`, *Base stats in `characters.py`, against the server*). `shared_facts.py` holds the whitelist, the rules, and the list of readers.
+`default_settings/shared_facts.json` holds facts about the GAME rather than any account's:
+
+- banner rates;
+- Combatant Trial slot pairings;
+- finished instalments' reward totals, and which instalments paid a final reward;
+- per server, the Great Rift's division tops and the Sortie's and the Full-Scale Offensive's fields;
+- read out of battles, combatants' base stats at levels 60 to 62 and partners' flat stats per level.
+
+It is never copied into `settings/` and never merged: `defaults_sync` does not know it, the app reads it once at startup into `AppContext.shared_facts`, and each reader combines it with the account's own data in memory, the account's own value winning. The exception is the two read out of battles, where the later reading of the account's and the shipped one wins: they go to `game_data.learned` on every snapshot load (`game_data_files.md`, *Base stats in `characters.py`, against the server*). `shared_facts.py` holds the whitelist, the rules, and the list of readers.
 
 **The rankings are per server**, `global` or `asia`; every other kind is taken as the same on both. A reader takes only the rankings of the loaded snapshot's `detected_region`. The Stats lists give every season they ship a column, so a season the account never read shows the field's figures and leaves its own rows empty; a season it did read keeps its own reading.
 

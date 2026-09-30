@@ -13,11 +13,12 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - **Potential 7** counts wherever a combatant has it: in their stats, in the Optimizer's score, and in `Show all stat contributions`. Its bonus to a card, a Quest or Weakness Damage is not scored.
   - Optimizer: the score decides for itself whether meeting a Potential 7 requirement is worth the stats. `Fill in Potential 7 minimums` raises the Have at least minimums to what the combatant's Potential 7 asks for in full.
   - Combatants: node 7's line says what it raises.
-- Capture: two options in Upgrade Log Settings, both off by default:
-  - `Show average Potential` adds where each preset's Potential is expected to end, between the ends of its range: `21-41-80`. The ends are what the best and worst luck reach, and rarely happen.
-  - `Show Potential's middle 80%` narrows each range to where 8 upgrade paths in 10 end. The Memory Fragments tab's Potential and Highest Potential columns follow it while that tab's `Upgrade Log Settings` box is on, showing `…` for a moment while they work it out.
-- Capture: every Chaos run is recorded in `snapshots/chaos_runs/`, beside the pull history. The season estimate reads it, counting only the live Galactic Disaster's own Chaos.
-- Capture: each battle's stat sheets, as the server states them, are kept in `snapshots/base_stats/`. Where the program's own combatant or partner stats are missing or wrong, level 61 and 62 included, it uses the server's instead.
+- **Capture:**
+  - Two options in Upgrade Log Settings, both off by default:
+    - `Show average Potential` adds where each preset's Potential is expected to end, between the ends of its range: `21-41-80`. The ends are what the best and worst luck reach, and rarely happen.
+    - `Show Potential's middle 80%` narrows each range to where 8 upgrade paths in 10 end. The Memory Fragments tab's Potential and Highest Potential columns follow it while that tab's `Upgrade Log Settings` box is on, showing `…` for a moment while they work it out.
+  - Every Chaos run is recorded in `snapshots/chaos_runs/`, beside the pull history. The season estimate reads it, counting only the live Galactic Disaster's own Chaos.
+  - Each battle's stat sheets, as the server states them, are kept in `snapshots/base_stats/`. Where the program's own combatant or partner stats are missing or wrong, level 61 and 62 included, it uses the server's instead.
 - Setup & Settings → Share Game Data: `Export Facts` also saves the combatant and partner stats your battles showed that the program does not have.
 
 ### Changed
@@ -28,24 +29,23 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Switching tabs. The new tab appears whole, in one go.
   - Live updates while capturing.
 - Capture: the Load Latest button is gone, since the newest capture loads by itself at startup and after every save. Upgrade Log Settings gets the room.
-- Capture: the Capture Log keeps its newest 20,000 lines, so a capture left running for days no longer grows it without end.
+- Capture: the Capture Log keeps its newest 20,000 lines, however long a capture runs.
 - Checklist: a red countdown turns a deeper red in its last 24 hours.
 - Checklist: the Galactic Disaster shop's season estimate counts each part's boss rewards separately, and learns from your own captured Chaos runs once the program's own figures are a season or more old. `chaos_runs_per_day` at the foot of settings.json sets how many runs a day it assumes.
-- Gear Score marks a preset assigned to a combatant with ∞.
+- Gear Score: a preset assigned to a combatant is marked with ∞.
 - Gear Score: the shipped presets' weights are worked out from the Optimizer's own score, for an average build of each kind; Restore Defaults picks them up. `Rei (ATK skew)` is now `Rei`, and `Orlea (healing skew)` is new.
 - Memory Fragments: `Assigned Presets Only` is greyed out while `Upgrade Log Settings` is on, which takes assigned presets only anyway. Its tick applies again once that box is off.
-- Optimizer: Important Settings is only as wide as its widest row, and `Have at least this much of a stat` gets the rest.
 - Stats & Gacha History: each Great Rift division's row is drawn in the division's colour.
 
 ### Fixed
 
 - Checklist: Simulation Challenges counts the runs done since the last login, Galactic Disaster – Chaos the score a Chaos run just added, and Sortie Currency shows the real amount after the weekly top-up instead of a `~` guess.
-- Checklist: the Seasonal Accumulated Score and Galactic Disaster – Chaos no longer carry a `+` past their threshold.
+- Checklist: the Seasonal Accumulated Score and Galactic Disaster – Chaos read their threshold once past it, without a `+`.
 - Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
 - Diana's, Maribell's, Mika's, Tressa's, Veronica's and Yuki's base ATK, DEF and HP were wrong, and Tiphera's sixth Potential node raises DEF%, not CDMG%.
-- Setup & Settings no longer freezes for a moment each time it is opened.
-- Capture's Log Presets no longer rebuild in view on the second visit to the tab.
+- Setup & Settings opens without freezing for a moment.
+- Capture: the Log Presets stay as they were on a second visit to the tab, instead of rebuilding in view.
 
 ## [2.2.0] - Pull Tracker, Player Stats, Galactic Disaster Shop
 

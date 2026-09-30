@@ -74,6 +74,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | Why the capture archive is one rebuilt file, and what it cost to prove       | `past_plans/capture_archiving.md`                                                                                        |
 | What the Galactic Disaster's shop is read from, and what the wire never says | `past_plans/seasonal_shop.md`                                                                                            |
 | Why shared game facts overlay rather than merge, and what counts as news     | `past_plans/shared_game_facts.md`                                                                                        |
+| What the server showed of Potential 7, and the decisions that shaped it      | `past_plans/potential_7.md`                                                                                              |
 
 `past_plans/` is an ARCHIVE and the one exception to the no-dates/no-status-tags rule: its dated decisions and `[IMPLEMENTED]` tags are the record. Read one before reopening a question it settled.
 
