@@ -276,10 +276,16 @@ LEVEL_TOOLTIP = ("Characters below level 60 are optimized as though "
 P7_FILL_CAPTION = "Fill in Potential 7 values:"
 P7_MINIMUM_TOOLTIP = ("Sets the stats this Combatant's Potential 7 checks "
                       "to where it switches on. Other stats stay as they "
-                      "are")
+                      "are.\n\n"
+                      "Note: You don't need to manually set stats for "
+                      "Combatants with a Pot 7 that increases stats. The "
+                      "Optimizer calculates them automatically.")
 P7_FULL_TOOLTIP = ("Sets the stats this Combatant's Potential 7 checks "
                    "to where it reaches its full effect. Other stats stay "
-                   "as they are")
+                   "as they are.\n\n"
+                      "Note: You don't need to manually set stats for "
+                      "Combatants with a Pot 7 that increases stats. The "
+                      "Optimizer calculates them automatically.")
 
 
 # Force-main checkbox definitions. Each entry: (settings key, label, slot).
