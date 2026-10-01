@@ -130,7 +130,9 @@ What each `ingame_content_config_id` is in the game, named by what its clears pa
 | `content_chaos_assault` | Sortie | its Max HP nodes multiply the base HP, not the partner's, by 1 + their sum, rounded down, and its CRate nodes add CRate. The week's buffed combatants' stat % multiplies their base and their partner's flat of that stat alike, and their CRate adds; the Potential 7 value carries it too. Which combatants and what buff is client data, named only by the entry's `rotation_schedule_id`. Memory Fragments are not worn |
 | `content_none` | no battle: the world state between them, with no combatants | -- |
 
-**An escape closes a stage like a clear**: `stage/clear_stage` with `is_emergency_exit`, answered with `return_info.result` `GIVEUP` where a clear says `CLEAR` and a loss `FAIL`. It pays no drops, and a Simulation stage hands its Aether back in an envelope. The entry's sheet is filed all the same, which is harmless: it states the combatants before any fight. A Chaos run closed this way is filed as given up (`Addon._note_chaos`).
+**An escape closes a stage like a clear**: `stage/clear_stage` with `is_emergency_exit`. A Simulation stage's reply says `GIVEUP` in `return_info.result`, where a clear says `CLEAR` and a loss `FAIL`; **a Chaos run's says `CLEAR`**, so the request's flag is what marks it. It pays no drops, and a Simulation stage hands its Aether back in an envelope. The entry's sheet is filed all the same, which is harmless: it states the combatants before any fight. A Chaos run closed this way is filed as given up (`Addon._note_chaos`).
+
+**The regular Chaos is not followed** (`chaos/enter_embody_chaos_stage`, `CHAOS_ELSEWHERE`): its runs pay nothing the Galactic Disaster estimate reads. Entering one stops following any run left open, since its close is the same `clear_stage`.
 
 **Equipment is not on the entered sheet.** `stage_info.enter_chars` is the sheet a combatant entered with, and it stays the same from a run's first floor to its last. `stage_info.chars` is the same sheet with Equipment in, listed under `stage_info.equipments`: `char_id` is the combatant's `id` in the entry, `slot_type` 1 a Weapon (ATK), 2 an Armor (DEF), 3 an Accessory (HP), and `star_grade` its level. Each piece adds its flat after everything else, including the outer %. A regular mode's comes from the saved deck, a Chaos run's is what the run has found, and a Sortie's counts a fifth (its Risk Modifier). A piece's own effect can add more on top.
 
@@ -229,6 +231,8 @@ A Communication Pass is in none of them, because it is in nothing. Spending one 
 ```
 
 so a x6 run sends six entries for the same item and the total is their sum. Nothing states what the holding becomes, which leaves `_apply_drops` adding — and **adding is what makes a repeat dangerous**, so the frame's `qid` is remembered and one already applied is skipped. An id the currencies already hold is a currency (Units drop this way); everything else is an item.
+
+**A pull pays on its result list** (`gacha/run`'s `list`): each unit drawn carries `reward_items`, `[{res_id, count, count_result}]`, where `count_result` is the holding's total after that unit and a currency adds `total_amount` and `total_use_amount`. `_apply_pull_rewards` writes each id's last `count_result` in like a `doc.amount`, reporting the counts summed. A duplicate's conversion and the item a Prism turns a unit into arrive nowhere else; an item first held this way and spent later otherwise restated a zero the cache already held, and neither the gain nor the use reached the log.
 
 `result` is the most OVERLOADED key on the wire — a string, a bool, a stage's step record — so it counts only where it carries a rewards payload or nests one, two levels down under an envelope of its own.
 

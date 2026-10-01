@@ -134,6 +134,11 @@ NO_VALUE = "-"
 BEHIND_TAG = "behind"
 URGENT_TAG = "urgent"
 BEHIND_NOTE = "Orange banners have unread pulls"
+# A banner whose records were read without reaching the ones kept is
+# drawn the same orange: the pulls between are as unread.
+GAP_NOTE = ("Orange banners may be missing pulls: their Rescue Records "
+            "were read without reaching the ones kept. Scroll them back "
+            "further.")
 URGENT_NOTE = ("⚠ Red banners were last read over %d days ago.\n"
                "Read them NOW, before the game erases their history!"
                % gh.URGENT_AFTER_DAYS)
@@ -399,6 +404,10 @@ class GachaHistoryTab(BaseTab):
             foreground=self.colors["red"],
             wraplength=px(STATUS_WRAPLENGTH))
         self.behind_label = ttk.Label(
+            status, text="", style=STATUS_STYLE,
+            foreground=self.colors["orange"],
+            wraplength=px(STATUS_WRAPLENGTH))
+        self.gap_label = ttk.Label(
             status, text="", style=STATUS_STYLE,
             foreground=self.colors["orange"],
             wraplength=px(STATUS_WRAPLENGTH))
@@ -758,7 +767,8 @@ class GachaHistoryTab(BaseTab):
         if notes:
             # Yellow, not red: red is the urgent banners' colour.
             self._show_status("; ".join(notes), "yellow")
-        elif any(pool.stats.behind for pool in self._shown_pools()):
+        elif any(pool.stats.behind or pool.stats.gap
+                 for pool in self._shown_pools()):
             # The pull count gives way to the warnings, which keeps the
             # toolbar within the help text's height.
             self._show_status("", "fg_dim")
@@ -782,6 +792,9 @@ class GachaHistoryTab(BaseTab):
              if any(p.stats.urgent for p in pools) else ""),
             (self.behind_label, BEHIND_NOTE
              if any(p.stats.behind and not p.stats.urgent for p in pools)
+             else ""),
+            (self.gap_label, GAP_NOTE
+             if any(p.stats.gap and not p.stats.urgent for p in pools)
              else ""),
             (self.status_label, text))
         self.status_label.configure(foreground=self.colors[colour])
@@ -862,7 +875,7 @@ class GachaHistoryTab(BaseTab):
     def _summary_tags(pool):
         if pool.stats.urgent:
             return (URGENT_TAG,)
-        if pool.stats.behind:
+        if pool.stats.behind or pool.stats.gap:
             return (BEHIND_TAG,)
         return ()
 

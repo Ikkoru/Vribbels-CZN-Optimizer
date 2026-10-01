@@ -567,6 +567,51 @@ def run():
             f"a Great Rift placement reward reached no log line. Lines: "
             f"{log!r}")
 
+    # A pull pays out on its result list, one `reward_items` per unit
+    # drawn, `count_result` the total after it (`gacha/run`,
+    # `websocket_debug_20260930_233315`: a Prism turned a unit into an
+    # item never held before, used minutes later). Missed, the spend
+    # restated the zero the cache held and neither reached the log.
+    log.clear()
+    first_held = ITEM_ID + 7
+    addon._handle_server_payload({
+        "res": "ok", "qid": 81,
+        "list": [
+            {"index": 0, "res_id": 30117, "is_prism": 1, "reward_items": [
+                {"res_id": first_held, "count": 1, "count_result": 1},
+                {"res_id": CURRENCY_ID, "count": 40,
+                 "count_result": 1000040, "total_amount": 5000040,
+                 "total_use_amount": 4000000}]},
+            {"index": 1, "res_id": 20013, "is_prism": 0, "reward_items": [
+                {"res_id": CURRENCY_ID, "count": 20,
+                 "count_result": 1000060, "total_amount": 5000060,
+                 "total_use_amount": 4000000}]}],
+    }, 100)
+    if (_amount(addon, first_held), _currency(addon, CURRENCY_ID)) != (
+            1, 1000060):
+        failures.append(
+            f"a pull left the Prism's item at "
+            f"{_amount(addon, first_held)!r} and the currency at "
+            f"{_currency(addon, CURRENCY_ID)!r}, not 1 and 1000060. A "
+            f"pull's `reward_items` state each holding's total after "
+            f"the unit, and nothing else carries them.")
+    said = " ".join(str(line) for line in log)
+    if "Received" not in said or "+60" not in said:
+        failures.append(
+            f"a pull's payouts were logged as {said!r}, not one Received "
+            f"line carrying the currency's +60 across both units.")
+    log.clear()
+    addon._handle_server_payload({
+        "res": "ok", "qid": 82,
+        "dec_result": {"items": {str(first_held): {
+            "doc": {"res_id": first_held, "amount": 0, "version": 5},
+            "diff": -1}}},
+    }, 100)
+    if "Spent" not in " ".join(str(line) for line in log):
+        failures.append(
+            f"spending the item a pull paid reached no log line: the "
+            f"cache never held it. Lines: {log!r}")
+
     # --- and the word matches which WAY it went -----------------------
     # The Sortie's entry fee is charged through `item_result`, so a
     # log that reads the KEY rather than the sign announces it as a

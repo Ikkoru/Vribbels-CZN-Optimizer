@@ -20,6 +20,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Every Chaos run is recorded in `snapshots/chaos_runs/`, beside the pull history. The season estimate reads it, counting only the live Galactic Disaster's own Chaos.
   - Each battle's stat sheets, as the server states them, are kept in `snapshots/base_stats/`. Where the program's own combatant or partner stats are missing or wrong, level 61 and 62 included, it uses the server's instead.
 - Setup & Settings → Share Game Data: `Export Facts` also saves the combatant and partner stats your battles showed that the program does not have.
+- Stats & Gacha History:
+  - Pulls made while capturing are kept straight away, without opening Rescue Records.
+  - A banner whose Rescue Records were read without reaching the pulls already kept turns orange, with a line saying pulls may be missing.
+- Anika, with her Potential 7.
 
 ### Changed
 
@@ -34,6 +38,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: the Galactic Disaster shop's season estimate counts each part's boss rewards separately, and learns from your own captured Chaos runs once the program's own figures are a season or more old. `chaos_runs_per_day` at the foot of settings.json sets how many runs a day it assumes.
 - Gear Score: a preset assigned to a combatant is marked with ∞.
 - Gear Score: the shipped presets' weights are worked out from the Optimizer's own score, for an average build of each kind; Restore Defaults picks them up. `Rei (ATK skew)` is now `Rei`, and `Orlea (healing skew)` is new.
+- Optimizer: combatants whose Potential 7 the score counts in full come with no Have at least minimums; Restore Defaults picks this up.
 - Memory Fragments: `Assigned Presets Only` is greyed out while `Upgrade Log Settings` is on, which takes assigned presets only anyway. Its tick applies again once that box is off.
 - Stats & Gacha History: each Great Rift division's row is drawn in the division's colour.
 
@@ -46,11 +51,16 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Arkhianon Supply reads a new pass from its first day, instead of the last one's 70/70 until something is claimed.
   - The Basin of Hyperspace and the Full-Scale Offensive follow what you clear while capturing, and a new Offensive reads 0/9 before its first boss.
   - An event that hands out its tasks one at a time no longer reads as finished on its first day, and counts the tasks you start while capturing.
+  - An Overclock event with six doubled runs a day reads `0/6` from the day's start, instead of `0/2` until the first run.
+  - The Full-Scale Offensive keeps counting the stars you claimed after a boss is reset.
+  - The season estimate no longer counts a Galactic Disaster Chaos run you escaped from as a whole run.
 - Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
 - Capture Log: a Great Rift half's placement reward, paid at the first login after the half ends, is logged, and its counts update.
+- Capture Log: what a pull pays beside the unit -- a duplicate's conversion, the item a Prism turns a unit into -- is logged and counted, and so is spending such an item later.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
 - Stats & Gacha History: pulls on a Seasonal Rescue Rate-Up, like Sereniel's, count with the Combatant Rate-Ups whose pity they share, not with the reruns.
 - Diana's, Maribell's, Mika's, Tressa's, Veronica's and Yuki's base ATK, DEF and HP were wrong, and Tiphera's sixth Potential node raises DEF%, not CDMG%.
+- Peko's passive: Repairs Complete! and the bonus against Ravaged targets are larger, and Repairs Complete! stacks once.
 
 ## [2.2.0] - Pull Tracker, Player Stats, Galactic Disaster Shop
 

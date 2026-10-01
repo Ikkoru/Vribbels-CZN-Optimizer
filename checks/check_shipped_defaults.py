@@ -21,7 +21,7 @@ import copy
 import importlib.util
 import json
 
-from ._harness import SOURCE_ROOT, Skip
+from ._harness import SOURCE_ROOT, Skip, add_source_to_path
 
 NAME = "shipped defaults carry no user state"
 
@@ -68,4 +68,38 @@ def run():
             + "; ".join(changed)
         )
 
+    failures.extend(_priced_minimums(data))
     return failures
+
+
+def _priced_minimums(data):
+    """No shipped Have-at-least minimum for a combatant whose Potential 7
+    the score prices in full.
+
+    The score already pays for meeting such a threshold, so a minimum
+    only hides the builds that miss it. The normalizer leaves curated
+    minimums alone, and the release copies the maintainer's own
+    settings in, so this is what catches one coming back with them.
+    """
+    add_source_to_path()
+    from game_data.potential_7 import PRICED, get_potential_7
+
+    found = []
+    characters = data.get("characters")
+    for key, entry in (characters.items() if isinstance(characters, dict)
+                       else ()):
+        hal = entry.get("have_at_least") if isinstance(entry, dict) else None
+        set_ = {stat: value for stat, value in (
+            hal.items() if isinstance(hal, dict) else ()) if value}
+        if not set_ or not str(key).isdigit():
+            continue
+        effects = get_potential_7(int(key))
+        if effects and all(e.get("grants") in PRICED for e in effects):
+            found.append(f"{key} {set_}")
+    if not found:
+        return []
+    return [f"default_settings/optimizer_settings.json ships Have-at-least "
+            f"minimums for combatants whose Potential 7 the score prices "
+            f"in full, where the default is 0: {'; '.join(found)}. Zero "
+            f"them in your own Optimizer settings too, or the next "
+            f"release copy brings them back."]

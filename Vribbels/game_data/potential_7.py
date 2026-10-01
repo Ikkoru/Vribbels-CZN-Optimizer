@@ -68,6 +68,8 @@ POTENTIAL_7 = {
         {"grants": "card", "value": 10, "card": "Metallization",
          "stat": "DEF", "at": 300},
     ),
+    1012: ({"grants": "ATK%", "value": 10, "stat": "ATK",        # Anika
+            "at": 500},),
     30115: (_grow("Element%", 5, "ATK", 600, 20, 2, 10),),       # Arabella
     1040: (                                                     # Beryl
         {"grants": "card", "value": 10, "card": "Opening Found"},

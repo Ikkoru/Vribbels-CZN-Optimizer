@@ -202,10 +202,15 @@ CHAOS_PAYS = "spot_reward/get_drop_item"
 CHAOS_RESOLVES = "battle/acceleration_resolve"
 CHAOS_ENDS = "battle/battle_end"
 CHAOS_LOST = "BATTLE_RESULT_TYPE_STAGE_FAILED"
-# The close's `return_info.result` for a run left by an escape
-# (`is_emergency_exit`), where a clear says CLEAR and a loss FAIL. Seen
-# on a Simulation stage; a Chaos run is closed by the same command.
+# The close's `return_info.result` for a Simulation stage left by an
+# escape (`is_emergency_exit`), where a clear says CLEAR and a loss FAIL.
+# A Chaos run left the same way says CLEAR, so the request's flag is
+# read as well.
 CHAOS_GAVE_UP = "GIVEUP"
+# The Chaos entrances whose runs are not followed: the regular Chaos,
+# entered from its own screen rather than through the Galactic Disaster
+# or a Zero Orb.
+CHAOS_ELSEWHERE = ("chaos/enter_embody_chaos_stage",)
 # The fights that are not a boss's, as a map's `spot_list` types them.
 CHAOS_NON_BOSS = ("SPOT_TYPE_BATTLE", "SPOT_TYPE_ELITE")
 # The schedule groups a run's season is named by and its part dated
@@ -565,10 +570,17 @@ class Addon:
         self.pending_coffees = set()
 
         # What each gacha request asked for, by qid: ("history", banner,
-        # cursor) or ("get_rate", banner, None). **Neither reply says**
-        # -- a rates reply does not name its banner, and a history page
-        # does not say whether it is the first. See `_merge_gacha`.
+        # cursor), ("get_rate", banner, None) or ("run", banner, None).
+        # **None of the replies says** -- a rates reply does not name its
+        # banner, a history page does not say whether it is the first,
+        # and a pull's reply does not name what was pulled on. See
+        # `_merge_gacha`.
         self.gacha_requests = {}
+        # The Rescue records read so far for each banner, from its first
+        # page on: what was already kept when the first page came, and
+        # the entry in the file's `reach` its pages update. See
+        # `_note_reach`.
+        self.gacha_chains = {}
         # Set once the Gacha History's file has refused to be read, so
         # the complaint is made once rather than on every page.
         self._gacha_refused = False
@@ -1154,6 +1166,15 @@ class Addon:
                 if payload is None:
                     continue
             self._apply_totals(payload, spent=key == "dec_result")
+
+        # **A pull pays out on its result list**, never in an envelope:
+        # each unit drawn carries `reward_items`, what it paid beside
+        # the unit -- a duplicate's conversion, and the item a Prism
+        # turns the unit into. Missed, an item first held through a
+        # pull is unknown to the cache, so spending it later restates
+        # the zero the cache already holds and the log says nothing of
+        # either. See `_apply_pull_rewards`.
+        self._apply_pull_rewards(data.get("list"))
 
         # **A run's own clear reward is nested**, under the stage
         # reply's `return_info` and never at the top level:
@@ -2001,7 +2022,11 @@ class Addon:
                               if isinstance(row, dict))
         if isinstance(data.get("gacha_pity_entity"), dict):
             pities.append(data["gacha_pity_entity"])
-        if records is None and rates is None and not pities:
+        pulled = None
+        if asked and asked[0] == "run":
+            pulled = self._gacha_pull_record(asked[1], data)
+        if (records is None and rates is None and not pities
+                and pulled is None):
             return
 
         store = self._read_gacha_store()
@@ -2012,6 +2037,10 @@ class Addon:
             if isinstance(row, dict) and row.get("id") not in (None, ""):
                 held[str(row["id"])] = row
         before = list(held.values())
+        pulls = [row for row in store["pulls"] if isinstance(row, dict)]
+        kept_ids = set(held)
+        kept_keys = {self._gacha_key(row)
+                     for row in list(held.values()) + pulls}
         added = 0
         for row in records or ():
             if not isinstance(row, dict) or row.get("id") in (None, ""):
@@ -2022,13 +2051,32 @@ class Addon:
         changed = bool(added)
         when = datetime.now().isoformat(timespec="seconds")
 
+        # **A pull is kept off its own reply**, which names every unit
+        # in the order the record will, and whose server time is the
+        # record's `createAt` to the second. The game's own record
+        # replaces it once a Rescue records page brings that.
+        recorded = 0
+        if records:
+            listed = {self._gacha_key(row) for row in held.values()}
+            pulls = [row for row in pulls
+                     if self._gacha_key(row) not in listed]
+        if pulled is not None and self._gacha_key(pulled) not in kept_keys:
+            pulls.append(pulled)
+            recorded = self._gacha_pulls_in(pulled)
+        if pulls != store["pulls"]:
+            store["pulls"] = pulls
+            changed = True
+
         # The FIRST page -- no cursor -- is the newest pulls, so reading
         # it is what brings a banner up to date. The rest only reach
         # further back.
-        if records is not None and asked and asked[0] == "history" \\
-                and not asked[2]:
-            store["read"][asked[1]] = when
-            changed = True
+        if records is not None and asked and asked[0] == "history":
+            if not asked[2]:
+                store["read"][asked[1]] = when
+                changed = True
+            if self._note_reach(store, asked, records, data, kept_ids,
+                                kept_keys, when):
+                changed = True
         if rates is not None:
             was = store["rates"].get(asked[1])
             if not isinstance(was, dict) or any(
@@ -2061,7 +2109,90 @@ class Addon:
             total = sum(self._gacha_pulls_in(r) for r in store["records"])
             self.log_callback(
                 "[GACHA] Rescue records: +%d pulls, %d kept" % (added, total))
+        if recorded:
+            self.log_callback("[GACHA] Pulls recorded: +%d" % recorded)
         self.log_callback(GACHA_MARKER)
+
+    def _gacha_pull_record(self, banner, data):
+        """A pull's reply as a record in the game's own shape, less the
+        `id` only the Rescue records give; None where it is not one."""
+        pulled = data.get("list")
+        at = data.get("service_server_time")
+        if not (isinstance(pulled, list) and pulled
+                and isinstance(at, int) and banner):
+            return None
+        units, prism = [], []
+        for row in pulled:
+            if not (isinstance(row, dict)
+                    and isinstance(row.get("res_id"), int)):
+                return None
+            units.append(row["res_id"])
+            prism.append(1 if row.get("is_prism") else 0)
+        return {"gacha_id": banner, "count": len(units),
+                "reward": json.dumps(units, separators=(",", ":")),
+                "prism": json.dumps(prism, separators=(",", ":")),
+                "createAt": str(at), "from": "pull"}
+
+    def _gacha_key(self, record):
+        """(second, units): what one record and a pull's reply agree on."""
+        reward = record.get("reward")
+        if isinstance(reward, str):
+            try:
+                reward = json.loads(reward)
+            except ValueError:
+                reward = None
+        return (self._gacha_int(record.get("createAt")),
+                tuple(reward) if isinstance(reward, list) else ())
+
+    def _note_reach(self, store, asked, records, data, kept_ids,
+                    kept_keys, when):
+        """Say how far one banner's Rescue records have been read back,
+        and whether they reached what was already kept.
+
+        A read is every page from the first on, in one go, so its pages
+        are one unbroken run of the newest pulls. Each page moves the
+        read's `oldest` back; any record that was kept before the first
+        page came -- from an earlier read, or a pull kept off its reply
+        -- makes it `bridged`. One that ends on neither leaves the
+        pulls between it and the older history unread, which the app
+        warns of (`gacha_history.reach_gaps`). `end` is the game saying
+        there is no further page.
+
+        Returns whether the file's entry changed: a page that moves
+        nothing must not turn the backup over.
+        """
+        banner = asked[1]
+        if not asked[2]:
+            # The first page's qid as well as the time, so two reads
+            # within one second are two entries.
+            self.gacha_chains[banner] = {
+                "read": "%s/%s" % (when, data.get("qid")),
+                "ids": kept_ids, "keys": kept_keys}
+        chain = self.gacha_chains.get(banner)
+        if chain is None:
+            return False
+        entry = next((row for row in store["reach"]
+                      if isinstance(row, dict)
+                      and row.get("read") == chain["read"]), None)
+        created = entry is None
+        if created:
+            entry = {"banner": banner, "read": chain["read"],
+                     "oldest": None, "newest": None, "bridged": False,
+                     "end": False}
+            store["reach"] = (store["reach"] + [entry])[-GACHA_REACH_KEEP:]
+        was = dict(entry)
+        for row in records:
+            if not isinstance(row, dict):
+                continue
+            at = self._gacha_int(row.get("createAt"))
+            if at:
+                entry["oldest"] = min(entry["oldest"] or at, at)
+                entry["newest"] = max(entry["newest"] or at, at)
+            if (str(row.get("id")) in chain["ids"]
+                    or self._gacha_key(row) in chain["keys"]):
+                entry["bridged"] = True
+        entry["end"] = data.get("next_page_exists") is False
+        return created or entry != was
 
     @staticmethod
     def _gacha_int(value):
@@ -2112,7 +2243,8 @@ class Addon:
                 problems.append(candidate.name + ": not a history file")
                 continue
             for key, empty in (("records", list), ("rates", dict),
-                               ("pity", dict), ("read", dict)):
+                               ("pity", dict), ("read", dict),
+                               ("pulls", list), ("reach", list)):
                 if not isinstance(data.get(key), empty):
                     data[key] = empty()
             return data
@@ -2125,7 +2257,8 @@ class Addon:
                     "until it can be.")
             return None
         return {"kind": GACHA_KIND, "version": 1, "records": [],
-                "rates": {}, "pity": {}, "read": {}}
+                "rates": {}, "pity": {}, "read": {}, "pulls": [],
+                "reach": []}
 
     def _write_gacha_store(self, store, before):
         """Write the Gacha History through a checked copy.
@@ -2784,6 +2917,62 @@ class Addon:
                               % self._describe_amounts(applied))
             self._note_receipt(applied)
 
+    def _apply_pull_rewards(self, pulls):
+        """Apply what a pull's units paid beside themselves.
+
+        Shape: a list of drawn units, each carrying `reward_items`, a
+        list of {res_id, count, count_result} where `count_result` is
+        the holding's total after that unit -- so the last one an id
+        reaches is its total after the whole pull, and is written in
+        like an envelope's `doc.amount`. A currency also carries
+        `total_amount` and `total_use_amount`; an id carrying either,
+        or one the currencies already hold, is a currency.
+
+        A list whose rows carry no `reward_items` is some other reply's
+        and is left alone.
+        """
+        if not isinstance(pulls, list):
+            return
+        stated, moved = {}, {}
+        for pull in pulls:
+            rewards = pull.get("reward_items") if isinstance(
+                pull, dict) else None
+            for row in (rewards if isinstance(rewards, list) else ()):
+                if not (isinstance(row, dict) and row.get("res_id")
+                        and isinstance(row.get("count_result"), int)):
+                    continue
+                stated[row["res_id"]] = row
+                if isinstance(row.get("count"), int):
+                    moved[row["res_id"]] = (moved.get(row["res_id"], 0)
+                                            + row["count"])
+        if not stated:
+            return
+        currencies = (self.character_data or {}).get("currencies")
+        currencies = currencies if isinstance(currencies, dict) else {}
+        items = []
+        if self.inventory_data is not None:
+            items = self.inventory_data.get("items")
+            items = items if isinstance(items, list) else []
+        envelope = {"items": {}, "currency": {}}
+        for res_id, row in stated.items():
+            if ("total_amount" in row or "total_use_amount" in row
+                    or str(res_id) in currencies):
+                doc = dict(currencies.get(str(res_id)) or {})
+                for field in ("total_amount", "total_use_amount"):
+                    if isinstance(row.get(field), int):
+                        doc[field] = row[field]
+                kind = "currency"
+            else:
+                doc = dict(next((held for held in items
+                                 if isinstance(held, dict)
+                                 and held.get("res_id") == res_id), {}))
+                kind = "items"
+            doc["res_id"] = res_id
+            doc["amount"] = row["count_result"]
+            envelope[kind][str(res_id)] = {"doc": doc,
+                                           "diff": moved.get(res_id)}
+        self._apply_totals(envelope)
+
     def _report_run_total(self, drops, already_named=()):
         """Say what a whole run paid, without changing a single count.
 
@@ -3345,6 +3534,12 @@ class Addon:
             self.chaos_map = []
             self.chaos_fight_key = None
             return
+        if asked in CHAOS_ELSEWHERE:
+            # A Chaos this does not follow closes by the same
+            # `clear_stage`, which would otherwise file it as the run
+            # left open before it.
+            self.chaos_run = None
+            return
         run = self.chaos_run
         if run is None:
             return
@@ -3725,6 +3920,13 @@ class Addon:
                     and self.qid_commands.get(entry.get("qid")) == CHAOS_ENDS
                     and sent.get("game_result") == CHAOS_LOST):
                 self._chaos_lost()
+            # An escape is asked for as a close with `is_emergency_exit`,
+            # and a Chaos run's reply then says CLEAR: the request is the
+            # only word of it there.
+            if (self.chaos_run is not None and isinstance(sent, dict)
+                    and self.qid_commands.get(entry.get("qid"))
+                    == CHAOS_CLOSES and sent.get("is_emergency_exit")):
+                self.chaos_run["gave_up"] = True
             # A run the Delegation Module plays is asked for with its
             # `acceleration_info`; one played by hand without it.
             if (isinstance(sent, dict)
@@ -3770,9 +3972,9 @@ class Addon:
                 self.pending_coffees.add(qid)
 
             elif entry.get("cmd") == "gacha" and inner_cmd in (
-                    "history", "get_rate"):
-                banner = params.get("id" if inner_cmd == "history"
-                                    else "gacha_id")
+                    "history", "get_rate", "run"):
+                banner = params.get("gacha_id" if inner_cmd == "get_rate"
+                                    else "id")
                 if banner:
                     self.gacha_requests[qid] = (
                         inner_cmd, str(banner), params.get("last_db_id"))
@@ -4287,6 +4489,7 @@ REGION_ROUTES = {region_routes}
 GACHA_FOLDER = {gacha_history.FOLDER!r}
 GACHA_FILE = {gacha_history.CAPTURED!r}
 GACHA_KIND = {gacha_history.STORE_KIND!r}
+GACHA_REACH_KEEP = {gacha_history.REACH_KEEP!r}
 CHAOS_FOLDER = {chaos_store.FOLDER!r}
 CHAOS_FILE = {chaos_store.FILE!r}
 CHAOS_KIND = {chaos_store.KIND!r}

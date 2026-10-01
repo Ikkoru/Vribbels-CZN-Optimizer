@@ -706,6 +706,107 @@ def _addon(gh, root, failures):
             f"two leaves only the backup.")
 
 
+def _pulls_and_reach(gh, root, failures):
+    """A pull is kept off its own reply until its record comes, and a
+    read of the records that misses what was kept is said to.
+
+    A pull's reply (`gacha/run`, `websocket_debug_20260930_233315`)
+    names every unit, in the record's order, at the record's `createAt`
+    to the second. Unkept, a pull made while capturing is only a
+    counter the history disagrees with until someone opens the records.
+    """
+    log = []
+    addon, _namespace = _build_addon(root, log)
+
+    def pull(qid, at, units):
+        _send(addon, _ask(qid, "run", id=BANNER, count=len(units)),
+              {"res": "ok", "qid": qid, "service_server_time": at,
+               "list": [{"index": i, "res_id": unit, "is_prism": 0}
+                        for i, unit in enumerate(units)]})
+
+    def gap():
+        entry = gh.load(root).pools.get("pickup_combatant")
+        return entry.stats.gap if entry else None
+
+    _send(addon, _ask(30, "history", id=BANNER, last_db_id=0),
+          _page(30, [_record(31, BANNER, 1000, [THREE])], False))
+    pull(40, 2000, [FOUR, THREE])
+    pull(40, 2000, [FOUR, THREE])          # the same reply seen twice
+    history = gh.load(root)
+    pulled = [b for b in history.batches if b.get("from") == "pull"]
+    if history.total != 3 or len(pulled) != 1:
+        failures.append(
+            f"after one recorded page and one pull of two seen twice, the "
+            f"history holds {history.total} pulls, {len(pulled)} of them "
+            f"kept off the pull's reply -- not 3 and 1.")
+    if not any(line == "[GACHA] Pulls recorded: +2" for line in log):
+        failures.append(
+            f"a pull reached no Capture Log line: "
+            f"{[l for l in log if l.startswith('[GACHA]')]}")
+    _send(addon, _ask(41, "history", id=BANNER, last_db_id=0),
+          _page(41, [_record(32, BANNER, 2000, [FOUR, THREE]),
+                     _record(31, BANNER, 1000, [THREE])], False))
+    store = json.loads((gh.folder_in(root) / gh.CAPTURED).read_text(
+        encoding="utf-8"))
+    history = gh.load(root)
+    if store.get("pulls") or history.total != 3:
+        failures.append(
+            f"the pull's own record arrived and the file still keeps "
+            f"{len(store.get('pulls') or [])} pull(s) off replies, the "
+            f"history {history.total} pulls, not 0 and 3. The record "
+            f"replaces the reply's copy; both counted is a pull twice.")
+    if gap() is not None:
+        failures.append(f"a read that met the kept records reports a gap "
+                        f"{gap()}")
+
+    # Pulls made with no capture running: the first page is all new and
+    # the read stops there, short of what was kept.
+    _send(addon, _ask(42, "history", id=BANNER, last_db_id=0),
+          _page(42, [_record(35, BANNER, 5000, [THREE] * 10)], True))
+    if gap() != (2000, 5000):
+        failures.append(
+            f"a read whose pages met nothing kept reads gap {gap()}, not "
+            f"(2000, 5000): the pulls between the two may be missing.")
+    # Opening the records again finds the last read's page kept, and
+    # still has not reached back past the gap.
+    _send(addon, _ask(43, "history", id=BANNER, last_db_id=0),
+          _page(43, [_record(35, BANNER, 5000, [THREE] * 10)], True))
+    if gap() != (2000, 5000):
+        failures.append(
+            f"a second read of the same first page closed the gap "
+            f"({gap()}): it met only the last read's records, and the "
+            f"pulls between are as unread as before.")
+    _send(addon, _ask(44, "history", id=BANNER, last_db_id=35),
+          _page(44, [_record(34, BANNER, 4000, [THREE]),
+                     _record(32, BANNER, 2000, [FOUR, THREE])], True))
+    if gap() is not None:
+        failures.append(
+            f"a read that went back past where the gap opens still "
+            f"reports it: {gap()}.")
+
+    # The loader matches a kept pull to its record too: a file holding
+    # both -- written by a capture that never saw the record come --
+    # counts the pull once.
+    both = gh.folder_in(root / "both")
+    both.mkdir(parents=True)
+    record = _record(50, BANNER, 7000, [THREE, FOUR])
+    kept = {key: value for key, value in record.items() if key != "id"}
+    (both / gh.CAPTURED).write_text(json.dumps(
+        {"kind": gh.STORE_KIND, "version": 1, "records": [record],
+         "pulls": [dict(kept, **{"from": "pull"})]}), encoding="utf-8")
+    if gh.load(root / "both").total != 2:
+        failures.append(
+            f"a file holding a pull and its own record loads as "
+            f"{gh.load(root / 'both').total} pulls, not 2.")
+
+    from ui.tabs.gacha_history_tab import BEHIND_TAG, GachaHistoryTab
+    stats = gh.PoolStats()
+    stats.gap = (2000, 5000)
+    if GachaHistoryTab._summary_tags(type("P", (), {"stats": stats})) != (
+            BEHIND_TAG,):
+        failures.append("a banner with a gap is not drawn orange")
+
+
 # ------------------------------------------------------------ real data
 
 def _history_log():
@@ -773,6 +874,8 @@ def run():
         _verified_write(gh, tmp / "write", failures)
         (tmp / "addon").mkdir()
         _addon(gh, tmp / "addon", failures)
+        (tmp / "pulls").mkdir()
+        _pulls_and_reach(gh, tmp / "pulls", failures)
         (tmp / "replay").mkdir()
         _replay(gh, tmp / "replay", failures)
         _seasonal_on_load(gh, tmp / "seasonal", failures)

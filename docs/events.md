@@ -39,7 +39,9 @@ It comes off in exactly one case — the game itself says the event is finished,
 
 **A Generic event's own past is on the wire, and that is better than hardcoding it.** Because it has run before, the records of every earlier run are still in the account — and what could not be derived from the live event alone can often be read off the finished ones.
 
-The Overclock cap is the worked example. Nothing states how many doubled runs a day holds, and the game uses two shapes, six a day and two. But `overclock_entities` keeps one row per Overclock event ever played, each carrying its own `count`, so the shapes are simply there to be read: thirteen events, seven sixes and six twos. `_overclock_cap` takes the smallest shape that still fits today's count, which reads a six-shape event's third run as `3/6` where a written-down two would have clamped it to `2/2` and called a day with three runs left finished.
+The Overclock cap is the worked example. Nothing states how many doubled runs a day holds, and the game uses two shapes, six a day and two. But `overclock_entities` keeps one row per Overclock event ever played, each carrying its own `count`, so the shapes are simply there to be read. `_overclock_cap` reads them, which puts a six-shape event's third run at `3/6` where a written-down two would have clamped it to `2/2` and called a day with three runs left finished.
+
+Which shape the live event is comes from its own record where that can say: a lifetime `total_count` above two a day, over the days before today, proves the six before a run is taken today (`_overclock_days_before`). Where it cannot, the event reads as the last one played (`_latest_overclock_shape`), so a day opens on `0/6` or `0/2` rather than always on the smaller.
 
 Two guards make that safe:
 
@@ -97,7 +99,7 @@ The same applies to a mission-tallied event: the write-down holds while the rows
 
 | Group | Categories | Where its progress lives | Notes |
 | ----- | ---------- | ------------------------ | ----- |
-| `EVENT_OVERCLOCK` | Generic, Forced Daily | `overclock_entities[event id]` | doubled Simulation runs. `count` is today's tally, `total_count` the event's lifetime one, `reset_time` when the day's was last written. The cap is not stated; `_overclock_cap` reads it off the ended events' own counts |
+| `EVENT_OVERCLOCK` | Generic, Forced Daily | `overclock_entities[event id]` | doubled Simulation runs. `count` is today's tally, `total_count` the event's lifetime one, `reset_time` when the day's was last written. The cap is not stated; `_overclock_cap` reads the shapes off the ended events' own counts, and the live event's own days or the last event pick one |
 | `EVENT_DAILY_CHECK` | Tallied | `attendance_entities` | a login streak. The attendance row is the FIRST one started after the event was — the ids do not match |
 | `EVENT_COMBATANT_TRIAL` | Tallied, Generic | `combat_trial_entities` | three trials per combatant banner sharing the event's window |
 | `EVENT_SCHEDULE` | Open-ended | `event_mission_entities`, plus `event_mission_reward_entities` for the completion flag | the catch-all: story events, seasonal events, `event_bartender_1`. A step-track event (below) reads its completion record instead |

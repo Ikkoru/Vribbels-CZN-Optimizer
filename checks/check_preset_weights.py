@@ -100,8 +100,11 @@ def _reference_is_documented(tool, world):
                                       get_character_stats_at_level,
                                       get_potential_stat_bonus)
     from game_data import CHARACTERS
+    from game_data.characters import CHARACTERS_BY_NAME
     out = []
-    name = next(iter(sorted(world.settings)))
+    # A combatant the tables know: settings saved while one was new
+    # carry its res_id as the name, and that sorts first.
+    name = next(n for n in sorted(world.settings) if n in CHARACTERS_BY_NAME)
     cs = world.statics(name)
     char = get_character_by_name(name)
     level = get_character_stats_at_level(char, tool.LEVEL)

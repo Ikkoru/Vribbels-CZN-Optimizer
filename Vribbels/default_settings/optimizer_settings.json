@@ -100,7 +100,7 @@
         "Ego": 0,
         "CRate": 0,
         "CDmg": 0,
-        "Extra DMG%": 30,
+        "Extra DMG%": 0,
         "DoT%": 0
       },
       "sets_selected": [
@@ -181,7 +181,7 @@
         "CRate": 0,
         "CDmg": 0,
         "Extra DMG%": 0,
-        "DoT%": 30
+        "DoT%": 0
       },
       "sets_selected": [
         9,
@@ -216,7 +216,7 @@
       },
       "have_at_least": {
         "ATK": 0,
-        "DEF": 350,
+        "DEF": 0,
         "HP": 0,
         "Ego": 0,
         "CRate": 0,
@@ -296,7 +296,7 @@
         "slot6_ego": false
       },
       "have_at_least": {
-        "ATK": 1000,
+        "ATK": 0,
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
@@ -380,7 +380,7 @@
       },
       "have_at_least": {
         "ATK": 0,
-        "DEF": 300,
+        "DEF": 0,
         "HP": 0,
         "Ego": 0,
         "CRate": 0,
@@ -659,7 +659,7 @@
         "slot6_ego": false
       },
       "have_at_least": {
-        "ATK": 700,
+        "ATK": 0,
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
@@ -951,7 +951,7 @@
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
-        "CRate": 50,
+        "CRate": 0,
         "CDmg": 0,
         "Extra DMG%": 0,
         "DoT%": 0
@@ -1028,7 +1028,7 @@
         "slot6_ego": false
       },
       "have_at_least": {
-        "ATK": 900,
+        "ATK": 0,
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
@@ -1069,7 +1069,7 @@
       },
       "have_at_least": {
         "ATK": 0,
-        "DEF": 350,
+        "DEF": 0,
         "HP": 0,
         "Ego": 0,
         "CRate": 0,
@@ -1113,7 +1113,7 @@
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
-        "CRate": 60,
+        "CRate": 0,
         "CDmg": 0,
         "Extra DMG%": 0,
         "DoT%": 0
@@ -1152,7 +1152,7 @@
       },
       "have_at_least": {
         "ATK": 0,
-        "DEF": 300,
+        "DEF": 0,
         "HP": 0,
         "Ego": 0,
         "CRate": 0,
@@ -1193,7 +1193,7 @@
         "slot6_ego": false
       },
       "have_at_least": {
-        "ATK": 700,
+        "ATK": 0,
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
@@ -1235,7 +1235,7 @@
         "slot6_ego": false
       },
       "have_at_least": {
-        "ATK": 800,
+        "ATK": 0,
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
@@ -1277,7 +1277,7 @@
       },
       "have_at_least": {
         "ATK": 0,
-        "DEF": 400,
+        "DEF": 0,
         "HP": 0,
         "Ego": 0,
         "CRate": 0,
@@ -1319,7 +1319,7 @@
         "slot6_ego": false
       },
       "have_at_least": {
-        "ATK": 800,
+        "ATK": 0,
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
@@ -1362,7 +1362,7 @@
         "slot6_ego": false
       },
       "have_at_least": {
-        "ATK": 700,
+        "ATK": 0,
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
@@ -1409,7 +1409,7 @@
         "Ego": 0,
         "CRate": 0,
         "CDmg": 0,
-        "Extra DMG%": 6.0,
+        "Extra DMG%": 0.0,
         "DoT%": 0
       },
       "sets_selected": [
@@ -1447,7 +1447,7 @@
         "slot6_ego": false
       },
       "have_at_least": {
-        "ATK": 700,
+        "ATK": 0,
         "DEF": 0,
         "HP": 0,
         "Ego": 0,
@@ -1497,7 +1497,7 @@
         "CRate": 0,
         "CDmg": 0,
         "Extra DMG%": 0,
-        "DoT%": 6.0
+        "DoT%": 0.0
       },
       "sets_selected": [
         9,

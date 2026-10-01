@@ -219,6 +219,45 @@ def _panel_is_its_widest_row(tab, scale_name, ot):
     return out
 
 
+def _fill_button_at_foot(tab, scale_name):
+    """The Potential 7 button sits centred at Have at Least's foot, at
+    the height it asks for, under the note."""
+    hal = _panel(tab, "Have at least this much of a stat")
+    button = tab.p7_fill_button
+    if hal is None or str(button.winfo_parent()) != str(hal):
+        return [f"At {scale_name} the Potential 7 button is not in the "
+                f"Have at Least panel."]
+    out = []
+    if button.winfo_height() != button.winfo_reqheight():
+        out.append(
+            f"At {scale_name} the Potential 7 button is "
+            f"{button.winfo_height()}px tall and asks for "
+            f"{button.winfo_reqheight()}px. A button keeps the height "
+            f"every other button has; the panel grows instead.")
+    # Twice the centre against the width, so an odd leftover pixel
+    # reads as 1 and anything more as off-centre.
+    middle = button.winfo_x() * 2 + button.winfo_width()
+    if abs(middle - hal.winfo_width()) > 1:
+        out.append(
+            f"At {scale_name} the Potential 7 button's centre is "
+            f"{middle / 2}px into a {hal.winfo_width()}px panel: it "
+            f"sits centred.")
+    from ui.scaling import px
+    # Under it, the panel's bottom inset and the frame's 2px border and
+    # nothing more: the row's slack opens above the button, not below.
+    below = hal.winfo_height() - button.winfo_y() - button.winfo_height()
+    others = [w for w in hal.winfo_children() if w is not button]
+    lowest = max((w.winfo_y() + w.winfo_height() for w in others),
+                 default=0)
+    if button.winfo_y() < lowest or below > px(3) + 2:
+        out.append(
+            f"At {scale_name} the Potential 7 button sits at y="
+            f"{button.winfo_y()} with {below}px under it, the note "
+            f"ending at {lowest}: it belongs under the note, at the "
+            f"panel's foot.")
+    return out
+
+
 def _descendants(widget):
     for child in widget.winfo_children():
         yield child
@@ -268,6 +307,7 @@ def _measure(scale_name):
         try:
             failures.extend(_least_length_is_least(root, scale_name, ot))
             failures.extend(_panel_is_its_widest_row(tab, scale_name, ot))
+            failures.extend(_fill_button_at_foot(tab, scale_name))
             if scale_name == SCALES[0]:
                 failures.extend(_fill_raises_only(tab))
         finally:

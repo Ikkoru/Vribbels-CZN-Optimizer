@@ -4,7 +4,7 @@ Maintainer workflow: what ships, what to hand-edit before a release, and how to 
 
 ## Before a release
 
-1. If a character was released, or existing defaults need changing, edit the Optimizer settings for every character that needs them.
+1. If a character was released, or existing defaults need changing, edit the Optimizer settings for every character that needs them. A combatant whose Potential 7 the score prices in full ships no Have-at-least minimum: the score already pays for meeting it. `checks/check_shipped_defaults.py` fails on one.
 2. Check every character has a preset assigned.
 3. Check `zCreate exe.bat` reports a successful `optimizer_settings.json` cleanup.
 4. Run the release build in `dist\`.

@@ -452,28 +452,55 @@ def _new_season(Addon):
 def _given_up(Addon):
     """A run left by an escape is filed, and never as a whole one.
 
-    The close is the one a Simulation escape was seen answered with
-    (`websocket_debug_20260929_220558`): `clear_stage` saying `GIVEUP`.
-    No fight is lost, so without reading the result the run is filed as
-    cleared, and a whole run's marks are averaged over it.
+    The close is asked for with `is_emergency_exit`, and answered
+    `GIVEUP` on a Simulation stage (`websocket_debug_20260929_220558`)
+    but `CLEAR` on a Chaos run. No fight is lost, so without reading the
+    request the run is filed as cleared, and a whole run's marks are
+    averaged over it.
     """
     import chaos_estimate
+    failures = []
+    # A Chaos run's escape answers CLEAR (`websocket_debug_20260930_
+    # 233315`, the regular Chaos): only the request says it was one.
+    for said in ("GIVEUP", "CLEAR"):
+        addon = _new(Addon)
+        _setup(addon)
+        steps = _Steps(addon, 700)
+        steps.step("disaster/enter_disaster_chaos_stage",
+                   service_server_time=1790460000)
+        steps.fight(6, "SPOT_TYPE_BATTLE", "base_00160", keyword_tag=[5])
+        steps.step("stage/clear_stage", {"is_emergency_exit": True},
+                   service_server_time=1790460600, stage_id=80000,
+                   return_info={"result": said, "state": "finish"})
+        runs = addon.chaos_runs
+        if len(runs) != 1:
+            failures.append(f"a Chaos run left by an escape answered "
+                            f"{said} files {len(runs)} runs, not 1.")
+        elif not runs[0].get("gave_up") or chaos_estimate.is_full(runs[0]):
+            failures.append(
+                f"a Chaos run left by an escape answered {said} reads "
+                f"gave_up={runs[0].get('gave_up')!r} and counts as whole: "
+                f"the close was asked for with `is_emergency_exit` and no "
+                f"fight was lost, so the marks per whole run are averaged "
+                f"over a run cut short.")
+
+    # A regular Chaos entered while a Galactic Disaster run is left open
+    # closes by the same `clear_stage`, and is not that run.
     addon = _new(Addon)
     _setup(addon)
-    steps = _Steps(addon, 700)
+    steps = _Steps(addon, 800)
     steps.step("disaster/enter_disaster_chaos_stage",
                service_server_time=1790460000)
     steps.fight(6, "SPOT_TYPE_BATTLE", "base_00160", keyword_tag=[5])
-    steps.step("stage/clear_stage", {"is_emergency_exit": True},
-               service_server_time=1790460600, stage_id=80000,
-               return_info={"result": "GIVEUP", "state": "finish"})
-    runs = addon.chaos_runs
-    if len(runs) != 1:
-        return [f"a Chaos run left by an escape files {len(runs)} runs, "
-                f"not 1."]
-    if not runs[0].get("gave_up") or chaos_estimate.is_full(runs[0]):
-        return [f"a Chaos run left by an escape reads "
-                f"gave_up={runs[0].get('gave_up')!r} and counts as whole: "
-                f"its close says GIVEUP and no fight was lost, so the "
-                f"marks per whole run are averaged over a run cut short."]
-    return []
+    steps.step("chaos/enter_embody_chaos_stage",
+               service_server_time=1790461000)
+    steps.fight(2, "SPOT_TYPE_BATTLE", "base_00011")
+    steps.step("stage/clear_stage", service_server_time=1790461600,
+               stage_id=120000004,
+               return_info={"result": "CLEAR", "state": "finish"})
+    if addon.chaos_runs:
+        failures.append(
+            f"a regular Chaos cleared while a Galactic Disaster run was "
+            f"left open filed {len(addon.chaos_runs)} run(s): its clear "
+            f"was taken for the open run's, with its fights added in.")
+    return failures

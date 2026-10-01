@@ -670,8 +670,12 @@ def _panel_edge_inset(title, side):
 PANEL_EDGES = [
     ("Optimizer", "Important Settings", "top"),
     ("Optimizer", "Important Settings", "right"),
-    ("Optimizer", "Important Settings", "bottom"),
+    # Important Settings' BOTTOM is slack wherever Have at Least is the
+    # taller of the two -- the Potential 7 button at its foot makes it
+    # so at 100% -- because the panel is stretched to its height. Have
+    # at Least's bottom is the edge that answers to a rule.
     ("Optimizer", "Have at least this much of a stat", "top"),
+    ("Optimizer", "Have at least this much of a stat", "bottom"),
     ("Optimizer", "Exclude Combatant's MFs", "top"),
     ("Optimizer", "Exclude Combatant's MFs", "bottom"),
     ("Optimizer", "Set Configuration", "top"),
@@ -736,6 +740,8 @@ PANEL_EDGE_RULES = {
     ("Sets", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
     ("Main Stats", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
     ("Exclude Combatant's MFs", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
+    ("Have at least this much of a stat", "bottom"):
+        (RULE_BORDER_EDGE_BUTTON, 3),
 }
 
 # Hand readings for PANEL_EDGES rows the resolver and the eye disagree
@@ -2297,6 +2303,12 @@ EXPLANATION_ENTRIES = [
     ("Optimizer", "HAL note -> the spinboxes above it", 7, None, "rule",
      _controls_over_label("Have at least this much of a stat",
                           "Input stats as you expect", *SPINBOX_CLASSES)),
+    # The Potential 7 button under the note is packed to the panel's
+    # foot, so this reads the rule only where Have at Least sets the
+    # row's height; where Important Settings does, the slack opens here.
+    ("Optimizer", "HAL note -> the fill button below it", 7, None, "rule",
+     _label_over_controls("Have at least this much of a stat",
+                          "Input stats as you expect", "TButton")),
     ("Optimizer", "set explanation -> the set rows", 7, None, "rule",
      _label_over_controls("Set Configuration",
                           "All selected Set and Flex", *CHECKBOX_CLASSES)),
@@ -4838,6 +4850,8 @@ SETTINGS_ENTRIES = [
 # to return it to.
 AWAITING_FIRST_READING = {
     "Exclude Combatant's MFs: bottom edge -> content",
+    "Have at least this much of a stat: bottom edge -> content",
+    "HAL note -> the fill button below it",
 }
 
 

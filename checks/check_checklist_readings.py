@@ -256,6 +256,34 @@ def run():
                 f"ended events share that still fits today's count; "
                 f"{OVERCLOCK_USES} is only the floor where none does.")
 
+    # --- a day with no runs yet takes the shape from the record -------
+    # The live event's own earlier days prove a six when they averaged
+    # more than two; where they cannot, the last event's shape stands.
+    # A six-shape event's second day otherwise opened on `0/2`.
+    def _fresh_day(total, opened_days, last_shape):
+        raw = _snapshot()
+        rows = {"e": {"res_id": "e", "count": 6, "total_count": total,
+                      "reset_time": int(reset - HOUR)}}
+        for at, count in enumerate((6, 6, 2, 2, last_shape)):
+            rows["old%d" % at] = {"res_id": "old%d" % at, "count": count,
+                                  "reset_time": int(reset - (40 - at) * DAY)}
+        raw["overclock_entities"] = rows
+        window = {"start_time": int(reset - opened_days * DAY + HOUR),
+                  "end_time": int(reset + 5 * DAY)}
+        return _event_overclock(raw, "e", window, now)[0][0]
+
+    for total, opened_days, last_shape, want, why in (
+            (6, 1, 2, "0/6", "a first day of six after a two-shape event"),
+            (2, 1, 6, "0/6", "a two-run first day after a six-shape event"),
+            (2, 1, 2, "0/2", "a two-run first day after a two-shape event"),
+            (0, 0, 6, "0/6", "a first day before any run, after a six")):
+        got = _fresh_day(total, opened_days, last_shape)
+        if got != want:
+            failures.append(
+                f"{why} reads {got}, not {want}. The live event's earlier "
+                f"days rule the two out once they average more than two; "
+                f"otherwise the last event's shape is shown.")
+
     # --- a week that has rolled brings its rows back ------------------
     # **Weekly records are written lazily, exactly like the daily
     # ones.** Nothing zeroes them at the reset, so last week's full
@@ -927,7 +955,7 @@ def run():
     # --- the Full-Scale Offensive, before every boss is fought ---------
     # A boss has no row until it is fought, so a new Offensive's first
     # login sends an empty board (remnants_boss_penalty_006's did).
-    def offensive(board, history=None):
+    def offensive(board, history=None, standing=None):
         raw = _snapshot()
         raw["event_schedules"] = {"REMNANTS_BOSS_PENALTY": {
             "remnants_boss_penalty_006": {
@@ -935,6 +963,8 @@ def run():
         raw["remnants_entities"] = board
         if history:
             raw["remnants_rankings"] = history
+        if standing:
+            raw["remnants_entity"] = standing
         return _readings(raw, now)["offensive"][0]
 
     def fought(define, n, stars):
@@ -955,6 +985,20 @@ def run():
         if got[0] != want:
             failures.append(
                 f"the Offensive row reads {got!r}, not {want}: {why}.")
+    # Resetting a boss zeroes its row's stars and keeps the star
+    # rewards claimed, which `remnants_entity` counts -- for the
+    # Offensive it names only.
+    for define, rewards, want in (("remnants_boss_penalty_006", 2, "2/9"),
+                                  ("remnants_boss_penalty_005", 9, "0/9")):
+        got = offensive(fought("remnants_boss_penalty_006", 3, 0), None,
+                        {"define_id": define, "rank": 5,
+                         "reward_count": rewards})
+        if got[0] != want:
+            failures.append(
+                f"a reset board with {rewards} star rewards claimed in "
+                f"{define} reads {got!r}, not {want}. The stars are the "
+                f"board's or the rewards claimed in the RUNNING "
+                f"Offensive, whichever is more.")
 
     # --- a page with ONE row is no batch -------------------------------
     # Guardian Angel's Vacation and Sereniel's Memoirs issue each task as

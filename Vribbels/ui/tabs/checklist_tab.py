@@ -1328,10 +1328,11 @@ def _overclock_cap(rows, name):
     event's own daily tally. Two shapes across thirteen events, six a
     day and two, and the current one is a two.
 
-    So the cap is the smallest shape that still fits today's count. A
-    six-shape event's third run then reads `3/6`, where a written-down
-    two would have clamped it to `2/2` and called the day finished with
-    three runs still on offer.
+    So the cap is a shape that still fits what the event has taken: the
+    smallest that fits once its own days rule the smaller out, else the
+    last event's. A six-shape event's third run then reads `3/6`, where
+    a written-down two would have clamped it to `2/2` and called the day
+    finished with three runs still on offer.
 
     A shape counts only if it recurs. A row is left where its event
     ended mid-day, so a final `count` can be a part-day that was never
@@ -1347,6 +1348,44 @@ def _overclock_cap(rows, name):
             seen[row["count"]] = seen.get(row["count"], 0) + 1
     return sorted(shape for shape, times in seen.items()
                   if times >= OVERCLOCK_SHAPE_SIGHTINGS)
+
+
+def _overclock_days_before(row, window, now, used):
+    """The fewest runs a day of this event must hold, going by the days
+    before today: its lifetime tally less today's, spread over the
+    days it has been open. 0 where it has no earlier day.
+
+    A tally above two a day on average proves the six-shape before a
+    run is taken today -- a day can hold no more than its cap.
+    """
+    if not isinstance(row, dict) or not _is_count(row.get("total_count")):
+        return 0
+    opened = (window or {}).get("start_time")
+    if not _is_count(opened):
+        return 0
+    days = math.ceil((weekly_reset.last_daily_reset(now) - opened)
+                     / weekly_reset.DAY)
+    if days <= 0:
+        return 0
+    return math.ceil(max(row["total_count"] - used, 0) / days)
+
+
+def _latest_overclock_shape(rows, name, shapes):
+    """The shape the most recently played ended event ran at, or None.
+
+    Its last `count` is read through the recurring shapes, so a final
+    day the event ended part-way through still names the shape it was
+    part of.
+    """
+    ended = [row for key, row in rows.items()
+             if key != name and isinstance(row, dict)
+             and _is_count(row.get("count")) and row["count"] > 0]
+    if not ended:
+        return None
+    last = max(ended, key=lambda row: (row.get("reset_time") or 0,
+                                       str(row.get("res_id") or "")))
+    return next((shape for shape in shapes if shape >= last["count"]),
+                None)
 
 
 def _event_overclock(raw, name, window, now):
@@ -1378,11 +1417,16 @@ def _event_overclock(raw, name, window, now):
         if not (_is_count(touched)
                 and touched < weekly_reset.last_daily_reset(now)):
             used = max(row["count"], 0)
-    cap = max(OVERCLOCK_USES, used)
-    for shape in _overclock_cap(rows, name):
-        if shape >= used:
-            cap = shape
-            break
+    shapes = _overclock_cap(rows, name)
+    needed = max(used, _overclock_days_before(row, window, now, used))
+    cap = next((shape for shape in shapes if shape >= needed),
+               max(OVERCLOCK_USES, needed))
+    # Where nothing on the live event's own record settles the shape,
+    # it reads as the last event's: a day that opens on `0/2` would
+    # otherwise stay a two until a third run proves the six.
+    latest = _latest_overclock_shape(rows, name, shapes)
+    if latest is not None and latest >= needed:
+        cap = latest
     if used < cap:
         return [("%d/%d" % (used, cap), TODO)]
     return [("%d/%d" % (used, cap),
@@ -2556,6 +2600,7 @@ BASIN_REWARD_FIELD = "reward_entities"
 # history. See `_offensive`.
 OFFENSIVE_FIELD = "remnants_entities"
 OFFENSIVE_HISTORY_FIELD = "remnants_rankings"
+OFFENSIVE_STANDING_FIELD = "remnants_entity"
 OFFENSIVE_STARS = 3
 OFFENSIVE_BOSSES = 3
 
@@ -4606,6 +4651,12 @@ def _offensive(raw, now):
     Offensive on record had, or `OFFENSIVE_BOSSES`, whichever is most: a
     boss has no row until it is fought. A row of another Offensive than
     the one running is a past season's and counts nothing.
+
+    **The stars are the board's or the rewards claimed, whichever is
+    more.** Resetting a boss zeroes its row's `star_count` and keeps
+    the star rewards already claimed, so the board alone reads a reset
+    Offensive as untouched. `remnants_entity.reward_count` counts those
+    rewards, and only for the Offensive it names.
     """
     live, _window = schedules.live(COUNTDOWNS["offensive"], raw, now)
     board = raw.get(OFFENSIVE_FIELD)
@@ -4621,8 +4672,13 @@ def _offensive(raw, now):
                                  if isinstance(history, dict) else ())
             if name != live and isinstance(season, dict)]
     bosses = max([len(rows), OFFENSIVE_BOSSES] + past)
-    return (sum(row.get("star_count") or 0 for row in rows),
-            OFFENSIVE_STARS * bosses)
+    stars = sum(row.get("star_count") or 0 for row in rows)
+    standing = raw.get(OFFENSIVE_STANDING_FIELD)
+    if (isinstance(standing, dict)
+            and standing.get("define_id") in (None, live)
+            and _is_count(standing.get("reward_count"))):
+        stars = max(stars, standing["reward_count"])
+    return stars, OFFENSIVE_STARS * bosses
 
 
 def _one(text, state):

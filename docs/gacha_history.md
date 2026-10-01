@@ -13,7 +13,8 @@ Nothing arrives by itself. The records are sent only when the player opens a ban
 | `gacha/history {"id": <banner>, "last_db_id": <cursor>}` | `gacha_history_list`, `next_page_exists` | one page of records, newest first. The cursor is the previous page's last record `id`; `0` is the first page |
 | `gacha/get_rate {"gacha_id": <banner>}` | `rates`, `total_rate_info`, `pools` | the banner's base rates, its consolidated rates (pity included), and every unit it can pay, grouped by tier |
 | `gacha/get_list` | `gacha_pity_entity_list` | one pity record per category. Sent at every login |
-| `gacha/run`, `gacha/pity_target` | `gacha_pity_entity` | the one pity record the pull or the target change moved |
+| `gacha/run {"id": <banner>, "count": n}` | `list`, `gacha_pity_entity` | the units pulled, each with `res_id`, `is_prism` and the items it paid beside itself (`reward_items`); and the one pity record the pull moved |
+| `gacha/pity_target` | `gacha_pity_entity` | the one pity record the target change moved |
 
 A record is `{"id", "user_id", "gacha_id", "count", "reward", "prism", "createAt"}`, and **`reward` and `prism` are JSON TEXT**, `"[1009,30117]"`, not lists.
 
@@ -23,7 +24,7 @@ A record is `{"id", "user_id", "gacha_id", "count", "reward", "prism", "createAt
 
 **`prism` is not a 50/50 flag.** It is set on every 4-star and 5-star out of the Observe Prism Module (`gacha_card_factor`), which pays Prism Film for them. hub-czn read it as "won the 50/50", which is why its win rate read 100% on that banner and 0% everywhere else.
 
-`gacha/run`'s own reply is not kept: the records restate every pull in it, with an id, the next time they are read.
+**A pull made while capturing is kept off its own reply** (`pulls` in `captured.json`): its `list` names every unit in the order the record will, and its `service_server_time` is the record's `createAt` to the second. It has no `id` until the records are read; a page bringing the record replaces it, matched by second and units, and the loader matches the two the same way so neither can count twice.
 
 A pity record carries `pity_ssr_count` (pulls since the last 5-star), `pity_sr_count` (since the last 4-star -- **a 5-star does not reset it**), `createAt` (the category's first pull ever), `updateAt` -- which moves with some pulls and not others -- and `version`, the record's write counter.
 
@@ -33,7 +34,7 @@ A pity record carries `pity_ssr_count` (pulls since the last 5-star), `pity_sr_c
 
 | File | Written by | Holds |
 | ---- | ---------- | ----- |
-| `captured.json` | the capture addon | the records as the wire sent them, keyed by `id`; each banner's rates and when they were seen; the pity records; when each banner's first page was last read |
+| `captured.json` | the capture addon | the records as the wire sent them, keyed by `id`; each banner's rates and when they were seen; the pity records; when each banner's first page was last read; the pulls kept off their replies; how far back each read of the records reached (`reach`) |
 | `imported.json` | the Import JSON button | batches read out of other files, each marked with the file it came from |
 
 **One writer per file** is what makes an import mid-capture safe: neither process can write over what the other just wrote.
@@ -98,6 +99,10 @@ It is shown as a rank from the nearer end -- `luck_rank`, `Top 12%` or `Bottom 2
 A category is **behind** when the game's counters have moved past its history: the count since the last 5-star or the last 4-star disagreeing with what the history adds up to. **Not the pity record's `updateAt`** -- a captured single pull ticked the counters and the record's `version` and left it where it was -- though a stamp that does move past the newest record counts too, while it is within `GAME_KEEPS_DAYS`. Only for a category that has been read at least once: a finished beginner selection may have no screen left to open.
 
 Behind is urgent once the category's records were last read more than `URGENT_AFTER_DAYS` ago: the pulls it is missing were made since that read, so the oldest may already be past halfway to `GAME_KEEPS_DAYS`. The tab draws a behind banner orange and an urgent one red, with a line for each colour at the toolbar's right end. A category that is not behind is never urgent, however long ago it was read: it has nothing left to lose.
+
+**The counters are the only sign of a pull nobody captured.** Behind catches pulls made since the history's newest; it cannot see a hole BETWEEN two runs of kept pulls, which a 5-star inside it can leave the counters agreeing over.
+
+A **gap** is that hole, as a read of the records leaves it (`reach_gaps`). The addon notes each read -- the pages from the first on, one unbroken run of the newest pulls -- with how far back it got and whether any page met a record or pull kept before it began. A read that met nothing kept, with kept pulls older than it reached, leaves the pulls between unread: the game listed them and nobody turned the page. A later read closes the gap once it reaches back past where the gap opens, or to the end of the list; a read that itself reached the end leaves nothing more to read, so it opens none. A gapped banner is drawn orange, with its own line beside the behind one.
 
 No Crystals-spent figure. hub-czn showed pulls times 160, which is wrong for the Prism Module: it spends Prism Lens.
 

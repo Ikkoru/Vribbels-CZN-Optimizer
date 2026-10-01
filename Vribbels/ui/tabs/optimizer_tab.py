@@ -998,8 +998,11 @@ class OptimizerTab(BaseTab):
         self._build_important_settings(important_frame)
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
+        # spacing: border edge -> button -- panel, button ↕
+        # The bottom meets the Potential 7 button, so it takes the
+        # button rule; the other three meet the stat rows.
         have_frame = ttk.LabelFrame(
-            top_row, text="Have at least this much of a stat", padding=px((2, 3, 4, 4))
+            top_row, text="Have at least this much of a stat", padding=px((2, 3, 4, 3))
         )
         # spacing: content frame -> content frame -- frame, frame ↔
         have_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
@@ -1013,18 +1016,6 @@ class OptimizerTab(BaseTab):
         set_frame.pack(fill=tk.X, pady=px((0, 5)))
         self._set_frame_ref = set_frame
         self._build_set_config(set_frame)
-
-        # The space under Set Configuration, with the Potential 7 button
-        # at its centre. `place` keeps the button out of the column's
-        # requested height, so the space is only what the panels above
-        # leave and the button moves nothing else.
-        p7_space = ttk.Frame(parent)
-        p7_space.pack(fill=tk.BOTH, expand=True)
-        self.p7_fill_button = ttk.Button(
-            p7_space, text="Fill in Potential 7 minimums",
-            command=self._fill_potential_7_minimums, state="disabled")
-        self.p7_fill_button.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        self._tooltip.bind(self.p7_fill_button, P7_FILL_TOOLTIP)
 
         # The "Exclude Combatant's MFs" panel lives in col 2 above the
         # Results frame -- see setup_ui. _build_exclude_gear is called
@@ -1354,6 +1345,21 @@ class OptimizerTab(BaseTab):
                 wraplength=max(px(175), e.width - px(19))),
             add="+",
         )
+
+        # The Potential 7 button, centred at the panel's foot. Packed to
+        # the BOTTOM, so whatever height the panel has past its rows --
+        # it is stretched to Important Settings' -- opens between the
+        # note and the button, and the button keeps the border's 3.
+        self.p7_fill_button = ttk.Button(
+            parent, text="Fill in Potential 7 minimums",
+            command=self._fill_potential_7_minimums, state="disabled")
+        # spacing: explanation text -> the controls it explains -- label, button ↕
+        # The `padx` centres it on the panel's border rather than on its
+        # content box, which the panel's 2 left / 4 right padding sets
+        # off-centre.
+        self.p7_fill_button.pack(side=tk.BOTTOM, pady=px((3, 0)),
+                                 padx=px((2, 0)))
+        self._tooltip.bind(self.p7_fill_button, P7_FILL_TOOLTIP)
 
     def _build_hal_row(self, parent, stat, label_width=None, label_pad=2,
                        spin_width=4):

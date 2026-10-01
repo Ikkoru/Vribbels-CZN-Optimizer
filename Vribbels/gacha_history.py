@@ -12,7 +12,9 @@ Two files under `snapshots/gacha_history/`, each with ONE writer:
 * `captured.json` -- the capture addon's. The game's own records, kept
   in the wire's shape and keyed by the `id` the game gives each one,
   with the banners' rates, the pity counters and when each banner's
-  list was last read.
+  list was last read. Beside them, the pulls the capture saw made,
+  each kept until its record comes in, and how far back each read of
+  the records reached.
 * `imported.json` -- the Import button's: batches read out of another
   program's export, or out of an earlier export of this one.
 
@@ -69,6 +71,10 @@ GAME_KEEPS_DAYS = 183
 # the pulls that move it at all. The record is stamped a second or so
 # after the batch it counts.
 BEHIND_SLACK = 10
+
+# How many Rescue records reads `captured.json`'s `reach` keeps, newest
+# last: what `reach_gaps` judges a read against is the reads after it.
+REACH_KEEP = 200
 
 # How long ago a behind pool's records may have been read before it is
 # urgent. Its missing pulls were made since that read, so the oldest may
@@ -691,6 +697,10 @@ class PoolStats:
         self.behind = False
         # Behind, and last read more than `URGENT_AFTER_DAYS` ago.
         self.urgent = False
+        # (newest pull kept before, oldest read after) where a Rescue
+        # records read stopped short of what was already kept, so the
+        # pulls between may be missing. See `reach_gaps`.
+        self.gap = None
         self.read_at = None
         self.first_at = None
         self.last_at = None
@@ -1136,6 +1146,15 @@ def load(folder, now=None, shipped=None):
 
     game = [b for b in (batch_from_record(r, "game") for r in
                         captured.get("records") or []) if b is not None]
+    # Pulls the capture kept off their own replies, until the game's
+    # record of each comes in. They count as the game's against an
+    # import: they name their banner and their Prism units.
+    game_slots = {_batch_key(b) for b in game}
+    game_contents = {_same_content(b) for b in game}
+    game += [b for b in (batch_from_record(r, "pull") for r in
+                         captured.get("pulls") or [])
+             if b is not None and _batch_key(b) not in game_slots
+             and _same_content(b) not in game_contents]
     # **The game's own record wins wherever it covers the same pulls.**
     # An import is matched to a captured record by the record's id, by
     # its pool and second, or by its second and every unit in it -- the
@@ -1186,11 +1205,59 @@ def load(folder, now=None, shipped=None):
         if entry and (entry.stats.read_at is None
                       or str(when) > entry.stats.read_at):
             entry.stats.read_at = str(when)
+    for pool, gap in reach_gaps(history.batches,
+                                captured.get("reach")).items():
+        if pool in history.pools:
+            history.pools[pool].stats.gap = gap
     now = time.time() if now is None else now
     for entry in history.pools.values():
         _judge_freshness(entry, now)
     history.overall = across_pools(history)
     return history
+
+
+def reach_gaps(batches, reach):
+    """{pool: (newest pull kept before, oldest read after)} for each
+    pool whose Rescue records were read without reaching the pulls
+    already kept.
+
+    `reach` is the capture's record of each read (`_note_reach` in the
+    addon): one unbroken run of pages from the newest, how far back it
+    got, and whether it met anything kept before it began. **A read
+    that met nothing kept, with kept pulls older than it reached,
+    leaves the pulls between unread** -- the game listed them, but
+    nobody turned the page to them.
+
+    A later read of the same pool closes the gap once it reaches back
+    past where the gap opens, or to the end of what the game lists; a
+    read that reached the end itself leaves nothing more to read. Of
+    several gaps open in a pool, the newest is the one reported.
+    """
+    reads = {}
+    for row in reach if isinstance(reach, list) else ():
+        if (isinstance(row, dict) and row.get("banner")
+                and _int(row.get("oldest")) > 0):
+            reads.setdefault(pool_of(str(row["banner"])), []).append(row)
+    kept = {}
+    for batch in batches:
+        kept.setdefault(batch["pool"], []).append(batch["createAt"])
+    gaps = {}
+    for pool, rows in reads.items():
+        # In the order they were read: the file appends each one.
+        held = sorted(kept.get(pool, ()))
+        for index, row in enumerate(rows):
+            if row.get("bridged") or row.get("end"):
+                continue
+            oldest = _int(row["oldest"])
+            older = [at for at in held if at < oldest]
+            if not older:
+                continue
+            opens = older[-1]
+            if any(later.get("end") or _int(later.get("oldest")) <= opens
+                   for later in rows[index + 1:]):
+                continue
+            gaps[pool] = (opens, oldest)
+    return gaps
 
 
 def _order(batch):
