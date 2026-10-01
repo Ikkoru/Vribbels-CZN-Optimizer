@@ -18,8 +18,9 @@ that `grep "checkbox"` finds every checkbox gap rather than the subset
 that happened to spell it that way. Free text would decay into
 `checkbox` / `checkbutton` / `cb` and the searchability with it.
 
-A marker whose distance is a floor, not a value, ends ` -- minimum`
-after its orientation; that ending and nothing else may follow it.
+A marker whose distance is a floor, not a value, opens `minimum -- `
+before its rule, the way `exception -- ` does, so every marker still
+ends with its arrow.
 """
 
 import glob
@@ -36,8 +37,8 @@ MARKER = re.compile(r"#\s*spacing:\s*(.+?)\s*$", re.M)
 # for it would drop the site out of the other arrow's grep.
 ORIENTATIONS = ("↔", "↕", "↔↕")
 SUFFIX = re.compile(r"^(.*?)\s*([↔↕]+)$")
-# What ends a marker whose distance is a floor (`TrackedGap.minimum`).
-MINIMUM = " -- minimum"
+# What opens a marker whose distance is a floor (`TrackedGap.minimum`).
+MINIMUM = "minimum -- "
 
 # Headings this check reads the doc through. Kept here so a rename shows
 # up as one edit rather than four scattered string literals.
@@ -142,9 +143,9 @@ def _split_suffix(body):
 
 
 def minimum_of(body):
-    """(body without a trailing ` -- minimum`, whether it had one)."""
-    if body.endswith(MINIMUM):
-        return body[:-len(MINIMUM)], True
+    """(body without a leading `minimum -- `, whether it had one)."""
+    if body.startswith(MINIMUM):
+        return body[len(MINIMUM):], True
     return body, False
 
 
@@ -218,12 +219,15 @@ def run():
         for m in MARKER.finditer(text):
             line = text[:m.start()].count("\n") + 1
             where = f"{rel}:{line}"
+            # A floor is a RULE's distance read as the least it may be,
+            # so `minimum -- ` opens a plain rule marker and nothing else.
             body, floor = minimum_of(m.group(1))
-            if floor and body.startswith(("TBD -- ", "out of scope -- ")):
+            if floor and body.startswith(("TBD -- ", "out of scope -- ",
+                                          "exception -- ", "unique -- ")):
                 failures.append(
-                    f"{where} ends ` -- minimum` on a marker with no "
-                    f"distance to be a floor: only a rule, an exception "
-                    f"or a unique carries one.")
+                    f"{where} opens `minimum -- ` before a marker that is "
+                    f"not a rule's: a floor is the least of a rule's own "
+                    f"distance.")
             if body.startswith("TBD -- "):
                 code_tbd.add(body[len("TBD -- "):])
             elif body.startswith("exception -- "):

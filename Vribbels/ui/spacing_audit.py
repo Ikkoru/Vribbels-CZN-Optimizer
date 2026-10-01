@@ -665,7 +665,7 @@ class TrackedGap:
     `minimum` makes `target` a floor rather than a value: the row passes
     at the target or above it. For a gap that varies by construction --
     a reflowed row justified to its panel's edge -- where only the least
-    of it is a lever. Its marker ends ` -- minimum`, and a reading above
+    of it is a lever. Its marker opens `minimum -- `, and a reading above
     the floor is not a baseline change.
     """
     name: str

@@ -395,6 +395,23 @@ def _text_inset(locator, side="left"):
     return resolve
 
 
+def _caption_to_buttons(panel, prefix):
+    """Resolver: a caption's ink, inside `panel` -> the panel's first
+    button, packed under it."""
+    def resolve(cap, app):
+        frame = _panel(app, panel)
+        label = sa.find_descendant_text(frame, prefix)
+        if label is None:
+            return None, f"no caption starting {prefix!r} in {panel!r}"
+        buttons = sa.find_descendants_class(frame, "TButton", "Button")
+        if not buttons:
+            return None, f"no button in {panel!r}"
+        return restate_from_reference(
+            *sa.vertical_gap(cap, label, buttons[0]),
+            ink_below_baseline(label.cget("text")))
+    return resolve
+
+
 def _caption_to_field(prefix):
     """Resolver: a caption's ink -> the field packed under it.
 
@@ -1634,6 +1651,17 @@ PAIR_GAP_ENTRIES = [
 # one width, sized to the longest, so every shorter label simply has
 # more room before its element and only the longest one's gap is the
 # distance that was set.
+# A floor's lever, read where nothing widens it: `Exclude checkboxes`
+# is a floor in the app's own layout, and here, with no row justified,
+# EXACT -- every gap in every row a sibling of the reported one. Between
+# them they say whether the gap is right, where the floor alone cannot
+# tell a 9 the justification made from a 9 the lever did.
+UNJUSTIFIED_PAIR_ENTRIES = [
+    ("Optimizer", "Exclude checkboxes [unjustified]", 8, None,
+     _block_in("Exclude Combatant's MFs", CHECKBOX_CLASSES),
+     CHECKBOX_CLASSES, None),
+]
+
 HAL_TITLE = "Have at least this much of a stat"
 LABEL_ELEMENT_ENTRIES = [
     # [Fracture] [====slider====] [nn%] -- the widest of the three damage
@@ -3706,9 +3734,28 @@ def _restore_element_override(app):
         tab.element_override_frame.pack_forget()
 
 
+def _exclude_justified(on):
+    """Scenario half: lay the exclude checkboxes out with every row
+    justified to the panel's edge (`on`, as the app does) or none.
+
+    **What makes a floor checkable.** Justified, a row's gaps are the
+    leftover width shared out, so a reading of 9 is as good as 8 and a
+    lever that cannot reach 8 any more reads the same as one that can.
+    Unjustified, every gap in every row IS the lever, and each must read
+    the rule's distance exactly.
+    """
+    def apply(app):
+        tab = app.optimizer_tab_instance
+        tab.exclude_justify = on
+        tab._reflow_exclude_heroes(force=True)
+    return apply
+
+
 sa.register_scenario("element_override",
                      _force_element_override,
                      _restore_element_override)
+sa.register_scenario("exclude_unjustified", _exclude_justified(False),
+                     _exclude_justified(True))
 sa.register_scenario("max_readouts", _max_readouts, _restore_readouts)
 sa.register_scenario("widest_stats", _widest_stats(1),
                      _restore_selection)
@@ -4849,14 +4896,17 @@ SETTINGS_ENTRIES = [
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
 AWAITING_FIRST_READING = {
-    "HAL ATK -> its spinbox",
     "HAL CDMG% -> its spinbox",
     "HAL Extra% -> its spinbox",
+    "Exclude checkboxes [unjustified]",
+    "Have at least this much of a stat: left edge -> Minimum",
+    "HAL Minimum -> Full Effect",
+    "HAL Potential 7 caption -> its buttons",
 }
 
 # Entries whose target is a FLOOR (`TrackedGap.minimum`): the gap varies
 # by construction and only its least is a lever. Each one's call site
-# ends its marker ` -- minimum`, which `check_spacing_registry` pairs
+# opens its marker `minimum -- `, which `check_spacing_registry` pairs
 # with this set by rule.
 MINIMUM_GAPS = {
     # The exclude reflow justifies every row but the last to the
@@ -5012,7 +5062,9 @@ def register_all():
     for rule, table, scenario in (
             (RULE_PAIR_GAP, PAIR_GAP_ENTRIES, "default"),
             (RULE_LABEL_ELEMENT, LABEL_ELEMENT_ENTRIES, "default"),
-            (RULE_LABEL_ELEMENT, READOUT_ENTRIES, "max_readouts")):
+            (RULE_LABEL_ELEMENT, READOUT_ENTRIES, "max_readouts"),
+            (RULE_PAIR_GAP, UNJUSTIFIED_PAIR_ENTRIES,
+             "exclude_unjustified")):
         for tab, name, target, hand, container, classes, index in table:
             # One entry at a time, while a distance no padding reaches is
             # being chased. Empty the set once it has answered.
@@ -5559,6 +5611,21 @@ def register_all():
             resolve=_first_button_gap(title),
             axis="h",
         )
+
+    # Have at least's Potential 7 fill: a caption over `Minimum` and
+    # `Full Effect`, at the panel's foot and left edge. The bottom edge
+    # is `PANEL_EDGES`'.
+    for name, rule, target, resolve, axis in (
+            (f"{HAL_TITLE}: left edge -> Minimum", RULE_BORDER_EDGE_BUTTON,
+             3, _first_button_left_inset(HAL_TITLE), "h"),
+            ("HAL Minimum -> Full Effect", RULE_BUTTON_GAP, 4,
+             _first_button_gap(HAL_TITLE), "h"),
+            ("HAL Potential 7 caption -> its buttons", RULE_TITLE_ELEMENT,
+             _title_gap_target("Fill in Potential 7 values:"),
+             _caption_to_buttons(HAL_TITLE, "Fill in Potential 7"), "v")):
+        sa.track(name=name, tab="Optimizer", rule=rule, target=target,
+                 resolve=resolve, axis=axis,
+                 provisional=name in AWAITING_FIRST_READING)
 
     # **The scenario goes in the NAME.** Three of these panels are
     # measured in the default state too, and the baseline is keyed by

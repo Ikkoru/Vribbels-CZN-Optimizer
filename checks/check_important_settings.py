@@ -219,42 +219,52 @@ def _panel_is_its_widest_row(tab, scale_name, ot):
     return out
 
 
-def _fill_button_at_foot(tab, scale_name):
-    """The Potential 7 button sits centred at Have at Least's foot, at
-    the height it asks for, under the note."""
-    hal = _panel(tab, "Have at least this much of a stat")
-    button = tab.p7_fill_button
-    if hal is None or str(button.winfo_parent()) != str(hal):
-        return [f"At {scale_name} the Potential 7 button is not in the "
-                f"Have at Least panel."]
-    out = []
-    if button.winfo_height() != button.winfo_reqheight():
-        out.append(
-            f"At {scale_name} the Potential 7 button is "
-            f"{button.winfo_height()}px tall and asks for "
-            f"{button.winfo_reqheight()}px. A button keeps the height "
-            f"every other button has; the panel grows instead.")
-    # Twice the centre against the width, so an odd leftover pixel
-    # reads as 1 and anything more as off-centre.
-    middle = button.winfo_x() * 2 + button.winfo_width()
-    if abs(middle - hal.winfo_width()) > 1:
-        out.append(
-            f"At {scale_name} the Potential 7 button's centre is "
-            f"{middle / 2}px into a {hal.winfo_width()}px panel: it "
-            f"sits centred.")
+def _fill_button_at_foot(tab, scale_name, ot):
+    """The Potential 7 fill: its caption, then `Minimum` and `Full
+    Effect` side by side at Have at Least's foot and left edge, at the
+    height a button asks for."""
     from ui.scaling import px
-    # Under it, the panel's bottom inset and the frame's 2px border and
-    # nothing more: the row's slack opens above the button, not below.
-    below = hal.winfo_height() - button.winfo_y() - button.winfo_height()
-    others = [w for w in hal.winfo_children() if w is not button]
-    lowest = max((w.winfo_y() + w.winfo_height() for w in others),
-                 default=0)
-    if button.winfo_y() < lowest or below > px(3) + 2:
+    hal = _panel(tab, "Have at least this much of a stat")
+    buttons = [tab.p7_buttons.get(key) for key in ("minimum", "full")]
+    if hal is None or None in buttons:
+        return [f"At {scale_name} Have at Least has no Minimum and Full "
+                f"Effect buttons."]
+    row = buttons[0].master
+    if row.master is not hal or buttons[1].master is not row:
+        return [f"At {scale_name} the Potential 7 buttons are not one row "
+                f"in the Have at Least panel."]
+    out = []
+    if [b.cget("text") for b in buttons] != ["Minimum", "Full Effect"]:
+        out.append(f"At {scale_name} the Potential 7 buttons read "
+                   f"{[b.cget('text') for b in buttons]}.")
+    for button in buttons:
+        if button.winfo_height() != button.winfo_reqheight():
+            out.append(
+                f"At {scale_name} {button.cget('text')!r} is "
+                f"{button.winfo_height()}px tall and asks for "
+                f"{button.winfo_reqheight()}px: a button keeps every "
+                f"other button's height, and the panel grows instead.")
+    # The panel's left content edge, where its text starts.
+    left = min(w.winfo_x() for w in hal.winfo_children() if w is not row)
+    if row.winfo_x() - left != px(1):
         out.append(
-            f"At {scale_name} the Potential 7 button sits at y="
-            f"{button.winfo_y()} with {below}px under it, the note "
-            f"ending at {lowest}: it belongs under the note, at the "
-            f"panel's foot.")
+            f"At {scale_name} the Potential 7 buttons start "
+            f"{row.winfo_x() - left}px past the panel's text, not "
+            f"{px(1)}: the button rule's 3 is the text inset's 2 and one.")
+    below = hal.winfo_height() - row.winfo_y() - row.winfo_height()
+    caption = [w for w in hal.winfo_children()
+               if w.winfo_class() == "TLabel"
+               and w.cget("text") == ot.P7_FILL_CAPTION]
+    if below > px(3) + 2:
+        out.append(
+            f"At {scale_name} the Potential 7 buttons sit {below}px above "
+            f"the panel's bottom: the row's slack opens above the "
+            f"caption, not under the buttons.")
+    if not caption or caption[0].winfo_y() + caption[0].winfo_height() \
+            != row.winfo_y():
+        out.append(
+            f"At {scale_name} the caption {ot.P7_FILL_CAPTION!r} is "
+            f"missing or not straight above the buttons.")
     return out
 
 
@@ -296,13 +306,12 @@ def _hal_labels_fit(tab, scale_name, ot):
                 f"{[t for t, _l, _s in rows]} start at {sorted(lefts)}: a "
                 f"column's line up.")
         # Held to the rule's 5 to the INK (docs/ui_spacing.md), less the
-        # label's own inset and plus a `%`'s overhang -- never to the
-        # tab's constant: a check reading the lever it guards passes
-        # whatever the lever says. Scaled whole like every label's pad.
+        # label's own inset -- never to the tab's constant: a check
+        # reading the lever it guards passes whatever the lever says.
+        # Scaled whole like every label's pad.
         from ui.utils.label_width import LABEL_REQUEST_INSET
         text, label, spin = max(rows, key=lambda r: font.measure(r[0]))
-        overhang = ot.PERCENT_INK_OVERHANG if text.endswith("%") else 0
-        want = px(5 - LABEL_REQUEST_INSET // 2 + overhang)
+        want = px(5 - LABEL_REQUEST_INSET // 2)
         got = spin.winfo_rootx() - label.winfo_rootx() - label.winfo_width()
         if got != want:
             out.append(
@@ -318,30 +327,56 @@ def _descendants(widget):
         yield from _descendants(child)
 
 
-def _fill_raises_only(tab):
-    """The fill button's handler, with two minimums stood in."""
+def _p7_values_read_the_table():
+    """What the two buttons write, off the Potential 7 table: the lowest
+    threshold on each checked stat, and where the highest tops out."""
+    from game_data.potential_7 import (potential_7_minimums,
+                                       potential_7_switch_ons)
     out = []
-    atk, crate = tab.have_at_least_vars["ATK"], tab.have_at_least_vars["CRate"]
-    saved = (atk.get(), crate.get())
-    tab._potential_7_minimums = lambda _name: {"ATK": 800, "CRate": 50.0}
+    for rid, who, on, full in (
+            (30075, "Sereniel", {"CRate": 20}, {"CRate": 40}),
+            (1018, "Rin", {"ATK": 600}, {"ATK": 1000}),
+            (1008, "Khalipe", {"ATK": 700, "DEF": 300},
+             {"ATK": 700, "DEF": 300})):
+        got = (potential_7_switch_ons(rid), potential_7_minimums(rid))
+        if got != (on, full):
+            out.append(
+                f"{who}'s Potential 7 fills read Minimum {got[0]} and Full "
+                f"Effect {got[1]}, not {on} and {full}: Minimum is each "
+                f"checked stat's lowest threshold, Full Effect where its "
+                f"highest tops out.")
+    return out
+
+
+def _fill_sets_only_checked(tab):
+    """The fill buttons' handler, with a check on ATK stood in: each
+    button SETS that stat -- up or down -- and touches no other."""
+    out = []
+    hal = tab.have_at_least_vars
+    saved = {stat: var.get() for stat, var in hal.items()}
+    stood_in = {False: {"ATK": 600}, True: {"ATK": 1000.4}}
+    tab._potential_7_values = lambda _name, full: stood_in[full]
     try:
-        atk.set(1000)
-        crate.set(10.0)
-        tab._fill_potential_7_minimums()
-        if atk.get() != 1000:
-            out.append(
-                f"Filling Potential 7 minimums moved an ATK minimum of "
-                f"1000 to {atk.get()} against a threshold of 800. A "
-                f"minimum set above the threshold by hand is a goal of "
-                f"its own; the fill raises, never lowers.")
-        if float(crate.get()) != 50.0:
-            out.append(
-                f"Filling Potential 7 minimums left a CRate minimum of "
-                f"10.0 at {crate.get()} against a threshold of 50.0.")
+        for full, start, want in ((False, 900, 600), (True, 700, 1001)):
+            for stat, var in hal.items():
+                var.set(7)
+            hal["ATK"].set(start)
+            tab._fill_potential_7(full)
+            which = "Full Effect" if full else "Minimum"
+            if hal["ATK"].get() != want:
+                out.append(
+                    f"{which} took an ATK minimum of {start} to "
+                    f"{hal['ATK'].get()}, not {want}: it sets the checked "
+                    f"stat outright, a whole number rounded up.")
+            moved = [stat for stat, var in hal.items()
+                     if stat != "ATK" and float(var.get()) != 7]
+            if moved:
+                out.append(f"{which} moved {moved} as well; only the "
+                           f"stats Potential 7 checks change.")
     finally:
-        del tab._potential_7_minimums
-        atk.set(saved[0])
-        crate.set(saved[1])
+        del tab._potential_7_values
+        for stat, value in saved.items():
+            hal[stat].set(value)
     return out
 
 
@@ -361,10 +396,11 @@ def _measure(scale_name):
         try:
             failures.extend(_least_length_is_least(root, scale_name, ot))
             failures.extend(_panel_is_its_widest_row(tab, scale_name, ot))
-            failures.extend(_fill_button_at_foot(tab, scale_name))
+            failures.extend(_fill_button_at_foot(tab, scale_name, ot))
             failures.extend(_hal_labels_fit(tab, scale_name, ot))
             if scale_name == SCALES[0]:
-                failures.extend(_fill_raises_only(tab))
+                failures.extend(_fill_sets_only_checked(tab))
+                failures.extend(_p7_values_read_the_table())
         finally:
             root.destroy()
     finally:

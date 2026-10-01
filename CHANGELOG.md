@@ -11,7 +11,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Added
 
 - **Potential 7** counts wherever a combatant has it: in their stats, in the Optimizer's score, and in `Show all stat contributions`. Its bonus to a card, a Quest or Weakness Damage is not scored.
-  - Optimizer: the score decides for itself whether meeting a Potential 7 requirement is worth the stats. `Fill in Potential 7 minimums` raises the Have at least minimums to what the combatant's Potential 7 asks for in full.
+  - Optimizer: the score decides for itself whether meeting a Potential 7 requirement is worth the stats. Under `Fill in Potential 7 values:` in Have at least, `Minimum` sets the stats the combatant's Potential 7 checks to where it switches on, and `Full Effect` to where it tops out.
   - Combatants: node 7's line says what it raises.
 - **Capture:**
   - Two options in Upgrade Log Settings, both off by default:

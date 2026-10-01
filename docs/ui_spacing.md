@@ -114,12 +114,15 @@ The **Marker** column is the canonical spelling, in both directions: the widget 
 | `# spacing: <rule> -- <suffix>`              | this value is a lever for that rule                            |
 | `# spacing: exception -- <rule> -- <suffix>` | that rule applies here and is deliberately not followed        |
 | `# spacing: unique -- <what> -- <suffix>`    | deliberate, and no rule will ever cover it                     |
+| `# spacing: minimum -- <rule> -- <suffix>`   | a lever for that rule, whose distance is a floor here          |
 | `# spacing: TBD -- <description>`            | deliberate, no rule yet, awaiting a ruling                     |
 | `# spacing: out of scope -- <why>`           | outside what the rules cover, marked so it reads as a decision |
 
-`<suffix>` is `<elements> <orientation>`, below, and ends the line, unless the distance is a floor.
+`<suffix>` is `<elements> <orientation>`, below, and always ends the line.
 
-**A floor ends ` -- minimum`**, after the orientation: a gap that varies by construction, where only its least is a lever and the rule's number is what it may not drop below. The Optimizer's exclude checkboxes are the case: every reflowed row but the last is justified to the panel's edge. Its registry entry is in `MINIMUM_GAPS`, and `check_spacing_registry` pairs the two by rule.
+**A floor is a `minimum`**: a gap that varies by construction, where only its least is a lever and the rule's number is what it may not drop below. The Optimizer's exclude checkboxes are the case: every reflowed row but the last is justified to the panel's edge. Its registry entry is in `MINIMUM_GAPS`, and `check_spacing_registry` pairs the two by rule. `grep "spacing: minimum"` finds every one.
+
+**A floor alone cannot tell a right lever from a wrong one**: a 9 the variation made reads the same as a 9 from a lever that can no longer reach 8. So each floor is paired with an EXACT entry measured in a scenario that switches the variation off — for the exclude checkboxes, `exclude_unjustified` lays every row out unstretched and `Exclude checkboxes [unjustified]` holds each gap to 8. That reads the lever itself, every gap in the panel a sibling, whatever the roster and the window width.
 
 `exception` names the rule it breaks, in the Marker column's spelling, with the reason on the lines below — grepping a rule has to surface its own exceptions. `unique` has no rule to break; both must name their subject precisely enough that grep finds one site and not its neighbour. Padding doing genuinely unrelated work stays unmarked.
 
@@ -137,7 +140,7 @@ Every marker carries a suffix naming the two elements and the orientation of the
 # spacing: <rule> -- <elements, comma separated> <↔, ↕ or ↔↕>
 # spacing: exception -- <rule> -- <elements> <↔, ↕ or ↔↕>
 # spacing: unique -- <what> -- <elements> <↔, ↕ or ↔↕>
-# spacing: <rule> -- <elements> <↔, ↕ or ↔↕> -- minimum
+# spacing: minimum -- <rule> -- <elements> <↔, ↕ or ↔↕>
 ```
 
 The suffix makes the sites obeying a rule greppable instead of listed by hand, and it makes a rule SPLIT cheap: if `label ↔ its element` ever needs separating by orientation, the instances are already tagged.
@@ -150,18 +153,17 @@ The elements are written in layout order — top-to-bottom for `↕`, left-to-ri
 
 Line length grows to about 95 characters at worst. The one-line rule wins over the margin.
 
-**Anchor an orientation grep to the end of the line**, allowing a floor's ending. Five rule NAMES carry an arrow of their own, so an unanchored `grep "↔"` returns those sites too whatever their actual orientation.
+**Anchor an orientation grep to the end of the line.** Five rule NAMES carry an arrow of their own, so an unanchored `grep "↔"` returns those sites too whatever their actual orientation.
 
-| Want                                 | Grep                          |
-| ------------------------------------ | ----------------------------- |
-| horizontal only                      | `↔\( -- minimum\)\?$`         |
-| vertical only                        | `[^↔]↕\( -- minimum\)\?$`     |
-| both directions                      | `↔↕\( -- minimum\)\?$`        |
-| anything with a horizontal component | `↔↕\?\( -- minimum\)\?$`      |
-| anything with a vertical component   | `↕\( -- minimum\)\?$`         |
-| floors only                          | ` -- minimum$`                |
+| Want                                 | Grep     |
+| ------------------------------------ | -------- |
+| horizontal only                      | `↔$`     |
+| vertical only                        | `[^↔]↕$` |
+| both directions                      | `↔↕$`    |
+| anything with a horizontal component | `↔↕\?$`  |
+| anything with a vertical component   | `↕$`     |
 
-Every marker ends with its arrow or with ` -- minimum` straight after it, `unique` included — which is why that form puts its free-prose subject BEFORE the suffix and the check splits it from the right.
+Every marker ends with its arrow, `unique` and `minimum` included — which is why those forms put what qualifies the marker BEFORE the suffix, and the check splits a `unique` from the right.
 
 ### The element vocabulary
 

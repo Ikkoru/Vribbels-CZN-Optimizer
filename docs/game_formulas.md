@@ -94,7 +94,7 @@ bonus = 0                                              if check < T
 - **Growth is continuous, not stepped**: 324 DEF against 300, +2 per 10, gives +4.8.
 - **Where a bonus lands**: ATK% and DEF% in the inner %, beside nodes 5 and 6; CRate, CDmg and Extra DMG% on the final stat; attribute damage in the element multiplier (§7), beside the fragments' element main stat.
 - **A start-of-battle bonus is not on the entered sheet**: Orlea's +6% CRate and Tiphera's +10% CDmg, each given to every ally when the battle starts. The score counts it all the same, since "allies" includes the combatant.
-- **Not priced**, though their thresholds still fill the Have-at-least minimums (the Optimizer's `Fill in Potential 7 minimums`):
+- **Not priced**, though their thresholds still fill the Have-at-least minimums (the Optimizer's `Fill in Potential 7 values:` buttons, `Minimum` to where a check switches on and `Full Effect` to where it tops out):
   - a bonus to one card's damage, shield or heal, since which deck a player takes into a battle cannot be known;
   - Cassius' Quest triggers;
   - Mei Lin's Weakness Damage, since the score has no weakness term.

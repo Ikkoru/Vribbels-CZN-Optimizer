@@ -23,8 +23,8 @@ res_id -> a tuple of effects, each a dict:
             Tiphera). The score counts it all the same: "allies"
             includes the combatant
     card    what an unpriced effect acts on, for display
-    fill    for an any-of check, the stat the Optimizer's Fill button
-            asks for (Orlea's DEF): no single minimum stands for "ATK or
+    fill    for an any-of check, the stat the Optimizer's Fill buttons
+            write (Orlea's DEF): no single minimum stands for "ATK or
             DEF", so the maintainer picks the one her builds go for
 
 `grants`, and where each lands (`docs/game_formulas.md` §1):
@@ -220,17 +220,31 @@ def conditions(effect: dict) -> tuple:
     return ((stat, effect.get("at")),)
 
 
+def _filled_condition(effect: dict):
+    """The one (stat, threshold) the Optimizer's Fill buttons write: the
+    check's own, or an any-of check's `fill` one; None where there is
+    no such one."""
+    conds = conditions(effect)
+    if len(conds) > 1:
+        conds = tuple(c for c in conds if c[0] == effect.get("fill"))
+    return conds[0] if len(conds) == 1 else None
+
+
+def switch_on_at(effect: dict):
+    """(stat, the least value of it that earns any of `effect`): its
+    threshold. None as for `full_at`."""
+    return _filled_condition(effect)
+
+
 def full_at(effect: dict):
     """(stat, the least value of it that earns `effect` in full): the
     threshold, or where the growth past it stops. An any-of check
     answers with its `fill` stat's threshold; None for an effect with
     no check, or an any-of one with no `fill`."""
-    conds = conditions(effect)
-    if len(conds) > 1:
-        conds = tuple(c for c in conds if c[0] == effect.get("fill"))
-    if len(conds) != 1:
+    found = _filled_condition(effect)
+    if found is None:
         return None
-    stat, at = conds[0]
+    stat, at = found
     if effect.get("per"):
         return stat, at + effect["per"] * effect["max"] / effect["add"]
     return stat, at
@@ -246,6 +260,20 @@ def potential_7_minimums(res_id: int) -> dict:
             continue
         stat, least = full
         out[stat] = max(out.get(stat, 0), least)
+    return out
+
+
+def potential_7_switch_ons(res_id: int) -> dict:
+    """{Have-at-least stat: the least value that earns any part of the
+    combatant's Potential 7 that checks it} -- the lowest threshold on
+    each stat, where `potential_7_minimums` takes the highest top."""
+    out = {}
+    for effect in get_potential_7(res_id):
+        found = switch_on_at(effect)
+        if found is None:
+            continue
+        stat, at = found
+        out[stat] = min(out.get(stat, at), at)
     return out
 
 

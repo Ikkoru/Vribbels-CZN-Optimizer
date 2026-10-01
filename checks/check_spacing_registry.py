@@ -32,7 +32,8 @@ What it enforces beyond "it imports":
     answering a DIFFERENT rule at that rule's own number is then filed
     as a hand reading nobody may touch.
   * a gap whose target is a floor (`MINIMUM_GAPS`) has a marker ending
-    ` -- minimum` under its rule, and the reverse -- see `_minimums`.
+    opening `minimum -- ` under its rule, and the reverse -- see
+    `_minimums`.
   * importing twice does not double the registry, which a second
     `register_all` call otherwise does.
 """
@@ -155,8 +156,8 @@ def _excepted_rules():
 
 
 def _minimum_rules():
-    """The rule (or a unique's `<what>`) of every marker in the widget
-    code that ends ` -- minimum`."""
+    """The rule of every marker in the widget code that opens
+    `minimum -- `."""
     from .check_spacing_markers import MARKER, minimum_of
     found = set()
     for path in glob.glob(str(SOURCE_ROOT / "**" / "*.py"), recursive=True):
@@ -165,13 +166,7 @@ def _minimum_rules():
         text = io.open(path, encoding="utf-8", errors="replace").read()
         for m in MARKER.finditer(text):
             body, floor = minimum_of(m.group(1))
-            if not floor:
-                continue
-            if body.startswith("exception -- "):
-                body = body[len("exception -- "):]
-            if body.startswith("unique -- "):
-                found.add(body[len("unique -- "):].rsplit(" -- ", 1)[0])
-            else:
+            if floor:
                 found.add(body.partition(" -- ")[0])
     return found
 
@@ -192,11 +187,11 @@ def _minimums(sa, registry):
     for rule in sorted(floors - marked):
         failures.append(
             f"an entry under {rule!r} is a minimum, and no marker for "
-            f"that rule ends ` -- minimum`. The site has to say its "
+            f"that rule opens `minimum -- `. The site has to say its "
             f"distance is a floor, or the next reader tunes it to a value")
     for rule in sorted(marked - floors):
         failures.append(
-            f"a marker for {rule!r} ends ` -- minimum` and no entry under "
+            f"a marker for {rule!r} opens `minimum -- ` and no entry under "
             f"that rule is in MINIMUM_GAPS, so the audit holds the gap to "
             f"an exact value the site says it does not have")
     return failures

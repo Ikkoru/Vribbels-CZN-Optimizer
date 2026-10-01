@@ -39,6 +39,7 @@ inline during its enumeration. This tab only handles UI / persistence /
 result display; the actual math lives in optimizer.py.
 """
 
+import math
 import tkinter as tk
 from tkinter import ttk, messagebox
 from tkinter import font as tkfont
@@ -70,7 +71,7 @@ from game_data import (
 # ("CRate", "CDmg", "Flat ATK", etc.) remain unchanged; this map is
 # consulted whenever a stat name is shown to the user.
 from game_data.constants import DISPLAY_NAMES
-from game_data.potential_7 import potential_7_minimums
+from game_data.potential_7 import potential_7_minimums, potential_7_switch_ons
 # Pure GS / Potential helpers — used by _populate_detail to compute the
 # Selected Build tree's GS and Potential columns under the character's
 # ASSIGNED scoring preset (which may differ from the globally-active
@@ -121,9 +122,6 @@ HAL_ALL_STATS = HAL_COLUMN_1 + HAL_COLUMN_2 + HAL_COLUMN_3
 # the pad is the rest of it -- scaled whole, as every label's pad in
 # the app is, though the inset itself stays 2px at 200%.
 HAL_LABEL_GAP = 5            # spacing: label ↔ its element -- label, spinbox ↔
-# A `%` inks a pixel past its advance, so a column whose widest label
-# ends in one is padded that much further.
-PERCENT_INK_OVERHANG = 1
 
 
 # Label column width shared by the Extra / Agony / Fracture sliders, in
@@ -275,8 +273,13 @@ LEVEL_CHOICES = (LEVEL_AUTO, "60", "61", "62")
 LEVEL_SPIN_W = 41
 LEVEL_TOOLTIP = ("Characters below level 60 are optimized as though "
                  "they were level 60")
-P7_FILL_TOOLTIP = ("Raises the Have-at-least minimums to what this "
-                   "Combatant's Potential 7 asks for in full")
+P7_FILL_CAPTION = "Fill in Potential 7 values:"
+P7_MINIMUM_TOOLTIP = ("Sets the stats this Combatant's Potential 7 checks "
+                      "to where it switches on. Other stats stay as they "
+                      "are")
+P7_FULL_TOOLTIP = ("Sets the stats this Combatant's Potential 7 checks "
+                   "to where it reaches its full effect. Other stats stay "
+                   "as they are")
 
 
 # Force-main checkbox definitions. Each entry: (settings key, label, slot).
@@ -428,6 +431,10 @@ class OptimizerTab(BaseTab):
         # repositioned on re-flow, never recreated -- see
         # _exclude_checkbutton / _reflow_exclude_heroes.
         self._exclude_widgets: dict = {}
+        # Off only for the spacing audit's `exclude_unjustified`
+        # scenario: every row then keeps the natural gap, which is the
+        # one lever of a gap the justification otherwise widens.
+        self.exclude_justify = True
 
         # --- Global UI vars (optimizer-wide) ---
         # Minimum MF level for optimizer candidacy: a single GLOBAL
@@ -483,7 +490,7 @@ class OptimizerTab(BaseTab):
         self.set_grid_frame = None
         self.ad_readout_label = None
         self.sh_readout_label = None
-        self.p7_fill_button = None
+        self.p7_buttons = {}           # "minimum" / "full" -> ttk.Button
         self.preset_label = None
         # One hover-tooltip instance for the whole tab: only one tooltip
         # can be visible at a time, so a second instance would buy
@@ -1330,10 +1337,7 @@ class OptimizerTab(BaseTab):
                               (col2_frame, HAL_COLUMN_2),
                               (col3_frame, HAL_COLUMN_3)):
             widest = max(column, key=_measure)
-            overhang = (PERCENT_INK_OVERHANG
-                        if DISPLAY_NAMES.get(widest, widest).endswith("%")
-                        else 0)
-            gap = px(HAL_LABEL_GAP + overhang - LABEL_REQUEST_INSET // 2)
+            gap = px(HAL_LABEL_GAP - LABEL_REQUEST_INSET // 2)
             for stat in column:
                 # 4 chars wide: a percentage to one decimal ("60.5") or a
                 # three-digit Ego fits.
@@ -1366,20 +1370,31 @@ class OptimizerTab(BaseTab):
             add="+",
         )
 
-        # The Potential 7 button, centred at the panel's foot. Packed to
-        # the BOTTOM, so whatever height the panel has past its rows --
-        # it is stretched to Important Settings' -- opens between the
-        # note and the button, and the button keeps the border's 3.
-        self.p7_fill_button = ttk.Button(
-            parent, text="Fill in Potential 7 minimums",
-            command=self._fill_potential_7_minimums, state="disabled")
-        # spacing: explanation text -> the controls it explains -- label, button ↕
-        # The `padx` centres it on the panel's border rather than on its
-        # content box, which the panel's 2 left / 4 right padding sets
-        # off-centre.
-        self.p7_fill_button.pack(side=tk.BOTTOM, pady=px((3, 0)),
-                                 padx=px((2, 0)))
-        self._tooltip.bind(self.p7_fill_button, P7_FILL_TOOLTIP)
+        # The Potential 7 fill: a caption over two buttons, at the
+        # panel's foot and left edge. Both packed to the BOTTOM -- the
+        # buttons first, so they take the foot -- and whatever height the
+        # panel has past its rows opens above the caption.
+        buttons = ttk.Frame(parent)
+        # spacing: border edge -> button -- panel, button ↔
+        # The panel's left padding is a text inset's 2; a button's edge
+        # is its box, so it takes 1 more to sit the button rule's 3 in.
+        buttons.pack(side=tk.BOTTOM, anchor=tk.W, padx=px((1, 0)))
+        for key, text, tip in (("minimum", "Minimum", P7_MINIMUM_TOOLTIP),
+                               ("full", "Full Effect", P7_FULL_TOOLTIP)):
+            button = ttk.Button(
+                buttons, text=text, state="disabled",
+                command=lambda full=key == "full":
+                    self._fill_potential_7(full))
+            # spacing: button -> button -- button, button ↔
+            button.pack(side=tk.LEFT,
+                        padx=px((4 if self.p7_buttons else 0, 0)))
+            self._tooltip.bind(button, tip)
+            self.p7_buttons[key] = button
+        # spacing: title above, element below -- label, button ↕
+        # No pad: a label's own line box below its baseline is the
+        # rule's distance, as for every caption over its control.
+        ttk.Label(parent, text=P7_FILL_CAPTION).pack(side=tk.BOTTOM,
+                                                     anchor=tk.W)
 
     def _build_hal_row(self, parent, stat, label_pad, spin_width=4):
         """One stat's label and spinbox. `label_pad` is in pixels,
@@ -1437,32 +1452,42 @@ class OptimizerTab(BaseTab):
             lambda *a, s=stat: self._save_have_at_least(s),
         )
 
-    def _potential_7_minimums(self, hero_name) -> dict:
-        """{Have-at-least stat: the least value that meets `hero_name`'s
-        Potential 7 in full} -- `game_data.potential_7`'s, empty for a
+    def _potential_7_values(self, hero_name, full) -> dict:
+        """{Have-at-least stat: where `hero_name`'s Potential 7 switches
+        on, or with `full` where it reaches its full effect} -- only the
+        stats its checks read, from `game_data.potential_7`; empty for a
         combatant it does not know. Whether node 7 is taken yet does not
         matter: a minimum is a goal."""
         res_id = self._resolve_res_id(hero_name) if hero_name else None
-        return potential_7_minimums(res_id) if res_id is not None else {}
+        if res_id is None:
+            return {}
+        return (potential_7_minimums(res_id) if full
+                else potential_7_switch_ons(res_id))
 
     def _update_p7_fill_button(self, hero_name):
-        """Enable the fill button where there is something to fill."""
-        state = "normal" if self._potential_7_minimums(hero_name) else "disabled"
-        self.p7_fill_button.configure(state=state)
+        """Enable the fill buttons where there is something to fill."""
+        state = ("normal" if self._potential_7_values(hero_name, True)
+                 else "disabled")
+        for button in self.p7_buttons.values():
+            button.configure(state=state)
 
-    def _fill_potential_7_minimums(self):
-        """Raise each Have-at-least minimum to what Potential 7 asks.
+    def _fill_potential_7(self, full):
+        """Set the Have-at-least minimums Potential 7 checks to where it
+        switches on, or with `full` to where it tops out.
 
-        Raise, never lower: a minimum set above the threshold by hand is
-        a goal of its own. The var traces save each change.
+        SET, not raised: the button says what the value becomes. Every
+        other minimum is left as it is. A whole-number stat rounds UP, so
+        a top that falls between two values is still reached. The var
+        traces save each change.
         """
-        minimums = self._potential_7_minimums(self.selected_character.get())
-        for stat, least in minimums.items():
+        values = self._potential_7_values(self.selected_character.get(),
+                                          full)
+        for stat, value in values.items():
             var = self.have_at_least_vars[stat]
             if stat in HAL_STATS_WITH_PCT:
-                var.set(max(round(float(var.get()), 1), round(float(least), 1)))
+                var.set(round(float(value), 1))
             else:
-                var.set(max(int(var.get()), int(least)))
+                var.set(math.ceil(value))
 
     # --------------------------------------------------- UI: Set Configuration
 
@@ -2157,7 +2182,7 @@ class OptimizerTab(BaseTab):
             return
         self._exclude_reflow_retried = False
 
-        # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔ -- minimum
+        # spacing: minimum -- element and its label ↔ element and its label -- checkbox, checkbox ↔
         # Between the checkbuttons' BOXES. A checkbutton's ink stops
         # short of its box on each side, so the rendered gap is wider
         # than this by a constant -- the rule's 8 is the rendered one.
@@ -2237,7 +2262,7 @@ class OptimizerTab(BaseTab):
         for row_idx, row in enumerate(rows):
             n = len(row)
             content_w = sum(widths[h] for h in row)
-            if n > 1 and row_idx < len(rows) - 1:
+            if n > 1 and row_idx < len(rows) - 1 and self.exclude_justify:
                 extra, rem = divmod(max(0, available_w - content_w), n - 1)
             else:
                 extra, rem = gap, 0

@@ -75,7 +75,7 @@ New rows carry obligations the audit itself will not remind you of, and `checks/
 - **A `unique` needs both halves.** A `unique -- <what> --` marker in the widget code, spelled identically in the doc's uniques table, AND an entry measuring it — or a row in that table carrying **—** and a reason it is not tracked, with no entry at all.
 - **A new entry is provisional.** Add its name to `AWAITING_FIRST_READING` so the row prints yellow: its target came from the rules table rather than from anything anyone has seen. It comes out the moment a run confirms it.
 - **A distance that deliberately misses its rule is an `exception`**, registered at what the screen actually shows, with the reason at the site. Tracked at its real value, a later drift still reports; left out, it cannot be told apart from one.
-- **A distance that varies by construction is a floor**: its name in `MINIMUM_GAPS` and its marker ending ` -- minimum` (`docs/ui_spacing.md`, *The marker suffix*). It reads `>=8` and passes at or above.
+- **A distance that varies by construction is a floor**: its name in `MINIMUM_GAPS` and its marker opening `minimum -- ` (`docs/ui_spacing.md`, *Markers*). It reads `>=8` and passes at or above, and wants an exact twin in a scenario that switches the variation off, or a wrong lever hides behind it.
 
 ## Freezing
 
