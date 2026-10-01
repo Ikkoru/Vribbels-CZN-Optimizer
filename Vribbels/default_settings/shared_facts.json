@@ -331,6 +331,95 @@
      "total_ssr_rate_up_pool_pct": 1428.95
     }
    },
+   "gacha_pickup_combatant_30075_1": {
+    "pools": {
+     "r_pool_ids": [
+      "general_r_s_20010",
+      "general_r_s_20012",
+      "general_r_s_20013",
+      "general_r_s_20015",
+      "general_r_s_20016",
+      "general_r_s_20026"
+     ],
+     "sr_combatant_pool_ids": [
+      "pickup_c_17_sr_c_1040",
+      "pickup_c_17_sr_c_1050",
+      "pickup_c_17_sr_c_1056",
+      "pickup_c_17_sr_c_1021",
+      "pickup_c_17_sr_c_1028",
+      "pickup_c_17_sr_c_1009",
+      "pickup_c_17_sr_c_1017",
+      "pickup_c_17_sr_c_1039",
+      "pickup_c_17_sr_c_1003",
+      "pickup_c_17_sr_c_1049"
+     ],
+     "sr_pool_ids": [],
+     "sr_rate_up_success_pool_ids": [
+      "pickup_c_17_rateup_sr_c_1012",
+      "pickup_c_17_rateup_sr_c_1005"
+     ],
+     "sr_supporter_pool_ids": [
+      "general_sr_s_20001",
+      "general_sr_s_20003",
+      "general_sr_s_20007",
+      "general_sr_s_20024",
+      "general_sr_s_20025",
+      "general_sr_s_20027",
+      "general_sr_s_20035",
+      "general_sr_s_20036",
+      "general_sr_s_20032",
+      "general_sr_s_20033",
+      "general_sr_s_20011"
+     ],
+     "ssr_pool_ids": [
+      "general_ssr_c_1004",
+      "general_ssr_c_1008",
+      "general_ssr_c_1010",
+      "general_ssr_c_1018",
+      "general_ssr_c_1024",
+      "general_ssr_c_1027",
+      "general_ssr_c_1033",
+      "general_ssr_c_1041",
+      "general_ssr_c_1043",
+      "general_ssr_c_1064",
+      "general_ssr_c_1062",
+      "general_ssr_c_1057",
+      "general_ssr_c_1060",
+      "general_ssr_c_1052",
+      "general_ssr_c_30047",
+      "general_ssr_c_30084",
+      "general_ssr_c_30097",
+      "general_ssr_c_1061",
+      "general_ssr_c_1055",
+      "general_ssr_c_1069",
+      "general_ssr_c_30048",
+      "general_ssr_c_30113",
+      "general_ssr_c_30117"
+     ],
+     "ssr_rate_up_success_pool_ids": [
+      "pickup_c_17_rateup_ssr_c_30075"
+     ]
+    },
+    "rates": {
+     "r_ratio": 93000,
+     "sr_combatant_ratio": 1500,
+     "sr_rate_up_success_ratio": 3000,
+     "sr_ratio": 0,
+     "sr_supporter_ratio": 1500,
+     "ssr_rate_up_success_ratio": 500,
+     "ssr_ratio": 500,
+     "total_ratio": 100000
+    },
+    "total_rate_info": {
+     "total_r_pool_pct": 84873.45,
+     "total_sr_combatant_pool_pct": 2163.86,
+     "total_sr_pool_pct": 0,
+     "total_sr_rate_up_pool_pct": 8655.42,
+     "total_sr_supporter_pool_pct": 2163.86,
+     "total_ssr_pool_pct": 714.48,
+     "total_ssr_rate_up_pool_pct": 1428.95
+    }
+   },
    "gacha_pickup_combatant_30117": {
     "pools": {
      "r_pool_ids": [
@@ -482,6 +571,71 @@
      "total_ssr_rate_up_pool_pct": 2143.43
     }
    },
+   "gacha_pickup_supporter_30076_1": {
+    "pools": {
+     "r_pool_ids": [
+      "general_r_s_20010",
+      "general_r_s_20012",
+      "general_r_s_20013",
+      "general_r_s_20015",
+      "general_r_s_20016",
+      "general_r_s_20026"
+     ],
+     "sr_combatant_pool_ids": [
+      "general_sr_c_1040",
+      "general_sr_c_1050",
+      "general_sr_c_1056",
+      "general_sr_c_1005",
+      "general_sr_c_1021",
+      "general_sr_c_1028",
+      "general_sr_c_1009",
+      "general_sr_c_1017",
+      "general_sr_c_1039",
+      "general_sr_c_1003",
+      "general_sr_c_1049",
+      "general_sr_c_1012"
+     ],
+     "sr_pool_ids": [],
+     "sr_rate_up_success_pool_ids": [
+      "pickup_s_17_rateup_sr_s_20035",
+      "pickup_s_17_rateup_sr_s_20011"
+     ],
+     "sr_supporter_pool_ids": [
+      "pickup_s_17_sr_s_20001",
+      "pickup_s_17_sr_s_20003",
+      "pickup_s_17_sr_s_20007",
+      "pickup_s_17_sr_s_20024",
+      "pickup_s_17_sr_s_20025",
+      "pickup_s_17_sr_s_20027",
+      "pickup_s_17_sr_s_20036",
+      "pickup_s_17_sr_s_20032",
+      "pickup_s_17_sr_s_20033"
+     ],
+     "ssr_pool_ids": [],
+     "ssr_rate_up_success_pool_ids": [
+      "pickup_s_17_rateup_ssr_s_30076"
+     ]
+    },
+    "rates": {
+     "r_ratio": 93000,
+     "sr_combatant_ratio": 1500,
+     "sr_rate_up_success_ratio": 3000,
+     "sr_ratio": 0,
+     "sr_supporter_ratio": 1500,
+     "ssr_rate_up_success_ratio": 1000,
+     "ssr_ratio": 0,
+     "total_ratio": 100000
+    },
+    "total_rate_info": {
+     "total_r_pool_pct": 84873.45,
+     "total_sr_combatant_pool_pct": 2163.86,
+     "total_sr_pool_pct": 0,
+     "total_sr_rate_up_pool_pct": 8655.42,
+     "total_sr_supporter_pool_pct": 2163.86,
+     "total_ssr_pool_pct": 0,
+     "total_ssr_rate_up_pool_pct": 2143.43
+    }
+   },
    "gacha_pickup_supporter_30118": {
     "pools": {
      "r_pool_ids": [
@@ -547,6 +701,326 @@
     }
    }
   },
+  "base_stats": {
+   "1003": {
+    "61": {
+     "base": [
+      398,
+      189,
+      322
+     ],
+     "read_at": 1790634914
+    }
+   },
+   "1005": {
+    "60": {
+     "base": [
+      482,
+      133,
+      293
+     ],
+     "read_at": 1790772725
+    }
+   },
+   "1009": {
+    "60": {
+     "base": [
+      414,
+      158,
+      333
+     ],
+     "read_at": 1790720281
+    }
+   },
+   "1010": {
+    "60": {
+     "base": [
+      407,
+      183,
+      423
+     ],
+     "read_at": 1790720281
+    }
+   },
+   "1012": {
+    "60": {
+     "base": [
+      405,
+      163,
+      381
+     ],
+     "read_at": 1790820726
+    }
+   },
+   "1017": {
+    "60": {
+     "base": [
+      382,
+      172,
+      392
+     ],
+     "read_at": 1790612982
+    }
+   },
+   "1018": {
+    "60": {
+     "base": [
+      467,
+      155,
+      376
+     ],
+     "read_at": 1790720979
+    }
+   },
+   "1021": {
+    "60": {
+     "base": [
+      460,
+      147,
+      305
+     ],
+     "read_at": 1790612982
+    }
+   },
+   "1024": {
+    "61": {
+     "base": [
+      425,
+      201,
+      346
+     ],
+     "read_at": 1790719672
+    }
+   },
+   "1028": {
+    "61": {
+     "base": [
+      388,
+      175,
+      401
+     ],
+     "read_at": 1790543811
+    }
+   },
+   "1033": {
+    "60": {
+     "base": [
+      515,
+      141,
+      317
+     ],
+     "read_at": 1788956436
+    },
+    "61": {
+     "base": [
+      524,
+      144,
+      324
+     ],
+     "read_at": 1790819871
+    }
+   },
+   "1039": {
+    "61": {
+     "base": [
+      407,
+      179,
+      327
+     ],
+     "read_at": 1790717071
+    }
+   },
+   "1040": {
+    "61": {
+     "base": [
+      490,
+      135,
+      300
+     ],
+     "read_at": 1790634914
+    }
+   },
+   "1049": {
+    "61": {
+     "base": [
+      398,
+      189,
+      322
+     ],
+     "read_at": 1790779552
+    }
+   },
+   "1050": {
+    "60": {
+     "base": [
+      438,
+      147,
+      348
+     ],
+     "read_at": 1790612982
+    }
+   },
+   "1052": {
+    "61": {
+     "base": [
+      425,
+      201,
+      346
+     ],
+     "read_at": 1790722103
+    }
+   },
+   "1055": {
+    "61": {
+     "base": [
+      413,
+      187,
+      433
+     ],
+     "read_at": 1790778441
+    }
+   },
+   "1056": {
+    "61": {
+     "base": [
+      398,
+      189,
+      322
+     ],
+     "read_at": 1790779650
+    }
+   },
+   "1057": {
+    "60": {
+     "base": [
+      467,
+      155,
+      376
+     ],
+     "read_at": 1790722103
+    }
+   },
+   "1060": {
+    "61": {
+     "base": [
+      451,
+      172,
+      365
+     ],
+     "read_at": 1790779650
+    }
+   },
+   "1061": {
+    "60": {
+     "base": [
+      491,
+      155,
+      329
+     ],
+     "read_at": 1790721776
+    }
+   },
+   "1069": {
+    "61": {
+     "base": [
+      451,
+      172,
+      365
+     ],
+     "read_at": 1790720979
+    }
+   },
+   "30047": {
+    "61": {
+     "base": [
+      413,
+      182,
+      421
+     ],
+     "read_at": 1790720281
+    }
+   },
+   "30048": {
+    "61": {
+     "base": [
+      524,
+      144,
+      324
+     ],
+     "read_at": 1790779650
+    }
+   },
+   "30075": {
+    "60": {
+     "base": [
+      491,
+      155,
+      329
+     ],
+     "read_at": 1790819871
+    }
+   },
+   "30084": {
+    "61": {
+     "base": [
+      425,
+      201,
+      346
+     ],
+     "read_at": 1790719672
+    }
+   },
+   "30093": {
+    "61": {
+     "base": [
+      524,
+      144,
+      324
+     ],
+     "read_at": 1790820726
+    }
+   },
+   "30097": {
+    "61": {
+     "base": [
+      451,
+      172,
+      365
+     ],
+     "read_at": 1790720979
+    }
+   },
+   "30113": {
+    "60": {
+     "base": [
+      515,
+      141,
+      317
+     ],
+     "read_at": 1790779552
+    }
+   },
+   "30115": {
+    "60": {
+     "base": [
+      495,
+      146,
+      332
+     ],
+     "read_at": 1790820726
+    }
+   },
+   "30117": {
+    "61": {
+     "base": [
+      451,
+      172,
+      365
+     ],
+     "read_at": 1790777585
+    }
+   }
+  },
   "final_rewards": {
    "event_bartender": [
     "event_bartender_01"
@@ -560,6 +1034,12 @@
    ]
   },
   "instalment_totals": {
+   "event_bartender": {
+    "event_bartender_01": 24
+   },
+   "event_devil": {
+    "event_schedule_devil_001": 21
+   },
    "event_love": {
     "event_schedule_love_4": 21
    },
@@ -572,13 +1052,284 @@
    },
    "event_stock": {
     "event_stock_01": 17
+   },
+   "event_summer": {
+    "event_summer_01": 20
    }
   },
   "offensive_fields": {
    "global": {
     "remnants_boss_penalty_005": {
-     "players": 59400,
-     "read_at": 1790545068
+     "players": 61500,
+     "read_at": 1790721440
+    },
+    "remnants_boss_penalty_006": {
+     "players": 15300,
+     "read_at": 1790811119
+    }
+   }
+  },
+  "partner_stats": {
+   "1025": {
+    "60": {
+     "flat": [
+      155,
+      5,
+      144
+     ],
+     "read_at": 1790720979
+    }
+   },
+   "1058": {
+    "60": {
+     "flat": [
+      113,
+      5,
+      105
+     ],
+     "read_at": 1790634914
+    }
+   },
+   "1070": {
+    "60": {
+     "flat": [
+      155,
+      5,
+      144
+     ],
+     "read_at": 1790720979
+    }
+   },
+   "20002": {
+    "60": {
+     "flat": [
+      5,
+      61,
+      144
+     ],
+     "read_at": 1790722103
+    }
+   },
+   "20006": {
+    "50": {
+     "flat": [
+      4,
+      37,
+      86
+     ],
+     "read_at": 1790812410
+    },
+    "58": {
+     "flat": [
+      5,
+      42,
+      102
+     ],
+     "read_at": 1790717071
+    },
+    "60": {
+     "flat": [
+      5,
+      44,
+      105
+     ],
+     "read_at": 1790779650
+    }
+   },
+   "20010": {
+    "30": {
+     "flat": [
+      50,
+      2,
+      39
+     ],
+     "read_at": 1790721776
+    }
+   },
+   "20011": {
+    "2": {
+     "flat": [
+      17,
+      0,
+      1
+     ],
+     "read_at": 1790721776
+    }
+   },
+   "20024": {
+    "60": {
+     "flat": [
+      5,
+      40,
+      95
+     ],
+     "read_at": 1790720281
+    }
+   },
+   "20025": {
+    "60": {
+     "flat": [
+      101,
+      5,
+      95
+     ],
+     "read_at": 1790819871
+    }
+   },
+   "20027": {
+    "60": {
+     "flat": [
+      101,
+      5,
+      95
+     ],
+     "read_at": 1790720281
+    }
+   },
+   "20032": {
+    "60": {
+     "flat": [
+      5,
+      40,
+      95
+     ],
+     "read_at": 1790543811
+    }
+   },
+   "20033": {
+    "60": {
+     "flat": [
+      101,
+      5,
+      95
+     ],
+     "read_at": 1790812410
+    }
+   },
+   "20035": {
+    "60": {
+     "flat": [
+      101,
+      5,
+      95
+     ],
+     "read_at": 1790720979
+    }
+   },
+   "30046": {
+    "60": {
+     "flat": [
+      155,
+      5,
+      144
+     ],
+     "read_at": 1790779650
+    }
+   },
+   "30053": {
+    "60": {
+     "flat": [
+      155,
+      5,
+      144
+     ],
+     "read_at": 1790721776
+    }
+   },
+   "30076": {
+    "60": {
+     "flat": [
+      155,
+      5,
+      144
+     ],
+     "read_at": 1790819871
+    }
+   },
+   "30085": {
+    "60": {
+     "flat": [
+      5,
+      61,
+      144
+     ],
+     "read_at": 1790719672
+    }
+   },
+   "30092": {
+    "60": {
+     "flat": [
+      155,
+      5,
+      144
+     ],
+     "read_at": 1790779650
+    }
+   },
+   "30094": {
+    "20": {
+     "flat": [
+      67,
+      1,
+      44
+     ],
+     "read_at": 1789133861
+    },
+    "60": {
+     "flat": [
+      155,
+      5,
+      144
+     ],
+     "read_at": 1790820726
+    }
+   },
+   "30095": {
+    "60": {
+     "flat": [
+      5,
+      61,
+      144
+     ],
+     "read_at": 1790778441
+    }
+   },
+   "30114": {
+    "60": {
+     "flat": [
+      155,
+      5,
+      144
+     ],
+     "read_at": 1790779552
+    }
+   },
+   "30116": {
+    "60": {
+     "flat": [
+      155,
+      5,
+      144
+     ],
+     "read_at": 1790820726
+    }
+   },
+   "30118": {
+    "58": {
+     "flat": [
+      151,
+      5,
+      140
+     ],
+     "read_at": 1789853848
+    },
+    "60": {
+     "flat": [
+      155,
+      5,
+      144
+     ],
+     "read_at": 1790809682
     }
    }
   },
@@ -587,34 +1338,34 @@
     "disaster_s04": {
      "disaster_s04_rank_02": {
       "disaster_s04_rank_best_2_10": {
-       "best_score": 414969,
-       "rank": 25178,
-       "read_at": 1790545761
+       "best_score": 414364,
+       "rank": 26558,
+       "read_at": 1790721471
       },
       "disaster_s04_rank_best_2_15": {
-       "best_score": 636420,
-       "rank": 13093,
-       "read_at": 1790545760
+       "best_score": 634168,
+       "rank": 13810,
+       "read_at": 1790721471
       },
       "disaster_s04_rank_best_2_20": {
-       "best_score": 1013454,
-       "rank": 5036,
-       "read_at": 1790545760
+       "best_score": 1016522,
+       "rank": 5312,
+       "read_at": 1790721470
       },
       "disaster_s04_rank_best_2_25": {
-       "best_score": 1224457,
-       "rank": 1008,
-       "read_at": 1790545758
+       "best_score": 1233860,
+       "rank": 1063,
+       "read_at": 1790721468
       },
       "disaster_s04_rank_best_2_30": {
-       "best_score": 1635631,
+       "best_score": 1640066,
        "rank": 1,
-       "read_at": 1790272379
+       "read_at": 1790721469
       },
       "disaster_s04_rank_best_2_5": {
-       "best_score": 165210,
-       "rank": 37767,
-       "read_at": 1790545761
+       "best_score": 161836,
+       "rank": 39836,
+       "read_at": 1790721472
       }
      }
     }
@@ -628,13 +1379,18 @@
      "top_score": 66265
     },
     "assault_1_s7": {
-     "players": 20747,
-     "read_at": 1790545062,
+     "players": 21293,
+     "read_at": 1790779907,
      "top_score": 65084
     }
    }
   },
   "trial_slots": {
+   "event_combatant_trial_3": [
+    "combatant_trial_30075",
+    "combatant_trial_1005",
+    "combatant_trial_1012"
+   ],
    "event_combatant_trial_4": [
     "combatant_trial_1052",
     "combatant_trial_1021",
