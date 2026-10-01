@@ -1337,13 +1337,12 @@ class OptimizerTab(BaseTab):
         # Settings'.
         hal_note = ttk.Label(
             parent,
-            text=("Input stats as you expect them to be in the "
-            "Combatants menu. Partner passive, Equipment, and "
-            "conditional set effects are ignored (Partner flat "
-            "stats still count)."),
+            text=("Input stats as you expect them to be in the Combatants "
+            "menu. Partner passive, Equipment, and conditional set effects "
+            "are ignored."),
             foreground=self.colors["fg_dim"],
             justify=tk.LEFT,
-            wraplength=px(175),  # initial; will be replaced on first <Configure>
+            wraplength=px(216),  # initial; will be replaced on first <Configure>
         )
         # spacing: explanation text -> the controls it explains -- spinbox, label ↕
         hal_note.pack(fill=tk.X, expand=False, pady=px((0, 0)))
