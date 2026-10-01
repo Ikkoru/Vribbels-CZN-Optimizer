@@ -33,7 +33,7 @@ Three documents, one audience, three depths. **The reader is a mobile or PC gach
 
 **Default to one line per change in all three.** Length is earned by a reader needing it, and most changes do not earn it. "Fixed fresh install UI being unfilled" is a complete entry.
 
-**Written to be absorbed, not admired.** These convey information, so fragments are fine wherever they stay understandable. Wordiness is how slowly an entry reads, not how many words it has. An entry that carries several things is broken into parts: a headline, the parts under it, and any steps as a bullet of their own. That holds even where the parts cost more words than the sentence did. This single sentence:
+Written to be absorbed, not admired. These convey information, so fragments are fine wherever they stay understandable. Wordiness is how slowly an entry reads, not how many words it has. An entry that carries several things is broken into parts: a headline, the parts under it, and any steps as a bullet of their own. That holds even where the parts cost more words than the sentence did. This single sentence:
 
 > Every pull the game has listed, kept even after the game stops listing it, with each banner type's pity, 50/50s and luck against the game's published rates. While capturing, open each banner's Probability Info → Rescue Records, then **click through to the last page** to add them. You need to do this separately for each banner.
 
@@ -47,9 +47,9 @@ reads faster as:
 
 Several small changes of one kind become one entry. "Adjusted popup window style to match the rest of the app", not four lines about a popup's size, its tick glyphs, a dialog's spacing and a tooltip's colours. Three questions decide it, in order:
 
-1. **Is the change purely visual?** If anything about what the program DOES moved, it keeps its own entry.
-2. **Would missing it cause a mistake?** A change nobody notices, and which costs nothing when unnoticed, did not need announcing.
-3. **Do the specifics help anyone use the program better** — or would they be hard to work out unaided? If yes, name them; if no, the general line is the entry.
+1. Is the change purely visual? If anything about what the program DOES moved, it keeps its own entry.
+2. Would missing it cause a mistake? A change nobody notices, and which costs nothing when unnoticed, did not need announcing.
+3. Do the specifics help anyone use the program better — or would they be hard to work out unaided? If yes, name them; if no, the general line is the entry.
 
 Prefer the noun where it reaches the subject sooner. "The sum of a combatant's Potential node levels" beats "a combatant's Potential node levels summed"; "Removed bright flashes when a tab first opens" beats "Nothing flashes light grey when a tab first opens". Not at the cost of plainness — a nominalisation that makes the sentence harder to read has lost the only argument for it.
 
@@ -57,9 +57,9 @@ Prefer the noun where it reaches the subject sooner. "The sum of a combatant's P
 
 Order matters, because a stranger reads top-down and stops early.
 
-1. **How to get it running.** Prerequisites, install, first-run setup.
-2. **What it does** — the main features, briefly. Repeating what the UI makes obvious is CORRECT here: someone deciding whether to download it cannot see the UI.
-3. **What the UI does not make obvious.** Settings whose meaning is not self-explanatory, and anything the program does to the system.
+1. How to get it running. Prerequisites, install, first-run setup.
+2. What it does — the main features, briefly. Repeating what the UI makes obvious is CORRECT here: someone deciding whether to download it cannot see the UI.
+3. What the UI does not make obvious. Settings whose meaning is not self-explanatory, and anything the program does to the system.
 
 Only section 3 takes the self-evident filter. Sections 1 and 2 exist for a reader who has never opened the program.
 

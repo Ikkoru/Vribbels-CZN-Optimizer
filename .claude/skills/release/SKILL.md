@@ -15,14 +15,14 @@ The conventions are in `docs/repo_conventions.md`; this is the procedure and the
 
 Run the doc audit first (`doc-audit` skill) — it moves facts between files, and doing it after the CHANGELOG pass means auditing prose you have just rewritten.
 
-1. **Commit whatever is uncommitted** before touching anything.
-2. **Read the maintainer's edits** to the last release, and ask what they leave unclear — see below. Asking first lets the answers arrive while the audit runs.
-3. **Chaos runs** — the season estimate's shipped Chaos figures, and whether what a run pays has moved. See below.
-4. **Doc audit.** At minimum, the sweeps.
-5. **CHANGELOG pass** — accuracy, then register.
-6. **`version.py`** — the version, `RELEASED_ON` (today, UTC) and `RELEASED_IN` (the Galactic Disaster season live today) — and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list. The two `RELEASED_` lines are what tell a player's program how stale its shipped Chaos figures have grown (`chaos_estimate.staleness`), so they move with every release, even one that measured nothing.
-7. **`.old/RELEASE_NOTES_<X.Y.Z>.md`** — a different document, see below.
-8. **README re-check** — report only; it is not edited as part of a release.
+1. Commit whatever is uncommitted before touching anything.
+2. Read the maintainer's edits to the last release, and ask what they leave unclear — see below. Asking first lets the answers arrive while the audit runs.
+3. Chaos runs — the season estimate's shipped Chaos figures, and whether what a run pays has moved. See below.
+4. Doc audit. At minimum, the sweeps.
+5. CHANGELOG pass — accuracy, then register.
+6. `version.py` — the version, `RELEASED_ON` (today, UTC) and `RELEASED_IN` (the Galactic Disaster season live today) — and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list. The two `RELEASED_` lines are what tell a player's program how stale its shipped Chaos figures have grown (`chaos_estimate.staleness`), so they move with every release, even one that measured nothing.
+7. `.old/RELEASE_NOTES_<X.Y.Z>.md` — a different document, see below.
+8. README re-check — report only; it is not edited as part of a release.
 9. `python checks/run_all.py`, then commit.
 
 ## The maintainer's edits
@@ -60,7 +60,7 @@ Then the register. The CHANGELOG is written for a player who wants the smaller c
 - **Where something is, when opening the program shows it** — a new tab's place in the tab bar.
 - **The program's word where the game has one.** Check `CLAUDE.md` § Naming, and check the game's own screens for anything it does not cover. Where the game names a thing nowhere recognisable, describe it instead of inventing a name.
 
-**The release-notes calls below apply here too**, and the maintainer's edits have made each of them: a step the player must take given whole, the player's word ("player count", not "field"), a source linked, and an estimate saying what it assumes ("one Chaos run a day") rather than when the program shows it.
+The release-notes calls below apply here too, and the maintainer's edits have made each of them: a step the player must take given whole, the player's word ("player count", not "field"), a source linked, and an estimate saying what it assumes ("one Chaos run a day") rather than when the program shows it.
 
 **An entry earns its place by the confusion it prevents**, not by the size of the edit — `docs/repo_conventions.md` has the test. The commit history is the complete record, so nothing is kept here merely to be thorough.
 
