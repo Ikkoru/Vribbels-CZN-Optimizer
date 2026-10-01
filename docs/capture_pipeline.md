@@ -217,7 +217,17 @@ A Communication Pass is in none of them, because it is in nothing. Spending one 
 
 `inventory.items` and `characters.currencies` come down in the login burst whole. Every later change to either rides on the reply to whatever caused it, in one of two shapes -- and the currencies come once more whole, as a LIST of the same records, on every lobby refresh (`lobby/lobby_update`). That list is what carries a weekly currency's top-up, which lands lazily after the reset and would otherwise be seen only when next spent; `version`, each record's write counter, keeps a late older copy from overwriting a newer one.
 
-**These keys state what a holding NOW IS** — `add_result` (a gain), `item_result` (a use), `dec_result` (a spend), `calamity_reward` (a town calamity), `result` (an event mission claim, a story episode), `result_reward` (a finished Great Rift half's placement reward, paid at the first login after it, one down as `item_result`) and `currencies` (what a Potential node costs; also the login's and the lobby's name for the whole currency table, which is no envelope, so it counts only as one). One envelope between them:
+**These keys state what a holding NOW IS:**
+
+- `add_result`: a gain.
+- `item_result`: a use.
+- `dec_result`: a spend.
+- `calamity_reward`: a town calamity.
+- `result`: an event mission claim, a story episode.
+- `result_reward`: a finished Great Rift half's placement reward, paid at the first login after it, one down as `item_result`.
+- `currencies`: what a Potential node costs. It is also the login's and the lobby's name for the whole currency table, which is no envelope, so it counts only as one.
+
+One envelope between them:
 
 ```
 {"items":    {"<res_id>": {"doc": {..., "res_id": 3120013, "amount": 146, ...}, "diff": 10}},
@@ -234,7 +244,7 @@ A Communication Pass is in none of them, because it is in nothing. Spending one 
 
 so a x6 run sends six entries for the same item and the total is their sum. Nothing states what the holding becomes, which leaves `_apply_drops` adding — and **adding is what makes a repeat dangerous**, so the frame's `qid` is remembered and one already applied is skipped. An id the currencies already hold is a currency (Units drop this way); everything else is an item.
 
-**A pull pays on its result list** (`gacha/run`'s `list`): each unit drawn carries `reward_items`, `[{res_id, count, count_result}]`, where `count_result` is the holding's total after that unit and a currency adds `total_amount` and `total_use_amount`. `_apply_pull_rewards` writes each id's last `count_result` in like a `doc.amount`, reporting the counts summed. A duplicate's conversion and the item a Prism turns a unit into arrive nowhere else; an item first held this way and spent later otherwise restated a zero the cache already held, and neither the gain nor the use reached the log.
+**A pull pays on its result list** (`gacha/run`'s `list`): each unit drawn carries `reward_items`, `[{res_id, count, count_result}]`, where `count_result` is the holding's total after that unit and a currency adds `total_amount` and `total_use_amount`. `_apply_pull_rewards` writes each id's last `count_result` in like a `doc.amount`, reporting the counts summed. A duplicate's conversion and the item a Prism turns a unit into arrive nowhere else. Unread, an item first held this way never reached the cache, so spending it later restated a zero the cache already held: neither the gain nor the use reached the log.
 
 `result` is the most OVERLOADED key on the wire — a string, a bool, a stage's step record — so it counts only where it carries a rewards payload or nests one, two levels down under an envelope of its own.
 

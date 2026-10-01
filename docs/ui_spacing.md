@@ -668,8 +668,6 @@ Frame padding would push the lighter background away from the border and expose 
 
 **`labelmargins` REPLACES the theme's margins rather than adding to them**, so `"0 0 0 -1"` is 5px tighter than leaving it unset, not 1px — and setting three components to 0 sits tighter than the default rather than preserving it. A LabelFrame's title starts at x=0 by default, and its x offset is the FIRST component, so nudging a title sideways means a dedicated style variant.
 
-**A title is aligned with its own panel automatically, and must never be aligned by hand.** The x offset is the first `labelmargins` component and it is `0` in every style block but one. A title that looks out of line with the content beneath it is reporting that the PANEL is misplaced — moving the title instead hides the evidence and leaves the panel where it was.
-
-`Gear.Borderless` carried the one violation, a 1px nudge read as the title needing to meet the gear grid. The grid was already right — it sits at the content-frame rule's 4px from the character list — and the nudge is what put the TITLE at 5. Removed; the offset is 0 everywhere now.
+**A title is aligned with its own panel automatically, and must never be aligned by hand.** The x offset is the first `labelmargins` component and it is `0` in every style block. A title that looks out of line with the content beneath it is reporting that the PANEL is misplaced — moving the title instead hides the evidence and leaves the panel where it was.
 
 None of the three variants is in the audit, so their values rest on the base style's measurement rather than one of their own.
