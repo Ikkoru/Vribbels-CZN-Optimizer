@@ -2833,11 +2833,7 @@ class Addon:
                     self._save_pending = True
 
         if moved and report:
-            verb = self._verb(moved, spent)
-            self.log_callback("[LIVE] %s %s"
-                              % (verb, self._describe_amounts(moved)))
-            if verb == "Received":
-                self._note_receipt(moved)
+            self._say_moved(moved, spent)
         return {res_id for res_id, _diff in moved}
 
     def _note_receipt(self, moved):
@@ -2868,6 +2864,31 @@ class Addon:
             return entry.get("diff")
         return entry.get("diff") if now != was else None
 
+    def _say_moved(self, moved, spent):
+        """One log line for what one payload moved.
+
+        **A payload that moved both ways says both**, gains first:
+        crafting and conversions pay one item for another, and under a
+        single verb they read `Received Great Growth Stone -3`. One
+        line still, since it is one event; only the gains are noted as
+        a receipt (`_last_receipt`).
+        """
+        gains = [(res_id, diff) for res_id, diff in moved
+                 if isinstance(diff, (int, float)) and diff > 0]
+        costs = [(res_id, diff) for res_id, diff in moved
+                 if isinstance(diff, (int, float)) and diff < 0]
+        if gains and costs:
+            self.log_callback("[LIVE] Received %s; spent %s"
+                              % (self._describe_amounts(gains),
+                                 self._describe_amounts(costs)))
+            self._note_receipt(gains)
+            return
+        verb = self._verb(moved, spent)
+        self.log_callback("[LIVE] %s %s"
+                          % (verb, self._describe_amounts(moved)))
+        if verb == "Received":
+            self._note_receipt(moved)
+
     @staticmethod
     def _verb(moved, spent):
         """`Received` or `Spent`, off the SIGNS rather than the key.
@@ -2875,9 +2896,9 @@ class Addon:
         The key a payload arrives under is a poor guide to which way it
         went: the Sortie's entry fee is charged through `item_result`
         and came out as `Received Aether -10`. Where every figure moved
-        the same way, that is the answer; a payload with movement in
-        both directions falls back to the key, which is the best thing
-        left to say about it.
+        the same way, that is the answer; one with no signed figure
+        falls back to the key. Movement both ways never reaches here:
+        `_say_moved` says it as both.
         """
         ways = {diff > 0 for _res_id, diff in moved
                 if isinstance(diff, (int, float)) and diff}
@@ -3011,11 +3032,7 @@ class Addon:
         moved = [(res_id, amount) for res_id, amount in line.items()
                  if amount]
         if moved:
-            verb = self._verb(moved, False)
-            self.log_callback("[LIVE] %s %s"
-                              % (verb, self._describe_amounts(moved)))
-            if verb == "Received":
-                self._note_receipt(moved)
+            self._say_moved(moved, False)
         return set(line)
 
     def _apply_pull_rewards(self, pulls):
@@ -4247,6 +4264,32 @@ class CaptureManager:
         files = list(self.output_folder.glob("memory_fragments_*.json"))
         return max(files, key=lambda f: f.stat().st_mtime) if files else None
 
+    def _drop_empty_debug_logs(self):
+        """Remove the debug logs THIS session opened and never wrote to.
+
+        The addon opens its log as it loads, before any traffic, and
+        the proxy is terminated rather than shut down, so the addon's
+        own `done()` never runs to tidy up: a capture that saw nothing
+        left a 0-byte `websocket_debug_*.jsonl.gz` behind every time.
+        Only empty files and only this session's, by the same
+        watermark `get_session_capture` reads -- a log holding a single
+        line is a record.
+        """
+        if self._session_started_at is None:
+            return
+        for path in self.output_folder.glob("websocket_debug_*.jsonl.gz"):
+            try:
+                stat = path.stat()
+                if (stat.st_size == 0
+                        and stat.st_mtime >= self._session_started_at - 1):
+                    path.unlink()
+                    self.log_callback(
+                        "Removed %s: the capture wrote nothing to it."
+                        % path.name)
+            except OSError:
+                # Held by something else, or gone already: it stays.
+                continue
+
     def get_session_capture(self) -> Optional[Path]:
         """The snapshot THIS capture session wrote, or None.
 
@@ -4938,6 +4981,7 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
         self.restore_hosts_file()
 
         self.capturing = False
+        self._drop_empty_debug_logs()
 
         if self.status_callback:
             self.status_callback("[O] Stopped")

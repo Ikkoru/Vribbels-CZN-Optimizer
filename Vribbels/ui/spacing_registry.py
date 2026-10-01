@@ -1318,7 +1318,7 @@ OPTIMIZER_HELP_PREFIX = "The Optimizer finds the six"
 GACHA_HELP_PREFIX = "Important! The game erases"
 DEF_CAPTION = "What percent of damage scales off DEF?"
 SHIELD_CAPTION = "How much value should be given"
-FORCE_CAPTION = "Force HP/Ego on a Slot:"
+FORCE_CAPTION = "Force on a Slot:"
 
 
 def _opening(text):
@@ -2307,7 +2307,7 @@ EXPLANATION_ENTRIES = [
     # it explains. All three carried the marker and none was measured.
     ("Optimizer", "damage caption -> its sliders", 7, None, "rule",
      _label_over_controls("Important Settings",
-                          "What percent of damage is Extra", *SCALE_CLASSES)),
+                          "What percent of DMG is Extra", *SCALE_CLASSES)),
     ("Optimizer", "DEF caption -> its slider", 7, None, "rule",
      _label_over_controls("Important Settings",
                           "What percent of damage scales off DEF",
@@ -4839,10 +4839,7 @@ SETTINGS_ENTRIES = [
 # screen, and comes out again the moment a run confirms it -- so a row
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
-AWAITING_FIRST_READING = {
-    "Exclude Combatant's MFs: bottom edge -> content",
-    "Have at least this much of a stat: bottom edge -> content",
-}
+AWAITING_FIRST_READING = set()
 
 
 def register_all():

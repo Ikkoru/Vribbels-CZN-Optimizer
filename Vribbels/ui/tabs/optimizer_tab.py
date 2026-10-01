@@ -1304,11 +1304,20 @@ class OptimizerTab(BaseTab):
         col2_frame = ttk.Frame(cols)
         col2_frame.pack(side=tk.LEFT, fill=tk.Y, expand=True)
 
-        # Give every label in a column the same width (the longest label's
-        # char count) so the spinboxes line up vertically within each
-        # column. No trailing colon on the stat labels.
+        # Give every label in a column the same width, the widest label's,
+        # so the spinboxes line up vertically within each column. No
+        # trailing colon on the stat labels.
+        #
+        # **Measured, not counted.** A label's `width` is in units of the
+        # font's `0`, and capitals run wider: `CDMG%` and `Crit%` are both
+        # five characters, and sized by the count `CDMG%` lost its `%`.
+        # The measure already carries the UI scale, so no `px()`.
+        font = tkfont.nametofont("TkDefaultFont")
+        unit = font.measure("0")
+
         def _col_label_width(stats):
-            return max(len(DISPLAY_NAMES.get(s, s)) for s in stats)
+            return max(-(-font.measure(DISPLAY_NAMES.get(s, s)) // unit)
+                       for s in stats)
 
         for stat in HAL_COLUMN_1:
             # Col 1's label allocation is widened by one char with

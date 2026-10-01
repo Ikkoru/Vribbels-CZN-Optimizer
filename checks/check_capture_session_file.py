@@ -84,4 +84,28 @@ def run():
             "'newest on disk, any session' and other callers rely on that."
         )
     _ = old
+
+    # 5. Stopping removes this session's EMPTY debug logs and nothing
+    # else. The proxy is terminated, so the addon's own cleanup never
+    # runs, and every capture that saw nothing left a 0-byte log.
+    import os
+    logs = {}
+    for name, size, mtime in (
+            ("websocket_debug_20260104_000000.jsonl.gz", 0, now + 5),
+            ("websocket_debug_20260104_000001.jsonl.gz", 40, now + 5),
+            ("websocket_debug_20260101_000000.jsonl.gz", 0, now - 3600)):
+        path = work / name
+        path.write_bytes(b"x" * size)
+        os.utime(path, (mtime, mtime))
+        logs[name] = path
+    mgr._session_started_at = now
+    mgr._drop_empty_debug_logs()
+    left = sorted(p.name for p in logs.values() if p.exists())
+    want = ["websocket_debug_20260101_000000.jsonl.gz",
+            "websocket_debug_20260104_000001.jsonl.gz"]
+    if left != want:
+        failures.append(
+            f"after stopping, the debug logs left are {left}, not {want}: "
+            f"only this session's empty log goes; one holding anything, "
+            f"and an older session's, stay.")
     return failures

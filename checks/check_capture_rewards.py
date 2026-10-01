@@ -660,6 +660,24 @@ def run():
             f"{_amount(addon, ITEM_ID)}, not {total - 8}, and logged "
             f"{log!r}. It rides `currencies`.")
 
+    # A conversion pays one item for another in one envelope. Under a
+    # single verb its cost read `Received ... -3`.
+    log.clear()
+    addon._handle_server_payload({
+        "res": "ok", "qid": 96, "add_result": {
+            "items": {str(ITEM_ID): {
+                "doc": {"res_id": ITEM_ID, "amount": total + 1},
+                "diff": 9}},
+            "currency": {str(CURRENCY_ID): {
+                "doc": {"res_id": CURRENCY_ID, "amount": 1},
+                "diff": -2400}}}}, 100)
+    said = [str(line) for line in log]
+    if len(said) != 1 or "; spent" not in said[0] \
+            or said[0].index("+9") > said[0].index("-2400"):
+        failures.append(
+            f"a conversion was logged as {said!r}: one line, the gain "
+            f"Received and the cost spent after it.")
+
     # One combatant's row, alone: a level-up's `character`, a node's or
     # a gift's `char`. Merged by its res_id, never as a roster of one,
     # which would replace the whole payload and its currencies.

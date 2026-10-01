@@ -258,6 +258,30 @@ def _fill_button_at_foot(tab, scale_name):
     return out
 
 
+def _hal_labels_fit(tab, scale_name):
+    """Every Have-at-least stat label is wide enough for its text.
+
+    Sized by the character count, `CDMG%` lost its `%` beside the
+    narrower `Crit%`: a width counts the font's `0`, and capitals run
+    wider."""
+    import tkinter.font as tkfont
+    hal = _panel(tab, "Have at least this much of a stat")
+    if hal is None:
+        return []
+    font = tkfont.nametofont("TkDefaultFont")
+    out = []
+    for label in _descendants(hal):
+        if label.winfo_class() != "TLabel" or not label.cget("width"):
+            continue
+        text = str(label.cget("text"))
+        if font.measure(text) > label.winfo_width():
+            out.append(
+                f"At {scale_name} the Have at least label {text!r} needs "
+                f"{font.measure(text)}px and has {label.winfo_width()}px: "
+                f"its end is clipped.")
+    return out
+
+
 def _descendants(widget):
     for child in widget.winfo_children():
         yield child
@@ -308,6 +332,7 @@ def _measure(scale_name):
             failures.extend(_least_length_is_least(root, scale_name, ot))
             failures.extend(_panel_is_its_widest_row(tab, scale_name, ot))
             failures.extend(_fill_button_at_foot(tab, scale_name))
+            failures.extend(_hal_labels_fit(tab, scale_name))
             if scale_name == SCALES[0]:
                 failures.extend(_fill_raises_only(tab))
         finally:

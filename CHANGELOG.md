@@ -59,6 +59,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Capture Log: a Great Rift half's placement reward, paid at the first login after the half ends, is logged, and its counts update.
 - Capture Log: what a pull pays beside the unit -- a duplicate's conversion, the item a Prism turns a unit into -- is logged and counted, and so is spending such an item later.
 - Capture Log: a Simulation run that Overclock doubles in part is one line with what it paid, instead of its drops twice.
+- Capture Log: crafting and conversions say what was received and what was spent, instead of listing the cost as received.
+- Capture: stopping a capture that recorded nothing no longer leaves an empty debug log behind.
 - Capture: a combatant's level, promotion, Potential nodes and Affinity update while capturing, so the Combatants tab follows them, and what a Potential node costs is logged.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
 - Stats & Gacha History: pulls on a Seasonal Rescue Rate-Up, like Sereniel's, count with the Combatant Rate-Ups whose pity they share, not with the reruns.

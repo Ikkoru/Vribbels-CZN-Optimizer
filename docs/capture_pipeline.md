@@ -258,7 +258,7 @@ So `_nested_rewards` sweeps `return_info` by SHAPE rather than by name — the n
 
 This is what a Sortie pays at its report screen, and reading only the reply's own keys is why every Sortie finished in silence. The entry itself is `chaos_assault/enter_assault` (Aether −10) and each area's reward is `chaos_assault/receive_area_reward`, which charges a Reason under `dec_result` and pays under `item_result` — both already read.
 
-The log's word is picked from the SIGNS, not from the key. A Sortie's entry fee is CHARGED through `item_result`, so reading the key announces it as a receipt: `Received Aether -10`. Where every figure in a payload moved the same way that is the answer; a payload with movement both ways falls back to the key.
+The log's word is picked from the SIGNS, not from the key. A Sortie's entry fee is CHARGED through `item_result`, so reading the key announces it as a receipt: `Received Aether -10`. Where every figure in a payload moved the same way that is the answer. A payload that moved both ways -- crafting, a conversion -- says both on its one line, `Received ...; spent ...` (`_say_moved`).
 
 ### A Sortie's fields nothing reads
 
