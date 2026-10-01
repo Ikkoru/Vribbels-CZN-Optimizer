@@ -462,7 +462,7 @@ Worth choosing per group: same-width percentages lose nothing by going left-alig
 
 | Group                     | Where                                   | Gap now              | Notes                                                    |
 | ------------------------- | --------------------------------------- | -------------------- | -------------------------------------------------------- |
-| Extra, Agony and Fracture | Optimizer, `Important Settings`         | 11px                 | the gap predates the third row and wants remeasuring     |
+| Extra, Agony and Fracture | Optimizer, `Important Settings`         | 5px                  | on target                                                |
 | HAL columns               | Optimizer, `Have at Least`              | 5px                  | on target                                                |
 | Set spinboxes             | Optimizer, `Set Configuration`          | 5px                  | takes the 5px, NOT the alignment — see below             |
 | Set MF counts             | Memory Fragments, `Sets`                | 8px                  | aligned per column                                       |

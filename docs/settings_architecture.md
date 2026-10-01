@@ -66,7 +66,7 @@ Two frames: "Restore Missing" (defaults the user has not taken) and "Replace Cha
 - both non-null and differing → Changed
 - both match → skip
 
-Without the first two rules, every combatant reset to Default Preset shows up in Replace Changed against defaults' non-null entries — noise.
+Without the two `None` rules, every combatant reset to Default Preset shows up in Replace Changed against defaults' non-null entries — noise.
 
 **For `optimizer_settings`:** missing = rid absent from the user's `characters` dict; changed = rid present but the per-char dict differs, with `name_hint` excluded from the comparison since it is cosmetic and auto-refreshes on the next bootstrap.
 

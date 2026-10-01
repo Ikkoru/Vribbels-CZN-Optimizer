@@ -1464,7 +1464,7 @@ class OptimizerTab(BaseTab):
         return (potential_7_minimums(res_id) if full
                 else potential_7_switch_ons(res_id))
 
-    def _update_p7_fill_button(self, hero_name):
+    def _update_p7_fill_buttons(self, hero_name):
         """Enable the fill buttons where there is something to fill."""
         state = ("normal" if self._potential_7_values(hero_name, True)
                  else "disabled")
@@ -2553,7 +2553,7 @@ class OptimizerTab(BaseTab):
             self._loading_settings = False
 
         self._update_element_override_visibility(hero_name)
-        self._update_p7_fill_button(hero_name)
+        self._update_p7_fill_buttons(hero_name)
 
     # ---- Save callbacks (per-control). Suppressed during loads. ----
 
