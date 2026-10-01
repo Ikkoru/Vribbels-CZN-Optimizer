@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
-## [2.2.1] - unreleased
+## [2.3.0] - Potential 7, Faster Tabs
 
 ### Added
 
@@ -20,7 +20,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Every Chaos run is recorded in `snapshots/chaos_runs/`, beside the pull history. The season estimate reads it, counting only the live Galactic Disaster's own Chaos.
   - Each battle's stat sheets, as the server states them, are kept in `snapshots/base_stats/`. Where the program's own combatant or partner stats are missing or wrong, level 61 and 62 included, it uses the server's instead.
 - Setup & Settings → Share Game Data: `Export Facts` also saves the combatant and partner stats your battles showed that the program does not have.
-- Stats & Gacha History:
+- **Stats & Gacha History:**
   - Pulls made while capturing are kept straight away, without opening Rescue Records, and their banner turns orange if the game counts pulls the tab has not seen.
   - A banner whose Rescue Records were read without reaching the pulls already kept turns orange, with a line saying pulls may be missing.
 - Anika, with her Potential 7.
@@ -32,7 +32,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Opening a tab for the first time: tabs not opened yet are laid out while the program sits idle.
   - Switching tabs. The new tab appears whole, in one go.
   - Live updates while capturing.
-- Capture: the Load Latest button is gone, since the newest capture loads by itself at startup and after every save. Upgrade Log Settings gets the room.
+- Capture: the Load Latest button is gone, since the newest capture loads by itself at startup and after every save.
 - Capture: the Capture Log keeps its newest 20,000 lines, however long a capture runs.
 - Checklist: a red countdown turns a deeper red in its last 24 hours.
 - Checklist: the Galactic Disaster shop's season estimate counts each part's boss rewards separately, and learns from your own captured Chaos runs once the program's own figures are a season or more old. `chaos_runs_per_day` at the foot of settings.json sets how many runs a day it assumes.
@@ -52,19 +52,20 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Arkhianon Supply reads a new pass from its first day, instead of the last one's 70/70 until something is claimed.
   - The Basin of Hyperspace and the Full-Scale Offensive follow what you clear while capturing, and a new Offensive reads 0/9 before its first boss.
   - An event that hands out its tasks one at a time no longer reads as finished on its first day, and counts the tasks you start while capturing.
-  - An Overclock event with six doubled runs a day reads `0/6` from the day's start, instead of `0/2` until the first run.
+  - An Overdrive event with six doubled runs a day reads `0/6` from the day's start, instead of `0/2` until the first run.
   - The Full-Scale Offensive keeps counting the stars you claimed after a boss is reset.
-  - The season estimate no longer counts a Galactic Disaster Chaos run you escaped from as a whole run.
-- Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
-- Capture Log: a Great Rift half's placement reward, paid at the first login after the half ends, is logged, and its counts update.
-- Capture Log: what a pull pays beside the unit -- a duplicate's conversion, the item a Prism turns a unit into -- is logged and counted, and so is spending such an item later.
-- Capture Log: a Simulation run that Overclock doubles in part is one line with what it paid, instead of its drops twice.
-- Capture Log: crafting and conversions say what was received and what was spent, instead of listing the cost as received.
-- Capture: stopping a capture that recorded nothing no longer leaves an empty debug log behind.
-- Capture: a combatant's level, promotion, Potential nodes and Affinity update while capturing, so the Combatants tab follows them, and what a Potential node costs is logged.
+- **Capture:**
+  - A combatant's level, promotion, Potential nodes and Affinity update while capturing, so the Combatants tab follows them.
+  - The Capture Log lists what a pull pays beside the unit (a duplicate's conversion, the item a Prism turns a unit into) and counts it, and logs spending such an item later.
+  - The Capture Log lists a Great Rift half's placement reward, paid at the first login after the half ends, and counts it.
+  - The Capture Log lists what a Potential node costs.
+  - A Simulation run that Overdrive doubles in part is one Capture Log line with what it paid, instead of its drops twice.
+  - Crafting and conversions say what was received and what was spent, instead of listing the cost as received.
+  - An `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
+  - Stopping a capture that recorded nothing no longer leaves an empty debug log behind.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
 - Stats & Gacha History: pulls on a Seasonal Rescue Rate-Up, like Sereniel's, count with the Combatant Rate-Ups whose pity they share, not with the reruns.
-- Diana's, Maribell's, Mika's, Tressa's, Veronica's and Yuki's base ATK, DEF and HP were wrong, and Tiphera's sixth Potential node raises DEF%, not CDMG%.
+- Diana's, Maribell's, Mika's, Tressa's, Veronica's and Yuki's base ATK, DEF and HP are corrected, and Tiphera's sixth Potential node raises DEF%, not CDMG%.
 - Peko's passive: Repairs Complete! and the bonus against Ravaged targets are larger, and Repairs Complete! stacks once.
 
 ## [2.2.0] - Pull Tracker, Player Stats, Galactic Disaster Shop
