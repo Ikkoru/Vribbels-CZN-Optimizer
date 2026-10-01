@@ -1205,18 +1205,18 @@ def load(folder, now=None, shipped=None):
         if entry and (entry.stats.read_at is None
                       or str(when) > entry.stats.read_at):
             entry.stats.read_at = str(when)
-    for pool, gap in reach_gaps(history.batches,
-                                captured.get("reach")).items():
+    now = time.time() if now is None else now
+    for pool, gap in reach_gaps(history.batches, captured.get("reach"),
+                                now).items():
         if pool in history.pools:
             history.pools[pool].stats.gap = gap
-    now = time.time() if now is None else now
     for entry in history.pools.values():
         _judge_freshness(entry, now)
     history.overall = across_pools(history)
     return history
 
 
-def reach_gaps(batches, reach):
+def reach_gaps(batches, reach, now):
     """{pool: (newest pull kept before, oldest read after)} for each
     pool whose Rescue records were read without reaching the pulls
     already kept.
@@ -1232,6 +1232,10 @@ def reach_gaps(batches, reach):
     past where the gap opens, or to the end of what the game lists; a
     read that reached the end itself leaves nothing more to read. Of
     several gaps open in a pool, the newest is the one reported.
+
+    **A gap older than `GAME_KEEPS_DAYS` is no gap**: every pull it
+    could hold has left the game's list, so no read can fill it and a
+    warning would stand for good.
     """
     reads = {}
     for row in reach if isinstance(reach, list) else ():
@@ -1250,7 +1254,7 @@ def reach_gaps(batches, reach):
                 continue
             oldest = _int(row["oldest"])
             older = [at for at in held if at < oldest]
-            if not older:
+            if not older or oldest < now - GAME_KEEPS_DAYS * 86400:
                 continue
             opens = older[-1]
             if any(later.get("end") or _int(later.get("oldest")) <= opens
@@ -1395,15 +1399,18 @@ def _judge_freshness(entry, now):
     still read: where it DOES move past the newest record, that is a
     pull too.
 
-    Only a pool whose list has been read at least once: a banner family
-    nobody has opened -- a finished beginner selection, say -- may have
-    no screen left to open, and asking for it would never stop.
+    Only a pool whose list has been read at least once, or pulled on
+    while capturing: a banner family nobody has opened -- a finished
+    beginner selection, say -- may have no screen left to open, and
+    asking for it would never stop. One pulled on has a screen, and a
+    player who captures every pull may never open the list at all.
 
     `read_at` is the addon's local time, as `datetime.now()` wrote it,
     so it is read back as local time.
     """
     stats = entry.stats
-    if not stats.read_at:
+    if not stats.read_at and not any(pull.source == "pull"
+                                     for pull in entry.pulls):
         return
     counted = (
         (stats.fives and stats.game_pity is not None

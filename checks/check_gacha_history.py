@@ -724,8 +724,10 @@ def _pulls_and_reach(gh, root, failures):
                "list": [{"index": i, "res_id": unit, "is_prism": 0}
                         for i, unit in enumerate(units)]})
 
-    def gap():
-        entry = gh.load(root).pools.get("pickup_combatant")
+    def gap(now=6000):
+        # A `now` near the records: they are stamped in 1970, which a
+        # real clock puts far past what the game keeps.
+        entry = gh.load(root, now=now).pools.get("pickup_combatant")
         return entry.stats.gap if entry else None
 
     _send(addon, _ask(30, "history", id=BANNER, last_db_id=0),
@@ -767,6 +769,13 @@ def _pulls_and_reach(gh, root, failures):
         failures.append(
             f"a read whose pages met nothing kept reads gap {gap()}, not "
             f"(2000, 5000): the pulls between the two may be missing.")
+    # The same gap once the game has stopped listing all of it: nothing
+    # can fill it, and a warning would stand for good.
+    expired = 5000 + gh.GAME_KEEPS_DAYS * 86400 + 1
+    if gap(expired) is not None:
+        failures.append(
+            f"a gap whose every pull is past what the game keeps still "
+            f"reads {gap(expired)}: no read can fill it.")
     # Opening the records again finds the last read's page kept, and
     # still has not reached back past the gap.
     _send(addon, _ask(43, "history", id=BANNER, last_db_id=0),
@@ -783,6 +792,29 @@ def _pulls_and_reach(gh, root, failures):
         failures.append(
             f"a read that went back past where the gap opens still "
             f"reports it: {gap()}.")
+
+    # A banner pulled on while capturing and never opened is watched by
+    # the counters all the same: one whose pulls are all captured may
+    # never be opened, and a pull made without the capture would then
+    # go unflagged.
+    unread = gh.folder_in(root / "unread")
+    unread.mkdir(parents=True)
+    kept = {key: value for key, value in _record(
+        0, BANNER, 1000, [FOUR, THREE]).items() if key != "id"}
+    (unread / gh.CAPTURED).write_text(json.dumps(
+        {"kind": gh.STORE_KIND, "version": 1, "records": [],
+         "rates": {BANNER: dict(_rates(), seen="1970-01-01T00:00:00")},
+         "pity": {"gacha_pity_pickup_combatant": {
+             "res_id": "gacha_pity_pickup_combatant", "pity_ssr_count": 7,
+             "pity_sr_count": 4, "updateAt": "1000", "version": 3}},
+         "pulls": [dict(kept, **{"from": "pull"})]}), encoding="utf-8")
+    entry = gh.load(root / "unread", now=2000).pools.get("pickup_combatant")
+    if entry is None or not entry.stats.behind:
+        failures.append(
+            f"a banner pulled on while capturing, never opened, whose "
+            f"counter says 4 pulls since the last 4-star against the "
+            f"history's 1, reads behind="
+            f"{entry.stats.behind if entry else None}, not True.")
 
     # The loader matches a kept pull to its record too: a file holding
     # both -- written by a capture that never saw the record come --

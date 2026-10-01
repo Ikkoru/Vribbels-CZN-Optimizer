@@ -111,12 +111,9 @@ CHARACTERS = {
         "grade": 4,
         "attribute": "Order",
         "class": "Striker",
-        # The release notice's level-60 sheet less Affinity 40's
-        # 39/13/39. HP is the doubtful one: scaled from her level-20
-        # trial sheet the way other 4-stars grow, it reads 366-373.
-        "base_atk": 405,  # TBC
-        "base_def": 163,  # TBC
-        "base_hp": 381,  # TBC
+        "base_atk": 405,
+        "base_def": 163,
+        "base_hp": 381,
         "base_crit_rate": 3.0,
         "base_crit_dmg": 125.0,
         "node_50": "CRate",

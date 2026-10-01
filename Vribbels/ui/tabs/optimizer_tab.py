@@ -104,17 +104,18 @@ OPTIMIZER_HELP_TEXT = (
 )
 
 
-# Stat keys used by the "Have at least" panel. Ordered as displayed:
-# column 1 = (ATK, DEF, HP, Ego), column 2 = (CRate, CDmg, Extra DMG%, DoT%).
-HAL_COLUMN_1 = ["ATK", "DEF", "HP", "Ego"]
-HAL_COLUMN_2 = ["CRate", "CDmg", "Extra DMG%", "DoT%"]
+# Stat keys used by the "Have at least" panel, column by column, each
+# top to bottom.
+HAL_COLUMN_1 = ["ATK", "DEF", "HP"]
+HAL_COLUMN_2 = ["CRate", "CDmg"]
+HAL_COLUMN_3 = ["Extra DMG%", "DoT%", "Ego"]
 HAL_STATS_WITH_PCT = {"CRate", "CDmg", "Extra DMG%", "DoT%"}  # show "%" suffix
 
 # Of those four, the only one a value above 100 is meaningless for.
 # CDmg, Extra DMG% and DoT% all run well past it in game, so they keep
 # the wide range the spinbox is built with.
 HAL_STATS_CAPPED_AT_100 = {"CRate"}
-HAL_ALL_STATS = HAL_COLUMN_1 + HAL_COLUMN_2
+HAL_ALL_STATS = HAL_COLUMN_1 + HAL_COLUMN_2 + HAL_COLUMN_3
 
 
 # Label column width shared by the Extra / Agony / Fracture sliders, in
@@ -1275,52 +1276,58 @@ class OptimizerTab(BaseTab):
     # -------------------------------------------------- UI: Have at Least
 
     def _build_have_at_least(self, parent):
-        """Two columns of 4 spinboxes each. Col 1 = ATK/DEF/HP/Ego (raw
-        integer), Col 2 = CRate/CDmg/Extra DMG%/DoT% (integer + "%").
+        """Three columns of spinboxes: ATK/DEF/HP, Crit%/CDMG%, and
+        Extra%/DoT%/Ego. The flat stats and Ego are whole numbers, the
+        rest percentages to one decimal.
 
         The label-to-spinbox gap is natural (label sized to fit its text)
         and the column frames don't expand horizontally, so whatever
-        width the panel has past them opens between the two columns.
+        width the panel has past them opens between the columns, the
+        middle one centred in it.
         """
         cols = ttk.Frame(parent)
         # No extra padding on either side -- col 1 text sits at the
         # LabelFrame's own left padding edge (matching the other config
-        # frames), and col 2's spinbox is right-aligned at the LabelFrame's
-        # right padding edge. cols fills X (not Y) so the width HAL has
-        # past its columns parks BETWEEN col 1 (LEFT) and col 2 (RIGHT)
-        # instead of pushing col 2 off its right alignment.
+        # frames), and col 3's spinbox is right-aligned at the
+        # LabelFrame's right padding edge. cols fills X (not Y) so the
+        # width HAL has past its columns parks BETWEEN them instead of
+        # pushing col 3 off its right alignment.
         # spacing: border edge -> first non-button element -- panel, label ↔
         cols.pack(fill=tk.X, expand=False, padx=px((0, 0)))
         col1_frame = ttk.Frame(cols)
         col1_frame.pack(side=tk.LEFT, fill=tk.Y, expand=False, padx=px((0, 0)))
+        col3_frame = ttk.Frame(cols)
+        # Col 3 packed RIGHT so it stays at HAL's right padding edge
+        # regardless of frame width changes; col 2 then takes the space
+        # between, centred, so the two gaps either side of it match.
+        col3_frame.pack(side=tk.RIGHT, fill=tk.Y, expand=False)
         col2_frame = ttk.Frame(cols)
-        # Col 2 packed RIGHT so it stays at HAL's right padding edge
-        # regardless of frame width changes.
-        col2_frame.pack(side=tk.RIGHT, fill=tk.Y, expand=False)
+        col2_frame.pack(side=tk.LEFT, fill=tk.Y, expand=True)
 
         # Give every label in a column the same width (the longest label's
         # char count) so the spinboxes line up vertically within each
         # column. No trailing colon on the stat labels.
         def _col_label_width(stats):
             return max(len(DISPLAY_NAMES.get(s, s)) for s in stats)
-        col1_width = _col_label_width(HAL_COLUMN_1)
-        col2_width = _col_label_width(HAL_COLUMN_2)
 
         for stat in HAL_COLUMN_1:
-            # Col 1's label allocation is widened to col1_width + 1 with
+            # Col 1's label allocation is widened by one char with
             # label_pad=0 (instead of padx between label and spinbox):
             # with anchor=W the label carries 1 char of internal whitespace
             # to the right of the text, the spinbox sits flush against the
             # label's right edge, and the +1 char is reclaimed from the
-            # inter-column whitespace (col 2 is RIGHT-anchored, so col 1
-            # growing on its right eats into the gap automatically).
-            self._build_hal_row(col1_frame, stat, label_width=col1_width+1,
-                                label_pad=0)
-        for stat in HAL_COLUMN_2:
-            # Col 2 spinboxes are 4 chars wide and show one decimal place
-            # (CRate/CDmg/Extra/DoT are %-valued; e.g. "60.5" fits).
-            self._build_hal_row(col2_frame, stat, label_width=col2_width,
-                                spin_width=4)
+            # inter-column whitespace.
+            self._build_hal_row(
+                col1_frame, stat,
+                label_width=_col_label_width(HAL_COLUMN_1) + 1, label_pad=0)
+        for frame, column in ((col2_frame, HAL_COLUMN_2),
+                              (col3_frame, HAL_COLUMN_3)):
+            for stat in column:
+                # 4 chars wide: a percentage to one decimal ("60.5") or a
+                # three-digit Ego fits.
+                self._build_hal_row(frame, stat,
+                                    label_width=_col_label_width(column),
+                                    spin_width=4)
 
         # Note explaining HAL threshold semantics, packed below the cols
         # grid. wraplength is updated on <Configure> so the text reflows

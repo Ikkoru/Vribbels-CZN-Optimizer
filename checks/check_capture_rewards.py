@@ -612,6 +612,71 @@ def run():
             f"spending the item a pull paid reached no log line: the "
             f"cache never held it. Lines: {log!r}")
 
+    # A Simulation run is said in ONE line, at its clear. A x3 run with
+    # one Overclock run left (`websocket_debug_20261001_023914`): the
+    # drops pay three runs' worth, and the clear restates them beside
+    # the doubled run's share under `result_reward_drop_overclock`,
+    # both at the same total. Read off the cache the restatement
+    # printed the drops' figures a second time and the doubled share
+    # nowhere.
+    log.clear()
+    addon.qid_commands[90] = "simulation/enter_savedata_stage"
+    addon.qid_commands[91] = "spot_reward/get_drop_item"
+    addon.qid_commands[92] = "stage/clear_stage"
+    start = _amount(addon, ITEM_ID)
+    addon._handle_server_payload({"res": "ok", "qid": 90}, 100)
+    addon._handle_server_payload({
+        "res": "ok", "qid": 91, "drop_item_result": [
+            {"id": ITEM_ID, "amount": 3, "cur_drop_count": run}
+            for run in (1, 2, 3)]}, 100)
+    total = start + 12
+    addon._handle_server_payload({
+        "res": "ok", "qid": 92, "return_info": {
+            "result_reward_drop_item": {"items": {str(ITEM_ID): {
+                "doc": {"res_id": ITEM_ID, "amount": total}, "diff": 9}}},
+            "result_reward_drop_overclock": {"items": {str(ITEM_ID): {
+                "doc": {"res_id": ITEM_ID, "amount": total},
+                "diff": 3}}}}}, 100)
+    said = [str(line) for line in log if "Received" in str(line)]
+    if _amount(addon, ITEM_ID) != total or len(said) != 1 \
+            or "+12" not in said[0]:
+        failures.append(
+            f"a x3 Simulation run with one doubled run left the item at "
+            f"{_amount(addon, ITEM_ID)} (not {total}) and logged "
+            f"{said!r}: one line, +12, the drops and the doubled share "
+            f"together.")
+
+    # A Potential node charges under `currencies`, an envelope that is
+    # also the login's name for the whole currency table.
+    log.clear()
+    addon._handle_server_payload({
+        "res": "ok", "qid": 93, "currencies": {"items": {str(ITEM_ID): {
+            "doc": {"res_id": ITEM_ID, "amount": total - 8}, "diff": -8}}}},
+        100)
+    if _amount(addon, ITEM_ID) != total - 8 or not any(
+            "Spent" in str(line) for line in log):
+        failures.append(
+            f"a Potential node's cost left the item at "
+            f"{_amount(addon, ITEM_ID)}, not {total - 8}, and logged "
+            f"{log!r}. It rides `currencies`.")
+
+    # One combatant's row, alone: a level-up's `character`, a node's or
+    # a gift's `char`. Merged by its res_id, never as a roster of one,
+    # which would replace the whole payload and its currencies.
+    for qid, key, exp in ((94, "character", 720000), (95, "char", 720001)):
+        addon._handle_server_payload({"res": "ok", "qid": qid, key: {
+            "res_id": 1003, "exp": exp, "friendship_exp": 520,
+            "potential_node_ids": "[10031001]"}}, 100)
+        rows = [row for row in addon.character_data.get("characters", [])
+                if row.get("res_id") == 1003]
+        if [row.get("exp") for row in rows] != [exp] or \
+                "currencies" not in addon.character_data:
+            failures.append(
+                f"a `{key}` row left the roster's 1003 at "
+                f"{[row.get('exp') for row in rows]}, not [{exp}], or "
+                f"dropped the currencies. The Combatants tab serves "
+                f"whatever the roster held at login.")
+
     # --- and the word matches which WAY it went -----------------------
     # The Sortie's entry fee is charged through `item_result`, so a
     # log that reads the KEY rather than the sign announces it as a

@@ -21,7 +21,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Each battle's stat sheets, as the server states them, are kept in `snapshots/base_stats/`. Where the program's own combatant or partner stats are missing or wrong, level 61 and 62 included, it uses the server's instead.
 - Setup & Settings → Share Game Data: `Export Facts` also saves the combatant and partner stats your battles showed that the program does not have.
 - Stats & Gacha History:
-  - Pulls made while capturing are kept straight away, without opening Rescue Records.
+  - Pulls made while capturing are kept straight away, without opening Rescue Records, and their banner turns orange if the game counts pulls the tab has not seen.
   - A banner whose Rescue Records were read without reaching the pulls already kept turns orange, with a line saying pulls may be missing.
 - Anika, with her Potential 7.
 
@@ -39,6 +39,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Gear Score: a preset assigned to a combatant is marked with ∞.
 - Gear Score: the shipped presets' weights are worked out from the Optimizer's own score, for an average build of each kind; Restore Defaults picks them up. `Rei (ATK skew)` is now `Rei`, and `Orlea (healing skew)` is new.
 - Optimizer: combatants whose Potential 7 the score counts in full come with no Have at least minimums; Restore Defaults picks this up.
+- Optimizer: Have at least has three columns: ATK, DEF and HP; Crit% and CDMG%; Extra%, DoT% and Ego.
 - Memory Fragments: `Assigned Presets Only` is greyed out while `Upgrade Log Settings` is on, which takes assigned presets only anyway. Its tick applies again once that box is off.
 - Stats & Gacha History: each Great Rift division's row is drawn in the division's colour.
 
@@ -57,6 +58,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Capture: an `Upgraded` line keeps its `Debug WS` timing when a Log Preset or an Upgrade Log option is toggled.
 - Capture Log: a Great Rift half's placement reward, paid at the first login after the half ends, is logged, and its counts update.
 - Capture Log: what a pull pays beside the unit -- a duplicate's conversion, the item a Prism turns a unit into -- is logged and counted, and so is spending such an item later.
+- Capture Log: a Simulation run that Overclock doubles in part is one line with what it paid, instead of its drops twice.
+- Capture: a combatant's level, promotion, Potential nodes and Affinity update while capturing, so the Combatants tab follows them, and what a Potential node costs is logged.
 - Memory Fragments: the Sub columns sort by their own contents, grouped by stat with the highest roll first, instead of by GS. Main sorts the same way.
 - Stats & Gacha History: pulls on a Seasonal Rescue Rate-Up, like Sereniel's, count with the Combatant Rate-Ups whose pity they share, not with the reruns.
 - Diana's, Maribell's, Mika's, Tressa's, Veronica's and Yuki's base ATK, DEF and HP were wrong, and Tiphera's sixth Potential node raises DEF%, not CDMG%.

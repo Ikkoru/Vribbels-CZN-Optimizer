@@ -207,6 +207,11 @@ CHAOS_LOST = "BATTLE_RESULT_TYPE_STAGE_FAILED"
 # A Chaos run left the same way says CLEAR, so the request's flag is
 # read as well.
 CHAOS_GAVE_UP = "GIVEUP"
+# The entrances whose drops are held back from the log until the
+# stage's clear says the whole run: a Simulation run's clear restates
+# its drops beside the share an Overclock doubles. See
+# `Addon._settle_held_run`.
+RUN_HOLDS_DROPS = ("simulation/enter_savedata_stage",)
 # The Chaos entrances whose runs are not followed: the regular Chaos,
 # entered from its own screen rather than through the Galactic Disaster
 # or a Zero Orb.
@@ -490,6 +495,9 @@ class Addon:
         # whose clear only restates a payout the line before it already
         # reported has nothing to add -- see `_report_run_total`.
         self._last_receipt = None
+        # A Simulation run's drops, {res_id: amount}, applied but not
+        # yet said: None outside one. See `_settle_held_run`.
+        self._held_drops = None
 
         # The qids whose drops have already been applied. A drop
         # list carries deltas rather than totals, so applying one
@@ -1087,6 +1095,21 @@ class Addon:
         if has_user:
             self._check_for_relaunch(data["user"])
 
+        # **One combatant's row, alone**: what a level-up, a promotion,
+        # a level or Affinity reward claim answers with under
+        # `character`, and a Potential node or a gift under `char`. The
+        # whole row, in the roster's own shape, and the only word of
+        # the change -- the roster is not sent again. A partner card's
+        # row carries its instance `id` where a combatant's carries
+        # Potential nodes.
+        for key in ("character", "char"):
+            row = data.get(key)
+            if (isinstance(row, dict) and row.get("res_id")
+                    and "exp" in row
+                    and ("potential_node_ids" in row or "id" in row)
+                    and self._merge_character_row(row)):
+                self._save_pending = True
+
         if has_characters:
             self._merge_character_data(data)
             self._save_pending = True
@@ -1128,11 +1151,11 @@ class Addon:
             self.char_visits = data["char_visits"]
             self._save_pending = True
 
-        # What the server says your holdings now are. FIVE keys carry
-        # the same envelope -- a gain, a spend, a use, a town calamity
-        # and an event mission claim all report the item's whole record
-        # -- so one handler takes them rather than five that would
-        # drift apart.
+        # What the server says your holdings now are. Every key below
+        # carries the same envelope -- a gain, a spend, a use, a town
+        # calamity and an event mission claim all report the item's
+        # whole record -- so one handler takes them rather than one per
+        # key that would drift apart.
         #
         # **Nothing else on the wire updates an item count.** The
         # inventory arrives once, at login, and every later change is
@@ -1149,10 +1172,17 @@ class Addon:
         # can reuse for anything. `result_reward` is a finished Great
         # Rift half's placement reward, claimed at the first login after
         # the half ends, its envelope one down as `item_result`.
+        # `currencies` is what a Potential node costs -- and is also the
+        # login's and the lobby's name for the whole currency table,
+        # which is no envelope, so it counts only as one.
         for key in ("add_result", "item_result", "dec_result",
-                    "calamity_reward", "result", "item", "result_reward"):
+                    "calamity_reward", "result", "item", "result_reward",
+                    "currencies"):
             payload = data.get(key)
             if not isinstance(payload, dict):
+                continue
+            if key == "currencies" and not (
+                    "currency" in payload or "items" in payload):
                 continue
             if key in ("result", "item", "result_reward") and not (
                     "currency" in payload or "items" in payload):
@@ -1189,9 +1219,24 @@ class Addon:
         # same number. The drop LISTS beside them in the same payload
         # -- `confirm_drop_item` -- would double, which is why only
         # envelopes are swept. See `_nested_rewards`.
+        #
+        # **A Simulation run is said in one line, at its clear**: its
+        # drops are held back from the log (`_held_drops`) and the clear
+        # states the whole run, the Overclock's doubled share included.
+        # See `_settle_held_run`.
+        asked = self.qid_commands.get(qid) if qid is not None else None
+        if asked in RUN_HOLDS_DROPS:
+            self._flush_held_drops()
+            self._held_drops = {}
+        nested = self._nested_rewards(data.get("return_info"))
         stated = set()
-        for nested in self._nested_rewards(data.get("return_info")):
-            stated |= self._apply_totals(nested)
+        if self._held_drops and nested:
+            stated = self._settle_held_run(nested)
+        else:
+            for envelope in nested:
+                stated |= self._apply_totals(envelope)
+        if asked == CHAOS_CLOSES:
+            self._flush_held_drops()
 
         # And the run's own tally -- REPORTED, never applied, and only
         # where the envelopes above have not already named the same
@@ -2717,14 +2762,15 @@ class Addon:
         walk(payload, depth)
         return found
 
-    def _apply_totals(self, result, spent=False):
+    def _apply_totals(self, result, spent=False, report=True):
         """Apply a record that states what a holding NOW IS.
 
         Shape: {"items": {res_id: entry}, "currency": {res_id: entry}},
         each entry carrying `doc` -- the item's whole record, in the
         same shape the cache already holds -- and `diff`, how much of it
         moved. `add_result`, `item_result` and `dec_result` all use it;
-        `spent` only picks the word for the log.
+        `spent` only picks the word for the log, and `report=False`
+        leaves the line to the caller.
 
         **`doc.amount` is the total, not the change.** It is written in
         rather than added to, so a frame seen twice cannot double a
@@ -2786,7 +2832,7 @@ class Addon:
                         moved.append((doc["res_id"], shift))
                     self._save_pending = True
 
-        if moved:
+        if moved and report:
             verb = self._verb(moved, spent)
             self.log_callback("[LIVE] %s %s"
                               % (verb, self._describe_amounts(moved)))
@@ -2912,10 +2958,65 @@ class Addon:
             applied.append((res_id, amount))
             self._save_pending = True
 
-        if applied:
+        if applied and self._held_drops is not None:
+            for res_id, amount in applied:
+                self._held_drops[res_id] = (self._held_drops.get(res_id, 0)
+                                            + amount)
+        elif applied:
             self.log_callback("[LIVE] Received %s"
                               % self._describe_amounts(applied))
             self._note_receipt(applied)
+
+    def _flush_held_drops(self):
+        """Say a Simulation run's held drops as they are, and stop
+        holding: its clear never stated the run, or a new run began."""
+        held, self._held_drops = self._held_drops, None
+        moved = [(res_id, amount) for res_id, amount in (held or {}).items()
+                 if amount]
+        if moved:
+            self.log_callback("[LIVE] Received %s"
+                              % self._describe_amounts(moved))
+            self._note_receipt(moved)
+
+    def _settle_held_run(self, envelopes):
+        """Apply a Simulation clear's envelopes, and say the whole run in
+        one line in place of the drops held back for it. Returns the ids
+        the line names.
+
+        **The figure is what the envelopes' `diff`s add up to**, the
+        server's own statement of the run: `result_reward_drop_item`
+        restates the drops, and `result_reward_drop_overclock` adds
+        the share an Overclock doubles. Both carry the same total, so
+        read off the cache the first moved it by the doubled share and
+        reported the drops' figure a second time, while the doubled
+        share reached no line at all. A held id no envelope names keeps
+        its drop's figure.
+        """
+        stated = {}
+        for envelope in envelopes:
+            self._apply_totals(envelope, report=False)
+            for group in ("items", "currency"):
+                rows = envelope.get(group)
+                for row in (rows.values() if isinstance(rows, dict)
+                            else ()):
+                    doc = row.get("doc") if isinstance(row, dict) else None
+                    diff = row.get("diff") if isinstance(row, dict) \\
+                        else None
+                    if (isinstance(doc, dict) and "res_id" in doc
+                            and isinstance(diff, (int, float))):
+                        stated[doc["res_id"]] = (stated.get(doc["res_id"], 0)
+                                                 + diff)
+        line, self._held_drops = dict(self._held_drops or {}), None
+        line.update(stated)
+        moved = [(res_id, amount) for res_id, amount in line.items()
+                 if amount]
+        if moved:
+            verb = self._verb(moved, False)
+            self.log_callback("[LIVE] %s %s"
+                              % (verb, self._describe_amounts(moved)))
+            if verb == "Received":
+                self._note_receipt(moved)
+        return set(line)
 
     def _apply_pull_rewards(self, pulls):
         """Apply what a pull's units paid beside themselves.
@@ -3076,6 +3177,27 @@ class Addon:
         if "id" in entry:
             return ("id", entry["id"])
         return ("res", entry.get("res_id"))
+
+    def _merge_character_row(self, row):
+        """Put one roster row in the cached roster, by its identity.
+
+        Never through `_merge_character_data`: a payload of one row
+        that accounts for a roster of one replaces the whole cached
+        payload, the user record and currencies with it. Returns
+        whether anything changed.
+        """
+        cached = (self.character_data or {}).get("characters")
+        if not isinstance(cached, list):
+            return False
+        key = self._entry_identity(row)
+        for index, entry in enumerate(cached):
+            if self._entry_identity(entry) == key:
+                if entry == row:
+                    return False
+                cached[index] = row
+                return True
+        cached.append(row)
+        return True
 
     def _merge_character_data(self, data):
         """Fold an incoming characters payload into the cached one.
@@ -3908,6 +4030,7 @@ class Addon:
             # is left running for days.
             if entry.get("cmd") == "helo":
                 self._forget_pending()
+                self._flush_held_drops()
                 self.qid_commands.clear()
                 self._note_client_version(entry.get("params"))
                 continue

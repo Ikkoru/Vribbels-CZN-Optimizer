@@ -38,6 +38,8 @@ The login payload carries every character and partner card. An action response (
 
 The `user` key needs the same care: it arrives with no roster attached, so it is patched into the cached payload rather than replacing it.
 
+**One combatant's row also arrives alone**, the roster not sent again: `character` answers a level-up, a promotion and a level or Affinity reward claim, `char` a Potential node and a gift. Each is the whole row, and `_merge_character_row` puts it in the cached roster by the same identity -- never through `_merge_character_data`, where a row of one accounts for a roster of one and would replace the payload, currencies and all. Unread, the Combatants tab showed what the login sent until the next launch.
+
 ## One frame can carry several replies
 
 The wire shape is `{"cmd": <domain>, "qid": n, "params": {"cmd": <action>, ...}}`, and the client sends a JSON ARRAY of those whenever it has more than one command to send. The server answers in kind: an array of reply objects, each shaped exactly like a solo reply. `websocket_message` unwraps both forms and hands each object to `_handle_server_payload`.
@@ -215,7 +217,7 @@ A Communication Pass is in none of them, because it is in nothing. Spending one 
 
 `inventory.items` and `characters.currencies` come down in the login burst whole. Every later change to either rides on the reply to whatever caused it, in one of two shapes -- and the currencies come once more whole, as a LIST of the same records, on every lobby refresh (`lobby/lobby_update`). That list is what carries a weekly currency's top-up, which lands lazily after the reset and would otherwise be seen only when next spent; `version`, each record's write counter, keeps a late older copy from overwriting a newer one.
 
-**These keys state what a holding NOW IS** — `add_result` (a gain), `item_result` (a use), `dec_result` (a spend), `calamity_reward` (a town calamity), `result` (an event mission claim, a story episode) and `result_reward` (a finished Great Rift half's placement reward, paid at the first login after it, one down as `item_result`). One envelope between them:
+**These keys state what a holding NOW IS** — `add_result` (a gain), `item_result` (a use), `dec_result` (a spend), `calamity_reward` (a town calamity), `result` (an event mission claim, a story episode), `result_reward` (a finished Great Rift half's placement reward, paid at the first login after it, one down as `item_result`) and `currencies` (what a Potential node costs; also the login's and the lobby's name for the whole currency table, which is no envelope, so it counts only as one). One envelope between them:
 
 ```
 {"items":    {"<res_id>": {"doc": {..., "res_id": 3120013, "amount": 146, ...}, "diff": 10}},
@@ -249,6 +251,8 @@ Without these branches nothing on the wire moves an item count: the Materials ta
 | `return_info.result_reward_drop_item` | what finishing the run gave — items and currency together |
 | `return_info.chaos_assault_result.refund_item_result` | a Sortie's entry deposit back (Aether +10) |
 | `return_info.confirm_drop_item` | nothing — but it is REPORTED. The run's accumulated pickups, every one of them already paid by an envelope, so applying it doubles the run. It is also the only statement of a run as a WHOLE, where the envelopes arrive split across the frames that paid them, so `_report_run_total` writes it to the log as `Total rewards:` and changes no count. Its own line, because a Sortie's deposit refund lands in the same frame and one line holding both reads as a single receipt. Not written where it would repeat a line: every item already named by an envelope in the same reply, or exactly what the last `Received` line said -- a Simulation's drops pay the whole run before its clear restates it |
+
+**A Simulation run is said in one line, at its clear.** Its drops (`drop_item_result`) pay the runs before the clear, which then restates them in `result_reward_drop_item` beside `result_reward_drop_overclock`, the share an Overclock doubles -- both at the same total. Read off the cache, the restatement moved it by the doubled share and printed the drops' figures again, while the doubled share reached no line. So from `simulation/enter_savedata_stage` (`RUN_HOLDS_DROPS`) the drops are applied but not said, and the clear's line is what its envelopes' `diff`s add up to (`_settle_held_run`); a clear that never comes has the held line said at the next run or connection.
 
 So `_nested_rewards` sweeps `return_info` by SHAPE rather than by name — the names are per-content and there is no reason the next kind of run will reuse them — and takes every totals envelope it finds, bounded and stopping as soon as it has one. **Over-collecting is safe here**: an envelope states what a holding now is, so taking one twice writes the same number. The drop LISTS in the same payload would double, which is why only envelopes are swept.
 
