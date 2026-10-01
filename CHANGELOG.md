@@ -10,20 +10,20 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
-- **Potential 7** counts wherever a combatant has it: in their stats, in the Optimizer's score, and in `Show all stat contributions`. Its bonus to a card, a Quest or Weakness Damage is not scored.
-  - Optimizer: the score decides for itself whether meeting a Potential 7 requirement is worth the stats. Under `Fill in Potential 7 values:` in Have at least, `Minimum` sets the stats the combatant's Potential 7 checks to where it switches on, and `Full Effect` to where it tops out.
+- **Potential 7** counts wherever a combatant has it: in their stats, in the Optimizer's score, and in `Show all stat contributions`. Its bonus to a card, a mechanic or Weakness Damage is not scored.
+  - Optimizer: the score decides for itself whether meeting a Potential 7 requirement is worth the stats (only for Pot 7 that improve stats). Under `Fill in Potential 7 values:` in Have at least, `Minimum` sets the stats the combatant's Potential 7 checks to where it switches on, and `Full Effect` to where it tops out.
   - Combatants: node 7's line says what it raises.
 - **Capture:**
   - Two options in Upgrade Log Settings, both off by default:
-    - `Show average Potential` adds where each preset's Potential is expected to end, between the ends of its range: `21-41-80`. The ends are what the best and worst luck reach, and rarely happen.
+    - `Show average Potential` adds where each preset's Potential is expected to end up, between the ends of its range: `21-41-80`. The ends are what the best and worst luck reach, and rarely happen.
     - `Show Potential's middle 80%` narrows each range to where 8 upgrade paths in 10 end. The Memory Fragments tab's Potential and Highest Potential columns follow it while that tab's `Upgrade Log Settings` box is on, showing `…` for a moment while they work it out.
   - Every Chaos run is recorded in `snapshots/chaos_runs/`, beside the pull history. The season estimate reads it, counting only the live Galactic Disaster's own Chaos.
   - Each battle's stat sheets, as the server states them, are kept in `snapshots/base_stats/`. Where the program's own combatant or partner stats are missing or wrong, level 61 and 62 included, it uses the server's instead.
 - Setup & Settings → Share Game Data: `Export Facts` also saves the combatant and partner stats your battles showed that the program does not have.
 - **Stats & Gacha History:**
-  - Pulls made while capturing are kept straight away, without opening Rescue Records, and their banner turns orange if the game counts pulls the tab has not seen.
+  - Pulls made while capturing are kept straight away, without opening Rescue Records, and their banner turns orange if the game counts pulls the tab has not seen. You still need to grab old records from `Rescue Records` at least once.
   - A banner whose Rescue Records were read without reaching the pulls already kept turns orange, with a line saying pulls may be missing.
-- Anika, with her Potential 7.
+- **Anika**.
 
 ### Changed
 
@@ -38,8 +38,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: the Galactic Disaster shop's season estimate counts each part's boss rewards separately, and learns from your own captured Chaos runs once the program's own figures are a season or more old. `chaos_runs_per_day` at the foot of settings.json sets how many runs a day it assumes.
 - Gear Score: a preset assigned to a combatant is marked with ∞.
 - Gear Score: the shipped presets' weights are worked out from the Optimizer's own score, for an average build of each kind; Restore Defaults picks them up. `Rei (ATK skew)` is now `Rei`, and `Orlea (healing skew)` is new.
-- Optimizer: combatants whose Potential 7 the score counts in full come with no Have at least minimums; Restore Defaults picks this up.
-- Optimizer: Have at least has three columns: ATK, DEF and HP; Crit% and CDMG%; Extra%, DoT% and Ego.
+- Optimizer: combatants whose Potential 7 the score counts in full come with no Have at least minimums; use Restore Defaults to get the new defaults.
+- Optimizer: `Have at least` has three columns: ATK, DEF and HP; Crit% and CDMG%; Extra%, DoT% and Ego.
 - Memory Fragments: `Assigned Presets Only` is greyed out while `Upgrade Log Settings` is on, which takes assigned presets only anyway. Its tick applies again once that box is off.
 - Stats & Gacha History: each Great Rift division's row is drawn in the division's colour.
 
