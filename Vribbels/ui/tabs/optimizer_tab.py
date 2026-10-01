@@ -1040,7 +1040,7 @@ class OptimizerTab(BaseTab):
         # which is known only once the rows are built -- see the end of
         # this method.
         dmg_caption = ttk.Label(
-            parent, text="What percent of damage is Extra, Agony, or Fracture/Scorched DMG?",
+            parent, text="What percent of DMG is Extra, Agony, or Fracture/Scorched?",
             font=("Segoe UI", 9),
             padding=px((0, -1, 0, 0)),
         )
@@ -1192,7 +1192,7 @@ class OptimizerTab(BaseTab):
         # spacing: label ↔ its element -- label, checkbox ↔
         ttk.Label(
             fm_row,
-            text="Force HP/Ego on a Slot:",
+            text="Force on a Slot:",
             font=("Segoe UI", 9),
         ).pack(side=tk.LEFT, padx=px((0, 0)))
         for idx, (key, label, _slot, _stat) in enumerate(FORCE_MAIN_DEFS):
