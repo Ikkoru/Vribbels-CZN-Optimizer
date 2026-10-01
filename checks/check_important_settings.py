@@ -258,27 +258,57 @@ def _fill_button_at_foot(tab, scale_name):
     return out
 
 
-def _hal_labels_fit(tab, scale_name):
-    """Every Have-at-least stat label is wide enough for its text.
+def _hal_labels_fit(tab, scale_name, ot):
+    """Have at least's stat labels: each holds its text, a column's
+    spinboxes line up, and its widest label is the lever's distance
+    from its spinbox.
 
-    Sized by the character count, `CDMG%` lost its `%` beside the
-    narrower `Crit%`: a width counts the font's `0`, and capitals run
-    wider."""
+    Sized in characters, a label rounds up to whole `0`s: `CDMG%`, as
+    wide as `Crit%` by count, lost its `%`, and the remainder landed in
+    the gap -- 10px after `ATK` where the rule asks 5."""
     import tkinter.font as tkfont
+    from ui.scaling import px
     hal = _panel(tab, "Have at least this much of a stat")
     if hal is None:
         return []
     font = tkfont.nametofont("TkDefaultFont")
     out = []
-    for label in _descendants(hal):
-        if label.winfo_class() != "TLabel" or not label.cget("width"):
+    columns = {}
+    for row in _descendants(hal):
+        kids = row.winfo_children()
+        labels = [k for k in kids if k.winfo_class() == "TLabel"]
+        spins = [k for k in kids if k.winfo_class() == "Spinbox"]
+        if len(labels) != 1 or len(spins) != 1:
             continue
+        label, spin = labels[0], spins[0]
         text = str(label.cget("text"))
         if font.measure(text) > label.winfo_width():
             out.append(
                 f"At {scale_name} the Have at least label {text!r} needs "
                 f"{font.measure(text)}px and has {label.winfo_width()}px: "
                 f"its end is clipped.")
+        columns.setdefault(str(row.master), []).append((text, label, spin))
+    for rows in columns.values():
+        lefts = {spin.winfo_rootx() for _t, _l, spin in rows}
+        if len(lefts) != 1:
+            out.append(
+                f"At {scale_name} the spinboxes beside "
+                f"{[t for t, _l, _s in rows]} start at {sorted(lefts)}: a "
+                f"column's line up.")
+        # Held to the rule's 5 to the INK (docs/ui_spacing.md), less the
+        # label's own inset and plus a `%`'s overhang -- never to the
+        # tab's constant: a check reading the lever it guards passes
+        # whatever the lever says. Scaled whole like every label's pad.
+        from ui.utils.label_width import LABEL_REQUEST_INSET
+        text, label, spin = max(rows, key=lambda r: font.measure(r[0]))
+        overhang = ot.PERCENT_INK_OVERHANG if text.endswith("%") else 0
+        want = px(5 - LABEL_REQUEST_INSET // 2 + overhang)
+        got = spin.winfo_rootx() - label.winfo_rootx() - label.winfo_width()
+        if got != want:
+            out.append(
+                f"At {scale_name} {text!r}, its column's widest label, "
+                f"ends {got}px from its spinbox, not the {want} that "
+                f"inks it `label ↔ its element`'s 5 away at 100%.")
     return out
 
 
@@ -332,7 +362,7 @@ def _measure(scale_name):
             failures.extend(_least_length_is_least(root, scale_name, ot))
             failures.extend(_panel_is_its_widest_row(tab, scale_name, ot))
             failures.extend(_fill_button_at_foot(tab, scale_name))
-            failures.extend(_hal_labels_fit(tab, scale_name))
+            failures.extend(_hal_labels_fit(tab, scale_name, ot))
             if scale_name == SCALES[0]:
                 failures.extend(_fill_raises_only(tab))
         finally:

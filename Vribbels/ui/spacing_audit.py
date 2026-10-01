@@ -661,6 +661,12 @@ class TrackedGap:
     read from the main window's capture is not a wrong number -- it is
     a reading of whatever the main window happens to have at those
     coordinates.
+
+    `minimum` makes `target` a floor rather than a value: the row passes
+    at the target or above it. For a gap that varies by construction --
+    a reflowed row justified to its panel's edge -- where only the least
+    of it is a lever. Its marker ends ` -- minimum`, and a reading above
+    the floor is not a baseline change.
     """
     name: str
     tab: str
@@ -674,6 +680,11 @@ class TrackedGap:
     hand: Optional[int] = None
     couples_with: tuple = field(default_factory=tuple)
     window: object = None            # app -> the widget to capture
+    minimum: bool = False
+
+    def misses(self, value):
+        """Whether `value` fails this gap's target."""
+        return value < self.target if self.minimum else value != self.target
 
 
 REGISTRY: list[TrackedGap] = []
@@ -681,7 +692,7 @@ REGISTRY: list[TrackedGap] = []
 
 def track(name, tab, rule, target, resolve, axis, scenario="default",
           target_source="rule", provisional=False, hand=None,
-          couples_with=(), window=None):
+          couples_with=(), window=None, minimum=False):
     """Register one gap. `axis` is required: a row whose direction is
     not stated cannot be read out of a table of forty.
 
@@ -697,7 +708,7 @@ def track(name, tab, rule, target, resolve, axis, scenario="default",
     REGISTRY.append(
         TrackedGap(name, tab, rule, target, resolve, axis, scenario,
                    target_source, provisional, hand, tuple(couples_with),
-                   window))
+                   window, minimum))
 
 
 # ----------------------------------------------------------------- scenarios
@@ -1153,9 +1164,14 @@ def compare_baseline(rows, path=BASELINE_PATH, out=print):
     with open(path, encoding="utf-8") as fh:
         base = json.load(fh)
     now = {name: value for name, _t, value, *_ in rows if value is not None}
+    # A `minimum` row's reading moves above its floor by design, so only
+    # a reading below the floor is a change worth printing -- and the
+    # target check already flags that one.
+    floors = {row[0]: row[1] for row in rows if _minimum(row)}
 
     changed = [(n, base[n], now[n]) for n in base if n in now
-               and base[n] != now[n]]
+               and base[n] != now[n]
+               and not (n in floors and now[n] >= floors[n])]
     missing = [n for n in base if n not in now]
 
     # Entries the baseline has never seen are NOT reported. An entry
@@ -1325,7 +1341,7 @@ def _measure_tabs(app, notebook, gaps, scenario):
             # note beside it. See `GRID_TABS` for where that does not
             # hold.
             off = ([] if g.tab in GRID_TABS
-                   else [o for o in others if o != g.target])
+                   else [o for o in others if g.misses(o)])
             if off:
                 spread = ", ".join(str(o) for o in sorted(set(off)))
                 extra = (f"{len(off)} of {len(others) + 1} off target "
@@ -1333,7 +1349,8 @@ def _measure_tabs(app, notebook, gaps, scenario):
                 note = f"{note} | {extra}" if note else extra
             rows.append((g.name, g.target, value, note,
                          tab_name + suffix,
-                         g.axis, g.provisional, bool(off), g.target_source))
+                         g.axis, g.provisional, bool(off), g.target_source,
+                         g.minimum))
     return rows
 
 
@@ -1375,6 +1392,12 @@ def _tab_id(notebook, tab_name):
     return None
 
 
+def _minimum(row):
+    """Whether a measured row's target is a floor. Rows that measured
+    nothing are shorter and never are."""
+    return len(row) > 9 and bool(row[9])
+
+
 def _print_table(rows, out, verbose=False):
     """The measured rows, under a heading per tab.
 
@@ -1391,9 +1414,12 @@ def _print_table(rows, out, verbose=False):
     run that is meant to surface it.
     """
     def missed(row):
-        """Whether a row is off target -- its own reading or a sibling's."""
+        """Whether a row is off target -- its own reading or a sibling's.
+        A `minimum` row (`TrackedGap.minimum`) misses only below it."""
         _n, target, value = row[0], row[1], row[2]
-        return value is None or value != target or row[7]
+        if value is None or row[7]:
+            return True
+        return value < target if _minimum(row) else value != target
 
     on_target = sum(1 for r in rows if not missed(r))
     shown = rows if verbose else [r for r in rows if r[6] or missed(r)]
@@ -1406,21 +1432,23 @@ def _print_table(rows, out, verbose=False):
         name, target, value, note, tab, axis, provisional, sibling = row[:8]
         source = row[8] if len(row) > 8 else "rule"
         arrow = AXIS_MARK[axis]
+        # A floor reads `>=8`: the column says what passes.
+        shown_target = (f">={target}" if _minimum(row) else str(target))
         if value is None:
-            body.append((tab, name, arrow, f"{target:>6}", f"{'--':>8}",
-                         f"{'--':>5}", _with_source(note, source),
-                         provisional, "  <-"))
+            body.append((tab, name, arrow, f"{shown_target:>6}",
+                         f"{'--':>8}", f"{'--':>5}",
+                         _with_source(note, source), provisional, "  <-"))
             continue
         delta = value - target
-        flag = "" if delta == 0 and not sibling else "  <-"
+        flag = "  <-" if missed(row) else ""
         # **A row that is right says only that.** The detail behind a
         # reading -- which lines it came from, what else was on them --
         # is for working out why a number is wrong, and printing it
         # beside every right one buries the rows that need reading.
         # `verbose` is where it all goes.
-        detail = _with_source(note if (verbose or delta or sibling) else "",
+        detail = _with_source(note if (verbose or flag) else "",
                               source)
-        body.append((tab, name, arrow, f"{target:>6}", f"{value:>8}",
+        body.append((tab, name, arrow, f"{shown_target:>6}", f"{value:>8}",
                      f"{delta:>+5}", f"{detail}{flag}", provisional, flag))
 
     width = max(len(r[1]) for r in body)

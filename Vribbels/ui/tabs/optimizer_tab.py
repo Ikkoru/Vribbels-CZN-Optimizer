@@ -116,6 +116,14 @@ HAL_STATS_WITH_PCT = {"CRate", "CDmg", "Extra DMG%", "DoT%"}  # show "%" suffix
 # the wide range the spinbox is built with.
 HAL_STATS_CAPPED_AT_100 = {"CRate"}
 HAL_ALL_STATS = HAL_COLUMN_1 + HAL_COLUMN_2 + HAL_COLUMN_3
+# From a column's widest label's INK to its spinbox. The label's own
+# inset (half of `LABEL_REQUEST_INSET` a side) already lies between, so
+# the pad is the rest of it -- scaled whole, as every label's pad in
+# the app is, though the inset itself stays 2px at 200%.
+HAL_LABEL_GAP = 5            # spacing: label ↔ its element -- label, spinbox ↔
+# A `%` inks a pixel past its advance, so a column whose widest label
+# ends in one is padded that much further.
+PERCENT_INK_OVERHANG = 1
 
 
 # Label column width shared by the Extra / Agony / Fracture sliders, in
@@ -1304,39 +1312,35 @@ class OptimizerTab(BaseTab):
         col2_frame = ttk.Frame(cols)
         col2_frame.pack(side=tk.LEFT, fill=tk.Y, expand=True)
 
-        # Give every label in a column the same width, the widest label's,
-        # so the spinboxes line up vertically within each column. No
-        # trailing colon on the stat labels.
+        # Every label at its own width, padded out to its column's widest,
+        # so the spinboxes line up and the WIDEST label sits the rule's
+        # distance from its spinbox. No trailing colon on the labels.
         #
-        # **Measured, not counted.** A label's `width` is in units of the
-        # font's `0`, and capitals run wider: `CDMG%` and `Crit%` are both
-        # five characters, and sized by the count `CDMG%` lost its `%`.
-        # The measure already carries the UI scale, so no `px()`.
+        # **Measured, not counted.** A label's `width` option counts the
+        # font's `0`, so it rounds up to whole characters and the
+        # remainder landed between text and spinbox: 10px after `ATK`,
+        # and `CDMG%`, as wide as `Crit%` by count, clipped. The measure
+        # already carries the UI scale, so it takes no `px()`.
         font = tkfont.nametofont("TkDefaultFont")
-        unit = font.measure("0")
 
-        def _col_label_width(stats):
-            return max(-(-font.measure(DISPLAY_NAMES.get(s, s)) // unit)
-                       for s in stats)
+        def _measure(stat):
+            return font.measure(DISPLAY_NAMES.get(stat, stat))
 
-        for stat in HAL_COLUMN_1:
-            # Col 1's label allocation is widened by one char with
-            # label_pad=0 (instead of padx between label and spinbox):
-            # with anchor=W the label carries 1 char of internal whitespace
-            # to the right of the text, the spinbox sits flush against the
-            # label's right edge, and the +1 char is reclaimed from the
-            # inter-column whitespace.
-            self._build_hal_row(
-                col1_frame, stat,
-                label_width=_col_label_width(HAL_COLUMN_1) + 1, label_pad=0)
-        for frame, column in ((col2_frame, HAL_COLUMN_2),
+        for frame, column in ((col1_frame, HAL_COLUMN_1),
+                              (col2_frame, HAL_COLUMN_2),
                               (col3_frame, HAL_COLUMN_3)):
+            widest = max(column, key=_measure)
+            overhang = (PERCENT_INK_OVERHANG
+                        if DISPLAY_NAMES.get(widest, widest).endswith("%")
+                        else 0)
+            gap = px(HAL_LABEL_GAP + overhang - LABEL_REQUEST_INSET // 2)
             for stat in column:
                 # 4 chars wide: a percentage to one decimal ("60.5") or a
                 # three-digit Ego fits.
-                self._build_hal_row(frame, stat,
-                                    label_width=_col_label_width(column),
-                                    spin_width=4)
+                self._build_hal_row(
+                    frame, stat,
+                    label_pad=gap + _measure(widest) - _measure(stat),
+                    spin_width=4)
 
         # Note explaining HAL threshold semantics, packed below the cols
         # grid. wraplength is updated on <Configure> so the text reflows
@@ -1377,23 +1381,23 @@ class OptimizerTab(BaseTab):
                                  padx=px((2, 0)))
         self._tooltip.bind(self.p7_fill_button, P7_FILL_TOOLTIP)
 
-    def _build_hal_row(self, parent, stat, label_width=None, label_pad=2,
-                       spin_width=4):
+    def _build_hal_row(self, parent, stat, label_pad, spin_width=4):
+        """One stat's label and spinbox. `label_pad` is in pixels,
+        already scaled: part of it is a measured width."""
         row = ttk.Frame(parent)
         # spacing: spinbox row -> spinbox row -- spinbox, spinbox ↕
         # ASYMMETRIC, because a row pair sums BOTH pads: 1 a side
         # renders 2 and 2 a side would render 4, so the odd pixel
         # goes on one side alone.
         row.pack(fill=tk.X, pady=px((1, 2)))
-        # Internal stat key translated to its user-facing label; fixed
-        # per-column width so spinboxes align; anchor=tk.W keeps the label
-        # text left-justified within that width. No trailing colon.
+        # Internal stat key translated to its user-facing label, at its
+        # own width. No trailing colon.
         label_text = DISPLAY_NAMES.get(stat, stat)
         # spacing: label ↔ its element -- label, spinbox ↔
-        # Col 1 passes label_pad=0 and buys the gap with an extra char of
-        # label width instead -- see _build_have_at_least for why.
-        ttk.Label(row, text=label_text, width=label_width,
-                  anchor=tk.W).pack(side=tk.LEFT, padx=px((0, label_pad)))
+        # Not px() here: the caller scaled the lever and measured the
+        # rest -- see _build_have_at_least.
+        ttk.Label(row, text=label_text, anchor=tk.W).pack(
+            side=tk.LEFT, padx=(0, label_pad))
         var = self.have_at_least_vars[stat]
         # %-valued stats (DoubleVar) display one decimal place and accept
         # decimal input; raw-integer stats keep the plain integer spinbox.
@@ -2153,10 +2157,11 @@ class OptimizerTab(BaseTab):
             return
         self._exclude_reflow_retried = False
 
-        # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
+        # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔ -- minimum
         # Between the checkbuttons' BOXES. A checkbutton's ink stops
         # short of its box on each side, so the rendered gap is wider
         # than this by a constant -- the rule's 8 is the rendered one.
+        # A FLOOR: every row but the last is justified wider.
         gap = 4        # minimum px between checkbuttons in a row
         edge_pad = 2   # px on each side (kept symmetric)
         available_w = max(1, container_w - 2 * edge_pad)

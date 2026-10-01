@@ -1634,6 +1634,7 @@ PAIR_GAP_ENTRIES = [
 # one width, sized to the longest, so every shorter label simply has
 # more room before its element and only the longest one's gap is the
 # distance that was set.
+HAL_TITLE = "Have at least this much of a stat"
 LABEL_ELEMENT_ENTRIES = [
     # [Fracture] [====slider====] [nn%] -- the widest of the three damage
     # rows, and the one the shared label width is sized to.
@@ -1670,6 +1671,14 @@ LABEL_ELEMENT_ENTRIES = [
     ("Optimizer", "Ignore off-Element MFs -> its checkbox", 5, None,
      lambda app: _by_text("Ignore off-Element MFs")(app).master,
      LABEL_CLASSES + CHECKBOX_CLASSES, 0),
+    # Have at least's widest label in each column, beside its spinbox.
+    # The column's other labels are padded out to it, so theirs is
+    # slack. Found inside the panel: `ATK` also labels a slider above.
+    *(("Optimizer", f"HAL {text} -> its spinbox", 5, None,
+       (lambda words: lambda app: sa.find_descendant_text(
+           _panel(app, HAL_TITLE), words).master)(text),
+       LABEL_CLASSES + SPINBOX_CLASSES, 0)
+      for text in ("ATK", "CDMG%", "Extra%")),
 
     ("Memory Fragments", "Sets set -> its count", 5, None,
      _tab_attr("inventory_tab_instance", "inv_set_frame_inner"),
@@ -4839,7 +4848,22 @@ SETTINGS_ENTRIES = [
 # screen, and comes out again the moment a run confirms it -- so a row
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
-AWAITING_FIRST_READING = set()
+AWAITING_FIRST_READING = {
+    "HAL ATK -> its spinbox",
+    "HAL CDMG% -> its spinbox",
+    "HAL Extra% -> its spinbox",
+}
+
+# Entries whose target is a FLOOR (`TrackedGap.minimum`): the gap varies
+# by construction and only its least is a lever. Each one's call site
+# ends its marker ` -- minimum`, which `check_spacing_registry` pairs
+# with this set by rule.
+MINIMUM_GAPS = {
+    # The exclude reflow justifies every row but the last to the
+    # panel's edge, so the natural gap shows only on a last row of two
+    # or more names, and the roster decides whether there is one.
+    "Exclude checkboxes",
+}
 
 
 def register_all():
@@ -5554,6 +5578,11 @@ def register_all():
             axis="v",
             scenario="element_override",
         )
+
+    # After every table has registered, so a floor reaches its entry
+    # whichever table holds it.
+    for gap in sa.REGISTRY:
+        gap.minimum = gap.name in MINIMUM_GAPS
 
 
 # Runs at IMPORT, so importing this module is what fills

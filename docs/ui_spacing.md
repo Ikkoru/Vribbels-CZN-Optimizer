@@ -117,7 +117,9 @@ The **Marker** column is the canonical spelling, in both directions: the widget 
 | `# spacing: TBD -- <description>`            | deliberate, no rule yet, awaiting a ruling                     |
 | `# spacing: out of scope -- <why>`           | outside what the rules cover, marked so it reads as a decision |
 
-`<suffix>` is `<elements> <orientation>`, below, and always ends the line.
+`<suffix>` is `<elements> <orientation>`, below, and ends the line, unless the distance is a floor.
+
+**A floor ends ` -- minimum`**, after the orientation: a gap that varies by construction, where only its least is a lever and the rule's number is what it may not drop below. The Optimizer's exclude checkboxes are the case: every reflowed row but the last is justified to the panel's edge. Its registry entry is in `MINIMUM_GAPS`, and `check_spacing_registry` pairs the two by rule.
 
 `exception` names the rule it breaks, in the Marker column's spelling, with the reason on the lines below — grepping a rule has to surface its own exceptions. `unique` has no rule to break; both must name their subject precisely enough that grep finds one site and not its neighbour. Padding doing genuinely unrelated work stays unmarked.
 
@@ -135,6 +137,7 @@ Every marker carries a suffix naming the two elements and the orientation of the
 # spacing: <rule> -- <elements, comma separated> <↔, ↕ or ↔↕>
 # spacing: exception -- <rule> -- <elements> <↔, ↕ or ↔↕>
 # spacing: unique -- <what> -- <elements> <↔, ↕ or ↔↕>
+# spacing: <rule> -- <elements> <↔, ↕ or ↔↕> -- minimum
 ```
 
 The suffix makes the sites obeying a rule greppable instead of listed by hand, and it makes a rule SPLIT cheap: if `label ↔ its element` ever needs separating by orientation, the instances are already tagged.
@@ -147,17 +150,18 @@ The elements are written in layout order — top-to-bottom for `↕`, left-to-ri
 
 Line length grows to about 95 characters at worst. The one-line rule wins over the margin.
 
-**Anchor an orientation grep to the end of the line.** Five rule NAMES carry an arrow of their own, so an unanchored `grep "↔"` returns those sites too whatever their actual orientation.
+**Anchor an orientation grep to the end of the line**, allowing a floor's ending. Five rule NAMES carry an arrow of their own, so an unanchored `grep "↔"` returns those sites too whatever their actual orientation.
 
-| Want                                 | Grep     |
-| ------------------------------------ | -------- |
-| horizontal only                      | `↔$`     |
-| vertical only                        | `[^↔]↕$` |
-| both directions                      | `↔↕$`    |
-| anything with a horizontal component | `↔↕\?$`  |
-| anything with a vertical component   | `↕$`     |
+| Want                                 | Grep                          |
+| ------------------------------------ | ----------------------------- |
+| horizontal only                      | `↔\( -- minimum\)\?$`         |
+| vertical only                        | `[^↔]↕\( -- minimum\)\?$`     |
+| both directions                      | `↔↕\( -- minimum\)\?$`        |
+| anything with a horizontal component | `↔↕\?\( -- minimum\)\?$`      |
+| anything with a vertical component   | `↕\( -- minimum\)\?$`         |
+| floors only                          | ` -- minimum$`                |
 
-Every marker ends with its arrow, `unique` included — which is why that form puts its free-prose subject BEFORE the suffix and the check splits it from the right.
+Every marker ends with its arrow or with ` -- minimum` straight after it, `unique` included — which is why that form puts its free-prose subject BEFORE the suffix and the check splits it from the right.
 
 ### The element vocabulary
 
@@ -561,6 +565,8 @@ A borderless panel still has an edge to measure to. `Borderless` drops the frame
 **The content-frame rule is measured BOX to box, alone among the rules.** It is the one target defined by the pads that produce it rather than by pixels on screen, and a painted reading gets the vertical case wrong: a LabelFrame's title is drawn above its border and inside its box, so a scan for the lower panel's first painted pixel finds the title's glyphs and adds that title's leading to the gap. It read 7 where the pads give 4. Horizontally the two agree, since a border starts at the box edge.
 
 **A row that is registered but not yet confirmed by a hand reading prints in dark yellow.** The flag is `provisional=True` on the entry, or its name in `AWAITING_FIRST_READING`; it comes off once a reading agrees. In a table of hundreds of rows that is what says which ones nobody has checked.
+
+**A floor's target column reads `>=8`**, and its row passes at the target or above (`TrackedGap.minimum`). A reading above the floor is not reported as a baseline change either: it moves by design, and one below the floor is flagged by the table already.
 
 The `axis` column is `<>` or `^v`, not the arrows the markers use. The audit prints to a cp932 console, where a single non-ASCII character raises `UnicodeEncodeError` before the table reaches the screen.
 

@@ -17,6 +17,9 @@ The elements come from a fixed vocabulary, also read out of the doc, so
 that `grep "checkbox"` finds every checkbox gap rather than the subset
 that happened to spell it that way. Free text would decay into
 `checkbox` / `checkbutton` / `cb` and the searchability with it.
+
+A marker whose distance is a floor, not a value, ends ` -- minimum`
+after its orientation; that ending and nothing else may follow it.
 """
 
 import glob
@@ -33,6 +36,8 @@ MARKER = re.compile(r"#\s*spacing:\s*(.+?)\s*$", re.M)
 # for it would drop the site out of the other arrow's grep.
 ORIENTATIONS = ("↔", "↕", "↔↕")
 SUFFIX = re.compile(r"^(.*?)\s*([↔↕]+)$")
+# What ends a marker whose distance is a floor (`TrackedGap.minimum`).
+MINIMUM = " -- minimum"
 
 # Headings this check reads the doc through. Kept here so a rename shows
 # up as one edit rather than four scattered string literals.
@@ -136,6 +141,13 @@ def _split_suffix(body):
     return (head, tail) if sep else (head, "")
 
 
+def minimum_of(body):
+    """(body without a trailing ` -- minimum`, whether it had one)."""
+    if body.endswith(MINIMUM):
+        return body[:-len(MINIMUM)], True
+    return body, False
+
+
 def _check_suffix(suffix, vocab, where, failures):
     """The `<elements> <orientation>` half of a marker."""
     if not suffix:
@@ -204,9 +216,14 @@ def run():
         # `exception` and `out of scope` forms wrap, and their text is
         # free prose that nothing is matched against.
         for m in MARKER.finditer(text):
-            body = m.group(1)
             line = text[:m.start()].count("\n") + 1
             where = f"{rel}:{line}"
+            body, floor = minimum_of(m.group(1))
+            if floor and body.startswith(("TBD -- ", "out of scope -- ")):
+                failures.append(
+                    f"{where} ends ` -- minimum` on a marker with no "
+                    f"distance to be a floor: only a rule, an exception "
+                    f"or a unique carries one.")
             if body.startswith("TBD -- "):
                 code_tbd.add(body[len("TBD -- "):])
             elif body.startswith("exception -- "):

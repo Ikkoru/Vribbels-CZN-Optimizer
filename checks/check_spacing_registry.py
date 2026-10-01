@@ -31,6 +31,8 @@ What it enforces beyond "it imports":
     of a table marks every entry in that table alike, and a panel
     answering a DIFFERENT rule at that rule's own number is then filed
     as a hand reading nobody may touch.
+  * a gap whose target is a floor (`MINIMUM_GAPS`) has a marker ending
+    ` -- minimum` under its rule, and the reverse -- see `_minimums`.
   * importing twice does not double the registry, which a second
     `register_all` call otherwise does.
 """
@@ -150,6 +152,97 @@ def _excepted_rules():
                              text, re.M):
             excepted.add(m.group(1).rsplit(" -- ", 1)[0])
     return excepted
+
+
+def _minimum_rules():
+    """The rule (or a unique's `<what>`) of every marker in the widget
+    code that ends ` -- minimum`."""
+    from .check_spacing_markers import MARKER, minimum_of
+    found = set()
+    for path in glob.glob(str(SOURCE_ROOT / "**" / "*.py"), recursive=True):
+        if "__pycache__" in path or "_capture_addon" in path:
+            continue
+        text = io.open(path, encoding="utf-8", errors="replace").read()
+        for m in MARKER.finditer(text):
+            body, floor = minimum_of(m.group(1))
+            if not floor:
+                continue
+            if body.startswith("exception -- "):
+                body = body[len("exception -- "):]
+            if body.startswith("unique -- "):
+                found.add(body[len("unique -- "):].rsplit(" -- ", 1)[0])
+            else:
+                found.add(body.partition(" -- ")[0])
+    return found
+
+
+def _minimums(sa, registry):
+    """A floor is stated twice -- `MINIMUM_GAPS` and the site's marker
+    -- and nothing ties an entry to its call site, so the two are paired
+    by rule, as the exception check pairs a miss with its marker."""
+    failures = []
+    names = {g.name for g in sa.REGISTRY}
+    for name in sorted(getattr(registry, "MINIMUM_GAPS", ())):
+        if name not in names:
+            failures.append(
+                f"MINIMUM_GAPS names {name!r}, which nothing registers: a "
+                f"renamed entry has lost its floor and reads as exact")
+    marked = _minimum_rules()
+    floors = {g.rule for g in sa.REGISTRY if g.minimum}
+    for rule in sorted(floors - marked):
+        failures.append(
+            f"an entry under {rule!r} is a minimum, and no marker for "
+            f"that rule ends ` -- minimum`. The site has to say its "
+            f"distance is a floor, or the next reader tunes it to a value")
+    for rule in sorted(marked - floors):
+        failures.append(
+            f"a marker for {rule!r} ends ` -- minimum` and no entry under "
+            f"that rule is in MINIMUM_GAPS, so the audit holds the gap to "
+            f"an exact value the site says it does not have")
+    return failures
+
+
+def _minimum_judged(sa):
+    """The table and the baseline read a floor as a floor.
+
+    Fed rows built here, the way `_measure_tabs` builds them: the audit
+    itself only runs on a live window, so its judging is otherwise
+    never exercised headlessly."""
+    import json
+    import os
+    import tempfile
+    rows = [(name, 8, value, "", "Optimizer", "h", False, False, "rule",
+             floor)
+            for name, value, floor in (("above floor", 9, True),
+                                       ("below floor", 7, True),
+                                       ("exact off", 9, False))]
+    lines = []
+    sa._print_table(rows, lines.append)
+    flagged = {name for name, *_ in rows
+               if any(name in line and "<-" in line
+                      for line in lines)}
+    failures = []
+    if flagged != {"below floor", "exact off"}:
+        failures.append(
+            f"the audit flags {sorted(flagged)} of a floor read at 9, a "
+            f"floor read at 7 and an exact 8 read at 9 -- not the last "
+            f"two. A floor passes at its target or above.")
+    fd, path = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({name: 8 for name, *_ in rows}, fh)
+        said = []
+        sa.compare_baseline(rows, path=path, out=said.append)
+    finally:
+        os.remove(path)
+    changed = {name for name, *_ in rows
+               if any(name in line and "CHANGED" in line for line in said)}
+    if changed != {"below floor", "exact off"}:
+        failures.append(
+            f"the baseline reports {sorted(changed)} as changed -- a "
+            f"floor's reading moving above it is not a change.")
+    return failures
 
 
 def run():
@@ -313,6 +406,9 @@ def run():
                 f"{g.scenario!r}; names are the baseline's keys, so one "
                 f"reading would be lost silently")
         seen[key] = g
+
+    failures.extend(_minimums(sa, registry))
+    failures.extend(_minimum_judged(sa))
 
     # register_all() appends, so calling it again doubles everything.
     # Re-importing must not: the module body runs once.
