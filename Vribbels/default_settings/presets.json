@@ -13,6 +13,19 @@
       "Extra DMG%": 0.0,
       "DoT%": 0.01
     },
+    "Anika": {
+      "Flat ATK": 1.1,
+      "ATK%": 1.0,
+      "Flat DEF": 0.119,
+      "DEF%": 0.05,
+      "Flat HP": 0.022,
+      "HP%": 0.01,
+      "CRate": 1.86,
+      "CDmg": 2.1,
+      "Ego": 0.05,
+      "Extra DMG%": 0.0,
+      "DoT%": 0.05
+    },
     "Beryl (hedge)": {
       "Flat ATK": 0.954,
       "ATK%": 1.0,

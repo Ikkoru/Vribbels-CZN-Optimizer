@@ -15,6 +15,7 @@ from ..utils.alert import BLINK_MS, TabAlert
 from ..utils.style_once import first_time
 from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.checkbox import make_checkbox
+from ..utils.label_width import LABEL_REQUEST_INSET
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 from ..utils.tooltip import Tooltip
@@ -54,6 +55,22 @@ LOG_OPTION_COLUMNS = 3
 # one delete per so many lines.
 LOG_MAX_LINES = 20000
 LOG_TRIM_LINES = 2000
+
+# Ctrl+F in the Capture Log: a small box at its top right, over the
+# oldest lines, where whatever is typed is marked everywhere in the log
+# in the selection's own colour. Matched without regard to case, and
+# nothing scrolls -- the marks are the whole answer. Escape, or Ctrl+F
+# again, closes it and clears them. See `_open_find`.
+FIND_CAPTION = "Find:"
+FIND_TAG = "find"
+FIND_ENTRY_CHARS = 18
+# spacing: border edge -> first non-button element -- text, frame ↔↕
+FIND_INSET = 4
+# spacing: border edge -> first non-button element -- frame, label ↔
+# The caption's own text inset is 2 of the 4.
+FIND_PAD_LEFT = 2
+# spacing: border edge -> first non-button element -- frame, entry ↔↕
+FIND_PAD = 4
 # The display option that trades each Potential range's ends for its
 # likely middle -- `compute_fragment_potential_band`. The tip's first
 # line is the maintainer's: an Upgraded line does not say which ends it
@@ -678,6 +695,92 @@ class CaptureTab(BaseTab):
         # not part of what the game did.
         self.capture_log.tag_configure(LAG_TAG,
                                        foreground=self.colors["fg_dim"])
+        # A Find match: a BACKGROUND only, so every colour a line or a
+        # word already carries still reads through it.
+        self.capture_log.tag_configure(FIND_TAG,
+                                       background=self.colors["select"])
+        self._build_find_bar()
+
+    # ------------------------------------------------------------- find
+
+    def _build_find_bar(self):
+        """The Ctrl+F box, built hidden. See `FIND_CAPTION`.
+
+        A child of the log's own frame, PLACED over the Text rather
+        than packed beside it, so opening it moves no line of the log
+        and no gap on the tab."""
+        log = self.capture_log
+        self._find_var = tk.StringVar()
+        bar = self._find_bar = ttk.Frame(
+            log.frame, padding=px((FIND_PAD_LEFT, FIND_PAD, FIND_PAD,
+                                   FIND_PAD)))
+        label = ttk.Label(bar, text=FIND_CAPTION)
+        label.pack(side=tk.LEFT)
+        self._find_entry = tk.Entry(
+            bar, textvariable=self._find_var, width=FIND_ENTRY_CHARS,
+            bg=self.colors["bg_light"], fg=self.colors["fg"],
+            insertbackground=self.colors["fg"],
+            selectbackground=self.colors["select"],
+            selectforeground=self.colors["fg"],
+            relief=tk.FLAT, bd=1, highlightthickness=px(0))
+        # spacing: label ↔ its element -- label, entry ↔
+        # The rule's 5, less the caption's own trailing inset.
+        self._find_entry.pack(
+            side=tk.LEFT, padx=px((5 - LABEL_REQUEST_INSET // 2, 0)))
+        self._find_var.trace_add("write", lambda *_a: self._mark_found())
+        for widget in (log, self._find_entry):
+            widget.bind("<Control-f>", self._toggle_find, add="+")
+            widget.bind("<Control-F>", self._toggle_find, add="+")
+            widget.bind("<Escape>", self._escape_find, add="+")
+
+    def _find_open(self):
+        return bool(self._find_bar.winfo_manager())
+
+    def _toggle_find(self, _event=None):
+        return self._close_find() if self._find_open() else self._open_find()
+
+    def _escape_find(self, _event=None):
+        return self._close_find() if self._find_open() else None
+
+    def _open_find(self, _event=None):
+        # The Text's OWN path: the wrapper's `str()` is its frame's, and
+        # placed in that the box would sit over the scrollbar.
+        self._find_bar.place(in_=self.capture_log._w, relx=1.0,
+                             x=-px(FIND_INSET), y=px(FIND_INSET),
+                             anchor=tk.NE)
+        self._find_entry.focus_set()
+        self._find_entry.select_range(0, tk.END)
+        self._mark_found()
+        return "break"
+
+    def _close_find(self, _event=None):
+        self._find_bar.place_forget()
+        self.capture_log.tag_remove(FIND_TAG, "1.0", tk.END)
+        self.capture_log.focus_set()
+        return "break"
+
+    def _mark_found(self, start="1.0"):
+        """Mark every place the typed text appears in the log from
+        `start` on: from the top when the text changes, from a new
+        line's start when one is written while the box is open.
+
+        ONE search call for every match, and one tag call for them all:
+        a short term in a full log matches tens of thousands of times,
+        and a call per match would lag each keystroke. An exact search
+        matches the term's own length, so no count is read back."""
+        log = self.capture_log
+        if start == "1.0":
+            log.tag_remove(FIND_TAG, "1.0", tk.END)
+        term = self._find_var.get()
+        if not term or not self._find_open():
+            return
+        found = log.tk.splitlist(log.tk.call(
+            log._w, "search", "-all", "-exact", "-nocase", "--", term,
+            start, tk.END))
+        if found:
+            log.tag_add(FIND_TAG, *(
+                bound for at in found
+                for bound in (at, "%s+%dc" % (at, len(term)))))
 
     def _colour_log_line(self, start: str, msg: str):
         """Tag the parts of one log line that carry a verdict.
@@ -773,6 +876,7 @@ class CaptureTab(BaseTab):
         self.capture_log.insert(tk.END, msg, tag)
         self._insert_lag(stamp, tag)
         self._colour_log_line(start, msg)
+        self._mark_found(start)
         self._trim_log()
         self.capture_log.see(tk.END)
 

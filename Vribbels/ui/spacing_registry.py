@@ -3780,6 +3780,79 @@ def _exclude_justified(on):
     return apply
 
 
+# The Capture Log's Find box, open with something typed. Its caption is
+# found by its words; the box and its entry are taken off the tab, as
+# no words name either.
+FIND_CAPTION = "Find:"
+
+
+def _open_capture_find(app):
+    tab = app.capture_tab_instance
+    tab._open_find()
+    tab._find_var.set("Capture")
+
+
+def _close_capture_find(app):
+    tab = app.capture_tab_instance
+    tab._find_var.set("")
+    tab._close_find()
+
+
+def _find_box_gap(part):
+    """Resolver: the Capture Log's Find box against the log's text, and
+    its contents against the box.
+
+    The box and its entry each fill their own box edge to edge, so
+    their boxes ARE their painted edges, and the log's text is read at
+    its box as `_text_inset` reads it. Only the caption is read on its
+    ink, against the box's own background."""
+    def resolve(cap, app):
+        tab = app.capture_tab_instance
+        text_box = sa.box_of(tab.capture_log)
+        box = sa.box_of(tab._find_bar)
+        entry = sa.box_of(tab._find_entry)
+        if part == "text top":
+            return sa.gap_between(text_box.top - 1, box.top), ""
+        if part == "text right":
+            return sa.gap_between(box.right, text_box.right + 1), ""
+        if part == "entry top":
+            return sa.gap_between(box.top - 1, entry.top), ""
+        if part == "entry right":
+            return sa.gap_between(entry.right, box.right + 1), ""
+        if part == "entry bottom":
+            return sa.gap_between(entry.bottom, box.bottom + 1), ""
+        label = sa.find_descendant_text(tab._find_bar, FIND_CAPTION)
+        if label is None:
+            return None, f"no caption starting {FIND_CAPTION!r}"
+        ink = sa.painted_extent_h(cap, sa.box_of(label),
+                                  {cap.palette["bg"]})
+        if ink is None:
+            return None, "the caption painted nothing"
+        if part == "caption left":
+            return sa.gap_between(box.left - 1, ink[0]), ""
+        return sa.gap_between(ink[1], entry.left), ""
+    return resolve
+
+
+# (name, rule, part, axis), all read with the box open.
+FIND_BOX_ENTRIES = [
+    ("Capture Log find: text top -> box", RULE_BORDER_EDGE_CONTENT,
+     "text top", "v"),
+    ("Capture Log find: box -> text right", RULE_BORDER_EDGE_CONTENT,
+     "text right", "h"),
+    ("Capture Log find: left edge -> caption", RULE_BORDER_EDGE_CONTENT,
+     "caption left", "h"),
+    ("Capture Log find: top edge -> entry", RULE_BORDER_EDGE_CONTENT,
+     "entry top", "v"),
+    ("Capture Log find: entry -> right edge", RULE_BORDER_EDGE_CONTENT,
+     "entry right", "h"),
+    ("Capture Log find: entry -> bottom edge", RULE_BORDER_EDGE_CONTENT,
+     "entry bottom", "v"),
+    ("Capture Log find: caption -> entry", RULE_LABEL_ELEMENT,
+     "caption entry", "h"),
+]
+
+
 def _long_preset_name(app):
     """Put a preset name on the Memory Fragments tab long enough to
     wrap, so the wrap's margin to the Level filter is on screen."""
@@ -3797,6 +3870,8 @@ sa.register_scenario("element_override",
                      _restore_element_override)
 sa.register_scenario("long_preset_name", _long_preset_name,
                      _restore_preset_name)
+sa.register_scenario("capture_find_open", _open_capture_find,
+                     _close_capture_find)
 sa.register_scenario("exclude_unjustified", _exclude_justified(False),
                      _exclude_justified(True))
 sa.register_scenario("max_readouts", _max_readouts, _restore_readouts)
@@ -4944,6 +5019,7 @@ AWAITING_FIRST_READING = {
     "Level caption -> Sets",
     "Level caption -> dropdown",
     PRESET_WRAP_GAP,
+    *(name for name, *_rest in FIND_BOX_ENTRIES),
 }
 
 # Entries whose target is a FLOOR (`TrackedGap.minimum`): the gap varies
@@ -5238,6 +5314,17 @@ def register_all():
         axis="v",
         provisional=False,
     )
+    for _name, _rule, _part, _axis in FIND_BOX_ENTRIES:
+        sa.track(
+            name=_name,
+            tab="Capture",
+            rule=_rule,
+            target=5 if _rule == RULE_LABEL_ELEMENT else 4,
+            resolve=_find_box_gap(_part),
+            axis=_axis,
+            scenario="capture_find_open",
+            provisional=_name in AWAITING_FIRST_READING,
+        )
     sa.track(
         name="Level caption -> dropdown",
         tab="Memory Fragments",

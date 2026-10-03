@@ -625,6 +625,62 @@ def _combatant_selection_survives_a_rebuild(tab):
     return out
 
 
+def _capture_log_find_marks_all(tab):
+    """Ctrl+F's box marks every place its text appears, whatever the
+    case, a line written while it is open as well; sits over the log's
+    Text and not its scrollbar; and closing it clears every mark.
+
+    Returns a list of complaints.
+    """
+    import ui.tabs.capture_tab as ct
+    log = tab.capture_log
+    out = []
+
+    def marked():
+        ranges = log.tag_ranges(ct.FIND_TAG)
+        return [log.get(a, b) for a, b in zip(ranges[::2], ranges[1::2])]
+
+    try:
+        log.delete("1.0", "end")
+        for line in ("Got 3 Orbs", "orb spent", "nothing here",
+                     "two ORBs and an orb"):
+            tab.capture_log_msg(line)
+        bound = {seq for seq in ("<Control-f>", "<Control-F>")
+                 if log.bind(seq) and tab._find_entry.bind(seq)}
+        if len(bound) != 2:
+            out.append(f"Ctrl+F is bound on the log and its box for "
+                       f"{sorted(bound)}, not both cases: with Caps Lock "
+                       f"on the key arrives as <Control-F>.")
+        tab._open_find()
+        tab._find_var.set("orb")
+        got = marked()
+        if len(got) != 4 or {m.lower() for m in got} != {"orb"}:
+            out.append(f"searching 'orb' marks {got}, not the four orbs "
+                       f"in any case.")
+        tab.capture_log_msg("an orb arrives")
+        if len(marked()) != 5:
+            out.append(f"a line written while the box is open leaves "
+                       f"{len(marked())} marks, not 5: it is searched "
+                       f"as it lands.")
+        # By IDENTITY: the wrapper's `str()` is its frame's path, so a
+        # Text and its frame print alike.
+        placed_in = tab._find_bar.place_info().get("in")
+        if placed_in is not log:
+            out.append(f"the Find box is placed in "
+                       f"{getattr(placed_in, '_w', placed_in)!r}, not the "
+                       f"log's Text {log._w!r}: in the wrapper frame it "
+                       f"covers the scrollbar.")
+        tab._close_find()
+        if marked() or tab._find_bar.winfo_manager():
+            out.append("closing the Find box leaves it placed or the "
+                       "marks standing.")
+    finally:
+        tab._find_var.set("")
+        tab._find_bar.place_forget()
+        log.delete("1.0", "end")
+    return out
+
+
 def _capture_log_is_capped(tab):
     """The Capture Log holds `LOG_MAX_LINES` and drops its oldest in a
     block past that -- a capture left running for days otherwise grows
@@ -5035,6 +5091,7 @@ def run():
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))
             failures.extend(_capture_log_is_capped(built["CaptureTab"]))
+            failures.extend(_capture_log_find_marks_all(built["CaptureTab"]))
             failures.extend(_a_rewrite_keeps_its_timing(built["CaptureTab"]))
             failures.extend(
                 _log_preset_columns_leave_the_gap(built["CaptureTab"]))

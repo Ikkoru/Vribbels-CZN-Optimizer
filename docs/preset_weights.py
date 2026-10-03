@@ -94,6 +94,10 @@ VARIANTS = {
     "Orlea (healing skew)": {
         "settings": {"shielding_healing_weight": 80}, "new": True,
         "like": "Orlea (slight DMG skew)"},
+    # Her tie-breakers are those of a plain ATK DPS. Her own best
+    # build's sets are in the stored archetypes; her fragment stats
+    # join the averages at the next `--derive`.
+    "Anika": {"new": True, "like": "Sereniel"},
 }
 
 # The 2-piece a forced 4-piece is paired with where the inventory has no
