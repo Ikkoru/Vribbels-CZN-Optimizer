@@ -106,11 +106,14 @@ shift test read each kind of fight apart, and `special` says which runs
 had the option. Expect it at the end of season 5, against season 4's
 runs, and again at the end of season 6, against season 5's.
 
-**The season's skill tree moves rates as it is levelled.** Every run
-records the Zero System effects in force (`Addon._chaos_setup`), and
-among them are the season's own `ZERO_ENCOUNTER_RATEUP__*` and
-`ZERO_BREAK_IN_RATEUP__*` nodes. A shift that lines up with one taken
-is the tree's.
+**The skill trees move rates as they are levelled, and a Zero System
+map's penalties move the mix of fights.** Every run records the Zero
+System effects in force (`Addon._chaos_setup`): the account's Zero
+System improvements, `ZERO_BREAK_IN_RATEUP__*` among them, in every
+run; the season's own tree in its Galactic Disaster runs, where season
+4's `ZERO_ENCOUNTER_RATEUP__*` node was taken between 09-07 and 09-17;
+and a map's penalties, of which `ELITE_ADD` adds Elite floors. A shift
+that lines up with one of these is theirs.
 
 **A season is named by the run, not by its currency.** Each season pays
 in an item id of its own, and the capture names the season a run
@@ -397,9 +400,11 @@ def difficulty_of(run):
     """A run's difficulty as the `difficulty` column writes it: the
     number ending the list id a base-game or Galactic Disaster Chaos is
     entered with (`embody_chaos_04_06` is 6), a Zero System map's level
-    (`lv80`), '?' where the record holds neither. The Galactic Disaster
-    list's number is read the way the base game's is, which nothing on
-    the wire confirms."""
+    (`lv80`), '?' where the record holds neither: season 4's runs at
+    difficulty 8 entered `disaster_s04_08`. A Zero System map's
+    difficulty is set when it is made and is not on the map; its level
+    rises with each clear (`docs/capture_pipeline.md`, *The Zero
+    System's codex*)."""
     codex = run.get("codex")
     if isinstance(codex, dict) and codex.get("lv") is not None:
         return "lv%s" % codex["lv"]

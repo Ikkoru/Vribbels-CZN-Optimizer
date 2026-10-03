@@ -1087,14 +1087,8 @@ class HeroesTab(BaseTab):
         )
 
     def _on_show_missing_toggle(self):
-        """Persist `Show missing characters`, then rebuild the list."""
-        sm = self.context.settings_manager
-        if sm is not None:
-            sm.set(HERO_SHOW_MISSING_KEY, bool(self.show_missing_var.get()))
-        self.refresh_heroes()
-
-    def _on_show_missing_toggle(self):
-        """Persist `Show missing characters`, then rebuild the list."""
+        """Persist `Show missing characters`, then rebuild the list. The
+        Optimizer tab's combatant list follows it when next shown."""
         sm = self.context.settings_manager
         if sm is not None:
             sm.set(HERO_SHOW_MISSING_KEY, bool(self.show_missing_var.get()))

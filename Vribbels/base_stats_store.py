@@ -138,19 +138,21 @@ def solve_base(inner, partner, rate, flat):
     return hits[0] if len(hits) == 1 else None
 
 
+# The Mutations seen to reach the stat sheet a battle's entry states.
+# EMPTY so far: a Mutation applies in battle, and a deck's reading is
+# believed like any other (`Addon._entry_mutations`). One that turns up
+# in `mutation_gaps` goes here, and every reading from a deck carrying
+# it is set aside from then on.
+MUTATIONS_ON_THE_SHEET = frozenset()
+
+
 def _comparable(row):
     """A reading the program's tables can be held to: level 60 or
-    above, from a combatant whose deck carried no corruption.
-
-    **A corrupted deck's reading is set aside**, though the sheet has
-    not been seen to carry one: a corruption's stat applies in battle
-    (`Addon._entry_corruptions`). Nothing says that holds for every
-    corruption, and the readings ship to every player, where a lost
-    one costs nothing."""
+    above, and from no deck whose Mutation reaches the sheet."""
     return isinstance(row, dict) and isinstance(row.get("level"), int) \
         and row["level"] >= LOWEST_LEVEL \
         and isinstance(row.get("base"), list) and len(row["base"]) == 3 \
-        and not row.get("corruption")
+        and row.get("mutation") not in MUTATIONS_ON_THE_SHEET
 
 
 def plain_battles(battles):
@@ -422,6 +424,39 @@ _POT_KEYS = {"ATK%": "pot_atk_pct", "DEF%": "pot_def_pct",
 ELEMENT_FIELDS = {"Passion": "S_RED_DMG_RATE", "Justice": "S_BLUE_DMG_RATE",
                   "Instinct": "S_ORANGE_DMG_RATE", "Void": "S_PURPLE_DMG_RATE",
                   "Order": "S_GREEN_DMG_RATE"}
+
+
+def mutation_gaps(builds):
+    """[(res_id, Mutation, {field: (without, with)})] for every build
+    stated both with a Mutation on its deck and without one, whose
+    sheets differ -- a Mutation reaching the sheet, which
+    `MUTATIONS_ON_THE_SHEET` should then name.
+
+    The same build means the same combatant, level, nodes, partner,
+    fragments and mode: anything else that differs moves the sheet on
+    its own. Two builds that never met say nothing either way."""
+    def same(build):
+        return json.dumps([build.get(k) for k in (
+            "res_id", "level", "nodes", "partner_id", "partner_lb",
+            "pieces", "zero_system")], sort_keys=True)
+
+    plain, mutated = {}, []
+    for build in builds:
+        if build.get("mutation") is None:
+            plain.setdefault(same(build), build)
+        else:
+            mutated.append(build)
+    out = []
+    for build in mutated:
+        other = plain.get(same(build))
+        if other is None:
+            continue
+        a, b = other.get("status") or {}, build.get("status") or {}
+        moved = {f: (a.get(f), b.get(f)) for f in set(a) | set(b)
+                 if a.get(f) != b.get(f)}
+        if moved:
+            out.append((build.get("res_id"), build["mutation"], moved))
+    return out
 
 
 def formula_gaps(builds):

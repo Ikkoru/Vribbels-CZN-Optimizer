@@ -98,12 +98,14 @@ CHAOS_NAMES = {
 }
 
 # The Zero System's special options, which a map's codex carries, by
-# what they do. Each Galactic Disaster's own adds its Chaos's features
-# to a base-game Chaos; the next season's is on offer in its preseason.
-# The next season's turns every floor after the first boss into Elite
-# and Unidentified Area floors and adds a Core of Discord style boss --
-# fewer ordinary fights a run, so fewer marked ones, at an unmoved rate
-# a fight.
+# what they do. Each Galactic Disaster's own is the Effect chosen when
+# the codex is made, adding its Chaos's features to a base-game Chaos;
+# the next season's is on offer in its preseason. Season 5's turns every
+# floor after the first boss into Elite and Unidentified Area floors and
+# adds a Core of Discord style boss -- fewer ordinary fights a run, so
+# fewer marked ones, at an unmoved rate a fight. `v1_01` to `v1_04` are
+# rolled beside the Effect, or without one; only Divine Intervention's
+# is named. `docs/capture_pipeline.md`, *The Zero System's codex*.
 ZERO_SPECIALS = {
     "zero_orb_special_v1_04": "Divine Intervention",
     "zero_orb_special_v1_05": "season 1 Chaos",

@@ -15,7 +15,6 @@ from ..utils.alert import BLINK_MS, TabAlert
 from ..utils.style_once import first_time
 from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.checkbox import make_checkbox
-from ..utils.label_width import LABEL_REQUEST_INSET
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
 from ..utils.tooltip import Tooltip
@@ -63,14 +62,21 @@ LOG_TRIM_LINES = 2000
 # again, closes it and clears them. See `_open_find`.
 FIND_CAPTION = "Find:"
 FIND_TAG = "find"
-FIND_ENTRY_CHARS = 18
+FIND_ENTRY_CHARS = 38
 # spacing: border edge -> first non-button element -- text, frame ↔↕
+# Measured from the Text's EDGE, which `place` does not offer: it
+# places inside the Text's own padding, so that is taken off. See
+# `_open_find`.
 FIND_INSET = 4
 # spacing: border edge -> first non-button element -- frame, label ↔
-# The caption's own text inset is 2 of the 4.
-FIND_PAD_LEFT = 2
+# The caption's own text inset and the F's side bearing are 3 of the 4.
+FIND_PAD_LEFT = 1
 # spacing: border edge -> first non-button element -- frame, entry ↔↕
 FIND_PAD = 4
+# spacing: label ↔ its element -- label, entry ↔
+# The caption's trailing inset and the colon's side bearing are 3 of
+# the rule's 5.
+FIND_CAPTION_GAP = 2
 # The display option that trades each Potential range's ends for its
 # likely middle -- `compute_fragment_potential_band`. The tip's first
 # line is the maintainer's: an Upgraded line does not say which ends it
@@ -724,9 +730,7 @@ class CaptureTab(BaseTab):
             selectforeground=self.colors["fg"],
             relief=tk.FLAT, bd=1, highlightthickness=px(0))
         # spacing: label ↔ its element -- label, entry ↔
-        # The rule's 5, less the caption's own trailing inset.
-        self._find_entry.pack(
-            side=tk.LEFT, padx=px((5 - LABEL_REQUEST_INSET // 2, 0)))
+        self._find_entry.pack(side=tk.LEFT, padx=px((FIND_CAPTION_GAP, 0)))
         self._find_var.trace_add("write", lambda *_a: self._mark_found())
         for widget in (log, self._find_entry):
             widget.bind("<Control-f>", self._toggle_find, add="+")
@@ -745,9 +749,15 @@ class CaptureTab(BaseTab):
     def _open_find(self, _event=None):
         # The Text's OWN path: the wrapper's `str()` is its frame's, and
         # placed in that the box would sit over the scrollbar.
-        self._find_bar.place(in_=self.capture_log._w, relx=1.0,
-                             x=-px(FIND_INSET), y=px(FIND_INSET),
-                             anchor=tk.NE)
+        #
+        # `place` positions inside the Text's padding, not its edge, so
+        # the padding comes off the inset: placed at the inset itself,
+        # the box sat a padding further in.
+        log = self.capture_log
+        self._find_bar.place(
+            in_=log._w, relx=1.0, anchor=tk.NE,
+            x=int(log.cget("padx")) - px(FIND_INSET),
+            y=px(FIND_INSET) - int(log.cget("pady")))
         self._find_entry.focus_set()
         self._find_entry.select_range(0, tk.END)
         self._mark_found()

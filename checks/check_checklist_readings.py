@@ -2075,6 +2075,21 @@ def run():
             f"{readings[EVENT_KEY_PREFIX + 'probe'][0]!r}. The answer was "
             f"about 21 of 21; 21 of 22 is a different question.")
 
+    # An Overclock is never asked: its runs refresh daily and its
+    # window says when it ends, so a full day is not in doubt.
+    clocked = _snapshot()
+    clocked["event_schedules"] = {"EVENT_OVERCLOCK": {
+        "event_overclock_live_13": {"start_time": int(now - DAY),
+                                    "end_time": int(now + DAY)}}}
+    key = EVENT_KEY_PREFIX + "event_overclock_live_13"
+    asked = ChecklistTab._mark_finished(
+        SimpleNamespace(context=SimpleNamespace(checklist_manager=store)),
+        clocked, {key: (("6/6", CYCLE_DONE), ("Ends in 1 day", SOON))})
+    if key in asked:
+        failures.append(
+            f"a live Overclock at 6/6 is asked Finished? ({asked[key]!r}). "
+            f"Its window says when it ends, and its runs refresh daily.")
+
     # A row that is not on the tab at all is left alone -- its event
     # may simply be over, and a tab with no snapshot behind it would
     # otherwise wipe every answer at once.

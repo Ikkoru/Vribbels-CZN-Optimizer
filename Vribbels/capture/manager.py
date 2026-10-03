@@ -249,6 +249,13 @@ def _chaos_mark(fight):
     return "+".join(marks)
 
 
+def _mutation_number(res_id):
+    """A Mutation's number off the wire's `corruption_option_<n>`; the
+    id as sent where it does not end in one."""
+    tail = str(res_id).rsplit("_", 1)[-1]
+    return int(tail) if tail.isdigit() else res_id
+
+
 def _zero_effects(effs, prefixes=None):
     """A reply's Zero System effects as filed: `[group, effect id,
     [its values]]` each, the unused `-1` values dropped, and only the
@@ -1968,6 +1975,27 @@ class Addon:
             if [last.get(f) for f in fields] != [sample[f] for f in fields]:
                 readings.append(sample)
                 self._save_pending = True
+        # **When each Offensive was 9-starred**: the game's 9-star
+        # Collection Count is how many Offensives have one. Kept in
+        # `remnants_user_entity.star_complete_records`, {Offensive: the
+        # second its ninth star was won}, which the clear winning it
+        # sends in its result and every `event/get_list` after. An
+        # Offensive never 9-starred has no entry, and an account with
+        # none was sent no record at all.
+        result = (data.get("return_info") or {}).get(
+            "remnants_boss_penalty_result") if isinstance(
+            data.get("return_info"), dict) else None
+        user = data.get("remnants_user_entity")
+        if not isinstance(user, dict) and isinstance(result, dict):
+            user = result.get("remnants_user_entity")
+        records = user.get("star_complete_records") \\
+            if isinstance(user, dict) else None
+        for define_id, when in (records.items()
+                                if isinstance(records, dict) else ()):
+            season = self.remnants_rankings.setdefault(str(define_id), {})
+            if isinstance(when, int) and season.get("nine_stars_at") != when:
+                season["nine_stars_at"] = when
+                self._save_pending = True
         # **The account's lifetime statistics**, for the history a
         # reader would chart: the counters the collection achievements
         # count off, the Achievements screen, and the seven daily
@@ -2577,7 +2605,7 @@ class Addon:
         sups = info.get("enter_supporters")
         sups = sups if isinstance(sups, list) else []
         effs = data.get("zero_system_effs")
-        corrupted = self._entry_corruptions(data)
+        mutated = self._entry_mutations(data)
         chars, builds = [], []
         for i, rec in enumerate(info.get("enter_chars") or []):
             status = rec.get("status") if isinstance(rec, dict) else None
@@ -2610,8 +2638,8 @@ class Addon:
                                          sup_st.get("S_HP_INC_ADD_OUT")])
             # Only where there is one, so a battle filed before this was
             # kept still matches its next sighting.
-            if corrupted.get(row["res_id"]):
-                row["corruption"] = corrupted[row["res_id"]]
+            if mutated.get(row["res_id"]) is not None:
+                row["mutation"] = mutated[row["res_id"]]
             chars.append(row)
             pieces = rec.get("equipped_pieces")
             build = {
@@ -2626,8 +2654,8 @@ class Addon:
                            if isinstance(p, dict)],
                 "inner": row["inner"], "status": _numbers(st),
                 "zero_system": bool(effs)}
-            if "corruption" in row:
-                build["corruption"] = row["corruption"]
+            if "mutation" in row:
+                build["mutation"] = row["mutation"]
             builds.append(build)
         if not chars:
             return
@@ -2655,18 +2683,20 @@ class Addon:
             self._file_sighting(self.base_builds, build, when, BUILD_KEEP)
         self._write_base_store()
 
-    def _entry_corruptions(self, data):
-        """{combatant res_id: corruption} for the Save Data a battle's
-        entry names, where one carries a corruption.
+    def _entry_mutations(self, data):
+        """{combatant res_id: Mutation number} for the Save Data a
+        battle's entry names, where one carries a Mutation.
 
-        **A corruption is an effect put on one Save Data** -- one
-        combatant's deck -- with `savedata_manage/apply_corruption`:
-        DEF +14% on one, ATK +12% on another. The deck carries it, not
-        the combatant, and the sheet the entry states does NOT: an
-        Adelheid deck read DEF 477 before its DEF +14% and after
-        (`websocket_debug_20261001_222841`). It is kept beside the
-        reading all the same, since nothing on the wire says every
-        corruption stays off the sheet.
+        **A Mutation is an effect put on one Save Data** -- one
+        combatant's deck -- with a Core of Mutation, which the wire
+        calls a corruption: `savedata_manage/apply_corruption`, and
+        `corruption_option_<number>` on the deck. Mutation 9 is DEF
+        +14%, Mutation 3 ATK +12% (`docs/mutations.tsv`). The deck
+        carries it, not the combatant, and the sheet the entry states
+        does NOT: an Adelheid deck read DEF 477 before its Mutation 9
+        and after (`websocket_debug_20261001_222841`). It is kept beside
+        the reading all the same, so a Mutation that ever does reach the
+        sheet shows as a difference -- `base_stats_store.mutation_gaps`.
 
         A Full-Scale Offensive's and a Great Rift's entry name the Save
         Data in `clear_record_savedata_ids`, read against the held
@@ -2687,14 +2717,15 @@ class Addon:
         if isinstance(held, list):
             decks += [d for d in held if isinstance(d, dict)
                       and str(d.get("id")) in ids]
-        return {d.get("char_res_id"): d.get("corruption_res_id")
+        return {d.get("char_res_id"): _mutation_number(
+            d.get("corruption_res_id"))
                 for d in decks if d.get("corruption_res_id")}
 
     def _note_savedata(self, data):
         """Keep the held Save Data current as a reply changes one: a
-        corruption applied, a deck renamed or edited. The reply carries
+        Mutation applied, a deck renamed or edited. The reply carries
         the whole `savedata_entity`, which replaces the held copy of
-        the same id -- what `_entry_corruptions` reads a battle's decks
+        the same id -- what `_entry_mutations` reads a battle's decks
         against, and what the snapshot shows."""
         entity = data.get("savedata_entity")
         held = (self.inventory_data or {}).get("savedata")

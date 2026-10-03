@@ -2337,6 +2337,10 @@ PERIOD_BY_COLUMN = {"Weekly": "weekly", "Monthly": "monthly",
 # recalled streak is. This program's own key, not the wire's.
 EVENT_FINISHED_FIELD = "_checklist_finished"
 FINISHED_LABEL = "Finished?"
+# The event groups the question is never put to. An Overclock's runs
+# refresh every day and its window says when it ends, so a full day is
+# never in doubt.
+NOT_ASKED_GROUPS = ("EVENT_OVERCLOCK",)
 
 COUNTDOWN_STOP_PREFIX = "endsat:"
 COUNTDOWN_FIXED, COUNTDOWN_EVENTS = "fixed", "events"
@@ -3464,12 +3468,14 @@ class ChecklistTab(BaseTab):
         every answer at once.
         """
         manager = getattr(self.context, "checklist_manager", None)
+        not_asked = {str(name) for group in NOT_ASKED_GROUPS
+                     for name in schedules.groups(raw).get(group) or ()}
         out = {}
         for key, segments in list(readings.items()):
             if not str(key).startswith(EVENT_KEY_PREFIX):
                 continue
             name = key[len(EVENT_KEY_PREFIX):]
-            pair = unsure_ceiling(segments)
+            pair = None if name in not_asked else unsure_ceiling(segments)
             if pair is None:
                 # The row exists and is not at an unproven ceiling, so
                 # an answer about it is about a reading that is gone.

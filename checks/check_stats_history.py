@@ -82,6 +82,14 @@ def _frames():
         [{"res": "ok", "service_server_time": 1790000050,
           "define_id": "remnants_boss_penalty_005", "rank": 441,
           "rank_percent": 0.83, "reward_count": 9, "entities": {}}],
+        # The clear that wins the ninth star, as
+        # `websocket_debug_20261001_222841` had it: the 9-star record
+        # rides its result.
+        [{"res": "ok", "service_server_time": 1790000060,
+          "return_info": {"remnants_boss_penalty_result": {
+              "remnants_user_entity": {
+                  "star_complete_records": {
+                      "remnants_boss_penalty_005": 1790000058}}}}}],
         # Merit Ranking, Master's page and then Bronze's.
         [{"res": "ok", "service_server_time": 1790000100,
           "result_list": [_stranger(1, "disaster_s04_rank_best_2_30",
@@ -234,6 +242,7 @@ def _tables(sh):
                 {"rank": 900, "rank_percent": None, "read_at": 4}]},
             "remnants_boss_penalty_005": {
                 "stages": {"a": 1130418, "b": 1060877, "c": 1255815},
+                "nine_stars_at": 1790900742,
                 "readings": [{"rank": 441, "rank_percent": 0.83,
                               "read_at": 5}]}}}
     for name, table, rows, columns, why in (
@@ -253,12 +262,14 @@ def _tables(sh):
              "top, Master's first, as its subdivision I -- no other "
              "subdivision's top is ever sent"),
             ("Full-Scale Offensive", sh.offensive_table, sh.OFFENSIVE_ROWS,
-             [("5", ["0.83%", "441", "~53,100", "3,447,110",
-                     "1,130,418", "1,060,877", "1,255,815"]),
+             [("5" + sh.NINE_STARS, ["0.83%", "441", "~53,100",
+                                     "3,447,110", "1,130,418", "1,060,877",
+                                     "1,255,815"]),
               ("4", [None, "900", None, None, None, None, None])],
              "the field is the rank over rank_percent, to the hundred, the "
-             "total the stages' best scores summed, and each stage's in "
-             "the order of their ids")):
+             "total the stages' best scores summed, each stage's in the "
+             "order of their ids, and a 9-starred Offensive's heading "
+             "marked")):
         # Codenames of the check's own -- one part named, its season's
         # other part not -- so the maintainer's own cannot move what
         # this expects.
@@ -333,6 +344,12 @@ def _reading(sh):
                        f"the login's rank, then entering it adds the share "
                        f"of the field. MARKERS must let both frames "
                        f"through.")
+        if offensive.get("nine_stars_at") != 1790000058:
+            out.append(f"the Offensive's 9-star record from the log reads "
+                       f"{offensive.get('nine_stars_at')!r}, not the second "
+                       f"the clear's star_complete_records gave. It is the "
+                       f"game's 9-star Collection Count, and MARKERS must "
+                       f"let the clear through.")
         leaked = _keys(data, set()) & IDENTITY
         if leaked:
             out.append(f"the stats file would carry {sorted(leaked)} -- "

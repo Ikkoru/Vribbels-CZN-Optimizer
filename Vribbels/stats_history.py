@@ -41,7 +41,7 @@ FILE_NAME = "stats_history.json"
 KIND = "vribbels stats history"
 # What the reading reads. Bump it and the next launch reads every log
 # again, which is how a newly kept field reaches the captures before it.
-VERSION = 2
+VERSION = 3
 
 # A frame is parsed only where its text carries one of these: the keys
 # of everything the reading keeps. Every other frame is skipped unread,
@@ -49,7 +49,8 @@ VERSION = 2
 MARKERS = ('"my_rank"', '"result_list"', '"mission_accumulate"',
            '"disaster_boss_rank_entit', '"login_total_count"',
            '"accumulate_condition"', '"achievement_entity"',
-           '"chaos_assault_entity"', '"remnants_entit', '"rank_percent"')
+           '"chaos_assault_entity"', '"remnants_entit', '"rank_percent"',
+           '"star_complete_records"')
 
 
 # The Great Rift's thirty subdivisions, by the number that ends a
@@ -151,6 +152,8 @@ RIFT_ROWS = ("Codename", "Top% apx.", "Top% official", "Top #", "Out of",
 OFFENSIVE_STAGES = 3
 OFFENSIVE_ROWS = ("Top%", "Top #", "Out of", "Total") + tuple(
     "Score %d" % n for n in range(1, OFFENSIVE_STAGES + 1))
+# What an Offensive's heading carries once it is 9-starred.
+NINE_STARS = " (9★)"
 
 
 def path_in(settings_dir):
@@ -638,7 +641,10 @@ def offensive_table(raw, history, shipped=None):
     the game numbers them. The field is the rank over `rank_percent`,
     which the game states to two decimals -- so it is given to the
     hundred. The total is the stages' best scores summed, and each
-    stage's follows it, in the order of their ids.
+    stage's follows it, in the order of their ids. A 9-starred
+    Offensive's heading carries `NINE_STARS`: the game's 9-star
+    Collection Count is how many headings do. A row of its own would
+    not fit the default window.
 
     `shipped` is the program's own game facts (`shared_facts.py`). An
     Offensive the account never read that they hold for its server is a
@@ -650,10 +656,11 @@ def offensive_table(raw, history, shipped=None):
                                     "remnants_rankings").items():
         found = re.search(r"(\d+)$", str(define_id))
         readings = season.get("readings") or []
-        if not found or not readings:
+        nine = season.get("nine_stars_at")
+        if not found or not (readings or nine):
             continue
         read.add(str(define_id))
-        last = readings[-1]
+        last = readings[-1] if readings else {}
         rank = _count(last.get("rank"))
         percent = last.get("rank_percent")
         if not isinstance(percent, (int, float)) or percent <= 0:
@@ -669,12 +676,14 @@ def offensive_table(raw, history, shipped=None):
             _thousands(rank),
             "~" + format(field, ",") if field else None,
             _thousands(sum(stages)) if stages else None]
-            + [_thousands(score) for score in scores]))
+            + [_thousands(score) for score in scores],
+            NINE_STARS if isinstance(nine, int) else ""))
     for define_id, field in fields.items():
         found = re.search(r"(\d+)$", define_id)
         if found and define_id not in read:
             columns.append((int(found.group(1)), [
                 None, None, "~" + format(field["players"], ","), None]
-                + [None] * OFFENSIVE_STAGES))
+                + [None] * OFFENSIVE_STAGES, ""))
     columns.sort(key=lambda c: -c[0])
-    return OFFENSIVE_ROWS, [(str(n), cells) for n, cells in columns]
+    return OFFENSIVE_ROWS, [(str(n) + mark, cells)
+                            for n, cells, mark in columns]

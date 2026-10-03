@@ -185,11 +185,11 @@ def _the_capture_files_battles():
     return out
 
 
-def _a_corrupted_deck_is_marked():
+def _a_mutated_deck_is_marked():
     """A Full-Scale Offensive entry names its Save Data by id; the
-    combatant whose deck carries a corruption is filed with it, a
-    corruption applied mid-session included (its reply's whole
-    `savedata_entity` replaces the held one), and a clean deck's
+    combatant whose deck carries a Mutation is filed with its number,
+    a Mutation applied mid-session included (its reply's whole
+    `savedata_entity` replaces the held one), and a plain deck's
     combatant without one -- so the battle filed before this was kept
     still matches its next sighting."""
     import base_stats_store
@@ -212,17 +212,16 @@ def _a_corrupted_deck_is_marked():
         addon._note_base_stats("world/get_stage_info", reply)
         battles, builds, _note = base_stats_store.read_store(folder)
         rows = {r["res_id"]: r for b in battles for r in b["chars"]}
-        got = {rid: rows.get(rid, {}).get("corruption") for rid in (1, 2, 4)}
-        want = {1: "corruption_option_3", 2: "corruption_option_9", 4: None}
-        if got != want or "corruption" in rows.get(4, {}):
+        got = {rid: rows.get(rid, {}).get("mutation") for rid in (1, 2, 4)}
+        want = {1: 3, 2: 9, 4: None}
+        if got != want or "mutation" in rows.get(4, {}):
             out.append(f"an Offensive entry's combatants are filed with "
-                       f"corruptions {got}, not {want}: the held Save Data "
-                       f"say whose deck carries one, a corruption applied "
-                       f"since included, and a clean deck adds no key.")
-        if {b.get("corruption") for b in builds} != {
-                None, "corruption_option_3", "corruption_option_9"}:
-            out.append("a corrupted deck's build is not filed with its "
-                       "corruption.")
+                       f"Mutations {got}, not {want}: the held Save Data "
+                       f"say whose deck carries one, a Mutation applied "
+                       f"since included, and a plain deck adds no key.")
+        if {b.get("mutation") for b in builds} != {None, 3, 9}:
+            out.append("a mutated deck's build is not filed with its "
+                       "Mutation.")
     finally:
         shutil.rmtree(folder, ignore_errors=True)
     return out
@@ -332,7 +331,7 @@ def _the_readings_resolve():
 
 def _node_7_leaves_the_solve():
     """An inner value solves the base at the sheet's inner % LESS node
-    7's own, and a corrupted deck's reading is not believed.
+    7's own.
 
     Anika's sheet, as the wire had it (`websocket_debug_20261002_220102`):
     inner ATK 677 from base 405, partner 14, flat 69 and 45.2% -- the
@@ -358,13 +357,46 @@ def _node_7_leaves_the_solve():
         out.append(f"Anika below her check (inner ATK {below}) solves to "
                    f"{bs._solved(off)}, not ATK 405: an unmet check puts "
                    f"nothing on the sheet to take off.")
-    corrupted = dict(_row(1012, 60, [405, 163, 381]),
-                     corruption="corruption_option_3")
-    if bs._comparable(corrupted) or not bs._comparable(
-            _row(1012, 60, [405, 163, 381])):
-        out.append("a reading from a corrupted deck is believed, or a "
-                   "clean one is not. A corruption's stat applies in "
-                   "battle and the readings ship to every player.")
+    return out
+
+
+def _mutations_are_watched():
+    """A Mutation's reading is believed until the Mutation is named as
+    reaching the sheet, and `mutation_gaps` names one that does: the
+    same build stated with and without it, the sheets differing.
+
+    A Mutation applies in battle, not on the entered sheet (Adelheid's
+    DEF read 477 before her deck's Mutation 9 and after), so throwing
+    its readings away loses data for nothing; watching for a change is
+    what keeps them safe to use."""
+    import base_stats_store as bs
+    out = []
+    mutated = dict(_row(1012, 60, [405, 163, 381]), mutation=3)
+    saved = bs.MUTATIONS_ON_THE_SHEET
+    try:
+        believed = bs._comparable(mutated)
+        bs.MUTATIONS_ON_THE_SHEET = frozenset({3})
+        dropped = not bs._comparable(mutated) and bs._comparable(
+            _row(1012, 60, [405, 163, 381]))
+    finally:
+        bs.MUTATIONS_ON_THE_SHEET = saved
+    if not (believed and dropped):
+        out.append(f"a Mutation 3 reading is believed {believed}, and set "
+                   f"aside once 3 is named as reaching the sheet "
+                   f"{dropped}: both should hold.")
+    build = {"res_id": 1055, "level": 61, "nodes": [1], "partner_id": 2,
+             "partner_lb": 0, "pieces": [{"id": 7}], "zero_system": False,
+             "status": {"S_DEF": 477}}
+    same = bs.mutation_gaps([build, dict(build, mutation=9)])
+    moved = bs.mutation_gaps([build, dict(build, mutation=9,
+                                          status={"S_DEF": 544})])
+    other = bs.mutation_gaps([build, dict(build, mutation=9, level=62,
+                                          status={"S_DEF": 544})])
+    if same or moved != [(1055, 9, {"S_DEF": (477, 544)})] or other:
+        out.append(f"mutation_gaps reads {same} for a Mutation the sheet "
+                   f"does not show, {moved} for one it does, and {other} "
+                   f"for two builds a level apart: only the second is a "
+                   f"Mutation reaching the sheet.")
     return out
 
 
@@ -609,6 +641,13 @@ def _the_maintainers_readings(snapshots=None):
     out = []
     if note_:
         out.append(f"the base stat readings {note_}.")
+    for rid, mutation, moved in base_stats_store.mutation_gaps(builds):
+        if mutation not in base_stats_store.MUTATIONS_ON_THE_SHEET:
+            out.append(f"Mutation {mutation} moved res_id {rid}'s stated "
+                       f"sheet: {moved}. Name it in "
+                       f"base_stats_store.MUTATIONS_ON_THE_SHEET, so readings "
+                       f"from its decks stop being believed, and note it "
+                       f"in docs/mutations.tsv.")
     found = base_stats_store.audit(battles)
     odd = dict(UNEXPLAINED)
     for name, level, wire, program, _last, how in found["differs"]:
@@ -673,7 +712,8 @@ def _the_maintainers_readings(snapshots=None):
 
 def run():
     add_source_to_path()
-    return (_the_capture_files_battles() + _a_corrupted_deck_is_marked()
+    return (_the_capture_files_battles() + _a_mutated_deck_is_marked()
             + _the_readings_resolve() + _node_7_leaves_the_solve()
+            + _mutations_are_watched()
             + _the_overlay_answers() + _the_formula_holds()
             + _the_maintainers_readings())

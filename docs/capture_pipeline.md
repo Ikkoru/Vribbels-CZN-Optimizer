@@ -77,9 +77,23 @@ A Chaos run is followed through its commands, from `disaster/enter_disaster_chao
 
 `Addon._note_chaos` says what a payout is and what marks a fight.
 
-**A Chaos keeps its stage id whichever door it is entered by** -- a base-game Chaos from its own screen or the Zero System, a past season's from the Galactic Disaster or the Zero System. `chaos_estimate.CHAOS_NAMES` names them, and `ZERO_SPECIALS` the special options a Zero System map can carry. The entry records the variations because what they change is not on the wire: a special option can rebuild the map, and the season's own skill tree, among the effects, raises encounter and break-in rates as it is levelled. `docs/chaos_runs.py` says what that does to a rate.
+**A Chaos keeps its stage id whichever door it is entered by** -- a base-game Chaos from its own screen or the Zero System, a past season's from the Galactic Disaster or the Zero System. `chaos_estimate.CHAOS_NAMES` names them, and `ZERO_SPECIALS` the special options a Zero System map can carry. The entry records the variations because what they change is not on the wire: a special option can rebuild the map, a penalty can add Elite floors, and the skill trees raise encounter and break-in rates as they are levelled. `docs/chaos_runs.py` says what that does to a rate.
+
+**Every run's effects come from several trees**, told apart by the effect id. The account's Zero System improvements (`zero_orb_s2_*`) are in every Chaos run, whichever door. A Galactic Disaster run adds its season's own tree (`zero_season_s4_*`): season 4's `ZERO_ENCOUNTER_RATEUP` node first appears on 09-17, taken between two runs. A past season's Chaos in the Zero System carries that season's tree and its backup (`zero_backup_s3_*`); a base-game Chaos from its own screen carries a few nodes of past trees. A Zero System map's options are restated as effects too: `zero_orb_bonus_*`, `zero_orb_penalty_*` (groups such as `ELITE_ADD`, `MONSTER_STAT`, `MAX_HP_DOWN`), `zero_orb_special_opt_*` and `zero_orb_special_penalty_*` -- season 5's Effect is `STAGE_MAP_RANDOM_CHANGE`, Divine Intervention `REWARD_UP` beside `ZERO_NO_SAVEDATA`.
 
 Each run goes, as it clears, to `snapshots/chaos_runs/runs.json.gz`, never into the snapshot, through the same checked copy as the pull history and with its one `.bak`. Every run is kept, each once; runs an older snapshot still carries as `chaos_runs` are folded in by the first capture to start after it. `chaos_store.py` owns the file's place and name and reads it for the Checklist's season estimate (`chaos_estimate`) and `docs/chaos_runs.py`.
+
+### The Zero System's codex
+
+A Zero System map is a Chaos Codex. Creating one (`zero_orb/get_codex_synthesis_result`) names the Chaos (`selected_chaos_id`), the difficulty (`selected_chaos_level`, 0 for difficulty 4 up to 6 for 10), the Effect (`selected_zero_orb_special_key`, a past or current season's, null for none) and the currency spent (`selected_material_item_id`: 3000005 Chaos Orb, or Units). Chaos Orbs raise the codex's rarity and can bring Divine Intervention. The reply holds three codexes (`add_codex_entities`), and `select_codex_synthesis_result` keeps one in a slot. A cleared map is replaced by three of the same Chaos and Effect at a higher level (`zero_orb/stage_reward_codex`).
+
+A codex carries what the run records under `codex`:
+
+- `lv`: set by the difficulty, 76 to 80 at difficulty 10 and 31 to 39 at 4 on the wire, and higher with each clear; it is what monster stats scale on.
+- `option.special_infos`: the Effect (`zero_orb_special_v1_05` to `_09`, seasons 1 to 5), and rolled traits beside it, `_v1_01` to `_v1_04`, Divine Intervention being `_04`. `_02` and `_03` have turned up with and without an Effect and are not named yet; `_01` has not been on the wire.
+- `option.bonus_infos`: one positive trait, `zero_orb_bonus_000` to `_010` seen -- more Chaos Orbs, a higher Rare Fate chance (`FATE_RATIOUP`).
+- `option.penalty_infos`: one to four negative traits, `zero_orb_penalty_110` to `_135` seen. Their number goes with the deck quality a clear can keep (the Save Data Storage Limit, 110 to 170 points). Not named one by one.
+- `res_id` and `coordinate`: which map and where on the Zero System's board; nothing reads them.
 
 ## The base stat readings are kept in a file of their own
 
@@ -88,9 +102,9 @@ A battle's entry -- `world/get_stage_info`, answered with `stage_info` -- carrie
 - its stage (`playing_stage_info.stage_id`) and mode (`ingame_content_config_id`);
 - its Zero System effects whose group starts with one of `BASE_EFFECT_GROUPS`, the ones that can move a combatant's sheet, with their values;
 - per combatant: the base, the partner's flat stats as the sheet counts them, the Potential 7 value with the inner layer it was computed from, and the partner beside them -- its id, level, limit break and own flat stats;
-- where the combatant's deck carries one, its `corruption`, below.
+- where the combatant's deck carries one, its `mutation`, below.
 
-**A corruption is an effect put on one Save Data**, one combatant's deck, with `savedata_manage/apply_corruption`: DEF +14% on one, ATK +12% on another. The entered sheet does not carry it -- an Adelheid deck read DEF 477 before its DEF +14% and after -- but nothing says every corruption stays off it, so a combatant entering with one is filed with it, and `base_stats_store` does not believe the reading. A Full-Scale Offensive's and a Great Rift's entry name their decks in `clear_record_savedata_ids`, read against the inventory's `savedata`, which each reply's whole `savedata_entity` keeps current (`Addon._note_savedata`); the Tower sends its decks whole in `savedata_list`. A Simulation stage names only a team index, and is not read.
+**A Mutation is an effect put on one Save Data**, one combatant's deck, with a Core of Mutation. The wire calls it a corruption: `savedata_manage/pick_corruption` rolls one, `apply_corruption` keeps it, and the deck carries `corruption_res_id`, `corruption_option_<number>`. The number is what is filed; `docs/mutations.tsv` says what each does. The entered sheet does not carry a Mutation -- an Adelheid deck read DEF 477 before its Mutation 9, DEF +14%, and after -- so its readings are believed. `base_stats_store.mutation_gaps` watches for the same build stated with and without one on differing sheets, and `checks/check_base_stats_on_wire.py` fails on any; such a Mutation goes in `MUTATIONS_ON_THE_SHEET`, and its decks' readings are set aside. A Full-Scale Offensive's and a Great Rift's entry name their decks in `clear_record_savedata_ids`, read against the inventory's `savedata`, which each reply's whole `savedata_entity` keeps current (`Addon._note_savedata`); the Tower sends its decks whole in `savedata_list`. A Simulation stage names only a team index, and is not read.
 
 Each distinct build goes beside the battles, under `builds`: fragments, potential nodes, partner and the whole status, for `base_stats_store.formula_gaps`. The file is written through a read-back copy that keeps a `.bak`, and read by the payload's shape rather than the command, so a battle entered another way is filed too.
 

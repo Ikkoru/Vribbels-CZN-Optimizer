@@ -1,0 +1,116 @@
+number	name	level	unique	effect	before the update	roll chance %	note
+	30-Deck: Enhanced Attack Card Damage Amount	1		At the start of battle, when deck card count is 30 or more, increase Damage Amount of Attack Cards of this unit by 15%	At the start of battle, when 30 or more cards are in the deck, increase Damage Amount of Attack Cards of this unit by 6%	0.75188	
+	30-Deck: Enhanced Attack Card Damage Amount	2		At the start of battle, when deck card count is 30 or more, increase Damage Amount of Attack Cards of this unit by 19%	At the start of battle, when 30 or more cards are in the deck, increase Damage Amount of Attack Cards of this unit by 8%	0.75188	
+	30-Deck: Enhanced Attack Card Damage Amount	3		At the start of battle, when deck card count is 30 or more, increase Damage Amount of Attack Cards of this unit by 23%	At the start of battle, when 30 or more cards are in the deck, increase Damage Amount of Attack Cards of this unit by 10%	0.75188	
+	30-Deck: Enhanced Attack Card Damage Amount	4		At the start of battle, when deck card count is 30 or more, increase Damage Amount of Attack Cards of this unit by 27%	At the start of battle, when 30 or more cards are in the deck, increase Damage Amount of Attack Cards of this unit by 12%	0.56391	
+	30-Deck: Enhanced Attack Card Damage Amount	5		At the start of battle, when deck card count is 30 or more, increase Damage Amount of Attack Cards of this unit by 30%	At the start of battle, when 30 or more cards are in the deck, increase Damage Amount of Attack Cards of this unit by 20%	0.18797	
+	5 AP: Enhanced Card	1		When 5 or more AP is used over 1 turn, +30% Damage, Shield Gain, and Heal Amounts to this unit for 1 turn (1 time per turn)	When 5 or more AP is used in 1 turn, +10% Damage, Shield Gain, and Heal Amounts to this unit for 1 turn (1 time per turn)	1.12782	the sheet names it 5 AP: Upgrade Card
+	5 AP: Enhanced Card	2		When 5 or more AP is used over 1 turn, +40% Damage, Shield Gain, and Heal Amounts to this unit for 1 turn (1 time per turn)	When 5 or more AP is used in 1 turn, +15% Damage, Shield Gain, and Heal Amounts to this unit for 1 turn (1 time per turn)	1.12782	
+	5 AP: Enhanced Card	3		When 5 or more AP is used over 1 turn, +50% Damage, Shield Gain, and Heal Amounts to this unit for 1 turn (1 time per turn)	When 5 or more AP is used in 1 turn, +20% Damage, Shield Gain, and Heal Amounts to this unit for 1 turn (1 time per turn)	0.56391	
+	5 AP: Enhanced Card	4		When 5 or more AP is used over 1 turn, +60% Damage, Shield Gain, and Heal Amounts to this unit for 1 turn (1 time per turn)	When 5 or more AP is used in 1 turn, +50% Damage, Shield Gain, and Heal Amounts to this unit for 1 turn (1 time per turn)	0.18797	
+	5 Manual Use: Draw	1	yes	When 5 or more cards of this unit are used manually in 1 turn, Next Turn Draw 1 (1 time per turn)		0.37594	
+	Action Count: Counterattack	1		At the start of the turn, gain 1 Counterattack for each remaining Action Count of the monster at the end of the turn (max 3)		1.12782	
+	Action Count: Counterattack	2		At the start of the turn, gain 1 Counterattack for each remaining Action Count of the monster at the end of the turn (max 4)		1.12782	
+	Action Count: Counterattack	3		At the start of the turn, gain 1 Counterattack for each remaining Action Count of the monster at the end of the turn (max 5)		0.56391	
+	Consecutive Hits: Additional Hit	1	yes	When 1 card is used to Hit 2 or more times, add 1 Hit to the next Attack Card of this unit activated (1 time per turn)		0.37594	
+	Destroy: Enhanced Damage Amount	1		Increase Damage Amount of Attack Cards of this unit by 20% against Ravaged targets	Increase Damage Amount of Attack Cards of this unit by 10% against Ravaged targets	1.69173	
+	Destroy: Enhanced Damage Amount	2		Increase Damage Amount of Attack Cards of this unit by 30% against Ravaged targets	Increase Damage Amount of Attack Cards of this unit by 15% against Ravaged targets	1.12782	
+	Destroy: Enhanced Damage Amount	3		Increase Damage Amount of Attack Cards of this unit by 40% against Ravaged targets	Increase Damage Amount of Attack Cards of this unit by 30% against Ravaged targets	0.18797	
+	Discard: Extra Attack	1		When 3 cards of this unit are Discarded through an ability over 1 turn, 150% Extra Attack to a random enemy (1 time per turn)	When 3 cards of this unit are Discarded through an ability in 1 turn, 100% Fixed Damage to a random enemy (1 time per turn)	1.69173	the sheet says Fixed Damage, the update Extra Attack, before and after
+	Discard: Extra Attack	2		When 3 cards of this unit are Discarded through an ability over 1 turn, 225% Extra Attack to a random enemy (1 time per turn)	When 3 cards of this unit are Discarded through an ability in 1 turn, 150% Fixed Damage to a random enemy (1 time per turn)	1.12782	the sheet says Fixed Damage, the update Extra Attack, before and after
+	Discard: Extra Attack	3		When 3 cards of this unit are Discarded through an ability over 1 turn, 300% Extra Attack to a random enemy (1 time per turn)	When 3 cards of this unit are Discarded through an ability in 1 turn, 200% Fixed Damage to a random enemy (1 time per turn)	0.18797	the sheet says Fixed Damage, the update Extra Attack, before and after
+	Draw: Enhanced Damage Amount	1		When a card of this unit is Drawn through an ability, increase Damage Amount of Attack Cards of this unit until activated by 15% for 1 turn (1 time per turn)	When a card of this unit is Drawn through an ability, increase Damage Amount of Attack Cards of this unit until activated by 5% for 1 turn (1 time per turn)	1.69173	
+	Draw: Enhanced Damage Amount	2		When a card of this unit is Drawn through an ability, increase Damage Amount of Attack Cards of this unit until activated by 23% for 1 turn (1 time per turn)	When a card of this unit is Drawn through an ability, increase Damage Amount of Attack Cards of this unit until activated by 10% for 1 turn (1 time per turn)	1.12782	
+	Draw: Enhanced Damage Amount	3		When a card of this unit is Drawn through an ability, increase Damage Amount of Attack Cards of this unit until activated by 30% for 1 turn (1 time per turn)	When a card of this unit is Drawn through an ability, increase Damage Amount of Attack Cards of this unit until activated by 20% for 1 turn (1 time per turn)	0.18797	
+	Enhanced Attack	1		Increase Attack by 8%	Increase Attack by 2%	2.25564	
+	Enhanced Attack	2		Increase Attack by 10%	Increase Attack by 4%	2.25564	
+3	Enhanced Attack	3		Increase Attack by 12%	Increase Attack by 6%	2.25564	read in game: Sereniel's deck, ATK +12%
+	Enhanced Attack	4		Increase Attack by 14%	Increase Attack by 8%	1.8797	
+	Enhanced Attack	5		Increase Attack by 16%		0.37594	
+	Enhanced Card Damage Amount	1		Increase Damage Amount of cards of this unit by 8%	Increase Damage Amount of cards of this unit by 5%	1.50376	
+	Enhanced Card Damage Amount	2		Increase Damage Amount of cards of this unit by 9%	Increase Damage Amount of cards of this unit by 6%	1.50376	
+	Enhanced Card Damage Amount	3		Increase Damage Amount of cards of this unit by 10%	Increase Damage Amount of cards of this unit by 7%	1.50376	
+	Enhanced Card Damage Amount	4		Increase Damage Amount of cards of this unit by 11%	Increase Damage Amount of cards of this unit by 8%	1.50376	
+	Enhanced Card Damage Amount	5		Increase Damage Amount of cards of this unit by 12%	Increase Damage Amount of cards of this unit by 9%	1.50376	
+	Enhanced Card Damage Amount	6		Increase Damage Amount of cards of this unit by 13%	Increase Damage Amount of cards of this unit by 10%	1.12782	
+	Enhanced Card Damage Amount	7		Increase Damage Amount of cards of this unit by 15%		0.37594	
+	Enhanced Card Heal Amount	1		Increase Heal Amount of cards of this unit by 8%	Increase Heal Amount of cards of this unit by 5%	1.50376	
+	Enhanced Card Heal Amount	2		Increase Heal Amount of cards of this unit by 9%	Increase Heal Amount of cards of this unit by 6%	1.50376	
+	Enhanced Card Heal Amount	3		Increase Heal Amount of cards of this unit by 10%	Increase Heal Amount of cards of this unit by 7%	1.50376	
+	Enhanced Card Heal Amount	4		Increase Heal Amount of cards of this unit by 11%	Increase Heal Amount of cards of this unit by 8%	1.50376	
+	Enhanced Card Heal Amount	5		Increase Heal Amount of cards of this unit by 12%	Increase Heal Amount of cards of this unit by 9%	1.50376	
+	Enhanced Card Heal Amount	6		Increase Heal Amount of cards of this unit by 13%	Increase Heal Amount of cards of this unit by 10%	1.12782	
+	Enhanced Card Heal Amount	7		Increase Heal Amount of cards of this unit by 15%		0.37594	
+	Enhanced Card Shield Gain Amount	1		Increase Shield Gain Amount of cards of this unit by 8%	Increase Shield Gain Amount of cards of this unit by 5%	1.50376	
+	Enhanced Card Shield Gain Amount	2		Increase Shield Gain Amount of cards of this unit by 9%	Increase Shield Gain Amount of cards of this unit by 6%	1.50376	
+	Enhanced Card Shield Gain Amount	3		Increase Shield Gain Amount of cards of this unit by 10%	Increase Shield Gain Amount of cards of this unit by 7%	1.50376	
+	Enhanced Card Shield Gain Amount	4		Increase Shield Gain Amount of cards of this unit by 11%	Increase Shield Gain Amount of cards of this unit by 8%	1.50376	
+	Enhanced Card Shield Gain Amount	5		Increase Shield Gain Amount of cards of this unit by 12%	Increase Shield Gain Amount of cards of this unit by 9%	1.50376	
+	Enhanced Card Shield Gain Amount	6		Increase Shield Gain Amount of cards of this unit by 13%	Increase Shield Gain Amount of cards of this unit by 10%	1.12782	
+	Enhanced Card Shield Gain Amount	7		Increase Shield Gain Amount of cards of this unit by 15%		0.37594	
+	Enhanced Created Card Damage Amount	1		Increase Damage Amount of cards created by this unit by 15%	Increase Damage Amount of cards created by this unit by 5%	0.56391	
+	Enhanced Created Card Damage Amount	2		Increase Damage Amount of cards created by this unit by 18%	Increase Damage Amount of cards created by this unit by 6%	0.56391	
+	Enhanced Created Card Damage Amount	3		Increase Damage Amount of cards created by this unit by 21%	Increase Damage Amount of cards created by this unit by 7%	0.56391	
+	Enhanced Created Card Damage Amount	4		Increase Damage Amount of cards created by this unit by 24%	Increase Damage Amount of cards created by this unit by 8%	0.56391	
+	Enhanced Created Card Damage Amount	5		Increase Damage Amount of cards created by this unit by 27%	Increase Damage Amount of cards created by this unit by 9%	0.56391	
+	Enhanced Created Card Damage Amount	6		Increase Damage Amount of cards created by this unit by 30%	Increase Damage Amount of cards created by this unit by 20%	0.18797	
+	Enhanced Defense	1		Increase Defense by 8%	Increase Defense by 2%	2.25564	
+	Enhanced Defense	2		Increase Defense by 10%	Increase Defense by 4%	2.25564	
+	Enhanced Defense	3		Increase Defense by 12%	Increase Defense by 6%	2.25564	
+9	Enhanced Defense	4		Increase Defense by 14%	Increase Defense by 8%	1.8797	read in game: Adelheid's deck, DEF +14% (Tiphera's deck carries it too)
+	Enhanced Defense	5		Increase Defense by 16%		0.37594	
+	Enhanced Exhaust Card Damage Amount	1		Increase Damage Amount of Exhaust cards of this unit by 15%	Increase Damage Amount of Exhaust cards of this unit by 3%	1.12782	
+	Enhanced Exhaust Card Damage Amount	2		Increase Damage Amount of Exhaust cards of this unit by 20%	Increase Damage Amount of Exhaust cards of this unit by 6%	1.12782	
+	Enhanced Exhaust Card Damage Amount	3		Increase Damage Amount of Exhaust cards of this unit by 25%	Increase Damage Amount of Exhaust cards of this unit by 9%	0.56391	
+	Enhanced Exhaust Card Damage Amount	4		Increase Damage Amount of Exhaust cards of this unit by 30%	Increase Damage Amount of Exhaust cards of this unit by 20%	0.18797	
+	Enhanced Haste Card Damage Amount	1		+30% Damage Amount to Haste cards of this unit	+10% Damage Amount to Haste cards of this unit	0.75188	
+	Enhanced Haste Card Damage Amount	2		+37% Damage Amount to Haste cards of this unit	+15% Damage Amount to Haste cards of this unit	0.75188	
+	Enhanced Haste Card Damage Amount	3		+45% Damage Amount to Haste cards of this unit	+20% Damage Amount to Haste cards of this unit	0.75188	
+	Enhanced Haste Card Damage Amount	4		+52% Damage Amount to Haste cards of this unit	+25% Damage Amount to Haste cards of this unit	0.56391	
+	Enhanced Haste Card Damage Amount	5		+60% Damage Amount to Haste cards of this unit	+50% Damage Amount to Haste cards of this unit	0.18797	
+	Exhaust: Enhanced Damage Amount	1		When a card of this unit is Exhausted through an ability, +12% Damage Amount to Attack Cards of this unit for 1 turn (3 times per turn)	When a card of this unit is Exhausted through an ability, +10% Damage Amount to Attack Cards of this unit for 1 turn (3 times per turn)	0.75188	
+	Exhaust: Enhanced Damage Amount	2		When a card of this unit is Exhausted through an ability, +15% Damage Amount to Attack Cards of this unit for 1 turn (3 times per turn)	When a card of this unit is Exhausted through an ability, +12% Damage Amount to Attack Cards of this unit for 1 turn (3 times per turn)	0.75188	
+	Exhaust: Enhanced Damage Amount	3		When a card of this unit is Exhausted through an ability, +18% Damage Amount to Attack Cards of this unit for 1 turn (3 times per turn)	When a card of this unit is Exhausted through an ability, +14% Damage Amount to Attack Cards of this unit for 1 turn (3 times per turn)	0.75188	
+	Exhaust: Enhanced Damage Amount	4		When a card of this unit is Exhausted through an ability, +21% Damage Amount to Attack Cards of this unit for 1 turn (3 times per turn)	When a card of this unit is Exhausted through an ability, +16% Damage Amount to Attack Cards of this unit for 1 turn (3 times per turn)	0.56391	
+	Exhaust: Enhanced Damage Amount	5		When a card of this unit is Exhausted through an ability, +25% Damage Amount to Attack Cards of this unit for 1 turn (3 times per turn)		0.18797	
+	Exhaust: Fixed Damage	1		When 5 cards of this unit are Exhausted, 150% Fixed Damage to a random enemy (1 time per turn)	When 5 cards of this unit are Exhausted, 80% Fixed Damage to a random enemy (1 time per turn)	1.69173	
+	Exhaust: Fixed Damage	2		When 5 cards of this unit are Exhausted, 225% Fixed Damage to a random enemy (1 time per turn)	When 5 cards of this unit are Exhausted, 100% Fixed Damage to a random enemy (1 time per turn)	1.12782	before the update the sheet says 100%, the update's Before 120%
+	Exhaust: Fixed Damage	3		When 5 cards of this unit are Exhausted, 300% Fixed Damage to a random enemy (1 time per turn)	When 5 cards of this unit are Exhausted, 200% Fixed Damage to a random enemy (1 time per turn)	0.18797	
+	Extra Attack: 1-Turn Morale	1		On Extra Attack, 1 Morale for 1 turn (2 times per turn)	On Extra Attack, 1 Morale for 1 turn (1 time per turn)	1.69173	
+	Extra Attack: 1-Turn Morale	2		On Extra Attack, 1 Morale for 1 turn (3 times per turn)	On Extra Attack, 1 Morale for 1 turn (2 times per turn)	1.12782	
+	Extra Attack: 1-Turn Morale	3			On Extra Attack, 1 Morale for 1 turn (3 times per turn)	0.18797	removed by the update
+	Hand: Enhanced Damage Amount	1		At the start of the turn, increase Damage Amount of next activated Attack Card of this unit by 5% for each card in hand	At the start of the turn, increase Damage Amount of next activated Attack Card of this unit by 4% for each card in hand	1.69173	
+	Hand: Enhanced Damage Amount	2		At the start of the turn, increase Damage Amount of next activated Attack Card of this unit by 8% for each card in hand	At the start of the turn, increase Damage Amount of next activated Attack Card of this unit by 6% for each card in hand	1.12782	
+	Hand: Enhanced Damage Amount	3		At the start of the turn, increase Damage Amount of next activated Attack Card of this unit by 10% for each card in hand		0.18797	
+	Manual Use: AP	1	yes	When a 3-Cost or higher card of this unit is used manually, 1 AP (1 time per turn)		0.18797	
+	Manual Use: Celestial Activation	1	yes	When a 1-Cost card is used manually, 50% chance to activate 1 random Celestial card of this unit in hand	When a 1-Cost card is used manually, 30% chance to activate 1 random Celestial card of this unit in hand	0.37594	
+	Manual Use: Fixed Damage	1		When a card is used manually, 120% Fixed Damage to a random enemy (1 time per turn)	When a card is used manually, 50% Fixed Damage to a random enemy (1 time per turn)	1.69173	
+	Manual Use: Fixed Damage	2		When a card is used manually, 180% Fixed Damage to a random enemy (1 time per turn)	When a card is used manually, 75% Fixed Damage to a random enemy (1 time per turn)	1.12782	
+	Manual Use: Fixed Damage	3		When a card is used manually, 240% Fixed Damage to a random enemy (1 time per turn)	When a card is used manually, 150% Fixed Damage to a random enemy (1 time per turn)	0.18797	
+	Ravage: Draw	1	yes	On Ravage, Draw 1 and decrease Cost of that card by 1 until activated (1 time per turn)		0.37594	
+	Retain: Enhanced Damage Amount	1		When a card of this unit is Retained, increase Damage Amount of the next Attack Card of this unit activated by 10% (max 3 stacks)	When a card of this unit is Retained, increase Damage Amount of the next Attack Card of this unit activated by 5% (max 3 stacks)	0.75188	
+	Retain: Enhanced Damage Amount	2		When a card of this unit is Retained, increase Damage Amount of the next Attack Card of this unit activated by 12% (max 3 stacks)	When a card of this unit is Retained, increase Damage Amount of the next Attack Card of this unit activated by 6% (max 3 stacks)	0.75188	
+	Retain: Enhanced Damage Amount	3		When a card of this unit is Retained, increase Damage Amount of the next Attack Card of this unit activated by 15% (max 3 stacks)	When a card of this unit is Retained, increase Damage Amount of the next Attack Card of this unit activated by 7% (max 3 stacks)	0.75188	
+	Retain: Enhanced Damage Amount	4		When a card of this unit is Retained, increase Damage Amount of the next Attack Card of this unit activated by 18% (max 3 stacks)	When a card of this unit is Retained, increase Damage Amount of the next Attack Card of this unit activated by 8% (max 3 stacks)	0.56391	
+	Retain: Enhanced Damage Amount	5		When a card of this unit is Retained, increase Damage Amount of the next Attack Card of this unit activated by 20% (max 3 stacks)	When a card of this unit is Retained, increase Damage Amount of the next Attack Card of this unit activated by 15% (max 3 stacks)	0.18797	
+	Shield: Fixed Shield Gain	1		When a Shield is gained through an ability, 75% Fixed Shield (1 time per turn)	When a Shield is gained through an ability, 50% Fixed Shield (1 time per turn)	1.12782	
+	Shield: Fixed Shield Gain	2		When a Shield is gained through an ability, 100% Fixed Shield (1 time per turn)	When a Shield is gained through an ability, 70% Fixed Shield (1 time per turn)	1.12782	
+	Shield: Fixed Shield Gain	3		When a Shield is gained through an ability, 125% Fixed Shield (1 time per turn)	When a Shield is gained through an ability, 100% Fixed Shield (1 time per turn)	0.56391	
+	Shield: Fixed Shield Gain	4		When a Shield is gained through an ability, 150% Fixed Shield (1 time per turn)		0.18797	
+	Shuffle: Enhanced Damage Amount	1		On Shuffle, increase Damage Amount of this unit by 15% for 1 turn (1 time per turn)	On Shuffle, increase Damage Amount of this unit by 10% for 1 turn (1 time per turn)	1.69173	
+	Shuffle: Enhanced Damage Amount	2		On Shuffle, increase Damage Amount of this unit by 23% for 1 turn (1 time per turn)	On Shuffle, increase Damage Amount of this unit by 15% for 1 turn (1 time per turn)	1.12782	
+	Shuffle: Enhanced Damage Amount	3		On Shuffle, increase Damage Amount of this unit by 30% for 1 turn (1 time per turn)		0.18797	
+	Vulnerable: Enhanced Critical Chance	1		When an Attack Card of this unit is used against an enemy in a Vulnerable state, +8% Critical Chance	When an Attack Card of this unit is used against an enemy in a Vulnerable state, +5% Critical Chance	1.8797	
+	Vulnerable: Enhanced Critical Chance	2		When an Attack Card of this unit is used against an enemy in a Vulnerable state, +15% Critical Chance	When an Attack Card of this unit is used against an enemy in a Vulnerable state, +10% Critical Chance	0.37594	
+13							on the wire, not matched yet: Cassius's deck
+18							on the wire, not matched yet: rolled on Tiphera's deck, replaced
+20							on the wire, not matched yet: rolled on Hilde's deck, replaced
+21							on the wire, not matched yet: rolled on Adelheid's deck, not kept
+26							on the wire, not matched yet: rolled on Tiphera's and Adelheid's decks, replaced
+33							on the wire, not matched yet: rolled on Cassius's deck, replaced
+40							on the wire, not matched yet: rolled on Arabella's deck, replaced
+64							on the wire, not matched yet: rolled on Adelheid's deck, replaced
+82							on the wire, not matched yet: rolled on Hilde's deck, replaced
+84							on the wire, not matched yet: rolled on Sereniel's and Selena's decks, replaced
+101							on the wire, not matched yet: Hilde's and Arabella's decks
+102							on the wire, not matched yet: Selena's deck

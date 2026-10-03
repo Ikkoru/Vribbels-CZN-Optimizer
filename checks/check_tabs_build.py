@@ -1084,6 +1084,54 @@ def _hero_columns_line_up(tab):
     return out
 
 
+def _optimizer_lists_missing_when_shown(tab):
+    """The Optimizer's combatant list takes the Combatants tab's `Show
+    missing characters`: off, only combatants the capture knows; on,
+    every combatant the game has -- and one not obtained can be picked.
+
+    Returns a list of complaints.
+    """
+    from game_data import CHARACTERS
+    from ui.tabs.heroes_tab import HERO_SHOW_MISSING_KEY
+    sm = getattr(tab.context, "settings_manager", None)
+    if sm is None:
+        return ["the Optimizer tab was built with no settings manager."]
+    owned = set(tab.optimizer.characters) | set(tab.optimizer.character_info)
+    every = {c["name"] for c in CHARACTERS.values()
+             if isinstance(c, dict) and c.get("name")}
+    missing = sorted(every - owned)
+    if not missing:
+        return []
+    out = []
+    was, picked = sm.get(HERO_SHOW_MISSING_KEY, False), \
+        tab.selected_character.get()
+    sm.settings[HERO_SHOW_MISSING_KEY] = False
+    try:
+        tab.refresh_hero_list()
+        off = set(tab.hero_combo["values"])
+        sm.settings[HERO_SHOW_MISSING_KEY] = True
+        tab.refresh_hero_list()
+        on = set(tab.hero_combo["values"])
+        if missing[0] in off or missing[0] not in on:
+            out.append(f"{missing[0]}, not obtained, is "
+                       f"{'listed' if missing[0] in off else 'not listed'} "
+                       f"with Show missing characters off and "
+                       f"{'listed' if missing[0] in on else 'not listed'} "
+                       f"with it on: the list follows the Combatants "
+                       f"tab's box.")
+        tab.selected_character.set(missing[0])
+        try:
+            tab.on_hero_select(None)
+        except Exception as e:  # noqa: BLE001
+            out.append(f"picking {missing[0]}, not obtained, raised "
+                       f"{type(e).__name__}: {e}.")
+    finally:
+        sm.settings[HERO_SHOW_MISSING_KEY] = was
+        tab.selected_character.set(picked)
+        tab.refresh_hero_list()
+    return out
+
+
 def _p7_fill_says_auto_where_priced(tab):
     """A combatant whose Potential 7 the score prices in full gets
     ` Auto` on the fill caption and struck-through buttons that still
@@ -1732,13 +1780,18 @@ def _finished_boxes_ask_only_where_it_is_open(tab):
 
     Returns a list of complaints.
     """
+    import schedules
     from ui.tabs.checklist_tab import (
-        DONE, EVENT_KEY_PREFIX, FINISHED_LABEL, unsure_ceiling)
+        DONE, EVENT_KEY_PREFIX, FINISHED_LABEL, NOT_ASKED_GROUPS,
+        unsure_ceiling)
     out = []
     drawn = tab._rendered.get("Other")
     if drawn is None:
         return ["the Other column rendered nothing to read."]
     manager = getattr(tab.context, "checklist_manager", None)
+    held = schedules.groups(getattr(tab.optimizer, "raw_data", None))
+    never = {str(name) for group in NOT_ASKED_GROUPS
+             for name in held.get(group) or ()}
     want, carry = set(), set()
     for (key, _label, _tracked, segments, box), *_rest in drawn:
         if not str(key).startswith(EVENT_KEY_PREFIX):
@@ -1747,7 +1800,8 @@ def _finished_boxes_ask_only_where_it_is_open(tab):
             carry.add(key)
         name = key[len(EVENT_KEY_PREFIX):]
         answered = bool(manager is not None and name in manager.finished)
-        if unsure_ceiling(segments) is not None or answered:
+        if name not in never and (unsure_ceiling(segments) is not None
+                                  or answered):
             want.add(key)
     if carry != want:
         out.append(
@@ -5004,6 +5058,8 @@ def run():
                 _level_stepper_offers_auto(built["OptimizerTab"]))
             failures.extend(
                 _p7_fill_says_auto_where_priced(built["OptimizerTab"]))
+            failures.extend(
+                _optimizer_lists_missing_when_shown(built["OptimizerTab"]))
             failures.extend(
                 _own_fragments_read_green(built["OptimizerTab"]))
             failures.extend(

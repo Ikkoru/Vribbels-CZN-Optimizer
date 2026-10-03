@@ -444,6 +444,9 @@ class OptimizerTab(BaseTab):
         if str(self.frame) == current:
             self._update_preset_label()
             self._cond_swap_restart()
+            # The Combatants tab's `Show missing characters` may have
+            # changed while another tab showed.
+            self.refresh_hero_list()
 
     def _init_state(self):
         # --- Selection state ---
@@ -2060,12 +2063,26 @@ class OptimizerTab(BaseTab):
         string in character_info, so that numeric string IS the name
         shown for them. res_id resolution happens in _resolve_res_id
         when needed.
+
+        With the Combatants tab's `Show missing characters` on, every
+        combatant the game has is listed too: one not obtained is
+        optimized at level 60 with no partner, Potential or Affinity,
+        which is what the tables give for them.
         """
         all_heroes = set(self.optimizer.characters.keys()) | set(
             self.optimizer.character_info.keys()
         )
+        # Imported here, not at the top: the Combatants tab's module is
+        # large and a startup that builds this tab first need not wait
+        # for it.
+        from ui.tabs.heroes_tab import HERO_SHOW_MISSING_KEY
+        sm = getattr(self.context, "settings_manager", None)
+        if sm is not None and sm.get(HERO_SHOW_MISSING_KEY, False):
+            all_heroes |= {c["name"] for c in CHARACTERS.values()
+                           if isinstance(c, dict) and c.get("name")}
         display_strings = sorted(all_heroes)
-        self.hero_combo["values"] = display_strings
+        if list(self.hero_combo["values"]) != display_strings:
+            self.hero_combo["values"] = display_strings
 
     def refresh_exclude_heroes(self):
         """Repopulate the exclude-gear checklist using a flow layout.
