@@ -464,7 +464,7 @@ COUNTDOWN_STATES = ((LAST_DAY_HOURS, SOON), (72, WARN), (None, LATER))
 # the last day's own red, and the dark red a clamped spinbox flashes.
 SOON_SETTLED = "soon_settled"
 BLINK_COLOURS = ("red_last", CLAMP_ALERT)
-BLINK_MS = 1000
+BLINK_MS = 1200
 STILL_HEADINGS = frozenset({"Daily"})
 
 # What a countdown segment says before its time.

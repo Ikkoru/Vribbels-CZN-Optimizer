@@ -335,7 +335,7 @@ OWN_FRAGMENT_TAG = "own"
 # COND_SWAP_MS. Both columns and the difference swap together, and the
 # label carries COND_MARK while the effect is in. Rows nothing
 # conditional touches hold still. See `_cond_swap_restart`.
-COND_SWAP_MS = 700
+COND_SWAP_MS = 1200
 COND_MARK = "*"
 P7_MINIMUM_TOOLTIP = ("Sets the stats this Combatant's Potential 7 checks "
                       "to where it switches on. Other stats stay as they "

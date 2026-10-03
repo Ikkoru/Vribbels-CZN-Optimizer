@@ -4,13 +4,17 @@ A fork of Vribbels, a Fribbels-inspired gear management and optimization tool fo
 
 ## Installation & Usage
 
-You need Windows and the STOVE client.
+You need Windows, the STOVE client, and Python with mitmproxy (`pip install mitmproxy`).
 
 1. Download the latest release from the [Releases page](https://github.com/Ikkoru/Vribbels-CZN-Optimizer/releases).
 2. Run `Vribbels_CZN_Optimizer_Ikkoru.exe` as Administrator.
-3. Open the **Setup & Settings** tab and click **Generate & Install Cert**.
+3. Open the **Setup & Settings** tab and follow `Setup Instructions`.
 4. Open the **Capture** tab and click Start Capture.
 5. Launch the game. Keep the program open: in-game changes are captured LIVE.
+
+Note: On first run SmartScreen may pop up. Press More info → Run anyway. Some antiviruses flag one-file programs that ask for Administrator, too.
+
+Instructions if you wish to run from source are [further down](#running-from-source).
 
 ## Optimizing
 
@@ -42,6 +46,7 @@ In the results, scores run 0–100 with the run's best build at 100. `(E)` marks
 - **The Materials tab** counts your promotion and levelling material by class, and your growth stones by Element. Each row's figures are that row's own holdings in bottom-tier equivalents, then what share that is of what a target costs.
 - **The Checklist tab** shows what resets when — daily, weekly, monthly and seasonal — and what is left to do on each, updating while the game is captured. Tick or untick a shop's products to track only what you actually buy: the shop's heading then reads what you hold against what clearing it costs, and hovering it says what that currency earns in a rotation.
 - **The Stats & Gacha History tab** keeps every pull the game has listed, which the game itself does for only about half a year, and says how lucky each banner type has been for you. Open each banner's Probability Info → Rescue Records in game while capturing to add them. The program can capture pulls live as well. The history lives in `snapshots/gacha_history/`. Beside the pulls' figures, your Sortie, Great Rift and Full-Scale Offensive standings, a column per season; the note beside each list says what to open while capturing to fill it.
+- Everything the program saves sits beside the exe in `settings/` and `snapshots/`. Keep the exe in its own folder; back up or move that folder, and put new versions in it.
 
 ## Contributing
 
@@ -54,6 +59,18 @@ Nothing leaves your machine except:
 - An request to GitHub when you press the `Check now` button to check for updates.
 
 - Pressing the `Export Facts` button opens the GitHub Issues webpage, and asks you to upload the file it makes to it. None of your personal data is included.
+
+While capturing, the game's server names are pointed at your PC in the Windows hosts file, between `# CZN-CAPTURE-START/END`. Stop removes them, and so does the next launch after a crash. In case of a crash, relaunch the program so they are removed.
+
+## Running from source
+
+1. Download the source code, or clone this project using GitHub Desktop, or a similar program.
+
+2. Install Python (developed on 3.14).
+
+3. Open a command line terminal in the folder where `requirements.txt` is and run `pip install -r requirements.txt`.
+
+4. Run the program using `zRUN.bat`.
 
 ## Credits
 
