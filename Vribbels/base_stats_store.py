@@ -29,8 +29,10 @@ stage's are worked out (`resolve`), and a Sortie's are not:
 1. **The inner value solves the base.** In a Chaos stage,
    `potential_base_status` is computed without the stage's bonus, and
    the inner formula -- round((base + partner) * (1 + rate) + flat) --
-   has exactly one base that gives it (`solve_base`). A Sortie's
-   includes the week's buff, so it solves nothing.
+   has exactly one base that gives it (`solve_base`). The rate is the
+   sheet's inner % less node 7's own, which the inner value never
+   carries (`_node_7_rates`). A Sortie's includes the week's buff, so
+   it solves nothing.
 2. **A Chaos stage's bonus is the same for everyone in it**, so the gap
    between a combatant's battle base and their base known another way
    -- solved, or read in a plain battle -- is the battle's bonus, and
@@ -138,10 +140,17 @@ def solve_base(inner, partner, rate, flat):
 
 def _comparable(row):
     """A reading the program's tables can be held to: level 60 or
-    above."""
+    above, from a combatant whose deck carried no corruption.
+
+    **A corrupted deck's reading is set aside**, though the sheet has
+    not been seen to carry one: a corruption's stat applies in battle
+    (`Addon._entry_corruptions`). Nothing says that holds for every
+    corruption, and the readings ship to every player, where a lost
+    one costs nothing."""
     return isinstance(row, dict) and isinstance(row.get("level"), int) \
         and row["level"] >= LOWEST_LEVEL \
-        and isinstance(row.get("base"), list) and len(row["base"]) == 3
+        and isinstance(row.get("base"), list) and len(row["base"]) == 3 \
+        and not row.get("corruption")
 
 
 def plain_battles(battles):
@@ -158,18 +167,51 @@ def _additive(battle):
         isinstance(e, list) and e and e[0] in ADDITIVE for e in effects)
 
 
+# Where a row's inner value holds each stat a Potential 7 check reads,
+# in `core.CHECK_ORDER`.
+INNER_FIELDS = ("S_ATK", "S_DEF", "S_HP", "S_CRI", "S_CRI_DMG_RATE",
+                "S_ADDI_ATK_DMG_RATE", "S_DOT_ATK_DMG_RATE",
+                "S_CHARGING_POWER")
+
+
+def _node_7_rates(row):
+    """{stat: inner %} the combatant's own Potential 7 adds to the
+    battle's sheet, as its check -- read on the row's own inner value
+    -- passes.
+
+    **The sheet's inner % carries node 7's bonus; the inner value never
+    does.** Anika's 677 inner ATK is (405 + 14) at 45.2%, not at the
+    sheet's 55.2%, which holds her +10%. A row has an inner value only
+    where node 7 is taken, so the check alone says whether it is on.
+    What lands at the start of battle is not on the sheet, and is left
+    in."""
+    inner = row.get("inner") or {}
+    if not inner:
+        return {}
+    from game_data.potential_7 import get_potential_7
+    from optimizer import core
+    effects = core.potential_7_effects(get_potential_7(row.get("res_id")),
+                                       sheet_only=True)
+    bonus = core.potential_7_bonus(effects, core.potential_7_check(
+        *(inner.get(field, 0) for field in INNER_FIELDS)))
+    return {stat: bonus.get(stat + "%", 0) for stat in STATS}
+
+
 def _solved(row):
-    """{stat: base} that `row`'s inner value solves."""
+    """{stat: base} that `row`'s inner value solves, at the sheet's
+    inner % less node 7's own (`_node_7_rates`)."""
     inner = row.get("inner") or {}
     layers = row.get("layers") or {}
     partner = row.get("partner") or [0, 0, 0]
+    node_7 = _node_7_rates(row)
     out = {}
     for i, stat in enumerate(STATS):
         value = inner.get("S_" + stat)
         if value is None:
             continue
         base = solve_base(value, partner[i] or 0,
-                          layers.get("S_%s_INC_RATE_OUT" % stat, 0),
+                          layers.get("S_%s_INC_RATE_OUT" % stat, 0)
+                          - node_7.get(stat, 0),
                           layers.get("S_%s_INC_ADD_OUT" % stat, 0))
         if base is not None:
             out[stat] = base

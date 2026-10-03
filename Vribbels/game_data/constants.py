@@ -567,6 +567,10 @@ RECORDED_NAMES = {
     9300259: "Glorious Allegory",
     9300261: "Petite Anis",
     9300271: "Perfect Taxidermy",
+    # Stickers, named by the maintainer in the item worklist.
+    9300122: "Forbidden Catalyst Yuki",
+    9300291: "Full-Scale Offensive Sticker",
+    9400008: "Forbidden Catalyst Chizuru",
     # Animated card unlocks, which the game names after what they
     # unlock rather than after themselves. The last two share a name:
     # the collaboration issued two separate items under it.

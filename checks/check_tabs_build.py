@@ -4003,16 +4003,20 @@ def _level_filter_keeps_one_level(tab):
         tab.refresh_inventory()
         every = list(tab.inv_filtered_data)
         levels = {f.level for f in every}
-        level = max(levels, key=lambda n: sum(f.level == n for f in every))
-        tab.inv_level_var.set(str(level))
-        tab.refresh_inventory()
-        got = tab.inv_filtered_data
-        expected = [f for f in every if f.level == level]
-        if any(f.level != level for f in got) or len(got) != len(expected):
-            out.append(f"Level {level} keeps {len(got)} fragment(s), "
-                       f"{sum(f.level != level for f in got)} of them at "
-                       f"another level, where {len(expected)} of the "
-                       f"unfiltered list are at it.")
+        # The lowest and the highest held: a filter keeping a level and
+        # those above it, or below it, passes at one end and not the
+        # other.
+        for level in sorted({min(levels), max(levels)}):
+            tab.inv_level_var.set(str(level))
+            tab.refresh_inventory()
+            got = tab.inv_filtered_data
+            expected = [f for f in every if f.level == level]
+            if any(f.level != level for f in got) \
+                    or len(got) != len(expected):
+                out.append(f"Level {level} keeps {len(got)} fragment(s), "
+                           f"{sum(f.level != level for f in got)} of them "
+                           f"at another level, where {len(expected)} of "
+                           f"the unfiltered list are at it.")
     finally:
         tab.inv_level_var.set(mod.LEVEL_ALL)
         del tab._hidden

@@ -31,11 +31,10 @@ Vribbels/snapshots/
 # their own presets, char assignments, optimizer config, etc.
 Vribbels/settings/
 
-# Working scratch, not documentation. `tasks.md` is a queue rather than
-# a roadmap, and the other two are notes for work in flight -- a plan
+# Working scratch, not documentation: notes for work in flight -- a plan
 # graduates into `past_plans/` when its work lands, and `paused_task.md`
-# is written to be deleted. `CLAUDE.md`, `docs/` and `past_plans/` are
-# tracked.
+# is written to be deleted. `CLAUDE.md`, `tasks.md`, `docs/` and
+# `past_plans/` are tracked.
 # `.claude/*` rather than `.claude/`: a negation cannot re-include
 # anything under an excluded DIRECTORY, and `rules/` and `skills/` are
 # repo guidance that belongs in the history beside `CLAUDE.md`.

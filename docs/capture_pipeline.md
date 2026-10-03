@@ -66,15 +66,18 @@ The app refreshes the Stats & Gacha History tab's pull history on `GACHA_MARKER`
 
 ## The Chaos runs are kept in a file of their own
 
-A Chaos run is followed through its commands, from `disaster/enter_disaster_chaos_stage` or `zero_orb/enter_zero_stage` to `stage/clear_stage`, and is **learned, not received**. One record per run holds:
+A Chaos run is followed through its commands, from `disaster/enter_disaster_chaos_stage`, `zero_orb/enter_zero_stage` or `chaos/enter_embody_chaos_stage` -- a base-game Chaos from its own screen -- to `stage/clear_stage`, and is **learned, not received**. One record per run holds:
 
 - its season and season part, from the schedules, and the Chaos by its stage id. The season falls back to the standings only where no season window holds the run: they gain a season's row only with its Great Rift, three weeks at the least after its window opens;
 - the door it came in by, and whether the Delegation Module played it;
+- what its entry says it is (`_chaos_setup`): the Chaos's own `chaos_id`, the difficulty a list id names, a Zero System map's codex -- level, bonus, penalty and special options -- every Zero System effect in force, the planet, the bosses and the floors;
 - the game version (from `helo`);
-- the fights by spot, the marked fights, and each payout taken with its floor, spot and mark;
+- the fights by spot, the marked fights, each mark by the spot it was met on, and each payout taken with its floor, spot and mark;
 - for a lost run, where it was lost and how many non-boss fights its map had left.
 
 `Addon._note_chaos` says what a payout is and what marks a fight.
+
+**A Chaos keeps its stage id whichever door it is entered by** -- a base-game Chaos from its own screen or the Zero System, a past season's from the Galactic Disaster or the Zero System. `chaos_estimate.CHAOS_NAMES` names them, and `ZERO_SPECIALS` the special options a Zero System map can carry. The entry records the variations because what they change is not on the wire: a special option can rebuild the map, and the season's own skill tree, among the effects, raises encounter and break-in rates as it is levelled. `docs/chaos_runs.py` says what that does to a rate.
 
 Each run goes, as it clears, to `snapshots/chaos_runs/runs.json.gz`, never into the snapshot, through the same checked copy as the pull history and with its one `.bak`. Every run is kept, each once; runs an older snapshot still carries as `chaos_runs` are folded in by the first capture to start after it. `chaos_store.py` owns the file's place and name and reads it for the Checklist's season estimate (`chaos_estimate`) and `docs/chaos_runs.py`.
 
@@ -84,7 +87,10 @@ A battle's entry -- `world/get_stage_info`, answered with `stage_info` -- carrie
 
 - its stage (`playing_stage_info.stage_id`) and mode (`ingame_content_config_id`);
 - its Zero System effects whose group starts with one of `BASE_EFFECT_GROUPS`, the ones that can move a combatant's sheet, with their values;
-- per combatant: the base, the partner's flat stats as the sheet counts them, the Potential 7 value with the inner layer it was computed from, and the partner beside them -- its id, level, limit break and own flat stats.
+- per combatant: the base, the partner's flat stats as the sheet counts them, the Potential 7 value with the inner layer it was computed from, and the partner beside them -- its id, level, limit break and own flat stats;
+- where the combatant's deck carries one, its `corruption`, below.
+
+**A corruption is an effect put on one Save Data**, one combatant's deck, with `savedata_manage/apply_corruption`: DEF +14% on one, ATK +12% on another. The entered sheet does not carry it -- an Adelheid deck read DEF 477 before its DEF +14% and after -- but nothing says every corruption stays off it, so a combatant entering with one is filed with it, and `base_stats_store` does not believe the reading. A Full-Scale Offensive's and a Great Rift's entry name their decks in `clear_record_savedata_ids`, read against the inventory's `savedata`, which each reply's whole `savedata_entity` keeps current (`Addon._note_savedata`); the Tower sends its decks whole in `savedata_list`. A Simulation stage names only a team index, and is not read.
 
 Each distinct build goes beside the battles, under `builds`: fragments, potential nodes, partner and the whole status, for `base_stats_store.formula_gaps`. The file is written through a read-back copy that keeps a `.bak`, and read by the payload's shape rather than the command, so a battle entered another way is filed too.
 
@@ -103,7 +109,7 @@ Each distinct build goes beside the battles, under `builds`: fragments, potentia
 | `S_*_INC_RATE_IN` | the outer %: the partner's passive |
 | `S_ATK`, `S_DEF`, `S_HP` | the final stats |
 | `S_CRI`, `S_CRI_DMG_RATE`, `S_ADDI_ATK_DMG_RATE`, `S_DOT_ATK_DMG_RATE` | CRate, CDMG, Extra DMG%, DoT% |
-| `potential_base_status` (beside the block) | the inner value of the stat or stats the combatant's Potential 7 check reads, computed outside the battle -- so without the mode's bonus |
+| `potential_base_status` (beside the block) | the inner value of the stat or stats the combatant's Potential 7 check reads, computed outside the battle -- so without the mode's bonus, and without node 7's own %, which the sheet's `S_*_INC_RATE_OUT` does carry. Present only where node 7 is taken |
 
 Some layers are absent where they are zero. Equipment is not among them: see below.
 
@@ -128,13 +134,12 @@ What each `ingame_content_config_id` is in the game, named by what its clears pa
 | `content_combatant_trial` | Combatant Trial | fields level-20 copies |
 | `content_story_event_bartender` | the Bartender event's story | fields level-20 copies |
 | `content_disaster_chaos` | the season's own Chaos | the Zero System's stat nodes (`ZERO_CHARACTER_STAT__TYPE_VALUE`) add one flat amount per stat to every base; which stat each node raises is not on the wire |
-| `content_chaos_zero` | an earlier season's Chaos, entered through the Zero System | the same |
+| `content_chaos_zero` | a Chaos entered through the Zero System: an earlier season's, or a base-game one | the same |
+| `content_chaos_embody_chaos` | a base-game Chaos from its own screen | the same |
 | `content_chaos_assault` | Sortie | its Max HP nodes multiply the base HP, not the partner's, by 1 + their sum, rounded down, and its CRate nodes add CRate. The week's buffed combatants' stat % multiplies their base and their partner's flat of that stat alike, and their CRate adds; the Potential 7 value carries it too. Which combatants and what buff is client data, named only by the entry's `rotation_schedule_id`. Memory Fragments are not worn |
 | `content_none` | no battle: the world state between them, with no combatants | -- |
 
 **An escape closes a stage like a clear**: `stage/clear_stage` with `is_emergency_exit`. A Simulation stage's reply says `GIVEUP` in `return_info.result`, where a clear says `CLEAR` and a loss `FAIL`; **a Chaos run's says `CLEAR`**, so the request's flag is what marks it. It pays no drops, and a Simulation stage hands its Aether back in an envelope. The entry's sheet is filed all the same, which is harmless: it states the combatants before any fight. A Chaos run closed this way is filed as given up (`Addon._note_chaos`).
-
-**The regular Chaos is not followed** (`chaos/enter_embody_chaos_stage`, `CHAOS_ELSEWHERE`): its runs pay nothing the Galactic Disaster estimate reads. Entering one stops following any run left open, since its close is the same `clear_stage`.
 
 **Equipment is not on the entered sheet.** `stage_info.enter_chars` is the sheet a combatant entered with, and it stays the same from a run's first floor to its last. `stage_info.chars` is the same sheet with Equipment in, listed under `stage_info.equipments`: `char_id` is the combatant's `id` in the entry, `slot_type` 1 a Weapon (ATK), 2 an Armor (DEF), 3 an Accessory (HP), and `star_grade` its level. Each piece adds its flat after everything else, including the outer %. A regular mode's comes from the saved deck, a Chaos run's is what the run has found, and a Sortie's counts a fifth (its Risk Modifier). A piece's own effect can add more on top.
 

@@ -185,13 +185,18 @@ BASE_EFFECT_GROUPS = ("ZERO_CHARACTER_", "ZERO_TACTICS_")
 # it, the spot and the fight each floor holds, and the drop the player
 # takes. See `Addon._note_chaos`.
 #
-# **Two doors.** The live Galactic Disaster's own Chaos opens from its
+# **Three doors.** The live Galactic Disaster's own Chaos opens from its
 # season's screen; a past season's opens from the Zero System, where
-# the live one goes too once its season ends. While a season is on,
-# either pays its currency -- a past season's Chaos less. The clear
-# names the Chaos by its stage id (`chaos_estimate.CHAOS_NAMES`).
+# the live one goes too once its season ends, and where a base-game
+# Chaos can be run as well. A base-game Chaos also opens from its own
+# screen, at difficulty 6 or below. While a season is on, its Chaos and
+# a past season's both pay its currency -- the past one's less. Every
+# door's runs are followed: a mark's rate is a fact about fights, and
+# each door's fights count toward it. The clear names the Chaos by its
+# stage id (`chaos_estimate.CHAOS_NAMES`), the same id whichever door.
 CHAOS_OPENS = ("disaster/enter_disaster_chaos_stage",
-               "zero_orb/enter_zero_stage")
+               "zero_orb/enter_zero_stage",
+               "chaos/enter_embody_chaos_stage")
 CHAOS_CLOSES = "stage/clear_stage"
 CHAOS_ENTERS = "stage/enter_spot"
 CHAOS_FIGHTS = "battle/battle_start"
@@ -212,10 +217,6 @@ CHAOS_GAVE_UP = "GIVEUP"
 # its drops beside the share an Overclock doubles. See
 # `Addon._settle_held_run`.
 RUN_HOLDS_DROPS = ("simulation/enter_savedata_stage",)
-# The Chaos entrances whose runs are not followed: the regular Chaos,
-# entered from its own screen rather than through the Galactic Disaster
-# or a Zero Orb.
-CHAOS_ELSEWHERE = ("chaos/enter_embody_chaos_stage",)
 # The fights that are not a boss's, as a map's `spot_list` types them.
 CHAOS_NON_BOSS = ("SPOT_TYPE_BATTLE", "SPOT_TYPE_ELITE")
 # The schedule groups a run's season is named by and its part dated
@@ -246,6 +247,70 @@ def _chaos_mark(fight):
         digits = str(fight.get("break_in_res_id") or "").rsplit("_", 1)[-1]
         marks.insert(0, "b%d" % int(digits) if digits.isdigit() else "b")
     return "+".join(marks)
+
+
+def _zero_effects(effs, prefixes=None):
+    """A reply's Zero System effects as filed: `[group, effect id,
+    [its values]]` each, the unused `-1` values dropped, and only the
+    groups starting with one of `prefixes` where it is given."""
+    out = []
+    for group, entries in sorted(effs.items() if isinstance(effs, dict)
+                                 else ()):
+        if prefixes and not str(group).startswith(prefixes):
+            continue
+        for e in entries if isinstance(entries, list) else ():
+            opts = e.get("opt_values") if isinstance(e, dict) else None
+            opts = opts if isinstance(opts, dict) else {}
+            out.append([group, e.get("zero_system_eff_id")
+                        if isinstance(e, dict) else None,
+                        [v for _k, v in sorted(opts.items()) if v != -1]])
+    return out
+
+
+def _chaos_setup(data):
+    """What a Chaos entry's reply says the run is, as the wire names it:
+    the Chaos (`chaos_id`), the mode, the difficulty a list id carries
+    (a base-game Chaos's `embody_chaos_04_06`, a Galactic Disaster's
+    `disaster_s04_08`), a Zero System map's codex -- its level, its
+    bonus, penalty and special options -- the planet, the bosses and
+    the floors, and every Zero System effect in force.
+
+    **All of it, named as sent.** What most of it changes is not on the
+    wire: a special option can rebuild the map (the next season's turns
+    every floor after the first boss into Elite and Unidentified Area
+    floors), and the season's own skill tree raises encounter and
+    break-in rates as the player levels it. A rate read off runs that
+    differ in any of these is a rate of their mix.
+
+    The bosses come off the reply's `dev_msg`, a developer's note whose
+    `boss_list:` part names them."""
+    playing = data.get("playing_stage_info")
+    playing = playing if isinstance(playing, dict) else {}
+    info = playing.get("chaos_info")
+    info = info if isinstance(info, dict) else {}
+    embody = info.get("embody_info")
+    embody = embody if isinstance(embody, dict) else {}
+    out = {"chaos": info.get("chaos_id"),
+           "content": playing.get("ingame_content_config_id"),
+           "difficulty": (embody.get("embody_chaos_list_id")
+                          or info.get("disaster_list_id")),
+           "planet": data.get("planet_resid"),
+           "floors": playing.get("floor_info"),
+           "effects": _zero_effects(data.get("zero_system_effs"))}
+    codex = playing.get("zero_orb_codex_info") or data.get("codex")
+    if isinstance(codex, dict):
+        option = codex.get("option")
+        option = option if isinstance(option, dict) else {}
+        out["codex"] = {"res_id": codex.get("res_id"), "lv": codex.get("lv"),
+                        "coordinate": codex.get("coordinate"),
+                        "bonus": option.get("bonus_infos") or [],
+                        "penalty": option.get("penalty_infos") or [],
+                        "special": option.get("special_infos") or []}
+    bosses = [word.split(":", 1)[1].split(",")
+              for word in str(data.get("dev_msg") or "").split()
+              if word.startswith("boss_list:")]
+    out["bosses"] = bosses[0] if bosses else []
+    return out
 
 
 def _numbers(block):
@@ -971,6 +1036,7 @@ class Addon:
         # request we tracked earlier.
         qid = data.get("qid")
         self._note_chaos(self.qid_commands.get(qid), data)
+        self._note_savedata(data)
         self._note_base_stats(self.qid_commands.get(qid), data)
         if (qid is not None and qid in self.pending_disassembles
                 and self.inventory_data
@@ -2511,6 +2577,7 @@ class Addon:
         sups = info.get("enter_supporters")
         sups = sups if isinstance(sups, list) else []
         effs = data.get("zero_system_effs")
+        corrupted = self._entry_corruptions(data)
         chars, builds = [], []
         for i, rec in enumerate(info.get("enter_chars") or []):
             status = rec.get("status") if isinstance(rec, dict) else None
@@ -2541,9 +2608,13 @@ class Addon:
                            partner_flat=[sup_st.get("S_ATK_INC_ADD_OUT"),
                                          sup_st.get("S_DEF_INC_ADD_OUT"),
                                          sup_st.get("S_HP_INC_ADD_OUT")])
+            # Only where there is one, so a battle filed before this was
+            # kept still matches its next sighting.
+            if corrupted.get(row["res_id"]):
+                row["corruption"] = corrupted[row["res_id"]]
             chars.append(row)
             pieces = rec.get("equipped_pieces")
-            builds.append({
+            build = {
                 "res_id": row["res_id"], "level": row["level"],
                 "nodes": rec.get("potential_node_ids"),
                 "partner_id": row.get("partner_id"),
@@ -2554,7 +2625,10 @@ class Addon:
                                pieces, dict) else ())
                            if isinstance(p, dict)],
                 "inner": row["inner"], "status": _numbers(st),
-                "zero_system": bool(effs)})
+                "zero_system": bool(effs)}
+            if "corruption" in row:
+                build["corruption"] = row["corruption"]
+            builds.append(build)
         if not chars:
             return
         if self.base_battles is None:
@@ -2565,18 +2639,7 @@ class Addon:
                 self.base_battles, self.base_builds = stored
         if self.base_battles is False:
             return
-        effects = []
-        for group, entries in sorted((effs or {}).items()
-                                     if isinstance(effs, dict) else ()):
-            if not str(group).startswith(BASE_EFFECT_GROUPS):
-                continue
-            for e in entries if isinstance(entries, list) else ():
-                opts = e.get("opt_values") if isinstance(e, dict) else None
-                opts = opts if isinstance(opts, dict) else {}
-                effects.append([group, e.get("zero_system_eff_id")
-                                if isinstance(e, dict) else None,
-                                [v for _k, v in sorted(opts.items())
-                                 if v != -1]])
+        effects = _zero_effects(effs, BASE_EFFECT_GROUPS)
         playing = data.get("playing_stage_info")
         playing = playing if isinstance(playing, dict) else {}
         when = data.get("service_server_time")
@@ -2591,6 +2654,59 @@ class Addon:
         for build in builds:
             self._file_sighting(self.base_builds, build, when, BUILD_KEEP)
         self._write_base_store()
+
+    def _entry_corruptions(self, data):
+        """{combatant res_id: corruption} for the Save Data a battle's
+        entry names, where one carries a corruption.
+
+        **A corruption is an effect put on one Save Data** -- one
+        combatant's deck -- with `savedata_manage/apply_corruption`:
+        DEF +14% on one, ATK +12% on another. The deck carries it, not
+        the combatant, and the sheet the entry states does NOT: an
+        Adelheid deck read DEF 477 before its DEF +14% and after
+        (`websocket_debug_20261001_222841`). It is kept beside the
+        reading all the same, since nothing on the wire says every
+        corruption stays off the sheet.
+
+        A Full-Scale Offensive's and a Great Rift's entry name the Save
+        Data in `clear_record_savedata_ids`, read against the held
+        inventory; the Tower's sends them whole in `savedata_list`. A
+        Simulation stage names only a team index, and is not read."""
+        playing = data.get("playing_stage_info")
+        playing = playing if isinstance(playing, dict) else {}
+        ids = set()
+        for value in playing.values():
+            listed = value.get("clear_record_savedata_ids") \\
+                if isinstance(value, dict) else None
+            if isinstance(listed, list):
+                ids.update(str(i) for i in listed if i is not None)
+        sent = data.get("savedata_list")
+        decks = [d for d in sent if isinstance(d, dict)] \\
+            if isinstance(sent, list) else []
+        held = (self.inventory_data or {}).get("savedata")
+        if isinstance(held, list):
+            decks += [d for d in held if isinstance(d, dict)
+                      and str(d.get("id")) in ids]
+        return {d.get("char_res_id"): d.get("corruption_res_id")
+                for d in decks if d.get("corruption_res_id")}
+
+    def _note_savedata(self, data):
+        """Keep the held Save Data current as a reply changes one: a
+        corruption applied, a deck renamed or edited. The reply carries
+        the whole `savedata_entity`, which replaces the held copy of
+        the same id -- what `_entry_corruptions` reads a battle's decks
+        against, and what the snapshot shows."""
+        entity = data.get("savedata_entity")
+        held = (self.inventory_data or {}).get("savedata")
+        if not isinstance(entity, dict) or entity.get("id") is None \\
+                or not isinstance(held, list):
+            return
+        for i, deck in enumerate(held):
+            if isinstance(deck, dict) \\
+                    and str(deck.get("id")) == str(entity["id"]):
+                held[i] = entity
+                return
+        held.append(entity)
 
     def _file_sighting(self, held, entry, when, keep, **extra):
         """File `entry` in `held` once: a second sighting moves only its
@@ -3656,9 +3772,12 @@ class Addon:
         counts as a whole run is for the reader to decide --
         `chaos_estimate.is_full`. `part` is the season part it
         cleared in (see `_disaster_part`), `stage` the Chaos by its
-        stage id, `via` the door it came in by -- `disaster` or
-        `zero_orb` -- and `delegated` whether the Delegation Module
-        played it.
+        stage id, `via` the door it came in by -- `disaster`,
+        `zero_orb` or `chaos`, a base-game Chaos's own screen -- and
+        `delegated` whether the Delegation Module played it. What the
+        entry says the run is -- the Chaos, its difficulty or Zero
+        System codex, every effect in force -- is `_chaos_setup`'s, and
+        `marked_at` counts each mark by the spot it was met on.
 
         **Filed into its own file** as it clears, with every run before
         it: `_write_chaos_store`.
@@ -3668,16 +3787,12 @@ class Addon:
                               "client": self.client_version,
                               "via": asked.split("/", 1)[0],
                               "delegated": self.chaos_delegated,
-                              "fought": {}, "marked": {}, "paid": []}
+                              "fought": {}, "marked": {}, "marked_at": {},
+                              "paid": []}
+            self.chaos_run.update(_chaos_setup(data))
             self.chaos_spot = (None, None, "")
             self.chaos_map = []
             self.chaos_fight_key = None
-            return
-        if asked in CHAOS_ELSEWHERE:
-            # A Chaos this does not follow closes by the same
-            # `clear_stage`, which would otherwise file it as the run
-            # left open before it.
-            self.chaos_run = None
             return
         run = self.chaos_run
         if run is None:
@@ -3759,6 +3874,11 @@ class Addon:
         run["fought"][spot] = run["fought"].get(spot, 0) + 1
         if mark:
             run["marked"][mark] = run["marked"].get(mark, 0) + 1
+            # And by the spot it was met on: a map with more Elite
+            # floors than another meets a mark at a different rate a
+            # run without its rate a fight moving.
+            at = run.setdefault("marked_at", {}).setdefault(spot, {})
+            at[mark] = at.get(mark, 0) + 1
 
     def _chaos_lost(self):
         """Mark the run in progress lost on the fight at hand, with how

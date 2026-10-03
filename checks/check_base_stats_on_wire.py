@@ -185,6 +185,49 @@ def _the_capture_files_battles():
     return out
 
 
+def _a_corrupted_deck_is_marked():
+    """A Full-Scale Offensive entry names its Save Data by id; the
+    combatant whose deck carries a corruption is filed with it, a
+    corruption applied mid-session included (its reply's whole
+    `savedata_entity` replaces the held one), and a clean deck's
+    combatant without one -- so the battle filed before this was kept
+    still matches its next sighting."""
+    import base_stats_store
+    out = []
+    folder = Path(tempfile.mkdtemp())
+    try:
+        addon = _addon(folder)
+        addon.inventory_data = {"piece_items": [], "savedata": [
+            {"id": 11, "char_res_id": 1, "corruption_res_id": None},
+            {"id": 12, "char_res_id": 2,
+             "corruption_res_id": "corruption_option_9"}]}
+        addon._note_savedata({"res": "ok", "savedata_entity": {
+            "id": 11, "char_res_id": 1,
+            "corruption_res_id": "corruption_option_3"}})
+        reply = _reply([_entry(1, 61, (500, 150, 300)),
+                        _entry(2, 60, (400, 180, 320)),
+                        _entry(4, 60, (410, 170, 330))])
+        reply["playing_stage_info"]["remnants_boss_penalty_info"] = {
+            "clear_record_savedata_ids": [11, 12, 13]}
+        addon._note_base_stats("world/get_stage_info", reply)
+        battles, builds, _note = base_stats_store.read_store(folder)
+        rows = {r["res_id"]: r for b in battles for r in b["chars"]}
+        got = {rid: rows.get(rid, {}).get("corruption") for rid in (1, 2, 4)}
+        want = {1: "corruption_option_3", 2: "corruption_option_9", 4: None}
+        if got != want or "corruption" in rows.get(4, {}):
+            out.append(f"an Offensive entry's combatants are filed with "
+                       f"corruptions {got}, not {want}: the held Save Data "
+                       f"say whose deck carries one, a corruption applied "
+                       f"since included, and a clean deck adds no key.")
+        if {b.get("corruption") for b in builds} != {
+                None, "corruption_option_3", "corruption_option_9"}:
+            out.append("a corrupted deck's build is not filed with its "
+                       "corruption.")
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+    return out
+
+
 def _cast():
     """Seven combatants of characters.py and their level-60 bases."""
     from game_data import CHARACTERS
@@ -284,6 +327,44 @@ def _the_readings_resolve():
                    f"differs {moved['differs']}, changed "
                    f"{moved['changed']}: the newest reading must win and "
                    f"the change be reported.")
+    return out
+
+
+def _node_7_leaves_the_solve():
+    """An inner value solves the base at the sheet's inner % LESS node
+    7's own, and a corrupted deck's reading is not believed.
+
+    Anika's sheet, as the wire had it (`websocket_debug_20261002_220102`):
+    inner ATK 677 from base 405, partner 14, flat 69 and 45.2% -- the
+    sheet's 55.2% holds her Potential 7's +10% ATK, which the inner
+    value never does. Solved at 55.2% the base reads 378, and every
+    combatant beside her in a Chaos reads a different bonus. Below her
+    check (ATK 500) the sheet carries no bonus, and nothing comes off."""
+    import base_stats_store as bs
+    out = []
+    layers = {"S_ATK_INC_RATE_OUT": 55.2, "S_ATK_INC_ADD_OUT": 69}
+    on = _row(1012, 60, [525, 223, 561], partner=(14, 0, 1),
+              inner={"S_ATK": 677}, layers=layers)
+    if bs._solved(on) != {"ATK": 405}:
+        out.append(f"Anika's sheet solves to {bs._solved(on)}, not ATK "
+                   f"405: node 7's +10% ATK is on the sheet's inner % and "
+                   f"not in the inner value, so the solve has to take it "
+                   f"off.")
+    below = bs._half_up((405 + 14) * 1.1 + 20)
+    off = _row(1012, 60, [525, 223, 561], partner=(14, 0, 1),
+               inner={"S_ATK": below},
+               layers={"S_ATK_INC_RATE_OUT": 10, "S_ATK_INC_ADD_OUT": 20})
+    if below >= 500 or bs._solved(off) != {"ATK": 405}:
+        out.append(f"Anika below her check (inner ATK {below}) solves to "
+                   f"{bs._solved(off)}, not ATK 405: an unmet check puts "
+                   f"nothing on the sheet to take off.")
+    corrupted = dict(_row(1012, 60, [405, 163, 381]),
+                     corruption="corruption_option_3")
+    if bs._comparable(corrupted) or not bs._comparable(
+            _row(1012, 60, [405, 163, 381])):
+        out.append("a reading from a corrupted deck is believed, or a "
+                   "clean one is not. A corruption's stat applies in "
+                   "battle and the readings ship to every player.")
     return out
 
 
@@ -592,6 +673,7 @@ def _the_maintainers_readings(snapshots=None):
 
 def run():
     add_source_to_path()
-    return (_the_capture_files_battles() + _the_readings_resolve()
+    return (_the_capture_files_battles() + _a_corrupted_deck_is_marked()
+            + _the_readings_resolve() + _node_7_leaves_the_solve()
             + _the_overlay_answers() + _the_formula_holds()
             + _the_maintainers_readings())

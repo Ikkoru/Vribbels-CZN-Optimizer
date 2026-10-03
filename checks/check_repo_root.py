@@ -32,6 +32,7 @@ ALLOWED = {
     "LICENSE",
     "README.md",
     "requirements.txt",
+    "tasks.md",
     "zCreate exe.bat",
     "zRUN Checks.bat",
     "zRUN Spacing Audit Freeze.bat",

@@ -79,13 +79,38 @@ TOP_SHARE = 0.7
 # hundred runs pin the mean to about 6 a run -- some 400 on a season.
 RATE_RUNS = 200
 
-# Each Galactic Disaster's own Chaos, by the stage id its clear names,
-# and the season it came with. Named in the game's update notes.
+# Every Chaos, by the stage id its clear names, and the season it came
+# with: each Galactic Disaster's own, named in the game's update notes,
+# then the base game's, which came with none. A Chaos keeps its stage id
+# whichever door it is entered by -- its own screen, the Galactic
+# Disaster's or the Zero System. Its `chaos_id` on the wire is beside
+# each: a run records both.
 CHAOS_NAMES = {
-    50000: ("Laboratory 0", "disaster_s01"),
-    60000: ("Burning Life", "disaster_s02"),
-    70000: ("Theater of Illusions", "disaster_s03"),
-    80000: ("Kaleidoscope Hatchery", "disaster_s04"),
+    50000: ("Laboratory 0", "disaster_s01"),                 # chaos_06
+    60000: ("Burning Life", "disaster_s02"),                 # chaos_07
+    70000: ("Theater of Illusions", "disaster_s03"),         # chaos_08
+    80000: ("Kaleidoscope Hatchery", "disaster_s04"),        # chaos_09
+    110000003: ("Blue Pot", None),                           # chaos_01
+    115000001: ("Twin Star's Shadow", None),                 # chaos_02
+    120000002: ("City of Mist", None),                       # chaos_03
+    120000001: ("Swamp of Judgement", None),                 # chaos_04
+    120000004: ("The Foretold Ruin", None),                  # chaos_05
+}
+
+# The Zero System's special options, which a map's codex carries, by
+# what they do. Each Galactic Disaster's own adds its Chaos's features
+# to a base-game Chaos; the next season's is on offer in its preseason.
+# The next season's turns every floor after the first boss into Elite
+# and Unidentified Area floors and adds a Core of Discord style boss --
+# fewer ordinary fights a run, so fewer marked ones, at an unmoved rate
+# a fight.
+ZERO_SPECIALS = {
+    "zero_orb_special_v1_04": "Divine Intervention",
+    "zero_orb_special_v1_05": "season 1 Chaos",
+    "zero_orb_special_v1_06": "season 2 Chaos",
+    "zero_orb_special_v1_07": "season 3 Chaos",
+    "zero_orb_special_v1_08": "season 4 Chaos",
+    "zero_orb_special_v1_09": "season 5 Chaos",
 }
 
 # Windows in which something raised how often the marks turn up, as

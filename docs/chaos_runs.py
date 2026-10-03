@@ -53,11 +53,16 @@ The columns this script owns:
 | `season`  | the Galactic Disaster season it ran in                          |
 | `part`    | which part of the season: the shop page open when it cleared   |
 | `chaos`   | which Chaos it was, by the stage id its clear names -- `chaos_estimate.CHAOS_NAMES` |
+| `door`    | how it was entered: `Galactic Disaster`, `Zero System` or `own screen` (a base-game Chaos's) |
+| `difficulty` | the number ending the list id it was entered with (`6`), or a Zero System map's level (`lv80`) |
+| `special` | a Zero System map's special options, by `chaos_estimate.ZERO_SPECIALS` where named |
+| `options` | a Zero System map's bonus and penalty options: `b001 p112` |
 | `mode`    | `delegated`, played by the Delegation Module down one path, or `ordinary` |
 | `client`  | the game client and data patch it ran on: `cznlive 1.464 r688`  |
 | `total`   | what the run paid in the season's currency                      |
 | `payouts` | every payout in order, `floor:spot:amount`, `+mark` for a mark  |
 | `marked`  | the fights carrying a mark, paid or not: `k5:2 e:1`             |
+| `marked_at` | the same by the spot each was met on: `battle.k5:1 elite.k5:1` |
 | `fought`  | the fights, by spot: `battle:11 elite:4 boss:3`; `unknown` is a fight a `?` encounter offered, `break_in` a hidden mini-boss |
 | `lost`    | where a lost run was lost: `floor:spot:non-boss fights left`, `+mark` for a mark |
 | `SPOT_*`  | the payouts at each kind of spot, `+` between them              |
@@ -86,6 +91,26 @@ only if shuffling the runs rarely fits as well (`shifts`). A run inside
 one of `chaos_estimate.RATE_EVENTS` -- something that raised the rates
 for a while -- is left out. Last, the figures `chaos_estimate.SHIPPED`
 wants, for the release step to copy.
+
+**A rate a run is not a rate a fight, and a map's own mix of fights can
+move the first alone.** Season 5's Chaos -- and any Chaos given its
+special option in the Zero System -- makes every floor after the first
+boss an Elite or an Unidentified Area floor. Elite floors turn up as
+often as before, so a run holds fewer ordinary battles and meets fewer
+marks, with no mark's rate a fight moving. Read across that change, the
+per-run figures and `shipped_figures` fall, and the shift test, which
+takes battle and Elite fights together, can report a shift for a mark
+met more on one kind than the other: the Aether Eater has only been met
+on battles. That is the map, not the rates. The by-spot lines after the
+shift test read each kind of fight apart, and `special` says which runs
+had the option. Expect it at the end of season 5, against season 4's
+runs, and again at the end of season 6, against season 5's.
+
+**The season's skill tree moves rates as it is levelled.** Every run
+records the Zero System effects in force (`Addon._chaos_setup`), and
+among them are the season's own `ZERO_ENCOUNTER_RATEUP__*` and
+`ZERO_BREAK_IN_RATEUP__*` nodes. A shift that lines up with one taken
+is the tree's.
 
 **A season is named by the run, not by its currency.** Each season pays
 in an item id of its own, and the capture names the season a run
@@ -128,8 +153,9 @@ CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04"}
 
 # What this script fills in. Anything after them in an existing file
 # is the maintainer's and is carried over by `date`.
-OWNED = ["date", "season", "part", "chaos", "mode", "client", "total",
-         "payouts", "marked", "fought", "lost"]
+OWNED = ["date", "season", "part", "chaos", "door", "difficulty",
+         "special", "options", "mode", "client", "total", "payouts",
+         "marked", "marked_at", "fought", "lost"]
 # The maintainer's column the summary reads: see the module docstring.
 MISSED = "missed"
 SPOT_COLUMN = "SPOT_TYPE_"
@@ -362,6 +388,46 @@ def lost_of(cell):
     return [int(pieces[0]), pieces[1].upper(), mark, int(pieces[2])]
 
 
+# The doors a run comes in by, as the `door` column names them.
+DOORS = {"disaster": "Galactic Disaster", "zero_orb": "Zero System",
+         "chaos": "own screen"}
+
+
+def difficulty_of(run):
+    """A run's difficulty as the `difficulty` column writes it: the
+    number ending the list id a base-game or Galactic Disaster Chaos is
+    entered with (`embody_chaos_04_06` is 6), a Zero System map's level
+    (`lv80`), '?' where the record holds neither. The Galactic Disaster
+    list's number is read the way the base game's is, which nothing on
+    the wire confirms."""
+    codex = run.get("codex")
+    if isinstance(codex, dict) and codex.get("lv") is not None:
+        return "lv%s" % codex["lv"]
+    tail = str(run.get("difficulty") or "").rsplit("_", 1)[-1]
+    return str(int(tail)) if tail.isdigit() else "?"
+
+
+def short_option(option):
+    """A codex option as the `options` column writes it:
+    `zero_orb_bonus_001` as `b001`, `zero_orb_penalty_112` as `p112`."""
+    for prefix, letter in (("zero_orb_bonus_", "b"),
+                           ("zero_orb_penalty_", "p")):
+        if str(option).startswith(prefix):
+            return letter + str(option)[len(prefix):]
+    return str(option)
+
+
+def marked_at_of(cell):
+    """{spot: {mark: n}} from a `marked_at` cell."""
+    out = collections.defaultdict(dict)
+    for part in (cell or "").split():
+        where, _, n = part.rpartition(":")
+        spot, _, mark = where.partition(".")
+        if n.isdigit() and mark:
+            out[spot][mark] = int(n)
+    return out
+
+
 def run_of_row(row):
     """A row in the shape the capture records a run, for
     `chaos_estimate`'s readers."""
@@ -387,6 +453,14 @@ def row_of(run, source, parts):
         "season": season,
         "part": part,
         "chaos": chaos_estimate.chaos_name(run),
+        "door": DOORS.get(run.get("via", "disaster"), run.get("via")),
+        "difficulty": difficulty_of(run),
+        "special": "+".join(chaos_estimate.ZERO_SPECIALS.get(s, s)
+                            for s in (run.get("codex") or {}).get(
+                                "special") or ()),
+        "options": " ".join(
+            short_option(o) for kind in ("bonus", "penalty")
+            for o in (run.get("codex") or {}).get(kind) or ()),
         "mode": ("delegated" if run.get("delegated") else "ordinary")
                 if "delegated" in run else "?",
         "client": run.get("client") or "?",
@@ -395,6 +469,10 @@ def row_of(run, source, parts):
                             for floor, spot, mark, _item, amount in paid),
         "marked": " ".join("%s:%d" % item for item in
                            sorted((run.get("marked") or {}).items())),
+        "marked_at": " ".join(
+            "%s.%s:%d" % (spot.lower(), mark, n)
+            for spot, marks in sorted((run.get("marked_at") or {}).items())
+            for mark, n in sorted(marks.items())),
         "fought": " ".join("%s:%d" % (spot.lower(), n) for spot, n in
                            sorted((run.get("fought") or {}).items())),
         "lost": lost_token(run.get("lost")),
@@ -410,15 +488,42 @@ def row_of(run, source, parts):
 
 def current(row):
     """Whether a row is a run of its own season's Chaos -- what the
-    means, the report and the shipped figures are about. A row that
-    cannot name its Chaos came the Galactic Disaster's way unless its
-    stage is a bare number, which only an unnamed Zero System Chaos
-    leaves."""
+    means, the report and the shipped figures are about. A base-game
+    Chaos never is. A row that cannot name its Chaos came the Galactic
+    Disaster's way unless its stage is a bare number, which only an
+    unnamed Chaos leaves."""
     name = row.get("chaos") or "?"
+    if name in CHAOS_SEASONS and CHAOS_SEASONS[name] is None:
+        return False
     season = CHAOS_SEASONS.get(name)
     if season is None:
         return not name.isdigit()
     return season == "disaster_" + row["season"]
+
+
+def merge(rows, found, parts, theirs, full):
+    """{date: row}: the file's `rows` with each run `found` -- (run, the
+    log or snapshot it came from) -- written over its own, the
+    maintainer's columns `theirs` kept. `full` rebuilds every row from
+    what was found."""
+    kept = {} if full else dict(rows)
+    for run, source in found:
+        row = row_of(run, source, parts)
+        old = rows.get(row["date"], {})
+        # A row a log was replayed into stays as it is against the
+        # capture's own record of the same run: the replay runs today's
+        # capture code, and the record kept whatever the code of its day
+        # did -- a break-in it could not see, fields it did not keep.
+        if not full and stamp(old.get("log")) and not stamp(source):
+            continue
+        # A part is dated only while its season is live; a row read
+        # again after keeps the one it was given.
+        if row["part"] == "?" and old.get("part") not in (None, "", "?"):
+            row["part"] = old["part"]
+        if stamp(old.get("log")) and not stamp(source):
+            row["log"] = old["log"]
+        kept[row["date"]] = {**{c: old.get(c, "") for c in theirs}, **row}
+    return kept
 
 
 def existing():
@@ -759,6 +864,33 @@ def rate_shifts(rows):
             "no shift (p %.2f)" % p if p is not None
             else "too few runs to look for a shift (%d a side)"
             % FEWEST_RUNS))
+    spot_rates(runs, marks)
+
+
+def spot_rates(runs, marks):
+    """Print each mark's rate on each kind of ordinary fight, over the
+    runs that recorded where their marks were met: see the module
+    docstring's note on a map's own mix of fights."""
+    told = [row for row in runs
+            if row.get("marked_at") or not row.get("marked")]
+    if not told:
+        return
+    for mark in marks:
+        parts, met = [], 0
+        for spot in ("battle", "elite"):
+            n = sum(counts_of(row.get("fought")).get(spot, 0)
+                    for row in told)
+            k = sum(count for row in told
+                    for key, count in marked_at_of(
+                        row.get("marked_at")).get(spot, {}).items()
+                    if mark in key.split("+"))
+            met += k
+            if n:
+                parts.append("%.3f per %s (%d in %d)" % (k / n, spot, k, n))
+        # A break-in is a spot of its own, and is never met on either.
+        if parts and met:
+            print("      %s by spot, %d run(s): %s" % (
+                _named(mark), len(told), ", ".join(parts)))
 
 
 def shipped_figures(rows):
@@ -832,17 +964,7 @@ def main():
         for run in got:
             found[run["closed"]] = (run, name)
 
-    kept = {} if full else dict(rows)
-    for run, source in found.values():
-        row = row_of(run, source, parts)
-        old = rows.get(row["date"], {})
-        # A part is dated only while its season is live; a row read
-        # again after keeps the one it was given.
-        if row["part"] == "?" and old.get("part") not in (None, "", "?"):
-            row["part"] = old["part"]
-        if stamp(old.get("log")) and not stamp(source):
-            row["log"] = old["log"]
-        kept[row["date"]] = {**{c: old.get(c, "") for c in theirs}, **row}
+    kept = merge(rows, found.values(), parts, theirs, full)
     new = len({row_of(run, s, parts)["date"] for run, s in found.values()}
               - set(rows))
     filled = fill_missed(kept)
@@ -883,7 +1005,9 @@ def main():
             for _floor, _spot, amount, _mark in payouts_of(row["payouts"]):
                 tally[amount] += 1
         else:
-            others["%s, %s" % (row["chaos"], row["mode"])].append(row)
+            others[", ".join(cell for cell in (
+                row["chaos"], row.get("door"), row.get("special"),
+                row["mode"]) if cell)].append(row)
     if counted:
         print("   counted with what they missed: %s"
               % ", ".join(sorted(counted)))

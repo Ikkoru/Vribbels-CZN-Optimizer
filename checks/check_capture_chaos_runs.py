@@ -31,12 +31,16 @@ quietly:
    fight says so in its reply, one played by hand in what the client
    sends (`websocket_debug_20260926_214843`).
 8. **A run says which Chaos, by which door, and how it was played**:
-   the stage id its clear names, `disaster` or `zero_orb`, and whether
-   the Delegation Module played it -- said only in what the client sent
-   to open it (`websocket_debug_20260927_202839`). A past season's
-   Chaos pays less, and the estimate must leave it out.
+   the stage id its clear names, `disaster`, `zero_orb` or `chaos`, and
+   whether the Delegation Module played it -- said only in what the
+   client sent to open it (`websocket_debug_20260927_202839`). A past
+   season's Chaos pays less, and the estimate must leave it out. A
+   base-game Chaos entered from its own screen is a run of its own.
 9. **A run left by an escape is never a whole one**: its close says
    `GIVEUP`, and no lost fight says anything.
+10. **A run says what its entry said it was**: the Chaos's id, the
+    difficulty, a Zero System map's codex, every effect in force, and
+    each mark by the spot it was met on.
 
 Synthetic frames in the shapes of those captures. No Tk and no
 snapshot needed.
@@ -409,6 +413,8 @@ def run():
                     f"whole turns on that last number.")
 
     failures.extend(_given_up(Addon))
+    failures.extend(_what_the_entry_says(Addon))
+    failures.extend(_the_table_keeps_a_replayed_row())
     failures.extend(_new_season(Addon))
     _the_file(Addon, failures)
     return failures
@@ -484,8 +490,9 @@ def _given_up(Addon):
                 f"fight was lost, so the marks per whole run are averaged "
                 f"over a run cut short.")
 
-    # A regular Chaos entered while a Galactic Disaster run is left open
-    # closes by the same `clear_stage`, and is not that run.
+    # A base-game Chaos entered from its own screen while a Galactic
+    # Disaster run is left open starts a run of its own: its clear is
+    # not the open run's, and its fights are not added in.
     addon = _new(Addon)
     _setup(addon)
     steps = _Steps(addon, 800)
@@ -493,14 +500,155 @@ def _given_up(Addon):
                service_server_time=1790460000)
     steps.fight(6, "SPOT_TYPE_BATTLE", "base_00160", keyword_tag=[5])
     steps.step("chaos/enter_embody_chaos_stage",
-               service_server_time=1790461000)
+               service_server_time=1790461000, **EMBODY_ENTRY)
     steps.fight(2, "SPOT_TYPE_BATTLE", "base_00011")
     steps.step("stage/clear_stage", service_server_time=1790461600,
                stage_id=120000004,
                return_info={"result": "CLEAR", "state": "finish"})
-    if addon.chaos_runs:
+    runs = addon.chaos_runs
+    got = runs[-1] if runs else {}
+    if len(runs) != 1 or (got.get("via"), got.get("stage"),
+                          got.get("fought")) != (
+            "chaos", 120000004, {"BATTLE": 1}):
         failures.append(
-            f"a regular Chaos cleared while a Galactic Disaster run was "
-            f"left open filed {len(addon.chaos_runs)} run(s): its clear "
-            f"was taken for the open run's, with its fights added in.")
+            f"a base-game Chaos entered from its own screen, while a "
+            f"Galactic Disaster run was left open, filed {len(runs)} "
+            f"run(s), the last via {got.get('via')!r}, stage "
+            f"{got.get('stage')!r}, fought {got.get('fought')!r} -- not "
+            f"one run via 'chaos', stage 120000004, its own one battle.")
+    return failures
+
+
+# The two entries' replies as the wire had them
+# (`websocket_debug_20261001_222841`), cut to what a run records.
+EMBODY_ENTRY = {
+    "playing_stage_info": {
+        "stage_id": 120000004,
+        "ingame_content_config_id": "content_chaos_embody_chaos",
+        "chaos_info": {"chaos_id": "chaos_05", "embody_info": {
+            "embody_chaos_define_id": "embody_chaos_05",
+            "embody_chaos_list_id": "embody_chaos_05_06"}},
+        "floor_info": [0, 34]},
+    "zero_system_effs": {"ZERO_CHARACTER_STAT__TYPE_VALUE": [{
+        "zero_system_eff_id": "zero_orb_s2_1_01_01_05",
+        "opt_values": {"opt_1": -1, "opt_2": 40}}]},
+    "planet_resid": 100501,
+    "dev_msg": "[boss_1]_at_1 [boss_2]_at_18 boss_list:base_00133,base_00134",
+}
+ZERO_ENTRY = {
+    "playing_stage_info": {
+        "stage_id": 115000001, "ingame_content_config_id": "content_chaos_zero",
+        "chaos_info": {"chaos_id": "chaos_02", "zero_info": {
+            "zero_orb_codex_id": 54549623, "zero_orb_slot_id": 3}},
+        "floor_info": [0, 28],
+        "zero_orb_codex_info": {
+            "id": 54549623, "res_id": "zero_orb_codex_013", "lv": 76,
+            "coordinate": "zero_orb_coord_007", "option": {
+                "bonus_infos": ["zero_orb_bonus_001"],
+                "penalty_infos": ["zero_orb_penalty_112",
+                                  "zero_orb_penalty_135"],
+                "special_infos": ["zero_orb_special_v1_09"]}}},
+    "zero_system_effs": {
+        "ZERO_ENCOUNTER_RATEUP__COUNT_RARITY": [{
+            "zero_system_eff_id": "zero_season_s4_skill_034_05",
+            "opt_values": {"opt_1": 3, "opt_2": -1}}],
+        "ZERO_NO_SAVEDATA": [{"zero_system_eff_id": "zero_orb_special_v1_04",
+                              "opt_values": {"opt_1": 1}}]},
+    "planet_resid": 100201,
+    "dev_msg": "[boss_1]_at_1 boss_list:base_00000,base_00109",
+}
+
+
+def _the_table_keeps_a_replayed_row():
+    """`docs/chaos_runs.py`'s default pass keeps a row a log was replayed
+    into against the capture's own record of the same run.
+
+    The default pass reads only the newest logs, and every run the
+    runs' file holds; the file's record was made by the capture code of
+    its day. Written over a log's row, it took back a break-in the
+    record never saw (the 2026-09-28 00:42 run) and blanked every field
+    added since. `--all` rebuilds from what it reads, which is right."""
+    import importlib.util
+    import os
+    from ._harness import REPO_ROOT
+    here = os.getcwd()
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "chaos_runs_tool", REPO_ROOT / "docs" / "chaos_runs.py")
+        tool = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tool)
+    finally:
+        os.chdir(here)              # the tool moves to Vribbels/ on import
+    run_ = {"closed": 1790545320, "season": "disaster_s04", "part": 3,
+            "via": "disaster", "delegated": True, "client": "x",
+            "paid": [], "marked": {"k5": 1}, "fought": {"BATTLE": 12},
+            "stage": 80000}
+    replayed = dict(run_, marked={"b1": 1, "k5": 1},
+                    fought={"BATTLE": 12, "BREAK_IN": 1})
+    old = tool.row_of(replayed, "websocket_debug_20260928_003350.jsonl", {})
+    rows = {old["date"]: dict(old, notes="yours")}
+    found = [(run_, "runs.json.gz")]
+    kept = tool.merge(rows, found, {}, ["notes"], full=False)[old["date"]]
+    rebuilt = tool.merge(rows, found, {}, ["notes"], full=True)[old["date"]]
+    if (kept["marked"], kept["notes"]) != ("b1:1 k5:1", "yours") \
+            or rebuilt["marked"] != "k5:1":
+        return [f"chaos_runs.py's default pass reads a replayed row's "
+                f"marks as {kept['marked']!r} (notes {kept['notes']!r}) "
+                f"against the runs' file's own record, and --all as "
+                f"{rebuilt['marked']!r}: the default pass keeps the "
+                f"replay's 'b1:1 k5:1' and your columns, --all rebuilds "
+                f"from what it found."]
+    return []
+
+
+def _what_the_entry_says(Addon):
+    """A run records what its entry says it is: the Chaos's own id, the
+    difficulty its list id names, a Zero System map's codex with its
+    level and options, every Zero System effect with its values, the
+    planet, the bosses and the floors -- and each mark by the spot it
+    was met on. What these change is not on the wire, and a rate read
+    over runs that differ in them is a rate of their mix."""
+    failures = []
+    addon = _new(Addon)
+    _setup(addon)
+    steps = _Steps(addon, 900)
+    steps.step("chaos/enter_embody_chaos_stage",
+               service_server_time=1790461000, **EMBODY_ENTRY)
+    steps.fight(2, "SPOT_TYPE_BATTLE", "base_00011_e")
+    steps.fight(3, "SPOT_TYPE_ELITE", "base_00012", keyword_tag=[5])
+    steps.step("stage/clear_stage", service_server_time=1790461600,
+               stage_id=120000004)
+    steps.step("zero_orb/enter_zero_stage", DELEGATED,
+               service_server_time=1790462000, **ZERO_ENTRY)
+    steps.step("stage/clear_stage", service_server_time=1790462600,
+               stage_id=115000001)
+    embody, zero = (addon.chaos_runs + [{}, {}])[:2]
+    want = {"chaos": "chaos_05", "content": "content_chaos_embody_chaos",
+            "difficulty": "embody_chaos_05_06", "planet": 100501,
+            "floors": [0, 34], "bosses": ["base_00133", "base_00134"],
+            "effects": [["ZERO_CHARACTER_STAT__TYPE_VALUE",
+                         "zero_orb_s2_1_01_01_05", [40]]],
+            "marked_at": {"BATTLE": {"e": 1}, "ELITE": {"k5": 1}}}
+    got = {k: embody.get(k) for k in want}
+    if got != want or "codex" in embody:
+        failures.append(f"a base-game Chaos run records {got}, not {want}, "
+                        f"and no codex.")
+    codex = {"res_id": "zero_orb_codex_013", "lv": 76,
+             "coordinate": "zero_orb_coord_007",
+             "bonus": ["zero_orb_bonus_001"],
+             "penalty": ["zero_orb_penalty_112", "zero_orb_penalty_135"],
+             "special": ["zero_orb_special_v1_09"]}
+    effects = [["ZERO_ENCOUNTER_RATEUP__COUNT_RARITY",
+                "zero_season_s4_skill_034_05", [3]],
+               ["ZERO_NO_SAVEDATA", "zero_orb_special_v1_04", [1]]]
+    if (zero.get("codex"), zero.get("effects"), zero.get("chaos"),
+            zero.get("difficulty"), zero.get("delegated")) != (
+            codex, effects, "chaos_02", None, True):
+        failures.append(
+            f"a Zero System run records codex {zero.get('codex')}, effects "
+            f"{zero.get('effects')}, chaos {zero.get('chaos')!r}, "
+            f"difficulty {zero.get('difficulty')!r}, delegated "
+            f"{zero.get('delegated')!r} -- not the map's codex with its "
+            f"level and options, every effect with its values, chaos_02, "
+            f"no list id, and played by the Delegation Module.")
     return failures

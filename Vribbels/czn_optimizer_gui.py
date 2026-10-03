@@ -757,9 +757,10 @@ class OptimizerGUI:
         # otherwise change a style under every tab already laid out,
         # and all of them re-measure. See `ui/utils/style_once.py`.
         from ui.utils.panel_title import panel_title_style
-        from ui.tabs import gacha_history_tab
+        from ui.tabs import gacha_history_tab, optimizer_tab
         panel_title_style()
         gacha_history_tab.register_styles()
+        optimizer_tab.register_styles()
 
     def setup_ui(self):
         self.notebook = ttk.Notebook(self.root, style="Flush.TNotebook")

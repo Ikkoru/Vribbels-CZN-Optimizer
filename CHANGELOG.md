@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
+## [2.4.0] - unreleased
+
+### Added
+
+- Memory Fragments: a `Level:` filter under Slots shows the Memory Fragments of one level.
+- Capture Log: Ctrl+F marks every place the typed text appears. Escape closes it.
+- Anika's default Gear Score preset, assigned to her; Restore Defaults brings both in.
+
+### Changed
+
+- **Optimizer:**
+  - `Fill in Potential 7 values:` reads `Auto`, with both buttons struck through, for a combatant whose Potential 7 the score already counts. The buttons still work.
+  - Selected Build shows the selected combatant's own Memory Fragments in green.
+  - Stats Comparison: Crit% and CDMG% switch between their values without and with conditional set effects, marked `*` while the effects are in, in both columns alike.
+- **Checklist:**
+  - Sortie Currency is orange while the next weekly grant still fits under its cap, red once it would not.
+  - A deadline in its last day blinks, and so does a Delegation Module row with any to use. The Daily heading and finished events hold still.
+
 ## [2.3.0] - Potential 7, Faster Tabs
 
 ### Added

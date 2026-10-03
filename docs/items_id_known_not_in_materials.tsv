@@ -1,6 +1,6 @@
 res_id	where	amount	Name	Type	Note
-2000002	currencies	12	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
-2000007	currencies	11	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
+2000002	currencies	3	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
+2000007	currencies	19	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
 2000011	currencies	369	Moment of the Radiant Hero	Shop Currency	
 2000012	currencies	173	Moment of the Radiant Traveler	Shop Currency	
 2000014	currencies	1	Tear of God	Stamina Recovery	
@@ -8,17 +8,17 @@ res_id	where	amount	Name	Type	Note
 2000018	currencies	44	Research Notes	Ark - Upgrade Currency	
 2000020	currencies	70	Zeronium	Shop Currency	
 2000022	currencies	3	Special Security Code	Trauma Code Unlock Item	Max 3 stored
-2000023	currencies	39	Prism Lens	Gacha Currency - Animated Card	
+2000023	currencies	57	Prism Lens	Gacha Currency - Animated Card	
 2000024	currencies	600	Prism Film	Shop Currency	
-2000031	currencies	7	Policy Point	Ark - Shop Currency	
-2000032	currencies	4800	Crystal of Discord	Shop Currency	
+2000031	currencies	18	Policy Point	Ark - Shop Currency	
+2000032	currencies	7500	Crystal of Discord	Shop Currency	
 2000048	currencies	0	Daily Chaos Delegation	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation
-3000005	items	43144	Chaos Orb	Zero System Currency	Worthless
+3000005	items	44159	Chaos Orb	Zero System Currency	Worthless
 3000008	items	600	Tactical Data	Sortie Currency	
 3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Reset when a Galactic Disaster ends
-3200001	items	4585	Particles of Memory	Crafting Material for Memory Fragments	
-3200002	items	110	Core of Memory	Crafting Material for Memory Fragments	
-3210001	items	8090	Traces of Memory	Crafting Material for Memory Fragments	
+3200001	items	3193	Particles of Memory	Crafting Material for Memory Fragments	
+3200002	items	11	Core of Memory	Crafting Material for Memory Fragments	
+3210001	items	8604	Traces of Memory	Crafting Material for Memory Fragments	
 3210002	items	25	Multidimensional Alignment Material	Crafting Material for Memory Fragments	
 3300001	items	14	Sweet Choconilla	Gift Item	Common
 3300002	items	31	Exquisite Slice of Cake	Gift Item	Rare
@@ -30,8 +30,8 @@ res_id	where	amount	Name	Type	Note
 3300008	items	28	Lucky Sachet	Gift Item	Rare
 3300009	items	3	Hidden Card	Gift Item	Legendary
 3300010	items	3	Strange Decoration	Gift Item	Rare
-3300011	items	3	Carefully Handwritten Letter	Gift Item	Legendary
-3300012	items	3	Heartbeat Purfume	Gift Item	Common
+3300011	items	6	Carefully Handwritten Letter	Gift Item	Legendary
+3300012	items	4	Heartbeat Purfume	Gift Item	Common
 3300013	items	57	Cute Rabbit Doll	Gift Item	Common
 3300014	items	4	Nightmare-Repelling Dreamcatcher	Gift Item	Legendary
 3300015	items	4	Legendary Combat Manual	Gift Item	Legendary
@@ -47,7 +47,7 @@ res_id	where	amount	Name	Type	Note
 3920013	items	4	Core of the Reverse	Save Data Edit	
 3920014	items	8	Core of Annihilation	Save Data Edit	
 3920015	items	45	Colorless Core	Save Data Edit	
-3920022	items	3	Abyssal Core	Save Data Edit	
+3920022	items	7	Abyssal Core	Save Data Edit	
 3920023	items	4	Core of Archetype	Save Data Edit	
 3920024	items	3	Core of Potential	Save Data Edit	
 3920029	items	3	Core of Variables	Save Data Edit	
@@ -69,6 +69,8 @@ res_id	where	amount	Name	Type	Note
 9300259	items	1	Glorious Allegory	Galactic Medal	
 9300261	items	1	Petite Anis	Sticker	or Perfect Taxidermy - Galactic Medal
 9300271	items	1	Perfect Taxidermy	Galactic Medal	or Petite Anis Sticker
+9300291	items	1	Full-Scale Offensive Sticker	Sticker	
+9400008	items	2	Forbidden Catalyst Chizuru	Sticker	
 9400080	items	1	Arky	Sticker	CZN x Epic Seven collab
 9400081	items	1	Kayron	Sticker	CZN x Epic Seven collab
 9400082	items	1	Witch of the Mere Tenebria	Sticker	CZN x Epic Seven collab

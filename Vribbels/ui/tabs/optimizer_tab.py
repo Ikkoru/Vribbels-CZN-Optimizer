@@ -57,6 +57,7 @@ from ui.utils.label_width import LABEL_REQUEST_INSET
 from ui.utils.panel_title import panel_title_style
 from ui.title_bar import apply_title_bar
 from ui.utils.spinbox_clamp import blink, clamp_on_commit, commit_clamp
+from ui.utils.style_once import first_time
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import (
     combobox_letter_jump, combobox_arrow_nav, bind_popdown_seek,
@@ -247,6 +248,29 @@ def _horizontal_pads(info):
                               else str(padx).split())]
     return (2 * parts[0] if len(parts) == 1 else sum(parts)) \
         + 2 * int(info.get("ipadx", 0))
+
+
+# The struck-through face `P7_AUTO_STYLE` draws in, per interpreter.
+# Held here because Tk drops a named font once nothing in Python holds
+# it, and the style would then draw in the default face.
+_STRIKE_FONTS = []
+
+
+def register_styles():
+    """Define this tab's own styles, once per interpreter -- at startup
+    from `configure_styles`, or on first need in a tab built alone. See
+    `ui/utils/style_once.py` for what a later definition costs.
+
+    The struck-through face is a copy of the buttons' own, so it follows
+    the UI scale."""
+    style = ttk.Style()
+    if not first_time(style, P7_AUTO_STYLE):
+        return
+    face = style.lookup("TButton", "font") or "TkDefaultFont"
+    strike = tkfont.Font(font=face)
+    strike.configure(overstrike=1)
+    _STRIKE_FONTS.append(strike)
+    style.configure(P7_AUTO_STYLE, font=strike)
 
 
 def _compare_row(label, decimals, key, current, new):
@@ -1447,14 +1471,7 @@ class OptimizerTab(BaseTab):
         # rule's distance, as for every caption over its control.
         self.p7_caption = ttk.Label(parent, text=P7_FILL_CAPTION)
         self.p7_caption.pack(side=tk.BOTTOM, anchor=tk.W)
-        # The struck-through face, a copy of the buttons' own so it
-        # follows the UI scale. Kept on the tab: Tk drops a named font
-        # once nothing in Python holds it.
-        style = ttk.Style()
-        face = style.lookup("TButton", "font") or "TkDefaultFont"
-        self._p7_strike_font = tkfont.Font(font=face)
-        self._p7_strike_font.configure(overstrike=1)
-        style.configure(P7_AUTO_STYLE, font=self._p7_strike_font)
+        register_styles()
 
     def _build_hal_row(self, parent, stat, label_pad, spin_width=4):
         """One stat's label and spinbox. `label_pad` is in pixels,
