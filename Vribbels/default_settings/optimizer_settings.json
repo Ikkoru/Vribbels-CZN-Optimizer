@@ -393,7 +393,7 @@
         25
       ],
       "max_flex_slots": 4,
-      "avg_card_dmg_pct": 100,
+      "avg_card_dmg_pct": 420,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 0,
       "element_override": null,
@@ -477,7 +477,7 @@
         19
       ],
       "max_flex_slots": 4,
-      "avg_card_dmg_pct": 300,
+      "avg_card_dmg_pct": 200,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 100,
       "element_override": null,
@@ -801,9 +801,9 @@
         19
       ],
       "max_flex_slots": 4,
-      "avg_card_dmg_pct": 100,
+      "avg_card_dmg_pct": 60,
       "avg_mult_buff_pct": 0,
-      "avg_add_buff_pct": 0,
+      "avg_add_buff_pct": 100,
       "element_override": null,
       "set_effect_pcts": {
         "6": 10,
@@ -1516,6 +1516,46 @@
       "avg_card_dmg_pct": 170,
       "avg_mult_buff_pct": 0,
       "avg_add_buff_pct": 160,
+      "element_override": null
+    },
+    "1012": {
+      "name_hint": "Anika",
+      "optimize_for_level": null,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "fracture_pct": 0,
+      "atk_def_split": 0,
+      "shielding_healing_weight": 0,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        9,
+        11,
+        19
+      ],
+      "max_flex_slots": 4,
+      "set_effect_pcts": {
+        "15": 50,
+        "6": 30,
+        "19": 100
+      },
+      "avg_card_dmg_pct": 200,
+      "avg_mult_buff_pct": 0,
+      "avg_add_buff_pct": 85,
       "element_override": null
     }
   }

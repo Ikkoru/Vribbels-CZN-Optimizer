@@ -135,7 +135,7 @@ SHARE_NOTE = (
     "game doesn't store them forever, so players who start later lack them.\n"
     "Instructions: Press Export Facts and save the file. A popup will "
     "lead you to GitHub. Attach the file to the new issue. Write something "
-    "nice in the title! Press Create. Nothing about your account is shared.")
+    "cute in the title! Press Create. Nothing about your account is shared.")
 SHARE_ISSUE_URL = f"https://github.com/{GITHUB_REPO}/issues/new"
 
 # The face the instructions are set in, and what a panel adds around a

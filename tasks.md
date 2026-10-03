@@ -33,8 +33,7 @@ items are removed; parked ones live in TBD at the bottom. Conventions:
      - **Chaos-worked only**, which a plain battle confirms: Adelheid, Maribell and Mika.
      - **Level 62**: no combatant has been read at it; any that reaches 62, once.
   2. **Potential 7 parts no sheet has shown**, same kind of battle, node 7 taken: Tressa at DoT 30% or more (her second +4%; only the first was seen, at 0 DoT), and Owen at HP 700 or more (his second +4% ATK and DEF). The rest of the table matches the server, growth part-way included.
-  3. **By eye**: in the Combatants tab, node 7's line names what it raises (`Void%`, `Team Crit%`, `Card`).
-  4. **What a loss looks like**, with capture on, in as many modes as convenient: a Simulation stage, a Battle Mission, the Basin, the Great Rift, the Full-Scale Offensive, a Sortie. The Tower's and a Chaos run's have been seen: `clear_stage` answered `FAIL`, and in Chaos a `battle_end` saying `BATTLE_RESULT_TYPE_STAGE_FAILED`. For each: what the close and the `battle_end` say, and whether anything the capture keeps moves on it -- stage limits, rewards, the Checklist's counts, the standings.
+  3. **What a loss looks like**, with capture on, in as many modes as convenient: a Simulation stage, a Battle Mission, the Basin, the Great Rift, the Full-Scale Offensive, a Sortie. The Tower's and a Chaos run's have been seen: `clear_stage` answered `FAIL`, and in Chaos a `battle_end` saying `BATTLE_RESULT_TYPE_STAGE_FAILED`. For each: what the close and the `battle_end` say, and whether anything the capture keeps moves on it -- stage limits, rewards, the Checklist's counts, the standings.
 
 - **I35 — After the 2026-09-30 patch.** What the patch's plan left open; the rest is `past_plans/patch_2026_09_30.md`.
 
@@ -75,6 +74,8 @@ items are removed; parked ones live in TBD at the bottom. Conventions:
 - **I6 — A setting in `Upgrade Log Settings` that would filter out presets that don't match the MF Set Effect's Element.** Default OFF. Consider if it would work for all set effects, not just Element restricted ones.
 
 - **I1 — Don't show presets with Shielding/Healing above [spinbox]% for DPS MFs**. Default to 69%. Consider DPS MF to be Crit%, CDMG, ATK% on Slot IV; ATK%, Element% on Slot V; ATK% (this one's complicated T_T) on Slot VI. Use the Optimizer's Shielding/Healing value to figure this out. Ask me for any info that you need.
+
+- **I0 — Alternative type of `Exclude Combatant's` MFs.** Ticking a `Order Mode` checkbox (on the right of the None button) will change how it works. Instead of checkboxes there will only be Combatant names. They can be reordered using drag-and-drop (or `Higher`/`Lower` buttons that would replace the All/None buttons). The order in this panel will decide whose MFs will be ignored: all Combatants before (sentence order) the one currently being optimized will be excluded. An explanation about how this mode works, and availability of drag-and-drop will appear to the right of the checkbox label.
 
 ---
 

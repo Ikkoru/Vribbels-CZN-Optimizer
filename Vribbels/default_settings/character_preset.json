@@ -37,7 +37,8 @@
     "1033": "Veronica",
     "1057": "Yuki (non-Conqueror's Aspect)",
     "30115": "Arabella (high DoT)",
-    "30117": "Olga (high DoT)"
+    "30117": "Olga (high DoT)",
+    "1012": null
   },
   "name_hints": {
     "1055": "Adelheid",
@@ -76,6 +77,7 @@
     "1033": "Veronica",
     "1057": "Yuki",
     "30115": "Arabella",
-    "30117": "Olga"
+    "30117": "Olga",
+    "1012": "Anika"
   }
 }
