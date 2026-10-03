@@ -49,7 +49,7 @@ from game_data.characters import ATTRIBUTE_COLORS
 # User-facing stat-name overrides (e.g. "Flat ATK" -> "ATK Flat",
 # "CDmg" -> "CDMG%"). Applied when rendering the tree's Main / Sub
 # columns so the Memory Fragments tab matches the Optimizer tab.
-from game_data.constants import DISPLAY_NAMES
+from game_data.constants import DISPLAY_NAMES, MAX_LEVEL
 from models.memory_fragment import (cached_potential_band,
                                     compute_gs_bounds,
                                     compute_fragment_potential,
@@ -57,6 +57,9 @@ from models.memory_fragment import (cached_potential_band,
 from ..base_tab import BaseTab
 from ..utils.all_none_row import make_all_none_row
 from ..utils.checkbox import make_checkbox
+from ..utils.combobox_nav import (
+    combobox_arrow_nav, combobox_letter_jump,
+)
 from ..utils.label_width import column_px
 from ..utils.tooltip import Tooltip
 from .heroes_tab import compute_fragment_gs
@@ -95,8 +98,22 @@ SETS_PANEL_MIN_W = 741
 
 # How far the active-preset caption's own inset is pulled back, so its
 # INK lands where the rule measures to rather than the widget's edge.
-# See the call site.
+# See the call site. The Level caption takes the same trim on its RIGHT,
+# where its ink has to end level with the Slots panel's border.
 PRESET_LABEL_TRIM = -3
+
+# The Level filter: one level, or every level. The levels run from 0 to
+# the highest any rarity reaches, so a rarity capped lower simply has no
+# fragments at the top ones.
+LEVEL_ALL = "All"
+LEVEL_CHOICES = [LEVEL_ALL] + [str(n) for n in range(MAX_LEVEL + 1)]
+
+# The least the active-preset caption keeps between its wrapped words
+# and the Level filter beside it: two unrelated controls side by side.
+# A floor, because a wrap moves whole words: a reading above it is the
+# next word not fitting. See `_fit_preset_wrap`.
+# spacing: minimum -- control group ↔ control group -- label, dropdown ↔
+PRESET_TO_LEVEL_GAP = 16
 
 # How long a refresh works out middle-80% bands itself, and how long
 # each slice of the rest takes between UI events. A band is a
@@ -247,6 +264,9 @@ class InventoryTab(BaseTab):
         self.inv_unknown_main_stat_checks = {}
 
         self.inv_unequipped_var = None
+        # The Level filter's choice: `LEVEL_ALL`, or one level as text.
+        self.inv_level_var = None
+        self.inv_level_combo = None
         self.inv_include_uncommon_var = None
         self.inv_only_assigned_presets_var = None
         self.inv_only_assigned_check = None
@@ -379,10 +399,19 @@ class InventoryTab(BaseTab):
         make_all_none_row(slot_frame, self.select_all_slots,
                           self.select_no_slots)
 
+        # Under the panel: the active preset on the left, the Level
+        # filter on the right, both their tops on one line.
+        under = ttk.Frame(slot_col)
+        # spacing: panel ↕ unrelated label -- panel, label ↕
+        # The leading pad is the whole lever: the trailing side has
+        # nothing below it in this column.
+        under.pack(fill=tk.X, pady=px((5, 0)))
+        under.columnconfigure(0, weight=1)
+
         # Which scoring weights the GS / Potential columns are computed
-        # against. wraplength wraps a long preset name onto a second line
-        # rather than widening this column, which would push the Sets and
-        # Main Stats filters to the right.
+        # against. A long preset name wraps rather than widening this
+        # column, which would push the Sets and Main Stats filters to
+        # the right -- see `_fit_preset_wrap`.
         # spacing: content frame -> content frame -- frame, label ↔
         # NEGATIVE, and it has to be: the label's left edge already sits
         # where the panel's border does, which is the rule's 4 -- but a
@@ -391,15 +420,50 @@ class InventoryTab(BaseTab):
         # lever that reaches inside the widget. Safe here where it is
         # not on a LabelFrame, whose own border a negative eats.
         self.active_preset_label = ttk.Label(
-            slot_col, text="Preset: Default",
+            under, text="Preset: Default",
             foreground=self.colors["fg_dim"],
             wraplength=px(205), justify=tk.LEFT,
             padding=px((PRESET_LABEL_TRIM, 0, 0, 0)),
         )
-        # spacing: panel ↕ unrelated label -- panel, label ↕
-        # The leading pad is the whole lever: the trailing side has
-        # nothing below it in this column.
-        self.active_preset_label.pack(anchor=tk.W, pady=px((5, 0)))
+        self.active_preset_label.grid(row=0, column=0, sticky=tk.NW)
+
+        # The Level filter, its caption over its dropdown and both
+        # flush with the panel's right border.
+        level_col = ttk.Frame(under)
+        level_col.grid(row=0, column=1, sticky=tk.NE)
+        # spacing: content frame -> content frame -- label, panel ↔
+        # The caption's own text inset, cancelled on the RIGHT so its
+        # ink ends where the dropdown's border does. See
+        # `PRESET_LABEL_TRIM`.
+        # spacing: title above, element below -- label, dropdown ↕
+        ttk.Label(level_col, text="Level:",
+                  padding=px((0, 0, PRESET_LABEL_TRIM, 0))).pack(
+            anchor=tk.E)
+        self.inv_level_var = tk.StringVar(value=LEVEL_ALL)
+        self.inv_level_combo = ttk.Combobox(
+            level_col, textvariable=self.inv_level_var,
+            values=LEVEL_CHOICES, width=3, state="readonly")
+        # spacing: content frame -> content frame -- dropdown, panel ↔
+        # No pad of its own: `slot_col`'s and the Sets panel's make
+        # the 4, the same as between the two panels above.
+        self.inv_level_combo.pack(anchor=tk.E)
+        self.inv_level_combo.bind("<<ComboboxSelected>>",
+                                  lambda _e: self.refresh_inventory())
+        self.inv_level_combo.bind(
+            "<KeyRelease>",
+            lambda e: combobox_letter_jump(e, self.inv_level_combo),
+            add="+")
+        for key, step in (("<Down>", +1), ("<Up>", -1)):
+            self.inv_level_combo.bind(
+                key, lambda e, s=step: combobox_arrow_nav(
+                    e, self.inv_level_combo, s))
+
+        # The preset name wraps short of the Level filter, at whatever
+        # width the panel above takes.
+        self._slot_frame = slot_frame
+        self._level_col = level_col
+        slot_frame.bind("<Configure>", self._fit_preset_wrap, add="+")
+        self._fit_preset_wrap()
 
         # ----- Sets filter -----------------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
@@ -1019,6 +1083,31 @@ class InventoryTab(BaseTab):
             return
         self.active_preset_label.config(text=f"Preset: {name}")
 
+    def _fit_preset_wrap(self, _event=None):
+        """Wrap the active preset's name short of the Level filter.
+
+        Sized off the Slots panel rather than the row the two share:
+        that row is as wide as what it holds, so a wrap sized from it
+        would let a long name widen the very column it is wrapping to
+        stay inside. Until the panel has a width of its own, the width
+        the caption always wrapped at stands in for it."""
+        width = self._slot_frame.winfo_width()
+        if width <= 1:
+            width = px(205)
+        level = max(w.winfo_reqwidth()
+                    for w in self._level_col.winfo_children())
+        self.active_preset_label.config(
+            wraplength=max(1, width - level - px(PRESET_TO_LEVEL_GAP)))
+
+    def _level_matches(self):
+        """The test the Level filter puts a fragment to: None for every
+        level, else one that holds only at the level chosen."""
+        chosen = self.inv_level_var.get() if self.inv_level_var else LEVEL_ALL
+        if chosen == LEVEL_ALL:
+            return None
+        level = int(chosen)
+        return lambda f: f.level == level
+
     def refresh_inventory(self):
         """Refresh inventory display based on current filter settings.
 
@@ -1091,6 +1180,9 @@ class InventoryTab(BaseTab):
             filtered = [f for f in filtered if f.set_name in set_names]
         if uneq_only:
             filtered = [f for f in filtered if not f.equipped_to]
+        at_level = self._level_matches()
+        if at_level is not None:
+            filtered = [f for f in filtered if at_level(f)]
 
         if filter_by_main:
             # Slots 1/2/3 always pass (their mains aren't represented in the filter).

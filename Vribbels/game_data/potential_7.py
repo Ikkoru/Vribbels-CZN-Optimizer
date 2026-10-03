@@ -209,6 +209,16 @@ def get_potential_7(res_id: int, when=None) -> tuple:
     return POTENTIAL_7.get(res_id, ())
 
 
+def priced_in_full(res_id: int) -> bool:
+    """Whether the score prices every effect of the combatant's
+    Potential 7. Meeting its checks is then the score's own business,
+    and a Have-at-least minimum for them only hides the builds that
+    miss one."""
+    effects = get_potential_7(res_id)
+    return bool(effects) and all(e.get("grants") in PRICED
+                                 for e in effects)
+
+
 def conditions(effect: dict) -> tuple:
     """((stat, threshold), ...), any one of which meets the check; empty
     for an effect that always applies."""

@@ -814,15 +814,42 @@ def _first_button_gap(title):
     return resolve
 
 
+# The Memory Fragments tab's Level filter caption, found by its words,
+# and the floor between it and a wrapped active-preset caption.
+LEVEL_CAPTION = "Level:"
+PRESET_WRAP_GAP = "Active preset (wrapped) -> Level dropdown"
+# Long enough to wrap at any scale, in words a preset name could be.
+LONG_PRESET_NAME = "Preset: Owen (shielding skew) with a long custom name"
+
+
+def _level_caption(app):
+    label = sa.find_descendant_text(sa.current_tab_widget(app),
+                                    LEVEL_CAPTION)
+    if label is None:
+        raise LookupError(f"no element whose text starts {LEVEL_CAPTION!r}")
+    return label
+
+
 # (tab, name, target, resolver) for the gaps between content frames.
-# Not every instance -- the rule has 47 marker sites and most are pads
-# on borderless containers with nothing painted to measure to. These
-# are the ones where both ends draw an edge.
+# Not every instance -- most of the rule's marker sites are pads on
+# borderless containers with nothing painted to measure to. These are
+# the ones where both ends draw an edge.
 CONTENT_FRAME_ENTRIES = [
     ("Memory Fragments", "Slots -> Sets", 4, "h",
      _panel_gap("Slots", "Sets", "h")),
     ("Memory Fragments", "Sets -> Main Stats", 4, "h",
      _panel_gap("Sets", "Main Stats", "h")),
+    # The Level filter under Slots, flush with its right border: read
+    # as two gaps to the panel beside it, each at Slots' own 4, rather
+    # than as a rule about alignment. When both read 4 the caption's
+    # ink, the dropdown's border and the panel's border are one line.
+    ("Memory Fragments", "Level dropdown -> Sets", 4, "h",
+     lambda cap, app: sa.horizontal_gap(
+         cap, app.inventory_tab_instance.inv_level_combo,
+         _panel(app, "Sets"))),
+    ("Memory Fragments", "Level caption -> Sets", 4, "h",
+     lambda cap, app: sa.horizontal_gap(
+         cap, _level_caption(app), _panel(app, "Sets"))),
     # Nothing vertical belongs here. Stacked panels put the lower
     # one's TITLE across the gap, and the nearest element decides which
     # rule applies -- see PANEL_OVER_TEXT_ENTRIES.
@@ -994,6 +1021,8 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_gap("Status", "Server Region", "v")),
     ("Memory Fragments", "Slots -> active preset label", 10, None,
      _panel_over_label("Slots", "Preset:")),
+    ("Memory Fragments", "Slots -> Level caption", 10, None,
+     _panel_over_label("Slots", LEVEL_CAPTION)),
 
     # A panel above, the next panel's title below.
     ("Optimizer", "Important Settings -> Set Configuration title", 10, None,
@@ -3751,9 +3780,23 @@ def _exclude_justified(on):
     return apply
 
 
+def _long_preset_name(app):
+    """Put a preset name on the Memory Fragments tab long enough to
+    wrap, so the wrap's margin to the Level filter is on screen."""
+    tab = app.inventory_tab_instance
+    tab.active_preset_label.config(text=LONG_PRESET_NAME)
+    tab._fit_preset_wrap()
+
+
+def _restore_preset_name(app):
+    app.inventory_tab_instance.refresh_active_preset_label()
+
+
 sa.register_scenario("element_override",
                      _force_element_override,
                      _restore_element_override)
+sa.register_scenario("long_preset_name", _long_preset_name,
+                     _restore_preset_name)
 sa.register_scenario("exclude_unjustified", _exclude_justified(False),
                      _exclude_justified(True))
 sa.register_scenario("max_readouts", _max_readouts, _restore_readouts)
@@ -4896,12 +4939,11 @@ SETTINGS_ENTRIES = [
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
 AWAITING_FIRST_READING = {
-    "HAL CDMG% -> its spinbox",
-    "HAL Extra% -> its spinbox",
-    "Exclude checkboxes [unjustified]",
-    "Have at least this much of a stat: left edge -> Minimum",
-    "HAL Minimum -> Full Effect",
-    "HAL Potential 7 caption -> its buttons",
+    "Slots -> Level caption",
+    "Level dropdown -> Sets",
+    "Level caption -> Sets",
+    "Level caption -> dropdown",
+    PRESET_WRAP_GAP,
 }
 
 # Entries whose target is a FLOOR (`TrackedGap.minimum`): the gap varies
@@ -4913,6 +4955,9 @@ MINIMUM_GAPS = {
     # panel's edge, so the natural gap shows only on a last row of two
     # or more names, and the roster decides whether there is one.
     "Exclude checkboxes",
+    # A wrap moves whole words, so the gap is the wrap's margin plus
+    # whatever the next word did not fit into.
+    PRESET_WRAP_GAP,
 }
 
 
@@ -5192,6 +5237,29 @@ def register_all():
         resolve=_caption_to_field("Assign preset to"),
         axis="v",
         provisional=False,
+    )
+    sa.track(
+        name="Level caption -> dropdown",
+        tab="Memory Fragments",
+        rule=RULE_TITLE_ELEMENT,
+        target=_title_gap_target(LEVEL_CAPTION),
+        resolve=_caption_to_field(LEVEL_CAPTION),
+        axis="v",
+        provisional="Level caption -> dropdown" in AWAITING_FIRST_READING,
+    )
+    # A floor, read with a preset name long enough to wrap: a short one
+    # leaves the rest of the row as slack. See `PRESET_TO_LEVEL_GAP`.
+    sa.track(
+        name=PRESET_WRAP_GAP,
+        tab="Memory Fragments",
+        rule=RULE_CONTROL_GROUP,
+        target=16,
+        resolve=lambda cap, app: sa.horizontal_gap(
+            cap, app.inventory_tab_instance.active_preset_label,
+            app.inventory_tab_instance.inv_level_combo),
+        axis="h",
+        scenario="long_preset_name",
+        provisional=PRESET_WRAP_GAP in AWAITING_FIRST_READING,
     )
 
     # The same group read HORIZONTALLY, against the detail pane's

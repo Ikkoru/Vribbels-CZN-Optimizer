@@ -82,7 +82,7 @@ def _priced_minimums(data):
     settings in, so this is what catches one coming back with them.
     """
     add_source_to_path()
-    from game_data.potential_7 import PRICED, get_potential_7
+    from game_data.potential_7 import priced_in_full
 
     found = []
     characters = data.get("characters")
@@ -93,8 +93,7 @@ def _priced_minimums(data):
             hal.items() if isinstance(hal, dict) else ()) if value}
         if not set_ or not str(key).isdigit():
             continue
-        effects = get_potential_7(int(key))
-        if effects and all(e.get("grants") in PRICED for e in effects):
+        if priced_in_full(int(key)):
             found.append(f"{key} {set_}")
     if not found:
         return []

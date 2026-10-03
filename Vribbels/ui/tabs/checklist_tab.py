@@ -101,6 +101,7 @@ from game_data.constants import item_names
 
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
+from ..utils.spinbox_clamp import CLAMP_ALERT
 from ..utils.tab_header import make_heading
 from ..utils.tooltip import Tooltip
 from ui.scaling import px
@@ -423,6 +424,12 @@ LOCKED_PAGES = "locked_pages"
 # See `EVENT_CATEGORIES`.
 CYCLE_DONE = "cycle_done"
 
+# A weekly currency held, with room under its cap for the coming
+# Sunday grant. Orange rather than red: it is still there to spend,
+# but holding it costs nothing yet. Above that line the grant would
+# overflow the cap, and the row is red. See `_spend_state`.
+GRANT_FITS = "grant_fits"
+
 # What an EVENT row must read on every segment before it sorts to
 # the bottom of the Events block. See `_event_settled`.
 EVENT_SETTLED_STATES = frozenset({DONE, CYCLE_DONE})
@@ -444,6 +451,21 @@ LAST_DAY_HOURS = 24
 # (hours under which it applies, the state). Read top down.
 SOON, WARN, LATER = "soon", "warn", "later"
 COUNTDOWN_STATES = ((LAST_DAY_HOURS, SOON), (72, WARN), (None, LATER))
+
+# **SOON blinks**, as does a Delegation Module row with a copy to use
+# before it expires: both are something that is gone if left. Two
+# exceptions hold still in `red_last`. The Daily heading is ALWAYS in
+# its last day, so blinking there would say nothing; and an event with
+# nothing left to claim has nothing to hurry for, so its countdown
+# takes SOON_SETTLED instead.
+#
+# The blink is a recolour of one tag per column, and of the period
+# heading labels in their last day -- no row is redrawn. Its two inks:
+# the last day's own red, and the dark red a clamped spinbox flashes.
+SOON_SETTLED = "soon_settled"
+BLINK_COLOURS = ("red_last", CLAMP_ALERT)
+BLINK_MS = 1000
+STILL_HEADINGS = frozenset({"Daily"})
 
 # What a countdown segment says before its time.
 ENDS_IN = "Ends in "
@@ -1056,15 +1078,18 @@ def _event_settled(raw, name, group, window, now):
     mapped does not either: it shows a deadline and no reading, which
     is a question rather than an answer.
     """
+    reader = EVENT_READERS.get(group)
+    segments = list(reader(raw, name, window, now)) if reader else []
+    return _segments_settled(raw, name, segments)
+
+
+def _segments_settled(raw, name, segments):
+    """`_event_settled`, over the segments its reader already gave."""
     # The user's own answer settles a row as surely as the game's:
     # see `EVENT_FINISHED_FIELD`. Checked first, because the reader
-    # below knows nothing about it.
+    # knows nothing about it.
     if str(name) in ((raw or {}).get(EVENT_FINISHED_FIELD) or ()):
         return True
-    reader = EVENT_READERS.get(group)
-    if reader is None:
-        return False
-    segments = list(reader(raw, name, window, now))
     return bool(segments) and all(state in EVENT_SETTLED_STATES
                                   for _words, state in segments)
 
@@ -2779,6 +2804,11 @@ class ChecklistTab(BaseTab):
         # {row key: (claimed, total, ticked)} for the event rows the
         # `Finished?` question is open on. See `_mark_finished`.
         self._finishable = {}
+        # The blink: which of `BLINK_COLOURS` is showing, the pending
+        # step, and the heading labels in their last day. See `SOON`.
+        self._blink_phase = 0
+        self._blink_after = None
+        self._blink_labels = []
         self.setup_ui()
         # Drawn once with nothing, so the tab is its rows rather than a
         # blank before the first capture.
@@ -2812,6 +2842,54 @@ class ChecklistTab(BaseTab):
             return
         if current is self.frame:
             self.refresh_checklist()
+
+    # ------------------------------------------------------------ blink
+
+    def _blink_ink(self):
+        """The colour `SOON` is drawn in at this step of the blink."""
+        name = BLINK_COLOURS[self._blink_phase]
+        return self.colors.get(name, name)
+
+    def _blink_restart(self, readings):
+        """Run the blink while anything on the tab blinks, from its
+        bright step; stop it, on the bright step, while nothing does.
+
+        Restarted on every draw rather than left running, so a draw
+        and a step can never disagree about which ink is showing."""
+        if self._blink_after is not None:
+            try:
+                self.frame.after_cancel(self._blink_after)
+            except tk.TclError:
+                pass
+            self._blink_after = None
+        self._blink_phase = 0
+        self._blink_paint()
+        if self._blink_labels or any(
+                state == SOON for segments in readings.values()
+                for _words, state in segments):
+            self._blink_after = self.frame.after(BLINK_MS, self._blink_step)
+
+    def _blink_step(self):
+        """Swap the ink, and go on only while the tab is the one shown:
+        switching back to it redraws, and the redraw restarts this."""
+        self._blink_after = None
+        if self._hidden():
+            self._blink_phase = 0
+            self._blink_paint()
+            return
+        self._blink_phase = 1 - self._blink_phase
+        self._blink_paint()
+        self._blink_after = self.frame.after(BLINK_MS, self._blink_step)
+
+    def _blink_paint(self):
+        ink = self._blink_ink()
+        try:
+            for text, _rows in self.column_texts.values():
+                text.tag_configure(SOON, foreground=ink)
+            for label in self._blink_labels:
+                label.config(foreground=ink)
+        except tk.TclError:
+            pass                         # the tab went away mid-blink
 
     # ------------------------------------------------------------ build
 
@@ -3175,6 +3253,7 @@ class ChecklistTab(BaseTab):
         # Bought out of everything on sale, with the rest on a page
         # still to open. See `LOCKED_PAGES`.
         text.tag_configure(LOCKED_PAGES, foreground=self.colors["orange"])
+        text.tag_configure(GRANT_FITS, foreground=self.colors["orange"])
         text.tag_configure(MUTED, foreground=self.colors["fg_dim"])
         # A shop heading's total, in the same yes and no a hair darker
         # and a hair stronger. It answers for the whole block under it,
@@ -3189,8 +3268,10 @@ class ChecklistTab(BaseTab):
         # A countdown reddens as it runs out. The middle band is the
         # Materials tab's own warning colour, so the two agree. SOON is
         # a countdown's last day, in the deeper red every last day on
-        # the tab takes -- see `LAST_DAY_HOURS`.
-        text.tag_configure(SOON, foreground=self.colors["red_last"])
+        # the tab takes -- see `LAST_DAY_HOURS` -- and it blinks: it is
+        # drawn in whichever of its two inks the blink is on.
+        text.tag_configure(SOON, foreground=self._blink_ink())
+        text.tag_configure(SOON_SETTLED, foreground=self.colors["red_last"])
         text.tag_configure(WARN, foreground=self.colors["orange"])
         text.tag_configure(LATER, foreground=self.colors["yellow"])
         self.column_texts[title] = (text, rows)
@@ -3291,6 +3372,7 @@ class ChecklistTab(BaseTab):
         for title, (text, rows) in self.column_texts.items():
             self._fill(title, text, rows, readings)
         self._fill_period_headings(raw)
+        self._blink_restart(readings)
 
     def _recall_event_totals(self, raw, now):
         """Record what ended events held, and say what live ones hold.
@@ -3561,22 +3643,24 @@ class ChecklistTab(BaseTab):
         colour, so it takes the dim ink a note takes.
         """
         now = time.time()
+        self._blink_labels = []
         for title, label in self._period_labels.items():
             if title == SEASONAL_COLUMN:
                 words, share, left = disaster_subtext(raw, now)
-                label.config(
-                    text=words or "",
-                    foreground=self.colors["fg_dim"] if share is None
-                    else self.colors[_heading_colour(_share_band(share),
-                                                     left)])
-                continue
-            left, length = _period_left(title, raw, now)
-            if left is None:
-                label.config(text="")
-                continue
-            label.config(text=_period_words(left),
-                         foreground=self.colors[_heading_colour(
-                             _period_band(left, length), left)])
+                colour = "fg_dim" if share is None \
+                    else _heading_colour(_share_band(share), left)
+                text = words or ""
+            else:
+                left, length = _period_left(title, raw, now)
+                if left is None:
+                    label.config(text="")
+                    continue
+                colour = _heading_colour(_period_band(left, length), left)
+                text = _period_words(left)
+            # A heading in its last day blinks with the rows: `SOON`.
+            if colour == "red_last" and title not in STILL_HEADINGS:
+                self._blink_labels.append(label)
+            label.config(text=text, foreground=self.colors[colour])
 
     def _fill(self, title, text, rows, readings):
         """Rewrite one column: its rows, and any reading beside one.
@@ -4137,7 +4221,7 @@ def _readings(raw, now=None, tracked=None):
                                   SORTIE_CAP, now)
     out["sortie_currency"] = _one(
         "%s%d/%d" % ("" if exact else EXPECTED_VALUE, reason, SORTIE_CAP),
-        _done(reason == 0))
+        _spend_state(reason, SORTIE_CAP, SORTIE_WEEKLY_GRANT))
 
     # The Great Rift's weekly score against the threshold that pays.
     # **Capped in the DISPLAY**, because the figure runs to seven digits
@@ -4165,12 +4249,14 @@ def _readings(raw, now=None, tracked=None):
     # `within 6h!` rather than `within 24h!`. Rounded UP, so a copy is
     # never promised time it has already spent. With none counted there
     # is no longest, and the window's own bound stands in.
+    #
+    # A copy counted blinks: see `SOON`.
     for span, key, words, unit, divisor in MODULE_WINDOWS:
         inside = [end for end in expiries if end <= now + span]
         edge = (max(inside) - now) if inside else span
         out[key] = _one(words % (len(inside),
                              max(1, math.ceil(edge / divisor)), unit),
-                    _done(not inside))
+                    SOON if inside else DONE)
 
     # The Arkhianon Supply, three ways. A mission's `complete_time` is
     # set when its reward is CLAIMED, so a finished-but-unclaimed
@@ -4308,8 +4394,10 @@ def _readings(raw, now=None, tracked=None):
         seconds = max(0, window.get("end_time", now) - now)
         reader = EVENT_READERS.get(group)
         segments = list(reader(raw, name, window, now)) if reader else []
-        segments.append((ENDS_IN + schedules.countdown(seconds),
-                         _countdown_state(seconds)))
+        state = _countdown_state(seconds)
+        if state == SOON and _segments_settled(raw, name, segments):
+            state = SOON_SETTLED
+        segments.append((ENDS_IN + schedules.countdown(seconds), state))
         out[key] = segments
 
     _add_countdowns(out, raw, now)
@@ -4992,6 +5080,14 @@ def _is_shop(key):
 def _done(finished):
     """`DONE` or `TODO`, which is what a value's colour comes from."""
     return DONE if finished else TODO
+
+
+def _spend_state(held, cap, grant):
+    """A weekly currency's colour: green at none, orange while the
+    coming grant still fits under the cap, red once it would not."""
+    if held <= 0:
+        return DONE
+    return GRANT_FITS if held <= cap - grant else TODO
 
 
 def _dig(node, path):

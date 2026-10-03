@@ -43,7 +43,7 @@ echo on
   --add-data "default_settings\presets.json;default_settings" ^
   --add-data "default_settings\character_preset.json;default_settings" ^
   --add-data "default_settings\optimizer_settings.json;default_settings" ^
-  --add-data "default_settings\shared_facts.json;default_settings" ^
+  --add-data "default_settings\shared_facts\shared_facts.json;default_settings\shared_facts" ^
   %TCLDATA% ^
   --hidden-import "PIL._tkinter_finder" ^
   czn_optimizer_gui.py

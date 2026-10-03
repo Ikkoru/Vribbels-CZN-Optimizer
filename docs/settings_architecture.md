@@ -76,7 +76,7 @@ After Restore, `_refresh_dependent_tabs(kind)` fires the cross-tab refresh: `pre
 
 ## Shared game facts
 
-`default_settings/shared_facts.json` holds facts about the GAME rather than any account's:
+`default_settings/shared_facts/shared_facts.json` holds facts about the GAME rather than any account's:
 
 - banner rates;
 - Combatant Trial slot pairings;

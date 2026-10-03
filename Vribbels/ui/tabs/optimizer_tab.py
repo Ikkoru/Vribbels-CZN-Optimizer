@@ -71,7 +71,9 @@ from game_data import (
 # ("CRate", "CDmg", "Flat ATK", etc.) remain unchanged; this map is
 # consulted whenever a stat name is shown to the user.
 from game_data.constants import DISPLAY_NAMES
-from game_data.potential_7 import potential_7_minimums, potential_7_switch_ons
+from game_data.potential_7 import (
+    potential_7_minimums, potential_7_switch_ons, priced_in_full,
+)
 # Pure GS / Potential helpers — used by _populate_detail to compute the
 # Selected Build tree's GS and Potential columns under the character's
 # ASSIGNED scoring preset (which may differ from the globally-active
@@ -79,6 +81,7 @@ from game_data.potential_7 import potential_7_minimums, potential_7_switch_ons
 from models.memory_fragment import (
     compute_fragment_gs, compute_fragment_potential, bounds_for_fragment,
 )
+from optimizer.core import parse_set_effect_shares
 from ui.scaling import px
 
 
@@ -246,6 +249,22 @@ def _horizontal_pads(info):
         + 2 * int(info.get("ipadx", 0))
 
 
+def _compare_row(label, decimals, key, current, new):
+    """One Stats Comparison row, as (values, tags): the stat's value in
+    `current`, in `new` and the difference, coloured by its sign. With
+    no `new`, its two cells read `-`."""
+    curr = current.get(key, 0)
+    curr_fmt = f"{curr:.{decimals}f}"
+    if new is None:
+        return (label, curr_fmt, "-", "-"), ()
+    value = new.get(key, 0)
+    diff = value - curr
+    sign = "+" if diff > 0 else ""
+    tag = "pos" if diff > 0.1 else "neg" if diff < -0.1 else ""
+    return ((label, curr_fmt, f"{value:.{decimals}f}",
+             f"{sign}{diff:.{decimals}f}"), (tag,))
+
+
 # Element choices for the Unknown-character override dropdown.
 ELEMENT_CHOICES = ["", "Passion", "Order", "Justice", "Void", "Instinct"]
 
@@ -274,6 +293,26 @@ LEVEL_SPIN_W = 41
 LEVEL_TOOLTIP = ("Characters below level 60 are optimized as though "
                  "they were level 60")
 P7_FILL_CAPTION = "Fill in Potential 7 values:"
+# For a combatant whose Potential 7 the score prices in full
+# (`potential_7.priced_in_full`): the caption says the score already
+# handles it, and the two buttons' words are struck through. They stay
+# pressable -- a minimum is still the user's to set -- so the strike
+# is a style rather than a disabled state.
+P7_AUTO_SUFFIX = " Auto"
+P7_AUTO_STYLE = "P7Auto.TButton"
+
+# The Selected Build row tag for a fragment the selected combatant
+# already wears. See `_populate_detail`.
+OWN_FRAGMENT_TAG = "own"
+
+# A Stats Comparison row a conditional set moves -- Crit% or CDMG%,
+# where a conditional crit set is complete and given a share -- shows
+# its value without the set's effect, then with it, swapping every
+# COND_SWAP_MS. Both columns and the difference swap together, and the
+# label carries COND_MARK while the effect is in. Rows nothing
+# conditional touches hold still. See `_cond_swap_restart`.
+COND_SWAP_MS = 700
+COND_MARK = "*"
 P7_MINIMUM_TOOLTIP = ("Sets the stats this Combatant's Potential 7 checks "
                       "to where it switches on. Other stats stay as they "
                       "are.\n\n"
@@ -380,6 +419,7 @@ class OptimizerTab(BaseTab):
             return
         if str(self.frame) == current:
             self._update_preset_label()
+            self._cond_swap_restart()
 
     def _init_state(self):
         # --- Selection state ---
@@ -497,6 +537,12 @@ class OptimizerTab(BaseTab):
         self.ad_readout_label = None
         self.sh_readout_label = None
         self.p7_buttons = {}           # "minimum" / "full" -> ttk.Button
+        self.p7_caption = None
+        # The Stats Comparison rows that swap: {iid: (without, with)},
+        # each a (values, tags) pair; which one shows; the next swap.
+        self._cond_rows = {}
+        self._cond_phase = 0
+        self._cond_after = None
         self.preset_label = None
         # One hover-tooltip instance for the whole tab: only one tooltip
         # can be visible at a time, so a second instance would buy
@@ -1399,8 +1445,16 @@ class OptimizerTab(BaseTab):
         # spacing: title above, element below -- label, button ↕
         # No pad: a label's own line box below its baseline is the
         # rule's distance, as for every caption over its control.
-        ttk.Label(parent, text=P7_FILL_CAPTION).pack(side=tk.BOTTOM,
-                                                     anchor=tk.W)
+        self.p7_caption = ttk.Label(parent, text=P7_FILL_CAPTION)
+        self.p7_caption.pack(side=tk.BOTTOM, anchor=tk.W)
+        # The struck-through face, a copy of the buttons' own so it
+        # follows the UI scale. Kept on the tab: Tk drops a named font
+        # once nothing in Python holds it.
+        style = ttk.Style()
+        face = style.lookup("TButton", "font") or "TkDefaultFont"
+        self._p7_strike_font = tkfont.Font(font=face)
+        self._p7_strike_font.configure(overstrike=1)
+        style.configure(P7_AUTO_STYLE, font=self._p7_strike_font)
 
     def _build_hal_row(self, parent, stat, label_pad, spin_width=4):
         """One stat's label and spinbox. `label_pad` is in pixels,
@@ -1471,11 +1525,18 @@ class OptimizerTab(BaseTab):
                 else potential_7_switch_ons(res_id))
 
     def _update_p7_fill_buttons(self, hero_name):
-        """Enable the fill buttons where there is something to fill."""
+        """Enable the fill buttons where there is something to fill,
+        and say where the score already prices it: `P7_AUTO_SUFFIX`."""
         state = ("normal" if self._potential_7_values(hero_name, True)
                  else "disabled")
+        res_id = self._resolve_res_id(hero_name) if hero_name else None
+        auto = res_id is not None and priced_in_full(res_id)
         for button in self.p7_buttons.values():
-            button.configure(state=state)
+            button.configure(state=state,
+                             style=P7_AUTO_STYLE if auto else "TButton")
+        if self.p7_caption is not None:
+            self.p7_caption.configure(
+                text=P7_FILL_CAPTION + (P7_AUTO_SUFFIX if auto else ""))
 
     def _fill_potential_7(self, full):
         """Set the Have-at-least minimums Potential 7 checks to where it
@@ -3401,16 +3462,25 @@ class OptimizerTab(BaseTab):
         # level-dependent stats (ATK/DEF/HP and their Pot7 rows) would
         # disagree whenever the stepper differs from the actual level.
         eff_level = self._effective_optimize_level(char)
-        current_stats = self.optimizer.calculate_build_stats(
-            current_gear, char, effective_level=eff_level
-        )
+        # Each side twice, without and with the conditional sets' share
+        # of their effect: the result's own stats are the second, as
+        # the run scored them. See `COND_SWAP_MS`.
+        shares = self._set_effect_shares()
+        current_plain, current_cond = (
+            self.optimizer.calculate_build_stats(
+                current_gear, char, effective_level=eff_level,
+                set_effect_shares=s)
+            for s in (None, shares))
+        new_plain = self.optimizer.calculate_build_stats(
+            gear, char, effective_level=eff_level)
 
         # Inject Element% (not part of calculate_build_stats) so the
         # Stats Comparison tree can show it under Totals.
-        current_stats = self._augment_stats(current_stats, current_gear, char)
-        new_stats = self._augment_stats(new_stats, gear, char)
-
-        self._populate_stats_compare(current_stats, new_stats)
+        self._populate_stats_compare(
+            self._augment_stats(current_plain, current_gear, char),
+            self._augment_stats(new_plain, gear, char),
+            self._augment_stats(current_cond, current_gear, char),
+            self._augment_stats(new_stats, gear, char))
         self._populate_detail(gear)
 
     def show_current_stats(self, char_name: str):
@@ -3419,11 +3489,23 @@ class OptimizerTab(BaseTab):
         # agrees with the Results "New" column and the contributions
         # popup (see on_result_select).
         eff_level = self._effective_optimize_level(char_name)
-        stats = self.optimizer.calculate_build_stats(
-            gear, char_name, effective_level=eff_level
-        )
-        stats = self._augment_stats(stats, gear, char_name)
-        self._populate_stats_compare(stats, None)
+        plain, cond = (
+            self._augment_stats(self.optimizer.calculate_build_stats(
+                gear, char_name, effective_level=eff_level,
+                set_effect_shares=s), gear, char_name)
+            for s in (None, self._set_effect_shares()))
+        self._populate_stats_compare(plain, None, cond, None)
+
+    def _set_effect_shares(self) -> dict:
+        """The conditional sets' effect shares as the Set Configuration
+        spinboxes stand, in the form `calculate_build_stats` takes."""
+        pcts = {}
+        for sid, var in self.set_effect_pct_vars.items():
+            try:
+                pcts[str(sid)] = int(var.get())
+            except (tk.TclError, ValueError):
+                continue                 # a spinbox mid-edit counts 0
+        return parse_set_effect_shares({"set_effect_pcts": pcts})
 
     def _effective_optimize_level(self, char_name: str):
         """The level the Optimizer tab evaluates a build at: the current
@@ -3861,7 +3943,19 @@ class OptimizerTab(BaseTab):
             x = y = 0
         top.geometry(f"{width}x{height}+{max(0, x)}+{max(0, y)}")
 
-    def _populate_stats_compare(self, current_stats: dict, new_stats: Optional[dict]):
+    def _populate_stats_compare(self, current_stats: dict,
+                                new_stats: Optional[dict],
+                                current_cond: Optional[dict] = None,
+                                new_cond: Optional[dict] = None):
+        """Fill the Stats Comparison: `current_stats` and `new_stats`
+        without any conditional set's effect, `current_cond` and
+        `new_cond` with each one's share of it. A row the two disagree
+        on swaps between them -- see `COND_SWAP_MS`."""
+        self._cond_swap_stop(paint=False)
+        self._cond_rows = {}
+        current_cond = current_cond or current_stats
+        if new_stats is not None and new_cond is None:
+            new_cond = new_stats
         self.stats_tree.delete(*self.stats_tree.get_children())
         # Single "Totals" section covering base stats, Crit, Element%,
         # Extra%, DoT%, and Ego. Each row tuple carries (internal_key,
@@ -3909,26 +4003,77 @@ class OptimizerTab(BaseTab):
                                         tags=("header",))
                 continue
             label = display if display is not None else stat_key
-            curr = current_stats.get(stat_key, 0)
-            new = new_stats.get(stat_key, 0) if new_stats is not None else None
-
-            curr_fmt = (f"{curr:.0f}" if decimals == 0 else f"{curr:.1f}")
-            if new is None:
-                self.stats_tree.insert("", tk.END,
-                                        values=(label, curr_fmt, "-", "-"))
-                continue
-            diff = new - curr
-            new_fmt = (f"{new:.0f}" if decimals == 0 else f"{new:.1f}")
-            sign = "+" if diff > 0 else ""
-            diff_fmt = f"{sign}{diff:.{decimals}f}"
-            tag = "pos" if diff > 0.1 else "neg" if diff < -0.1 else ""
-            self.stats_tree.insert("", tk.END,
-                                    values=(label, curr_fmt, new_fmt, diff_fmt),
-                                    tags=(tag,))
+            plain = _compare_row(label, decimals, stat_key, current_stats,
+                                 new_stats)
+            cond = _compare_row(label + COND_MARK, decimals, stat_key,
+                                current_cond, new_cond)
+            iid = self.stats_tree.insert("", tk.END, values=plain[0],
+                                         tags=plain[1])
+            # The label always differs by the mark; the numbers decide.
+            if cond[0][1:] != plain[0][1:]:
+                self._cond_rows[iid] = (plain, cond)
 
         self.stats_tree.tag_configure("pos", foreground=self.colors["green"])
         self.stats_tree.tag_configure("neg", foreground=self.colors["red"])
         self.stats_tree.tag_configure("header", foreground=self.colors["fg_dim"])
+        self._cond_swap_restart()
+
+    # --------------------------------------- Stats Comparison: the swap
+
+    def _tab_shown(self) -> bool:
+        """Whether this tab is the one the notebook shows. With no
+        notebook -- the tab built on its own, as the checks build it --
+        it counts as shown."""
+        nb = self._find_notebook()
+        if nb is None:
+            return True
+        try:
+            return nb.select() == str(self.frame)
+        except tk.TclError:
+            return False
+
+    def _cond_swap_restart(self):
+        """Swap the conditional rows from their plain step while there
+        are any and the tab is shown. Switching back to the tab calls
+        this, which is what restarts a swap a hidden tab stopped."""
+        self._cond_swap_stop()
+        if self._cond_rows and self._tab_shown():
+            self._cond_after = self.frame.after(COND_SWAP_MS,
+                                                self._cond_swap_step)
+
+    def _cond_swap_stop(self, paint=True):
+        """Cancel the next swap and put the rows back on their plain
+        values. `paint=False` where the rows are about to be redrawn."""
+        if self._cond_after is not None:
+            try:
+                self.frame.after_cancel(self._cond_after)
+            except tk.TclError:
+                pass
+            self._cond_after = None
+        self._cond_phase = 0
+        if paint:
+            self._cond_paint()
+
+    def _cond_swap_step(self):
+        self._cond_after = None
+        if not self._tab_shown():
+            self._cond_phase = 0
+            self._cond_paint()
+            return
+        self._cond_phase = 1 - self._cond_phase
+        self._cond_paint()
+        self._cond_after = self.frame.after(COND_SWAP_MS,
+                                            self._cond_swap_step)
+
+    def _cond_paint(self):
+        """Rewrite only the swapping rows, from what was worked out when
+        the comparison was filled: nothing is recomputed per step."""
+        for iid, phases in self._cond_rows.items():
+            values, tags = phases[self._cond_phase]
+            try:
+                self.stats_tree.item(iid, values=values, tags=tags)
+            except tk.TclError:
+                pass                     # the row went with a redraw
 
     def _populate_detail(self, gear):
         # Resolve the weights to use for this build's GS / Potential columns.
@@ -3993,13 +4138,20 @@ class OptimizerTab(BaseTab):
                 owner = "(deleted)"
             else:
                 owner = p.equipped_to or ""
+            # A fragment the combatant already wears is drawn in the
+            # green the Stats Comparison gains in, in place of its
+            # rarity's colour: ONE foreground tag per row, so no tag
+            # priority decides which colour shows.
+            mine = bool(char_name) and owner == char_name
             self.detail_tree.insert("", tk.END, values=(
                 p.slot_name,
                 p.set_name, main_str, f"{p.level}", *subs,
                 gs_cell, owner,
-            ), tags=(f"r{p.rarity_num}",))
+            ), tags=(OWN_FRAGMENT_TAG if mine else f"r{p.rarity_num}",))
         self.detail_tree.tag_configure("r4", foreground=RARITY_COLORS[4])
         self.detail_tree.tag_configure("r3", foreground=RARITY_COLORS[3])
+        self.detail_tree.tag_configure(OWN_FRAGMENT_TAG,
+                                       foreground=self.colors["green"])
 
     def _get_weights_for_character(self, char_name: str) -> dict:
         """Resolve the scoring weights for the current character's GS column.

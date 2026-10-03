@@ -1,4 +1,5 @@
-"""Fold game facts into the shipped `default_settings/shared_facts.json`.
+"""Fold game facts into the shipped
+`default_settings/shared_facts/shared_facts.json`.
 
 Always folds in the facts your own captures hold -- which is what
 `zCreate exe.bat` runs it for. Name files after it and it folds those in

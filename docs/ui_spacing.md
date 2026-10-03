@@ -124,6 +124,8 @@ The **Marker** column is the canonical spelling, in both directions: the widget 
 
 **A floor alone cannot tell a right lever from a wrong one**: a 9 the variation made reads the same as a 9 from a lever that can no longer reach 8. So each floor is paired with an EXACT entry measured in a scenario that switches the variation off — for the exclude checkboxes, `exclude_unjustified` lays every row out unstretched and `Exclude checkboxes [unjustified]` holds each gap to 8. That reads the lever itself, every gap in the panel a sibling, whatever the roster and the window width.
 
+The Memory Fragments tab's active-preset caption is the one floor with no twin. It wraps short of the Level filter beside it, and a wrap moves whole words, so no layout puts its margin on screen exactly: the reading is the margin plus whatever the next word did not fit into. Its scenario, `long_preset_name`, only makes the caption wrap at all.
+
 `exception` names the rule it breaks, in the Marker column's spelling, with the reason on the lines below — grepping a rule has to surface its own exceptions. `unique` has no rule to break; both must name their subject precisely enough that grep finds one site and not its neighbour. Padding doing genuinely unrelated work stays unmarked.
 
 **A `unique`'s `<what>` is also its key in the registry**, so it is spelled in three places rather than two: the marker, "The uniques, as a table" below, and the entry that measures it. All three must match exactly.

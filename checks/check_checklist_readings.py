@@ -98,6 +98,7 @@ def run():
         next_disaster_words,
         ChecklistTab, WRITTEN_TOTALS, written_total,
         unsure_ceiling, EVENT_FINISHED_FIELD,
+        GRANT_FITS, SOON_SETTLED,
     )
     import checklist_manager
 
@@ -370,7 +371,7 @@ def run():
             str(SORTIE_CURRENCY): {"amount": 5, "last_update": int(touched)}}}
         out = _readings(raw, now)
         want = ([(f"0/{CHAOS_CAP}", DONE)],
-                [(f"5/{SORTIE_CAP}", TODO)]) if fresh else (
+                [(f"5/{SORTIE_CAP}", GRANT_FITS)]) if fresh else (
             [(f"{soon_after}{chaos_full}/{CHAOS_CAP}", TODO)],
             [(f"{soon_after}{reason_full}/{SORTIE_CAP}", TODO)])
         for key, wanted in (("chaos_currency", want[0]),
@@ -396,6 +397,24 @@ def run():
         failures.append(
             f"a holding one short of the cap reads {got!r}, not {want!r}. "
             f"The week's grant stops at the cap.")
+
+    # Sortie Currency's colour: green at none, orange while the coming
+    # grant still fits under the cap, red from the first holding it
+    # would overflow.
+    fits = SORTIE_CAP - SORTIE_WEEKLY_GRANT
+    for held, colour in ((0, DONE), (1, GRANT_FITS), (fits, GRANT_FITS),
+                         (fits + 1, TODO), (SORTIE_CAP, TODO)):
+        raw = _snapshot()
+        raw["characters"] = {"currencies": {
+            str(SORTIE_CURRENCY): {"amount": held,
+                                   "last_update": int(opened + HOUR)}}}
+        got = _readings(raw, now)["sortie_currency"][0][1]
+        if got != colour:
+            failures.append(
+                f"Sortie Currency at {held}/{SORTIE_CAP} reads {got!r}, not "
+                f"{colour!r}. Orange holds while the week's "
+                f"{SORTIE_WEEKLY_GRANT} still fit under the cap; past "
+                f"{fits} the grant overflows and the row is red.")
 
     # --- the Events block puts what is owed first ---------------------
     # Only two states mean "nothing to do on this row": finished, and a
@@ -443,6 +462,22 @@ def run():
             f"the Events block reads {got!r}, not {want!r}. Rows with work "
             f"outstanding come first, by deadline; only a finished event or "
             f"a Forced Daily whose day is taken sinks below them.")
+
+    # A countdown's last day blinks, except on an event with nothing
+    # left to claim: the Forced Daily whose day is taken holds still,
+    # the floor with work outstanding blinks.
+    for group, name in (("EVENT_OVERCLOCK", "event_overclock_live_13"),
+                        ("EVENT_SCHEDULE", "event_summer_01")):
+        raw["event_schedules"][group][name]["end_time"] = int(now + 12 * HOUR)
+    out = _readings(raw, now)
+    for name, want in (("event_overclock_live_13", SOON_SETTLED),
+                       ("event_summer_01", SOON)):
+        got = out[EVENT_KEY_PREFIX + name][-1][1]
+        if got != want:
+            failures.append(
+                f"{name}'s countdown in its last day reads {got!r}, not "
+                f"{want!r}. It blinks while there is something to claim, "
+                f"and holds still once the event is settled.")
 
     # --- which mission rows belong to which event --------------------
     # **An event's index is not always in its missions' ids.** The
@@ -756,15 +791,15 @@ def run():
     # is the longest a counted copy has left, not the window.
     raw = _snapshot(expiries=(now + 6 * HOUR, now + 3 * DAY, week + DAY))
     out = _readings(raw, now)
-    if out["modules_soon"] != [("1 expiring within 6h!", TODO)]:
+    if out["modules_soon"] != [("1 expiring within 6h!", SOON)]:
         failures.append(
             f"the tight module row reads {out['modules_soon']!r}, not "
-            f"('1 expiring within 6h!', {TODO!r}). The window bounds what "
+            f"('1 expiring within 6h!', {SOON!r}). The window bounds what "
             f"is COUNTED; the words say how long the last of them has.")
-    if out["modules_week"] != [("2 expiring within 3 days", TODO)]:
+    if out["modules_week"] != [("2 expiring within 3 days", SOON)]:
         failures.append(
             f"the wide module row reads {out['modules_week']!r}, not "
-            f"('2 expiring within 3 days', {TODO!r}). The windows NEST -- "
+            f"('2 expiring within 3 days', {SOON!r}). The windows NEST -- "
             f"a copy inside 24 hours is inside seven days -- so the wider "
             f"count includes the tighter one, and its number is the "
             f"furthest out of the two.")

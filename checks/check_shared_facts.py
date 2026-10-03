@@ -338,7 +338,8 @@ def _documents(sf):
 def _shipped_file(sf):
     path = sf.shipped_path(SOURCE_ROOT / "default_settings")
     if not path.exists():
-        note("no default_settings/shared_facts.json to check; "
+        note("no default_settings/shared_facts/shared_facts.json to "
+             "check; "
              "`fold_shared_facts.py` writes it")
         return []
     text = path.read_text(encoding="utf-8")
@@ -412,6 +413,29 @@ def _fold_script(sf):
                    f"top. It is the fold's last guard against dropping "
                    f"what players sent.")
     return out
+
+
+def _bundled_where_read(sf):
+    """`zCreate exe.bat` bundles the shipped file to the folder the
+    frozen build reads it from. A destination that differs builds
+    cleanly, and the exe then reads no shared facts at all: every player
+    without captures of their own sees empty rates and fields, and
+    nothing reports it."""
+    bat = SOURCE_ROOT.parent / "zCreate exe.bat"
+    want = sf.shipped_path(Path("default_settings"))
+    pairs = []
+    for line in bat.read_text(encoding="utf-8").splitlines():
+        if "--add-data" in line and sf.FILE_NAME in line:
+            spec = line.split('"')[1]
+            source, _, dest = spec.partition(";")
+            pairs.append((Path(source.replace("\\", "/")),
+                          Path(dest.replace("\\", "/"))))
+    if pairs != [(want, want.parent)]:
+        return [f"zCreate exe.bat bundles {sf.FILE_NAME} as "
+                f"{[(str(s), str(d)) for s, d in pairs]}, not once from "
+                f"and to where `shipped_path` reads it ({want}). The exe "
+                f"would build and ship without its shared facts."]
+    return []
 
 
 def _regions_agree(sf):
@@ -640,7 +664,7 @@ def run():
     import shared_facts as sf
     failures = []
     for part in (_whitelist, _clean_refuses, _fold_rules, _missing_rules,
-                 _documents, _shipped_file, _fold_script, _regions_agree,
-                 _readers, _readings):
+                 _documents, _shipped_file, _fold_script,
+                 _bundled_where_read, _regions_agree, _readers, _readings):
         failures.extend(part(sf))
     return failures

@@ -1028,6 +1028,147 @@ def _hero_columns_line_up(tab):
     return out
 
 
+def _p7_fill_says_auto_where_priced(tab):
+    """A combatant whose Potential 7 the score prices in full gets
+    ` Auto` on the fill caption and struck-through buttons that still
+    press; one with an unpriced Potential 7 gets neither.
+
+    Returns a list of complaints.
+    """
+    from game_data import CHARACTERS
+    from game_data.potential_7 import (POTENTIAL_7, potential_7_minimums,
+                                       priced_in_full)
+    from ui.tabs import optimizer_tab as mod
+
+    def named(want_priced):
+        for res_id in POTENTIAL_7:
+            name = (CHARACTERS.get(res_id) or {}).get("name")
+            if (name and priced_in_full(res_id) == want_priced
+                    and potential_7_minimums(res_id)
+                    and tab._resolve_res_id(name) == res_id):
+                return name
+        return None
+
+    out = []
+    try:
+        for priced in (True, False):
+            name = named(priced)
+            if name is None:
+                out.append(f"no combatant with a "
+                           f"{'priced' if priced else 'unpriced'} Potential "
+                           f"7 check to try the fill caption on.")
+                continue
+            tab._update_p7_fill_buttons(name)
+            caption = tab.p7_caption.cget("text")
+            styles = {str(b.cget("style")) or "TButton"
+                      for b in tab.p7_buttons.values()}
+            states = {str(b.cget("state")) for b in tab.p7_buttons.values()}
+            want = (mod.P7_FILL_CAPTION
+                    + (mod.P7_AUTO_SUFFIX if priced else ""))
+            want_style = mod.P7_AUTO_STYLE if priced else "TButton"
+            if caption != want or styles != {want_style} \
+                    or states != {"normal"}:
+                out.append(
+                    f"for {name} ({'priced' if priced else 'unpriced'}) "
+                    f"the fill caption reads {caption!r}, the buttons are "
+                    f"styled {styles} and {states} -- not {want!r}, "
+                    f"{want_style} and normal. Struck-through buttons "
+                    f"still press: a minimum stays the user's to set.")
+    finally:
+        tab._update_p7_fill_buttons(tab.selected_character.get())
+    return out
+
+
+def _own_fragments_read_green(tab):
+    """In Selected Build, a fragment the selected combatant wears takes
+    the green tag in place of its rarity's, and every other row keeps
+    its rarity's. Read off the loaded snapshot: a build mixing one
+    combatant's gear with another's.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs import optimizer_tab as mod
+    worn = {}
+    for frag in getattr(tab.optimizer, "fragments", ()) or ():
+        if frag.equipped_to:
+            worn.setdefault(frag.equipped_to, []).append(frag)
+    owners = [name for name, frags in worn.items() if frags]
+    if len(owners) < 2:
+        return []
+    mine, theirs = owners[0], owners[1]
+    gear = worn[mine][:3] + worn[theirs][:3]
+    was = tab.selected_character.get()
+    out = []
+    try:
+        tab.selected_character.set(mine)
+        tab._populate_detail(gear)
+        for iid in tab.detail_tree.get_children():
+            owner = tab.detail_tree.set(iid, "owner")
+            tags = tuple(tab.detail_tree.item(iid, "tags"))
+            if (mod.OWN_FRAGMENT_TAG in tags) != (owner == mine) \
+                    or len(tags) != 1:
+                out.append(
+                    f"a Selected Build row owned by {owner!r}, with "
+                    f"{mine!r} selected, is tagged {tags}. The selected "
+                    f"combatant's own fragments take "
+                    f"{mod.OWN_FRAGMENT_TAG!r} alone, everyone else's "
+                    f"their rarity alone.")
+                break
+    finally:
+        tab.selected_character.set(was)
+        tab.detail_tree.delete(*tab.detail_tree.get_children())
+    return out
+
+
+def _conditional_rows_swap(tab):
+    """A Stats Comparison row a conditional set moves swaps between its
+    values without and with the effect, marked while the effect is in;
+    every other row holds still; and with nothing to swap no timer
+    runs.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs import optimizer_tab as mod
+    plain = {"ATK": 1000, "CRate": 20.0, "CDmg": 150.0}
+    cond = dict(plain, CDmg=162.0)
+    out = []
+    tab._tab_shown = lambda: True
+    try:
+        tab._populate_stats_compare(plain, plain, cond, cond)
+        rows = {tab.stats_tree.set(iid, "stat"): iid
+                for iid in tab.stats_tree.get_children()}
+        swapping = sorted(tab.stats_tree.set(iid, "stat")
+                          for iid in tab._cond_rows)
+        if swapping != ["CDMG%"] or tab._cond_after is None:
+            out.append(f"with only CDMG% moved by a conditional set, rows "
+                       f"{swapping} swap and the timer is "
+                       f"{'not ' if tab._cond_after is None else ''}"
+                       f"running.")
+            return out
+        tab._cond_swap_step()
+        crit = tab.stats_tree.item(rows["CDMG%"], "values")
+        atk = tab.stats_tree.item(rows["ATK"], "values")
+        if crit[0] != "CDMG%" + mod.COND_MARK or crit[1] != "162.0" \
+                or atk[0] != "ATK":
+            out.append(f"one swap shows CDMG% as {crit} and ATK as {atk}: "
+                       f"the moved row takes its with-the-effect values "
+                       f"and the mark, the rest hold still.")
+        tab._cond_swap_step()
+        if tab.stats_tree.item(rows["CDMG%"], "values")[0] != "CDMG%":
+            out.append("a second swap leaves CDMG% marked: the swap goes "
+                       "back and forth, not one way.")
+        tab._populate_stats_compare(plain, None, plain, None)
+        if tab._cond_rows or tab._cond_after is not None:
+            out.append("with nothing conditional the swap keeps rows or "
+                       "a timer.")
+    finally:
+        del tab._tab_shown
+        tab._cond_swap_stop(paint=False)
+        tab._cond_rows = {}
+        tab.stats_tree.delete(*tab.stats_tree.get_children())
+    return out
+
+
 def _level_stepper_offers_auto(tab):
     """AUTO must be reachable, storable, and safe from the level sync.
 
@@ -1936,6 +2077,77 @@ def _checklist_short_names_keep_their_tip(tab):
             "nothing here was checked. Either SHORT_NAMES no longer "
             "matches anything the shops sell, or the labels stopped "
             "going through `product_label`.")
+    return out
+
+
+def _checklist_blinks_while_due(tab):
+    """Something about to be lost blinks, and nothing else does.
+
+    A row segment in `SOON` and a period heading in its last day swap
+    between the two `BLINK_COLOURS` each step; the Daily heading, which
+    is always in its last day, holds still; and with nothing due the
+    blink stops on its bright ink rather than leaving a timer running
+    or a row stuck dark.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs import checklist_tab as mod
+    out = []
+    ink = [tab.colors.get(name, name) for name in mod.BLINK_COLOURS]
+    texts = [text for text, _rows in tab.column_texts.values()]
+
+    def soon_inks():
+        return {str(text.tag_cget(mod.SOON, "foreground")) for text in texts}
+
+    period_left, subtext = mod._period_left, mod.disaster_subtext
+    # Every heading an hour from its end: the last quarter, last day.
+    mod._period_left = lambda title, raw, now: (3600, 86400)
+    mod.disaster_subtext = lambda raw, now: ("1h left", 0.01, 3600)
+    # The tab is not the one the checks' notebook shows, and a hidden
+    # tab's blink stops on its next step -- tested last, below.
+    tab._hidden = lambda: False
+    try:
+        tab._fill_period_headings({})
+        tab._blink_restart({"k": [("x", mod.SOON)]})
+        labels = tab._period_labels
+        still = [t for t in mod.STILL_HEADINGS if labels[t] in
+                 tab._blink_labels]
+        moving = [t for t in labels if t not in mod.STILL_HEADINGS
+                  and labels[t] not in tab._blink_labels]
+        if still or moving:
+            out.append(f"in their last day, headings {still} blink and "
+                       f"{moving} hold still. Every heading but "
+                       f"{sorted(mod.STILL_HEADINGS)} blinks.")
+        if tab._blink_after is None or soon_inks() != {ink[0]}:
+            out.append(f"with a SOON segment drawn, the blink is "
+                       f"{'not ' if tab._blink_after is None else ''}"
+                       f"running and SOON is drawn in {soon_inks()}, not "
+                       f"{ink[0]}.")
+        tab._blink_step()
+        heads = {str(label.cget("foreground"))
+                 for label in tab._blink_labels}
+        if soon_inks() != {ink[1]} or heads != {ink[1]}:
+            out.append(f"one blink step draws SOON in {soon_inks()} and "
+                       f"the headings in {heads}, not {ink[1]}.")
+        tab._hidden = lambda: True
+        tab._blink_step()
+        if tab._blink_after is not None or soon_inks() != {ink[0]}:
+            out.append("a step while another tab shows keeps the blink "
+                       "running, or stops it on its dark ink. Showing "
+                       "the tab redraws it, and the redraw restarts it.")
+        tab._hidden = lambda: False
+        tab._blink_labels = []
+        tab._blink_restart({"k": [("x", mod.TODO)]})
+        if tab._blink_after is not None or soon_inks() != {ink[0]}:
+            out.append("with nothing due the blink keeps running, or "
+                       "stops on its dark ink.")
+    finally:
+        del tab._hidden
+        mod._period_left, mod.disaster_subtext = period_left, subtext
+        tab.refresh_checklist()
+        if tab._blink_after is not None:
+            tab.frame.after_cancel(tab._blink_after)
+            tab._blink_after = None
     return out
 
 
@@ -3707,6 +3919,51 @@ def _bands_left_over_are_finished_later(tab):
     return out
 
 
+def _level_filter_keeps_one_level(tab):
+    """The Level filter offers every level and `All`, and a level
+    chosen keeps exactly the fragments at it -- no fewer, since the
+    filter is the only way to see them all at once.
+
+    Read against the loaded snapshot; with none, only the choices are.
+
+    Returns a list of complaints.
+    """
+    from game_data.constants import MAX_LEVEL
+    from ui.tabs import inventory_tab as mod
+    out = []
+    want = [mod.LEVEL_ALL] + [str(n) for n in range(MAX_LEVEL + 1)]
+    if list(tab.inv_level_combo.cget("values")) != want:
+        out.append(f"the Level filter offers "
+                   f"{list(tab.inv_level_combo.cget('values'))}, not {want}.")
+    if tab.inv_level_var.get() != mod.LEVEL_ALL:
+        out.append(f"the Level filter starts on "
+                   f"{tab.inv_level_var.get()!r}, not {mod.LEVEL_ALL!r}: "
+                   f"the tab would open on a subset with nothing saying so.")
+    frags = list(getattr(tab.optimizer, "fragments", ()) or ())
+    if not frags:
+        return out
+    tab._hidden = lambda: False
+    try:
+        tab.refresh_inventory()
+        every = list(tab.inv_filtered_data)
+        levels = {f.level for f in every}
+        level = max(levels, key=lambda n: sum(f.level == n for f in every))
+        tab.inv_level_var.set(str(level))
+        tab.refresh_inventory()
+        got = tab.inv_filtered_data
+        expected = [f for f in every if f.level == level]
+        if any(f.level != level for f in got) or len(got) != len(expected):
+            out.append(f"Level {level} keeps {len(got)} fragment(s), "
+                       f"{sum(f.level != level for f in got)} of them at "
+                       f"another level, where {len(expected)} of the "
+                       f"unfiltered list are at it.")
+    finally:
+        tab.inv_level_var.set(mod.LEVEL_ALL)
+        del tab._hidden
+        tab.refresh_inventory()
+    return out
+
+
 def _assigned_only_steps_aside_for_log_settings(tab):
     """Assigned Presets Only is greyed out while Upgrade Log Settings is
     on, keeps its tick, and narrows again once that box is off.
@@ -4685,6 +4942,12 @@ def run():
             failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
             failures.extend(
                 _level_stepper_offers_auto(built["OptimizerTab"]))
+            failures.extend(
+                _p7_fill_says_auto_where_priced(built["OptimizerTab"]))
+            failures.extend(
+                _own_fragments_read_green(built["OptimizerTab"]))
+            failures.extend(
+                _conditional_rows_swap(built["OptimizerTab"]))
         failures.extend(_all_none_panels_carry_no_left_padding(built))
         failures.extend(_character_card_lines_fit())
         if "ScoringTab" in built:
@@ -4729,6 +4992,8 @@ def run():
                 _checklist_recalls_a_finished_streak(
                     built["ChecklistTab"]))
             failures.extend(
+                _checklist_blinks_while_due(built["ChecklistTab"]))
+            failures.extend(
                 _checklist_heading_totals_are_marked(
                     built["ChecklistTab"]))
             failures.extend(
@@ -4745,6 +5010,8 @@ def run():
             failures.extend(_finished_boxes_ask_only_where_it_is_open(
                 built["ChecklistTab"]))
         if "InventoryTab" in built:
+            failures.extend(
+                _level_filter_keeps_one_level(built["InventoryTab"]))
             failures.extend(
                 _set_filters_redraw_replaces_nothing(built["InventoryTab"]))
             failures.extend(

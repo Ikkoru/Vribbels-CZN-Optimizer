@@ -43,9 +43,9 @@ than that, it and the percentage the game states would give the rank
 back.
 
 **Read beside the user's own, never merged into it.** The shipped copy
-is `default_settings/shared_facts.json`, read-only, and each reader
-combines it with what the account holds, in memory -- `with_rates`,
-`with_slots`, `totals_with`, `finals_with`, `tops_with`,
+is `default_settings/shared_facts/shared_facts.json`, read-only, and
+each reader combines it with what the account holds, in memory --
+`with_rates`, `with_slots`, `totals_with`, `finals_with`, `tops_with`,
 `fields_for`. The account's files are never rewritten with it, so a
 wrong shipped fact goes away with the release that fixes it and leaves
 nothing behind.
@@ -73,6 +73,11 @@ import re
 from pathlib import Path
 
 FILE_NAME = "shared_facts.json"
+# The shipped copy sits in a folder of its own under `default_settings/`,
+# apart from the three settings files the maintainer deletes to re-seed
+# them from `settings/` (docs/how_to_maintain_default_settings.md). Git
+# is its only backup, so it must not be in the way of that sweep.
+SHIPPED_FOLDER = "shared_facts"
 KIND = "vribbels shared facts"
 VERSION = 1
 
@@ -775,7 +780,7 @@ def write(path, data):
 
 
 def shipped_path(defaults_dir):
-    return Path(defaults_dir) / FILE_NAME
+    return Path(defaults_dir) / SHIPPED_FOLDER / FILE_NAME
 
 
 # ------------------------------------------------------------- reading
