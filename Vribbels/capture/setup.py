@@ -223,6 +223,107 @@ def setup_certificate() -> Path:
     return cert_path
 
 
+# What mitmproxy's CA is called in a certificate store, and the files
+# under ~/.mitmproxy holding it. `mitmproxy-ca.pem` and `mitmproxy-ca.p12`
+# carry the PRIVATE KEY; the `-cert` files are the certificate alone.
+CERT_NAME = "mitmproxy"
+CA_FILES = ("mitmproxy-ca.pem", "mitmproxy-ca.p12", "mitmproxy-ca-cert.pem",
+            "mitmproxy-ca-cert.cer", "mitmproxy-ca-cert.p12")
+# The trusted-root stores the import wizard offers, with certutil's flag
+# for each: the instructions say Local Machine, and Current User is
+# where the wizard puts it if that step is missed.
+CERT_STORES = (("Local Machine", []), ("Current User", ["-user"]))
+# How many times a store is asked to give up a certificate of that name
+# before it is reported as refusing. Each Generate that made a new CA
+# can have left one behind.
+CERT_DELETE_TRIES = 10
+
+
+@dataclass
+class CertificateRemoval:
+    """What `remove_certificate` did: the stores the CA was taken out
+    of, the files deleted, and every step that failed, as (where, why)."""
+    stores: list
+    files: list
+    failures: list
+
+
+def _certutil(args, timeout=15):
+    """Run certutil with no console window and nothing on stdin."""
+    kwargs = {}
+    if sys.platform == "win32":
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    return subprocess.run(["certutil"] + list(args), capture_output=True,
+                          text=True, errors="replace", timeout=timeout,
+                          stdin=subprocess.DEVNULL, **kwargs)
+
+
+def _in_store(flags) -> bool:
+    """Whether a store's trusted roots hold a certificate of
+    `CERT_NAME`. Read-only: certutil answers 0 when it finds one."""
+    try:
+        return _certutil(list(flags) + ["-store", "Root", CERT_NAME]
+                         ).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def remove_certificate(confdir=None) -> CertificateRemoval:
+    """Take every mitmproxy CA out of the trusted roots, and delete the
+    files holding the current one and its key.
+
+    **Both, because each closes a different door.** Out of the stores,
+    Windows no longer trusts what the key signs, wherever a copy of the
+    key went. With the files gone, the next `setup_certificate` makes a
+    NEW key: left in place, Generate & Install Cert would install the
+    very CA being withdrawn.
+
+    Every certificate named `CERT_NAME` goes, not only the current
+    file's: a CA from an earlier Generate is trusted as much as this
+    one. Current User's store puts up Windows' own prompt before it
+    deletes; Local Machine's needs Administrator, which capturing
+    already runs as. The rest of ~/.mitmproxy -- mitmproxy's settings,
+    `mitmproxy-dhparam.pem` -- is left alone.
+    """
+    out = CertificateRemoval([], [], [])
+    for store, flags in CERT_STORES:
+        removed = False
+        for _ in range(CERT_DELETE_TRIES):
+            if not _in_store(flags):
+                break
+            try:
+                done = _certutil(list(flags) + ["-delstore", "Root",
+                                                CERT_NAME], timeout=120)
+            except (OSError, subprocess.SubprocessError) as e:
+                out.failures.append((store, str(e)))
+                break
+            if done.returncode != 0:
+                said = (done.stdout or done.stderr or "").strip().splitlines()
+                out.failures.append(
+                    (store, said[-1] if said else
+                     "certutil exited with %d" % done.returncode))
+                break
+            removed = True
+        else:
+            if _in_store(flags):
+                out.failures.append(
+                    (store, "a certificate named %s is still there after "
+                     "%d deletions" % (CERT_NAME, CERT_DELETE_TRIES)))
+        if removed:
+            out.stores.append(store)
+    folder = Path(confdir) if confdir else Path.home() / ".mitmproxy"
+    for name in CA_FILES:
+        path = folder / name
+        if not path.exists():
+            continue
+        try:
+            path.unlink()
+            out.files.append(name)
+        except OSError as e:
+            out.failures.append((name, str(e)))
+    return out
+
+
 def open_certificate(cert_path: Path) -> None:
     """
     Open certificate file in Windows (for manual installation).

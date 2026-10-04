@@ -152,8 +152,12 @@ RIFT_ROWS = ("Codename", "Top% apx.", "Top% official", "Top #", "Out of",
 OFFENSIVE_STAGES = 3
 OFFENSIVE_ROWS = ("Top%", "Top #", "Out of", "Total") + tuple(
     "Score %d" % n for n in range(1, OFFENSIVE_STAGES + 1))
-# What an Offensive's heading carries once it is 9-starred.
-NINE_STARS = " (9★)"
+# The score each star of an Offensive stage asks for, as the game
+# states it. A stage's cell shows its stars only where no score of it
+# was read: with the score there, the stars repeat it.
+OFFENSIVE_STAR_SCORES = ((1, 150000), (2, 600000), (3, 900000))
+# A stage's cell where its stars are known and its score is not.
+STARS = "%d★"
 
 
 def path_in(settings_dir):
@@ -641,10 +645,13 @@ def offensive_table(raw, history, shipped=None):
     the game numbers them. The field is the rank over `rank_percent`,
     which the game states to two decimals -- so it is given to the
     hundred. The total is the stages' best scores summed, and each
-    stage's follows it, in the order of their ids. A 9-starred
-    Offensive's heading carries `NINE_STARS`: the game's 9-star
-    Collection Count is how many headings do. A row of its own would
-    not fit the default window.
+    stage's follows it, in the order of their ids.
+
+    **A 9-starred Offensive with no score read shows `3★` a stage.**
+    The 9-star record comes with every login, where a stage's score
+    comes only from opening the Offensive with a capture running, so
+    an Offensive can be known 9-starred and nothing more. A stage whose
+    score was read shows the score alone: `OFFENSIVE_STAR_SCORES`.
 
     `shipped` is the program's own game facts (`shared_facts.py`). An
     Offensive the account never read that they hold for its server is a
@@ -656,7 +663,7 @@ def offensive_table(raw, history, shipped=None):
                                     "remnants_rankings").items():
         found = re.search(r"(\d+)$", str(define_id))
         readings = season.get("readings") or []
-        nine = season.get("nine_stars_at")
+        nine = isinstance(season.get("nine_stars_at"), int)
         if not found or not (readings or nine):
             continue
         read.add(str(define_id))
@@ -671,19 +678,19 @@ def offensive_table(raw, history, shipped=None):
         scores = (stages + [None] * OFFENSIVE_STAGES)[:OFFENSIVE_STAGES]
         field = (int(round(rank * 100.0 / percent, -2)) if rank and percent
                  else (fields.get(str(define_id)) or {}).get("players"))
+        stars = STARS % OFFENSIVE_STAR_SCORES[-1][0] if nine else None
         columns.append((int(found.group(1)), [
             "%g%%" % percent if percent else None,
             _thousands(rank),
             "~" + format(field, ",") if field else None,
             _thousands(sum(stages)) if stages else None]
-            + [_thousands(score) for score in scores],
-            NINE_STARS if isinstance(nine, int) else ""))
+            + [_thousands(score) if score is not None else stars
+               for score in scores]))
     for define_id, field in fields.items():
         found = re.search(r"(\d+)$", define_id)
         if found and define_id not in read:
             columns.append((int(found.group(1)), [
                 None, None, "~" + format(field["players"], ","), None]
-                + [None] * OFFENSIVE_STAGES, ""))
+                + [None] * OFFENSIVE_STAGES))
     columns.sort(key=lambda c: -c[0])
-    return OFFENSIVE_ROWS, [(str(n) + mark, cells)
-                            for n, cells, mark in columns]
+    return OFFENSIVE_ROWS, [(str(n), cells) for n, cells in columns]

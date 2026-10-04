@@ -45,7 +45,9 @@ import threading
 import webbrowser
 from pathlib import Path
 import sys
-from capture import setup_certificate, open_certificate, find_mitmdump
+from capture import (setup_certificate, open_certificate, find_mitmdump,
+                     remove_certificate)
+from capture.setup import CertificateRemoval
 import shared_facts
 from ..base_tab import BaseTab
 from ..title_bar import apply_title_bar
@@ -137,6 +139,22 @@ SHARE_NOTE = (
     "lead you to GitHub. Attach the file to the new issue. Write something "
     "cute in the title! Press Create. Nothing about your account is shared.")
 SHARE_ISSUE_URL = f"https://github.com/{GITHUB_REPO}/issues/new"
+
+# The certificate's removal, beside the button that installs it. The
+# note goes on the line under the buttons: the left column is as wide
+# as the instructions, and holds the buttons and either line, never the
+# buttons and a line.
+CERT_DANGER = "DANGER:"
+CERT_DELETE = "Delete Certificate"
+CERT_NOTE = ("If the certificate is obtained by a foe, they may be able to "
+             "use it against you.\nOnce you no longer need this program, "
+             "consider deleting the certificate.")
+CERT_GROUP_GAP = 8      # spacing: control group ↔ control group -- button, label ↔
+CERT_LABEL_GAP = 2      # spacing: label ↔ its element -- label, button ↔
+CERT_NOTE_GAP = 0       # spacing: explanation text -> the controls it explains -- button, label ↕
+# The note's run down to Setup Instructions' title, which it is the
+# nearest text to.
+CERT_NOTE_TAIL = 5      # spacing: panel ↕ unrelated label -- label, title ↕
 
 # The face the instructions are set in, and what a panel adds around a
 # text block of that face. The width of the LEFT COLUMN is computed
@@ -313,6 +331,9 @@ class SetupTab(BaseTab):
         # Worker hand-off: set by _probe_prerequisites, consumed by
         # _poll_probe on the UI thread. None = not finished yet.
         self._probe_result = None
+        # The same hand-off for Delete Certificate, and its own guard.
+        self._removing = False
+        self._removal = None
 
         self.setup_ui()
 
@@ -455,7 +476,8 @@ class SetupTab(BaseTab):
             setattr(self, attr, label)
 
     def _build_setup_buttons(self, parent):
-        """The two actions Setup Status is read against."""
+        """The two actions Setup Status is read against, and the
+        certificate's removal beside them."""
         btn_frame = ttk.Frame(parent)
         # spacing: content frame -> content frame -- frame, frame ↕
         btn_frame.pack(fill=tk.X, pady=px((2, 2)))
@@ -472,6 +494,19 @@ class SetupTab(BaseTab):
         ttk.Button(btn_frame, text="Generate & Install Cert",
                    command=self.setup_cert, width=BUTTON_W_LARGE).pack(
                        side=tk.LEFT, padx=px((2, 5)))
+        danger = ttk.Label(btn_frame, text=CERT_DANGER,
+                           foreground=self.colors["red"])
+        # spacing: control group ↔ control group -- button, label ↔
+        danger.pack(side=tk.LEFT, padx=px((CERT_GROUP_GAP, 0)))
+        # spacing: label ↔ its element -- label, button ↔
+        ttk.Button(btn_frame, text=CERT_DELETE, command=self.delete_cert,
+                   width=BUTTON_W_MEDIUM).pack(
+                       side=tk.LEFT, padx=px((CERT_LABEL_GAP, 0)))
+        note = ttk.Label(parent, text=CERT_NOTE, justify=tk.LEFT,
+                         foreground=self.colors["fg_dim"])
+        # spacing: explanation text -> the controls it explains -- button, label ↕
+        # spacing: content frame -> content frame -- frame, label ↔
+        note.pack(anchor=tk.W, padx=px((2, 0)), pady=px((CERT_NOTE_GAP, 0)))
 
     def _build_instructions(self, parent):
         """Setup Instructions, as tall as its text and no taller."""
@@ -482,10 +517,10 @@ class SetupTab(BaseTab):
         # the border; the text inset lives on the Text's padx/pady.
         instr_frame = self._instr_frame = ttk.LabelFrame(
             parent, text="Setup Instructions", padding=px(0))
-        # spacing: panel ↕ unrelated label -- button, title ↕
-        # The leading side carries the whole run from the button row
-        # down to this panel's title.
-        instr_frame.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
+        # spacing: panel ↕ unrelated label -- label, title ↕
+        # The leading side carries the whole run from the certificate
+        # note down to this panel's title.
+        instr_frame.pack(fill=tk.X, padx=px(2), pady=px((CERT_NOTE_TAIL, 2)))
 
         # spacing: border edge -> first non-button element -- panel, text ↔↕
         # The panel's inset sits here rather than on the LabelFrame,
@@ -1473,6 +1508,69 @@ class SetupTab(BaseTab):
             self.check_status()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to generate certificate: {e}")
+
+    def delete_cert(self):
+        """Take the certificate out of Windows' trust and delete its files
+        -- `capture.setup.remove_certificate` -- once the user confirms.
+
+        Refused while capturing: the game connects through the
+        certificate, and pulling it mid-capture cuts the game off. The
+        removal runs on a worker, as `check_status`'s probing does:
+        Current User's store waits on Windows' own prompt, and a
+        callback blocked that long stops Tk painting at all.
+        """
+        if self._removing:
+            return
+        manager = getattr(self.context, "capture_manager", None)
+        if manager is not None and manager.is_capturing():
+            messagebox.showwarning(
+                CERT_DELETE, "Stop the capture first: the game connects "
+                "through the certificate while it runs.")
+            return
+        if not messagebox.askyesno(
+                CERT_DELETE,
+                "Remove the mitmproxy certificate from Windows' trusted "
+                "certificates, and delete it and its key from "
+                "%USERPROFILE%\\.mitmproxy?\n\n"
+                "Capturing again takes Generate & Install Cert, which "
+                "makes a new one.",
+                default=messagebox.NO):
+            return
+        self._removing = True
+        self._removal = None
+        threading.Thread(target=self._remove_cert_worker, daemon=True).start()
+        self._poll_removal()
+
+    def _remove_cert_worker(self):
+        """Worker body for delete_cert. No Tk calls: see _poll_probe."""
+        try:
+            self._removal = remove_certificate()
+        except Exception as e:  # noqa: BLE001
+            self._removal = CertificateRemoval([], [], [("certutil", str(e))])
+
+    def _poll_removal(self):
+        """Wait for the worker, then say what was removed and refresh
+        Setup Status. Unbounded: every certutil call has a timeout of
+        its own, so the worker always finishes."""
+        if self._removal is None:
+            self.root.after(100, self._poll_removal)
+            return
+        done, self._removing = self._removal, False
+        lines = []
+        if done.stores:
+            lines.append("Removed from the trusted certificates of: "
+                         + ", ".join(done.stores) + ".")
+        if done.files:
+            lines.append("Deleted from %USERPROFILE%\\.mitmproxy: "
+                         + ", ".join(done.files) + ".")
+        if done.failures:
+            lines.append("Not done:\n" + "\n".join(
+                "%s: %s" % failure for failure in done.failures))
+            messagebox.showwarning(CERT_DELETE, "\n\n".join(lines))
+        else:
+            messagebox.showinfo(CERT_DELETE, "\n\n".join(
+                lines or ["No mitmproxy certificate was found."]))
+        self.check_status()
 
     # ====================================================================
     # Restore Defaults dialog

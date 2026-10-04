@@ -13,7 +13,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Memory Fragments: a `Level:` filter under Slots shows the Memory Fragments of one level.
 - Capture Log: Ctrl+F marks every place the typed text appears. Escape closes it.
 - Anika's default Gear Score preset, assigned to her; Restore Defaults brings both in.
-- Stats & Gacha History: an Offensive won with all nine stars is marked `(9★)` in the Full-Scale Offensive Stats list. Their count is the game's 9-star Collection Count.
+- Setup & Settings: `Delete Certificate` takes the mitmproxy certificate out of Windows' trusted certificates and deletes it and its key. `Generate & Install Cert` makes a new one.
+- Stats & Gacha History: in the Full-Scale Offensive Stats list, an Offensive won with all nine stars shows `3★` in its Score rows where no score was captured, and `Score 1`'s tooltip gives the score each star needs.
 
 ### Changed
 

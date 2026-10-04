@@ -244,7 +244,8 @@ def _tables(sh):
                 "stages": {"a": 1130418, "b": 1060877, "c": 1255815},
                 "nine_stars_at": 1790900742,
                 "readings": [{"rank": 441, "rank_percent": 0.83,
-                              "read_at": 5}]}}}
+                              "read_at": 5}]},
+            "remnants_boss_penalty_006": {"nine_stars_at": 1790900743}}}
     for name, table, rows, columns, why in (
             ("Sortie", sh.sortie_table, sh.SORTIE_ROWS,
              [("7", ["3.8%", "740", "19,607", "45,512", "65,084"]),
@@ -262,14 +263,15 @@ def _tables(sh):
              "top, Master's first, as its subdivision I -- no other "
              "subdivision's top is ever sent"),
             ("Full-Scale Offensive", sh.offensive_table, sh.OFFENSIVE_ROWS,
-             [("5" + sh.NINE_STARS, ["0.83%", "441", "~53,100",
-                                     "3,447,110", "1,130,418", "1,060,877",
-                                     "1,255,815"]),
+             [("6", [None, None, None, None] + [sh.STARS % 3] * 3),
+              ("5", ["0.83%", "441", "~53,100", "3,447,110", "1,130,418",
+                     "1,060,877", "1,255,815"]),
               ("4", [None, "900", None, None, None, None, None])],
              "the field is the rank over rank_percent, to the hundred, the "
              "total the stages' best scores summed, each stage's in the "
-             "order of their ids, and a 9-starred Offensive's heading "
-             "marked")):
+             "order of their ids; a 9-starred Offensive with no score "
+             "read shows 3 stars a stage, and one with its scores shows "
+             "the scores alone")):
         # Codenames of the check's own -- one part named, its season's
         # other part not -- so the maintainer's own cannot move what
         # this expects.

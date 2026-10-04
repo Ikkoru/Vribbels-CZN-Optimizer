@@ -111,9 +111,16 @@ map's penalties move the mix of fights.** Every run records the Zero
 System effects in force (`Addon._chaos_setup`): the account's Zero
 System improvements, `ZERO_BREAK_IN_RATEUP__*` among them, in every
 run; the season's own tree in its Galactic Disaster runs, where season
-4's `ZERO_ENCOUNTER_RATEUP__*` node was taken between 09-07 and 09-17;
-and a map's penalties, of which `ELITE_ADD` adds Elite floors. A shift
-that lines up with one of these is theirs.
+4's `ZERO_ENCOUNTER_RATEUP__COUNT_RARITY` node was taken between 09-07
+and 09-17 -- none of the season's encounter-rate nodes is for a mark,
+as read in game; and a map's penalties. A shift that lines up with one
+of these is theirs.
+
+`ELITE_ADD` turns a set number of floors into Elite floors by its
+level, 2 to 8 as remembered from the game. It moves a run's mix as
+season 5's Chaos does, above, but only a Zero System map carries it,
+so it reaches the other Chaoses' lines and never the means or the
+shipped figures; `options` says which runs had it.
 
 **A season is named by the run, not by its currency.** Each season pays
 in an item id of its own, and the capture names the season a run

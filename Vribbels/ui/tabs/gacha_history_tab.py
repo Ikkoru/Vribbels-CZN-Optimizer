@@ -32,6 +32,7 @@ from ..base_tab import BaseTab
 from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.panel_title import panel_title_style
 from ..utils.style_once import first_time
+from ..utils.tooltip import HOVER_CURSOR, Tooltip
 
 # The instructions under the tab strip, in the Optimizer's explanation
 # style. `HELP_WRAPLENGTH` is where the text starts wrapped: wider than
@@ -200,6 +201,14 @@ DIVISION_COLOURS = {"Master": "#ee62c0", "Diamond": "#b998fa",
 DIVISION_TAG = "division_%s"
 # The heading over the rows' names, which says what the columns are.
 SEASON_HEADING = "Season"
+# A row's tip, by the row's name: the score each star of an Offensive
+# stage asks for, once, on the first stage's row.
+ROW_TIPS = {sh.OFFENSIVE_ROWS[-sh.OFFENSIVE_STAGES]: "\n".join(
+    "%s %s Score" % (sh.STARS % stars, format(score, ","))
+    for stars, score in sh.OFFENSIVE_STAR_SCORES)}
+# What underlines a row's name where it has a tip: the mark
+# `Tooltip.mark` gives a widget, on a row.
+TIP_TAG = "tipped"
 # A title's leading pad against the panel above it, the lever on
 # `panel ↕ unrelated label`. Under the gacha sheet it is less than
 # under a list: the sheet's last line box already reaches past its
@@ -339,6 +348,9 @@ class GachaHistoryTab(BaseTab):
         self._pool = None               # the family the pulls list shows
         self._natural = {}              # see `_make_tree`
         self._body_width = None         # see `_share_excess`
+        self.tooltip = Tooltip(self.colors)
+        self._tip_font = None           # see `_underlined`
+        self._row_tip_at = None         # see `_row_tip`
         self.setup_ui()
         self.frame.bind("<Map>", self._first_show, add="+")
 
@@ -585,6 +597,11 @@ class GachaHistoryTab(BaseTab):
         labels.column("gap", width=px(STANDINGS_COLUMN_GAP),
                       minwidth=px(STANDINGS_COLUMN_GAP), stretch=False)
         labels.grid(row=0, column=0, sticky="nw")
+        labels.tag_configure(TIP_TAG, font=self._underlined())
+        labels.bind("<Motion>", lambda e, t=labels: self._row_tip(t, e.y),
+                    add="+")
+        labels.bind("<Leave>", lambda e, t=labels: self._row_tip(t, None),
+                    add="+")
         # The seasons' list is as wide as its holder, which
         # `_size_standings` sets: narrower than its columns, it scrolls.
         holder = tk.Frame(lists, bg=self.colors["bg"], width=1, height=1)
@@ -604,6 +621,35 @@ class GachaHistoryTab(BaseTab):
                                    foreground=colour)
         return SimpleNamespace(frame=frame, header=header, labels=labels,
                                holder=holder, data=data, scroll=scroll)
+
+    def _underlined(self):
+        """The lists' row font, underlined. Held, as `Tooltip.mark`
+        holds its own: Tk deletes a named font once its Python object
+        is collected, and the row would fall back to a default face."""
+        if self._tip_font is None:
+            spec = ttk.Style().lookup(TREE_STYLE, "font") or "TkDefaultFont"
+            self._tip_font = tkfont.Font(root=self.frame, font=spec)
+            self._tip_font.configure(underline=True)
+        return self._tip_font
+
+    def _row_tip(self, tree, y):
+        """Put up, or take down, the tip of the row under the pointer.
+
+        A row is neither a widget nor a tagged range of a Text, so its
+        hover is followed through `<Motion>`, as a Memory Fragments
+        heading's is, and the pointer turns to `HOVER_CURSOR` over it.
+        `y` None is the pointer leaving the list.
+        """
+        row = tree.identify_row(y) if y is not None else ""
+        tip = ROW_TIPS.get(tree.set(row, "label")) if row else None
+        at = (tree, row) if tip else None
+        if at == self._row_tip_at:
+            return
+        self._row_tip_at = at
+        self.tooltip.hide()
+        tree.configure(cursor=HOVER_CURSOR if tip else "")
+        if tip:
+            self.tooltip.schedule(tree, tip)
 
     @staticmethod
     def _style_lists():
@@ -1010,7 +1056,8 @@ class GachaHistoryTab(BaseTab):
         tags = [(DIVISION_TAG % sh.RIFT_DIVISION_ROWS[name],)
                 if name in sh.RIFT_DIVISION_ROWS else () for name in rows]
         for name, tag in zip(rows, tags):
-            labels.insert("", tk.END, values=(name, ""), tags=tag)
+            labels.insert("", tk.END, values=(name, ""),
+                          tags=tag + ((TIP_TAG,) if name in ROW_TIPS else ()))
         columns = columns or [(NO_VALUE, [None] * len(rows))]
         ids = []
         for index in range(len(columns)):

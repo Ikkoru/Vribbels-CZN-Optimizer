@@ -29,7 +29,7 @@ items are removed; parked ones live in TBD at the bottom. Conventions:
 - **I33 — What the server has not shown yet, for after the maintenance.** Each needs the maintainer in game; `check_base_stats_on_wire` passes on everything filed so far.
 
   1. **Base stats, from any plain battle** (Simulation, Abyss Battle Missions, the Tower, the Basin, the Great Rift, the Full-Scale Offensive; not a Sortie, a Chaos, a Combatant Trial or the Bartender story). Potential 7 doesn't matter for any of them.
-     - **Never settled** -- the seven `check_base_stats_on_wire`'s note counts: Haru, Khalipe, Luke, Mei Lin and Renoa, at their current level; Hugo and Kayron whenever the account has them.
+     - **Never settled** -- the ones `check_base_stats_on_wire`'s note counts: Haru, Luke, Mei Lin and Renoa, at their current level; Hugo and Kayron whenever the account has them.
      - **Chaos-worked only**, which a plain battle confirms: Adelheid, Maribell and Mika.
      - **Level 62**: no combatant has been read at it; any that reaches 62, once.
   2. **Potential 7 parts no sheet has shown**, same kind of battle, node 7 taken: Tressa at DoT 30% or more (her second +4%; only the first was seen, at 0 DoT), and Owen at HP 700 or more (his second +4% ATK and DEF). The rest of the table matches the server, growth part-way included.
@@ -37,7 +37,7 @@ items are removed; parked ones live in TBD at the bottom. Conventions:
 
 - **I35 — After the 2026-09-30 patch.** What the patch's plan left open; the rest is `past_plans/patch_2026_09_30.md`.
 
-  1. **To read in game, and name**: the Mutations on Cassius's deck (13), Hilde's or Arabella's (101) and Selena's (102), into `docs/mutations.tsv`. Those three also test whether the game numbers Mutations family by family in the update note's order -- Enhanced Attack Lv.1-5 as 1-5 and Defense as 6-10, which 3 and 9 fit. And the codex traits `zero_orb_special_v1_02` and `_v1_03`, from any codex showing one (`docs/capture_pipeline.md`, *The Zero System's codex*).
+  1. **Mutation numbers, at the next reroll**: write down each Mutation shown, in order, with capture on. The wire's `pick_corruption` replies come in the same order, which pairs each number with its row in `docs/mutations.tsv`. Read so far: 3, 9, 13, 101 and 102. They fit the game numbering the update note's families in its order -- Enhanced Attack 1-5, Defense 6-10, Card Damage Amount 11-17 -- with the seven rows of the families the update left alone somewhere before Shuffle, which ends the list at 101-103. And the four Divine Intervention types' names, if the game gives them any (`chaos_estimate.ZERO_SPECIALS`).
   2. **10-06 18:00 UTC, the Nightmare Carnival countdown** (`countdown_attendance_1st`, to 10-21): a login capture once it starts gives its record, which `LOBBY_COUNTDOWN`'s reader waits for, and its day-7 claim feeds I23.3.
   3. **10-13, Nine & Alcea's Normal Rescue rerun and Nine's trial**: a capture confirms `RERUN_BANNERS`' dates and the trial's pairing.
   4. **10-21, season 5's part 1**: from its notice, `SUPPLY_ROUNDS["disaster_s05"]` in `checklist_tab.py`; `SEASON_ESTIMATE["disaster_s05"]`, hand-counted off the screens (`past_plans/seasonal_shop.md`); from its first run, the new Chaos's stage id in `chaos_estimate.CHAOS_NAMES` (90000 and `chaos_10` if the seasons' pattern holds), and the season currency's id in `docs/chaos_runs.py` `CURRENCY`, then `SHIPPED` refreshed from `python docs/chaos_runs.py` -- reading its by-spot lines, since the season's maps hold fewer ordinary battles (its docstring).

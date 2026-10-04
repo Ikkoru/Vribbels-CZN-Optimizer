@@ -1034,15 +1034,16 @@ PANEL_OVER_TEXT_ENTRIES = [
     ("Combatants", "Character -> Equipped Memory Fragments title", 10, None,
      _panel_gap("Character", "Equipped Memory Fragments", "v")),
 
-    # A button row, then a panel title. Neither of these two pairs is
-    # stacked: Capture puts its capture buttons between Server Region
-    # and Requirements, and Setup puts Check Status between the top row
-    # and the instructions. Measuring panel to panel here skips the row
-    # entirely and reports the whole distance across it.
+    # A button row, then a panel title. Not stacked: Capture puts its
+    # capture buttons between Server Region and Requirements. Measuring
+    # panel to panel here skips the row entirely and reports the whole
+    # distance across it.
     ("Capture", "capture buttons -> Requirements title", 10, None,
      _button_over_panel("Start Capture", "Requirements")),
-    ("Setup & Settings", "Setup buttons -> Setup Instructions title", 10, None,
-     _button_over_panel("Check Status", "Setup Instructions")),
+    # Setup's button row has the certificate note under it, and the
+    # note is the nearest text above the instructions' title.
+    ("Setup & Settings", "certificate note -> Setup Instructions title", 10,
+     None, _label_over_panel("Once you no longer need", "Setup Instructions")),
     ("Stats & Gacha History", "Import JSON -> Banners title", 10, None,
      _button_over_panel("Import JSON", "Banners")),
 
@@ -5005,6 +5006,19 @@ GACHA_STANDINGS_TITLE_ENTRIES = [
 SETTINGS_ENTRIES = [
     ("Setup & Settings", "Archive size -> Loose size", 8, RULE_PAIR_GAP,
      _gap(_by_text("Archive:"), _by_text("Loose:"), "h"), "h"),
+    # The certificate's removal, beside the button that installs it,
+    # and its note on the line beneath.
+    ("Setup & Settings", "Generate & Install Cert -> DANGER:", 16,
+     RULE_CONTROL_GROUP,
+     _gap(_by_text("Generate & Install Cert"), _by_text("DANGER:"), "h"),
+     "h"),
+    ("Setup & Settings", "DANGER: -> Delete Certificate", 5,
+     RULE_LABEL_ELEMENT,
+     _gap(_by_text("DANGER:"), _by_text("Delete Certificate"), "h"), "h"),
+    ("Setup & Settings", "Delete Certificate -> its note", 7,
+     RULE_EXPLANATION,
+     _gap(_by_text("Delete Certificate"), _by_text("If the certificate"),
+          "v"), "v"),
 ]
 
 
@@ -5014,12 +5028,10 @@ SETTINGS_ENTRIES = [
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
 AWAITING_FIRST_READING = {
-    "Slots -> Level caption",
-    "Level dropdown -> Sets",
-    "Level caption -> Sets",
-    "Level caption -> dropdown",
-    PRESET_WRAP_GAP,
-    *(name for name, *_rest in FIND_BOX_ENTRIES),
+    "certificate note -> Setup Instructions title",
+    "Generate & Install Cert -> DANGER:",
+    "DANGER: -> Delete Certificate",
+    "Delete Certificate -> its note",
 }
 
 # Entries whose target is a FLOOR (`TrackedGap.minimum`): the gap varies

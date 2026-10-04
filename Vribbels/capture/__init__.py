@@ -39,6 +39,7 @@ from .setup import (
     setup_certificate,
     check_prerequisites,
     open_certificate,
+    remove_certificate,
     PrerequisiteStatus
 )
 from .constants import PROXY_PORT, GAME_PORT, OUTPUT_DIR
@@ -55,6 +56,7 @@ __all__ = [
     'setup_certificate',
     'check_prerequisites',
     'open_certificate',
+    'remove_certificate',
     'PrerequisiteStatus',
 
     # Constants

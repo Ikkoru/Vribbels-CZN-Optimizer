@@ -1125,10 +1125,40 @@ def _optimizer_lists_missing_when_shown(tab):
         except Exception as e:  # noqa: BLE001
             out.append(f"picking {missing[0]}, not obtained, raised "
                        f"{type(e).__name__}: {e}.")
+        else:
+            out.extend(_a_missing_pick_reads_its_own(tab, missing[0]))
     finally:
         sm.settings[HERO_SHOW_MISSING_KEY] = was
         tab.selected_character.set(picked)
         tab.refresh_hero_list()
+    return out
+
+
+def _a_missing_pick_reads_its_own(tab, name):
+    """A combatant not obtained, once picked, is filed under its own
+    res_id -- so its stored settings, shipped defaults included, fill
+    the panel -- and its Potential 7 fill buttons press where the game
+    data knows its checks.
+
+    Returns a list of complaints.
+    """
+    from game_data import CHARACTERS
+    from game_data.potential_7 import potential_7_minimums
+    want = next(int(rid) for rid, c in CHARACTERS.items()
+                if isinstance(c, dict) and c.get("name") == name)
+    out = []
+    if tab._current_res_id != want:
+        out.append(f"{name}, not obtained, is filed under res_id "
+                   f"{tab._current_res_id!r}, not {want}: its own settings "
+                   f"and shipped defaults never reach the panel, which "
+                   f"shows a blank entry instead.")
+    pressable = bool(potential_7_minimums(want))
+    states = {str(b.cget("state")) for b in tab.p7_buttons.values()}
+    if states != {"normal" if pressable else "disabled"}:
+        out.append(f"{name}'s Potential 7 fill buttons are {sorted(states)} "
+                   f"where the game data "
+                   f"{'knows' if pressable else 'does not know'} its "
+                   f"checks.")
     return out
 
 
@@ -3597,6 +3627,58 @@ def _standings_lists_fit(tab):
     return out
 
 
+def _offensive_stars_carry_their_tip(tab):
+    """The Full-Scale Offensive list's first Score row is underlined and
+    tips the score each star asks for; no other row of it does. Hovered,
+    it turns the pointer and arms the tip; left, it puts both back.
+
+    A row is no widget, so the tip rides on `<Motion>` and the row is
+    found by its name: a renamed row loses the tip without a word.
+
+    Returns a list of complaints.
+    """
+    import stats_history as sh
+    from ui.tabs.gacha_history_tab import ROW_TIPS, TIP_TAG
+    from ui.utils.tooltip import HOVER_CURSOR
+
+    out = []
+    labels = tab.offensive_list.labels
+    rows = {str(labels.item(iid)["values"][0]): iid
+            for iid in labels.get_children()}
+    tipped = sorted(name for name, iid in rows.items()
+                    if TIP_TAG in (labels.item(iid, "tags") or ()))
+    if tipped != sorted(set(ROW_TIPS) & set(rows)) or not tipped:
+        out.append(f"the Full-Scale Offensive rows underlined for a tip "
+                   f"are {tipped}, not the ones ROW_TIPS names, "
+                   f"{sorted(ROW_TIPS)}, among {sorted(rows)}.")
+        return out
+    tip = ROW_TIPS[tipped[0]]
+    for stars, score in sh.OFFENSIVE_STAR_SCORES:
+        line = "%s %s Score" % (sh.STARS % stars, format(score, ","))
+        if line not in tip.splitlines():
+            out.append(f"the {tipped[0]} tip lacks {line!r}: {tip!r}.")
+    if not tab._tip_font.actual("underline"):
+        out.append("a tipped row's font is not underlined, so nothing says "
+                   "the row has a tip.")
+    # Hovered through `_row_tip` with the row put under the pointer: an
+    # unmapped list answers no row for any y.
+    labels.identify_row = lambda _y: rows[tipped[0]]
+    try:
+        tab._row_tip(labels, 0)
+        hovered = (str(labels.cget("cursor")),
+                   tab.tooltip._after_id is not None)
+        tab._row_tip(labels, None)
+        left = (str(labels.cget("cursor")), tab.tooltip._after_id is not None)
+    finally:
+        del labels.identify_row
+        tab.tooltip.hide()
+    if hovered != (HOVER_CURSOR, True) or left != ("", False):
+        out.append(f"hovering {tipped[0]} gives cursor and armed tip "
+                   f"{hovered}, and leaving it {left}: expected "
+                   f"{(HOVER_CURSOR, True)} and then {('', False)}.")
+    return out
+
+
 def _rift_divisions_take_their_colours(tab):
     """Each Great Rift division's row is drawn in that division's
     colour, its name and its seasons alike, and no other row is.
@@ -5147,6 +5229,8 @@ def run():
                 _standings_lists_fit(built["GachaHistoryTab"]))
             failures.extend(
                 _rift_divisions_take_their_colours(built["GachaHistoryTab"]))
+            failures.extend(
+                _offensive_stars_carry_their_tip(built["GachaHistoryTab"]))
         if "CaptureTab" in built:
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))

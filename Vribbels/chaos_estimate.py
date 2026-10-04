@@ -104,10 +104,13 @@ CHAOS_NAMES = {
 # floor after the first boss into Elite and Unidentified Area floors and
 # adds a Core of Discord style boss -- fewer ordinary fights a run, so
 # fewer marked ones, at an unmoved rate a fight. `v1_01` to `v1_04` are
-# rolled beside the Effect, or without one; only Divine Intervention's
-# is named. `docs/capture_pipeline.md`, *The Zero System's codex*.
+# Divine Intervention's four types, beside the Effect or without one.
+# `docs/capture_pipeline.md`, *The Zero System's codex*.
 ZERO_SPECIALS = {
-    "zero_orb_special_v1_04": "Divine Intervention",
+    "zero_orb_special_v1_01": "Divine Intervention 1",
+    "zero_orb_special_v1_02": "Divine Intervention 2",
+    "zero_orb_special_v1_03": "Divine Intervention 3",
+    "zero_orb_special_v1_04": "Divine Intervention 4",
     "zero_orb_special_v1_05": "season 1 Chaos",
     "zero_orb_special_v1_06": "season 2 Chaos",
     "zero_orb_special_v1_07": "season 3 Chaos",

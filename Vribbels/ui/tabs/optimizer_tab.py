@@ -65,7 +65,7 @@ from ui.utils.combobox_nav import (
 from game_data import (
     SETS, FOUR_PIECE_SETS, TWO_PIECE_SETS,
     SLOT_MAIN_STATS, RARITY_COLORS, ATTRIBUTE_COLORS,
-    CHARACTERS, CHARACTERS_BY_NAME,
+    CHARACTERS,
     get_character_by_name
 )
 # Display-name overrides for user-facing labels. Internal stat keys
@@ -2396,7 +2396,13 @@ class OptimizerTab(BaseTab):
 
         Resolution order:
           1. optimizer.character_info[name].res_id  -- live captured data
-          2. CHARACTERS_BY_NAME[name]['res_id']     -- static known characters
+          2. the CHARACTERS key whose entry has this name -- every
+             combatant the game has, owned or not
+
+        The second is the only one a combatant not obtained has: its
+        settings, shipped defaults included, and its Potential 7 are
+        all looked up by it. An entry carries no res_id field of its
+        own; the key is the res_id.
 
         Returns None if neither knows the character.
         """
@@ -2408,14 +2414,12 @@ class OptimizerTab(BaseTab):
                 return int(info.res_id)
             except (TypeError, ValueError):
                 pass
-        static = CHARACTERS_BY_NAME.get(hero_name)
-        if static:
-            rid = static.get("res_id")
-            if rid:
+        for rid, data in CHARACTERS.items():
+            if isinstance(data, dict) and data.get("name") == hero_name:
                 try:
                     return int(rid)
                 except (TypeError, ValueError):
-                    pass
+                    return None
         return None
 
     def _ensure_captured_chars_have_settings(self):
