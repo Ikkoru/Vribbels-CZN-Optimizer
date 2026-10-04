@@ -62,6 +62,8 @@ Nothing leaves your machine except:
 
 While capturing, the game's server names are pointed at your PC in the Windows hosts file, between `# CZN-CAPTURE-START/END`. Stop removes them, and so does the next launch after a crash. In case of a crash, relaunch the program so they are removed.
 
+Pressing `Generate & Install Cert` adds a mitmproxy certificate to your trusted roots. If someone gets their hands on it and manages to get between you and the internet, they can spoof anyone. Be wary of accidently sharing `%USERPROFILE%\.mitmproxy` with others. Delete the certificate and generate a new one if you accidently upload/share that folder. Consider deleting the certificate when you are done with CZN.
+
 ## Running from source
 
 1. Download the source code, or clone this project using GitHub Desktop, or a similar program.
