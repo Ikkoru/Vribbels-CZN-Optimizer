@@ -57,6 +57,7 @@ The columns this script owns:
 | `difficulty` | the number ending the list id it was entered with (`6`), or a Zero System map's level (`lv80`) |
 | `special` | a Zero System map's special options, by `chaos_estimate.ZERO_SPECIALS` where named |
 | `options` | a Zero System map's bonus and penalty options: `b001 p112` |
+| `rolled`  | the bonus and penalties the run rolled, any door, as effects: `ELITE_ADD:p008 CREDIT_DOWN:p016` |
 | `mode`    | `delegated`, played by the Delegation Module down one path, or `ordinary` |
 | `client`  | the game client and data patch it ran on: `cznlive 1.464 r688`  |
 | `total`   | what the run paid in the season's currency                      |
@@ -116,11 +117,16 @@ and 09-17 -- none of the season's encounter-rate nodes is for a mark,
 as read in game; and a map's penalties. A shift that lines up with one
 of these is theirs.
 
-`ELITE_ADD` turns a set number of floors into Elite floors by its
-level, 2 to 8 as remembered from the game. It moves a run's mix as
-season 5's Chaos does, above, but only a Zero System map carries it,
-so it reaches the other Chaoses' lines and never the means or the
-shipped figures; `options` says which runs had it.
+**A Galactic Disaster run rolls a bonus and penalties as a codex
+does**, with no choice of three, and `rolled` names every run's,
+whichever door. `ELITE_ADD` among them turns a set number of floors
+into Elite floors by its level, 2 to 8 as remembered from the game.
+Taking ordinary battles away is what would move the Aether Eater, met
+only on them, so the mark rates end with the fights a run met with and
+without it, by mode. On season 4's own Chaos the runs with it fought as
+many ordinary battles as those without, and more Elites: on a path of
+fixed length, the Elites took the place of spots that were not
+ordinary battles.
 
 **A season is named by the run, not by its currency.** Each season pays
 in an item id of its own, and the capture names the season a run
@@ -164,8 +170,11 @@ CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04"}
 # What this script fills in. Anything after them in an existing file
 # is the maintainer's and is carried over by `date`.
 OWNED = ["date", "season", "part", "chaos", "door", "difficulty",
-         "special", "options", "mode", "client", "total", "payouts",
-         "marked", "marked_at", "fought", "lost"]
+         "special", "options", "rolled", "mode", "client", "total",
+         "payouts", "marked", "marked_at", "fought", "lost"]
+# The effect ids a run's rolled bonus and penalties come as, whichever
+# door it was entered by.
+ROLLED = (("zero_orb_bonus_", "b"), ("zero_orb_penalty_", "p"))
 # The maintainer's column the summary reads: see the module docstring.
 MISSED = "missed"
 SPOT_COLUMN = "SPOT_TYPE_"
@@ -429,6 +438,32 @@ def short_option(option):
     return str(option)
 
 
+def rolled_of(run):
+    """A run's rolled bonus and penalties as the `rolled` column writes
+    them: `ELITE_ADD:p008`, the effect's group and its id, in the
+    order the run's effects were filed. `?` for a run filed before
+    runs kept their effects."""
+    if "effects" not in run:
+        return "?"
+    out = []
+    for group, eid, _values in run.get("effects") or ():
+        for prefix, letter in ROLLED:
+            if str(eid).startswith(prefix):
+                name = str(group).split("__")[0]
+                name = name[len("ZERO_"):] if name.startswith("ZERO_") \
+                    else name
+                out.append("%s:%s%s" % (name, letter,
+                                        str(eid)[len(prefix):]))
+    return " ".join(out)
+
+
+def rolled_counts(cell):
+    """{group: effect id} from a `rolled` cell, or None for `?`."""
+    if (cell or "?") == "?":
+        return None
+    return dict(part.split(":", 1) for part in cell.split() if ":" in part)
+
+
 def marked_at_of(cell):
     """{spot: {mark: n}} from a `marked_at` cell."""
     out = collections.defaultdict(dict)
@@ -473,6 +508,7 @@ def row_of(run, source, parts):
         "options": " ".join(
             short_option(o) for kind in ("bonus", "penalty")
             for o in (run.get("codex") or {}).get(kind) or ()),
+        "rolled": rolled_of(run),
         "mode": ("delegated" if run.get("delegated") else "ordinary")
                 if "delegated" in run else "?",
         "client": run.get("client") or "?",
@@ -877,6 +913,27 @@ def rate_shifts(rows):
             else "too few runs to look for a shift (%d a side)"
             % FEWEST_RUNS))
     spot_rates(runs, marks)
+    penalty_mix(runs)
+
+
+def penalty_mix(runs, group="ELITE_ADD"):
+    """Print the fights a whole run met, by mode, with and without a
+    rolled `group` penalty: whether it takes ordinary battles away is
+    what moves a mark met only on them. A run filed before runs kept
+    their effects is left out."""
+    by = collections.defaultdict(list)
+    for row in runs:
+        rolled = rolled_counts(row.get("rolled"))
+        if rolled is not None:
+            by[(row["mode"], group in rolled)].append(
+                counts_of(row.get("fought")))
+    if not any(has for _mode, has in by):
+        return
+    for (mode, has), fought in sorted(by.items()):
+        print("      %s, %s %s, %d run(s): %.1f battles, %.1f Elites a run"
+              % (mode, "with" if has else "without", group, len(fought),
+                 sum(f.get("battle", 0) for f in fought) / len(fought),
+                 sum(f.get("elite", 0) for f in fought) / len(fought)))
 
 
 def spot_rates(runs, marks):

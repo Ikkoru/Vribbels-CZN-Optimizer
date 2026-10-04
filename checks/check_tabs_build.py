@@ -2873,6 +2873,69 @@ def _share_panel_lines_up(tab):
     return out
 
 
+def _certificate_note_crosses_the_divide(tab):
+    """Delete Certificate sits at the right end of the button row, its
+    right edge on the panels' above it, and its note starts across the
+    divide at the head of the right column, level with the row.
+
+    The note's top is `align_columns`' to set, and without it the note
+    sits a few pixels off the row -- close enough to pass for placed.
+    `DANGER:` carries the tip saying what the danger needs. Mapped at
+    alpha 0 at the default window size, like `_share_panel_lines_up`.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.scaling import px, WINDOW_H, WINDOW_W
+    from ui.tabs.setup_tab import CERT_DANGER_TIP, CERT_DELETE
+
+    root = tab.frame.winfo_toplevel()
+    notebook = tab.frame.master
+    out = []
+    try:
+        root.attributes("-alpha", 0.0)
+        if str(tab.frame) not in notebook.tabs():
+            notebook.add(tab.frame, text="Setup & Settings")
+        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.select(tab.frame)
+        root.geometry("%dx%d" % (px(WINDOW_W), px(WINDOW_H)))
+        root.deiconify()
+        root.update_idletasks()
+        tab.align_columns()
+        root.update_idletasks()
+    except tk.TclError as e:
+        return [f"Setup & Settings could not be laid out for measuring: {e}"]
+    try:
+        row, note = tab._cert_row, tab._cert_note
+        delete = next(w for w in row.winfo_children()
+                      if str(w.cget("text")) == CERT_DELETE)
+        status = next(w for w in _descendants(tab.get_frame())
+                      if w.winfo_class() == "TLabelframe"
+                      and str(w.cget("text")) == "Setup Status")
+        right = delete.winfo_rootx() + delete.winfo_width()
+        if right != status.winfo_rootx() + status.winfo_width():
+            out.append(f"Delete Certificate ends at x={right}, not on "
+                       f"Setup Status' right edge at x="
+                       f"{status.winfo_rootx() + status.winfo_width()}: it "
+                       f"is packed to the row's right end.")
+        if note.winfo_rooty() != row.winfo_rooty():
+            out.append(f"Delete Certificate's note starts at y="
+                       f"{note.winfo_rooty()} and its button row at y="
+                       f"{row.winfo_rooty()}: `align_columns` holds the "
+                       f"two level.")
+        gap = note.winfo_rootx() - right
+        if not 0 <= gap <= px(8):
+            out.append(f"Delete Certificate's note starts {gap}px right of "
+                       f"the button, not just across the divide.")
+    finally:
+        root.withdraw()
+    if "between you and the internet" not in CERT_DANGER_TIP:
+        out.append("DANGER:'s tip no longer says the key is only a danger "
+                   "to someone who can also get between the user and the "
+                   "internet.")
+    return out
+
+
 def _share_status_colours(tab):
     """Share Game Data's line is yellow while the account holds facts
     the program does not ship, and green once it holds none.
@@ -5171,6 +5234,8 @@ def run():
             failures.extend(
                 _setup_columns_hold_their_shape(built["SetupTab"]))
             failures.extend(_share_panel_lines_up(built["SetupTab"]))
+            failures.extend(
+                _certificate_note_crosses_the_divide(built["SetupTab"]))
         if "ChecklistTab" in built:
             failures.extend(
                 _checklist_columns_come_first(built["ChecklistTab"]))

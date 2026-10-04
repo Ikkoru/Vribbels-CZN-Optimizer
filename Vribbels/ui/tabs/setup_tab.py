@@ -140,21 +140,27 @@ SHARE_NOTE = (
     "cute in the title! Press Create. Nothing about your account is shared.")
 SHARE_ISSUE_URL = f"https://github.com/{GITHUB_REPO}/issues/new"
 
-# The certificate's removal, beside the button that installs it. The
-# note goes on the line under the buttons: the left column is as wide
-# as the instructions, and holds the buttons and either line, never the
-# buttons and a line.
+# The certificate's removal, at the right end of the button row whose
+# Generate & Install Cert installs it. Its note sits across the divide,
+# at the head of the right column: the left column is as wide as the
+# instructions and has no room for it. `align_columns` holds the note
+# level with the row.
 CERT_DANGER = "DANGER:"
 CERT_DELETE = "Delete Certificate"
 CERT_NOTE = ("If the certificate's key is obtained by a foe, they may be able "
              "to use it against you.\nOnce you no longer need this program, "
              "consider deleting the certificate and its key.")
-CERT_GROUP_GAP = 8      # spacing: control group ↔ control group -- button, label ↔
+# What `DANGER:` says when hovered.
+CERT_DANGER_TIP = (
+    "Anyone who gets a copy of %USERPROFILE%\\.mitmproxy, and can get "
+    "between you and the internet, could read and alter your secure "
+    "connections.\nOnce you no longer need this program, consider "
+    "deleting the certificate.")
 CERT_LABEL_GAP = 2      # spacing: label ↔ its element -- label, button ↔
-CERT_NOTE_GAP = 0       # spacing: explanation text -> the controls it explains -- button, label ↕
-# The note's run down to Setup Instructions' title, which it is the
-# nearest text to.
-CERT_NOTE_TAIL = 5      # spacing: panel ↕ unrelated label -- label, title ↕
+# The button's right pad and the note's left pad are the two halves of
+# the gap across the divide, as each column's panels carry half of the
+# gap between the columns.
+CERT_EDGE_PAD = 2       # spacing: label ↔ its element -- button, label ↔
 
 # The face the instructions are set in, and what a panel adds around a
 # text block of that face. The width of the LEFT COLUMN is computed
@@ -397,6 +403,7 @@ class SetupTab(BaseTab):
         self._build_setup_buttons(left)
         self._build_instructions(left)
         self._build_restore(right)
+        self._build_cert_note(right)
         # Update Status and Share Game Data share a row and its height.
         # Update Status' WIDTH is set once the tab is laid out -- see
         # `align_share_button` -- and Share Game Data takes the rest.
@@ -494,19 +501,29 @@ class SetupTab(BaseTab):
         ttk.Button(btn_frame, text="Generate & Install Cert",
                    command=self.setup_cert, width=BUTTON_W_LARGE).pack(
                        side=tk.LEFT, padx=px((2, 5)))
+        # Right-aligned, so the button's edge is the panels' above it and
+        # its note picks up across the divide.
+        delete = ttk.Button(btn_frame, text=CERT_DELETE,
+                            command=self.delete_cert, width=BUTTON_W_MEDIUM)
+        # spacing: content frame -> content frame -- button, frame ↔
+        # spacing: label ↔ its element -- button, label ↔
+        delete.pack(side=tk.RIGHT, padx=px((0, CERT_EDGE_PAD)))
         danger = ttk.Label(btn_frame, text=CERT_DANGER,
                            foreground=self.colors["red"])
-        # spacing: control group ↔ control group -- button, label ↔
-        danger.pack(side=tk.LEFT, padx=px((CERT_GROUP_GAP, 0)))
         # spacing: label ↔ its element -- label, button ↔
-        ttk.Button(btn_frame, text=CERT_DELETE, command=self.delete_cert,
-                   width=BUTTON_W_MEDIUM).pack(
-                       side=tk.LEFT, padx=px((CERT_LABEL_GAP, 0)))
-        note = ttk.Label(parent, text=CERT_NOTE, justify=tk.LEFT,
-                         foreground=self.colors["fg_dim"])
-        # spacing: explanation text -> the controls it explains -- button, label ↕
-        # spacing: content frame -> content frame -- frame, label ↔
-        note.pack(anchor=tk.W, padx=px((2, 0)), pady=px((CERT_NOTE_GAP, 0)))
+        danger.pack(side=tk.RIGHT, padx=px((0, CERT_LABEL_GAP)))
+        self._cert_tip = Tooltip(self.colors)
+        self._cert_tip.bind(danger, CERT_DANGER_TIP)
+        self._cert_row = btn_frame
+
+    def _build_cert_note(self, parent):
+        """Delete Certificate's note, at the head of the right column.
+        Its top is set by `align_columns`, level with the button row."""
+        note = self._cert_note = ttk.Label(
+            parent, text=CERT_NOTE, justify=tk.LEFT,
+            foreground=self.colors["fg_dim"])
+        # spacing: label ↔ its element -- button, label ↔
+        note.pack(anchor=tk.W, padx=px((CERT_EDGE_PAD, 0)))
 
     def _build_instructions(self, parent):
         """Setup Instructions, as tall as its text and no taller."""
@@ -517,10 +534,10 @@ class SetupTab(BaseTab):
         # the border; the text inset lives on the Text's padx/pady.
         instr_frame = self._instr_frame = ttk.LabelFrame(
             parent, text="Setup Instructions", padding=px(0))
-        # spacing: panel ↕ unrelated label -- label, title ↕
-        # The leading side carries the whole run from the certificate
-        # note down to this panel's title.
-        instr_frame.pack(fill=tk.X, padx=px(2), pady=px((CERT_NOTE_TAIL, 2)))
+        # spacing: panel ↕ unrelated label -- button, title ↕
+        # The leading side carries the whole run from the button row
+        # down to this panel's title.
+        instr_frame.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
 
         # spacing: border edge -> first non-button element -- panel, text ↔↕
         # The panel's inset sits here rather than on the LabelFrame,
@@ -1220,11 +1237,13 @@ class SetupTab(BaseTab):
     def align_columns(self):
         """Line the two columns' panel edges up across the tab.
 
-        Three edges are matched, and each is a panel pushed DOWN to
+        Four edges are matched, and each is a panel pushed DOWN to
         meet one that already sits lower -- nothing is ever pulled up,
         because a panel's top is its own stack's height and there is
         no room above it:
 
+        * the button row and Delete Certificate's note share a top,
+          the note being the row's across the divide;
         * `Setup Instructions` and `Update Status` share a top;
         * `Setup Instructions` and `Settings` share a bottom;
         * `Links` and `Application Information` share both.
@@ -1239,7 +1258,10 @@ class SetupTab(BaseTab):
         self.frame.update_idletasks()
         # Update Status by its ROW: the row is what is packed, and its
         # top is both panels' tops.
-        pairs = ((self._instr_frame, self._update_row, "top"),
+        # The note first: it sits above Update Status, so moving it
+        # moves the row the next pair reads.
+        pairs = ((self._cert_row, self._cert_note, "top"),
+                 (self._instr_frame, self._update_row, "top"),
                  (self._instr_frame, self._settings_frame, "bottom"))
         for first, second, edge in pairs:
             self.frame.update_idletasks()

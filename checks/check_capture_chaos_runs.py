@@ -415,6 +415,7 @@ def run():
     failures.extend(_given_up(Addon))
     failures.extend(_what_the_entry_says(Addon))
     failures.extend(_the_table_keeps_a_replayed_row())
+    failures.extend(_the_table_names_the_rolls())
     failures.extend(_new_season(Addon))
     _the_file(Addon, failures)
     return failures
@@ -559,15 +560,8 @@ ZERO_ENTRY = {
 }
 
 
-def _the_table_keeps_a_replayed_row():
-    """`docs/chaos_runs.py`'s default pass keeps a row a log was replayed
-    into against the capture's own record of the same run.
-
-    The default pass reads only the newest logs, and every run the
-    runs' file holds; the file's record was made by the capture code of
-    its day. Written over a log's row, it took back a break-in the
-    record never saw (the 2026-09-28 00:42 run) and blanked every field
-    added since. `--all` rebuilds from what it reads, which is right."""
+def _tool():
+    """`docs/chaos_runs.py`, imported."""
     import importlib.util
     import os
     from ._harness import REPO_ROOT
@@ -579,6 +573,52 @@ def _the_table_keeps_a_replayed_row():
         spec.loader.exec_module(tool)
     finally:
         os.chdir(here)              # the tool moves to Vribbels/ on import
+    return tool
+
+
+def _the_table_names_the_rolls():
+    """`docs/chaos_runs.py`'s `rolled` names the bonus and penalties a
+    run rolled, from its effects, whichever door -- a Galactic Disaster
+    run has no codex to read them from, and `ELITE_ADD` among them is
+    what the fight comparison splits the runs by. Tree nodes and
+    specials are not rolls; a run filed before runs kept their effects
+    is `?`, not a run that rolled nothing."""
+    tool = _tool()
+    run_ = {"closed": 1789000000, "season": "disaster_s04", "via": "disaster",
+            "paid": [], "stage": 80000, "effects": [
+                ["ZERO_ELITE_ADD__COUNT", "zero_orb_penalty_008", []],
+                ["ZERO_ENCOUNTER_RATEUP__COUNT_RARITY",
+                 "zero_season_s4_skill_034_05", []],
+                ["ZERO_FATE_RATIOUP__VALUE", "zero_orb_bonus_010", [65]],
+                ["ZERO_REINFORCE_CONTENTS__CONTENTS_RATIO",
+                 "zero_orb_special_opt_9004", []]]}
+    rolled = tool.row_of(run_, "runs.json.gz", {})["rolled"]
+    old = tool.row_of({k: v for k, v in run_.items() if k != "effects"},
+                      "runs.json.gz", {})["rolled"]
+    out = []
+    if rolled != "ELITE_ADD:p008 FATE_RATIOUP:b010" or old != "?":
+        out.append(f"chaos_runs.py's rolled column reads {rolled!r} for a "
+                   f"Galactic Disaster run rolling ELITE_ADD and a Fate "
+                   f"bonus, and {old!r} for one filed with no effects: "
+                   f"'ELITE_ADD:p008 FATE_RATIOUP:b010' and '?'.")
+    if "ELITE_ADD" not in (tool.rolled_counts(rolled) or {}) \
+            or tool.rolled_counts(old) is not None:
+        out.append("chaos_runs.rolled_counts does not read the rolled "
+                   "column back, so the ELITE_ADD comparison splits no "
+                   "run.")
+    return out
+
+
+def _the_table_keeps_a_replayed_row():
+    """`docs/chaos_runs.py`'s default pass keeps a row a log was replayed
+    into against the capture's own record of the same run.
+
+    The default pass reads only the newest logs, and every run the
+    runs' file holds; the file's record was made by the capture code of
+    its day. Written over a log's row, it took back a break-in the
+    record never saw (the 2026-09-28 00:42 run) and blanked every field
+    added since. `--all` rebuilds from what it reads, which is right."""
+    tool = _tool()
     run_ = {"closed": 1790545320, "season": "disaster_s04", "part": 3,
             "via": "disaster", "delegated": True, "client": "x",
             "paid": [], "marked": {"k5": 1}, "fought": {"BATTLE": 12},
