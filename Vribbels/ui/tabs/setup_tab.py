@@ -143,8 +143,9 @@ SHARE_ISSUE_URL = f"https://github.com/{GITHUB_REPO}/issues/new"
 # The certificate's removal, at the right end of the button row whose
 # Generate & Install Cert installs it. Its note sits across the divide,
 # at the head of the right column: the left column is as wide as the
-# instructions and has no room for it. `align_columns` holds the note
-# level with the row.
+# instructions and has no room for it. The note is trimmed to its lines
+# and centred on the button, as Restore Defaults' explanations are --
+# there by grid, here by `align_columns`, across the two columns.
 CERT_DANGER = "DANGER:"
 CERT_DELETE = "Delete Certificate"
 CERT_NOTE = ("If the certificate's key is obtained by a foe, they may be able "
@@ -156,11 +157,12 @@ CERT_DANGER_TIP = (
     "between you and the internet, could read and alter your secure "
     "connections.\nOnce you no longer need this program, consider "
     "deleting the certificate.")
-CERT_LABEL_GAP = 2      # spacing: label ↔ its element -- label, button ↔
-# The button's right pad and the note's left pad are the two halves of
-# the gap across the divide, as each column's panels carry half of the
-# gap between the columns.
+CERT_LABEL_GAP = 3      # spacing: label ↔ its element -- label, button ↔
+# The button's right pad and the note's left pad together make the gap
+# across the divide. The button's also puts its edge on the panels'
+# above it, so the note's is the one that tunes the gap.
 CERT_EDGE_PAD = 2       # spacing: label ↔ its element -- button, label ↔
+CERT_NOTE_PAD = 1       # spacing: label ↔ its element -- button, label ↔
 
 # The face the instructions are set in, and what a panel adds around a
 # text block of that face. The width of the LEFT COLUMN is computed
@@ -518,12 +520,15 @@ class SetupTab(BaseTab):
 
     def _build_cert_note(self, parent):
         """Delete Certificate's note, at the head of the right column.
-        Its top is set by `align_columns`, level with the button row."""
+        Its top is set by `align_columns`, centred on the button row."""
+        # Trimmed to its line boxes by the same amount as Restore
+        # Defaults' explanations, so the box's middle is the text's.
         note = self._cert_note = ttk.Label(
             parent, text=CERT_NOTE, justify=tk.LEFT,
-            foreground=self.colors["fg_dim"])
+            foreground=self.colors["fg_dim"],
+            padding=px((0, RESTORE_TEXT_TRIM, 0, RESTORE_TEXT_TRIM)))
         # spacing: label ↔ its element -- button, label ↔
-        note.pack(anchor=tk.W, padx=px((CERT_EDGE_PAD, 0)))
+        note.pack(anchor=tk.W, padx=px((CERT_NOTE_PAD, 0)))
 
     def _build_instructions(self, parent):
         """Setup Instructions, as tall as its text and no taller."""
@@ -1242,7 +1247,7 @@ class SetupTab(BaseTab):
         because a panel's top is its own stack's height and there is
         no room above it:
 
-        * the button row and Delete Certificate's note share a top,
+        * the button row and Delete Certificate's note share a middle,
           the note being the row's across the divide;
         * `Setup Instructions` and `Update Status` share a top;
         * `Setup Instructions` and `Settings` share a bottom;
@@ -1260,20 +1265,21 @@ class SetupTab(BaseTab):
         # top is both panels' tops.
         # The note first: it sits above Update Status, so moving it
         # moves the row the next pair reads.
-        pairs = ((self._cert_row, self._cert_note, "top"),
+        pairs = ((self._cert_row, self._cert_note, "middle"),
                  (self._instr_frame, self._update_row, "top"),
                  (self._instr_frame, self._settings_frame, "bottom"))
+
+        def at(widget, edge):
+            top, height = widget.winfo_rooty(), widget.winfo_height()
+            return {"top": top, "middle": top + height // 2,
+                    "bottom": top + height}[edge]
+
         for first, second, edge in pairs:
             self.frame.update_idletasks()
-            if edge == "top":
-                behind = first.winfo_rooty() - second.winfo_rooty()
-                mover, other = (second, first) if behind > 0 else (first, second)
-            else:
-                behind = ((first.winfo_rooty() + first.winfo_height())
-                          - (second.winfo_rooty() + second.winfo_height()))
-                mover, other = (second, first) if behind > 0 else (first, second)
+            behind = at(first, edge) - at(second, edge)
             if not behind:
                 continue
+            mover = second if behind > 0 else first
             pad = mover.pack_info().get("pady")
             lead, trail = _pady_pair(pad)
             mover.pack_configure(pady=(lead + abs(behind), trail))

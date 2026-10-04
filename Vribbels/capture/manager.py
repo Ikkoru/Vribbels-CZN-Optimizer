@@ -1692,10 +1692,13 @@ class Addon:
                     self.stage_limits[str(res_id)] = row
             self._save_pending = True
         # **And after every run it limits**, as `stage_limit_entity` --
-        # singular, a LIST -- on the clear's reply. The login's table is
-        # the only other source, so without this the week's runs are
-        # never seen until the next launch.
-        taken = data.get("stage_limit_entity")
+        # singular, a LIST -- in the clear's `return_info`, never at the
+        # reply's top level. The login's table is the only other source,
+        # so without this the week's runs are never seen until the next
+        # launch.
+        returned = data.get("return_info")
+        taken = (returned.get("stage_limit_entity")
+                 if isinstance(returned, dict) else None)
         for row in (taken if isinstance(taken, list) else [taken]):
             if isinstance(row, dict) and row.get("res_id") is not None:
                 self.stage_limits[str(row["res_id"])] = row

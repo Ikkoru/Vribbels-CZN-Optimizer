@@ -2876,10 +2876,13 @@ def _share_panel_lines_up(tab):
 def _certificate_note_crosses_the_divide(tab):
     """Delete Certificate sits at the right end of the button row, its
     right edge on the panels' above it, and its note starts across the
-    divide at the head of the right column, level with the row.
+    divide at the head of the right column, centred on the row.
 
-    The note's top is `align_columns`' to set, and without it the note
-    sits a few pixels off the row -- close enough to pass for placed.
+    The note's place is `align_columns`' to set, and without it the
+    note sits a few pixels off the row -- close enough to pass for
+    placed. A note no longer trimmed to its lines would push Setup
+    Instructions down through the column alignment, so its height is
+    held under the row's plus a pixel.
     `DANGER:` carries the tip saying what the danger needs. Mapped at
     alpha 0 at the default window size, like `_share_panel_lines_up`.
 
@@ -2918,11 +2921,18 @@ def _certificate_note_crosses_the_divide(tab):
                        f"Setup Status' right edge at x="
                        f"{status.winfo_rootx() + status.winfo_width()}: it "
                        f"is packed to the row's right end.")
-        if note.winfo_rooty() != row.winfo_rooty():
-            out.append(f"Delete Certificate's note starts at y="
-                       f"{note.winfo_rooty()} and its button row at y="
-                       f"{row.winfo_rooty()}: `align_columns` holds the "
-                       f"two level.")
+        middles = [w.winfo_rooty() + w.winfo_height() // 2
+                   for w in (note, row)]
+        if abs(middles[0] - middles[1]) > 1:
+            out.append(f"Delete Certificate's note is centred at y="
+                       f"{middles[0]} and its button row at y={middles[1]}: "
+                       f"`align_columns` centres the one on the other.")
+        if note.winfo_height() > row.winfo_height() + px(1):
+            out.append(f"Delete Certificate's note is {note.winfo_height()}"
+                       f"px tall against the row's {row.winfo_height()}: "
+                       f"untrimmed, it reaches down the right column and "
+                       f"the column alignment pushes Setup Instructions "
+                       f"down with it.")
         gap = note.winfo_rootx() - right
         if not 0 <= gap <= px(8):
             out.append(f"Delete Certificate's note starts {gap}px right of "

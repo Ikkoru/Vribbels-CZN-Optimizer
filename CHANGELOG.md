@@ -28,6 +28,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - A deadline in its last day blinks, and so does a Delegation Module row with any to use. The Daily heading and finished events hold still.
   - Overclock events no longer ask `Finished?`.
 
+### Fixed
+
+- Checklist: Simulation Challenges counts a win as it happens, instead of at the next login.
+
 ## [2.3.0] - Potential 7, Faster Tabs
 
 ### Added

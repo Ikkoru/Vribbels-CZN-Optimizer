@@ -14,11 +14,15 @@ see `Addon._note_chaos` in `Vribbels/capture/manager.py`. A run is
 keyed by the second it cleared, which all three give alike, so a run
 several hold is one row, whose `log` names the debug log.
 
-**Only the live season's own Chaos is averaged.** A past season's
-Chaos -- entered through the Zero System -- pays the live season's
-currency too, but less, so the means, the report and the shipped
-figures read the season's own Chaos alone, and every other Chaos gets
-its own lines after them.
+**Only the live season's own Chaos is averaged for what it pays.** A
+past season's Chaos -- entered through the Zero System -- pays the live
+season's currency too, but less, so the means, the report and the
+shipped figures read the season's own Chaos alone, and every other
+Chaos gets its own lines after them. **How often a fight carries a mark
+is read over every Chaos**: nothing found so far sets one Chaos's rate
+apart, and the figures are rebuilt from the rows whenever that changes.
+Each mark is counted over the Chaoses it has been met in, so a season's
+own mark is not thinned by runs that cannot meet it.
 
 Re-run it after any capture that holds a run. **By default it reads
 every loose snapshot, and only the logs from the one that holds the
@@ -123,10 +127,23 @@ whichever door. `ELITE_ADD` among them turns a set number of floors
 into Elite floors by its level, 2 to 8 as remembered from the game.
 Taking ordinary battles away is what would move the Aether Eater, met
 only on them, so the mark rates end with the fights a run met with and
-without it, by mode. On season 4's own Chaos the runs with it fought as
-many ordinary battles as those without, and more Elites: on a path of
-fixed length, the Elites took the place of spots that were not
-ordinary battles.
+without it, for each Chaos, special and mode that has runs of both. On
+season 4's own Chaos the runs with it fought as many ordinary battles
+as those without, and more Elites: on a path of fixed length, the
+Elites took the place of spots that were not ordinary battles.
+
+**How a run's rolls and path were chosen.** A Galactic Disaster run's
+rolls are as the game dealt them: the maintainer does not reroll its
+codex. A Zero System map is picked from three, so how often its runs
+carry a penalty says nothing about how often one is rolled, though a
+run's fights with it still compare. The Delegation Module takes the
+path with the most floors carrying the season's effect, favouring the
+floors that open the special boss on floor 17 and the extra boss on
+36; season 3's effect sits only on fights, so its delegated runs meet
+more of them. A manual run follows the player's aim for it -- Events
+and Elites sought, rests without a shop avoided. So a figure a run
+belongs to its mode, which `mode` keeps apart, and a rate a fight is
+what every run shares.
 
 **A season is named by the run, not by its currency.** Each season pays
 in an item id of its own, and the capture names the season a run
@@ -175,6 +192,20 @@ OWNED = ["date", "season", "part", "chaos", "door", "difficulty",
 # The effect ids a run's rolled bonus and penalties come as, whichever
 # door it was entered by.
 ROLLED = (("zero_orb_bonus_", "b"), ("zero_orb_penalty_", "p"))
+
+# Colour for a terminal; none where the output goes to a file or a pipe,
+# or NO_COLOR is set.
+COLOUR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+if COLOUR and sys.platform == "win32":
+    # NOT dead code: an empty command is what switches a Windows console
+    # to reading the colour codes rather than printing them.
+    os.system("")
+HEADING, FLAG, GOOD, QUIET = "1;36", "33", "32", "90"
+
+
+def paint(text, code):
+    """`text` in an ANSI colour, where `COLOUR` allows one."""
+    return "\033[%sm%s\033[0m" % (code, text) if COLOUR else text
 # The maintainer's column the summary reads: see the module docstring.
 MISSED = "missed"
 SPOT_COLUMN = "SPOT_TYPE_"
@@ -249,7 +280,7 @@ def logs(since=""):
         return
     if since and loose and since >= stamp(loose[0]):
         return
-    print("   opening the archive...", flush=True)
+    print(paint("   opening the archive...", QUIET), flush=True)
     with tarfile.open(archive) as tf:
         for member in tf:
             if ("websocket_debug" not in member.name
@@ -301,7 +332,7 @@ def snapshots():
     contents."""
     stored, note = chaos_store.read("snapshots")
     if note:
-        print("   ! the runs' file: %s" % note)
+        print(paint("   ! the runs' file: %s" % note, FLAG))
     runs = [(chaos_store.FILE, run) for run in stored if run.get("closed")]
     newest = None
     for path in sorted(glob.glob("snapshots/memory_fragments_*.json")):
@@ -599,8 +630,8 @@ def missed_of(row):
     try:
         return int(cell)
     except ValueError:
-        print("   ! %s: `%s` is %r, not a number -- counted as 0"
-              % (row["date"], MISSED, cell))
+        print(paint("   ! %s: `%s` is %r, not a number -- counted as 0"
+                    % (row["date"], MISSED, cell), FLAG))
         return 0
 
 
@@ -726,11 +757,11 @@ def report(rows):
     facts = {key: _group_facts(members) for key, members in groups.items()}
     print()
     flagged = changes(rows)
-    print("   Changes, run by run:" if flagged
-          else "   Changes, run by run: none")
+    print(paint("   Changes, run by run:" if flagged
+                else "   Changes, run by run: none", HEADING))
     for line in flagged:
-        print(line)
-    print("   What pays, by season part and game version:")
+        print(paint(line, FLAG))
+    print(paint("   What pays, by season part and game version:", HEADING))
     for key in sorted(groups):
         print("   %-14s %-22s %s" % (key[0], key[1],
                                      _describe(*facts[key],
@@ -748,19 +779,22 @@ def report(rows):
             ("Mark rates, by game version", 0, 1, "rates")):
         found = pairs(same, other)
         if not found:
-            print("   %s: can't tell -- no two %s share a %s" % (
+            print(paint("   %s: can't tell -- no two %s share a %s" % (
                 question, "parts" if other == 0 else "versions",
-                "game version" if same == 1 else "season part"))
+                "game version" if same == 1 else "season part"), QUIET))
             continue
         for a, b in found:
             if what == "amounts":
                 moved = _compare_amounts(facts[a][0], facts[b][0])
                 verdict = "; ".join(moved) or "same"
+                colour = FLAG if moved else GOOD
             else:
-                verdict = "; ".join(_compare_rates(facts[a][1:],
-                                                   facts[b][1:]))
+                said = _compare_rates(facts[a][1:], facts[b][1:])
+                verdict = "; ".join(said)
+                colour = (FLAG if "MOVED" in verdict else QUIET
+                          if verdict.startswith("too few") else GOOD)
             print("   %s: %s -> %s: %s" % (question, a[other], b[other],
-                                           verdict))
+                                           paint(verdict, colour)))
 
 
 def _reference(rows, row):
@@ -807,8 +841,8 @@ def fill_missed(rows):
                 row[MISSED] = str(due)
                 filled.append("%s +%d" % (date, due))
         elif missed_of(row) != due:
-            print("   ! %s: `missed` says %s; the loss comes to %d"
-                  % (date, cell, due))
+            print(paint("   ! %s: `missed` says %s; the loss comes to %d"
+                        % (date, cell, due), FLAG))
     return filled
 
 
@@ -880,76 +914,100 @@ def shifts(ks, ns, rng, offset=0):
             + shifts(ks[at:], ns[at:], rng, offset + at))
 
 
-def rate_shifts(rows):
-    """Print each mark's rate over the whole runs, and any shift in it."""
-    runs = _whole_runs(rows)
-    fights = []
+def _met_in(runs):
+    """{mark: the Chaoses it has been met in}, over `runs`."""
+    out = collections.defaultdict(set)
     for row in runs:
-        fought = counts_of(row.get("fought"))
-        fights.append(fought.get("battle", 0) + fought.get("elite", 0))
-    marks = sorted({one for row in runs
-                    for key in counts_of(row.get("marked"))
-                    for one in key.split("+")})
-    print("   Mark rates over time, %d whole run(s)%s:" % (
-        len(runs), "" if len(runs) == len(rows)
-        else ", %d left out" % (len(rows) - len(runs))))
+        for key in counts_of(row.get("marked")):
+            for one in key.split("+"):
+                out[one].add(row["chaos"])
+    return out
+
+
+def rate_shifts(rows):
+    """Print each mark's rate over the whole runs of every Chaos it has
+    been met in, and any shift in it."""
+    runs = _whole_runs(rows)
+    met_in = _met_in(runs)
+    marks = sorted(met_in)
+    print(paint("   Mark rates over time, %d whole run(s) of every Chaos%s; "
+                "each mark over the Chaoses it has been met in:" % (
+                    len(runs), "" if len(runs) == len(rows)
+                    else ", %d left out" % (len(rows) - len(runs))),
+                HEADING))
     for mark in marks:
+        among = [row for row in runs if row["chaos"] in met_in[mark]]
+        fights = []
+        for row in among:
+            fought = counts_of(row.get("fought"))
+            fights.append(fought.get("battle", 0) + fought.get("elite", 0))
         ks = [sum(n for key, n in counts_of(row.get("marked")).items()
-                  if mark in key.split("+")) for row in runs]
+                  if mark in key.split("+")) for row in among]
+        where = "%d run(s) of %d Chaos" % (len(among), len(met_in[mark]))
         found = shifts(ks, fights, random.Random(0))
         if found:
             edges = [0] + [at for at, _p in found] + [len(ks)]
-            print("   ! %s shifted: %s (p %s)" % (_named(mark), ", ".join(
-                "%.3f a fight from %s" % (sum(ks[a:b]) / max(1, sum(
-                    fights[a:b])), runs[a]["date"][:10])
-                for a, b in zip(edges, edges[1:])),
-                ", ".join("%.3f" % p for _at, p in found)))
+            print(paint("   ! %s shifted, %s: %s (p %s)" % (
+                _named(mark), where, ", ".join(
+                    "%.3f a fight from %s" % (sum(ks[a:b]) / max(1, sum(
+                        fights[a:b])), among[a]["date"][:10])
+                    for a, b in zip(edges, edges[1:])),
+                ", ".join("%.3f" % p for _at, p in found)), FLAG))
             continue
         _at, p = split_test(ks, fights, random.Random(0))
-        print("   %s: %d in %d fights, %.3f a fight, %.2f a run; %s" % (
+        print("   %s: %d in %d fights, %.3f a fight, %.2f a run, %s; %s" % (
             _named(mark), sum(ks), sum(fights),
-            sum(ks) / max(1, sum(fights)), sum(ks) / max(1, len(runs)),
-            "no shift (p %.2f)" % p if p is not None
-            else "too few runs to look for a shift (%d a side)"
-            % FEWEST_RUNS))
-    spot_rates(runs, marks)
+            sum(ks) / max(1, sum(fights)), sum(ks) / max(1, len(among)),
+            where, paint("no shift (p %.2f)" % p, GOOD) if p is not None
+            else paint("too few runs to look for a shift (%d a side)"
+                       % FEWEST_RUNS, QUIET)))
+    spot_rates(runs, met_in)
     penalty_mix(runs)
 
 
 def penalty_mix(runs, group="ELITE_ADD"):
-    """Print the fights a whole run met, by mode, with and without a
-    rolled `group` penalty: whether it takes ordinary battles away is
-    what moves a mark met only on them. A run filed before runs kept
-    their effects is left out."""
-    by = collections.defaultdict(list)
+    """Print the fights a whole run met with and without a rolled
+    `group` penalty, for each Chaos, special and mode that has runs of
+    both: whether it takes ordinary battles away is what moves a mark
+    met only on them. A Chaos's map and a mode's choice of path set a
+    run's mix of fights too, so runs are only compared among their own.
+    A run filed before runs kept their effects is left out."""
+    by = collections.defaultdict(lambda: collections.defaultdict(list))
     for row in runs:
         rolled = rolled_counts(row.get("rolled"))
         if rolled is not None:
-            by[(row["mode"], group in rolled)].append(
-                counts_of(row.get("fought")))
-    if not any(has for _mode, has in by):
+            key = ", ".join(cell for cell in (
+                row["chaos"], row.get("special"), row["mode"]) if cell)
+            by[key][group in rolled].append(counts_of(row.get("fought")))
+    compared = {key: sides for key, sides in by.items() if len(sides) == 2}
+    if not compared:
         return
-    for (mode, has), fought in sorted(by.items()):
-        print("      %s, %s %s, %d run(s): %.1f battles, %.1f Elites a run"
-              % (mode, "with" if has else "without", group, len(fought),
-                 sum(f.get("battle", 0) for f in fought) / len(fought),
-                 sum(f.get("elite", 0) for f in fought) / len(fought)))
+    print(paint("   Fights a run, with and without %s:" % group, HEADING))
+    for key, sides in sorted(compared.items()):
+        for has in (False, True):
+            fought = sides[has]
+            print("      %s, %s, %d run(s): %.1f battles, %.1f Elites" % (
+                key, "with" if has else "without", len(fought),
+                sum(f.get("battle", 0) for f in fought) / len(fought),
+                sum(f.get("elite", 0) for f in fought) / len(fought)))
 
 
-def spot_rates(runs, marks):
+def spot_rates(runs, met_in):
     """Print each mark's rate on each kind of ordinary fight, over the
-    runs that recorded where their marks were met: see the module
-    docstring's note on a map's own mix of fights."""
+    runs of the Chaoses it has been met in that recorded where their
+    marks were met: see the module docstring's note on a map's own mix
+    of fights."""
     told = [row for row in runs
             if row.get("marked_at") or not row.get("marked")]
     if not told:
         return
-    for mark in marks:
+    for mark in sorted(met_in):
+        among = [row for row in told if row["chaos"] in met_in[mark]]
         parts, met = [], 0
         for spot in ("battle", "elite"):
             n = sum(counts_of(row.get("fought")).get(spot, 0)
-                    for row in told)
-            k = sum(count for row in told
+                    for row in among)
+            k = sum(count for row in among
                     for key, count in marked_at_of(
                         row.get("marked_at")).get(spot, {}).items()
                     if mark in key.split("+"))
@@ -959,7 +1017,7 @@ def spot_rates(runs, marks):
         # A break-in is a spot of its own, and is never met on either.
         if parts and met:
             print("      %s by spot, %d run(s): %s" % (
-                _named(mark), len(told), ", ".join(parts)))
+                _named(mark), len(among), ", ".join(parts)))
 
 
 def shipped_figures(rows):
@@ -970,7 +1028,7 @@ def shipped_figures(rows):
     for date, row in rows.items():
         if row["season"] != "?":
             by_season[row["season"]][date] = row
-    print("   For chaos_estimate.SHIPPED:")
+    print(paint("   For chaos_estimate.SHIPPED:", HEADING))
     for season in sorted(by_season):
         members = by_season[season]
         bosses, amounts = {}, {}
@@ -1029,7 +1087,8 @@ def main():
             got = runs_in(lines, fresh_addon(work))
         finally:
             shutil.rmtree(work, ignore_errors=True)
-        print("   %s: %d run(s)" % (name, len(got)), flush=True)
+        print(paint("   %s: %d run(s)" % (name, len(got)),
+                    QUIET if not got else GOOD), flush=True)
         for run in got:
             found[run["closed"]] = (run, name)
 
@@ -1046,8 +1105,9 @@ def main():
         lines.append("\t".join(kept[date].get(c, "") for c in header))
     OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    print("%d snapshot run(s), %d log(s) read, %d new run(s), %d row(s) -> "
-          "%s" % (len(held), seen, new, len(kept), OUT.relative_to(ROOT)))
+    print(paint("%d snapshot run(s), %d log(s) read, %d new run(s), %d "
+                "row(s) -> %s" % (len(held), seen, new, len(kept),
+                                  OUT.relative_to(ROOT)), GOOD))
     if theirs:
         print("   kept your columns: %s" % ", ".join(theirs))
     if filled:
@@ -1055,8 +1115,9 @@ def main():
     unknown = sorted({row["season"] for row in kept.values()
                       if row["season"] == "?"})
     if unknown:
-        print("   ! a run with no season: no standings were read before it "
-              "cleared, and its currency is not in CURRENCY")
+        print(paint("   ! a run with no season: no standings were read "
+                    "before it cleared, and its currency is not in "
+                    "CURRENCY", FLAG))
     if not kept:
         return
     own = {date: row for date, row in kept.items() if current(row)}
@@ -1091,6 +1152,9 @@ def main():
     by_season = collections.defaultdict(list)
     for part, got in by_part.items():
         by_season[part.split()[0]].extend(got)
+    print()
+    print(paint("   What a run of the season's own Chaos pays, played "
+                "through:", HEADING))
     for part in sorted(by_part):
         line(part, by_part[part])
     for season in sorted(by_season):
@@ -1102,12 +1166,13 @@ def main():
           % ", ".join("%dx%d" % (n, v) for v, n in sorted(tally.items())))
     report(own)
     print()
-    rate_shifts(own)
+    rate_shifts(kept)
     print()
     shipped_figures(own)
     if others:
         print()
-        print("   Other Chaos, left out of everything above:")
+        print(paint("   Other Chaos, left out of the payouts above:",
+                    HEADING))
         for label in sorted(others):
             rows = others[label]
             print("   %-30s %s" % (label, _describe(

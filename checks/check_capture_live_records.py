@@ -7,10 +7,12 @@ and each has a second source the login's copy must take from. All fail
 quietly -- the Checklist reads the stale copy as a plausible figure:
 
 1. **A Simulation clear states the run limit it counted**, as
-   `stage_limit_entity` -- singular, a list -- on its reply. Missed, the
-   week's runs are not seen until the next launch, and the row reads
-   last week's count as stale: every run still left
-   (`websocket_debug_20260927_202839`).
+   `stage_limit_entity` -- singular, a list -- in its reply's
+   `return_info`. Missed, the week's runs are not seen until the next
+   launch, and the row reads last week's count as stale: every run
+   still left (`websocket_debug_20260927_202839`). The same row at the
+   reply's top level is a place the wire never puts it, and is not
+   read.
 2. **A lobby refresh states the currencies as a list** of the records
    the login keys by id. A weekly currency's top-up lands lazily, so the
    login's copy is last week's, and the refresh is what carries the
@@ -62,9 +64,12 @@ def run():
                                   "last_update": AFTER, "version": 98}])
     _reply(addon, 3, currencies=[{"res_id": REASON, "amount": 5,
                                   "last_update": BEFORE, "version": 97}])
-    _reply(addon, 4, stage_limit_entity=[{"res_id": "content_boss",
-                                          "count": 1, "reset_time": AFTER,
-                                          "version": 185}])
+    _reply(addon, 4, return_info={"stage_limit_entity": [{
+        "res_id": "content_boss", "count": 1, "reset_time": AFTER,
+        "version": 185}]})
+    _reply(addon, 5, stage_limit_entity=[{"res_id": "content_boss",
+                                          "count": 3, "reset_time": AFTER,
+                                          "version": 186}])
 
     addon.inventory_data = {"memory_fragments": []}
     addon._save_data()
