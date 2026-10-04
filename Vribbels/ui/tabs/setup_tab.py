@@ -146,9 +146,9 @@ SHARE_ISSUE_URL = f"https://github.com/{GITHUB_REPO}/issues/new"
 # buttons and a line.
 CERT_DANGER = "DANGER:"
 CERT_DELETE = "Delete Certificate"
-CERT_NOTE = ("If the certificate is obtained by a foe, they may be able to "
-             "use it against you.\nOnce you no longer need this program, "
-             "consider deleting the certificate.")
+CERT_NOTE = ("If the certificate's key is obtained by a foe, they may be able "
+             "to use it against you.\nOnce you no longer need this program, "
+             "consider deleting the certificate and its key.")
 CERT_GROUP_GAP = 8      # spacing: control group ↔ control group -- button, label ↔
 CERT_LABEL_GAP = 2      # spacing: label ↔ its element -- label, button ↔
 CERT_NOTE_GAP = 0       # spacing: explanation text -> the controls it explains -- button, label ↕
@@ -1532,8 +1532,8 @@ class SetupTab(BaseTab):
                 "Remove the mitmproxy certificate from Windows' trusted "
                 "certificates, and delete it and its key from "
                 "%USERPROFILE%\\.mitmproxy?\n\n"
-                "Capturing again takes Generate & Install Cert, which "
-                "makes a new one.",
+                "To start capturing again requires reinstalling by pressing "
+                "Generate & Install Cert, which makes a new one.",
                 default=messagebox.NO):
             return
         self._removing = True
