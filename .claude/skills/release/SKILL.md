@@ -90,9 +90,9 @@ The judgement calls worth slowing down for:
 - **Would a player ever notice it?** A guarantee they cannot observe ("your own readings always win") is implementation, however true.
 - **Is it a fix to something they never had?** A fix inside a feature this release adds, or one the last release called unfinished, is news to nobody installing.
 - **Is it the player's word?** "Player count", not "field size"; an event family's internal name ("Love events") is not what the game shows. Where unsure what the game calls it, say it generally ("more events") and ask, saying what the thing is — the maintainer then chooses the game's name or keeps it general.
-- **Is it what they will see?** "Arrive faster", not "arrive as they happen": say the effect, not an absolute the next slow line disproves.
+- **Is it what they will see?** For a change in SPEED, "arrive faster", not "arrive as they happen": say the effect, not an absolute the next slow line disproves. A change in WHEN something updates, on the event rather than at the next capture, is "as they happen".
 
-Write what survives as what, then where. Group by tab, order by importance inside each group, and fold lines about one thing into one bullet — a column and its tooltip. Two short sentences read better than one long one. Where the release asks something of players, such as sharing data, ask it in the maintainer's own voice. A little whimsy is welcome.
+Write what survives tab first; a panel can come later. Group by tab, order by importance inside each group, and fold lines about one thing into one bullet — a column and its tooltip. Two short sentences read better than one long one. Where the release asks something of players, such as sharing data, ask it in the maintainer's own voice. A tiny sprinkle of whimsy at the top, and none in the entries.
 
 ## Verifying
 

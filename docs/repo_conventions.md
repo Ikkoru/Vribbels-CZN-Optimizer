@@ -33,7 +33,7 @@ Three documents, one audience, three depths. **The reader is a mobile or PC gach
 
 **Default to one line per change in all three.** Length is earned by a reader needing it, and most changes do not earn it. "Fixed fresh install UI being unfilled" is a complete entry.
 
-**User-facing terminology, engineer-facing grammar.** "User-facing" says whose WORDS: the game's and the player's, never the code's (`CLAUDE.md` § Naming). It says nothing about tone. The sentences are an engineer's: subject first, one verb, terse, with no friendly flourish and no warmth added for its own sake. "`Finished?` removed from Overclock events", not "Overclock events won't bother you with `Finished?` anymore". This is what "register" means wherever these documents and the skills use the word. The release notes' whimsy, below, is the one exception.
+**User-facing terminology, engineer-facing grammar.** "User-facing" says whose WORDS: the game's and the player's, never the code's (`CLAUDE.md` § Naming). It says nothing about tone. The sentences are an engineer's: subject first, one verb, terse, with no friendly flourish and no warmth added for its own sake. "`Finished?` removed from Overclock events", not "Overclock events won't bother you with `Finished?` anymore". This is what "register" means wherever these documents and the skills use the word. Two exceptions: a tiny sprinkle of whimsy at the top of the release notes, and emphasis that underlines an urgency the player must act on — the **grab them while you can!** in the example below.
 
 Written to be absorbed, not admired. These convey information, so fragments are fine wherever they stay understandable. Wordiness is how slowly an entry reads, not how many words it has. An entry that carries several things is broken into parts: a headline, the parts under it, and any steps as a bullet of their own. That holds even where the parts cost more words than the sentence did. This single sentence:
 
@@ -112,9 +112,9 @@ Two things override those cuts:
 - **An exception with no visible reason.** Where one case behaves unlike every comparable case and nothing on screen explains it, a player reads it as broken. Every shop's tooltip gives earning rates and the Seasonal Shop's gives estimates instead; that line stays. Apply this strictly — it is not a licence to keep anything that might confuse someone.
 - **A change that invites a wrong conclusion.** Say what it does NOT do. "A capture can be left running" plus "a new snapshot starts each relaunch" reads as "capture is automatic now", so the note adds that relaunching the program still needs the button.
 
-What survives is written as what, then where: *"Archive info and settings are in Setup & Settings → Settings."* Group by tab and order by importance within each; give a new tab one line saying what it is for. The header names one or two themes. `Added`, `Fixed` and `Changed` may end up empty.
+What survives is written tab first; a panel inside it can come later: *"Setup & Settings: archive info and settings are in the Settings panel."* Group by tab and order by importance within each; give a new tab one line saying what it is for. The header names one or two themes. `Added`, `Fixed` and `Changed` may end up empty.
 
-A little whimsy is welcome here and nowhere else.
+A tiny sprinkle of whimsy at the top is welcome, and nowhere else.
 
 ## Keeping the settings docs in step
 
