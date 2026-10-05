@@ -14,16 +14,16 @@ The shipped presets (`Vribbels/default_settings/presets.json`) weigh each substa
 
 A fragment is judged without knowing what the combatant wears now, so the build it is weighed against is a decently built one, the same for every account:
 
-| Part | Assumed | Why |
-| ---- | ------- | --- |
-| Level | 61 | Level 62 gains are unknown; `LEVEL_BONUS_BY_CLASS` |
-| Partner flat stats | Their class's 5★ partner (`PARTNER_CLASS_STATS`) | A weaker partner's smaller flat stat is a smaller base for a % roll to multiply, so it moves the flat-to-% ratio |
-| Partner passives | The combatant's signature partner: 5★ and 4.5★ at limit break 0, 4★ at their highest | Most 5★ combatants wear it; `SIGNATURE_PARTNERS` lists the rest, and a 4.5★ one keeps its passive |
-| Potential nodes 5 and 6 | Maxed | A built combatant has them |
-| Potential node 7 | Taken, whatever the account's own combatant has | Its growth is part of what a stat buys: Rin's ATK buys CRate |
-| Affection | The highest tier of `FRIENDSHIP_BONUSES` | Likewise |
-| Fragment stats | Their ARCHETYPE's average | Below |
-| Sets | Their own best build's, or the preset's named 4-piece | Below |
+| Part                    | Assumed                                                                              | Why                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Level                   | 61                                                                                   | Level 62 is difficult to achieve; `LEVEL_BONUS_BY_CLASS`                                                         |
+| Partner flat stats      | Their class's 5★ partner (`PARTNER_CLASS_STATS`)                                     | A weaker partner's smaller flat stat is a smaller base for a % roll to multiply, so it moves the flat-to-% ratio |
+| Partner passives        | The combatant's signature partner: 5★ and 4.5★ at limit break 0, 4★ at their highest | Most 5★ combatants wear it; `SIGNATURE_PARTNERS` lists the rest, and a 4.5★ one keeps its passive                |
+| Potential nodes 5 and 6 | Maxed                                                                                | A built combatant has them                                                                                       |
+| Potential node 7        | Taken, whatever the account's own combatant has                                      | Its growth is part of what a stat buys: Rin's ATK buys CRate                                                     |
+| Affection               | The highest tier of `FRIENDSHIP_BONUSES`                                             | Likewise                                                                                                         |
+| Fragment stats          | Their ARCHETYPE's average                                                            | Below                                                                                                            |
+| Sets                    | Their own best build's, or the preset's named 4-piece                                | Below                                                                                                            |
 
 **The archetype's average fragment stats** are the mean of the fragment stats of every archetype member's best Optimizer build: substats and main stats, no sets. The build is run on their own settings at level 61, with nothing excluded and the global minimum-level and off-element filters. It uses the Optimizer tab's candidate cut too, the top of each slot by the combatant's assigned preset, so the archetypes lean slightly on the presets being derived: a re-derivation after new presets are written can move them a little. `archetype()` groups by what the settings say a combatant does: ATK DPS, ATK DPS with Extra damage, ATK DPS with DoT, DEF DPS, healers dealing ATK damage, healers. The averages and each member's set bonuses are kept in `preset_weights_archetypes.json`, so the weights are reproducible without running the Optimizer. It holds stats only, never a fragment's id, since it is tracked.
 
