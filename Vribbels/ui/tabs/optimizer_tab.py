@@ -1595,16 +1595,11 @@ class OptimizerTab(BaseTab):
 
     def _update_p7_fill_buttons(self, hero_name):
         """Enable the fill buttons where there is something to fill,
-        and say where the score already prices it: `P7_AUTO_SUFFIX`. A
-        combatant the account does not have is optimized with node 7
-        at its full effect (`optimizer.UNOWNED_AFFINITY`), so its checks
-        need no minimum either."""
+        and say where the score already prices it: `P7_AUTO_SUFFIX`."""
         state = ("normal" if self._potential_7_values(hero_name, True)
                  else "disabled")
         res_id = self._resolve_res_id(hero_name) if hero_name else None
-        auto = res_id is not None and (
-            priced_in_full(res_id)
-            or hero_name not in self.optimizer.character_info)
+        auto = res_id is not None and priced_in_full(res_id)
         for button in self.p7_buttons.values():
             button.configure(state=state,
                              style=P7_AUTO_STYLE if auto else "TButton")
@@ -2176,6 +2171,8 @@ class OptimizerTab(BaseTab):
         combatant the game has is listed too: one not obtained is
         optimized with the partner, Potential and Affinity
         `optimizer.UNOWNED_AFFINITY` describes, at level 60 on Auto.
+        Its Potential 7 fill caption reads as an owned one's would: the
+        score works node 7 out from the build, as for anyone.
         """
         all_heroes = set(self.optimizer.characters.keys()) | set(
             self.optimizer.character_info.keys()

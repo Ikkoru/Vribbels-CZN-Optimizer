@@ -1,14 +1,15 @@
-"""A combatant the account does not have is optimized as one built the
-way `optimizer.UNOWNED_AFFINITY` and its neighbours describe.
+"""Where the account cannot say, a combatant is optimized with what
+`optimizer.UNOWNED_AFFINITY` and its neighbours assume.
 
 Nothing else would notice if it were not: the Optimizer still returns
-builds for such a combatant, just scored against a bare base -- no
-partner, Potential or Affinity -- which ranks its fragments as though
-flat stats were worth far more than they are. `docs/game_formulas.md`,
-§1, says what is assumed.
+builds, just scored against a bare base -- no partner, Potential or
+Affinity -- which ranks fragments as though flat stats were worth far
+more than they are. `docs/game_formulas.md`, §1, says what is assumed:
+for a combatant wearing no partner, the assumed partner; for one the
+account lacks, that partner, maxed stat nodes, node 7 and Affinity.
 
 A fresh `GearOptimizer` holds no account, so every combatant the game
-data has is one it does not have, and this needs no capture.
+data has is one it lacks, and this needs no capture.
 """
 
 from ._harness import add_source_to_path
@@ -18,8 +19,8 @@ NAME = "a combatant you lack is optimized as built"
 # The maintainer's figures, held here as well as in `optimizer.py` on
 # purpose: the assertions below read the constants, so without this a
 # changed constant would change what they expect along with it.
-SPEC = {"UNOWNED_AFFINITY": 20, "UNOWNED_PARTNER_LIMIT_BREAK": 0,
-        "UNOWNED_PARTNER_GRADE": 5}
+SPEC = {"UNOWNED_AFFINITY": 20, "ASSUMED_PARTNER_LIMIT_BREAK": 0,
+        "ASSUMED_PARTNER_GRADE": 5}
 
 
 def _class_passive_is_shared():
@@ -55,35 +56,62 @@ def _class_passive_is_shared():
         partners.PARTNERS.pop(-902, None)
     if not before:
         out.append(f"the {cls} 5-star partners share no passive at all, so "
-                   f"a combatant named by no SIGNATURE_PARTNERS entry gets "
-                   f"nothing from its assumed partner.")
+                   f"a combatant neither partner table names gets nothing "
+                   f"from its assumed partner.")
     return out
+
+
+def _exception_wins():
+    """`assumed_partner` takes `PARTNER_EXCEPTIONS`' partner over
+    `SIGNATURE_PARTNERS`'. Tried with an exception added for the
+    purpose, since the two tables may agree everywhere they overlap."""
+    from game_data import partners
+    name = next(n for n in sorted(partners.SIGNATURE_PARTNERS)
+                if n not in partners.PARTNER_EXCEPTIONS)
+    other = next(p["name"] for p in partners.PARTNERS.values()
+                 if isinstance(p, dict) and p.get("grade") == 5
+                 and p["name"] != partners.SIGNATURE_PARTNERS[name])
+    try:
+        partners.PARTNER_EXCEPTIONS[name] = other
+        got = partners.assumed_partner(name)[1]
+    finally:
+        partners.PARTNER_EXCEPTIONS.pop(name, None)
+    if not got or got.get("name") != other:
+        return [f"with PARTNER_EXCEPTIONS naming {other} for {name}, the "
+                f"assumed partner is "
+                f"{got.get('name') if got else None}: an exception is the "
+                f"pairing to assume over the combatant's own."]
+    return []
 
 
 def run():
     add_source_to_path()
     from optimizer import core, optimizer as mod
-    from game_data import CHARACTERS, get_friendship_bonus
+    from models import CharacterInfo
+    from game_data import CHARACTERS, get_friendship_bonus, partners
     from game_data.characters import POTENTIAL_NODES, get_potential_stat_bonus
     from game_data.constants import PARTNER_EXP_TABLE
-    from game_data.partners import (
-        SIGNATURE_PARTNERS, class_partner_passive, get_partner_passive_stats,
-        get_partner_stats, signature_partner)
     from game_data.potential_7 import get_potential_7
 
     opt = mod.GearOptimizer()
     names = {data["name"]: rid for rid, data in CHARACTERS.items()
              if isinstance(data, dict) and data.get("name")}
     cap = PARTNER_EXP_TABLE[-1][1]
+    lb = mod.ASSUMED_PARTNER_LIMIT_BREAK
     top = {node.wire: node.max_level for node in POTENTIAL_NODES}
     keys = [key for _stat, key in mod.PARTNER_STAT_KEYS]
     out = [f"optimizer.{name} is {getattr(mod, name)!r}; the maintainer "
            f"asked for {want!r}." for name, want in SPEC.items()
            if getattr(mod, name) != want]
     out.extend(_class_passive_is_shared())
+    out.extend(_exception_wins())
 
-    def static(name):
-        return opt._build_char_static(name, 60)
+    unnamed = sorted(set(names) - set(partners.SIGNATURE_PARTNERS))
+    if unnamed:
+        out.append(f"SIGNATURE_PARTNERS has no entry for {unnamed}: they "
+                   f"fall back to their class's shared passive, which is "
+                   f"for a program not yet updated. Add each one's own "
+                   f"partner in game_data/partners.py.")
 
     def passive_of(cs, suffix=""):
         return {key: cs["partner_" + key + suffix] for key in keys}
@@ -91,45 +119,77 @@ def run():
     def as_keys(stats):
         return {key: stats.get(stat, 0) for stat, key in mod.PARTNER_STAT_KEYS}
 
-    for name in sorted(SIGNATURE_PARTNERS):
-        if signature_partner(name)[0] is None:
-            out.append(f"SIGNATURE_PARTNERS names {SIGNATURE_PARTNERS[name]!r} "
-                       f"for {name}, which partners.py does not have: "
-                       f"{name} falls back to the class's shared passive.")
+    def partner_of(cs):
+        return (cs["partner_flat_atk"], cs["partner_flat_def"],
+                cs["partner_flat_hp"], passive_of(cs), passive_of(cs, "_cond"))
 
-    named = next((n for n in sorted(SIGNATURE_PARTNERS) if n in names), None)
-    if named is not None:
-        cs = static(named)
-        pid, _partner = signature_partner(named)
-        lb = mod.UNOWNED_PARTNER_LIMIT_BREAK
-        flats = get_partner_stats(pid, cap)
-        got = (cs["partner_flat_atk"], cs["partner_flat_def"],
-               cs["partner_flat_hp"], passive_of(cs), passive_of(cs, "_cond"))
-        want = (flats["atk"], flats["def"], flats["hp"],
-                as_keys(get_partner_passive_stats(pid, lb)),
-                as_keys(get_partner_passive_stats(pid, lb, conditional=True)))
+    def assumed_for(name):
+        pid, _partner = partners.assumed_partner(name)
+        flats = partners.get_partner_stats(pid, cap)
+        return (flats["atk"], flats["def"], flats["hp"],
+                as_keys(partners.get_partner_passive_stats(pid, lb)),
+                as_keys(partners.get_partner_passive_stats(
+                    pid, lb, conditional=True)))
+
+    # Lacked: one an exception names, one only its own entry names.
+    for pick in (next((n for n in sorted(partners.PARTNER_EXCEPTIONS)
+                       if n in names), None),
+                 next((n for n in sorted(partners.SIGNATURE_PARTNERS)
+                       if n in names
+                       and n not in partners.PARTNER_EXCEPTIONS), None)):
+        if pick is None:
+            continue
+        got, want = partner_of(opt._build_char_static(pick, 60)), \
+            assumed_for(pick)
         if got != want:
-            out.append(f"{named}, not owned, carries partner flats and "
-                       f"passive {got}, not {SIGNATURE_PARTNERS[named]}'s at "
+            out.append(f"{pick}, not owned, carries partner flats and "
+                       f"passive {got}, not "
+                       f"{partners.assumed_partner(pick)[1]['name']}'s at "
                        f"level {cap} and limit break {lb}: {want}. See "
-                       f"`GearOptimizer._assume_unowned`.")
+                       f"`GearOptimizer._assume_partner`.")
 
-    plain = next((n for n in sorted(names) if n not in SIGNATURE_PARTNERS),
-                 None)
-    if plain is not None:
-        cs = static(plain)
-        cls = CHARACTERS[names[plain]].get("class")
-        shared = as_keys(class_partner_passive(cls))
-        if (passive_of(cs) != shared or any(passive_of(cs, "_cond").values())
-                or not any(shared.values()) or not cs["partner_flat_hp"]):
-            out.append(f"{plain}, not owned and named by no "
-                       f"SIGNATURE_PARTNERS entry, carries passive "
-                       f"{passive_of(cs)} and conditional "
-                       f"{passive_of(cs, '_cond')}, not the {cls} 5-star "
-                       f"partners' shared {shared} and nothing conditional.")
+    # Owned, wearing no partner: the same assumption, and nothing else
+    # of the account's own replaced.
+    owned = sorted(names)[0]
+    opt.character_info[owned] = CharacterInfo(
+        res_id=names[owned], name=owned, friendship_bonus=(1, 2, 3))
+    try:
+        cs = opt._build_char_static(owned, 60)
+    finally:
+        opt.character_info.pop(owned)
+    if partner_of(cs) != assumed_for(owned) or (
+            cs["affection_atk"], cs["affection_def"],
+            cs["affection_hp"]) != (1, 2, 3) or cs["pot_atk_pct"] \
+            or cs["pot_def_pct"] or cs["pot_hp_pct"] or cs["potential_7"]:
+        out.append(f"{owned}, owned and wearing no partner, carries "
+                   f"partner {partner_of(cs)} and Affinity "
+                   f"{(cs['affection_atk'], cs['affection_def'], cs['affection_hp'])}"
+                   f": the assumed partner, {assumed_for(owned)}, with the "
+                   f"account's own Affinity (1, 2, 3) and no Potential.")
+
+    # Named by neither table: the class's 5-star flats and shared passive.
+    plain = sorted(names)[-1]
+    saved = (partners.SIGNATURE_PARTNERS.pop(plain, None),
+             partners.PARTNER_EXCEPTIONS.pop(plain, None))
+    try:
+        cs = opt._build_char_static(plain, 60)
+    finally:
+        for table, value in zip((partners.SIGNATURE_PARTNERS,
+                                 partners.PARTNER_EXCEPTIONS), saved):
+            if value is not None:
+                table[plain] = value
+    cls = CHARACTERS[names[plain]].get("class")
+    shared = as_keys(partners.class_partner_passive(cls))
+    flats = partners.class_partner_stats(cls, mod.ASSUMED_PARTNER_GRADE, cap)
+    if partner_of(cs) != (flats["atk"], flats["def"], flats["hp"], shared,
+                          as_keys({})):
+        out.append(f"{plain}, named by neither partner table, carries "
+                   f"{partner_of(cs)}, not the {cls} 5-star partners' "
+                   f"flats {flats} and shared passive {shared}, with "
+                   f"nothing conditional.")
 
     for name, rid in sorted(names.items()):
-        cs = static(name)
+        cs = opt._build_char_static(name, 60)
         if (cs["affection_atk"], cs["affection_def"], cs["affection_hp"]) \
                 != tuple(get_friendship_bonus(mod.UNOWNED_AFFINITY)):
             out.append(f"{name}, not owned, has Affinity bonus "
@@ -149,24 +209,12 @@ def run():
                        f"{ {k: cs[k] for k in pots.values()} }, not at their "
                        f"maximum: {nodes}.")
             break
-
-    # Node 7 at its full effect: no check, growth at the cap. Read on a
-    # combatant whose node 7 grows, which is where the two can differ.
-    growing = next((n for n, rid in sorted(names.items())
-                    if any(e.get("per") for e in get_potential_7(rid))), None)
-    if growing is not None:
-        effects = core.potential_7_effects(get_potential_7(names[growing]))
-        want = tuple((g, v + (most if per else 0), (), None, None, None)
-                     for g, v, _c, per, _a, most in effects)
-        got = static(growing)["potential_7"]
-        if got != want:
-            out.append(f"{growing}, not owned, has node 7 as {got}, not at "
-                       f"its full effect {want}: every check passed and "
-                       f"its growth at the cap (`core.potential_7_full`).")
-        check = core.potential_7_check(0, 0, 0, 0, 0, 0, 0, 0)
-        full = core.potential_7_bonus(got, check)
-        if not full or any(v <= 0 for v in full.values()):
-            out.append(f"{growing}, not owned, gets {full} from node 7 on a "
-                       f"build with no stats at all: its node 7 must not "
-                       f"wait for a check.")
+        # Node 7 taken, and left to the build as for anyone: the score
+        # works out its check and growth.
+        want = core.potential_7_effects(get_potential_7(rid))
+        if cs["potential_7"] != want:
+            out.append(f"{name}, not owned, has node 7 as "
+                       f"{cs['potential_7']}, not taken as the score works "
+                       f"it out: {want}.")
+            break
     return out

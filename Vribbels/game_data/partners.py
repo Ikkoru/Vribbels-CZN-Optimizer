@@ -1167,16 +1167,36 @@ def get_partner_passive_stats(res_id: int, limit_break: int,
     return stats
 
 
-# The partner each combatant is assumed to wear where the account cannot
-# say: combatant name -> partner name. The Optimizer assumes it for a
-# combatant the account does not have (`GearOptimizer._build_char_static`),
-# and the default Gear Score presets' reference build takes it over the
-# partner the maintainer's own combatant wears (`docs/preset_weights.py`).
-# A combatant missing here falls back to `class_partner_passive`.
+# Each combatant's own partner: combatant name -> partner name, the one
+# released beside it where it had a banner. EVERY combatant has an
+# entry -- `checks/check_unowned_combatants.py` fails on a missing one --
+# and `class_partner_passive` stands in only for a combatant released
+# after the program was last updated.
 #
-# The launch-time data check requires every key to name a combatant and
-# every value a partner, so a misspelling cannot quietly drop one.
+# ADD A NEWLY-RELEASED COMBATANT HERE. The launch-time data check
+# requires every key to name a combatant and every value a partner, in
+# this table and the next, so a misspelling cannot quietly drop one.
 SIGNATURE_PARTNERS = {
+    "Adelheid": "Clara", "Amir": "Eishlen", "Anika": "Douglas",
+    "Arabella": "Licinia", "Beryl": "Solia", "Cassius": "Nyx",
+    "Chizuru": "Itsuku", "Diana": "Sophia", "Fei": "Ruixiang",
+    "Haru": "Scarlet", "Heidemarie": "Sylvia", "Hilde": "Eunie",
+    "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta",
+    "Lucas": "Serithea", "Luke": "Janet", "Magna": "Erica",
+    "Maribell": "Eishlen", "Mei Lin": "Scarlet", "Mika": "Nyx",
+    "Narja": "Gaya", "Nia": "Nyx", "Nine": "Alcea", "Olga": "Emilie",
+    "Orlea": "Noel", "Owen": "Priscilla", "Rei": "Nyx", "Renoa": "Janet",
+    "Rin": "Scarlet", "Rita": "Ivy", "Selena": "Marin",
+    "Sereniel": "Peko", "Tenebria": "Aria", "Tiphera": "Tiana",
+    "Tressa": "Bria", "Veronica": "Marin", "Yuki": "Westmacott",
+}
+
+# The partner to assume for a combatant where it is not its own
+# (`SIGNATURE_PARTNERS`): combatant name -> partner name. Assumed
+# wherever the account cannot say -- a combatant the account lacks or
+# wears no partner on (`GearOptimizer._build_char_static`), and the
+# default Gear Score presets' reference build (`docs/preset_weights.py`).
+PARTNER_EXCEPTIONS = {
     "Amir": "Eishlen", "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta",
     "Lucas": "Serithea", "Luke": "Janet", "Magna": "Erica",
     "Maribell": "Eishlen", "Mei Lin": "Scarlet", "Nine": "Alcea",
@@ -1186,10 +1206,11 @@ SIGNATURE_PARTNERS = {
 }
 
 
-def signature_partner(name: str) -> tuple:
-    """(res_id, data) of the partner `SIGNATURE_PARTNERS` names for the
-    combatant `name`, or (None, None) where it names none."""
-    wanted = SIGNATURE_PARTNERS.get(name)
+def assumed_partner(name: str) -> tuple:
+    """(res_id, data) of the partner to assume for the combatant `name`:
+    `PARTNER_EXCEPTIONS`' where it names one, else `SIGNATURE_PARTNERS`',
+    else (None, None)."""
+    wanted = PARTNER_EXCEPTIONS.get(name) or SIGNATURE_PARTNERS.get(name)
     for res_id, partner in PARTNERS.items():
         if wanted and isinstance(partner, dict) \
                 and partner.get("name") == wanted:

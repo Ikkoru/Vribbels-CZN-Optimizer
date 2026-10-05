@@ -18,7 +18,7 @@ A fragment is judged without knowing what the combatant wears now, so the build 
 | ----------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | Level                   | 61                                                                                   | Level 62 is difficult to achieve; `LEVEL_BONUS_BY_CLASS`                                                         |
 | Partner flat stats      | Their class's 5★ partner (`PARTNER_CLASS_STATS`)                                     | A weaker partner's smaller flat stat is a smaller base for a % roll to multiply, so it moves the flat-to-% ratio |
-| Partner passives        | The combatant's signature partner: 5★ and 4.5★ at limit break 0, 4★ at their highest | Most 5★ combatants wear it; `SIGNATURE_PARTNERS` lists the rest, and a 4.5★ one keeps its passive                |
+| Partner passives        | The assumed partner: 5★ and 4.5★ at limit break 0, 4★ at their highest               | `PARTNER_EXCEPTIONS`' where it names one, else `SIGNATURE_PARTNERS`'; a 4.5★ one keeps its passive             |
 | Potential nodes 5 and 6 | Maxed                                                                                | A built combatant has them                                                                                       |
 | Potential node 7        | Taken, whatever the account's own combatant has                                      | Its growth is part of what a stat buys: Rin's ATK buys CRate                                                     |
 | Affection               | The highest tier of `FRIENDSHIP_BONUSES`                                             | Likewise                                                                                                         |
@@ -51,7 +51,7 @@ The report prints each preset's current and derived weights with the reference b
 ## Keeping it in step
 
 - **It runs on the program's own code**: `compute_build_stats`, `compute_score_components`, `optimize`, the partner, potential and level helpers. A change to the formulas, a new stat in `STATS`, new set values reach the weights with nothing to update here. `checks/check_preset_weights.py` derives every preset from the stored archetypes on each run, so a refactor that breaks the tool fails there.
-- **A new combatant** needs Optimizer settings and an assigned preset. A signature partner other than the one equipped goes in `SIGNATURE_PARTNERS` (`game_data/partners.py`), which is also the partner the Optimizer assumes for a combatant a player does not have. A preset with its own assumption goes in `VARIANTS`.
+- **A new combatant** needs Optimizer settings and an assigned preset. Its own partner goes in `SIGNATURE_PARTNERS` (`game_data/partners.py`), and a different one to assume in `PARTNER_EXCEPTIONS`; the Optimizer assumes the same one for a combatant a player lacks or has no partner on. A preset with its own assumption goes in `VARIANTS`.
 - **A new kind of combatant** — one `archetype()` does not describe — gets its own group, or borrows a neighbour's averages until it has members.
 
 ## Outside the model

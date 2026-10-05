@@ -43,11 +43,11 @@ Final_CDmg  = Base_CDmg + Sum(CDmg_contributions)    # base default = 125
 | **Equipment_X**     | Constant: a level-5 Legendary piece per slot (`EQUIPMENT_*` in `optimizer.py`). In game, the saved deck's in regular modes and what the run finds in Chaos and Sortie |
 | **Set bonuses**     | See §5 — three different landing places depending on `type` and `stat`              |
 
-**A combatant the account does not have** has none of the account-held sources, so the Optimizer assumes them (`_assume_unowned` in `optimizer.py`, figures beside `UNOWNED_AFFINITY`):
+**Where the account cannot say, the Optimizer assumes** (`_assume_unowned` and `_assume_partner` in `optimizer.py`, figures beside `UNOWNED_AFFINITY`):
 
-- **Partner**: the one `SIGNATURE_PARTNERS` names, at the level cap and limit break 0. A combatant it does not name gets its class's 5★ flat stats and the passive every 5★ partner of that class shares (`class_partner_passive`), without any one partner's extras.
-- **Potential**: nodes 50 and 60 at their maximum; node 7 at its full effect, its check taken as passed and its growth at the cap (`core.potential_7_full`).
-- **Affinity**: `UNOWNED_AFFINITY`.
+- **Partner**, for a combatant wearing none or one the account lacks: `assumed_partner` -- `PARTNER_EXCEPTIONS`' where it names one, else `SIGNATURE_PARTNERS`' -- at the level cap and limit break 0. A combatant neither table names gets its class's 5★ flat stats and the passive every 5★ partner of that class shares (`class_partner_passive`), without any one partner's extras.
+- **Potential**, for a combatant the account lacks: nodes 50 and 60 at their maximum, and node 7 taken, worked out from the build as for anyone.
+- **Affinity**, likewise: `UNOWNED_AFFINITY`.
 
 ### Against the server's sheet
 
