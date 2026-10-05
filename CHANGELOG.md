@@ -72,7 +72,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Fixed
 
 - **Checklist:**
-  - Simulation Challenges counts the runs done since the last login, Galactic Disaster – Chaos the score a Chaos run just added, and Sortie Currency shows the real amount after the weekly top-up instead of a `~` guess.
+  - ~~Simulation Challenges counts the runs done since the last login~~, Galactic Disaster – Chaos the score a Chaos run just added, and Sortie Currency shows the real amount after the weekly top-up instead of a `~` guess.
   - The Seasonal Accumulated Score and Galactic Disaster – Chaos read their threshold once past it, without a `+`.
   - In the weeks between two Galactic Disaster seasons, the Seasonal Shop stays shut and says when it opens, its column keeping its width, and Galactic Disaster – Chaos and the Seasonal Accumulated Score read `Not open`.
   - Arkhianon Supply reads a new pass from its first day, instead of the last one's 70/70 until something is claimed.
