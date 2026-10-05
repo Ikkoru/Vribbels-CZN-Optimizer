@@ -109,6 +109,33 @@ items are removed; parked ones live in TBD at the bottom. Conventions:
 
 ## TBD (parked — ignore for now)
 
+### Documentation Improvement
+
+- `ui_spacing.md`:
+
+  > In general, what do you think should be done about the rule names and the rules? They were originally designed to standardize distances between typical element pairs across the program and for the spacing audit to use them, so that:
+  >
+  > - I didn't have to measure something to remember what the distance is supposed to be;
+  > - I didn't have to manually go through the program checking distances at each UI change;
+  > - Same types of things would look the same across the program;
+  > - You had a clear way of telling what distances should be like when making a new UI element or tab, and a way to tell when something was off;
+  > - Creating a document that explained how distances are created, and what limitations exist.
+  >   However, from a practical standpoint visual clarity is a higher priority than standardization (although a standard is still important from both a user experience and a maintenance & development perspectives).
+
+  **On the rules in general**
+
+  Most of your goals are met: the audit checks distances for you, the markers and registry tell me what a distance should be and when it's off, and `ui_spacing.md` explains how distances are made and their limits. Two goals fall short: remembering a distance without measuring, and making things of the same type look the same. The cause is that rules are named and split by **widget pair**, not by **relationship**. That's why the names needed "element and its label" when they're neither, and why the note could plausibly have been `label ↔ its element` (5) or `heading ↔ element` (14).
+
+  What I'd do:
+
+  1. **Group the rules into a few levels of relatedness on each axis.** Horizontally: within one control (5), between items of one set (8), between groups (14 and 16 merged into one number), and panel edges (3–4). Vertically, the same idea: rows of a set, a block to its buttons or explanation, then unrelated blocks. Today there are about 20 rules on 11 distances, several only 1px apart (4/5/6/7). The eye doesn't read 1px as a different relationship, so those splits make numbers harder to remember without making anything clearer.
+  2. **Name rules by relationship.** The marker suffix already names the widgets (`checkbox, label ↔`), so the rule name doesn't need to.
+  3. **Put a four-question procedure at the top of `ui_spacing.md`:** one control? items of one set? separate groups in a panel? separate panels? That lets either of us pick a rule without reading a 20-row table.
+  4. **Keep clarity ahead of the standard with the existing `exception` markers.** Where a level's number looks wrong for one widget (spinbox borders read as ink, for example), the exception records it. The standard is the default, not a rule that can't bend.
+  5. **Do it in two passes.** First a scripted rename that moves no pixels; the checks catch anything missed. Then merge the numbers one level at a time, each with an audit run and your eye on the result.
+
+  I can draft a `plan.md` that maps every current rule to a level and lists the pixel change each merge would cause, for you to decide on.
+
 ### Improvements
 
 - **T21 — Tcl/Tk 9.1, once a Python ships it.** The program runs on the Tcl/Tk its Python bundles (9.0 with Python 3.14), and `_tkinter` is built against that version's DLLs, so 9.1 arrives only with a Python release built on it. What 9.1 offers that could matter here: consistent dark mode on Windows, which may darken the native dialogs and message boxes; the mouse wheel scrolling an entry; extended Treeview and Notebook states; faster image painting in ttk widgets. When one ships: `Vribbels/build_tcl/prepare_tcl_data.py`'s `libtcl9*` globs already match a 9.1 library, and `checks/run_all.py` at both scales is the first test.
@@ -159,7 +186,6 @@ items are removed; parked ones live in TBD at the bottom. Conventions:
 
 ### Pondering
 
-- What to do with the HAL gap.
 - Should anything be added to the program from here:
 
 | Where                                       | What                                                                                                                                                                                                                          |
