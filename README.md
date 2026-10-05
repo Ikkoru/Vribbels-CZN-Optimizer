@@ -56,7 +56,7 @@ Bug reports, character and partner data corrections, and feature ideas are all w
 
 Nothing leaves your machine except:
 
-- An request to GitHub when you press the `Check now` button to check for updates.
+- A request to GitHub when you press the `Check now` button to check for updates.
 
 - Pressing the `Export Facts` button opens the GitHub Issues webpage, and asks you to upload the file it makes to it. None of your personal data is included.
 

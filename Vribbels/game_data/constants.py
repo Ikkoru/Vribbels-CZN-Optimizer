@@ -705,7 +705,7 @@ RARITY_PLATES = {
 
 # What a TIER word is worth as a rarity. Every shaped table states a
 # tier in its second field, so a stone, a manual and a battle memory of
-# the same tier plate alike and none of the 57 rows has to say so.
+# the same tier plate alike and none of those rows has to say so.
 #
 # Uncommon is absent deliberately: no item in these tables is one.
 TIER_RARITY = {
@@ -782,7 +782,7 @@ def item_art(res_id):
     shaped row carries a TIER, and `TIER_RARITY` prices every tier
     word; a named row carries a NAME, and `NAME_RARITY` prices those.
     So adding a rarity to a table is adding a word to one of those two
-    rather than editing 61 rows, and a row that does state one wins
+    rather than editing every row, and a row that does state one wins
     over both.
     """
     for table in ITEM_TABLES:

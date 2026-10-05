@@ -646,7 +646,7 @@ def _panel_edge_inset(title, side):
 
     Deliberately NOT used for the left insets that were already
     registered. Those read against `first_child` and are frozen on
-    target; swapping their resolver would move 20 rows to prove a point
+    target; swapping their resolver would move all of them to prove a point
     about tidiness.
     """
     def resolve(cap, app):
@@ -5101,10 +5101,7 @@ ORDER_MODE_ENTRIES = [
 # screen, and comes out again the moment a run confirms it -- so a row
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
-AWAITING_FIRST_READING = {
-    "Order Mode names",
-    "Order Mode names [unjustified]",
-}
+AWAITING_FIRST_READING = set()
 
 # Entries whose target is a FLOOR (`TrackedGap.minimum`): the gap varies
 # by construction and only its least is a lever. Each one's call site
