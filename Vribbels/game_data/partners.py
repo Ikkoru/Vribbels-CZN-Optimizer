@@ -1167,6 +1167,76 @@ def get_partner_passive_stats(res_id: int, limit_break: int,
     return stats
 
 
+# The partner each combatant is assumed to wear where the account cannot
+# say: combatant name -> partner name. The Optimizer assumes it for a
+# combatant the account does not have (`GearOptimizer._build_char_static`),
+# and the default Gear Score presets' reference build takes it over the
+# partner the maintainer's own combatant wears (`docs/preset_weights.py`).
+# A combatant missing here falls back to `class_partner_passive`.
+#
+# The launch-time data check requires every key to name a combatant and
+# every value a partner, so a misspelling cannot quietly drop one.
+SIGNATURE_PARTNERS = {
+    "Amir": "Eishlen", "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta",
+    "Lucas": "Serithea", "Luke": "Janet", "Magna": "Erica",
+    "Maribell": "Eishlen", "Mei Lin": "Scarlet", "Nine": "Alcea",
+    "Orlea": "Noel", "Owen": "Priscilla", "Renoa": "Janet", "Rin": "Scarlet",
+    "Selena": "Marin", "Tressa": "Bria", "Veronica": "Marin",
+    "Yuki": "Westmacott",
+}
+
+
+def signature_partner(name: str) -> tuple:
+    """(res_id, data) of the partner `SIGNATURE_PARTNERS` names for the
+    combatant `name`, or (None, None) where it names none."""
+    wanted = SIGNATURE_PARTNERS.get(name)
+    for res_id, partner in PARTNERS.items():
+        if wanted and isinstance(partner, dict) \
+                and partner.get("name") == wanted:
+            return res_id, partner
+    return None, None
+
+
+def class_partner_passive(partner_class: str, grade=5,
+                          limit_break: int = 0) -> dict:
+    """The passive every `grade`-star partner of `partner_class` shares,
+    at `limit_break`: each unconditional stat all of them carry at the
+    same value. A partner's own extras -- its conditional effects, a
+    stat only some carry -- are left out. Empty where the class has no
+    partner of that grade.
+
+    At 5 stars it comes to ATK% or DEF% by class. Derived rather than
+    written down, so a new partner that breaks the pattern narrows it
+    instead of being contradicted by it."""
+    shared = None
+    for partner in PARTNERS.values():
+        if not isinstance(partner, dict) or (
+                partner.get("grade"), partner.get("class")) != (
+                grade, partner_class):
+            continue
+        stats = {stat: get_value_for_ego_level(values, limit_break)
+                 for stat, values in (partner.get("stats") or {}).items()}
+        shared = stats if shared is None else {
+            stat: value for stat, value in shared.items()
+            if stats.get(stat) == value}
+    return shared or {}
+
+
+def class_partner_stats(partner_class: str, grade, level: int) -> dict:
+    """ATK / DEF / HP of a `grade`-star `partner_class` partner at
+    `level`, which every such partner shares: `get_partner_stats` for
+    one of them, else the table's linear figure."""
+    res_id = next((rid for rid, partner in sorted(PARTNERS.items())
+                   if isinstance(partner, dict)
+                   and (partner.get("grade"), partner.get("class"))
+                   == (grade, partner_class)), None)
+    if res_id is not None:
+        return get_partner_stats(res_id, level)
+    base = PARTNER_CLASS_STATS.get((grade, partner_class),
+                                   {"atk": 0, "def": 0, "hp": 0})
+    return {stat: int(value * level / 60.0) for stat, value in base.items()}
+
+
 def format_passive_description(res_id: int, limit_break: int) -> str:
     """Format the passive description with values based on limit_break."""
     partner = get_partner(res_id)

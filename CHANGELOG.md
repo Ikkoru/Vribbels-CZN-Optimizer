@@ -20,7 +20,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Changed
 
 - **Optimizer:**
-  - The Combatants tab's `Show missing characters` allows selecting combatants you don't have. Optimization assumes no partner, Potential or Affinity.
+  - The Combatants tab's `Show missing characters` allows selecting combatants you don't have. Optimization assumes 5★ partner, max Potential, 20 Affinity.
   - `Fill in Potential 7 values:` reads `Auto`, with both buttons struck through, for a combatant whose Potential 7 the score already counts. The buttons still work.
   - Selected Build shows the selected combatant's own Memory Fragments in green.
   - Stats Comparison: Crit% and CDMG% switch between their values without and with conditional set effects, marked `*` while the effects are in, in both columns alike.

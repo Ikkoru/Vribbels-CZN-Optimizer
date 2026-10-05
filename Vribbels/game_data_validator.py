@@ -575,6 +575,23 @@ def _check_partners(problems: list[str]) -> None:
 
     problems.extend(rep.problems)
 
+    # A name either side that matches nothing makes the combatant fall
+    # back to its class's shared passive, with nothing visibly wrong.
+    from game_data import CHARACTERS_BY_NAME
+    from game_data.partners import SIGNATURE_PARTNERS
+    rep = _Reporter("partners.py",
+                    _line_map("partners.py", "SIGNATURE_PARTNERS"))
+    for combatant, partner in SIGNATURE_PARTNERS.items():
+        if combatant not in CHARACTERS_BY_NAME:
+            rep.add(combatant, combatant,
+                    "SIGNATURE_PARTNERS names a combatant characters.py "
+                    "does not have")
+        if partner not in names:
+            rep.add(combatant, combatant,
+                    f"SIGNATURE_PARTNERS names partner '{partner}', which "
+                    f"PARTNERS does not have")
+    problems.extend(rep.problems)
+
 
 def _check_sets(problems: list[str]) -> None:
     from game_data import (SETS, SET_STAT_NAME_MAP, SET_CARD_MULT_STATS,

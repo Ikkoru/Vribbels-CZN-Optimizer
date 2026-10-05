@@ -66,7 +66,11 @@ from game_data import (
 )
 # Direct module-path import to avoid relying on game_data/__init__.py
 # re-exporting it.
-from game_data.characters import get_character_stats_at_level
+from game_data.characters import (CHARACTERS, POTENTIAL_NODES,
+                                  get_character_stats_at_level)
+from game_data.constants import PARTNER_EXP_TABLE
+from game_data.partners import (class_partner_passive, class_partner_stats,
+                                signature_partner)
 from game_data.potential_7 import get_potential_7
 # Pure GS helper for per-character slot pre-filter sorting. optimize()
 # resolves the character's assigned preset weights into the settings
@@ -95,6 +99,23 @@ from optimizer import parallel
 SLOT5_ELEMENT_MAINS = frozenset(
     s for s in SLOT_MAIN_STATS[5] if s.endswith(" DMG%")
 )
+
+# A partner passive's stats, by their key in the char-static dict.
+PARTNER_STAT_KEYS = (
+    ("ATK%", "atk_pct"), ("DEF%", "def_pct"), ("HP%", "hp_pct"),
+    ("CDmg", "cdmg"), ("Extra DMG%", "extra_dmg"), ("CRate", "crate"),
+    ("DoT%", "dot"), ("Ego", "ego"),
+)
+
+# A combatant the account does not have -- listed when the Combatants
+# tab's `Show missing characters` is on -- is optimized as one built
+# this far: its signature partner (`SIGNATURE_PARTNERS`) at the level
+# cap and limit break 0, else its class's 5-star flat stats with the
+# passive every such partner shares; Potential nodes 5 and 6 at their
+# maximum and node 7 at its full effect; and this Affinity.
+UNOWNED_AFFINITY = 20
+UNOWNED_PARTNER_LIMIT_BREAK = 0
+UNOWNED_PARTNER_GRADE = 5
 
 
 class GearOptimizer:
@@ -547,64 +568,98 @@ class GearOptimizer:
             )
 
             if char_info.partner_res_id:
-                partner_stats = get_partner_stats(
-                    char_info.partner_res_id, char_info.partner_level
-                )
-                cs["partner_flat_atk"] = partner_stats["atk"]
-                cs["partner_flat_def"] = partner_stats["def"]
-                cs["partner_flat_hp"] = partner_stats["hp"]
+                self._apply_partner(
+                    cs,
+                    get_partner_stats(char_info.partner_res_id,
+                                      char_info.partner_level),
+                    get_partner_passive_stats(
+                        char_info.partner_res_id,
+                        char_info.partner_limit_break),
+                    get_partner_passive_stats(
+                        char_info.partner_res_id,
+                        char_info.partner_limit_break, conditional=True))
 
-                partner_passive = get_partner_passive_stats(
-                    char_info.partner_res_id, char_info.partner_limit_break
-                )
-                cs["partner_atk_pct"] = partner_passive.get("ATK%", 0)
-                cs["partner_def_pct"] = partner_passive.get("DEF%", 0)
-                cs["partner_hp_pct"] = partner_passive.get("HP%", 0)
-                cs["partner_cdmg"] = partner_passive.get("CDmg", 0)
-                cs["partner_extra_dmg"] = partner_passive.get("Extra DMG%", 0)
-                cs["partner_crate"] = partner_passive.get("CRate", 0)
-                cs["partner_dot"] = partner_passive.get("DoT%", 0)
-                cs["partner_ego"] = partner_passive.get("Ego", 0)
-
-                # Conditional partner effects ("stats_conditional"):
-                # scored at full encoded value, excluded from the
-                # Have-at-least comparison values (see core).
-                partner_cond = get_partner_passive_stats(
-                    char_info.partner_res_id, char_info.partner_limit_break,
-                    conditional=True,
-                )
-                cs["partner_atk_pct_cond"] = partner_cond.get("ATK%", 0)
-                cs["partner_def_pct_cond"] = partner_cond.get("DEF%", 0)
-                cs["partner_hp_pct_cond"] = partner_cond.get("HP%", 0)
-                cs["partner_crate_cond"] = partner_cond.get("CRate", 0)
-                cs["partner_cdmg_cond"] = partner_cond.get("CDmg", 0)
-                cs["partner_extra_dmg_cond"] = partner_cond.get("Extra DMG%", 0)
-                cs["partner_dot_cond"] = partner_cond.get("DoT%", 0)
-                cs["partner_ego_cond"] = partner_cond.get("Ego", 0)
-
-            potential_stats = {}  # Potential-node bonuses
-            if char_info.potential_50_level > 0:
-                stat_type, bonus = get_potential_stat_bonus(
-                    char_info.res_id, 50, char_info.potential_50_level
-                )
-                if stat_type:
-                    potential_stats[stat_type] = potential_stats.get(stat_type, 0) + bonus
-            if char_info.potential_60_level > 0:
-                stat_type, bonus = get_potential_stat_bonus(
-                    char_info.res_id, 60, char_info.potential_60_level
-                )
-                if stat_type:
-                    potential_stats[stat_type] = potential_stats.get(stat_type, 0) + bonus
-            cs["pot_atk_pct"] = potential_stats.get("ATK%", 0)
-            cs["pot_def_pct"] = potential_stats.get("DEF%", 0)
-            cs["pot_hp_pct"] = potential_stats.get("HP%", 0)
-            cs["pot_crate"] = potential_stats.get("CRate", 0)
-            cs["pot_cdmg"] = potential_stats.get("CDmg", 0)
-            if char_info.potential_nodes.get(70):
-                cs["potential_7"] = core.potential_7_effects(
-                    get_potential_7(char_info.res_id))
+            self._apply_potential(
+                cs, char_info.res_id,
+                ((50, char_info.potential_50_level),
+                 (60, char_info.potential_60_level)),
+                core.potential_7_effects(get_potential_7(char_info.res_id))
+                if char_info.potential_nodes.get(70) else ())
+        else:
+            self._assume_unowned(cs, char_name, char_data)
 
         return cs
+
+    @staticmethod
+    def _apply_partner(cs: dict, flats: dict, passive: dict,
+                       conditional: dict) -> None:
+        """A partner's flat stats and passive into `cs`. The conditional
+        effects ("stats_conditional") are scored at their full encoded
+        value and kept out of the Have-at-least comparison values (see
+        core)."""
+        cs["partner_flat_atk"] = flats["atk"]
+        cs["partner_flat_def"] = flats["def"]
+        cs["partner_flat_hp"] = flats["hp"]
+        for stat, key in PARTNER_STAT_KEYS:
+            cs["partner_" + key] = passive.get(stat, 0)
+            cs["partner_" + key + "_cond"] = conditional.get(stat, 0)
+
+    @staticmethod
+    def _apply_potential(cs: dict, res_id, levels, potential_7) -> None:
+        """Nodes 5 and 6 at `levels`, ((wire node, level), ...), and node
+        7's priced effects, into `cs`."""
+        potential_stats = {}
+        for node, level in levels:
+            if level > 0:
+                stat_type, bonus = get_potential_stat_bonus(res_id, node,
+                                                            level)
+                if stat_type:
+                    potential_stats[stat_type] = (
+                        potential_stats.get(stat_type, 0) + bonus)
+        cs["pot_atk_pct"] = potential_stats.get("ATK%", 0)
+        cs["pot_def_pct"] = potential_stats.get("DEF%", 0)
+        cs["pot_hp_pct"] = potential_stats.get("HP%", 0)
+        cs["pot_crate"] = potential_stats.get("CRate", 0)
+        cs["pot_cdmg"] = potential_stats.get("CDmg", 0)
+        if potential_7:
+            cs["potential_7"] = potential_7
+
+    def _assume_unowned(self, cs: dict, char_name: str,
+                        char_data: dict) -> None:
+        """The setup `UNOWNED_AFFINITY` and its neighbours describe, into
+        `cs`, for a combatant the account does not have. A name the game
+        data does not hold either gets nothing: there is no class or
+        res_id to assume from."""
+        res_id = next((rid for rid, data in CHARACTERS.items()
+                       if isinstance(data, dict)
+                       and data.get("name") == char_name), None)
+        if res_id is None:
+            return
+        cs["affection_atk"], cs["affection_def"], cs["affection_hp"] = (
+            get_friendship_bonus(UNOWNED_AFFINITY))
+        level = PARTNER_EXP_TABLE[-1][1]
+        partner_id, partner = signature_partner(char_name)
+        if partner_id is not None:
+            self._apply_partner(
+                cs, get_partner_stats(partner_id, level),
+                get_partner_passive_stats(partner_id,
+                                          UNOWNED_PARTNER_LIMIT_BREAK),
+                get_partner_passive_stats(partner_id,
+                                          UNOWNED_PARTNER_LIMIT_BREAK,
+                                          conditional=True))
+        else:
+            partner_class = char_data.get("class")
+            self._apply_partner(
+                cs, class_partner_stats(partner_class,
+                                        UNOWNED_PARTNER_GRADE, level),
+                class_partner_passive(partner_class, UNOWNED_PARTNER_GRADE,
+                                      UNOWNED_PARTNER_LIMIT_BREAK),
+                {})
+        top = {node.wire: node.max_level for node in POTENTIAL_NODES}
+        self._apply_potential(
+            cs, res_id, ((50, top[50]), (60, top[60])),
+            core.potential_7_full(core.potential_7_effects(
+                get_potential_7(res_id))))
 
     def build_run_context(self, char_name: str, settings: dict,
                           sets_selected: list, max_flex_slots: int) -> dict:

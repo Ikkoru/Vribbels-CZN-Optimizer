@@ -51,7 +51,7 @@ The report prints each preset's current and derived weights with the reference b
 ## Keeping it in step
 
 - **It runs on the program's own code**: `compute_build_stats`, `compute_score_components`, `optimize`, the partner, potential and level helpers. A change to the formulas, a new stat in `STATS`, new set values reach the weights with nothing to update here. `checks/check_preset_weights.py` derives every preset from the stored archetypes on each run, so a refactor that breaks the tool fails there.
-- **A new combatant** needs Optimizer settings and an assigned preset. A signature partner other than the one equipped goes in `SIGNATURE_PARTNERS`, and a preset with its own assumption in `VARIANTS`.
+- **A new combatant** needs Optimizer settings and an assigned preset. A signature partner other than the one equipped goes in `SIGNATURE_PARTNERS` (`game_data/partners.py`), which is also the partner the Optimizer assumes for a combatant a player does not have. A preset with its own assumption goes in `VARIANTS`.
 - **A new kind of combatant** — one `archetype()` does not describe — gets its own group, or borrows a neighbour's averages until it has members.
 
 ## Outside the model

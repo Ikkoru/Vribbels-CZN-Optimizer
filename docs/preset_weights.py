@@ -60,16 +60,9 @@ PARTNER_GRADE = 5          # flat stats: the class's 5-star partner
 PARTNER_LIMIT_BREAK = {5: 0, 4.5: 0, 4: 4}
 POTENTIAL_LEVEL = 5        # nodes 5 and 6 (wire 50 and 60), maxed
 
-# The partner a combatant is assumed to wear where it is not the one
-# equipped on the maintainer's account. Everyone else: that one.
-SIGNATURE_PARTNERS = {
-    "Amir": "Eishlen", "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta",
-    "Lucas": "Serithea", "Luke": "Janet", "Magna": "Erica",
-    "Maribell": "Eishlen", "Mei Lin": "Scarlet", "Nine": "Alcea",
-    "Orlea": "Noel", "Owen": "Priscilla", "Renoa": "Janet", "Rin": "Scarlet",
-    "Selena": "Marin", "Tressa": "Bria", "Veronica": "Marin",
-    "Yuki": "Westmacott",
-}
+# The partner a combatant is assumed to wear is the one
+# `game_data.partners.SIGNATURE_PARTNERS` names, else the one equipped
+# on the maintainer's account.
 
 # Presets that are not their combatant's own Optimizer settings as they
 # stand. `settings` overrides fields of them; `set` is a 4-piece set the
@@ -170,12 +163,10 @@ class World:
     def partner(self, name):
         """(res_id, data) of the partner assumed for `name`."""
         from game_data import PARTNERS
-        wanted = SIGNATURE_PARTNERS.get(name)
-        if wanted:
-            for rid, p in PARTNERS.items():
-                if isinstance(p, dict) and p.get("name") == wanted:
-                    return rid, p
-            raise SystemExit("no partner named %r in partners.py" % wanted)
+        from game_data.partners import signature_partner
+        rid, partner = signature_partner(name)
+        if rid is not None:
+            return rid, partner
         info = self.opt.character_info.get(name)
         rid = info.partner_res_id if info else None
         return rid, PARTNERS.get(rid) if rid else None

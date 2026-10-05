@@ -170,6 +170,15 @@ def potential_7_effects(effects, sheet_only: bool = False) -> tuple:
     return tuple(out)
 
 
+def potential_7_full(effects: tuple) -> tuple:
+    """`potential_7_effects`' output with every check passed and every
+    growth at its cap, whatever the build: node 7 at its full effect,
+    for a combatant the account does not have."""
+    return tuple((grants, value + (most if per else 0), (), None, None,
+                  None)
+                 for grants, value, _conds, per, _add, most in effects)
+
+
 def potential_7_bonus(effects: tuple, check: tuple) -> dict:
     """{grants: bonus} for one build: each effect whose check passes, its
     growth continuous past the threshold. `check` is

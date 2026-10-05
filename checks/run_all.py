@@ -90,6 +90,7 @@ from checks import (                                    # noqa: E402
     check_tabs_build,
     check_type_ahead,
     check_ui_scales,
+    check_unowned_combatants,
     check_upgrade_log_filters,
     check_upgraded_beats,
     check_potential_mean,
@@ -158,6 +159,7 @@ CHECKS = [
     check_potential_mean,
     check_potential_band,
     check_preset_weights,
+    check_unowned_combatants,
     check_breakdown_reconciles,
     check_optimizer_parity,
 ]

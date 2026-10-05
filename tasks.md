@@ -24,15 +24,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 ### 2b) Needs maintainer assistance figuring out
 
-- **I36 — Missing combatants: optimize at a 5★ partner, max Potential and Affinity 20.** With the Combatants tab's `Show missing characters` on, the Optimizer lists combatants you don't have. They are optimized with no partner, Potential or Affinity, at level 60 on Auto or at the level picked. The maintainer wants them assumed at a 5★ partner, max Potential and Affinity 20 instead. The CHANGELOG entry then reads:
-
-  > The Combatants tab's `Show missing characters` allows selecting combatants you don't have. Optimization assumes 5★ partner, max Potential, 20 Affinity.
-
-  Open:
-  - Which partner: the class's best 5★, one named per combatant, or a partner's flat stats without its passive.
-  - The partner's level and limit break.
-  - Whether max Potential takes node 7.
-
 - **I33 — What the server has not shown yet.** Each part needs the maintainer in game. `check_base_stats_on_wire` passes on everything filed so far.
 
   1. **Base stats, from any plain battle.** Plain: Simulation, Abyss Battle Missions, the Tower, the Basin, the Great Rift, the Full-Scale Offensive. Not plain: a Sortie, a Chaos, a Combatant Trial, the Bartender story. Potential 7 doesn't matter for any of them.

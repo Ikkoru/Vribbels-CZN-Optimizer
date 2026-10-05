@@ -1344,12 +1344,14 @@ def _a_missing_pick_reads_its_own(tab, name):
     """A combatant not obtained, once picked, is filed under its own
     res_id -- so its stored settings, shipped defaults included, fill
     the panel -- and its Potential 7 fill buttons press where the game
-    data knows its checks.
+    data knows its checks, under a caption reading ` Auto`: it is
+    optimized with node 7 at its full effect.
 
     Returns a list of complaints.
     """
     from game_data import CHARACTERS
     from game_data.potential_7 import potential_7_minimums
+    from ui.tabs import optimizer_tab as mod
     want = next(int(rid) for rid, c in CHARACTERS.items()
                 if isinstance(c, dict) and c.get("name") == name)
     out = []
@@ -1365,13 +1367,21 @@ def _a_missing_pick_reads_its_own(tab, name):
                    f"where the game data "
                    f"{'knows' if pressable else 'does not know'} its "
                    f"checks.")
+    caption = tab.p7_caption.cget("text") if tab.p7_caption else ""
+    if not caption.endswith(mod.P7_AUTO_SUFFIX):
+        out.append(f"{name}, not obtained, has its fill caption read "
+                   f"{caption!r}, without {mod.P7_AUTO_SUFFIX!r}: it is "
+                   f"optimized with node 7 at its full effect, so a "
+                   f"minimum for its check only hides builds.")
     return out
 
 
 def _p7_fill_says_auto_where_priced(tab):
     """A combatant whose Potential 7 the score prices in full gets
     ` Auto` on the fill caption and struck-through buttons that still
-    press; one with an unpriced Potential 7 gets neither.
+    press; one with an unpriced Potential 7 gets neither. Both are
+    combatants the account has: one it lacks reads ` Auto` whatever its
+    node 7, as `_a_missing_pick_reads_its_own` holds.
 
     Returns a list of complaints.
     """
@@ -1385,6 +1395,7 @@ def _p7_fill_says_auto_where_priced(tab):
             name = (CHARACTERS.get(res_id) or {}).get("name")
             if (name and priced_in_full(res_id) == want_priced
                     and potential_7_minimums(res_id)
+                    and name in tab.optimizer.character_info
                     and tab._resolve_res_id(name) == res_id):
                 return name
         return None
@@ -1414,6 +1425,23 @@ def _p7_fill_says_auto_where_priced(tab):
                     f"styled {styles} and {states} -- not {want!r}, "
                     f"{want_style} and normal. Struck-through buttons "
                     f"still press: a minimum stays the user's to set.")
+        # The unpriced one again, as a combatant the account lacks: its
+        # node 7 is then assumed at its full effect, so it reads ` Auto`
+        # too. The account's own missing combatants may all have a
+        # priced node 7, which reads ` Auto` either way.
+        name = named(False)
+        if name is not None:
+            info = tab.optimizer.character_info.pop(name)
+            try:
+                tab._update_p7_fill_buttons(name)
+                caption = tab.p7_caption.cget("text")
+            finally:
+                tab.optimizer.character_info[name] = info
+            if caption != mod.P7_FILL_CAPTION + mod.P7_AUTO_SUFFIX:
+                out.append(f"for {name} as a combatant the account lacks, "
+                           f"the fill caption reads {caption!r}: one it "
+                           f"lacks is optimized with node 7 at its full "
+                           f"effect, whatever the score prices.")
     finally:
         tab._update_p7_fill_buttons(tab.selected_character.get())
     return out

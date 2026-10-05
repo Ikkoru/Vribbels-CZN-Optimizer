@@ -43,6 +43,12 @@ Final_CDmg  = Base_CDmg + Sum(CDmg_contributions)    # base default = 125
 | **Equipment_X**     | Constant: a level-5 Legendary piece per slot (`EQUIPMENT_*` in `optimizer.py`). In game, the saved deck's in regular modes and what the run finds in Chaos and Sortie |
 | **Set bonuses**     | See §5 — three different landing places depending on `type` and `stat`              |
 
+**A combatant the account does not have** has none of the account-held sources, so the Optimizer assumes them (`_assume_unowned` in `optimizer.py`, figures beside `UNOWNED_AFFINITY`):
+
+- **Partner**: the one `SIGNATURE_PARTNERS` names, at the level cap and limit break 0. A combatant it does not name gets its class's 5★ flat stats and the passive every 5★ partner of that class shares (`class_partner_passive`), without any one partner's extras.
+- **Potential**: nodes 50 and 60 at their maximum; node 7 at its full effect, its check taken as passed and its growth at the cap (`core.potential_7_full`).
+- **Affinity**: `UNOWNED_AFFINITY`.
+
 ### Against the server's sheet
 
 Every battle's entry states this formula's layers for each combatant (`capture_pipeline.md`, *The stat sheet a battle's entry carries*). `base_stats_store.formula_gaps` runs the program's formula over every build the capture filed, with the sheet's own base and partner flats, and `checks/check_base_stats_on_wire.py` fails on any layer it does not reproduce. The sheet says four things the formula above does not:
