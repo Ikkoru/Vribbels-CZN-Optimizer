@@ -1691,6 +1691,22 @@ UNJUSTIFIED_PAIR_ENTRIES = [
      CHECKBOX_CLASSES, None),
 ]
 
+# Order Mode's names stand where the checkboxes do, under the same rule,
+# and are read the same two ways: a floor as the app lays them out, and
+# exact with no row justified. The names are the panel's only `Label`s;
+# its note is a `TLabel`.
+ORDER_NAME_CLASSES = ("Label",)
+ORDER_PAIR_ENTRIES = [
+    ("Optimizer", "Order Mode names", 8, None,
+     _block_in("Exclude Combatant's MFs", ORDER_NAME_CLASSES),
+     ORDER_NAME_CLASSES, None),
+]
+ORDER_UNJUSTIFIED_PAIR_ENTRIES = [
+    ("Optimizer", "Order Mode names [unjustified]", 8, None,
+     _block_in("Exclude Combatant's MFs", ORDER_NAME_CLASSES),
+     ORDER_NAME_CLASSES, None),
+]
+
 HAL_TITLE = "Have at least this much of a stat"
 LABEL_ELEMENT_ENTRIES = [
     # [Fracture] [====slider====] [nn%] -- the widest of the three damage
@@ -3774,21 +3790,36 @@ def _restore_element_override(app):
         tab.element_override_frame.pack_forget()
 
 
-def _exclude_justified(on):
-    """Scenario half: lay the exclude checkboxes out with every row
-    justified to the panel's edge (`on`, as the app does) or none.
+def _exclude_layout(order, justify):
+    """Scenario half: lay Exclude Combatant's MFs out in Order Mode
+    (`order`) or with its checkboxes, every row justified to the
+    panel's edge (`justify`, as the app does) or none.
 
     **What makes a floor checkable.** Justified, a row's gaps are the
     leftover width shared out, so a reading of 9 is as good as 8 and a
     lever that cannot reach 8 any more reads the same as one that can.
     Unjustified, every gap in every row IS the lever, and each must read
     the rule's distance exactly.
+
+    The mode is the setting's, so a run would otherwise read whichever
+    one the maintainer last left ticked. Only the display is switched:
+    nothing is saved, and `_restore_exclude_layout` puts the setting's
+    mode back.
     """
     def apply(app):
         tab = app.optimizer_tab_instance
-        tab.exclude_justify = on
+        tab.exclude_justify = justify
+        tab.exclude_order_var.set(order)
+        tab._show_all_none(not order)
+        tab.refresh_exclude_heroes()
         tab._reflow_exclude_heroes(force=True)
     return apply
+
+
+def _restore_exclude_layout(app):
+    settings = app.optimizer_tab_instance.opt_settings
+    _exclude_layout(bool(settings and settings.get_exclude_order_mode()),
+                    True)(app)
 
 
 # The Capture Log's Find box, open with something typed. Its caption is
@@ -3883,8 +3914,17 @@ sa.register_scenario("long_preset_name", _long_preset_name,
                      _restore_preset_name)
 sa.register_scenario("capture_find_open", _open_capture_find,
                      _close_capture_find)
-sa.register_scenario("exclude_unjustified", _exclude_justified(False),
-                     _exclude_justified(True))
+# The default run reads Exclude Combatant's MFs with its checkboxes, as
+# it ships, whatever the maintainer's own setting: every entry for the
+# panel outside the two Order Mode scenarios is about the checkboxes.
+sa.register_scenario("default", _exclude_layout(False, True),
+                     _restore_exclude_layout)
+sa.register_scenario("exclude_unjustified", _exclude_layout(False, False),
+                     _restore_exclude_layout)
+sa.register_scenario("exclude_order_mode", _exclude_layout(True, True),
+                     _restore_exclude_layout)
+sa.register_scenario("exclude_order_unjustified",
+                     _exclude_layout(True, False), _restore_exclude_layout)
 sa.register_scenario("max_readouts", _max_readouts, _restore_readouts)
 sa.register_scenario("widest_stats", _widest_stats(1),
                      _restore_selection)
@@ -5035,9 +5075,24 @@ OPTIMIZER_ENTRIES = [
     ("Optimizer", "None -> Order Mode", 16, RULE_CONTROL_GROUP,
      _gap(lambda app: _by_text("Order Mode")(app).master.winfo_children()[1],
           _by_text("Order Mode"), "h"), "h"),
-    ("Optimizer", "Order Mode -> its note", 5, RULE_LABEL_ELEMENT,
+    ("Optimizer", "Order Mode -> its note", 14, RULE_HEADING_ELEMENT,
      _gap(_by_text("Order Mode"), _by_text("Earlier names keep"), "h"),
      "h"),
+]
+
+
+def _reset_order_inset(cap, app):
+    """Resolver: the Exclude panel's left border -> Reset Sort Order,
+    which Order Mode shows where All stands otherwise."""
+    return sa.inset_from_frame_edge(
+        cap, _panel(app, "Exclude Combatant's MFs"),
+        _by_text("Reset Sort Order")(app), "left")
+
+
+# (tab, name, target, rule, resolver, axis), measured in Order Mode.
+ORDER_MODE_ENTRIES = [
+    ("Optimizer", "Exclude Combatant's MFs: left edge -> Reset Sort Order",
+     3, RULE_BORDER_EDGE_BUTTON, _reset_order_inset, "h"),
 ]
 
 
@@ -5049,6 +5104,9 @@ OPTIMIZER_ENTRIES = [
 AWAITING_FIRST_READING = {
     "None -> Order Mode",
     "Order Mode -> its note",
+    "Order Mode names",
+    "Order Mode names [unjustified]",
+    "Exclude Combatant's MFs: left edge -> Reset Sort Order",
 }
 
 # Entries whose target is a FLOOR (`TrackedGap.minimum`): the gap varies
@@ -5060,6 +5118,7 @@ MINIMUM_GAPS = {
     # panel's edge, so the natural gap shows only on a last row of two
     # or more names, and the roster decides whether there is one.
     "Exclude checkboxes",
+    "Order Mode names",
     # A wrap moves whole words, so the gap is the wrap's margin plus
     # whatever the next word did not fit into.
     PRESET_WRAP_GAP,
@@ -5216,7 +5275,10 @@ def register_all():
             (RULE_LABEL_ELEMENT, LABEL_ELEMENT_ENTRIES, "default"),
             (RULE_LABEL_ELEMENT, READOUT_ENTRIES, "max_readouts"),
             (RULE_PAIR_GAP, UNJUSTIFIED_PAIR_ENTRIES,
-             "exclude_unjustified")):
+             "exclude_unjustified"),
+            (RULE_PAIR_GAP, ORDER_PAIR_ENTRIES, "exclude_order_mode"),
+            (RULE_PAIR_GAP, ORDER_UNJUSTIFIED_PAIR_ENTRIES,
+             "exclude_order_unjustified")):
         for tab, name, target, hand, container, classes, index in table:
             # One entry at a time, while a distance no padding reaches is
             # being chased. Empty the set once it has answered.
@@ -5287,6 +5349,18 @@ def register_all():
             # A row here can miss its rule deliberately; the table
             # above says which, and the site says why.
             target_source=EXCEPTION_ENTRIES.get(name, "rule"),
+        )
+
+    for tab, name, target, rule, resolve, axis in ORDER_MODE_ENTRIES:
+        sa.track(
+            name=name,
+            tab=tab,
+            rule=rule,
+            target=target,
+            resolve=resolve,
+            axis=axis,
+            scenario="exclude_order_mode",
+            provisional=name in AWAITING_FIRST_READING,
         )
 
     for scenario, name, target, rule, resolve, axis in POPUP_ENTRIES:

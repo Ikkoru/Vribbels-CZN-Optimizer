@@ -1137,18 +1137,21 @@ def _optimizer_lists_missing_when_shown(tab):
 def _order_mode_ranks_the_roster(tab):
     """Exclude Combatant's MFs in Order Mode.
 
-    Ticked with nothing arranged, the names stand checked first, each
-    half by name. A drag moves a name and saves the order. Everyone
-    before the selected combatant is kept from its search and struck
-    through, the selected one bold. All and None hide behind a spacer
-    of their width, so the toggle does not move; unticked, the
-    checkbuttons and the buttons come back. Mapped at alpha 0 for the
-    toggle's place, like `_share_panel_lines_up`.
+    Ticked with nothing arranged, the names stand in alphabetical
+    order, whatever is checked. A drag moves a name and saves the
+    order. Everyone before the selected combatant is kept from its
+    search and struck through, the selected one bold; with none
+    selected, no name is marked. Reset Sort Order takes All and None's
+    corner, the toggle keeping its x and centred on the button; it asks
+    before forgetting an arranged order, and not when there is none to
+    lose. Unticked, the checkbuttons and the buttons come back. Mapped
+    at alpha 0 for the toggle's place, like `_share_panel_lines_up`.
 
     Returns a list of complaints.
     """
     import tkinter as tk
     from ui.scaling import px, WINDOW_H, WINDOW_W
+    from ui.tabs import optimizer_tab
     settings = tab.opt_settings
     heroes = list(getattr(tab, "_exclude_heroes", None) or [])
     if settings is None or len(heroes) < 4:
@@ -1167,23 +1170,34 @@ def _order_mode_ranks_the_roster(tab):
         notebook.select(tab.frame)
         root.geometry("%dx%d" % (px(WINDOW_W), px(WINDOW_H)))
         root.deiconify()
+        # From the checks, whatever the settings copy left ticked: All
+        # has no place to read while Order Mode hides it.
+        tab.exclude_order_var.set(False)
+        tab._toggle_exclude_order()
         root.update_idletasks()
         box_x = tab._exclude_order_box.winfo_rootx()
+        all_x = tab._exclude_all_none[0].winfo_rootx()
 
-        # Two checked, by name the second and the last, so checked-first
-        # and by-name orders differ whatever the account's own checks.
+        # Two checked, by name the second and the last, so an order
+        # taken from the checks would not be alphabetical.
         settings.set_excluded_gear_chars([rid(heroes[1]), rid(heroes[-1])])
         settings.set_exclude_order([])
+        tab.selected_character.set("")
+        tab._current_res_id = None
         tab.exclude_order_var.set(True)
         tab._toggle_exclude_order()
         root.update_idletasks()
-        checked = set(settings.get_excluded_gear_chars())
-        want = sorted(heroes, key=lambda h: (rid(h) not in checked, h))
-        if tab._exclude_order_names != want:
+        if tab._exclude_order_names != sorted(heroes):
             out.append(f"Order Mode, ticked with nothing arranged, starts "
-                       f"{tab._exclude_order_names[:4]}..., not the checked "
-                       f"combatants first and each half by name "
-                       f"({want[:4]}...).")
+                       f"{tab._exclude_order_names[:4]}..., not in "
+                       f"alphabetical order ({sorted(heroes)[:4]}...).")
+        marked = [h for h, w in tab._order_widgets.items()
+                  if str(w.cget("font")) in
+                  {str(f) for f in tab._exclude_fonts()}]
+        if marked:
+            out.append(f"with no combatant selected, Order Mode marks "
+                       f"{marked[:3]} struck through or bold: every name "
+                       f"keeps its element's colour.")
         placed = [h for h, w in tab._order_widgets.items()
                   if w.winfo_manager() == "place"]
         boxes = [h for h, w in tab._exclude_widgets.items()
@@ -1200,12 +1214,22 @@ def _order_mode_ranks_the_roster(tab):
             out.append(f"Order Mode's names read {reading[:4]}... on "
                        f"screen, not in the order "
                        f"({tab._exclude_order_names[:4]}...).")
+        reset, toggle = tab._exclude_reset, tab._exclude_order_box
         if (any(b.winfo_manager() for b in tab._exclude_all_none)
-                or tab._exclude_order_box.winfo_rootx() != box_x):
-            out.append(f"Order Mode leaves All and None showing, or moves "
-                       f"its toggle from x={box_x} to "
-                       f"x={tab._exclude_order_box.winfo_rootx()}: they "
-                       f"hide behind a spacer of their width.")
+                or not reset.winfo_manager()
+                or reset.winfo_rootx() != all_x
+                or toggle.winfo_rootx() != box_x):
+            out.append(f"Order Mode leaves All and None showing, hides "
+                       f"Reset Sort Order, puts it at x="
+                       f"{reset.winfo_rootx()} rather than All's {all_x}, "
+                       f"or moves its toggle from x={box_x} to "
+                       f"x={toggle.winfo_rootx()}.")
+        middles = [w.winfo_rooty() * 2 + w.winfo_height()
+                   for w in (reset, toggle)]
+        if abs(middles[0] - middles[1]) > 2:
+            out.append(f"Order Mode's toggle is centred {middles[1] / 2} "
+                       f"down and Reset Sort Order {middles[0] / 2}: the "
+                       f"toggle stays centred on the button.")
 
         # Dropped on the left half of a row's first name, a name goes
         # before it; on the right half of its last, after it.
@@ -1232,6 +1256,35 @@ def _order_mode_ranks_the_roster(tab):
                        f"{tab._exclude_order_names.index(last)} and is "
                        f"saved {settings.get_exclude_order()[:2]}: a move "
                        f"is the order's and is saved.")
+
+        # Reset Sort Order on that arranged order: refused, nothing
+        # moves; accepted, the order is forgotten and the names stand
+        # alphabetically; pressed again, there is nothing to ask about.
+        asked = []
+        real_ask = optimizer_tab.messagebox.askyesno
+        try:
+            arranged = list(tab._exclude_order_names)
+            optimizer_tab.messagebox.askyesno = \
+                lambda *a, **k: asked.append(a) or False
+            tab._reset_exclude_order()
+            refused = list(tab._exclude_order_names)
+            optimizer_tab.messagebox.askyesno = \
+                lambda *a, **k: asked.append(a) or True
+            tab._reset_exclude_order()
+            accepted = (list(tab._exclude_order_names),
+                        settings.get_exclude_order())
+            tab._reset_exclude_order()
+        finally:
+            optimizer_tab.messagebox.askyesno = real_ask
+        if (len(asked) != 2 or refused != arranged
+                or accepted != (sorted(heroes), [])):
+            out.append(f"Reset Sort Order asked {len(asked)} time(s) over "
+                       f"a refusal, an acceptance and an already sorted "
+                       f"order, and left {refused[:3]}... refused and "
+                       f"{accepted[0][:3]}... saved as "
+                       f"{accepted[1][:3]} accepted: it asks only when "
+                       f"an arranged order would be lost, keeps it on a "
+                       f"refusal, and otherwise sorts alphabetically.")
 
         # The selected combatant where the one just before it, and one
         # more before that, wear MFs: an exclusion cut a place short or
@@ -1268,10 +1321,12 @@ def _order_mode_ranks_the_roster(tab):
         root.update_idletasks()
         if (any(w.winfo_manager() for w in tab._order_widgets.values())
                 or not all(b.winfo_manager() for b in tab._exclude_all_none)
+                or tab._exclude_reset.winfo_manager()
                 or tab._exclude_order_box.winfo_rootx() != box_x):
-            out.append("unticked, Order Mode leaves its names up, All and "
-                       "None hidden, or its toggle moved: the checkboxes "
-                       "and the buttons come back where they were.")
+            out.append("unticked, Order Mode leaves its names or Reset "
+                       "Sort Order up, All and None hidden, or its toggle "
+                       "moved: the checkboxes and the buttons come back "
+                       "where they were.")
     finally:
         settings.set_exclude_order_mode(saved[0])
         settings.set_exclude_order(saved[1])

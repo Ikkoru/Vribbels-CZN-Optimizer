@@ -50,8 +50,8 @@ from typing import Optional
 
 from ui.base_tab import BaseTab
 from ui.context import AppContext
-from ui.utils.all_none_row import make_all_none_row
-from ui.utils.button_width import BUTTON_W_SMALL
+from ui.utils.all_none_row import EDGE_PAD, make_all_none_row
+from ui.utils.button_width import BUTTON_W_MEDIUM, BUTTON_W_SMALL
 from ui.utils.checkbox import make_checkbox
 from ui.utils.escape import close_on_escape
 from ui.utils.label_width import LABEL_REQUEST_INSET
@@ -353,12 +353,16 @@ P7_FULL_TOOLTIP = ("Sets the stats this Combatant's Potential 7 checks "
 
 # Exclude Combatant's MFs in Order Mode: the names stand in an order,
 # and each combatant's MFs are kept from everyone after it. The toggle
-# sits right of None, and the note says what it does.
+# sits right of None, and the note says what it does. Reset Sort Order
+# stands where All and None do while it is on.
 ORDER_MODE_LABEL = "Order Mode"
 ORDER_MODE_NOTE = ("Earlier names keep their MFs from later ones. "
                    "Drag a name to move it.")
-ORDER_MODE_GAP = 12      # spacing: control group ↔ control group -- button, checkbox ↔
-ORDER_MODE_NOTE_GAP = 2  # spacing: label ↔ its element -- checkbox, label ↔
+RESET_ORDER_LABEL = "Reset Sort Order"
+RESET_ORDER_WARNING = ("Sort the combatants in alphabetical order?\n\n"
+                       "The order you arranged will be lost.")
+ORDER_MODE_GAP = 14      # spacing: control group ↔ control group -- button, checkbox ↔
+ORDER_MODE_NOTE_GAP = 9  # spacing: heading ↔ element -- checkbox, label ↔
 
 
 def exclude_order(saved, roster, res_id_of):
@@ -540,8 +544,9 @@ class OptimizerTab(BaseTab):
         # repositioned on re-flow, never recreated -- see
         # _exclude_checkbutton / _reflow_exclude_heroes.
         self._exclude_widgets: dict = {}
-        # Off only for the spacing audit's `exclude_unjustified`
-        # scenario: every row then keeps the natural gap, which is the
+        # Off only for the spacing audit's `exclude_unjustified` and
+        # `exclude_order_unjustified` scenarios: every row then keeps
+        # the natural gap, which is the
         # one lever of a gap the justification otherwise widens.
         self.exclude_justify = True
         # Order Mode's pieces: hero name -> its name Label, created once
@@ -1904,34 +1909,46 @@ class OptimizerTab(BaseTab):
         # spacing: control group ↔ control group -- button, checkbox ↔
         self._exclude_order_box.pack(side=tk.LEFT,
                                      padx=px((ORDER_MODE_GAP, 0)))
-        # spacing: label ↔ its element -- checkbox, label ↔
+        # spacing: heading ↔ element -- checkbox, label ↔
         ttk.Label(row, text=ORDER_MODE_NOTE,
                   foreground=self.colors["fg_dim"]).pack(
             side=tk.LEFT, padx=px((ORDER_MODE_NOTE_GAP, 0)))
-        # Holds All and None's place while Order Mode hides them, so the
-        # toggle does not jump out from under the pointer that ticked it.
+        self._exclude_reset = ttk.Button(
+            row, text=RESET_ORDER_LABEL, width=BUTTON_W_MEDIUM,
+            command=self._reset_exclude_order)
+        # Makes up the difference between Reset Sort Order and All and
+        # None, so the toggle does not jump out from under the pointer
+        # that ticked it.
         self._exclude_spacer = ttk.Frame(row, height=1)
         self._show_all_none(not self.exclude_order_var.get())
 
     def _show_all_none(self, show):
-        """Show All and None, or hide them behind a spacer of their
-        width: in Order Mode there are no checks to set."""
+        """Show All and None, or Reset Sort Order in their place: in
+        Order Mode there are no checks to set. The toggle stays where it
+        is either way, and centred on the row's buttons."""
         if show:
+            self._exclude_reset.pack_forget()
             self._exclude_spacer.pack_forget()
             for button, pack in zip(self._exclude_all_none,
                                     self._exclude_all_none_packs):
                 if not button.winfo_manager():
                     button.pack(before=self._exclude_order_box, **pack)
             return
-        if not self._exclude_spacer.winfo_manager():
-            width = sum(b.winfo_reqwidth() + _horizontal_pads(pack)
-                        for b, pack in zip(self._exclude_all_none,
-                                           self._exclude_all_none_packs))
-            for button in self._exclude_all_none:
-                button.pack_forget()
-            self._exclude_spacer.configure(width=width)
-            self._exclude_spacer.pack(side=tk.LEFT,
-                                      before=self._exclude_order_box)
+        if self._exclude_reset.winfo_manager():
+            return
+        width = sum(b.winfo_reqwidth() + _horizontal_pads(pack)
+                    for b, pack in zip(self._exclude_all_none,
+                                       self._exclude_all_none_packs))
+        for button in self._exclude_all_none:
+            button.pack_forget()
+        # spacing: border edge -> button -- panel, button ↔
+        self._exclude_reset.pack(side=tk.LEFT, padx=px((EDGE_PAD, 0)),
+                                 before=self._exclude_order_box)
+        width -= (self._exclude_reset.winfo_reqwidth()
+                  + _horizontal_pads(self._exclude_reset.pack_info()))
+        self._exclude_spacer.configure(width=max(0, width))
+        self._exclude_spacer.pack(side=tk.LEFT,
+                                  before=self._exclude_order_box)
 
     # ----------------------------------------------------------- UI: Results
 
@@ -2337,11 +2354,12 @@ class OptimizerTab(BaseTab):
         """Mark Order Mode's names: every one before the selected
         combatant dimmed and struck through, its MFs kept from it; the
         selected one bold in the accent colour; the rest in their
-        element's colour."""
+        element's colour. With none selected, every name is the rest."""
         strike, bold = self._exclude_fonts()
         order = self._exclude_order_names
         current = self.selected_character.get()
-        cut = order.index(current) if current in order else len(order)
+        cut = (order.index(current) if current in order
+               else len(order) if current else 0)
         for index, hero in enumerate(order):
             label = self._order_widgets.get(hero)
             if label is None:
@@ -2361,21 +2379,27 @@ class OptimizerTab(BaseTab):
                 pass
 
     def _toggle_exclude_order(self):
-        """Turn Order Mode on or off. Turned on with nothing arranged,
-        the order starts from the checks: every checked combatant first,
-        their MFs kept from the rest, then the unchecked, each by name."""
+        """Turn Order Mode on or off. With nothing arranged, the names
+        stand in alphabetical order: see `exclude_order`."""
         on = bool(self.exclude_order_var.get())
         settings = self.opt_settings
         if settings is not None:
-            if on and not settings.get_exclude_order():
-                checked = set(settings.get_excluded_gear_chars())
-                ids = [(str(rid) not in checked, name, str(rid))
-                       for name in self._exclude_heroes
-                       for rid in [self._resolve_res_id(name)]
-                       if rid is not None]
-                settings.set_exclude_order([rid for *_k, rid in sorted(ids)])
             settings.set_exclude_order_mode(on)
         self._show_all_none(not on)
+        self.refresh_exclude_heroes()
+
+    def _reset_exclude_order(self):
+        """Put Order Mode's names back in alphabetical order, the order
+        it starts in, by forgetting the arranged one -- after asking,
+        since nothing else keeps it. Already alphabetical, there is
+        nothing to lose and nothing is asked."""
+        names = self._exclude_order_names
+        if names != sorted(names) and not messagebox.askyesno(
+                RESET_ORDER_LABEL, RESET_ORDER_WARNING,
+                icon="warning", default=messagebox.NO):
+            return
+        if self.opt_settings is not None:
+            self.opt_settings.set_exclude_order([])
         self.refresh_exclude_heroes()
 
     def _exclude_drop_at(self, x_root, y_root):
@@ -2529,7 +2553,12 @@ class OptimizerTab(BaseTab):
         # short of its box on each side, so the rendered gap is wider
         # than this by a constant -- the rule's 8 is the rendered one.
         # A FLOOR: every row but the last is justified wider.
-        gap = 4        # minimum px between checkbuttons in a row
+        box_gap = 4    # minimum px between checkbuttons in a row
+        # spacing: minimum -- element and its label ↔ element and its label -- label, label ↔
+        # Order Mode's names, between their Labels' boxes, each of
+        # which holds its text `_exclude_label`'s padx in from its
+        # sides. The same rule as the checkbuttons, and a floor too.
+        name_gap = 5
         edge_pad = 2   # px on each side (kept symmetric)
         available_w = max(1, container_w - 2 * edge_pad)
 
@@ -2550,6 +2579,7 @@ class OptimizerTab(BaseTab):
         # Order Mode places the names in its order; the checks mode the
         # checkbuttons by name. The other mode's widgets are kept, hidden.
         ordered = bool(self.exclude_order_var.get())
+        gap = name_gap if ordered else box_gap
         items = self._exclude_order_names if ordered else self._exclude_heroes
         widget_for = (self._exclude_label if ordered
                       else self._exclude_checkbutton)

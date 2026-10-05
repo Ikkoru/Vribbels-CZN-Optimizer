@@ -717,7 +717,8 @@ def track(name, tab, rule, target, resolve, axis, scenario="default",
 # moves everything below them -- so the gaps under them have to be
 # measured in BOTH states, not just the common one. A scenario is a
 # (setup, teardown) pair run around a group of gaps; `default` is the
-# app as it launches.
+# app as it launches, except where the registry overrides it to hold a
+# setting-dependent panel to its shipped state.
 #
 # element_override: the Optimizer tab's "Element override" frame is only
 # packed for characters whose attribute is Unknown

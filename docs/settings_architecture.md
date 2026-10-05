@@ -32,7 +32,7 @@ Stage 3 merge keys: `presets.json` by name; `character_preset.json` by character
 
 `excluded_gear_chars`, `version`, `excluded_default_initialized`, `exclude_seen_rids`, `exclude_order_mode`, `exclude_order` and `optimize_level_seen` are NEVER touched by the merge; user values are authoritative.
 
-- **`exclude_order_mode`, `exclude_order`** — Exclude Combatant's MFs in Order Mode, and its order as res_ids, first first. Each combatant's gear is kept from everyone after it; one the order does not hold ranks last (`optimizer_tab.exclude_order`).
+- **`exclude_order_mode`, `exclude_order`** — Exclude Combatant's MFs in Order Mode, and its order as res_ids, first first. Each combatant's gear is kept from everyone after it; one the order does not hold ranks last, by name (`optimizer_tab.exclude_order`). Empty is alphabetical, which is what the shipped file carries and what Reset Sort Order saves.
 
 - **`exclude_seen_rids`** — res_ids the exclude bootstrap has processed. A res_id absent from it is new to the exclude system and gets auto-excluded once (`_ensure_captured_chars_have_settings`). Tracked separately from "has a settings entry" because `bootstrap_known_characters` eagerly creates entries for every known character, which would otherwise mask a newly-added one.
 - **`optimize_level_seen`** — the highest level each combatant has been observed at, which makes `optimize_for_level` follow a level-up exactly once rather than overriding the user's choice on every load.
