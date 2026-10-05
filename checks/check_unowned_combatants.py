@@ -106,12 +106,15 @@ def run():
     out.extend(_class_passive_is_shared())
     out.extend(_exception_wins())
 
-    unnamed = sorted(set(names) - set(partners.SIGNATURE_PARTNERS))
+    unnamed = sorted(set(names) - set(partners.SIGNATURE_PARTNERS)
+                     - set(partners.PARTNER_EXCEPTIONS))
     if unnamed:
-        out.append(f"SIGNATURE_PARTNERS has no entry for {unnamed}: they "
-                   f"fall back to their class's shared passive, which is "
-                   f"for a program not yet updated. Add each one's own "
-                   f"partner in game_data/partners.py.")
+        out.append(f"neither SIGNATURE_PARTNERS nor PARTNER_EXCEPTIONS "
+                   f"names a partner for {unnamed}: they fall back to "
+                   f"their class's shared passive, which is for a program "
+                   f"not yet updated. Add each one's pairing in "
+                   f"game_data/partners.py -- a 5-star's release partner "
+                   f"to the first, anyone else to the second.")
 
     def passive_of(cs, suffix=""):
         return {key: cs["partner_" + key + suffix] for key in keys}

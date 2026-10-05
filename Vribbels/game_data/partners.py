@@ -1167,36 +1167,40 @@ def get_partner_passive_stats(res_id: int, limit_break: int,
     return stats
 
 
-# Each combatant's own partner: combatant name -> partner name, the one
-# released beside it where it had a banner. EVERY combatant has an
-# entry -- `checks/check_unowned_combatants.py` fails on a missing one --
-# and `class_partner_passive` stands in only for a combatant released
-# after the program was last updated.
+# The partner to assume for a combatant, where the account's own pairing
+# is not what is wanted: the combatant wears no partner, the account
+# lacks it (both `GearOptimizer._build_char_static`), or a calculation
+# is made in a vacuum (the default Gear Score presets' reference build,
+# `docs/preset_weights.py`). A combatant wearing one is otherwise left
+# with it.
 #
-# The launch-time data check requires every key to name a combatant and
-# every value a partner, in this table and the next, so a misspelling
-# cannot quietly drop one.
+# Two tables, combatant name -> partner name, which between them name
+# every combatant -- `checks/check_unowned_combatants.py` fails on one
+# in neither. `PARTNER_EXCEPTIONS` wins where both do. A combatant in
+# neither gets `class_partner_passive`, which is only for one released
+# after the program was last updated. The launch-time data check
+# requires every key to name a combatant and every value a partner, so
+# a misspelling cannot quietly drop one.
+#
+# SIGNATURE_PARTNERS: the partner a 5-star combatant was released with.
 SIGNATURE_PARTNERS = {
-# Haru is the first 5-star Combatant with an official signature Partner.
-# Every 5-star since has had one. ADD A NEWLY-RELEASED COMBATANT HERE.
+    # Haru is the first 5-star combatant with an official signature
+    # partner, and every 5-star since has had one.
+    # ADD A NEWLY-RELEASED 5-STAR COMBATANT HERE, with its partner.
     "Adelheid": "Clara", "Arabella": "Licinia", "Chizuru": "Itsuku",
     "Diana": "Sophia", "Fei": "Ruixiang", "Haru": "Asteria",
     "Heidemarie": "Sylvia", "Hilde": "Eunie", "Narja": "Gaya",
     "Nine": "Alcea", "Olga": "Emilie", "Rita": "Ivy", "Sereniel": "Peko",
     "Tenebria": "Aria", "Tiphera": "Tiana", "Yuki": "Westmacott",
-# Below are 5-star Combatants who were in the base game, so were never
-# released, thus do not have an explicit, official signature partner.
-# Instead their signature partner is implied:
+    # Base-game 5-stars were never released with a partner; the pairing
+    # each is implied to have.
     "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta", "Luke": "Janet",
     "Magna": "Erica", "Mei Lin": "Marianne", "Orlea": "Noel",
     "Renoa": "Kiara", "Rin": "Scarlet", "Veronica": "Marin",
 }
 
-# The partner to assume for a combatant where it is not its own
-# (`SIGNATURE_PARTNERS`): combatant name -> partner name. Assumed
-# wherever the account cannot say -- a combatant the account lacks or
-# wears no partner on (`GearOptimizer._build_char_static`), and the
-# default Gear Score presets' reference build (`docs/preset_weights.py`).
+# PARTNER_EXCEPTIONS: a combatant with no signature partner -- 4-stars
+# among them -- and any whose signature pairing is overridden.
 PARTNER_EXCEPTIONS = {
     "Amir": "Eishlen", "Anika": "Priscilla", "Haru": "Scarlet",
     "Lucas": "Serithea", "Maribell": "Eishlen", "Mei Lin": "Scarlet",
