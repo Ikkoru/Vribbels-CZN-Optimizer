@@ -1173,22 +1173,23 @@ def get_partner_passive_stats(res_id: int, limit_break: int,
 # and `class_partner_passive` stands in only for a combatant released
 # after the program was last updated.
 #
-# ADD A NEWLY-RELEASED COMBATANT HERE. The launch-time data check
-# requires every key to name a combatant and every value a partner, in
-# this table and the next, so a misspelling cannot quietly drop one.
+# The launch-time data check requires every key to name a combatant and
+# every value a partner, in this table and the next, so a misspelling
+# cannot quietly drop one.
 SIGNATURE_PARTNERS = {
-    "Adelheid": "Clara", "Amir": "Eishlen", "Anika": "Douglas",
-    "Arabella": "Licinia", "Beryl": "Solia", "Cassius": "Nyx",
-    "Chizuru": "Itsuku", "Diana": "Sophia", "Fei": "Ruixiang",
-    "Haru": "Scarlet", "Heidemarie": "Sylvia", "Hilde": "Eunie",
-    "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta",
-    "Lucas": "Serithea", "Luke": "Janet", "Magna": "Erica",
-    "Maribell": "Eishlen", "Mei Lin": "Scarlet", "Mika": "Nyx",
-    "Narja": "Gaya", "Nia": "Nyx", "Nine": "Alcea", "Olga": "Emilie",
-    "Orlea": "Noel", "Owen": "Priscilla", "Rei": "Nyx", "Renoa": "Janet",
-    "Rin": "Scarlet", "Rita": "Ivy", "Selena": "Marin",
-    "Sereniel": "Peko", "Tenebria": "Aria", "Tiphera": "Tiana",
-    "Tressa": "Bria", "Veronica": "Marin", "Yuki": "Westmacott",
+# Haru is the first 5-star Combatant with an official signature Partner.
+# Every 5-star since has had one. ADD A NEWLY-RELEASED COMBATANT HERE.
+    "Adelheid": "Clara", "Arabella": "Licinia", "Chizuru": "Itsuku",
+    "Diana": "Sophia", "Fei": "Ruixiang", "Haru": "Asteria",
+    "Heidemarie": "Sylvia", "Hilde": "Eunie", "Narja": "Gaya",
+    "Nine": "Alcea", "Olga": "Emilie", "Rita": "Ivy", "Sereniel": "Peko",
+    "Tenebria": "Aria", "Tiphera": "Tiana", "Yuki": "Westmacott",
+# Below are 5-star Combatants who were in the base game, so were never
+# released, thus do not have an explicit, official signature partner.
+# Instead their signature partner is implied:
+    "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta", "Luke": "Janet",
+    "Magna": "Erica", "Mei Lin": "Marianne", "Orlea": "Noel",
+    "Renoa": "Kiara", "Rin": "Scarlet", "Veronica": "Marin",
 }
 
 # The partner to assume for a combatant where it is not its own
@@ -1197,12 +1198,10 @@ SIGNATURE_PARTNERS = {
 # wears no partner on (`GearOptimizer._build_char_static`), and the
 # default Gear Score presets' reference build (`docs/preset_weights.py`).
 PARTNER_EXCEPTIONS = {
-    "Amir": "Eishlen", "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta",
-    "Lucas": "Serithea", "Luke": "Janet", "Magna": "Erica",
-    "Maribell": "Eishlen", "Mei Lin": "Scarlet", "Nine": "Alcea",
-    "Orlea": "Noel", "Owen": "Priscilla", "Renoa": "Janet", "Rin": "Scarlet",
-    "Selena": "Marin", "Tressa": "Bria", "Veronica": "Marin",
-    "Yuki": "Westmacott",
+    "Amir": "Eishlen", "Anika": "Priscilla", "Haru": "Scarlet",
+    "Lucas": "Serithea", "Maribell": "Eishlen", "Mei Lin": "Scarlet",
+    "Mika": "Nyx", "Nia": "Nyx", "Rei": "Nyx", "Renoa": "Janet",
+    "Owen": "Priscilla", "Selena": "Marin", "Tressa": "Bria",
 }
 
 
