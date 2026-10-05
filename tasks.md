@@ -22,7 +22,7 @@ items are removed; parked ones live in TBD at the bottom. Conventions:
 
 ### 2a) Can improve without maintainer input
 
-**A1 — Check if upgrading to Tcl 9.1.0 would bring any useful features.**
+*N/A*
 
 ### 2b) Needs maintainer assistance figuring out
 
@@ -44,8 +44,6 @@ items are removed; parked ones live in TBD at the bottom. Conventions:
   5. **To confirm on the next captures**: Peko's banner reads Seasonal (open its Rescue Records once); a pull is kept off its reply and its record replaces it; a level-up, a Potential node and a gift move the Combatants tab live.
   6. **The Vacation's total, the maintainer's call**: keep `WRITTEN_TOTALS["event_nodelist_8"]` at 13, or read the floor and the Node Lists' past, which says `~1/25`.
   7. **An Aether Cell's id**, whenever one charges: the Recharge Aether popup's.
-
-- **I34 — A fixture inventory for the parity check.** Proposed, the maintainer's call: a seeded, synthetic set of fragments sized to make `check_optimizer_parity` trim (more survivors than `max_results` × 10), with deliberate score ties, every set type, element mains and node 7 thresholds straddled -- so the check runs in seconds, gives the same combos every run, and runs on a fresh clone. The real-snapshot run stays under `--full`, which on the current inventory had not finished its first combatant's parallel half after nearly two hours. Built from the inventory's stat distributions, never its fragments, so the tracked fixture carries no account data (not overly important in this case).
 
 - **I31 — The Chaos estimate's loose ends.** Built as the maintainer specified: `Vribbels/chaos_estimate.py` has the model and the four rules, `version.RELEASED_ON`/`RELEASED_IN` date the shipped figures, a lost run counts when a boss had paid and no non-boss fight was left, and `chaos_runs_per_day` sets the runs a day. What is left:
 
@@ -114,6 +112,8 @@ items are removed; parked ones live in TBD at the bottom. Conventions:
 ## TBD (parked — ignore for now)
 
 ### Improvements
+
+- **T21 — Tcl/Tk 9.1, once a Python ships it.** The program runs on the Tcl/Tk its Python bundles (9.0 with Python 3.14), and `_tkinter` is built against that version's DLLs, so 9.1 arrives only with a Python release built on it. What 9.1 offers that could matter here: consistent dark mode on Windows, which may darken the native dialogs and message boxes; the mouse wheel scrolling an entry; extended Treeview and Notebook states; faster image painting in ttk widgets. When one ships: `Vribbels/build_tcl/prepare_tcl_data.py`'s `libtcl9*` globs already match a 9.1 library, and `checks/run_all.py` at both scales is the first test.
 
 - **T19 — Event display names.** The wire carries none: the client holds a localisation table and the server never sends it, so the Events block shows ids (`event_schedule_devil_001`). Three ways out and no decision — extract the table from the client, hand-write one in the code the way `RECORDED_NAMES` names items (one line per event as it appears), or leave the ids, which are stable and next to the deadline the row is really about.
 

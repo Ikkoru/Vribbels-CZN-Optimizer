@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Run every check. Exit 1 if any of them found something.
 
-    python checks/run_all.py            fast checks; parity is bounded
-    python checks/run_all.py --full     parity uses each combatant's
-                                        real settings (minutes, not
-                                        seconds)
+    python checks/run_all.py            fast checks; parity runs on a
+                                        synthetic inventory
+    python checks/run_all.py --full     parity runs the newest snapshot,
+                                        each combatant on its real
+                                        settings (hours, not seconds)
     python checks/run_all.py --list     names only, run nothing
 
 A check either passes, fails with reasons, or SKIPS with a reason --
@@ -168,7 +169,8 @@ GREEN, RED, YELLOW, DIM, RESET = (
 def main(argv=None):
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--full", action="store_true",
-                    help="unbounded optimizer parity run")
+                    help="optimizer parity on the newest snapshot, "
+                         "unbounded")
     ap.add_argument("--list", action="store_true", help="list checks only")
     args = ap.parse_args(argv)
 
@@ -231,7 +233,8 @@ def main(argv=None):
     print(f"\n{total - failed - skipped}/{total} passed, {failed} failed, "
           f"{skipped} skipped in {time.time() - started:.1f}s")
     if not args.full:
-        print(f"{DIM}parity ran bounded; --full for the unbounded run{RESET}")
+        print(f"{DIM}parity ran on the synthetic inventory; --full runs "
+              f"the newest snapshot{RESET}")
     return 1 if failed else 0
 
 
