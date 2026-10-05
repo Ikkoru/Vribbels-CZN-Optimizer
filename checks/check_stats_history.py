@@ -237,8 +237,14 @@ def _tables(sh):
             "assault_1_s7": {"readings": [{
                 "tab": "ongoing", "rank": 740, "total_count": 19607,
                 "score": 45512, "top_score": 65084, "read_at": 3}]}},
+        # Season 8 has begun and nothing of it is read; season 5 is
+        # older than any known and stays out.
+        "event_schedules": {"ASSAULT_SCHEDULE": {
+            "assault_1_s5": {"start_time": 1, "end_time": 2},
+            "assault_1_s8": {"start_time": 5, "end_time": 4102444800}}},
         "remnants_rankings": {
             "remnants_boss_penalty_004": {"readings": [
+                {"rank": 800, "rank_percent": 2.0, "read_at": 3},
                 {"rank": 900, "rank_percent": None, "read_at": 4}]},
             "remnants_boss_penalty_005": {
                 "stages": {"a": 1130418, "b": 1060877, "c": 1255815},
@@ -248,9 +254,12 @@ def _tables(sh):
             "remnants_boss_penalty_006": {"nine_stars_at": 1790900743}}}
     for name, table, rows, columns, why in (
             ("Sortie", sh.sortie_table, sh.SORTIE_ROWS,
-             [("7", ["3.8%", "740", "19,607", "45,512", "65,084"]),
+             [("8", [None] * 5),
+              ("7", ["3.8%", "740", "19,607", "45,512", "65,084"]),
               ("6", ["7.8%", "1,914", "24,684", "42,343", "66,265"])],
-             "the share of the field is the rank over total_count"),
+             "the share of the field is the rank over total_count, and a "
+             "season the schedule says has begun, newer than any read, "
+             "has its column before anything of it is read"),
             ("Great Rift", sh.rift_table, sh.RIFT_ROWS,
              [("4 p2", ["Test Part", "5.3%", "7%", "2,481", "~47,160",
                         "1,115,731", "1,635,631", "1,219,348", None,
@@ -266,12 +275,14 @@ def _tables(sh):
              [("6", [None, None, None, None] + [sh.STARS % 3] * 3),
               ("5", ["0.83%", "441", "~53,100", "3,447,110", "1,130,418",
                      "1,060,877", "1,255,815"]),
-              ("4", [None, "900", None, None, None, None, None])],
+              ("4", ["~2.25%", "900", "~40,000", None, None, None, None])],
              "the field is the rank over rank_percent, to the hundred, the "
              "total the stages' best scores summed, each stage's in the "
-             "order of their ids; a 9-starred Offensive with no score "
-             "read shows 3 stars a stage, and one with its scores shows "
-             "the scores alone")):
+             "order of their ids; a reading with no percentage takes the "
+             "field of the latest that had one, and its Top% from it, "
+             "marked ~; a 9-starred Offensive with no score read shows 3 "
+             "stars a stage, and one with its scores shows the scores "
+             "alone")):
         # Codenames of the check's own -- one part named, its season's
         # other part not -- so the maintainer's own cannot move what
         # this expects.

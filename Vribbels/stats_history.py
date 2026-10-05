@@ -442,14 +442,21 @@ def field_size(tops):
     return None if best is None else round((best[1] - 1) / best[0])
 
 
-def sortie_seasons(raw, history, shipped=None):
+def sortie_seasons(raw, history, shipped=None, now=None):
     """[(season number, latest reading, reset_time)], newest first.
 
     `shipped` is the program's own game facts (`shared_facts.py`). A
     season the account never read that they hold for its server comes
     as a reading of the field alone: no rank or score of its own. A
     season it did read keeps its own reading whole, so its share of the
-    field is always of one moment."""
+    field is always of one moment.
+
+    **A season that has begun gets its column before anything of it is
+    read.** The account's own Sortie record moves to a new season only
+    once the Sortie is entered, but the login's `ASSAULT_SCHEDULE`
+    names every season with its start, so one started by `now` and
+    newer than any known comes as an empty reading. With nothing known,
+    the one running at `now` does."""
     seasons = merged(raw, history, "chaos_assault_rankings")
     out, read = [], set()
     for schedule, season in seasons.items():
@@ -465,6 +472,24 @@ def sortie_seasons(raw, history, shipped=None):
             out.append((int(found.group(1)),
                         {"total_count": field["players"],
                          "top_score": field.get("top_score")}, None))
+    if now is None:
+        import time
+        now = time.time()
+    known = {number for number, _reading, _reset in out}
+    schedule = ((raw or {}).get("event_schedules") or {}).get(
+        "ASSAULT_SCHEDULE") or {}
+    for schedule_id, row in schedule.items():
+        found = re.search(r"_s(\d+)$", str(schedule_id))
+        start = row.get("start_time") if isinstance(row, dict) else None
+        end = row.get("end_time") if isinstance(row, dict) else None
+        if not found or not isinstance(start, int) or start > now:
+            continue
+        number = int(found.group(1))
+        if number in known:
+            continue
+        if (number > max(known) if known
+                else isinstance(end, int) and now < end):
+            out.append((number, {}, None))
     return sorted(out, key=lambda s: -s[0])
 
 
@@ -653,10 +678,16 @@ def offensive_table(raw, history, shipped=None):
     an Offensive can be known 9-starred and nothing more. A stage whose
     score was read shows the score alone: `OFFENSIVE_STAR_SCORES`.
 
+    **A reading with no percentage still has a Top%.** A login that
+    finds the rank moved is answered without one, so the last reading
+    often lacks it. Its field is then the latest earlier reading's that
+    had one -- the field grows slowly, the rank daily -- or failing that
+    the shipped facts', and its Top% is the rank over that field,
+    marked `~` as the field is.
+
     `shipped` is the program's own game facts (`shared_facts.py`). An
     Offensive the account never read that they hold for its server is a
-    column of the field alone, and one whose last reading states no
-    percentage takes its field from them."""
+    column of the field alone."""
     fields = _shipped_fields(raw, shipped, "OFFENSIVE")
     columns, read = [], set()
     for define_id, season in merged(raw, history,
@@ -676,11 +707,23 @@ def offensive_table(raw, history, shipped=None):
         stages = [held[stage] for stage in sorted(held)
                   if isinstance(held[stage], int)]
         scores = (stages + [None] * OFFENSIVE_STAGES)[:OFFENSIVE_STAGES]
-        field = (int(round(rank * 100.0 / percent, -2)) if rank and percent
-                 else (fields.get(str(define_id)) or {}).get("players"))
+        exact = rank * 100.0 / percent if rank and percent else None
+        if exact is None:
+            for earlier in reversed(readings):
+                then, said = _count(earlier.get("rank")), \
+                    earlier.get("rank_percent")
+                if then and isinstance(said, (int, float)) and said > 0:
+                    exact = then * 100.0 / said
+                    break
+            else:
+                exact = (fields.get(str(define_id)) or {}).get("players")
+        field = int(round(exact, -2)) if exact else None
+        share = ("%g%%" % percent if percent
+                 else "~%.2f%%" % (100.0 * rank / exact) if rank and exact
+                 else None)
         stars = STARS % OFFENSIVE_STAR_SCORES[-1][0] if nine else None
         columns.append((int(found.group(1)), [
-            "%g%%" % percent if percent else None,
+            share,
             _thousands(rank),
             "~" + format(field, ",") if field else None,
             _thousands(sum(stages)) if stages else None]

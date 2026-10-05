@@ -31,6 +31,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Fixed
 
 - Checklist: Simulation Challenges counts a win as it happens, instead of at the next login.
+- **Stats & Gacha History:**
+  - Full-Scale Offensive Stats shows a `~` Top% when the latest reading came without one, worked out from the last known field, instead of `-`.
+  - Great Rift Stats no longer blanks its rows while a login is captured.
+  - Sortie Stats gets a column for a new season as soon as it starts.
 
 ## [2.3.0] - Potential 7, Faster Tabs
 

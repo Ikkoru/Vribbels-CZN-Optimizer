@@ -691,7 +691,12 @@ class Addon:
           current and previous season and nothing older, and a Great
           Rift's division tops are one reading per visit to its screen;
         * **what each lifetime counter counts**, named only by the
-          reply to whatever moved it.
+          reply to whatever moved it;
+        * **the Great Rift standings**, which the login does restate,
+          but not always before the first save: a snapshot written in
+          between held none, and the Stats lists read `-` on every
+          half until the next one. The login's table replaces these
+          whole when it comes.
 
         Read once, at startup, and failures are silent: a missing or
         unreadable snapshot means starting empty, which is where this
@@ -713,6 +718,9 @@ class Addon:
         tops = previous.get("disaster_boss_rank_tops")
         if isinstance(tops, dict):
             self.rift_tops = tops
+        standings = previous.get("disaster_boss_rank_entities")
+        if isinstance(standings, dict):
+            self.disaster_ranks = standings
         rankings = previous.get("chaos_assault_rankings")
         if isinstance(rankings, dict):
             self.sortie_rankings = rankings

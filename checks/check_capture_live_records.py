@@ -88,7 +88,39 @@ def run():
             f"{out.get('sortie_currency')!r}, not [('8/9', {TODO!r})]. "
             f"The lobby's list is the fresh record; a `~` means the "
             f"login's copy was read, and a 5 that the stale copy won.")
-    return failures + _chaos_progress_moves(Addon)
+    return (failures + _chaos_progress_moves(Addon)
+            + _rift_standings_carry_over(Addon))
+
+
+def _rift_standings_carry_over(Addon):
+    """**The Great Rift standings carry over from the newest snapshot**
+    until the login restates them. A login saves several snapshots
+    before its standings arrive (`websocket_debug_20261004_205714`, for
+    three seconds), and each one written with none made the Stats &
+    Gacha History lists read `-` on every half. The login's own table
+    then replaces the carried one whole."""
+    folder = Path(tempfile.mkdtemp(prefix="capture_rift_"))
+    held = {"disaster_s04": {"disaster_s04_rank_02": {
+        "season_id": "disaster_s04", "define_id": "disaster_s04_rank_02",
+        "best_score": 1115731, "rank": 2481}}}
+    (folder / "memory_fragments_20261001_000000.json").write_text(
+        json.dumps({"disaster_boss_rank_entities": held}), encoding="utf-8")
+    addon = Addon(folder, log_callback=lambda *a, **k: None)
+    out = []
+    if addon.disaster_ranks != held:
+        out.append(f"a capture started beside a snapshot holding the Great "
+                   f"Rift standings holds {addon.disaster_ranks!r} before "
+                   f"the login restates them: every save in between "
+                   f"writes none, and the Stats lists read `-` on every "
+                   f"half until the next.")
+    fresh = {"disaster_s05": {"disaster_s05_rank_01": {
+        "season_id": "disaster_s05", "define_id": "disaster_s05_rank_01",
+        "best_score": 5, "rank": 9}}}
+    _reply(addon, 1, disaster_boss_rank_entities=fresh)
+    if addon.disaster_ranks != fresh:
+        out.append(f"the login's Great Rift standings left "
+                   f"{addon.disaster_ranks!r}, not its own table whole.")
+    return out
 
 
 def _chaos_progress_moves(Addon):
