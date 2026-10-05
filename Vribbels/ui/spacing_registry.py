@@ -5102,11 +5102,8 @@ ORDER_MODE_ENTRIES = [
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
 AWAITING_FIRST_READING = {
-    "None -> Order Mode",
-    "Order Mode -> its note",
     "Order Mode names",
     "Order Mode names [unjustified]",
-    "Exclude Combatant's MFs: left edge -> Reset Sort Order",
 }
 
 # Entries whose target is a FLOOR (`TrackedGap.minimum`): the gap varies

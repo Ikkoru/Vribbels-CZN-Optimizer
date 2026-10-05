@@ -2558,7 +2558,7 @@ class OptimizerTab(BaseTab):
         # Order Mode's names, between their Labels' boxes, each of
         # which holds its text `_exclude_label`'s padx in from its
         # sides. The same rule as the checkbuttons, and a floor too.
-        name_gap = 5
+        name_gap = 6
         edge_pad = 2   # px on each side (kept symmetric)
         # Scaled once each, here, and used as is below: every position
         # is a measured width plus these, and only these take `px()`.
