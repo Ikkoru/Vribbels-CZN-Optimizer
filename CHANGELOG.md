@@ -20,20 +20,20 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Changed
 
 - **Optimizer:**
-  - With the Combatants tab's `Show missing characters` on, the combatant list holds combatants you don't have too, optimized at level 60 with no partner, Potential or Affinity.
+  - The Combatants tab's `Show missing characters` allows selecting combatants you don't have. Optimization assumes no partner, Potential or Affinity.
   - `Fill in Potential 7 values:` reads `Auto`, with both buttons struck through, for a combatant whose Potential 7 the score already counts. The buttons still work.
   - Selected Build shows the selected combatant's own Memory Fragments in green.
   - Stats Comparison: Crit% and CDMG% switch between their values without and with conditional set effects, marked `*` while the effects are in, in both columns alike.
 - **Checklist:**
   - Sortie Currency is orange while the next weekly grant still fits under its cap, red once it would not.
   - A deadline in its last day blinks, and so does a Delegation Module row with any to use. The Daily heading and finished events hold still.
-  - Overclock events no longer ask `Finished?`.
+  - `Finished?` removed from Overclock events.
 
 ### Fixed
 
-- Checklist: Simulation Challenges counts a win as it happens, instead of at the next login.
+- Checklist: Simulation Challenges tracks wins as they happen.
 - **Stats & Gacha History:**
-  - Full-Scale Offensive Stats shows a `~` Top% when the latest reading came without one, worked out from the last known field, instead of `-`.
+  - Full-Scale Offensive Stats shows a `~` Top% when it may be outdated.
   - Great Rift Stats no longer blanks its rows while a login is captured.
   - Sortie Stats gets a column for a new season as soon as it starts.
 

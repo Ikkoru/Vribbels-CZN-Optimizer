@@ -2169,8 +2169,8 @@ class OptimizerTab(BaseTab):
 
         With the Combatants tab's `Show missing characters` on, every
         combatant the game has is listed too: one not obtained is
-        optimized at level 60 with no partner, Potential or Affinity,
-        which is what the tables give for them.
+        optimized with no partner, Potential or Affinity, which is what
+        the tables give for them, at level 60 on Auto.
         """
         all_heroes = set(self.optimizer.characters.keys()) | set(
             self.optimizer.character_info.keys()

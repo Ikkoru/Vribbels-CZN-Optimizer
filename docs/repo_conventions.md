@@ -33,6 +33,8 @@ Three documents, one audience, three depths. **The reader is a mobile or PC gach
 
 **Default to one line per change in all three.** Length is earned by a reader needing it, and most changes do not earn it. "Fixed fresh install UI being unfilled" is a complete entry.
 
+**User-facing terminology, engineer-facing grammar.** "User-facing" says whose WORDS: the game's and the player's, never the code's (`CLAUDE.md` § Naming). It says nothing about tone. The sentences are an engineer's: subject first, one verb, terse, with no friendly flourish and no warmth added for its own sake. "`Finished?` removed from Overclock events", not "Overclock events won't bother you with `Finished?` anymore". This is what "register" means wherever these documents and the skills use the word. The release notes' whimsy, below, is the one exception.
+
 Written to be absorbed, not admired. These convey information, so fragments are fine wherever they stay understandable. Wordiness is how slowly an entry reads, not how many words it has. An entry that carries several things is broken into parts: a headline, the parts under it, and any steps as a bullet of their own. That holds even where the parts cost more words than the sentence did. This single sentence:
 
 > Every pull the game has listed, kept even after the game stops listing it, with each banner type's pity, 50/50s and luck against the game's published rates. While capturing, open each banner's Probability Info → Rescue Records, then **click through to the last page** to add them. You need to do this separately for each banner.
@@ -67,7 +69,7 @@ Only section 3 takes the self-evident filter. Sections 1 and 2 exist for a reade
 
 Active work goes under the top `## [X.Y.Z] - unreleased` section as it lands: new features → `### Added`, polish → `### Changed`, bug fixes → `### Fixed`.
 
-Summarize at USER-FACING level in simple English, not implementation detail. "Memory Fragments tab: the Highest Potential column shows the preset used for the score" — not "refactored `_presets_for_highest_gs` to return tuples".
+Summarize what a player sees, never implementation detail, in the register above. "Memory Fragments tab: the Highest Potential column shows the preset used for the score" — not "refactored `_presets_for_highest_gs` to return tuples".
 
 **Write the entry in that register when it LANDS.** An entry written from the implementation and rewritten at release costs the rewrite and loses detail nobody can recover months later.
 
@@ -81,7 +83,7 @@ Churn inside a feature that shipped unfinished is not recorded at all. Where a r
 
 Bold marks the few entries worth catching an eye, not every entry. A `Fixed` section usually carries none at all — a fix is expected, and bolding all of them says nothing. Where most leads are bold, none of them is.
 
-Group a tab's entries under the tab. Three or more in one release become a bolded `**Combatants tab:**` parent with plain sub-bullets, rather than three entries each opening with the tab's name.
+**An entry reads `<Tab>: <subject> <what changed>`**: "Checklist: Simulation Challenges tracks wins as they happen." Under a tab's group the tab is the parent, and the entry starts at its subject. Group a tab's entries under the tab: three or more in one release become a bolded `**Combatants tab:**` parent with plain sub-bullets, rather than three entries each opening with the tab's name.
 
 Nothing about hand-editing a settings file gets an entry. Editing the JSON by hand is a fallback for when something breaks, and a way for a power user to make a bulk change; it is not a feature, and its shape moving is not news.
 

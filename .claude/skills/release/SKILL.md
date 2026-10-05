@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut a release — refresh the season estimate from the Chaos runs, bump the version, close the CHANGELOG section, write the release notes for players into .old/, and re-check the README. Invoked by hand only. Anything typed after the command is read as part of the request: a version number, a theme for the release name, a step to skip.
+description: Cut a release — refresh the season estimate from the Chaos runs, bump the version, close the CHANGELOG section, and write the release notes for players into .old/. Invoked by hand only. Anything typed after the command is read as part of the request: a version number, a theme for the release name, a step to skip.
 ---
 
 # Release
@@ -22,8 +22,7 @@ Run the doc audit first (`doc-audit` skill) — it moves facts between files, an
 5. CHANGELOG pass — accuracy, then register.
 6. `version.py` — the version, `RELEASED_ON` (today, UTC) and `RELEASED_IN` (the Galactic Disaster season live today) — and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list. The two `RELEASED_` lines are what tell a player's program how stale its shipped Chaos figures have grown (`chaos_estimate.staleness`), so they move with every release, even one that measured nothing.
 7. `.old/RELEASE_NOTES_<X.Y.Z>.md` — a different document, see below.
-8. README re-check — report only; it is not edited as part of a release.
-9. `python checks/run_all.py`, then commit.
+8. `python checks/run_all.py`, then commit.
 
 ## The maintainer's edits
 
@@ -52,11 +51,12 @@ Commit `docs/chaos_runs.tsv` with the estimate.
 
 **Accuracy first.** Every entry describes the shipped build, not the intent at the time it was written. An entry whose feature changed later in the cycle is wrong, and nothing will have flagged it.
 
-Then the register. The CHANGELOG is written for a player who wants the smaller changes too — not for a maintainer. Cut, in this order of frequency:
+Then the register: user-facing terminology, engineer-facing grammar (`docs/repo_conventions.md`, *Who reads what*). The CHANGELOG is written for a player who wants the smaller changes too, not for a maintainer. Cut, in this order of frequency:
 
 - **Anything that argues.** A figure defending a decision, worth-it framing, the reason an alternative was rejected. These documents notify; they never persuade. This applies to the CHANGELOG as much as to the notes.
 - **Internal mechanism a user cannot act on** — "three pixels short per shop product and Tk clipped the difference" — and the explanation of a reading: "a late line with all three small was held back by the game itself".
 - **Words.** Default to one line per entry. Most changes need no more, and a paragraph where a line would do is the most common defect in this file. Passes have still come out wordy by the maintainer's reading: cut further than feels complete. Wordy means slow to absorb as much as long: an entry carrying several things becomes a headline with its parts under it, even where that adds words, and prose is not required. `docs/repo_conventions.md` has the maintainer's own before and after.
+- Shape. Read each surviving entry once more for structure, not length: the tab, the subject, what changed (`Checklist: Simulation Challenges tracks wins as they happen.`), the tab left off under a tab's group; one verb; no clause stacked in front of the subject, no chain of which/where. Short sentences instead of complex sentences.
 - **Where something is, when opening the program shows it** — a new tab's place in the tab bar.
 - **The program's word where the game has one.** Check `CLAUDE.md` § Naming, and check the game's own screens for anything it does not cover. Where the game names a thing nowhere recognisable, describe it instead of inventing a name.
 
@@ -93,18 +93,6 @@ The judgement calls worth slowing down for:
 - **Is it what they will see?** "Arrive faster", not "arrive as they happen": say the effect, not an absolute the next slow line disproves.
 
 Write what survives as what, then where. Group by tab, order by importance inside each group, and fold lines about one thing into one bullet — a column and its tooltip. Two short sentences read better than one long one. Where the release asks something of players, such as sharing data, ask it in the maintainer's own voice. A little whimsy is welcome.
-
-## README
-
-Checked at release, reported, not edited. `docs/repo_conventions.md` § README has the policy — note that its first two sections are exempt from the self-evident filter, because a stranger deciding whether to download cannot see the UI.
-
-Re-check these rather than re-deriving them — all five were open at v2.1.0:
-
-1. What "Generate & Install Cert" does — it adds a root CA machine-wide, and neither the README nor the UI says so or how to remove it.
-2. That nothing leaves the machine except the GitHub release check.
-3. Running from source (`requirements.txt`, `zRUN.bat`) — absent, and the people most likely to want it are the ones hesitating over point 1.
-4. SmartScreen and antivirus on a one-file PyInstaller exe that asks for Administrator.
-5. Where user data lives — beside the exe, so the install folder is what gets backed up or moved.
 
 ## Verifying
 
