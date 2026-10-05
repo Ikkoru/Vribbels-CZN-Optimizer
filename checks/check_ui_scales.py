@@ -9,7 +9,9 @@ maintainer may not be developing on.
 
 So the tabs are built twice, once at each scale, and every geometry
 option that carries pixels is compared. A pad that is not exactly
-double at 200% is either unwrapped or wrapped twice.
+double at 200% is either unwrapped or wrapped twice. A widget laid out
+with `place()` carries none of those options, so the Exclude panel's
+distances are read off where its names land: `_placed_distances`.
 
 **A distance is not always exactly double**, so the test is not "did
 it double". A hardcoded one does; a MEASURED one -- a font width, a
@@ -129,6 +131,56 @@ def _minsizes(widget, out, path=""):
                     out[f"{here}:{axis}{slot}:minsize"] = value
         _minsizes(child, out, here)
     return out
+
+
+def _placed_distances(tab, problems):
+    """The Exclude panel's distances, read off where its reflow PLACED
+    each name, in both of its modes.
+
+    `place()` coordinates are in no pack or grid info, so `_distances`
+    cannot see them, and they are a measured width plus hardcoded
+    distances -- only the differences are comparable. Laid out with no
+    row justified, every gap is the lever: the gap between neighbours,
+    the first name's inset, the row pitch past the tallest widget, and
+    the frame's height short of its rows.
+
+    The roster is the game's own names, not a capture's, so this runs on
+    a fresh clone; the optimizer's is put back after.
+    """
+    from game_data import CHARACTERS_BY_NAME
+    optimizer = tab.optimizer
+    roster, mode = optimizer.characters, tab.exclude_order_var.get()
+    optimizer.characters = {name: [] for name in sorted(CHARACTERS_BY_NAME)}
+    tab.exclude_justify = False
+    found = {}
+    try:
+        for ordered, widgets in ((False, tab._exclude_widgets),
+                                 (True, tab._order_widgets)):
+            tab.exclude_order_var.set(ordered)
+            tab.refresh_exclude_heroes()
+            tab._reflow_exclude_heroes(force=True)
+            places, rows = tab._exclude_places, tab._exclude_partition
+            gaps = [places[b][0] - places[a][0] - places[a][2]
+                    for row in rows for a, b in zip(row, row[1:])]
+            if not gaps:
+                problems.append(
+                    "the Exclude panel placed no two names side by side, "
+                    "so none of its placed distances was read.")
+                continue
+            tallest = max(widgets[h].winfo_reqheight() for h in places)
+            height = int(tab.exclude_heroes_frame.cget("height"))
+            key = "exclude:%s" % ("order" if ordered else "checks")
+            found[key + ":gap"] = (min(gaps),)
+            found[key + ":inset"] = (min(x for x, _y, _w in places.values()),)
+            found[key + ":pitch"] = (tab._exclude_row_h - tallest,)
+            found[key + ":height"] = (len(rows) * tab._exclude_row_h
+                                      - height,)
+    finally:
+        optimizer.characters = roster
+        tab.exclude_justify = True
+        tab.exclude_order_var.set(mode)
+        tab.refresh_exclude_heroes()
+    return found
 
 
 def _numbers(value):
@@ -294,6 +346,8 @@ def _build(scale, work, problems):
             tab = getattr(tabs_pkg, attr)(notebook, context)
             _distances(tab.get_frame(), found, attr)
             _minsizes(tab.get_frame(), found, attr)
+            if attr == "OptimizerTab":
+                found.update(_placed_distances(tab, problems))
             # After the distances are read: a rewrap moves requested
             # sizes, and the comparison wants the tab as built.
             problems.extend(_rewraps(tab.get_frame(), scale, attr))

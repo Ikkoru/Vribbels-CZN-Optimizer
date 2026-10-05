@@ -2560,7 +2560,11 @@ class OptimizerTab(BaseTab):
         # sides. The same rule as the checkbuttons, and a floor too.
         name_gap = 5
         edge_pad = 2   # px on each side (kept symmetric)
-        available_w = max(1, container_w - 2 * edge_pad)
+        # Scaled once each, here, and used as is below: every position
+        # is a measured width plus these, and only these take `px()`.
+        # `check_ui_scales` reads all three off the placed widgets.
+        edge = px(edge_pad)
+        available_w = max(1, container_w - 2 * edge)
 
         # Drop widgets for combatants that left the roster, then make sure
         # every current one has a widget. Measurement uses each widget's
@@ -2579,7 +2583,7 @@ class OptimizerTab(BaseTab):
         # Order Mode places the names in its order; the checks mode the
         # checkbuttons by name. The other mode's widgets are kept, hidden.
         ordered = bool(self.exclude_order_var.get())
-        gap = name_gap if ordered else box_gap
+        gap = px(name_gap if ordered else box_gap)
         items = self._exclude_order_names if ordered else self._exclude_heroes
         widget_for = (self._exclude_label if ordered
                       else self._exclude_checkbutton)
@@ -2609,10 +2613,11 @@ class OptimizerTab(BaseTab):
         # the rendered gap is one for one, and the audit reads the
         # result as `Exclude Combatant's MFs: row pitch`.
         ROW_PITCH_OFFSET = 3
+        pitch_offset = px(ROW_PITCH_OFFSET)
         row_h = max(
             (widget.winfo_reqheight() for widget in shown),
-            default=22,
-        ) + ROW_PITCH_OFFSET
+            default=px(22),
+        ) + pitch_offset
 
         # Partition into rows: names keep their natural widths (no scaling
         # every column to the widest name) and the column count per row
@@ -2654,7 +2659,7 @@ class OptimizerTab(BaseTab):
                 extra, rem = divmod(max(0, available_w - content_w), n - 1)
             else:
                 extra, rem = gap, 0
-            x = edge_pad
+            x = edge
             y = row_idx * row_h
             for i, hero in enumerate(row):
                 widget_for(hero).place(x=x, y=y)
@@ -2673,7 +2678,7 @@ class OptimizerTab(BaseTab):
         # a whole pitch further from the block than in the other three
         # panels.
         self.exclude_heroes_frame.configure(
-            height=max(1, len(rows) * row_h - ROW_PITCH_OFFSET))
+            height=max(1, len(rows) * row_h - pitch_offset))
         self._exclude_partition = rows
         self._exclude_packed_width = container_w
         self._apply_exclude_states()
