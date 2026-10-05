@@ -10,6 +10,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
+- Optimizer: `Order Mode` in Exclude Combatant's MFs puts the combatants in an order you drag into shape. Whoever you optimize can't use the MFs of anyone before them.
 - Memory Fragments: a `Level:` filter under Slots shows the Memory Fragments of one level.
 - Capture Log: Ctrl+F marks every place the typed text appears. Escape closes it.
 - Anika's default Gear Score preset, assigned to her; Restore Defaults brings both in.

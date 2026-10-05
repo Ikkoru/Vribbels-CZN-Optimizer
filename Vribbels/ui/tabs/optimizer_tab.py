@@ -16,7 +16,8 @@ UI layout (top to bottom)
                   checklist with per-conditional-set effect share
                   spinboxes)
                 the Potential 7 fill button, centred in the space left
-    Right:   Exclude Combatant's MFs (checklist + All/None buttons)
+    Right:   Exclude Combatant's MFs (checklist + All/None buttons, or
+             in Order Mode the names in an order, dragged to reorder)
              over Results (Treeview)
   Bottom:  Selected Build detail tree
 
@@ -350,6 +351,41 @@ P7_FULL_TOOLTIP = ("Sets the stats this Combatant's Potential 7 checks "
                       "Combatants with a Pot 7 that increases stats. The "
                       "Optimizer calculates them automatically.")
 
+# Exclude Combatant's MFs in Order Mode: the names stand in an order,
+# and each combatant's MFs are kept from everyone after it. The toggle
+# sits right of None, and the note says what it does.
+ORDER_MODE_LABEL = "Order Mode"
+ORDER_MODE_NOTE = ("Earlier names keep their MFs from later ones. "
+                   "Drag a name to move it.")
+ORDER_MODE_GAP = 12      # spacing: control group ↔ control group -- button, checkbox ↔
+ORDER_MODE_NOTE_GAP = 2  # spacing: label ↔ its element -- checkbox, label ↔
+
+
+def exclude_order(saved, roster, res_id_of):
+    """Order Mode's order over `roster`: the combatants `saved` places,
+    in its order, then every one it does not, by name -- so a new
+    combatant ranks last, its MFs free for everyone above it.
+
+    `saved` is res_id strings; `res_id_of` maps a name to its res_id."""
+    by_id = {}
+    for name in roster:
+        rid = res_id_of(name)
+        if rid is not None:
+            by_id.setdefault(str(rid), name)
+    placed = []
+    for rid in saved:
+        name = by_id.get(str(rid))
+        if name is not None and name not in placed:
+            placed.append(name)
+    return placed + sorted(name for name in roster if name not in placed)
+
+
+def excluded_by_order(order, current):
+    """Whose MFs Order Mode keeps from `current`: everyone before it. A
+    combatant the order does not hold ranks after all of them."""
+    return list(order[:order.index(current)]) if current in order \
+        else list(order)
+
 
 # Force-main checkbox definitions. Each entry: (settings key, label, slot).
 # Slot is needed when translating the checkbox state into the optimizer's
@@ -508,6 +544,14 @@ class OptimizerTab(BaseTab):
         # scenario: every row then keeps the natural gap, which is the
         # one lever of a gap the justification otherwise widens.
         self.exclude_justify = True
+        # Order Mode's pieces: hero name -> its name Label, created once
+        # like the checkbuttons; the order on screen; the combatant
+        # being dragged; the drop marker. See `_toggle_exclude_order`.
+        self._order_widgets: dict = {}
+        self.exclude_order_var = tk.BooleanVar(value=False)
+        self._exclude_order_names: list = []
+        self._exclude_dragging = None
+        self._exclude_marker = None
 
         # --- Global UI vars (optimizer-wide) ---
         # Minimum MF level for optimizer candidacy: a single GLOBAL
@@ -1844,8 +1888,50 @@ class OptimizerTab(BaseTab):
         # logic lives in refresh_exclude_heroes / _reflow_exclude_heroes;
         # this frame is left as a plain container.
 
-        make_all_none_row(parent, self._exclude_all_gear,
-                          self._exclude_no_gear)
+        row = make_all_none_row(parent, self._exclude_all_gear,
+                                self._exclude_no_gear)
+        self._exclude_all_none = list(row.winfo_children())
+        self._exclude_all_none_packs = [
+            {k: v for k, v in b.pack_info().items() if k != "in"}
+            for b in self._exclude_all_none]
+        settings = self.opt_settings
+        self.exclude_order_var.set(
+            bool(settings and settings.get_exclude_order_mode()))
+        self._exclude_order_box = make_checkbox(
+            row, self.colors, text=ORDER_MODE_LABEL,
+            variable=self.exclude_order_var,
+            command=self._toggle_exclude_order)
+        # spacing: control group ↔ control group -- button, checkbox ↔
+        self._exclude_order_box.pack(side=tk.LEFT,
+                                     padx=px((ORDER_MODE_GAP, 0)))
+        # spacing: label ↔ its element -- checkbox, label ↔
+        ttk.Label(row, text=ORDER_MODE_NOTE,
+                  foreground=self.colors["fg_dim"]).pack(
+            side=tk.LEFT, padx=px((ORDER_MODE_NOTE_GAP, 0)))
+        # Holds All and None's place while Order Mode hides them, so the
+        # toggle does not jump out from under the pointer that ticked it.
+        self._exclude_spacer = ttk.Frame(row, height=1)
+        self._show_all_none(not self.exclude_order_var.get())
+
+    def _show_all_none(self, show):
+        """Show All and None, or hide them behind a spacer of their
+        width: in Order Mode there are no checks to set."""
+        if show:
+            self._exclude_spacer.pack_forget()
+            for button, pack in zip(self._exclude_all_none,
+                                    self._exclude_all_none_packs):
+                if not button.winfo_manager():
+                    button.pack(before=self._exclude_order_box, **pack)
+            return
+        if not self._exclude_spacer.winfo_manager():
+            width = sum(b.winfo_reqwidth() + _horizontal_pads(pack)
+                        for b, pack in zip(self._exclude_all_none,
+                                           self._exclude_all_none_packs))
+            for button in self._exclude_all_none:
+                button.pack_forget()
+            self._exclude_spacer.configure(width=width)
+            self._exclude_spacer.pack(side=tk.LEFT,
+                                      before=self._exclude_order_box)
 
     # ----------------------------------------------------------- UI: Results
 
@@ -2120,6 +2206,11 @@ class OptimizerTab(BaseTab):
             if self.opt_settings else []
         )
         new_current = self.selected_character.get()
+        # Order Mode lays the same roster out in its order, as names.
+        new_order = (exclude_order(
+            self.opt_settings.get_exclude_order() if self.opt_settings
+            else [], new_heroes, self._resolve_res_id)
+            if self.exclude_order_var.get() else None)
 
         # Configure binding only needs to attach once.
         if not getattr(self, "_exclude_configure_bound", False):
@@ -2132,19 +2223,25 @@ class OptimizerTab(BaseTab):
         # observable has changed.
         if (getattr(self, "_exclude_heroes", None) == new_heroes
                 and getattr(self, "_exclude_excluded_set", None) == new_excluded
-                and getattr(self, "_exclude_last_current", None) == new_current):
+                and getattr(self, "_exclude_last_current", None) == new_current
+                and getattr(self, "_exclude_last_order", None) == new_order):
             return
 
         # While the roster is unchanged, nothing about the LAYOUT can have
         # changed -- only the check states and the current-combatant marker,
         # both of which are option updates on widgets that already exist.
         # Re-flowing here would rearrange identical rows for nothing.
-        same_heroes = getattr(self, "_exclude_heroes", None) == new_heroes
+        same_layout = (getattr(self, "_exclude_heroes", None) == new_heroes
+                       and getattr(self, "_exclude_last_order", None)
+                       == new_order)
         self._exclude_heroes = new_heroes
         self._exclude_excluded_set = new_excluded
         self._exclude_last_current = new_current
+        self._exclude_last_order = new_order
+        self._exclude_order_names = new_order or []
 
-        if same_heroes and self._exclude_widgets:
+        if same_layout and (self._order_widgets if new_order is not None
+                            else self._exclude_widgets):
             self._apply_exclude_states()
             return
 
@@ -2206,13 +2303,157 @@ class OptimizerTab(BaseTab):
         self._exclude_widgets[hero] = cb
         return cb
 
+    def _exclude_label(self, hero: str):
+        """Order Mode's name Label for `hero`, created on first use and
+        reused, for the reason `_exclude_checkbutton` gives. Dragged to
+        reorder: see `_exclude_drag_motion`."""
+        label = self._order_widgets.get(hero)
+        if label is not None:
+            return label
+        label = tk.Label(self.exclude_heroes_frame, text=hero,
+                         font=("Segoe UI", 9), bg=self.colors["bg"],
+                         fg=self.colors["fg"], cursor="fleur", bd=0,
+                         padx=px(1), pady=px(2))
+        label.bind("<ButtonPress-1>",
+                   lambda e, h=hero: self._exclude_drag_start(h))
+        label.bind("<B1-Motion>", self._exclude_drag_motion)
+        label.bind("<ButtonRelease-1>", self._exclude_drag_end)
+        self._order_widgets[hero] = label
+        return label
+
+    def _exclude_fonts(self):
+        """(struck through, bold): the faces marking a name excluded and
+        the combatant selected. Held on the tab, since Tk drops a named
+        font once nothing in Python holds it."""
+        if not hasattr(self, "_exclude_strike_font"):
+            self._exclude_strike_font = tkfont.Font(
+                family="Segoe UI", size=9, overstrike=1)
+        if not hasattr(self, "_exclude_bold_font"):
+            self._exclude_bold_font = tkfont.Font(
+                family="Segoe UI", size=9, weight="bold")
+        return self._exclude_strike_font, self._exclude_bold_font
+
+    def _apply_order_states(self):
+        """Mark Order Mode's names: every one before the selected
+        combatant dimmed and struck through, its MFs kept from it; the
+        selected one bold in the accent colour; the rest in their
+        element's colour."""
+        strike, bold = self._exclude_fonts()
+        order = self._exclude_order_names
+        current = self.selected_character.get()
+        cut = order.index(current) if current in order else len(order)
+        for index, hero in enumerate(order):
+            label = self._order_widgets.get(hero)
+            if label is None:
+                continue
+            if index < cut:
+                fg, font = self.colors["fg_dim"], strike
+            elif hero == current:
+                fg, font = self.colors["accent"], bold
+            else:
+                fg = ATTRIBUTE_COLORS.get(
+                    get_character_by_name(hero).get("attribute", "Unknown"),
+                    self.colors["fg"])
+                font = ("Segoe UI", 9)
+            try:
+                label.configure(fg=fg, font=font)
+            except tk.TclError:
+                pass
+
+    def _toggle_exclude_order(self):
+        """Turn Order Mode on or off. Turned on with nothing arranged,
+        the order starts from the checks: every checked combatant first,
+        their MFs kept from the rest, then the unchecked, each by name."""
+        on = bool(self.exclude_order_var.get())
+        settings = self.opt_settings
+        if settings is not None:
+            if on and not settings.get_exclude_order():
+                checked = set(settings.get_excluded_gear_chars())
+                ids = [(str(rid) not in checked, name, str(rid))
+                       for name in self._exclude_heroes
+                       for rid in [self._resolve_res_id(name)]
+                       if rid is not None]
+                settings.set_exclude_order([rid for *_k, rid in sorted(ids)])
+            settings.set_exclude_order_mode(on)
+        self._show_all_none(not on)
+        self.refresh_exclude_heroes()
+
+    def _exclude_drop_at(self, x_root, y_root):
+        """(index in the order, marker x, marker y) for a drop at the
+        pointer: before the name whose middle it is left of, on the row
+        it is over, or after that row's last name."""
+        frame = self.exclude_heroes_frame
+        x = x_root - frame.winfo_rootx()
+        y = y_root - frame.winfo_rooty()
+        rows = getattr(self, "_exclude_partition", None) or [[]]
+        row = rows[min(max(int(y // max(1, self._exclude_row_h)), 0),
+                       len(rows) - 1)]
+        order = self._exclude_order_names
+        for hero in row:
+            left, top, width = self._exclude_places[hero]
+            if x < left + width / 2:
+                return order.index(hero), left - px(2), top
+        if not row:
+            return len(order), 0, 0
+        left, top, width = self._exclude_places[row[-1]]
+        return order.index(row[-1]) + 1, left + width, top
+
+    def _exclude_drag_start(self, hero):
+        self._exclude_dragging = hero
+
+    def _exclude_drag_motion(self, event):
+        """Show where the dragged name would land: a bar in the accent
+        colour, the height of a name, at the gap it would drop into."""
+        if self._exclude_dragging is None:
+            return
+        _index, x, y = self._exclude_drop_at(event.x_root, event.y_root)
+        if self._exclude_marker is None:
+            self._exclude_marker = tk.Frame(
+                self.exclude_heroes_frame, width=px(2),
+                bg=self.colors["accent"])
+        label = self._order_widgets[self._exclude_dragging]
+        self._exclude_marker.place(x=max(0, x), y=y,
+                                   height=label.winfo_reqheight())
+        self._exclude_marker.lift()
+
+    def _exclude_drag_end(self, event):
+        hero, self._exclude_dragging = self._exclude_dragging, None
+        if self._exclude_marker is not None:
+            self._exclude_marker.place_forget()
+        if hero is not None:
+            index, _x, _y = self._exclude_drop_at(event.x_root, event.y_root)
+            self._exclude_move(hero, index)
+
+    def _exclude_move(self, hero, index):
+        """Move `hero` to `index` of Order Mode's order, counted in the
+        order as it stands, and save it. Combatants the saved order holds
+        that are not on screen keep their places after the rest."""
+        order = list(self._exclude_order_names)
+        if hero not in order:
+            return
+        old = order.index(hero)
+        order.pop(old)
+        order.insert(index - 1 if index > old else index, hero)
+        ids = [str(rid) for rid in map(self._resolve_res_id, order)
+               if rid is not None]
+        settings = self.opt_settings
+        if settings is not None:
+            settings.set_exclude_order(
+                ids + [r for r in settings.get_exclude_order()
+                       if r not in ids])
+        self.refresh_exclude_heroes()
+
     def _apply_exclude_states(self):
         """Sync every checkbutton's variable from the persisted excluded
         set, and apply the current-combatant gray+strike treatment. Pure
         option updates on existing widgets -- no creation, no re-layout.
         var.set() does not fire a Checkbutton's command, so this can't
-        write back to settings.
+        write back to settings. In Order Mode the names are marked
+        instead: `_apply_order_states`.
         """
+        if self.exclude_order_var.get():
+            self._apply_order_states()
+            return
         current = self.selected_character.get()
         for hero, cb in self._exclude_widgets.items():
             res_id = self._resolve_res_id(hero)
@@ -2303,9 +2544,22 @@ class OptimizerTab(BaseTab):
                      if h not in self._exclude_heroes]:
             self._exclude_widgets.pop(gone).destroy()
             self.exclude_hero_vars.pop(gone, None)
+        for gone in [h for h in self._order_widgets
+                     if h not in self._exclude_heroes]:
+            self._order_widgets.pop(gone).destroy()
+        # Order Mode places the names in its order; the checks mode the
+        # checkbuttons by name. The other mode's widgets are kept, hidden.
+        ordered = bool(self.exclude_order_var.get())
+        items = self._exclude_order_names if ordered else self._exclude_heroes
+        widget_for = (self._exclude_label if ordered
+                      else self._exclude_checkbutton)
+        for widget in (self._exclude_widgets if ordered
+                       else self._order_widgets).values():
+            widget.place_forget()
         widths = {}
-        for hero in self._exclude_heroes:
-            widths[hero] = self._exclude_checkbutton(hero).winfo_reqwidth()
+        for hero in items:
+            widths[hero] = widget_for(hero).winfo_reqwidth()
+        shown = [widget_for(hero) for hero in items]
         # spacing: checkbox/slider ↕ checkbox/slider rows -- checkbox, checkbox ↕
         # The row PITCH: rows are placed at y = row * row_h, so this
         # offset against the widget's own requested height is the
@@ -2326,7 +2580,7 @@ class OptimizerTab(BaseTab):
         # result as `Exclude Combatant's MFs: row pitch`.
         ROW_PITCH_OFFSET = 3
         row_h = max(
-            (cb.winfo_reqheight() for cb in self._exclude_widgets.values()),
+            (widget.winfo_reqheight() for widget in shown),
             default=22,
         ) + ROW_PITCH_OFFSET
 
@@ -2336,7 +2590,7 @@ class OptimizerTab(BaseTab):
         rows = []
         cur_row = []
         cur_w = 0
-        for hero in self._exclude_heroes:
+        for hero in items:
             w = widths[hero]
             if cur_row and cur_w + gap + w > available_w:
                 rows.append(cur_row)
@@ -2350,7 +2604,8 @@ class OptimizerTab(BaseTab):
         # Nothing visible would change -> don't touch a single widget.
         if (not force
                 and rows == getattr(self, "_exclude_partition", None)
-                and container_w == getattr(self, "_exclude_packed_width", None)):
+                and container_w == getattr(self, "_exclude_packed_width", None)
+                and ordered == getattr(self, "_exclude_packed_ordered", None)):
             return
 
         # Place every checkbutton by explicit coordinate. Rows other than
@@ -2360,6 +2615,8 @@ class OptimizerTab(BaseTab):
         # width looks broken). Because the widths are the widgets' real
         # requested widths, one pass lands flush -- no re-measure, and no
         # risk of clipping the last name in a row.
+        # Where each one lands, for a drag's drop: `_exclude_drop_at`.
+        places = {}
         for row_idx, row in enumerate(rows):
             n = len(row)
             content_w = sum(widths[h] for h in row)
@@ -2370,8 +2627,12 @@ class OptimizerTab(BaseTab):
             x = edge_pad
             y = row_idx * row_h
             for i, hero in enumerate(row):
-                self._exclude_widgets[hero].place(x=x, y=y)
+                widget_for(hero).place(x=x, y=y)
+                places[hero] = (x, y, widths[hero])
                 x += widths[hero] + extra + (1 if i < rem else 0)
+        self._exclude_places = places
+        self._exclude_row_h = row_h
+        self._exclude_packed_ordered = ordered
 
         # The row count is the ONE thing the content drives (see
         # _build_exclude_gear): size the frame to exactly its rows.
@@ -3109,10 +3370,21 @@ class OptimizerTab(BaseTab):
             elif sinfo.get("pieces") == 2:
                 selected_2pc.append(sid)
 
-        # Excluded characters' gear: res_ids -> hero names
+        # Excluded characters' gear: res_ids -> hero names. In Order
+        # Mode, everyone before the selected combatant in the order.
         excluded_heroes = []
         excluded_res_ids = set(self.opt_settings.get_excluded_gear_chars()
                                 if self.opt_settings else [])
+        if self.exclude_order_var.get():
+            roster = sorted(set(self.optimizer.characters)
+                            | set(self.optimizer.character_info))
+            order = exclude_order(
+                self.opt_settings.get_exclude_order()
+                if self.opt_settings else [], roster, self._resolve_res_id)
+            kept = excluded_by_order(order, self.selected_character.get())
+            excluded_res_ids = {str(rid) for rid in
+                                map(self._resolve_res_id, kept)
+                                if rid is not None}
         # Don't exclude the current character's gear -- their pieces should
         # be available for re-equip.
         current_rid_str = str(self._current_res_id) if self._current_res_id else None

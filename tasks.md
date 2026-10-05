@@ -73,8 +73,6 @@ items are removed; parked ones live in TBD at the bottom. Conventions:
 
 - **I1 — Don't show presets with Shielding/Healing above [spinbox]% for DPS MFs**. Default to 69%. Consider DPS MF to be Crit%, CDMG, ATK% on Slot IV; ATK%, Element% on Slot V; ATK% (this one's complicated T_T) on Slot VI. Use the Optimizer's Shielding/Healing value to figure this out. Ask me for any info that you need.
 
-- **I0 — Alternative type of `Exclude Combatant's` MFs.** Ticking a `Order Mode` checkbox (on the right of the None button) will change how it works. Instead of checkboxes there will only be Combatant names. They can be reordered using drag-and-drop (or `Higher`/`Lower` buttons that would replace the All/None buttons). The order in this panel will decide whose MFs will be ignored: all Combatants before (sentence order) the one currently being optimized will be excluded. An explanation about how this mode works, and availability of drag-and-drop will appear to the right of the checkbox label. Ask me questions if needed.
-
 ---
 
 ## 3) Big changes

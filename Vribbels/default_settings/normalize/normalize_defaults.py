@@ -9,10 +9,11 @@ None of that belongs in a new user's first run.
 
 What it does, all of it idempotent:
 
-1. Empties `excluded_gear_chars`, `exclude_seen_rids` and
-   `optimize_level_seen`.
+1. Empties `excluded_gear_chars`, `exclude_seen_rids`, `exclude_order`
+   and `optimize_level_seen`.
 2. Sets `excluded_default_initialized` to false, so the first run seeds
-   the exclude lists itself.
+   the exclude lists itself, and `exclude_order_mode` to false, so a new
+   user starts on the checks.
 3. Sets every combatant's `optimize_for_level` to Auto, which reads
    the combatant's own level rather than whichever one the
    maintainer happened to be optimizing at.
@@ -38,8 +39,11 @@ from pathlib import Path
 TARGET = Path(__file__).resolve().parents[1] / "optimizer_settings.json"
 
 # Emptied wholesale: per-user state the first run seeds for itself.
-EMPTY_LIST_KEYS = ("excluded_gear_chars", "exclude_seen_rids")
+EMPTY_LIST_KEYS = ("excluded_gear_chars", "exclude_seen_rids",
+                   "exclude_order")
 EMPTY_DICT_KEYS = ("optimize_level_seen",)
+# Set false: the maintainer's choice of mode is not a new user's.
+FALSE_KEYS = ("excluded_default_initialized", "exclude_order_mode")
 
 # AUTO, which the file stores as null: a shipped level is the
 # maintainer's, and Auto is nobody's.
@@ -51,6 +55,8 @@ KEY_ORDER = (
     "excluded_default_initialized",
     "excluded_gear_chars",
     "exclude_seen_rids",
+    "exclude_order_mode",
+    "exclude_order",
     "optimize_level_seen",
 )
 
@@ -73,12 +79,10 @@ def normalize(data: dict) -> list:
             changed.append(f"{key}: emptied ({count} entries)")
         data[key] = {}
 
-    if data.get("excluded_default_initialized") is not False:
-        changed.append(
-            f"excluded_default_initialized: "
-            f"{data.get('excluded_default_initialized')!r} -> False"
-        )
-    data["excluded_default_initialized"] = False
+    for key in FALSE_KEYS:
+        if data.get(key) is not False:
+            changed.append(f"{key}: {data.get(key)!r} -> False")
+        data[key] = False
 
     characters = data.get("characters")
     if not isinstance(characters, dict):

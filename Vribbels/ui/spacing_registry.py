@@ -3350,6 +3350,11 @@ def _row_division(title, classes):
     return resolve
 
 
+# Panels whose pitch is read inside their block of controls alone,
+# because another control of the same class sits outside it: Exclude
+# Combatant's MFs keeps its Order Mode toggle in the All/None row.
+ROW_PITCH_IN_BLOCK = {"Exclude Combatant's MFs"}
+
 # (tab, panel, rule, classes, target).
 ROW_PITCH_ENTRIES = [
     ("Memory Fragments", "Slots", RULE_CHECKBOX_PITCH,
@@ -3445,10 +3450,16 @@ def _checkbox_block_to_buttons(title):
     registered: these grids fill row by row, so the final column of the
     last row can be empty and the widget order says nothing about which
     sits deepest.
+
+    A checkbox IN the button row is not the block's -- Exclude
+    Combatant's MFs keeps its Order Mode toggle there -- and counted, it
+    would be the lowest.
     """
     def resolve(cap, app):
         frame, buttons = _panel_buttons(app, title)
-        boxes = sa.find_descendants_class(frame, *CHECKBOX_CLASSES)
+        boxes = [box for box in
+                 sa.find_descendants_class(frame, *CHECKBOX_CLASSES)
+                 if not buttons or box.master is not buttons[0].master]
         if not boxes or not buttons:
             return None, f"{len(boxes)} checkboxes and {len(buttons)} buttons"
         bottoms = [e[1] for e in
@@ -5017,6 +5028,18 @@ SETTINGS_ENTRIES = [
           "h"), "h"),
 ]
 
+# Exclude Combatant's MFs' Order Mode toggle, right of None, and the
+# note beside it. Found by the toggle's words: None is the row's second
+# widget.
+OPTIMIZER_ENTRIES = [
+    ("Optimizer", "None -> Order Mode", 16, RULE_CONTROL_GROUP,
+     _gap(lambda app: _by_text("Order Mode")(app).master.winfo_children()[1],
+          _by_text("Order Mode"), "h"), "h"),
+    ("Optimizer", "Order Mode -> its note", 5, RULE_LABEL_ELEMENT,
+     _gap(_by_text("Order Mode"), _by_text("Earlier names keep"), "h"),
+     "h"),
+]
+
 
 # A name goes in here when an entry is registered at a target the rules
 # table supplies rather than at a distance somebody has read off the
@@ -5024,8 +5047,8 @@ SETTINGS_ENTRIES = [
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
 AWAITING_FIRST_READING = {
-    "DANGER: -> Delete Certificate",
-    "Delete Certificate -> its note",
+    "None -> Order Mode",
+    "Order Mode -> its note",
 }
 
 # Entries whose target is a FLOOR (`TrackedGap.minimum`): the gap varies
@@ -5140,7 +5163,9 @@ def register_all():
             tab=tab,
             rule=rule,
             target=target,
-            resolve=_row_pitch(title, classes),
+            resolve=(_row_pitch_in(_block_in(title, classes), classes)
+                     if title in ROW_PITCH_IN_BLOCK
+                     else _row_pitch(title, classes)),
             axis="v",
             provisional=f"{title}: row pitch" in AWAITING_FIRST_READING,
         )
@@ -5249,7 +5274,8 @@ def register_all():
     for tab, name, target, rule, resolve, axis in (MATERIALS_ENTRIES
                                                   + CHECKLIST_ENTRIES
                                                   + GACHA_ENTRIES
-                                                  + SETTINGS_ENTRIES):
+                                                  + SETTINGS_ENTRIES
+                                                  + OPTIMIZER_ENTRIES):
         sa.track(
             name=name,
             tab=tab,

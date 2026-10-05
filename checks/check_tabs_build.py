@@ -1134,6 +1134,157 @@ def _optimizer_lists_missing_when_shown(tab):
     return out
 
 
+def _order_mode_ranks_the_roster(tab):
+    """Exclude Combatant's MFs in Order Mode.
+
+    Ticked with nothing arranged, the names stand checked first, each
+    half by name. A drag moves a name and saves the order. Everyone
+    before the selected combatant is kept from its search and struck
+    through, the selected one bold. All and None hide behind a spacer
+    of their width, so the toggle does not move; unticked, the
+    checkbuttons and the buttons come back. Mapped at alpha 0 for the
+    toggle's place, like `_share_panel_lines_up`.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.scaling import px, WINDOW_H, WINDOW_W
+    settings = tab.opt_settings
+    heroes = list(getattr(tab, "_exclude_heroes", None) or [])
+    if settings is None or len(heroes) < 4:
+        return []
+    saved = (settings.get_exclude_order_mode(), settings.get_exclude_order(),
+             tab.selected_character.get(), tab._current_res_id,
+             settings.get_excluded_gear_chars())
+    rid = lambda name: str(tab._resolve_res_id(name))  # noqa: E731
+    root, notebook = tab.frame.winfo_toplevel(), tab.frame.master
+    out = []
+    try:
+        root.attributes("-alpha", 0.0)
+        if str(tab.frame) not in notebook.tabs():
+            notebook.add(tab.frame, text="Optimizer")
+        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.select(tab.frame)
+        root.geometry("%dx%d" % (px(WINDOW_W), px(WINDOW_H)))
+        root.deiconify()
+        root.update_idletasks()
+        box_x = tab._exclude_order_box.winfo_rootx()
+
+        # Two checked, by name the second and the last, so checked-first
+        # and by-name orders differ whatever the account's own checks.
+        settings.set_excluded_gear_chars([rid(heroes[1]), rid(heroes[-1])])
+        settings.set_exclude_order([])
+        tab.exclude_order_var.set(True)
+        tab._toggle_exclude_order()
+        root.update_idletasks()
+        checked = set(settings.get_excluded_gear_chars())
+        want = sorted(heroes, key=lambda h: (rid(h) not in checked, h))
+        if tab._exclude_order_names != want:
+            out.append(f"Order Mode, ticked with nothing arranged, starts "
+                       f"{tab._exclude_order_names[:4]}..., not the checked "
+                       f"combatants first and each half by name "
+                       f"({want[:4]}...).")
+        placed = [h for h, w in tab._order_widgets.items()
+                  if w.winfo_manager() == "place"]
+        boxes = [h for h, w in tab._exclude_widgets.items()
+                 if w.winfo_manager()]
+        if sorted(placed) != sorted(heroes) or boxes:
+            out.append(f"Order Mode shows {len(placed)} name(s) of "
+                       f"{len(heroes)} and leaves {len(boxes)} checkbox(es) "
+                       f"on screen: the names replace the checkboxes.")
+        # In reading order: row by row, left to right.
+        reading = sorted(placed, key=lambda h: (
+            int(tab._order_widgets[h].place_info()["y"]),
+            int(tab._order_widgets[h].place_info()["x"])))
+        if reading != tab._exclude_order_names:
+            out.append(f"Order Mode's names read {reading[:4]}... on "
+                       f"screen, not in the order "
+                       f"({tab._exclude_order_names[:4]}...).")
+        if (any(b.winfo_manager() for b in tab._exclude_all_none)
+                or tab._exclude_order_box.winfo_rootx() != box_x):
+            out.append(f"Order Mode leaves All and None showing, or moves "
+                       f"its toggle from x={box_x} to "
+                       f"x={tab._exclude_order_box.winfo_rootx()}: they "
+                       f"hide behind a spacer of their width.")
+
+        # Dropped on the left half of a row's first name, a name goes
+        # before it; on the right half of its last, after it.
+        row = tab._exclude_partition[0]
+        frame = tab.exclude_heroes_frame
+        left, top, width = tab._exclude_places[row[0]]
+        before = tab._exclude_drop_at(frame.winfo_rootx() + left + 1,
+                                      frame.winfo_rooty() + top + 1)[0]
+        left, top, width = tab._exclude_places[row[-1]]
+        after = tab._exclude_drop_at(frame.winfo_rootx() + left + width - 1,
+                                     frame.winfo_rooty() + top + 1)[0]
+        order = tab._exclude_order_names
+        if (before, after) != (order.index(row[0]),
+                               order.index(row[-1]) + 1):
+            out.append(f"a drop on the first name's left half lands at "
+                       f"{before} and on the last name's right half at "
+                       f"{after}, not before the one and after the other.")
+
+        last = tab._exclude_order_names[-1]
+        tab._exclude_move(last, 0)
+        if (tab._exclude_order_names[0] != last
+                or settings.get_exclude_order()[:1] != [rid(last)]):
+            out.append(f"{last}, moved to the front, stands at "
+                       f"{tab._exclude_order_names.index(last)} and is "
+                       f"saved {settings.get_exclude_order()[:2]}: a move "
+                       f"is the order's and is saved.")
+
+        # The selected combatant where the one just before it, and one
+        # more before that, wear MFs: an exclusion cut a place short or
+        # long then shows in the search.
+        order = list(tab._exclude_order_names)
+        wearing = [i for i, h in enumerate(order)
+                   if h in tab.optimizer.characters]
+        at = next((i + 1 for n, i in enumerate(wearing)
+                   if n >= 1 and i + 2 < len(order)), None)
+        if at is None:
+            return out
+        pick = order[at]
+        tab.selected_character.set(pick)
+        tab._current_res_id = tab._resolve_res_id(pick)
+        tab.refresh_exclude_heroes()
+        got = sorted(tab._build_optimizer_settings()["excluded_heroes"])
+        expected = sorted(h for h in order[:at]
+                          if h in tab.optimizer.characters)
+        if got != expected:
+            out.append(f"with {pick} at {at} in the order, its search "
+                       f"excludes {got}, not those before it that wear "
+                       f"MFs ({expected}).")
+        strike, bold = (str(f) for f in tab._exclude_fonts())
+        fonts = [str(tab._order_widgets[h].cget("font"))
+                 for h in order[at - 1:at + 2]]
+        if (fonts[0], fonts[1]) != (strike, bold) \
+                or fonts[2] in (strike, bold):
+            out.append(f"Order Mode draws the names around the selected "
+                       f"combatant in {fonts}: the one before it struck "
+                       f"through, the selected one bold, the next plain.")
+
+        tab.exclude_order_var.set(False)
+        tab._toggle_exclude_order()
+        root.update_idletasks()
+        if (any(w.winfo_manager() for w in tab._order_widgets.values())
+                or not all(b.winfo_manager() for b in tab._exclude_all_none)
+                or tab._exclude_order_box.winfo_rootx() != box_x):
+            out.append("unticked, Order Mode leaves its names up, All and "
+                       "None hidden, or its toggle moved: the checkboxes "
+                       "and the buttons come back where they were.")
+    finally:
+        settings.set_exclude_order_mode(saved[0])
+        settings.set_exclude_order(saved[1])
+        settings.set_excluded_gear_chars(saved[4])
+        tab.exclude_order_var.set(saved[0])
+        tab._show_all_none(not saved[0])
+        tab.selected_character.set(saved[2])
+        tab._current_res_id = saved[3]
+        tab.refresh_exclude_heroes()
+        root.withdraw()
+    return out
+
+
 def _a_missing_pick_reads_its_own(tab, name):
     """A combatant not obtained, once picked, is filed under its own
     res_id -- so its stored settings, shipped defaults included, fill
@@ -5215,6 +5366,8 @@ def run():
                 _p7_fill_says_auto_where_priced(built["OptimizerTab"]))
             failures.extend(
                 _optimizer_lists_missing_when_shown(built["OptimizerTab"]))
+            failures.extend(
+                _order_mode_ranks_the_roster(built["OptimizerTab"]))
             failures.extend(
                 _own_fragments_read_green(built["OptimizerTab"]))
             failures.extend(

@@ -19,7 +19,10 @@ Design choices
   `CHARACTERS` and later returns, the user keeps their settings.
 - **`excluded_gear_chars` is global** — one list of characters whose
   equipped gear is skipped when searching for candidates, whoever you
-  are optimizing for. Everything else is per-character.
+  are optimizing for. So are `exclude_order_mode` and `exclude_order`:
+  in Order Mode the list is replaced by an order, and a combatant's
+  gear is skipped for everyone after it. Everything else is
+  per-character.
 
 File format (version 1)
 =======================
@@ -29,6 +32,8 @@ File format (version 1)
       "version": 1,
       "excluded_gear_chars": ["1004", "1009"],   # res_id strings
       "excluded_default_initialized": true,      # first-run seeding done
+      "exclude_order_mode": false,               # Order Mode instead of the checks
+      "exclude_order": ["1017", "1004"],         # Order Mode's order, first first
       "exclude_seen_rids": ["1004", "1009"],     # absent = new = auto-excluded once
       "optimize_level_seen": {"1017": 61},       # res_id -> highest level observed
       "characters": {
@@ -443,5 +448,37 @@ class OptimizerSettingsManager:
         if self.data.get("excluded_gear_chars") == normalized:
             return False
         self.data["excluded_gear_chars"] = normalized
+        self._write()
+        return True
+
+    def get_exclude_order_mode(self) -> bool:
+        """Whether Exclude Combatant's MFs runs by order rather than by
+        the checked list: each combatant's MFs are kept from everyone
+        after it in `get_exclude_order`."""
+        return bool(self.data.get("exclude_order_mode", False))
+
+    def set_exclude_order_mode(self, on: bool) -> bool:
+        """Turn Order Mode on or off. Persists immediately."""
+        if self.corrupted or self.get_exclude_order_mode() == bool(on):
+            return False
+        self.data["exclude_order_mode"] = bool(on)
+        self._write()
+        return True
+
+    def get_exclude_order(self) -> list:
+        """Order Mode's order, as res_id strings, first first. Holds only
+        what has been arranged: a combatant missing from it ranks after
+        every one in it."""
+        order = self.data.get("exclude_order")
+        return [str(x) for x in order] if isinstance(order, list) else []
+
+    def set_exclude_order(self, res_ids: list) -> bool:
+        """Replace Order Mode's order. Persists immediately."""
+        if self.corrupted:
+            return False
+        normalized = [str(x) for x in res_ids]
+        if self.get_exclude_order() == normalized:
+            return False
+        self.data["exclude_order"] = normalized
         self._write()
         return True

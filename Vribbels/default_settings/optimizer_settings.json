@@ -3,6 +3,8 @@
   "excluded_default_initialized": false,
   "excluded_gear_chars": [],
   "exclude_seen_rids": [],
+  "exclude_order_mode": false,
+  "exclude_order": [],
   "optimize_level_seen": {},
   "characters": {
     "1003": {
