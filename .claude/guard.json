@@ -1,0 +1,11 @@
+{
+  "label": "vribbels",
+  "protect": [
+    {
+      "paths": ["Vribbels/snapshots/", "Vribbels/settings/"],
+      "writes": "deny",
+      "deletes": "deny",
+      "why": "Snapshots and settings are the maintainer's captured game data and live settings: read them, never write to them (CLAUDE.md). Work on a copy in the scratchpad."
+    }
+  ]
+}

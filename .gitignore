@@ -37,12 +37,14 @@ Vribbels/settings/
 # `past_plans/` are tracked.
 # `.claude/*` rather than `.claude/`: a negation cannot re-include
 # anything under an excluded DIRECTORY, and `rules/` and `skills/` are
-# repo guidance that belongs in the history beside `CLAUDE.md`.
+# repo guidance that belongs in the history beside `CLAUDE.md`, as is
+# `guard.json`, the paths the machine's guard hook protects here.
 # Settings stay out -- `settings.local.json` holds one machine's
 # choices.
 .claude/*
 !.claude/rules/
 !.claude/skills/
+!.claude/guard.json
 plan.md
 paused_task.md
 RELEASE_NOTES.md

@@ -19,7 +19,7 @@ python checks/run_all.py
 
 `checks/check_spacing_registry.py` enforces every entry against the targets in the doc's table, including that a miss carries a marker naming the rule it breaks. `checks/check_spacing_markers.py` checks the `# spacing:` markers themselves. A fault either of those can see is not worth a screenshot.
 
-**Never launch it unasked.** It takes over the screen — ask, and wait for them to say they are ready. A maintainer who has said they are away has asked; the preconditions below are then yours to hold, and a locked or sleeping screen photographs as nothing.
+**Never launch it unasked.** It needs the screen unobstructed and the pointer still, the two kinds of window the global rule asks about. Ask, and wait for them to say they are ready. A maintainer who has said they are away has asked; the preconditions below are then yours to hold, and a locked or sleeping screen photographs as nothing.
 
 ## Preconditions the maintainer holds
 

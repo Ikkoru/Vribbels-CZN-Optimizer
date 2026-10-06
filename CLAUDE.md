@@ -13,7 +13,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 - **Doc-first.** When in-game behaviour disagrees with the code or with `docs/game_formulas.md`, fix the doc first, then the code. A formula doc records what the user is ASKED TO ENTER as well as what the program computes — the Important Settings shares are read off the deck, not off damage numbers — so establish what an input MEANS before changing math because it "should" behave differently.
 - **Load-bearing code that looks removable:** `make_checkbox`'s `winfo_id()`, the `realize_windows()` walks in `_reveal_window` and `TabSlot.build`, `_ScrolledText`'s copy of the wrapper's geometry methods, and `OptimizerSettingsManager.load()`'s unknown-key passthrough. All pinned with a check. The UI ones are in `docs/ui_runtime.md`, the settings one in `docs/settings_architecture.md`.
 - **A rule that misfires goes in the queue, not straight into the file.** Where something in `CLAUDE.md`, `.claude/rules/` or a skill turns out to be missing, wrong or misleading IN PRACTICE, append what happened and the line it suggests to `_tmp/skill_notes.md`; the `doc-audit` skill reviews that queue with the maintainer. A plain factual error — a dead path, a stale number — is just fixed. Changing a RULE is the maintainer's call, and a queue entry is evidence of something that went wrong, never an idea for an improvement.
-- **"Never open a window unasked" means the GUI here** — `zRUN.bat`, and the spacing audit, which photographs the screen. Being told the maintainer is away, not at the keyboard or asleep, is the asking for that stretch; the audit then still needs the screen awake and unlocked.
+- **Windows here.** Launching the app (`zRUN.bat`) needs no asking: no bat raises a UAC prompt. The app opens on an `Administrator Required` Yes/No box; answer **No** unless capture is needed, since Yes brings a UAC prompt that waits for the maintainer. The spacing audit photographs the screen: it needs the window unobstructed and the pointer off it, so ask first unless the maintainer has said they are away, and the screen must then still be awake and unlocked.
 - End-of-turn commits go after `checks/run_all.py`; messages use the CHANGELOG's register.
 
 ## Commands
@@ -21,7 +21,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 - **Build: `zCreate exe.bat`** (PyInstaller, onefile).
   - **Edit the bat, never the spec.** `--add-data` is passed on the command line, so `Vribbels_CZN_Optimizer_Ikkoru.spec` is an artifact the build overwrites.
   - Three scripts run first, and any failing stops the build: `normalize_defaults.py` and `fold_shared_facts.py` in `Vribbels/default_settings/normalize/` (workflow: `docs/how_to_maintain_default_settings.md`), and `Vribbels/build_tcl/prepare_tcl_data.py`.
-- Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its target. It photographs the screen, so it needs the screen to itself — **ask before running one**, unless the maintainer has said they are away. A normal launch never imports it. The launchers, the preconditions and how to read the table: the `spacing-audit` skill.
+- Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its target. It photographs the screen, so it needs the window unobstructed and the pointer still — **ask before running one**, unless the maintainer has said they are away. A normal launch never imports it. The launchers, the preconditions and how to read the table: the `spacing-audit` skill.
 
 ## Headless verification
 
