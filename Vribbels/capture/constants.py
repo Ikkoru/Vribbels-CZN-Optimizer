@@ -42,15 +42,17 @@ SERVERS = {
 GAME_PORT = 13701
 PROXY_PORT = 13701
 
-# File system paths
-# When running from PyInstaller bundle, use exe directory
-# When running from source, use script directory
+# The folder user data lives in: snapshots/ here, and the app's
+# settings/ through `czn_optimizer_gui._user_data_dir`, which returns
+# this. Beside the exe in a frozen build; the source folder otherwise,
+# or the scratch copy a spacing audit of an empty state asks for -- see
+# `audit_states`. Imported unguarded on purpose: a state asked for and
+# not honoured would run against the live folders.
 if getattr(sys, 'frozen', False):
-    # Running from bundled exe - use exe directory
     BASE_DIR = Path(sys.executable).parent
 else:
-    # Running from source - use script directory
-    BASE_DIR = Path(__file__).parent.parent
+    import audit_states
+    BASE_DIR = audit_states.data_root(Path(__file__).resolve().parent.parent)
 
 OUTPUT_DIR = BASE_DIR / "snapshots"
 HOSTS_PATH = Path(r"C:\Windows\System32\drivers\etc\hosts")

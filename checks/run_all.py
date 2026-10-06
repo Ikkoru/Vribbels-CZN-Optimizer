@@ -36,6 +36,7 @@ from checks._harness import Skip, take_notes           # noqa: E402
 from checks import (                                    # noqa: E402
     check_addon_template,
     check_archive,
+    check_audit_states,
     check_bmp_glyphs,
     check_breakdown_reconciles,
     check_capital_band,
@@ -151,6 +152,7 @@ CHECKS = [
     check_day_index,
     check_checklist_readings,
     check_event_shapes,
+    check_audit_states,
     check_tabs_build,
     check_type_ahead,
     check_ui_scales,

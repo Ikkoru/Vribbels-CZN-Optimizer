@@ -80,6 +80,8 @@ if not check_data_files():
 from game_data import *
 from models import *
 from capture import *
+from capture.constants import BASE_DIR
+import audit_states
 from optimizer import GearOptimizer
 # Slot V element main-stat names, shared with the optimizer's off-element
 # candidacy filter; the Upgraded-line element-mismatch filter tests the
@@ -99,7 +101,7 @@ from models.memory_fragment import (compute_gs_bounds,
                                     compute_fragment_potential_mean)
 # Reconciles bundled defaults in `default_settings/` with the user's
 # `settings/` folder. Must run BEFORE any manager loads.
-from defaults_sync import sync_defaults
+from defaults_sync import resolve_defaults_dir, sync_defaults
 import shared_facts
 # The Upgrade Log Settings, as a decision rather than as widgets:
 # the Memory Fragments columns can ask the same question the
@@ -180,21 +182,34 @@ def _user_data_dir() -> Path:
         persist across runs.
 
     Dev / source run:
-        The directory containing this file -- i.e. Vribbels/.
+        The directory containing this file -- i.e. Vribbels/ -- or the
+        scratch copy a spacing audit of an empty state runs in (see
+        `audit_states`).
 
     Why this matters: in a frozen build, `__file__` resolves to a path
     inside PyInstaller's `_MEIPASS` temp dir, which is wiped on exit.
     Using `__file__`-based paths for user data in a frozen build would
-    silently lose every save the moment the program closes. Capture's
-    BASE_DIR already handles this for snapshots/; this helper extends
-    the same treatment to settings/, etc.
+    silently lose every save the moment the program closes.
 
-    Bundled read-only defaults (`default_settings/`) resolve differently:
-    see defaults_sync.resolve_defaults_dir.
+    **It is capture's BASE_DIR**, the folder snapshots/ hangs off, so
+    the two can never point at different places.
+
+    Bundled read-only defaults (`default_settings/`) are not user data
+    and resolve from the program instead: see
+    defaults_sync.resolve_defaults_dir.
     """
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent
+    return BASE_DIR
+
+
+def _defaults_dir() -> Path:
+    """The bundled defaults the startup sync installs from.
+
+    From the PROGRAM, not from `_user_data_dir()`: the two are one
+    folder in a source run, except under an audit state, whose copy has
+    no defaults of its own -- see `audit_states`. Taken from the data
+    folder, a fresh state would install nothing.
+    """
+    return resolve_defaults_dir(Path(__file__).resolve().parent)
 
 
 class OptimizerGUI:
@@ -487,11 +502,16 @@ class OptimizerGUI:
             except Exception as exc:                      # noqa: BLE001
                 print(f"spacing audit unavailable: {exc}")
                 return
+            state = audit_states.requested()
             print("\n--- UI spacing audit ---")
+            if state:
+                print(f"State: {state}, in the scratch copy at "
+                      f"{_user_data_dir()}")
             print("Keep the window unobscured and the pointer off it; "
                   "hover state repaints and is measured.")
             try:
-                spacing_audit.run_audit(self, verbose=verbose, freeze=freeze)
+                spacing_audit.run_audit(self, verbose=verbose, freeze=freeze,
+                                        state=state)
             except Exception as exc:                      # noqa: BLE001
                 print(f"spacing audit failed: {exc}")
 
@@ -799,11 +819,7 @@ class OptimizerGUI:
         # install. Frozen builds read defaults from _MEIPASS; the user's
         # writable state lives next to the exe.
         user_settings_dir = program_dir / "settings"
-        if getattr(sys, "frozen", False):
-            bundle_root = Path(getattr(sys, "_MEIPASS", program_dir))
-            defaults_dir = bundle_root / "default_settings"
-        else:
-            defaults_dir = program_dir / "default_settings"
+        defaults_dir = _defaults_dir()
         # Never silently. A sync that fails leaves a new user with no
         # presets, no combatant assignments and no optimizer settings in
         # an app that looks perfectly healthy, so the failures are kept
@@ -1820,6 +1836,13 @@ def main():
     # inherit the launcher's environment. See `DEV_FLAG`.
     _adopt_dev_flag(sys.argv)
 
+    # A spacing audit of an empty state runs in a scratch copy, rebuilt
+    # here before anything reads it -- the UI scale below is the first
+    # thing that does. See `audit_states`.
+    audit_state = audit_states.requested()
+    if audit_state:
+        audit_states.prepare(audit_state, Path(__file__).resolve().parent)
+
     # BEFORE any Tk root, including the single-instance warning's. DPI
     # awareness is a property of the PROCESS and the first window fixes
     # it, and the UI scale has to be set before a widget takes its
@@ -1850,7 +1873,9 @@ def main():
         warn_root.destroy()
         sys.exit(0)
 
-    if sys.platform == "win32" and not is_admin():
+    # Not asked under an audit state: its scratch copy never captures,
+    # and the prompt would be one more window to answer per state.
+    if sys.platform == "win32" and not is_admin() and not audit_state:
         # Native dialogs, not tkinter's: creating a Tk root here and
         # destroying it leaves the real window frozen (see _win_message).
         response = _win_message(

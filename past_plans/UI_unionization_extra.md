@@ -39,25 +39,32 @@ has.
 ## Audit the app in its EMPTY states too
 
 Every reading so far was taken with the maintainer's snapshot loaded and
-a combatant selected. Two other states ship to users and neither has
-ever been measured:
+a combatant selected. Two other states ship to users, and
+`zRUN Spacing Audit States.bat` runs both; neither has been read yet:
 
-1. **No snapshot loaded.** Panels that size to their content are at
-   their narrowest, lists are empty, the Character and Partner panels
-   hold placeholder text, and the Equipped MF cells all read `Empty`.
-   Several resolvers already refuse in this state and say so, which is
-   the correct behaviour — but nothing has confirmed that the gaps that
-   CAN still be read are on target.
-2. **A fresh install.** Default settings, no presets assigned, no
-   per-combatant configuration. Different again from (1): the panels
-   have their shipped defaults rather than the maintainer's.
+1. **`empty`: the maintainer's settings, nothing captured.** The
+   Combatants list still lists the roster, because `Show missing
+   characters` is on, so a combatant is selected and the detail pane
+   holds the placeholders: `No character data available`, `No partner
+   data`, cells reading `Empty`.
+2. **`fresh`: a first launch.** The shipped defaults, nothing captured.
+   Those defaults do assign presets and carry per-combatant settings,
+   but none of it shows until a capture. `Show missing characters` is
+   off, so the Combatants list is empty and the detail pane blank.
+
+Measured headlessly, the panels that change size with nothing captured
+are few, and the same in both: Exclude Combatant's MFs (its checkbox
+block empty, so everything under it rises), Memory Fragments' Sets (no
+counts) and the Stats & Gacha History standings. The Combatants detail
+pane and the Sets list hold their loaded size.
 
 Expect rows to skip rather than fail, and read a skip as an answer. What
 this is looking for is the opposite: a gap that MEASURES in one state
 and is wrong there, because a panel sized to absent content puts its
 inset somewhere else.
 
-Run it against a COPY of the settings folder, never the live one.
+Each state runs in a scratch copy rebuilt for the run, so the live
+settings are only read: `Vribbels/audit_states.py`.
 
 ## Open, needing the app
 

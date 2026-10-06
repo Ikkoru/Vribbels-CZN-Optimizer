@@ -37,6 +37,7 @@ ALLOWED = {
     "zCreate exe.bat",
     "zRUN Checks.bat",
     "zRUN Spacing Audit Freeze.bat",
+    "zRUN Spacing Audit States.bat",
     "zRUN Spacing Audit Verbose.bat",
     "zRUN Spacing Audit.bat",
     "zRUN.bat",

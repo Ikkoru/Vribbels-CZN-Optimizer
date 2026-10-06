@@ -1129,6 +1129,17 @@ BASELINE_PATH = os.path.join(
     "docs", "spacing_baseline.json")
 
 
+def baseline_path(state=None):
+    """The baseline a run is compared with and frozen to: the
+    maintainer's own state's, or an audit state's own (`audit_states`).
+    Each state measures a different app, so one file for all of them
+    would report every difference between them as a change."""
+    if state is None:
+        return BASELINE_PATH
+    stem, ext = os.path.splitext(BASELINE_PATH)
+    return f"{stem}_{state}{ext}"
+
+
 def save_baseline(rows, path=BASELINE_PATH, out=print):
     measured = [(name, value) for name, _t, value, *_ in rows
                 if value is not None]
@@ -1198,7 +1209,8 @@ def compare_baseline(rows, path=BASELINE_PATH, out=print):
 GRID_TABS = frozenset({"Materials"})
 
 
-def run_audit(app, out=print, verbose: bool = False, freeze: bool = False):
+def run_audit(app, out=print, verbose: bool = False, freeze: bool = False,
+              state=None):
     """Measure every registered gap and print a table.
 
     By default only rows that MISS their target are printed: a clean
@@ -1206,6 +1218,13 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False):
     ones on screen rather than four lines in forty. `verbose` prints
     every row, which is what you want when calibrating the tool itself
     rather than checking the UI.
+
+    `state` names the audit state the app was launched in, if any
+    (`audit_states`). It picks the baseline, and it moves the rows that
+    measured nothing out of the table into a list of their own: in an
+    empty state most panels have nothing in them, and a row refusing is
+    the expected answer -- what the run is looking for is a row that
+    MEASURES and is wrong, and those have to stand out from the rest.
 
     Walks each scenario in turn; within a scenario, selects each tab
     (the widgets on an unselected tab are not mapped and report
@@ -1255,11 +1274,11 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False):
     notebook.select(original)
     app.root.update()
 
-    _print_table(rows, out, verbose)
+    _print_table(rows, out, verbose, skips_apart=state is not None)
     if freeze:
-        save_baseline(rows, out=out)
+        save_baseline(rows, path=baseline_path(state), out=out)
     else:
-        compare_baseline(rows, out=out)
+        compare_baseline(rows, path=baseline_path(state), out=out)
     return rows
 
 
@@ -1330,7 +1349,7 @@ def _measure_tabs(app, notebook, gaps, scenario):
                 continue
             except Exception as exc:                      # noqa: BLE001
                 rows.append((g.name, g.target, None,
-                             f"error: {exc}", tab_name + suffix, g.axis,
+                             _raised_note(exc), tab_name + suffix, g.axis,
                              g.provisional, False))
                 continue
             if g.hand is not None and value is not None and value != g.hand:
@@ -1353,6 +1372,18 @@ def _measure_tabs(app, notebook, gaps, scenario):
                          g.axis, g.provisional, bool(off), g.target_source,
                          g.minimum))
     return rows
+
+
+def _raised_note(exc):
+    """The note for a resolver that raised.
+
+    A locator's own LookupError -- the exact class, which every locator
+    raises for a widget that is not there -- is a refusal, and in an
+    empty state the expected one: `not found`. Its subclasses,
+    IndexError and KeyError, are a resolver breaking on what it was
+    handed, and stay `error`.
+    """
+    return f"{'not found' if type(exc) is LookupError else 'error'}: {exc}"
 
 
 def _grouped_by_panel(gaps):
@@ -1399,7 +1430,34 @@ def _minimum(row):
     return len(row) > 9 and bool(row[9])
 
 
-def _print_table(rows, out, verbose=False):
+def _print_table(rows, out, verbose=False, skips_apart=False):
+    """The table, and with `skips_apart` the rows that measured nothing
+    listed after it rather than in it -- see `run_audit`'s `state`."""
+    skipped = [r for r in rows if r[2] is None] if skips_apart else []
+    if skips_apart:
+        rows = [r for r in rows if r[2] is not None]
+    _print_rows(rows, out, verbose)
+    if skipped:
+        _print_skips(skipped, out)
+
+
+def _print_skips(rows, out):
+    """The rows that measured nothing, under their tab, each with the
+    reason its resolver or scenario gave. A refusal is an answer; an
+    `error:` is a resolver that broke on what the state put in front
+    of it."""
+    out(f"\nmeasured nothing ({len(rows)}):")
+    width = max(len(r[0]) for r in rows)
+    current = None
+    for row in rows:
+        name, note, tab = row[0], row[3], row[4]
+        if tab != current:
+            out(f"  {tab}")
+            current = tab
+        out(f"{name.ljust(width)}  {note}".rstrip())
+
+
+def _print_rows(rows, out, verbose=False):
     """The measured rows, under a heading per tab.
 
     `manual note` is left empty on purpose. It is the column a hand
