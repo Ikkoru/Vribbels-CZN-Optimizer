@@ -16,9 +16,13 @@ from ..utils.style_once import first_time
 from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.checkbox import make_checkbox
 from ..utils.scrolled_text import make_scrolled_text
+from ..utils.spinbox_clamp import clamp_on_commit
 from ..utils.tab_header import make_tab_header
 from ..utils.tooltip import Tooltip
 from ui.scaling import px
+from upgrade_log_filters import (
+    SLOT6_ATK_HEAL_ABOVE_KEY, SLOT6_ATK_HEAL_FILTER, filter_flags,
+)
 
 
 # What Debug WS puts after each line the capture prints while handling a
@@ -42,9 +46,15 @@ MYTHIC_TAG = "value_mythic"
 MYTHIC_NOTE = ("Purple max: higher than the Potential of the MF that "
                "preset's character wears in the same slot. Only for "
                "MFs +3 and up, and presets assigned to one character.")
-# Columns of options under that note: the two of mismatch filters, and
-# the display options beside them.
-LOG_OPTION_COLUMNS = 3
+# Grid columns of options under that note: two of mismatch filters, the
+# Slot VI ATK% filter's words and then its spinbox, and the display
+# options.
+LOG_OPTION_COLUMNS = 5
+# The Slot VI ATK% filter's words, one per row: the checkbox carries the
+# first and a label the second. Both end against the one spinbox they
+# lead to, so the second is right-justified under the first.
+SLOT6_ATK_LABEL = "Don't show presets for Slot VI ATK%"
+SLOT6_ATK_LABEL_2 = "with Shielding/Healing above:"
 
 # How many lines the Capture Log holds, and how many of the oldest go
 # at once when it passes that. A Tk Text line costs far more than its
@@ -236,6 +246,9 @@ class CaptureTab(BaseTab):
         self.ignore_element_var = None
         self.ignore_dps_hp_var = None
         self.ignore_dps_ego_var = None
+        self.ignore_slot6_atk_var = None
+        self.slot6_atk_heal_var = None
+        self.slot6_atk_heal_spin = None
         # True once log_upgrade_msg has set the upg_start/upg_end marks
         # (rewrite_last_upgrade_line no-ops before the first upgrade),
         # and that line's Debug WS timing, which a rewrite puts back.
@@ -375,7 +388,7 @@ class CaptureTab(BaseTab):
             foreground=self.colors["fg_dim"], justify=tk.LEFT,
         ).pack(anchor=tk.W, padx=px((0, 0)), pady=px((0, 0)))
 
-        # Mismatch filters, bottom-left, two columns. Packed BEFORE the
+        # Mismatch filters, bottom-left, three columns. Packed BEFORE the
         # checklist so the checklist's expand=True doesn't swallow the
         # cavity these need. Global (settings.json), all on by default;
         # toggling one re-writes the last Upgraded line, as a preset
@@ -402,7 +415,10 @@ class CaptureTab(BaseTab):
         sm = self.context.settings_manager
         self._log_option_tips = Tooltip(self.colors)
 
-        def _filter_checkbox(text, key, row, column, default=True, tip=None):
+        def _filter_checkbox(text, key, row, column, default=True, tip=None,
+                             trailing=None):
+            if trailing is None:
+                trailing = 4 if column < LOG_OPTION_COLUMNS - 1 else 0
             var = tk.BooleanVar(
                 value=(bool(sm.get(key, default)) if sm is not None
                        else default)
@@ -421,7 +437,7 @@ class CaptureTab(BaseTab):
             # under the panel's caption: a label's line box already
             # carries the rule's distance.
             ).grid(row=row, column=column, sticky=tk.W,
-                   padx=px((0, 4) if column < LOG_OPTION_COLUMNS - 1 else 0),
+                   padx=px((0, trailing)),
                    pady=px((0 if row == 1 else 3, 0)))
             if tip:
                 self._log_option_tips.bind(
@@ -440,14 +456,15 @@ class CaptureTab(BaseTab):
         self.ignore_dps_ego_var = _filter_checkbox(
             "Don't show DPS presets for Ego MFs",
             "upgrade_log_ignore_dps_ego", 2, 1)
+        self._build_slot6_atk_filter(options_frame, _filter_checkbox)
         # Beside the filters rather than under them: a row more would
         # make this column taller than the left one, and the tab's
         # spacing is built on the left being the taller.
         self.show_average_var = _filter_checkbox(
             "Show average Potential",
-            "upgrade_log_show_average", 1, 2, default=False)
+            "upgrade_log_show_average", 1, 4, default=False)
         self.likely_potential_var = _filter_checkbox(
-            LIKELY_POTENTIAL_LABEL, "upgrade_log_likely_potential", 2, 2,
+            LIKELY_POTENTIAL_LABEL, "upgrade_log_likely_potential", 2, 4,
             default=False, tip=LIKELY_POTENTIAL_TIP)
 
         self.log_presets_list_frame = ttk.Frame(right_col)
@@ -1290,6 +1307,74 @@ class CaptureTab(BaseTab):
         ids = [rid for rid, p in cpm.assignments_by_id.items()
                if p == preset_name]
         lpm.set_selected(ids, bool(var.get()))
+        self._settings_changed()
+
+    def _build_slot6_atk_filter(self, options_frame, filter_checkbox):
+        """The Slot VI ATK% filter: its words in grid column 2, over the
+        two rows, and its spinbox in column 3 across both.
+
+        Two widgets for the words rather than one two-line checkbox, so
+        that each line sits on the row beside it: a Checkbutton's lines
+        are one linespace apart, closer than two rows of checkboxes, and
+        would sit between the rows of the columns either side. A click
+        on the second line toggles the checkbox, as one on the first
+        does.
+        """
+        self.ignore_slot6_atk_var = filter_checkbox(
+            SLOT6_ATK_LABEL, SLOT6_ATK_HEAL_FILTER, 1, 2, trailing=0)
+        checkbox = options_frame.grid_slaves(row=1, column=2)[0]
+        second = ttk.Label(options_frame, text=SLOT6_ATK_LABEL_2)
+        # The top pad is row 2's checkboxes' own, and a widget is
+        # centred in what its pad leaves of the cell: so this line lands
+        # where theirs do.
+        second.grid(row=2, column=2, sticky=tk.E, pady=px((3, 0)))
+        second.bind("<Button-1>", lambda _event: checkbox.invoke())
+
+        self.slot6_atk_heal_var = tk.IntVar(
+            value=filter_flags(self.context.settings_manager)[
+                SLOT6_ATK_HEAL_ABOVE_KEY])
+        spin = tk.Spinbox(
+            options_frame, from_=0, to=100, increment=1, width=3,
+            textvariable=self.slot6_atk_heal_var,
+            bg=self.colors["bg_light"], fg=self.colors["fg"],
+            buttonbackground=self.colors["bg_lighter"],
+            insertbackground=self.colors["fg"],
+        )
+        # spacing: label ↔ its element -- checkbox, spinbox ↔
+        # spacing: label ↔ its element -- label, spinbox ↔
+        # spacing: element and its label ↔ element and its label -- spinbox, checkbox ↔
+        # The leading pad is the gap from both lines of words, the
+        # trailing one the gap on to the display options. Two rows and
+        # no N or S in the sticky: grid centres the spinbox in the
+        # height of both, level with the gap between their lines.
+        spin.grid(row=1, column=3, rowspan=2, sticky=tk.W, padx=px((3, 4)))
+        self.slot6_atk_heal_spin = spin
+        clamp_on_commit(spin, self.slot6_atk_heal_var, self.colors,
+                        self.root)
+
+        def wheel(event):
+            # tk.Spinbox binds no wheel of its own.
+            spin.invoke("buttonup" if event.delta > 0 else "buttondown")
+            return "break"
+        spin.bind("<MouseWheel>", wheel)
+        self.slot6_atk_heal_var.trace_add(
+            "write", lambda *_args: self._on_slot6_atk_heal_change())
+
+    def _on_slot6_atk_heal_change(self):
+        """Persist the Slot VI ATK% filter's threshold, then re-render.
+
+        A field that is not a number yet -- emptied mid-edit -- saves
+        nothing; the clamp settles it on commit. A number out of range
+        is saved as typed for that moment, and `filter_flags` holds what
+        it reads inside 0-100 until the clamp brings it back.
+        """
+        try:
+            value = int(self.slot6_atk_heal_var.get())
+        except (tk.TclError, ValueError):
+            return
+        sm = self.context.settings_manager
+        if sm is not None:
+            sm.set(SLOT6_ATK_HEAL_ABOVE_KEY, value)
         self._settings_changed()
 
     def _on_log_filter_toggle(self, key: str, var):

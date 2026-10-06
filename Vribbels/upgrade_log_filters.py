@@ -2,8 +2,8 @@
 
 The Capture tab's Upgrade Log Settings decide this for the `Upgraded`
 log line: a Log Presets checklist saying which presets to consider at
-all, and four mismatch filters dropping a preset whose combatants cannot
-use the fragment's MAIN stat.
+all, and five mismatch filters dropping a preset whose combatants cannot
+use the fragment's MAIN stat -- one of them in one slot only.
 
 The Memory Fragments tab's Highest GS and Highest Potential columns ask
 the same question, and the answer has to be the same one -- a fragment
@@ -20,19 +20,27 @@ from game_data.characters import get_character
 from optimizer.optimizer import SLOT5_ELEMENT_MAINS
 
 
-# The four mismatch filters, by their `settings.json` keys. Order is the
-# Capture tab's reading order; nothing depends on it.
+# The mismatch filters' checkboxes, by their `settings.json` keys. Order
+# is the Capture tab's reading order; nothing depends on it.
+SLOT6_ATK_HEAL_FILTER = "upgrade_log_ignore_slot6_atk_heal"
 UPGRADE_LOG_FILTERS = (
     "upgrade_log_ignore_atkdef_mismatch",
     "upgrade_log_ignore_element_mismatch",
     "upgrade_log_ignore_dps_hp",
     "upgrade_log_ignore_dps_ego",
+    SLOT6_ATK_HEAL_FILTER,
 )
 
 # A combatant whose Shielding & Healing weight is at or below this is
 # treated as a damage dealer, and rejects the mains that buy neither
 # damage nor a useful amount of anything else.
 DPS_HEAL_WEIGHT = 45
+
+# The Slot VI ATK% filter's spinbox: a combatant whose Shielding &
+# Healing weight is ABOVE this rejects an ATK% main in slot VI. The
+# user's to set, 0-100 like the weight it is compared with.
+SLOT6_ATK_HEAL_ABOVE_KEY = "upgrade_log_slot6_atk_heal_above"
+SLOT6_ATK_HEAL_ABOVE = 81
 
 # The ATK/DEF Split bands. Below the first is ATK-scaling and rejects a
 # DEF% main; above the second is DEF-scaling and rejects an ATK% one.
@@ -42,16 +50,32 @@ DEF_SCALING_ABOVE = 67
 
 
 def filter_flags(settings_manager) -> dict:
-    """Every mismatch filter's state, keyed by its settings key.
+    """Every mismatch filter's state, keyed by its settings key, and the
+    Slot VI ATK% filter's threshold under `SLOT6_ATK_HEAL_ABOVE_KEY`.
+
+    The threshold travels with the flags so that both readers get it
+    from the one call: a reader handed the flags without it would judge
+    a slot VI fragment differently from the other.
 
     A missing setting, or no manager at all, reads as ON -- the filters
     ship on, and a fragment hidden from a preset is recoverable where a
-    misleading score is not.
+    misleading score is not. A threshold that is missing or not a whole
+    number reads as the default, and one outside 0-100 is held inside
+    it: typed text reaches a spinbox's variable unchecked.
     """
     if settings_manager is None:
-        return {key: True for key in UPGRADE_LOG_FILTERS}
-    return {key: bool(settings_manager.get(key, True))
-            for key in UPGRADE_LOG_FILTERS}
+        flags = {key: True for key in UPGRADE_LOG_FILTERS}
+        flags[SLOT6_ATK_HEAL_ABOVE_KEY] = SLOT6_ATK_HEAL_ABOVE
+        return flags
+    flags = {key: bool(settings_manager.get(key, True))
+             for key in UPGRADE_LOG_FILTERS}
+    try:
+        above = int(settings_manager.get(SLOT6_ATK_HEAL_ABOVE_KEY,
+                                         SLOT6_ATK_HEAL_ABOVE))
+    except (TypeError, ValueError):
+        above = SLOT6_ATK_HEAL_ABOVE
+    flags[SLOT6_ATK_HEAL_ABOVE_KEY] = min(max(above, 0), 100)
+    return flags
 
 
 def _combatant_setting(osm, res_id, field: str) -> int:
@@ -86,6 +110,10 @@ def combatant_accepts_main(res_id, fragment, flags: dict, osm) -> bool:
 
     DPS: a damage dealer rejects an HP% main (slots IV, V and VI) and an
     Ego main (slot VI).
+
+    Slot VI ATK%: a combatant whose Shielding & Healing weight is above
+    the user's threshold rejects an ATK% main in slot VI. The one test
+    that reads the fragment's SLOT as well as its main stat.
     """
     main = fragment.main_stat.name if fragment.main_stat else None
     if not main:
@@ -119,6 +147,14 @@ def combatant_accepts_main(res_id, fragment, flags: dict, osm) -> bool:
         heal_weight = _combatant_setting(
             osm, res_id, "shielding_healing_weight")
         if heal_weight <= DPS_HEAL_WEIGHT:
+            return False
+
+    if flags.get(SLOT6_ATK_HEAL_FILTER) and main == "ATK%" and \
+            fragment.slot_num == 6 and osm is not None:
+        heal_weight = _combatant_setting(
+            osm, res_id, "shielding_healing_weight")
+        if heal_weight > flags.get(SLOT6_ATK_HEAL_ABOVE_KEY,
+                                   SLOT6_ATK_HEAL_ABOVE):
             return False
 
     return True
@@ -156,7 +192,7 @@ def presets_for_fragment(fragment, selected: dict, flags: dict, osm):
     Dropping it because a second combatant would not use the fragment
     would hide it from the one who would.
     """
-    if not any(flags.values()):
+    if not any(flags.get(key) for key in UPGRADE_LOG_FILTERS):
         return list(selected)
     return [name for name, rids in selected.items()
             if any(combatant_accepts_main(rid, fragment, flags, osm)

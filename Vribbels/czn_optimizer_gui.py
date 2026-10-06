@@ -1414,12 +1414,13 @@ class OptimizerGUI:
 
     def _upgrade_log_filter_flags(self) -> dict:
         """Every Upgrade Log mismatch filter's state, keyed by its
-        settings.json key."""
+        settings.json key, and the Slot VI ATK% filter's threshold."""
         return filter_flags(getattr(self, "settings_manager", None))
 
     def _combatant_accepts_main(self, res_id, fragment, flags: dict) -> bool:
         """Whether `fragment` is plausibly for this combatant, by its
-        MAIN stat alone. See `upgrade_log_filters`."""
+        MAIN stat and, for one filter, its slot. See
+        `upgrade_log_filters`."""
         return combatant_accepts_main(
             res_id, fragment, flags,
             getattr(self, "optimizer_settings_manager", None))
@@ -1471,9 +1472,9 @@ class OptimizerGUI:
 
         A preset is dropped when the Capture tab's mismatch filters are
         on and NONE of its selected combatants accepts the fragment's
-        main stat (_combatant_accepts_main). ANY rather than ALL: a
-        preset shared by combatants of different elements or scaling
-        stays as long as one of them wants the fragment.
+        main stat in its slot (_combatant_accepts_main). ANY rather
+        than ALL: a preset shared by combatants of different elements
+        or scaling stays as long as one of them wants the fragment.
 
         With `upgrade_log_likely_potential` on, every range -- and so the
         ranking and what beats the equipped -- is the likely band rather

@@ -12,10 +12,16 @@ the kind that look arbitrary until they bite:
   * a preset stays if ANY of its combatants wants the fragment. ALL
     would drop a preset shared across elements from the one combatant
     who could use the piece.
-  * every filter is opt-out, so all four off means no preset is dropped
-    -- not "none survive".
-  * the tests read the fragment's MAIN stat, so they are per fragment
-    and cannot be hoisted out of a scoring loop.
+  * every filter is opt-out, so all of them off means no preset is
+    dropped -- not "none survive".
+  * the tests read the fragment's MAIN stat, and one of them its SLOT,
+    so they are per fragment and cannot be hoisted out of a scoring
+    loop. The Memory Fragments tab caches one answer per main stat and
+    slot; the fragment handed in here carries those two and nothing
+    else, so a filter that starts reading more raises here first.
+  * the Slot VI ATK% filter drops on a weight ABOVE its threshold, and
+    the threshold travels in the flags, held inside 0-100 -- a reader
+    handed the flags without it would judge slot VI differently.
 
 No Tk and no managers: the module takes what it needs as arguments,
 which is what let the columns use it at all.
@@ -34,8 +40,9 @@ class _Stat:
 class _Fragment:
     """As much of a fragment as the filters look at."""
 
-    def __init__(self, main):
+    def __init__(self, main, slot_num=4):
         self.main_stat = _Stat(main) if main else None
+        self.slot_num = slot_num
 
 
 class _Settings:
@@ -59,23 +66,32 @@ class _PerCombatant:
 def run():
     add_source_to_path()
     from upgrade_log_filters import (
-        UPGRADE_LOG_FILTERS, combatant_accepts_main, filter_flags,
-        presets_for_fragment,
+        SLOT6_ATK_HEAL_ABOVE, SLOT6_ATK_HEAL_ABOVE_KEY,
+        SLOT6_ATK_HEAL_FILTER, UPGRADE_LOG_FILTERS, combatant_accepts_main,
+        filter_flags, presets_for_fragment,
     )
+    from settings_manager import SettingsManager
 
     failures = []
     all_on = {key: True for key in UPGRADE_LOG_FILTERS}
     all_off = {key: False for key in UPGRADE_LOG_FILTERS}
 
     # An ATK-scaling damage dealer and a DEF-scaling healer, so one
-    # rejects what the other takes.
+    # rejects what the other takes. Then three ATK-scaling healers, for
+    # the Slot VI ATK% filter alone: the ATK/DEF filter passes an ATK%
+    # main for all three, so what drops one is the slot VI test.
     osm = _PerCombatant({
         "1": {"atk_def_split": 0, "shielding_healing_weight": 0},
         "2": {"atk_def_split": 100, "shielding_healing_weight": 100},
+        "3": {"atk_def_split": 0,
+              "shielding_healing_weight": SLOT6_ATK_HEAL_ABOVE},
+        "4": {"atk_def_split": 0,
+              "shielding_healing_weight": SLOT6_ATK_HEAL_ABOVE + 1},
+        "5": {"atk_def_split": 0, "shielding_healing_weight": 100},
     })
 
-    def accepts(rid, main, flags=all_on):
-        return combatant_accepts_main(rid, _Fragment(main), flags, osm)
+    def accepts(rid, main, flags=all_on, slot=4):
+        return combatant_accepts_main(rid, _Fragment(main, slot), flags, osm)
 
     for rid, main, want, why in (
         (1, "DEF%", False, "an ATK-scaling combatant rejects a DEF% main"),
@@ -91,12 +107,40 @@ def run():
             failures.append(f"combatant {rid} with a {main} main: "
                             f"expected {want} -- {why}")
 
+    # Slot VI ATK%: a weight ABOVE the threshold drops it, in slot VI
+    # only, and the threshold is the flags' own.
+    for rid, slot, flags, want, why in (
+        (4, 6, all_on, False,
+         "a weight one above the threshold rejects a slot VI ATK% main"),
+        (5, 6, all_on, False, "and a weight of 100 does"),
+        (3, 6, all_on, True,
+         "a weight AT the threshold takes it: the filter is `above`"),
+        (4, 4, all_on, True, "the same combatant takes ATK% in slot IV"),
+        (4, 5, all_on, True, "and in slot V"),
+        (1, 6, all_on, True, "a damage dealer takes a slot VI ATK% main"),
+        (5, 6, {**all_on, SLOT6_ATK_HEAL_FILTER: False}, True,
+         "with its checkbox off nothing is dropped"),
+        (4, 6, {**all_on, SLOT6_ATK_HEAL_ABOVE_KEY: 90}, True,
+         "the threshold in the flags is the one used, not the default"),
+        (5, 6, {**all_on, SLOT6_ATK_HEAL_ABOVE_KEY: 90}, False,
+         "and a weight above THAT one still drops it"),
+    ):
+        if accepts(rid, "ATK%", flags, slot) is not want:
+            failures.append(f"combatant {rid} with an ATK% main in slot "
+                            f"{slot}: expected {want} -- {why}")
+    # Alone, since the ATK/DEF filter drops DEF% for this ATK-scaler.
+    if not accepts(5, "DEF%", {**all_off, SLOT6_ATK_HEAL_FILTER: True}, 6):
+        failures.append("a healer rejects a slot VI DEF% main. The Slot VI "
+                        "filter is about ATK% alone.")
+
     # Opt-out: every filter off drops nothing.
-    for rid, main in ((1, "DEF%"), (1, "HP%"), (1, "Ego"), (2, "ATK%")):
-        if not accepts(rid, main, all_off):
+    for rid, main, slot in ((1, "DEF%", 4), (1, "HP%", 4), (1, "Ego", 6),
+                            (2, "ATK%", 4), (5, "ATK%", 6)):
+        if not accepts(rid, main, all_off, slot):
             failures.append(
-                f"combatant {rid} rejects a {main} main with every filter "
-                f"OFF. The filters are opt-out; off has to mean no test ran."
+                f"combatant {rid} rejects a {main} main in slot {slot} with "
+                f"every filter OFF. The filters are opt-out; off has to "
+                f"mean no test ran."
             )
 
     # ANY, not ALL: a preset shared by the two stays for both mains.
@@ -128,13 +172,40 @@ def run():
 
     # A missing setting reads as ON, because the filters ship on.
     flags = filter_flags(_Settings({}))
-    if not all(flags.values()):
+    if not all(flags[key] for key in UPGRADE_LOG_FILTERS):
         failures.append(
             f"an empty settings file reads as {flags}. Every filter ships "
             f"on, and a fragment hidden from a preset is recoverable where "
             f"a misleading score is not."
         )
-    if filter_flags(None) != all_on:
-        failures.append("no settings manager at all has to read as all on")
+    if filter_flags(None) != {**all_on,
+                              SLOT6_ATK_HEAL_ABOVE_KEY: SLOT6_ATK_HEAL_ABOVE}:
+        failures.append("no settings manager at all has to read as all on, "
+                        "at the default threshold")
+
+    # The threshold, as the flags carry it: the default where there is
+    # no number, and held inside 0-100 -- typed text reaches the
+    # spinbox's variable unchecked, and the trace saves it as typed.
+    for stored, want in ((None, SLOT6_ATK_HEAL_ABOVE),
+                         ("abc", SLOT6_ATK_HEAL_ABOVE),
+                         (500, 100), (-7, 0), (90, 90)):
+        values = {} if stored is None else {SLOT6_ATK_HEAL_ABOVE_KEY: stored}
+        got = filter_flags(_Settings(values))[SLOT6_ATK_HEAL_ABOVE_KEY]
+        if got != want:
+            failures.append(f"a stored threshold of {stored!r} reads as "
+                            f"{got!r}, not {want!r}")
+
+    # settings.json's defaults are spelled in SettingsManager.LAYOUT,
+    # which cannot import them from here without pulling the optimizer
+    # in behind every settings read. Held together instead.
+    layout = dict(SettingsManager.LAYOUT)
+    for key, want in ((SLOT6_ATK_HEAL_FILTER, True),
+                      (SLOT6_ATK_HEAL_ABOVE_KEY, SLOT6_ATK_HEAL_ABOVE)):
+        if layout.get(key) != want:
+            failures.append(
+                f"SettingsManager.LAYOUT gives {key!r} the default "
+                f"{layout.get(key)!r}, where upgrade_log_filters reads a "
+                f"missing one as {want!r}. A new settings.json and an old "
+                f"one would then filter differently.")
 
     return failures

@@ -4974,6 +4974,145 @@ def _upgraded_line_marks_what_beats(tab):
     return out
 
 
+def _slot6_atk_filter_is_wired(tab):
+    """The Slot VI ATK% filter: two lines of words, one spinbox.
+
+    The spinbox spans both rows with no N or S in its sticky, which is
+    what centres it between the two lines; the second line takes row 2's
+    own top pad, which is what lands it on that row's text. Both are
+    grid options, readable without a window.
+
+    The spinbox holds a TYPED value inside 0-100 -- from_/to bound its
+    buttons and its wheel only -- and every value it holds reaches
+    settings.json, where both readers of the filters take it from. The
+    clamp's binding cannot be exercised headlessly, so the handler is
+    called and the binding checked apart.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.tabs.capture_tab import SLOT6_ATK_LABEL, SLOT6_ATK_LABEL_2
+    from ui.utils.spinbox_clamp import commit_clamp
+    from upgrade_log_filters import SLOT6_ATK_HEAL_ABOVE_KEY
+    out = []
+    spin, var = tab.slot6_atk_heal_spin, tab.slot6_atk_heal_var
+    if spin is None or var is None:
+        return ["the Capture tab built no Slot VI ATK% spinbox"]
+    frame = spin.master
+    info = spin.grid_info()
+    sticky = set(str(info["sticky"]))
+    if int(info.get("rowspan", 1)) != 2 or sticky & {"n", "s"}:
+        out.append(
+            f"the Slot VI ATK% spinbox is gridded rowspan "
+            f"{info.get('rowspan')}, sticky {info['sticky']!r}. It spans "
+            f"both rows of its words with no N or S, which is what centres "
+            f"it between them.")
+    row, col = int(info["row"]), int(info["column"]) - 1
+    first = frame.grid_slaves(row=row, column=col)
+    second = frame.grid_slaves(row=row + 1, column=col)
+    if not first or first[0].cget("text") != SLOT6_ATK_LABEL:
+        out.append(f"no {SLOT6_ATK_LABEL!r} checkbox before the spinbox, "
+                   f"on its first row")
+    if not second or second[0].cget("text") != SLOT6_ATK_LABEL_2:
+        out.append(f"no {SLOT6_ATK_LABEL_2!r} line under the checkbox")
+    else:
+        line = second[0]
+        if "e" not in str(line.grid_info()["sticky"]):
+            out.append("the Slot VI ATK% filter's second line is not "
+                       "right-justified against the spinbox")
+        if not line.bind("<Button-1>"):
+            out.append("a click on the Slot VI ATK% filter's second line "
+                       "does nothing; one on its first toggles it")
+        beside = frame.grid_slaves(row=row + 1, column=0)
+        if beside and str(line.grid_info()["pady"]) != str(
+                beside[0].grid_info()["pady"]):
+            out.append(
+                f"the Slot VI ATK% filter's second line takes pady "
+                f"{line.grid_info()['pady']!r} where its row's checkboxes "
+                f"take {beside[0].grid_info()['pady']!r}, so it sits off "
+                f"their line")
+    if (float(spin.cget("from")), float(spin.cget("to"))) != (0, 100):
+        out.append(f"the Slot VI ATK% spinbox runs {spin.cget('from')}-"
+                   f"{spin.cget('to')}, not 0-100")
+    bound = spin.bind()
+    for seq in ("<Key-Return>", "<FocusOut>"):
+        if seq not in bound:
+            out.append(f"the Slot VI ATK% spinbox has no {seq} binding, so "
+                       f"nothing clamps what is typed into it")
+
+    sm = tab.context.settings_manager
+    was = var.get()
+    try:
+        var.set(70)
+        if sm.get(SLOT6_ATK_HEAL_ABOVE_KEY) != 70:
+            out.append(f"the Slot VI ATK% spinbox at 70 saved "
+                       f"{sm.get(SLOT6_ATK_HEAL_ABOVE_KEY)!r}")
+        var.set(500)
+        commit_clamp(spin, var, tab.colors, tab.root)
+        if var.get() != 100 or sm.get(SLOT6_ATK_HEAL_ABOVE_KEY) != 100:
+            out.append(f"500 typed into the Slot VI ATK% spinbox commits "
+                       f"as {var.get()!r} and saves "
+                       f"{sm.get(SLOT6_ATK_HEAL_ABOVE_KEY)!r}, not 100")
+    finally:
+        var.set(was)
+    return out
+
+
+def _log_filter_answers_are_per_slot(tab):
+    """The Memory Fragments tab keeps one filter answer per main stat AND
+    slot, for the whole refresh.
+
+    The Slot VI ATK% filter reads the slot, so an answer cached per main
+    stat alone hands slot VI whatever the first ATK% fragment scored got
+    -- a healer's preset shown for a slot VI ATK% fragment because a
+    slot IV one was scored first, or hidden from a slot IV one the other
+    way round. Nothing fails; the Highest columns are just wrong for
+    one slot.
+
+    Returns a list of complaints.
+    """
+    import ui.tabs.inventory_tab as inv
+    from upgrade_log_filters import SLOT6_ATK_HEAL_FILTER
+
+    class _Healer:
+        def get(self, _res_id, field):
+            return {"atk_def_split": 0,
+                    "shielding_healing_weight": 100}.get(field)
+
+    def fragment(slot):
+        return SimpleNamespace(main_stat=SimpleNamespace(name="ATK%"),
+                               slot_num=slot)
+
+    ctx, sm = tab.context, tab.context.settings_manager
+    before = (tab.inv_use_log_filters_var.get(), inv.selected_log_presets,
+              ctx.optimizer_settings_manager, sm.get(SLOT6_ATK_HEAL_FILTER))
+    out = []
+    try:
+        tab.inv_use_log_filters_var.set(True)
+        sm.set(SLOT6_ATK_HEAL_FILTER, True)
+        inv.selected_log_presets = lambda *_managers: {"Healer": [1]}
+        ctx.optimizer_settings_manager = _Healer()
+        for first, second in ((4, 6), (6, 4)):
+            allowed = tab._log_filtered_preset_names()
+            got = {slot: "Healer" in allowed(fragment(slot))
+                   for slot in (first, second)}
+            if got != {4: True, 6: False}:
+                out.append(
+                    f"asked slot {first} first, a healer's preset is "
+                    f"{'kept' if got[4] else 'dropped'} for an ATK% "
+                    f"fragment in slot IV and "
+                    f"{'kept' if got[6] else 'dropped'} for one in slot "
+                    f"VI. The Slot VI ATK% filter drops it from slot VI "
+                    f"only, so the answers are cached per main stat AND "
+                    f"slot -- see `_log_filtered_preset_names`.")
+    finally:
+        tab.inv_use_log_filters_var.set(before[0])
+        inv.selected_log_presets = before[1]
+        ctx.optimizer_settings_manager = before[2]
+        sm.set(SLOT6_ATK_HEAL_FILTER, before[3])
+    return out
+
+
 def _capture_hand_offs_never_wait(tab):
     """Another thread hands the Capture tab a line without waiting.
 
@@ -5505,6 +5644,8 @@ def run():
                 _every_column_sorts_by_itself(built["InventoryTab"]))
             failures.extend(_assigned_only_steps_aside_for_log_settings(
                 built["InventoryTab"]))
+            failures.extend(
+                _log_filter_answers_are_per_slot(built["InventoryTab"]))
         if "GachaHistoryTab" in built:
             failures.extend(
                 _gacha_history_draws_its_rows(built["GachaHistoryTab"]))
@@ -5530,6 +5671,7 @@ def run():
                 _capture_hand_offs_never_wait(built["CaptureTab"]))
             failures.extend(
                 _upgraded_line_marks_what_beats(built["CaptureTab"]))
+            failures.extend(_slot6_atk_filter_is_wired(built["CaptureTab"]))
     finally:
         try:
             root.destroy()

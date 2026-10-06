@@ -63,8 +63,8 @@ KEY_CONST = re.compile(
 def _layout_covers_every_key():
     """Complaints for settings keys the app uses and LAYOUT omits.
 
-    The four Upgrade Log filters are added from their own tuple: they
-    are read by iterating it, so no source line spells one.
+    The Upgrade Log filters' checkboxes are added from their own tuple:
+    they are read by iterating it, so no source line spells one.
     """
     import settings_manager
     from upgrade_log_filters import UPGRADE_LOG_FILTERS

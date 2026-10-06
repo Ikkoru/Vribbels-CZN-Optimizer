@@ -106,6 +106,8 @@ class SettingsManager:
         ("upgrade_log_ignore_element_mismatch", True),
         ("upgrade_log_ignore_dps_hp", True),
         ("upgrade_log_ignore_dps_ego", True),
+        ("upgrade_log_ignore_slot6_atk_heal", True),
+        ("upgrade_log_slot6_atk_heal_above", 81),
         ("upgrade_log_show_average", False),
         ("upgrade_log_likely_potential", False),
         # Setup

@@ -414,11 +414,12 @@ Logs go in decompressed. xz cannot shrink a `.gz`, and ungzipping on the way in 
 
 `[LIVE] Upgraded` lines carry an internal `[pid=N]` marker so the app can find the upgraded fragment after the post-upgrade reload and append what it scores under each preset; the marker is stripped before the user sees it. A fragment with upgrades left reports a range under the label `Highest Potential`, and one with none reports a single value under `Highest GS` -- the same distinction the Memory Fragments tab's two columns make. Lines are queued (`pending_upgrade_lines`) because the fragment has to be re-read from the new snapshot first, and `_drain_pending_upgrade_lines` emits them after the reload. The fragment object is retained so a later Upgrade Log Settings toggle can re-render the line in place against a different preset selection.
 
-Which presets reach the line is decided in `_upgrade_potentials_suffix`. Beyond the Log Presets checklist, four mismatch filters (Capture tab, on by default, stored in `settings.json`) drop presets whose combatants cannot use the fragment's MAIN stat:
+Which presets reach the line is decided in `_upgrade_potentials_suffix`, through `upgrade_log_filters`. Beyond the Log Presets checklist, five mismatch filters (Capture tab, on by default, stored in `settings.json`) drop presets whose combatants cannot use the fragment's MAIN stat:
 
 - **Element** — an element DMG% main that is not the combatant's element. Combatants whose element cannot be resolved are never filtered, matching the optimizer's off-element Slot V candidacy filter.
 - **ATK/DEF** — read off the combatant's ATK/DEF Split: 0-33 rejects a DEF% main, 67-100 rejects an ATK% main, the band between accepts both. Keyed on the main stat rather than the slot, so it covers ATK% in slots IV, V and VI as well as DEF% in slot VI.
 - **DPS HP% / DPS Ego** — a combatant whose Shielding & Healing weight is 45 or less counts as a damage dealer and rejects an HP% main (slots IV, V, VI) or an Ego main (slot VI). Two separate filters.
+- **Slot VI ATK%** — a combatant whose Shielding & Healing weight is above the filter's own spinbox (`SLOT6_ATK_HEAL_ABOVE`) rejects an ATK% main in slot VI only. The one test that reads the slot, so the Memory Fragments tab caches its answers per main stat and slot. The threshold travels inside `filter_flags`, so both readers get it from the one call.
 
 A preset survives if ANY of its selected combatants accepts the fragment — the line lists presets, not combatants, and one preset can be assigned to combatants of different elements, scaling or roles.
 
