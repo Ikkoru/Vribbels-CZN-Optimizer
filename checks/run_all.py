@@ -179,7 +179,7 @@ GREEN, RED, YELLOW, DIM, RESET = (
 
 # Every temporary folder a check makes lands in one folder per run,
 # removed when the run ends. Most checks make theirs with `mkdtemp` and
-# never remove it, so each run used to leave dozens in %TEMP%. Pointing
+# never remove it; left to them, every run adds dozens to %TEMP%. Pointing
 # `tempfile` and the TEMP variables here covers them all at once, the
 # processes they start included, without touching each check.
 RUN_TEMP_PARENT = Path(tempfile.gettempdir()) / "vribbels-checks"

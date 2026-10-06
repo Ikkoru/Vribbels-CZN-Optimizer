@@ -2,8 +2,8 @@
 folder is gone when the run ends.
 
 Most checks make their folders with `tempfile.mkdtemp` and never remove
-them. Each full run left about fifty in %TEMP%, every run of every turn,
-with nothing to show for it but a slower Explorer. `run_all.main` points
+them, so without a home of their own every run adds dozens of folders
+to %TEMP%, and nothing fails to say so. `run_all.main` points
 `tempfile` and the TEMP variables at a per-run folder and removes it
 afterwards, the read-only files git writes included, and puts the
 previous settings back.
