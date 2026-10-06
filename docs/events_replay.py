@@ -120,11 +120,16 @@ def logins():
 
 
 def main(argv):
+    # The manager's file goes in a folder removed when the replay ends.
+    with tempfile.TemporaryDirectory(prefix="events_replay_") as scratch:
+        return _replay(argv, Path(scratch))
+
+
+def _replay(argv, scratch):
     want = [a for a in argv[1:] if not a.startswith("-")]
     print("Reading every debug log; this takes a minute.", flush=True)
     found, windows = logins()
-    manager = checklist_manager.ChecklistManager(
-        Path(tempfile.mkdtemp(prefix="events_replay_")))
+    manager = checklist_manager.ChecklistManager(scratch)
     manager.load()
     stub = SimpleNamespace(context=SimpleNamespace(checklist_manager=manager))
     last = {}

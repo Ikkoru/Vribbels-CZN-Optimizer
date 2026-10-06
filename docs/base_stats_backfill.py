@@ -122,9 +122,15 @@ def _when(stamp):
 
 
 def main(argv):
+    if "--write" in argv:
+        return _backfill(argv, SNAPSHOTS, True)
+    # A report works on a scratch copy, removed when it ends.
+    with tempfile.TemporaryDirectory(prefix="base_stats_") as scratch:
+        return _backfill(argv, Path(scratch), False)
+
+
+def _backfill(argv, folder, write):
     import base_stats_store
-    write = "--write" in argv
-    folder = SNAPSHOTS if write else Path(tempfile.mkdtemp())
     if not write:
         # A report starts from what is on file, in a scratch copy.
         battles, builds, _note = base_stats_store.read_store(SNAPSHOTS)
