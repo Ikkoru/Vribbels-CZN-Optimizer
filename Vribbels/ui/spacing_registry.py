@@ -1643,12 +1643,6 @@ PAIR_GAP_ENTRIES = [
     # tighter, so a panel-wide reading would report it instead.
     ("Capture", "log filter checkboxes", 8, None,
      lambda app: _group_of(FILTER_CHECKBOX)(app), CHECKBOX_CLASSES, None),
-    # The Slot VI ATK% filter's spinbox against the display options
-    # after it. Columns: two of filters, the Slot VI words, the spinbox,
-    # the display options -- so the fourth gap.
-    ("Capture", "Slot VI ATK% spinbox -> display options", 8, None,
-     lambda app: _group_of(FILTER_CHECKBOX)(app),
-     CHECKBOX_CLASSES + SPINBOX_CLASSES, 3),
     # Slots had no column entry where Main Stats beside it had three.
     ("Memory Fragments", "Slots checkboxes", 8, None,
      _block_in("Slots", CHECKBOX_CLASSES), CHECKBOX_CLASSES, None),
@@ -1779,18 +1773,11 @@ LABEL_ELEMENT_ENTRIES = [
     ("Optimizer", "Avg Card DMG% -> its spinbox", 5, None,
      lambda app: _by_text("Avg Card DMG%")(app).master,
      LABEL_CLASSES + SPINBOX_CLASSES, 0),
-    # The Slot VI ATK% filter: two lines of words, right-justified, and
-    # one spinbox both lead to. Each line is a different class, so each
-    # has its own entry. The first line is the checkbox: columns of
-    # checkboxes, then the spinbox, so the third gap. The second is a
-    # label, and the purple note above is the grid's only other label,
-    # in column 0: so the second gap.
-    ("Capture", "Slot VI ATK% -> its spinbox", 5, None,
-     lambda app: _group_of(FILTER_CHECKBOX)(app),
-     CHECKBOX_CLASSES + SPINBOX_CLASSES, 2),
+    # The Slot VI ATK% filter's second line, the spinbox packed after
+    # its words in a frame of their own.
     ("Capture", "with Shielding/Healing above -> its spinbox", 5, None,
-     lambda app: _group_of(FILTER_CHECKBOX)(app),
-     LABEL_CLASSES + SPINBOX_CLASSES, 1),
+     lambda app: _by_text("with Shielding/Healing above")(app).master,
+     LABEL_CLASSES + SPINBOX_CLASSES, 0),
 ]
 
 # The same rule, measured with every percent slider at 100 so the
@@ -5120,8 +5107,6 @@ ORDER_MODE_ENTRIES = [
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
 AWAITING_FIRST_READING = {
-    "Slot VI ATK% spinbox -> display options",
-    "Slot VI ATK% -> its spinbox",
     "with Shielding/Healing above -> its spinbox",
 }
 

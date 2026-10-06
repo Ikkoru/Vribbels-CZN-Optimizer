@@ -4975,12 +4975,15 @@ def _upgraded_line_marks_what_beats(tab):
 
 
 def _slot6_atk_filter_is_wired(tab):
-    """The Slot VI ATK% filter: two lines of words, one spinbox.
+    """The Slot VI ATK% filter: a checkbox, and under it the rest of its
+    words with the spinbox after them.
 
-    The spinbox spans both rows with no N or S in its sticky, which is
-    what centres it between the two lines; the second line takes row 2's
-    own top pad, which is what lands it on that row's text. Both are
-    grid options, readable without a window.
+    The second line is a frame in the checkbox's grid column, sticky W
+    so it starts under the checkbox's left edge, and taking row 2's own
+    top pad, which is what lands it on that row's text. The spinbox is
+    packed in that frame after the words, so it follows them rather
+    than the column's far edge. All of it is geometry-manager options,
+    readable without a window.
 
     The spinbox holds a TYPED value inside 0-100 -- from_/to bound its
     buttons and its wheel only -- and every value it holds reaches
@@ -4990,7 +4993,6 @@ def _slot6_atk_filter_is_wired(tab):
 
     Returns a list of complaints.
     """
-    import tkinter as tk
     from ui.tabs.capture_tab import SLOT6_ATK_LABEL, SLOT6_ATK_LABEL_2
     from ui.utils.spinbox_clamp import commit_clamp
     from upgrade_log_filters import SLOT6_ATK_HEAL_ABOVE_KEY
@@ -4998,39 +5000,36 @@ def _slot6_atk_filter_is_wired(tab):
     spin, var = tab.slot6_atk_heal_spin, tab.slot6_atk_heal_var
     if spin is None or var is None:
         return ["the Capture tab built no Slot VI ATK% spinbox"]
-    frame = spin.master
-    info = spin.grid_info()
-    sticky = set(str(info["sticky"]))
-    if int(info.get("rowspan", 1)) != 2 or sticky & {"n", "s"}:
-        out.append(
-            f"the Slot VI ATK% spinbox is gridded rowspan "
-            f"{info.get('rowspan')}, sticky {info['sticky']!r}. It spans "
-            f"both rows of its words with no N or S, which is what centres "
-            f"it between them.")
-    row, col = int(info["row"]), int(info["column"]) - 1
-    first = frame.grid_slaves(row=row, column=col)
-    second = frame.grid_slaves(row=row + 1, column=col)
+    line = spin.master
+    packed = line.pack_slaves()
+    words = [w for w in packed if w.winfo_class() == "TLabel"]
+    if (not words or words[0].cget("text") != SLOT6_ATK_LABEL_2
+            or packed.index(words[0]) > packed.index(spin)
+            or any(str(w.pack_info()["side"]) != "left" for w in packed)):
+        out.append(f"the Slot VI ATK% spinbox is not packed left, after "
+                   f"{SLOT6_ATK_LABEL_2!r} on the same line")
+    elif not words[0].bind("<Button-1>"):
+        out.append("a click on the Slot VI ATK% filter's second line "
+                   "does nothing; one on its first toggles it")
+    info = line.grid_info()
+    if not info:
+        return out + ["the Slot VI ATK% filter's second line is not gridded "
+                      "in the options block"]
+    frame, row, col = line.master, int(info["row"]), int(info["column"])
+    first = frame.grid_slaves(row=row - 1, column=col)
     if not first or first[0].cget("text") != SLOT6_ATK_LABEL:
-        out.append(f"no {SLOT6_ATK_LABEL!r} checkbox before the spinbox, "
-                   f"on its first row")
-    if not second or second[0].cget("text") != SLOT6_ATK_LABEL_2:
-        out.append(f"no {SLOT6_ATK_LABEL_2!r} line under the checkbox")
-    else:
-        line = second[0]
-        if "e" not in str(line.grid_info()["sticky"]):
-            out.append("the Slot VI ATK% filter's second line is not "
-                       "right-justified against the spinbox")
-        if not line.bind("<Button-1>"):
-            out.append("a click on the Slot VI ATK% filter's second line "
-                       "does nothing; one on its first toggles it")
-        beside = frame.grid_slaves(row=row + 1, column=0)
-        if beside and str(line.grid_info()["pady"]) != str(
-                beside[0].grid_info()["pady"]):
-            out.append(
-                f"the Slot VI ATK% filter's second line takes pady "
-                f"{line.grid_info()['pady']!r} where its row's checkboxes "
-                f"take {beside[0].grid_info()['pady']!r}, so it sits off "
-                f"their line")
+        out.append(f"no {SLOT6_ATK_LABEL!r} checkbox above the Slot VI "
+                   f"ATK% filter's second line")
+    if "w" not in str(info["sticky"]) or "e" in str(info["sticky"]):
+        out.append(f"the Slot VI ATK% filter's second line is gridded "
+                   f"sticky {info['sticky']!r}; W alone starts it under "
+                   f"the checkbox's left edge")
+    beside = frame.grid_slaves(row=row, column=0)
+    if beside and str(info["pady"]) != str(beside[0].grid_info()["pady"]):
+        out.append(
+            f"the Slot VI ATK% filter's second line takes pady "
+            f"{info['pady']!r} where its row's checkboxes take "
+            f"{beside[0].grid_info()['pady']!r}, so it sits off their line")
     if (float(spin.cget("from")), float(spin.cget("to"))) != (0, 100):
         out.append(f"the Slot VI ATK% spinbox runs {spin.cget('from')}-"
                    f"{spin.cget('to')}, not 0-100")

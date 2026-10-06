@@ -46,13 +46,11 @@ MYTHIC_TAG = "value_mythic"
 MYTHIC_NOTE = ("Purple max: higher than the Potential of the MF that "
                "preset's character wears in the same slot. Only for "
                "MFs +3 and up, and presets assigned to one character.")
-# Grid columns of options under that note: two of mismatch filters, the
-# Slot VI ATK% filter's words and then its spinbox, and the display
-# options.
-LOG_OPTION_COLUMNS = 5
+# Grid columns of options under that note: three of mismatch filters,
+# and the display options beside them.
+LOG_OPTION_COLUMNS = 4
 # The Slot VI ATK% filter's words, one per row: the checkbox carries the
-# first and a label the second. Both end against the one spinbox they
-# lead to, so the second is right-justified under the first.
+# first, and a label the second with the spinbox after it.
 SLOT6_ATK_LABEL = "Don't show presets for Slot VI ATK%"
 SLOT6_ATK_LABEL_2 = "with Shielding/Healing above:"
 
@@ -415,10 +413,7 @@ class CaptureTab(BaseTab):
         sm = self.context.settings_manager
         self._log_option_tips = Tooltip(self.colors)
 
-        def _filter_checkbox(text, key, row, column, default=True, tip=None,
-                             trailing=None):
-            if trailing is None:
-                trailing = 4 if column < LOG_OPTION_COLUMNS - 1 else 0
+        def _filter_checkbox(text, key, row, column, default=True, tip=None):
             var = tk.BooleanVar(
                 value=(bool(sm.get(key, default)) if sm is not None
                        else default)
@@ -437,7 +432,7 @@ class CaptureTab(BaseTab):
             # under the panel's caption: a label's line box already
             # carries the rule's distance.
             ).grid(row=row, column=column, sticky=tk.W,
-                   padx=px((0, trailing)),
+                   padx=px((0, 4) if column < LOG_OPTION_COLUMNS - 1 else 0),
                    pady=px((0 if row == 1 else 3, 0)))
             if tip:
                 self._log_option_tips.bind(
@@ -462,9 +457,9 @@ class CaptureTab(BaseTab):
         # spacing is built on the left being the taller.
         self.show_average_var = _filter_checkbox(
             "Show average Potential",
-            "upgrade_log_show_average", 1, 4, default=False)
+            "upgrade_log_show_average", 1, 3, default=False)
         self.likely_potential_var = _filter_checkbox(
-            LIKELY_POTENTIAL_LABEL, "upgrade_log_likely_potential", 2, 4,
+            LIKELY_POTENTIAL_LABEL, "upgrade_log_likely_potential", 2, 3,
             default=False, tip=LIKELY_POTENTIAL_TIP)
 
         self.log_presets_list_frame = ttk.Frame(right_col)
@@ -1310,44 +1305,45 @@ class CaptureTab(BaseTab):
         self._settings_changed()
 
     def _build_slot6_atk_filter(self, options_frame, filter_checkbox):
-        """The Slot VI ATK% filter: its words in grid column 2, over the
-        two rows, and its spinbox in column 3 across both.
+        """The Slot VI ATK% filter in grid column 2: its checkbox on the
+        first row, and on the second the rest of its words with its
+        spinbox after them.
 
-        Two widgets for the words rather than one two-line checkbox, so
-        that each line sits on the row beside it: a Checkbutton's lines
-        are one linespace apart, closer than two rows of checkboxes, and
-        would sit between the rows of the columns either side. A click
-        on the second line toggles the checkbox, as one on the first
+        Two rows rather than one two-line checkbox, so that each line
+        sits on the row beside it: a Checkbutton's lines are one
+        linespace apart, closer than two rows of checkboxes, and would
+        sit between the rows of the columns either side. A click on the
+        second line's words toggles the checkbox, as one on the first
         does.
         """
         self.ignore_slot6_atk_var = filter_checkbox(
-            SLOT6_ATK_LABEL, SLOT6_ATK_HEAL_FILTER, 1, 2, trailing=0)
+            SLOT6_ATK_LABEL, SLOT6_ATK_HEAL_FILTER, 1, 2)
         checkbox = options_frame.grid_slaves(row=1, column=2)[0]
-        second = ttk.Label(options_frame, text=SLOT6_ATK_LABEL_2)
+        # The words and the spinbox share a frame, so the spinbox follows
+        # the words rather than the column's far edge: the checkbox above
+        # is the wider, and sets the column.
+        second_row = ttk.Frame(options_frame)
         # The top pad is row 2's checkboxes' own, and a widget is
         # centred in what its pad leaves of the cell: so this line lands
-        # where theirs do.
-        second.grid(row=2, column=2, sticky=tk.E, pady=px((3, 0)))
+        # where theirs do. Sticky W starts it under the checkbox's left
+        # edge.
+        second_row.grid(row=2, column=2, sticky=tk.W, pady=px((3, 0)))
+        second = ttk.Label(second_row, text=SLOT6_ATK_LABEL_2)
+        second.pack(side=tk.LEFT)
         second.bind("<Button-1>", lambda _event: checkbox.invoke())
 
         self.slot6_atk_heal_var = tk.IntVar(
             value=filter_flags(self.context.settings_manager)[
                 SLOT6_ATK_HEAL_ABOVE_KEY])
         spin = tk.Spinbox(
-            options_frame, from_=0, to=100, increment=1, width=3,
+            second_row, from_=0, to=100, increment=1, width=3,
             textvariable=self.slot6_atk_heal_var,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             buttonbackground=self.colors["bg_lighter"],
             insertbackground=self.colors["fg"],
         )
-        # spacing: label ↔ its element -- checkbox, spinbox ↔
         # spacing: label ↔ its element -- label, spinbox ↔
-        # spacing: element and its label ↔ element and its label -- spinbox, checkbox ↔
-        # The leading pad is the gap from both lines of words, the
-        # trailing one the gap on to the display options. Two rows and
-        # no N or S in the sticky: grid centres the spinbox in the
-        # height of both, level with the gap between their lines.
-        spin.grid(row=1, column=3, rowspan=2, sticky=tk.W, padx=px((3, 4)))
+        spin.pack(side=tk.LEFT, padx=px((3, 0)))
         self.slot6_atk_heal_spin = spin
         clamp_on_commit(spin, self.slot6_atk_heal_var, self.colors,
                         self.root)
