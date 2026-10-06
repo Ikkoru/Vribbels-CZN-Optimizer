@@ -227,7 +227,7 @@ Which families pay one, from every record the captures on hand have carried:
 | Stock | `event_stock_1` | the event's |
 | Bartender | `event_bartender_1` | the event's |
 
-Families that have never carried one, over every instalment the logs hold: devil, summer, policy, idol, director, recorder, messenger, codex, the new-year event, and the Galactic Disaster's challenge missions (`event_chaos_mission_*`, four instalments). `event_schedule_devil_001` is confirmed rather than merely unseen: claiming its seventh day's three rewards answered with the mission rows and the items and nothing else.
+Families that have never carried one, over every instalment the logs hold: devil, summer, policy, idol, director, recorder, messenger, codex, the new-year event, and the Galactic Disaster's challenge missions (`event_chaos_mission_*`, four instalments). `event_schedule_devil_001` and `event_schedule_director_002` are confirmed rather than merely unseen: claiming the seventh day's three rewards answered with the mission rows and the items and nothing else, and the maintainer saw no reward after the 21st. The director's claim names its event (`complete_event_mission_all`'s `event_id`, `event_153`), which no record on the wire carries. **So a seven-day story event's completion is known only by count**: all 21 rows claimed against its 7 x 3 grid.
 
 **The records are purged in batches**, not at a fixed age: the login of 2026-09-03 dropped every record whose event had ended by 29 July -- some had stood since February -- and kept those that ended in August. A family's history is only known if it was written down while its records were there, which is what `ChecklistManager.finals` is for.
 
