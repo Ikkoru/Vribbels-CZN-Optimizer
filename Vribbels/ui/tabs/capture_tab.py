@@ -1320,14 +1320,14 @@ class CaptureTab(BaseTab):
             SLOT6_ATK_LABEL, SLOT6_ATK_HEAL_FILTER, 1, 2)
         checkbox = options_frame.grid_slaves(row=1, column=2)[0]
         # The words and the spinbox share a frame, so the spinbox follows
-        # the words rather than the column's far edge: the checkbox above
-        # is the wider, and sets the column.
+        # the words with nothing between them: the checkbox above is the
+        # wider, and sets the column.
         second_row = ttk.Frame(options_frame)
         # The top pad is row 2's checkboxes' own, and a widget is
         # centred in what its pad leaves of the cell: so this line lands
-        # where theirs do. Sticky W starts it under the checkbox's left
-        # edge.
-        second_row.grid(row=2, column=2, sticky=tk.W, pady=px((3, 0)))
+        # where theirs do. Sticky E ends it, spinbox and all, where the
+        # checkbox above ends.
+        second_row.grid(row=2, column=2, sticky=tk.E, pady=px((3, 0)))
         second = ttk.Label(second_row, text=SLOT6_ATK_LABEL_2)
         second.pack(side=tk.LEFT)
         second.bind("<Button-1>", lambda _event: checkbox.invoke())

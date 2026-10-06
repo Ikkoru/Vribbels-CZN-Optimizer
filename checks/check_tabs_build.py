@@ -4978,11 +4978,11 @@ def _slot6_atk_filter_is_wired(tab):
     """The Slot VI ATK% filter: a checkbox, and under it the rest of its
     words with the spinbox after them.
 
-    The second line is a frame in the checkbox's grid column, sticky W
-    so it starts under the checkbox's left edge, and taking row 2's own
-    top pad, which is what lands it on that row's text. The spinbox is
-    packed in that frame after the words, so it follows them rather
-    than the column's far edge. All of it is geometry-manager options,
+    The second line is a frame in the checkbox's grid column, sticky E
+    so it ends, spinbox and all, where the checkbox above ends, and
+    taking row 2's own top pad, which is what lands it on that row's
+    text. The spinbox is packed in that frame after the words, so
+    nothing comes between them. All of it is geometry-manager options,
     readable without a window.
 
     The spinbox holds a TYPED value inside 0-100 -- from_/to bound its
@@ -5020,10 +5020,10 @@ def _slot6_atk_filter_is_wired(tab):
     if not first or first[0].cget("text") != SLOT6_ATK_LABEL:
         out.append(f"no {SLOT6_ATK_LABEL!r} checkbox above the Slot VI "
                    f"ATK% filter's second line")
-    if "w" not in str(info["sticky"]) or "e" in str(info["sticky"]):
+    if "e" not in str(info["sticky"]) or "w" in str(info["sticky"]):
         out.append(f"the Slot VI ATK% filter's second line is gridded "
-                   f"sticky {info['sticky']!r}; W alone starts it under "
-                   f"the checkbox's left edge")
+                   f"sticky {info['sticky']!r}; E alone ends it where "
+                   f"the checkbox above ends")
     beside = frame.grid_slaves(row=row, column=0)
     if beside and str(info["pady"]) != str(beside[0].grid_info()["pady"]):
         out.append(
