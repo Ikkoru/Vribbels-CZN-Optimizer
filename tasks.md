@@ -248,17 +248,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   **The audit is 100%-only** and stays that way. Its targets are physical pixels, so at any other scale it would either read every gap wrong, or need scaled targets that carry the same rounding drift into the checker. Re-verifying every registered gap per scale is a screenshot run each.
 
-- **T18 — Reorder mode for the Checklist's shop rows.** A shop lists its products in the wire's own `sort`. The maintainer wants their own order, saved in `settings/checklist.json` beside the tracked flags. Waiting on the tab's layout being settled.
-
-  **A `Treeview` in a reorder mode is the shape to build.** The column is one `Text` with the checkboxes embedded by `window_create`, so there are no per-row widgets to drag. A drop index would mean `text.index("@x,y")`, and the insertion feedback would all be hand-written. A `Treeview` has real rows and a `move()` API, so the dragging is a solved problem. Swapping it in only while reordering leaves the normal view exactly as it is. Tk ships no drag-and-drop of its own, and `tkdnd` is a separate binary, not worth adding for this.
-
-  Cheaper alternatives if the mode proves fussy:
-
-  - Ctrl+Up/Down on the focused row, or a ▲▼ pair at each row's right edge. Both map a click to a row index and need no drag machinery.
-  - The Exclude panel's Order Mode drags placed Labels by hand (`_exclude_drag_motion`, `_exclude_drop_at`), a working precedent for a hand-written drag.
-
-  **Ordering has to survive the wire.** The rows are rebuilt from `shop_res_data` every refresh, so a saved order is a lookup applied on top. A product the game adds or removes must land somewhere sensible rather than drop out: unranked products keep the shop's own order, after the ranked ones. `optimizer_tab.exclude_order` does exactly this for the Exclude panel's order.
-
 ### Pondering
 
 - Should anything be added to the program from here:
