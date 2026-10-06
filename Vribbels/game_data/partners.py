@@ -1202,10 +1202,11 @@ SIGNATURE_PARTNERS = {
 # PARTNER_EXCEPTIONS: a combatant with no signature partner -- 4-stars
 # among them -- and any whose signature pairing is overridden.
 PARTNER_EXCEPTIONS = {
-    "Amir": "Eishlen", "Anika": "Priscilla", "Haru": "Scarlet",
-    "Lucas": "Serithea", "Maribell": "Eishlen", "Mei Lin": "Scarlet",
-    "Mika": "Nyx", "Nia": "Nyx", "Rei": "Nyx", "Renoa": "Janet",
-    "Owen": "Priscilla", "Selena": "Marin", "Tressa": "Bria",
+    "Amir": "Eishlen", "Anika": "Priscilla", "Beryl": "Solia",
+    "Cassius": "Nyx", "Haru": "Scarlet", "Lucas": "Serithea",
+    "Maribell": "Eishlen", "Mei Lin": "Scarlet", "Mika": "Nyx",
+    "Nia": "Nyx", "Rei": "Nyx", "Renoa": "Janet", "Owen": "Priscilla",
+    "Selena": "Marin", "Tressa": "Bria",
 }
 
 
