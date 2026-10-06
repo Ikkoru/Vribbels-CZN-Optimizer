@@ -30,15 +30,20 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 - **I33 — What the server has not shown yet.** Each part needs the maintainer in game. `check_base_stats_on_wire` passes on everything filed so far.
 
   1. **Base stats, from any plain battle.** Plain: Simulation, Abyss Battle Missions, the Tower, the Basin, the Great Rift, the Full-Scale Offensive. Not plain: a Sortie, a Chaos, a Combatant Trial, the Bartender story. Potential 7 doesn't matter for any of them.
+
      - **Never settled** (the ones `check_base_stats_on_wire`'s note counts): Haru, Luke, Mei Lin and Renoa, at their current level. Hugo and Kayron once the account has them.
      - **Settled only in a Chaos**, which a plain battle confirms: Adelheid, Maribell and Mika.
      - **Level 62**: no combatant has been read at it. Any combatant that reaches 62, once.
+
   2. **Potential 7 parts no sheet has shown.** Same kind of battle, node 7 taken:
+
      - Tressa at DoT 30% or more: her second +4%. Only the first was seen, at 0 DoT.
      - Owen at HP 700 or more: his second +4% ATK and DEF.
 
      The rest of the table matches the server, growth part-way included.
+
   3. **What a loss looks like.** With capture on, lose in as many modes as convenient: a Simulation stage, a Battle Mission, the Basin, the Great Rift, the Full-Scale Offensive, a Sortie. For each:
+
      - what the close and the `battle_end` say;
      - whether anything the capture keeps moves: stage limits, rewards, the Checklist's counts, the standings.
 
@@ -63,6 +68,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   7. **An Aether Cell's id**, whenever one charges: the Recharge Aether popup's.
 
 - **I31 — The Chaos estimate's loose end.** Built as the maintainer specified:
+
   - `Vribbels/chaos_estimate.py` has the model and the four rules;
   - `version.RELEASED_ON` / `RELEASED_IN` date the shipped figures;
   - a lost run counts when a boss had paid and no non-boss fight was left;
@@ -73,23 +79,29 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 - **I23 — Where an event's total comes from: three open questions.** The sources and their order: `docs/events.md`, *The sources for a total, strongest first*.
 
   1. **A grid under-reads a Node List until its last index is issued.**
+
      - `event_nodelist_007`'s grid came to 8 on its third day, against the 25 it held. Three finished lists on record say 25.
      - A grid is this instalment speaking, so it outranks the family's past and the smaller number wins. That is right for the devil event, whose grid is whole on day one, and wrong here.
      - Decide which wins when the two disagree: the bigger (never reads done early, but a family that shrinks would read long), or the grid (as now).
      - `docs/events.md`, *Still open*. How stable each type has been is its *Instalments on record, by type*: the Node Lists have come in two shapes, 15 to 19 and 25.
+
   2. **The per-unit census: one RULE per event family.** The design: `docs/events.md`, *A reward has a SOURCE, and sources can be counted*.
+
      - An event's total is a sum over its pages. A ladder page is already exact (ladders arrive whole). A per-unit page needs the census: how many units of content the event has, counted off the event's own table.
      - A family needs only `{page prefix: (which table counts its units, rewards per unit)}`. A rule survives an instalment changing length; a number does not.
      - Falsifiable like the write-down: a page past its census total drops back to the floor.
 
      **Waiting on a table that is issued WHOLE.** None seen yet is. The bartender's guestbook looked like one, but it gains a row as each day is played, so it is a floor like the missions (`docs/events.md`, *The bartender keeps its own per-day record*). A new event's tables are captured from its first login: count their rows then and again a day later. A table that did not move is the census this needs. It wants two instalments of the family: a rule checked only against the event it was written from is not checked at all.
+
   3. **A login streak's length from its day-7 reward.**
+
      - Golden Autumn's Invitation (`event_161`, 15 days) paid Rescue Anchor x3 on day 7, without completing. Its other days paid other items: Abyssal Core x2, Colorless Core x2, Delegation Module x2, the day-1 Rabbit Veronica.
      - Rei's Gift (`event_143`, 7 days) paid Prism Lens x3 on day 7, its last, with `completed`. Its days 1 and 6 paid Prism Lens x1, so its day 7 is its own reward tripled.
      - Those are the only two streaks whose day-7 claim any log holds. `attendance_entities` keeps the 10-, 14- and 21-day streaks' lengths but no rewards. So neither "x3 on day 7" nor "a new item on day 7" can be told apart as a length signal yet.
      - Wanted: the day-7 claim of the next few streaks, with their lengths. If a streak longer than 7 always pays something new on day 7, that is a week's warning.
 
   **How the next round runs, for I23 and C1 alike:**
+
   1. The maintainer keeps making a debug capture every day.
   2. Once the next batch of events is live, Claude analyses the captures (`docs/events_replay.py`, `docs/wire_hunt.tsv`): when each record arrives, and what it carries.
   3. Claude writes a list of client readings wanted: which event or row, which screen, which number, and when to read it (right after login, just before and just after a claim).
@@ -108,13 +120,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
      - Needs nothing from the maintainer. It needs a ROW, not a capture: a Daily entry, claimed-today plus days remaining.
 
 - **I6 — A setting in `Upgrade Log Settings` that would filter out presets that don't match the MF Set Effect's Element.** Default OFF. Consider if it would work for all set effects, not just Element restricted ones.
-
-- **I1 — Don't show presets with Shielding/Healing above [spinbox]% for DPS MFs.** Default to 69%. Consider DPS MF to be:
-  - Crit%, CDMG, ATK% on Slot IV;
-  - ATK%, Element% on Slot V;
-  - ATK% on Slot VI (this one's complicated T_T).
-
-  Use the Optimizer's Shielding/Healing value to figure this out. Ask me for any info that you need.
 
 ---
 
@@ -185,6 +190,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 ### Improvements
 
 - **T21 — Tcl/Tk 9.1, once a Python ships it.** The program runs on the Tcl/Tk its Python bundles (9.0 with Python 3.14). `_tkinter` is built against that version's DLLs, so 9.1 arrives only with a Python release built on it. What 9.1 offers that could matter here:
+
   - consistent dark mode on Windows, which may darken the native dialogs and message boxes;
   - the mouse wheel scrolling an entry;
   - extended Treeview and Notebook states;
@@ -193,6 +199,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   When one ships: `Vribbels/build_tcl/prepare_tcl_data.py`'s `libtcl9*` globs already match a 9.1 library, and `checks/run_all.py` at both scales is the first test.
 
 - **T19 — Event display names.** The wire carries none: the client holds a localisation table and the server never sends it. So the Events block shows ids (`event_schedule_devil_001`). Three ways out, and no decision:
+
   - extract the table from the client;
   - hand-write one in the code, the way `RECORDED_NAMES` names items (one line per event as it appears);
   - leave the ids, which are stable and sit next to the deadline the row is really about.
@@ -200,10 +207,12 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 - **T3 — Richer main-stat forcing for slots IV/V/VI** (UserA). Main-stat forcing is four Force HP/Ego checkboxes. The design question is which options, and in what form: per-slot checklists, dropdowns, or curated rules.
 
 - **T12 — Consider excluding Upgrade Log MFs by set too.** The Upgraded-line top-5 already drops presets on an ATK/DEF or Element main-stat mismatch. The same argument applies to a fragment whose set isn't among those a combatant's Optimizer config selects. Open:
+
   - whether an empty `sets_selected` means "any set" or "none";
   - whether flex slots make a non-selected set worth showing anyway.
 
 - **T16 — Distinguish general buffs from card-only buffs.** The Average Multiplicative / Additive Buff% settings are one bucket, and every formula reads them as GENERAL. In game the distinction matters: Fracture and Scorched take general buffs but not card-only ones. So a combatant whose buffs are card-only has its Fracture share overstated by exactly the buff fraction. Agony is unaffected: it takes no buffs at all. See `docs/game_formulas.md` §3.4. Open:
+
   - one more slider pair, or a split of the existing two;
   - whether the conditional-set `DMG multi` / `DMG add` effects are general or card-only. They ride the same path today.
 
@@ -214,6 +223,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   Open: only whether 4 leaves the row looking crowded under the checkboxes. A measured window settles it.
 
 - **T11 — Consider exposing `top_percent` in the UI.** The per-slot candidate cut is hardcoded at 20%, with a 10-fragment floor. On a filtered inventory every slot sits on the floor, so the compared-combos total is fixed whatever the other settings. Exposing it would trade run time against search breadth directly. Open:
+
   - global or per-combatant;
   - whether the floor stays;
   - how to stop a careless value turning a 2s run into minutes.
@@ -243,6 +253,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   **A `Treeview` in a reorder mode is the shape to build.** The column is one `Text` with the checkboxes embedded by `window_create`, so there are no per-row widgets to drag. A drop index would mean `text.index("@x,y")`, and the insertion feedback would all be hand-written. A `Treeview` has real rows and a `move()` API, so the dragging is a solved problem. Swapping it in only while reordering leaves the normal view exactly as it is. Tk ships no drag-and-drop of its own, and `tkdnd` is a separate binary, not worth adding for this.
 
   Cheaper alternatives if the mode proves fussy:
+
   - Ctrl+Up/Down on the focused row, or a ▲▼ pair at each row's right edge. Both map a click to a row index and need no drag machinery.
   - The Exclude panel's Order Mode drags placed Labels by hand (`_exclude_drag_motion`, `_exclude_drop_at`), a working precedent for a hand-written drag.
 
@@ -252,15 +263,15 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - Should anything be added to the program from here:
 
-| Where                                       | What                                                                                                                                                                                                                       |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Where                                       | What                                                                                                                                                                                                                         |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `characters[]`                              | `friendship_exp` (exact Affinity progress, not just the level); `psychosis_exp` / `psychosis_exp_today`; and **where each copy came from**: `get_count`, `gacha_count`, `shop_count`, `limit_cube_count`, `omega_code_count` |
-| `inventory.savedata`                        | every saved build, named or not, each with a `point` score, its equipment and its cards; several per combatant                                                                                                             |
-| `savedata_bookmark_entities`                | those builds' node layouts                                                                                                                                                                                                 |
-| `characters.town_data`                      | happiness / population / politics / tourist, a research-level map, the active policy and `next_policy_get_time`, plus today's visit board                                                                                  |
-| `counseling_archive`                        | each combatant's counseling entries, with the story choices taken                                                                                                                                                          |
-| `teams` / `team_presets` / `savedata_teams` | the live team, the named team presets, the saved-build teams                                                                                                                                                               |
-| `user`                                      | `account_title_level`, and when the account was created                                                                                                                                                                    |
-| `card_archive`                              | every collected card id                                                                                                                                                                                                    |
-| `user_setting`                              | the in-game auto-disassemble rarity threshold, and the music-box state                                                                                                                                                     |
-| `attendance_entities`                       | login-event progress, `current_days` vs `received_days`                                                                                                                                                                    |
+| `inventory.savedata`                        | every saved build, named or not, each with a `point` score, its equipment and its cards; several per combatant                                                                                                               |
+| `savedata_bookmark_entities`                | those builds' node layouts                                                                                                                                                                                                   |
+| `characters.town_data`                      | happiness / population / politics / tourist, a research-level map, the active policy and `next_policy_get_time`, plus today's visit board                                                                                    |
+| `counseling_archive`                        | each combatant's counseling entries, with the story choices taken                                                                                                                                                            |
+| `teams` / `team_presets` / `savedata_teams` | the live team, the named team presets, the saved-build teams                                                                                                                                                                 |
+| `user`                                      | `account_title_level`, and when the account was created                                                                                                                                                                      |
+| `card_archive`                              | every collected card id                                                                                                                                                                                                      |
+| `user_setting`                              | the in-game auto-disassemble rarity threshold, and the music-box state                                                                                                                                                       |
+| `attendance_entities`                       | login-event progress, `current_days` vs `received_days`                                                                                                                                                                      |
