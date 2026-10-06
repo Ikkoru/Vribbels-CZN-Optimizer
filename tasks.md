@@ -14,6 +14,8 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **B1 — Affinity below level 20.** The level comes from `friendship_exp` through `constants.AFFINITY_TO_NEXT`, which holds levels 20 to 39. Below 20 the level is unknown and the rewards claimed stand in for it, so a combatant levelled past its claims there reads low. Wanted: each level's exp to the next below 20, read off the Affinity screen as a new combatant levels -- the maintainer's plan for the next release.
   - Levels 22-24, 26, 28, 29, 36 and 39 are filled in, not read; a reading of any of them confirms or corrects it. `checks/check_affinity.py` holds every reading and battle sheet against the table.
+  - **The quickest exact reading:** gift a new combatant one item at a time with capture on, and claim the Affinity rewards after each. Each claim's `friendship_reward_index` is the level that exp reached, at 5 Crystals a level. Claiming only at the end, as Anika's were, leaves only the end point: 20 rewards, 95 Crystals, at 4090.
+  - **What the logs already bracket.** A gift's reply names any messenger (Unigram) unlocked, as `char_messenger_condition` entries `<res_id>_<n>_condition` of type `FRIENDSHIP__CHARID_LEVEL`, and the guides put Unigrams at Affinity 3, 13 and 15. Read that way, with the exp before and in the reply, over every log on hand (Olga and Anika): level 3 at 151 to 300; levels 13 and 15 both at 2091 to 2610, their two conditions firing in the same gift each time.
 
 ---
 
