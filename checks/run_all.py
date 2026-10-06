@@ -16,7 +16,11 @@ is not an error.
 import argparse
 import gc
 import multiprocessing
+import os
+import shutil
+import stat
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -82,6 +86,7 @@ from checks import (                                    # noqa: E402
     check_presettle,
     check_repo_root,
     check_runner_collects,
+    check_runner_temp,
     check_settings_roundtrip,
     check_shared_facts,
     check_shipped_defaults,
@@ -141,6 +146,7 @@ CHECKS = [
     check_shared_facts,
     check_settings_roundtrip,
     check_runner_collects,
+    check_runner_temp,
     check_no_flash,
     check_bmp_glyphs,
     check_presettle,
@@ -171,6 +177,47 @@ CHECKS = [
 GREEN, RED, YELLOW, DIM, RESET = (
     "\033[32m", "\033[31m", "\033[33m", "\033[90m", "\033[0m")
 
+# Every temporary folder a check makes lands in one folder per run,
+# removed when the run ends. Most checks make theirs with `mkdtemp` and
+# never remove it, so each run used to leave dozens in %TEMP%. Pointing
+# `tempfile` and the TEMP variables here covers them all at once, the
+# processes they start included, without touching each check.
+RUN_TEMP_PARENT = Path(tempfile.gettempdir()) / "vribbels-checks"
+RUN_TEMP_ENV = "VRIBBELS_CHECKS_TEMP"
+# A run killed before its cleanup leaves its folder; the next run takes
+# any older than this. Longer than a `--full` run lasts.
+STALE_RUN_S = 2 * 86400
+CACHEDIR_TAG = ("Signature: 8a477f597d28d172789f06886806bc55\n"
+                "# Temporary folders of checks/run_all.py; each run "
+                "removes its own.\n")
+
+
+def _remove_tree(folder):
+    """rmtree that also takes read-only files -- git writes its objects
+    read-only, and a plain rmtree stops at the first one on Windows."""
+    def writable(func, path, _exc):
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+    shutil.rmtree(folder, onexc=writable)
+
+
+def _run_temp():
+    """A fresh folder for this run's temporary files, made the default."""
+    RUN_TEMP_PARENT.mkdir(exist_ok=True)
+    tag = RUN_TEMP_PARENT / "CACHEDIR.TAG"
+    if not tag.exists():
+        tag.write_text(CACHEDIR_TAG, encoding="ascii")
+    for old in RUN_TEMP_PARENT.glob("run-*"):
+        try:
+            if time.time() - old.stat().st_mtime > STALE_RUN_S:
+                _remove_tree(old)
+        except OSError:
+            pass
+    here = Path(tempfile.mkdtemp(prefix="run-", dir=RUN_TEMP_PARENT))
+    tempfile.tempdir = str(here)
+    os.environ["TEMP"] = os.environ["TMP"] = str(here)
+    return here
+
 
 def main(argv=None):
     ap = argparse.ArgumentParser(add_help=True)
@@ -185,6 +232,32 @@ def main(argv=None):
             print(f"  {mod.NAME}")
         return 0
 
+    # A run inside a run -- a check exercising this runner -- keeps the
+    # outer run's folder: removing its own would pull the folder out from
+    # under the outer run, every later check's temp files with it.
+    if os.environ.get(RUN_TEMP_ENV):
+        return _run(args)
+    saved = (tempfile.tempdir, os.environ.get("TEMP"), os.environ.get("TMP"))
+    run_temp = _run_temp()
+    os.environ[RUN_TEMP_ENV] = str(run_temp)
+    try:
+        return _run(args)
+    finally:
+        del os.environ[RUN_TEMP_ENV]
+        tempfile.tempdir = saved[0]
+        for name, value in (("TEMP", saved[1]), ("TMP", saved[2])):
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+        try:
+            _remove_tree(run_temp)
+        except OSError as e:
+            print(f"{YELLOW}note{RESET} {DIM}could not remove {run_temp}: "
+                  f"{e}{RESET}")
+
+
+def _run(args):
     failed = skipped = 0
     started = time.time()
     for mod in CHECKS:
