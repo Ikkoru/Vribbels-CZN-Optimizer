@@ -39,7 +39,7 @@ Final_CDmg  = Base_CDmg + Sum(CDmg_contributions)    # base default = 125
 | **Fragment_X%**     | Sum of substat + main-stat % across all 6 equipped fragments                        |
 | **Fragment_FLAT_X** | Sum of substat + main-stat flat across all 6 equipped fragments                     |
 | **Potential_X%**    | Nodes 50 / 60 — the `node_50`/`node_60` fields in characters.py — and node 7's ATK%/DEF% (*Potential 7* below) |
-| **Affinity_FLAT_X** | Affinity reward bonuses (`FRIENDSHIP_BONUSES`)                                      |
+| **Affinity_FLAT_X** | Affinity bonuses (`FRIENDSHIP_BONUSES`) at the level `friendship_exp` reaches (`constants.affinity_level`), not at the rewards claimed: the server's sheets follow the level |
 | **Equipment_X**     | Constant: a level-5 Legendary piece per slot (`EQUIPMENT_*` in `optimizer.py`). In game, the saved deck's in regular modes and what the run finds in Chaos and Sortie |
 | **Set bonuses**     | See §5 — three different landing places depending on `type` and `stat`              |
 

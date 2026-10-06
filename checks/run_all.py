@@ -59,6 +59,7 @@ from checks import (                                    # noqa: E402
     check_capture_session_file,
     check_checklist_readings,
 
+    check_affinity,
     check_day_index,
     check_dot_types,
     check_event_shapes,
@@ -160,6 +161,7 @@ CHECKS = [
     check_potential_band,
     check_preset_weights,
     check_unowned_combatants,
+    check_affinity,
     check_breakdown_reconciles,
     check_optimizer_parity,
 ]

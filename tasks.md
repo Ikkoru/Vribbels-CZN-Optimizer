@@ -12,9 +12,8 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 ### 1b) Needs maintainer assistance figuring out
 
-- **B1 — Affinity shows the rewards claimed, not the level.** The program reads `friendship_reward_index` as the Affinity level (`optimizer.py`, the Combatants tab's Affinity column and detail). It counts the Affinity rewards claimed: Fei read 32 at login with exp 10340, where the game said 33, and still 32 at exp 10430 after levelling to 34. The level follows `friendship_exp`, and no exp-to-level table is in the program or published. Open:
-  - **Which drives the stats:** the level, or the rewards claimed. Settled by Fei's stat screen before and after claiming the 33 and 34 rewards, or a battle with Fei captured before claiming.
-  - **The exp table:** each level's threshold, read off the game's Affinity screen. Known so far: 33 at 10340 or less, 34 between 10341 and 10430, 40 the cap at 14000.
+- **B1 — Affinity below level 20.** The level comes from `friendship_exp` through `constants.AFFINITY_TO_NEXT`, which holds levels 20 to 39. Below 20 the level is unknown and the rewards claimed stand in for it, so a combatant levelled past its claims there reads low. Wanted: each level's exp to the next below 20, read off the Affinity screen as a new combatant levels -- the maintainer's plan for the next release.
+  - Levels 22-24, 26, 28, 29, 36 and 39 are filled in, not read; a reading of any of them confirms or corrects it. `checks/check_affinity.py` holds every reading and battle sheet against the table.
 
 ---
 

@@ -68,7 +68,7 @@ from game_data import (
 # re-exporting it.
 from game_data.characters import (CHARACTERS, POTENTIAL_NODES,
                                   get_character_stats_at_level)
-from game_data.constants import PARTNER_EXP_TABLE
+from game_data.constants import PARTNER_EXP_TABLE, affinity_level
 from game_data.partners import (assumed_partner, class_partner_passive,
                                 class_partner_stats)
 from game_data.potential_7 import get_potential_7
@@ -314,7 +314,11 @@ class GearOptimizer:
             # treat the same as the top tier.
             max_level = 62 if ascend >= 5 else (ascend + 1) * 10
             limit_break = char.get("limit_break", 0)
-            friendship_index = char.get("friendship_reward_index", 1)
+            # The level, not the rewards claimed: the stats follow the
+            # level (`affinity_level`).
+            friendship_index = affinity_level(
+                char.get("friendship_exp", 0) or 0,
+                char.get("friendship_reward_index", 1) or 1)
             friendship_bonus = get_friendship_bonus(friendship_index)
 
             partner_id = char.get("partner_id", 0) or char.get("partner", 0)

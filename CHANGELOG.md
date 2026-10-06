@@ -32,6 +32,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Fixed
 
+- Combatants: Affinity reads the level reached, where it read the rewards claimed. The Optimizer's stats follow it.
 - Checklist: Simulation Challenges tracks wins as they happen.
 - **Stats & Gacha History:**
   - Full-Scale Offensive Stats shows a `~` Top% when it may be outdated.
