@@ -356,11 +356,14 @@ class CaptureTab(BaseTab):
         # The column is as wide as its widest child asks, full stop.
 
         # spacing: border edge -> first non-button element -- panel, label ↔↕
+        # spacing: exception -- border edge -> first non-button element -- panel, spinbox ↕
         # The label and the checkbox column below it read the same
         # inset, so this padding is the lever for both. The TOP
         # component cannot go below 0 and the rule asks for less than a
         # label's line box gives, so that gap is corrected on the label
-        # instead.
+        # instead. The BOTTOM reads 3, by ruling: the Slot VI ATK%
+        # spinbox is the lowest ink, its border on its box's edge, where
+        # the checkboxes beside it end theirs a pixel inside.
         right_col = ttk.LabelFrame(top_columns, text="Upgrade Log Settings",
                                    padding=px((2, 0, 2, 3)))
         # spacing: tab list -> first element -- tab, panel ↕
@@ -1323,11 +1326,16 @@ class CaptureTab(BaseTab):
         # the words with nothing between them: the checkbox above is the
         # wider, and sets the column.
         second_row = ttk.Frame(options_frame)
+        # spacing: element and its label ↔ element and its label -- spinbox, checkbox ↔
         # The top pad is row 2's checkboxes' own, and a widget is
         # centred in what its pad leaves of the cell: so this line lands
-        # where theirs do. Sticky E ends it, spinbox and all, where the
-        # checkbox above ends.
-        second_row.grid(row=2, column=2, sticky=tk.E, pady=px((3, 0)))
+        # where theirs do. The trailing pad is the checkbox's 4 and the
+        # 2 its text ends inside its own box: the spinbox's border is its
+        # box's edge, so without them it sits 2 from the next column
+        # where the checkbox above sits 8. With them it ends where that
+        # checkbox's words end.
+        second_row.grid(row=2, column=2, sticky=tk.E, padx=px((0, 6)),
+                        pady=px((3, 0)))
         second = ttk.Label(second_row, text=SLOT6_ATK_LABEL_2)
         second.pack(side=tk.LEFT)
         second.bind("<Button-1>", lambda _event: checkbox.invoke())
@@ -1343,7 +1351,9 @@ class CaptureTab(BaseTab):
             insertbackground=self.colors["fg"],
         )
         # spacing: label ↔ its element -- label, spinbox ↔
-        spin.pack(side=tk.LEFT, padx=px((3, 0)))
+        # 2, where the audit read 3 as 6: the label ends 3 short of its
+        # box.
+        spin.pack(side=tk.LEFT, padx=px((2, 0)))
         self.slot6_atk_heal_spin = spin
         clamp_on_commit(spin, self.slot6_atk_heal_var, self.colors,
                         self.root)

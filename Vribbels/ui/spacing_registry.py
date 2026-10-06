@@ -742,8 +742,17 @@ PANEL_EDGES = [
 ]
 
 # PANEL_EDGES rows whose edge answers to a different rule, as
-# (rule, target). The generic loop's own pair is the content rule at 4.
+# (rule, target), or (rule, target, "exception") for one that misses
+# its rule on purpose. The generic loop's own pair is the content rule
+# at 4.
 PANEL_EDGE_RULES = {
+    # THIS rule, deliberately missed. The lowest thing in the panel is
+    # the Slot VI ATK% spinbox, whose border is its box's edge, where
+    # the checkboxes on that row end their ink inside theirs -- so it
+    # reads a pixel nearer the border than they do. The maintainer's
+    # ruling: 3, rather than a pad that would lift every checkbox.
+    ("Upgrade Log Settings", "bottom"):
+        (RULE_BORDER_EDGE_CONTENT, 3, "exception"),
     # The lowest thing in Update Status is the Check Now button, so the
     # BUTTON rule applies rather than the one for text.
     ("Update Status", "bottom"): (RULE_BORDER_EDGE_BUTTON, 3),
@@ -1643,6 +1652,14 @@ PAIR_GAP_ENTRIES = [
     # tighter, so a panel-wide reading would report it instead.
     ("Capture", "log filter checkboxes", 8, None,
      lambda app: _group_of(FILTER_CHECKBOX)(app), CHECKBOX_CLASSES, None),
+    # The Slot VI ATK% column against the display options: its checkbox
+    # on the first row, and on the second the frame holding its words
+    # and spinbox, whose border is the column's furthest ink. The
+    # checkboxes-only entry above cannot see the spinbox, which is how
+    # a 2 sat beside its 8.
+    ("Capture", "Slot VI ATK% -> display options", 8, None,
+     lambda app: _group_of(FILTER_CHECKBOX)(app),
+     CHECKBOX_CLASSES + CELL_CLASSES, 2),
     # Slots had no column entry where Main Stats beside it had three.
     ("Memory Fragments", "Slots checkboxes", 8, None,
      _block_in("Slots", CHECKBOX_CLASSES), CHECKBOX_CLASSES, None),
@@ -1772,11 +1789,6 @@ LABEL_ELEMENT_ENTRIES = [
     # `Set Config averages` under the other rule.
     ("Optimizer", "Avg Card DMG% -> its spinbox", 5, None,
      lambda app: _by_text("Avg Card DMG%")(app).master,
-     LABEL_CLASSES + SPINBOX_CLASSES, 0),
-    # The Slot VI ATK% filter's second line, the spinbox packed after
-    # its words in a frame of their own.
-    ("Capture", "with Shielding/Healing above -> its spinbox", 5, None,
-     lambda app: _by_text("with Shielding/Healing above")(app).master,
      LABEL_CLASSES + SPINBOX_CLASSES, 0),
 ]
 
@@ -5107,7 +5119,7 @@ ORDER_MODE_ENTRIES = [
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
 AWAITING_FIRST_READING = {
-    "with Shielding/Healing above -> its spinbox",
+    "Slot VI ATK% -> display options",
 }
 
 # Entries whose target is a FLOOR (`TrackedGap.minimum`): the gap varies
@@ -5258,13 +5270,14 @@ def register_all():
 
     for tab, title, side in PANEL_EDGES:
         _name = f"{title}: {side} edge -> content"
-        _rule, _target = PANEL_EDGE_RULES.get(
+        _rule, _target, *_source = PANEL_EDGE_RULES.get(
             (title, side), (RULE_BORDER_EDGE_CONTENT, 4))
         sa.track(
             name=_name,
             tab=tab,
             rule=_rule,
             target=_target,
+            target_source=_source[0] if _source else "rule",
             resolve=_panel_edge_inset(title, side),
             axis=("v" if side in ("top", "bottom") else "h"),
             hand=PANEL_EDGE_HANDS.get((title, side)),
