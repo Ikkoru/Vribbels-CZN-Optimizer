@@ -26,6 +26,7 @@ from ._harness import REPO_ROOT
 NAME = "no junk at the repo root"
 
 ALLOWED = {
+    ".gitattributes",
     ".gitignore",
     "CHANGELOG.md",
     "CLAUDE.md",
