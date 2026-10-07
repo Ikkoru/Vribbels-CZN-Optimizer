@@ -38,16 +38,16 @@ State these when asking:
 | Rewrite `docs/spacing_baseline.json` | `zRUN Spacing Audit Freeze.bat` |
 | The empty states, one after the other, in any of the three modes | `zRUN Spacing Audit States.bat` |
 
-Each sets `VRIBBELS_DEV=1` and passes `--spacing-audit`, `--spacing-audit-verbose` or `--spacing-audit-freeze` to `Vribbels/czn_optimizer_gui.py`. A normal launch never imports the audit.
+Each sets `VRIBBELS_DEV=1` and passes `--spacing-audit`, `--spacing-audit-verbose` or `--spacing-audit-freeze` to `Vribbels/czn_optimizer_gui.py`. A normal launch never imports the audit, and an audit launch never asks for Administrator: it never captures.
 
-The States launcher asks for the mode, then runs `--audit-state=empty` and `--audit-state=fresh` in turn, each in a scratch copy it rebuilds and with no Administrator prompt; closing the app after the first audit starts the second. `docs/ui_spacing.md`, *Checking spacing*, says what each state is.
+The States launcher asks for the mode, then runs `--audit-state=empty` and `--audit-state=fresh` in turn, each in a scratch copy it rebuilds; closing the app after the first audit starts the second. `docs/ui_spacing.md`, *Checking spacing*, says what each state is.
 
 ## Reading the table
 
 - **A short run is a good run.** The default prints only misses, so a clean pass is a handful of lines.
 - **`axis` is `<>` or `^v`**, never arrows: the console is cp932 and one non-ASCII character raises before the table reaches the screen.
 - **Dark yellow means provisional** — registered but never confirmed by a hand reading. It clears once a reading agrees.
-- **The note column** says `exception` where the site deliberately misses its rule and carries a marker saying so, or `inferred` where the rule applies but its number is carried across from elsewhere. An ordinary row says nothing there.
+- **The note column** says `exception` where the site deliberately misses its rule and carries a marker saying so, `inferred` where the rule applies but its number is carried across from elsewhere, or, in an empty state, `state` where that state holds the row to its own number (`docs/ui_spacing.md`, *Checking spacing*). An ordinary row says nothing there.
 - **A `SKIP` row measured nothing.** It looks like a pass at a glance. A resolver whose class name no longer matches any widget is the usual cause, and only reading the run closely finds it.
 - **In an empty state, skipping is the normal answer**, so those rows leave the table for a `measured nothing` list after it, each with its reason. Read the table for rows that measured and missed, and the list for an `error:`: a `not found` or a refusal is a panel with nothing in it, an `error:` is a resolver that broke on one. The baseline lines compare against that state's own file.
 

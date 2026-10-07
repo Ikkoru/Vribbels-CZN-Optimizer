@@ -308,6 +308,30 @@ def _capital_band(widget, n):
     figure, and the scan reads whatever glyph is there -- a slash two
     below the baseline -- as if it were the capital.
     """
+    return _glyph_band(widget, n, "[[:upper:]]")
+
+
+# Glyphs that stand on the baseline and reach no lower: lining digits
+# and the lowercase letters with no descender. The reference below a
+# line with no capital is the baseline of one of these (docs/
+# ui_spacing.md, *The rules*); the line's whole ink is not, since a
+# slash or a parenthesis in it hangs below.
+BASELINE_GLYPHS = "[0-9acemnorsuvwxz]"
+
+
+def _baseline_band(widget, n):
+    """The box of the first glyph on one line of a Text that stands on
+    the baseline, or None. What a line with no capital is read at
+    BELOW; see `_capital_band` for why the Text is asked where it drew
+    it."""
+    return _glyph_band(widget, n, BASELINE_GLYPHS)
+
+
+def _glyph_band(widget, n, pattern):
+    """The box of the first character matching `pattern` on line `n`
+    of a Text, the line's full height tall, in root coordinates. None
+    where there is none, or where it is not drawn on the line's first
+    row."""
     box = sa.box_of(widget)
     line = widget.get(f"{n}.0", f"{n}.end")
     if not line.strip():
@@ -318,8 +342,7 @@ def _capital_band(widget, n):
     # Found by the Text, not by counting the string: an embedded window
     # takes an index `get` does not return, so a count from the string
     # lands a character early on any line that holds one.
-    where = widget.search("[[:upper:]]", f"{n}.0", f"{n}.end",
-                          regexp=True)
+    where = widget.search(pattern, f"{n}.0", f"{n}.end", regexp=True)
     if not where:
         return None
     drawn = widget.bbox(where)
@@ -2513,8 +2536,10 @@ def _what_crosses(cap, frame, classes, rows, index):
     return ", ".join(found[:3]) if found else ""
 
 
-def _label_capital_box(cap, widget):
+def _label_capital_box(cap, widget, bg=None):
     """The box of a Label's first CAPITAL, or None if it has none.
+    `bg` is the ground the Label sits on, where that is not the
+    window's.
 
     The rules measure to the CAPITALS above and the BASELINE below, and
     a string opening on anything else offers neither. `[OK] Python 3.13`
@@ -2537,7 +2562,7 @@ def _label_capital_box(cap, widget):
     if span is None:
         return None
     box = sa.box_of(widget)
-    extent = sa.painted_extent_h(cap, box)
+    extent = sa.painted_extent_h(cap, box, bg)
     if not extent:
         return None
     origin = extent[0]
@@ -3171,6 +3196,19 @@ def _text_line_reading(locator, kinds=None, label=None):
                     extent = on_cap
             elif extent:
                 no_cap.append(n)
+                # Its BOTTOM at a glyph that stands on the baseline,
+                # which is what the rule names below a line with no
+                # capital: the line's whole ink reads `50/50s won -` a
+                # pixel tight, on its slash. Its top stays the ink's.
+                base = (None if label_is_box
+                        else _baseline_band(widget, n))
+                if base is not None:
+                    on_base = sa.painted_extent_v(
+                        cap, sa.Box(left=base.left, top=band.top,
+                                    right=base.right, bottom=band.bottom),
+                        colours)
+                    if on_base:
+                        extent = (extent[0], on_base[1])
             if extent:
                 rows.append((n, extent, ""))
                 bands.append((band.top, band.bottom))
@@ -3239,7 +3277,8 @@ def _text_line_reading(locator, kinds=None, label=None):
             if len(where) > 3:
                 note += f" and {len(where) - 3} more"
         if no_cap:
-            note += (" | no capital, read off their ink: "
+            note += (" | no capital, read off their ink above and a "
+                     "baseline glyph below: "
                      + ", ".join(_line_name(widget, n, where=label)
                                  for n in no_cap[:4]))
             if len(no_cap) > 4:
@@ -3668,6 +3707,19 @@ def _restore_readouts(app):
     tab._loading_settings = getattr(app, "_spacing_was_loading", False)
 
 
+def _require_captured(app):
+    """Refuse a widest-card scenario where nothing is captured.
+
+    `Show missing characters` still fills the list then, and every card
+    reads `-` where its values go: the widest of them is the widest
+    label beside a dash, which is no distance any rule names. A
+    LookupError is what the audit reads as a scenario with nothing to
+    set up, so its rows are listed as measuring nothing.
+    """
+    if not getattr(app.optimizer, "character_info", None):
+        raise LookupError("nothing captured, so every card reads -")
+
+
 def _widest_stats(field):
     """Select the combatant whose stat block holds the widest values.
 
@@ -3693,6 +3745,7 @@ def _widest_stats(field):
     combatant box saves per-combatant settings.
     """
     def setup(app):
+        _require_captured(app)
         tab = getattr(app, "heroes_tab_instance", None)
         rows = getattr(tab, "hero_data_list", None) if tab else None
         if not rows:
@@ -3750,6 +3803,7 @@ def _widest_card(app):
 
     Selecting is safe to automate -- see `_widest_stats`.
     """
+    _require_captured(app)
     tab = getattr(app, "heroes_tab_instance", None)
     rows = getattr(tab, "hero_data_list", None) if tab else None
     if not rows:
@@ -3948,6 +4002,30 @@ sa.register_scenario("widest_stats", _widest_stats(1),
 sa.register_scenario("widest_pct_stats", _widest_stats(3),
                      _restore_selection)
 sa.register_scenario("widest_card", _widest_card, _restore_selection)
+
+
+# The audit states' own targets (`audit_states`): a row whose state
+# shows a FIXED placeholder where the maintainer's shows a combatant,
+# read where the placeholder's glyphs put it. Each was confirmed by
+# rendering the strings: the lever is the same in every state.
+SELECT_HEADING_ENDS = ("`Select a combatant` ends on a t, whose crossbar "
+                       "reaches its advance where most names stop a "
+                       "pixel inside theirs")
+sa.state_target("empty", "Partner: left edge -> content", 5,
+                "`No partner data` opens on an N, whose stem stands a "
+                "pixel inside its advance where a name's capital does not")
+sa.state_target("fresh", "Combatants: heading -> preset dropdown", 13,
+                SELECT_HEADING_ENDS)
+sa.state_target("fresh", "Combatants: heading -> preset caption", 13,
+                SELECT_HEADING_ENDS)
+# Not a glyph's: with nothing captured the checkbox block keeps one
+# row's room empty (`_reflow_exclude_heroes`), so the first ink under
+# the border is the All/None row, a row further down. Read so that
+# losing the reserved row reports.
+for _state in ("empty", "fresh"):
+    sa.state_target(_state, "Exclude Combatant's MFs: top edge -> content",
+                    25, "nothing captured: the block keeps one row's room, "
+                        "and the All/None row is the first ink under it")
 
 
 def _title_target_and_source(title):
@@ -4308,7 +4386,7 @@ def _ink_to_box_edge(left, right, fill=None):
 
 
 def _panel_floor_to_ink(title, locator, fill=None):
-    """Resolver: one widget's lowest ink -> a panel's bottom border.
+    """Resolver: one widget's BASELINE -> a panel's bottom border.
 
     `_panel_edge_inset` scans the panel's whole INTERIOR, which is
     right where that interior is bare. It is wrong where something in
@@ -4317,8 +4395,11 @@ def _panel_floor_to_ink(title, locator, fill=None):
     whose words the border is measured to, and `fill` is the ground
     they sit on.
 
-    Restated to the BASELINE like every other bottom gap, a string
-    ending on a descender otherwise reading short by its depth.
+    Read at the widget's first CAPITAL, whose bottom is the baseline,
+    where it has one. Otherwise off its whole ink, restated to the
+    baseline by the glyph tables -- which know descenders, and not a
+    string that never reaches the baseline at all: a lone `-` reads
+    three pixels wide of it.
     """
     def resolve(cap, app):
         frame = _panel(app, title)
@@ -4327,6 +4408,10 @@ def _panel_floor_to_ink(title, locator, fill=None):
                 if saturated else "")
         widget = locator(app)
         ground = {cap.palette[fill]} if fill else None
+        band = _label_capital_box(cap, widget, ground)
+        on_cap = band and sa.painted_extent_v(cap, band, ground)
+        if on_cap:
+            return sa.gap_between(on_cap[1], edges["bottom"]), note
         extent = sa.painted_extent_v(cap, sa.box_of(widget), ground)
         if extent is None:
             return None, "that widget painted nothing"
@@ -5118,9 +5203,7 @@ ORDER_MODE_ENTRIES = [
 # screen, and comes out again the moment a run confirms it -- so a row
 # printing yellow is a question, never a regression. EMPTY is the state
 # to return it to.
-AWAITING_FIRST_READING = {
-    "Slot VI ATK% -> display options",
-}
+AWAITING_FIRST_READING = set()
 
 # Entries whose target is a FLOOR (`TrackedGap.minimum`): the gap varies
 # by construction and only its least is a lever. Each one's call site
@@ -5778,8 +5861,10 @@ def register_all():
         tab="Combatants",
         rule=RULE_BORDER_EDGE_CONTENT,
         target=4,
+        # To the LABEL, at its capital: the value reads `-` with nothing
+        # captured, a dash standing well clear of the baseline.
         resolve=_panel_floor_to_ink(
-            "Character", lambda app: _extra_info_pair(app)[1],
+            "Character", lambda app: _extra_info_pair(app)[0],
             fill="bg_light"),
         axis="v",
         provisional="Character: bottom edge -> content"

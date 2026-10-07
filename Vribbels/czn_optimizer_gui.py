@@ -1873,9 +1873,11 @@ def main():
         warn_root.destroy()
         sys.exit(0)
 
-    # Not asked under an audit state: its scratch copy never captures,
-    # and the prompt would be one more window to answer per state.
-    if sys.platform == "win32" and not is_admin() and not audit_state:
+    # Not asked for a spacing audit or an audit state, neither of which
+    # captures: the prompt would be one more window to answer before
+    # every run, and once more per state.
+    if (sys.platform == "win32" and not is_admin() and not audit_state
+            and not OptimizerGUI._spacing_audit_wanted()):
         # Native dialogs, not tkinter's: creating a Tk root here and
         # destroying it leaves the real window frozen (see _win_message).
         response = _win_message(

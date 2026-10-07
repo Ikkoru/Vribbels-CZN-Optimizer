@@ -213,6 +213,33 @@ def _audit_reads_a_state(sa):
     return out
 
 
+def _state_targets_name_entries(audit_states, sa):
+    """A state's own target is matched by entry NAME, so one naming an
+    entry that was renamed, or a state that does not exist, applies to
+    nothing and says nothing."""
+    from ui import spacing_registry  # noqa: F401  (registers)
+    out = []
+    names = {g.name for g in sa.REGISTRY}
+    if not sa.STATE_TARGETS:
+        out.append("no state targets registered, so this part checked "
+                   "nothing")
+    for state, own in sa.STATE_TARGETS.items():
+        if state not in audit_states.STATES:
+            out.append(f"state targets for {state!r}, which is no state")
+        for name, (target, _why) in own.items():
+            if name not in names:
+                out.append(f"the {state} state's target for {name!r} names "
+                           f"no registered entry, so it applies to nothing")
+                continue
+            moved = [g for g in sa._for_state(sa.REGISTRY, state)
+                     if g.name == name]
+            if any(g.target != target or g.target_source != "state"
+                   for g in moved):
+                out.append(f"the {state} state's target for {name!r} is "
+                           f"not what a run in that state measures against")
+    return out
+
+
 def run():
     add_source_to_path()
     import audit_states
@@ -222,4 +249,5 @@ def run():
     failures.extend(_prepare_builds_a_copy(audit_states))
     failures.extend(_roots_follow_the_state(audit_states))
     failures.extend(_audit_reads_a_state(sa))
+    failures.extend(_state_targets_name_entries(audit_states, sa))
     return failures

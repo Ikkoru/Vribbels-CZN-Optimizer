@@ -38,7 +38,7 @@ import json
 import os
 import tkinter as tk
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
 from PIL import ImageGrab
@@ -735,6 +735,26 @@ def register_scenario(name, setup, teardown):
     SCENARIOS[name] = (setup, teardown)
 
 
+# Targets that differ in an audit state (`audit_states`), by state and
+# entry name: (target, why). For a row whose state shows a FIXED string
+# where the maintainer's own shows data, and whose glyphs sit
+# differently in their advance -- a reading of that string, not of a
+# lever. The registry fills it; `check_audit_states` holds every name
+# to an entry that exists.
+STATE_TARGETS: dict = {}
+
+
+def state_target(state, name, target, why):
+    STATE_TARGETS.setdefault(state, {})[name] = (target, why)
+
+
+def _for_state(gaps, state):
+    """`gaps` with the state's own targets in, marked `state`."""
+    own = STATE_TARGETS.get(state, {})
+    return [replace(g, target=own[g.name][0], target_source="state")
+            if g.name in own else g for g in gaps]
+
+
 # ------------------------------------------------------------------- locating
 
 def current_tab_widget(app):
@@ -1240,7 +1260,7 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False,
     rows = []
 
     by_scenario: dict = {}
-    for g in REGISTRY:
+    for g in (_for_state(REGISTRY, state) if state else REGISTRY):
         by_scenario.setdefault(g.scenario, []).append(g)
 
     for scenario, gaps in by_scenario.items():
@@ -1258,9 +1278,13 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False,
         try:
             setup(app)
         except Exception as exc:                          # noqa: BLE001
-            rows.extend((g.name, g.target, None,
-                         f"scenario {scenario!r} failed: "
-                         f"{type(exc).__name__}: {exc}",
+            # A LookupError is the scenario finding nothing to set up,
+            # as a locator finding no widget is -- see `_raised_note`.
+            why = (f"scenario {scenario!r} has nothing to set up: {exc}"
+                   if type(exc) is LookupError else
+                   f"scenario {scenario!r} failed: "
+                   f"{type(exc).__name__}: {exc}")
+            rows.extend((g.name, g.target, None, why,
                          g.tab, g.axis, g.provisional, False) for g in gaps)
             teardown(app)
             continue

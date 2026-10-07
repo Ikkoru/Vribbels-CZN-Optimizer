@@ -2616,9 +2616,14 @@ class OptimizerTab(BaseTab):
         # result as `Exclude Combatant's MFs: row pitch`.
         ROW_PITCH_OFFSET = 3
         pitch_offset = px(ROW_PITCH_OFFSET)
+        # With nothing captured there is no widget to take a height from,
+        # and the row reserved below is a checkbox's: the Order Mode box
+        # is one, built by the same helper.
+        order_box = getattr(self, "_exclude_order_box", None)
         row_h = max(
             (widget.winfo_reqheight() for widget in shown),
-            default=px(22),
+            default=(order_box.winfo_reqheight() if order_box is not None
+                     else px(22)),
         ) + pitch_offset
 
         # Partition into rows: names keep their natural widths (no scaling
@@ -2679,8 +2684,13 @@ class OptimizerTab(BaseTab):
         # All/None row below then sits below, on top of its own pad, and
         # a whole pitch further from the block than in the other three
         # panels.
+        #
+        # **One row's room even with no rows.** With nothing captured the
+        # block would close to nothing and the All/None row ride up under
+        # the title, the panel reading as something other than a list
+        # with nobody in it yet.
         self.exclude_heroes_frame.configure(
-            height=max(1, len(rows) * row_h - pitch_offset))
+            height=max(1, len(rows)) * row_h - pitch_offset)
         self._exclude_partition = rows
         self._exclude_packed_width = container_w
         self._apply_exclude_states()

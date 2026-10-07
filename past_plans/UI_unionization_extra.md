@@ -38,9 +38,11 @@ has.
 
 ## Audit the app in its EMPTY states too
 
-Every reading so far was taken with the maintainer's snapshot loaded and
-a combatant selected. Two other states ship to users, and
-`zRUN Spacing Audit States.bat` runs both; neither has been read yet:
+Two states besides the maintainer's ship to users, and
+`zRUN Spacing Audit States.bat` runs both. Both read on target, every
+row that measured something, with the few `state` targets
+`docs/ui_spacing.md` *Checking spacing* explains; what is left is the
+maintainer freezing each state's baseline:
 
 1. **`empty`: the maintainer's settings, nothing captured.** The
    Combatants list still lists the roster, because `Show missing
@@ -54,9 +56,9 @@ a combatant selected. Two other states ship to users, and
 
 Measured headlessly, the panels that change size with nothing captured
 are few, and the same in both: Exclude Combatant's MFs (its checkbox
-block empty, so everything under it rises), Memory Fragments' Sets (no
-counts) and the Stats & Gacha History standings. The Combatants detail
-pane and the Sets list hold their loaded size.
+block keeps one row's room, empty), Memory Fragments' Sets (no counts)
+and the Stats & Gacha History standings. The Combatants detail pane and
+the Sets list hold their loaded size.
 
 Expect rows to skip rather than fail, and read a skip as an answer. What
 this is looking for is the opposite: a gap that MEASURES in one state

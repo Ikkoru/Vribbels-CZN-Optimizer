@@ -1134,6 +1134,35 @@ def _optimizer_lists_missing_when_shown(tab):
     return out
 
 
+def _exclude_keeps_a_row_when_empty(tab):
+    """With nothing captured, the Exclude block keeps one row's room.
+
+    Closed to nothing it put the All/None row straight under the title,
+    and the panel read as something other than a list with nobody in it
+    yet. The spacing audit's empty states hold the reading that follows
+    (`Exclude Combatant's MFs: top edge -> content`); this holds the
+    height that makes it, a checkbox's own, with no window.
+
+    Returns a list of complaints.
+    """
+    optimizer = tab.optimizer
+    kept = optimizer.characters, optimizer.character_info
+    optimizer.characters, optimizer.character_info = {}, {}
+    try:
+        tab.refresh_exclude_heroes()
+        tab._reflow_exclude_heroes(force=True)
+        height = int(tab.exclude_heroes_frame.cget("height"))
+        want = tab._exclude_order_box.winfo_reqheight()
+    finally:
+        optimizer.characters, optimizer.character_info = kept
+        tab.refresh_exclude_heroes()
+    if height != want:
+        return [f"with nothing captured the Exclude block is {height}px "
+                f"tall, not one checkbox row ({want}px). See "
+                f"`_reflow_exclude_heroes`: it keeps one row's room."]
+    return []
+
+
 def _order_mode_ranks_the_roster(tab):
     """Exclude Combatant's MFs in Order Mode.
 
@@ -5561,6 +5590,8 @@ def run():
                 _optimizer_lists_missing_when_shown(built["OptimizerTab"]))
             failures.extend(
                 _order_mode_ranks_the_roster(built["OptimizerTab"]))
+            failures.extend(
+                _exclude_keeps_a_row_when_empty(built["OptimizerTab"]))
             failures.extend(
                 _own_fragments_read_green(built["OptimizerTab"]))
             failures.extend(
