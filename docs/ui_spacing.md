@@ -234,7 +234,7 @@ Two rules, and the second is the one that bites:
 - **`px` on the geometry call, never on the constant.** A distance built from parts is scaled once at the end; scaling each addend rounds each one and the sum lands elsewhere. At 200% nothing rounds, so this costs nothing today; a fractional scale would need it.
 - **A MEASURED distance never goes through `px`.** `font.measure(...)`, `winfo_reqheight()`, a Text's `dlineinfo` — all already grew with the font. A pad mixing the two wraps its hardcoded half alone: `px(INSET) + indent`.
 
-**The audit runs at 100% only.** Its targets are physical pixels, so at 200% every gap reads double and the whole run is red for no reason. What watches the scaled window instead is `checks/check_ui_scales.py`: it builds every tab at both scales and compares each pad, failing one that did not grow (a missed `px`) and one that grew twice (a `px` on a measurement). It also hands every label that rewraps on `<Configure>` an event of a known width, and fails a wraplength that lands wider than that width -- the event's width is measured, and a `px` on it wraps the text past its space.
+**The audit runs at both scales, and holds each gap at 200% to exactly twice its target.** A 200% screen should show what a 100% one does, so a target is a 100% distance and a run at a scale multiplies it (`spacing_audit.scaled`). The resolvers' own distances -- a glyph's overshoot, a scan's reach -- are 100% numbers too, and go through `px` where they are used. A one-pixel miss at 200% is accepted as font rounding only where studying it showed that is what it is. The headless half is `checks/check_ui_scales.py`: it builds every tab at both scales and compares each pad, failing one that did not grow (a missed `px`) and one that grew twice (a `px` on a measurement). It also hands every label that rewraps on `<Configure>` an event of a known width, and fails a wraplength that lands wider than that width -- the event's width is measured, and a `px` on it wraps the text past its space.
 
 Icons double by NEAREST NEIGHBOUR, which is exact at a whole multiple — every source pixel becomes a square of copies. There is no art larger than 112x113 in the repo, which is what makes 200% the only scale they survive.
 
@@ -559,7 +559,7 @@ Both ends of a line-to-line reading are the line's first CAPITAL. A capital's to
 
 The mechanism is below; the procedure for running one and reading its table is the `spacing-audit` skill.
 
-`ui/spacing_audit.py` measures registered gaps from a screenshot of the live window, counting background pixels by the convention above, so glyph reference points come out right without a font table. It cycles the tabs itself; the operator keeps the window unobscured and frontmost, the pointer off it (hover repaints and is measured), and a snapshot loaded so the data-driven panels exist.
+`ui/spacing_audit.py` measures registered gaps on the rendered window, counting background pixels by the convention above, so glyph reference points come out right without a font table. It cycles the tabs itself, and needs only a snapshot loaded so the data-driven panels exist. **The window is rendered, never shown** (`ui/utils/window_render.py`, Windows' `PrintWindow` taking the compositor's copy): the app stays at alpha 0 from launch to exit, at its full size even where that is larger than every screen, and no pointer, tooltip or other window can be in the picture. Read the same way, the 100% audit read every gap as reading the screen had, its baseline unmoved.
 
 It locates panels by their visible title, not by attribute — most of these frames are locals, and storing each on `self` purely to measure it would touch six tab files for no functional reason. So renaming a panel's title removes it from the audit; the baseline comparison reports that as a missing entry rather than a pass.
 
@@ -627,7 +627,7 @@ If a reading looks wrong in one of these shapes, suspect the tool:
 
 | Symptom                                                | Cause                                                                                                                                       |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unrelated panels all reporting the same number         | `ImageGrab` reads the COMPOSITED desktop, which lags `update()`. Needs a pause before the grab.                                             |
+| Unrelated panels all reporting the same number         | The rendering is the compositor's copy of the window, which lags `update()`. Needs a pause before the capture.                              |
 | Gaps inflated wherever the first element was a control | `bg_light`/`bg_lighter` treated as background, but they are the FILL of buttons, spinboxes and Treeviews — the scan looked through to text. |
 | Every left inset exactly +1                            | Measured from the frame's box edge, where the border STARTS. The reference is the border's inner edge.                                      |
 | Text panels reporting 0, then a huge negative          | Their fill reaches the border by design, so a scan looking for background to stop at never stops.                                           |

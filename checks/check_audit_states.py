@@ -240,11 +240,54 @@ def _state_targets_name_entries(audit_states, sa):
     return out
 
 
+def _scale_is_its_own(audit_states, sa):
+    """An audit run at 200% is asked for on the command line, held to
+    twice every target, and compared with a baseline of its own -- one
+    baseline for both scales would report every gap as changed."""
+    from ui import scaling
+    out = []
+    if tuple(audit_states.SCALES) != tuple(scaling.SCALE_CHOICES):
+        out.append(f"audit_states.SCALES {audit_states.SCALES} is not the "
+                   f"Settings dropdown's {scaling.SCALE_CHOICES}")
+    for argv, want in ((["x", "--audit-scale=200%"], "200%"),
+                       (["x", "--spacing-audit"], None)):
+        if audit_states.requested_scale(argv) != want:
+            out.append(f"{argv[1:]} asks for scale "
+                       f"{audit_states.requested_scale(argv)!r}, not {want!r}")
+    try:
+        audit_states.requested_scale(["x", "--audit-scale=150%"])
+        out.append("an unknown audit scale was accepted, and the run would "
+                   "lay out at a scale nothing measures against")
+    except SystemExit:
+        pass
+    for state, factor, name in ((None, 2, "spacing_baseline_200.json"),
+                                ("empty", 2,
+                                 "spacing_baseline_empty_200.json"),
+                                ("fresh", 1, "spacing_baseline_fresh.json")):
+        got = os.path.basename(sa.baseline_path(state, factor))
+        if got != name:
+            out.append(f"the baseline for state {state} at {factor * 100}% "
+                       f"is {got}, not {name}")
+    gap = sa.TrackedGap("probe", "Tab", "rule", 5, None, hand=4)
+    was = scaling.factor()
+    try:
+        scaling.set_scale("200%")
+        doubled = sa.scaled([gap])[0]
+    finally:
+        scaling.set_scale(f"{was * 100}%")
+    if (doubled.target, doubled.hand) != (10, 8):
+        out.append(f"at 200% a 5px target with a hand reading of 4 becomes "
+                   f"{doubled.target} and {doubled.hand}, not 10 and 8: a "
+                   f"200% screen has to show what a 100% one does")
+    return out
+
+
 def run():
     add_source_to_path()
     import audit_states
     from ui import spacing_audit as sa
     failures = []
+    failures.extend(_scale_is_its_own(audit_states, sa))
     failures.extend(_flag_is_read(audit_states))
     failures.extend(_prepare_builds_a_copy(audit_states))
     failures.extend(_roots_follow_the_state(audit_states))

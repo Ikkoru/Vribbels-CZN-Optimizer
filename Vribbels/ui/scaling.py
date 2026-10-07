@@ -43,10 +43,10 @@ pad mixing the two takes `px` on its hardcoded part alone:
 not grow and one that grew twice, and a wraplength worked out from an
 event's width.
 
-**The spacing audit is 100%-only.** Its targets are physical pixels; at
-200% every gap would read double and the run would be a wall of red
-that means nothing. Nothing here changes that -- it is a statement
-about which scale the audit is run at.
+**The spacing audit reads both scales**, holding every gap at 200% to
+exactly twice its 100% target (`spacing_audit.scaled`); an audit run
+picks its scale with `--audit-scale` rather than through `set_scale`'s
+saved setting (`audit_states.requested_scale`).
 """
 
 import ctypes

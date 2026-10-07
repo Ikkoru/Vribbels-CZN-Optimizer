@@ -4,6 +4,9 @@ read for anything but the copy and never written at all.
 
     python czn_optimizer_gui.py --spacing-audit --audit-state=empty
 
+`--audit-scale=200%` runs either, or the maintainer's own, at a UI scale
+the settings do not hold, and writes nothing about it (`requested_scale`).
+
 Two states, both with nothing captured:
 
   empty   the maintainer's settings, copied, and an empty snapshots
@@ -36,6 +39,8 @@ from pathlib import Path
 FLAG = "--audit-state"
 EMPTY, FRESH = "empty", "fresh"
 STATES = (EMPTY, FRESH)
+SCALE_FLAG = "--audit-scale"
+SCALES = ("100%", "200%")
 
 # The repository's scratch folder. Its subfolder for these is wholly
 # disposable, so it carries the tag that keeps it out of backups.
@@ -63,6 +68,29 @@ def requested(argv=None):
                     f"{FLAG}={state}: no such state. One of: "
                     f"{', '.join(STATES)}.")
             return state
+    return None
+
+
+def requested_scale(argv=None):
+    """The UI scale `argv` asks an audit run for (`--audit-scale=200%`),
+    or None to keep the one saved in settings.
+
+    The run uses it and nothing writes it, so an audit at 200% leaves
+    the maintainer's own setting as it was. Spelled as the Settings
+    dropdown spells it, `ui.scaling.SCALE_CHOICES`, which
+    `check_audit_states` holds `SCALES` to; an unknown one stops the
+    app, as an unknown state does. Ignored by a frozen build.
+    """
+    if getattr(sys, "frozen", False):
+        return None
+    argv = sys.argv if argv is None else argv
+    for arg in argv:
+        if arg.startswith(SCALE_FLAG + "="):
+            scale = arg.partition("=")[2]
+            if scale not in SCALES:
+                raise SystemExit(f"{SCALE_FLAG}={scale}: no such scale. "
+                                 f"One of: {', '.join(SCALES)}.")
+            return scale
     return None
 
 

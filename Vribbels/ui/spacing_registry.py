@@ -22,6 +22,9 @@ import tkinter as tk
 from tkinter import font as tkfont
 
 from . import spacing_audit as sa
+# The resolvers' own distances -- a glyph's overshoot, a scan's reach --
+# are 100% numbers, and the font and the layout both double at 200%.
+from .scaling import px
 
 
 # Rule names. Canonical text lives in the Marker column of the rules
@@ -156,11 +159,11 @@ def ink_below_baseline(text: str, bold14: bool = False) -> int:
     that size and no heading holds one, so it keeps the 9pt depth.
     """
     if any(c in text for c in DEEP_BELOW):
-        return DESCENDER_DEPTH_14_BOLD if bold14 else DESCENDER_DEPTH
+        return px(DESCENDER_DEPTH_14_BOLD if bold14 else DESCENDER_DEPTH)
     if any(c in text for c in SHALLOW_BELOW):
-        return SHALLOW_DEPTH
+        return px(SHALLOW_DEPTH)
     if any(c in text for c in SLIGHT_BELOW):
-        return SLIGHT_DEPTH
+        return px(SLIGHT_DEPTH)
     return 0
 
 
@@ -575,7 +578,7 @@ def _border_inner_edges(cap, frame):
         while i != limit and painted(i + step):
             i += step
             crossed += 1
-            if crossed >= sa.MAX_BORDER:
+            if crossed >= px(sa.MAX_BORDER):
                 return i, True
         return i, False
 
@@ -1178,9 +1181,10 @@ def _status_subtext_baseline(status, subtext, status_drop):
         if top is None or bottom is None:
             return None, "status or subtext painted nothing"
         sub_drop = ink_below_baseline(b.cget("text"))
-        note = (f"ink {top[1]}/{bottom[1]}, drop {status_drop}/{sub_drop} "
+        drop = px(status_drop)
+        note = (f"ink {top[1]}/{bottom[1]}, drop {drop}/{sub_drop} "
                 f"(the first is STATED, not measured)")
-        return ((bottom[1] - sub_drop) - (top[1] - status_drop)), note
+        return ((bottom[1] - sub_drop) - (top[1] - drop)), note
     return resolve
 
 
@@ -2767,7 +2771,7 @@ def _text_columns(cap, box, fill, want=None):
         return []
     columns = [list(runs[0])]
     for first, last in runs[1:]:
-        if sa.gap_between(columns[-1][1], first) <= TEXT_COLUMN_MERGE:
+        if sa.gap_between(columns[-1][1], first) <= px(TEXT_COLUMN_MERGE):
             columns[-1][1] = last
         else:
             columns.append([first, last])
@@ -3229,7 +3233,8 @@ def _text_line_reading(locator, kinds=None, label=None):
         # `sa.vertical_gap`, which reads WIDGETS -- a Text carries its
         # underline on a tag, and there is no widget to ask.
         pairs = [(sa.gap_between(a[1], b[0])
-                  + (sa.UNDERLINE_BELOW if na in underlined else 0), na, nb)
+                  + (px(sa.UNDERLINE_BELOW) if na in underlined else 0),
+                  na, nb)
                  for (na, a, _ta), (nb, b, _tb) in zip(rows, rows[1:])
                  if nb == na + 1]
         # **One kind of gap per entry.** A line carries the tag that
@@ -3776,13 +3781,13 @@ def _widest_stats(field):
         best, widest = None, -1
         for index in range(len(rows)):
             tab.select_hero_row(index)
-            px = 0
+            width = 0
             for line in tab.hero_char_text.get("1.0", "end-1c").splitlines():
                 parts = line.split("	")
                 if len(parts) > field:
-                    px = max(px, font.measure(parts[field].strip()))
-            if px > widest:
-                best, widest = index, px
+                    width = max(width, font.measure(parts[field].strip()))
+            if width > widest:
+                best, widest = index, width
         if best is not None:
             tab.select_hero_row(best)
     return setup
@@ -3815,13 +3820,13 @@ def _widest_card(app):
         tab.select_hero_row(index)
         text.update_idletasks()
         last = int(text.index("end-1c").split(".")[0])
-        px = 0
+        width = 0
         for line in range(1, last + 1):
             info = text.dlineinfo(f"{line}.0")
             if info:
-                px = max(px, info[2])
-        if px > widest:
-            best, widest = index, px
+                width = max(width, info[2])
+        if width > widest:
+            best, widest = index, width
     if best is not None:
         tab.select_hero_row(best)
 

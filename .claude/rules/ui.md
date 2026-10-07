@@ -10,7 +10,7 @@ Loads when a file under `Vribbels/ui/` is read. Panel layout, the spacing ledger
 ## Hard rules
 
 - **The default window size is the design target.** Resizing is a convenience, not a supported layout: nothing may BREAK at another size, but nothing has to look good at one either. A change that makes a tab taller or wider is judged against the default and against the minimum, not against whatever size the window happens to be — and "someone's window might need widening" is not a defect.
-- **Every hardcoded distance goes through `px()`**, on the geometry call and never on the constant — `ui/scaling.py` says why. A MEASURED distance (a font metric, a `winfo_reqheight`) must NOT: the font scaling already carried it. The spacing audit is 100%-only; `checks/check_ui_scales.py` is what watches 200%.
+- **Every hardcoded distance goes through `px()`**, on the geometry call and never on the constant — `ui/scaling.py` says why. A MEASURED distance (a font metric, a `winfo_reqheight`) must NOT: the font scaling already carried it. The spacing audit reads both scales, each gap held to exactly its 100% target times the scale; `checks/check_ui_scales.py` is the headless half, comparing every pad at the two.
 - **Every checkbox comes from `ui/utils/checkbox.py` and every scrolled text from `ui/utils/scrolled_text.py`** — a check enforces both.
 - **The Combatants tab's live refresh is gated on `HeroesTab.display_signature()`.** A field that reaches the rows or the detail pane without being added to the signature goes stale silently — extend the signature in the same edit.
 
@@ -34,5 +34,5 @@ Mapping a window puts it on the maintainer's screen. A probe maps at alpha 0 ins
 | To check                        | Do this                                                                                             |
 | ------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Which widgets a change moved    | Build the tabs the `check_tabs_build.py` way, snapshot every row's values before and after, diff     |
-| A rendered GAP, in pixels       | `zRUN Spacing Audit Verbose.bat` — every registered gap, read off a screenshot. Ask before running one |
+| A rendered GAP, in pixels       | `zRUN Spacing Audit Verbose.bat` — every registered gap at both scales, read off the rendered window. Invisible; needs no asking |
 | Something only the screen shows | A side-by-side repro in `_tmp/` — the maintainer runs it, so it goes in the repo, not the scratchpad |

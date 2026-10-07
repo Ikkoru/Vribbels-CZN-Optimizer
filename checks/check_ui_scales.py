@@ -1,8 +1,9 @@
 """At 200% every distance has to double, and nothing may be left behind.
 
-The spacing audit is 100%-only -- its targets are physical pixels -- so
-nothing photographs the scaled window and a distance that stayed at its
-100% value is invisible. It is also the most likely mistake by far: the
+The spacing audit reads the scaled window too, but only at the gaps it
+has registered, and only when it is run; a distance that stayed at its
+100% value anywhere else is invisible. It is also the most likely
+mistake by far: the
 scaling reaches ~360 call sites, and one `padx=4` that never got its
 `px()` reads as a gap half the size of its neighbours on a screen the
 maintainer may not be developing on.
@@ -432,8 +433,8 @@ def run():
             f"An UNCHANGED one never went through `px()` and is half the "
             f"size of its neighbours on a scaled screen; one past the "
             f"font's own ratio ({ratio:.2f}x) went through it twice, "
-            f"having already grown with the font. The spacing audit runs "
-            f"at 100% only, so nothing else looks at either. See "
-            f"`ui/scaling.py`.")
+            f"having already grown with the font. The spacing audit sees "
+            f"only the gaps it has registered, so nothing else looks at "
+            f"either. See `ui/scaling.py`.")
 
     return failures

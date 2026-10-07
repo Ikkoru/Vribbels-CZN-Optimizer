@@ -1,33 +1,21 @@
 ---
 name: spacing-audit
-description: Read or run the UI spacing audit — the screenshot-based measurement of every registered gap. Use when the maintainer pastes audit output, reports a gap as off, or mentions a baseline CHANGED or MISSING line; when a rendered distance needs confirming in pixels; when the baseline is being frozen; or when asked to run one. Covers how to read the table, what a miss resolves to, what registering a new gap obliges, and the preconditions and launchers for a run.
+description: Read or run the UI spacing audit — every registered gap measured on the rendered window, at 100% and 200%, with the app never shown. Use when the maintainer pastes audit output, reports a gap as off, or mentions a baseline CHANGED or MISSING line; when a rendered distance needs confirming in pixels; when the baseline is being frozen; or when a change to the UI wants checking. Covers how to read the table, what a miss resolves to, what registering a new gap obliges, and the launchers for a run.
 ---
 
 # Spacing audit
 
 The procedure only. The mechanism — what each rule means, what the audit can and cannot see, the marker vocabulary — lives in `docs/ui_spacing.md`, and the entries themselves in `Vribbels/ui/spacing_registry.py`.
 
-**The maintainer runs audits on their own judgement and hands over the output**, so reading a table is the common case and asking for a run is the rare one. Start at *Reading the table*.
-
-## Before asking for a run
-
-A run costs the maintainer's attention: it puts the app on their screen and they have to hold the window still. Spend the headless checks first, because two of them catch registry faults without a run:
+**Run it whenever a reading would help.** The app is rendered and never shown (`Vribbels/ui/utils/window_render.py`), so a run takes nothing over on the screen, needs no pointer kept off it, and exits once its table has printed: about twenty seconds a scale. Run the headless checks first all the same, because two of them catch registry faults a run would only report as dead rows:
 
 ```bash
 python checks/run_all.py
 ```
 
-`checks/check_spacing_registry.py` enforces every entry against the targets in the doc's table, including that a miss carries a marker naming the rule it breaks. `checks/check_spacing_markers.py` checks the `# spacing:` markers themselves. A fault either of those can see is not worth a screenshot.
+`checks/check_spacing_registry.py` enforces every entry against the targets in the doc's table, including that a miss carries a marker naming the rule it breaks. `checks/check_spacing_markers.py` checks the `# spacing:` markers themselves.
 
-**Never launch it unasked.** It needs the screen unobstructed and the pointer still, the two kinds of window the global rule asks about. Ask, and wait for them to say they are ready. A maintainer who has said they are away has asked; the preconditions below are then yours to hold, and a locked or sleeping screen photographs as nothing.
-
-## Preconditions the maintainer holds
-
-State these when asking:
-
-- the app window unobscured and frontmost;
-- the pointer off the window — hover repaints, and the repaint gets measured;
-- a snapshot loaded, so the data-driven panels exist to be measured. Not for the empty states, which bring their own.
+The maintainer's own state needs a snapshot loaded, so the data-driven panels exist to be measured; the empty states bring their own.
 
 ## The launchers
 
@@ -35,16 +23,19 @@ State these when asking:
 | ---- | --- |
 | Only the rows that miss their target | `zRUN Spacing Audit.bat` |
 | Every row, including the ones on target | `zRUN Spacing Audit Verbose.bat` |
-| Rewrite `docs/spacing_baseline.json` | `zRUN Spacing Audit Freeze.bat` |
-| The empty states, one after the other, in any of the three modes | `zRUN Spacing Audit States.bat` |
+| Rewrite the maintainer's state's baselines | `zRUN Spacing Audit Freeze.bat` |
+| The empty states, in any of the three modes | `zRUN Spacing Audit States.bat` |
 
-Each sets `VRIBBELS_DEV=1` and passes `--spacing-audit`, `--spacing-audit-verbose` or `--spacing-audit-freeze` to `Vribbels/czn_optimizer_gui.py`. A normal launch never imports the audit, and an audit launch never asks for Administrator: it never captures.
+Each runs the audit at 100% and then at 200%: it sets `VRIBBELS_DEV=1` and passes `--spacing-audit`, `--spacing-audit-verbose` or `--spacing-audit-freeze` to `Vribbels/czn_optimizer_gui.py`, the second time with `--audit-scale=200%`, which overrides the saved UI scale for that run and writes nothing. A normal launch never imports the audit, and an audit launch never asks for Administrator: it never captures.
 
-The States launcher asks for the mode, then runs `--audit-state=empty` and `--audit-state=fresh` in turn, each in a scratch copy it rebuilds; closing the app after the first audit starts the second. `docs/ui_spacing.md`, *Checking spacing*, says what each state is.
+The States launcher asks for the mode, then runs `--audit-state=empty` and `--audit-state=fresh`, each at both scales, each in a scratch copy it rebuilds. `docs/ui_spacing.md`, *Checking spacing*, says what each state is.
+
+**A baseline per state and scale**: `docs/spacing_baseline.json` is the maintainer's at 100%; a state adds `_<state>` and 200% adds `_200`, as in `docs/spacing_baseline_<state>_200.json`.
 
 ## Reading the table
 
 - **A short run is a good run.** The default prints only misses, so a clean pass is a handful of lines.
+- **At 200% the target column is already doubled.** Every target is a 100% distance, held to exactly twice its number there: a 200% screen should show what a 100% one does. A miss of one pixel is font rounding only where the study of it said so; otherwise it is studied like any other.
 - **`axis` is `<>` or `^v`**, never arrows: the console is cp932 and one non-ASCII character raises before the table reaches the screen.
 - **Dark yellow means provisional** — registered but never confirmed by a hand reading. It clears once a reading agrees.
 - **The note column** says `exception` where the site deliberately misses its rule and carries a marker saying so, `inferred` where the rule applies but its number is carried across from elsewhere, or, in an empty state, `state` where that state holds the row to its own number (`docs/ui_spacing.md`, *Checking spacing*). An ordinary row says nothing there.

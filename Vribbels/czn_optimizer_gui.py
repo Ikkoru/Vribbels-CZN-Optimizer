@@ -295,9 +295,9 @@ class OptimizerGUI:
         # be shown safely, so the game-data report waits until here.
         self._report_data_problems()
         self._report_sync_failures()
-        # Dev-only, off unless asked for. Must come after the reveal:
-        # the audit reads pixels off the screen, so the window has to be
-        # up, settled and painted.
+        # Dev-only, off unless asked for. Must come after the reveal,
+        # which under an audit leaves the window at alpha 0 but settled
+        # and painted: the audit renders it.
         self._maybe_schedule_spacing_audit()
         # Every other tab built where it is not yet, and laid out, in
         # idle moments and unseen, so that no first open assembles in
@@ -317,8 +317,11 @@ class OptimizerGUI:
                 lazy=self.lazy_tabs)
         # After the reveal for the same reason the audit is: the window
         # is up and the user is looking at it, so a rebuild that takes a
-        # second has nothing to block.
-        self._start_stats_history(self._start_capture_archiver())
+        # second has nothing to block. Not under the audit, which exits
+        # as soon as it has printed -- in the middle of an archive's
+        # rewrite, as likely as not.
+        if not self._spacing_audit_wanted():
+            self._start_stats_history(self._start_capture_archiver())
         _t0 = getattr(self, "_startup_t0", None)
         if _t0 is not None:
             perf_log.log("startup:TOTAL", secs=_time.perf_counter() - _t0)
@@ -340,6 +343,12 @@ class OptimizerGUI:
             self._hidden_via = "alpha"
         except tk.TclError:
             self.root.withdraw()
+        # The audit keeps the window at alpha 0 for the whole run, and at
+        # its full size even where that is larger than every screen --
+        # the window at 200% is. Tk caps a window at the screen's size
+        # unless told otherwise, which would lay out a different app.
+        if self._spacing_audit_wanted():
+            self.root.wm_maxsize(px(scaling.WINDOW_W), px(scaling.WINDOW_H))
 
     def _reveal_window(self):
         """Show the finished window, once.
@@ -437,6 +446,10 @@ class OptimizerGUI:
         from ui.utils.presettle import track_input
         track_input(self.root)
         self.lazy_tabs.watch()
+        # The audit renders the window and never shows it, so a run is
+        # nothing on the screen and nothing to keep the pointer off.
+        if self._spacing_audit_wanted():
+            return
         if self._hidden_via == "alpha":
             self.root.attributes("-alpha", 1.0)
         else:
@@ -478,13 +491,17 @@ class OptimizerGUI:
 
         Scheduled with `after` rather than called directly: __init__ runs
         BEFORE mainloop, and while `_reveal_window` has drained Tk's
-        layout and draw work, the compositor has not necessarily put the
-        finished window on screen yet -- and this reads the screen. A
-        short delay after mainloop starts is the cheap, reliable answer.
+        layout and draw work, the compositor has not necessarily got the
+        finished window yet -- and the audit renders the compositor's
+        copy. A short delay after mainloop starts is the cheap, reliable
+        answer.
+
+        The window is never shown (`_reveal_window`), and the app closes
+        once the table is printed: there is nothing on the screen to
+        close it from.
 
         Imported inside the function so that a normal launch never pays
-        for it, and so a problem in the audit (or a missing ImageGrab on
-        a non-Windows host) can't stop the app starting.
+        for it, and so a problem in the audit can't stop the app starting.
         """
         if not self._spacing_audit_wanted():
             return
@@ -501,19 +518,19 @@ class OptimizerGUI:
                 from ui import spacing_registry  # noqa: F401  (registers)
             except Exception as exc:                      # noqa: BLE001
                 print(f"spacing audit unavailable: {exc}")
+                self.root.destroy()
                 return
             state = audit_states.requested()
-            print("\n--- UI spacing audit ---")
+            print(f"\n--- UI spacing audit, {scaling.factor() * 100}% ---")
             if state:
                 print(f"State: {state}, in the scratch copy at "
                       f"{_user_data_dir()}")
-            print("Keep the window unobscured and the pointer off it; "
-                  "hover state repaints and is measured.")
             try:
                 spacing_audit.run_audit(self, verbose=verbose, freeze=freeze,
                                         state=state)
             except Exception as exc:                      # noqa: BLE001
                 print(f"spacing audit failed: {exc}")
+            self.root.destroy()
 
         self.root.after(400, _run)
 
@@ -1099,10 +1116,18 @@ class OptimizerGUI:
             return
         try:
             from game_data_validator import format_problem_report
-            messagebox.showwarning("Game data problems",
-                                   format_problem_report(problems))
+            self._warn("Game data problems", format_problem_report(problems))
         except Exception:
             pass
+
+    def _warn(self, title, text):
+        """A startup warning: a dialog, or under the audit a printed
+        line -- a modal dialog there would be invisible and would stop
+        the run until something closed it."""
+        if self._spacing_audit_wanted():
+            print(f"{title}: {text}")
+            return
+        messagebox.showwarning(title, text)
 
     def _report_sync_failures(self):
         """Tell the user when the bundled defaults could not be installed.
@@ -1119,7 +1144,7 @@ class OptimizerGUI:
         lines = "\n".join(f"  {fname}: {msg}"
                           for _stage, fname, msg in shown)
         try:
-            messagebox.showwarning(
+            self._warn(
                 "Default settings could not be installed",
                 "The bundled defaults could not be copied into your "
                 "settings folder:\n\n"
@@ -1849,7 +1874,8 @@ def main():
     # padding. Both are read here rather than in OptimizerGUI, whose
     # settings manager does not exist until well after `tk.Tk()`.
     # The scale FIRST: which awareness to declare depends on it.
-    scaling.set_scale(_saved_ui_scale())
+    # An audit run may ask for a scale the settings do not hold.
+    scaling.set_scale(audit_states.requested_scale() or _saved_ui_scale())
     scaling.declare_dpi_awareness()
 
     # Single-instance check must happen BEFORE any Tk root is created --

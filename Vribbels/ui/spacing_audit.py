@@ -13,7 +13,13 @@ How it measures
 The same way the maintainer does. `docs/ui_spacing.md` "The rules"
 defines a gap as the count of BACKGROUND-coloured pixels between two
 painted edges, both end pixels included, with no hover effect showing.
-So the audit screenshots the window and counts background pixels.
+So the audit renders the window (`ui/utils/window_render.py`) and counts
+background pixels -- rendered rather than photographed, so the app it
+measures is never visible, can be larger than the screen, and has
+nothing over it.
+
+At any UI scale: a target is a 100% distance, and a run compares each
+reading with the target as the scale makes it (`scaled`).
 
 What it counts to is the INK, and the rules name a baseline and a cap --
 so a title ending in "g" reaches lower than one ending in "s" and reads
@@ -23,14 +29,13 @@ to one number.
 
 Nothing here runs in a normal launch -- see `run_audit`'s caller.
 
-Preconditions (enforced, not assumed)
--------------------------------------
-  * the window is mapped, unobscured and frontmost
-  * the pointer is away from the widgets under test (hover changes
-    painted pixels)
-  * a snapshot is loaded, so data-driven panels exist to measure
+Preconditions
+-------------
+  * the window is mapped -- at alpha 0, which is how a run keeps it
+  * a snapshot is loaded, so data-driven panels exist to measure, except
+    in an audit state (`audit_states`), which brings its own
 
-Windows only: `ImageGrab.grab` reads the screen there. This is a Windows
+Windows only: the rendering is `PrintWindow`'s. This is a Windows
 application, so that is not a limitation in practice.
 """
 
@@ -41,10 +46,10 @@ import time
 from dataclasses import dataclass, field, replace
 from typing import Optional
 
-from PIL import ImageGrab
-
 from game_data.characters import ATTRIBUTE_COLORS
 from game_data.constants import RARITY_BG_COLORS, RARITY_COLORS
+from ui.scaling import factor as scale_factor, px
+from ui.utils.window_render import render
 
 
 # ------------------------------------------------------------------ lightness
@@ -160,18 +165,20 @@ class Capture:
 
     @classmethod
     def of_window(cls, root, colors):
-        # update() drains Tk's paint queue, but ImageGrab reads the
-        # COMPOSITED desktop, which lags it. Without the pause the grab
-        # can catch the previous tab's pixels while using the new tab's
-        # widget coordinates -- which reads as plausible-looking numbers
-        # rather than as an error, so it is worth over-waiting.
+        # update() drains Tk's paint queue, but the rendering is the
+        # COMPOSITOR's copy of the window, which lags it. Without the
+        # pause the image can hold the previous tab's pixels while the
+        # widget coordinates are the new tab's -- which reads as
+        # plausible-looking numbers rather than as an error, so it is
+        # worth over-waiting.
         root.update()
         time.sleep(cls.SETTLE_MS / 1000)
         root.update()
+        # Rendered, never read off the screen: see `window_render`. The
+        # origin is the window's own, which every widget box is in.
+        image = render(root)
         x = root.winfo_rootx()
         y = root.winfo_rooty()
-        bbox = (x, y, x + root.winfo_width(), y + root.winfo_height())
-        image = ImageGrab.grab(bbox).convert("RGB")
         palette = {k: _hex_to_rgb(v) for k, v in colors.items()
                    if isinstance(v, str) and v.startswith("#")}
         # The palette is not only `COLORS`. Rows in the Memory Fragments
@@ -438,7 +445,7 @@ def vertical_gap(cap: Capture, upper, lower) -> tuple:
         return None, "one element painted nothing (empty or hidden)"
     value = gap_between(ub[1], lb[0])
     if is_underlined(upper, "bottom"):
-        return value + UNDERLINE_BELOW, "underlined"
+        return value + px(UNDERLINE_BELOW), "underlined"
     return value, ""
 
 
@@ -467,7 +474,7 @@ def _painted_run_end(cap: Capture, start: int, limit: int, probe, step: int):
     if not probe(start):
         return None, False
     i = start
-    for _ in range(MAX_BORDER):
+    for _ in range(px(MAX_BORDER)):
         if i == limit or not probe(i + step):
             return i, False
         i += step
@@ -924,8 +931,8 @@ def labelframe_title_bottom(cap: Capture, frame, limit_y: int,
     between two letters still finds glyphs.
     """
     fb = box_of(frame)
-    strip = Box(fb.left + probe_offset, fb.top,
-                min(fb.left + probe_offset + 12, fb.right),
+    strip = Box(fb.left + px(probe_offset), fb.top,
+                min(fb.left + px(probe_offset + 12), fb.right),
                 min(limit_y - 1, fb.bottom))
     if strip.bottom < strip.top:
         return None
@@ -1018,7 +1025,7 @@ def merge_runs(runs, max_gap: int = 1) -> list:
     """
     merged = []
     for run in runs:
-        if merged and run[0] - merged[-1][1] - 1 <= max_gap:
+        if merged and run[0] - merged[-1][1] - 1 <= px(max_gap):
             merged[-1] = (merged[-1][0], run[1])
         else:
             merged.append(run)
@@ -1054,8 +1061,8 @@ def title_gap(cap: Capture, frame, limit_y: int, probe_offset: int = 2,
     the frame's own edge.
     """
     fb = box_of(frame)
-    strip = Box(fb.left + probe_offset, fb.top,
-                max(fb.right - probe_offset, fb.left + probe_offset),
+    edge = px(probe_offset)
+    strip = Box(fb.left + edge, fb.top, max(fb.right - edge, fb.left + edge),
                 min(limit_y - 1, fb.bottom))
     if strip.bottom < strip.top:
         return None, "no room between frame top and first child"
@@ -1149,15 +1156,31 @@ BASELINE_PATH = os.path.join(
     "docs", "spacing_baseline.json")
 
 
-def baseline_path(state=None):
+def baseline_path(state=None, factor=1):
     """The baseline a run is compared with and frozen to: the
-    maintainer's own state's, or an audit state's own (`audit_states`).
-    Each state measures a different app, so one file for all of them
-    would report every difference between them as a change."""
-    if state is None:
-        return BASELINE_PATH
+    maintainer's own state's, or an audit state's own (`audit_states`),
+    at 100% or at the UI scale `factor` gives. Each state and scale
+    measures a different app, so one file for all of them would report
+    every difference between them as a change."""
     stem, ext = os.path.splitext(BASELINE_PATH)
-    return f"{stem}_{state}{ext}"
+    if state is not None:
+        stem += f"_{state}"
+    if factor != 1:
+        stem += f"_{factor * 100}"
+    return stem + ext
+
+
+def scaled(gaps):
+    """`gaps` with each target, and hand reading, as the active UI scale
+    makes it. A target is a 100% distance, and at 200% the same layout
+    is every distance doubled, so each is held to exactly twice its
+    number: a 200% screen should show what a 100% one does."""
+    f = scale_factor()
+    if f == 1:
+        return list(gaps)
+    return [replace(g, target=g.target * f,
+                    hand=None if g.hand is None else g.hand * f)
+            for g in gaps]
 
 
 def save_baseline(rows, path=BASELINE_PATH, out=print):
@@ -1229,6 +1252,28 @@ def compare_baseline(rows, path=BASELINE_PATH, out=print):
 GRID_TABS = frozenset({"Materials"})
 
 
+def hide_new_windows():
+    """Start every Toplevel made from here on at alpha 0.
+
+    The audit's app is never visible, and the windows a scenario opens
+    over it -- the contributions popup, the Restore Defaults dialog --
+    are the app's own, built by code that maps them before handing them
+    back. Made transparent at creation, they are rendered like the main
+    window and never shown. Only an audit run calls this; nothing
+    undoes it, because the app exits when the run ends.
+    """
+    if getattr(tk.Toplevel.__init__, "hidden_for_audit", False):
+        return
+    build = tk.Toplevel.__init__
+
+    def hidden(self, *args, **kwargs):
+        build(self, *args, **kwargs)
+        self.attributes("-alpha", 0.0)
+
+    hidden.hidden_for_audit = True
+    tk.Toplevel.__init__ = hidden
+
+
 def run_audit(app, out=print, verbose: bool = False, freeze: bool = False,
               state=None):
     """Measure every registered gap and print a table.
@@ -1255,12 +1300,13 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False,
     Must run AFTER `_reveal_window`'s settle loop: before that, half the
     widgets are still at their requested rather than allocated size.
     """
+    hide_new_windows()
     notebook = app.notebook
     original = notebook.select()
     rows = []
 
     by_scenario: dict = {}
-    for g in (_for_state(REGISTRY, state) if state else REGISTRY):
+    for g in scaled(_for_state(REGISTRY, state) if state else REGISTRY):
         by_scenario.setdefault(g.scenario, []).append(g)
 
     for scenario, gaps in by_scenario.items():
@@ -1300,9 +1346,11 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False,
 
     _print_table(rows, out, verbose, skips_apart=state is not None)
     if freeze:
-        save_baseline(rows, path=baseline_path(state), out=out)
+        save_baseline(rows, path=baseline_path(state, scale_factor()),
+                      out=out)
     else:
-        compare_baseline(rows, path=baseline_path(state), out=out)
+        compare_baseline(rows, path=baseline_path(state, scale_factor()),
+                         out=out)
     return rows
 
 

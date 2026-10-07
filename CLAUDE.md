@@ -13,7 +13,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 - **Doc-first.** When in-game behaviour disagrees with the code or with `docs/game_formulas.md`, fix the doc first, then the code. A formula doc records what the user is ASKED TO ENTER as well as what the program computes — the Important Settings shares are read off the deck, not off damage numbers — so establish what an input MEANS before changing math because it "should" behave differently.
 - **Load-bearing code that looks removable:** `make_checkbox`'s `winfo_id()`, the `realize_windows()` walks in `_reveal_window` and `TabSlot.build`, `_ScrolledText`'s copy of the wrapper's geometry methods, and `OptimizerSettingsManager.load()`'s unknown-key passthrough. All pinned with a check. The UI ones are in `docs/ui_runtime.md`, the settings one in `docs/settings_architecture.md`.
 - **A rule that misfires goes in the queue, not straight into the file.** Where something in `CLAUDE.md`, `.claude/rules/` or a skill turns out to be missing, wrong or misleading IN PRACTICE, append what happened and the line it suggests to `_tmp/skill_notes.md`; the `doc-audit` skill reviews that queue with the maintainer. A plain factual error — a dead path, a stale number — is just fixed. Changing a RULE is the maintainer's call, and a queue entry is evidence of something that went wrong, never an idea for an improvement.
-- **Windows here.** Launching the app (`zRUN.bat`) needs no asking: no bat raises a UAC prompt. The app opens on an `Administrator Required` Yes/No box; answer **No** unless capture is needed, since Yes brings a UAC prompt that waits for the maintainer. The spacing audit photographs the screen: it needs the window unobstructed and the pointer off it, so ask first unless the maintainer has said they are away, and the screen must then still be awake and unlocked.
+- **Windows here.** Launching the app (`zRUN.bat`) needs no asking: no bat raises a UAC prompt. The app opens on an `Administrator Required` Yes/No box; answer **No** unless capture is needed, since Yes brings a UAC prompt that waits for the maintainer. The spacing audit needs no asking either: it renders the app without ever showing it, and exits when done.
 - End-of-turn commits go after `checks/run_all.py`; messages use the CHANGELOG's register.
 
 ## Commands
@@ -21,7 +21,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 - **Build: `zCreate exe.bat`** (PyInstaller, onefile).
   - **Edit the bat, never the spec.** `--add-data` is passed on the command line, so `Vribbels_CZN_Optimizer_Ikkoru.spec` is an artifact the build overwrites.
   - Three scripts run first, and any failing stops the build: `normalize_defaults.py` and `fold_shared_facts.py` in `Vribbels/default_settings/normalize/` (workflow: `docs/how_to_maintain_default_settings.md`), and `Vribbels/build_tcl/prepare_tcl_data.py`.
-- Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its target. It photographs the screen, so it needs the window unobstructed and the pointer still — **ask before running one**, unless the maintainer has said they are away. A normal launch never imports it. The launchers, the preconditions and how to read the table: the `spacing-audit` skill.
+- Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its target, at 100% and at 200%. The app is rendered, never shown, so a run takes nothing over and can go any time. A normal launch never imports it. The launchers and how to read the table: the `spacing-audit` skill.
 
 ## Headless verification
 
@@ -58,7 +58,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | What each shop sells, at what price and cap                                  | `docs/items_shops.tsv`                                                                                                   |
 | What each Mutation (a Save Data's `corruption_option_<n>`) does               | `docs/mutations.tsv`                                                                                                     |
 | Every Galactic Disaster Chaos run and what it paid                           | `docs/chaos_runs.py` and `docs/chaos_runs.tsv`                                                                           |
-| The spacing audit's recorded readings                                        | `docs/spacing_baseline.json`, written by `zRUN Spacing Audit Freeze.bat`                                                 |
+| The spacing audit's recorded readings                                        | `docs/spacing_baseline*.json`, one per state and scale, written by the Freeze and States launchers                       |
 | Which mission res_ids are known, and which set each belongs to               | `docs/missions_id_dump.py` and `docs/missions_id.tsv`                                                                    |
 | Which wire field carries a Checklist row, and the suspects for the rest      | `docs/wire_hunt.md` and `docs/wire_hunt.tsv`                                                                             |
 | What the wire has sent that nothing reads                                    | `docs/wire_catalogue.py`, over `settings/wire_catalogue.json`; `docs/wire_catalogue_backfill.py` folds in older captures |
