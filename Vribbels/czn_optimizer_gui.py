@@ -479,10 +479,13 @@ class OptimizerGUI:
 
     @staticmethod
     def _spacing_audit_wanted():
-        """Whether this launch runs the spacing audit."""
+        """Whether this launch is a rendered run: the spacing audit, or
+        the scale survey (`ui/scale_survey.py`). Either keeps the window
+        unseen from launch to exit."""
         return ("--spacing-audit" in sys.argv
                 or "--spacing-audit-verbose" in sys.argv
                 or "--spacing-audit-freeze" in sys.argv
+                or "--scale-survey" in sys.argv
                 or os.environ.get("CZN_SPACING_AUDIT") in ("1", "verbose"))
 
     def _maybe_schedule_spacing_audit(self):
@@ -513,6 +516,14 @@ class OptimizerGUI:
             # The audit measures every tab, and a tab not built yet has
             # nothing on it to measure.
             self.lazy_tabs.build_all()
+            if "--scale-survey" in sys.argv:
+                from ui import scale_survey
+                try:
+                    scale_survey.survey(self)
+                except Exception as exc:                  # noqa: BLE001
+                    print(f"scale survey failed: {exc}")
+                self.root.destroy()
+                return
             try:
                 from ui import spacing_audit
                 from ui import spacing_registry  # noqa: F401  (registers)
@@ -741,7 +752,7 @@ class OptimizerGUI:
         # than adding to them, so all four components have to be given;
         # 0 in the first slot is the default title x offset.
         self.style.configure("TLabelframe",
-                             labelmargins="0 0 0 2")
+                             labelmargins=px((0, 0, 0, 2)))
         self.style.configure("Borderless.TLabelframe.Label",
                              background=self.colors["bg"],
                              foreground=self.colors["accent"])
@@ -761,7 +772,7 @@ class OptimizerGUI:
         # Selected Build -- is in the audit, so 3 rests on nothing.
         # Register them before trusting it.
         self.style.configure("Borderless.TLabelframe",
-                             labelmargins="0 0 0 2")
+                             labelmargins=px((0, 0, 0, 2)))
         # spacing: title above, element below -- title, tree ↕
         # NOT an exception, though it reads like one: what this style
         # replaces is the THEME's default margin, and `title above,
@@ -772,7 +783,7 @@ class OptimizerGUI:
         # 1px below it. The dotted name inherits everything from
         # Borderless.*.
         self.style.configure("Tight.Borderless.TLabelframe",
-                             labelmargins="0 0 0 -1")
+                             labelmargins=px((0, 0, 0, -1)))
         # spacing: title above, element below -- title, frame ↕
         # This style exists for its BOTTOM component: 0, where the base
         # style has 3, because the gear cells carry a pady of their own
@@ -787,7 +798,7 @@ class OptimizerGUI:
         # content-frame rule's 4px from the character list, so a title
         # that looks out of line is reporting the PANEL's position.
         self.style.configure("Gear.Borderless.TLabelframe",
-                             labelmargins="0 0 0 0")
+                             labelmargins=px((0, 0, 0, 0)))
 
         # The styles tabs define for themselves, defined HERE, before
         # anything is laid out: a tab built after the reveal would
@@ -798,6 +809,9 @@ class OptimizerGUI:
         panel_title_style()
         gacha_history_tab.register_styles()
         optimizer_tab.register_styles()
+        # Last, so it sees what the app set: the theme's own pixel
+        # metrics, scaled where nothing above already scaled them.
+        scaling.scale_theme(self.style)
 
     def setup_ui(self):
         self.notebook = ttk.Notebook(self.root, style="Flush.TNotebook")

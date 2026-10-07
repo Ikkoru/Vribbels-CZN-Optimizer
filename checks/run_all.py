@@ -103,6 +103,7 @@ from checks import (                                    # noqa: E402
     check_potential_mean,
     check_potential_band,
     check_preset_weights,
+    check_theme_scaling,
     check_window_render,
 )
 
@@ -161,6 +162,7 @@ CHECKS = [
     check_event_shapes,
     check_audit_states,
     check_window_render,
+    check_theme_scaling,
     check_tabs_build,
     check_type_ahead,
     check_ui_scales,

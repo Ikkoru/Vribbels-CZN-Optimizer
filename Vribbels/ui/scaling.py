@@ -162,11 +162,75 @@ def declare_dpi_awareness():
 
 
 def apply_font_scaling(root):
-    """Scale every font by the active factor.
+    """Scale every font by the active factor, and the classic widgets'
+    own pixel defaults with them (`CLASSIC_PIXELS`).
 
     Tk sizes a font from its POINT size and this ratio, so one call
     carries all of them -- and with them every distance the app derives
     from a font metric. Call before the first widget is built: a widget
-    resolves its font once.
+    resolves its font, and its defaults, once.
     """
     root.tk.call("tk", "scaling", POINTS_TO_PIXELS * _factor)
+    if _factor == 1:
+        return
+    for widget_class, options in CLASSIC_PIXELS.items():
+        for option, value in options.items():
+            # The lowest priority there is: an option a widget is given
+            # outright, already through `px`, always wins.
+            root.option_add(f"*{widget_class}.{option}", value * _factor,
+                            "widgetDefault")
+
+
+# **What Tk itself does not scale.** `tk scaling` reaches every size
+# given in POINTS -- the fonts, and theme metrics clam states in points
+# (`10.5p`) -- and nothing given in pixels. These are the pixel ones the
+# app's widgets carry without saying so, as their 100% values. Left
+# alone, each stays its 100% size at 200%: every label 4px short of
+# twice its height, every button's text 1px nearer its border.
+#
+# A classic widget draws its border as thick as `bd` says, so its
+# defaults all double here.
+CLASSIC_PIXELS = {
+    "Entry": {"borderWidth": 1, "insertWidth": 2},
+    "Spinbox": {"borderWidth": 1, "insertWidth": 2},
+    "Text": {"borderWidth": 1, "padX": 1, "padY": 1, "insertWidth": 2},
+    "Button": {"borderWidth": 2, "highlightThickness": 1, "padX": 1,
+               "padY": 1},
+    "Label": {"borderWidth": 2, "padX": 1, "padY": 1},
+    "Listbox": {"borderWidth": 1, "highlightThickness": 1},
+    "Canvas": {"highlightThickness": 2},
+}
+# **A clam element draws its border 2px whatever `borderwidth` says** --
+# a panel's, a button's, a combobox field's, measured at both scales --
+# and `borderwidth` only reserves room inside the line. Doubling it puts
+# 2px of nothing between line and content, so the borders keep their
+# 100% values, the reserve equal to the line, and only what sits INSIDE
+# the line doubles: then every distance from a border's inner edge is
+# twice its 100% one. The line itself staying 2px is the theme's limit.
+#
+# A label's border and padding are blank room, drawn as nothing, and
+# double like any distance.
+THEME_PIXELS = {
+    "TLabel": {"borderwidth": 1, "padding": 1},
+    "TButton": {"focusthickness": 1},
+    "TCombobox": {"padding": 1},
+}
+
+
+def scale_theme(style):
+    """Restate `THEME_PIXELS` at the factor wherever a style still holds
+    its 100% value, or none. Call after the app's styles are configured:
+    an option the app set through `px` already reads scaled and is left
+    be, where one it set to the bare 100% number is scaled like the
+    theme's own. Nothing at 100%."""
+    # Imported here: this module is read before the `ui` package that
+    # holds the guard can be.
+    from ui.utils.style_once import first_time
+    if _factor == 1 or not first_time(style, "scale_theme"):
+        return
+    for name, options in THEME_PIXELS.items():
+        for option, value in options.items():
+            held = style.configure(name, option)
+            if str(held if held is not None else "").strip() in ("",
+                                                                  str(value)):
+                style.configure(name, **{option: value * _factor})
