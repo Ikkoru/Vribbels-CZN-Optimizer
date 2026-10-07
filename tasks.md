@@ -59,9 +59,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
      - From its notice: `SUPPLY_ROUNDS["disaster_s05"]` in `checklist_tab.py`, and `SEASON_ESTIMATE["disaster_s05"]`, hand-counted off the screens (`past_plans/seasonal_shop.md`).
      - From its first run: the new Chaos's stage id in `chaos_estimate.CHAOS_NAMES` (90000 and `chaos_10`, if the seasons' pattern holds), and the season currency's id in `docs/chaos_runs.py` `CURRENCY`.
      - Then refresh `chaos_estimate.SHIPPED` from `python docs/chaos_runs.py`. Read its by-spot lines: the season's maps hold fewer ordinary battles (its docstring).
-  4. **To confirm on the next captures:**
-     - A pull is kept off its reply, and its record replaces it. With capture on, pull once on any banner, then open that banner's Rescue Records, in the same capture or a later one. None has been captured since pulls started being kept: `captured.json` holds no `pulls`.
-     - A level-up, a Potential node and a gift move the Combatants tab live.
+  4. **To confirm on the next capture:** a level-up, a Potential node and a gift move the Combatants tab live.
   5. **The Vacation's total, the maintainer's call.** Keep `WRITTEN_TOTALS["event_nodelist_8"]` at 13, or read the floor and the Node Lists' past, which says `~1/25`.
   6. **An Aether Cell's id**, whenever one charges: the Recharge Aether popup's.
 
