@@ -54,18 +54,16 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   1. **Mutation numbers, at the next reroll.** With capture on, write down each Mutation shown, in order. The wire's `pick_corruption` replies come in the same order, which pairs each number with its row in `docs/mutations.tsv`.
      - Matched rows carry their number in `docs/mutations.tsv`. Rolled numbers not matched yet are in its notes.
      - The matches fit one numbering: the update note's families in its order (Enhanced Attack 1-5, Defense 6-10, Card Damage Amount 11-17), then the seven rows of the families the update left alone, then Shuffle, which ends the list at 101-103.
-  2. **10-06 18:00 UTC: the Nightmare Carnival countdown** (`countdown_attendance_1st`, until 10-21). A login capture after it starts gives its record, which `LOBBY_COUNTDOWN`'s reader waits for. Its day-7 claim feeds I23.3.
-  3. **10-13: Nine & Alcea's Normal Rescue rerun, and Nine's trial.** A capture confirms `RERUN_BANNERS`' dates and the trial's pairing.
-  4. **10-21: season 5's part 1.**
+  2. **10-13: Nine & Alcea's Normal Rescue rerun, and Nine's trial.** A capture confirms `RERUN_BANNERS`' dates and the trial's pairing.
+  3. **10-21: season 5's part 1.**
      - From its notice: `SUPPLY_ROUNDS["disaster_s05"]` in `checklist_tab.py`, and `SEASON_ESTIMATE["disaster_s05"]`, hand-counted off the screens (`past_plans/seasonal_shop.md`).
      - From its first run: the new Chaos's stage id in `chaos_estimate.CHAOS_NAMES` (90000 and `chaos_10`, if the seasons' pattern holds), and the season currency's id in `docs/chaos_runs.py` `CURRENCY`.
      - Then refresh `chaos_estimate.SHIPPED` from `python docs/chaos_runs.py`. Read its by-spot lines: the season's maps hold fewer ordinary battles (its docstring).
-  5. **To confirm on the next captures:**
-     - Peko's banner reads Seasonal (open its Rescue Records once).
-     - A pull is kept off its reply, and its record replaces it.
+  4. **To confirm on the next captures:**
+     - A pull is kept off its reply, and its record replaces it. With capture on, pull once on any banner, then open that banner's Rescue Records, in the same capture or a later one. None has been captured since pulls started being kept: `captured.json` holds no `pulls`.
      - A level-up, a Potential node and a gift move the Combatants tab live.
-  6. **The Vacation's total, the maintainer's call.** Keep `WRITTEN_TOTALS["event_nodelist_8"]` at 13, or read the floor and the Node Lists' past, which says `~1/25`.
-  7. **An Aether Cell's id**, whenever one charges: the Recharge Aether popup's.
+  5. **The Vacation's total, the maintainer's call.** Keep `WRITTEN_TOTALS["event_nodelist_8"]` at 13, or read the floor and the Node Lists' past, which says `~1/25`.
+  6. **An Aether Cell's id**, whenever one charges: the Recharge Aether popup's.
 
 - **I31 — The Chaos estimate's loose end.** Built as the maintainer specified:
 
@@ -95,10 +93,11 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   3. **A login streak's length from its day-7 reward.**
 
-     - Golden Autumn's Invitation (`event_161`, 15 days) paid Rescue Anchor x3 on day 7, without completing. Its other days paid other items: Abyssal Core x2, Colorless Core x2, Delegation Module x2, the day-1 Rabbit Veronica.
+     - Golden Autumn's Invitation (`event_161`, schedule `event_daily_holiday_01`, 15 days) paid Rescue Anchor x3 on day 7, without completing. Its other days paid other items: Abyssal Core x2, Colorless Core x2, Delegation Module x2, the day-1 Rabbit Veronica. **Its day 15, the last, paid Signal Amplification Anchor x3, with `completed`.**
      - Rei's Gift (`event_143`, 7 days) paid Prism Lens x3 on day 7, its last, with `completed`. Its days 1 and 6 paid Prism Lens x1, so its day 7 is its own reward tripled.
      - Those are the only two streaks whose day-7 claim any log holds. `attendance_entities` keeps the 10-, 14- and 21-day streaks' lengths but no rewards. So neither "x3 on day 7" nor "a new item on day 7" can be told apart as a length signal yet.
-     - Wanted: the day-7 claim of the next few streaks, with their lengths. If a streak longer than 7 always pays something new on day 7, that is a week's warning.
+     - **A possible last-day marker:** both last days on record paid a gacha currency x3. Golden Autumn's day 7 paid one x3 too, so x3 alone does not say last.
+     - Wanted: the day-7 claim of the next few streaks, and their last day's, with their lengths. If a streak longer than 7 always pays something new on day 7, that is a week's warning. The next is the Nightmare Carnival countdown (`countdown_attendance_1st`, 15 days, to 10-21): its days claim themselves at login, so a capture on day 7 (from 10-12 18:00 UTC) and on day 15 holds each claim, in `lobby_countdown_reward`'s `popup_infos`.
 
   **How the next round runs, for I23 and C1 alike:**
 

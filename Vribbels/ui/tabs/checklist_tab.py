@@ -2041,7 +2041,9 @@ ITEM_NAMES = item_names()
 # never sends.
 EVENTS_HEADING = "Events"
 # `LOBBY_COUNTDOWN` is a login event of its own group, the Nightmare
-# Carnival's countdown check-in: its deadline until its record is seen.
+# Carnival's countdown check-in: its deadline only. Its days claim
+# themselves at login, so there is nothing to do but know when it ends
+# (docs/events.md, *Members so far*).
 EVENT_GROUPS = ("EVENT_SCHEDULE", "EVENT_COMBATANT_TRIAL",
                 "EVENT_NODELIST_PAGE", "EVENT_DAILY_CHECK",
                 "EVENT_RHYTHM_GAME", "EVENT_ARENA", "EVENT_OVERCLOCK",
