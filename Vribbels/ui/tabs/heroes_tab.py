@@ -85,7 +85,7 @@ from game_data import (
 from game_data.constants import DISPLAY_NAMES
 from models import Stat
 from models.memory_fragment import compute_gs_bounds, normalize_gs
-from ui.scaling import px
+from ui.scaling import px, text_px
 
 
 # UI label shown when a character has no preset assigned (default 1.0 weights).
@@ -154,7 +154,8 @@ def _gear_row_pady(row):
 # from the text's left edge. STATED, like the gear cell's: the block is
 # a grid of labels and values that happens to live in a Text widget for
 # drawing speed, so its columns are ruled like labels rather than left
-# to font metrics.
+# to font metrics. At 100%; they take `text_px`, not `px`, being widths
+# of the text they hold, which does not grow by exactly the scale.
 #
 # The two columns are a `label ↔ its element` pair each, and the gap
 # between the pairs is `element and its label ↔ element and its label`.
@@ -338,8 +339,12 @@ CHAR_CONTENT_PX = 177
 # The Text does not wrap, so a pixel taken off here clips the widest
 # card's longest line, silently and mid-word -- which is what taking
 # any of this width for the Partner panel beside it did.
-CHAR_PANEL_W = (CHAR_CONTENT_PX + 2 * CHAR_TEXT_PADX
-                + 2 * CHAR_PANEL_BD)
+#
+# Each part at its own scale: the line grows with the face
+# (`text_px`), the inset with `px`, and clam's border not at all.
+def _char_panel_w():
+    return (text_px(CHAR_CONTENT_PX) + px(2 * CHAR_TEXT_PADX)
+            + 2 * CHAR_PANEL_BD)
 # Six fixed lines and the `Potential:` heading among them, then one per
 # node, then "Sets:" + its lines, then "Stats:" + one per stat row.
 CHAR_TOTAL_LINES = 5 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5
@@ -1838,8 +1843,9 @@ class HeroesTab(BaseTab):
             # the widest value are not on the same line.
             try:
                 self.hero_char_text.configure(tabs=(
-                    px(CHAR_TAB_VAL1), "right", px(CHAR_TAB_NAME2), "left",
-                    px(CHAR_TAB_VAL2), "right",
+                    text_px(CHAR_TAB_VAL1), "right",
+                    text_px(CHAR_TAB_NAME2), "left",
+                    text_px(CHAR_TAB_VAL2), "right",
                 ))
                 # The node block's columns, on a TAG of their own. A
                 # Text carries one set of stops for the whole widget
@@ -1848,8 +1854,8 @@ class HeroesTab(BaseTab):
                 # ruled differently.
                 self.hero_char_text.tag_configure(
                     CHAR_NODE_TAG, tabs=(
-                        px(CHAR_NODE_TAB_LEVEL), "right",
-                        px(CHAR_NODE_TAB_DESC), "left",
+                        text_px(CHAR_NODE_TAB_LEVEL), "right",
+                        text_px(CHAR_NODE_TAB_DESC), "left",
                     ))
             except (AttributeError, tk.TclError):
                 pass
@@ -1864,7 +1870,7 @@ class HeroesTab(BaseTab):
             # every resize, to arrive at numbers that do not move with
             # the data. `check_tabs_build` is where the stated widths
             # are held to what the panel actually renders.
-            char_W = px(CHAR_PANEL_W)
+            char_W = _char_panel_w()
             # The Extra Info block sits on the panel's floor and takes
             # its height off the Text above it. Left out of this, the
             # panel is sized for the card alone and the block eats the

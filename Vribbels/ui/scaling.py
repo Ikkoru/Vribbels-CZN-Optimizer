@@ -132,6 +132,39 @@ def px(distance):
     return distance * _factor
 
 
+# What a stated text width is grown against: the letters, digits and
+# punctuation the app's text columns hold, in their usual mix.
+TEXT_SAMPLE = "Node 5.1: Basics Improved  ATK 1340  Crit% 67.2%  Element"
+
+_text_ratios = {}
+
+
+def text_px(distance, face=("Segoe UI", 9)):
+    """A stated distance that holds TEXT, at the active scale.
+
+    Some widths were measured off the text they hold at 100% and
+    written down -- a column of labels and values ruled by tab stops.
+    Text does not grow by the scale: each face is hinted to whole
+    pixels per size, and at 200% (`TEXT_SCALING_200`) Segoe UI 9 runs a
+    few percent narrow of double. `px` would leave such a column wider
+    than its text by that much; this grows it by what `face` grew by.
+
+    The 100% width comes from the same face asked for in PIXELS, which
+    `tk scaling` does not touch. Needs a Tk root. Nothing at 100%.
+    """
+    if _factor == 1:
+        return distance
+    if face not in _text_ratios:
+        from tkinter import font as tkfont
+        family, size, *style = face
+        weight = "bold" if "bold" in style else "normal"
+        then = tkfont.Font(family=family, weight=weight,
+                           size=-round(size * POINTS_TO_PIXELS))
+        _text_ratios[face] = (tkfont.Font(font=face).measure(TEXT_SAMPLE)
+                              / then.measure(TEXT_SAMPLE))
+    return round(distance * _text_ratios[face])
+
+
 # What each scale asks Windows for. PROCESS_SYSTEM_DPI_AWARE is 1 and
 # PROCESS_PER_MONITOR_DPI_AWARE is 2; see `declare_dpi_awareness` for
 # why the choice follows the scale.
