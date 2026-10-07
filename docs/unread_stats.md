@@ -41,7 +41,7 @@ The history from before snapshots kept it is read out of the debug logs, once. `
 | Field | Is |
 | ----- | -- |
 | `schedule_id` | the season the page is of: `assault_1_s7` on `ongoing`, `assault_1_s6` on `complete` |
-| `my_rank` | the account's own row: `rank`, `score`, `record_timestamp`, the four `char_res_ids` and `assault_char_titles` of the run that set it. On `complete`, `rank` is the FINAL placing |
+| `my_rank` | the account's own row: `rank`, `score`, `record_timestamp`, the four `char_res_ids` and `assault_char_titles` of the run that set it. On `complete`, `rank` is the FINAL placing. **Absent, key and all, on a season the account has not played** -- the page still carries `total_count` and the top row |
 | `chaos_assault_rank_entity` | the same standing as a record: `rank`, `best_score`, `best_score_record`, `best_record_timestamp`, `best_clear_time_sec`, `last_rank`. On a finished season `last_rank` is the final placing and `rank` is wherever the record stood when last written -- 383 beside a final 1914 |
 | `total_count` | how many accounts are ranked that season -- the denominator a percentile needs, stated outright here and nowhere on the Great Rift |
 | `max_rank`, `page_max` | how far the listed board goes: 100 places in pages of 20 |

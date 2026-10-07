@@ -331,6 +331,50 @@ def _behind_by_counters(gh, folder, failures):
                 f"unhurried, until the game forgot it.")
 
 
+def _behind_by_stamp(gh, folder, failures):
+    """A pity stamp past the newest pull is a pull -- unless the last
+    read explains it.
+
+    Opening a banner's Probability Info re-stamps the record with no
+    pull made, and every read of the records goes through that screen:
+    a capture of one pull, then a read, left the stamp 50s past the
+    pull and the banner orange with the counters agreeing.
+    """
+    from datetime import datetime
+
+    store_dir = gh.folder_in(folder)
+    store_dir.mkdir(parents=True)
+    now = datetime(2026, 9, 23, 12).timestamp()
+    newest = int(now) - 3600
+    records = [_record(1, BANNER, newest, [THREE, FEATURED, THREE, THREE])]
+
+    def local(at):
+        # Local time, as the addon stamps a read.
+        return datetime.fromtimestamp(at).isoformat(timespec="seconds")
+
+    for stamp_after, read_after, want in ((50, 51, False),
+                                          (50, -100, True),
+                                          (200, 51, True)):
+        store = {"kind": gh.STORE_KIND, "version": 1, "records": records,
+                 "rates": {BANNER: _rates()},
+                 "pity": {"gacha_pity_pickup_combatant": {
+                     "res_id": "gacha_pity_pickup_combatant",
+                     "pity_ssr_count": 2, "createAt": "1",
+                     "updateAt": str(newest + stamp_after)}},
+                 "read": {BANNER: local(newest + read_after)}}
+        (store_dir / gh.CAPTURED).write_text(json.dumps(store),
+                                             encoding="utf-8")
+        behind = gh.load(folder, now=now).pools["pickup_combatant"] \
+            .stats.behind
+        if behind != want:
+            failures.append(
+                f"with the counters agreeing, the pity stamp {stamp_after}s "
+                f"past the newest pull and the records read "
+                f"{read_after}s past it, behind reads {behind}, not "
+                f"{want}. A stamp the read itself made is not a pull; one "
+                f"after the read is.")
+
+
 def _across_math(gh, failures):
     """Luck across pools, against the sums it stands for.
 
@@ -898,6 +942,7 @@ def run():
         _history(gh, tmp / "history", failures)
         _dated(gh, tmp / "dated", failures)
         _behind_by_counters(gh, tmp / "behind", failures)
+        _behind_by_stamp(gh, tmp / "stamp", failures)
         _across_math(gh, failures)
         _sum_tables(gh, failures)
         _across(gh, tmp / "across", failures)

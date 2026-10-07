@@ -140,6 +140,16 @@ GEAR_TEXT_W = GEAR_CELL_W - 2 * GEAR_CELL_BD - 2 * GEAR_CELL_PADX
 # set line below always lands in the same place.
 GEAR_SUBSTAT_ROWS = 4
 
+# The grid of cells: three rows of two, one per slot.
+GEAR_ROWS = 3
+
+
+def _gear_row_pady(row):
+    """A row of cells' (above, below) pad, at 100%. No pad below the
+    last row: there it is trailing space inside the frame, which left
+    the bottom cells short of the panel's bottom edge."""
+    return (2, 2) if row < GEAR_ROWS - 1 else (2, 0)
+
 # Tab stops for the Character panel's two-column stat block, in pixels
 # from the text's left edge. STATED, like the gear cell's: the block is
 # a grid of labels and values that happens to live in a Text widget for
@@ -925,6 +935,8 @@ class HeroesTab(BaseTab):
 
         gear_grid = ttk.Frame(gear_outer_frame)
         gear_grid.pack(fill=tk.BOTH, expand=True)
+        gear_grid.bind("<Configure>",
+                       lambda e: self._share_gear_rows(e.height), add="+")
 
         # Slot positions matching original: (slot_num, row, col)
         slot_positions = [
@@ -979,7 +991,7 @@ class HeroesTab(BaseTab):
             # of cells short of the panel's bottom edge. Rows above keep
             # both halves, so the gap BETWEEN rows is unchanged.
             cell.grid(row=row, column=col, padx=px((0, 4)),
-                      pady=px((2, 2) if row < 2 else (2, 0)), sticky="nsew")
+                      pady=px(_gear_row_pady(row)), sticky="nsew")
 
             # Colours. `rarity` is the only one re-set per render -- it
             # carries the fragment's rarity, which the slot name and the
@@ -1738,6 +1750,30 @@ class HeroesTab(BaseTab):
                                            weight=0)
         for row in (0, 1, 2):
             gear_grid.grid_rowconfigure(row, minsize=int(cell_h), weight=0)
+        # A pin after a load would undo the rows' share of a grid that
+        # has not changed size, and no <Configure> comes to restore it.
+        if gear_grid.winfo_height() > 1:
+            self._share_gear_rows(gear_grid.winfo_height())
+
+    def _share_gear_rows(self, height):
+        """Share the grid's whole height between its three rows of cells.
+
+        Equal CELLS, not equal rows: the rows' own pads differ (the last
+        has none below it), and equal rows left the bottom cells taller
+        than the others. What does not divide by three goes a pixel per
+        cell from the bottom up.
+        """
+        cells = list(self.gear_cells.values())
+        if not cells or height <= 1:
+            return
+        pads = [sum(px(_gear_row_pady(row))) for row in range(GEAR_ROWS)]
+        base, extra = divmod(height - sum(pads), GEAR_ROWS)
+        gear_grid = cells[0].master
+        for row in range(GEAR_ROWS):
+            # Row 2 is the bottom: it takes the first spare pixel.
+            spare = 1 if GEAR_ROWS - 1 - row < extra else 0
+            gear_grid.grid_rowconfigure(row, minsize=base + spare + pads[row],
+                                        weight=0)
 
     def _compute_and_apply_fixed_sizes(self):
         """Freeze the three detail-pane frames (Character, Partner,

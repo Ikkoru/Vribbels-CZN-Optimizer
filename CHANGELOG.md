@@ -38,7 +38,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - **Stats & Gacha History:**
   - Full-Scale Offensive Stats shows a `~` Top% when it may be outdated.
   - Great Rift Stats no longer blanks its rows while a login is captured.
-  - Sortie Stats gets a column for a new season as soon as it starts.
+  - Sortie Stats gets a column for a new season as soon as it starts, and shows its player count and top score from Hardcore Rankings before you have played it.
+  - A banner no longer turns orange just for opening its Probability Info.
+- Combatants: the six Equipped Memory Fragments cells are the same height.
 - At the 200% UI scale, the layout keeps its 100% proportions: tab strips, labels, checkboxes, list columns and text columns no longer sit tighter than the rest, the Combatants cards' columns line up, Materials' icon captions are full size, and Capture's `Debug WS` no longer breaks mid-word.
 
 ## [2.3.0] - Potential 7, Faster Tabs

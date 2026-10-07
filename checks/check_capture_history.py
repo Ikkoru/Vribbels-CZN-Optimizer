@@ -211,16 +211,26 @@ def run():
         "page": 2, "total_count": 19552,
         "my_rank": {"rank": 739, "score": 45512},
         "rank_list": [{"rank": 21, "score": 60000}]}]))
+    # A season not played yet: no `my_rank` at all, the field and its
+    # top as true as ever.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "tab": "ongoing", "schedule_id": "assault_1_s8",
+        "page": 1, "total_count": 15703,
+        "rank_list": [{"rank": 1, "score": 64568}],
+        "service_server_time": 1791384834}]))
     seasons = addon.sortie_rankings
-    got = {s: [(r.get("rank"), r.get("top_score")) for r in
-               seasons.get(s, {}).get("readings", [])]
-           for s in ("assault_1_s7", "assault_1_s6")}
-    if got != {"assault_1_s7": [(739, 65084)],
-               "assault_1_s6": [(1914, 65084)]}:
+    got = {s: [(r.get("rank"), r.get("top_score"), r.get("total_count"))
+               for r in seasons.get(s, {}).get("readings", [])]
+           for s in ("assault_1_s7", "assault_1_s6", "assault_1_s8")}
+    if got != {"assault_1_s7": [(739, 65084, 19552)],
+               "assault_1_s6": [(1914, 65084, 19552)],
+               "assault_1_s8": [(None, 64568, 15703)]}:
         failures.append(
             f"the Sortie standings read {got!r}. Both tabs are kept, a "
             f"season each, from the first page only -- the one holding "
-            f"rank 1; a later page has no top to give.")
+            f"rank 1; a later page has no top to give. A season not yet "
+            f"played has no rank of the account's own, and its field "
+            f"and top are kept all the same.")
     stamps = {s.get("region") for s in samples} | {
         r.get("region") for season in seasons.values()
         for r in season.get("readings", [])}

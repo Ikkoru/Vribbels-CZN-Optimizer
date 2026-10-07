@@ -1417,15 +1417,20 @@ def _judge_freshness(entry, now):
          and stats.game_pity != stats.pity_now)
         or (stats.fours and stats.game_four is not None
             and stats.game_four != stats.four_now))
-    stamped = bool(
-        stats.game_updated
-        and now - stats.game_updated <= GAME_KEEPS_DAYS * 86400
-        and stats.game_updated > (stats.last_at or 0) + BEHIND_SLACK)
-    stats.behind = bool(counted or stamped)
     try:
         read = datetime.fromisoformat(stats.read_at).timestamp()
     except (TypeError, ValueError, OverflowError, OSError):
         read = None
+    # **Not a stamp the last read explains.** Opening a banner's
+    # Probability Info re-stamps the record with no pull made, and a
+    # read of the records goes through that screen -- so the read
+    # itself moved a stamp that lands before it.
+    stamped = bool(
+        stats.game_updated
+        and now - stats.game_updated <= GAME_KEEPS_DAYS * 86400
+        and stats.game_updated > (stats.last_at or 0) + BEHIND_SLACK
+        and (read is None or stats.game_updated > read + BEHIND_SLACK))
+    stats.behind = bool(counted or stamped)
     stats.urgent = bool(stats.behind and read is not None
                         and now - read > URGENT_AFTER_DAYS * 86400)
 

@@ -3165,7 +3165,11 @@ class ChecklistTab(BaseTab):
             reach = max(reach, stops[-1] + font.measure(WIDEST_COUNTDOWN)
                         if len(stops) == 1 else
                         stops[-1] + font.measure(FINISHED_LABEL)
-                        + self._checkbox_overhead())
+                        + self._checkbox_overhead()
+                        # The box ends the line, so its trailing pad is
+                        # inside the block: short of it, the last glyph
+                        # is what the holder clips.
+                        + px(CHECKBOX_TRAIL))
         holder = tk.Frame(parent, width=max(stop + widest, reach),
                           height=self._block_height(
                               [key for key, _l, _w in rows]),

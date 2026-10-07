@@ -56,10 +56,13 @@ for cls, opts in scaling.CLASSIC_PIXELS.items():
 styles = {}
 for name in root.tk.splitlist(root.tk.call("ttk::style", "theme",
                                            "styles", "clam")):
-    for opt in PIXEL_OPTIONS:
-        value = style.configure(name, opt)
+    for opt, value in (style.configure(name) or {}).items():
         if value not in (None, ""):
             styles[f"{name}.{opt}"] = str(value)
+    for opt, entries in (style.map(name) or {}).items():
+        if opt in PIXEL_OPTIONS:
+            for n, entry in enumerate(entries):
+                styles[f"{name}.map.{opt}.{n}"] = str(entry[-1])
 print(json.dumps({"theme": theme, "classic": classic, "styles": styles,
                   "tables": [scaling.THEME_PIXELS, scaling.CLASSIC_PIXELS]}))
 root.destroy()
@@ -115,23 +118,36 @@ def run():
                            f"table no longer says what Tk does, or the 100% "
                            f"layout moved")
     for key, was in sorted(low["styles"].items()):
+        # A distance: a pixel option, or anything the theme gives in
+        # points. Every other option is a colour, a count or a width in
+        # characters, and doubles nothing.
+        option = key.split(".map.")[-1].split(".")[0] if ".map." in key \
+            else key.rsplit(".", 1)[1]
+        if option not in PIXEL_OPTIONS and not any(
+                part.endswith("p") for part in was.split()):
+            continue
         now = high["styles"].get(key)
         one, two = _pixels(was), _pixels(now)
         if one is None:
-            continue                     # in points: `tk scaling` has it
+            continue                     # not a distance at all
         if two != [2 * value for value in one]:
             out.append(f"at 200% the style option {key} reads {now!r} "
                        f"where 100% reads {was!r}: not twice it, so "
-                       f"everything it spaces sits at its 100% distance. "
-                       f"Set it through `px`.")
+                       f"everything it spaces sits off its 100% distance "
+                       f"doubled. A pixel value takes `px`; one in points "
+                       f"is restated by `scaling.scale_theme`, `tk "
+                       f"scaling` being set for the fonts at 200%.")
     return out
 
 
 def _pixels(value):
-    """`value`'s whole-pixel components, or None when any is in points
-    or another unit `tk scaling` converts."""
-    try:
-        return [int(part) for part in str(value).replace("{", " ")
-                .replace("}", " ").split()]
-    except ValueError:
-        return None
+    """`value`'s components in pixels, points converted as Tk does at
+    100%, or None when any part is neither."""
+    out = []
+    for part in str(value).replace("{", " ").replace("}", " ").split():
+        try:
+            out.append(round(float(part[:-1]) * 96 / 72)
+                       if part.endswith("p") else int(part))
+        except ValueError:
+            return None
+    return out or None

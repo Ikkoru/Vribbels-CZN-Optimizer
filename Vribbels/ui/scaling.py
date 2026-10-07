@@ -251,3 +251,39 @@ def scale_theme(style):
             if str(held if held is not None else "").strip() in ("",
                                                                   str(value)):
                 style.configure(name, **{option: value * _factor})
+    # **What the theme states in POINTS**, restated as twice its 100%
+    # pixels. `tk scaling` carries points, and at 200% it is set for the
+    # fonts (`TEXT_SCALING_200`) a little under double -- so a
+    # scrollbar's width or a tab's padding given in points would come
+    # out a pixel or two short of twice its 100% size.
+    theme = style.theme_use()
+    for name in style.tk.splitlist(style.tk.call(
+            "ttk::style", "theme", "styles", theme)):
+        for option, value in (style.configure(name) or {}).items():
+            doubled = _points_doubled(value)
+            if doubled is not None:
+                style.configure(name, **{option: doubled})
+        for option, entries in (style.map(name) or {}).items():
+            if not any(_points_doubled(entry[-1]) for entry in entries):
+                continue
+            style.map(name, **{option: [
+                (*(str(state) for state in entry[:-1]),
+                 _points_doubled(entry[-1]) or entry[-1])
+                for entry in entries]})
+
+
+def _points_doubled(value):
+    """`value`, every part of which is in points, as twice its 100%
+    pixels -- or None where any part is not in points. A bare 0 counts
+    as points: nothing is nothing in either unit, and clam writes its
+    paddings that way (`1.5p 0 7.5p 0`)."""
+    parts = str(value).split()
+    if not any(part.endswith("p") for part in parts) or not all(
+            part.endswith("p") or part == "0" for part in parts):
+        return None
+    try:
+        return " ".join(str(round(float(part.rstrip("p"))
+                                  * POINTS_TO_PIXELS) * _factor)
+                        for part in parts)
+    except ValueError:
+        return None

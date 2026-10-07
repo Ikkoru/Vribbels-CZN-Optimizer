@@ -1909,10 +1909,17 @@ class Addon:
         # across seasons: the player's own standing, the field's size,
         # and the TOP score -- never who holds it. The first page only,
         # the one the screen opens on and the one holding rank 1.
+        #
+        # **A season not yet played still counts**: its page comes with
+        # no `my_rank` at all, and the field's size and its top are as
+        # true as on any other -- so the page is known by its Sortie
+        # season and its list, and the account's own rank and score
+        # are left unknown.
         standing = data.get("my_rank")
         schedule = data.get("schedule_id")
-        if (isinstance(standing, dict) and schedule
-                and data.get("page") == 1):
+        if (str(schedule or "").startswith("assault_")
+                and "rank_list" in data and data.get("page") == 1):
+            standing = standing if isinstance(standing, dict) else {}
             season = self.sortie_rankings.setdefault(str(schedule), {})
             season["reset_time"] = data.get("reset_time")
             entity = data.get("chaos_assault_rank_entity")

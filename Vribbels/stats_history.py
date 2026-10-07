@@ -41,13 +41,13 @@ FILE_NAME = "stats_history.json"
 KIND = "vribbels stats history"
 # What the reading reads. Bump it and the next launch reads every log
 # again, which is how a newly kept field reaches the captures before it.
-VERSION = 3
+VERSION = 4
 
 # A frame is parsed only where its text carries one of these: the keys
 # of everything the reading keeps. Every other frame is skipped unread,
 # which is what keeps a pass over a year of logs to seconds.
-MARKERS = ('"my_rank"', '"result_list"', '"mission_accumulate"',
-           '"disaster_boss_rank_entit', '"login_total_count"',
+MARKERS = ('"my_rank"', '"rank_list"', '"result_list"',
+           '"mission_accumulate"', '"disaster_boss_rank_entit', '"login_total_count"',
            '"accumulate_condition"', '"achievement_entity"',
            '"chaos_assault_entity"', '"remnants_entit', '"rank_percent"',
            '"star_complete_records"')
