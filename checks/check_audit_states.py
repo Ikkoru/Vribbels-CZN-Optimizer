@@ -282,11 +282,31 @@ def _scale_is_its_own(audit_states, sa):
     return out
 
 
+def _launchers_name_their_scale():
+    """Every audit run a launcher starts names its scale.
+
+    A run without `--audit-scale` takes the SAVED UI scale. With 200%
+    saved, a launcher's "100%" run ran at 200%: two 200% tables, and a
+    freeze that never wrote the 100% baseline -- with nothing on screen
+    to say so but the heading.
+    """
+    out = []
+    for bat in sorted(SOURCE_ROOT.parent.glob("zRUN Spacing Audit*.bat")):
+        for line in bat.read_text(encoding="utf-8").splitlines():
+            if ("czn_optimizer_gui.py" in line
+                    and "--audit-scale=" not in line):
+                out.append(f"{bat.name} starts an audit with no "
+                           f"--audit-scale: `{line.strip()}`. It runs at "
+                           f"whatever scale the maintainer has saved.")
+    return out
+
+
 def run():
     add_source_to_path()
     import audit_states
     from ui import spacing_audit as sa
     failures = []
+    failures.extend(_launchers_name_their_scale())
     failures.extend(_scale_is_its_own(audit_states, sa))
     failures.extend(_flag_is_read(audit_states))
     failures.extend(_prepare_builds_a_copy(audit_states))
