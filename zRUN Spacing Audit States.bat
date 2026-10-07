@@ -17,7 +17,7 @@ if errorlevel 3 set MODE=--spacing-audit-freeze
 for %%S in (empty fresh) do (
     echo.
     echo === %%S ===
-    python Vribbels\czn_optimizer_gui.py %MODE% --audit-state=%%S
+    python Vribbels\czn_optimizer_gui.py %MODE% --audit-state=%%S --audit-scale=100%%
     python Vribbels\czn_optimizer_gui.py %MODE% --audit-state=%%S --audit-scale=200%%
 )
 

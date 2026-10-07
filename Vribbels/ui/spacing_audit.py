@@ -1344,7 +1344,13 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False,
     notebook.select(original)
     app.root.update()
 
-    _print_table(rows, out, verbose, skips_apart=state is not None)
+    # Above 100% a miss the maintainer froze is accepted: what is left
+    # there is the font's rounding and the theme's fixed pixels, studied
+    # and frozen, and the baseline still reports any reading that moves.
+    frozen = (_frozen(baseline_path(state, scale_factor()))
+              if scale_factor() != 1 else {})
+    _print_table(rows, out, verbose, skips_apart=state is not None,
+                 frozen=frozen)
     if freeze:
         save_baseline(rows, path=baseline_path(state, scale_factor()),
                       out=out)
@@ -1502,13 +1508,24 @@ def _minimum(row):
     return len(row) > 9 and bool(row[9])
 
 
-def _print_table(rows, out, verbose=False, skips_apart=False):
+def _frozen(path):
+    """The baseline at `path` as {name: reading}, or {} without one."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+
+def _print_table(rows, out, verbose=False, skips_apart=False, frozen=None):
     """The table, and with `skips_apart` the rows that measured nothing
-    listed after it rather than in it -- see `run_audit`'s `state`."""
+    listed after it rather than in it -- see `run_audit`'s `state`.
+    `frozen` is {name: reading} of misses to accept: see `_print_rows`.
+    """
     skipped = [r for r in rows if r[2] is None] if skips_apart else []
     if skips_apart:
         rows = [r for r in rows if r[2] is not None]
-    _print_rows(rows, out, verbose)
+    _print_rows(rows, out, verbose, frozen or {})
     if skipped:
         _print_skips(skipped, out)
 
@@ -1529,8 +1546,13 @@ def _print_skips(rows, out):
         out(f"{name.ljust(width)}  {note}".rstrip())
 
 
-def _print_rows(rows, out, verbose=False):
+def _print_rows(rows, out, verbose=False, frozen=None):
     """The measured rows, under a heading per tab.
+
+    **A miss reading exactly what `frozen` holds for it is accepted**:
+    printed only in `verbose`, marked `as frozen`, and counted apart
+    from the hits. Only above 100% is anything passed in -- see
+    `run_audit`.
 
     `manual note` is left empty on purpose. It is the column a hand
     reading goes in when the tool and the eye disagree, which is the
@@ -1552,10 +1574,23 @@ def _print_rows(rows, out, verbose=False):
             return True
         return value < target if _minimum(row) else value != target
 
+    frozen = frozen or {}
+
+    def as_frozen(row):
+        return (missed(row) and row[2] is not None
+                and frozen.get(row[0]) == row[2])
+
     on_target = sum(1 for r in rows if not missed(r))
-    shown = rows if verbose else [r for r in rows if r[6] or missed(r)]
+    accepted = sum(1 for r in rows if as_frozen(r))
+    tally = f", {accepted} as frozen" if accepted else ""
+    shown = rows if verbose else [
+        r for r in rows if r[6] or (missed(r) and not as_frozen(r))]
     if not shown:
-        out(f"all {len(rows)} gaps on target, none provisional")
+        if accepted:
+            out(f"all {len(rows)} gaps on target or as frozen "
+                f"({on_target} on target{tally}), none provisional")
+        else:
+            out(f"all {len(rows)} gaps on target, none provisional")
         return
 
     body = []
@@ -1571,7 +1606,7 @@ def _print_rows(rows, out, verbose=False):
                          _with_source(note, source), provisional, "  <-"))
             continue
         delta = value - target
-        flag = "  <-" if missed(row) else ""
+        flag = "  <-" if missed(row) and not as_frozen(row) else ""
         # **A row that is right says only that.** The detail behind a
         # reading -- which lines it came from, what else was on them --
         # is for working out why a number is wrong, and printing it
@@ -1579,6 +1614,8 @@ def _print_rows(rows, out, verbose=False):
         # `verbose` is where it all goes.
         detail = _with_source(note if (verbose or flag) else "",
                               source)
+        if as_frozen(row):
+            detail = f"{detail}, as frozen" if detail else "as frozen"
         body.append((tab, name, arrow, f"{shown_target:>6}", f"{value:>8}",
                      f"{delta:>+5}", f"{detail}{flag}", provisional, flag))
 
@@ -1592,4 +1629,4 @@ def _print_rows(rows, out, verbose=False):
         line = (f"{name.ljust(width)}  {arrow:>4}  {target}  {value}  "
                 f"{delta}  {note}".rstrip())
         out(_colour(line, flag, prov))
-    out(f"\n{on_target}/{len(rows)} on target")
+    out(f"\n{on_target}/{len(rows)} on target{tally}")

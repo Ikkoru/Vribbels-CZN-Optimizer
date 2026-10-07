@@ -26,7 +26,7 @@ The maintainer's own state needs a snapshot loaded, so the data-driven panels ex
 | Rewrite the maintainer's state's baselines | `zRUN Spacing Audit Freeze.bat` |
 | The empty states, in any of the three modes | `zRUN Spacing Audit States.bat` |
 
-Each runs the audit at 100% and then at 200%: it sets `VRIBBELS_DEV=1` and passes `--spacing-audit`, `--spacing-audit-verbose` or `--spacing-audit-freeze` to `Vribbels/czn_optimizer_gui.py`, the second time with `--audit-scale=200%`, which overrides the saved UI scale for that run and writes nothing. A normal launch never imports the audit, and an audit launch never asks for Administrator: it never captures.
+Each runs the audit at 100% and then at 200%: it sets `VRIBBELS_DEV=1` and passes `--spacing-audit`, `--spacing-audit-verbose` or `--spacing-audit-freeze` to `Vribbels/czn_optimizer_gui.py`, with `--audit-scale=100%` and then `--audit-scale=200%`, which override the saved UI scale for that run and write nothing. A run without it takes the saved scale, so a maintainer who has set 200% would get two 200% runs. A normal launch never imports the audit, and an audit launch never asks for Administrator: it never captures.
 
 The States launcher asks for the mode, then runs `--audit-state=empty` and `--audit-state=fresh`, each at both scales, each in a scratch copy it rebuilds. `docs/ui_spacing.md`, *Checking spacing*, says what each state is.
 
@@ -35,7 +35,7 @@ The States launcher asks for the mode, then runs `--audit-state=empty` and `--au
 ## Reading the table
 
 - **A short run is a good run.** The default prints only misses, so a clean pass is a handful of lines.
-- **At 200% the target column is already doubled.** Every target is a 100% distance, held to exactly twice its number there: a 200% screen should show what a 100% one does. A miss of one pixel is font rounding only where the study of it said so; otherwise it is studied like any other.
+- **At 200% the target column is already doubled.** Every target is a 100% distance, held to exactly twice its number there: a 200% screen should show what a 100% one does. A miss of one pixel is font rounding only where the study of it said so; otherwise it is studied like any other. **A 200% miss that reads exactly its frozen value is accepted**: counted `as frozen`, printed only in Verbose, and left out of the short run. What is frozen there is the font's rounding and the theme's fixed pixels, already studied; a reading that moves still shows as `baseline CHANGED`.
 - **`axis` is `<>` or `^v`**, never arrows: the console is cp932 and one non-ASCII character raises before the table reaches the screen.
 - **Dark yellow means provisional** — registered but never confirmed by a hand reading. It clears once a reading agrees.
 - **The note column** says `exception` where the site deliberately misses its rule and carries a marker saying so, `inferred` where the rule applies but its number is carried across from elsewhere, or, in an empty state, `state` where that state holds the row to its own number (`docs/ui_spacing.md`, *Checking spacing*). An ordinary row says nothing there.
