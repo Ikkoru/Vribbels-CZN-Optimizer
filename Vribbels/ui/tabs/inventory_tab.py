@@ -82,18 +82,15 @@ INV_USE_LOG_FILTERS_KEY = "inventory_use_upgrade_log_filters"
 # name, so it needs the reverse lookup.
 SETS_BY_NAME = {v["name"]: v for v in SETS.values()}
 
-# The narrowest the Sets panel's contents may be, borders included.
-#
-# **A HARD number, and not the right kind of one.** It is a physical
-# pixel count that does not grow with the font, where every other
-# distance here is either `px()`-scaled or measured through the face.
-# It stays because the alternative -- reserving room for the widest
-# count a column could hold -- reads correctly at any scale but makes
-# the panel 815 wide at 100%, which is 74 more than its contents need.
-# `tasks.md` T15 carries this as an open question for the 200% pass.
+# The narrowest the Sets panel's contents may be, borders included, at
+# 100%; it takes `px` like any stated distance. A floor, not a width:
+# filled, the panel's contents run past it at both scales, so it binds
+# only once the counts empty out.
 #
 # What it prevents is the panel collapsing: its columns are fitted to
 # the counts they show, so anything that empties them makes it narrow.
+# Reserving room for the widest count a column could hold instead would
+# make the panel wider than its contents need at 100%.
 SETS_PANEL_MIN_W = 741
 
 # How far the active-preset caption's own inset is pulled back, so its
@@ -900,11 +897,15 @@ class InventoryTab(BaseTab):
         # shortfall goes on the LAST count column, the one with nothing
         # to its right, so widening it moves no checkbox.
         self.inv_set_frame_inner.update_idletasks()
-        short = SETS_PANEL_MIN_W - self.inv_set_frame_inner.winfo_reqwidth()
+        short = (px(SETS_PANEL_MIN_W)
+                 - self.inv_set_frame_inner.winfo_reqwidth())
         if short > 0:
             last = (ncols - 1) * 2 + 1
             self.inv_set_frame_inner.grid_columnconfigure(
                 last, minsize=col_count_widths[ncols - 1] + short)
+            # Read by checks/check_ui_scales: this minsize is a floor
+            # less a measured width, and grows by no fixed ratio.
+            self.inv_set_frame_inner.measured_columns = {last}
 
         # Also rebuild unknown main-stat checkboxes for the data we just loaded.
         self.populate_unknown_main_stats()

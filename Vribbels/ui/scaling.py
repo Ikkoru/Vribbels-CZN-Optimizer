@@ -137,6 +137,14 @@ def px(distance):
 # why the choice follows the scale.
 AWARENESS_BY_FACTOR = {1: (1, "system"), 2: (2, "per-monitor")}
 
+# DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, asked for in place of
+# plain per-monitor awareness where Windows offers it (1703 and later).
+# The same to this program's own drawing; what it adds is Windows'
+# scaling of what Windows draws -- the title bar and frame, and native
+# dialogs such as a message box -- which plain per-monitor awareness
+# leaves at their 96dpi size on a 200% screen.
+PER_MONITOR_V2 = -4
+
 
 def declare_dpi_awareness():
     """Tell Windows how much of the scaling this process is doing.
@@ -157,7 +165,9 @@ def declare_dpi_awareness():
       that second scaling off. The cost is the `WM_DPICHANGED` that
       comes with it: a drag across a DPI boundary resizes the window's
       frame, which no cheap mechanism refuses -- a poll that puts the
-      size back gets it re-applied and the two oscillate.
+      size back gets it re-applied and the two oscillate. Asked for as
+      `PER_MONITOR_V2` first, so Windows sizes its own title bar and
+      dialogs for the screen.
 
     Before Tk opens its connection, and after `set_scale`: awareness is
     a property of the PROCESS and the first window fixes it. Failing is
@@ -167,6 +177,13 @@ def declare_dpi_awareness():
     Returns what happened, for the caller to log.
     """
     level, word = AWARENESS_BY_FACTOR.get(_factor, (1, "system"))
+    if level == 2:
+        try:
+            if ctypes.windll.user32.SetProcessDpiAwarenessContext(
+                    ctypes.c_void_p(PER_MONITOR_V2)):
+                return "per-monitor v2"
+        except Exception:               # noqa: BLE001 -- older Windows
+            pass
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(level)
         return word

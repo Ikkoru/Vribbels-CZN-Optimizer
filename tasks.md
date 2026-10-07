@@ -241,9 +241,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   **The icons are the blocker.** 70 assets at 112x113 and 5 plates at 101x101, with no larger source in the repo. 200% doubles them by nearest neighbour, which is exact and reads as pixel art. 125% does not divide, so anything between is a resample and blurs. A fractional step needs art re-extracted at a higher resolution, if the game ships one.
 
-  **One distance is a hard pixel count and needs looking at on a scaled screen.** `InventoryTab.SETS_PANEL_MIN_W` is 741 physical pixels, neither scaled nor measured through the font, so at 200% it is half what it should be. It only binds when the Sets columns would otherwise be narrower than that, which is not the ordinary case, so the wrong behaviour may never show. The correct fix reserves room for the widest count a column could hold. That scales properly, but makes the panel 815 wide at 100% against the 741 its contents need. Decide on a real 200% screen which matters more.
-
-  **The audit is 100%-only** and stays that way. Its targets are physical pixels, so at any other scale it would either read every gap wrong, or need scaled targets that carry the same rounding drift into the checker. Re-verifying every registered gap per scale is a screenshot run each.
+  **The audit holds each gap at a scale to its 100% target times the scale**, which a fractional step would make fractional: it would need a rule for rounding a target, and every rounding is drift the checker then cannot see.
 
 ### Pondering
 

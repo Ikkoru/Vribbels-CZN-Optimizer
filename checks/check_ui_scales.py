@@ -131,9 +131,15 @@ def _minsizes(widget, out, path=""):
             columns, rows = child.grid_size()
         except Exception:                   # not a grid container
             columns = rows = 0
+        # A column a container marks `measured_columns` holds a floor
+        # less what its contents measure: a difference, which has no
+        # bound to hold it to (as `pad_measured` for a pad).
+        skip = getattr(child, "measured_columns", ())
         for axis, count, getter in (("col", columns, "grid_columnconfigure"),
                                     ("row", rows, "grid_rowconfigure")):
             for slot in range(count):
+                if axis == "col" and slot in skip:
+                    continue
                 try:
                     info = getattr(child, getter)(slot)
                 except Exception:
