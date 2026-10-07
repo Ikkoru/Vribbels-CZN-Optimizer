@@ -257,10 +257,11 @@ class Tooltip:
         # Plus `EDGE` all round, so a tip may sit a hair outside rather
         # than being shoved back over the control it explains.
         chrome = max(0, upper - top.winfo_y())
-        x = max(left - EDGE,
-                min(x, left + top.winfo_width() - width + EDGE))
-        y = max(upper - chrome - EDGE,
-                min(y, upper + top.winfo_height() - height + EDGE))
+        edge = px(EDGE)
+        x = max(left - edge,
+                min(x, left + top.winfo_width() - width + edge))
+        y = max(upper - chrome - edge,
+                min(y, upper + top.winfo_height() - height + edge))
         tip.wm_geometry(f"+{x}+{y}")
 
     @staticmethod

@@ -168,7 +168,7 @@ def _name_col_px(names, slack=None):
     import tkinter.font as tkfont
     f = tkfont.nametofont("TkDefaultFont")
     return (max(f.measure(name) for name in names)
-            + (DMG_LABEL_COL_SLACK if slack is None else slack))
+            + px(DMG_LABEL_COL_SLACK if slack is None else slack))
 
 
 def _dmg_label_col_px():
@@ -185,7 +185,7 @@ def _dmg_readout_col_px():
     """
     import tkinter.font as tkfont
     return (tkfont.nametofont("TkDefaultFont").measure(DMG_READOUT_WIDEST)
-            + LABEL_REQUEST_INSET)
+            + px(LABEL_REQUEST_INSET))
 
 
 # The border clam draws each side of a Scale's trough: pixels at every
@@ -1083,10 +1083,13 @@ class OptimizerTab(BaseTab):
         # 9 stats + blank + 8 Pot7 rows = 19) so the frame is only as tall
         # as its content; _populate_stats_compare re-syncs the height to
         # the live row count whenever the row set changes.
-        self.stats_tree.column("stat", width=68, stretch=False)
-        self.stats_tree.column("current", width=35, anchor=tk.E, stretch=False)
-        self.stats_tree.column("new", width=35, anchor=tk.E, stretch=False)
-        self.stats_tree.column("diff", width=35, anchor=tk.E, stretch=False)
+        self.stats_tree.column("stat", width=px(68), stretch=False)
+        self.stats_tree.column("current", width=px(35), anchor=tk.E,
+                               stretch=False)
+        self.stats_tree.column("new", width=px(35), anchor=tk.E,
+                               stretch=False)
+        self.stats_tree.column("diff", width=px(35), anchor=tk.E,
+                               stretch=False)
         self.stats_tree.pack(fill=tk.Y, expand=True)
         # Right-click opens the "Show all stat contributions" menu.
         self.stats_tree.bind("<Button-3>", self._show_stats_context_menu)
@@ -1986,7 +1989,7 @@ class OptimizerTab(BaseTab):
             self.result_tree.heading(c, text=headings[c], anchor=anchor,
                                       command=lambda col=c: self.sort_results(col))
             self.result_tree.column(
-                c, width=widths[c], anchor=anchor, stretch=(c == "sets"),
+                c, width=px(widths[c]), anchor=anchor, stretch=(c == "sets"),
             )
 
         result_scroll = ttk.Scrollbar(parent, orient=tk.VERTICAL,
@@ -2037,7 +2040,7 @@ class OptimizerTab(BaseTab):
                                       "sub1", "sub2", "sub3", "sub4", "owner")
                       else tk.CENTER)
             self.detail_tree.heading(col, text=txt, anchor=anchor)
-            self.detail_tree.column(col, width=w, anchor=anchor,
+            self.detail_tree.column(col, width=px(w), anchor=anchor,
                                      stretch=(col == "owner"))
         self.detail_tree.pack(fill=tk.X)
 

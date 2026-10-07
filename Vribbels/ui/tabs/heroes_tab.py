@@ -744,8 +744,8 @@ class HeroesTab(BaseTab):
                 command=lambda k=col_id: self.sort_heroes(k))
             # Preset takes the leftover width; every other column is fixed.
             self.hero_tree.column(
-                col_id, width=width_px, minwidth=width_px, anchor=anchor,
-                stretch=(col_id == "preset"))
+                col_id, width=px(width_px), minwidth=px(width_px),
+                anchor=anchor, stretch=(col_id == "preset"))
 
         # One tag per Element, plus a fallback. Rows carry the tag for
         # their own Element, which is what colours them.
@@ -935,7 +935,7 @@ class HeroesTab(BaseTab):
             cell = tk.Text(
                 gear_grid, font=("Segoe UI", 9), wrap=tk.WORD,
                 bg=self.colors["bg_light"], fg=self.colors["fg"],
-                relief=tk.RIDGE, bd=GEAR_CELL_BD, highlightthickness=px(0),
+                relief=tk.RIDGE, bd=px(GEAR_CELL_BD), highlightthickness=px(0),
                 # spacing: border edge -> first non-button element -- text, run ↔↕
                 # padx is symmetric, so it sets the LEFT inset and part of
                 # the right one; GEAR_TAB_SLOT carries the rest.
@@ -952,7 +952,8 @@ class HeroesTab(BaseTab):
                 # it; this is not the rule's 10 and is not meant to be,
                 # the description being prose rather than a row of
                 # labels.
-                padx=px(GEAR_CELL_PADX), pady=px(1), spacing3=4, spacing2=1,
+                padx=px(GEAR_CELL_PADX), pady=px(1), spacing3=px(4),
+                spacing2=px(1),
                 # Selectable but never focusable, and no insertion cursor:
                 # the text can be copied, and nothing about it invites
                 # typing into it.
@@ -995,10 +996,10 @@ class HeroesTab(BaseTab):
             # Columns. A right-aligned stop sits at the END of its column.
             cell.tag_configure(
                 "toprow",
-                tabs=(GEAR_TAB_GS, "center", GEAR_TAB_SLOT, "right"))
+                tabs=(px(GEAR_TAB_GS), "center", px(GEAR_TAB_SLOT), "right"))
             cell.tag_configure(
                 "subrow",
-                tabs=(GEAR_TAB_QUALITY, "right", GEAR_TAB_SUB, "left"))
+                tabs=(px(GEAR_TAB_QUALITY), "right", px(GEAR_TAB_SUB), "left"))
 
             # Nothing in the UI says what the quality number is, and
             # "close to a Gear Score, beside a Gear Score" is the wrong
@@ -1792,8 +1793,8 @@ class HeroesTab(BaseTab):
             # the widest value are not on the same line.
             try:
                 self.hero_char_text.configure(tabs=(
-                    CHAR_TAB_VAL1, "right", CHAR_TAB_NAME2, "left",
-                    CHAR_TAB_VAL2, "right",
+                    px(CHAR_TAB_VAL1), "right", px(CHAR_TAB_NAME2), "left",
+                    px(CHAR_TAB_VAL2), "right",
                 ))
                 # The node block's columns, on a TAG of their own. A
                 # Text carries one set of stops for the whole widget
@@ -1802,8 +1803,8 @@ class HeroesTab(BaseTab):
                 # ruled differently.
                 self.hero_char_text.tag_configure(
                     CHAR_NODE_TAG, tabs=(
-                        CHAR_NODE_TAB_LEVEL, "right",
-                        CHAR_NODE_TAB_DESC, "left",
+                        px(CHAR_NODE_TAB_LEVEL), "right",
+                        px(CHAR_NODE_TAB_DESC), "left",
                     ))
             except (AttributeError, tk.TclError):
                 pass
@@ -1837,8 +1838,9 @@ class HeroesTab(BaseTab):
             extra_h = self._extra_info_block.winfo_reqheight()
             if extra_h <= 1:                  # geometry not processed yet
                 extra_h = ((1 + len(CHAR_EXTRA_ROWS)) * line_default
-                           + CHAR_EXTRA_INSET)
-            row_h = CHAR_TOTAL_LINES * line_default + PANEL_PAD_H + extra_h
+                           + px(CHAR_EXTRA_INSET))
+            row_h = (CHAR_TOTAL_LINES * line_default + px(PANEL_PAD_H)
+                     + extra_h)
 
             def _fix(frame, w, h):
                 frame.configure(width=int(w), height=int(h))

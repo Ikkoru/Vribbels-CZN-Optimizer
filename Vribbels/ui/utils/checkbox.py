@@ -19,7 +19,20 @@ every distance in this app goes through it. See `ui/scaling.py`.
 """
 
 import tkinter as tk
-from ui.scaling import px
+from ui.scaling import factor, px
+
+# Tk's own padding for a checkbutton, both axes.
+TK_PAD = 1
+
+# Two pixels of Tk's own in a Windows checkbutton's geometry
+# (`TkpComputeButtonGeometry` in tkWinButton.c) that `tk scaling` never
+# reaches: a focus-ring inset of 1 on every side, and 4 taken off the
+# height its dialog-unit rule gives. At 200% the inset leaves each side
+# 1px short of twice its 100% self, and the trim leaves the height 2px
+# over per side. The padding is the only lever, so it carries both;
+# at 100% it is Tk's own value and nothing moves.
+FOCUS_INSET = 1
+HEIGHT_TRIM = 4
 
 
 def make_checkbox(parent, colors, *, text="", variable=None, command=None,
@@ -76,8 +89,15 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
     )
     if command is not None:
         opts["command"] = command
-    if compact:
-        opts.update(padx=px(0), pady=px(0))
+    pad_x = kwargs.pop("padx", px(0) if compact else px(TK_PAD))
+    pad_y = kwargs.pop("pady", px(0) if compact else px(TK_PAD))
+    extra = factor() - 1
+    # Tk clamps a negative pad to 0, so a `compact` checkbox keeps the
+    # trim's surplus at 200%: 1px taller on each side than twice its
+    # 100% height.
+    opts.update(padx=pad_x + extra * FOCUS_INSET,
+                pady=max(0, pad_y - extra * (HEIGHT_TRIM // 2
+                                             - FOCUS_INSET)))
     if wraplength is not None:
         # justify with it, always. A wrapped label is the only way this
         # widget gets a second line, and tk.Checkbutton centres its lines

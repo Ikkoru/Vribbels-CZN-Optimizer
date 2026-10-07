@@ -484,7 +484,8 @@ STAT_FONT = ("Segoe UI", 9)
 NAME_FONT = ("Segoe UI", 12, "bold")
 
 # A caption's size in PIXELS, which is what PIL takes where `NAME_FONT`
-# states points. 96dpi is what Tk assumes on Windows.
+# states points. 96dpi is what Tk assumes on Windows at 100%; PIL
+# knows nothing of `tk scaling`, so the call takes `px`.
 CORNER_FONT_PX = round(NAME_FONT[1] * 96 / 72)
 
 # Between the icons of a row, and between one row of icons and the next.
@@ -553,15 +554,20 @@ GENERIC_TO_CHECKBOX = 5  # spacing: label ↔ its element -- frame, checkbox ↔
 VALUE_DIGITS = 4
 VALUE_WIDEST = "400%"
 
-# The narrowest a Text will draw a TAB, whatever stop follows it.
-#
-# **NOT slack, and not removable.** The label column is a right-aligned
-# stop with nothing in front of it, so the widest label needs this much
-# room before it or Tk abandons the alignment for that line alone and
-# starts the words here instead -- which pushes that one colon past the
-# column every other label ends on. Read off a rendered block; it is
-# Tk's floor rather than a distance this tab chose.
-TAB_FLOOR_PX = 3
+def _tab_floor():
+    """The narrowest a Text will draw a TAB, whatever stop follows it.
+
+    **NOT slack, and not removable.** The label column is a
+    right-aligned stop with nothing in front of it, so the widest label
+    needs this much room before it or Tk abandons the alignment for that
+    line alone and starts the words here instead -- which pushes that
+    one colon past the column every other label ends on.
+
+    Tk's floor rather than a distance this tab chose: one space of the
+    Text's OWN font (`AdjustForTab` in tkTextDisp.c), the figures' face.
+    Measured, so it follows the font at every scale.
+    """
+    return tkfont.Font(font=STAT_FONT).measure(" ")
 
 # What a figure reads before any snapshot has been loaded.
 NO_DATA = "-"
@@ -623,7 +629,7 @@ class MaterialsTab(BaseTab):
         # A lever short of the rule at both edges, and ASYMMETRIC
         # because the two edges are different things. On the left the
         # block starts with a row's figures, whose widest label is held
-        # one `TAB_FLOOR_PX` in from the block's own edge; on the right
+        # one `_tab_floor()` in from the block's own edge; on the right
         # it ends with an ICON, whose furthest paint is whichever
         # reaches further -- the artwork, or the bordered box behind its
         # quantity, which `BADGE_MARGIN_RATIO` is what would move.
@@ -745,7 +751,7 @@ class MaterialsTab(BaseTab):
         is not what the user calls it.
         """
         # The name, the `Total:` line, then one line per target.
-        block = label_width + LABEL_TO_VALUE + self._value_column_px()
+        block = label_width + px(LABEL_TO_VALUE) + self._value_column_px()
         figures = self._figures_block(
             row, block, 2 + len(targets), (label_width, block),
             ATTRIBUTE_COLORS.get(name, self.colors["fg"]), label or name)
@@ -804,7 +810,7 @@ class MaterialsTab(BaseTab):
         # unlike a padding it cannot go negative -- so the name's line
         # box is the floor here rather than something to trim past.
         text.tag_configure("name", font=NAME_FONT, foreground=colour,
-                           justify=tk.CENTER, spacing3=NAME_GAP_BELOW)
+                           justify=tk.CENTER, spacing3=px(NAME_GAP_BELOW))
         text.tag_configure("figure", font=STAT_FONT)
         # How far a share has got, on the lines that carry one.
         # See `SHARE_COLOURED`.
@@ -821,7 +827,7 @@ class MaterialsTab(BaseTab):
         being set in a larger face than the figures under it.
         """
         return (tkfont.Font(font=NAME_FONT).metrics("linespace")
-                + NAME_GAP_BELOW
+                + px(NAME_GAP_BELOW)
                 + (lines - 1) * tkfont.Font(font=STAT_FONT)
                 .metrics("linespace"))
 
@@ -891,8 +897,9 @@ class MaterialsTab(BaseTab):
         """
         stat = tkfont.Font(font=STAT_FONT)
         value_px = self._value_column_px()
+        floor = _tab_floor()
         labels = max(stat.measure(word)
-                     for word, _costs in ADVANCED_TARGETS) + TAB_FLOOR_PX
+                     for word, _costs in ADVANCED_TARGETS) + floor
         # One tab floor between each pair of value columns as well as
         # in front of the labels. A stop exactly a reservation past the
         # one before it leaves no room for the tab that reaches it, so
@@ -900,8 +907,8 @@ class MaterialsTab(BaseTab):
         # across the three, taking the last one off the end of a block
         # sized from the stops.
         stops = (labels,) + tuple(
-            labels + LABEL_TO_VALUE + value_px
-            + n * (value_px + TAB_FLOOR_PX)
+            labels + px(LABEL_TO_VALUE) + value_px
+            + n * (value_px + floor)
             for n in range(len(spec.advanced)))
         figures = self._figures_block(
             row, stops[-1], 1 + len(ADVANCED_TARGETS), stops,
@@ -925,8 +932,8 @@ class MaterialsTab(BaseTab):
         """
         stat = tkfont.Font(font=STAT_FONT)
         labels = max(stat.measure(word)
-                     for word, _p, _t in GACHA_TARGETS) + TAB_FLOOR_PX
-        block = labels + LABEL_TO_VALUE + self._value_column_px()
+                     for word, _p, _t in GACHA_TARGETS) + _tab_floor()
+        block = labels + px(LABEL_TO_VALUE) + self._value_column_px()
         self.gacha_figures = self._figures_block(
             row, block, 1 + 1 + len(GACHA_TARGETS), (labels, block),
             self.colors["fg"], GACHA_LABEL)
@@ -1088,9 +1095,9 @@ class MaterialsTab(BaseTab):
         value = MaterialsTab._value_column_px()
         widest_name = max(name_font.measure(word) for word in names)
         label_stop = max(max(stat.measure(word) for word in figures)
-                         + TAB_FLOOR_PX,
-                         widest_name - LABEL_TO_VALUE - value)
-        return label_stop + LABEL_TO_VALUE + value, label_stop
+                         + _tab_floor(),
+                         widest_name - px(LABEL_TO_VALUE) - value)
+        return label_stop + px(LABEL_TO_VALUE) + value, label_stop
 
     @staticmethod
     def _value_column_px():
@@ -1271,7 +1278,7 @@ class MaterialsTab(BaseTab):
         photo = (create_icon_with_quantity(
             icon_path, quantity, background=self.colors["bg"],
             plate_path=plate_path, corner_text=caption,
-            corner_font_px=CORNER_FONT_PX, corner_fill=caption_fill)
+            corner_font_px=px(CORNER_FONT_PX), corner_fill=caption_fill)
             if drawable else None)
         if photo is not None:
             label.config(image=photo, text="")

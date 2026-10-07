@@ -3,22 +3,24 @@
 The spacing audit reads the scaled window too, but only at the gaps it
 has registered, and only when it is run; a distance that stayed at its
 100% value anywhere else is invisible. It is also the most likely
-mistake by far: the
-scaling reaches ~360 call sites, and one `padx=4` that never got its
-`px()` reads as a gap half the size of its neighbours on a screen the
-maintainer may not be developing on.
+mistake by far: one `padx=4` that never got its `px()` reads as a gap
+half the size of its neighbours on a screen the maintainer may not be
+developing on.
 
-So the tabs are built twice, once at each scale, and every geometry
-option that carries pixels is compared. A pad that is not exactly
-double at 200% is either unwrapped or wrapped twice. A widget laid out
-with `place()` carries none of those options, so the Exclude panel's
-distances are read off where its names land: `_placed_distances`.
+So the tabs are built twice, once at each scale, and every option that
+carries pixels is compared: the geometry managers' pads, what a widget
+or a Text tag holds for itself (border, padding, line spacing, tab
+stops), a Treeview's column widths and a frame's pinned size. A
+distance that is not double at 200% is either unwrapped or wrapped
+twice. A widget laid out with `place()` carries no pads, so the
+Exclude panel's distances are read off where its names land:
+`_placed_distances`.
 
 **A distance is not always exactly double**, so the test is not "did
 it double". A hardcoded one does; a MEASURED one -- a font width, a
-`winfo_reqheight` -- grows by whatever the font grew by, which is under
-two because hinting rounds each size to whole pixels. Demanding double
-of those would be a wall of false alarms.
+`winfo_reqheight` -- grows by whatever the font grew by, which is near
+two and not on it, because hinting rounds each size to whole pixels.
+Demanding double of those would be a wall of false alarms.
 
 What is unambiguous is each failure's own signature:
 
@@ -30,10 +32,10 @@ What is unambiguous is each failure's own signature:
 So those two are what get flagged, and everything between them is a
 distance that scaled by some honest amount.
 
-**`width` and `height` are NOT compared.** They are characters on an
-Entry, Spinbox, Combobox, Button and Label, lines on a Text, rows on a
-Treeview, and pixels only on a Frame -- so a blanket rule over them
-would demand doubling from the ones the font already carries.
+**`width` and `height` are compared on frames alone.** They are
+characters on an Entry, Spinbox, Combobox, Button and Label, lines on a
+Text and rows on a Treeview -- so a blanket rule over them would demand
+doubling from the ones the font already carries.
 
 Skips itself where Tk cannot open a display.
 """
@@ -51,6 +53,15 @@ NAME = "every distance doubles at 200%"
 # The geometry options that are pixels wherever they appear. `ipadx`
 # and `ipady` are in the same class and are read off the same call.
 PIXEL_OPTIONS = ("padx", "pady", "ipadx", "ipady")
+# A Treeview column's `minwidth` where nothing sets one.
+TK_MINWIDTH = 20
+# Pixel options a widget, or a Text's tag, holds for itself.
+WIDGET_PIXEL_OPTIONS = ("borderwidth", "padx", "pady", "highlightthickness",
+                        "spacing1", "spacing2", "spacing3", "tabs",
+                        "selectborderwidth", "insertwidth", "padding")
+TAG_PIXEL_OPTIONS = ("spacing1", "spacing2", "spacing3", "tabs",
+                     "lmargin1", "lmargin2", "rmargin", "offset")
+TAB_ALIGNMENTS = ("left", "right", "center", "numeric")
 
 TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
              "HeroesTab", "ScoringTab", "MaterialsTab",
@@ -215,8 +226,71 @@ def _distances(widget, out, path=""):
                 if option not in info:
                     continue
                 out[f"{here}:{getter}:{option}"] = _numbers(info[option])
+        cls = child.winfo_class()
+        # Pixels, wherever they are given: a Treeview column's width,
+        # and a frame's when it is pinned rather than left to its
+        # children. Neither is a pack option, and both have gone
+        # unscaled -- every column of four trees at their 100% width,
+        # and a column pinned to twice the text it was measured from.
+        if cls == "Treeview":
+            for column in child["columns"]:
+                for option in ("width", "minwidth"):
+                    value = _numbers(child.column(column, option))
+                    # Tk's own default minimum, which nothing here sets
+                    # and a drag is all it bounds.
+                    if option == "minwidth" and value == (TK_MINWIDTH,):
+                        continue
+                    out[f"{here}:column:{column}:{option}"] = value
+        elif cls in ("Frame", "TFrame", "TLabelframe", "Labelframe"):
+            for option in ("width", "height"):
+                pinned = _numbers(child.cget(option))
+                # 1 is a frame held shut until its content sizes it, a
+                # placeholder rather than a distance.
+                if any(value > 1 for value in pinned):
+                    out[f"{here}:{option}"] = pinned
+        # A widget's own pixels: its border, padding, line spacing and
+        # tab stops, and a Text tag's. Given outright they override
+        # every default `ui/scaling.py` scales, so each one given
+        # without `px` stays its 100% size -- a cell's tab stops left a
+        # column at its 100% place in a cell twice as wide.
+        for option in WIDGET_PIXEL_OPTIONS:
+            # A checkbox's padding is not twice its 100% value on
+            # purpose: it carries Tk's unscaled focus inset and height
+            # trim as well. `ui/utils/checkbox.py` says how.
+            if cls == "Checkbutton" and option in ("padx", "pady"):
+                continue
+            try:
+                value = _stated(child.cget(option))
+            except Exception:               # the class has no such option
+                continue
+            if value:
+                out[f"{here}:{option}"] = value
+        if cls == "Text":
+            for tag in child.tag_names():
+                for option in TAG_PIXEL_OPTIONS:
+                    value = _stated(child.tag_cget(tag, option))
+                    if value:
+                        out[f"{here}:tag:{tag}:{option}"] = value
         _distances(child, out, here)
     return out
+
+
+def _stated(value):
+    """The pixel counts in a widget option, alignment words dropped.
+
+    A tab stop list mixes the two -- `50 right 58 left` -- and reads as
+    no numbers at all to `_numbers`. `()` for anything in another unit.
+    """
+    parts = value if isinstance(value, (tuple, list)) else str(value).split()
+    out = []
+    for part in parts:
+        if str(part) in TAB_ALIGNMENTS:
+            continue
+        try:
+            out.append(int(str(part)))
+        except ValueError:
+            return ()
+    return tuple(out)
 
 
 def _walk(widget):
@@ -275,25 +349,30 @@ def _rewraps(frame, scale, tab_name):
 def _font_ratio():
     """How much a FONT grows between the two scales.
 
-    The upper end of the band. Read off the app's own body face rather
-    than assumed to be 2: Tk rounds each point size to whole pixels, so
-    the scaled metric is near double and not on it.
+    The upper end of the band. Read off the app's own faces rather than
+    assumed to be 2: Tk rounds each point size to whole pixels, so the
+    scaled metric is near double and not on it -- and by a different
+    amount at each size, so a distance worked out from a 10pt line can
+    grow past what the 9pt body's does.
     """
     import tkinter as tk
     from tkinter import font as tkfont
 
     from ui import scaling
 
+    faces = (("Segoe UI", 9), ("Segoe UI", 10), ("Segoe UI", 11),
+             ("Segoe UI", 14, "bold"), ("Segoe UI Variable Small", 11))
     sizes = []
     for scale in ("100%", "200%"):
         scaling.set_scale(scale)
         root = tk.Tk()
         root.attributes("-alpha", 0.0)
         scaling.apply_font_scaling(root)
-        sizes.append(tkfont.Font(font=("Segoe UI", 9)).metrics("linespace"))
+        sizes.append([tkfont.Font(font=face).metrics("linespace")
+                      for face in faces])
         root.destroy()
     scaling.set_scale("100%")
-    return max(2.0, sizes[1] / sizes[0])
+    return max([2.0] + [high / low for low, high in zip(*sizes)])
 
 
 def _build(scale, work, problems):

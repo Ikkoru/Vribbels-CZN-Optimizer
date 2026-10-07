@@ -21,12 +21,21 @@ from ._harness import SOURCE_ROOT, Skip
 
 NAME = "Tk's unscaled pixels are scaled at 200%"
 
+# The style options that hold distances in pixels, read off every style
+# the theme knows once the app has configured it -- the app's own
+# derived styles included. One the app set without `px` stays its 100%
+# size at 200%, and nothing else notices: the widget still draws.
+PIXEL_OPTIONS = ("padding", "labelmargins", "tabmargins", "focusthickness",
+                 "arrowsize", "sliderlength", "indicatormargin",
+                 "indicatorsize", "sashthickness", "indent")
+
 PROBE = r"""
 import json, sys
 from types import SimpleNamespace
 sys.path.insert(0, ".")
 from ui import scaling
 scaling.set_scale(sys.argv[1])
+PIXEL_OPTIONS = json.loads(sys.argv[2])
 import tkinter as tk
 from tkinter import ttk
 root = tk.Tk()
@@ -44,14 +53,22 @@ for cls, opts in scaling.CLASSIC_PIXELS.items():
     widget = getattr(tk, cls)(root)
     for opt in opts:
         classic[f"{cls}.{opt}"] = str(widget.cget(opt.lower()))
-print(json.dumps({"theme": theme, "classic": classic,
+styles = {}
+for name in root.tk.splitlist(root.tk.call("ttk::style", "theme",
+                                           "styles", "clam")):
+    for opt in PIXEL_OPTIONS:
+        value = style.configure(name, opt)
+        if value not in (None, ""):
+            styles[f"{name}.{opt}"] = str(value)
+print(json.dumps({"theme": theme, "classic": classic, "styles": styles,
                   "tables": [scaling.THEME_PIXELS, scaling.CLASSIC_PIXELS]}))
 root.destroy()
 """
 
 
 def _read(scale):
-    run = subprocess.run([sys.executable, "-c", PROBE, scale],
+    run = subprocess.run([sys.executable, "-c", PROBE, scale,
+                          json.dumps(PIXEL_OPTIONS)],
                          cwd=str(SOURCE_ROOT), capture_output=True,
                          text=True, stdin=subprocess.DEVNULL, timeout=120)
     if run.returncode:
@@ -97,4 +114,24 @@ def run():
                            f"{low['classic'][key]}, not Tk's own {value}: the "
                            f"table no longer says what Tk does, or the 100% "
                            f"layout moved")
+    for key, was in sorted(low["styles"].items()):
+        now = high["styles"].get(key)
+        one, two = _pixels(was), _pixels(now)
+        if one is None:
+            continue                     # in points: `tk scaling` has it
+        if two != [2 * value for value in one]:
+            out.append(f"at 200% the style option {key} reads {now!r} "
+                       f"where 100% reads {was!r}: not twice it, so "
+                       f"everything it spaces sits at its 100% distance. "
+                       f"Set it through `px`.")
     return out
+
+
+def _pixels(value):
+    """`value`'s whole-pixel components, or None when any is in points
+    or another unit `tk scaling` converts."""
+    try:
+        return [int(part) for part in str(value).replace("{", " ")
+                .replace("}", " ").split()]
+    except ValueError:
+        return None

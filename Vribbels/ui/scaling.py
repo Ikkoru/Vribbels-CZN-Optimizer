@@ -106,16 +106,20 @@ def factor():
 def px(distance):
     """`distance` in device pixels at the active scale.
 
-    Takes a number or a tuple of them, because half the distances in
-    this app are `padx=(left, right)` pairs and a wrapper that only
-    took scalars would need the pair pulled apart at every one of those
-    call sites.
+    Takes a number or a tuple or list of them, because half the
+    distances in this app are `padx=(left, right)` pairs and a wrapper
+    that only took scalars would need the pair pulled apart at every one
+    of those call sites.
+
+    A list is NOT a scalar here, though `*` takes one: `[10, 5] * 2` is
+    `[10, 5, 10, 5]`, which a ttk `padding` reads as four sides at their
+    100% values -- unscaled, and no error anywhere.
 
     Put this on the geometry call and not on the constant -- see the
     module docstring.
     """
-    if isinstance(distance, tuple):
-        return tuple(value * _factor for value in distance)
+    if isinstance(distance, (tuple, list)):
+        return type(distance)(value * _factor for value in distance)
     return distance * _factor
 
 
@@ -208,12 +212,15 @@ CLASSIC_PIXELS = {
 # the line doubles: then every distance from a border's inner edge is
 # twice its 100% one. The line itself staying 2px is the theme's limit.
 #
-# A label's border and padding are blank room, drawn as nothing, and
-# double like any distance.
+# A label's border is blank room, drawn as nothing, and doubles like
+# any distance. It is clam's border ELEMENT default, 2 -- the style
+# holds nothing -- and the label's padding is 0, so a label given a
+# padding of its own keeps the full 2px of border on each side.
 THEME_PIXELS = {
-    "TLabel": {"borderwidth": 1, "padding": 1},
+    "TLabel": {"borderwidth": 2},
     "TButton": {"focusthickness": 1},
     "TCombobox": {"padding": 1},
+    "TEntry": {"padding": 1},
 }
 
 

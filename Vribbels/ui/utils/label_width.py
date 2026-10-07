@@ -24,6 +24,8 @@ be true of the number, and only the first is obvious:
 
 from tkinter import font as tkfont
 
+from ui.scaling import px
+
 
 # What a ttk.Label asks for beyond its ink: the style's own inset,
 # measured on this theme. Half of it lands on each side, so a pinned
@@ -35,11 +37,12 @@ def column_px(texts, extra=0):
     """Pixel width for a column that must hold any of `texts`.
 
     `extra` is added on top, for a column that wants room beyond the
-    text itself -- a gap to whatever sits next to it, usually.
+    text itself -- a gap to whatever sits next to it, usually. It is
+    added as given, so a stated one comes through `px` already.
 
     Call at build time, not import: the font is not resolvable until a
     Tk root exists.
     """
     font = tkfont.nametofont("TkDefaultFont")
     widest = max((font.measure(t) for t in texts), default=0)
-    return widest + LABEL_REQUEST_INSET + extra
+    return widest + px(LABEL_REQUEST_INSET) + extra

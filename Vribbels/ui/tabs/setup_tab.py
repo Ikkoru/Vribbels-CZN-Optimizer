@@ -365,7 +365,10 @@ class SetupTab(BaseTab):
         font = tkfont.Font(font=INSTRUCTIONS_FONT)
         widest = max(font.measure(line)
                      for line in INSTRUCTIONS.splitlines() or [""])
-        return widest + 2 * INSTRUCTIONS_PAD + INSTRUCTIONS_CHROME
+        # The line is MEASURED, so it grew with the font already; only
+        # the stated pixels around it take `px`. Doubling the sum made
+        # the column twice the text at 200%, and the right one paid.
+        return widest + px(2 * INSTRUCTIONS_PAD + INSTRUCTIONS_CHROME)
 
     def setup_ui(self):
         """Build the tab: two columns, and the row that closes them."""
@@ -395,7 +398,7 @@ class SetupTab(BaseTab):
         # -- and the whole column is pinned rather than each panel in
         # it, so the three share one edge without three copies of the
         # number.
-        left = ttk.Frame(columns, width=px(self._instructions_width()))
+        left = ttk.Frame(columns, width=self._instructions_width())
         left.pack_propagate(False)
         left.pack(side=tk.LEFT, fill=tk.Y)
         right = ttk.Frame(columns)

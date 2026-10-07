@@ -5,6 +5,7 @@ import re
 import time
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter import font as tkfont
 import threading
 from capture import check_prerequisites, CaptureError
 from capture.constants import SERVERS
@@ -577,9 +578,14 @@ class CaptureTab(BaseTab):
         # the Requirements text, which sets the column's width, and the
         # column's width is what the Upgrade Log Settings panel beside
         # it does not get.
+        #
+        # MEASURED off the first word, so the break falls after it at
+        # every scale. A stated width that held the word at 100% cut it
+        # at 200%, where the face's advances round wider than double.
         self.debug_checkbox = make_checkbox(
             btn_frame, self.colors, text="Debug WS",
-            variable=self.debug_var, wraplength=px(35),
+            variable=self.debug_var,
+            wraplength=tkfont.Font(font=("Segoe UI", 9)).measure("Debug"),
         )
         # Enable to log every WebSocket message to a
         # websocket_debug_*.jsonl.gz file in the snapshots folder, one
@@ -743,7 +749,7 @@ class CaptureTab(BaseTab):
             insertbackground=self.colors["fg"],
             selectbackground=self.colors["select"],
             selectforeground=self.colors["fg"],
-            relief=tk.FLAT, bd=1, highlightthickness=px(0))
+            relief=tk.FLAT, bd=px(1), highlightthickness=px(0))
         # spacing: label ↔ its element -- label, entry ↔
         self._find_entry.pack(side=tk.LEFT, padx=px((FIND_CAPTION_GAP, 0)))
         self._find_var.trace_add("write", lambda *_a: self._mark_found())

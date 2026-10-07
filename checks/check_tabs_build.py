@@ -2959,7 +2959,6 @@ def _setup_columns_hold_their_shape(tab):
     configured width, the propagation flag, and which panels sit in
     which column. Returns a list of complaints.
     """
-    from ui.scaling import px
     from ui.tabs.setup_tab import INSTRUCTIONS, SetupTab
 
     out = []
@@ -2987,7 +2986,7 @@ def _setup_columns_hold_their_shape(tab):
                 "pins Setup Instructions' width has gone."]
 
     left, right = columns.winfo_children()
-    want = px(SetupTab._instructions_width())
+    want = SetupTab._instructions_width()
     if int(left.cget("width")) != want:
         out.append(
             f"the Setup & Settings tab's left column is {left.cget('width')}px wide, "
@@ -3271,10 +3270,11 @@ def _materials_figures_fit(tab):
     """
     from tkinter import font as tkfont
     from ui.tabs.materials_tab import (
-        COLUMN_SEP, MaterialsTab, STAT_FONT, TAB_FLOOR_PX)
+        COLUMN_SEP, MaterialsTab, STAT_FONT, _tab_floor)
 
     out = []
     stat = tkfont.Font(font=STAT_FONT)
+    floor = _tab_floor()
     reserved = MaterialsTab._value_column_px()
     blocks = [(key, row[0]) for key, row in tab.material_stats.items()]
     blocks += [(("advanced", index), figures)
@@ -3292,7 +3292,7 @@ def _materials_figures_fit(tab):
                 if index:
                     span = max(span, reserved)
                 stop = stops[index] if index < len(stops) else width
-                pen = max(stop - span, pen + TAB_FLOOR_PX) + span
+                pen = max(stop - span, pen + floor) + span
             if pen > width:
                 out.append(
                     f"{key} draws {line.strip()!r} out to {pen}px inside a "

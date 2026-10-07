@@ -578,8 +578,8 @@ class OptimizerGUI:
         # shown. `ui_runtime.md` has the measurements; ttk never does it.
         #
         # `borderwidth=0` is not cosmetic: TLabel's layout wraps the
-        # text in a `Label.border` of 1 and a `Label.padding` of 1, so
-        # a label is 4px taller and 4px wider than its own line. Every
+        # text in a `Label.border` of 2, clam's element default, so a
+        # label is 4px taller and 4px wider than its own line. Every
         # pad measured to those glyphs would carry the difference, and
         # `padding=0` on the widget does not reach the border.
         self.style.configure("Panel.TLabel",

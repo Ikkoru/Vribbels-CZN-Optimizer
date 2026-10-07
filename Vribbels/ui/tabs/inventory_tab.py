@@ -651,7 +651,7 @@ class InventoryTab(BaseTab):
             # pixel the window gains lands there instead of being shared
             # out across thirteen columns that were each sized to their
             # content. Left to Tk's default every column stretches.
-            self.inv_tree.column(col, width=w, anchor=anchor,
+            self.inv_tree.column(col, width=px(w), anchor=anchor,
                                  stretch=(col == "highest_potential"))
 
         inv_scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.inv_tree.yview)

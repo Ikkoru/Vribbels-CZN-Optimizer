@@ -259,7 +259,7 @@ STAT MIN - MAX ROLLS:
         _f = tkfont.Font(font=explain_text.cget("font"))
 
         def _stop_for(labels):
-            return max(_f.measure(f" - {lab}:") for lab in labels) + 8
+            return max(_f.measure(f" - {lab}:") for lab in labels) + px(8)
 
         _rolls_stop = _stop_for(("Flat ATK", "Flat DEF", "Flat HP",
                                  "ATK%/DEF%/HP%", "CRate", "CDMG",
@@ -365,8 +365,10 @@ STAT MIN - MAX ROLLS:
         )
         # "marker" is the icon gutter on the left -- narrow, fixed width.
         # "name" takes the rest of the available width.
-        self.preset_tree.column("marker", width=17, minwidth=17, stretch=False, anchor="w")
-        self.preset_tree.column("name", width=200, stretch=True, anchor="w")
+        self.preset_tree.column("marker", width=px(17), minwidth=px(17),
+                                stretch=False, anchor="w")
+        self.preset_tree.column("name", width=px(200), stretch=True,
+                                anchor="w")
         scrollbar.config(command=self.preset_tree.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.preset_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -396,7 +398,7 @@ STAT MIN - MAX ROLLS:
         label_col_px = [
             column_px([DISPLAY_NAMES.get(k, d)
                        for i, (k, d) in enumerate(STAT_DISPLAY_NAMES)
-                       if i % 2 == col], extra=LABEL_GAP_PX)
+                       if i % 2 == col], extra=px(LABEL_GAP_PX))
             for col in (0, 1)
         ]
 
@@ -456,7 +458,7 @@ STAT MIN - MAX ROLLS:
                 insertbackground=self.colors["fg"],
                 selectbackground=self.colors["select"],
                 selectforeground=self.colors["fg"],
-                relief=tk.FLAT, bd=1
+                relief=tk.FLAT, bd=px(1)
             )
             spin.grid(row=0, column=1, sticky="w", padx=px((0, 2)))
             # A tk.Spinbox's from_/to bound its buttons and its wheel,
@@ -540,7 +542,7 @@ STAT MIN - MAX ROLLS:
             insertbackground=self.colors["fg"],
             selectbackground=self.colors["select"],
             selectforeground=self.colors["fg"],
-            relief=tk.FLAT, bd=1, highlightthickness=px(0)
+            relief=tk.FLAT, bd=px(1), highlightthickness=px(0)
         ).grid(row=4, column=1, sticky="ew", padx=px(2), pady=px(2))
 
         # Row 5: Apply Selected Preset | Delete Selected Presets

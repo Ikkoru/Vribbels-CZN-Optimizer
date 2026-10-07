@@ -2767,7 +2767,7 @@ def _head_stop(font, label):
     that stop exactly -- there is nowhere else the gap could put it.
     """
     # spacing: label ↔ its element -- run, run ↔
-    return font.measure(label) + TEXT_INSET + LABEL_TO_VALUE
+    return font.measure(label) + px(TEXT_INSET + LABEL_TO_VALUE)
 
 
 
@@ -3125,7 +3125,7 @@ class ChecklistTab(BaseTab):
         labels = max(font.measure(label)
                      + (px(CHECKBOX_OVERHEAD) if _is_shop(key) else 0)
                      for key, label, _w in measured)
-        stop = labels + TEXT_INSET + LABEL_TO_VALUE
+        stop = labels + px(TEXT_INSET + LABEL_TO_VALUE)
         widest = max([font.measure(w) for _k, _l, w in votes] or [0])
         # **A shop heading's line is outside that column**, hanging off
         # its own words: its total, then its reserve, then anything
