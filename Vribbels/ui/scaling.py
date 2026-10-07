@@ -70,6 +70,15 @@ WINDOW_MIN_W, WINDOW_MIN_H = 1300, 800
 # the inch. That ratio is what `tk scaling` holds.
 POINTS_TO_PIXELS = 96 / 72
 
+# `tk scaling` at 200%, a little under twice the 100% ratio. Windows
+# fits every glyph and the line height to whole pixels separately at
+# each size, so the faithful double (9pt as 24px) draws digits 8% wider
+# and lines 2px taller than twice the 12px rendering. At this ratio each
+# face lands on the size nearest twice its 100% metrics: 9pt on 23px,
+# 10 on 26, 11 on 29, 12 on 31, 14 on 36 -- line heights within two
+# pixels, letters a few percent narrow.
+TEXT_SCALING_200 = 2.609
+
 # Set once, before any widget exists. A module-level factor is what
 # lets `px` be reached from every call site in the app without
 # threading a settings object through all of them; the cost is that it
@@ -174,7 +183,8 @@ def apply_font_scaling(root):
     from a font metric. Call before the first widget is built: a widget
     resolves its font, and its defaults, once.
     """
-    root.tk.call("tk", "scaling", POINTS_TO_PIXELS * _factor)
+    root.tk.call("tk", "scaling", TEXT_SCALING_200 if _factor == 2
+                 else POINTS_TO_PIXELS * _factor)
     if _factor == 1:
         return
     for widget_class, options in CLASSIC_PIXELS.items():
