@@ -188,7 +188,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **T21 — Tcl/Tk 9.1, once a Python ships it.** The program runs on the Tcl/Tk its Python bundles (9.0 with Python 3.14). `_tkinter` is built against that version's DLLs, so 9.1 arrives only with a Python release built on it. What 9.1 offers that could matter here:
 
-  - consistent dark mode on Windows, which may darken the native dialogs and message boxes;
+  - consistent dark mode on Windows, which may darken the native dialogs and message boxes. On 9.0 a message box is light, and at 200% its text looks washed out; if 9.1 fixes neither, the alternative is drawing the program's own message boxes (the file dialogs would stay native);
   - the mouse wheel scrolling an entry;
   - extended Treeview and Notebook states;
   - faster image painting in ttk widgets.
