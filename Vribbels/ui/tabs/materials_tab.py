@@ -553,6 +553,10 @@ GENERIC_TO_CHECKBOX = 5  # spacing: label ↔ its element -- frame, checkbox ↔
 # rather than the digits alone.
 VALUE_DIGITS = 4
 VALUE_WIDEST = "400%"
+# An EXP row's total counts exp, which runs to five digits. Its extra
+# digit comes off the LABEL side where the row's labels leave room, so
+# its values stay on the column's right edge with every other row's.
+EXP_VALUE_DIGITS = 5
 
 def _tab_floor():
     """The narrowest a Text will draw a TAB, whatever stop follows it.
@@ -723,9 +727,17 @@ class MaterialsTab(BaseTab):
             # `EXP_WEIGHTS`, not `TIER_WEIGHTS`: an EXP material is not
             # three of the tier below it, and the two families spell
             # their tiers alike.
+            # A wider value column, taken off the label side as far as
+            # the row's own labels allow. See EXP_VALUE_DIGITS.
+            value = self._value_column_px(EXP_VALUE_DIGITS)
+            extra = value - self._value_column_px()
+            stat = tkfont.Font(font=STAT_FONT)
+            own = max(stat.measure(word) for word in
+                      [TOTAL_LABEL] + [w for w, _cost in targets])
             self._build_row(add_row(), index, group, table, tiers, targets,
-                            EXP_WEIGHTS, label_width, label=name,
-                            takes_generic=False)
+                            EXP_WEIGHTS,
+                            max(own + _tab_floor(), label_width - extra),
+                            label=name, takes_generic=False, value_px=value)
 
         if spec.advanced:
             self._build_advanced_row(add_row(), index, spec)
@@ -734,7 +746,8 @@ class MaterialsTab(BaseTab):
             self._build_gacha_row(add_row(), spec)
 
     def _build_row(self, row, index, name, table, tiers, targets,
-                   weights, label_width, label=None, takes_generic=True):
+                   weights, label_width, label=None, takes_generic=True,
+                   value_px=None):
         """One class, Element or material: its name, figures, icons.
 
         `weights` prices this row's tiers in bottom-tier equivalents.
@@ -748,10 +761,12 @@ class MaterialsTab(BaseTab):
         never takes it however the checkbox is set.
 
         `label` overrides the heading, for a row whose group name
-        is not what the user calls it.
+        is not what the user calls it. `value_px` overrides the value
+        column's width, for an EXP row.
         """
         # The name, the `Total:` line, then one line per target.
-        block = label_width + px(LABEL_TO_VALUE) + self._value_column_px()
+        block = (label_width + px(LABEL_TO_VALUE)
+                 + (value_px or self._value_column_px()))
         figures = self._figures_block(
             row, block, 2 + len(targets), (label_width, block),
             ATTRIBUTE_COLORS.get(name, self.colors["fg"]), label or name)
@@ -973,7 +988,7 @@ class MaterialsTab(BaseTab):
         own list against the window each counts.
         """
         probe = make_heading(column, "")
-        top = probe.winfo_reqheight() + HEADING_GAP
+        top = probe.winfo_reqheight() + px(HEADING_GAP)
         probe.destroy()
 
         rows = ttk.Frame(column)
@@ -1100,16 +1115,16 @@ class MaterialsTab(BaseTab):
         return label_stop + px(LABEL_TO_VALUE) + value, label_stop
 
     @staticmethod
-    def _value_column_px():
+    def _value_column_px(digits=VALUE_DIGITS):
         """The reserved width of the figures' column, in pixels.
 
         Measured rather than stated: a digit's advance is the font's,
-        and the column has to hold `VALUE_DIGITS` of them. An advance
-        and nothing else -- the figures are runs inside a Text, which
-        puts no inset of its own around them the way a Label did.
+        and the column has to hold `digits` of them. An advance and
+        nothing else -- the figures are runs inside a Text, which puts
+        no inset of its own around them the way a Label did.
         """
         font = tkfont.Font(font=STAT_FONT)
-        return max(font.measure("0" * VALUE_DIGITS),
+        return max(font.measure("0" * digits),
                    font.measure(VALUE_WIDEST))
 
     @staticmethod

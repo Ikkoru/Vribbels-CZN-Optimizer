@@ -1253,7 +1253,9 @@ class SetupTab(BaseTab):
         * the button row and Delete Certificate's note share a middle,
           the note being the row's across the divide;
         * `Setup Instructions` and `Update Status` share a top;
-        * `Setup Instructions` and `Settings` share a bottom;
+        * `Setup Instructions` and `Settings` share a bottom -- where
+          Setup Instructions is the one short, it is made TALLER, so the
+          top it shares stays put;
         * `Links` and `Application Information` share both.
 
         **In ROOT coordinates.** `winfo_y` is relative to a widget's
@@ -1281,6 +1283,14 @@ class SetupTab(BaseTab):
             self.frame.update_idletasks()
             behind = at(first, edge) - at(second, edge)
             if not behind:
+                continue
+            if edge == "bottom" and behind < 0:
+                # Setup Instructions ends short of Settings: it GROWS
+                # to meet it rather than moving down, which would take
+                # its title off the line the top pair just set. Its
+                # text fills the panel, so the extra lands inside.
+                first.pack_propagate(False)
+                first.configure(height=first.winfo_height() - behind)
                 continue
             mover = second if behind > 0 else first
             pad = mover.pack_info().get("pady")

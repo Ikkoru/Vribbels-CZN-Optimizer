@@ -215,7 +215,11 @@ def _distances(widget, out, path=""):
     """Every pack/grid pixel option under `widget`, keyed by tree path."""
     for index, child in enumerate(widget.winfo_children()):
         here = f"{path}/{child.winfo_class()}[{index}]"
-        for getter in ("pack_info", "grid_info"):
+        # A widget whose pad is a difference of measured widths says so
+        # (`pad_measured`): the difference has no bound to hold it to.
+        getters = (() if getattr(child, "pad_measured", False)
+                   else ("pack_info", "grid_info"))
+        for getter in getters:
             try:
                 info = getattr(child, getter)()
             except Exception:               # not managed by that manager

@@ -356,20 +356,17 @@ FULL_COST_LABEL = "Full cost of selected items:"
 # What a rate reads as with a value and a name beside it.
 RATE_VALUE = "%s %s"
 
-# What a compact `tk.Checkbutton` costs beyond the width of its own
-# words: its indicator, and the gap Tk puts between the two. The column
-# reserves it so a checkbox row's words stop where a plain row's do.
+# A compact `tk.Checkbutton` costs its indicator and the gap Tk puts
+# between that and its words; the column reserves it so a checkbox
+# row's words stop where a plain row's do. `_checkbox_overhead` measures
+# it off a probe: the indicator grows with the display scale and the
+# gap with the face.
 #
-# **Measured from the widget's leftmost pixel to its TEXT's leftmost
-# pixel**, off the screen, which is the offset this is about: where a
-# checkbox row's words START. The widget's requested WIDTH is two more
-# than that -- trailing padding past the end of the text -- and taking
-# that instead pushes the reading column two right of where the words
-# need it.
-#
-# The same at any font size: the indicator and its gap are the
-# widget's own, so this does not follow `ROW_FONT`.
-CHECKBOX_OVERHEAD = 21
+# **To where the words START, not the widget's whole width**, which is
+# this much more at 100% -- trailing padding past the end of the text,
+# read off the screen. Taking the whole width pushes the reading column
+# that far right of where the words need it.
+CHECKBOX_TRAIL = 2
 
 # What a value says about the row it sits on. GREEN is nothing left to
 # do, RED is something left, and a row whose source a snapshot cannot
@@ -2459,8 +2456,7 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
 #
 # Everything the block is sized and spaced by is measured off this, so
 # changing it moves the rows, the stops and the block's height
-# together. The one thing that does not follow is `CHECKBOX_OVERHEAD`,
-# which is the widget's own and the same at any size.
+# together, the checkboxes' own widths included (`_checkbox_overhead`).
 ROW_FONT = ("Segoe UI", 10)
 
 # The Activities row reads `point_entity`, which the game writes ONLY
@@ -2800,6 +2796,7 @@ class ChecklistTab(BaseTab):
         self._period_labels = {}
         # How tall a line holding a checkbox is. See `_checkbox_line`.
         self._box_line = None
+        self._box_overhead = None
         # The full name behind a shortened product row, and the rates
         # behind a shop heading. One instance serves every target.
         self._tips = Tooltip(self.colors)
@@ -3123,7 +3120,7 @@ class ChecklistTab(BaseTab):
                  if w and not key.startswith(SHOP_HEAD_PREFIX)]
         measured = votes or [(key, label, w) for key, label, w in measure]
         labels = max(font.measure(label)
-                     + (px(CHECKBOX_OVERHEAD) if _is_shop(key) else 0)
+                     + (self._checkbox_overhead() if _is_shop(key) else 0)
                      for key, label, _w in measured)
         stop = labels + px(TEXT_INSET + LABEL_TO_VALUE)
         widest = max([font.measure(w) for _k, _l, w in votes] or [0])
@@ -3168,7 +3165,7 @@ class ChecklistTab(BaseTab):
             reach = max(reach, stops[-1] + font.measure(WIDEST_COUNTDOWN)
                         if len(stops) == 1 else
                         stops[-1] + font.measure(FINISHED_LABEL)
-                        + px(CHECKBOX_OVERHEAD))
+                        + self._checkbox_overhead())
         holder = tk.Frame(parent, width=max(stop + widest, reach),
                           height=self._block_height(
                               [key for key, _l, _w in rows]),
@@ -3308,9 +3305,23 @@ class ChecklistTab(BaseTab):
             probe = make_checkbox(self.frame, self.colors, text="Ag",
                                   compact=True, font=ROW_FONT)
             self._box_line = probe.winfo_reqheight()
+            self._box_overhead = (probe.winfo_reqwidth()
+                                  - tkfont.Font(font=ROW_FONT).measure("Ag")
+                                  - px(CHECKBOX_TRAIL))
             probe.destroy()
         return max(tkfont.Font(font=ROW_FONT).metrics("linespace"),
                    self._box_line)
+
+    def _checkbox_overhead(self):
+        """How far a checkbox row's words start from its left edge.
+
+        Off the same probe as `_checkbox_line`, for the same reason: the
+        indicator grows with the display scale and its gap to the words
+        with the face, so a number written down holds at one scale only.
+        See CHECKBOX_TRAIL.
+        """
+        self._checkbox_line()
+        return self._box_overhead
 
     def _block_height(self, keys):
         """A column's height: its rows and the space around each.

@@ -1898,6 +1898,13 @@ def main():
     # garbage collection can't release the lock mid-run.
     global _instance_lock
     _instance_lock = _acquire_single_instance_lock()
+    if _instance_lock is None and OptimizerGUI._spacing_audit_wanted():
+        # A rendered run reports to its console, where no one is
+        # watching for a dialog: the box below would sit unanswered on
+        # the maintainer's screen and the run would print nothing.
+        print("Vribbels CZN Optimizer is open; close it to run this.",
+              file=sys.stderr)
+        sys.exit(2)
     if _instance_lock is None:
         # A Tk root is fine here ONLY because the process exits straight
         # afterwards -- no second root ever follows it. See the comment

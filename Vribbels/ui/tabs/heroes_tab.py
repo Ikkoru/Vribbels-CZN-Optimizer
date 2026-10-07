@@ -230,11 +230,20 @@ CHAR_PANEL_BD = 2
 CHAR_TEXT_PADX = 4
 
 # spacing: border edge -> first non-button element -- panel, text ↕
-# What a ttk LabelFrame spends on itself vertically, so the bottom
-# inset reads like the top. It answers to `border edge -> first
-# non-button element`, and shows the usual descender spread. Targets
-# live in docs/ui_spacing.md, not here.
-PANEL_PAD_H = 33   # internal padding + border + title-bar height
+# What the Character panel spends vertically besides its lines, so the
+# bottom inset reads like the top: the card Text's `pady`, and what the
+# LabelFrame spends on itself -- its title's line, the title's bottom
+# margin (`labelmargins` in configure_styles) and clam's border above
+# and below. The border is 2px at every scale, the theme's limit
+# (docs/ui_spacing.md), so it alone takes no `px`. Targets live in
+# docs/ui_spacing.md, not here.
+#
+# Nothing spare: the panel fills whatever height its row is given, so
+# a margin added here is only ever height the panel BELOW must find,
+# and at 200%, where every line is a pixel past double, it cannot.
+CHAR_TEXT_PADY = 1
+PANEL_TITLE_MARGIN = 2
+PANEL_BORDER = 2
 
 # Lines the Character panel always reserves under each heading, filled
 # with blanks when there is less to say, so its height is the same for
@@ -837,7 +846,7 @@ class HeroesTab(BaseTab):
             char_frame, wrap=tk.NONE, height=6,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             font=_default_font(), bd=0, highlightthickness=px(0),
-            padx=px(4), pady=px(1),
+            padx=px(CHAR_TEXT_PADX), pady=px(CHAR_TEXT_PADY),
         )
         self.hero_char_text.pack(fill=tk.BOTH, expand=True)
         self.hero_char_text.config(state=tk.DISABLED)
@@ -1839,8 +1848,11 @@ class HeroesTab(BaseTab):
             if extra_h <= 1:                  # geometry not processed yet
                 extra_h = ((1 + len(CHAR_EXTRA_ROWS)) * line_default
                            + px(CHAR_EXTRA_INSET))
-            row_h = (CHAR_TOTAL_LINES * line_default + px(PANEL_PAD_H)
-                     + extra_h)
+            # The title is set in the card's own face, so its line is
+            # `line_default` too.
+            row_h = ((CHAR_TOTAL_LINES + 1) * line_default
+                     + px(2 * CHAR_TEXT_PADY + PANEL_TITLE_MARGIN)
+                     + 2 * PANEL_BORDER + extra_h)
 
             def _fix(frame, w, h):
                 frame.configure(width=int(w), height=int(h))

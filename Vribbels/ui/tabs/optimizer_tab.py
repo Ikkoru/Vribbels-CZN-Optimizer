@@ -1543,8 +1543,12 @@ class OptimizerTab(BaseTab):
         # spacing: label ↔ its element -- label, spinbox ↔
         # Not px() here: the caller scaled the lever and measured the
         # rest -- see _build_have_at_least.
-        ttk.Label(row, text=label_text, anchor=tk.W).pack(
-            side=tk.LEFT, padx=(0, label_pad))
+        label = ttk.Label(row, text=label_text, anchor=tk.W)
+        label.pack(side=tk.LEFT, padx=(0, label_pad))
+        # Read by checks/check_ui_scales: this pad is a gap plus the
+        # DIFFERENCE of two measured widths, which can grow past the
+        # font's own ratio without having been scaled twice.
+        label.pad_measured = True
         var = self.have_at_least_vars[stat]
         # %-valued stats (DoubleVar) display one decimal place and accept
         # decimal input; raw-integer stats keep the plain integer spinbox.

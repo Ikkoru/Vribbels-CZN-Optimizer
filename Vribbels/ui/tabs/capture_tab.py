@@ -148,7 +148,7 @@ def _log_preset_grid_width(widths, columns):
     """
     per = [max(widths[c::columns]) for c in range(columns)
            if widths[c::columns]]
-    return sum(per) + max(0, len(per) - 1) * LOG_PRESET_COLUMN_GAP
+    return sum(per) + px(max(0, len(per) - 1) * LOG_PRESET_COLUMN_GAP)
 
 # What the Region readout says before a capture has seen a connection.
 REGION_UNKNOWN = "not detected yet"
