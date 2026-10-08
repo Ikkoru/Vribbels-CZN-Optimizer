@@ -240,12 +240,11 @@ def declare_dpi_awareness():
     * Above 100% -- PER-MONITOR awareness. The text is already scaled
       by this program, and a system-aware window would have Windows
       scale it AGAIN on a scaled screen. Per-monitor awareness turns
-      that second scaling off. The cost is the `WM_DPICHANGED` that
-      comes with it: a drag across a DPI boundary resizes the window's
-      frame, which no cheap mechanism refuses -- a poll that puts the
-      size back gets it re-applied and the two oscillate. Asked for as
-      `PER_MONITOR_V2` first, so Windows sizes its own title bar and
-      dialogs for the screen.
+      that second scaling off. Asked for as `PER_MONITOR_V2` first, so
+      Windows sizes its own title bar and dialogs for the screen. What
+      comes with it is Windows resizing the window by the DPIs' ratio
+      when it is dragged onto another monitor; `ui/dpi_hold.py` answers
+      Windows' size query so the client area stays as it is.
 
     Before Tk opens its connection, and after `set_scale`: awareness is
     a property of the PROCESS and the first window fixes it. Failing is

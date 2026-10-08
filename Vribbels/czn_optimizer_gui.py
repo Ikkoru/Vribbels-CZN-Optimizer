@@ -440,6 +440,14 @@ class OptimizerGUI:
         # once it shows, the title bar paints in the default first.
         from ui.title_bar import apply_title_bar
         apply_title_bar(self.root, self.colors["fg"])
+        # Above 100%, held to its size when dragged onto a monitor of
+        # another DPI -- see `ui/dpi_hold.py`.
+        if scaling.factor() != 1:
+            from ui.dpi_hold import hold_size
+            try:
+                hold_size(self.root)
+            except (tk.TclError, OSError, ValueError, AttributeError):
+                pass
         # From here on the user sees it: every tab switch is held until
         # the tab is whole, and input reaching the window is noted for
         # the idle settler, from this moment -- see `ui/utils/presettle.py`.

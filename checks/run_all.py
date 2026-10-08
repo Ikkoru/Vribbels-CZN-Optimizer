@@ -105,6 +105,7 @@ from checks import (                                    # noqa: E402
     check_preset_weights,
     check_theme_scaling,
     check_window_render,
+    check_dpi_hold,
 )
 
 # Cheapest and most locally-caused first, so a broken edit reports
@@ -162,6 +163,7 @@ CHECKS = [
     check_event_shapes,
     check_audit_states,
     check_window_render,
+    check_dpi_hold,
     check_theme_scaling,
     check_tabs_build,
     check_type_ahead,
