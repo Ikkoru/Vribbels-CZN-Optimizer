@@ -332,6 +332,19 @@ CHAR_EXTRA_FLOOR = 1       # spacing: border edge -> first non-button element --
 # wordings, and every element/class pair the tables can produce, which
 # is what says a combatant nobody owns yet would clip.
 CHAR_CONTENT_PX = 177
+# The shapes the card's widest line takes, which the panel grows by
+# above 100% (`text_px`): the details line, the Affinity bonus, and a
+# node line. Each grows by its own amount at a pixel size, and the
+# bonus line, mostly digits, outgrows a mix of words. Two details
+# lines, because which is the wider changes with the pixel size.
+# `check_character_card_scales` holds every line the tables can make
+# to the panel at every scale.
+CHAR_WIDE_LINES = (
+    "61/62  |  4*  |  Passion  |  Vanguard",
+    "61/62  |  4*  |  Instinct  |  Controller",
+    "  Bonus: ATK+39, DEF+12, HP+36",
+    "Node 5.1: Lv3  CDMG +12%",
+)
 
 # spacing: border edge -> first non-button element -- panel, text ↔
 # The panel's fixed width, and NOTHING SPARE in it: its widest line,
@@ -343,7 +356,8 @@ CHAR_CONTENT_PX = 177
 # Each part at its own scale: the line grows with the face
 # (`text_px`), the inset with `px`, and clam's border not at all.
 def _char_panel_w():
-    return (text_px(CHAR_CONTENT_PX) + px(2 * CHAR_TEXT_PADX)
+    return (text_px(CHAR_CONTENT_PX, samples=CHAR_WIDE_LINES)
+            + px(2 * CHAR_TEXT_PADX)
             + 2 * CHAR_PANEL_BD)
 # Six fixed lines and the `Potential:` heading among them, then one per
 # node, then "Sets:" + its lines, then "Stats:" + one per stat row.

@@ -487,13 +487,15 @@ class OptimizerGUI:
 
     @staticmethod
     def _spacing_audit_wanted():
-        """Whether this launch is a rendered run: the spacing audit, or
-        the scale survey (`ui/scale_survey.py`). Either keeps the window
-        unseen from launch to exit."""
+        """Whether this launch is a rendered run: the spacing audit, the
+        scale survey (`ui/scale_survey.py`) or the font gauge
+        (`ui/font_gauge.py`). Each keeps the window unseen from launch
+        to exit."""
         return ("--spacing-audit" in sys.argv
                 or "--spacing-audit-verbose" in sys.argv
                 or "--spacing-audit-freeze" in sys.argv
                 or "--scale-survey" in sys.argv
+                or "--font-gauge" in sys.argv
                 or os.environ.get("CZN_SPACING_AUDIT") in ("1", "verbose"))
 
     def _maybe_schedule_spacing_audit(self):
@@ -530,6 +532,16 @@ class OptimizerGUI:
                     scale_survey.survey(self)
                 except Exception as exc:                  # noqa: BLE001
                     print(f"scale survey failed: {exc}")
+                self.root.destroy()
+                return
+            if "--font-gauge" in sys.argv:
+                from ui import font_gauge
+                try:
+                    font_gauge.gauge(self)
+                except Exception as exc:                  # noqa: BLE001
+                    import traceback
+                    traceback.print_exc()
+                    print(f"font gauge failed: {exc}")
                 self.root.destroy()
                 return
             try:

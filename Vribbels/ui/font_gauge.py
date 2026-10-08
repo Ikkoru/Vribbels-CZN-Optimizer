@@ -1,0 +1,247 @@
+"""Whether a UI scale's fonts fit: the two places that say so first.
+
+Each scale above 100% draws its text at a pixel size chosen near its
+100% metrics times the scale (`scaling.TEXT_SCALING`), and whole pixels
+land a little over or under. Text a little too TALL or too WIDE for its
+scale shows first in one place per axis, and this measures both:
+
+* **Height -- an Equipped Memory Fragments cell.** Its height is stated
+  (`GEAR_CELL_H`), and at 100% it holds five lines and the longest set
+  effect in the game, wrapped to three rows, with no pixel to spare. A
+  line too tall -- or a face too wide, wrapping the effect to a fourth
+  row -- pushes the effect's last row out of the cell.
+* **Width -- the Memory Fragments list's Main column.** Of the widths
+  stated in pixels, the one with the least room beside its widest text
+  (`Passion% 16.0%`), so the first a wider font clips. A width measured
+  off its text, or grown with it (`scaling.text_px`), follows the font
+  and is no gauge; telling the two apart is a matter of running two
+  font sizes at one scale and seeing whose room moved.
+
+  Every other place a width holds text is listed too -- a list's
+  columns, an unwrapped text block's lines, a label or button held to a
+  width, and a gear cell's first row, which wraps if it does not fit --
+  as clips, and the nearest to clipping by their room as a share of
+  their text.
+
+Run by `--font-gauge` on an app built and laid out at the scale asked
+for (`--audit-scale`), rendered and never shown; `docs/font_gauge.py`
+runs every scale. Prints a report and exits.
+"""
+
+import math
+import tkinter as tk
+from tkinter import font as tkfont
+from tkinter import ttk
+
+from game_data.sets import SETS
+from ui import scaling
+from ui.tabs.heroes_tab import GEAR_CELL_H
+
+# How many rows of slack to list beside the clips: enough to see which
+# place is nearest, and the ones queued behind it.
+NEAREST = 12
+
+# The width gauge: the tab's name and the end of the list column's
+# path, as the width rows carry them.
+WIDTH_GAUGE = ("Memory Fragments", ":main")
+
+
+def gauge(app):
+    """Print the height and width reports for the running scale."""
+    ratio = float(app.root.tk.call("tk", "scaling"))
+    # Tk's own conversion on Windows: MulDiv(points, int(ratio * 72), 72).
+    nine = math.floor(9 * int(ratio * 72) / 72 + 0.5)
+    print(f"\n--- font gauge, {scaling.percent()}%, tk scaling {ratio:.3f}, "
+          f"Segoe UI 9 at {nine}px ---")
+    _height(app)
+    rows = []
+    for tab_id in app.notebook.tabs():
+        name = app.notebook.tab(tab_id, "text")
+        app.notebook.select(tab_id)
+        app.root.update()
+        page = app.root.nametowidget(tab_id)
+        rows.extend((name,) + row for row in _widths(page))
+    _width_report(rows)
+
+
+# ------------------------------------------------------------- height
+
+def _longest_set(widget):
+    """The set line wrapped furthest: the set with the widest text."""
+    face = tkfont.Font(root=widget, font=("Segoe UI", 9))
+    texts = [f"{s['name']} ({s['pieces']}) {s.get('bonus', '')}"
+             for s in SETS.values()]
+    return max(texts, key=face.measure)
+
+
+def _count(text, start, end, what):
+    got = text.count(start, end, what)
+    return got[0] if isinstance(got, tuple) else (got or 0)
+
+
+def _height(app):
+    heroes = app.heroes_tab_instance
+    cells = list(getattr(heroes, "gear_cells", {}).values())
+    if not cells:
+        print("height: no gear cells built")
+        return
+    app.notebook.select(heroes.frame)
+    app.root.update()
+    cell = cells[0]
+    cell.config(state=tk.NORMAL)
+    cell.delete("1.0", tk.END)
+    # The shape every filled cell has: a top row, four substat rows,
+    # and the set line -- the longest set effect in the game, wrapped
+    # as the cell wraps it. The top row's width is the width report's.
+    cell.insert(tk.END, "Flat HP  +36.6\tGS: 69\tIII Denial  +5",
+                ("toprow",))
+    for _ in range(4):
+        cell.insert(tk.END, "\n\t100\tFlat DEF +13 (5 | +4, +4)",
+                    ("subrow",))
+    cell.insert(tk.END, "\n" + _longest_set(cell), ("set_live",))
+    app.root.update_idletasks()
+    # `displaylines` counts the breaks between a line's rows, not rows.
+    set_rows = _count(cell, "6.0", "6.end", "displaylines") + 1
+    inset = (int(cell.cget("bd")) + int(cell.cget("highlightthickness"))
+             + int(cell.cget("pady")))
+    room = cell.winfo_height() - 2 * inset
+    # Less the space after the last line, which is blank and clips no
+    # text.
+    need = (_count(cell, "1.0", "end", "ypixels")
+            - int(cell.cget("spacing3")))
+    line = tkfont.Font(root=cell, font=cell.cget("font")).metrics(
+        "linespace")
+    print(f"height: gear cell {'CLIPPED' if need > room else 'fits'}: "
+          f"{room - need:+d}px beside five lines and the longest set "
+          f"effect, {set_rows} rows of it ({need} of {room}px, {line}px "
+          f"a line; cell {cell.winfo_height()}px, stated "
+          f"{scaling.px(GEAR_CELL_H)}px, inset {inset}px)")
+
+
+# -------------------------------------------------------------- width
+
+def _walk(widget):
+    for child in widget.winfo_children():
+        yield child
+        yield from _walk(child)
+
+
+def _style_font(widget, style, name, fallback):
+    return tkfont.Font(root=widget,
+                       font=style.lookup(name, "font") or fallback)
+
+
+def _widths(page):
+    """(where, what, room, need) for every stated width holding text."""
+    style = ttk.Style()
+    out = []
+    for widget in _walk(page):
+        if not widget.winfo_ismapped():
+            continue
+        cls = widget.winfo_class()
+        if cls == "Treeview":
+            out.extend(_tree(widget, style))
+        elif cls == "Text":
+            out.extend(_text(widget))
+        elif cls in ("TLabel", "Label", "TButton", "Button",
+                     "Checkbutton", "TCheckbutton"):
+            try:
+                if int(str(widget.cget("wraplength")) or 0) > 0:
+                    continue
+            except (tk.TclError, ValueError):
+                pass
+            text = _text_of(widget)
+            # A widget at its own width has no slack to report: only
+            # one squeezed below what it asks for says anything.
+            if text and widget.winfo_width() < widget.winfo_reqwidth():
+                out.append((str(widget), text[:40], widget.winfo_width(),
+                            widget.winfo_reqwidth()))
+    return out
+
+
+def _text_of(widget):
+    try:
+        text = widget.cget("text")
+    except tk.TclError:
+        return ""
+    return text if isinstance(text, str) else ""
+
+
+def _tree(tree, style):
+    body = _style_font(tree, style, tree.cget("style") or "Treeview",
+                       "TkDefaultFont")
+    head = _style_font(tree, style, "Heading", "TkHeadingFont")
+    columns = tree["displaycolumns"]
+    if columns in ("#all", ("#all",)):
+        columns = tree["columns"]
+    items = tree.get_children("")
+    out = []
+    for index, column in enumerate(tree["columns"]):
+        if column not in columns:
+            continue
+        width = int(tree.column(column, "width"))
+        if width <= 1:
+            continue
+        heading = str(tree.heading(column, "text"))
+        widest, text = head.measure(heading), heading
+        for item in items:
+            values = tree.item(item, "values")
+            if index < len(values):
+                value = str(values[index])
+                w = body.measure(value)
+                if w > widest:
+                    widest, text = w, value
+        out.append((f"{tree}:{column}", text[:40], width, widest))
+    return out
+
+
+def _text(text):
+    """Unwrapped lines against the box, and a gear cell's first row."""
+    inner = (text.winfo_width()
+             - 2 * (int(text.cget("bd")) + int(text.cget("highlightthickness"))
+                    + int(text.cget("padx"))))
+    if inner <= 1:
+        return []
+    out = []
+    wrap = str(text.cget("wrap"))
+    lines = int(text.index("end-1c").split(".")[0])
+    if wrap == "none":
+        widest, which = 0, ""
+        for n in range(1, lines + 1):
+            span = text.count(f"{n}.0", f"{n}.end", "xpixels")
+            span = span[0] if isinstance(span, tuple) else (span or 0)
+            if span > widest:
+                widest, which = span, text.get(f"{n}.0", f"{n}.end")
+        if widest:
+            out.append((str(text), which.strip()[:40], inner, widest))
+    elif "toprow" in text.tag_names():
+        rows = text.count("1.0", "1.end", "displaylines")
+        rows = rows[0] if isinstance(rows, tuple) else rows
+        if rows and rows > 1:
+            out.append((str(text) + ":toprow", text.get("1.0", "1.end")[:40],
+                        0, 1))
+    return out
+
+
+def _width_report(rows):
+    for tab, where, what, room, need in rows:
+        if tab == WIDTH_GAUGE[0] and where.endswith(WIDTH_GAUGE[1]):
+            print(f"width: Main column {'CLIPPED' if need > room else 'fits'}"
+                  f": {room - need:+d}px, {100 * (room - need) / need:+.1f}% "
+                  f"beside {what!r} ({need} of {room}px)")
+            break
+    else:
+        print("width: the Main column was not found")
+    clips = [r for r in rows if r[4] > r[3]]
+    print(f"width: {len(clips)} clipped, of {len(rows)} measured")
+    for tab, where, what, room, need in clips:
+        print(f"   CLIPPED {tab}: {where[-48:]} {what!r} needs {need}, "
+              f"has {room}")
+    # A width that fits its text EXACTLY was measured off it, and grows
+    # with any font: it cannot be the first to clip.
+    nearest = sorted((r for r in rows if 0 < r[4] < r[3]),
+                     key=lambda r: (r[3] - r[4]) / r[4])[:NEAREST]
+    print("   nearest to clipping (room beside the widest text):")
+    for tab, where, what, room, need in nearest:
+        print(f"   {100 * (room - need) / need:5.1f}% {room - need:+4d}px  "
+              f"({need} of {room})  {tab}: {where[-48:]} {what!r}")

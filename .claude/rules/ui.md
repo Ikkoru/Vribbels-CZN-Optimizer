@@ -36,4 +36,5 @@ Mapping a window puts it on the maintainer's screen. A probe maps at alpha 0 ins
 | Which widgets a change moved    | Build the tabs the `check_tabs_build.py` way, snapshot every row's values before and after, diff     |
 | A rendered GAP, in pixels       | `zRUN Spacing Audit Verbose.bat` — every registered gap at both scales, read off the rendered window. Invisible; needs no asking |
 | What a scale does to every widget | `python docs/scale_survey.py [--scale=150%]` — sizes against the 100% ones scaled (200% by default), clipping, and each tab at both scales as images to look at |
+| Whether a scale's fonts fit     | `python docs/font_gauge.py [150%=1.82]` -- the gear cell's height and the Memory Fragments Main column's width at every scale, or at a `tk scaling` to try. Invisible |
 | Something only the screen shows | A side-by-side repro in `_tmp/` — the maintainer runs it, so it goes in the repo, not the scratchpad |

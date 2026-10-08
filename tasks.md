@@ -238,7 +238,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 - **T15 — Scaling in 25% increments.** 125%, 150% and 175% are in the dropdown. What is left:
 
   - **Their baselines**, frozen by the maintainer with `zRUN Spacing Audit Scales.bat` once the layout at each is accepted.
-  - **175% misses more than the others**: its 9pt lands on 20px with a 28px line where 26.25 is wanted, so text-led vertical gaps run +4 to +5. A ratio that picks 19px trades that for narrower letters; worth a look on a real screen.
+  - **The font sizes, on a real screen.** Each scale's is the largest the font gauge passes (`docs/font_gauge.py`), which puts 9pt one pixel under the last choice everywhere, 200% included.
 
 ### Pondering
 

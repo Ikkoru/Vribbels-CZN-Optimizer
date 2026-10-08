@@ -380,22 +380,14 @@ def _character_card_lines_fit():
     Returns a list of complaints.
     """
     from tkinter import font as tkfont
-    from game_data.characters import (
-        CHARACTERS, POTENTIAL_NODES, get_potential_node_does,
-        get_potential_stat, get_potential_stat_bonus)
-    from game_data.constants import DISPLAY_NAMES
+    from game_data.characters import POTENTIAL_NODES
     from ui.tabs.heroes_tab import (
         CHAR_CONTENT_PX, CHAR_NODE_TAB_DESC, CHAR_NODE_TAB_LEVEL,
         CHAR_NODE_TAKEN, CHAR_NODE_UNTAKEN, CHAR_SUBLIST_INDENT)
 
     measure = tkfont.nametofont("TkDefaultFont").measure
     out = []
-    widest = {"does": ("", 0)}
     pair = ("", 0)
-
-    def consider(column, text):
-        if text and measure(text) > widest[column][1]:
-            widest[column] = (text, measure(text))
 
     for node in POTENTIAL_NODES:
         label = f"{CHAR_SUBLIST_INDENT}Node {node.shown}:"
@@ -406,25 +398,6 @@ def _character_card_lines_fit():
             width = measure(label) + measure(level)
             if width > pair[1]:
                 pair = (f"{label}{level}", width)
-
-    for res_id, data in CHARACTERS.items():
-        if not isinstance(data, dict):
-            continue
-        for node in POTENTIAL_NODES:
-            if not node.stat:
-                consider("does", get_potential_node_does(res_id, node))
-                continue
-            for level in range(0, node.max_level + 1):
-                stat, bonus = get_potential_stat_bonus(
-                    res_id, node.wire, level)
-                if stat is None:
-                    stat, bonus = get_potential_stat(res_id, node.wire), None
-                if stat is None:
-                    continue
-                what = DISPLAY_NAMES.get(stat, stat)
-                if bonus:
-                    what = f"{what} +{bonus:g}%"
-                consider("does", what)
 
     if pair[1] > CHAR_NODE_TAB_LEVEL:
         out.append(
@@ -442,7 +415,7 @@ def _character_card_lines_fit():
             f"or before it is pushed right on every line."
         )
 
-    text, width = widest["does"]
+    text, width = _widest_node_wording(measure)
     if CHAR_NODE_TAB_DESC + width > CHAR_CONTENT_PX:
         out.append(
             f"the Character card's widest node line is "
@@ -467,6 +440,42 @@ def _character_card_lines_fit():
             f"panel is a fixed width and the Text does not wrap."
         )
     return out
+
+
+def _widest_node_wording(measure):
+    """(text, px) for the widest third column any node line can show:
+    what the node does, from the game data, for every combatant."""
+    from game_data.characters import (
+        CHARACTERS, POTENTIAL_NODES, get_potential_node_does,
+        get_potential_stat, get_potential_stat_bonus)
+    from game_data.constants import DISPLAY_NAMES
+
+    best = ("", 0)
+
+    def consider(text):
+        nonlocal best
+        if text and measure(text) > best[1]:
+            best = (text, measure(text))
+
+    for res_id, data in CHARACTERS.items():
+        if not isinstance(data, dict):
+            continue
+        for node in POTENTIAL_NODES:
+            if not node.stat:
+                consider(get_potential_node_does(res_id, node))
+                continue
+            for level in range(0, node.max_level + 1):
+                stat, bonus = get_potential_stat_bonus(
+                    res_id, node.wire, level)
+                if stat is None:
+                    stat, bonus = get_potential_stat(res_id, node.wire), None
+                if stat is None:
+                    continue
+                what = DISPLAY_NAMES.get(stat, stat)
+                if bonus:
+                    what = f"{what} +{bonus:g}%"
+                consider(what)
+    return best
 
 
 def _widest_details_line(measure):

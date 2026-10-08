@@ -52,6 +52,7 @@ an audit run picks its scale with `--audit-scale` rather than through
 
 import ctypes
 import math
+import os
 
 # What the dropdown offers, and what each is worth. 200% is the one
 # whole multiple: every pixel doubles with no remainder, and the icon
@@ -73,21 +74,19 @@ WINDOW_MIN_W, WINDOW_MIN_H = 1300, 800
 # the inch. That ratio is what `tk scaling` holds.
 POINTS_TO_PIXELS = 96 / 72
 
-# `tk scaling` above 100%, each a little under the scale times the 100%
-# ratio. Windows fits every glyph and the line height to whole pixels
-# separately at each size, so the faithful ratio (9pt as 24px at 200%)
-# draws digits 8% wider and lines 2px taller than twice the 12px
-# rendering. At these ratios each face lands on the pixel size nearest
-# its 100% metrics times the scale -- at 200%, 9pt on 23px, 10 on 26,
-# 11 on 29, 12 on 31, 14 on 36: line heights within two pixels, letters
-# a few percent narrow.
+# `tk scaling` above 100%, each under the scale times the 100% ratio.
+# Windows fits every glyph and the line height to whole pixels
+# separately at each size, so the faithful ratio draws text taller and
+# wider than the 100% rendering scaled, and a stated size built for
+# that rendering clips.
 #
-# Searched, not derived: Tk on Windows asks for a font of
-# MulDiv(points, int(scaling * 72), 72) pixels, so a ratio only ever
-# picks one pixel size per face, and each candidate was scored on line
-# height and widths across every face the app uses, weighted by how
-# much of it is in each.
-TEXT_SCALING = {1.25: 1.627, 1.5: 1.904, 1.75: 2.252, 2: 2.609}
+# Each is the ratio that puts Segoe UI 9 on the largest pixel size the
+# font gauge (`ui/font_gauge.py`) passes, at the top of that size's
+# range: Tk on Windows asks for a font of
+# MulDiv(points, int(scaling * 72), 72) pixels, so a range of ratios
+# draws 9pt alike, and the top of it keeps the other faces largest.
+# A candidate is tried with `docs/font_gauge.py <scale>=<ratio>`.
+TEXT_SCALING = {1.25: 1.604, 1.5: 1.826, 1.75: 2.160, 2: 2.493}
 
 # Set once, before any widget exists. A module-level factor is what
 # lets `px` be reached from every call site in the app without
@@ -183,7 +182,7 @@ TEXT_SAMPLE = "Node 5.1: Basics Improved  ATK 1340  Crit% 67.2%  Element"
 _text_ratios = {}
 
 
-def text_px(distance, face=("Segoe UI", 9)):
+def text_px(distance, face=("Segoe UI", 9), samples=(TEXT_SAMPLE,)):
     """A stated distance that holds TEXT, at the active scale.
 
     Some widths were measured off the text they hold at 100% and
@@ -193,20 +192,28 @@ def text_px(distance, face=("Segoe UI", 9)):
     few percent narrow of double. `px` would leave such a column wider
     than its text by that much; this grows it by what `face` grew by.
 
+    By what the most-grown of `samples` grew by. A width that must hold
+    whichever of several lines is widest -- a panel that does not wrap
+    -- passes those lines' shapes: digits and letters each grow by
+    their own amount at a pixel size, so one mix can grow less than the
+    line it is sized for, and that line clips.
+
     The 100% width comes from the same face asked for in PIXELS, which
     `tk scaling` does not touch. Needs a Tk root. Nothing at 100%.
     """
     if _factor == 1:
         return distance
-    if face not in _text_ratios:
+    key = (face, tuple(samples))
+    if key not in _text_ratios:
         from tkinter import font as tkfont
         family, size, *style = face
         weight = "bold" if "bold" in style else "normal"
         then = tkfont.Font(family=family, weight=weight,
                            size=-round(size * POINTS_TO_PIXELS))
-        _text_ratios[face] = (tkfont.Font(font=face).measure(TEXT_SAMPLE)
-                              / then.measure(TEXT_SAMPLE))
-    return math.floor(distance * _text_ratios[face] + 0.5)
+        now = tkfont.Font(font=face)
+        _text_ratios[key] = max(now.measure(sample) / then.measure(sample)
+                                for sample in samples)
+    return math.floor(distance * _text_ratios[key] + 0.5)
 
 
 # What each scale asks Windows for: PROCESS_SYSTEM_DPI_AWARE (1) at
@@ -268,6 +275,21 @@ def declare_dpi_awareness():
         return f"not declared ({exc})"
 
 
+def trial_text_scaling():
+    """A `tk scaling` to try in place of the scale's own, or None.
+
+    Read from `VRIBBELS_TEXT_SCALING`, which only `docs/font_gauge.py`
+    sets: it is how a candidate is measured before it goes into
+    `TEXT_SCALING`. Ignored at 100%, whose fonts are the reference.
+    """
+    if _factor == 1:
+        return None
+    try:
+        return float(os.environ["VRIBBELS_TEXT_SCALING"])
+    except (KeyError, ValueError):
+        return None
+
+
 def apply_font_scaling(root):
     """Scale every font by the active factor, and the classic widgets'
     own pixel defaults with them (`CLASSIC_PIXELS`).
@@ -277,7 +299,7 @@ def apply_font_scaling(root):
     from a font metric. Call before the first widget is built: a widget
     resolves its font, and its defaults, once.
     """
-    root.tk.call("tk", "scaling", TEXT_SCALING.get(
+    root.tk.call("tk", "scaling", trial_text_scaling() or TEXT_SCALING.get(
         _factor, POINTS_TO_PIXELS * _factor))
     if _factor == 1:
         return
