@@ -242,7 +242,7 @@ Two rules, and the second is the one that bites:
 
 **A font does not double to the pixel either**, and that rounding is the one miss at 200% that is accepted: a point size lands on whole pixels separately at each scale (11pt is 15px at 100% and 29 at 200%), and its line spacing and glyph widths are hinted per size. No size matches the 100% one scaled in every metric -- 12px Segoe UI is hinted narrow and short -- so each scale above 100% sets `tk scaling` a little under the scale (`scaling.TEXT_SCALING`), which puts each face on the size nearest its 100% line height and widths scaled: at 200%, 9pt on 23px, not 24. What the theme states in points is then restated as its 100% pixels through `px` (`scale_theme`), since that ratio no longer scales it exactly. A width measured off text at 100% and written down takes `text_px`, which grows it by what the face grew by rather than by the scale. `docs/scale_survey.py --scale=<n>%` compares every widget at a scale with its 100% size scaled, writing what differs and an image of each tab at both.
 
-Icons double by NEAREST NEIGHBOUR at 200%, which is exact at a whole multiple -- every source pixel becomes a square of copies. Between 100% and 200% they are resampled (`image_utils._resample`): there is no art larger than 112x113 in the repo, so anything between invents what it draws.
+Icons double by NEAREST NEIGHBOUR at 200%, which is exact at a whole multiple -- every source pixel becomes a square of copies. Between 100% and 200% they are resampled with Lanczos3 and a light sharpen (`image_utils._resized`): there is no art larger than 112x113 in the repo, so anything between invents what it draws.
 
 ## Fonts in use
 

@@ -19,7 +19,7 @@ import os
 import threading
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont, ImageTk
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageTk
 
 from .. import scaling
 from ui.scaling import px
@@ -34,8 +34,8 @@ from ui.scaling import px
 # are equal and no resample happens at all.
 #
 # There is no art larger than `ICON_NATIVE_SIZE` in the repo, so the
-# scales between 100% and 200% resample whatever `_resample` picks, and
-# invent what they draw.
+# scales between 100% and 200% resample (`_resized`), and invent what
+# they draw.
 ICON_NATIVE_SIZE = (112, 113)
 
 
@@ -139,6 +139,14 @@ def _flattened(img, background):
     return flat.convert("RGB")
 
 
+# The sharpen after a fractional upscale: radius in output pixels, and
+# a strength scored best of the ones tried. Lanczos alone softens the
+# edges it interpolates; the 70 icons, shrunk and scaled back up to
+# 125%, 150% and 175%, came closest to themselves on SSIMULACRA2 with
+# 40-60% added, and worse past it.
+SHARPEN = ImageFilter.UnsharpMask(radius=1, percent=50, threshold=0)
+
+
 def _resample(source, target):
     """Which filter takes `source` to `target`.
 
@@ -150,6 +158,23 @@ def _resample(source, target):
     whole = all(t % s == 0 and t >= s for s, t in zip(source, target))
     return (Image.Resampling.NEAREST if whole
             else Image.Resampling.LANCZOS)
+
+
+def _resized(img, size):
+    """`img` at `size`: NEAREST at a whole multiple, otherwise LANCZOS
+    followed, on an upscale, by `SHARPEN`.
+
+    Both in premultiplied alpha (RGBa): filtered straight, a pixel's
+    colour counts at full weight however transparent it is, and the
+    invisible colour around the art bleeds into its edges.
+    """
+    method = _resample(img.size, size)
+    if method is Image.Resampling.NEAREST:
+        return img.resize(size, method)
+    out = img.convert("RGBa").resize(size, method)
+    if size[0] > img.width:
+        out = out.filter(SHARPEN)
+    return out.convert("RGBA")
 
 
 def _plate_side(size):
@@ -188,7 +213,7 @@ def _plated(icon, plate_path, size):
         return icon
     plate = _image(plate_path)
     side = _plate_side(size)
-    plate = plate.resize((side, side), _resample(plate.size, (side, side)))
+    plate = _resized(plate, (side, side))
     canvas = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
     canvas.alpha_composite(plate, dest=((size[0] - side) // 2,
                                         (size[1] - side) // 2))
@@ -208,7 +233,7 @@ def _art_on_disk(icon_path, plate_path, size):
     if icon_path:
         img = _image(icon_path)
         if img.size != size:
-            img = img.resize(size, _resample(img.size, size))
+            img = _resized(img, size)
     else:
         img = Image.new("RGBA", size, (0, 0, 0, 0))
     return _plated(img, plate_path, size)

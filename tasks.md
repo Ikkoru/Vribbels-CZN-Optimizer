@@ -237,7 +237,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **T15 — Scaling in 25% increments.** 125%, 150% and 175% are in the dropdown. What is left:
 
-  - **The icons' filter between 100% and 200%.** Lanczos for now. `_tmp/icon_scaling.py` writes `_tmp/icon_scaling.png`, each filter beside the others at each scale, 1:1; the maintainer picks, and both go once the choice is in.
   - **Their baselines**, frozen by the maintainer with `zRUN Spacing Audit Scales.bat` once the layout at each is accepted.
   - **175% misses more than the others**: its 9pt lands on 20px with a 28px line where 26.25 is wanted, so text-led vertical gaps run +4 to +5. A ratio that picks 19px trades that for narrower letters; worth a look on a real screen.
 
