@@ -2295,6 +2295,10 @@ WINDOW_EDGE_ENTRIES = [
          lambda app: app.optimizer_tab_instance.status_label.master)),
     ("Combatants", "Partner -> window edge", 4, None,
      _to_window_edge(_panel_at("Partner"))),
+    # The gear cells' right column, held to the same edge as Partner
+    # above it: the column is as wide as the cells.
+    ("Combatants", "Equipped MF cells -> window edge", 4, None,
+     _to_window_edge(lambda app: app.heroes_tab_instance.gear_cells[4])),
     # The status lines, stacked at the toolbar's right end. Read on the
     # line that is showing; with none, the entry says it painted nothing.
     ("Stats & Gacha History", "status lines -> window edge", 4, None,
@@ -2805,9 +2809,9 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
     `needles` find the lines by their words rather than by number, so a
     line inserted above them moves the reading instead of silently
     changing which row is read. **Include the TAB** where the words
-    could occur in prose too: `ATK` alone first matches the
-    `Bonus: ATK+39` line, whose painted bands are the words of a
-    sentence and not columns at all.
+    could occur in prose too: `ATK` alone also matches the Affinity
+    Bonus line, `ATK +39  DEF +12  HP +36`, whose painted bands are
+    the words of a sentence and not columns at all.
 
     `from_end` counts the boundary from the RIGHT. A row with no left
     column -- the Element row emits both of the left pair's tabs and
@@ -3774,9 +3778,8 @@ def _widest_stats(field):
         # SELECT each in turn and read what was rendered. The stat
         # values are computed inside `show_hero_details` and returned
         # nowhere, so there is no way to ask what a combatant's block
-        # would say without showing it -- `_format_char_text` is the
-        # details above the block and holds no stats at all, which is
-        # what this tried first and why it ranked every combatant 0.
+        # would say without showing it: the card's formatters are handed
+        # the stats rather than working them out.
         font = tkfont.Font(font=tab.hero_char_text.cget("font"))
         best, widest = None, -1
         for index in range(len(rows)):
@@ -4390,47 +4393,11 @@ def _ink_to_box_edge(left, right, fill=None):
     return resolve
 
 
-def _panel_floor_to_ink(title, locator, fill=None):
-    """Resolver: one widget's BASELINE -> a panel's bottom border.
-
-    `_panel_edge_inset` scans the panel's whole INTERIOR, which is
-    right where that interior is bare. It is wrong where something in
-    it paints a ground of its own: the scan stops at that fill and
-    reports nothing between it and the border. So this names the widget
-    whose words the border is measured to, and `fill` is the ground
-    they sit on.
-
-    Read at the widget's first CAPITAL, whose bottom is the baseline,
-    where it has one. Otherwise off its whole ink, restated to the
-    baseline by the glyph tables -- which know descenders, and not a
-    string that never reaches the baseline at all: a lone `-` reads
-    three pixels wide of it.
-    """
-    def resolve(cap, app):
-        frame = _panel(app, title)
-        edges, saturated = _border_inner_edges(cap, frame)
-        note = ("border scan hit its cap; interior may be filled"
-                if saturated else "")
-        widget = locator(app)
-        ground = {cap.palette[fill]} if fill else None
-        band = _label_capital_box(cap, widget, ground)
-        on_cap = band and sa.painted_extent_v(cap, band, ground)
-        if on_cap:
-            return sa.gap_between(on_cap[1], edges["bottom"]), note
-        extent = sa.painted_extent_v(cap, sa.box_of(widget), ground)
-        if extent is None:
-            return None, "that widget painted nothing"
-        return restate_from_reference(
-            sa.gap_between(extent[1], edges["bottom"]), note,
-            ink_below_baseline(str(widget.cget("text"))))
-    return resolve
-
-
 def _panel_ceiling_to_capital(title, locator):
     """Resolver: a panel's top border -> a named widget's CAPITAL.
 
-    The mirror of `_panel_floor_to_ink`, and it exists for two reasons
-    at once. `_panel_edge_inset` scans the whole INTERIOR, so on a
+    It exists for two reasons at once. `_panel_edge_inset` scans the
+    whole INTERIOR, so on a
     panel whose first child is a frame pulled into the border by a
     negative padding it stops at that frame and reports 0. And it reads
     the topmost INK, where the rule's reference above is the cap
@@ -4976,20 +4943,6 @@ MATERIALS_ENTRIES = [
     ("Materials", "Materials: reserved column -> window edge", 4,
      RULE_CONTENT_FRAME, _to_window_edge(_materials_column(-1)), "h"),
 ]
-
-
-def _extra_info_pair(app):
-    """Locator pair: the Extra Info row's label and its value.
-
-    Found by the label's words and then by grid position, the value
-    carrying digits that change with the snapshot and so matching no
-    string. Both are in the block under the Character card's Text.
-    """
-    label = _by_text("Excursion Types:")(app)
-    row = label.grid_info()["row"]
-    for widget in label.master.grid_slaves(row=row, column=1):
-        return label, widget
-    raise LookupError("the Excursion Types row has no value beside it")
 
 
 
@@ -5747,15 +5700,6 @@ def register_all():
             provisional=False,
         )
 
-    # The Extra Info block's one row, under the card, and the panel's
-    # FLOOR beneath it. Both read against `bg_light`: the block paints
-    # that colour edge to edge, and a scan told only the tab's own
-    # background finds the block itself before it finds any words.
-    #
-    # The row's value is RIGHT-ALIGNED in a column reserved four digits
-    # wide, so the gap after its label is measured to that column's
-    # edge rather than to the digits -- which sit as far right as their
-    # own width leaves them.
     # The two label-and-element pairs on Setup & Settings. Registered
     # HERE rather than in a module-level list because their resolver is
     # defined further down the file than the lists are -- and both are
@@ -5846,33 +5790,6 @@ def register_all():
             _group_of("Optimizer cores:")),
         axis="v",
         provisional="Settings: scale note -> cores row"
-        in AWAITING_FIRST_READING,
-    )
-
-    sa.track(
-        name="Character: Excursion Types -> its count",
-        tab="Combatants",
-        rule=RULE_LABEL_ELEMENT,
-        target=5,
-        resolve=_ink_to_box_edge(lambda app: _extra_info_pair(app)[0],
-                                 lambda app: _extra_info_pair(app)[1],
-                                 fill="bg_light"),
-        axis="h",
-        provisional="Character: Excursion Types -> its count"
-        in AWAITING_FIRST_READING,
-    )
-    sa.track(
-        name="Character: bottom edge -> content",
-        tab="Combatants",
-        rule=RULE_BORDER_EDGE_CONTENT,
-        target=4,
-        # To the LABEL, at its capital: the value reads `-` with nothing
-        # captured, a dash standing well clear of the baseline.
-        resolve=_panel_floor_to_ink(
-            "Character", lambda app: _extra_info_pair(app)[0],
-            fill="bg_light"),
-        axis="v",
-        provisional="Character: bottom edge -> content"
         in AWAITING_FIRST_READING,
     )
 

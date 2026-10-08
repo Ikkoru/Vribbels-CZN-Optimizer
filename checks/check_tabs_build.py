@@ -353,36 +353,27 @@ def _weight_fields_are_clamped(tab):
 
 
 def _character_card_lines_fit():
-    """The Character card is a FIXED width, and a long line clips.
-
-    Its panel is sized to `CHAR_CONTENT_PX` and the Text inside carries
-    `wrap=tk.NONE`, so a line that outgrows that width is cut off mid
-    word with nothing reporting it -- no exception, no reflow, just a
-    combatant whose potential node reads `Node 5: Lv3 (CDMG` and stops.
-
-    The line most likely to do it is a potential node's, because its
-    third column comes from the game data: a stat with a longer display
-    name, a bonus reaching three digits, or a character whose node is
-    worded differently lengthens it without anything in this file
-    changing.
+    """The Character card's node block keeps its columns.
 
     **A node line is tab-stopped, so its width is its last STOP plus
-    what follows, not the sum of its words.** Two things follow from
-    that, and this checks both: the line has to fit the panel, and no
-    column may reach past the next stop -- a column that does is not
-    overlapped, it pushes the rest of the line right, and the block's
-    alignment goes with it on that line alone.
+    what follows, not the sum of its words.** No column may reach past
+    the next stop: a column that does is not overlapped, it pushes the
+    rest of the line right, and the block's alignment goes with it on
+    that line alone.
 
     The level stop is a RIGHT one, so the pair that has to clear it is
     a REAL ROW's label and value together -- not the widest label and
     the widest value, which sit on different rows.
+
+    Whether every line fits the PANEL is `check_character_card_scales`,
+    which renders them at every scale.
 
     Returns a list of complaints.
     """
     from tkinter import font as tkfont
     from game_data.characters import POTENTIAL_NODES
     from ui.tabs.heroes_tab import (
-        CHAR_CONTENT_PX, CHAR_NODE_TAB_DESC, CHAR_NODE_TAB_LEVEL,
+        CHAR_NODE_TAB_DESC, CHAR_NODE_TAB_LEVEL,
         CHAR_NODE_TAKEN, CHAR_NODE_UNTAKEN, CHAR_SUBLIST_INDENT)
 
     measure = tkfont.nametofont("TkDefaultFont").measure
@@ -414,92 +405,7 @@ def _character_card_lines_fit():
             f"Every level ends on that stop, so a description starting at "
             f"or before it is pushed right on every line."
         )
-
-    text, width = _widest_node_wording(measure)
-    if CHAR_NODE_TAB_DESC + width > CHAR_CONTENT_PX:
-        out.append(
-            f"the Character card's widest node line is "
-            f"{CHAR_NODE_TAB_DESC + width}px ({text!r} at the description "
-            f"stop) against CHAR_CONTENT_PX = {CHAR_CONTENT_PX}. The panel "
-            f"is a fixed width and the Text does not wrap, so this clips "
-            f"silently. Raise CHAR_CONTENT_PX or shorten the wording."
-        )
-
-    # The DETAILS line takes the widest-line title back whenever no
-    # node's wording runs longer, and it is built from a combatant's
-    # element and class -- so a combination the tables carry but the
-    # account does not own would clip on the day it is obtained, with
-    # nothing before then to say so. Measured over every pair in
-    # CHARACTERS, not over the roster.
-    line, width = _widest_details_line(measure)
-    if width > CHAR_CONTENT_PX:
-        out.append(
-            f"the Character card's widest details line is {width}px "
-            f"({line!r}) against CHAR_CONTENT_PX = {CHAR_CONTENT_PX}. That "
-            f"combatant's card clips as soon as one is obtained -- the "
-            f"panel is a fixed width and the Text does not wrap."
-        )
     return out
-
-
-def _widest_node_wording(measure):
-    """(text, px) for the widest third column any node line can show:
-    what the node does, from the game data, for every combatant."""
-    from game_data.characters import (
-        CHARACTERS, POTENTIAL_NODES, get_potential_node_does,
-        get_potential_stat, get_potential_stat_bonus)
-    from game_data.constants import DISPLAY_NAMES
-
-    best = ("", 0)
-
-    def consider(text):
-        nonlocal best
-        if text and measure(text) > best[1]:
-            best = (text, measure(text))
-
-    for res_id, data in CHARACTERS.items():
-        if not isinstance(data, dict):
-            continue
-        for node in POTENTIAL_NODES:
-            if not node.stat:
-                consider(get_potential_node_does(res_id, node))
-                continue
-            for level in range(0, node.max_level + 1):
-                stat, bonus = get_potential_stat_bonus(
-                    res_id, node.wire, level)
-                if stat is None:
-                    stat, bonus = get_potential_stat(res_id, node.wire), None
-                if stat is None:
-                    continue
-                what = DISPLAY_NAMES.get(stat, stat)
-                if bonus:
-                    what = f"{what} +{bonus:g}%"
-                consider(what)
-    return best
-
-
-def _widest_details_line(measure):
-    """(line, px) for the widest first line any combatant can render.
-
-    Its shape is `<level>  |  <grade>*  |  <element>  |  <class>`, with
-    the element alone where the two words match -- which is what an
-    entry the tables do not place looks like, and is narrower.
-
-    The level is `61/62`, the widest a two-part level can be at the
-    promotion cap.
-    """
-    from game_data.characters import CHARACTERS
-
-    best = ("", 0)
-    for data in CHARACTERS.values():
-        if not isinstance(data, dict):
-            continue
-        element, klass = data.get("attribute"), data.get("class")
-        tail = element if klass == element else f"{element}  |  {klass}"
-        line = f"61/62  |  {data.get('grade')}*  |  {tail}"
-        if measure(line) > best[1]:
-            best = (line, measure(line))
-    return best
 
 
 def _show_missing_adds_rather_than_replaces(tab):

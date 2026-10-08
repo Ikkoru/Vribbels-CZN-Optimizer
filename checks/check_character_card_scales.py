@@ -1,16 +1,18 @@
-"""The Character card's widest line fits its panel at every UI scale.
+"""The Character card is exactly as wide as its widest line, at every
+UI scale.
 
-The panel is a stated width that does not wrap (`CHAR_CONTENT_PX`), so a
-line too wide for it is cut off with nothing to say so.
-`check_tabs_build` holds the lines to it at 100%; above 100% the width
-is grown with the text (`scaling.text_px`), by the most-grown of the
-card's own line shapes (`CHAR_WIDE_LINES`). One mix of words grows
-less than a line that is mostly digits, and the Affinity bonus line
-clipped by a pixel at 125% when the panel was grown by such a mix.
+The panel's width is `char_content_px`: arithmetic over every line the
+tables can produce -- each stop plus what follows it, each plain line
+measured -- and the Text inside does not wrap. Arithmetic that comes
+out SHORT clips that line mid-word with nothing to say so; arithmetic
+that comes out LONG leaves the panel wider than the rule's distance to
+its text.
 
-Measured at each scale, against every line the tables can produce of
-each shape: every combatant's details line, every Affinity level's
-bonus, and every node's wording at the description stop.
+So each of those lines is RENDERED, in a Text ruled the way the card is
+(`rule_card_text`), and the widest has to land on `char_content_px` to
+the pixel: every heading, every Affinity level's bonus, every set name,
+the placeholders, a stat row, and a node row carrying the widest
+wording any combatant's node has.
 
 **Each UI scale is measured in a process of its own**: Tk caches a font
 given as a tuple per display rather than per interpreter, so a second
@@ -23,7 +25,7 @@ import sys
 
 from ._harness import add_source_to_path, REPO_ROOT, Skip
 
-NAME = "the Character card's widest line fits at every scale"
+NAME = "the Character card is as wide as its widest line at every scale"
 
 
 def _measure(scale_name):
@@ -38,28 +40,44 @@ def _measure(scale_name):
     root.attributes("-alpha", 0.0)
     try:
         scaling.apply_font_scaling(root)
-        from game_data.constants import FRIENDSHIP_BONUSES
-        from ui.tabs.heroes_tab import (CHAR_NODE_TAB_DESC, CHAR_PANEL_BD,
-                                        CHAR_TEXT_PADX, _char_panel_w)
-        from checks.check_tabs_build import (_widest_details_line,
-                                             _widest_node_wording)
+        from ui.tabs.heroes_tab import (
+            CHAR_NODE_TAG, CHAR_NODE_TAKEN, CHAR_SUBLIST_INDENT,
+            char_card_plain_lines, char_content_px, rule_card_text,
+            widest_node_wording)
 
-        measure = tkfont.nametofont("TkDefaultFont").measure
-        # The panel less its Text's inset and its border: what a line has.
-        room = (_char_panel_w() - scaling.px(2 * CHAR_TEXT_PADX)
-                - 2 * CHAR_PANEL_BD)
-        bonus = max((f"  Bonus: ATK+{a}, DEF+{d}, HP+{h}"
-                     for _level, a, d, h in FRIENDSHIP_BONUSES), key=measure)
-        wording, wording_px = _widest_node_wording(measure)
-        lines = [_widest_details_line(measure), (bonus, measure(bonus)),
-                 (f"<description stop>{wording}",
-                  scaling.text_px(CHAR_NODE_TAB_DESC) + wording_px)]
-        return [
-            f"At {scale_name} the Character card's line {line!r} is {width}px "
-            f"against the {room}px `_char_panel_w` leaves a line, and clips. "
-            f"Give CHAR_WIDE_LINES a line of this shape, so the panel grows "
-            f"by what it grows by."
-            for line, width in lines if width > room]
+        font = tkfont.nametofont("TkDefaultFont")
+        text = tk.Text(root, wrap=tk.NONE, font=font, bd=0, padx=0,
+                       highlightthickness=0)
+        text.pack()
+        rule_card_text(text, font)
+        wording, _ = widest_node_wording(font.measure)
+        lines = [(line, ()) for line in sorted(char_card_plain_lines())]
+        lines.append((f"{CHAR_SUBLIST_INDENT}ATK\t1340\tCrit%\t67.2%", ()))
+        lines.append((f"{CHAR_SUBLIST_INDENT}Node 5.1:\t{CHAR_NODE_TAKEN}"
+                      f"\t{wording}", (CHAR_NODE_TAG,)))
+        for line, tags in lines:
+            text.insert(tk.END, line, tags)
+            text.insert(tk.END, "\n")
+        root.update_idletasks()
+
+        rendered = []
+        for number, (line, _tags) in enumerate(lines, start=1):
+            got = text.count(f"{number}.0", f"{number}.end", "xpixels")
+            rendered.append(((got[0] if isinstance(got, tuple) else got) or 0,
+                             line))
+        widest, which = max(rendered)
+        room = char_content_px(font)
+        if widest > room:
+            return [f"At {scale_name} the Character card's line {which!r} "
+                    f"renders {widest}px against the {room}px "
+                    f"`char_content_px` sizes the panel for, and clips. The "
+                    f"arithmetic there has missed how this line is laid out."]
+        if widest < room:
+            return [f"At {scale_name} `char_content_px` sizes the Character "
+                    f"card for {room}px, and its widest line ({which!r}) "
+                    f"renders {widest}px: the panel is wider than its text "
+                    f"by the difference."]
+        return []
     finally:
         root.destroy()
 

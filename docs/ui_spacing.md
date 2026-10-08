@@ -316,7 +316,7 @@ An entry named in `AWAITING_FIRST_READING` prints yellow, in the short run as we
 
 ### Two rulings worth reading before re-opening them
 
-The `Character` panel is a COLLECTION OF LABELS. It is one Text widget holding a details block, a Sets line and two columns of build stats, but the Text is a drawing-speed choice rather than what the content is: every stat name and value is a `label ↔ its element` pair, and the two columns sit at `element and its label ↔ element and its label` from each other. Its tab stops are STATED for that reason, like the gear cell's.
+The `Character` panel is a COLLECTION OF LABELS. It is one Text widget holding two columns of build stats, the Affinity bonus, the Sets and the Potential nodes, but the Text is a drawing-speed choice rather than what the content is: every stat name and value is a `label ↔ its element` pair, and the two columns sit at `element and its label ↔ element and its label` from each other. Its tab stops are STATED for that reason, like the gear cell's.
 
 `How Gear Score Works` goes the other way — it is meant to read as ordinary prose, so no distance rule reaches inside it.
 

@@ -20,9 +20,15 @@ Where to look when changing X
 - **The Sortie column** — `sortie_progress.progress()` over the raw
   snapshot, via `_sortie_progress()`. `-` where the capture has not
   carried the ladders; the sort is on the NUMBER, not the `3/16`.
+- **The Excursion column** — `excursions.counts()` over the raw
+  snapshot, via `_excursion_cell()`; sorted the same way.
 - **The detail pane** — `show_hero_details()`: character card (ONE Text
-  widget holding details, the Sets line and the build-stat block),
-  partner card, equipped MFs frame.
+  widget holding the build-stat block, the Affinity bonus, the Sets and
+  the Potential nodes), partner card, equipped MFs frame.
+- **Detail pane sizes** — the gear cells' height is their font's
+  (`_gear_cell_h`) and the Character card's width its widest possible
+  line (`char_content_px`); the Character and Partner cards take the
+  height left above the cells, and the list the width left of them.
 - **Equipped MF cells** — one Text widget each, drawn by
   `_render_gear_cell`. Columns are the `toprow` / `subrow` tags' tab
   stops (`GEAR_TAB_*`); colours are tags. Every widget in the pane
@@ -31,8 +37,7 @@ Where to look when changing X
 - **Build stats** — `HERO_STAT_ROWS` / `HERO_STAT_DISPLAY` set the two
   columns, laid out on the Text widget's tab stops.
   `_format_stats_text` builds the block, `_format_sets_text` the Sets
-  line. Both the display and `_compute_and_apply_fixed_sizes` read them,
-  so a new row is picked up by the sizing pass automatically.
+  lines.
 - **Per-piece GS** — `compute_fragment_gs()` with the PER-CHARACTER
   preset's weights, not the globally applied ones. The list's GS column
   does the same; **the two must agree.**
@@ -82,7 +87,7 @@ from game_data import (
     get_partner_passive_info, get_potential_stat, get_potential_stat_bonus,
     get_potential_node_does, POTENTIAL_NODES, POTENTIAL_MAX_TOTAL,
 )
-from game_data.constants import DISPLAY_NAMES
+from game_data.constants import DISPLAY_NAMES, FRIENDSHIP_BONUSES
 from models import Stat
 from models.memory_fragment import compute_gs_bounds, normalize_gs
 from ui.scaling import px, px_spans, text_px
@@ -115,13 +120,15 @@ HERO_STAT_DISPLAY = {
     "DoT%": "DoT%", "Element": "Element",
 }
 
-# Fixed size of one Equipped Memory Fragments cell. Stated rather than
-# derived: deriving it meant estimating the LabelFrame overhead, the wrap
-# width and the line count separately, and the three estimates disagreed.
-# Calibrated against the longest set description currently in the game --
-# a longer one clips rather than growing the cell.
+# Width of one Equipped Memory Fragments cell. Stated: the set
+# description wraps to it, so it decides how many rows a description
+# takes rather than the other way round. The height is the font's
+# (`_gear_cell_h`).
 GEAR_CELL_W = 396
-GEAR_CELL_H = 150
+
+# Rows of set description a cell holds: the longest in the game wraps to
+# three. A longer one clips rather than growing the cell.
+GEAR_SET_ROWS = 3
 
 # The cell Text widget's own border and horizontal inset. Repeated here
 # rather than read off the widget because the tab stops below are set in
@@ -143,12 +150,40 @@ GEAR_SUBSTAT_ROWS = 4
 # The grid of cells: three rows of two, one per slot.
 GEAR_ROWS = 3
 
+# The face a cell's slot name, main stat and GS take. One name for it,
+# because a row's height is its tallest face's and `_gear_cell_h` must
+# measure the same one the tags draw.
+GEAR_BOLD_FONT = ("Segoe UI", 9, "bold")
+
 
 def _gear_row_pady(row):
     """A row of cells' (above, below) pad, at 100%. No pad below the
     last row: there it is trailing space inside the frame, which left
     the bottom cells short of the panel's bottom edge."""
     return (2, 2) if row < GEAR_ROWS - 1 else (2, 0)
+
+
+def _gear_cell_h(cell):
+    """A gear cell's height: its top row, its substat rows and
+    `GEAR_SET_ROWS` rows of set description, in the cell's own font.
+
+    MEASURED, so right at every scale with no `px`: the line height is
+    the font's, and the gaps and insets are read off the cell, which
+    took them through `px` when it was built. `spacing3` falls between
+    logical lines and `spacing2` between the rows one wrapped line is
+    broken into; the last line's `spacing3` is blank and clips nothing.
+    """
+    def option(name):
+        return int(float(str(cell.cget(name))))
+
+    line = max(tkfont.Font(root=cell, font=cell.cget("font")).metrics(
+        "linespace"), tkfont.Font(root=cell, font=GEAR_BOLD_FONT).metrics(
+        "linespace"))
+    logical = 1 + GEAR_SUBSTAT_ROWS + 1
+    rows = logical - 1 + GEAR_SET_ROWS
+    inset = option("bd") + option("highlightthickness") + option("pady")
+    return (rows * line + (logical - 1) * option("spacing3")
+            + (GEAR_SET_ROWS - 1) * option("spacing2") + 2 * inset)
 
 # Tab stops for the Character panel's two-column stat block, in pixels
 # from the text's left edge. STATED, like the gear cell's: the block is
@@ -241,20 +276,11 @@ CHAR_PANEL_BD = 2
 CHAR_TEXT_PADX = 4
 
 # spacing: border edge -> first non-button element -- panel, text ↕
-# What the Character panel spends vertically besides its lines, so the
-# bottom inset reads like the top: the card Text's `pady`, and what the
-# LabelFrame spends on itself -- its title's line, the title's bottom
-# margin (`labelmargins` in configure_styles) and clam's border above
-# and below. The border is 2px at every scale, the theme's limit
-# (docs/ui_spacing.md), so it alone takes no `px`. Targets live in
-# docs/ui_spacing.md, not here.
-#
-# Nothing spare: the panel fills whatever height its row is given, so
-# a margin added here is only ever height the panel BELOW must find,
-# and at 200%, where every line is a pixel past double, it cannot.
+# The card Text's `pady`: its inset above the first line. The panel's
+# HEIGHT is not stated anywhere -- it takes what the detail pane has
+# left once the gear cells below have theirs, so the space under the
+# last line is slack.
 CHAR_TEXT_PADY = 1
-PANEL_TITLE_MARGIN = 2
-PANEL_BORDER = 2
 
 # Lines the Character panel always reserves under each heading, filled
 # with blanks when there is less to say, so its height is the same for
@@ -273,95 +299,127 @@ CHAR_POTENTIAL_LINES = len(POTENTIAL_NODES)
 # in, and a check holds the panels to ASCII for that reason.
 CHAR_NODE_TAKEN = "Y"
 CHAR_NODE_UNTAKEN = "-"
-# Shared by the set names and the potential nodes, so the two blocks read
-# as the same kind of list.
+# Indents every line under a heading, so the card's four blocks read as
+# the same kind of list.
 CHAR_SUBLIST_INDENT = "  "
 
-# The Extra Info block at the foot of the Character panel. It is a grid
-# of Labels rather than more lines in the Text above it, because a Text
-# cannot bottom-align its own content: the only way to do it there is
-# to pad the top with blank lines to a fixed height, and that height
-# then has to be recounted every time a row is added or removed.
-#
-# Its heading, so the block reads as the same kind of list as `Sets:`
-# and `Potential:` above it.
-CHAR_EXTRA_HEADING = "Extra Info:"
-# Its rows, in order. One for now; the block exists in this shape so
-# the second one is a line here rather than a layout.
-CHAR_EXTRA_ROWS = ("Excursion Types:",)
-# How many digits the value column holds. RESERVED, not fitted: a
-# right-aligned value in a column that sizes to its content moves its
-# label every time the number gains a digit.
-CHAR_EXTRA_DIGITS = 4
-# What a value reads when no snapshot has reached the block. NOT `0/7`,
-# which is what a combatant who has been on no excursion reads.
-CHAR_EXTRA_NO_DATA = "-"
-# A label against its value. Its widgets are `tk.Label`s stripped of
-# border and padding, so a pad here is the rendered distance between
-# the two boxes -- and the rule's own 5 less the side bearings the
-# colon and the first digit each carry inside their advance.
-CHAR_EXTRA_LABEL_GAP = 4   # spacing: label ↔ its element -- label, label ↔
-# The block's own inset from the panel border on the LEFT, the same
-# distance the Text above it holds through its `padx`. Its labels are
-# stripped of border and padding by `Panel.TLabel`, so this is where
-# the glyphs land.
-CHAR_EXTRA_INSET = 4       # spacing: border edge -> first non-button element -- panel, label ↔
-# And at the FLOOR, where the rule measures to the last row's BASELINE
-# and the label's box goes on past it by the font's descent. A lever
-# that much short of the rule for exactly that reason.
-CHAR_EXTRA_FLOOR = 1       # spacing: border edge -> first non-button element -- panel, label ↕
-# NOT TRACKED: the audit reads this panel's inset off the TEXT widget,
-# which is the first thing in it and the one every other tab's entry
-# measures. Both are set from the same rule; only one can be the one
-# the entry finds.
+# The card's headings, in the order the blocks come.
+CHAR_STATS_HEADING = "Stats:"
+CHAR_BONUS_HEADING = "Affinity Bonus:"
+CHAR_SETS_HEADING = "Sets:"
+CHAR_POTENTIAL_HEADING = "Potential:"
+# What the Affinity Bonus and Potential blocks read for a combatant the
+# capture has nothing on -- one the user does not own.
+CHAR_NO_DATA = "No character data available"
 
-# The widest line the card renders, which the panel is sized for. The
-# combatant's NAME is not in this panel at all -- it is the heading
-# above -- so nothing here scales with it.
-#
-# A tab-stopped line is its last stop plus the widest thing after it,
-# not the sum of its words: `dlineinfo` is what measures one.
-#
-# Two traps, both of which have caught a reader already. The widest by
-# CHARACTER COUNT and the widest in PIXELS are different strings, and
-# the pixel one is what matters. And WHICH LINE wins moves with the
-# wordings: the details line `61/62  |  4*  |  Instinct  |  Controller`
-# takes it back whenever no node's third column runs longer.
-#
-# `_character_card_lines_fit` holds this number to both -- the node
-# wordings, and every element/class pair the tables can produce, which
-# is what says a combatant nobody owns yet would clip.
-CHAR_CONTENT_PX = 177
-# The shapes the card's widest line takes, which the panel grows by
-# above 100% (`text_px`): the details line, the Affinity bonus, and a
-# node line. Each grows by its own amount at a pixel size, and the
-# bonus line, mostly digits, outgrows a mix of words. Two details
-# lines, because which is the wider changes with the pixel size.
-# `check_character_card_scales` holds every line the tables can make
-# to the panel at every scale.
-CHAR_WIDE_LINES = (
-    "61/62  |  4*  |  Passion  |  Vanguard",
-    "61/62  |  4*  |  Instinct  |  Controller",
-    "  Bonus: ATK+39, DEF+12, HP+36",
-    "Node 5.1: Lv3  CDMG +12%",
-)
 
-# spacing: border edge -> first non-button element -- panel, text ↔
-# The panel's fixed width, and NOTHING SPARE in it: its widest line,
-# the Text's inset on both sides, and the LabelFrame's border on both.
-# The Text does not wrap, so a pixel taken off here clips the widest
-# card's longest line, silently and mid-word -- which is what taking
-# any of this width for the Partner panel beside it did.
-#
-# Each part at its own scale: the line grows with the face
-# (`text_px`), the inset with `px`, and clam's border not at all.
-def _char_panel_w():
-    return (text_px(CHAR_CONTENT_PX, samples=CHAR_WIDE_LINES)
-            + px(2 * CHAR_TEXT_PADX)
-            + 2 * CHAR_PANEL_BD)
-# Six fixed lines and the `Potential:` heading among them, then one per
-# node, then "Sets:" + its lines, then "Stats:" + one per stat row.
-CHAR_TOTAL_LINES = 5 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5
+def _bonus_line(atk, def_, hp):
+    """The Affinity Bonus block's one line."""
+    return f"{CHAR_SUBLIST_INDENT}ATK +{atk}  DEF +{def_}  HP +{hp}"
+
+
+def widest_node_wording(measure):
+    """(text, px) for the widest third column any node line can show:
+    what the node does, from the game data, for every combatant."""
+    wordings = set()
+    for res_id, data in CHARACTERS.items():
+        if not isinstance(data, dict):
+            continue
+        for node in POTENTIAL_NODES:
+            if not node.stat:
+                wordings.add(get_potential_node_does(res_id, node))
+                continue
+            for level in range(0, node.max_level + 1):
+                stat, bonus = get_potential_stat_bonus(
+                    res_id, node.wire, level)
+                if stat is None:
+                    stat, bonus = get_potential_stat(res_id, node.wire), None
+                if stat is None:
+                    continue
+                what = DISPLAY_NAMES.get(stat, stat)
+                wordings.add(f"{what} +{bonus:g}%" if bonus else what)
+    wordings.discard(None)
+    wordings.discard("")
+    if not wordings:
+        return "", 0
+    best = max(wordings, key=measure)
+    return best, measure(best)
+
+
+def char_card_plain_lines():
+    """Every line the card can render that carries no tab stop: the
+    headings, each Affinity level's bonus, every set name, and the
+    placeholders."""
+    lines = {CHAR_STATS_HEADING, CHAR_BONUS_HEADING, CHAR_SETS_HEADING,
+             CHAR_POTENTIAL_HEADING, CHAR_SUBLIST_INDENT + CHAR_NO_DATA,
+             CHAR_SUBLIST_INDENT + "-", CHAR_SUBLIST_INDENT + "None",
+             f"{CHAR_SUBLIST_INDENT}{len(EQUIPMENT_SLOTS)} Flex"}
+    lines.update(_bonus_line(atk, def_, hp)
+                 for _level, atk, def_, hp in FRIENDSHIP_BONUSES)
+    lines.update(CHAR_SUBLIST_INDENT + s["name"] for s in SETS.values()
+                 if isinstance(s, dict) and s.get("name"))
+    return lines
+
+
+def char_content_px(font):
+    """The widest line the card can render in `font`: what the panel is
+    sized for, with nothing spare.
+
+    Over every line the TABLES can produce, not the roster's: a card
+    sized for the combatants owned clips the day one with a longer
+    wording is obtained. MEASURED, so it is right at every scale and
+    the panel holds the rule's distance to the last glyph at any font
+    size.
+
+    A tab-stopped line is its last stop plus whatever follows it, not
+    the sum of its words. A stat line ends ON its last stop, which is a
+    right one; a node line on the description stop plus the widest
+    wording. `check_character_card_scales` renders every one of these
+    lines and holds the widest to this number.
+
+    Walks every combatant's every node, so the caller keeps the answer:
+    the font does not change while the app runs.
+    """
+    measure = font.measure
+    widths = [measure(line) for line in char_card_plain_lines()]
+    widths.append(measure(CHAR_SUBLIST_INDENT) + text_px(CHAR_TAB_VAL2))
+    widths.append(text_px(CHAR_NODE_TAB_DESC)
+                  + widest_node_wording(measure)[1])
+    return max(widths)
+
+
+def rule_card_text(text, font):
+    """Set the card Text's tab stops: the stat block's on the widget,
+    the node block's on `CHAR_NODE_TAG`.
+
+    The CHAR_TAB_* stops are measured from where a row's first label
+    starts, and every stat row opens on the block's indent, so each
+    carries the indent too -- MEASURED, and so already at the scale.
+    The node stops include it already: they were measured off the
+    indented labels.
+
+    A Text carries one set of stops for the whole widget and the stat
+    block owns those; a tag's own `tabs` is what lets the node block be
+    ruled differently in the same widget.
+    """
+    indent = font.measure(CHAR_SUBLIST_INDENT)
+    text.configure(tabs=(
+        indent + text_px(CHAR_TAB_VAL1), "right",
+        indent + text_px(CHAR_TAB_NAME2), "left",
+        indent + text_px(CHAR_TAB_VAL2), "right",
+    ))
+    text.tag_configure(CHAR_NODE_TAG, tabs=(
+        text_px(CHAR_NODE_TAB_LEVEL), "right",
+        text_px(CHAR_NODE_TAB_DESC), "left",
+    ))
+
+
+def _char_panel_w(content_px):
+    """The panel's width round its widest line: the Text's inset on both
+    sides and the LabelFrame's border on both. The Text does not wrap,
+    so a pixel short clips that line silently and mid-word."""
+    # spacing: border edge -> first non-button element -- panel, text ↔
+    return content_px + px(2 * CHAR_TEXT_PADX) + 2 * CHAR_PANEL_BD
 
 # Character-list column widths, in PIXELS. A tk.Label's `width` counts
 # CHARACTERS, which is only a width in a monospaced font -- these are
@@ -380,18 +438,24 @@ CHAR_TOTAL_LINES = 5 + CHAR_POTENTIAL_LINES + 1 + CHAR_SETS_LINES + 1 + 5
 # value, plus a little room -- measured, not guessed.
 #
 # Preset stretches, so its number is a minimum in the other sense as
-# well: it also takes the leftover width. Sortie sits to its right and
-# is fixed, which is why the stretch column can be in the middle.
-HERO_COL_PX = [67, 37, 58, 59, 32, 42, 26, 45, 24, 66, 32, 180, 36]
+# well: it also takes the leftover width. Excursion and Sortie sit to
+# its right and are fixed, which is why the stretch column can be in
+# the middle.
+HERO_COL_PX = [67, 37, 58, 59, 32, 42, 26, 45, 24, 66, 32, 180, 55, 36]
 
 # Treeview column ids, and the heading each shows. The id IS the sort
 # key, so a heading click needs no lookup table.
 HERO_COL_IDS = ("name", "grade", "attribute", "class", "level", "nodes",
                 "ego", "affinity", "gs", "partner", "partner_level",
-                "preset", "sortie")
+                "preset", "excursion", "sortie")
 HERO_COL_TITLES = ("Combatant", "Grade", "Attribute", "Class", "Level",
                    "Nodes", "Ego", "Affinity", "GS", "Partner", "Level",
-                   "Preset", "Sortie")
+                   "Preset", "Excursion", "Sortie")
+
+# What the Excursion column reads where the capture has not carried the
+# excursion board. NOT `0/7`, which is what a combatant who has been on
+# no excursion reads.
+HERO_EXCURSION_NO_DATA = "-"
 
 # Tag for a row whose Element the program does not know, so it still gets
 # an explicit foreground rather than inheriting the theme's.
@@ -560,6 +624,10 @@ class HeroesTab(BaseTab):
         self.hero_partner_text = None
         # slot number -> the one Text widget that draws that cell
         self.gear_cells = {}
+        # The Character card's widest possible line, measured once:
+        # `char_content_px` walks every combatant's nodes, and the font
+        # does not change while the app runs.
+        self._char_content_px = None
 
     def setup_ui(self):
         """Setup the Heroes tab UI."""
@@ -575,12 +643,13 @@ class HeroesTab(BaseTab):
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
         columns.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((1, 2)))
-        # The 6:8 weight split gives the left character-list column ~43%
-        # of the content width (widened to fit the Partner column). Tk grid
-        # weights are proportional, so the exact pixel split tracks the
-        # window size.
-        columns.grid_columnconfigure(0, weight=6)
-        columns.grid_columnconfigure(1, weight=8)
+        # The detail column is as wide as the gear cells, which are a
+        # stated width, and asks for nothing more; the list takes the
+        # rest. Weight 0 is what keeps the detail column whole when the
+        # window is narrow: grid takes a shortfall from weighted columns
+        # only, so the list gives the width up.
+        columns.grid_columnconfigure(0, weight=1)
+        columns.grid_columnconfigure(1, weight=0)
         columns.grid_rowconfigure(0, weight=1)
 
         left_column = ttk.Frame(columns)
@@ -767,8 +836,11 @@ class HeroesTab(BaseTab):
         hero_vsb = ttk.Scrollbar(hero_tree_frame, orient=tk.VERTICAL,
                                  command=self.hero_tree.yview)
         self.hero_tree.configure(yscrollcommand=hero_vsb.set)
-        self.hero_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # The scrollbar packed FIRST: pack hands out width in packing
+        # order, so a list whose columns ask for more than the column
+        # has would otherwise take the scrollbar's width too.
         hero_vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.hero_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         for col_id, title, width_px in zip(
                 HERO_COL_IDS, HERO_COL_TITLES, px_spans(HERO_COL_PX)):
@@ -819,7 +891,7 @@ class HeroesTab(BaseTab):
         # The combobox itself lives in the right column's title_row, but the
         # <Configure> binding stays on hero_detail_container because that's
         # the panel whose width drives the combobox's target geometry (they
-        # share content_pane's weight=8 column).
+        # share the detail column).
         self._combo_resize_after_id = None
         hero_detail_container.bind("<Configure>", self._on_detail_resize)
 
@@ -851,26 +923,24 @@ class HeroesTab(BaseTab):
         char_frame.pack(side=tk.LEFT, fill=tk.Y, padx=px((0, 2)))
         self._char_frame = char_frame  # fixed-size target
 
-        # ONE Text widget holds the whole card: the character details, the
-        # Sets line, and the two-column build-stat block. The stat columns
-        # line up on tab stops rather than in a grid -- the stops are set
-        # from font metrics in _compute_and_apply_fixed_sizes, because a
-        # Text widget has no columns of its own to align to.
+        # ONE Text widget holds the whole card: the two-column build-stat
+        # block, the Affinity bonus, the Sets and the Potential nodes. The
+        # stat and node columns line up on tab stops rather than in a
+        # grid -- set in _compute_and_apply_fixed_sizes, because a Text
+        # widget has no columns of its own to align to.
         #
         # No scrollbar, unlike Partner: this card's content is a fixed
-        # number of lines and the frame is sized to hold them, where
-        # Partner's passive/ego prose has no bound. The widget packs
-        # straight into the LabelFrame for the same reason -- there is
-        # nothing to sit beside it.
+        # number of lines, where Partner's passive/ego prose has no
+        # bound. The widget packs straight into the LabelFrame for the
+        # same reason -- there is nothing to sit beside it.
         # spacing: border edge -> first non-button element -- panel, text ↔↕
         # The panel's inset sits here rather than on the LabelFrame,
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
         # which is why it differs between text panels in different fonts.
-        # wrap=NONE: every line here is sized to fit -- the stat block is
-        # tab-stopped to measured columns and the Sets line is wrapped by
-        # the width computation -- so a wrap would only ever fire on
-        # something that had already gone wrong, and hide it.
+        # wrap=NONE: the panel is as wide as the widest line the tables
+        # can produce (`char_content_px`), so a wrap would only ever fire
+        # on something that had already gone wrong, and hide it.
         self.hero_char_text = tk.Text(
             char_frame, wrap=tk.NONE, height=6,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
@@ -879,14 +949,6 @@ class HeroesTab(BaseTab):
         )
         self.hero_char_text.pack(fill=tk.BOTH, expand=True)
         self.hero_char_text.config(state=tk.DISABLED)
-
-        # Packed BOTTOM and packed AFTER the Text: pack hands each child
-        # a slab of its requested size in packing order and only then
-        # shares the leftover among the ones that expand, so the Text
-        # keeps everything the block does not take and the block sits on
-        # the panel's floor. A row added here therefore grows UPWARD,
-        # into that leftover, rather than pushing the card down.
-        self._build_extra_info(char_frame)
 
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border.
@@ -919,8 +981,10 @@ class HeroesTab(BaseTab):
         # inside the text widget's own lighter background. The pady has
         # the line box's leading above the first glyph netted out of it,
         # which is why it differs between text panels in different fonts.
+        # width=1: a Text asks for 80 characters by default, and this one
+        # takes the width the Character panel leaves rather than asking.
         self.hero_partner_text = tk.Text(
-            partner_text_frame, wrap=tk.WORD, height=6,
+            partner_text_frame, wrap=tk.WORD, height=6, width=1,
             bg=self.colors["bg_light"], fg=self.colors["fg"],
             font=("Segoe UI", 9), bd=0, highlightthickness=px(0),
             padx=px(4), pady=px(1),
@@ -947,15 +1011,21 @@ class HeroesTab(BaseTab):
         # column, so anything here would stack on hero_detail_container's
         # own bottom pad and lift the panel above the character list
         # beside it, whose canvas sits flush against the container edge.
-        gear_outer_frame.pack(fill=tk.BOTH, expand=True, pady=px((5, 0)))
-        self._gear_outer_frame = gear_outer_frame  # fixed-size target
+        #
+        # Packed BEFORE info_frame, at the bottom. Pack hands out height
+        # in packing order, so this takes its cells' whole height first
+        # and the Character and Partner panels share what is left; packed
+        # after them, a short window took the shortfall off the cells.
+        # Anchored EAST, to the window's edge: the cells are a stated
+        # width, and the column is theirs.
+        gear_outer_frame.pack(side=tk.BOTTOM, anchor=tk.E, before=info_frame,
+                              pady=px((5, 0)))
+        self._gear_outer_frame = gear_outer_frame
 
         self.gear_cells = {}
 
         gear_grid = ttk.Frame(gear_outer_frame)
         gear_grid.pack(fill=tk.BOTH, expand=True)
-        gear_grid.bind("<Configure>",
-                       lambda e: self._share_gear_rows(e.height), add="+")
 
         # Slot positions matching original: (slot_num, row, col)
         slot_positions = [
@@ -1000,24 +1070,24 @@ class HeroesTab(BaseTab):
                 takefocus=0, insertwidth=0, cursor="arrow",
             )
             # spacing: content frame -> content frame -- text, text ↔↕
-            # padx is asymmetric on purpose: the LabelFrame title above
-            # starts inset from the frame's left edge, so an even split
-            # put the cells right of their own title. The trailing side
-            # takes the difference back, leaving the gap BETWEEN columns
-            # unchanged.
+            # The gap BETWEEN the two columns is the left column's
+            # trailing pad. The right column has none: what is right of
+            # it is the window's edge, and `columns` and
+            # `hero_detail_container` spend the rule's 4 on that run
+            # already, as they do for the Partner panel above.
             # No pady BELOW the last row: a symmetric value there is
             # trailing space inside the frame, which left the bottom row
             # of cells short of the panel's bottom edge. Rows above keep
             # both halves, so the gap BETWEEN rows is unchanged.
-            cell.grid(row=row, column=col, padx=px((0, 4)),
+            cell.grid(row=row, column=col, padx=px((0, 4 if col == 0 else 0)),
                       pady=px(_gear_row_pady(row)), sticky="nsew")
 
             # Colours. `rarity` is the only one re-set per render -- it
             # carries the fragment's rarity, which the slot name and the
             # main stat both take.
-            cell.tag_configure("rarity", font=("Segoe UI", 9, "bold"))
+            cell.tag_configure("rarity", font=GEAR_BOLD_FONT)
             cell.tag_configure("gs", foreground=self.colors["accent"],
-                               font=("Segoe UI", 9, "bold"))
+                               font=GEAR_BOLD_FONT)
             cell.tag_configure("pot", foreground=self.colors["fg_dim"])
             cell.tag_configure("quality", foreground=self.colors["accent"])
             cell.tag_configure("default", foreground=self.colors["fg"])
@@ -1107,7 +1177,7 @@ class HeroesTab(BaseTab):
             (f.equipped_to, getattr(f, "id", 0) or 0, f.slot_num, f.level)
             for f in self.optimizer.fragments if f.equipped_to
         )
-        # The Extra Info block reads the excursion board, which is not
+        # The Excursion column reads the excursion board, which is not
         # in CharacterInfo and so is not in `chars` above. Left out, an
         # excursion taken during a live capture would leave the count
         # showing its old value with nothing to say it had moved.
@@ -1158,6 +1228,25 @@ class HeroesTab(BaseTab):
                 sortie_progress.to_console(complaint)
         return found
 
+    @staticmethod
+    def _excursion_cell(board, char_info):
+        """(count, shown) for one combatant's Excursion cell, the count
+        None where there is nothing to sort by.
+
+        A snapshot the excursion board never reached reads `-`, where a
+        combatant with no row on a board that DID arrive reads 0: the
+        server sends the board whole, so an absent row is a count.
+
+        The denominator is PER COMBATANT and is a bound rather than a
+        total: no snapshot states a maximum, so a combatant past the
+        seven everyone has reads against the furthest the extras are
+        known to go. See `excursions.ceiling`.
+        """
+        if char_info is None or not board:
+            return None, HERO_EXCURSION_NO_DATA
+        count = board.get(char_info.res_id, 0)
+        return count, f"{count}/{excursions.ceiling(count)}"
+
     def refresh_heroes(self):
         """Refresh the heroes list."""
         # The selection is restored by NAME, not by index. A rebuild runs
@@ -1187,6 +1276,7 @@ class HeroesTab(BaseTab):
         self.user_info_label.config(text=user_text)
 
         sortie = self._sortie_progress()
+        board = excursions.counts(getattr(self.optimizer, "raw_data", None))
 
         # Every combatant the capture knows about. `optimizer.characters`
         # holds only those wearing a fragment, which is the smallest of
@@ -1253,6 +1343,9 @@ class HeroesTab(BaseTab):
                 partner_name_part = "-"
                 partner_level_part = ""
 
+            excursion_done, excursion_str = self._excursion_cell(
+                board, char_info)
+
             self.hero_data_list.append({
                 "name": hero,
                 # Not in the capture at all: every number on the row is a
@@ -1277,6 +1370,10 @@ class HeroesTab(BaseTab):
                 "partner_name_part": partner_name_part,
                 "partner_level_part": partner_level_part,
                 "preset": preset_display,
+                # Excursion types done, the NUMBER for the sort, and the
+                # `7/7` the cell shows.
+                "excursion_done": excursion_done,
+                "excursion": excursion_str,
                 # How many Sortie rungs this combatant has finished, or
                 # None where the capture has not carried the ladders.
                 # The NUMBER, so the column sorts 10 after 3 rather than
@@ -1305,8 +1402,10 @@ class HeroesTab(BaseTab):
             "partner_level": lambda h: h["partner_level_part"],
             "preset": lambda h: h["preset"],
             # Unknown sorts as its own group rather than as zero, so a
-            # roster the capture has no ladders for does not read as
-            # everyone being equally behind.
+            # roster the capture has no ladders (or board) for does not
+            # read as everyone being equally behind.
+            "excursion": lambda h: (h["excursion_done"] is not None,
+                                    h["excursion_done"] or 0),
             "sortie": lambda h: (h["sortie_done"] is not None,
                                  h["sortie_done"] or 0),
         }
@@ -1331,7 +1430,7 @@ class HeroesTab(BaseTab):
             values = (h["name"], f"{h['grade']}*", h["attribute"], h["class"],
                       level_str, nodes_str, ego_str, affinity_str, gs_str,
                       h["partner_name_part"], h["partner_level_part"],
-                      h["preset"], sortie_str)
+                      h["preset"], h["excursion"], sortie_str)
             # The row's Element tag is what colours it. An Element the
             # program has no colour for falls back to the plain
             # foreground rather than the theme's default.
@@ -1363,7 +1462,8 @@ class HeroesTab(BaseTab):
         else:
             self.hero_sort_col = col
             self.hero_sort_reverse = col in ["gs", "grade", "ego", "affinity",
-                                         "partner_level", "sortie"]
+                                         "partner_level", "excursion",
+                                         "sortie"]
 
         self.refresh_heroes()
 
@@ -1453,48 +1553,31 @@ class HeroesTab(BaseTab):
                                  settle=time.perf_counter() - s - w)
                 )
 
-    def _format_char_text(self, hero_name: str) -> str:
-        """Build the Character-frame text for `hero_name`.
+    @staticmethod
+    def _format_bonus_text(char_info) -> str:
+        """The Affinity Bonus block's line, or a dash with no capture.
 
-        The Extra Info block at the foot of the panel is NOT part of
-        this string: it is a grid of Labels outside the Text, so that
-        it can sit on the panel's floor. See `_build_extra_info`.
-
-        Extracted from show_hero_details so the fixed-size computation can
-        measure the exact string that will be displayed. Returns the
-        "No character data available" placeholder when the character has no
-        captured CharacterInfo.
+        The level itself is the list's Affinity column; this is what it
+        grants.
         """
-        char_info = self.optimizer.character_info.get(hero_name)
         if not char_info:
-            return "No character data available"
-        fb = char_info.friendship_bonus
-        hero_data = get_character_by_name(hero_name)
-        grade = hero_data.get("grade", "?")
-        attribute = hero_data.get("attribute", "Unknown")
-        hero_class = hero_data.get("class", "Unknown")
-        # A combatant the program has no entry for reports "Unknown" for
-        # both its element and its class, and saying so twice on one line
-        # tells the reader nothing the first one did not.
-        header_tail = (attribute if hero_class == attribute
-                       else f"{attribute}  |  {hero_class}")
+            return CHAR_SUBLIST_INDENT + "-"
+        return _bonus_line(*char_info.friendship_bonus[:3])
 
-        # One line per node of the tree, in the same shape whether or
-        # not the node is levelled, so the block does not change height
-        # between combatants. `POTENTIAL_NODES` is the order.
-        potential_lines = [self._format_node_line(char_info, node)
-                           for node in POTENTIAL_NODES]
-        potential_lines = potential_lines[:CHAR_POTENTIAL_LINES]
-        potential_lines += [""] * (CHAR_POTENTIAL_LINES - len(potential_lines))
-        potential_str = "\n".join(potential_lines)
-
-        return (
-            f"{char_info.level}/{char_info.max_level}  |  {grade}*  |  {header_tail}\n"
-            f"Ego Manifestation: E{char_info.limit_break}\n"
-            f"Affinity Lv: {char_info.friendship_index}\n"
-            f"  Bonus: ATK+{fb[0]}, DEF+{fb[1]}, HP+{fb[2]}\n"
-            f"Potential:\n{potential_str}"
-        )
+    def _format_potential_text(self, char_info) -> str:
+        """The Potential block: one line per node of the tree, in the
+        same shape whether or not the node is levelled, so the block
+        does not change height between combatants. `POTENTIAL_NODES` is
+        the order. With no capture, the placeholder in the first line
+        and the rest blank, still to the block's height."""
+        if char_info:
+            lines = [self._format_node_line(char_info, node)
+                     for node in POTENTIAL_NODES]
+        else:
+            lines = [CHAR_SUBLIST_INDENT + CHAR_NO_DATA]
+        lines = lines[:CHAR_POTENTIAL_LINES]
+        lines += [""] * (CHAR_POTENTIAL_LINES - len(lines))
+        return "\n".join(lines)
 
     def _format_node_line(self, char_info, node):
         """One node's line in the Character panel.
@@ -1543,94 +1626,6 @@ class HeroesTab(BaseTab):
         line = f"{CHAR_SUBLIST_INDENT}Node {node.shown}:\t{shown}"
         return f"{line}\t{does}" if does else line
 
-    def _build_extra_info(self, panel):
-        """The Extra Info block on the floor of the Character panel.
-
-        A heading and one row per fact, each row a label and a value
-        right-aligned in a column reserved to `CHAR_EXTRA_DIGITS`. The
-        widgets are built once and re-labelled per combatant, so
-        selecting one does not rebuild them.
-
-        The label column is left to size to its own content and the
-        value column held at the reservation: giving both weights would
-        split the block evenly and pull the values off their column.
-
-        `tk` widgets and not `ttk`, so that every one of them can be
-        given the panel's lighter background by name. The Text above
-        paints `bg_light` over the whole of its own area; a ttk widget
-        beside it takes the theme's colour instead and the foot of the
-        panel reads as a darker strip.
-        """
-        font = _default_font()
-        block = tk.Frame(panel, bg=self.colors["bg_light"])
-        # NO pads on the pack, so the lighter background reaches every
-        # edge of the panel the way the Text's does. The insets live on
-        # the grid cells inside instead; a pad here would leave a strip
-        # of the panel's own darker colour along that edge.
-        block.pack(side=tk.BOTTOM, fill=tk.X)
-        self._extra_info_block = block
-        block.grid_columnconfigure(
-            # MEASURED, so already scaled -- see `ui/scaling.py`.
-            1, minsize=font.measure("0" * CHAR_EXTRA_DIGITS))
-
-        def text(**kwargs):
-            """A Label carrying nothing of its own around its words.
-
-            `padding=0`: a ttk.Label's own inset would otherwise land
-            between the value column's edge and its digits)), where the
-            pads beside it are measured to the glyphs.
-            """
-            return ttk.Label(block, font=font, style="Panel.TLabel",
-                             padding=px(0), **kwargs)
-
-        text(text=CHAR_EXTRA_HEADING).grid(
-            row=0, column=0, columnspan=2, sticky="w",
-            padx=px((CHAR_EXTRA_INSET, 0)))
-
-        indent = font.measure(CHAR_SUBLIST_INDENT)
-        last = len(CHAR_EXTRA_ROWS)
-        self._extra_info_values = {}
-        for line, label in enumerate(CHAR_EXTRA_ROWS, start=1):
-            floor = (0, CHAR_EXTRA_FLOOR) if line == last else (0, 0)
-            text(text=label).grid(
-                row=line, column=0, sticky="w", pady=px(floor),
-                # `indent` is MEASURED off the font and so is
-                # already scaled; only the two constants go
-                # through `px`.
-                padx=(px(CHAR_EXTRA_INSET) + indent,
-                      px(CHAR_EXTRA_LABEL_GAP)))
-            # `sticky=ew` with `anchor=e`: the widget fills the reserved
-            # column and the digits sit at its right. Sticking it east
-            # instead right-aligns the WIDGET, which looks the same and
-            # leaves nothing at the column's left edge -- and that edge
-            # is what the label beside it is spaced from.
-            value = text(text=CHAR_EXTRA_NO_DATA, anchor=tk.E)
-            value.grid(row=line, column=1, sticky="ew", pady=px(floor))
-            self._extra_info_values[label] = value
-
-    def _update_extra_info(self, hero_name):
-        """Fill the Extra Info block for one combatant.
-
-        A snapshot the excursion board never reached reads `-`, where a
-        combatant with no row on a board that DID arrive reads 0: the
-        server sends the board whole, so an absent row is a count.
-
-        The denominator is PER COMBATANT and is a bound rather than a
-        total: no snapshot states a maximum, so a combatant past the
-        seven everyone has reads against the furthest the extras are
-        known to go. See `excursions.ceiling`.
-        """
-        if not getattr(self, "_extra_info_values", None):
-            return
-        char_info = self.optimizer.character_info.get(hero_name)
-        board = excursions.counts(self.optimizer.raw_data)
-        if char_info is None or not board:
-            shown = CHAR_EXTRA_NO_DATA
-        else:
-            count = board.get(char_info.res_id, 0)
-            shown = f"{count}/{excursions.ceiling(count)}"
-        self._extra_info_values["Excursion Types:"].config(text=shown)
-
     def _format_stats_text(self, stat_values: dict) -> str:
         """Build the two-column build-stat block for the Character card.
 
@@ -1643,6 +1638,10 @@ class HeroesTab(BaseTab):
 
         stat_values maps stat key -> already-formatted string; missing
         keys render as "-", which is what an ungeared character shows.
+
+        Each line opens on the indent every block under a heading has.
+        The stops are measured from the Text's edge, not from the
+        indent, so they carry it too (`_compute_and_apply_fixed_sizes`).
         """
         lines = []
         for left_key, right_key in HERO_STAT_ROWS:
@@ -1655,18 +1654,24 @@ class HeroesTab(BaseTab):
             if right_key is not None:
                 right = (f"{HERO_STAT_DISPLAY[right_key]}\t"
                          f"{stat_values.get(right_key, '-')}")
-            lines.append(f"{left}\t{right}")
+            lines.append(f"{CHAR_SUBLIST_INDENT}{left}\t{right}")
         return "\n".join(lines)
 
     def _format_character_card(self, hero_name: str, stat_values: dict) -> str:
-        """The full Character card text: details block, Sets line, stat
-        block. Shared by show_hero_details and the fixed-size computation
-        so both work from the same string.
+        """The full Character card text: the stat block, the Affinity
+        bonus, the Sets and the Potential nodes, in that order.
+
+        The combatant's level, grade, element, class, Ego Manifestation
+        and Affinity level are the list's columns, and the card does not
+        repeat them.
         """
+        char_info = self.optimizer.character_info.get(hero_name)
         return (
-            f"{self._format_char_text(hero_name)}\n"
-            f"Sets:\n{self._format_sets_text(hero_name)}\n"
-            f"Stats:\n{self._format_stats_text(stat_values)}"
+            f"{CHAR_STATS_HEADING}\n{self._format_stats_text(stat_values)}\n"
+            f"{CHAR_BONUS_HEADING}\n{self._format_bonus_text(char_info)}\n"
+            f"{CHAR_SETS_HEADING}\n{self._format_sets_text(hero_name)}\n"
+            f"{CHAR_POTENTIAL_HEADING}\n"
+            f"{self._format_potential_text(char_info)}"
         )
 
     def _format_partner_text(self, char_info) -> str:
@@ -1746,11 +1751,14 @@ class HeroesTab(BaseTab):
         return _padded_sublist(parts)
 
     def _pin_gear_cells(self):
-        """Hold the six fragment cells at their stated size.
+        """Hold the six fragment cells at their size: the stated width,
+        and the height their font needs (`_gear_cell_h`).
 
         Their pixel size goes on the GRID rather than the widgets: a
         Text sizes in characters, so it is told to ask for nothing and
-        left to fill the cell the grid reserves.
+        left to fill the cell the grid reserves. A row's minsize carries
+        its cells' pads, and the cells are equal because every row is
+        given the same height besides them.
 
         Called when the panel is built and again after a load, and the
         two must agree -- a fresh install has no data and so never
@@ -1760,56 +1768,29 @@ class HeroesTab(BaseTab):
         cells = list(self.gear_cells.values())
         if not cells:
             return
-        cell_w, cell_h = px(GEAR_CELL_W), px(GEAR_CELL_H)
+        cell_w, cell_h = px(GEAR_CELL_W), _gear_cell_h(cells[0])
         gear_grid = cells[0].master
         for cell in cells:
             cell.configure(width=1, height=1)
         for column in (0, 1):
             gear_grid.grid_columnconfigure(column, minsize=int(cell_w),
                                            weight=0)
-        for row in (0, 1, 2):
-            gear_grid.grid_rowconfigure(row, minsize=int(cell_h), weight=0)
-        # A pin after a load would undo the rows' share of a grid that
-        # has not changed size, and no <Configure> comes to restore it.
-        if gear_grid.winfo_height() > 1:
-            self._share_gear_rows(gear_grid.winfo_height())
-
-    def _share_gear_rows(self, height):
-        """Share the grid's whole height between its three rows of cells.
-
-        Equal CELLS, not equal rows: the rows' own pads differ (the last
-        has none below it), and equal rows left the bottom cells taller
-        than the others. What does not divide by three goes a pixel per
-        cell from the bottom up.
-        """
-        cells = list(self.gear_cells.values())
-        if not cells or height <= 1:
-            return
-        pads = [sum(px(_gear_row_pady(row))) for row in range(GEAR_ROWS)]
-        base, extra = divmod(height - sum(pads), GEAR_ROWS)
-        gear_grid = cells[0].master
         for row in range(GEAR_ROWS):
-            # Row 2 is the bottom: it takes the first spare pixel.
-            spare = 1 if GEAR_ROWS - 1 - row < extra else 0
-            gear_grid.grid_rowconfigure(row, minsize=base + spare + pads[row],
-                                        weight=0)
+            gear_grid.grid_rowconfigure(
+                row, minsize=cell_h + sum(px(_gear_row_pady(row))),
+                weight=0)
 
     def _compute_and_apply_fixed_sizes(self):
-        """Freeze the three detail-pane frames (Character, Partner,
-        Equipped Memory Fragments) to fixed pixel sizes computed
-        from the WIDEST / TALLEST content across ALL captured combatants,
-        measured via font metrics -- so switching combatants never resizes
-        or shifts the panel.
+        """Size the detail pane's three frames.
 
-        Per the spec, the Partner frame's HEIGHT instead tracks the
-        Character frame (so the two cards stay equal height); its WIDTH is
-        sized to its own widest *structured* header line (the wrapping
-        passive/ego prose mustn't drive width -- an unwrapped sentence would
-        be absurdly wide; it wraps inside the card, with the existing
-        scrollbar for overflow).
+        * **Character** -- as wide as the widest line the tables can
+          produce (`char_content_px`), so switching combatants never
+          resizes or shifts the panel.
+        * **Partner** -- the width left beside Character.
+        * **Equipped Memory Fragments** -- every cell pinned
+          (`_pin_gear_cells`). Packed first, so it has its height before
+          the two panels above share what is left.
 
-        Every size is biased a little LARGE (generous PAD_* constants) so
-        content never clips -- over-estimating just leaves a thin margin.
         Wrapped in try/except so a measurement hiccup can't break the tab;
         on failure the frames keep their natural auto-resizing behavior.
         """
@@ -1821,19 +1802,6 @@ class HeroesTab(BaseTab):
                 f_default = _default_font()
             except Exception:
                 f_default = tkfont.Font(family="Segoe UI", size=9)
-
-            line_default = f_default.metrics("linespace")
-
-            # A STATED size, not a derived one. Deriving it meant
-            # estimating the LabelFrame overhead, the wrap width and the
-            # line count separately, and the three estimates disagreed --
-            # the wrap estimate alone ran ~47px narrower than the real
-            # frame, so every cell reserved lines it never used.
-            #
-            # Calibrated against the longest set description currently in
-            # the game. A longer one clips rather than growing the cell,
-            # so if a set is added and its description runs off, raise
-            # GEAR_CELL_H here. `_pin_gear_cells` applies it.
 
             # The stat block's tab stops. Four stops per row: the left
             # value (right-aligned), the right column's name, the right
@@ -1855,99 +1823,31 @@ class HeroesTab(BaseTab):
             # Taking max(label) and max(value) separately would place the
             # column for a row that does not exist -- the widest label and
             # the widest value are not on the same line.
+            #
             try:
-                self.hero_char_text.configure(tabs=(
-                    text_px(CHAR_TAB_VAL1), "right",
-                    text_px(CHAR_TAB_NAME2), "left",
-                    text_px(CHAR_TAB_VAL2), "right",
-                ))
-                # The node block's columns, on a TAG of their own. A
-                # Text carries one set of stops for the whole widget
-                # and the stat block above already owns those; a tag's
-                # own `tabs` is what lets two blocks in one widget be
-                # ruled differently.
-                self.hero_char_text.tag_configure(
-                    CHAR_NODE_TAG, tabs=(
-                        text_px(CHAR_NODE_TAB_LEVEL), "right",
-                        text_px(CHAR_NODE_TAB_DESC), "left",
-                    ))
+                rule_card_text(self.hero_char_text, f_default)
             except (AttributeError, tk.TclError):
                 pass
-            # STATED, not measured. Every line in this panel is a fixed
-            # shape: the details block is a constant set of lines, Sets
-            # and Potential pad themselves to CHAR_SETS_LINES and
-            # CHAR_POTENTIAL_LINES, and both the stat block and the node
-            # block sit on stated tab stops.
-            #
-            # **Do not measure them here.** This runs from <Configure>,
-            # so measuring walks every combatant's formatted card on
-            # every resize, to arrive at numbers that do not move with
-            # the data. `check_tabs_build` is where the stated widths
-            # are held to what the panel actually renders.
-            char_W = _char_panel_w()
-            # The Extra Info block sits on the panel's floor and takes
-            # its height off the Text above it. Left out of this, the
-            # panel is sized for the card alone and the block eats the
-            # last lines of it -- which looks like a card that stops
-            # early rather than like a panel that is too short.
-            # ASKED FOR, not derived from the font: a ttk.Label's own
-            # inset is a style's to decide and is not the linespace, so
-            # a height built from `line_default` runs short and the
-            # block takes the difference off the card above it.
-            # Asked for BEFORE reading: at build time the panel has
-            # not been through the geometry manager, and an
-            # unmeasured block falls back to an estimate five short
-            # -- which the first load would then correct, moving the
-            # card under the user.
-            self._extra_info_block.update_idletasks()
-            extra_h = self._extra_info_block.winfo_reqheight()
-            if extra_h <= 1:                  # geometry not processed yet
-                extra_h = ((1 + len(CHAR_EXTRA_ROWS)) * line_default
-                           + px(CHAR_EXTRA_INSET))
-            # The title is set in the card's own face, so its line is
-            # `line_default` too.
-            row_h = ((CHAR_TOTAL_LINES + 1) * line_default
-                     + px(2 * CHAR_TEXT_PADY + PANEL_TITLE_MARGIN)
-                     + 2 * PANEL_BORDER + extra_h)
 
-            def _fix(frame, w, h):
-                frame.configure(width=int(w), height=int(h))
-                frame.pack_propagate(False)
-
-            _fix(self._char_frame, char_W, row_h)
-            # char_frame is width-fixed at char_W (so its content doesn't
-            # reflow per character), but fill=tk.Y lets it grow VERTICALLY
-            # with info_frame -- which absorbs the detail panel's vertical
-            # excess. The minimum height row_h still applies via
-            # pack_propagate(False).
+            # This runs on every load, and the widest line is the same
+            # each time: it comes from the tables, not the roster.
+            if self._char_content_px is None:
+                self._char_content_px = char_content_px(f_default)
+            # pack_propagate(False): the frame holds the width it is
+            # given rather than the Text's own request. Its height is
+            # fill=Y's, from info_frame, which takes the detail pane's
+            # height above the gear cells.
+            self._char_frame.configure(
+                width=int(_char_panel_w(self._char_content_px)))
+            self._char_frame.pack_propagate(False)
             self._char_frame.pack_configure(fill=tk.Y)
 
-            # Partner frame fills the space to the Character frame's right;
-            # its HEIGHT is pinned to the Character frame's height, and
-            # fill=tk.BOTH lets it also grow VERTICALLY with info_frame,
-            # matching the Character frame's vertical-fill behavior.
-            self._partner_frame.configure(height=int(row_h))
+            # Partner fills the width to the Character frame's right, and
+            # the same height. pack_propagate(False) stops its Text's
+            # requested lines from asking the pane for more.
             self._partner_frame.pack_propagate(False)
             self._partner_frame.pack_configure(fill=tk.BOTH, expand=True)
 
-            # The gear frame is NOT pinned to a computed size: every cell
-            # inside it is pinned individually just below, so its natural
-            # size is already constant across combatants. Computing it here
-            # instead meant guessing the LabelFrame's own overhead, and the
-            # guess (sized for padding=5 plus a border) over-provisioned the
-            # height once the frame went borderless with padding=0 -- which
-            # showed up as a gap between the last row of cells and the
-            # bottom of the panel.
-            self._gear_outer_frame.pack_configure(fill=tk.NONE, expand=False, anchor=tk.W)
-
-            # Pin every individual Slot frame to the static cell size and
-            # stop the grid stretching them, so a long set description
-            # wraps inside a fixed box instead of growing it (which would
-            # clip GS/Potential on long-description sets like Black Wing).
-            # NB: pack_propagate(False) is the correct call here -- each
-            # cell uses PACK for its children, so grid_propagate would be
-            # a silent no-op and the cells would stay at their natural
-            # content size while the outer frame grew.
             self._pin_gear_cells()
         except Exception:
             pass
@@ -2050,7 +1950,6 @@ class HeroesTab(BaseTab):
                 self.hero_char_text.tag_add(
                     CHAR_NODE_TAG, f"{number}.0", f"{number}.end")
         self.hero_char_text.config(state=tk.DISABLED)
-        self._update_extra_info(hero_name)
 
     # ----- Per-character preset helpers ----------------------------------
 

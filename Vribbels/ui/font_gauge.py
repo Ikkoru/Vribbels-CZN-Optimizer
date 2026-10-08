@@ -5,11 +5,14 @@ Each scale above 100% draws its text at a pixel size chosen near its
 land a little over or under. Text a little too TALL or too WIDE for its
 scale shows first in one place per axis, and this measures both:
 
-* **Height -- an Equipped Memory Fragments cell.** Its height is stated
-  (`GEAR_CELL_H`), and at 100% it holds five lines and the longest set
-  effect in the game, wrapped to three rows, with no pixel to spare. A
-  line too tall -- or a face too wide, wrapping the effect to a fourth
-  row -- pushes the effect's last row out of the cell.
+* **Height -- the Character card.** The gear cells below it take the
+  height their font needs (`heroes_tab._gear_cell_h`), and the card
+  has what the window has left above them, with a fixed number of
+  lines to hold. A line too tall runs the last of them off the panel.
+
+  The cells are measured beside it: their height is the font's, so
+  they hold the longest set effect in the game as long as it wraps to
+  `GEAR_SET_ROWS` rows -- a face too wide wraps it to one more.
 * **Width -- the Memory Fragments list's Main column.** Of the widths
   stated in pixels, the one with the least room beside its widest text
   (`Passion% 16.0%`), so the first a wider font clips. A width measured
@@ -35,7 +38,7 @@ from tkinter import ttk
 
 from game_data.sets import SETS
 from ui import scaling
-from ui.tabs.heroes_tab import GEAR_CELL_H
+from ui.tabs.heroes_tab import GEAR_SET_ROWS
 
 # How many rows of slack to list beside the clips: enough to see which
 # place is nearest, and the ones queued behind it.
@@ -111,11 +114,28 @@ def _height(app):
             - int(cell.cget("spacing3")))
     line = tkfont.Font(root=cell, font=cell.cget("font")).metrics(
         "linespace")
-    print(f"height: gear cell {'CLIPPED' if need > room else 'fits'}: "
+    clipped = need > room or set_rows > GEAR_SET_ROWS
+    print(f"height: gear cell {'CLIPPED' if clipped else 'fits'}: "
           f"{room - need:+d}px beside five lines and the longest set "
-          f"effect, {set_rows} rows of it ({need} of {room}px, {line}px "
-          f"a line; cell {cell.winfo_height()}px, stated "
-          f"{scaling.px(GEAR_CELL_H)}px, inset {inset}px)")
+          f"effect, {set_rows} of {GEAR_SET_ROWS} rows of it ({need} of "
+          f"{room}px, {line}px a line)")
+    _card_height(heroes)
+
+
+def _card_height(heroes):
+    """The Character card's lines against the height its Text has."""
+    text = heroes.hero_char_text
+    text.update_idletasks()
+    inset = (int(text.cget("bd")) + int(text.cget("highlightthickness"))
+             + int(text.cget("pady")))
+    room = text.winfo_height() - 2 * inset
+    lines = int(text.index("end-1c").split(".")[0])
+    need = _count(text, "1.0", "end", "ypixels")
+    line = tkfont.Font(root=text, font=text.cget("font")).metrics(
+        "linespace")
+    print(f"height: Character card {'CLIPPED' if need > room else 'fits'}: "
+          f"{room - need:+d}px beside its {lines} lines ({need} of {room}px, "
+          f"{line}px a line)")
 
 
 # -------------------------------------------------------------- width

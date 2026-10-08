@@ -31,6 +31,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Sortie Currency is orange while the next weekly grant still fits under its cap, red once it would not.
   - A deadline in its last day blinks, and so does a Delegation Module row with any to use. The Daily heading and finished events hold still.
   - `Finished?` removed from Overclock events.
+- **Combatants:**
+  - `Character` opens on Stats, then `Affinity Bonus`, Sets and Potential. The level, grade, element, class, Ego Manifestation and Affinity lines are gone, being the list's columns, and `Excursion Types` is the list's new `Excursion` column.
+  - Equipped Memory Fragments sits against the window's right edge and is as tall as three rows of set effect need; the panels above take the height left and the list the width left.
 
 ### Fixed
 
