@@ -85,7 +85,7 @@ from game_data import (
 from game_data.constants import DISPLAY_NAMES
 from models import Stat
 from models.memory_fragment import compute_gs_bounds, normalize_gs
-from ui.scaling import px, text_px
+from ui.scaling import px, px_spans, text_px
 
 
 # UI label shown when a character has no preset assigned (default 1.0 weights).
@@ -757,7 +757,7 @@ class HeroesTab(BaseTab):
         hero_vsb.pack(side=tk.RIGHT, fill=tk.Y)
 
         for col_id, title, width_px in zip(
-                HERO_COL_IDS, HERO_COL_TITLES, HERO_COL_PX):
+                HERO_COL_IDS, HERO_COL_TITLES, px_spans(HERO_COL_PX)):
             # Left-align Combatant, Partner and Preset; centre the rest.
             # The second "Level" is the PARTNER's -- it follows the Partner
             # column, which is what disambiguates it.
@@ -768,7 +768,7 @@ class HeroesTab(BaseTab):
                 command=lambda k=col_id: self.sort_heroes(k))
             # Preset takes the leftover width; every other column is fixed.
             self.hero_tree.column(
-                col_id, width=px(width_px), minwidth=px(width_px),
+                col_id, width=width_px, minwidth=width_px,
                 anchor=anchor, stretch=(col_id == "preset"))
 
         # One tag per Element, plus a fallback. Rows carry the tag for

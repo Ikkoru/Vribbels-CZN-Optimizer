@@ -84,7 +84,7 @@ from models.memory_fragment import (
     compute_fragment_gs, compute_fragment_potential, bounds_for_fragment,
 )
 from optimizer.core import parse_set_effect_shares
-from ui.scaling import px
+from ui.scaling import px, px_spans
 
 
 # Multi-line explanation shown below the toolbar. The label's wraplength is
@@ -1985,6 +1985,7 @@ class OptimizerTab(BaseTab):
             "crate": "Crit%", "cdmg": "CDMG%", "element": "Elem%",
             "extra": "Extra%", "dot": "DoT%", "ego": "Ego",
         }
+        spans = dict(zip(cols, px_spans([widths[c] for c in cols])))
         for c in cols:
             # The heading takes its column's anchor: a heading defaults to
             # centred whatever the cells below do, which leaves a
@@ -1993,19 +1994,23 @@ class OptimizerTab(BaseTab):
             self.result_tree.heading(c, text=headings[c], anchor=anchor,
                                       command=lambda col=c: self.sort_results(col))
             self.result_tree.column(
-                c, width=px(widths[c]), anchor=anchor, stretch=(c == "sets"),
+                c, width=spans[c], anchor=anchor, stretch=(c == "sets"),
             )
 
         result_scroll = ttk.Scrollbar(parent, orient=tk.VERTICAL,
                                        command=self.result_tree.yview)
         self.result_tree.configure(yscrollcommand=result_scroll.set)
+        # The scrollbar is packed FIRST: pack serves its slaves in order,
+        # so where the panel is narrower than both ask -- at 125% the
+        # columns beside it grow a little past the scale -- the list's
+        # stretching Sets column gives way, not the scrollbar.
+        result_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         # spacing: title above, element below -- title, tree ↕
         # The gap from the panel title to the tree lives HERE, not on the
         # LabelFrame's padding: the Tight.Borderless style's top padding
         # does not move it. See setup_ui, where the frame is built.
         self.result_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
                               pady=px((3, 0)))
-        result_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.result_tree.bind("<<TreeviewSelect>>", self.on_result_select)
 
     # --------------------------------------------------- UI: detail tree
@@ -2035,7 +2040,8 @@ class OptimizerTab(BaseTab):
             ("gs",        "GS",         40),
             ("owner",     "Owner",      67),  # stretches
         ]
-        for col, txt, w in col_defs:
+        spans = px_spans([w for _col, _txt, w in col_defs])
+        for (col, txt, _w), w in zip(col_defs, spans):
             # Text-ish columns are left-aligned; the numeric lvl and gs
             # stay centered. The heading takes the same anchor as its
             # column, so a title never floats over a differently-aligned
@@ -2044,7 +2050,7 @@ class OptimizerTab(BaseTab):
                                       "sub1", "sub2", "sub3", "sub4", "owner")
                       else tk.CENTER)
             self.detail_tree.heading(col, text=txt, anchor=anchor)
-            self.detail_tree.column(col, width=px(w), anchor=anchor,
+            self.detail_tree.column(col, width=w, anchor=anchor,
                                      stretch=(col == "owner"))
         self.detail_tree.pack(fill=tk.X)
 

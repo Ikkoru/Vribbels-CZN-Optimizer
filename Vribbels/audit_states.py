@@ -40,7 +40,7 @@ FLAG = "--audit-state"
 EMPTY, FRESH = "empty", "fresh"
 STATES = (EMPTY, FRESH)
 SCALE_FLAG = "--audit-scale"
-SCALES = ("100%", "200%")
+SCALES = ("100%", "125%", "150%", "175%", "200%")
 
 # The repository's scratch folder. Its subfolder for these is wholly
 # disposable, so it carries the tag that keeps it out of backups.

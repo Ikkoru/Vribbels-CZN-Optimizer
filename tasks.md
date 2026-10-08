@@ -235,13 +235,11 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   **Not obviously worth doing.** Tk construction code is honestly linear. A 300-line `setup_ui` that builds 300 lines of widgets hides nothing, and splitting it into eight `_build_*` calls moves the reading problem rather than removing it. No defect found in the code audit traced to file size; the real ones were an encoding default, a swallowed exception and a duplicated helper. The shared helpers already pulled out of these files (`ui/utils/`) are the same move at a reviewable size; judge from those.
 
-- **T15 — Scaling in 25% increments** (100 / 125 / 150 / 175 / 200). Indefinite: 200% is shipped, and the fractional steps are the open part.
+- **T15 — Scaling in 25% increments.** 125%, 150% and 175% are in the dropdown. What is left:
 
-  **200% is the only clean multiple.** Every pixel doubles with no remainder, so a 4 and a 5 stay a 4 and a 5 doubled, and nothing drifts. At 125% a 4 becomes exactly 5 while a 5 becomes 6.25: two gaps that stood in a fixed relation stop doing so. A distance built from parts (`label_stop + LABEL_TO_VALUE + value`) also lands somewhere other than the same sum scaled once. The discipline that contains it: scale the COMPUTED total, never each addend, at every site that has one.
-
-  **The icons are the blocker.** 70 assets at 112x113 and 5 plates at 101x101, with no larger source in the repo. 200% doubles them by nearest neighbour, which is exact and reads as pixel art. 125% does not divide, so anything between is a resample and blurs. A fractional step needs art re-extracted at a higher resolution, if the game ships one.
-
-  **The audit holds each gap at a scale to its 100% target times the scale**, which a fractional step would make fractional: it would need a rule for rounding a target, and every rounding is drift the checker then cannot see.
+  - **The icons' filter between 100% and 200%.** Lanczos for now. `_tmp/icon_scaling.py` writes `_tmp/icon_scaling.png`, each filter beside the others at each scale, 1:1; the maintainer picks, and both go once the choice is in.
+  - **Their baselines**, frozen by the maintainer with `zRUN Spacing Audit Scales.bat` once the layout at each is accepted.
+  - **175% misses more than the others**: its 9pt lands on 20px with a 28px line where 26.25 is wanted, so text-led vertical gaps run +4 to +5. A ratio that picks 19px trades that for narrower letters; worth a look on a real screen.
 
 ### Pondering
 

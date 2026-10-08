@@ -66,7 +66,7 @@ from .heroes_tab import compute_fragment_gs
 from upgrade_log_filters import (
     filter_flags, presets_for_fragment, selected_log_presets,
 )
-from ui.scaling import px
+from ui.scaling import px, px_spans
 
 
 # Where the Upgrade Log Settings checkbox's state is kept. Its own
@@ -621,13 +621,15 @@ class InventoryTab(BaseTab):
         # Main and the four Sub cells render in the same "Name value"
         # shape, so without a break between them the eye reads Main as a
         # fifth substat.
-        for col, txt, w in [("slot", "Slot", 90), ("set", "Set", 140),
-                            ("main", "Main", 90), ("lvl", "Level", 60),
-                            ("sub1", "Sub1", 99), ("sub2", "Sub2", 99),
-                            ("sub3", "Sub3", 99), ("sub4", "Sub4", 99), ("gs", "GS", 20),
-                            ("potential", "Potential", 60), ("equipped", "Equipped", 67),
-                            ("highest_gs", "Highest GS", 67),
-                            ("highest_potential", "Highest Potential", 369)]:
+        col_defs = [("slot", "Slot", 90), ("set", "Set", 140),
+                    ("main", "Main", 90), ("lvl", "Level", 60),
+                    ("sub1", "Sub1", 99), ("sub2", "Sub2", 99),
+                    ("sub3", "Sub3", 99), ("sub4", "Sub4", 99), ("gs", "GS", 20),
+                    ("potential", "Potential", 60), ("equipped", "Equipped", 67),
+                    ("highest_gs", "Highest GS", 67),
+                    ("highest_potential", "Highest Potential", 369)]
+        spans = px_spans([w for _col, _txt, w in col_defs])
+        for (col, txt, _w), w in zip(col_defs, spans):
             # Text-ish cells (slot/set/main/subs/equipped) are left-aligned;
             # numeric/short columns (lvl, gs, potential, highest_gs) stay
             # centered. highest_potential joins the left-aligned group
@@ -648,7 +650,7 @@ class InventoryTab(BaseTab):
             # pixel the window gains lands there instead of being shared
             # out across thirteen columns that were each sized to their
             # content. Left to Tk's default every column stretches.
-            self.inv_tree.column(col, width=px(w), anchor=anchor,
+            self.inv_tree.column(col, width=w, anchor=anchor,
                                  stretch=(col == "highest_potential"))
 
         inv_scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.inv_tree.yview)

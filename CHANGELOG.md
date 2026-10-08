@@ -10,6 +10,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
+- Setup & Settings: the UI scale also offers 125%, 150% and 175%.
 - Optimizer: `Order Mode` in Exclude Combatant's MFs puts the combatants in an order you drag into shape, starting alphabetical. Whoever you optimize can't use the MFs of anyone before them. `Reset Sort Order` puts them back in alphabetical order.
 - Memory Fragments: a `Level:` filter under Slots shows the Memory Fragments of one level.
 - Capture Log: Ctrl+F marks every place the typed text appears. Escape closes it.

@@ -241,9 +241,10 @@ def _state_targets_name_entries(audit_states, sa):
 
 
 def _scale_is_its_own(audit_states, sa):
-    """An audit run at 200% is asked for on the command line, held to
-    twice every target, and compared with a baseline of its own -- one
-    baseline for both scales would report every gap as changed."""
+    """An audit run at a scale is asked for on the command line, held
+    to every target scaled as `px` scales it, and compared with a
+    baseline of its own -- one baseline for every scale would report
+    every gap as changed."""
     from ui import scaling
     out = []
     if tuple(audit_states.SCALES) != tuple(scaling.SCALE_CHOICES):
@@ -255,30 +256,48 @@ def _scale_is_its_own(audit_states, sa):
             out.append(f"{argv[1:]} asks for scale "
                        f"{audit_states.requested_scale(argv)!r}, not {want!r}")
     try:
-        audit_states.requested_scale(["x", "--audit-scale=150%"])
+        audit_states.requested_scale(["x", "--audit-scale=130%"])
         out.append("an unknown audit scale was accepted, and the run would "
                    "lay out at a scale nothing measures against")
     except SystemExit:
         pass
     for state, factor, name in ((None, 2, "spacing_baseline_200.json"),
+                                (None, 1.25, "spacing_baseline_125.json"),
                                 ("empty", 2,
                                  "spacing_baseline_empty_200.json"),
                                 ("fresh", 1, "spacing_baseline_fresh.json")):
         got = os.path.basename(sa.baseline_path(state, factor))
         if got != name:
-            out.append(f"the baseline for state {state} at {factor * 100}% "
-                       f"is {got}, not {name}")
-    gap = sa.TrackedGap("probe", "Tab", "rule", 5, None, hand=4)
-    was = scaling.factor()
-    try:
-        scaling.set_scale("200%")
-        doubled = sa.scaled([gap])[0]
-    finally:
-        scaling.set_scale(f"{was * 100}%")
-    if (doubled.target, doubled.hand) != (10, 8):
-        out.append(f"at 200% a 5px target with a hand reading of 4 becomes "
-                   f"{doubled.target} and {doubled.hand}, not 10 and 8: a "
-                   f"200% screen has to show what a 100% one does")
+            out.append(f"the baseline for state {state} at "
+                       f"{round(factor * 100)}% is {got}, not {name}")
+    gap = sa.TrackedGap("probe", "Tab", "rule", 5, None, hand=2)
+    was = scaling.SCALE_CHOICES[0]
+    # 200% doubles exactly; 125% lands 5 on 6.25 and 2 on a HALF, which
+    # `px` rounds up where Python's `round` would go to the even 2.
+    for scale, want in (("200%", (10, 4)), ("125%", (6, 3)),
+                        ("150%", (8, 3))):
+        widths = [49, 350, 32, 34, 34, 37, 51, 42, 41, 38, 26]
+        try:
+            scaling.set_scale(scale)
+            got = sa.scaled([gap])[0]
+            pair = scaling.px((1, 2))
+            spans = scaling.px_spans(widths)
+            whole = scaling.px(sum(widths))
+        finally:
+            scaling.set_scale(was)
+        if sum(spans) != whole:
+            out.append(f"at {scale} a row of columns scaled by px_spans "
+                       f"adds up to {sum(spans)}, not px of its total "
+                       f"{whole}: rounded one by one, a dozen columns run "
+                       f"past the space they were sized for")
+        if (got.target, got.hand) != want:
+            out.append(f"at {scale} a 5px target with a hand reading of 2 "
+                       f"becomes {got.target} and {got.hand}, not "
+                       f"{want[0]} and {want[1]}: a target is the 100% "
+                       f"distance as `px` puts it on screen, halves up")
+        if not all(isinstance(v, int) for v in pair):
+            out.append(f"px((1, 2)) at {scale} is {pair!r}: Tk and the "
+                       f"arithmetic done on a distance need whole pixels")
     return out
 
 

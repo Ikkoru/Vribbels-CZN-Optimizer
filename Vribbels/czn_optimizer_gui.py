@@ -532,7 +532,7 @@ class OptimizerGUI:
                 self.root.destroy()
                 return
             state = audit_states.requested()
-            print(f"\n--- UI spacing audit, {scaling.factor() * 100}% ---")
+            print(f"\n--- UI spacing audit, {scaling.percent()}% ---")
             if state:
                 print(f"State: {state}, in the scratch copy at "
                       f"{_user_data_dir()}")

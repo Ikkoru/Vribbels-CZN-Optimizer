@@ -19,7 +19,7 @@ every distance in this app goes through it. See `ui/scaling.py`.
 """
 
 import tkinter as tk
-from ui.scaling import factor, px
+from ui.scaling import px
 
 # Tk's own padding for a checkbutton, both axes.
 TK_PAD = 1
@@ -91,13 +91,16 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
         opts["command"] = command
     pad_x = kwargs.pop("padx", px(0) if compact else px(TK_PAD))
     pad_y = kwargs.pop("pady", px(0) if compact else px(TK_PAD))
-    extra = factor() - 1
-    # Tk clamps a negative pad to 0, so a `compact` checkbox keeps the
-    # trim's surplus at 200%: 1px taller on each side than twice its
-    # 100% height.
-    opts.update(padx=pad_x + extra * FOCUS_INSET,
-                pady=max(0, pad_y - extra * (HEIGHT_TRIM // 2
-                                             - FOCUS_INSET)))
+    # What Tk's two fixed pixels leave out at this scale: the inset is
+    # short by what `px` would have made of it, on each side, and the
+    # trim takes too little by what `px` would have made of it, over
+    # both sides. Tk clamps a negative pad to 0, so a `compact`
+    # checkbox keeps the trim's surplus: at 200%, 1px taller on each
+    # side than twice its 100% height.
+    inset_short = px(FOCUS_INSET) - FOCUS_INSET
+    trim_short = px(HEIGHT_TRIM) - HEIGHT_TRIM
+    opts.update(padx=pad_x + inset_short,
+                pady=max(0, pad_y - (trim_short - 2 * inset_short) // 2))
     if wraplength is not None:
         # justify with it, always. A wrapped label is the only way this
         # widget gets a second line, and tk.Checkbutton centres its lines

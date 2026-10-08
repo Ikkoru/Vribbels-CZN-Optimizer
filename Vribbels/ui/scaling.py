@@ -8,11 +8,11 @@ is drawn at 96dpi and bitmap-stretched onto any scaled monitor -- soft
 everywhere, including the one the program is developed on. Declared, it
 is drawn in real device pixels.
 
-Which declaration is right is not the same at both scales, and
+Which declaration is right is not the same at every scale, and
 `declare_dpi_awareness` is where that is argued: SYSTEM awareness at
 100%, so the window keeps one physical size and a drag resizes
-nothing; PER-MONITOR at 200%, so Windows does not double text this
-program has already doubled.
+nothing; PER-MONITOR above it, so Windows does not scale text this
+program has already scaled.
 
 **Tk does not adapt to per-monitor DPI**, in any version. It reports one
 scaling for every screen and does not follow a window dragged between
@@ -30,8 +30,9 @@ Two levers cover the whole app between them:
 built from parts (`label + gap + value`) has to be scaled once at the
 end rather than per part -- scaling each addend rounds each one, and
 the sum lands somewhere the single scaling does not. At 200% nothing
-rounds, so today the rule costs nothing and buys the fractional steps
-`tasks.md` T15 describes.
+rounds; at 125% a 4 becomes exactly 5 while a 5 becomes 6, so two gaps
+that stood in a fixed relation drift a pixel apart wherever a sum was
+scaled part by part.
 
 **A MEASURED distance must not go through `px` at all.** Anything read
 off a font -- `font.measure(...)`, `winfo_reqheight()`, a Text's
@@ -43,19 +44,21 @@ pad mixing the two takes `px` on its hardcoded part alone:
 not grow and one that grew twice, and a wraplength worked out from an
 event's width.
 
-**The spacing audit reads both scales**, holding every gap at 200% to
-exactly twice its 100% target (`spacing_audit.scaled`); an audit run
-picks its scale with `--audit-scale` rather than through `set_scale`'s
-saved setting (`audit_states.requested_scale`).
+**The spacing audit reads every scale**, holding each gap to its 100%
+target times the scale, rounded as `px` rounds (`spacing_audit.scaled`);
+an audit run picks its scale with `--audit-scale` rather than through
+`set_scale`'s saved setting (`audit_states.requested_scale`).
 """
 
 import ctypes
+import math
 
-# What the dropdown offers, and what each is worth. 200% is the only
+# What the dropdown offers, and what each is worth. 200% is the one
 # whole multiple: every pixel doubles with no remainder, and the icon
-# assets double by nearest neighbour without a resample. See T15 for
-# why the fractional steps are not here.
-SCALE_CHOICES = ("100%", "200%")
+# assets double by nearest neighbour without a resample. Between it and
+# 100%, every distance rounds to a whole pixel (`px`), and the icons
+# are resampled (`image_utils._resample`).
+SCALE_CHOICES = ("100%", "125%", "150%", "175%", "200%")
 DEFAULT_SCALE = "100%"
 
 # The window a fresh launch opens, and the smallest it may be
@@ -70,14 +73,21 @@ WINDOW_MIN_W, WINDOW_MIN_H = 1300, 800
 # the inch. That ratio is what `tk scaling` holds.
 POINTS_TO_PIXELS = 96 / 72
 
-# `tk scaling` at 200%, a little under twice the 100% ratio. Windows
-# fits every glyph and the line height to whole pixels separately at
-# each size, so the faithful double (9pt as 24px) draws digits 8% wider
-# and lines 2px taller than twice the 12px rendering. At this ratio each
-# face lands on the size nearest twice its 100% metrics: 9pt on 23px,
-# 10 on 26, 11 on 29, 12 on 31, 14 on 36 -- line heights within two
-# pixels, letters a few percent narrow.
-TEXT_SCALING_200 = 2.609
+# `tk scaling` above 100%, each a little under the scale times the 100%
+# ratio. Windows fits every glyph and the line height to whole pixels
+# separately at each size, so the faithful ratio (9pt as 24px at 200%)
+# draws digits 8% wider and lines 2px taller than twice the 12px
+# rendering. At these ratios each face lands on the pixel size nearest
+# its 100% metrics times the scale -- at 200%, 9pt on 23px, 10 on 26,
+# 11 on 29, 12 on 31, 14 on 36: line heights within two pixels, letters
+# a few percent narrow.
+#
+# Searched, not derived: Tk on Windows asks for a font of
+# MulDiv(points, int(scaling * 72), 72) pixels, so a ratio only ever
+# picks one pixel size per face, and each candidate was scored on line
+# height and widths across every face the app uses, weighted by how
+# much of it is in each.
+TEXT_SCALING = {1.25: 1.627, 1.5: 1.904, 1.75: 2.252, 2: 2.609}
 
 # Set once, before any widget exists. A module-level factor is what
 # lets `px` be reached from every call site in the app without
@@ -88,16 +98,18 @@ _factor = 1
 
 
 def parse(word):
-    """The factor a choice word is worth: `200%` -> 2.
+    """The factor a choice word is worth: `200%` -> 2, `125%` -> 1.25.
 
-    Anything unrecognised is 1: a settings file carrying a scale this
-    build does not offer draws at the size everything is measured at
-    rather than stopping the launch.
+    A whole factor comes back as an int, so 100% and 200% compute
+    exactly as they always have. Anything this build does not offer is
+    1: a settings file carrying an unknown scale draws at the size
+    everything is measured at rather than stopping the launch.
     """
-    try:
-        return max(1, int(str(word).strip().rstrip("%")) // 100)
-    except (TypeError, ValueError):
+    spelled = str(word).strip()
+    if spelled not in SCALE_CHOICES:
         return 1
+    value = int(spelled.rstrip("%")) / 100
+    return int(value) if value.is_integer() else value
 
 
 def set_scale(word):
@@ -108,8 +120,13 @@ def set_scale(word):
 
 
 def factor():
-    """The active factor: 1 at 100%, 2 at 200%."""
+    """The active factor: 1 at 100%, 1.25 at 125%, 2 at 200%."""
     return _factor
+
+
+def percent():
+    """The active scale as a whole percent: 125 at 125%."""
+    return round(_factor * 100)
 
 
 def px(distance):
@@ -124,12 +141,39 @@ def px(distance):
     `[10, 5, 10, 5]`, which a ttk `padding` reads as four sides at their
     100% values -- unscaled, and no error anywhere.
 
+    **Always a whole pixel**, half rounding up: at a fractional scale a
+    distance lands between pixels, and Tk -- like any arithmetic done
+    on the result -- needs an int. Python's own `round` sends halves to
+    the even neighbour, so 2.5 and 3.5 would round apart.
+
     Put this on the geometry call and not on the constant -- see the
     module docstring.
     """
     if isinstance(distance, (tuple, list)):
-        return type(distance)(value * _factor for value in distance)
-    return distance * _factor
+        return type(distance)(_pixel(value) for value in distance)
+    return _pixel(distance)
+
+
+def _pixel(value):
+    """`value` times the factor, as a whole pixel, half rounding up."""
+    return math.floor(value * _factor + 0.5)
+
+
+def px_spans(widths):
+    """A row of distances laid end to end -- a list's columns -- each
+    at the active scale, together exactly `px` of their sum.
+
+    Scaled by their running EDGES rather than one by one: each width
+    rounded alone can gain up to half a pixel, and across a dozen
+    columns that adds up to a row wider than the space it was sized
+    for. Exact either way at 100% and 200%.
+    """
+    spans, edge, total = [], 0, 0
+    for width in widths:
+        total += width
+        spans.append(px(total) - edge)
+        edge = px(total)
+    return spans
 
 
 # What a stated text width is grown against: the letters, digits and
@@ -145,7 +189,7 @@ def text_px(distance, face=("Segoe UI", 9)):
     Some widths were measured off the text they hold at 100% and
     written down -- a column of labels and values ruled by tab stops.
     Text does not grow by the scale: each face is hinted to whole
-    pixels per size, and at 200% (`TEXT_SCALING_200`) Segoe UI 9 runs a
+    pixels per size, and at 200% (`TEXT_SCALING`) Segoe UI 9 runs a
     few percent narrow of double. `px` would leave such a column wider
     than its text by that much; this grows it by what `face` grew by.
 
@@ -162,13 +206,14 @@ def text_px(distance, face=("Segoe UI", 9)):
                            size=-round(size * POINTS_TO_PIXELS))
         _text_ratios[face] = (tkfont.Font(font=face).measure(TEXT_SAMPLE)
                               / then.measure(TEXT_SAMPLE))
-    return round(distance * _text_ratios[face])
+    return math.floor(distance * _text_ratios[face] + 0.5)
 
 
-# What each scale asks Windows for. PROCESS_SYSTEM_DPI_AWARE is 1 and
-# PROCESS_PER_MONITOR_DPI_AWARE is 2; see `declare_dpi_awareness` for
-# why the choice follows the scale.
-AWARENESS_BY_FACTOR = {1: (1, "system"), 2: (2, "per-monitor")}
+# What each scale asks Windows for: PROCESS_SYSTEM_DPI_AWARE (1) at
+# 100%, PROCESS_PER_MONITOR_DPI_AWARE (2) above it. See
+# `declare_dpi_awareness` for why the choice follows the scale.
+SYSTEM_AWARE = (1, "system")
+PER_MONITOR_AWARE = (2, "per-monitor")
 
 # DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, asked for in place of
 # plain per-monitor awareness where Windows offers it (1703 and later).
@@ -192,9 +237,9 @@ def declare_dpi_awareness():
       PHYSICAL SIZE everywhere and is crisp at the system DPI. It
       sends no `WM_DPICHANGED` and resizes nothing, which is what
       stops a drag from doubling the window.
-    * At 200% -- PER-MONITOR awareness. The text is already doubled by
-      this program, and a system-aware window would have Windows
-      double it AGAIN on a 200% screen. Per-monitor awareness turns
+    * Above 100% -- PER-MONITOR awareness. The text is already scaled
+      by this program, and a system-aware window would have Windows
+      scale it AGAIN on a scaled screen. Per-monitor awareness turns
       that second scaling off. The cost is the `WM_DPICHANGED` that
       comes with it: a drag across a DPI boundary resizes the window's
       frame, which no cheap mechanism refuses -- a poll that puts the
@@ -209,7 +254,7 @@ def declare_dpi_awareness():
 
     Returns what happened, for the caller to log.
     """
-    level, word = AWARENESS_BY_FACTOR.get(_factor, (1, "system"))
+    level, word = SYSTEM_AWARE if _factor == 1 else PER_MONITOR_AWARE
     if level == 2:
         try:
             if ctypes.windll.user32.SetProcessDpiAwarenessContext(
@@ -233,15 +278,15 @@ def apply_font_scaling(root):
     from a font metric. Call before the first widget is built: a widget
     resolves its font, and its defaults, once.
     """
-    root.tk.call("tk", "scaling", TEXT_SCALING_200 if _factor == 2
-                 else POINTS_TO_PIXELS * _factor)
+    root.tk.call("tk", "scaling", TEXT_SCALING.get(
+        _factor, POINTS_TO_PIXELS * _factor))
     if _factor == 1:
         return
     for widget_class, options in CLASSIC_PIXELS.items():
         for option, value in options.items():
             # The lowest priority there is: an option a widget is given
             # outright, already through `px`, always wins.
-            root.option_add(f"*{widget_class}.{option}", value * _factor,
+            root.option_add(f"*{widget_class}.{option}", px(value),
                             "widgetDefault")
 
 
@@ -300,40 +345,40 @@ def scale_theme(style):
             held = style.configure(name, option)
             if str(held if held is not None else "").strip() in ("",
                                                                   str(value)):
-                style.configure(name, **{option: value * _factor})
-    # **What the theme states in POINTS**, restated as twice its 100%
-    # pixels. `tk scaling` carries points, and at 200% it is set for the
-    # fonts (`TEXT_SCALING_200`) a little under double -- so a
+                style.configure(name, **{option: px(value)})
+    # **What the theme states in POINTS**, restated as its 100% pixels
+    # through `px`. `tk scaling` carries points, and above 100% it is set
+    # for the fonts (`TEXT_SCALING`) a little under the scale -- so a
     # scrollbar's width or a tab's padding given in points would come
-    # out a pixel or two short of twice its 100% size.
+    # out a pixel or two short of its 100% size scaled.
     theme = style.theme_use()
     for name in style.tk.splitlist(style.tk.call(
             "ttk::style", "theme", "styles", theme)):
         for option, value in (style.configure(name) or {}).items():
-            doubled = _points_doubled(value)
-            if doubled is not None:
-                style.configure(name, **{option: doubled})
+            restated = _points_scaled(value)
+            if restated is not None:
+                style.configure(name, **{option: restated})
         for option, entries in (style.map(name) or {}).items():
-            if not any(_points_doubled(entry[-1]) for entry in entries):
+            if not any(_points_scaled(entry[-1]) for entry in entries):
                 continue
             style.map(name, **{option: [
                 (*(str(state) for state in entry[:-1]),
-                 _points_doubled(entry[-1]) or entry[-1])
+                 _points_scaled(entry[-1]) or entry[-1])
                 for entry in entries]})
 
 
-def _points_doubled(value):
-    """`value`, every part of which is in points, as twice its 100%
-    pixels -- or None where any part is not in points. A bare 0 counts
-    as points: nothing is nothing in either unit, and clam writes its
-    paddings that way (`1.5p 0 7.5p 0`)."""
+def _points_scaled(value):
+    """`value`, every part of which is in points, as its 100% pixels
+    through `px` -- or None where any part is not in points. A bare 0
+    counts as points: nothing is nothing in either unit, and clam writes
+    its paddings that way (`1.5p 0 7.5p 0`)."""
     parts = str(value).split()
     if not any(part.endswith("p") for part in parts) or not all(
             part.endswith("p") or part == "0" for part in parts):
         return None
     try:
-        return " ".join(str(round(float(part.rstrip("p"))
-                                  * POINTS_TO_PIXELS) * _factor)
+        return " ".join(str(px(round(float(part.rstrip("p"))
+                                     * POINTS_TO_PIXELS)))
                         for part in parts)
     except ValueError:
         return None

@@ -1,6 +1,6 @@
 ---
 name: spacing-audit
-description: Read or run the UI spacing audit — every registered gap measured on the rendered window, at 100% and 200%, with the app never shown. Use when the maintainer pastes audit output, reports a gap as off, or mentions a baseline CHANGED or MISSING line; when a rendered distance needs confirming in pixels; when the baseline is being frozen; or when a change to the UI wants checking. Covers how to read the table, what a miss resolves to, what registering a new gap obliges, and the launchers for a run.
+description: Read or run the UI spacing audit — every registered gap measured on the rendered window, at 100% and every UI scale above it, with the app never shown. Use when the maintainer pastes audit output, reports a gap as off, or mentions a baseline CHANGED or MISSING line; when a rendered distance needs confirming in pixels; when the baseline is being frozen; or when a change to the UI wants checking. Covers how to read the table, what a miss resolves to, what registering a new gap obliges, and the launchers for a run.
 ---
 
 # Spacing audit
@@ -25,17 +25,18 @@ The maintainer's own state needs a snapshot loaded, so the data-driven panels ex
 | Every row, including the ones on target | `zRUN Spacing Audit Verbose.bat` |
 | Rewrite the maintainer's state's baselines | `zRUN Spacing Audit Freeze.bat` |
 | The empty states, in any of the three modes | `zRUN Spacing Audit States.bat` |
+| 125%, 150% and 175%, in any of the three modes | `zRUN Spacing Audit Scales.bat` |
 
-Each runs the audit at 100% and then at 200%: it sets `VRIBBELS_DEV=1` and passes `--spacing-audit`, `--spacing-audit-verbose` or `--spacing-audit-freeze` to `Vribbels/czn_optimizer_gui.py`, with `--audit-scale=100%` and then `--audit-scale=200%`, which override the saved UI scale for that run and write nothing. A run without it takes the saved scale, so a maintainer who has set 200% would get two 200% runs. A normal launch never imports the audit, and an audit launch never asks for Administrator: it never captures.
+Each of the first three runs the audit at 100% and then at 200%: it sets `VRIBBELS_DEV=1` and passes `--spacing-audit`, `--spacing-audit-verbose` or `--spacing-audit-freeze` to `Vribbels/czn_optimizer_gui.py`, with `--audit-scale=100%` and then `--audit-scale=200%`, which override the saved UI scale for that run and write nothing. A run without it takes the saved scale, so a maintainer who has set 200% would get two 200% runs. A normal launch never imports the audit, and an audit launch never asks for Administrator: it never captures.
 
 The States launcher asks for the mode, then runs `--audit-state=empty` and `--audit-state=fresh`, each at both scales, each in a scratch copy it rebuilds. `docs/ui_spacing.md`, *Checking spacing*, says what each state is.
 
-**A baseline per state and scale**: `docs/spacing_baseline.json` is the maintainer's at 100%; a state adds `_<state>` and 200% adds `_200`, as in `docs/spacing_baseline_<state>_200.json`.
+**A baseline per state and scale**: `docs/spacing_baseline.json` is the maintainer's at 100%; a state adds `_<state>` and a scale its percent, as in `docs/spacing_baseline_<state>_200.json` or `docs/spacing_baseline_<percent>.json`.
 
 ## Reading the table
 
 - **A short run is a good run.** The default prints only misses, so a clean pass is a handful of lines.
-- **At 200% the target column is already doubled.** Every target is a 100% distance, held to exactly twice its number there: a 200% screen should show what a 100% one does. A miss of one pixel is font rounding only where the study of it said so; otherwise it is studied like any other. **A 200% miss that reads exactly its frozen value is accepted**: counted `as frozen`, printed only in Verbose, and left out of the short run. What is frozen there is the font's rounding and the theme's fixed pixels, already studied; a reading that moves still shows as `baseline CHANGED`.
+- **Above 100% the target column is already scaled.** Every target is a 100% distance, held to its number as `px` scales it -- exactly twice it at 200%, rounded half up between: a scaled screen should show what a 100% one does. A miss of one pixel is font rounding only where the study of it said so; otherwise it is studied like any other. **A miss above 100% that reads exactly its frozen value is accepted**: counted `as frozen`, printed only in Verbose, and left out of the short run. What is frozen there is the font's rounding and the theme's fixed pixels, already studied; a reading that moves still shows as `baseline CHANGED`.
 - **`axis` is `<>` or `^v`**, never arrows: the console is cp932 and one non-ASCII character raises before the table reaches the screen.
 - **Dark yellow means provisional** — registered but never confirmed by a hand reading. It clears once a reading agrees.
 - **The note column** says `exception` where the site deliberately misses its rule and carries a marker saying so, `inferred` where the rule applies but its number is carried across from elsewhere, or, in an empty state, `state` where that state holds the row to its own number (`docs/ui_spacing.md`, *Checking spacing*). An ordinary row says nothing there.

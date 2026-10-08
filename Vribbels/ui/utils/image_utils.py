@@ -26,15 +26,16 @@ from ui.scaling import px
 
 # What the files hold, and what is drawn.
 #
-# **The drawn size is the native one times the UI scale**, and the
+# **The drawn size is the native one times the UI scale**. At 200% the
 # resample that gets there is NEAREST rather than LANCZOS: at a whole
 # multiple nearest neighbour is exact -- every source pixel becomes a
 # square of identical pixels and nothing is invented -- where LANCZOS
 # would blur an upscale it cannot add detail to. At 100% the two sizes
 # are equal and no resample happens at all.
 #
-# There is no art larger than `ICON_NATIVE_SIZE` in the repo, which is
-# what makes 200% the only scale the icons survive. See T15.
+# There is no art larger than `ICON_NATIVE_SIZE` in the repo, so the
+# scales between 100% and 200% resample whatever `_resample` picks, and
+# invent what they draw.
 ICON_NATIVE_SIZE = (112, 113)
 
 

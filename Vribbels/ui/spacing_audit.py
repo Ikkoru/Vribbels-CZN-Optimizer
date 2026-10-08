@@ -1166,20 +1166,20 @@ def baseline_path(state=None, factor=1):
     if state is not None:
         stem += f"_{state}"
     if factor != 1:
-        stem += f"_{factor * 100}"
+        stem += f"_{round(factor * 100)}"
     return stem + ext
 
 
 def scaled(gaps):
     """`gaps` with each target, and hand reading, as the active UI scale
-    makes it. A target is a 100% distance, and at 200% the same layout
-    is every distance doubled, so each is held to exactly twice its
-    number: a 200% screen should show what a 100% one does."""
-    f = scale_factor()
-    if f == 1:
+    makes it. A target is a 100% distance, and at a scale the same
+    layout is every distance scaled, so each is held to its number
+    through `px` -- exactly twice it at 200%, rounded half up between:
+    a scaled screen should show what a 100% one does."""
+    if scale_factor() == 1:
         return list(gaps)
-    return [replace(g, target=g.target * f,
-                    hand=None if g.hand is None else g.hand * f)
+    return [replace(g, target=px(g.target),
+                    hand=None if g.hand is None else px(g.hand))
             for g in gaps]
 
 

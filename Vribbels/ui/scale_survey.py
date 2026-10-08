@@ -39,7 +39,7 @@ SLACK_SHARE = 0.03
 
 def run_dir(factor, state=None):
     """Where one launch's survey goes."""
-    name = f"{factor * 100}" + (f"_{state}" if state else "")
+    name = f"{round(factor * 100)}" + (f"_{state}" if state else "")
     return SURVEY_DIR / name
 
 
@@ -113,12 +113,14 @@ def _file_name(tab):
     return "".join(c if c.isalnum() else "_" for c in tab)
 
 
-def _off(at_two, at_one, factor):
-    """How far a 200% size sits from `factor` times its 100% one, or 0
-    where that is within the slack text sizes carry."""
+def _off(at_high, at_one, factor):
+    """How far a scaled size sits from `factor` times its 100% one, in
+    whole pixels, or 0 where that is within the slack text sizes
+    carry."""
     want = at_one * factor
-    miss = at_two - want
-    return 0 if abs(miss) <= max(SLACK_PX, want * SLACK_SHARE) else miss
+    miss = at_high - want
+    return (0 if abs(miss) <= max(SLACK_PX, want * SLACK_SHARE)
+            else round(miss))
 
 
 def compare(low_dir, high_dir):
@@ -126,10 +128,10 @@ def compare(low_dir, high_dir):
     sizes other than `factor` times the lower, and each it clips."""
     low = json.loads((low_dir / "widgets.json").read_text(encoding="utf-8"))
     high = json.loads((high_dir / "widgets.json").read_text(encoding="utf-8"))
-    factor = high["factor"] // low["factor"]
-    lines = [f"{high['factor'] * 100}% against {factor} x "
-             f"{low['factor'] * 100}%: window {high['window']} against "
-             f"{[v * factor for v in low['window']]}"]
+    factor = high["factor"] / low["factor"]
+    lines = [f"{round(high['factor'] * 100)}% against {factor:g} x "
+             f"{round(low['factor'] * 100)}%: window {high['window']} "
+             f"against {[round(v * factor) for v in low['window']]}"]
     for tab, rows in high["tabs"].items():
         before = {row["id"]: row for row in low["tabs"].get(tab, [])}
         found = []
@@ -160,10 +162,10 @@ def compare(low_dir, high_dir):
                 found, key=lambda f: (f[0], f[1]["y"], f[1]["x"])):
             what = []
             if dw:
-                what.append(f"w {row['w']} for {was['w'] * factor} "
+                what.append(f"w {row['w']} for {round(was['w'] * factor)} "
                             f"({dw:+d})")
             if dh:
-                what.append(f"h {row['h']} for {was['h'] * factor} "
+                what.append(f"h {row['h']} for {round(was['h'] * factor)} "
                             f"({dh:+d})")
             what.extend(clipped)
             lines.append(f"  [{panel or '-'}] {row['cls']} "
