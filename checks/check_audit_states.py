@@ -1,9 +1,10 @@
-"""The spacing audit's empty states run against a copy, never the live
-folders.
+"""Every rendered run works in a copy, never the live folders.
 
 `--audit-state=<state>` points the app at a scratch folder rebuilt for
-the run (`Vribbels/audit_states.py`). The ways this goes wrong are all
-quiet, and two of them write to the maintainer's own data:
+the run (`Vribbels/audit_states.py`), and a rendered run naming no
+state at a copy of the maintainer's own data -- which is what lets it
+skip the single-instance lock. The ways this goes wrong are all quiet,
+and two of them write to the maintainer's own data:
 
   * the two data roots disagree. Snapshots hang off
     `capture.constants.BASE_DIR` and settings off
@@ -81,8 +82,15 @@ def _roots_follow_the_state(audit_states):
     out = []
     source = SOURCE_ROOT.resolve()
     want_defaults = str(source / "default_settings")
+    # A rendered run with no state named works in the maintainer's own
+    # data COPIED: it takes no single-instance lock, so the live folders
+    # must be out of its reach.
     for argv, root in ((("--audit-state=fresh",),
                         audit_states.root_for("fresh").resolve()),
+                       (("--spacing-audit",),
+                        audit_states.root_for(audit_states.OWN).resolve()),
+                       (("--font-gauge",),
+                        audit_states.root_for(audit_states.OWN).resolve()),
                        ((), source)):
         roots, err = _roots(*argv)
         said = " ".join(argv) or "no state"
@@ -157,6 +165,15 @@ def _prepare_builds_a_copy(audit_states):
             out.append("the empty state's snapshots folder is not empty "
                        "after a rebuild: a run would see what the last "
                        "one left")
+        own = audit_states.prepare(audit_states.OWN, live)
+        (own / "snapshots" / "left_over.json").write_text(
+            "{}", encoding="utf-8")
+        own = audit_states.prepare(audit_states.OWN, live)
+        if _digest(own / "settings") != _digest(live / "settings") or \
+                _digest(own / "snapshots") != _digest(live / "snapshots"):
+            out.append("the own copy is not the live settings and "
+                       "snapshots as they are: a rendered run would "
+                       "measure something else, or what the last one left")
         fresh = audit_states.prepare(audit_states.FRESH, live)
         if (fresh / "settings").exists():
             out.append("the fresh state has a settings folder before the "

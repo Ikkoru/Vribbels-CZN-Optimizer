@@ -1,14 +1,16 @@
-"""The app in a state other than the maintainer's own, for the spacing
-audit: a scratch copy of the user data, so the live folders are never
-read for anything but the copy and never written at all.
+"""Every rendered run -- the spacing audit, the font gauge, the scale
+survey -- in a scratch copy of the user data, so the live folders are
+never read for anything but the copy and never written at all.
 
     python czn_optimizer_gui.py --spacing-audit --audit-state=empty
 
-`--audit-scale=200%` runs either, or the maintainer's own, at a UI scale
-the settings do not hold, and writes nothing about it (`requested_scale`).
+`--audit-scale=200%` runs any of them at a UI scale the settings do not
+hold, and writes nothing about it (`requested_scale`).
 
-Two states, both with nothing captured:
+Three copies, one per state:
 
+  own     the maintainer's settings and snapshots, copied. What a
+          rendered run with no `--audit-state` works in.
   empty   the maintainer's settings, copied, and an empty snapshots
           folder. What the panels do with no data to size to.
   fresh   no settings at all, so the startup sync installs the shipped
@@ -18,6 +20,11 @@ Two states, both with nothing captured:
 Each is rebuilt from nothing on every launch that asks for it, under
 `_tmp/audit_states/<state>/`, so a run never sees what the last one
 left. That folder holds only these, and carries a CACHEDIR.TAG.
+
+**A run in a copy takes no single-instance lock** (`czn_optimizer_gui.
+main`): the lock keeps two copies of the program off one data folder,
+and a rendered run has a folder of its own and never captures. So the
+program can stay open while one runs, and can be opened during one.
 
 **Both data roots follow the state**: `capture.constants.BASE_DIR`, which
 the snapshots folder hangs off, and the app's settings folder, which is
@@ -32,6 +39,7 @@ Only from source. A frozen build ignores the flag, so a released exe
 cannot be pointed away from the folder its user's data is in.
 """
 
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -39,6 +47,17 @@ from pathlib import Path
 FLAG = "--audit-state"
 EMPTY, FRESH = "empty", "fresh"
 STATES = (EMPTY, FRESH)
+# The maintainer's own data, copied. Not a state `--audit-state` names:
+# it is where a rendered run with none works, and its baseline is the
+# unsuffixed one.
+OWN = "own"
+
+# What makes a launch a rendered run, on the command line or in the
+# environment. `czn_optimizer_gui.OptimizerGUI._spacing_audit_wanted`
+# reads this one list.
+RENDERED_FLAGS = ("--spacing-audit", "--spacing-audit-verbose",
+                  "--spacing-audit-freeze", "--scale-survey", "--font-gauge")
+RENDERED_ENV = "CZN_SPACING_AUDIT"
 SCALE_FLAG = "--audit-scale"
 SCALES = ("100%", "125%", "150%", "175%", "200%")
 
@@ -94,28 +113,46 @@ def requested_scale(argv=None):
     return None
 
 
+def rendered(argv=None):
+    """Whether this launch is a rendered run: rendered, never shown,
+    and exiting once it has reported."""
+    argv = sys.argv if argv is None else argv
+    return (any(flag in argv for flag in RENDERED_FLAGS)
+            or os.environ.get(RENDERED_ENV) in ("1", "verbose"))
+
+
+def copy_for(argv=None):
+    """The copy this launch works in, or None for the live folders: the
+    state asked for, else `OWN` for a rendered run. None in a frozen
+    build, which works where its user's data is, whatever it is asked.
+    """
+    if getattr(sys, "frozen", False):
+        return None
+    return requested(argv) or (OWN if rendered(argv) else None)
+
+
 def root_for(state):
     """The scratch folder `state` runs in."""
     return STATES_DIR / state
 
 
 def data_root(default, argv=None):
-    """The folder user data lives in: the requested state's, or
-    `default` when no state is asked for."""
-    state = requested(argv)
-    return root_for(state) if state else default
+    """The folder user data lives in: the copy this launch works in, or
+    `default` when it works in none."""
+    copy = copy_for(argv)
+    return root_for(copy) if copy else default
 
 
 def prepare(state, live_root):
     """Rebuild `state`'s folder from nothing.
 
     `live_root` is the folder the maintainer's own `settings/` is in. It
-    is only ever READ: `empty` copies its settings, and nothing else of
-    it is touched.
+    is only ever READ: `empty` copies its settings, `own` its settings
+    and snapshots, and nothing else of it is touched.
 
     Returns the state's root.
     """
-    if state not in STATES:
+    if state not in STATES + (OWN,):
         raise ValueError(f"no audit state {state!r}")
     root = root_for(state)
     live_root = Path(live_root).resolve()
@@ -131,7 +168,10 @@ def prepare(state, live_root):
         tag.write_bytes(CACHEDIR_TAG)
     if root.exists():
         shutil.rmtree(root)
-    (root / "snapshots").mkdir(parents=True)
-    if state == EMPTY and (live_root / "settings").is_dir():
+    if state == OWN and (live_root / "snapshots").is_dir():
+        shutil.copytree(live_root / "snapshots", root / "snapshots")
+    else:
+        (root / "snapshots").mkdir(parents=True)
+    if state in (EMPTY, OWN) and (live_root / "settings").is_dir():
         shutil.copytree(live_root / "settings", root / "settings")
     return root

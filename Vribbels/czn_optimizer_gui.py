@@ -490,13 +490,8 @@ class OptimizerGUI:
         """Whether this launch is a rendered run: the spacing audit, the
         scale survey (`ui/scale_survey.py`) or the font gauge
         (`ui/font_gauge.py`). Each keeps the window unseen from launch
-        to exit."""
-        return ("--spacing-audit" in sys.argv
-                or "--spacing-audit-verbose" in sys.argv
-                or "--spacing-audit-freeze" in sys.argv
-                or "--scale-survey" in sys.argv
-                or "--font-gauge" in sys.argv
-                or os.environ.get("CZN_SPACING_AUDIT") in ("1", "verbose"))
+        to exit, and works in a copy of the data (`audit_states`)."""
+        return audit_states.rendered()
 
     def _maybe_schedule_spacing_audit(self):
         """Run the UI spacing audit when asked for on the command line or
@@ -1876,12 +1871,14 @@ def main():
     # inherit the launcher's environment. See `DEV_FLAG`.
     _adopt_dev_flag(sys.argv)
 
-    # A spacing audit of an empty state runs in a scratch copy, rebuilt
-    # here before anything reads it -- the UI scale below is the first
-    # thing that does. See `audit_states`.
+    # A rendered run works in a scratch copy of the data -- the state
+    # asked for, else the maintainer's own -- rebuilt here before
+    # anything reads it: the UI scale below is the first thing that
+    # does. See `audit_states`.
     audit_state = audit_states.requested()
-    if audit_state:
-        audit_states.prepare(audit_state, Path(__file__).resolve().parent)
+    data_copy = audit_states.copy_for()
+    if data_copy:
+        audit_states.prepare(data_copy, Path(__file__).resolve().parent)
 
     # BEFORE any Tk root, including the single-instance warning's. DPI
     # awareness is a property of the PROCESS and the first window fixes
@@ -1897,16 +1894,23 @@ def main():
     # creating a Tk root before deciding to exit causes an empty flicker
     # window. We hold the returned socket as a module-level reference so
     # garbage collection can't release the lock mid-run.
+    #
+    # Not for a run in a copy: the lock keeps two copies of the program
+    # off one data folder, and that run has a folder of its own and
+    # never captures. Taking it would refuse the run while the program
+    # is open, and refuse the program while the run lasts.
     global _instance_lock
-    _instance_lock = _acquire_single_instance_lock()
-    if _instance_lock is None and OptimizerGUI._spacing_audit_wanted():
-        # A rendered run reports to its console, where no one is
-        # watching for a dialog: the box below would sit unanswered on
-        # the maintainer's screen and the run would print nothing.
+    if not data_copy:
+        _instance_lock = _acquire_single_instance_lock()
+    if not data_copy and _instance_lock is None \
+            and OptimizerGUI._spacing_audit_wanted():
+        # A rendered run in a frozen build, which works in no copy:
+        # it reports to its console, where no one is watching for a
+        # dialog, so the box below would sit unanswered.
         print("Vribbels CZN Optimizer is open; close it to run this.",
               file=sys.stderr)
         sys.exit(2)
-    if _instance_lock is None:
+    if not data_copy and _instance_lock is None:
         # A Tk root is fine here ONLY because the process exits straight
         # afterwards -- no second root ever follows it. See the comment
         # above _win_message before reusing this pattern anywhere that

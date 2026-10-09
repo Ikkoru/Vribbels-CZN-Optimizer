@@ -7,7 +7,7 @@ description: Read or run the UI spacing audit — every registered gap measured 
 
 The procedure only. The mechanism — what each rule means, what the audit can and cannot see, the marker vocabulary — lives in `docs/ui_spacing.md`, and the entries themselves in `Vribbels/ui/spacing_registry.py`.
 
-**Run it whenever a reading would help.** The app is rendered and never shown (`Vribbels/ui/utils/window_render.py`), so a run takes nothing over on the screen, needs no pointer kept off it, and exits once its table has printed: about twenty seconds a scale. Run the headless checks first all the same, because two of them catch registry faults a run would only report as dead rows:
+**Run it whenever a reading would help.** The app is rendered and never shown (`Vribbels/ui/utils/window_render.py`), so a run takes nothing over on the screen, needs no pointer kept off it, and exits once its table has printed: about twenty seconds a scale. It works in a copy of the data (`Vribbels/audit_states.py`), so the program may be open. Run the headless checks first all the same, because two of them catch registry faults a run would only report as dead rows:
 
 ```bash
 python checks/run_all.py

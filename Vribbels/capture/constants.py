@@ -45,9 +45,9 @@ PROXY_PORT = 13701
 # The folder user data lives in: snapshots/ here, and the app's
 # settings/ through `czn_optimizer_gui._user_data_dir`, which returns
 # this. Beside the exe in a frozen build; the source folder otherwise,
-# or the scratch copy a spacing audit of an empty state asks for -- see
-# `audit_states`. Imported unguarded on purpose: a state asked for and
-# not honoured would run against the live folders.
+# or the scratch copy a rendered run works in -- see `audit_states`.
+# Imported unguarded on purpose: a copy asked for and not honoured would
+# run against the live folders, without the single-instance lock.
 if getattr(sys, 'frozen', False):
     BASE_DIR = Path(sys.executable).parent
 else:
