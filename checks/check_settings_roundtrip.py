@@ -25,11 +25,7 @@ lands past the `#N` section markers rather than under the one it
 belongs to, so a user reading `settings.json` to find a switch does not
 see it.
 
-Fifth that a presets file that would not read is never written over.
-A save is refused until the user agrees to `quarantine()` it, which
-renames it to `<name>_corrupted`, then `_corrupted2`, and so on, never
-over one set aside before. A save that wrote over it would lose every
-preset the user could still have recovered by hand.
+A file that will not read at all is `check_settings_repair`'s.
 
 Never touches `Vribbels/settings/`. Everything happens in a temp copy.
 """
@@ -148,76 +144,6 @@ def _write_json_is_atomic(root):
     left = sorted(p.name for p in root.iterdir() if p.suffix == ".tmp")
     if left:
         out.append(f"write_json left its temp file behind: {left}.")
-    return out
-
-
-def _broken_presets_are_set_aside(root):
-    """A presets file that would not read survives every save until the
-    user agrees to set it aside, and is then kept beside the fresh one.
-
-    Returns a list of complaints.
-    """
-    import character_preset_manager
-    import json_file
-    import preset_manager
-
-    out = []
-    if json_file.set_aside(root / "absent.json") is not None:
-        out.append("json_file.set_aside reports moving a file that does "
-                   "not exist.")
-    cases = (
-        (preset_manager.PresetManager, "presets_file",
-         lambda m: m.save_preset("probe", {})),
-        (character_preset_manager.CharacterPresetManager,
-         "assignments_file", lambda m: m.set_preset_for("probe", None)),
-    )
-    for cls, attr, save in cases:
-        out.extend(_broken_file_set_aside(root / cls.__name__, cls, attr,
-                                          save))
-    return out
-
-
-def _broken_file_set_aside(base, cls, attr, save):
-    """Two broken files in turn under one manager: each survives a save,
-    and each is set aside under a name of its own."""
-    name = cls.__name__
-    manager = cls(base)
-    path = getattr(manager, attr)
-    path.parent.mkdir(parents=True)
-    broken = [b"{\"presets\": {broken %d" % n for n in (1, 2)]
-    for text in broken:
-        path.write_bytes(text)
-        manager.load()
-        if not manager.is_corrupted():
-            return [f"{name} loads a file that is not JSON as sound, and "
-                    f"its next save writes over it."]
-        try:
-            save(manager)
-        except RuntimeError:
-            pass                            # refused, which is the point
-        if path.read_bytes() != text:
-            return [f"{name} saved over a file it could not read. "
-                    f"Whatever the user could have recovered from it is "
-                    f"gone."]
-        try:
-            manager.quarantine()
-        except OSError as exc:
-            return [f"{name}.quarantine() raised {exc!r}, so a user who "
-                    f"agrees to set a broken file aside cannot save."]
-        save(manager)
-    out = []
-    for tag, text in zip(("_corrupted", "_corrupted2"), broken):
-        kept = path.with_name(f"{path.stem}{tag}{path.suffix}")
-        if not kept.exists() or kept.read_bytes() != text:
-            out.append(
-                f"{name}: {kept.name} does not hold the broken file it "
-                f"was set aside from. A second quarantine must not "
-                f"replace the first one's copy.")
-    fresh = cls(base)
-    fresh.load()
-    if fresh.is_corrupted():
-        out.append(f"{name}: the file saved after a quarantine does not "
-                   f"load: {fresh.corruption_error}")
     return out
 
 
@@ -535,7 +461,6 @@ def run():
     file_root = Path(tempfile.mkdtemp())
     try:
         failures.extend(_write_json_is_atomic(file_root))
-        failures.extend(_broken_presets_are_set_aside(file_root))
     finally:
         shutil.rmtree(file_root, ignore_errors=True)
 

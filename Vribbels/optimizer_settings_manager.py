@@ -160,6 +160,15 @@ def _fresh_character_settings(name_hint: str = "") -> dict:
     }
 
 
+def structure_problem(data) -> Optional[str]:
+    """Why `OptimizerSettingsManager.load` would refuse `data`, or None.
+    Anything inside an object it reads as far as it can. What
+    `settings_repair` holds a repaired file to as well."""
+    if not isinstance(data, dict):
+        return "Root is not a JSON object"
+    return None
+
+
 class OptimizerSettingsManager:
     """Per-character + global optimizer settings, persisted to disk."""
 
@@ -180,9 +189,11 @@ class OptimizerSettingsManager:
 
         Missing file is fine (fresh install) -- we start with the default
         shape and the bootstrap call will populate `characters` from
-        CHARACTERS. JSON parse errors flag the file as corrupted; the
-        manager then behaves like an empty store but does NOT write
-        back over the broken file. Operator can fix or delete it.
+        CHARACTERS. A file that will not read flags the store as
+        corrupted; the manager then behaves like an empty store but does
+        NOT write back over the file. One that would not parse is mended
+        or set aside before this runs (`settings_repair`), so what is
+        flagged here is a file that would not open.
         """
         self.corrupted = False
         self.corruption_error = None
@@ -196,8 +207,9 @@ class OptimizerSettingsManager:
             self._mark_corrupted(f"Failed to read: {exc}")
             return
 
-        if not isinstance(data, dict):
-            self._mark_corrupted("Root is not a JSON object")
+        problem = structure_problem(data)
+        if problem:
+            self._mark_corrupted(problem)
             return
 
         # Future migrations: switch on `version`. v1 is the current schema.
@@ -251,6 +263,9 @@ class OptimizerSettingsManager:
         self.corrupted = True
         self.corruption_error = reason
         # Keep `self.data` at its empty default so callers don't get None.
+
+    def is_corrupted(self) -> bool:
+        return self.corrupted
 
     # ----------------------------------------------------------------- write
 

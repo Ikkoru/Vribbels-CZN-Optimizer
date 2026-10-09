@@ -47,8 +47,10 @@ discussion):
   - Changed default VALUES for a key the user has: not propagated (the
     user's version wins). The Setup & Settings tab's Restore Defaults dialog is
     the intended way to pick these up.
-  - Corrupted user file: merge skips it; the owning manager quarantines
-    it during its own load().
+  - A user file that does not read: its merge leaves it alone
+    (`_user_json`). Startup mends or sets aside any that would not parse
+    before this runs (`settings_repair`), so one still unreadable here
+    is one that would not open.
 """
 
 import json
@@ -172,6 +174,25 @@ def _safe_load_json(path: Path, fallback: dict) -> dict:
         return fallback
 
 
+def _user_json(path: Path, fallback: dict):
+    """The user's copy of a defaultable file: `fallback` where there is
+    none, None where there is one that does not read as an object.
+
+    None means the merge leaves the file alone. Merging into the
+    fallback instead would save a file of the new defaults over
+    everything it held -- and for character_preset.json at every launch,
+    since a fallback with no `version` reads as the v1 schema, which is
+    always written back.
+    """
+    if not path.exists():
+        return fallback
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def _safe_write_json(path: Path, data: dict) -> bool:
     """`json_file.write_json`, creating the folder. True on success."""
     try:
@@ -215,7 +236,9 @@ def _merge_presets(
     if not default_file.exists():
         return list(known_keys)
 
-    user_data = _safe_load_json(user_file, {"presets": {}})
+    user_data = _user_json(user_file, {"presets": {}})
+    if user_data is None:
+        return list(known_keys)
     default_data = _safe_load_json(default_file, {"presets": {}})
 
     user_presets = user_data.setdefault("presets", {})
@@ -262,7 +285,9 @@ def _merge_character_preset(
     except ImportError:
         return list(known_keys)
 
-    user_raw = _safe_load_json(user_file, {"assignments": {}})
+    user_raw = _user_json(user_file, {"assignments": {}})
+    if user_raw is None:
+        return list(known_keys)
     default_raw = _safe_load_json(default_file, {"assignments": {}})
 
     user_data = normalize_to_v2(user_raw)
@@ -318,10 +343,12 @@ def _merge_optimizer_settings(
     if not default_file.exists():
         return list(known_keys)
 
-    user_data = _safe_load_json(
+    user_data = _user_json(
         user_file,
         {"version": 1, "excluded_gear_chars": [], "characters": {}},
     )
+    if user_data is None:
+        return list(known_keys)
     default_data = _safe_load_json(
         default_file,
         {"version": 1, "excluded_gear_chars": [], "characters": {}},

@@ -18,6 +18,14 @@ from typing import Any, Optional
 from json_file import write_json
 
 
+def structure_problem(data) -> Optional[str]:
+    """Why `SettingsManager.load` would refuse `data`, or None. What
+    `settings_repair` holds a repaired file to as well."""
+    if not isinstance(data, dict):
+        return "settings.json root must be a JSON object"
+    return None
+
+
 class SettingsManager:
     """Tiny persisted key-value store. One JSON object on disk."""
 
@@ -53,15 +61,28 @@ class SettingsManager:
             self.corruption_error = f"Cannot read settings.json: {e}"
             return
 
-        if not isinstance(data, dict):
+        problem = structure_problem(data)
+        if problem:
             self.corrupted = True
-            self.corruption_error = "settings.json root must be a JSON object"
+            self.corruption_error = problem
             return
 
         self.settings = data
 
+    def is_corrupted(self) -> bool:
+        return self.corrupted
+
     def _write(self):
-        """Persist to disk through `json_file.write_json`."""
+        """Persist to disk through `json_file.write_json`.
+
+        Never over a file `load` could not read. `apply_layout` would
+        otherwise write the defaults over it at every launch, and any
+        `set` the one key it was given. A file that would not parse is
+        mended or set aside before this loads (`settings_repair`), so
+        one that reaches here unread is one that would not open.
+        """
+        if self.corrupted:
+            return
         self.presets_dir.mkdir(parents=True, exist_ok=True)
         write_json(self.settings_file, self.settings, ensure_ascii=False)
 

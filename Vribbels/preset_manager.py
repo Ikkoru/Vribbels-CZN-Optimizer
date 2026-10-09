@@ -34,8 +34,14 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from json_file import set_aside, write_json
+from json_file import write_json
 
+
+# Why a save is refused while the file is unread. A file that will not
+# parse never gets this far -- `settings_repair` mends it or sets it
+# aside at launch -- so this one would not open.
+UNREAD = ("presets.json could not be read when the program started, so "
+          "nothing is saved to it. Restart the program once it can be.")
 
 # 11 stats currently supported in scoring (must match scoring_tab.py)
 SUPPORTED_STATS = [
@@ -46,6 +52,40 @@ SUPPORTED_STATS = [
     "Ego", "Extra DMG%",
     "DoT%",
 ]
+
+
+def preset_problem(name, weights) -> Optional[str]:
+    """Why presets.json could not hold this preset, or None."""
+    if not isinstance(name, str) or not name.strip():
+        return "Preset name must be a non-empty string."
+    if not isinstance(weights, dict):
+        return f"Preset '{name}' must be an object of stat weights."
+    for stat, val in weights.items():
+        if not isinstance(stat, str):
+            return f"Preset '{name}' has non-string stat key."
+        # Reject bools (which are isinstance int in Python)
+        if isinstance(val, bool) or not isinstance(val, (int, float)):
+            return f"Preset '{name}', stat '{stat}': weight must be a number."
+    return None
+
+
+def structure_problem(data) -> Optional[str]:
+    """Why `PresetManager.load` would refuse `data`, or None. What
+    `settings_repair` holds a repaired file to as well."""
+    if not isinstance(data, dict):
+        return "Top-level JSON must be an object."
+    if "presets" not in data:
+        return "Missing 'presets' key."
+    if not isinstance(data["presets"], dict):
+        return "'presets' must be an object."
+    for name, weights in data["presets"].items():
+        problem = preset_problem(name, weights)
+        if problem:
+            return problem
+    sel = data.get("selected_preset")
+    if sel is not None and not isinstance(sel, str):
+        return "'selected_preset' must be a string or null."
+    return None
 
 
 class PresetManager:
@@ -123,51 +163,17 @@ class PresetManager:
             )
             return
 
-        if not isinstance(data, dict):
-            self._mark_corrupted("Top-level JSON must be an object.")
+        problem = structure_problem(data)
+        if problem:
+            self._mark_corrupted(problem)
             return
 
-        if "presets" not in data:
-            self._mark_corrupted("Missing 'presets' key.")
-            return
+        self.presets = {name: {k: float(v) for k, v in weights.items()}
+                        for name, weights in data["presets"].items()}
 
-        if not isinstance(data["presets"], dict):
-            self._mark_corrupted("'presets' must be an object.")
-            return
-
-        # Validate every preset
-        loaded_presets = {}
-        for name, weights in data["presets"].items():
-            if not isinstance(name, str) or not name.strip():
-                self._mark_corrupted("Preset name must be a non-empty string.")
-                return
-            if not isinstance(weights, dict):
-                self._mark_corrupted(
-                    f"Preset '{name}' must be an object of stat weights."
-                )
-                return
-            for stat, val in weights.items():
-                if not isinstance(stat, str):
-                    self._mark_corrupted(
-                        f"Preset '{name}' has non-string stat key."
-                    )
-                    return
-                # Reject bools (which are isinstance int in Python)
-                if isinstance(val, bool) or not isinstance(val, (int, float)):
-                    self._mark_corrupted(
-                        f"Preset '{name}', stat '{stat}': weight must be a number."
-                    )
-                    return
-            loaded_presets[name] = {k: float(v) for k, v in weights.items()}
-
-        self.presets = loaded_presets
-
-        # Read selected_preset from the file -- may be present in legacy
-        # format, absent in current format. Validate format if present.
+        # selected_preset: present in the legacy format, absent in the
+        # current one.
         sel = data.get("selected_preset")
-        if sel is not None and not isinstance(sel, str):
-            self._mark_corrupted("'selected_preset' must be a string or null.")
-            return
 
         # Resolve the selection. Three cases:
         #   (a) SettingsManager already has a value: use that, ignore file.
@@ -230,7 +236,7 @@ class PresetManager:
     def save_preset(self, name: str, weights: dict, set_selected: bool = True):
         """Save (or overwrite) a preset and persist. Raises if corrupted."""
         if self.corrupted:
-            raise RuntimeError("Presets file is corrupted; quarantine it first.")
+            raise RuntimeError(UNREAD)
         clean = {stat: float(weights.get(stat, 1.0)) for stat in SUPPORTED_STATS}
         self.presets[name] = clean
         if set_selected:
@@ -240,7 +246,7 @@ class PresetManager:
     def delete_presets(self, names: list):
         """Delete one or more presets and persist. Raises if corrupted."""
         if self.corrupted:
-            raise RuntimeError("Presets file is corrupted; cannot edit.")
+            raise RuntimeError(UNREAD)
         for n in names:
             self.presets.pop(n, None)
         if self.selected_preset in names:
@@ -275,20 +281,6 @@ class PresetManager:
                 pass
         else:
             self._legacy_selected = name
-
-    def quarantine(self):
-        """
-        Move the corrupted file to a *_corrupted variant and reset state to fresh.
-        After this call, normal saves can proceed.
-        """
-        if not self.corrupted:
-            return
-        set_aside(self.presets_file)
-        # Reset to clean slate so subsequent _write produces a fresh file.
-        self.corrupted = False
-        self.corruption_error = None
-        self.presets = {}
-        self._legacy_selected = None
 
     # ----- internals -----
 

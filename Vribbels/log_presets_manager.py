@@ -41,16 +41,23 @@ class LogPresetsManager:
         self.settings_dir = Path(base_dir) / "settings"
         self.file = self.settings_dir / "log_presets.json"
         self.selected: dict = {}   # res_id (str) -> bool
+        # The file stands but did not read: nothing is saved over it.
+        self.unread = False
 
     def load(self):
         """Read flags from disk. An unreadable file behaves like a fresh
-        one (everything selected) rather than blocking the tab."""
+        one (everything selected) rather than blocking the tab, and is
+        not saved over. A file that would not parse is mended or set
+        aside before this runs (`settings_repair`), so one that reaches
+        here unread is one that would not open."""
         self.selected = {}
+        self.unread = False
         if not self.file.exists():
             return
         try:
             data = json.loads(self.file.read_text(encoding="utf-8"))
         except Exception:
+            self.unread = True
             return
         raw = data.get("selected", {}) if isinstance(data, dict) else {}
         if isinstance(raw, dict):
@@ -85,6 +92,8 @@ class LogPresetsManager:
         return added
 
     def _write(self):
+        if self.unread:
+            return
         self.settings_dir.mkdir(parents=True, exist_ok=True)
         data = {"version": LOG_PRESETS_VERSION, "selected": self.selected}
         write_json(self.file, data)

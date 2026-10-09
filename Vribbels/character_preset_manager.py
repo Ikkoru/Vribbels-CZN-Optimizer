@@ -58,10 +58,51 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from json_file import set_aside, write_json
+from json_file import write_json
 
 
 CHARACTER_PRESET_SCHEMA_VERSION = 2
+
+# Why a save is refused while the file is unread. A file that will not
+# parse never gets this far -- `settings_repair` mends it or sets it
+# aside at launch -- so this one would not open.
+UNREAD = ("character_preset.json could not be read when the program "
+          "started, so nothing is saved to it. Restart the program once "
+          "it can be.")
+
+
+def assignment_problem(key, preset) -> Optional[str]:
+    """Why character_preset.json could not hold this assignment, or None."""
+    if not isinstance(key, str) or not key.strip():
+        return "Character key must be a non-empty string."
+    if preset is not None and not isinstance(preset, str):
+        return f"Character '{key}': preset must be a string or null."
+    return None
+
+
+def structure_problem(data) -> Optional[str]:
+    """Why `CharacterPresetManager.load` would refuse `data`, or None.
+    What `settings_repair` holds a repaired file to as well.
+
+    `version` and `name_hints` are checked for their TYPE because
+    `normalize_to_v2` compares the one and copies the other: a string
+    version or a listed hint raises there, at launch."""
+    if not isinstance(data, dict):
+        return "Top-level JSON must be an object."
+    if "assignments" not in data:
+        return "Missing 'assignments' key."
+    if not isinstance(data["assignments"], dict):
+        return "'assignments' must be an object."
+    for key, preset in data["assignments"].items():
+        problem = assignment_problem(key, preset)
+        if problem:
+            return problem
+    version = data.get("version", 1)
+    if isinstance(version, bool) or not isinstance(version, int):
+        return "'version' must be a whole number."
+    if not isinstance(data.get("name_hints", {}), dict):
+        return "'name_hints' must be an object."
+    return None
 
 
 # ----- module-level helpers (also imported by defaults_sync) ---------
@@ -268,29 +309,11 @@ class CharacterPresetManager:
             )
             return
 
-        if not isinstance(data, dict):
-            self._mark_corrupted("Top-level JSON must be an object.")
+        # Before migration, so a malformed entry is caught either way.
+        problem = structure_problem(data)
+        if problem:
+            self._mark_corrupted(problem)
             return
-
-        if "assignments" not in data:
-            self._mark_corrupted("Missing 'assignments' key.")
-            return
-
-        if not isinstance(data["assignments"], dict):
-            self._mark_corrupted("'assignments' must be an object.")
-            return
-
-        # Structural validation -- before migration so we catch malformed
-        # entries either way.
-        for name, preset in data["assignments"].items():
-            if not isinstance(name, str) or not name.strip():
-                self._mark_corrupted("Character key must be a non-empty string.")
-                return
-            if preset is not None and not isinstance(preset, str):
-                self._mark_corrupted(
-                    f"Character '{name}': preset must be a string or null."
-                )
-                return
 
         # Normalize to v2 schema. Idempotent for already-v2 data.
         v2 = normalize_to_v2(data)
@@ -344,7 +367,7 @@ class CharacterPresetManager:
         """Return the stored display-name hint for a res_id, if any."""
         return self.name_hints.get(str(res_id))
 
-    # ----- mutations (no-op while corrupted, except quarantine) -----
+    # ----- mutations (no-op or refused while corrupted) -----
 
     def set_preset_for(self, character_name: str, preset_name: Optional[str]):
         """Assign a preset (or None for default) to a character and persist.
@@ -354,7 +377,7 @@ class CharacterPresetManager:
         resolve to a CHARACTERS entry, the name itself is used as the key.
         """
         if self.corrupted:
-            raise RuntimeError("Character preset file is corrupted; quarantine it first.")
+            raise RuntimeError(UNREAD)
         rid = self._resolve_name_to_id(character_name)
         if rid is None:
             # Truly unknown -- use the name as the key. Future migrations
@@ -370,7 +393,7 @@ class CharacterPresetManager:
         display-name hint (cosmetic). Empty hint leaves the existing one
         alone."""
         if self.corrupted:
-            raise RuntimeError("Character preset file is corrupted; quarantine it first.")
+            raise RuntimeError(UNREAD)
         rid = str(res_id)
         self.assignments_by_id[rid] = preset_name
         if name_hint:
@@ -437,17 +460,6 @@ class CharacterPresetManager:
         if cleared:
             self._write()
         return cleared
-
-    def quarantine(self):
-        """Move the corrupted file aside (presets_corrupted.json, _corrupted2, ...)
-        and reset to a clean state so subsequent writes can proceed."""
-        if not self.corrupted:
-            return
-        set_aside(self.assignments_file)
-        self.corrupted = False
-        self.corruption_error = None
-        self.assignments_by_id = {}
-        self.name_hints = {}
 
     # ----- internals -----
 

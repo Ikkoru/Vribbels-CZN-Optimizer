@@ -1656,8 +1656,9 @@ class SetupTab(BaseTab):
         if hasattr(mgr, "is_corrupted") and mgr.is_corrupted():
             messagebox.showwarning(
                 meta["dialog_title"],
-                "The user settings file for this kind is corrupted. "
-                "Quarantine and reset it before restoring defaults.",
+                "This settings file could not be read when the program "
+                "started, so nothing can be restored into it. Restart "
+                "the program once it can be read.",
             )
             return
 

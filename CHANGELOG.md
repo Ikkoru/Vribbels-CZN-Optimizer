@@ -12,6 +12,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Memory Fragments: the `Level:` filter's open list jumps to what you type, as the other dropdowns do.
 
+### Fixed
+
+- A settings file that can't be read is repaired at launch, keeping everything in it that still reads, or set aside for the defaults, instead of being saved over. A message names each one and where its original was kept.
+
 ## [2.4.0] - UI Scales, Order Mode
 
 ### Added

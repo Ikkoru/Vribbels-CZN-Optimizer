@@ -19,7 +19,6 @@ from tkinter import font as tkfont, messagebox
 from ..base_tab import BaseTab
 from ..context import AppContext
 from ..utils.button_width import BUTTON_W_LARGE
-from ..utils.corrupted_file import confirm_quarantine
 from ..utils.label_width import column_px
 from ..utils.spinbox_clamp import clamp_on_commit, commit_clamp, step_on_wheel
 from ..utils.type_ahead import attach, find
@@ -30,7 +29,7 @@ from game_data import STATS
 # "CRate" -> "Crit%", "CDmg" -> "CDMG%"). Applied to the Stat Weight
 # Configuration labels so they match the rest of the app.
 from game_data.constants import DISPLAY_NAMES
-from preset_manager import SUPPORTED_STATS
+from preset_manager import SUPPORTED_STATS, UNREAD
 from models.memory_fragment import compute_gs_bounds
 from ui.scaling import px, px_after
 
@@ -121,17 +120,8 @@ class ScoringTab(BaseTab):
 
     def _initialize_from_loaded_presets(self):
         """After UI is built, apply whichever preset (or default) is active."""
-        # If the file was corrupt, tell the user once.
+        # A file that would not open (the launch's report says so).
         if self.preset_manager.is_corrupted():
-            messagebox.showwarning(
-                "Presets File Corrupted",
-                f"The presets file appears to be invalid:\n\n"
-                f"{self.preset_manager.corruption_error}\n\n"
-                f"File: {self.preset_manager.presets_file}\n\n"
-                f"Default weights have been applied. The file will not be edited "
-                f"unless you save a new preset (you'll be prompted to back up "
-                f"the broken file first)."
-            )
             self._reset_sliders_to_default()
             self.active_preset_name = None
             self.weight_status.config(text="Applied default weights (all 1.0)")
@@ -758,11 +748,6 @@ STAT MIN - MAX ROLLS:
             )
             return
 
-        if not confirm_quarantine(self.preset_manager,
-                                  "Corrupted Presets File", "presets file",
-                                  "this preset"):
-            return
-
         # Confirm overwrite if the name already exists.
         if self.preset_manager.has_preset(name):
             if not messagebox.askyesno(
@@ -803,11 +788,7 @@ STAT MIN - MAX ROLLS:
             return
 
         if self.preset_manager.is_corrupted():
-            messagebox.showwarning(
-                "Presets File Corrupted",
-                "The presets file is corrupted and cannot be edited until "
-                "you save a new preset (which will back up the broken file)."
-            )
+            messagebox.showwarning("Presets File Unreadable", UNREAD)
             return
 
         # Treeview iids are the preset names (set on insert), so the

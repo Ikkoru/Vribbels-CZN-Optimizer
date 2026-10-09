@@ -94,9 +94,20 @@ It is never copied into `settings/` and never merged: `defaults_sync` does not k
 
 `Setup & Settings → Share Game Data` writes the account's facts that the shipped file lacks, through the same whitelist, for a player to attach to a GitHub issue. Folding one in is the maintainer's job: `how_to_maintain_default_settings.md`.
 
+## A settings file that will not read
+
+`settings_repair.repair_folder` runs at launch, before the defaults sync and before any manager loads, over every file in its `KINDS`. A file that reads is left alone. For one that does not:
+
+- **Part of it reads.** It is read leniently: comments, trailing and missing commas, a byte-order mark, an ANSI save, a file cut short. What reads is saved in its place, and the original kept beside it as `<name>_corrupted.json` (`json_file.set_aside`, which never replaces an earlier one).
+- **A lost bracket moved records.** The files' shapes are fixed, so a preset or a combatant's settings found beside its collection, or inside the record before it, is put back where it belongs.
+- **A record only partly reads.** A scoring preset or a combatant's optimizer settings is left out whole, never kept with defaults standing in for what was lost.
+- **Nothing reads.** It is set aside, and the sync copies the shipped default into its place, or the manager starts it afresh.
+- **It will not open.** It is left alone, and nothing saves over it that session: not the sync (`defaults_sync._user_json`), not `SettingsManager.apply_layout`, not any store's save.
+
+A repaired file is held to the rules its manager's `load` applies: each manager module's `structure_problem`. One dialog after the window is up names each file and what became of it (`OptimizerGUI._report_settings_repairs`). `check_settings_repair` holds all of it.
+
 ## Manager behaviour
 
 - Every manager saves through `json_file.write_json`, which writes a temp file, forces it to disk and only then puts it in the file's place. `check_settings_roundtrip` holds each `_write` to it.
-- `PresetManager` and `CharacterPresetManager` refuse every save over a file they could not read. `quarantine()` sets it aside (`json_file.set_aside`: `<name>_corrupted`, then `_corrupted2`, ...), and `ui/utils/corrupted_file.py` asks the user before the first save does.
 - `OptimizerSettingsManager.ensure_character` updates `name_hint` automatically when called with a non-empty new name that differs from the stored one, so captured-but-unknown combatants get a proper name once `CHARACTERS` is updated.
 - `CharacterPresetManager` caches the name↔id lookup tables lazily and keeps them for the manager's lifetime. If game data ever reloads at runtime (it does not today), call `invalidate_name_cache()`.

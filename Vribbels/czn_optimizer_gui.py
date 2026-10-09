@@ -102,6 +102,9 @@ from models.memory_fragment import (compute_gs_bounds,
 # Reconciles bundled defaults in `default_settings/` with the user's
 # `settings/` folder. Must run BEFORE any manager loads.
 from defaults_sync import resolve_defaults_dir, sync_defaults
+# Mends or sets aside a settings file that will not read. Must run
+# before the sync does.
+import settings_repair
 import shared_facts
 # The Upgrade Log Settings, as a decision rather than as widgets:
 # the Memory Fragments columns can ask the same question the
@@ -294,6 +297,7 @@ class OptimizerGUI:
         # Only now that the window is up and mapped can a modal dialog
         # be shown safely, so the game-data report waits until here.
         self._report_data_problems()
+        self._report_settings_repairs()
         self._report_sync_failures()
         # Dev-only, off unless asked for. Must come after the reveal,
         # which under an audit leaves the window at alpha 0 but settled
@@ -847,6 +851,12 @@ class OptimizerGUI:
         # writable state lives next to the exe.
         user_settings_dir = program_dir / "settings"
         defaults_dir = _defaults_dir()
+        # A settings file that will not read is mended, or set aside for
+        # the sync below to replace, BEFORE anything reads the folder:
+        # the sync and every manager would read it as empty and save
+        # that over it. Reported once the window is up.
+        self._settings_repairs = settings_repair.repair_folder(
+            user_settings_dir)
         # Never silently. A sync that fails leaves a new user with no
         # presets, no combatant assignments and no optimizer settings in
         # an app that looks perfectly healthy, so the failures are kept
@@ -860,6 +870,8 @@ class OptimizerGUI:
         for stage, fname, msg in self._sync_failures:
             perf_log.log("defaults_sync:FAILED", stage=stage, file=fname,
                          error=msg)
+        settings_repair.note_defaults(self._settings_repairs,
+                                      user_settings_dir)
 
         # SettingsManager FIRST so it can be passed to PresetManager.
         # PresetManager uses it as the canonical store for `selected_preset`.
@@ -1138,6 +1150,34 @@ class OptimizerGUI:
             print(f"{title}: {text}")
             return
         messagebox.showwarning(title, text)
+
+    def _report_settings_repairs(self):
+        """Tell the user which settings files did not read, and what was
+        done with each (`settings_repair`)."""
+        repairs = getattr(self, "_settings_repairs", [])
+        if not repairs:
+            return
+        try:
+            lines = "\n\n".join(repair.describe() for repair in repairs)
+        except Exception:
+            # A paragraph that will not build must cost neither the
+            # launch nor the notice: the files were moved all the same.
+            lines = ("Each one's original is kept beside it, as "
+                     "<name>_corrupted.json, in the settings folder.")
+        tail = ""
+        if any(r.shipped and r.outcome == settings_repair.REPAIRED
+               and r.cost_something for r in repairs):
+            tail = ("\n\nRestore Defaults, on the Setup & Settings tab, "
+                    "brings back shipped presets and combatant settings "
+                    "that were lost.")
+        try:
+            self._warn(
+                "Settings files repaired" if len(repairs) > 1
+                else "Settings file repaired",
+                "Some settings could not be read as they were saved:\n\n"
+                f"{lines}{tail}")
+        except Exception:
+            pass
 
     def _report_sync_failures(self):
         """Tell the user when the bundled defaults could not be installed.
@@ -1855,15 +1895,17 @@ def _saved_ui_scale():
 
     `main` needs this before `tk.Tk()` and the app's own
     `SettingsManager` is created hundreds of lines later, so the file is
-    read directly. Anything unreadable is the default -- a scale is not
-    worth failing to start over.
+    read directly. A file that will not parse is read the way its
+    repair will read it, later in the launch; anything still unreadable
+    is the default -- a scale is not worth failing to start over.
     """
+    path = _user_data_dir() / "settings" / "settings.json"
     try:
-        with open(_user_data_dir() / "settings" / "settings.json",
-                  encoding="utf-8") as handle:
+        with open(path, encoding="utf-8") as handle:
             return json.load(handle).get("ui_scale", scaling.DEFAULT_SCALE)
     except Exception:                       # missing, unreadable, malformed
-        return scaling.DEFAULT_SCALE
+        salvaged = settings_repair.salvage(path)
+        return (salvaged or {}).get("ui_scale", scaling.DEFAULT_SCALE)
 
 
 def main():

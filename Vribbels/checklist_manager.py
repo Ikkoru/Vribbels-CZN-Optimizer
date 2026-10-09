@@ -217,20 +217,27 @@ class ChecklistManager:
         # Event family (str) -> [instalment ids] whose final reward the
         # game has recorded as taken. See the module note.
         self.finals = {}
+        # The file stands but did not read: nothing is saved over it.
+        self.unread = False
 
     def load(self):
         """Read the flags. An unreadable file behaves like a fresh one.
 
         A missing or corrupt file is not an error the user can act on,
         and refusing to build the tab over it would cost them the whole
-        Checklist for a bad byte.
+        Checklist for a bad byte. Nor is it saved over: what it records
+        the game no longer holds. A file that would not parse is mended
+        or set aside before this runs (`settings_repair`), so one that
+        reaches here unread is one that would not open.
         """
         self.tracked = {}
+        self.unread = False
         if not self.file.exists():
             return
         try:
             data = json.loads(self.file.read_text(encoding="utf-8"))
         except (OSError, ValueError):
+            self.unread = True
             return
         raw = data.get("tracked") if isinstance(data, dict) else None
         if isinstance(raw, dict):
@@ -488,6 +495,8 @@ class ChecklistManager:
         return [tuple(p) for p in points] if points else []
 
     def _write(self):
+        if self.unread:
+            return
         self.settings_dir.mkdir(parents=True, exist_ok=True)
         data = {"version": CHECKLIST_VERSION, "tracked": self.tracked,
                 "seen": self.seen, "currency": self.currency,

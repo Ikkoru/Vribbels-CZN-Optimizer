@@ -76,7 +76,6 @@ from ui.context import AppContext
 from ui.utils.checkbox import make_checkbox
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import bind_combobox_nav
-from ui.utils.corrupted_file import confirm_quarantine
 from ui.utils.type_ahead import attach, find
 from game_data.characters import CHARACTERS
 from game_data import (
@@ -578,7 +577,6 @@ class HeroesTab(BaseTab):
         super().__init__(parent, context)
         self._init_state()
         self.setup_ui()
-        self._maybe_warn_character_preset_corrupted()
         # Time every refresh_heroes call into settings/perf_log.txt. Wrapping
         # the bound method here rather than editing the method body keeps the
         # measurement in one place and catches every caller (data load,
@@ -586,24 +584,6 @@ class HeroesTab(BaseTab):
         import perf_log
         self.refresh_heroes = perf_log.timed("refresh_heroes",
                                              self.refresh_heroes)
-
-    def _maybe_warn_character_preset_corrupted(self):
-        """If character_preset.json was unreadable on load, tell the user once.
-        Same flow as presets.json: defaults are applied, file is locked from
-        writes until the user explicitly chooses to save (which quarantines)."""
-        cpm = self.context.character_preset_manager
-        if cpm is None or not cpm.is_corrupted():
-            return
-        messagebox.showwarning(
-            "Character Preset File Corrupted",
-            f"The per-character preset file appears to be invalid:\n\n"
-            f"{cpm.corruption_error}\n\n"
-            f"File: {cpm.assignments_file}\n\n"
-            f"All characters have been reset to the default preset (all "
-            f"weights 1.0). The file will not be edited unless you make a "
-            f"new assignment from the dropdown (you'll be prompted to back "
-            f"up the broken file first)."
-        )
 
     def _init_state(self):
         """Initialize all state variables."""
@@ -2059,23 +2039,18 @@ class HeroesTab(BaseTab):
         if cpm is None:
             return
 
-        if not confirm_quarantine(cpm, "Corrupted Character Preset File",
-                                  "character preset file",
-                                  "this assignment"):
-            # Back to what the manager says for this character, which
-            # is "Default" while the file is unread.
-            assigned = self._get_assigned_preset(self._current_detail_hero)
-            self.preset_assign_combo.set(
-                DEFAULT_PRESET_LABEL if assigned is None else assigned
-            )
-            return
-
         selected = self.preset_assign_combo.get()
         new_value = None if selected == DEFAULT_PRESET_LABEL else selected
         try:
             cpm.set_preset_for(self._current_detail_hero, new_value)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save preset assignment: {e}")
+            # Back to what the manager holds for this character: the
+            # dropdown would otherwise show an assignment never made.
+            assigned = self._get_assigned_preset(self._current_detail_hero)
+            self.preset_assign_combo.set(
+                DEFAULT_PRESET_LABEL if assigned is None else assigned
+            )
             return
 
         # The assignment moves this combatant's Preset and GS cells, and
