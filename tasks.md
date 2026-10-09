@@ -235,10 +235,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   **Not obviously worth doing.** Tk construction code is honestly linear. A 300-line `setup_ui` that builds 300 lines of widgets hides nothing, and splitting it into eight `_build_*` calls moves the reading problem rather than removing it. No defect found in the code audit traced to file size; the real ones were an encoding default, a swallowed exception and a duplicated helper. The shared helpers already pulled out of these files (`ui/utils/`) are the same move at a reviewable size; judge from those.
 
-- **T15 — Scaling in 25% increments.** 125%, 150% and 175% are in the dropdown. What is left:
-
-  - **Their baselines**, frozen by the maintainer with `zRUN Spacing Audit Scales.bat` once the layout at each is accepted.
-
 ### Pondering
 
 - Should anything be added to the program from here:

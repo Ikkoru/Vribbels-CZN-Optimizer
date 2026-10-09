@@ -2296,9 +2296,12 @@ WINDOW_EDGE_ENTRIES = [
     ("Combatants", "Partner -> window edge", 4, None,
      _to_window_edge(_panel_at("Partner"))),
     # The gear cells' right column, held to the same edge as Partner
-    # above it: the column is as wide as the cells.
+    # above it: the column is as wide as the cells. Box to box: an
+    # EMPTY cell's one-pixel ridge shades its right edge to the tab's
+    # own colour, so its paint stops a pixel short of the box and the
+    # painted reading moved with whether anything was equipped.
     ("Combatants", "Equipped MF cells -> window edge", 4, None,
-     _to_window_edge(lambda app: app.heroes_tab_instance.gear_cells[4])),
+     _box_to_window_edge(lambda app: app.heroes_tab_instance.gear_cells[4])),
     # The status lines, stacked at the toolbar's right end. Read on the
     # line that is showing; with none, the entry says it painted nothing.
     ("Stats & Gacha History", "status lines -> window edge", 4, None,
