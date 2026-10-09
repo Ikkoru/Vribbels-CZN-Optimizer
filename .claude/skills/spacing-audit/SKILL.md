@@ -23,7 +23,7 @@ The maintainer's own state needs a snapshot loaded, so the data-driven panels ex
 | ---- | --- |
 | Only the rows that miss their target | `zRUN Spacing Audit.bat` |
 | Every row, including the ones on target | `zRUN Spacing Audit Verbose.bat` |
-| Rewrite the maintainer's state's baselines | `zRUN Spacing Audit Freeze.bat` |
+| Rewrite the maintainer's state's baselines | `zRUN Spacing Audit Freeze.bat`, or the flags below |
 | The empty states, in any of the three modes | `zRUN Spacing Audit States.bat` |
 | 125%, 150% and 175%, in any of the three modes | `zRUN Spacing Audit Scales.bat` |
 
@@ -75,7 +75,7 @@ New rows carry obligations the audit itself will not remind you of, and `checks/
 
 ## Freezing
 
-Freeze only once the maintainer has confirmed the current readings are right. The freeze overwrites `docs/spacing_baseline.json` wholesale, so freezing over an unexplained `CHANGED` line buries it permanently.
+Run audits and freezes yourself, unasked; git keeps every baseline, so a freeze loses nothing. **Freeze once every miss and `CHANGED` line has a reason.** One you cannot explain goes to the maintainer first, naming the widgets and the distance, since what their eyes see on the screen settles what a reading cannot. The freeze overwrites its baseline wholesale, and a frozen value above 100% is then accepted silently, so freezing over an unexplained one hides it from every later run.
 
 It prints `baseline written: <n> gaps`, and before that a warning where two entries share a NAME:
 

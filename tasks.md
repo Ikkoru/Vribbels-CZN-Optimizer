@@ -231,7 +231,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **T14 — Split the two large tab classes.** `OptimizerTab` and `HeroesTab` are the two largest tab classes. Both `setup_ui` bodies run past 300 lines and mix layout, state wiring and event binding, so a layout change edits the same function as a behaviour change. `_build_set_config` and `_build_exclude_gear` are the cleanest first extractions: they own their state and touch little else. Exact figures rot on every edit; count with `wc -l` and `grep -c "# spacing: "` when you need them.
 
-  **Costed in maintainer-side audit runs**, not in effort. A large share of the app's `# spacing:` markers live in these two files, and the ledger names levers by where they sit. So a split rewrites both, and only measuring a live window confirms it: one run per iteration.
+  **Costed in audit runs**, not in effort. A large share of the app's `# spacing:` markers live in these two files, and the ledger names levers by where they sit. So a split rewrites both, and only measuring a live window confirms it: one run per iteration.
 
   **Not obviously worth doing.** Tk construction code is honestly linear. A 300-line `setup_ui` that builds 300 lines of widgets hides nothing, and splitting it into eight `_build_*` calls moves the reading problem rather than removing it. No defect found in the code audit traced to file size; the real ones were an encoding default, a swallowed exception and a duplicated helper. The shared helpers already pulled out of these files (`ui/utils/`) are the same move at a reviewable size; judge from those.
 

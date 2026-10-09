@@ -1344,7 +1344,7 @@ def run_audit(app, out=print, verbose: bool = False, freeze: bool = False,
     notebook.select(original)
     app.root.update()
 
-    # Above 100% a miss the maintainer froze is accepted: what is left
+    # Above 100% a miss that was frozen is accepted: what is left
     # there is the font's rounding and the theme's fixed pixels, studied
     # and frozen, and the baseline still reports any reading that moves.
     frozen = (_frozen(baseline_path(state, scale_factor()))
