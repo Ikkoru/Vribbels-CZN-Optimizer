@@ -92,7 +92,10 @@ The judgement calls worth slowing down for:
 - **Is it the player's word?** "Player count", not "field size"; an event family's internal name ("Love events") is not what the game shows. Where unsure what the game calls it, say it generally ("more events") and ask, saying what the thing is — the maintainer then chooses the game's name or keeps it general.
 - **Is it what they will see?** For a change in SPEED, "arrive faster", not "arrive as they happen": say the effect, not an absolute the next slow line disproves. A change in WHEN something updates, on the event rather than at the next capture, is "as they happen".
 
-Write what survives tab first; a panel can come later. Group by tab, order by importance inside each group, and fold lines about one thing into one bullet — a column and its tooltip. Two short sentences read better than one long one. Where the release asks something of players, such as sharing data, ask it in the maintainer's own voice. A tiny sprinkle of whimsy at the top, and none in the entries.
+- **Is it a small feature the UI already makes obvious?** Name it anyway, in a word or two ("Level filter"), where a player would find it useful. Cut one only few players need, the more so when the UI already shouts about it: `Delete Certificate`, red, large and explained beside itself.
+- **Did one block's elements move, go and reorder at once?** Then one line sends the player to look ("UI changes: Combatants tab."), so the loud changes do not hide a quiet one -- a new column in an already busy list beside a reworked panel. Padding, font and panel sizes never earn it; elements changing place do.
+
+Write what survives tab first; a panel can come later. Every section groups its lines under bold tab mini headers. Group by tab, order by importance inside each group, and fold lines about one thing into one bullet — a column and its tooltip. Two short sentences read better than one long one. Where the release asks something of players, such as sharing data, ask it in the maintainer's own voice. A tiny sprinkle of whimsy at the top, and none in the entries.
 
 ## Verifying
 
