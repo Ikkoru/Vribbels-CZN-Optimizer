@@ -308,6 +308,9 @@ CHAR_STATS_HEADING = "Stats:"
 CHAR_BONUS_HEADING = "Affinity Bonus:"
 CHAR_SETS_HEADING = "Sets:"
 CHAR_POTENTIAL_HEADING = "Potential:"
+# The tag on every heading after the first, which carries the gap
+# between blocks (`rule_card_text`).
+CHAR_BLOCK_TAG = "block"
 # What the Affinity Bonus and Potential blocks read for a combatant the
 # capture has nothing on -- one the user does not own.
 CHAR_NO_DATA = "No character data available"
@@ -412,6 +415,11 @@ def rule_card_text(text, font):
         text_px(CHAR_NODE_TAB_LEVEL), "right",
         text_px(CHAR_NODE_TAB_DESC), "left",
     ))
+    # Half a line above every heading but the first. MEASURED off the
+    # font, so at the scale with no `px`; `spacing1` is the room above
+    # a line, which a blank line could only give in whole lines.
+    line = font.metrics("linespace")
+    text.tag_configure(CHAR_BLOCK_TAG, spacing1=(line + 1) // 2)
 
 
 def _char_panel_w(content_px):
@@ -1940,15 +1948,22 @@ class HeroesTab(BaseTab):
         self.hero_char_text.delete("1.0", tk.END)
         card = self._format_character_card(hero_name, stat_values)
         self.hero_char_text.insert("1.0", card)
-        # The node lines take their own tab stops. Tagged by what they
-        # SAY rather than by line number: the block's position moves
-        # with anything added above it, and a stale number would rule
-        # the wrong lines without erroring.
+        # The node lines take their own tab stops, and the headings
+        # after the first the gap above them. Tagged by what they SAY
+        # rather than by line number: a block's position moves with
+        # anything added above it, and a stale number would rule the
+        # wrong lines without erroring.
         prefix = f"{CHAR_SUBLIST_INDENT}Node "
+        spaced = (CHAR_BONUS_HEADING, CHAR_SETS_HEADING,
+                  CHAR_POTENTIAL_HEADING)
         for number, line in enumerate(card.split("\n"), start=1):
             if line.startswith(prefix):
-                self.hero_char_text.tag_add(
-                    CHAR_NODE_TAG, f"{number}.0", f"{number}.end")
+                tag = CHAR_NODE_TAG
+            elif line in spaced:
+                tag = CHAR_BLOCK_TAG
+            else:
+                continue
+            self.hero_char_text.tag_add(tag, f"{number}.0", f"{number}.end")
         self.hero_char_text.config(state=tk.DISABLED)
 
     # ----- Per-character preset helpers ----------------------------------

@@ -94,7 +94,7 @@ def run():
             f"states a maximum, so the seven is the only figure that "
             f"applies to everybody."
         )
-    for count, want in ((0, "7"), (7, "7"), (8, "10+"), (10, "10+"),
+    for count, want in ((0, "7"), (7, "7"), (8, "10?"), (10, "10?"),
                         (11, "11"), (12, "??"), (40, "??")):
         if ex.ceiling(count) != want:
             failures.append(

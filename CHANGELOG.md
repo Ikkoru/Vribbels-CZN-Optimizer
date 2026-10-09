@@ -32,7 +32,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - A deadline in its last day blinks, and so does a Delegation Module row with any to use. The Daily heading and finished events hold still.
   - `Finished?` removed from Overclock events.
 - **Combatants:**
-  - `Character` opens on Stats, then `Affinity Bonus`, Sets and Potential. The level, grade, element, class, Ego Manifestation and Affinity lines are gone, being the list's columns, and `Excursion Types` is the list's new `Excursion` column.
+  - `Character` opens on Stats, then `Affinity Bonus`, Sets and Potential. The level, grade, element, class, Ego Manifestation and Affinity lines are gone, being the list's columns, and `Excursion Types` is the list's new `Excursion` column, where a combatant past seven reads `10?`. Half a line separates the blocks.
   - Equipped Memory Fragments sits against the window's right edge and is as tall as three rows of set effect need; the panels above take the height left and the list the width left.
 
 ### Fixed

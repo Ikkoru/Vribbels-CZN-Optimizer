@@ -50,7 +50,7 @@ VISIT_TYPES = 7
 #
 # What the game grants beyond seven is granted a few combatants at a
 # time, so the denominator is written as a bound rather than a number:
-# `10+` for anyone over seven, since ten is as far as the extras are
+# `10?` for anyone over seven, since ten is as far as the extras are
 # known to go, `11` where a count has actually reached eleven, and `??`
 # past that, which is a combatant the game has taken somewhere this
 # table does not describe.
@@ -60,7 +60,7 @@ VISIT_TYPES = 7
 VISIT_CEILINGS = (
     (11, "??"),
     (10, "11"),
-    (VISIT_TYPES, "10+"),
+    (VISIT_TYPES, "10?"),
 )
 
 # Communication Passes granted per day, and where the day's spending
