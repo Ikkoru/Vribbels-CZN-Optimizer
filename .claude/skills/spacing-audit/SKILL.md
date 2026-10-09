@@ -27,7 +27,7 @@ The maintainer's own state needs a snapshot loaded, so the data-driven panels ex
 | The empty states, in any of the three modes | `zRUN Spacing Audit States.bat` |
 | 125%, 150% and 175%, in any of the three modes | `zRUN Spacing Audit Scales.bat` |
 
-Each of the first three runs the audit at 100% and then at 200%: it sets `VRIBBELS_DEV=1` and passes `--spacing-audit`, `--spacing-audit-verbose` or `--spacing-audit-freeze` to `Vribbels/czn_optimizer_gui.py`, with `--audit-scale=100%` and then `--audit-scale=200%`, which override the saved UI scale for that run and write nothing. A run without it takes the saved scale, so a maintainer who has set 200% would get two 200% runs. A normal launch never imports the audit, and an audit launch never asks for Administrator: it never captures.
+The plain, Verbose and Freeze launchers each run the audit at 100% and then at 200%: each sets `VRIBBELS_DEV=1` and passes `--spacing-audit`, `--spacing-audit-verbose` or `--spacing-audit-freeze` to `Vribbels/czn_optimizer_gui.py`, with `--audit-scale=100%` and then `--audit-scale=200%`, which override the saved UI scale for that run and write nothing. A run without it takes the saved scale, so a maintainer who has set 200% would get two 200% runs. A normal launch never imports the audit, and an audit launch never asks for Administrator: it never captures.
 
 The States launcher asks for the mode, then runs `--audit-state=empty` and `--audit-state=fresh`, each at both scales, each in a scratch copy it rebuilds. `docs/ui_spacing.md`, *Checking spacing*, says what each state is.
 

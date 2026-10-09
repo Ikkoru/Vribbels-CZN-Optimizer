@@ -1,12 +1,13 @@
-"""Run the font gauge at every UI scale above 100%, or the ones named.
+"""Run the font gauge at every UI scale, or the ones named.
 
     python docs/font_gauge.py [125% 150%=1.82 ...]
 
 A scale given as `150%=1.82` is measured at that `tk scaling` in place
 of its own (`ui/scaling.trial_text_scaling`): how a candidate for
-`TEXT_SCALING` is tried. Each scale is its own launch, rendered and never shown, on the
-maintainer's own settings and snapshot (nothing is written to either);
-`Vribbels/ui/font_gauge.py` says what is measured and why those places.
+`TEXT_SCALING` is tried. Each scale is its own launch, rendered and
+never shown, on the maintainer's own settings and snapshot (nothing is
+written to either); `Vribbels/ui/font_gauge.py` says what is measured
+and why those places.
 """
 
 import os

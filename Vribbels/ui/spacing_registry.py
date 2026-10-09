@@ -3802,11 +3802,15 @@ def _widest_stats(field):
 def _widest_card(app):
     """Select the combatant whose Character card renders widest.
 
-    The panel is a FIXED width sized for the widest card in the
-    roster, so its right inset is the distance that was SET on that
-    card alone -- every other one leaves the difference as slack, and
-    a reading taken on one is an upper bound. Which combatant that is
-    depends on the snapshot, so it is found rather than named.
+    The panel is a FIXED width sized for the widest line the tables
+    can produce (`heroes_tab.char_content_px`), so its right inset is
+    the distance that was SET only on a card holding that line --
+    every other one leaves the difference as slack, and a reading
+    taken on one is an upper bound. The widest card in the roster is
+    the nearest the snapshot comes, and which combatant that is
+    depends on it, so it is found rather than named.
+    `check_character_card_scales` is what holds the width to the
+    line exactly.
 
     Read off `dlineinfo` rather than by adding word widths: two of the
     card's blocks are tab-stopped, so a line's width is its last stop
