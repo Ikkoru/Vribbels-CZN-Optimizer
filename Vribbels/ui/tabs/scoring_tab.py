@@ -31,7 +31,7 @@ from game_data import STATS
 from game_data.constants import DISPLAY_NAMES
 from preset_manager import SUPPORTED_STATS
 from models.memory_fragment import compute_gs_bounds
-from ui.scaling import px
+from ui.scaling import px, px_after
 
 
 # Display order: (stat_key used internally, label shown to the user)
@@ -189,7 +189,12 @@ class ScoringTab(BaseTab):
         explain_frame = ttk.LabelFrame(content, text="How Gear Score Works",
                                        padding=px(0))
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        explain_frame.grid(row=0, column=0, sticky="nsew", padx=px(2), pady=px(2))
+        # A pad that ENDS a run another began -- main_frame's 2 at the
+        # tab's edges, this panel's trailing 2 between the two -- takes
+        # `px_after`, so each gap is scaled once.
+        explain_frame.grid(row=0, column=0, sticky="nsew",
+                           padx=(px_after(2, 2), px(2)),
+                           pady=(px(2), px_after(2, 2)))
 
         explanation = """GEAR SCORE (GS) EXPLANATION
 
@@ -293,7 +298,9 @@ STAT MIN - MAX ROLLS:
         config_frame = ttk.LabelFrame(content, text="Stat Weight Configuration",
                                       padding=px(0))
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        config_frame.grid(row=0, column=1, sticky="nsew", padx=px(2), pady=px(2))
+        config_frame.grid(row=0, column=1, sticky="nsew",
+                          padx=(px_after(2, 2), px_after(2, 2)),
+                          pady=(px(2), px_after(2, 2)))
 
         # spacing: explanation text -> the controls it explains -- label, spinbox ↕
         ttk.Label(
@@ -316,7 +323,9 @@ STAT MIN - MAX ROLLS:
         # gap: the stat cells' trailing padx sits inside stats_frame's
         # width and lands in this gap too, so the two are one lever in
         # two places and a change to either moves this distance.
-        ttk.Frame(top, width=px(10)).pack(side=tk.LEFT)
+        # `px_after`: the run up to here is the spinbox's 2 and its
+        # cell's 2.
+        ttk.Frame(top, width=px_after(4, 10)).pack(side=tk.LEFT)
 
         # The button frame fills its parent vertically so weighted empty rows
         # inside it can push the lower buttons down to align with DoT%.
@@ -415,8 +424,17 @@ STAT MIN - MAX ROLLS:
             # The pady is ASYMMETRIC for the same reason the HAL
             # grid's is: a row pair sums both pads, so an odd pitch
             # has to come off one side.
+            #
+            # The trailing 2 follows the spinbox's own trailing 2, and
+            # column 1's leading 2 follows both: each takes `px_after`
+            # so the run between the columns is scaled once. The leading
+            # 1 likewise follows the row above's trailing 2. Not the
+            # first row's: the gap up to the caption holds the caption's
+            # own insets as well, and read closest to its target as is.
             cell.grid(row=row, column=col, sticky=tk.W,
-                      padx=px((2 if col == 1 else 0, 2)), pady=px((1, 2)))
+                      padx=(px_after(4, 2) if col == 1 else px(0),
+                            px_after(2, 2)),
+                      pady=(px_after(2, 1) if row else px(1), px(2)))
 
             # Label uses the canonical DISPLAY_NAMES override (falling
             # back to display_name); trailing colon dropped.
@@ -488,16 +506,25 @@ STAT MIN - MAX ROLLS:
         # sit in a plain frame rather than inside a panel, so their
         # offset from its edge answers to the frame rule.
         #
+        # The leading halves END runs other pads began, so each takes
+        # `px_after` and every gap is scaled once: column 1's follows
+        # column 0's trailing 2, column 0's the stat grid's 2 + 2 and
+        # the 10 of spacer before this frame.
+        col0_lead = px_after(14, 2)
+        col1_lead = px_after(2, 2)
+        #
         # Row 0: Apply Current Weights | Reset Current Weights
         ttk.Button(
             parent, text="Apply Current Weights",
             command=self.on_apply_current_weights, width=BTN_WIDTH
-        ).grid(row=0, column=0, sticky="ew", padx=px(2), pady=px(2))
+        ).grid(row=0, column=0, sticky="ew", padx=(col0_lead, px(2)),
+               pady=px(2))
 
         ttk.Button(
             parent, text="Reset Current Weights",
             command=self.on_reset_current_weights, width=BTN_WIDTH
-        ).grid(row=0, column=1, sticky="ew", padx=px(2), pady=px(2))
+        ).grid(row=0, column=1, sticky="ew", padx=(col1_lead, px(2)),
+               pady=px(2))
 
         # Rows 1, 2: weighted empty space — absorbs vertical slack so rows
         # 3-5 are pinned to the bottom of the frame.
@@ -519,7 +546,7 @@ STAT MIN - MAX ROLLS:
         # own window -- measured at -6, which cost a pixel of ink and
         # bought nothing.
         ttk.Label(parent, text="Preset Name:", padding=px((0, 0, 0, -5))).grid(
-            row=3, column=1, sticky="sw", padx=px(2)
+            row=3, column=1, sticky="sw", padx=(col1_lead, px(2))
         )
 
         # Row 4: Save Weights Preset As | preset name entry
@@ -533,7 +560,8 @@ STAT MIN - MAX ROLLS:
         ttk.Button(
             parent, text="Save Weights Preset As",
             command=self.on_save_preset, width=BTN_WIDTH
-        ).grid(row=4, column=0, sticky="ew", padx=px(2), pady=px((1, 2)))
+        ).grid(row=4, column=0, sticky="ew", padx=(col0_lead, px(2)),
+               pady=px((1, 2)))
 
         self.preset_name_var = tk.StringVar()
         tk.Entry(
@@ -543,18 +571,21 @@ STAT MIN - MAX ROLLS:
             selectbackground=self.colors["select"],
             selectforeground=self.colors["fg"],
             relief=tk.FLAT, bd=px(1), highlightthickness=px(0)
-        ).grid(row=4, column=1, sticky="ew", padx=px(2), pady=px(2))
+        ).grid(row=4, column=1, sticky="ew", padx=(col1_lead, px(2)),
+               pady=px(2))
 
         # Row 5: Apply Selected Preset | Delete Selected Presets
         ttk.Button(
             parent, text="Apply Selected Preset",
             command=self.on_apply_selected_preset, width=BTN_WIDTH
-        ).grid(row=5, column=0, sticky="ew", padx=px(2), pady=px(2))
+        ).grid(row=5, column=0, sticky="ew", padx=(col0_lead, px(2)),
+               pady=(px_after(2, 2), px(2)))
 
         ttk.Button(
             parent, text="Delete Selected Presets",
             command=self.on_delete_selected_presets, width=BTN_WIDTH
-        ).grid(row=5, column=1, sticky="ew", padx=px(2), pady=px(2))
+        ).grid(row=5, column=1, sticky="ew", padx=(col1_lead, px(2)),
+               pady=(px_after(2, 2), px(2)))
 
         # Force button columns to share width.
         parent.grid_columnconfigure(0, uniform="btn_col")

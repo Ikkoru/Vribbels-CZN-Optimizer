@@ -15,7 +15,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from .button_width import BUTTON_W_TINY
-from ui.scaling import px
+from ui.scaling import px, px_after
 
 # Between the checkbox block above and this row. 4, not the rule's 5:
 # a checkbox's painted bottom sits a pixel below its box's, so the lever
@@ -65,6 +65,9 @@ def make_all_none_row(parent, on_all, on_none, *, width=BUTTON_WIDTH):
     # spacing: button -> button -- button, button ↔
     ttk.Button(row, text="All", width=width, command=on_all).pack(
         side=tk.LEFT, padx=px((EDGE_PAD, HALF_BUTTON_GAP)))
+    # `px_after`: the second half of the gap All began, so the two sum
+    # to the gap scaled once.
     ttk.Button(row, text="None", width=width, command=on_none).pack(
-        side=tk.LEFT, padx=px((HALF_BUTTON_GAP, 0)))
+        side=tk.LEFT,
+        padx=(px_after(HALF_BUTTON_GAP, HALF_BUTTON_GAP), px(0)))
     return row

@@ -60,7 +60,7 @@ from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tooltip import Tooltip
 from ..utils.tab_header import make_tab_header
 from defaults_sync import resolve_defaults_dir
-from ui.scaling import px
+from ui.scaling import px, px_after
 from ui import scaling
 from ui.update_check import (
     GITHUB_REPO, RELEASES_HTML_URL, UpdateStatus, current_version)
@@ -254,6 +254,31 @@ LINKS_PAD = (4, 2, 4, 2)  # spacing: border edge -> first non-button element -- 
 # pushed down to meet the other. See `link_bottom_heights`.
 BOTTOM_ROW_GAP = 5      # spacing: panel ↕ unrelated label -- panel, title ↕
 
+
+# The panels' pads, at the active scale. Every gap on this tab is two
+# or three pads meeting -- main_frame's 2 at its edges, two panels' 2s
+# between the columns and down a column -- and each rounded alone
+# gains half a pixel at 125% and 175%. A pad that ENDS a run another
+# began takes `px_after` instead, so each gap is scaled once.
+#
+# Functions, not constants: `px` reads the scale, which is set after
+# this module is imported.
+def _left_padx():
+    """A left-column panel: after main_frame's 2, then its own 2."""
+    return (px_after(2, 2), px(2))
+
+
+def _right_padx():
+    """A right-column panel: after the left column's 2, and after
+    main_frame's 2 on its far side."""
+    return (px_after(2, 2), px_after(2, 2))
+
+
+def _bottom_pady():
+    """A bottom panel: after the panel above's trailing 2, then after
+    main_frame's and `columns`' 2s."""
+    return (px_after(2, BOTTOM_ROW_GAP), px_after(4, 2))
+
 # Application Information's two numbers. The panel's own inset is a
 # FLOOR rather than a distance -- its content is centred in a height
 # `Links` decides, so the inset is only what would be left if that
@@ -390,7 +415,9 @@ class SetupTab(BaseTab):
         # than the two other headed tabs -- so the leading side gives it
         # back rather than the shared header helper losing a pixel the
         # others need.
-        columns.pack(fill=tk.BOTH, expand=True, pady=px((0, 2)))
+        # The trailing half follows main_frame's own 2: see
+        # `_bottom_pady`.
+        columns.pack(fill=tk.BOTH, expand=True, pady=(px(0), px_after(2, 2)))
 
         # The LEFT column is fixed to what the instructions need; the
         # RIGHT takes everything else. A frame with its propagation off
@@ -415,7 +442,7 @@ class SetupTab(BaseTab):
         row = self._update_row = ttk.Frame(right)
         # spacing: content frame -> content frame -- frame, frame ↔
         # spacing: panel ↕ unrelated label -- panel, title ↕
-        row.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
+        row.pack(fill=tk.X, padx=_right_padx(), pady=px((5, 2)))
         row.grid_columnconfigure(1, weight=1)
         self.update_status = UpdateStatus(
             row, self.colors, self.root, self.context.settings_manager)
@@ -424,7 +451,8 @@ class SetupTab(BaseTab):
         self.update_status.panel.grid(row=0, column=0, sticky="nsew",
                                       padx=px((0, SHARE_PANEL_PAD)))
         self._build_share(row).grid(row=0, column=1, sticky="nsew",
-                                    padx=px((SHARE_PANEL_PAD, 0)))
+                                    padx=(px_after(SHARE_PANEL_PAD,
+                                                   SHARE_PANEL_PAD), px(0)))
         self._build_settings(right)
 
         # The last row of each column, and the two are held to ONE
@@ -464,7 +492,7 @@ class SetupTab(BaseTab):
         status_frame = ttk.LabelFrame(parent, text="Setup Status",
                                       padding=px((4, 5, 5, 6)))
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        status_frame.pack(fill=tk.X, padx=px(2), pady=px(2))
+        status_frame.pack(fill=tk.X, padx=_left_padx(), pady=px(2))
 
         # spacing: unique -- Setup Status stands apart on purpose -- label, label ↕
         # This panel is the first thing a new user sees, and the one
@@ -492,7 +520,7 @@ class SetupTab(BaseTab):
         certificate's removal beside them."""
         btn_frame = ttk.Frame(parent)
         # spacing: content frame -> content frame -- frame, frame ↕
-        btn_frame.pack(fill=tk.X, pady=px((2, 2)))
+        btn_frame.pack(fill=tk.X, pady=(px_after(2, 2), px(2)))
 
         # spacing: button -> button -- button, button ↔
         # Each button's trailing pad meets the next one's leading pad, so
@@ -502,10 +530,11 @@ class SetupTab(BaseTab):
         # leading pad answers to the frame rule and matches main_frame's
         # own.
         ttk.Button(btn_frame, text="Check Status", command=self.check_status,
-                   width=BUTTON_W_LARGE).pack(side=tk.LEFT, padx=px((2, 2)))
+                   width=BUTTON_W_LARGE).pack(
+                       side=tk.LEFT, padx=(px_after(2, 2), px(2)))
         ttk.Button(btn_frame, text="Generate & Install Cert",
                    command=self.setup_cert, width=BUTTON_W_LARGE).pack(
-                       side=tk.LEFT, padx=px((2, 5)))
+                       side=tk.LEFT, padx=(px_after(2, 2), px(5)))
         # Right-aligned, so the button's edge is the panels' above it and
         # its note picks up across the divide.
         delete = ttk.Button(btn_frame, text=CERT_DELETE,
@@ -531,7 +560,10 @@ class SetupTab(BaseTab):
             foreground=self.colors["fg_dim"],
             padding=px((0, RESTORE_TEXT_TRIM, 0, RESTORE_TEXT_TRIM)))
         # spacing: label ↔ its element -- button, label ↔
-        note.pack(anchor=tk.W, padx=px((CERT_NOTE_PAD, 0)))
+        # `px_after`: the second part of the gap Delete Certificate's
+        # trailing pad began.
+        note.pack(anchor=tk.W,
+                  padx=(px_after(CERT_EDGE_PAD, CERT_NOTE_PAD), px(0)))
 
     def _build_instructions(self, parent):
         """Setup Instructions, as tall as its text and no taller."""
@@ -545,7 +577,8 @@ class SetupTab(BaseTab):
         # spacing: panel ↕ unrelated label -- button, title ↕
         # The leading side carries the whole run from the button row
         # down to this panel's title.
-        instr_frame.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
+        instr_frame.pack(fill=tk.X, padx=_left_padx(),
+                         pady=(px_after(2, 5), px(2)))
 
         # spacing: border edge -> first non-button element -- panel, text ↔↕
         # The panel's inset sits here rather than on the LabelFrame,
@@ -581,7 +614,7 @@ class SetupTab(BaseTab):
             padding=px((RESTORE_EDGE_PAD, RESTORE_EDGE_PAD, 5,
                         RESTORE_EDGE_PAD)))
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        restore_frame.pack(fill=tk.X, padx=px(2), pady=px(2))
+        restore_frame.pack(fill=tk.X, padx=_right_padx(), pady=px(2))
 
         button_specs = [
             (
@@ -792,7 +825,8 @@ class SetupTab(BaseTab):
             parent, text="Settings", padding=px(SETTINGS_PAD))
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
-        settings_frame.pack(fill=tk.X, padx=px(2), pady=px((5, 2)))
+        settings_frame.pack(fill=tk.X, padx=_right_padx(),
+                            pady=(px_after(2, 5), px(2)))
 
         sm = self.context.settings_manager
 
@@ -1119,8 +1153,8 @@ class SetupTab(BaseTab):
         # `fill=X`, never `expand`: the height is the one `_link_heights`
         # sets, and an expanding panel would stretch to whatever its own
         # column has left -- which is a different amount on each side.
-        self._links_panel.pack(fill=tk.X, padx=px(2),
-                               pady=px((BOTTOM_ROW_GAP, 2)))
+        self._links_panel.pack(fill=tk.X, padx=_left_padx(),
+                               pady=_bottom_pady())
 
         for text, url in (
                 ("View Releases on GitHub", RELEASES_HTML_URL),
@@ -1167,8 +1201,8 @@ class SetupTab(BaseTab):
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
         # `fill=X`, never `expand` -- see `_build_links`.
-        self._app_info_panel.pack(fill=tk.X, padx=px(2),
-                                  pady=px((BOTTOM_ROW_GAP, 2)))
+        self._app_info_panel.pack(fill=tk.X, padx=_right_padx(),
+                                  pady=_bottom_pady())
 
         # The stack, in a frame of its own. `expand` is what centres it:
         # the leftover height goes to the frame's cavity and the frame
@@ -1321,7 +1355,7 @@ class SetupTab(BaseTab):
         panels = (self._links_panel, self._app_info_panel)
         for panel in panels:
             panel.pack_propagate(True)
-            panel.pack_configure(pady=px((BOTTOM_ROW_GAP, 2)))
+            panel.pack_configure(pady=_bottom_pady())
         self.frame.update_idletasks()
 
         height = self._links_panel.winfo_reqheight()
@@ -1842,7 +1876,9 @@ class SetupTab(BaseTab):
         right = ttk.LabelFrame(parent, text="Replace Changed",
                                padding=px((0, 0, 0, 3)))
         # spacing: content frame -> content frame -- panel, panel ↔
-        right.grid(row=0, column=1, sticky="nsew", padx=px((2, 0)))
+        # `px_after`: the second half of the gap Restore Missing began.
+        right.grid(row=0, column=1, sticky="nsew",
+                   padx=(px_after(2, 2), px(0)))
 
         rows = ttk.Frame(right)
         rows.pack(fill=tk.BOTH, expand=True)

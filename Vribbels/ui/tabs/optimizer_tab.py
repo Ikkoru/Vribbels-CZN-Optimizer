@@ -52,7 +52,7 @@ from ui.base_tab import BaseTab
 from ui.context import AppContext
 from ui.utils.all_none_row import EDGE_PAD, make_all_none_row
 from ui.utils.button_width import BUTTON_W_MEDIUM, BUTTON_W_SMALL
-from ui.utils.checkbox import make_checkbox
+from ui.utils.checkbox import make_checkbox, pad_beside_label, pad_between
 from ui.utils.escape import close_on_escape
 from ui.utils.label_width import LABEL_REQUEST_INSET
 from ui.utils.panel_title import panel_title_style
@@ -84,7 +84,7 @@ from models.memory_fragment import (
     compute_fragment_gs, compute_fragment_potential, bounds_for_fragment,
 )
 from optimizer.core import parse_set_effect_shares
-from ui.scaling import px, px_spans
+from ui.scaling import px, px_after, px_spans
 
 
 # Multi-line explanation shown below the toolbar. The label's wraplength is
@@ -658,7 +658,9 @@ class OptimizerTab(BaseTab):
         # clipping its own label, and every frame under the toolbar
         # moved down with it. This gives those two back where they were
         # taken from, rather than trimming the row that needs them.
-        toolbar.pack(fill=tk.X, padx=px(2), pady=px((0, 0)))
+        # `px_after`: each side ends a run `content`'s own 2 began.
+        toolbar.pack(fill=tk.X, padx=(px_after(2, 2), px_after(2, 2)),
+                     pady=px((0, 0)))
 
         # Stack the Combatant label and dropdown vertically. The toolbar's
         # left cluster (Combatant + LVL + Start + Stop) is wrapped in a
@@ -714,7 +716,10 @@ class OptimizerTab(BaseTab):
         # stack vertically, mirroring the Combatant stacking.
         level_frame = ttk.Frame(self._toolbar_top_row)
         # spacing: control group ↔ control group -- dropdown, label ↔
-        level_frame.pack(side=tk.LEFT, padx=px((11, 0)), anchor=tk.N)
+        # `px_after`: the second part of the gap the Combatant group's
+        # trailing 5 began.
+        level_frame.pack(side=tk.LEFT, padx=(px_after(5, 11), px(0)),
+                         anchor=tk.N)
         # spacing: title above, element below -- label, spinbox ↕
         level_label = ttk.Label(level_frame, text="Optimize for LVL:",
                                 padding=px((-2, 0, 0, 0)))
@@ -771,7 +776,8 @@ class OptimizerTab(BaseTab):
         ttk.Button(self._toolbar_top_row, text="Stop",
                    width=BUTTON_W_SMALL,
                    command=self.cancel_optimization).pack(
-                       side=tk.LEFT, padx=px(2), pady=px((5, 0)), anchor=tk.N)
+                       side=tk.LEFT, padx=(px_after(2, 2), px(2)),
+                       pady=px((5, 0)), anchor=tk.N)
 
         # Preset row below the top row. pack_propagate(False) so the row
         # doesn't grow with its label; width is synced to top_row's natural
@@ -974,13 +980,18 @@ class OptimizerTab(BaseTab):
         left_frame = ttk.LabelFrame(body, text="Stats Comparison", padding=px(0),
                                     style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        left_frame.grid(row=0, column=0, sticky="new", padx=px(2), pady=px(2))
+        # The body's cells split each gap between neighbours, and the
+        # gaps at the tab's edges with `content`: a pad that ENDS a run
+        # another began takes `px_after`, so each gap is scaled once.
+        left_frame.grid(row=0, column=0, sticky="new",
+                        padx=(px_after(2, 2), px(2)), pady=px(2))
         self._build_stats_tree(left_frame)
 
         # --- Row 0 col 1: Configuration (middle pane) ---
         self.middle_frame = ttk.Frame(body)
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        self.middle_frame.grid(row=0, column=1, sticky="nsew", padx=px(2), pady=px(2))
+        self.middle_frame.grid(row=0, column=1, sticky="nsew",
+                               padx=(px_after(2, 2), px(2)), pady=px(2))
         self._build_config(self.middle_frame)
 
         # --- Col 2 (rowspan 2): Exclude MFs (top) + Results (below).
@@ -989,7 +1000,8 @@ class OptimizerTab(BaseTab):
         self._col2_container = ttk.Frame(body)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         self._col2_container.grid(row=0, column=2, rowspan=2, sticky="nsew",
-                                  padx=px(2), pady=px(2))
+                                  padx=(px_after(2, 2), px_after(2, 2)),
+                                  pady=(px(2), px_after(2, 2)))
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         exclude_frame = ttk.LabelFrame(
             self._col2_container, text="Exclude Combatant's MFs", padding=px((0, 2, 0, 3))
@@ -1039,7 +1051,8 @@ class OptimizerTab(BaseTab):
                                       style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔↕
         detail_frame.grid(row=1, column=0, columnspan=2, sticky="sew",
-                          padx=px(2), pady=px(2))
+                          padx=(px_after(2, 2), px(2)),
+                          pady=(px_after(2, 2), px_after(2, 2)))
         self._build_detail_tree(detail_frame)
 
         # Map the finished tree in one go. Deliberately NO update_idletasks()
@@ -1152,8 +1165,9 @@ class OptimizerTab(BaseTab):
             top_row, text="Have at least this much of a stat", padding=px((2, 3, 4, 3))
         )
         # spacing: content frame -> content frame -- frame, frame ↔
+        # `px_after`: the second half of the gap Important Settings began.
         have_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
-                        padx=px((2, 0)))
+                        padx=(px_after(2, 2), px(0)))
         self._build_have_at_least(have_frame)
 
         # Set Configuration
@@ -1335,13 +1349,16 @@ class OptimizerTab(BaseTab):
         # Label + checkboxes on the same line.
         fm_row = ttk.Frame(parent)
         # spacing: config panel row ↕ row -- slider, checkbox ↕
-        fm_row.pack(fill=tk.X, pady=px((1, 2)))
+        # The leading 1 follows the Shielding row's trailing 6.
+        fm_row.pack(fill=tk.X, pady=(px_after(6, 1), px(2)))
         # spacing: label ↔ its element -- label, checkbox ↔
         ttk.Label(
             fm_row,
             text="Force on a Slot:",
             font=("Segoe UI", 9),
-        ).pack(side=tk.LEFT, padx=px((0, 0)))
+        # `pad_beside_label`: the label's ink inset and the first
+        # checkbox's inset meet across this gap.
+        ).pack(side=tk.LEFT, padx=(px(0), pad_beside_label(0)))
         for idx, (key, label, _slot, _stat) in enumerate(FORCE_MAIN_DEFS):
             # spacing: border edge -> first non-button element -- checkbox, panel ↔
             # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
@@ -1353,7 +1370,9 @@ class OptimizerTab(BaseTab):
                 fm_row, self.colors, text=label,
                 variable=self.force_main_vars[key],
                 command=lambda k=key: self._save_force_main(k),
-            ).pack(side=tk.LEFT, padx=px((0, pad_right)))
+            ).pack(side=tk.LEFT,
+                   padx=(px(0), pad_between(pad_right) if pad_right
+                         else px(0)))
 
         # The panel is as wide as its widest row, with each slider at its
         # least length, and the captions wrap to that rather than widen
@@ -1536,7 +1555,12 @@ class OptimizerTab(BaseTab):
         # ASYMMETRIC, because a row pair sums BOTH pads: 1 a side
         # renders 2 and 2 a side would render 4, so the odd pixel
         # goes on one side alone.
-        row.pack(fill=tk.X, pady=px((1, 2)))
+        #
+        # The leading 1 ENDS a run: the row above's trailing 2, or for
+        # a column's first row the panel's own top padding of 3. Taken
+        # with `px_after`, each gap is scaled once.
+        first = not parent.pack_slaves()
+        row.pack(fill=tk.X, pady=(px_after(3 if first else 2, 1), px(2)))
         # Internal stat key translated to its user-facing label, at its
         # own width. No trailing colon.
         label_text = DISPLAY_NAMES.get(stat, stat)
@@ -1919,7 +1943,8 @@ class OptimizerTab(BaseTab):
         # spacing: heading ↔ element -- checkbox, label ↔
         ttk.Label(row, text=ORDER_MODE_NOTE,
                   foreground=self.colors["fg_dim"]).pack(
-            side=tk.LEFT, padx=px((ORDER_MODE_NOTE_GAP, 0)))
+            side=tk.LEFT,
+            padx=(pad_beside_label(ORDER_MODE_NOTE_GAP), px(0)))
         self._exclude_reset = ttk.Button(
             row, text=RESET_ORDER_LABEL, width=BUTTON_W_MEDIUM,
             command=self._reset_exclude_order)
@@ -2598,7 +2623,9 @@ class OptimizerTab(BaseTab):
         # Order Mode places the names in its order; the checks mode the
         # checkbuttons by name. The other mode's widgets are kept, hidden.
         ordered = bool(self.exclude_order_var.get())
-        gap = px(name_gap if ordered else box_gap)
+        # Between two checkbuttons, `pad_between`: the gap holds both
+        # their insets too, and is scaled once with them.
+        gap = px(name_gap) if ordered else pad_between(box_gap)
         items = self._exclude_order_names if ordered else self._exclude_heroes
         widget_for = (self._exclude_label if ordered
                       else self._exclude_checkbutton)

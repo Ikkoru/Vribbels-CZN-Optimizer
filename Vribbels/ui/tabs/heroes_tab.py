@@ -90,7 +90,7 @@ from game_data import (
 from game_data.constants import DISPLAY_NAMES, FRIENDSHIP_BONUSES
 from models import Stat
 from models.memory_fragment import compute_gs_bounds, normalize_gs
-from ui.scaling import px, px_spans, text_px
+from ui.scaling import px, px_after, px_spans, text_px
 
 
 # UI label shown when a character has no preset assigned (default 1.0 weights).
@@ -737,7 +737,8 @@ class HeroesTab(BaseTab):
                       variable=self.show_missing_var,
                       command=self._on_show_missing_toggle).pack(
                           side=tk.RIGHT, anchor=tk.N, padx=px((16, 0)),
-                          pady=px((1, 0)))
+                          # After `columns`' 1 in the same run.
+                          pady=(px_after(1, 1), px(0)))
 
         # Right-aligned vertical group: label on top, combobox below.
         # `expand=True, fill=X` fills the leftover space between the name
@@ -823,7 +824,11 @@ class HeroesTab(BaseTab):
         # answers to the label rule; it is larger than the sides for that
         # reason and not because of the nesting. The bottom pad is the
         # tab's own bottom margin, shared with the container below.
-        hero_list_container.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((5, 2)))
+        # `px_after` where `columns`' own 2 began the run (the window's
+        # left and bottom edges), so each run is its whole scaled once.
+        hero_list_container.pack(
+            fill=tk.BOTH, expand=True, padx=(px_after(2, 2), px(2)),
+            pady=(px(5), px_after(2, 2)))
 
         # The character list is a Treeview: ONE widget that draws its own
         # rows, where the hand-rolled version was a label per cell -- 374
@@ -892,7 +897,13 @@ class HeroesTab(BaseTab):
         # The top pad carries the drop from the preset dropdown in
         # title_row to the Character panel's title, which is a control
         # over a panel; it matches the list column's beside it.
-        hero_detail_container.pack(fill=tk.BOTH, expand=True, padx=px(2), pady=px((5, 2)))
+        # `px_after` on the sides where another pad began the run: the
+        # list's trailing 2 on the left, `columns`' 2 on the right and
+        # at the bottom.
+        hero_detail_container.pack(
+            fill=tk.BOTH, expand=True,
+            padx=(px_after(2, 2), px_after(2, 2)),
+            pady=(px(5), px_after(2, 2)))
         self.hero_detail_container = hero_detail_container  # for width-clamp lookups
 
         # Debounce handle for resize-triggered combobox geometry recompute.
@@ -917,7 +928,9 @@ class HeroesTab(BaseTab):
         # Character and Partner panels' bottom borders to the Equipped
         # Memory Fragments title beneath them; the rest is on that
         # frame's own leading pady, which is where corrections go.
-        info_frame.pack(fill=tk.BOTH, expand=True, pady=px(2))
+        # The leading half follows the container's 5 in its run.
+        info_frame.pack(fill=tk.BOTH, expand=True,
+                        pady=(px_after(5, 2), px(2)))
 
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border --
@@ -968,8 +981,9 @@ class HeroesTab(BaseTab):
         # the run out to the window edge -- `columns` and
         # `hero_detail_container` already spend two each, which is
         # the whole of that rule's 4.
+        # `px_after`: the second half of the gap Character's 2 began.
         partner_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
-                           padx=px((2, 0)))
+                           padx=(px_after(2, 2), px(0)))
         self._partner_frame = partner_frame  # fixed-size target
         # Right-click on the partner pane (the LabelFrame OR the Text widget
         # inside) opens the "Add confirmed level" dialog for the currently
@@ -1026,8 +1040,9 @@ class HeroesTab(BaseTab):
         # after them, a short window took the shortfall off the cells.
         # Anchored EAST, to the window's edge: the cells are a stated
         # width, and the column is theirs.
+        # The leading 5 follows info_frame's trailing 2 in its run.
         gear_outer_frame.pack(side=tk.BOTTOM, anchor=tk.E, before=info_frame,
-                              pady=px((5, 0)))
+                              pady=(px_after(2, 5), px(0)))
         self._gear_outer_frame = gear_outer_frame
 
         self.gear_cells = {}

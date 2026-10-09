@@ -107,6 +107,7 @@ from checks import (                                    # noqa: E402
     check_window_render,
     check_dpi_hold,
     check_character_card_scales,
+    check_scale_runs,
 )
 
 # Cheapest and most locally-caused first, so a broken edit reports
@@ -168,6 +169,7 @@ CHECKS = [
     check_theme_scaling,
     check_tabs_build,
     check_type_ahead,
+    check_scale_runs,
     check_ui_scales,
     check_character_card_scales,
     check_important_settings,

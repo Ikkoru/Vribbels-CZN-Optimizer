@@ -27,7 +27,7 @@ import gacha_history as gh
 import stats_history as sh
 from capture.constants import OUTPUT_DIR
 from game_data.constants import RARITY_COLORS
-from ui.scaling import px
+from ui.scaling import px, px_after
 from ..base_tab import BaseTab
 from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.panel_title import panel_title_style
@@ -363,7 +363,11 @@ class GachaHistoryTab(BaseTab):
 
         toolbar = ttk.Frame(content)
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        toolbar.pack(fill=tk.X, padx=px(2), pady=px((0, 0)))
+        # A pad that ENDS a run another began -- content's 2 at the tab's
+        # edges, a neighbour's 2 or 5 between panels -- takes `px_after`
+        # here and below, so each gap is scaled once.
+        toolbar.pack(fill=tk.X, padx=(px_after(2, 2), px_after(2, 2)),
+                     pady=px((0, 0)))
 
         # The buttons and the filter as one group, so its top pad is the
         # whole lever on their distance from the tab list. On the
@@ -377,7 +381,8 @@ class GachaHistoryTab(BaseTab):
         # spacing: tab list -> first element -- tab, button ↕
         # spacing: tab list -> first element -- tab, dropdown ↕
         # spacing: panel ↕ unrelated label -- button, title ↕
-        controls.pack(side=tk.LEFT, anchor=tk.N, pady=px((5, 5)))
+        controls.pack(side=tk.LEFT, anchor=tk.N,
+                      pady=(px_after(1, 5), px(5)))
 
         import_btn = ttk.Button(controls, text="Import JSON",
                                 command=self._import, width=BUTTON_W_MEDIUM)
@@ -453,8 +458,9 @@ class GachaHistoryTab(BaseTab):
                                        style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- label, title ↕
-        summary_frame.grid(row=0, column=0, sticky="nw", padx=px(2),
-                           pady=px(2))
+        summary_frame.grid(row=0, column=0, sticky="nw",
+                           padx=(px_after(2, 2), px(2)),
+                           pady=(px_after(5, 2), px(2)))
         self.summary_tree = self._make_tree(summary_frame, SUMMARY_COLUMNS,
                                             height=1)
         self.summary_tree.pack(side=tk.LEFT, fill=tk.X)
@@ -481,10 +487,10 @@ class GachaHistoryTab(BaseTab):
         pair.grid(row=3, column=0, sticky="nw")
         self.offensive_list = self._make_standings(
             pair, OFFENSIVE_TITLE, OFFENSIVE_NOTE, row=0, column=0,
-            top=UNDER_LIST_PAD)
+            top=UNDER_LIST_PAD, last=True)
         self.sortie_list = self._make_standings(
             pair, SORTIE_TITLE, SORTIE_NOTE, row=0, column=1,
-            top=UNDER_LIST_PAD)
+            top=UNDER_LIST_PAD, last=True)
         # Written now, with nothing read. The gacha sheet is then already
         # its full height, and only its width moves when the history
         # arrives; the standings are always as tall as their rows.
@@ -497,7 +503,8 @@ class GachaHistoryTab(BaseTab):
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- label, title ↕
         self.pulls_frame.grid(row=0, column=1, rowspan=4, sticky="nsew",
-                              padx=px(2), pady=px(2))
+                              padx=(px_after(2, 2), px_after(2, 2)),
+                              pady=(px_after(5, 2), px_after(2, 2)))
         self.pulls_tree = self._make_tree(self.pulls_frame, PULL_COLUMNS,
                                           height=20)
         self.pulls_scroll = ttk.Scrollbar(self.pulls_frame,
@@ -525,8 +532,9 @@ class GachaHistoryTab(BaseTab):
         # The leading pad is the lever on the gap from the panel above
         # to this title, which the text rule sets; the banners keep the
         # 2 every panel on this tab has.
-        frame.grid(row=row, column=0, sticky="nw", padx=px(2),
-                   pady=px((5, 2)))
+        frame.grid(row=row, column=0, sticky="nw",
+                   padx=(px_after(2, 2), px(2)),
+                   pady=(px_after(2, 5), px(2)))
         # A Text sizes in characters and lines, and a sheet is sized in
         # pixels -- its rows carry `spacing1` a line count cannot see --
         # so the holder is sized and the Text fills it. See
@@ -551,7 +559,8 @@ class GachaHistoryTab(BaseTab):
         text.tag_configure(BOLD_TAG, font=HEADING_FONT)
         return holder, text
 
-    def _make_standings(self, parent, title, note, row, column, top):
+    def _make_standings(self, parent, title, note, row, column, top,
+                        last=False):
         """One standings list, as its parts: the rows' names in a list of
         their own, and the seasons in a list beside it that scrolls
         sideways once it reaches its room. Two lists, because a Treeview
@@ -580,8 +589,11 @@ class GachaHistoryTab(BaseTab):
         # `top` is the lever on this title against the panel above it,
         # which differs by what that panel ends in -- see
         # `UNDER_SHEET_PAD`.
-        frame.grid(row=row, column=column, sticky="nw", padx=px(2),
-                   pady=px((top, 2)))
+        # `last`: the bottom row, whose trailing pad follows content's.
+        frame.grid(row=row, column=column, sticky="nw",
+                   padx=(px_after(2, 2), px(2)),
+                   pady=(px_after(2, top),
+                         px_after(2, 2) if last else px(2)))
         lists = ttk.Frame(frame)
         # spacing: title above, element below -- title, tree ↕
         lists.pack(anchor=tk.W, pady=px((0, 0)))

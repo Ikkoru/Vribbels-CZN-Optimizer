@@ -66,7 +66,7 @@ from .heroes_tab import compute_fragment_gs
 from upgrade_log_filters import (
     filter_flags, presets_for_fragment, selected_log_presets,
 )
-from ui.scaling import px, px_spans
+from ui.scaling import px, px_after, px_spans
 
 
 # Where the Upgrade Log Settings checkbox's state is kept. Its own
@@ -365,7 +365,10 @@ class InventoryTab(BaseTab):
         # label so the label sits directly beneath it.
         slot_col = ttk.Frame(filter_frame)
         # spacing: content frame -> content frame -- frame, frame ↔
-        slot_col.pack(side=tk.LEFT, padx=px(2), anchor=tk.N)
+        # The leading half ends the run filter_frame's 2 began: a pad
+        # that does takes `px_after`, so the gap is scaled once.
+        slot_col.pack(side=tk.LEFT, padx=(px_after(2, 2), px(2)),
+                      anchor=tk.N)
 
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         slot_frame = ttk.LabelFrame(slot_col, text="Slots", padding=px((0, 2, 0, 3)))
@@ -390,7 +393,8 @@ class InventoryTab(BaseTab):
                 make_checkbox(
                     slot_inner, self.colors, text=slot_name, variable=var,
                     command=lambda n=slot_num: self._on_slot_toggle(n)
-                ).grid(row=row, column=col, sticky=tk.W, padx=px(2),
+                ).grid(row=row, column=col, sticky=tk.W,
+                       padx=px(2),
                        pady=px((0 if row == 0 else 3, 0)))
 
         make_all_none_row(slot_frame, self.select_all_slots,
@@ -466,7 +470,8 @@ class InventoryTab(BaseTab):
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         set_frame = ttk.LabelFrame(filter_frame, text="Sets", padding=px((0, 2, 0, 3)))
         # spacing: content frame -> content frame -- frame, frame ↔
-        set_frame.pack(side=tk.LEFT, padx=px(2), anchor=tk.N)
+        set_frame.pack(side=tk.LEFT, padx=(px_after(2, 2), px(2)),
+                       anchor=tk.N)
 
         self.inv_set_frame_inner = ttk.Frame(set_frame)
         self.inv_set_frame_inner.pack()
@@ -482,7 +487,8 @@ class InventoryTab(BaseTab):
         # without sharing a lever: what follows it is not another panel
         # but the options column, whose distance from this border is
         # bought on `opt_frame` below.
-        main_frame.pack(side=tk.LEFT, padx=px((2, 0)), anchor=tk.N)
+        main_frame.pack(side=tk.LEFT, padx=(px_after(2, 2), px(0)),
+                        anchor=tk.N)
 
         self.inv_main_stat_frame_inner = ttk.Frame(main_frame)
         self.inv_main_stat_frame_inner.pack(anchor=tk.W)
@@ -515,7 +521,8 @@ class InventoryTab(BaseTab):
                 # left inset is measured from, so the column gap has to
                 # be bought on the trailing side alone.
                 cb.grid(row=row_idx, column=col_idx, sticky=tk.W,
-                        padx=px((2, 2)), pady=px((extra_top, 0)))
+                        padx=px((2, 2)),
+                        pady=px((extra_top, 0)))
                 self.inv_main_stat_checks[label] = cb
 
         # Reserve a row below the layout for unknown main stats. Hidden until
@@ -552,7 +559,8 @@ class InventoryTab(BaseTab):
         # TRAILING runs to the window edge, and answers to the other
         # rule -- the two sides are stated apart so neither nudge moves
         # the other.
-        opt_frame.pack(side=tk.LEFT, padx=px((2, 2)))
+        # The trailing half ends the run filter_frame's 2 began.
+        opt_frame.pack(side=tk.LEFT, padx=(px(2), px_after(2, 2)))
 
         self.inv_unequipped_var = tk.BooleanVar(value=False)
         make_checkbox(opt_frame, self.colors, text="Unequipped Only",
@@ -611,7 +619,9 @@ class InventoryTab(BaseTab):
         # Twice the other tabs' value, because the Treeview is packed
         # directly inside with no padding of its own: this frame supplies
         # the whole edge gap rather than half of it.
-        tree_frame.pack(fill=tk.BOTH, expand=True, padx=px(4), pady=px((2, 4)))
+        # The leading pady ends the run filter_frame's trailing 2 began.
+        tree_frame.pack(fill=tk.BOTH, expand=True, padx=px(4),
+                        pady=(px_after(2, 2), px(4)))
 
         inv_cols = ("slot", "set", "main", "lvl", "sub1", "sub2", "sub3", "sub4",
                     "gs", "potential", "equipped", "highest_gs", "highest_potential")
@@ -984,7 +994,8 @@ class InventoryTab(BaseTab):
             # spacing: element and its label ↔ element and its label -- checkbox, checkbox ↔
             # Matches the grid above it -- this row is the same block,
             # built later because its stats come from the data.
-            cb.grid(row=0, column=col_idx, sticky=tk.W, padx=px((2, 2)))
+            cb.grid(row=0, column=col_idx, sticky=tk.W,
+                    padx=px((2, 2)))
             self.inv_unknown_main_stat_checks[canonical] = cb
 
         # Back into the grid only when it holds something. NOT dead code:

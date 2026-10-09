@@ -19,7 +19,7 @@ every distance in this app goes through it. See `ui/scaling.py`.
 """
 
 import tkinter as tk
-from ui.scaling import px
+from ui.scaling import px, px_inset
 
 # Tk's own padding for a checkbutton, both axes.
 TK_PAD = 1
@@ -33,6 +33,38 @@ TK_PAD = 1
 # at 100% it is Tk's own value and nothing moves.
 FOCUS_INSET = 1
 HEIGHT_TRIM = 4
+
+# A default checkbox's inset on either side at 100%: Tk's padding and
+# its focus inset together. Set as one inset (`px_inset`), so its half
+# rounds down where the pads beside it round theirs up.
+SIDE_INSET = TK_PAD + FOCUS_INSET
+
+
+def pad_between(distance):
+    """The pad between two default checkboxes side by side, `distance`
+    at 100%, at the active scale.
+
+    The gap is that pad and both checkboxes' insets. Two insets round
+    their halves the same way, so a pad of plain `px` leaves the gap a
+    pixel short or over; this one makes the gap the whole scaled once.
+    """
+    return px(2 * SIDE_INSET + distance) - 2 * px_inset(SIDE_INSET)
+
+
+# Where a ttk.Label's ink starts inside its box at 100%: its border
+# and the glyph's side bearing. It reads as rounding DOWN at every
+# scale -- 4, 4, 5 and 6 at 125%, 150%, 175% and 200% -- so it is
+# taken as an inset.
+LABEL_INK_INSET = 3
+
+
+def pad_beside_label(distance):
+    """The pad between a default checkbox and a ttk.Label beside it,
+    `distance` at 100%, at the active scale: the gap is that pad, the
+    checkbox's inset and the label's own, and both insets round their
+    halves down, so a plain `px` pad leaves it a pixel short."""
+    return (px(SIDE_INSET + distance + LABEL_INK_INSET)
+            - px_inset(SIDE_INSET) - px_inset(LABEL_INK_INSET))
 
 
 def make_checkbox(parent, colors, *, text="", variable=None, command=None,
@@ -89,7 +121,7 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
     )
     if command is not None:
         opts["command"] = command
-    pad_x = kwargs.pop("padx", px(0) if compact else px(TK_PAD))
+    pad_x = kwargs.pop("padx", None)
     pad_y = kwargs.pop("pady", px(0) if compact else px(TK_PAD))
     # What Tk's two fixed pixels leave out at this scale: the inset is
     # short by what `px` would have made of it, on each side, and the
@@ -99,7 +131,16 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
     # side than twice its 100% height.
     inset_short = px(FOCUS_INSET) - FOCUS_INSET
     trim_short = px(HEIGHT_TRIM) - HEIGHT_TRIM
-    opts.update(padx=pad_x + inset_short,
+    if pad_x is None and not compact:
+        # A side's inset is the padding and the focus inset TOGETHER,
+        # scaled as one inset (`px_inset`): its half rounds down, the
+        # pads beside it round theirs up, and each gap the two make is
+        # the gap scaled once. What the padding is set to is that
+        # whole less the inset Tk adds itself.
+        pad_x = px_inset(SIDE_INSET) - FOCUS_INSET
+    else:
+        pad_x = (px(0) if pad_x is None else pad_x) + inset_short
+    opts.update(padx=pad_x,
                 pady=max(0, pad_y - (trim_short - 2 * inset_short) // 2))
     if wraplength is not None:
         # justify with it, always. A wrapped label is the only way this

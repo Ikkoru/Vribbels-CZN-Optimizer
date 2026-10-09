@@ -159,6 +159,33 @@ def _pixel(value):
     return math.floor(value * _factor + 0.5)
 
 
+def px_inset(distance):
+    """`distance` at the active scale, a half rounding DOWN: for an
+    inset inside a widget, which meets a pad outside it.
+
+    A pad rounds its half up (`px`), so the inset taking its half the
+    other way makes the two sum to the gap scaled once. Without it,
+    an inset of 2 beside a pad of 2 is 4 + 4 at 175% where 7 is wanted.
+    """
+    return math.ceil(distance * _factor - 0.5)
+
+
+def px_after(before, distance):
+    """`distance` at the active scale, as the SECOND part of a gap that
+    `before` already began: two pads meeting, say, a frame's trailing 2
+    and its neighbour's leading 2.
+
+    Each part rounded alone gains up to half a pixel, and two halves
+    make a whole one -- at 125% two 2s are 3 + 3 where the 4 they make
+    is 5. So the second takes what is left of the whole: px(before +
+    distance) less px(before). Only ONE part of a gap takes this; the
+    other keeps `px`, which is what `before` assumes it got.
+
+    The same as `px` at 100% and 200%, where nothing rounds.
+    """
+    return px(before + distance) - px(before)
+
+
 def px_spans(widths):
     """A row of distances laid end to end -- a list's columns -- each
     at the active scale, together exactly `px` of their sum.
