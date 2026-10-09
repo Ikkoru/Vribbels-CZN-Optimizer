@@ -238,7 +238,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 - **T15 — Scaling in 25% increments.** 125%, 150% and 175% are in the dropdown. What is left:
 
   - **Their baselines**, frozen by the maintainer with `zRUN Spacing Audit Scales.bat` once the layout at each is accepted.
-  - **150% at 17px, on a real screen.** Each scale's 9pt is the size whose line height is nearest the 100% one scaled, of those the font gauge passes (`docs/font_gauge.py`); 150% moved up from 16px when the gear cells stopped being able to clip.
 
 ### Pondering
 
