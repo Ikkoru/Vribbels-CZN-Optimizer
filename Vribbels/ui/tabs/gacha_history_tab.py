@@ -511,8 +511,10 @@ class GachaHistoryTab(BaseTab):
                                           orient=tk.VERTICAL,
                                           command=self.pulls_tree.yview)
         self.pulls_tree.configure(yscrollcommand=self.pulls_scroll.set)
-        self.pulls_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # The scrollbar first (`docs/ui_runtime.md`): a list packed
+        # before it takes its width wherever the list is too wide.
         self.pulls_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.pulls_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         for stars, colour in STAR_COLOURS.items():
             self.pulls_tree.tag_configure(self._star_tag(stars),
                                           foreground=colour)

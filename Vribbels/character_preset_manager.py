@@ -55,9 +55,10 @@ dict do NOT persist -- use the API methods.
 """
 
 import json
-import shutil
 from pathlib import Path
 from typing import Optional
+
+from json_file import set_aside, write_json
 
 
 CHARACTER_PRESET_SCHEMA_VERSION = 2
@@ -442,30 +443,13 @@ class CharacterPresetManager:
         and reset to a clean state so subsequent writes can proceed."""
         if not self.corrupted:
             return
-        if self.assignments_file.exists():
-            target = self._unique_quarantine_path()
-            shutil.move(str(self.assignments_file), str(target))
+        set_aside(self.assignments_file)
         self.corrupted = False
         self.corruption_error = None
         self.assignments_by_id = {}
         self.name_hints = {}
 
     # ----- internals -----
-
-    def _unique_quarantine_path(self) -> Path:
-        stem = self.assignments_file.stem
-        suffix = self.assignments_file.suffix
-        candidate = self.assignments_file.with_name(f"{stem}_corrupted{suffix}")
-        if not candidate.exists():
-            return candidate
-        i = 2
-        while True:
-            candidate = self.assignments_file.with_name(
-                f"{stem}_corrupted{i}{suffix}"
-            )
-            if not candidate.exists():
-                return candidate
-            i += 1
 
     def _write(self):
         """Persist current state in v2 format. Creates the settings dir if needed."""
@@ -475,11 +459,4 @@ class CharacterPresetManager:
             "assignments": self.assignments_by_id,
             "name_hints": self.name_hints,
         }
-        tmp_path = self.assignments_file.with_suffix(
-            self.assignments_file.suffix + ".tmp"
-        )
-        tmp_path.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
-        tmp_path.replace(self.assignments_file)
+        write_json(self.assignments_file, data, ensure_ascii=False)

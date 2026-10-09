@@ -56,6 +56,8 @@ import shutil
 import sys
 from pathlib import Path
 
+from json_file import write_json
+
 
 _DEFAULTABLE_FILES = (
     "presets.json",
@@ -171,15 +173,10 @@ def _safe_load_json(path: Path, fallback: dict) -> dict:
 
 
 def _safe_write_json(path: Path, data: dict) -> bool:
-    """Atomic write (tmp file + replace). Returns True on success."""
+    """`json_file.write_json`, creating the folder. True on success."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        tmp.replace(path)
+        write_json(path, data, ensure_ascii=False)
         return True
     except Exception:
         return False

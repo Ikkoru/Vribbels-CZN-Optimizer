@@ -28,6 +28,8 @@ CHARACTERS). Absent ids read as selected (the default).
 import json
 from pathlib import Path
 
+from json_file import write_json
+
 
 LOG_PRESETS_VERSION = 1
 
@@ -85,6 +87,4 @@ class LogPresetsManager:
     def _write(self):
         self.settings_dir.mkdir(parents=True, exist_ok=True)
         data = {"version": LOG_PRESETS_VERSION, "selected": self.selected}
-        tmp = self.file.with_suffix(self.file.suffix + ".tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        tmp.replace(self.file)
+        write_json(self.file, data)

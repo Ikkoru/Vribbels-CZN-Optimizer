@@ -142,6 +142,7 @@ import json
 from pathlib import Path
 
 import shared_facts
+from json_file import write_json
 
 CHECKLIST_VERSION = 1
 
@@ -492,9 +493,7 @@ class ChecklistManager:
                 "seen": self.seen, "currency": self.currency,
                 "streaks": self.streaks, "events": self.events,
                 "finished": self.finished, "finals": self.finals}
-        tmp = self.file.with_suffix(self.file.suffix + ".tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        tmp.replace(self.file)
+        write_json(self.file, data)
 
 
 def _is_count(value):

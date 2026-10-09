@@ -2,15 +2,10 @@
 
 Tk gives a readonly Combobox almost no keyboard behaviour: letters do
 nothing, and Up/Down open the dropdown instead of stepping through it.
-These four helpers implement the Windows-native pattern instead, and are
-shared by every tab that shows one.
+These helpers implement the Windows-native pattern instead.
 
-Bind them together -- they are three halves of one behaviour:
-
-    combo.bind("<KeyRelease>", lambda e: combobox_letter_jump(e, combo))
-    combo.bind("<Down>", lambda e: combobox_arrow_nav(e, combo, +1))
-    combo.bind("<Up>", lambda e: combobox_arrow_nav(e, combo, -1))
-    bind_popdown_seek(combo)
+They are three halves of one behaviour, so a combo takes all of them
+at once, from `bind_combobox_nav(combo)`.
 
 `combobox_letter_jump` and `combobox_arrow_nav` act on the CLOSED combo;
 `bind_popdown_seek` reaches into the open dropdown, which is not a
@@ -82,8 +77,8 @@ def combobox_arrow_nav(event, combobox, direction):
         default open-popup binding is suppressed.
       * Forces a full text selection after moving so the whole name is
         highlighted rather than partially.
-      * `<<ComboboxSelected>>` is fired so the bound on_hero_select runs
-        as if the user had clicked the entry.
+      * `<<ComboboxSelected>>` is fired so the bound handler runs as if
+        the user had clicked the entry.
     """
     values = list(combobox["values"])
     if not values:
@@ -152,8 +147,8 @@ def bind_popdown_seek(combobox):
 
     The whole thing is wrapped in try/except so that on any Tk build where
     the internal widget path differs, it silently no-ops: the open-list seek
-    just won't work, while the closed-combo letter-jump (_combobox_letter_
-    jump) and arrow-nav keep functioning. 
+    just won't work, while the closed combo's letter jump and arrow steps
+    keep working.
     """
     try:
         popdown = combobox.tk.call("ttk::combobox::PopdownWindow", combobox)
@@ -187,3 +182,14 @@ def bind_popdown_seek(combobox):
         combobox.tk.call("bind", listbox_path, "<KeyPress>", script)
     except tk.TclError:
         pass
+
+
+def bind_combobox_nav(combobox):
+    """Type-ahead and arrow steps on the closed combo, and type-ahead in
+    its open dropdown. The letter jump is added beside the combo's own
+    <KeyRelease> handling, never in place of it."""
+    combobox.bind("<KeyRelease>",
+                  lambda e: combobox_letter_jump(e, combobox), add="+")
+    combobox.bind("<Down>", lambda e: combobox_arrow_nav(e, combobox, +1))
+    combobox.bind("<Up>", lambda e: combobox_arrow_nav(e, combobox, -1))
+    bind_popdown_seek(combobox)

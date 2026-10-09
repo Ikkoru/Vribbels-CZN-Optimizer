@@ -1416,7 +1416,7 @@ def _conditional_rows_swap(tab):
     plain = {"ATK": 1000, "CRate": 20.0, "CDmg": 150.0}
     cond = dict(plain, CDmg=162.0)
     out = []
-    tab._tab_shown = lambda: True
+    tab.is_hidden = lambda: False
     try:
         tab._populate_stats_compare(plain, plain, cond, cond)
         rows = {tab.stats_tree.set(iid, "stat"): iid
@@ -1446,7 +1446,7 @@ def _conditional_rows_swap(tab):
             out.append("with nothing conditional the swap keeps rows or "
                        "a timer.")
     finally:
-        del tab._tab_shown
+        del tab.is_hidden
         tab._cond_swap_stop(paint=False)
         tab._cond_rows = {}
         tab.stats_tree.delete(*tab.stats_tree.get_children())
@@ -2395,7 +2395,7 @@ def _checklist_blinks_while_due(tab):
     mod.disaster_subtext = lambda raw, now: ("1h left", 0.01, 3600)
     # The tab is not the one the checks' notebook shows, and a hidden
     # tab's blink stops on its next step -- tested last, below.
-    tab._hidden = lambda: False
+    tab.is_hidden = lambda: False
     try:
         tab._fill_period_headings({})
         tab._blink_restart({"k": [("x", mod.SOON)]})
@@ -2419,20 +2419,20 @@ def _checklist_blinks_while_due(tab):
         if soon_inks() != {ink[1]} or heads != {ink[1]}:
             out.append(f"one blink step draws SOON in {soon_inks()} and "
                        f"the headings in {heads}, not {ink[1]}.")
-        tab._hidden = lambda: True
+        tab.is_hidden = lambda: True
         tab._blink_step()
         if tab._blink_after is not None or soon_inks() != {ink[0]}:
             out.append("a step while another tab shows keeps the blink "
                        "running, or stops it on its dark ink. Showing "
                        "the tab redraws it, and the redraw restarts it.")
-        tab._hidden = lambda: False
+        tab.is_hidden = lambda: False
         tab._blink_labels = []
         tab._blink_restart({"k": [("x", mod.TODO)]})
         if tab._blink_after is not None or soon_inks() != {ink[0]}:
             out.append("with nothing due the blink keeps running, or "
                        "stops on its dark ink.")
     finally:
-        del tab._hidden
+        del tab.is_hidden
         mod._period_left, mod.disaster_subtext = period_left, subtext
         tab.refresh_checklist()
         if tab._blink_after is not None:
@@ -4269,7 +4269,7 @@ def _bands_left_over_are_finished_later(tab):
             (func, args))
         # Which tab the checks' notebook shows is whatever an earlier
         # check left, so both answers are set here.
-        tab._hidden = lambda: True
+        tab.is_hidden = lambda: True
         try:
             mf._BAND_CACHE.clear()
             tab._stale = False
@@ -4280,7 +4280,7 @@ def _bands_left_over_are_finished_later(tab):
                     "slices finishing while another tab shows leave the "
                     "Memory Fragments tab showing `PENDING_CELL` when it "
                     "is next opened: `_finish_bands` must mark it stale.")
-            tab._hidden = lambda: False
+            tab.is_hidden = lambda: False
             mf._BAND_CACHE.clear()
             tab._score_rows(scene.frags)
             tab.inv_filtered_data = list(scene.frags)
@@ -4329,7 +4329,7 @@ def _bands_left_over_are_finished_later(tab):
         finally:
             inv.BAND_BUDGET_S = budget
             del tab.frame.after
-            del tab._hidden
+            del tab.is_hidden
             tab._stale = False
     return out
 
@@ -4357,7 +4357,7 @@ def _level_filter_keeps_one_level(tab):
     frags = list(getattr(tab.optimizer, "fragments", ()) or ())
     if not frags:
         return out
-    tab._hidden = lambda: False
+    tab.is_hidden = lambda: False
     try:
         tab.refresh_inventory()
         every = list(tab.inv_filtered_data)
@@ -4378,7 +4378,7 @@ def _level_filter_keeps_one_level(tab):
                            f"the unfiltered list are at it.")
     finally:
         tab.inv_level_var.set(mod.LEVEL_ALL)
-        del tab._hidden
+        del tab.is_hidden
         tab.refresh_inventory()
     return out
 
@@ -5372,6 +5372,114 @@ def _messagebox_defaults_name_their_own_buttons():
     return out
 
 
+def _when_shown_wants_its_own_tab(root):
+    """`BaseTab.when_shown` calls `on_shown` only when its own tab is
+    the one selected and `on_left` otherwise, a notebook left with none
+    selected included; `is_hidden` counts that notebook as showing it.
+
+    On a notebook of its own, so no tab's handler runs with it. Each
+    switch is handled at once, as `_hidden_tab_catches_up` handles one.
+
+    Returns a list of complaints.
+    """
+    from tkinter import ttk
+    from ui.base_tab import BaseTab
+
+    class Probe(BaseTab):
+        def setup_ui(self):
+            pass
+
+    notebook = ttk.Notebook(root)
+    out = []
+    try:
+        probe = Probe(notebook, SimpleNamespace(notebook=notebook))
+        other = ttk.Frame(notebook)
+        calls = []
+        probe.when_shown(lambda: calls.append("shown"),
+                         on_left=lambda: calls.append("left"))
+        if probe.is_hidden():
+            out.append("BaseTab.is_hidden counts a notebook with no tab "
+                       "yet as showing another. A tab built on its own "
+                       "would skip its drawing for good.")
+
+        def switch(to):
+            if to is None:
+                for page in notebook.tabs():
+                    notebook.forget(page)
+            else:
+                notebook.select(to)
+            before = len(calls)
+            notebook.event_generate("<<NotebookTabChanged>>")
+            return calls[before:], probe.is_hidden()
+
+        notebook.add(probe.frame, text="Probe")
+        notebook.add(other, text="Other")
+        steps = (("another tab", other, ["left"], True),
+                 ("its own tab", probe.frame, ["shown"], False),
+                 ("no tab", None, ["left"], False))
+        for what, to, want, hidden in steps:
+            got, is_hidden = switch(to)
+            if got != want:
+                out.append(
+                    f"a switch to {what} called back {got}, not {want}. "
+                    f"A tab's catch-up would run behind another tab, or "
+                    f"never run when it is shown.")
+            if is_hidden != hidden:
+                out.append(f"with {what} selected, is_hidden() says "
+                           f"{is_hidden}, not {hidden}.")
+    finally:
+        notebook.destroy()
+    return out
+
+
+def _scrollbars_pack_before_their_lists(built):
+    """A scrollbar packed against the far side from a list that expands
+    is packed before it (`docs/ui_runtime.md`). Read off the packing
+    order, which is all that decides it: the list squeezes the scrollbar
+    out only where its panel is narrower than it asks, which a check
+    cannot count on finding.
+
+    Returns a list of complaints.
+    """
+    from tkinter import ttk
+
+    def walk(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from walk(child)
+
+    out = []
+    seen = 0
+    for name, tab in built.items():
+        for bar in walk(tab.frame):
+            if not isinstance(bar, ttk.Scrollbar) \
+                    or bar.winfo_manager() != "pack" \
+                    or str(bar.cget("orient")) != "vertical" \
+                    or str(bar.pack_info().get("side")) != "right":
+                continue
+            slaves = bar.master.pack_slaves()
+            for other in slaves:
+                info = other.pack_info()
+                if str(info.get("side")) != "left" \
+                        or not bar.tk.getboolean(info.get("expand", 0)):
+                    continue
+                seen += 1
+                if slaves.index(other) < slaves.index(bar):
+                    out.append(
+                        f"{name}: the {other.winfo_class()} at {other} is "
+                        f"packed before the scrollbar beside it. Pack "
+                        f"hands out room in that order, so a list wider "
+                        f"than its panel -- a narrower window, another "
+                        f"scale -- takes the scrollbar's width too and "
+                        f"the scrollbar is not drawn. Pack the scrollbar "
+                        f"first.")
+    if not seen:
+        out.append(
+            "no scrollbar packed beside an expanding list was found, so "
+            "this checked nothing.")
+    return out
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -5487,6 +5595,8 @@ def run():
                     f"{type(e).__name__}: {e}"
                 )
 
+        failures.extend(_scrollbars_pack_before_their_lists(built))
+        failures.extend(_when_shown_wants_its_own_tab(root))
         if "OptimizerTab" in built:
             failures.extend(_a_tooltip_marks_what_it_is_bound_to(root))
             failures.extend(

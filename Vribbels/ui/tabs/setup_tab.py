@@ -739,18 +739,10 @@ class SetupTab(BaseTab):
         # for what its width holds.
         note.bind("<Configure>", lambda e: note.configure(
             wraplength=max(1, e.width)), add="+")
-        self.context.notebook.bind(
-            "<<NotebookTabChanged>>", self._on_share_tab_changed, add="+")
+        # Checked again whenever this tab is shown: a capture can have
+        # added facts since it was last looked at.
+        self.when_shown(self._check_share)
         return panel
-
-    def _on_share_tab_changed(self, event):
-        """Check again whenever this tab is the one selected: a capture
-        can have added facts since it was last looked at."""
-        try:
-            if event.widget.nametowidget(event.widget.select()) is self.frame:
-                self._check_share()
-        except Exception:
-            pass
 
     def _facts_to_share(self):
         """(facts the account holds that the program does not ship,
@@ -957,20 +949,10 @@ class SetupTab(BaseTab):
             side=tk.BOTTOM, anchor=tk.E, pady=px((0, ARCHIVE_BUTTON_EDGE)))
 
         self._refresh_archive_sizes()
-        self.context.notebook.bind(
-            "<<NotebookTabChanged>>", self._on_archive_tab_changed, add="+")
-
-    def _on_archive_tab_changed(self, event):
-        """Re-read the two sizes when this tab becomes the selected one.
-
-        On SELECT rather than on a timer: neither changes while the user
-        is looking at another tab.
-        """
-        try:
-            if event.widget.nametowidget(event.widget.select()) is self.frame:
-                self._refresh_archive_sizes()
-        except Exception:
-            pass
+        # The two sizes are re-read when this tab becomes the selected
+        # one. On SELECT rather than on a timer: neither changes while
+        # the user is looking at another tab.
+        self.when_shown(self._refresh_archive_sizes)
 
     @staticmethod
     def _archive_word(value):

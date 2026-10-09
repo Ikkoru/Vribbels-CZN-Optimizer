@@ -11,6 +11,10 @@ visible until the bad number reaches whatever reads the variable.
 The bounds are READ OFF THE WIDGET rather than passed in, so each
 spinbox declares its own range once and this enforces what it declared.
 A field meant to accept negatives says so with its own `from_`.
+
+    step_on_wheel(spin)
+
+gives a spinbox the mouse wheel Tk leaves off it.
 """
 
 import tkinter as tk
@@ -100,3 +104,17 @@ def clamp_on_commit(spin, var, colors, root):
 
     spin.bind("<FocusOut>", commit, add="+")
     spin.bind("<Return>", commit, add="+")
+
+
+def step_on_wheel(spin):
+    """Step `spin` once per wheel event, up for a turn away from the
+    user. A `tk.Spinbox` binds no wheel of its own; `invoke` keeps the
+    step inside `from_`/`to` or `values` as the buttons do."""
+    def turn(event):
+        if event.delta > 0:
+            spin.invoke("buttonup")
+        elif event.delta < 0:
+            spin.invoke("buttondown")
+        return "break"
+
+    spin.bind("<MouseWheel>", turn)

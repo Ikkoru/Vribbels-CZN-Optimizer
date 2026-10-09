@@ -75,9 +75,8 @@ from ui.base_tab import BaseTab
 from ui.context import AppContext
 from ui.utils.checkbox import make_checkbox
 from ui.utils.tooltip import Tooltip
-from ui.utils.combobox_nav import (
-    combobox_letter_jump, combobox_arrow_nav, bind_popdown_seek,
-)
+from ui.utils.combobox_nav import bind_combobox_nav
+from ui.utils.corrupted_file import confirm_quarantine
 from ui.utils.type_ahead import attach, find
 from game_data.characters import CHARACTERS
 from game_data import (
@@ -773,28 +772,7 @@ class HeroesTab(BaseTab):
         self.preset_assign_combo.bind(
             "<<ComboboxSelected>>", self._on_preset_combo_change
         )
-        # Letter-key navigation on the preset assignment dropdown.
-        # KeyRelease + add="+" so readonly Combobox's internal handler
-        # doesn't pre-empt the user binding (some Tk versions don't fire
-        # KeyPress to user bindings on readonly state).
-        self.preset_assign_combo.bind(
-            "<KeyRelease>",
-            lambda e: combobox_letter_jump(e, self.preset_assign_combo),
-            add="+",
-        )
-        # Arrow keys step through presets in place instead of opening the
-        # dropdown popup (matches the Combatant dropdown in the Optimizer
-        # tab).
-        self.preset_assign_combo.bind(
-            "<Down>",
-            lambda e: combobox_arrow_nav(e, self.preset_assign_combo, +1),
-        )
-        self.preset_assign_combo.bind(
-            "<Up>",
-            lambda e: combobox_arrow_nav(e, self.preset_assign_combo, -1),
-        )
-        # Type-ahead seek inside the OPEN dropdown list.
-        bind_popdown_seek(self.preset_assign_combo)
+        bind_combobox_nav(self.preset_assign_combo)
 
         # Fix the dropdown width to match the label above it, sized for
         # the longest expected combatant name ("Heidemarie"). Uses
@@ -2081,32 +2059,16 @@ class HeroesTab(BaseTab):
         if cpm is None:
             return
 
-        # Same flow as scoring_tab.py for presets.json corruption: confirm,
-        # quarantine, then save fresh. If the user declines, revert the combo.
-        if cpm.is_corrupted():
-            confirm = messagebox.askyesno(
-                "Corrupted Character Preset File",
-                f"The character preset file is corrupted:\n\n"
-                f"{cpm.corruption_error}\n\n"
-                f"Saving will rename the broken file (adding '_corrupted' to "
-                f"its filename) and create a fresh one with this assignment.\n\n"
-                f"Continue?"
+        if not confirm_quarantine(cpm, "Corrupted Character Preset File",
+                                  "character preset file",
+                                  "this assignment"):
+            # Back to what the manager says for this character, which
+            # is "Default" while the file is unread.
+            assigned = self._get_assigned_preset(self._current_detail_hero)
+            self.preset_assign_combo.set(
+                DEFAULT_PRESET_LABEL if assigned is None else assigned
             )
-            if not confirm:
-                # Restore combo to whatever the manager would currently say
-                # for this character (which is "Default" while corrupted).
-                assigned = self._get_assigned_preset(self._current_detail_hero)
-                self.preset_assign_combo.set(
-                    DEFAULT_PRESET_LABEL if assigned is None else assigned
-                )
-                return
-            try:
-                cpm.quarantine()
-            except Exception as e:
-                messagebox.showerror(
-                    "Error", f"Failed to back up the broken file: {e}"
-                )
-                return
+            return
 
         selected = self.preset_assign_combo.get()
         new_value = None if selected == DEFAULT_PRESET_LABEL else selected

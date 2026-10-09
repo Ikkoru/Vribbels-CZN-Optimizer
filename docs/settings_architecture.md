@@ -96,5 +96,7 @@ It is never copied into `settings/` and never merged: `defaults_sync` does not k
 
 ## Manager behaviour
 
+- Every manager saves through `json_file.write_json`, which writes a temp file, forces it to disk and only then puts it in the file's place. `check_settings_roundtrip` holds each `_write` to it.
+- `PresetManager` and `CharacterPresetManager` refuse every save over a file they could not read. `quarantine()` sets it aside (`json_file.set_aside`: `<name>_corrupted`, then `_corrupted2`, ...), and `ui/utils/corrupted_file.py` asks the user before the first save does.
 - `OptimizerSettingsManager.ensure_character` updates `name_hint` automatically when called with a non-empty new name that differs from the stored one, so captured-but-unknown combatants get a proper name once `CHARACTERS` is updated.
 - `CharacterPresetManager` caches the name↔id lookup tables lazily and keeps them for the manager's lifetime. If game data ever reloads at runtime (it does not today), call `invalidate_name_cache()`.

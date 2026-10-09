@@ -17,7 +17,7 @@ from ..utils.style_once import first_time
 from ..utils.button_width import BUTTON_W_MEDIUM
 from ..utils.checkbox import make_checkbox, pad_between
 from ..utils.scrolled_text import make_scrolled_text
-from ..utils.spinbox_clamp import clamp_on_commit
+from ..utils.spinbox_clamp import clamp_on_commit, step_on_wheel
 from ..utils.tab_header import make_tab_header
 from ..utils.tooltip import Tooltip
 from ui.scaling import px, px_after
@@ -277,9 +277,7 @@ class CaptureTab(BaseTab):
         # Rebuild the checklist whenever the user switches TO this tab, so
         # preset assignment changes made in other tabs are always reflected
         # without cross-tab notification plumbing.
-        self.context.notebook.bind(
-            "<<NotebookTabChanged>>", self._on_tab_changed, add="+"
-        )
+        self.when_shown(self._on_shown, on_left=self._on_left)
 
         # The mark on this tab, and the pulse on the log's title, for a
         # background failure the user must act on. Built after the UI:
@@ -1041,22 +1039,21 @@ class CaptureTab(BaseTab):
                     MYTHIC_TAG, f"{start}+{found.start(1)}c",
                     f"{start}+{found.end(1)}c")
 
-    def _on_tab_changed(self, event):
+    def _on_shown(self):
         """Rebuild the Log Presets checklist when this tab becomes the
-        selected one (cheap; assignment changes happen in other tabs)."""
-        try:
-            if event.widget.nametowidget(event.widget.select()) is self.frame:
-                self.refresh_log_presets()
-                if self._title_pending:
-                    self._title_pending = False
-                    self._start_title_blink()
-            elif self._title_blink is not None:
-                # Leaving the tab ends the title's blink even if its
-                # seven seconds have not run out: it was there to catch
-                # an eye that has now moved on.
-                self._stop_title_blink()
-        except Exception:
-            pass
+        selected one (cheap; assignment changes happen in other tabs),
+        and start a title blink that was waiting for it."""
+        self.refresh_log_presets()
+        if self._title_pending:
+            self._title_pending = False
+            self._start_title_blink()
+
+    def _on_left(self):
+        """Leaving the tab ends the title's blink even if its seven
+        seconds have not run out: it was there to catch an eye that has
+        now moved on."""
+        if self._title_blink is not None:
+            self._stop_title_blink()
 
     def flag_failure(self):
         """Mark the tab, and pulse the log's title, for a failure.
@@ -1376,12 +1373,7 @@ class CaptureTab(BaseTab):
         self.slot6_atk_heal_spin = spin
         clamp_on_commit(spin, self.slot6_atk_heal_var, self.colors,
                         self.root)
-
-        def wheel(event):
-            # tk.Spinbox binds no wheel of its own.
-            spin.invoke("buttonup" if event.delta > 0 else "buttondown")
-            return "break"
-        spin.bind("<MouseWheel>", wheel)
+        step_on_wheel(spin)
         self.slot6_atk_heal_var.trace_add(
             "write", lambda *_args: self._on_slot6_atk_heal_change())
 

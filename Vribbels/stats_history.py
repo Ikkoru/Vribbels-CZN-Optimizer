@@ -37,6 +37,8 @@ import threading
 import zlib
 from pathlib import Path
 
+from json_file import write_json
+
 FILE_NAME = "stats_history.json"
 KIND = "vribbels stats history"
 # What the reading reads. Bump it and the next launch reads every log
@@ -325,9 +327,7 @@ def write(settings_dir, data):
     stands where a whole one did."""
     path = path_in(settings_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(data, indent=1), encoding="utf-8")
-    tmp.replace(path)
+    write_json(path, data, indent=1)
 
 
 def read_in_background(snapshots_dir, settings_dir, say, done,

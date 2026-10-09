@@ -1,8 +1,9 @@
 """Settings survive a save/load round-trip, on a COPY.
 
-Three things are checked. First that every manager writes atomically --
-temp file plus replace -- because a settings file half-written during a
-crash is unrecoverable user state. Second that
+First, that every manager saves through `json_file.write_json`, and
+that it writes a temp file, forces it to disk and only then replaces
+the file -- because a settings file half-written during a crash is
+unrecoverable user state. Second that
 `OptimizerSettingsManager.load()` preserves top-level keys it does not
 know about: a load that re-reads only the keys it recognises silently
 drops the exclude bootstrap's state and the level-seen map, and the
@@ -23,6 +24,12 @@ loses is the file -- it is absent until something sets it, and then
 lands past the `#N` section markers rather than under the one it
 belongs to, so a user reading `settings.json` to find a switch does not
 see it.
+
+Fifth that a presets file that would not read is never written over.
+A save is refused until the user agrees to `quarantine()` it, which
+renames it to `<name>_corrupted`, then `_corrupted2`, and so on, never
+over one set aside before. A save that wrote over it would lose every
+preset the user could still have recovered by hand.
 
 Never touches `Vribbels/settings/`. Everything happens in a temp copy.
 """
@@ -89,13 +96,129 @@ def _layout_covers_every_key():
 
 
 def _writes_atomically(path: Path) -> bool:
-    """True when the module's `_write` goes through a temp file."""
+    """True when the module's `_write` saves through `write_json`."""
     tree = ast.parse(io.open(path, encoding="utf-8").read())
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == "_write":
-            body = ast.dump(node)
-            return "replace" in body and "tmp" in body.lower()
+            return any(isinstance(call, ast.Call)
+                       and isinstance(call.func, ast.Name)
+                       and call.func.id == "write_json"
+                       for call in ast.walk(node))
     return False
+
+
+def _write_json_is_atomic(root):
+    """`json_file.write_json` goes by way of a temp file forced to disk,
+    leaves no temp file behind, and writes the bytes `Path.write_text`
+    would.
+
+    Returns a list of complaints.
+    """
+    import json_file
+
+    out = []
+    tree = ast.parse(io.open(SOURCE_ROOT / "json_file.py",
+                             encoding="utf-8").read())
+    body = next((ast.dump(node) for node in ast.walk(tree)
+                 if isinstance(node, ast.FunctionDef)
+                 and node.name == "write_json"), "")
+    for step, what in (("fsync", "forces the temp file to disk"),
+                       ("replace", "puts it in the file's place")):
+        if f"attr='{step}'" not in body:
+            out.append(
+                f"json_file.write_json no longer {what} (no `os.{step}`). "
+                f"A crash mid-save then leaves a settings file cut short "
+                f"or empty, which loads as corrupted.")
+    data = {"name": "Kayron é", "lines": "a\nb", "n": [1, 2.5, None]}
+    for kwargs in ({"ensure_ascii": False},
+                   {"indent": 1, "sort_keys": True, "end": "\n"},
+                   {}):
+        end = kwargs.get("end", "")
+        dumps = {k: v for k, v in kwargs.items() if k != "end"}
+        dumps.setdefault("indent", 2)
+        mine, plain = root / "mine.json", root / "plain.json"
+        json_file.write_json(mine, data, **kwargs)
+        plain.write_text(json.dumps(data, **dumps) + end, encoding="utf-8")
+        if mine.read_bytes() != plain.read_bytes():
+            out.append(
+                f"write_json({kwargs}) writes other bytes than "
+                f"`Path.write_text` of the same text: every settings file "
+                f"would change on its next save with nothing in it "
+                f"changed.")
+    left = sorted(p.name for p in root.iterdir() if p.suffix == ".tmp")
+    if left:
+        out.append(f"write_json left its temp file behind: {left}.")
+    return out
+
+
+def _broken_presets_are_set_aside(root):
+    """A presets file that would not read survives every save until the
+    user agrees to set it aside, and is then kept beside the fresh one.
+
+    Returns a list of complaints.
+    """
+    import character_preset_manager
+    import json_file
+    import preset_manager
+
+    out = []
+    if json_file.set_aside(root / "absent.json") is not None:
+        out.append("json_file.set_aside reports moving a file that does "
+                   "not exist.")
+    cases = (
+        (preset_manager.PresetManager, "presets_file",
+         lambda m: m.save_preset("probe", {})),
+        (character_preset_manager.CharacterPresetManager,
+         "assignments_file", lambda m: m.set_preset_for("probe", None)),
+    )
+    for cls, attr, save in cases:
+        out.extend(_broken_file_set_aside(root / cls.__name__, cls, attr,
+                                          save))
+    return out
+
+
+def _broken_file_set_aside(base, cls, attr, save):
+    """Two broken files in turn under one manager: each survives a save,
+    and each is set aside under a name of its own."""
+    name = cls.__name__
+    manager = cls(base)
+    path = getattr(manager, attr)
+    path.parent.mkdir(parents=True)
+    broken = [b"{\"presets\": {broken %d" % n for n in (1, 2)]
+    for text in broken:
+        path.write_bytes(text)
+        manager.load()
+        if not manager.is_corrupted():
+            return [f"{name} loads a file that is not JSON as sound, and "
+                    f"its next save writes over it."]
+        try:
+            save(manager)
+        except RuntimeError:
+            pass                            # refused, which is the point
+        if path.read_bytes() != text:
+            return [f"{name} saved over a file it could not read. "
+                    f"Whatever the user could have recovered from it is "
+                    f"gone."]
+        try:
+            manager.quarantine()
+        except OSError as exc:
+            return [f"{name}.quarantine() raised {exc!r}, so a user who "
+                    f"agrees to set a broken file aside cannot save."]
+        save(manager)
+    out = []
+    for tag, text in zip(("_corrupted", "_corrupted2"), broken):
+        kept = path.with_name(f"{path.stem}{tag}{path.suffix}")
+        if not kept.exists() or kept.read_bytes() != text:
+            out.append(
+                f"{name}: {kept.name} does not hold the broken file it "
+                f"was set aside from. A second quarantine must not "
+                f"replace the first one's copy.")
+    fresh = cls(base)
+    fresh.load()
+    if fresh.is_corrupted():
+        out.append(f"{name}: the file saved after a quarantine does not "
+                   f"load: {fresh.corruption_error}")
+    return out
 
 
 def _currency_ledger_keeps_its_shape(root):
@@ -402,11 +525,19 @@ def run():
             continue
         if not _writes_atomically(path):
             failures.append(
-                f"{fname}: _write does not look atomic (no temp file + "
-                f"replace). A crash mid-write loses the user's state."
+                f"{fname}: _write does not save through "
+                f"json_file.write_json. A crash mid-write loses the "
+                f"user's state."
             )
 
     failures.extend(_layout_covers_every_key())
+
+    file_root = Path(tempfile.mkdtemp())
+    try:
+        failures.extend(_write_json_is_atomic(file_root))
+        failures.extend(_broken_presets_are_set_aside(file_root))
+    finally:
+        shutil.rmtree(file_root, ignore_errors=True)
 
     ledger_root = Path(tempfile.mkdtemp())
     try:

@@ -57,9 +57,7 @@ from models.memory_fragment import (cached_potential_band,
 from ..base_tab import BaseTab
 from ..utils.all_none_row import make_all_none_row
 from ..utils.checkbox import make_checkbox
-from ..utils.combobox_nav import (
-    combobox_arrow_nav, combobox_letter_jump,
-)
+from ..utils.combobox_nav import bind_combobox_nav
 from ..utils.label_width import column_px
 from ..utils.tooltip import Tooltip
 from .heroes_tab import compute_fragment_gs
@@ -308,26 +306,11 @@ class InventoryTab(BaseTab):
         self._stale = False
 
         self.setup_ui()
-        notebook = getattr(self.context, "notebook", None)
-        if notebook is not None:
-            notebook.bind("<<NotebookTabChanged>>",
-                          self._on_tab_changed, add="+")
+        self.when_shown(self._on_shown)
 
-    def _hidden(self):
-        """Whether another tab is the one showing. A notebook with none
-        selected -- the tab built on its own, as the checks build it,
-        or before the tabs are added -- counts as showing this one."""
-        notebook = getattr(self.context, "notebook", None)
-        try:
-            shown = notebook.select() if notebook is not None else ""
-            return bool(shown) and notebook.nametowidget(shown) \
-                is not self.frame
-        except (tk.TclError, KeyError):
-            return False
-
-    def _on_tab_changed(self, _event=None):
+    def _on_shown(self):
         """Catch up on a refresh skipped while this tab was hidden."""
-        if self._stale and not self._hidden():
+        if self._stale:
             self.refresh_inventory()
 
     def setup_ui(self):
@@ -450,14 +433,7 @@ class InventoryTab(BaseTab):
         self.inv_level_combo.pack(anchor=tk.E)
         self.inv_level_combo.bind("<<ComboboxSelected>>",
                                   lambda _e: self.refresh_inventory())
-        self.inv_level_combo.bind(
-            "<KeyRelease>",
-            lambda e: combobox_letter_jump(e, self.inv_level_combo),
-            add="+")
-        for key, step in (("<Down>", +1), ("<Up>", -1)):
-            self.inv_level_combo.bind(
-                key, lambda e, s=step: combobox_arrow_nav(
-                    e, self.inv_level_combo, s))
+        bind_combobox_nav(self.inv_level_combo)
 
         # The preset name wraps short of the Level filter, at whatever
         # width the panel above takes.
@@ -665,8 +641,10 @@ class InventoryTab(BaseTab):
 
         inv_scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.inv_tree.yview)
         self.inv_tree.configure(yscrollcommand=inv_scroll.set)
-        self.inv_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # The scrollbar first (`docs/ui_runtime.md`): a list packed
+        # before it takes its width wherever the list is too wide.
         inv_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.inv_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Hook up the column-header tooltip system (only Highest GS has a
         # tooltip currently; others can be added by extending _column_tooltip_text).
@@ -1131,7 +1109,7 @@ class InventoryTab(BaseTab):
         capture reloads after every save, and nothing outside this tab
         reads what it works out.
         """
-        if self._hidden():
+        if self.is_hidden():
             self._stale = True
             return
         self._stale = False
@@ -1363,7 +1341,7 @@ class InventoryTab(BaseTab):
         if pending:
             self.frame.after(1, self._finish_bands, pending, applied,
                              generation)
-        elif self._hidden():
+        elif self.is_hidden():
             self._stale = True
         else:
             self._display_inventory_sorted()

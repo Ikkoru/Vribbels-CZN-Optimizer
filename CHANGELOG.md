@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
+## [2.4.1] - unreleased
+
+### Changed
+
+- Memory Fragments: the `Level:` filter's open list jumps to what you type, as the other dropdowns do.
+
 ## [2.4.0] - UI Scales, Order Mode
 
 ### Added

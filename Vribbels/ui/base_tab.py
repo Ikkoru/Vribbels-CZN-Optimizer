@@ -47,6 +47,45 @@ class BaseTab(ABC):
         """Return the tab's root frame for adding to notebook."""
         return self.frame
 
+    def is_hidden(self) -> bool:
+        """Whether another tab is the one showing. A notebook with none
+        selected -- the tab built on its own, as the checks build it,
+        or before the tabs are added -- counts as showing this one."""
+        notebook = getattr(self.context, "notebook", None)
+        try:
+            shown = notebook.select() if notebook is not None else ""
+            return bool(shown) and notebook.nametowidget(shown) \
+                is not self.frame
+        except (tk.TclError, KeyError):
+            return False
+
+    def when_shown(self, on_shown, on_left=None):
+        """Call `on_shown()` each time this tab becomes the one showing,
+        and `on_left()`, if given, each time another tab is chosen.
+
+        For work a tab skips while hidden and catches up on when looked
+        at. Bound once, with `add`, beside every other tab's. Unlike
+        `is_hidden`, it wants this tab selected: a switch that leaves
+        none selected shows nothing.
+        """
+        notebook = getattr(self.context, "notebook", None)
+        if notebook is None:
+            return
+
+        def changed(_event=None):
+            try:
+                shown = notebook.select()
+                mine = bool(shown) and notebook.nametowidget(shown) \
+                    is self.frame
+            except (tk.TclError, KeyError):
+                return
+            if mine:
+                on_shown()
+            elif on_left is not None:
+                on_left()
+
+        notebook.bind("<<NotebookTabChanged>>", changed, add="+")
+
     # Convenience properties for accessing shared resources
     @property
     def colors(self) -> dict:

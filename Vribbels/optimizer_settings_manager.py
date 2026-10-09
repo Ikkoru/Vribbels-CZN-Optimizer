@@ -86,6 +86,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from game_data import SETS
+from json_file import write_json
 
 
 OPTIMIZER_SETTINGS_VERSION = 1
@@ -256,10 +257,9 @@ class OptimizerSettingsManager:
     def _write(self):
         """Persist current state. No-op if corrupted (don't overwrite broken file).
 
-        Atomic write: stage to a `.tmp` sibling then rename. On filesystems
-        where rename is atomic across the same directory (NTFS / ext4 / APFS
-        all qualify), an interrupted write leaves either the old file intact
-        or the new one in place -- never a half-written file.
+        Through `json_file.write_json`, so an interrupted write leaves
+        either the old file intact or the new one in place -- never a
+        half-written file.
         """
         if self.corrupted:
             return
@@ -267,12 +267,7 @@ class OptimizerSettingsManager:
         # Always write the current schema version, even if we loaded an
         # older one (post-migration this is what we want; v1 is current).
         self.data["version"] = OPTIMIZER_SETTINGS_VERSION
-        tmp_path = self.path.with_suffix(self.path.suffix + ".tmp")
-        tmp_path.write_text(
-            json.dumps(self.data, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
-        tmp_path.replace(self.path)
+        write_json(self.path, self.data, ensure_ascii=False)
 
     # -------------------------------------------------------- character ops
 

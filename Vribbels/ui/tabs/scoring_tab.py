@@ -19,8 +19,9 @@ from tkinter import font as tkfont, messagebox
 from ..base_tab import BaseTab
 from ..context import AppContext
 from ..utils.button_width import BUTTON_W_LARGE
+from ..utils.corrupted_file import confirm_quarantine
 from ..utils.label_width import column_px
-from ..utils.spinbox_clamp import clamp_on_commit, commit_clamp
+from ..utils.spinbox_clamp import clamp_on_commit, commit_clamp, step_on_wheel
 from ..utils.type_ahead import attach, find
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
@@ -483,13 +484,7 @@ STAT MIN - MAX ROLLS:
             # never its text: without this a typed 1e9 or `abc` reaches
             # the weight and every Gear Score in the app with it.
             clamp_on_commit(spin, var, self.colors, self.root)
-            # Mouse-wheel adjustment, same handler as the Optimizer tab.
-            # tk.Spinbox doesn't bind <MouseWheel> by default; without this
-            # the user has to click the up/down buttons to change values.
-            spin.bind(
-                "<MouseWheel>",
-                lambda e, sp=spin: self._spinbox_wheel(e, sp),
-            )
+            step_on_wheel(spin)
 
     def _build_button_column(self, parent: ttk.Frame):
         """Five buttons + label + entry in a 2-column grid that fills its parent.
@@ -763,24 +758,10 @@ STAT MIN - MAX ROLLS:
             )
             return
 
-        # If the file is corrupted, get explicit consent before overwriting.
-        if self.preset_manager.is_corrupted():
-            confirm_msg = (
-                f"The presets file is corrupted:\n\n"
-                f"{self.preset_manager.corruption_error}\n\n"
-                f"Saving will rename the broken file (adding '_corrupted' to its "
-                f"filename) and create a fresh one with this preset.\n\n"
-                f"Continue?"
-            )
-            if not messagebox.askyesno("Corrupted Presets File", confirm_msg):
-                return
-            try:
-                self.preset_manager.quarantine()
-            except Exception as e:
-                messagebox.showerror(
-                    "Error", f"Failed to back up the corrupted file: {e}"
-                )
-                return
+        if not confirm_quarantine(self.preset_manager,
+                                  "Corrupted Presets File", "presets file",
+                                  "this preset"):
+            return
 
         # Confirm overwrite if the name already exists.
         if self.preset_manager.has_preset(name):
@@ -967,18 +948,3 @@ STAT MIN - MAX ROLLS:
     def _reset_sliders_to_default(self):
         for var in self.stat_weight_vars.values():
             var.set(1.0)
-
-    def _spinbox_wheel(self, event, spinbox):
-        """Increment/decrement a Spinbox on mouse-wheel events.
-
-        tk.Spinbox doesn't bind <MouseWheel> by default. event.delta is
-        positive for wheel-up (increment) and negative for wheel-down on
-        Windows; macOS / Linux differ in magnitude but the sign is
-        consistent. invoke() handles from_/to bounds for us, so we don't
-        have to clamp the value here.
-        """
-        if event.delta > 0:
-            spinbox.invoke("buttonup")
-        elif event.delta < 0:
-            spinbox.invoke("buttondown")
-        return "break"

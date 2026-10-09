@@ -57,12 +57,11 @@ from ui.utils.escape import close_on_escape
 from ui.utils.label_width import LABEL_REQUEST_INSET
 from ui.utils.panel_title import panel_title_style
 from ui.title_bar import apply_title_bar
-from ui.utils.spinbox_clamp import blink, clamp_on_commit, commit_clamp
+from ui.utils.spinbox_clamp import (blink, clamp_on_commit, commit_clamp,
+                                    step_on_wheel)
 from ui.utils.style_once import first_time
 from ui.utils.tooltip import Tooltip
-from ui.utils.combobox_nav import (
-    combobox_letter_jump, combobox_arrow_nav, bind_popdown_seek,
-)
+from ui.utils.combobox_nav import bind_combobox_nav
 from game_data import (
     SETS, FOUR_PIECE_SETS, TWO_PIECE_SETS,
     SLOT_MAIN_STATS, RARITY_COLORS, ATTRIBUTE_COLORS,
@@ -424,14 +423,7 @@ class OptimizerTab(BaseTab):
         # only sees the settled state. _layout_settled makes it one-shot.
         self._layout_settled = False
         self.frame.bind("<Map>", self._settle_layout_once, add="+")
-        # The Preset label above Stats Comparison can go stale if the user
-        # reassigns a character's preset from the Combatants tab while this
-        # tab is inactive. Refresh on tab-switch via <<NotebookTabChanged>>;
-        # the handler self-gates on "is this tab the active one?".
-        nb = self._find_notebook()
-        if nb is not None:
-            nb.bind("<<NotebookTabChanged>>",
-                    self._on_notebook_tab_changed, add="+")
+        self.when_shown(self._on_shown)
         self.root.after(100, self.check_queue)
 
     def _settle_layout_once(self, _event):
@@ -455,38 +447,14 @@ class OptimizerTab(BaseTab):
         except (AttributeError, tk.TclError):
             pass
 
-    def _find_notebook(self):
-        """Walk up from this tab's frame until we find a ttk.Notebook
-        ancestor. Returns None if not found -- shouldn't happen in normal
-        use, but callers should handle None gracefully."""
-        w = self.frame
-        while w is not None:
-            if isinstance(w, ttk.Notebook):
-                return w
-            try:
-                w = w.master
-            except AttributeError:
-                return None
-        return None
-
-    def _on_notebook_tab_changed(self, _event):
-        """Refresh per-tab state whenever the Notebook switches. Keeps
-        the Preset label in sync with CharacterPresetManager when the
-        user reassigns from another tab. Self-gates on "is this
-        tab now active?" so it's a no-op for other tabs."""
-        nb = self._find_notebook()
-        if nb is None:
-            return
-        try:
-            current = nb.select()
-        except tk.TclError:
-            return
-        if str(self.frame) == current:
-            self._update_preset_label()
-            self._cond_swap_restart()
-            # The Combatants tab's `Show missing characters` may have
-            # changed while another tab showed.
-            self.refresh_hero_list()
+    def _on_shown(self):
+        """Catch up on what changed while another tab showed: the Preset
+        label above Stats Comparison (a preset reassigned on the
+        Combatants tab), the swap a hidden tab stops, and the Combatants
+        tab's `Show missing characters`."""
+        self._update_preset_label()
+        self._cond_swap_restart()
+        self.refresh_hero_list()
 
     def _init_state(self):
         # --- Selection state ---
@@ -691,24 +659,7 @@ class OptimizerTab(BaseTab):
         )
         self.hero_combo.pack(anchor=tk.W)
         self.hero_combo.bind("<<ComboboxSelected>>", self.on_hero_select)
-        # Letter-key navigation: type a letter to jump to the next matching
-        # combatant. KeyRelease + add="+" so readonly Combobox's internal
-        # handler doesn't pre-empt us; some Tk versions don't fire KeyPress
-        # to user bindings on readonly state.
-        self.hero_combo.bind(
-            "<KeyRelease>", lambda e: combobox_letter_jump(e, self.hero_combo),
-            add="+",
-        )
-        # Arrow keys step through the list in place instead of opening the
-        # dropdown popup (Tk's default on readonly Combobox opens it).
-        self.hero_combo.bind(
-            "<Down>", lambda e: combobox_arrow_nav(e, self.hero_combo, +1)
-        )
-        self.hero_combo.bind(
-            "<Up>", lambda e: combobox_arrow_nav(e, self.hero_combo, -1)
-        )
-        # Type-ahead seek inside the OPEN dropdown list.
-        bind_popdown_seek(self.hero_combo)
+        bind_combobox_nav(self.hero_combo)
 
         # Every subsequent toolbar widget uses anchor=tk.N so the row is
         # top-aligned (pack would otherwise vertically center the 1-line
@@ -749,7 +700,7 @@ class OptimizerTab(BaseTab):
         # widget, and a spinbox declaring `values` has neither -- both
         # come back 0, so it would snap every level to zero.
         self._clamp_level_on_commit(level_spin)
-        level_spin.bind("<MouseWheel>", lambda e: self._spinbox_wheel(e, level_spin))
+        step_on_wheel(level_spin)
         # The LABEL carries it, not the spinbox. A tip underlines what
         # it is bound to, and underlining a value the user types reads
         # as a text field's own decoration rather than as a hint.
@@ -899,8 +850,7 @@ class OptimizerTab(BaseTab):
         )
         minlvl_spin.pack(side=tk.LEFT)
         self._clamp_on_commit(minlvl_spin, self.min_gear_level_var)
-        minlvl_spin.bind("<MouseWheel>",
-                         lambda e, sp=minlvl_spin: self._spinbox_wheel(e, sp))
+        step_on_wheel(minlvl_spin)
         offelem_row = ttk.Frame(status_cluster)
         # spacing: unique -- between mixed element rows (spinbox -> checkbox) -- spinbox, checkbox ↕
         # Target 2px, painted-edge to painted-edge -- and here the
@@ -1605,7 +1555,7 @@ class OptimizerTab(BaseTab):
             spin.bind("<MouseWheel>",
                       lambda e, v=var: self._hal_pct_wheel(e, v))
         else:
-            spin.bind("<MouseWheel>", lambda e, sp=spin: self._spinbox_wheel(e, sp))
+            step_on_wheel(spin)
         # Save on any write -- Spinbox button clicks fire the var-trace.
         var.trace_add(
             "write",
@@ -1679,7 +1629,7 @@ class OptimizerTab(BaseTab):
         )
         flex_spin.pack(side=tk.LEFT)
         self._clamp_on_commit(flex_spin, self.max_flex_slots_var)
-        flex_spin.bind("<MouseWheel>", lambda e, sp=flex_spin: self._spinbox_wheel(e, sp))
+        step_on_wheel(flex_spin)
         self.max_flex_slots_var.trace_add(
             "write", lambda *a: self._save_int_safe("max_flex_slots",
                                                        self.max_flex_slots_var))
@@ -1709,7 +1659,7 @@ class OptimizerTab(BaseTab):
             pad_right = 0 if idx == len(avg_defs) - 1 else 6
             spin.pack(side=tk.LEFT, padx=px((0, pad_right)))
             self._clamp_on_commit(spin, var)
-            spin.bind("<MouseWheel>", lambda e, sp=spin: self._spinbox_wheel(e, sp))
+            step_on_wheel(spin)
             var.trace_add(
                 "write", lambda *a, f=field, v=var: self._save_int_safe(f, v)
             )
@@ -1846,9 +1796,7 @@ class OptimizerTab(BaseTab):
                 )
                 # spacing: label ↔ its element -- label, spinbox ↔
                 pspin.pack(side=tk.LEFT, padx=px((3, 0)))
-                pspin.bind(
-                    "<MouseWheel>",
-                    lambda e, sp=pspin: self._spinbox_wheel(e, sp))
+                step_on_wheel(pspin)
                 self._clamp_on_commit(pspin, pvar)
                 pvar.trace_add(
                     "write", lambda *_a: self._save_set_effect_pcts())
@@ -4417,24 +4365,12 @@ class OptimizerTab(BaseTab):
 
     # --------------------------------------- Stats Comparison: the swap
 
-    def _tab_shown(self) -> bool:
-        """Whether this tab is the one the notebook shows. With no
-        notebook -- the tab built on its own, as the checks build it --
-        it counts as shown."""
-        nb = self._find_notebook()
-        if nb is None:
-            return True
-        try:
-            return nb.select() == str(self.frame)
-        except tk.TclError:
-            return False
-
     def _cond_swap_restart(self):
         """Swap the conditional rows from their plain step while there
         are any and the tab is shown. Switching back to the tab calls
         this, which is what restarts a swap a hidden tab stopped."""
         self._cond_swap_stop()
-        if self._cond_rows and self._tab_shown():
+        if self._cond_rows and not self.is_hidden():
             self._cond_after = self.frame.after(COND_SWAP_MS,
                                                 self._cond_swap_step)
 
@@ -4453,7 +4389,7 @@ class OptimizerTab(BaseTab):
 
     def _cond_swap_step(self):
         self._cond_after = None
-        if not self._tab_shown():
+        if self.is_hidden():
             self._cond_phase = 0
             self._cond_paint()
             return
@@ -4639,23 +4575,8 @@ class OptimizerTab(BaseTab):
         self.preset_label.config(text=text)
 
     # =================================================================
-    # Spinbox mousewheel helper
+    # Spinbox and slider input: clamps, and the wheel's own steps
     # =================================================================
-
-    def _spinbox_wheel(self, event, spinbox):
-        """Increment/decrement a Spinbox on mouse wheel events.
-
-        Tk's tk.Spinbox doesn't bind <MouseWheel> by default. event.delta
-        is positive for wheel-up (increment) and negative for wheel-down
-        (decrement) on Windows; macOS / Linux differ but the sign is
-        consistent. We rely on Tk's invoke() which already handles the
-        from_/to bounds.
-        """
-        if event.delta > 0:
-            spinbox.invoke("buttonup")
-        elif event.delta < 0:
-            spinbox.invoke("buttondown")
-        return "break"
 
     def _clamp_on_commit(self, spin, var):
         """Bind `ui/utils/spinbox_clamp` to one of this tab's spinboxes."""

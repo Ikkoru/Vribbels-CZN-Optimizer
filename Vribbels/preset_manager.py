@@ -31,9 +31,10 @@ format on the next save.
 """
 
 import json
-import shutil
 from pathlib import Path
 from typing import Any, Optional
+
+from json_file import set_aside, write_json
 
 
 # 11 stats currently supported in scoring (must match scoring_tab.py)
@@ -282,9 +283,7 @@ class PresetManager:
         """
         if not self.corrupted:
             return
-        if self.presets_file.exists():
-            target = self._unique_quarantine_path()
-            shutil.move(str(self.presets_file), str(target))
+        set_aside(self.presets_file)
         # Reset to clean slate so subsequent _write produces a fresh file.
         self.corrupted = False
         self.corruption_error = None
@@ -292,23 +291,6 @@ class PresetManager:
         self._legacy_selected = None
 
     # ----- internals -----
-
-    def _unique_quarantine_path(self) -> Path:
-        """Return a non-clashing target path like presets_corrupted.json,
-        presets_corrupted2.json, presets_corrupted3.json, etc."""
-        stem = self.presets_file.stem
-        suffix = self.presets_file.suffix
-        candidate = self.presets_file.with_name(f"{stem}_corrupted{suffix}")
-        if not candidate.exists():
-            return candidate
-        i = 2
-        while True:
-            candidate = self.presets_file.with_name(
-                f"{stem}_corrupted{i}{suffix}"
-            )
-            if not candidate.exists():
-                return candidate
-            i += 1
 
     def _write(self):
         """Persist current state to disk. Creates the presets directory if needed.
@@ -318,10 +300,4 @@ class PresetManager:
         """
         self.presets_dir.mkdir(parents=True, exist_ok=True)
         data = {"presets": self.presets}
-        # Write to a temp file then atomically replace the target.
-        tmp_path = self.presets_file.with_suffix(self.presets_file.suffix + ".tmp")
-        tmp_path.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
-        tmp_path.replace(self.presets_file)
+        write_json(self.presets_file, data, ensure_ascii=False)

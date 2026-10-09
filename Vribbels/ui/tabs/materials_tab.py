@@ -618,10 +618,7 @@ class MaterialsTab(BaseTab):
         self._render_stats({})
         preload_art(self._art_to_read())
         self._schedule_expiry_tick()
-        notebook = getattr(self.context, "notebook", None)
-        if notebook is not None:
-            notebook.bind("<<NotebookTabChanged>>",
-                          self._on_tab_changed, add="+")
+        self.when_shown(self._on_shown)
 
     # ------------------------------------------------------------ build
 
@@ -1154,7 +1151,7 @@ class MaterialsTab(BaseTab):
         is the costliest part of a live reload, and every Capture Log
         line waits behind that reload.
         """
-        if self._hidden():
+        if self.is_hidden():
             self._stale = True
             return
         self._stale = False
@@ -1174,22 +1171,10 @@ class MaterialsTab(BaseTab):
             self.optimizer.raw_data.get("inventory", {}))
         self._render_icons(quantities)
 
-    def _hidden(self):
-        """Whether another tab is the one showing. A notebook with none
-        selected -- the tab built on its own, as the checks build it --
-        counts as showing this one."""
-        notebook = getattr(self.context, "notebook", None)
-        try:
-            shown = notebook.select() if notebook is not None else ""
-            return bool(shown) and notebook.nametowidget(shown) \
-                is not self.frame
-        except (tk.TclError, KeyError):
-            return False
-
-    def _on_tab_changed(self, _event=None):
+    def _on_shown(self):
         """Catch up on a refresh skipped while this tab was hidden, and
         draw the art the first time the tab is shown."""
-        if (self._stale or not self._icons_drawn) and not self._hidden():
+        if self._stale or not self._icons_drawn:
             self.refresh_materials()
 
     def _hold_icon_places(self):

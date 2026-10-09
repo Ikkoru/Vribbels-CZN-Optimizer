@@ -179,7 +179,7 @@ Treeview and Listbox rebuilds are not this: their rows are not widgets, and clea
 
 ## A hidden tab draws when shown, but records now
 
-A snapshot load while another tab is showing skips three tabs' drawing, and each catches up in its `<<NotebookTabChanged>>` handler when shown:
+A snapshot load while another tab is showing skips three tabs' drawing, and each catches up when shown, through `BaseTab.when_shown`:
 
 - Materials: `refresh_materials`, with a `_stale` flag.
 - Memory Fragments: `refresh_inventory`, the same way.
@@ -189,7 +189,7 @@ A capture reloads after every save while the user is usually on another tab, and
 
 **Only drawing may wait.** The Checklist's refresh records as it reads: event totals, final rewards, the floor clock, the currency ledger. A record has to come from every snapshot, because the game purges what it is read from. So that refresh runs all of its recording and returns just before its columns are built.
 
-`_hidden()` counts a notebook with nothing selected as showing. That is how the checks build a tab, and how every tab is built before the notebook gets its pages.
+`BaseTab.is_hidden()` counts a notebook with nothing selected as showing. That is how the checks build a tab, and how every tab is built before the notebook gets its pages. `when_shown` does not: a switch that leaves nothing selected shows no tab.
 
 ## The exclude checklist's flow layout must not create widgets per re-flow
 
@@ -206,6 +206,10 @@ Once a Treeview is mapped, a column's new width changes what it draws but not wh
 The Stats & Gacha History tab's standings lists rebuild their columns on every load, so `_write_standings` ends each list with a `configure(height=...)` that looks redundant: it is what makes the list ask again. `check_tabs_build` writes them twice while mapped and holds every list's requested width to its columns'.
 
 The same tab's Banners list takes the window's spare width in its last column, again on every resize, and `_fit_banners` follows it with the same `configure`. There the symptom hides itself: a stretching last column fills the list's OLD width back out, so the columns always add up and the list simply never changes size. `check_tabs_build` resizes and holds the change the list's width makes.
+
+## A scrollbar is packed before the list it scrolls
+
+Pack hands out room in packing order. A list packed first, whose columns ask for more than its panel holds, takes the scrollbar's width as well, and the scrollbar is not drawn. It shows only where the panel is narrower than the list asks, as at a narrower window or another scale, so a list that fits at the default size hides it. `check_tabs_build` holds every scrollbar packed against the far side from an expanding list to being packed before it.
 
 ## The frozen build re-launches itself for every worker
 

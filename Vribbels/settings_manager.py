@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
+from json_file import write_json
+
 
 class SettingsManager:
     """Tiny persisted key-value store. One JSON object on disk."""
@@ -59,14 +61,9 @@ class SettingsManager:
         self.settings = data
 
     def _write(self):
-        """Persist to disk via atomic tmp-then-replace."""
+        """Persist to disk through `json_file.write_json`."""
         self.presets_dir.mkdir(parents=True, exist_ok=True)
-        tmp = self.settings_file.with_suffix(self.settings_file.suffix + ".tmp")
-        tmp.write_text(
-            json.dumps(self.settings, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        tmp.replace(self.settings_file)
+        write_json(self.settings_file, self.settings, ensure_ascii=False)
 
     # Canonical key order for settings.json, with "#N" section markers.
     # Applied on startup so the file reads as a documented settings sheet

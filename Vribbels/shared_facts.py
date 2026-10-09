@@ -72,6 +72,8 @@ import json
 import re
 from pathlib import Path
 
+from json_file import write_json
+
 FILE_NAME = "shared_facts.json"
 # The shipped copy sits in a folder of its own under `default_settings/`,
 # apart from the three settings files the maintainer deletes to re-seed
@@ -772,11 +774,7 @@ def load(path):
 def write(path, data):
     """Write through a temp copy, so a half-written file never stands
     where a whole one did."""
-    path = Path(path)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(data, indent=1, sort_keys=True) + "\n",
-                   encoding="utf-8")
-    tmp.replace(path)
+    write_json(path, data, indent=1, sort_keys=True, end="\n")
 
 
 def shipped_path(defaults_dir):
