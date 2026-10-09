@@ -441,14 +441,14 @@ def _char_panel_w(content_px):
 # well: it also takes the leftover width. Excursion and Sortie sit to
 # its right and are fixed, which is why the stretch column can be in
 # the middle.
-HERO_COL_PX = [67, 37, 58, 59, 32, 42, 26, 45, 24, 66, 32, 180, 55, 36]
+HERO_COL_PX = [67, 17, 58, 59, 32, 42, 26, 45, 24, 66, 32, 140, 55, 36]
 
 # Treeview column ids, and the heading each shows. The id IS the sort
 # key, so a heading click needs no lookup table.
 HERO_COL_IDS = ("name", "grade", "attribute", "class", "level", "nodes",
                 "ego", "affinity", "gs", "partner", "partner_level",
                 "preset", "excursion", "sortie")
-HERO_COL_TITLES = ("Combatant", "Grade", "Attribute", "Class", "Level",
+HERO_COL_TITLES = ("Combatant", "★", "Attribute", "Class", "Level",
                    "Nodes", "Ego", "Affinity", "GS", "Partner", "Level",
                    "Preset", "Excursion", "Sortie")
 
