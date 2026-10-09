@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
-## [2.4.0] - unreleased
+## [2.4.0] - UI Scales, Order Mode
 
 ### Added
 
@@ -15,37 +15,42 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Memory Fragments: a `Level:` filter under Slots shows the Memory Fragments of one level.
 - Capture Log: Ctrl+F marks every place the typed text appears. Escape closes it.
 - Capture: `Don't show presets for Slot VI ATK% with Shielding/Healing above:` in Upgrade Log Settings, on at 81 by default. It reads each combatant's Shielding & Healing from the Optimizer.
-- Anika's default Gear Score preset, assigned to her; Restore Defaults brings both in.
+- Anika's default Gear Score preset and Optimizer settings. Use Restore Defaults → `Presets` and `Combatant Settings` to get them.
 - Setup & Settings: `Delete Certificate` takes the mitmproxy certificate out of Windows' trusted certificates and deletes it and its key. `Generate & Install Cert` makes a new one.
-- Stats & Gacha History: in the Full-Scale Offensive Stats list, an Offensive won with all nine stars shows `3★` in its Score rows where no score was captured, and `Score 1`'s tooltip gives the score each star needs.
+- Stats & Gacha History: Full-Scale Offensive Stats shows `3★` in a Score row with no captured score, for an Offensive won with all nine stars. `Score 1`'s tooltip gives the score each star needs.
 
 ### Changed
 
 - **Optimizer:**
-  - The Combatants tab's `Show missing characters` allows selecting combatants you don't have. Optimization assumes their usual partner, max Potential, 20 Affinity.
+  - Combatants you don't have can be selected while the Combatants tab's `Show missing characters` is on. They are optimized with their usual partner, max Potential and 20 Affinity.
   - A combatant with no partner equipped is optimized with their usual partner.
   - `Fill in Potential 7 values:` reads `Auto`, with both buttons struck through, for a combatant whose Potential 7 the score already counts. The buttons still work.
   - Selected Build shows the selected combatant's own Memory Fragments in green.
-  - Stats Comparison: Crit% and CDMG% switch between their values without and with conditional set effects, marked `*` while the effects are in, in both columns alike.
+  - Stats Comparison: Crit% and CDMG% switch between their values with and without conditional set effects, marked `*` when included, in both columns.
+  - New default card damage and buff shares for Orlea, Maribell and Narja. Use Restore Defaults → `Combatant Settings` to get them.
 - **Checklist:**
   - Sortie Currency is orange while the next weekly grant still fits under its cap, red once it would not.
   - A deadline in its last day blinks, and so does a Delegation Module row with any to use. The Daily heading and finished events hold still.
   - `Finished?` removed from Overclock events.
 - **Combatants:**
-  - `Character` opens on Stats, then `Affinity Bonus`, Sets and Potential. The level, grade, element, class, Ego Manifestation and Affinity lines are gone, being the list's columns, and `Excursion Types` is the list's new `Excursion` column, where a combatant past seven reads `10?`. Half a line separates the blocks.
-  - Equipped Memory Fragments sits against the window's right edge and is as tall as three rows of set effect need; the panels above take the height left and the list the width left.
+  - `Character` shows Stats, `Affinity Bonus`, Sets and Potential. Its level, grade, element, class, Ego and Affinity lines are gone: the list has them.
+  - `Excursion Types` is the list's new `Excursion` column. A combatant past seven reads `10?`.
+  - Equipped Memory Fragments' cells are all one height and always fit three rows of set effect. The list takes the width left of them.
 
 ### Fixed
 
-- Combatants: Affinity reads the level reached, where it read the rewards claimed. The Optimizer's stats follow it.
+- Combatants: Affinity reads the level reached, not the rewards claimed. The Optimizer's stats follow it.
 - Checklist: Simulation Challenges tracks wins as they happen.
 - **Stats & Gacha History:**
   - Full-Scale Offensive Stats shows a `~` Top% when it may be outdated.
-  - Great Rift Stats no longer blanks its rows while a login is captured.
-  - Sortie Stats gets a column for a new season as soon as it starts, and shows its player count and top score from Hardcore Rankings before you have played it.
-  - A banner no longer turns orange just for opening its Probability Info.
-- Combatants: the six Equipped Memory Fragments cells are the same height.
-- At the 200% UI scale, the layout keeps its 100% proportions: tab strips, labels, checkboxes, list columns and text columns no longer sit tighter than the rest, the Combatants cards' columns line up, Equipped Memory Fragments fits the longest set effect, Materials' icon captions are full size, and Capture's `Debug WS` no longer breaks mid-word.
+  - Great Rift Stats keeps its rows while a login is captured.
+  - Sortie Stats adds a column for a new season as soon as it starts, with its player count and top score from Hardcore Rankings before you have played it.
+  - Opening a banner's Probability Info doesn't turn it orange.
+- At the 200% UI scale, the layout matches 100% doubled:
+  - Tab strips, labels, checkboxes, and list and text columns are spaced like the rest.
+  - The Combatants cards' columns line up.
+  - Materials' icon captions are full size.
+  - Capture's `Debug WS` doesn't break mid-word.
 
 ## [2.3.0] - Potential 7, Faster Tabs
 
