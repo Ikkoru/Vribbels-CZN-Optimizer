@@ -9,10 +9,13 @@ scale shows first in one place per axis, and this measures both:
   height their font needs (`heroes_tab._gear_cell_h`), and the card
   has what the window has left above them, with a fixed number of
   lines to hold. A line too tall runs the last of them off the panel.
+  Both sides of that grow with the line height, which is why it goes
+  first: one pixel size up clips it at 150% and 200% while every other
+  tab still fits.
 
-  The cells are measured beside it: their height is the font's, so
-  they hold the longest set effect in the game as long as it wraps to
-  `GEAR_SET_ROWS` rows -- a face too wide wraps it to one more.
+  The two stacks queued behind it are reported beside it, as the room
+  left under each: the Materials tab, and Stats & Gacha History with
+  its Banners list at the full `BANNER_ROWS`.
 * **Width -- the Memory Fragments list's Main column.** Of the widths
   stated in pixels, the one with the least room beside its widest text
   (`Passion% 16.0%`), so the first a wider font clips. A width measured
@@ -24,7 +27,9 @@ scale shows first in one place per axis, and this measures both:
   columns, an unwrapped text block's lines, a label or button held to a
   width, and a gear cell's first row, which wraps if it does not fit --
   as clips, and the nearest to clipping by their room as a share of
-  their text.
+  their text. So is the longest set effect in a gear cell: the cell's
+  height holds `GEAR_SET_ROWS` rows of it, and a face too wide wraps
+  it to one more.
 
 Run by `--font-gauge` on an app built and laid out at the scale asked
 for (`--audit-scale`), rendered and never shown; `docs/font_gauge.py`
@@ -56,7 +61,14 @@ def gauge(app):
     nine = math.floor(9 * int(ratio * 72) / 72 + 0.5)
     print(f"\n--- font gauge, {scaling.percent()}%, tk scaling {ratio:.3f}, "
           f"Segoe UI 9 at {nine}px ---")
-    _height(app)
+    heroes = app.heroes_tab_instance
+    app.notebook.select(heroes.frame)
+    app.root.update()
+    _card_height(heroes)
+    _bottoms(app)
+    app.notebook.select(heroes.frame)
+    app.root.update()
+    _set_rows(app, heroes)
     rows = []
     for tab_id in app.notebook.tabs():
         name = app.notebook.tab(tab_id, "text")
@@ -69,57 +81,9 @@ def gauge(app):
 
 # ------------------------------------------------------------- height
 
-def _longest_set(widget):
-    """The set line wrapped furthest: the set with the widest text."""
-    face = tkfont.Font(root=widget, font=("Segoe UI", 9))
-    texts = [f"{s['name']} ({s['pieces']}) {s.get('bonus', '')}"
-             for s in SETS.values()]
-    return max(texts, key=face.measure)
-
-
 def _count(text, start, end, what):
     got = text.count(start, end, what)
     return got[0] if isinstance(got, tuple) else (got or 0)
-
-
-def _height(app):
-    heroes = app.heroes_tab_instance
-    cells = list(getattr(heroes, "gear_cells", {}).values())
-    if not cells:
-        print("height: no gear cells built")
-        return
-    app.notebook.select(heroes.frame)
-    app.root.update()
-    cell = cells[0]
-    cell.config(state=tk.NORMAL)
-    cell.delete("1.0", tk.END)
-    # The shape every filled cell has: a top row, four substat rows,
-    # and the set line -- the longest set effect in the game, wrapped
-    # as the cell wraps it. The top row's width is the width report's.
-    cell.insert(tk.END, "Flat HP  +36.6\tGS: 69\tIII Denial  +5",
-                ("toprow",))
-    for _ in range(4):
-        cell.insert(tk.END, "\n\t100\tFlat DEF +13 (5 | +4, +4)",
-                    ("subrow",))
-    cell.insert(tk.END, "\n" + _longest_set(cell), ("set_live",))
-    app.root.update_idletasks()
-    # `displaylines` counts the breaks between a line's rows, not rows.
-    set_rows = _count(cell, "6.0", "6.end", "displaylines") + 1
-    inset = (int(cell.cget("bd")) + int(cell.cget("highlightthickness"))
-             + int(cell.cget("pady")))
-    room = cell.winfo_height() - 2 * inset
-    # Less the space after the last line, which is blank and clips no
-    # text.
-    need = (_count(cell, "1.0", "end", "ypixels")
-            - int(cell.cget("spacing3")))
-    line = tkfont.Font(root=cell, font=cell.cget("font")).metrics(
-        "linespace")
-    clipped = need > room or set_rows > GEAR_SET_ROWS
-    print(f"height: gear cell {'CLIPPED' if clipped else 'fits'}: "
-          f"{room - need:+d}px beside five lines and the longest set "
-          f"effect, {set_rows} of {GEAR_SET_ROWS} rows of it ({need} of "
-          f"{room}px, {line}px a line)")
-    _card_height(heroes)
 
 
 def _card_height(heroes):
@@ -138,7 +102,86 @@ def _card_height(heroes):
           f"{line}px a line)")
 
 
+def _stack_room(page):
+    """(room, where) for every widget on `page`, least room first: the
+    page's foot less where the widget would END at the height it asks
+    for. A widget a taller font has squeezed asks for more than it got,
+    and its asked-for foot runs past the page's. A Text or a canvas is
+    left out -- it asks for lines it is not meant to get, and its
+    container's request already carries whatever it really holds."""
+    foot = page.winfo_rooty() + page.winfo_height()
+    out = []
+
+    def walk(widget):
+        for child in widget.winfo_children():
+            if not child.winfo_ismapped():
+                continue
+            if child.winfo_class() not in ("Text", "Canvas", "Scrollbar",
+                                           "TScrollbar"):
+                out.append((foot - child.winfo_rooty()
+                            - child.winfo_reqheight(), str(child)))
+            walk(child)
+
+    walk(page)
+    return sorted(out)
+
+
+def _bottoms(app):
+    """The room under the Materials and Stats & Gacha History tabs'
+    stacks, the Banners list at its full `BANNER_ROWS`."""
+    from ui.tabs.gacha_history_tab import BANNER_ROWS
+    for name, attr, extra in (
+            ("Materials", "materials_tab_instance", ""),
+            ("Stats & Gacha History", "gacha_tab_instance",
+             f", {BANNER_ROWS} banners")):
+        for tab_id in app.notebook.tabs():
+            if app.notebook.tab(tab_id, "text") == name:
+                app.notebook.select(tab_id)
+        app.root.update()
+        tab = getattr(app, attr)
+        if attr == "gacha_tab_instance":
+            tab._show_banner_rows(BANNER_ROWS)
+            app.root.update()
+        rows = _stack_room(tab.get_frame())
+        room = rows[0][0] if rows else 0
+        print(f"   behind it: {name}{extra} "
+              f"{'CLIPPED' if room < 0 else 'fits'}: {room:+d}px")
+
+
 # -------------------------------------------------------------- width
+
+def _longest_set(widget):
+    """The set line wrapped furthest: the set with the widest text."""
+    face = tkfont.Font(root=widget, font=("Segoe UI", 9))
+    texts = [f"{s['name']} ({s['pieces']}) {s.get('bonus', '')}"
+             for s in SETS.values()]
+    return max(texts, key=face.measure)
+
+
+def _set_rows(app, heroes):
+    """How many rows the longest set effect wraps to in a gear cell."""
+    cells = list(getattr(heroes, "gear_cells", {}).values())
+    if not cells:
+        print("width: no gear cells built")
+        return
+    cell = cells[0]
+    cell.config(state=tk.NORMAL)
+    cell.delete("1.0", tk.END)
+    # The shape every filled cell has: a top row, four substat rows,
+    # and the set line -- the longest set effect in the game, wrapped
+    # as the cell wraps it. The top row's width is the width report's.
+    cell.insert(tk.END, "Flat HP  +36.6\tGS: 69\tIII Denial  +5",
+                ("toprow",))
+    for _ in range(4):
+        cell.insert(tk.END, "\n\t100\tFlat DEF +13 (5 | +4, +4)",
+                    ("subrow",))
+    cell.insert(tk.END, "\n" + _longest_set(cell), ("set_live",))
+    app.root.update_idletasks()
+    # `displaylines` counts the breaks between a line's rows, not rows.
+    rows = _count(cell, "6.0", "6.end", "displaylines") + 1
+    print(f"width: gear cell {'CLIPPED' if rows > GEAR_SET_ROWS else 'fits'}"
+          f": the longest set effect wraps to {rows} of {GEAR_SET_ROWS} rows")
+
 
 def _walk(widget):
     for child in widget.winfo_children():

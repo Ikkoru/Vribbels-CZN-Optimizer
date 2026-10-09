@@ -80,13 +80,14 @@ POINTS_TO_PIXELS = 96 / 72
 # wider than the 100% rendering scaled, and a stated size built for
 # that rendering clips.
 #
-# Each is the ratio that puts Segoe UI 9 on the largest pixel size the
-# font gauge (`ui/font_gauge.py`) passes, at the top of that size's
+# Each is the ratio that puts Segoe UI 9 on the pixel size whose line
+# height is nearest its 100% one times the scale, of the sizes the
+# font gauge (`ui/font_gauge.py`) passes; at the top of that size's
 # range: Tk on Windows asks for a font of
 # MulDiv(points, int(scaling * 72), 72) pixels, so a range of ratios
 # draws 9pt alike, and the top of it keeps the other faces largest.
 # A candidate is tried with `docs/font_gauge.py <scale>=<ratio>`.
-TEXT_SCALING = {1.25: 1.604, 1.5: 1.826, 1.75: 2.160, 2: 2.493}
+TEXT_SCALING = {1.25: 1.604, 1.5: 1.938, 1.75: 2.160, 2: 2.493}
 
 # Set once, before any widget exists. A module-level factor is what
 # lets `px` be reached from every call site in the app without
