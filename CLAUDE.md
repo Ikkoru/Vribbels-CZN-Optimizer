@@ -83,7 +83,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 
 ## Project identity
 
-**Vribbels CZN Optimizer (Ikkoru fork)** — a Memory Fragment / gear optimizer for **Chaos Zero Nightmare** (CZN). Python 3, Tkinter UI, mitmproxy for capture; source root `Vribbels/`. Forked from `Vorbroker/Vribbels-CZN-Optimizer` at upstream v1.7.0; this fork is `Ikkoru/Vribbels-CZN-Optimizer`, branch `master`.
+**Vribbels CZN Optimizer (Ikkoru fork)** — a Memory Fragment / gear optimizer for **Chaos Zero Nightmare** (CZN). Python 3, Tkinter UI, mitmproxy for capture; source root `Vribbels/`. Forked at v1.7.0 from `Kalamadorel/Vribbels-CZN-Optimizer`, the `upstream` remote, itself a fork of the original, `Vorbroker/Vribbels-CZN-Optimizer`; this fork is `Ikkoru/Vribbels-CZN-Optimizer`, branch `master`.
 
 Version string: `Vribbels/version.py`.
 

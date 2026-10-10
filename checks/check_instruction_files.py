@@ -1,8 +1,8 @@
 """Every path an instruction file or a doc names still exists.
 
-`CLAUDE.md`, `.claude/rules/*.md` and `.claude/skills/*/SKILL.md` tell
-Claude what to run and where to look, and `docs/*.md` are what they
-point to. All of them cite paths, and a rename leaves the citation
+`CLAUDE.md`, `.claude/rules/*.md`, `.claude/skills/*/SKILL.md` and
+`.claude/overlays/*.md` tell Claude what to run and where to look, and
+`docs/*.md` are what they point to. All of them cite paths, and a rename leaves the citation
 pointing at nothing.
 
 **A rule or a skill fails more quietly than a doc.** A doc is read while
@@ -98,6 +98,10 @@ def _instruction_files():
     for path in sorted(
             (REPO_ROOT / ".claude" / "skills").glob("*/SKILL.md")):
         found.append((f".claude/skills/{path.parent.name}/SKILL.md", path))
+    # What a shared skill reads about this repo before it starts: as
+    # quiet as a skill, loading only with the one it overlays.
+    for path in sorted((REPO_ROOT / ".claude" / "overlays").glob("*.md")):
+        found.append((f".claude/overlays/{path.name}", path))
     return found
 
 

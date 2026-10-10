@@ -44,9 +44,9 @@ RES_ID_FIELD = "res_id"
 VISIT_TYPES = 7
 
 # What the total reads for a combatant neither this machine's client
-# nor the shipped table lists: a release newer than both. A number
-# here would be a guess dressed as a reading.
-UNKNOWN_TOTAL = "?"
+# nor the shipped table lists: a release newer than both. The floor
+# every combatant has, marked as one.
+UNKNOWN_TOTAL = "%d?" % VISIT_TYPES
 
 # Communication Passes granted per day, and where the day's spending
 # is kept. The allowance is the game's own number; the counter beside

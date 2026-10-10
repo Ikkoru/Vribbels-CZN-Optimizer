@@ -14,7 +14,7 @@ What changes every patch and the server never sends: each event's name, for the 
 
 1. what this machine's client says, saved to `settings/game_client.json` with the install and build it was read at, so the client is read again only after a patch;
 2. `Vribbels/game_data/from_client.py`, the same reading as of the build the program shipped with: `python docs/client_tables.py --ship` after a patch, before a release, and review the diff;
-3. nothing: the Checklist shows the event's id, the Combatants tab `?` for the total.
+3. nothing: the Checklist shows the event's id, the Combatants tab `7?`, the floor every combatant has, for the total.
 
 `check_event_names` holds the readers, the cache and the shipped table.
 

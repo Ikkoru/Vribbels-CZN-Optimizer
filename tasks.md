@@ -197,7 +197,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **T19 — More from the game client.** Event names and Excursion type counts are read at launch (`docs/client_data.md`, *What the program reads at launch*). Both halves are decided: the app reads what changes every patch, the maintainer tool the tables whose every change wants reviewing. Left:
 
-  - **The app**: item names and event reward totals, read the way event names are.
+  - **The app**: item names and event reward totals, read the way event names are. A total from the client retires the instalment tally: the recorded totals and finals in `checklist.json`, the shared facts' instalment totals and final rewards, the family inference, most `+?` floors and the `Finished?` box, and the parts of `docs/events.md` that work totals out. What stays is reading claims off the wire, a floor for an event neither the client nor the shipped copy knows, and the Galactic Disaster challenge missions, which the client does not hold. Settle the story-map Node Lists' final reward first (`docs/client_data.md`, *What it was held against*).
   - **The tool**: an audit of `game_data`'s combatants, partners, sets and Potential against the client.
   - **Haru's level-60 stats** disagree between the client and `game_data.characters`; every other combatant agrees. A capture of Haru at level 60 settles which is wrong.
 

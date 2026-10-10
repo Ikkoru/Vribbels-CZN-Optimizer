@@ -133,13 +133,14 @@ def _totals(ex):
     out = []
     try:
         game_client.use({"excursion_types": {"1": 7, "2": 11}})
-        for res_id, want in ((1, "7"), (2, "11"), (3, ex.UNKNOWN_TOTAL)):
+        for res_id, want in ((1, "7"), (2, "11"), (3, "7?")):
             if ex.total(res_id) != want:
                 out.append(
                     f"combatant {res_id} reads against {ex.total(res_id)}, "
                     f"not {want}. The total is the client's count of that "
-                    f"combatant's own types, and one nothing lists has to "
-                    f"say so rather than borrow a number.")
+                    f"combatant's own types; one nothing lists reads the "
+                    f"seven every combatant has, marked as a floor, never "
+                    f"as a count.")
         game_client.use(None)
         res_id, count = next(iter(from_client.EXCURSION_TYPES.items()))
         if ex.total(res_id) != str(count):
