@@ -1851,7 +1851,7 @@ def _event_progress(raw, name):
                  DONE if claimed >= written else TODO)]
     # **A rectangular family states its own size**, from the ids and
     # their issue stamps and nothing else -- see `_grid_total`. Above
-    # the family's history because it is THIS instalment speaking.
+    # the family's total because it is THIS instalment speaking.
     grid = _grid_total(rows)
     if grid is not None:
         return [("%d/%d" % (claimed + taken, grid + final),

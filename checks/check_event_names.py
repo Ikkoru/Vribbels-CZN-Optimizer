@@ -1,13 +1,14 @@
-"""Event names and Excursion type counts read off the game client.
+"""Event names and totals, and Excursion type counts, read off the game
+client.
 
 Four ways this goes wrong with nothing to show for it:
 
 1. **A join picks up the wrong row, or none.** The wire names an event
    by its schedule id, which turns up in a different column of the
    client's event table for each kind of event, and some kinds are
-   named in other tables altogether. A miss reads as the id, which
-   looks like the program before any of this; a wrong row reads as a
-   plausible name for another event. Held on a synthetic client here.
+   named in other tables altogether. A miss reads as the id, or as a
+   floor where the total was known; a wrong row reads as a plausible
+   name or total for another event. Held on a synthetic client here.
 2. **The cache outlives a patch.** It is good only for the install and
    the build it was read at, and a stale one shows last patch's names
    with nothing to say so.
@@ -42,7 +43,7 @@ from types import SimpleNamespace
 from ._harness import (add_source_to_path, newest_snapshot, note,
                        REPO_ROOT, SOURCE_ROOT)
 
-NAME = "event names and Excursion counts follow the game client"
+NAME = "event names, event totals and Excursion counts follow the game client"
 
 # What the injected event is filed under. Any Checklist group would do:
 # the label is what is measured, not the reading beside it.
@@ -161,6 +162,60 @@ def _joins(gc):
     return out
 
 
+def _totals(gc):
+    """What each event holds, on a synthetic client. Returns complaints."""
+    def missions(event, count, prefix):
+        return [{"id": "%s_%02d" % (prefix, n), "link_event_id": event}
+                for n in range(1, count + 1)]
+
+    client = _FakeClient({
+        gc.EVENT_TABLE: [
+            _event("event_153", "t",
+                   link_event_schedule_id="event_schedule_director_002"),
+            _event("event_146", "t", multiple_link="event_bartender_01"),
+            _event("event_160", "t",
+                   link_event_schedule_id="event_schedule_love_4"),
+            # A retired row under the same schedule as a live one.
+            _event("event_1", "t", deleted="YES",
+                   multiple_link="event_shared_01"),
+            _event("event_2", "t", multiple_link="event_shared_01"),
+            _event("event_77", "t", multiple_key="event_no_missions"),
+        ],
+        gc.MISSION_TABLE: (
+            missions("event_153", 21, "dir")
+            + missions("event_146", 24, "bar")
+            + missions("event_160", 1, "love")
+            + missions("event_1", 5, "old")
+            + missions("event_2", 9, "new")),
+        gc.STEP_TABLE: [{"link_event_mission_id": "love_01"}] * 21,
+        gc.DEFINE_TABLE: [
+            {"link_event_id": "event_146",
+             "special_reward_link_item_id": "3000001"},
+            {"link_event_id": "event_153",
+             "special_reward_link_item_id": "-1"}],
+        gc.CHECK_IN_DEFINES: [
+            {"id": "event_daily_16", "key": "daily_check_16"},
+            {"id": "event_daily_99", "key": "daily_check_99"}],
+        gc.CHECK_IN_DAYS: [{"id": "daily_check_16_%d" % n}
+                           for n in range(1, 15)],
+    }, {})
+    got = gc.event_totals(client)
+    want = {"event_schedule_director_002": [21, 0, 0],
+            "event_bartender_01": [24, 1, 0],
+            "event_schedule_love_4": [21, 0, 1],
+            "event_shared_01": [9, 0, 0],
+            "event_daily_16": [14, 0, 0]}
+    if got != want:
+        return [
+            f"the client's event totals read {got}, not {want}. Missions "
+            f"count by their event, a step track by the steps on its one "
+            f"mission, a define row's special reward is a final reward "
+            f"unless it names none, a check-in counts its days, a live "
+            f"row beats a retired one under the same schedule, and an "
+            f"event with nothing to count is left out."]
+    return []
+
+
 def _accessors(gc):
     """The client's facts over the shipped table, the shipped table over
     nothing. Returns complaints."""
@@ -195,9 +250,41 @@ def _accessors(gc):
         if gc.event_name("event_nobody_named_this") is not None:
             out.append("an id nothing names came back named, where the "
                        "Checklist needs None to fall back to the id.")
+        out.extend(_totals_precedence(gc))
         out.extend(_item_precedence(gc))
     finally:
         gc.use(None)
+    return out
+
+
+def _totals_precedence(gc):
+    """Event totals: this machine's client over the shipped table, and
+    nothing malformed from either. Returns complaints."""
+    from game_data import from_client
+    out = []
+    shipped_key, shipped = next(iter(from_client.EVENT_TOTALS.items()))
+    gc.use({"event_totals": {shipped_key: [99, 1, 0],
+                             "event_new_one_9": [5, 0, 0],
+                             "event_short": [1, 2],
+                             "event_negative": [-1, 0, 0]}})
+    known = gc.known_event_totals()
+    for key, want, why in (
+            (shipped_key, (99, 1, 0),
+             "this machine's client is newer than the shipped table"),
+            ("event_new_one_9", (5, 0, 0),
+             "an event only the client holds has to be held"),
+            ("event_short", None, "a total is three figures"),
+            ("event_negative", None, "a count is never below nothing")):
+        if known.get(key) != want:
+            out.append(f"{key!r} reads {known.get(key)!r}, not {want!r}: "
+                       f"{why}.")
+    gc.use(None)
+    if gc.known_event_totals().get(shipped_key) != tuple(shipped):
+        out.append(
+            f"with no client read, {shipped_key!r} reads "
+            f"{gc.known_event_totals().get(shipped_key)!r}, not the shipped "
+            f"{tuple(shipped)!r}: a player whose client cannot be read "
+            f"gets floors where the build knew the totals.")
     return out
 
 
@@ -516,6 +603,7 @@ def run():
 
     failures = []
     failures.extend(_joins(gc))
+    failures.extend(_totals(gc))
     failures.extend(_accessors(gc))
     failures.extend(_cache(gc))
     failures.extend(_shipped(gc))

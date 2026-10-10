@@ -60,8 +60,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
      - From its first run: the new Chaos's stage id in `chaos_estimate.CHAOS_NAMES` (90000 and `chaos_10`, if the seasons' pattern holds), and the season currency's id in `docs/chaos_runs.py` `CURRENCY`.
      - Then refresh `chaos_estimate.SHIPPED` from `python docs/chaos_runs.py`. Read its by-spot lines: the season's maps hold fewer ordinary battles (its docstring).
   4. **To confirm on the next capture:** a level-up, a Potential node and a gift move the Combatants tab live.
-  5. **The Vacation's total, the maintainer's call.** Keep `WRITTEN_TOTALS["event_nodelist_8"]` at 13, or read the floor and the Node Lists' past, which says `~1/25`.
-  6. **An Aether Cell's id**, whenever one charges: the Recharge Aether popup's.
+  5. **An Aether Cell's id**, whenever one charges: the Recharge Aether popup's.
 
 - **I31 — The Chaos estimate's loose end.** Built as the maintainer specified:
 
@@ -74,7 +73,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **C1 — Finish the Checklist tab.** `docs/wire_hunt.md` and `docs/wire_hunt.tsv` hold every row that still shows no value, with its suspect and what would settle it. The TSV is the live list; this is only what it costs. What is left:
 
-  1. **How a step track's record reads.** The code takes `reward_step` as the steps CLAIMED, on the evidence in `docs/events.md`, *`reward_step` and `version`*. If it is the track's SIZE instead, several events gain a real denominator, and `_step_progress` changes as that section says.
+  1. **How a step track's record reads.** The code takes `reward_step` as the steps CLAIMED, on the evidence in `docs/events.md`, *`reward_step` and `version`*. If it is the track's SIZE instead, `_client_steps` and `_step_progress` change as that section says, and a track at the top of its ladder stops waiting for its flag to go green.
      - Needs, on the next LIVE step track, with a capture running: its `reward_step` against the size the client gives it, while steps are still unclaimed. The next Love event, `event_love_05`, is already in the client.
      - The Sortie has no such track: `event_chaos_assault_1` is its launch event, long over.
   2. **The Coronomicon Gift row: claimed today, and days left on the pass.** Deferred by the maintainer; the research is done.
@@ -170,16 +169,10 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   When one ships: `Vribbels/build_tcl/prepare_tcl_data.py`'s `libtcl9*` globs already match a 9.1 library, and `checks/run_all.py` at both scales is the first test.
 
-- **T19 — More from the game client.** Event and item names and Excursion type counts are read at launch (`docs/client_data.md`, *What the program reads at launch*). The app reads what changes every patch; the maintainer tool, `docs/client_tables.py --audit`, holds the tables whose every change wants reviewing. Left:
+- **T19 — More from the game client.** Event names and reward totals, item names and Excursion type counts are read at launch (`docs/client_data.md`, *What the program reads at launch*). The app reads what changes every patch; the maintainer tool, `docs/client_tables.py --audit`, holds the tables whose every change wants reviewing. Left:
 
-  - **Event reward totals in the app**, read the way the names are, the shipped copy carrying them. Waits on the maintainer's go-ahead.
-    - A total from the client comes first. The wire's chain (`docs/events.md`, *The sources for a total*) stays as the fallback for an event the client does not hold, such as one a patch adds while the archive cannot be read.
-    - The fallback works off the wire alone: the grid, pages issued whole, the write-downs, the floor, the completion flag and the `Finished?` box.
-    - The recording goes. A family's past instalments are in the client, the shipped copy included, so the client's totals and finals replace the ones kept in `checklist.json` and the shared facts, and the family rule reads those.
-    - The Galactic Disaster challenge missions are not in the client, and keep the wire's reading.
-    - Settle the story-map Node Lists' final reward first (`docs/client_data.md`, *What it was held against*).
+  - **The story-map Node Lists' final reward.** The client counts one reward more than the captures did (`docs/client_data.md`, *What it was held against*). Until a capture of the next one settles it, such a list reads one high until its completion flag arrives.
   - **The audit's reach**: sets and Potential are not in it.
-  - **What the audit lists**, with the maintainer: Haru's level-60 stats.
   - **When the Galactic Disaster season's next part opens**: read the seasonal currency's name and id off its first capture. The item worklist's `Type` and `Note` on 3000009 describe Memory of Light, which the client puts at 3000006.
 
 - **T3 — Richer main-stat forcing for slots IV/V/VI** (UserA). Main-stat forcing is four Force HP/Ego checkboxes. The design question is which options, and in what form: per-slot checklists, dropdowns, or curated rules.

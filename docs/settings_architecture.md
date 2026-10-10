@@ -13,7 +13,7 @@ User state in `Vribbels/settings/` (gitignored); shipped defaults in `Vribbels/d
 | `optimizer_settings.json` | Yes              | Per-combatant optimizer config keyed by `str(res_id)`, plus the top-level keys below                     |
 | `settings.json`           | No               | Flat key-value user state: server region, worker count, optimizer filters, upgrade-log filters, `debug_perf_log`, last selections, update timestamps. **Canonical key order and defaults are `SettingsManager.LAYOUT`** — add new keys there so `apply_layout` materializes them into the file |
 | `log_presets.json`        | No               | Capture-tab Log Presets flags: res_id → bool. Absent id = selected                                       |
-| `checklist.json`          | No               | Checklist shop products the user tracks: product id → bool — except the Galactic Disaster's, keyed by the OFFER (`disaster:<item>:<count>:<price>`) because its product ids carry the season and are all renamed when the next one opens. `ChecklistTab._tracking_id` decides which. Absent id takes `ChecklistManager.DEFAULTS`, then `DEFAULT_TRACKED`. Also what the tab has worked out and cannot re-derive: the currency ledger, finished login streaks, how many rewards each finished event instalment held, and the events the USER has called finished (kept against the reading each answer was given for) |
+| `checklist.json`          | No               | Checklist shop products the user tracks: product id → bool — except the Galactic Disaster's, keyed by the OFFER (`disaster:<item>:<count>:<price>`) because its product ids carry the season and are all renamed when the next one opens. `ChecklistTab._tracking_id` decides which. Absent id takes `ChecklistManager.DEFAULTS`, then `DEFAULT_TRACKED`. Also what the tab has worked out and cannot re-derive: the currency ledger, finished login streaks, and the events the USER has called finished (kept against the reading each answer was given for) |
 | `perf_log.txt`            | No               | Diagnostics (`perf_log.py`), written only while `debug_perf_log` is true. Not settings; safe to delete   |
 | `game_client.json`        | No               | What the game client was read to say, with the install and build it was read at (`game_client`). Not settings; safe to delete, and read again at the next launch |
 
@@ -83,7 +83,6 @@ After Restore, `_refresh_dependent_tabs(kind)` fires the cross-tab refresh: `pre
 
 - banner rates;
 - Combatant Trial slot pairings;
-- finished instalments' reward totals, and which instalments paid a final reward;
 - per server, the Great Rift's division tops and the Sortie's and the Full-Scale Offensive's fields;
 - read out of battles, combatants' base stats at levels 60 to 62 and partners' flat stats per level.
 
@@ -91,7 +90,7 @@ It is never copied into `settings/` and never merged: `defaults_sync` does not k
 
 **The rankings are per server**, `global` or `asia`; every other kind is taken as the same on both. A reader takes only the rankings of the loaded snapshot's `detected_region`. The Stats lists give every season they ship a column, so a season the account never read shows the field's figures and leaves its own rows empty; a season it did read keeps its own reading.
 
-**What counts as something to send** is a key the shipped file lacks, a bigger instalment total, or a later ranking reading that says something new of a season that is over. A later reading of the season running is not: its figures move every week. Over means older than the newest season either side knows of (`shared_facts._is_news`). A base stat or partner flat reading is news only where the program's tables do not already give it, or where it is later than the shipped one and says something different: a patch.
+**What counts as something to send** is a key the shipped file lacks, or a later ranking reading that says something new of a season that is over. A later reading of the season running is not: its figures move every week. Over means older than the newest season either side knows of (`shared_facts._is_news`). A base stat or partner flat reading is news only where the program's tables do not already give it, or where it is later than the shipped one and says something different: a patch.
 
 `Setup & Settings → Share Game Data` writes the account's facts that the shipped file lacks, through the same whitelist, for a player to attach to a GitHub issue. Folding one in is the maintainer's job: `how_to_maintain_default_settings.md`.
 

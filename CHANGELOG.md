@@ -12,6 +12,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Checklist:
   - Events are listed under their names in the game, read from the installed game client. A Virtual Tactical Simulation also names its combatant. A name too long for the column is cut short, with the whole name in its tooltip.
+  - Events count against their reward totals from the game client, final reward included, in place of `+?` floors. A row goes green once every reward is claimed, and a login event counts against its own length. Rewards outside an event's missions, such as a summer event's puzzles, are not in the count.
   - The 7-day `Delegation Module` row blinks red when a module has 1-2 days left, and orange when one has 2-3 days left. Otherwise it holds still.
 - Combatants: the `Excursion` column counts against each combatant's own number of Excursion types, from the game client, in place of `10?`.
 - Capture Log and Checklist: every item the game client names is named, where an unidentified one showed its number.
@@ -22,6 +23,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - A settings file that can't be read is repaired at launch, keeping everything in it that still reads, or set aside for the defaults, instead of being saved over. A message names each one and where its original was kept.
 - Game data corrected against the game client:
+  - Haru's base stats.
   - Orlea's Attribute is Instinct.
   - Westmacott's Ego costs 2. Rachel's Ego is `Hamburger Delivery, Sir!` and Scarlet's passive is `Noose of Mastery`.
   - Partner passives and Ego names use the game's wording, and Bria and Marianne have their real ids.
