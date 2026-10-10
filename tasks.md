@@ -178,8 +178,8 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
     - The Galactic Disaster challenge missions are not in the client, and keep the wire's reading.
     - Settle the story-map Node Lists' final reward first (`docs/client_data.md`, *What it was held against*).
   - **Item names** from the client replace the hand-kept names the Capture Log and the Materials tab fall back on, and the item TSVs' worklist (`docs/items_id_dump.py`).
-  - **The tool**: an audit of `game_data`'s combatants, partners, sets and Potential against the client.
-  - **Haru's level-60 stats** disagree between the client and `game_data.characters`; every other combatant agrees. A capture of Haru at level 60 settles which is wrong.
+  - **The tool**: `docs/client_tables.py --audit` holds `game_data`'s combatants and partners to the client. Sets and Potential are not in it.
+  - **Settle what `--audit` lists**, with the maintainer: Haru's level-60 stats (every other combatant agrees), Orlea's attribute, partners' Ego names and costs, passive names and figures, and the four partners `game_data/partners.py` lacks.
 
 - **T3 — Richer main-stat forcing for slots IV/V/VI** (UserA). Main-stat forcing is four Force HP/Ego checkboxes. The design question is which options, and in what form: per-slot checklists, dropdowns, or curated rules.
 
