@@ -1,7 +1,7 @@
 res_id	where	amount	Name	Type	Note
 2000002	currencies	89	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
 2000005	currencies	0	Skill Points		
-2000006	currencies	3	Ark Tour Pass		Spectral Cube candidate
+2000006	currencies	3	Ark Tour Pass		
 2000007	currencies	23	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
 2000008	currencies	0	The Engine of Time		
 2000011	currencies	369	Moment of the Radiant Hero	Shop Currency	
@@ -18,7 +18,7 @@ res_id	where	amount	Name	Type	Note
 2000024	currencies	600	Prism Film	Shop Currency	
 2000031	currencies	79	Policy Point	Ark - Shop Currency	
 2000032	currencies	10800	Crystal of Discord	Shop Currency	
-2000033	currencies	3	Spectral Cube		Spectral Cube candidate
+2000033	currencies	3	Spectral Cube		
 2000034	currencies	0	Chaos Architect		
 2000048	currencies	0	Daily Chaos Delegation	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation
 3000005	items	45451	Chaos Orb	Zero System Currency	Worthless
