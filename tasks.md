@@ -72,32 +72,16 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   **What is left: season 4's part 1 was never captured.** It borrows part 2's bosses (172 + 172). If part 1 paid something else, the season-4 estimate is off by 21 days of the difference. The maintainer does not remember what it paid, so it stays borrowed unless a capture turns up. Season 5's data can replace it once available.
 
-- **I23 — Where an event's total comes from: three open questions.** The sources and their order: `docs/events.md`, *The sources for a total, strongest first*.
+- **C1 — Finish the Checklist tab.** `docs/wire_hunt.md` and `docs/wire_hunt.tsv` hold every row that still shows no value, with its suspect and what would settle it. The TSV is the live list; this is only what it costs. What is left:
 
-  1. **A grid under-reads a Node List until its last index is issued.**
+  1. **How a step track's record reads.** The code takes `reward_step` as the steps CLAIMED, on the evidence in `docs/events.md`, *`reward_step` and `version`*. If it is the track's SIZE instead, several events gain a real denominator, and `_step_progress` changes as that section says.
+     - Needs, on the next LIVE step track, with a capture running: its `reward_step` against the size the client gives it, while steps are still unclaimed. The next Love event, `event_love_05`, is already in the client.
+     - The Sortie has no such track: `event_chaos_assault_1` is its launch event, long over.
+  2. **The Coronomicon Gift row: claimed today, and days left on the pass.** Deferred by the maintainer; the research is done.
+     - `issued_limit_entities[subscription_1]` rides the login burst, and the claim answers with the same record as `issued_entities`, so the capture keeps it either way. `expire_time` dates the pass; `vi1` names the day the gift was last taken. `docs/wire_hunt.md`, *The monthly pass, and what it would take to show it*, has the lot.
+     - Needs nothing from the maintainer. It needs a ROW, not a capture: a Daily entry, claimed-today plus days remaining.
 
-     - `event_nodelist_007`'s grid came to 8 on its third day, against the 25 it held. Three finished lists on record say 25.
-     - A grid is this instalment speaking, so it outranks the family's past and the smaller number wins. That is right for the devil event, whose grid is whole on day one, and wrong here.
-     - Decide which wins when the two disagree: the bigger (never reads done early, but a family that shrinks would read long), or the grid (as now).
-     - `docs/events.md`, *Still open*. How stable each type has been is its *Instalments on record, by type*: the Node Lists have come in two shapes, 15 to 19 and 25.
-
-  2. **The per-unit census: one RULE per event family.** The design: `docs/events.md`, *A reward has a SOURCE, and sources can be counted*.
-
-     - An event's total is a sum over its pages. A ladder page is already exact (ladders arrive whole). A per-unit page needs the census: how many units of content the event has, counted off the event's own table.
-     - A family needs only `{page prefix: (which table counts its units, rewards per unit)}`. A rule survives an instalment changing length; a number does not.
-     - Falsifiable like the write-down: a page past its census total drops back to the floor.
-
-     **Waiting on a table that is issued WHOLE.** None seen yet is. The bartender's guestbook looked like one, but it gains a row as each day is played, so it is a floor like the missions (`docs/events.md`, *The bartender keeps its own per-day record*). A new event's tables are captured from its first login: count their rows then and again a day later. A table that did not move is the census this needs. It wants two instalments of the family: a rule checked only against the event it was written from is not checked at all.
-
-  3. **A login streak's length from its day-7 reward.**
-
-     - Golden Autumn's Invitation (`event_161`, schedule `event_daily_holiday_01`, 15 days) paid Rescue Anchor x3 on day 7, without completing. Its other days paid other items: Abyssal Core x2, Colorless Core x2, Delegation Module x2, the day-1 Rabbit Veronica. **Its day 15, the last, paid Signal Amplification Anchor x3, with `completed`.**
-     - Rei's Gift (`event_143`, 7 days) paid Prism Lens x3 on day 7, its last, with `completed`. Its days 1 and 6 paid Prism Lens x1, so its day 7 is its own reward tripled.
-     - Those are the only two streaks whose day-7 claim any log holds. `attendance_entities` keeps the 10-, 14- and 21-day streaks' lengths but no rewards. So neither "x3 on day 7" nor "a new item on day 7" can be told apart as a length signal yet.
-     - **A possible last-day marker:** both last days on record paid a gacha currency x3. Golden Autumn's day 7 paid one x3 too, so x3 alone does not say last.
-     - Wanted: the day-7 claim of the next few streaks, and their last day's, with their lengths. If a streak longer than 7 always pays something new on day 7, that is a week's warning. The next is the Nightmare Carnival countdown (`countdown_attendance_1st`, 15 days, to 10-21): its days claim themselves at login, so a capture on day 7 (from 10-12 18:00 UTC) and on day 15 holds each claim, in `lobby_countdown_reward`'s `popup_infos`.
-
-  **How the next round runs, for I23 and C1 alike:**
+  **How the next round runs:**
 
   1. The maintainer keeps making a debug capture every day.
   2. Once the next batch of events is live, Claude analyses the captures (`docs/events_replay.py`, `docs/wire_hunt.tsv`): when each record arrives, and what it carries.
@@ -105,16 +89,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   4. The maintainer notes what the client shows, with the time, in `_tmp/client_readings.md` (gitignored).
   5. Claude matches the readings to that day's capture and writes the next list.
 
-  The aim, in order: an exact total, else a good estimate, else a lower bound.
-
-- **C1 — Finish the Checklist tab.** `docs/wire_hunt.md` and `docs/wire_hunt.tsv` hold every row that still shows no value, with its suspect and what would settle it. The TSV is the live list; this is only what it costs. What is left:
-
-  1. **How a step track's record reads.** The code takes `reward_step` as the steps CLAIMED, on the evidence in `docs/events.md`, *`reward_step` and `version`*. If it is the track's SIZE instead, several events gain a real denominator, and `_step_progress` changes as that section says.
-     - Needs, on the next LIVE step track (most likely the next Love event), with a capture running: how many rewards its screen lists and how many are claimed. Or claim ONE step.
-     - The Sortie has no such track: `event_chaos_assault_1` is its launch event, long over.
-  2. **The Coronomicon Gift row: claimed today, and days left on the pass.** Deferred by the maintainer; the research is done.
-     - `issued_limit_entities[subscription_1]` rides the login burst, and the claim answers with the same record as `issued_entities`, so the capture keeps it either way. `expire_time` dates the pass; `vi1` names the day the gift was last taken. `docs/wire_hunt.md`, *The monthly pass, and what it would take to show it*, has the lot.
-     - Needs nothing from the maintainer. It needs a ROW, not a capture: a Daily entry, claimed-today plus days remaining.
+  The aim, in order: an exact reading, else a good estimate, else a lower bound.
 
 - **I6 — A setting in `Upgrade Log Settings` that would filter out presets that don't match the MF Set Effect's Element.** Default OFF. Consider if it would work for all set effects, not just Element restricted ones.
 
@@ -197,7 +172,12 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **T19 — More from the game client.** Event names and Excursion type counts are read at launch (`docs/client_data.md`, *What the program reads at launch*). Both halves are decided: the app reads what changes every patch, the maintainer tool the tables whose every change wants reviewing. Left:
 
-  - **The app**: item names and event reward totals, read the way event names are. A total from the client retires the instalment tally: the recorded totals and finals in `checklist.json`, the shared facts' instalment totals and final rewards, the family inference, most `+?` floors and the `Finished?` box, and the parts of `docs/events.md` that work totals out. What stays is reading claims off the wire, a floor for an event neither the client nor the shipped copy knows, and the Galactic Disaster challenge missions, which the client does not hold. Settle the story-map Node Lists' final reward first (`docs/client_data.md`, *What it was held against*).
+  - **The app**: item names and event reward totals, read the way event names are, the shipped copy carrying both.
+    - A total from the client comes first, and the wire's chain (`docs/events.md`, *The sources for a total*) stays as the fallback for an event the client does not hold: one a patch adds while the archive cannot be read, as an encrypted one could not. The grid, pages issued whole, the write-downs, the floor, the completion flag and the `Finished?` box all work off the wire alone.
+    - The recording goes: a family's past instalments are in the client, the shipped copy included, so the totals and finals kept in `checklist.json` and the shared facts' instalment totals and final rewards are replaced by the client's, and the family rule reads those.
+    - The Galactic Disaster challenge missions are not in the client, and keep the wire's reading.
+    - Settle the story-map Node Lists' final reward first (`docs/client_data.md`, *What it was held against*).
+  - **Item names** from the client replace the hand-kept names the Capture Log and the Materials tab fall back on, and the item TSVs' worklist (`docs/items_id_dump.py`).
   - **The tool**: an audit of `game_data`'s combatants, partners, sets and Potential against the client.
   - **Haru's level-60 stats** disagree between the client and `game_data.characters`; every other combatant agrees. A capture of Haru at level 60 settles which is wrong.
 

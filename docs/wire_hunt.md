@@ -102,7 +102,7 @@ Use it last, and keep what it learns. It only sees what happens while a capture 
 
 ## Events
 
-`docs/events.md` is the canonical write-up — the categories, how to classify one, where each kind keeps its progress, the totals the wire never states, and how to process a new event.
+`docs/events.md` is the canonical write-up — the categories, how to classify one, where each kind keeps its progress, how a total is worked out where the client does not give it, and how to process a new event.
 
 Two things from it are worth repeating here because they are general:
 
