@@ -454,7 +454,7 @@ EXP_MATERIALS = {
 # These have no group and no tier: each is one item, and the first
 # three are held as CURRENCIES rather than in the item list.
 NAMED_MATERIALS = {
-    2000001: ("Units", "currency_unit.png"),
+    2000001: ("Unit", "currency_unit.png"),
     2100001: ("Universal Tactical Certificate", "currency_combatant_ascend_public.png"), # Equivalent to Common Manual of any class (Combatant Promotion material)
     2100002: ("Universal Support Certificate", "currency_supporter_ascend_public.png"),  # Equivalent to Common Certificate of any class (Partner Promotion material)
     2100003: ("Potential Disk", "currency_ego_tree_public.png"),                         # Equivalent to Common Growth Stone of any Element (Potential leveling material)
@@ -506,7 +506,7 @@ RECORDED_NAMES = {
     2000024: "Prism Film",
     2000031: "Policy Point",
     2000032: "Crystal of Discord",
-    2000048: "Daily Chaos Delegation",
+    2000048: "Command Delegation Module",
     3000005: "Chaos Orb",
     3000008: "Tactical Data",
     3000009: "Tactical Manual Processor",
@@ -737,7 +737,7 @@ TIER_RARITY = {
 
 # The items with no tier for the table above to read, by name.
 NAME_RARITY = {
-    "Units": "Common",
+    "Unit": "Common",
     "Universal Tactical Certificate": "Legendary",
     "Universal Support Certificate": "Legendary",
     "Potential Disk": "Legendary",

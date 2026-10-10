@@ -57,7 +57,7 @@ A rarity that no table prices costs a whole family its plates at once, and the o
 | `items_id_known_not_in_materials.tsv` | identified, and the program does nothing with it — **the worklist** |
 | `items_id_unknown.tsv` | not identified, not even by the game client; where it came from and what it reads, for diffing against the next capture |
 
-The last two share their hand-added columns (`Name`, `Type`, `Name Candidate`, …), so a row crosses between them by gaining or losing its `Name` without anything being retyped. **The script owns the leftmost columns and nothing else** — everything typed to the right of them is read back and rewritten untouched, and it refuses to write at all if the header has moved under it. A blank `Name` takes the game client's (`docs/client_data.md`), and a typed one that differs from it is printed.
+Each file's last column, `Explanation`, is the maintainer's own note on what the item is. The last two share their hand-added columns (`Name`, `Type`, `Note`, `Explanation`), so a row crosses between them by gaining or losing its `Name` without anything being retyped. **The script owns the leftmost columns and nothing else** — everything typed to the right of them is read back and rewritten untouched, and it refuses to write at all if the header has moved under it. A blank `Name` takes the game client's (`docs/client_data.md`), and a typed one that differs from it is printed.
 
 An id counts as "known" to the program only when an ITEM table names it. **`RECORDED_NAMES` is not one of those tables** — it is a plain id→name map, kept out of `ITEM_TABLES` because those items have no art and no established rarity. `RECORDED_ONLY` is its key set, and that is what keeps its ids on the worklist rather than promoting them.
 

@@ -541,11 +541,11 @@ PARTNERS = {
         "grade": 5,
         "class": "Striker",
         "passive_name": "Starshine-piercing Lighthouse",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nThe assigned combatant's attack cards with a cost of 2 or more deal +{Cost2DMG%}% damage.\nIncrease Damage Amount of Pulverize cards of the assigned Combatant by {PulverizeDMG%}%.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{Cost2DMG%}% Damage Amount to base 2-Cost or higher Attack Cards of the assigned Combatant.\nIncrease Damage Amount of the assigned Combatant's Pulverize cards by {PulverizeDMG%}%.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
-            "Cost2DMG%": (25, 32, 38, 44, 50),
-            "PulverizeDMG%": (10, 13, 15, 18, 20),
+            "Cost2DMG%": (30, 38, 45, 53, 60),
+            "PulverizeDMG%": (20, 25, 30, 35, 40),
         },
         "stats": {
           "ATK%": (16, 18, 20, 22, 24),
@@ -577,17 +577,17 @@ PARTNERS = {
         "grade": 5,
         "class": "Hunter",
         "passive_name": "Understanding and Ideas",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{CritCost1%}% Critical Chance of the assigned combatant's attack cards costing 1 or less.\nWhen the assigned combatant uses 5 Bullet cards, generate a random Handgun Bullet card. Increase Damage Amount of the created card by {HandgunDMG%}%.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{CritCost1%}% Critical Chance to 1-Cost or lower Attack Cards of the assigned Combatant.\nWhen the assigned Combatant activates 5 Bullet cards, create a random Handgun Bullet card. Increase Damage Amount of the created card by {HandgunDMG%}%.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
-            "CritCost1%": (9, 11, 13, 16, 18),     # EST
+            "CritCost1%": (9, 12, 14, 16, 18),
             "HandgunDMG%": (50, 88, 125, 163, 200), # EST
         },
         "stats": {
             "ATK%": (16, 18, 20, 22, 24),
         },
         "stats_conditional": {
-            "CRate": (9, 11, 13, 16, 18),  # EST  # Only Attack Cards with Cost 1 or less
+            "CRate": (9, 12, 14, 16, 18),  # Only Attack Cards with Cost 1 or less
         },
         "ego_name": "Ultimate Missile Turret!",
         "ego_cost": 3,
@@ -706,11 +706,11 @@ PARTNERS = {
         "grade": 5,
         "class": "Striker",
         "passive_name": "Gleaming Deduction",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen an Attack Card of the assigned Combatant is Drawn through that Combatant's ability, +{DrawnDMG%}% Damage Amount for 1 turn.\nIncreases Damage Amount of the assigned Combatant's cards that have Inspiration by {InspireDMG%}%.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen an Attack Card of the assigned Combatant is Drawn through that Combatant's ability, +{DrawnDMG%}% Damage Amount to that card for 1 turn.\nIncrease Damage Amount of the assigned Combatant's cards that have Inspiration by {InspireDMG%}%.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "DrawnDMG%": (25, 32, 38, 44, 50),
-            "InspireDMG%": (10, 13, 15, 18, 20),
+            "InspireDMG%": (20, 25, 30, 35, 40),
         },
         "stats": {
           "ATK%": (16, 18, 20, 22, 24),
@@ -724,11 +724,11 @@ PARTNERS = {
         "grade": 5,
         "class": "Psionic",
         "passive_name": "Tranquil Marker",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nEvery time the assigned Combatant's cards stack, increases Damage Amount of Attack Cards by {StackDMG%}%. Can stack up to 3 times.\nEvery time 1 Attack Card used by the assigned Combatant deals 3 Hits, inflicts {FixedDMG%}% Fixed Damage to the target.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nEach time the assigned Combatant's cards stack, increase Damage Amount of Attack Cards by {StackDMG%}%. Can stack up to 3 times.\nEach time the assigned Combatant Hits 2 times with 1 Attack Card, inflict {FixedDMG%}% Fixed Damage on the target.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "StackDMG%": (5, 7, 8, 9, 10),
-            "FixedDMG%": (30, 38, 45, 53, 60),
+            "FixedDMG%": (60, 75, 90, 105, 120),
         },
         "stats": {
             "ATK%": (16, 18, 20, 22, 24),

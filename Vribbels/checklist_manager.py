@@ -167,11 +167,11 @@ DEFAULTS = {
     'town_shop_goods_003': False,        # Research Notes
     'town_shop_goods_007': False,        # Exquisite Slice of Cake
     'town_shop_goods_008': False,        # Sweet Choconilla
-    'town_shop_goods_009': False,        # Units x4000
+    'town_shop_goods_009': False,        # Unit x4000
     'town_shop_goods_011': False,        # Advanced Battle Memory x5
     'town_shop_goods_012': False,        # Advanced Support Data x5
     'gacha_duplicate_legend_10': False,  # Particles of Memory
-    'gacha_duplicate_legend_11': False,  # Units x15000
+    'gacha_duplicate_legend_11': False,  # Unit x15000
     'gacha_duplicate_legend_13': False,  # Exquisite Slice of Cake
     'gacha_duplicate_legend_14': False,  # Sweet Choconilla
     'gacha_duplicate_legend_3': False,   # Great Growth Stone of Passion

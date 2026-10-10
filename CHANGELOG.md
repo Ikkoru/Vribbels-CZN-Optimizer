@@ -25,7 +25,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Orlea's Attribute is Instinct.
   - Westmacott's Ego costs 2. Rachel's Ego is `Hamburger Delivery, Sir!` and Scarlet's passive is `Noose of Mastery`.
   - Partner passives and Ego names use the game's wording, and Bria and Marianne have their real ids.
-  - Item names: Heartbeat Perfume, Tactical Manual Processor, the Void Growth Stones, Perfect Taxidermy and Petite Anis (which were swapped), and the Summer Event Illustration and Prism Module items.
+  - Partner passive figures: Janet's Critical Chance on 1-Cost cards, Westmacott's Inspiration damage, Asteria's 2-Cost and Pulverize damage, and Itsuku's Fixed Damage, which triggers on 2 hits.
+  - Item names: Unit, Command Delegation Module, Heartbeat Perfume, Tactical Manual Processor, the Void Growth Stones, Perfect Taxidermy and Petite Anis (which were swapped), and the Summer Event Illustration and Prism Module items.
 
 ## [2.4.0] - UI Scales, Order Mode
 

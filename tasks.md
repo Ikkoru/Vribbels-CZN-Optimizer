@@ -179,7 +179,8 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
     - The Galactic Disaster challenge missions are not in the client, and keep the wire's reading.
     - Settle the story-map Node Lists' final reward first (`docs/client_data.md`, *What it was held against*).
   - **The audit's reach**: sets and Potential are not in it.
-  - **What the audit lists**, with the maintainer: Haru's level-60 stats; the passive figures of Janet, Westmacott, Asteria and Itsuku, which differ from the client's.
+  - **What the audit lists**, with the maintainer: Haru's level-60 stats.
+  - **When the Galactic Disaster season's next part opens**: read the seasonal currency's name and id off its first capture. The item worklist's `Type` and `Note` on 3000009 describe Memory of Light, which the client puts at 3000006.
 
 - **T3 — Richer main-stat forcing for slots IV/V/VI** (UserA). Main-stat forcing is four Force HP/Ego checkboxes. The design question is which options, and in what form: per-slot checklists, dropdowns, or curated rules.
 
