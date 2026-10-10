@@ -48,7 +48,7 @@ FINISHED = {"season_id": "disaster_s04", "define_id": "disaster_s04_rank_01",
 
 def _stage(n, score):
     """One of the Full-Scale Offensive's three stages, as a board row."""
-    return {"user_id": 300001105178, "define_id": "remnants_boss_penalty_005",
+    return {"user_id": 300001234567, "define_id": "remnants_boss_penalty_005",
             "list_id": "remnants_boss_s05_%02d" % n, "best_score": score,
             "star_count": 3, "deployed_heroes": [1056]}
 

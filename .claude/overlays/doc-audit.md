@@ -7,7 +7,7 @@ What the kit's `craft:doc-audit` needs to know about this repository; the skill 
 - **Prose**: `docs/`, `.claude/**/*.md` and `CLAUDE.md`; in `CHANGELOG.md`, only the unreleased section, since narrating change is what the file is for and released sections are edited only to fix them.
 - **Docstrings and comments**: `Vribbels/` and `checks/`. The false positives below were all found in code.
 - **Archive, exempt from every sweep**: `past_plans/`. Its dates and `[IMPLEMENTED]` tags are the record.
-- **Published**: this repository (`origin` is public on GitHub), so the privacy sweep runs first.
+- **Published**: this repository (`origin` is public on GitHub), so the privacy sweep runs first. Its own pattern beside the skill's: the game account's id, a captured payload's `user_id`, which sample JSON in a check or a doc carries.
 
 ## The repository's own checks
 

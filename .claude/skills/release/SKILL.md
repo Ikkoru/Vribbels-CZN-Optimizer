@@ -13,12 +13,12 @@ The conventions are in `docs/repo_conventions.md`; this is the procedure and the
 
 ## Order
 
-Run the doc audit first (`doc-audit` skill) — it moves facts between files, and doing it after the CHANGELOG pass means auditing prose you have just rewritten.
+Run the doc audit first (`/craft:doc-audit`, which reads `.claude/overlays/doc-audit.md`) — it moves facts between files, and doing it after the CHANGELOG pass means auditing prose you have just rewritten.
 
 1. Commit whatever is uncommitted before touching anything.
 2. Read the maintainer's edits to the last release, and ask what they leave unclear — see below. Asking first lets the answers arrive while the audit runs.
 3. Chaos runs — the season estimate's shipped Chaos figures, and whether what a run pays has moved. See below.
-4. Doc audit. At minimum, the sweeps.
+4. Doc audit, `/craft:doc-audit`. At minimum, the sweeps.
 5. CHANGELOG pass — accuracy, then register.
 6. `version.py` — the version, `RELEASED_ON` (today, UTC) and `RELEASED_IN` (the Galactic Disaster season live today) — and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list. The two `RELEASED_` lines are what tell a player's program how stale its shipped Chaos figures have grown (`chaos_estimate.staleness`), so they move with every release, even one that measured nothing.
 7. `.old/RELEASE_NOTES_<X.Y.Z>.md` — a different document, see below.
@@ -106,5 +106,5 @@ Write what survives tab first; a panel can come later. Every section groups its 
 ## Related
 
 - `docs/repo_conventions.md` — the CHANGELOG and release-notes rules this follows.
-- `.claude/skills/doc-audit/SKILL.md` — step 4.
+- `.claude/overlays/doc-audit.md` — what the kit's `craft:doc-audit` needs to know about this repo; step 4.
 - `docs/chaos_runs.py` — step 3.

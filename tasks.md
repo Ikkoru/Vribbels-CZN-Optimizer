@@ -170,16 +170,16 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   When one ships: `Vribbels/build_tcl/prepare_tcl_data.py`'s `libtcl9*` globs already match a 9.1 library, and `checks/run_all.py` at both scales is the first test.
 
-- **T19 — More from the game client.** Event names and Excursion type counts are read at launch (`docs/client_data.md`, *What the program reads at launch*). Both halves are decided: the app reads what changes every patch, the maintainer tool the tables whose every change wants reviewing. Left:
+- **T19 — More from the game client.** Event and item names and Excursion type counts are read at launch (`docs/client_data.md`, *What the program reads at launch*). The app reads what changes every patch; the maintainer tool, `docs/client_tables.py --audit`, holds the tables whose every change wants reviewing. Left:
 
-  - **The app**: item names and event reward totals, read the way event names are, the shipped copy carrying both.
-    - A total from the client comes first, and the wire's chain (`docs/events.md`, *The sources for a total*) stays as the fallback for an event the client does not hold: one a patch adds while the archive cannot be read, as an encrypted one could not. The grid, pages issued whole, the write-downs, the floor, the completion flag and the `Finished?` box all work off the wire alone.
-    - The recording goes: a family's past instalments are in the client, the shipped copy included, so the totals and finals kept in `checklist.json` and the shared facts' instalment totals and final rewards are replaced by the client's, and the family rule reads those.
+  - **Event reward totals in the app**, read the way the names are, the shipped copy carrying them. Waits on the maintainer's go-ahead.
+    - A total from the client comes first. The wire's chain (`docs/events.md`, *The sources for a total*) stays as the fallback for an event the client does not hold, such as one a patch adds while the archive cannot be read.
+    - The fallback works off the wire alone: the grid, pages issued whole, the write-downs, the floor, the completion flag and the `Finished?` box.
+    - The recording goes. A family's past instalments are in the client, the shipped copy included, so the client's totals and finals replace the ones kept in `checklist.json` and the shared facts, and the family rule reads those.
     - The Galactic Disaster challenge missions are not in the client, and keep the wire's reading.
     - Settle the story-map Node Lists' final reward first (`docs/client_data.md`, *What it was held against*).
-  - **Item names** from the client replace the hand-kept names the Capture Log and the Materials tab fall back on, and the item TSVs' worklist (`docs/items_id_dump.py`).
-  - **The tool**: `docs/client_tables.py --audit` holds `game_data`'s combatants and partners to the client. Sets and Potential are not in it.
-  - **Settle what `--audit` lists**, with the maintainer: Haru's level-60 stats (every other combatant agrees), Orlea's attribute, partners' Ego names and costs, passive names and figures, and the four partners `game_data/partners.py` lacks.
+  - **The audit's reach**: sets and Potential are not in it.
+  - **What the audit lists**, with the maintainer: Haru's level-60 stats; the passive figures of Janet, Westmacott, Asteria and Itsuku, which differ from the client's.
 
 - **T3 — Richer main-stat forcing for slots IV/V/VI** (UserA). Main-stat forcing is four Force HP/Ego checkboxes. The design question is which options, and in what form: per-slot checklists, dropdowns, or curated rules.
 

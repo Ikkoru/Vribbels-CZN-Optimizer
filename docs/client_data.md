@@ -10,7 +10,13 @@ The program finds an install through STOVE's uninstall entry (`Stove App STOVE_C
 
 ## What the program reads at launch
 
-What changes every patch and the server never sends: each event's name, for the Checklist's Events block; every item's name, for the Capture Log and the Checklist's shops; and how many Excursion types each combatant has, for the Combatants tab. The first source that knows an id wins:
+What changes every patch and the server never sends:
+
+- each event's name, for the Checklist's Events block;
+- every item's name, for the Capture Log and the Checklist's shops;
+- how many Excursion types each combatant has, for the Combatants tab.
+
+The first source that knows an id wins:
 
 1. what this machine's client says, saved to `settings/game_client.json` with the install and build it was read at, so the client is read again only after a patch;
 2. `Vribbels/game_data/from_client.py`, the same reading as of the build the program shipped with: `python docs/client_tables.py --ship` after a patch, before a release, and review the diff;
@@ -53,8 +59,11 @@ A table's name below is its archived name without its `db` folder and `.db` endi
 
 The derivations above were checked against what the program already knows, and they agree except where marked:
 
-- **Combatants and partners**: `python docs/client_tables.py --audit` lists every field of `game_data`'s combatants and partners that disagrees with the client, and the ones either side lacks. Combatant stats at 60, derived as the table above says, reproduce `game_data.characters` for every combatant but Haru, which is what vouches for the derivation. A partner's passive is compared by the figures in its text at each level, so a difference of a lone 1 or 2 is usually wording, a turn or stack count one side spells out; the rest are the maintainer's to settle, since the hand-typed figure can be the newer.
-- **Event totals**: `event_bartender_1` reads 24 missions and a final reward, and the summer event 10 puzzle and 15 story rewards. Those are the totals worked out from the wire and the game's own screens, and so are the seven-day story events', the policy, stock and arena events', the check-ins' and the later Node Lists'. **The three story-map Node Lists differ by one**: the client gives `event_nodelist_001`, `003` and `004` 15, 16 and 19 mission rows and a final reward besides, where the captures held 15, 16 and 19 rewards in all, the final among them. A capture of the next one settles which.
+- **Combatants, partners and item names**: `python docs/client_tables.py --audit` lists every field of `game_data`'s that disagrees with the client, and the units either side lacks. The disagreements are the maintainer's to settle, since the hand-typed figure can be the newer.
+  - Combatant stats at 60, derived as the table above says, reproduce `game_data.characters` for every combatant but Haru, which is what vouches for the derivation.
+  - A partner's passive is compared by the figures in its text at each level, read as the game draws it (`client_tables.passage`): a keyword's marker carries a level number, which is not one of the figures.
+- **Event totals**: `event_bartender_1` reads 24 missions and a final reward, and the summer event 10 puzzle and 15 story rewards. The seven-day story events, the policy, stock and arena events, the check-ins and the later Node Lists agree with what the wire and the game's own screens gave too.
+- **The three story-map Node Lists differ by one**: the client gives `event_nodelist_001`, `003` and `004` 15, 16 and 19 mission rows and a final reward besides, where the captures held 15, 16 and 19 rewards in all, the final among them. A capture of the next one settles which.
 - **Galactic Disaster challenge missions** (`event_chaos_mission_*`) are not in the client's event tables at all: only their schedules are.
 
 ## What a patch can break

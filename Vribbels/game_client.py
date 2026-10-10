@@ -11,8 +11,8 @@ writes inside the install.
 **Read once per game build.** What is read goes to `CACHE_FILE` in the
 settings folder, keyed by the build the client's manifest states, so
 the launch after a patch reads the client again and every other launch
-reads the cache. A read takes about a second, and runs on a worker
-(`OptimizerGUI._start_client_read`).
+reads the cache. A read decompresses and decrypts the whole English
+text table, so it runs on a worker (`OptimizerGUI._start_client_read`).
 
 **Three sources, the first that knows an id winning**: what this
 machine's client says, then `game_data/from_client.py` -- the same

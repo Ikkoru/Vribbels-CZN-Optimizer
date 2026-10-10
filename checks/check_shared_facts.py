@@ -27,7 +27,7 @@ from ._harness import SOURCE_ROOT, add_source_to_path, note
 
 NAME = "shared game facts carry nothing about an account"
 
-USER_ID = 300001105178
+USER_ID = 300001234567
 # The account's own standing, planted beside the facts. None of these
 # may appear in anything `collect` returns.
 OWN_RANK, OWN_SCORE = 987654, 1115731

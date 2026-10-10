@@ -243,7 +243,7 @@ def run():
 
     # --- the Full-Scale Offensive, a season per Offensive ------------------
     def stage(n, score):
-        return {"user_id": 300001105178, "list_id": "remnants_boss_s05_%02d" % n,
+        return {"user_id": 300001234567, "list_id": "remnants_boss_s05_%02d" % n,
                 "define_id": "remnants_boss_penalty_005",
                 "best_score": score, "star_count": 3}
     login = {"res": "ok", "service_server_time": 1790000000,

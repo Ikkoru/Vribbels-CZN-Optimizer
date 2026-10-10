@@ -177,7 +177,7 @@ DEFAULTS = {
     'gacha_duplicate_legend_3': False,   # Great Growth Stone of Passion
     'gacha_duplicate_legend_4': False,   # Great Growth Stone of Order
     'gacha_duplicate_legend_5': False,   # Great Growth Stone of Instinct
-    'gacha_duplicate_legend_6': False,   # Great Growth Stone of Void
+    'gacha_duplicate_legend_6': False,   # Great Growth Stone of the Void
     'gacha_duplicate_legend_7': False,   # Great Growth Stone of Justice
     'gacha_duplicate_legend_8': False,   # Advanced Battle Memory x2
     'gacha_duplicate_legend_9': False,   # Advanced Support Data x2
