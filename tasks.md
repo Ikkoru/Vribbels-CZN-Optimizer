@@ -195,11 +195,11 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   When one ships: `Vribbels/build_tcl/prepare_tcl_data.py`'s `libtcl9*` globs already match a 9.1 library, and `checks/run_all.py` at both scales is the first test.
 
-- **T19 — Event display names.** The wire carries none: the client holds a localisation table and the server never sends it. So the Events block shows ids (`event_schedule_devil_001`). Three ways out, and no decision:
+- **T19 — Names and tables from the game client.** The wire names nothing, so the Events block shows ids (`event_schedule_devil_001`). The client holds the names, and everything else asked for: `docs/client_tables.py` reads its archive and tables, read-only and with nothing outside Python's standard library, and `docs/client_data.md` maps where each fact is and what a patch can break. Open:
 
-  - extract the table from the client;
-  - hand-write one in the code, the way `RECORDED_NAMES` names items (one line per event as it appears);
-  - leave the ids, which are stable and sit next to the deadline the row is really about.
+  - **Where it runs.** A maintainer tool that refreshes the shipped tables each patch; the app reading the installed client at launch, so a patch's events and items are named the day it lands and today's ids stand in where the read fails; or both: the app for what changes every patch (event names, item names, event totals), the tool for the tables whose every change wants reviewing (combatants, partners, sets, Potential).
+  - **Haru's level-60 stats** disagree between the client and `game_data.characters`; every other combatant agrees. A capture of Haru at level 60 settles which is wrong.
+  - **"Battle items"**: whether that means Equipment, which the client files as relics.
 
 - **T3 — Richer main-stat forcing for slots IV/V/VI** (UserA). Main-stat forcing is four Force HP/Ego checkboxes. The design question is which options, and in what form: per-slot checklists, dropdowns, or curated rules.
 
