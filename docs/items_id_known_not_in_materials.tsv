@@ -23,7 +23,7 @@ res_id	where	amount	Name	Type	Note
 2000048	currencies	0	Daily Chaos Delegation	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation
 3000005	items	45451	Chaos Orb	Zero System Currency	Worthless
 3000008	items	600	Tactical Data	Sortie Currency	
-3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Reset when a Galactic Disaster ends
+3000009	items	0	Tactical Manual Processor	Zero System Currency - Seasonal	Reset when a Galactic Disaster ends
 3200001	items	3765	Particles of Memory	Crafting Material for Memory Fragments	
 3200002	items	59	Core of Memory	Crafting Material for Memory Fragments	
 3210001	items	9238	Traces of Memory	Crafting Material for Memory Fragments	
@@ -39,7 +39,7 @@ res_id	where	amount	Name	Type	Note
 3300009	items	3	Hidden Card	Gift Item	Legendary
 3300010	items	3	Strange Decoration	Gift Item	Rare
 3300011	items	9	Carefully Handwritten Letter	Gift Item	Legendary
-3300012	items	5	Heartbeat Purfume	Gift Item	Common
+3300012	items	5	Heartbeat Perfume	Gift Item	Common
 3300013	items	59	Cute Rabbit Doll	Gift Item	Common
 3300014	items	4	Nightmare-Repelling Dreamcatcher	Gift Item	Legendary
 3300015	items	4	Legendary Combat Manual	Gift Item	Legendary
@@ -71,7 +71,7 @@ res_id	where	amount	Name	Type	Note
 3930004	items	13	Core of Mutation	Save Data Edit	
 4010001	items	1	Summer Event Illustration Item (1st)		Summer 2026 Hilde - Main Screen Background candidate
 4010002	items	1	Summer Event Illustration Item (2nd)		Summer 2026 Arabella - Main Screen Background candidate
-4010003	items	1	Summer 2026 Olga	Main Screen Background	
+4010003	items	1	Summer Event Illustration Item (3rd)	Main Screen Background	Summer 2026 Olga
 4020001	items	16	Midsummer Night Memories	Event Exclusive Item	Check if this is reused in various events. In PROVISIONAL_NAMES, so the Capture Log draws the name red
 4100000	items	0	Chaos Selection Chest		
 4100005	items	0	Half-Anniversary Card [Combatants]		
@@ -110,7 +110,7 @@ res_id	where	amount	Name	Type	Note
 5201017	items	0	Prism Module - Amir		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201021	items	0	Prism Module - Lucas		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201024	items	0	Prism Module - Orlea		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
-5201028	items	0	Animated Card Unlock - Maribell	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201028	items	0	Prism Module - Maribell	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201033	items	0	Prism Module - Veronica		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201039	items	0	Prism Module - Mika		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201040	items	0	Prism Module - Beryl		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
@@ -130,7 +130,7 @@ res_id	where	amount	Name	Type	Note
 5201080	items	0	Prism Module - Tenebria		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201081	items	0	Prism Module - Hilde		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201082	items	0	Prism Module - Arabella		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
-5201083	items	0	Animated Card Unlock Item - Olga	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it (this one is char 30117)
+5201083	items	0	Prism Module - Olga	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it (this one is char 30117)
 5210000			Prism Module - Nominate	Animated Card Unlock Item - 4*	Seen only in shop_res_data (card_factor_4, 200 Prism Lens, 3/month); the account has never held one, which is why no dump listed it
 5210001	items	1	Prism Module - Masterpiece	Animated Card Unlock Item - 5*	
 9100012	items	1	Forbidden Purple		
@@ -233,7 +233,7 @@ res_id	where	amount	Name	Type	Note
 9300258	items	1	Universal Prism		Galactic Medal or Sticker candidate
 9300259	items	1	Glorious Allegory	Galactic Medal	
 9300260	items	1	Greed Without Consequence		Galactic Medal or Sticker candidate
-9300261	items	1	Petite Anis	Sticker	or Perfect Taxidermy - Galactic Medal
+9300261	items	1	Perfect Taxidermy	Galactic Medal	
 9300262	items	1	Desire’s Guiding Light		Galactic Medal or Sticker candidate
 9300263	items	1	Condensed World		Galactic Medal or Sticker candidate
 9300264	items	1	Unknown Ecosystem		Galactic Medal or Sticker candidate
@@ -243,7 +243,7 @@ res_id	where	amount	Name	Type	Note
 9300268	items	1	Black Panther Ears		Galactic Medal or Sticker candidate
 9300269	items	1	Scythe of Rapacity		Galactic Medal or Sticker candidate
 9300270	items	1	Emilie's Sword		Galactic Medal or Sticker candidate
-9300271	items	1	Perfect Taxidermy	Galactic Medal	or Petite Anis Sticker
+9300271	items	1	Petite Anis	Sticker	
 9300273	items	1	Aavarck [Diamond]		Galactic Medal or Sticker candidate
 9300278	items	1	Aavarck [Black]		Galactic Medal or Sticker candidate
 9300279	items	1	Aavarck [Prism]		Galactic Medal or Sticker candidate

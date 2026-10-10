@@ -26,7 +26,7 @@ The optimizer consumes ONLY the keys in that module docstring's vocabulary table
 - Conditional / stacking effects go in `stats_conditional`, scored at full encoded value and invisible to the Have-at-least gate and the Potential 7 rows.
 - `# this` markers flag uncaptured stat effects.
 - `# EST` marks interpolated values.
-- Negative res_id keys are TODO placeholders.
+- Negative res_id keys are TODO placeholders, for a unit whose res_id is not yet known (*Finding a newly released unit's res_id*).
 
 ## `sets.py` stat vocabulary is exact-match too
 
@@ -108,7 +108,9 @@ A plain reading wins over a worked-out one. A Sortie settles nothing: the week's
 
 ## Finding a newly released unit's res_id
 
-A capture is ownership-scoped, so a unit you do not have appears nowhere — hence the negative placeholder keys. Two exceptions:
+**The game client names every unit by res_id** (`char_base@name@<res_id>`), owned or not, and `python docs/client_tables.py --audit` lists each one the tables lack (`docs/client_data.md`). That is the first place to look; what follows is what the wire alone offers.
+
+A capture is ownership-scoped, so a unit you do not have appears nowhere on the wire — hence the negative placeholder keys. Two exceptions:
 
 **The gacha schedule.** Each pickup banner is named `gacha_pickup_<combatant|supporter>_<res_id>[_<rerun>]`, a server-side definition indifferent to what the account owns. Banners come in Combatant/Supporter pairs sharing a window, so a release names both halves the day it opens. A capture records the schedule under `event_schedules.GACHA` and logs `Banner ... names res_id N, which is not in game_data` for anything the tables cannot place. See `capture_pipeline.md`, *The gacha schedule names unreleased units*.
 

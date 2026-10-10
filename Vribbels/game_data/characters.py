@@ -337,7 +337,7 @@ CHARACTERS = {
     1024: {
         "name": "Orlea",
         "grade": 5,
-        "attribute": "Justice",
+        "attribute": "Instinct",
         "class": "Controller",
         "base_atk": 419,
         "base_def": 197,

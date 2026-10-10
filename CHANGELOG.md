@@ -21,6 +21,11 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Fixed
 
 - A settings file that can't be read is repaired at launch, keeping everything in it that still reads, or set aside for the defaults, instead of being saved over. A message names each one and where its original was kept.
+- Game data corrected against the game client:
+  - Orlea's Attribute is Instinct.
+  - Westmacott's Ego costs 2. Rachel's Ego is `Hamburger Delivery, Sir!` and Scarlet's passive is `Noose of Mastery`.
+  - Partner passives and Ego names use the game's wording, and Bria and Marianne have their real ids.
+  - Item names: Heartbeat Perfume, Tactical Manual Processor, the Void Growth Stones, Perfect Taxidermy and Petite Anis (which were swapped), and the Summer Event Illustration and Prism Module items.
 
 ## [2.4.0] - UI Scales, Order Mode
 

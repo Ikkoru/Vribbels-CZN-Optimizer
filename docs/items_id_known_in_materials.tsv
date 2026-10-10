@@ -22,9 +22,9 @@ res_id	family	group	tier	rarity	name	icon	amount	where
 3120011	Growth Stone	Instinct	Common	Common	Common Growth Stone of Instinct	icon_item_card_levelup_instinct_1.png	0	items
 3120012	Growth Stone	Instinct	Great	Rare	Great Growth Stone of Instinct	icon_item_card_levelup_instinct_2.png	154	items
 3120013	Growth Stone	Instinct	Premium	Legendary	Premium Growth Stone of Instinct	icon_item_card_levelup_instinct_3.png	193	items
-3120021	Growth Stone	Void	Common	Common	Common Growth Stone of Void	icon_item_card_levelup_creed_1.png	0	items
-3120022	Growth Stone	Void	Great	Rare	Great Growth Stone of Void	icon_item_card_levelup_creed_2.png	213	items
-3120023	Growth Stone	Void	Premium	Legendary	Premium Growth Stone of Void	icon_item_card_levelup_creed_3.png	160	items
+3120021	Growth Stone	Void	Common	Common	Common Growth Stone of the Void	icon_item_card_levelup_creed_1.png	0	items
+3120022	Growth Stone	Void	Great	Rare	Great Growth Stone of the Void	icon_item_card_levelup_creed_2.png	213	items
+3120023	Growth Stone	Void	Premium	Legendary	Premium Growth Stone of the Void	icon_item_card_levelup_creed_3.png	160	items
 3120031	Growth Stone	Order	Common	Common	Common Growth Stone of Order	icon_item_card_levelup_norms_1.png	0	items
 3120032	Growth Stone	Order	Great	Rare	Great Growth Stone of Order	icon_item_card_levelup_norms_2.png	232	items
 3120033	Growth Stone	Order	Premium	Legendary	Premium Growth Stone of Order	icon_item_card_levelup_norms_3.png	186	items

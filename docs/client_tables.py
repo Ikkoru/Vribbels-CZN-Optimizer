@@ -100,6 +100,9 @@ PROMOTIONS = 5
 STATS = (("base_atk", "s_atk", "S_ATK"), ("base_def", "s_def", "S_DEF"),
          ("base_hp", "s_hp", "S_HP"))
 NUMBER = re.compile(r"\d+(?:\.\d+)?")
+BREAK = re.compile(r"<br\s*/?>", re.I)
+MARKUP = re.compile(r"<[^>]*>")
+KEYWORD = re.compile(r"\$([^$#]*)(?:#\d*)?\$")
 PASSIVE_TEXT = re.compile(r"partner_passive@description@(\d+)_c\d+_lv(\d+)")
 
 
@@ -123,9 +126,20 @@ def _plain(value):
         else value
 
 
+def passage(text):
+    """A passage of the client's as the game draws it: `<br>` as a new
+    line, colour tags taken out, and a keyword's marker `$Name#level$`
+    down to its name -- the level in it is not one of the figures."""
+    text = BREAK.sub("\n", text or "")
+    text = MARKUP.sub("", text)
+    text = KEYWORD.sub(r"\1", text)
+    text = text.replace(chr(0x2019), "'")
+    return "\n".join(" ".join(line.split()) for line in text.split("\n"))
+
+
 def _numbers(text):
     """The figures in a passage, markup aside, as sorted floats."""
-    return sorted(float(n) for n in NUMBER.findall(game_client.clean(text)))
+    return sorted(float(n) for n in NUMBER.findall(passage(text)))
 
 
 def _figures(numbers):

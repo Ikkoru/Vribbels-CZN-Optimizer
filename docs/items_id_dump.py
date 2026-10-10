@@ -59,7 +59,7 @@ import period_items                         # noqa: E402
 from game_data.constants import (            # noqa: E402
     COMBATANT_PROMOTION, EXP_MATERIALS, GROWTH_STONES, NAMED_MATERIALS,
     PARTNER_PROMOTION, PERIOD_ITEMS, RECORDED_NAMES, RECORDED_ONLY,
-    item_art,
+    growth_stone_name, item_art,
 )
 
 OUT = Path(__file__).resolve().parent
@@ -430,7 +430,7 @@ def _shared_tail(first, second, owned):
 def _shaped_name(family, group, tier):
     """What the game calls one shaped row, from its family and tier."""
     if family == "Growth Stone":
-        return f"{tier} Growth Stone of {group}"
+        return growth_stone_name(group, tier)
     if family == "EXP material":
         return f"{tier} {'Battle Memory' if group == 'Combatant' else 'Support Data'}"
     return f"{tier} {group} {'Manual' if 'Manual' in family else 'Certificate'}"

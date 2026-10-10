@@ -509,7 +509,7 @@ RECORDED_NAMES = {
     2000048: "Daily Chaos Delegation",
     3000005: "Chaos Orb",
     3000008: "Tactical Data",
-    3000009: "Memory of Light",
+    3000009: "Tactical Manual Processor",
     3200001: "Particles of Memory",
     3200002: "Core of Memory",
     3210001: "Traces of Memory",
@@ -525,7 +525,7 @@ RECORDED_NAMES = {
     3300011: "Carefully Handwritten Letter",
     3300009: "Hidden Card",
     3300010: "Strange Decoration",
-    3300012: "Heartbeat Purfume",
+    3300012: "Heartbeat Perfume",
     3300013: "Cute Rabbit Doll",
     3300014: "Nightmare-Repelling Dreamcatcher",
     3300015: "Legendary Combat Manual",
@@ -549,24 +549,25 @@ RECORDED_NAMES = {
     3920031: "Enrapturing Crystal",
     3930003: "Core of Resonance",
     3930004: "Core of Mutation",
-    # Paid once, for finishing a summer event's last puzzle.
-    4010003: "Summer 2026 Olga",
-    # One per combatant; `purchase_card_animation` names the rest.
+    # Paid once, for finishing a summer event's last puzzle: the 2026
+    # summer event's Olga illustration.
+    4010003: "Summer Event Illustration Item (3rd)",
     4020001: "Midsummer Night Memories",
-    5201028: "Animated Card Unlock - Maribell",
-    5201083: "Animated Card Unlock Item - Olga",
+    # One per combatant, each unlocking its animated card;
+    # `purchase_card_animation` names the rest.
+    5201028: "Prism Module - Maribell",
+    5201083: "Prism Module - Olga",
     5110001: "Omega Code",
     5210000: "Prism Module - Nominate",
     5210001: "Prism Module - Masterpiece",
     # Season 4's: a save-data background and a Galactic Medal sharing
-    # the season's name, and two whose names may be each other's -- the
-    # item tables keep the doubt.
+    # the season's name, and a medal and a sticker.
     9210049: "Shattered Light and Claw",
     9210051: "Memories of the Beach Café Festival",
     9300254: "Shattered Light and Claw",
     9300259: "Glorious Allegory",
-    9300261: "Petite Anis",
-    9300271: "Perfect Taxidermy",
+    9300261: "Perfect Taxidermy",
+    9300271: "Petite Anis",
     # Stickers, named by the maintainer in the item worklist.
     9300122: "Forbidden Catalyst Yuki",
     9300291: "Full-Scale Offensive Sticker",
@@ -610,6 +611,17 @@ PROVISIONAL_NAMES = frozenset({
 })
 
 
+# How the game writes an Element after "Growth Stone of", where it is
+# not the Element's bare name.
+STONE_ELEMENT_WORDS = {"Void": "the Void"}
+
+
+def growth_stone_name(element, tier):
+    """A growth stone's name, as the game spells it: `Great Growth Stone
+    of Passion`, `Great Growth Stone of the Void`."""
+    return f"{tier} Growth Stone of {STONE_ELEMENT_WORDS.get(element, element)}"
+
+
 def item_names():
     """{res_id: display name} for every item this build can name.
 
@@ -631,7 +643,7 @@ def item_names():
     names = game_client.known_item_names()
     names.update({rid: row[0] for rid, row in NAMED_MATERIALS.items()})
     names.update({rid: row[0] for rid, row in PERIOD_ITEMS.items()})
-    names.update({rid: f"{row[1]} Growth Stone of {row[0]}"
+    names.update({rid: growth_stone_name(row[0], row[1])
                   for rid, row in GROWTH_STONES.items()})
     names.update({rid: f"{row[1]} {row[0]} Manual"
                   for rid, row in COMBATANT_PROMOTION.items()})

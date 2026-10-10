@@ -134,7 +134,7 @@ PARTNERS = {
         "grade": 3,
         "class": "Striker",
         "passive_name": "Guard",
-        "passive_desc": "The assigned combatant's Attack is increased by {ATK%}%.\nAt the start of battle, Damage dealt by the assigned combatant increases by {DMG%}% for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nAt the start of battle, Damage dealt by the assigned combatant increases by {DMG%}% for 1 turn.",
         "values": {
             "ATK%": (8, 10, 12, 14, 16),
             "DMG%": (8, 10, 12, 14, 16),
@@ -151,7 +151,7 @@ PARTNERS = {
         "grade": 3,
         "class": "Ranger",
         "passive_name": "Hot-Blooded Soldier",
-        "passive_desc": "The assigned combatant's Attack is increased by {ATK%}%.\nWhen an ally defeats an enemy, gain 1 [Backline Support].\n[Backline Support]: {DMG%}% Damage of 1 attack card. Upon activation, Backline Support is reduced by 1 (up to 3 stacks).",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen an ally defeats an enemy, gain [Rear Support].\n[Rear Support]: +{DMG%}% Damage Amount to Attack Cards\nOn effect activation, decrease Rear Support by 1 (max 3 stacks).",
         "values": {
             "ATK%": (8, 10, 12, 14, 16),
             "DMG%": (10, 13, 15, 18, 20),
@@ -168,7 +168,7 @@ PARTNERS = {
         "grade": 3,
         "class": "Vanguard",
         "passive_name": "Strategic Analysis",
-        "passive_desc": "The combatant's max Health increases by {HP%}%.\nIf the combatant is in Counterattack state, their Defense-Based Damage increases by {DEFDAM%}%.",
+        "passive_desc": "Increase the assigned Combatant's Health by {HP%}%.\nIf the assigned Combatant is in a Counterattack state, increase Defense-Based Damage Amount by {DEFDAM%}%.",
         "values": {
             "HP%": (8, 10, 12, 14, 16),
             "DEFDAM%": (8, 10, 12, 14, 16),
@@ -185,7 +185,7 @@ PARTNERS = {
         "grade": 3,
         "class": "Hunter",
         "passive_name": "Cantrip",
-        "passive_desc": "The assigned combatant's Attack is increased by {ATK%}%.\nUpon the first shuffle, the assigned Combatant's damage dealt is increased by {DMG%}%.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nUpon the first shuffle, the assigned combatant's damage dealt is increased by {DMG%}%.",
         "values": {
             "ATK%": (8, 10, 12, 14, 16),
             "DMG%": (8, 10, 12, 14, 16)
@@ -193,7 +193,7 @@ PARTNERS = {
         "stats": {
           "ATK%": (8, 10, 12, 14, 16),
         },
-        "ego_name": "Drone Deployment",
+        "ego_name": "Drone Deployment!",
         "ego_cost": 3,
         "ego_desc": "Draw 2",
     },
@@ -202,7 +202,7 @@ PARTNERS = {
         "grade": 3,
         "class": "Controller",
         "passive_name": "Bless",
-        "passive_desc": "The assigned combatant's Defense is increased by {DEF%}%.\nIf the combatant ends the turn without using an attack card, Heal {heal%}% at the start of the next turn.",
+        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nWhen the assigned Combatant does not activate an Attack Card by the end of the turn, Heal {heal%}% to recover Health at the start of the next turn.",
         "values": {
             "DEF%": (8, 10, 12, 14, 16),
             "heal%": (30, 38, 45, 53, 60),
@@ -219,7 +219,7 @@ PARTNERS = {
         "grade": 3,
         "class": "Psionic",
         "passive_name": "Fortune Telling",
-        "passive_desc": "The assigned combatant's Attack is increased by {ATK%}%.\nWhen Injured, at the end of battle, recover {skill}% Health.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIf below 30% Health at the end of battle, recover {skill}% Health.",
         "values": {
             "ATK%": (8, 10, 12, 14, 16),
             "skill": (4, 5, 6, 7, 8),
@@ -236,7 +236,7 @@ PARTNERS = {
         "grade": 4,
         "class": "Hunter",
         "passive_name": "Self Defense",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nThe damage of the combatant's Bullet cards increases by {BulletDMG%}%.\nWhen the combatant lands their first critical hit, Bullet card damage increases by {BulletDMG2%}% for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of the assigned Combatant's Bullet cards by {BulletDMG%}%.\nWhen a Critical Hit is inflicted by the assigned Combatant for the first time, increase Damage Amount of Bullet cards by {BulletDMG2%}% for 1 turn.",
         "values": {
             "ATK%": (8, 10, 12, 14, 16),
             "BulletDMG%": (10, 13, 15, 18, 20),
@@ -254,7 +254,7 @@ PARTNERS = {
         "grade": 4,
         "class": "Controller",
         "passive_name": "Alchemical Fruits",
-        "passive_desc": "The assigned combatant's Defense is increased by {DEF%}%.\nAt the end of battle, recover {heal}% Health.",
+        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nAt the end of battle, Recover {heal}% Health.",
         "values": {
             "DEF%": (12, 15, 18, 21, 24),
             "heal": (3, 3.8, 4.5, 5.3, 6),
@@ -271,7 +271,7 @@ PARTNERS = {
         "grade": 4,
         "class": "Controller",
         "passive_name": "Starshine Intellect",
-        "passive_desc": "The assigned combatant's HP and healing are increased by {HP%}%.\nAt the start of the turn, gain [Ponopoko's Cheer] equal to the number of enemies with attack intentions.\n[Ponopoko's Cheer]: Incoming Damage is reduced by {DR%}%. Upon activation, remove Ponopoko's Cheer (stacks up to 3 times).",
+        "passive_desc": "Increase the assigned Combatant's Health and Heal Amount by {HP%}%.\nAt the start of the turn, gain [Ponopoko's Cheer] for each enemy with an Anticipated Action in a Attack state.\n[Ponopoko's Cheer]: -{DR%}% Damage Amount taken\nOn effect activation, remove Ponopoko's Cheer (max 3 stacks)",
         "values": {
             "HP%": (8, 9, 10, 11, 12),
             "DR%": (10, 13, 15, 18, 20),
@@ -279,7 +279,7 @@ PARTNERS = {
         "stats": {
           "HP%": (8, 9, 10, 11, 12),
         },
-        "ego_name": "Pokopo Ponpon!",
+        "ego_name": "Pokopo ponpon!",
         "ego_cost": 3,
         "ego_desc": "Heal 200%. Apply 1 Damage Reduction.",
     },
@@ -288,7 +288,7 @@ PARTNERS = {
         "grade": 4,
         "class": "Hunter",
         "passive_name": "Super Carrot Power!",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nAt the start of the turn, the damage of 1 attack card increases by {cardATK%}% for the combatant.\nWhen the combatant generates a card for the first time, their attack card damage increases by {cardATK%2}% for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nAt the start of the turn, increase Damage Amount of 1 Attack Card of the assigned Combatant by {cardATK%}%.\nWhen the assigned Combatant creates a card for the first time, increase Damage Amount of Attack Cards by {cardATK%2}% for 1 turn.",
         "values": {
             "ATK%": (8, 10, 12, 14, 16),
             "cardATK%": (10, 13, 15, 18, 20),
@@ -306,7 +306,7 @@ PARTNERS = {
         "grade": 4,
         "class": "Ranger",
         "passive_name": "Dowsing",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of the assigned Combatant's Extra Attacks by {Extra DMG%}%.\nWhen the assigned combatant Draws for the first time each turn using an ability, there is a {MChance%}% chance to gain 1 Morale for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of the assigned Combatant's Extra Attacks by {Extra DMG%}%.\nWhen the assigned Combatant Draws for the first time each turn using an ability, has a {MChance%}% chance to gain 1 Morale for 1 turn.",
         "values": {
             "ATK%": (8, 10, 12, 14, 16),
             "Extra DMG%": (10, 13, 15, 18, 20),
@@ -324,7 +324,7 @@ PARTNERS = {
         "grade": 4,
         "class": "Psionic",
         "passive_name": "Technical Support",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nThe combatant's attack card damage increases by {atkcard%}%.\nWhen the combatant first Exhausts a card or first gains a Status Ailment card, their attack card damage increases by {atkcard%2}% for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of the assigned Combatant's Attack Cards by {atkcard%}%.\nThe first time the assigned Combatant either Exhausts a card or gains a Status Ailment card (includes cards that have been changed from Status Ailment cards), increases Damage Amount of Attack Cards by {atkcard%2}% for 1 turn.",
         "values": {
             "ATK%": (8, 10, 12, 14, 16),
             "atkcard%": (10, 13, 15, 18, 20),
@@ -342,7 +342,7 @@ PARTNERS = {
         "grade": 4,
         "class": "Striker",
         "passive_name": "Poltergeist",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nThe assigned combatant's attack cards with a cost of 1 or less deal {atkDAM%}% damage.\nWhen the assigned combatant uses a Skill card, {atkDAM%2}% attack card damage for 1 turn. Stacks up to 3 times.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{atkDAM%}% Damage Amount to 1-Cost or lower Attack Cards of the assigned Combatant.\nWhen a Skill Card of the assigned Combatant is activated, +{atkDAM%2}% Damage Amount to Attack Cards for 1 turn. Stacks up to 3 times.",
         "values": {
             "ATK%": (8, 10, 12, 14, 16),
             "atkDAM%": (10, 13, 15, 18, 20),
@@ -367,7 +367,7 @@ PARTNERS = {
         },
         "stats": {
         },
-        "ego_name": "Colonel Hamburger!",
+        "ego_name": "Hamburger Delivery, Sir!",
         "ego_cost": 2,
         "ego_desc": "Gain 100% Shield. Draw 1 Card.",
     },
@@ -376,7 +376,7 @@ PARTNERS = {
         "grade": 4,
         "class": "Striker",
         "passive_name": "Construction Support",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nThe assigned Combatant's attack cards with a cost of 2 or more deal +{Cost2DMG%}% damage.\nAt the start of the turn, 1 of the assigned Combatant's attack cards gains +{CostScaleDMG%}% damage for every point of the total cost of attack cards.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{Cost2DMG%}% Damage Amount to 2-Cost or higher Attack Cards of the assigned Combatant.\nAt the start of the turn, 1 of the assigned Combatant's attack cards gains +{CostScaleDMG%}% damage for every point of the total cost of attack cards.",
         "values": {
             "ATK%": (8, 10, 12, 14, 16),
             "Cost2DMG%": (10, 13, 15, 18, 20),
@@ -394,7 +394,7 @@ PARTNERS = {
         "grade": 4,
         "class": "Ranger",
         "passive_name": "Financial Support",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of the assigned Combatant's Extra Attacks by {Extra DMG}%.\nWhen the assigned combatant uses an Upgrade or Skill card, {MChance%}% chance to gain 1 Morale for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of the assigned Combatant's Extra Attacks by {Extra DMG}%.\nWhen the assigned Combatant activates an Upgrade or Skill Card, has a {MChance%}% chance to gain 1 Morale for 1 turn.",
         "values": {
             "ATK%": (8, 10, 12, 14, 16),
             "Extra DMG": (10, 13, 15, 18, 20),
@@ -403,7 +403,7 @@ PARTNERS = {
         "stats": {
             "ATK%": (8, 10, 12, 14, 16),
         },
-        "ego_name": "Security Team, Requesting Support!",
+        "ego_name": "Security team, requesting support!",
         "ego_cost": 2,
         "ego_desc": "Draw 1 Enhanced Card(s).\nIf there are no Enhance Cards in the Draw Pile, Draw 1 Card.",
     },
@@ -412,7 +412,7 @@ PARTNERS = {
         "grade": 4,
         "class": "Vanguard",
         "passive_name": "Battle Command",
-        "passive_desc": "The assigned combatant's Defense is increased by {DEF%}%.\nWhen the assigned combatant targets a Vulnerable enemy, {DEFDAM%}% Defense-based Damage of Attack cards.",
+        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\n+{DEFDAM%}% Defense-Based Damage Amount to the assigned Combatant's Attack Cards against targets in a Vulnerable state.",
         "values": {
             "DEF%": (12, 15, 18, 21, 24),
             "DEFDAM%": (10, 13, 15, 18, 20),
@@ -447,7 +447,7 @@ PARTNERS = {
         "grade": 4.5,
         "class": "Vanguard",
         "passive_name": "Arcane Wave",
-        "passive_desc": "Increase the assigned Combatant's Defense, Health, and Shield Gain Amount by {DEFHPSHLD%}%.\nWhen the assigned Combatant gains Counterattack for the first time, +{Counter%}%.",
+        "passive_desc": "Increase the assigned Combatant's Defense, Health, and Shield Gain Amount by {DEFHPSHLD%}%.\nWhen the assigned Combatant gains Counterattack for the first time, +{Counter%}% Defense-Based Damage Amount.",
         "values": {
             "DEFHPSHLD%": (12, 14, 16, 18, 20),
             "Counter%": (15, 19, 23, 27, 30),
@@ -465,7 +465,7 @@ PARTNERS = {
         "grade": 4.5,
         "class": "Controller",
         "passive_name": "Resonance",
-        "passive_desc": "Increase the assigned Combatant's Defense, Health, and Heal Amount by {DEFHPHEAL%}%.\nWhen the assigned combatant Draws for the first time each turn using an ability, {DMG%}% Damage dealt by allies for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Defense, Health, and Heal Amount by {DEFHPHEAL%}%.\nWhen the assigned combatant Draws for the first time each turn using an ability, +{DMG%}% Damage dealt by allies for 1 turn.",
         "values": {
             "DEFHPHEAL%": (12, 14, 16, 18, 20),
             "DMG%": (8, 10, 12, 14, 16),
@@ -483,7 +483,7 @@ PARTNERS = {
         "grade": 4.5,
         "class": "Striker",
         "passive_name": "Arachnid Domain",
-        "passive_desc": "Increase the assigned Combatant's Attack, Health, and Damage Amount by {ATKHPDMG%}%.\n+{RavagedDMG%}% Damage dealt by the assigned Combatant to targets in a Ravaged state.",
+        "passive_desc": "Increase the assigned Combatant's Attack, Health, and Damage Amount by {ATKHPDMG%}%.\n+{RavagedDMG%}% Damage Amount dealt by the assigned Combatant to targets in a Ravage state.",
         "values": {
             "ATKHPDMG%": (12, 14, 16, 18, 20),
             "RavagedDMG%": (25, 32, 38, 44, 50),
@@ -501,7 +501,7 @@ PARTNERS = {
         "grade": 4.5,
         "class": "Hunter",
         "passive_name": "Ensemble",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nThe Critical Chance of the combatant's attack cards increases by {CRate%}%.\nWhen the assigned combatant's attack results in a Critical Hit, +{CDmg%}% Critical Damage. Stacks up to 5 times.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{CRate%}% Critical Chance to the assigned Combatant's Attack Cards.\n+{CDmg%}% Critical Damage when the assigned Combatant's Attack Card inflicts a Critical Hit. Can stack up to 5 times.",
         "values": {
             "ATK%": (12, 14, 16, 18, 20),
             "CRate%": (8, 10, 12, 14, 16),
@@ -523,7 +523,7 @@ PARTNERS = {
         "grade": 4.5,
         "class": "Ranger",
         "passive_name": "Spacetime Warp",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{ExtraDMG%}% Damage Amount to Extra Attacks dealt by the assigned combatant.\nWhen the assigned combatant Draws for the first time each turn using an ability, +{CardDMG%}% Attack Card Damage for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\n+{ExtraDMG%}% Damage Amount to Extra Attacks dealt by the assigned Combatant.\nWhen the assigned combatant Draws for the first time each turn through an ability, +{CardDMG%}% Damage Amount to Attack Cards for 1 turn.",
         "values": {
             "ATK%": (12, 14, 16, 18, 20),
             "ExtraDMG%": (20, 25, 30, 35, 40),
@@ -559,7 +559,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Vanguard",
         "passive_name": "No Speeding!",
-        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nThe assigned combatant's Counterattack damage increases by {CounterDMG%}%.\nWhen the assigned Combatant uses a Skill or Upgrade Card, there is a {CounterChance%}% chance to gain Counterattack.",
+        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nIncrease Damage Amount of the assigned Combatant's Counterattacks by {CounterDMG%}%.\nWhen the assigned Combatant activates a Skill or Upgrade Card, has a {CounterChance%}% chance to gain Counterattack.",
         "values": {
             "DEF%": (16, 18, 20, 22, 24),
             "CounterDMG%": (15, 19, 23, 27, 30),
@@ -598,7 +598,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Hunter",
         "passive_name": "Analyze Weakness",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIf there are 10 or more cards in the Graveyard, the assigned combatant's attack card damage is increased by {GraveDMG%}%.\nWhen a card is discarded for the first time by the assigned Combatant each turn, +{DiscardDMG%}% Damage Amount to Attack Cards for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen 10 or more cards are in the Graveyard, increase Damage Amount of the assigned Combatant's Attack Cards by {GraveDMG%}%.\nWhen a card is Discarded for the first time by the assigned Combatant each turn, +{DiscardDMG%}% Damage Amount to Attack Cards for 1 turn.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "GraveDMG%": (15, 19, 23, 27, 30),
@@ -616,7 +616,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Ranger",
         "passive_name": "Raging Wave",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of Extra Attacks of cards created by the assigned Combatant's abilities by {ExtraDMG%}%.\nWhen a Skill Card is used for the first time by the assigned Combatant each turn, +{SkillExtra%}% Damage Amount to Extra Attacks for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of Extra Attacks of cards created by the assigned Combatant's abilities by {ExtraDMG%}%.\nWhen the assigned Combatant activates a Skill Card for the first time each turn, +{SkillExtra%}% Damage Amount to Extra Attacks for 1 turn.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "ExtraDMG%": (15, 19, 23, 27, 30),
@@ -634,7 +634,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Controller",
         "passive_name": "Hymn of Blessing",
-        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nIncrease Damage, Shield Gain, and Heal Amounts of the assigned Combatant's Retain Cards by {RetainBonus%}%.\nAt the end of the turn, deal Fixed Damage to all enemies equal to {FixedDMG%}% for each retained card of the assigned combatant. +5% Damage for enemies with the Instinct attribute.",
+        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nIncrease Damage, Shield Gain, and Heal Amounts of the assigned Combatant's Retain cards by {RetainBonus%}%.\nAt the end of the turn, deal Fixed Damage to all enemies equal to {FixedDMG%}% for each retained card of the assigned combatant. +5% Damage for enemies with the Instinct attribute.",
         "values": {
             "DEF%": (16, 18, 20, 22, 24),
             "RetainBonus%": (15, 19, 23, 27, 30),
@@ -651,8 +651,8 @@ PARTNERS = {
         "name": "Scarlet",
         "grade": 5,
         "class": "Striker",
-        "passive_name": "The Path to Mastery",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIf the assigned Combatant's card was used just before, +{ChainDMG%}% Damage Amount to Attack Cards. Can stack up to 2 times and is removed when a different Combatant's card is used.\nGain Focus each time 2 of the assigned Combatant's cards are used.\nFocus: Increase Damage Amount of the assigned Combatant's Attack Cards by {FocusDMG%}%.\nWhen the effect is activated, decrease Focus by 1, and when another Combatant's card is used, remove Focus.",
+        "passive_name": "Noose of Mastery",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIf the assigned Combatant's card was activated just before, +{ChainDMG%}% Damage Amount to Attack Cards. Can stack up to 2 times and is removed when a different Combatant's card is activated.\nEach time 2 of the assigned Combatant's cards are activated, gain Focus.\nFocus: Increase Damage Amount of the assigned Combatant's Attack Cards by {FocusDMG%}%\nOn effect activation, decrease Focus by 1, and when another Combatant's card is activated, remove Focus",
         "values": {
             "ATK%":      (16, 18, 20, 22, 24),
             "ChainDMG%": (15, 19, 23, 27, 30),
@@ -688,7 +688,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Vanguard",
         "passive_name": "Deadly Poison",
-        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nThe Defense-Based Damage of the assigned combatant's Instinct cards is increased by {InstDMG%}%.\nThe assigned Combatant's Defense-Based Damage and Shield Amount for the Celestial card becomes +{CelestialBonus%}%.",
+        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nIncrease Defense-Based Damage Amount of the assigned Combatant's Instinct Cards by {InstDMG%}%.\n+{CelestialBonus%}% Defense-Based Damage and Shield Gain Amounts to the assigned Combatant's Celestial cards",
         "values": {
             "DEF%": (16, 18, 20, 22, 24),
             "InstDMG%": (15, 19, 23, 27, 30),
@@ -716,7 +716,7 @@ PARTNERS = {
           "ATK%": (16, 18, 20, 22, 24),
         },
         "ego_name": "Clue Spotted",
-        "ego_cost": 3,
+        "ego_cost": 2,
         "ego_desc": "Move 1 card from hand to Draw Pile. Draw 2 assigned Combatant cards.",
     },
     30046: {
@@ -742,7 +742,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Hunter",
         "passive_name": "Peko's Multi-Purpose Kit",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen the assigned Combatant's card Moves from the Graveyard to hand, gain 1 Repairs Complete!.\nRepairs Complete!: +{RepairsDMG%}% Damage Amount to the assigned Combatant's Attack Cards (max 1 stack).\n+{RavagedDMG%}% when used against targets in a Ravage state.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen the assigned Combatant's card moves from Graveyard to hand, gain 1 Repairs Complete!.\nRepairs Complete!: +{RepairsDMG%}% Damage Amount to the assigned Combatant's Attack Cards (max 1 stack)\nIncrease Damage Amount of the assigned Combatant's Attack Cards by {RavagedDMG%}% when used against targets in a Ravage state.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "RepairsDMG%": (40, 50, 60, 70, 80),   # EST past the first
@@ -760,7 +760,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Controller",
         "passive_name": "Snow Upon the Heart",
-        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\n+{DEFDAM%}% Defense-Based Damage Amount to the assigned Combatant's Instinct cards.\nWhen using a Unique Attack Card of the assigned Combatant with an original Cost of 6, +{DMG%}% to Damage Amount of all allies (max 1).",
+        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\n+{DEFDAM%}% Defense-Based Damage Amount to the assigned Combatant's Instinct Cards.\nWhen a base 6-Cost Unique Attack Card of the assigned Combatant is activated, +{DMG%}% Damage Amount to allies (cannot stack).",
         "values": {
             "DEF%": (16, 18, 20, 22, 24),
             "DEFDAM%": (20, 25, 30, 35, 40),
@@ -778,7 +778,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Vanguard",
         "passive_name": "You're Quite High Maintenance",
-        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nWhen an Exhaust card of the assigned Combatant is Exhausted or activated, increase Defense-Based Damage Amount of the next Attack Card used by {DEFDAM%}% (max 1-stack).\nWhen a 2-Cost or higher card of the assigned Combatant is Exhausted, gain {FixedShield%}% Fixed Shield (1 time per turn).",
+        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nWhen an Exhaust card of the assigned Combatant is Exhausted or activated, increase Defense-Based Damage Amount of the next Attack Card activated by {DEFDAM%}% (cannot stack).\nWhen a 2-Cost or higher card of the assigned Combatant is Exhausted, gain {FixedShield%}% Fixed Shield (1 time per turn).",
         "values": {
             "DEF%": (16, 18, 20, 22, 24),
             "DEFDAM%": (20, 25, 30, 35, 40),
@@ -796,7 +796,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Controller",
         "passive_name": "Star in the Darkness",
-        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nWhen the assigned Combatant creates 3 Exhaust cards, increase allies’ next Attack Card Damage Amount by {DMG%}% (max 2 stacks)\nWhen the assigned Combatant has activated Shield gain and Heal through Order Cards, +{CRITRATE%}% Critical Chance of allies for 1 turn. (max 1 stack)",
+        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nWhen the assigned Combatant creates 3 Exhaust cards, increase Damage Amount of the next Attack Card of allies activated by {DMG%}% (max 2stacks).\nWhen the assigned Combatant has activated both Shield Gain and Heal through Order Cards, +{CRITRATE%}% Critical Chance to allies for 1 turn (cannot stack).",
         "values": {
             "DEF%": (16, 18, 20, 22, 24),
             "DMG%": (15, 19, 23, 27, 30),
@@ -817,7 +817,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Psionic",
         "passive_name": "All of Me",
-        "passive_desc": "Increase the assigned Combatant’s Attack by {ATK%}%.\nWhen a 2-Cost or higher Justice Attribute Attack Card of the assigned Combatant is used, increase Damage Amount of the assigned Combatant’s next Attack Card used by {2COSTDMG%}%.\nIf a 2-, 3-, or 4-Cost Attack Card of the assigned Combatant is used, gain 1 [Imply]. (max 1 time each)\n[Imply]: Increase Damage Amount of the assigned Combatant by {IMPLY%}% (max 3 stacks).",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen a 2-Cost or higher Justice-Attribute Attack Card of the assigned Combatant is activated, increase Damage Amount of the assigned Combatant's next Attack Card activated by {2COSTDMG%}%.\nIf a 2-, 3-, or 4-Cost Attack Card of the assigned Combatant is activated, gain 1 Premonition (max 1 time each).\nPremonition: Increase the assigned Combatant's Damage Amount by {IMPLY%}% (max 3 stacks)",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "2COSTDMG%": (25, 32, 38, 44, 50),
@@ -835,7 +835,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Hunter",
         "passive_name": "Milky Way Chorus",
-        "passive_desc": "Increase the assigned Combatant’s Attack by {ATK%}%.\nWhen a Passion Quietus card of the assigned Combatant is Discarded, +{CDMG%}% Critical Damage (max 4 stacks).\nWhen 3 Bullet cards are Discarded, {EXTRADMG%}% Extra Attack by the assigned Combatant to a random enemy (2 times per turn)",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen a Passion Quietus card of the assigned Combatant is Discarded, +{CDMG%}% Critical Damage (max 4 stacks).\nWhen 3 Bullet cards are Discarded, the assigned Combatant performs a {EXTRADMG%}% Extra Attack on a random enemy (2 times per turn).",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "CDMG%": (5, 7, 8, 9, 10),
@@ -856,7 +856,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Ranger",
         "passive_name": "Auroric Wingbeats",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nEach time the assigned Combatant's Linked cards are used manually or Discarded, gain  1 [Zephyr].\nWhen [Zephyr] reaches 3, +{CDMG%}% Critical Damage to assigned Combatant.\n[Zephyr]: +{ZEPHYRDMG%}% Damage Amount to assigned Combatant's Passion Attack Cards (max 3 stacks)",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nEach time the assigned Combatant's Linked cards are used or Discarded, gain 1 Zephyr.\nWhen Zephyr reaches 3 stacks, +{CDMG%}% Critical Damage to the assigned Combatant.\nZephyr: +{ZEPHYRDMG%}% Damage Amount to the assigned Combatant's Passion Attack Cards (max 3 stacks)",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "CDMG%": (20, 25, 30, 35, 40),
@@ -878,7 +878,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Vanguard",
         "passive_name": "Dreamwoven Prism",
-        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nWhen a card with the Blessing effect applied by the assigned Combatant is used, Fixed Heal {HEAL%}% (5 times per turn).\nWhen the assigned Combatant's Blessing card is used, allies gain 1 Prism.\nPrism: Increase Damage Amount of Attack Cards and Shield Gain Amount of Skill Cards by {PRISMDMG%}% (max 4 stacks)",
+        "passive_desc": "Increase the assigned Combatant's Defense by {DEF%}%.\nWhen a card with the Blessing effect applied by the assigned Combatant is activated, Fixed Heal {HEAL%}% (5 times per turn).\nWhen the assigned Combatant's Blessing card is activated, allies gain 1 Prism.\nPrism: Increase Damage Amount of Attack Cards and Shield Gain Amount of Skill Cards by {PRISMDMG%}% (max 4 stacks)",
         "values": {
             "DEF%": (16, 18, 20, 22, 24),
             "HEAL%": (40, 45, 50, 55, 60),
@@ -918,10 +918,11 @@ PARTNERS = {
         "grade": 5,
         "class": "Ranger",
         "passive_name": "A Pleasant Aroma Lingers",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nEach time the assigned Combatant creates a Void Attribute Attack Card in the Draw Pile, gain 1 Gentle Aroma.\nWhen Gentle Aroma stacks to 5, +{CDMG%}% Critical Damage to assigned Combatant.\nGentle Aroma: +5-10% Damage Amount to the assigned Combatant (max 5 stacks)",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nEach time the assigned Combatant creates a Void-Attribute Attack Card in Draw Pile, gain 1 Gentle Aroma.\nWhen Gentle Aroma reaches 5 stacks, +{CDMG%}% Critical Damage to the assigned Combatant.\nGentle Aroma: +{AromaDMG%}% Damage Amount to the assigned Combatant (max 5 stacks)",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "CDMG%": (20, 25, 30, 35, 40),
+            "AromaDMG%": (5, 7, 8, 9, 10),
         },
         "stats": {
             "ATK%": (16, 18, 20, 22, 24),
@@ -938,7 +939,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Ranger",
         "passive_name": "Battlefield Saturation Doctrine",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen an Instinct-Attribute Attack Card is created in the Draw Pile by the assigned Combatant, increase Damage Amount of the Extra Attack of that card by {CreatedExtraDMG%}% until used.\nIf that card is an Unusable card, gain 1 Preparing Live Rounds.\nPreparing Live Rounds: +{Crit%}% Critical Chance to the assigned Combatant (max 1 stack)",
+        "passive_desc": "Increase Attack of the assigned Combatant by {ATK%}%.\nWhen the assigned Combatant creates an Instinct-Attribute Attack Card in Draw Pile, increase Damage Amount of the Extra Attack of that card by {CreatedExtraDMG%}% until activated.\nIf that card is an Unusable card, gain 1 Preparing Live Rounds.\nPreparing Live Rounds: +{Crit%}% Critical Chance to the assigned Combatant (cannot stack)",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "CreatedExtraDMG%": (40, 50, 60, 70, 80),
@@ -959,7 +960,7 @@ PARTNERS = {
         "grade": 5,
         "class": "Striker",
         "passive_name": "Poison-Laced Atonement",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen Fracture is applied through an ability of the assigned Combatant, +{PostFracCrit%}% to Critical Chance. (cannot stack)\nWhen Fracture is activated through an ability of the assigned Combatant, inflict 1 Virutoxin on the target. Virutoxin: Increase Damage Amount taken from the assigned Combatant by {PostFracProcDMG%}% (max 4 stacks)",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen Fracture is applied through an ability of the assigned Combatant, +{PostFracCrit%}% to Critical Chance (cannot stack).\nWhen Fracture is activated through an ability of the assigned Combatant, inflict 1 Virutoxin on the target.\nVirutoxin: Increase Damage Amount taken from the assigned Combatant by {PostFracProcDMG%}% (max 4 stacks)",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "PostFracCrit%": (10, 13, 15, 18, 20),
@@ -996,15 +997,12 @@ PARTNERS = {
         "ego_cost": 2,
         "ego_desc": "300% Damage\n2 Sensory Deprivation\n\nSensory Deprivation: Increase Damage Amount taken from the assigned Combatant's DoT effects by 20%\nAt the end of the turn, decrease Sensory Deprivation by 1",
     },
-    # TODO: replace key with real res_id when known. The duplicate shop
-    # names this one by its selector item, 4500012, and no message maps
-    # that item to a res_id -- see docs/game_data_files.md.
-    -2: {
+    20021: {
         "name": "Bria",
         "grade": 5,
         "class": "Psionic",
         "passive_name": "Check the instructions",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen the assigned Combatant creates a card, gain Risk Factor Report.\nRisk Factor Report: Increase Damage Amount of the assigned Combatant's Attack Cards by {RiskReportDMG%}% for 1 turn (max 3 stacks).\nWhen the assigned Combatant creates a Status Ailment card for the first time (includes cards that have been changed from Status Ailment cards), +{StatusDMG%}% Damage Amount to Attack Cards for 1 turn.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen the assigned Combatant creates a card, gain Risk Factor Report\nRisk Factor Report: Increase Damage Amount of the assigned Combatant's Attack Cards by {RiskReportDMG%}% for 1 turn (max 3 stacks)\nWhen the assigned Combatant creates a Status Ailment card for the first time (includes cards that have been changed from Status Ailment cards), +{StatusDMG%}% Damage Amount to Attack Cards for 1 turn.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "RiskReportDMG%": (10, 13, 15, 18, 20),
@@ -1017,15 +1015,12 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "Exhaust all Status Ailment Cards (including those that were originally Status Ailment) and Curse Cards from Discard Pile.\nIncrease Damage Amount of the assigned Combatant's Attack Cards by 10% for each card Exhausted for 1 turn.",
     },
-    # TODO: replace key with real res_id when known. The duplicate shop
-    # names this one by its selector item, 4500019, and no message maps
-    # that item to a res_id -- see docs/game_data_files.md.
-    -3: {
+    20037: {
         "name": "Marianne",
         "grade": 5,
         "class": "Striker",
         "passive_name": "Eyes on the Target",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount of the assigned Combatant when attacking Ravaged enemies by {RavagedDMG%}%.\nThe assigned combatant's Basic Cards always apply as Weak Point Damage, and +{WeakDMG%}% Weakness Damage.",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount dealt by the assigned Combatant to targets in a Ravage state by {RavagedDMG%}%.\nAlways apply the assigned Combatant's Basic Cards as Weakness Damage, and +{WeakDMG%}% Weakness Damage Amount",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "RavagedDMG%": (15, 19, 23, 27, 30),
