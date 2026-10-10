@@ -656,9 +656,9 @@ Then, from what was captured:
 * **A grid under-reads a Node List until its last index is issued.** `event_nodelist_007`'s grid came to 8 on its third day, where it held 25: the batch that makes it a grid spanned its pages but only two of its five indices. The family's history knows 25, but a grid is this instalment speaking and outranks the past, so the smaller number wins. Which should win when a grid and a history disagree is open.
 * **Rhythm games, the Disaster Marble, Trauma Codes and the collab coupon read nothing.** Their schedules share no word with their records (`ds_s3_event_rhythm_game` owns `event_rhythm_*`; `marble_s01` keeps its ladder in `marble_achievement_entities`), and each is one instalment on record, too few to pair by rule.
 * **Telling the launch login event from a streak one day behind.** Three ways have been ruled out and none is left — see *A streak has no stated length*, which also says what a next attempt would have to explain first.
-* **Event display names.** Every row shows an id, because the wire never sends a name — the client has them in a localisation table. The game's update notes (`page.onstove.com/chaoszeronightmare/en/list/142421`) name every event with its schedule, and usually its reward table, which is how the Node Lists' final reward was settled.
-
 Settled, and kept so they are not re-suggested:
+
+* **Event display names** are the game client's, since the wire never sends one: `docs/client_data.md`. The game's update notes (`page.onstove.com/chaoszeronightmare/en/list/142421`) name every event with its schedule, and usually its reward table, which is how the Node Lists' final reward was settled.
 
 * **The Completed Events tab is entirely client-side.** Captured: opening the event list screen after finishing several events sent NOT ONE request. The two login captures taken minutes apart, one of them with the screen opened, carry the same thirty-eight commands — the only difference is a `req_very_cheetah_cookie` keepalive. Whatever the client sorts in there, it decides from the records the login already gave it.
 

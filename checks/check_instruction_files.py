@@ -76,6 +76,8 @@ EXPECTED_ABSENT = {
     "config.json",             # a legacy file old versions left behind
     "perf_log.txt",            # written into `settings/` while perf
     "hang_traceback.txt",      # logging is on, and its hang watchdog
+    "game_client.json",        # what the game client was read to say,
+                               # written into `settings/` at launch
 }
 
 # Folders the PROGRAM writes, not the repo: a clone has neither, so a

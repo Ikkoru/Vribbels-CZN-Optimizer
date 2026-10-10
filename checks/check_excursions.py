@@ -76,34 +76,7 @@ def run():
             f"drawing a panel, where an exception is a blank tab."
         )
 
-    # **The denominator is PER COMBATANT and is not read off the
-    # board.** One combatant reaching index 8 says nothing about what
-    # anyone else can reach, and a board-wide maximum would put every
-    # other combatant against a denominator they cannot get to -- 34
-    # rows reading 7/8 for a total nobody has.
-    wide = {ex.BOARD_FIELD: [
-        {"res_id": 1, ex.INDEXES_FIELD: "[1,2,3]"},
-        {"res_id": 2, ex.INDEXES_FIELD: "[1,2,3,4,5,6,7,8]"},
-    ]}
-    counted = ex.counts(wide)
-    if ex.ceiling(counted[1]) != str(ex.VISIT_TYPES):
-        failures.append(
-            f"a combatant on 3 of the seven everyone has reads against "
-            f"{ex.ceiling(counted[1])}. Another combatant's extras must "
-            f"not move this one's denominator -- nothing in a snapshot "
-            f"states a maximum, so the seven is the only figure that "
-            f"applies to everybody."
-        )
-    for count, want in ((0, "7"), (7, "7"), (8, "10?"), (10, "10?"),
-                        (11, "11"), (12, "??"), (40, "??")):
-        if ex.ceiling(count) != want:
-            failures.append(
-                f"a count of {count} reads against {ex.ceiling(count)}, "
-                f"not {want}. The ceilings are BOUNDS, read top down, "
-                f"and a count past the last of them is a combatant the "
-                f"table does not describe -- which has to say so rather "
-                f"than pick the nearest number."
-            )
+    failures.extend(_totals(ex))
     if ex.experienced({}) != ex.VISIT_TYPES:
         failures.append("a snapshot with no board did not fall back to "
                         "VISIT_TYPES")
@@ -147,6 +120,35 @@ def run():
     failures.extend(_one_rank_row_is_merged())
 
     return failures
+
+
+def _totals(ex):
+    """**The denominator is PER COMBATANT and is not read off the
+    board.** It is the game client's count of the combatant's own
+    types: one combatant reaching index 8 says nothing about anyone
+    else, and a board-wide maximum would put every other combatant
+    against a total they cannot reach. Returns complaints."""
+    import game_client
+    from game_data import from_client
+    out = []
+    try:
+        game_client.use({"excursion_types": {"1": 7, "2": 11}})
+        for res_id, want in ((1, "7"), (2, "11"), (3, ex.UNKNOWN_TOTAL)):
+            if ex.total(res_id) != want:
+                out.append(
+                    f"combatant {res_id} reads against {ex.total(res_id)}, "
+                    f"not {want}. The total is the client's count of that "
+                    f"combatant's own types, and one nothing lists has to "
+                    f"say so rather than borrow a number.")
+        game_client.use(None)
+        res_id, count = next(iter(from_client.EXCURSION_TYPES.items()))
+        if ex.total(res_id) != str(count):
+            out.append(
+                f"with no client read, combatant {res_id} reads against "
+                f"{ex.total(res_id)}, not the shipped {count}.")
+    finally:
+        game_client.use(None)
+    return out
 
 
 def _one_rank_row_is_merged():

@@ -90,6 +90,7 @@ import chaos_estimate
 import chaos_store
 import checklist_manager
 import excursions
+import game_client
 import item_amounts
 import period_items
 import schedules
@@ -1277,13 +1278,40 @@ def _first_issued(missions, res_ids):
 
 
 def event_label(name):
-    """What an event row is called: its id without the common prefix.
+    """What an event row is called: the game's own name for it.
 
-    Every id starts `event_`, so the word says nothing and costs a
-    column's width. An id that does not is left alone.
+    Read off the game client (`game_client.event_name`), since the wire
+    names an event by its id alone. An event nothing names reads as its
+    id without the common prefix: every id starts `event_`, so the word
+    says nothing and costs a column's width.
     """
+    found = game_client.event_name(name)
+    if found:
+        return found
     return name[len(EVENT_ID_PREFIX):] if name.startswith(
         EVENT_ID_PREFIX) else name
+
+
+def cut_to_fit(font, name, room):
+    """`name` as drawn in `font` within `room` pixels: whole where it
+    fits, otherwise cut and marked with `CUT_MARK`.
+
+    The cut falls before the name's last `NAME_TAIL`, keeping what
+    follows it -- a trial's combatant, which is what tells two trials
+    apart -- unless that alone takes half the room.
+    """
+    if font.measure(name) <= room:
+        return name
+    head, tail = name, ""
+    if NAME_TAIL in name:
+        before, after = name.rsplit(NAME_TAIL, 1)
+        if font.measure(NAME_TAIL + after) * 2 <= room:
+            head, tail = before, NAME_TAIL + after
+    left = room - font.measure(CUT_MARK + tail)
+    words = head
+    while words and font.measure(words) > left:
+        words = words[:-1]
+    return words.rstrip(CUT_TRIM) + CUT_MARK + tail
 
 
 def _event_attendance(raw, name, window, now):
@@ -2039,9 +2067,9 @@ ITEM_NAMES = item_names()
 # What the Other column's trailing block of live events is headed, and
 # where its rows come from. **The wire names an event by its ID and
 # nothing else** -- `event_summer_01`, `event_schedule_policy_005` --
-# so that is what the rows read. A display name would have to come
-# from a localisation table the client already holds and the server
-# never sends.
+# so the names are the client's (`event_label`). The column is as wide
+# as its widest name, and `check_event_names` holds the widest the
+# game has used to the default window.
 EVENTS_HEADING = "Events"
 # `LOBBY_COUNTDOWN` is a login event of its own group, the Nightmare
 # Carnival's countdown check-in: its deadline only. Its days claim
@@ -2060,6 +2088,24 @@ EVENT_KEY_PREFIX = "event:"
 # key keeps the whole id -- that is what the readers look the event up
 # by -- so only the words on screen lose it.
 EVENT_ID_PREFIX = "event_"
+
+# As wide as an event's name may draw, written as text so it scales
+# with the face. A wider name is cut to fit, the whole of it in the
+# row's tooltip: the Other column is as wide as its widest row and the
+# grid cannot shrink it, so one long name would push the last column
+# off the window. `check_event_names` holds the widest name the client
+# has to the default window.
+EVENT_NAME_ROOM = "Virtual Tactical Simulation - Narja"
+# What ends the cut part of a name, as `SHORT_NAMES` marks a product's,
+# and what the cut part never ends on: a separator or a space before
+# the mark reads as a word missing. The last is an em dash.
+CUT_MARK = "..."
+CUT_TRIM = " -,.:;" + chr(0x2014)
+# What comes after a name's last separator is the particular part -- a
+# trial's combatant -- and a cut leaves it whole.
+NAME_TAIL = " - "
+# What a cut name's hover is tagged with, plus its row key.
+EVENT_TIP_PREFIX = "eventtip:"
 
 # An event's id and its missions' ids differ, but only in ways that can
 # be normalised away -- so the pairing is DERIVED rather than listed.
@@ -2818,6 +2864,9 @@ class ChecklistTab(BaseTab):
         # HOVER time rather than at bind time, so a tip put on a tag
         # when the column was built still says what the tab says now.
         self._shop_tips = {}
+        # event row key -> the whole name its row cuts short. See
+        # `EVENT_NAME_ROOM`.
+        self._event_tips = {}
         # {row key: (claimed, total, ticked)} for the event rows the
         # `Finished?` question is open on. See `_mark_finished`.
         self._finishable = {}
@@ -3027,8 +3076,8 @@ class ChecklistTab(BaseTab):
         seen = shop_stock.definitions(raw)
         if seen:
             self._definitions = seen
-        built = columns_for(raw, self._tracked, time.time(),
-                            self._definitions)
+        built = self._fit_event_names(columns_for(
+            raw, self._tracked, time.time(), self._definitions))
         for frame, (title, rows) in zip(self._column_frames, built):
             drawn = self._draw(rows, readings)
             if _same_rows(self._rendered.get(title), drawn):
@@ -3051,6 +3100,30 @@ class ChecklistTab(BaseTab):
             for child in outgoing:
                 child.destroy()
             show()
+
+    def _fit_event_names(self, built):
+        """`columns_for`'s columns, every event name too wide for its
+        row cut to fit, the whole names kept for the rows' tooltips.
+
+        Here rather than in `event_rows`, which runs where there is no
+        font to measure with. Everything after reads the cut rows, so
+        the column is sized for what it draws. See `EVENT_NAME_ROOM`.
+        """
+        font = tkfont.Font(font=ROW_FONT)
+        room = font.measure(EVENT_NAME_ROOM)
+        self._event_tips = {}
+        out = []
+        for title, rows in built:
+            fitted = []
+            for key, label, widest in rows:
+                if key.startswith(EVENT_KEY_PREFIX) and key != EVENT_KEY_PREFIX:
+                    cut = cut_to_fit(font, label, room)
+                    if cut != label:
+                        self._event_tips[key] = label
+                        label = cut
+                fitted.append((key, label, widest))
+            out.append((title, tuple(fitted)))
+        return out
 
     def _build_column(self, parent, title, rows):
         """One heading and the rows under it, BUILT BUT NOT SHOWN.
@@ -3237,6 +3310,14 @@ class ChecklistTab(BaseTab):
                 self._tips.bind_tag(
                     text, SHOP_TIP_PREFIX + key,
                     lambda k=key: self._shop_tips.get(k))
+        # A cut event name's whole, on the words alone. The block is
+        # rebuilt whenever a name is cut or stops being cut, the row's
+        # words having changed.
+        for key, _label, _w in rows:
+            if key in self._event_tips:
+                self._tips.bind_tag(
+                    text, EVENT_TIP_PREFIX + key,
+                    lambda k=key: self._event_tips.get(k))
         # Green is nothing left to do on that row, red is something
         # left. A row a snapshot cannot answer for takes neither.
         text.tag_configure(DONE, foreground=self.colors["green"])
@@ -3738,7 +3819,9 @@ class ChecklistTab(BaseTab):
             else:
                 text.insert(tk.END, label, line + label_tag
                             + ((SHOP_TIP_PREFIX + key,)
-                               if key.startswith(SHOP_HEAD_PREFIX) else ()))
+                               if key.startswith(SHOP_HEAD_PREFIX) else ())
+                            + ((EVENT_TIP_PREFIX + key,)
+                               if key in self._event_tips else ()))
             _insert_value(text, key, line, total, segments)
             # **The one question the program cannot answer**, at the
             # end of the row and at a stop of its own. Only where it

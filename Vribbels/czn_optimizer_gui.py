@@ -104,6 +104,7 @@ from models.memory_fragment import (compute_gs_bounds,
 from defaults_sync import resolve_defaults_dir, sync_defaults
 # Mends or sets aside a settings file that will not read. Must run
 # before the sync does.
+import game_client
 import settings_repair
 import shared_facts
 # The Upgrade Log Settings, as a decision rather than as widgets:
@@ -297,6 +298,7 @@ class OptimizerGUI:
         # Only now that the window is up and mapped can a modal dialog
         # be shown safely, so the game-data report waits until here.
         self._report_data_problems()
+        self._apply_client_read()
         self._report_settings_repairs()
         self._report_sync_failures()
         # Dev-only, off unless asked for. Must come after the reveal,
@@ -948,6 +950,7 @@ class OptimizerGUI:
         )
         self._start_hang_watchdog(program_dir)
         self._start_data_validation()
+        self._start_client_read(user_settings_dir)
         perf_log.log("startup:managers", secs=_time.perf_counter() - _t_start)
         self.app_context.preset_manager = self.preset_manager
         self.app_context.character_preset_manager = self.character_preset_manager
@@ -1141,6 +1144,68 @@ class OptimizerGUI:
             self._warn("Game data problems", format_problem_report(problems))
         except Exception:
             pass
+
+    def _start_client_read(self, settings_dir):
+        """What the game client says (`game_client`): the cache, where
+        it was read at the client's current build, else a read on a
+        worker.
+
+        The cache answers here, before any tab draws, so a launch
+        between patches shows the client's names from the first paint.
+        Until a read lands the shipped names stand, and
+        `_apply_client_read` redraws what shows them once it does.
+        """
+        import perf_log
+        # What the worker hands over, and whether one is still reading.
+        self._client_read = None
+        self._client_reading = False
+        try:
+            install = game_client.find_install(
+                self.settings_manager.get("game_client_dir", "") or None)
+            held = game_client.cached(settings_dir, install)
+        except Exception as exc:                         # noqa: BLE001
+            perf_log.log("game_client:FAILED", error=repr(exc))
+            return
+        if held is not None or install is None:
+            game_client.use(held)
+            return
+
+        def work():
+            try:
+                self._client_read = game_client.refresh(settings_dir,
+                                                        install)
+            except Exception as exc:                     # noqa: BLE001
+                # The shipped names stand. Nothing a player can act on,
+                # so no dialog: a patch that changed a format shows as
+                # names a patch behind.
+                perf_log.log("game_client:FAILED", error=repr(exc))
+            finally:
+                self._client_reading = False
+
+        self._client_reading = True
+        threading.Thread(target=work, daemon=True).start()
+
+    def _apply_client_read(self, attempts: int = 0):
+        """Hand a finished client read to the tabs, once the worker has
+        one: polled on the UI thread, which is the only one that may
+        redraw. Gives up after a minute, the shipped names standing."""
+        # Whether a read is under way BEFORE what it handed over: the
+        # worker sets the facts first, so read in this order a finish
+        # landing between the two is seen on this pass or the next.
+        reading = getattr(self, "_client_reading", False)
+        facts = getattr(self, "_client_read", None)
+        if facts is None:
+            if reading and attempts < 600:
+                self.root.after(
+                    100, lambda: self._apply_client_read(attempts + 1))
+            return
+        self._client_read = None
+        game_client.use(facts)
+        for name, method in (("checklist", "refresh_checklist"),
+                             ("heroes", "refresh_heroes")):
+            tab = self._lazy_tab(name)
+            if tab is not None:
+                getattr(tab, method)()
 
     def _warn(self, title, text):
         """A startup warning: a dialog, or under the audit a printed

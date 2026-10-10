@@ -10,8 +10,12 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Changed
 
+- Checklist:
+  - Events are listed under their names in the game, read from the installed game client. A Virtual Tactical Simulation also names its combatant. A name too long for the column is cut short, with the whole name in its tooltip.
+  - The 7-day `Delegation Module` row blinks red when a module has 1-2 days left, and orange when one has 2-3 days left. Otherwise it holds still.
+- Combatants: the `Excursion` column counts against each combatant's own number of Excursion types, from the game client, in place of `10?`.
 - Memory Fragments: the `Level:` filter's open list jumps to what you type, as the other dropdowns do.
-- Checklist: the 7-day `Delegation Module` row blinks red when a module has 1-2 days left, and orange when one has 2-3 days left. Otherwise it holds still.
+- Names and counts the game client could not be read for come from the copy shipped with the program. An install STOVE did not register can be named in `settings.json`'s `game_client_dir`.
 
 ### Fixed
 

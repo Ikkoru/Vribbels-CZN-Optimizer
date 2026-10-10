@@ -195,11 +195,11 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   When one ships: `Vribbels/build_tcl/prepare_tcl_data.py`'s `libtcl9*` globs already match a 9.1 library, and `checks/run_all.py` at both scales is the first test.
 
-- **T19 — Names and tables from the game client.** The wire names nothing, so the Events block shows ids (`event_schedule_devil_001`). The client holds the names, and everything else asked for: `docs/client_tables.py` reads its archive and tables, read-only and with nothing outside Python's standard library, and `docs/client_data.md` maps where each fact is and what a patch can break. Open:
+- **T19 — More from the game client.** Event names and Excursion type counts are read at launch (`docs/client_data.md`, *What the program reads at launch*). Both halves are decided: the app reads what changes every patch, the maintainer tool the tables whose every change wants reviewing. Left:
 
-  - **Where it runs.** A maintainer tool that refreshes the shipped tables each patch; the app reading the installed client at launch, so a patch's events and items are named the day it lands and today's ids stand in where the read fails; or both: the app for what changes every patch (event names, item names, event totals), the tool for the tables whose every change wants reviewing (combatants, partners, sets, Potential).
+  - **The app**: item names and event reward totals, read the way event names are.
+  - **The tool**: an audit of `game_data`'s combatants, partners, sets and Potential against the client.
   - **Haru's level-60 stats** disagree between the client and `game_data.characters`; every other combatant agrees. A capture of Haru at level 60 settles which is wrong.
-  - **"Battle items"**: whether that means Equipment, which the client files as relics.
 
 - **T3 — Richer main-stat forcing for slots IV/V/VI** (UserA). Main-stat forcing is four Force HP/Ego checkboxes. The design question is which options, and in what form: per-slot checklists, dropdowns, or curated rules.
 

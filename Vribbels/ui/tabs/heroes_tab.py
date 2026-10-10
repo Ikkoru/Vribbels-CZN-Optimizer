@@ -1218,15 +1218,14 @@ class HeroesTab(BaseTab):
         combatant with no row on a board that DID arrive reads 0: the
         server sends the board whole, so an absent row is a count.
 
-        The denominator is PER COMBATANT and is a bound rather than a
-        total: no snapshot states a maximum, so a combatant past the
-        seven everyone has reads against the furthest the extras are
-        known to go. See `excursions.ceiling`.
+        The denominator is PER COMBATANT, the game client's count of
+        that combatant's types: no snapshot states a maximum. See
+        `excursions.total`.
         """
         if char_info is None or not board:
             return None, HERO_EXCURSION_NO_DATA
         count = board.get(char_info.res_id, 0)
-        return count, f"{count}/{excursions.ceiling(count)}"
+        return count, f"{count}/{excursions.total(char_info.res_id)}"
 
     def refresh_heroes(self):
         """Refresh the heroes list."""

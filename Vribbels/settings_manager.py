@@ -149,6 +149,9 @@ class SettingsManager:
         # How many Galactic Disaster Chaos runs a day the Checklist's
         # season estimate assumes. See `chaos_estimate.runs_per_day`.
         ("chaos_runs_per_day", 1),
+        # The game's folder, for an install STOVE's uninstall entry does
+        # not name. Empty finds it. See `game_client.find_install`.
+        ("game_client_dir", ""),
     )
 
     def apply_layout(self, legacy_config_files=()) -> None:

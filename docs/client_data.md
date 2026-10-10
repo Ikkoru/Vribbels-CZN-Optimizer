@@ -1,10 +1,22 @@
 # The game client's own data
 
-The client carries the tables the game runs on, and the English text for them, in its install folder: names, items, combatants, partners, events and their rewards, everything the wire refers to by id and never names. `docs/client_tables.py` reads them, without writing anything there. Its docstring covers the commands, and both file formats it reads.
+The client carries the tables the game runs on, and the English text for them, in its install folder: names, items, combatants, partners, events and their rewards, everything the wire refers to by id and never names. `Vribbels/game_client.py` reads them, without writing anything there; its docstring covers both file formats. The program runs it at launch, and `docs/client_tables.py` is the maintainer's tool over the same reader.
 
 ## Where it is
 
-STOVE installs to `C:\ProgramData\Smilegate\Games\ChaosZeroNightmare`; the data sits under `bin\appdata\cznlive\gameres`, as `manifest.ssra` and the `.ssrc` chunk files in `chunks` beside it. The manifest indexes every file the game has, in GROUPS: `base` for everything shared, one per language, one per platform. **Only the groups the player installed have chunks on disk**, so an English client holds `lang_en` and no other language.
+STOVE installs to `C:\ProgramData\Smilegate\Games\ChaosZeroNightmare` unless told otherwise; the data sits under `bin\appdata\cznlive\gameres`, as `manifest.ssra` and the `.ssrc` chunk files in `chunks` beside it. The manifest indexes every file the game has, in GROUPS: `base` for everything shared, one per language, one per platform. **Only the groups the player installed have chunks on disk**, so an English client holds `lang_en` and no other language.
+
+The program finds an install through STOVE's uninstall entry (`Stove App STOVE_CHAOSZERO`), whose `DisplayIcon` is the loader in the install's `bin`, then the default folder. `game_client_dir` in `settings.json` names one neither finds (`game_client.find_install`).
+
+## What the program reads at launch
+
+What changes every patch and the server never sends: each event's name, for the Checklist's Events block, and how many Excursion types each combatant has, for the Combatants tab. The first source that knows an id wins:
+
+1. what this machine's client says, saved to `settings/game_client.json` with the install and build it was read at, so the client is read again only after a patch;
+2. `Vribbels/game_data/from_client.py`, the same reading as of the build the program shipped with: `python docs/client_tables.py --ship` after a patch, before a release, and review the diff;
+3. nothing: the Checklist shows the event's id, the Combatants tab `?` for the total.
+
+`check_event_names` holds the readers, the cache and the shipped table.
 
 ## The text
 
@@ -20,7 +32,8 @@ A table's name below is its archived name without its `db` folder and `.db` endi
 
 | Fact | Tables | How |
 | ---- | ------ | --- |
-| An event's name | `event@event` | `title`; `link_event_schedule_id` names its schedule, `type` its kind |
+| An event's name | `event@event` | `title`. The wire's schedule id is in `id`, `link_event_schedule_id`, `multiple_link` or `multiple_key`, depending on the kind (`type`) |
+| A name `event@event` does not give | `event_trauma_code@event_trauma_code`, `life_cycle_event_content@life_cycle_event_content`, `countdown_attendance@countdown_attendance_define`, `event_combatant_trial@event_combatant_trial` | a Trauma Code's schedule reaches its event row through the code's own id; the returning players' events and the countdown check-ins are named in their own tables. Every Combatant Trial is called the same, so each is named for its first slot's combatant (`char_base@name@<id>`) |
 | An event's rewards | `event_mission@event_mission`, `event_mission@event_mission_define` | a mission row per reward, by `link_event_id`; a define row's `special_reward_*` is the final reward that unlocks after the rest |
 | Other reward shapes | `event_mission@event_mission_reward`, `event_daily_check@event_daily_check`, `event_nodelist_define@event_nodelist_define`, `event_summer@event_summer_reward`, `event_summer@event_summer_story` | a step track's steps by `mission_value`; a check-in's days; a Node List's nodes; the summer puzzle's and stories' rewards |
 | A combatant | `char_base@char_base`, `char_base@char_combatant` | name and rarity; class (`link_base_class_define_id`), attribute (`link_ego_type_id`, a colour), level-1 stats and crit |
@@ -31,7 +44,7 @@ A table's name below is its archived name without its `db` folder and `.db` endi
 | Memory Fragment sets | `piece_set_option@piece_set_option`, `item_piece@item` | the 2, 4 and 6 piece effects, each a stat and value or a skill hook, with names and descriptions in text; every fragment item |
 | Items | the `item_*@item` tables | `item_type`, `rarity`, `icon` and where each is found; text `item@name@<id>`, `item@desc@<id>` |
 | Equipment | `relic(disaster)@relic`, `relic@skill_eff` | what the game's text calls Equipment is a `relic`: names `relic@name@...`, effects `relic@s1_description@...`, whose `#rev_..#` values are in the `skill_eff` tables |
-| Excursion types | `town_visit@town_normal_visit` | one row per type, id `normal_visit_<combatant id>_<n>` |
+| Excursion types | `town_visit@town_normal_visit` | one row per type, `group` `normal_visit_<combatant id>`. A partner, and a combatant not yet released, has one placeholder row |
 | Galactic Disasters | `disaster_season@disaster_season`, `disaster_chaos_list@disaster_chaos_list`, `chaos@chaos` | a season's title is text `chaos@title@disaster_sNN`, its Chaos's `chaos@title@chaos_NN` |
 
 ## What it was held against
@@ -40,7 +53,8 @@ The derivations above were checked against what the program already knows, and t
 
 - **Combatant stats at 60** reproduce `game_data.characters` for every combatant in it but Haru. The client gives Haru the stats every other 5-star Striker has, and the table holds higher ones. One of the two is wrong, and a capture of Haru at level 60 settles which.
 - **Partner passives**: Arwen's two passives, at every level, match `game_data.partners`.
-- **Event totals**: `event_bartender_1` reads 24 missions and a final reward, and the summer event 10 puzzle and 15 story rewards. Those are the totals `docs/events.md` worked out from the wire and the game's own screens.
+- **Event totals**: `event_bartender_1` reads 24 missions and a final reward, and the summer event 10 puzzle and 15 story rewards. Those are the totals `docs/events.md` worked out from the wire and the game's own screens, and so are the seven-day story events', the policy, stock and arena events', the check-ins' and the later Node Lists'. **The three story-map Node Lists differ by one**: the client gives `event_nodelist_001`, `003` and `004` 15, 16 and 19 mission rows and a final reward besides, where `docs/events.md` counts the final among the 15, 16 and 19. A capture of the next one settles which.
+- **Galactic Disaster challenge missions** (`event_chaos_mission_*`) are not in the client's event tables at all: only their schedules are.
 
 ## What a patch can break
 
@@ -51,4 +65,6 @@ The derivations above were checked against what the program already knows, and t
 | The tables' key | nothing: the key is read off the data on every run | |
 | The tables' cipher or header | the tool stops: no key rotation yields the magic, or the header size differs | the ripper's `DBParser.cpp` |
 | A table or column renamed | whatever reads that name fails on it | the table's new name, from `--list` and `--table` |
-| A new install path | the manifest is not found | `--client` |
+| A new install path | the manifest is not found | `game_client_dir`, or `--client` |
+
+The program meets each of these as a read that fails, and keeps the shipped names; `debug_perf_log` records why.

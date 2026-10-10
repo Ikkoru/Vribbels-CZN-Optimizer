@@ -452,9 +452,11 @@ def run():
     # all. The Overclock's finished day sorts BELOW all three despite
     # ending soonest of the four -- which is the whole point, and what
     # a plain deadline sort would get wrong.
-    want = ["summer_01", "schedule_devil_001", "ds_event_rhythm_game",
-            "overclock_live_13"]
-    got = [label for title, rows in columns_for(raw, now=now)
+    # By id, not by the words: those are the client's names.
+    want = ["event_summer_01", "event_schedule_devil_001",
+            "ds_event_rhythm_game", "event_overclock_live_13"]
+    got = [key[len(EVENT_KEY_PREFIX):]
+           for title, rows in columns_for(raw, now=now)
            for key, label, _widest in rows
            if key.startswith(EVENT_KEY_PREFIX) and key != EVENT_KEY_PREFIX]
     if got != want:

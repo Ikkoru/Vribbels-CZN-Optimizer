@@ -20,7 +20,8 @@ else, so a broken one reads as a plausible figure:
 5. **Only the live season's own Chaos counts**: a past season's, entered
    through the Zero System, pays the live currency at other amounts.
 6. **`chaos_runs_per_day` reads as a sane number or not at all**, sits
-   at the foot of settings.json, and names itself in the tip's label.
+   at the foot of settings.json under its `#5` heading, and names
+   itself in the tip's label.
 """
 
 import math
@@ -192,13 +193,15 @@ def run():
             failures.append(f"chaos_runs_per_day {value!r} reads "
                             f"{ce.runs_per_day(value)!r}, not {want!r}.")
     layout = [key for key, _default in settings_manager.SettingsManager.LAYOUT]
-    if layout[-2:] != ["#5", "chaos_runs_per_day"] or dict(
-            settings_manager.SettingsManager.LAYOUT).get(
-                "chaos_runs_per_day") != ce.DEFAULT_RUNS_PER_DAY:
+    headings = [i for i, key in enumerate(layout) if key.startswith("#")]
+    if (layout[headings[-1]] != "#5" or "chaos_runs_per_day"
+            not in layout[headings[-1]:] or dict(
+                settings_manager.SettingsManager.LAYOUT).get(
+                    "chaos_runs_per_day") != ce.DEFAULT_RUNS_PER_DAY):
         failures.append(
-            "chaos_runs_per_day is not the last key of settings.json, "
-            "under its own `#5` Settings without UI heading, defaulting "
-            "to one run a day.")
+            "chaos_runs_per_day is not at the foot of settings.json, under "
+            "its last heading, `#5` Settings without UI, defaulting to one "
+            "run a day.")
     for runs, want in ((1, "1 lvl 8+ Chaos run/day"),
                        (2, "2 lvl 8+ Chaos runs/day")):
         if not checklist_tab.season_estimate_label(runs).startswith(want):

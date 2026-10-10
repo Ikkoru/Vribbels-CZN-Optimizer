@@ -18,7 +18,7 @@ It only works while the main thread is inside `mainloop()`. Before it (startup, 
 
 **Inside mainloop it is still a wait.** tkinter hands a Tk call made on another thread to the main thread and blocks until the main thread has run it, so the worker stalls for as long as the main thread is busy -- a second behind a snapshot reload.
 
-The pattern that works, used by both prerequisite probes, by `_report_data_problems` and by the capture: the worker assigns a plain attribute or puts on a queue, and a main-thread `after` chain polls for it. The capture's is `OptimizerGUI._poll_capture` over the Capture tab's inbox -- see "Logging from the proxy reader thread" in `capture_pipeline.md`.
+The pattern that works, used by both prerequisite probes, by `_report_data_problems`, by the game client's read (`_apply_client_read`) and by the capture: the worker assigns a plain attribute or puts on a queue, and a main-thread `after` chain polls for it. The capture's is `OptimizerGUI._poll_capture` over the Capture tab's inbox -- see "Logging from the proxy reader thread" in `capture_pipeline.md`.
 
 ## Diagnosing an unresponsive window
 
