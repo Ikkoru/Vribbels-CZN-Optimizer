@@ -449,18 +449,24 @@ LAST_DAY_HOURS = 24
 SOON, WARN, LATER = "soon", "warn", "later"
 COUNTDOWN_STATES = ((LAST_DAY_HOURS, SOON), (72, WARN), (None, LATER))
 
-# **SOON blinks**, as does a Delegation Module row with a copy to use
-# before it expires: both are something that is gone if left. Two
-# exceptions hold still in `red_last`. The Daily heading is ALWAYS in
-# its last day, so blinking there would say nothing; and an event with
-# nothing left to claim has nothing to hurry for, so its countdown
-# takes SOON_SETTLED instead.
+# **SOON blinks**, as do the Delegation Module rows with a copy close
+# to expiring (`MODULE_WINDOWS`): both are something that is gone if
+# left. Two exceptions hold still in `red_last`. The Daily heading is
+# ALWAYS in its last day, so blinking there would say nothing; and an
+# event with nothing left to claim has nothing to hurry for, so its
+# countdown takes SOON_SETTLED instead.
 #
 # The blink is a recolour of one tag per column, and of the period
 # heading labels in their last day -- no row is redrawn. Its two inks:
 # the last day's own red, and the dark red a clamped spinbox flashes.
+#
+# WARN_BLINK is the same blink in oranges, for a copy with a day more to
+# run: gentler, the two inks nearer each other than the reds are.
 SOON_SETTLED = "soon_settled"
 BLINK_COLOURS = ("red_last", CLAMP_ALERT)
+WARN_BLINK = "warn_blink"
+WARN_BLINK_COLOURS = ("orange", "#b36200")
+BLINKING = {SOON: BLINK_COLOURS, WARN_BLINK: WARN_BLINK_COLOURS}
 BLINK_MS = 1200
 STILL_HEADINGS = frozenset({"Daily"})
 
@@ -2513,16 +2519,24 @@ SORTIE_WEEKLY_GRANT = 3
 # -- not to the game's next reset. A copy expires on the stamp it
 # carries, fourteen days after it was acquired, and no reset moves it.
 #
-# `(span in seconds, row key, words, unit, what the words divide by)`.
-# The words take (how many, how long the last of them has, the unit),
-# so a row reads `2 expiring within 6h!` where both copies are due
-# today -- the window bounds what is counted, the words say what is
-# actually about to go.
+# `(span in seconds, row key, words, unit, what the words divide by,
+# blinks)`. The words take (how many, how long the last of them has,
+# the unit), so a row reads `2 expiring within 6h!` where both copies
+# are due today -- the window bounds what is counted, the words say
+# what is actually about to go.
+#
+# `blinks` are the bands that make the row blink, as `(more than, at
+# most, state)` in hours left, None for no lower bound. Read top down:
+# the first band holding a copy decides, so the seven-day row's red
+# outranks its orange. A row with copies in none of them holds still in
+# red. Inside a day it is the 24-hour row that blinks, and the
+# seven-day row holds still.
 MODULE_ITEM = 3920026           # Time-Limited Command Delegation Module
 MODULE_WINDOWS = (
-    (24 * 3600, "modules_soon", "%d expiring within %d%s!", "h", 3600),
+    (24 * 3600, "modules_soon", "%d expiring within %d%s!", "h", 3600,
+     ((None, 24, SOON),)),
     (7 * 24 * 3600, "modules_week", "%d expiring within %d %s", "days",
-     24 * 3600),
+     24 * 3600, ((24, 48, SOON), (48, 72, WARN_BLINK))),
 )
 
 # The town's daily block: the coffee flag and the day's Communication
@@ -2824,9 +2838,10 @@ class ChecklistTab(BaseTab):
 
     # ------------------------------------------------------------ blink
 
-    def _blink_ink(self):
-        """The colour `SOON` is drawn in at this step of the blink."""
-        name = BLINK_COLOURS[self._blink_phase]
+    def _blink_ink(self, state=SOON):
+        """The colour a blinking `state` is drawn in at this step of the
+        blink. See `BLINKING`."""
+        name = BLINKING[state][self._blink_phase]
         return self.colors.get(name, name)
 
     def _blink_restart(self, readings):
@@ -2844,7 +2859,7 @@ class ChecklistTab(BaseTab):
         self._blink_phase = 0
         self._blink_paint()
         if self._blink_labels or any(
-                state == SOON for segments in readings.values()
+                state in BLINKING for segments in readings.values()
                 for _words, state in segments):
             self._blink_after = self.frame.after(BLINK_MS, self._blink_step)
 
@@ -2861,12 +2876,13 @@ class ChecklistTab(BaseTab):
         self._blink_after = self.frame.after(BLINK_MS, self._blink_step)
 
     def _blink_paint(self):
-        ink = self._blink_ink()
+        inks = {state: self._blink_ink(state) for state in BLINKING}
         try:
             for text, _rows in self.column_texts.values():
-                text.tag_configure(SOON, foreground=ink)
+                for state, ink in inks.items():
+                    text.tag_configure(state, foreground=ink)
             for label in self._blink_labels:
-                label.config(foreground=ink)
+                label.config(foreground=inks[SOON])
         except tk.TclError:
             pass                         # the tab went away mid-blink
 
@@ -3252,8 +3268,10 @@ class ChecklistTab(BaseTab):
         # Materials tab's own warning colour, so the two agree. SOON is
         # a countdown's last day, in the deeper red every last day on
         # the tab takes -- see `LAST_DAY_HOURS` -- and it blinks: it is
-        # drawn in whichever of its two inks the blink is on.
-        text.tag_configure(SOON, foreground=self._blink_ink())
+        # drawn in whichever of its two inks the blink is on. So is
+        # WARN_BLINK, in its oranges.
+        for state in BLINKING:
+            text.tag_configure(state, foreground=self._blink_ink(state))
         text.tag_configure(SOON_SETTLED, foreground=self.colors["red_last"])
         text.tag_configure(WARN, foreground=self.colors["orange"])
         text.tag_configure(LATER, foreground=self.colors["yellow"])
@@ -4249,13 +4267,18 @@ def _readings(raw, now=None, tracked=None):
     # never promised time it has already spent. With none counted there
     # is no longest, and the window's own bound stands in.
     #
-    # A copy counted blinks: see `SOON`.
-    for span, key, words, unit, divisor in MODULE_WINDOWS:
+    # A copy in one of the row's bands blinks: see `MODULE_WINDOWS`.
+    for span, key, words, unit, divisor, blinks in MODULE_WINDOWS:
         inside = [end for end in expiries if end <= now + span]
         edge = (max(inside) - now) if inside else span
+        state = DONE if not inside else next(
+            (state for after, upto, state in blinks
+             if any((after is None or end > now + after * 3600)
+                    and end <= now + upto * 3600 for end in inside)),
+            TODO)
         out[key] = _one(words % (len(inside),
                              max(1, math.ceil(edge / divisor)), unit),
-                    SOON if inside else DONE)
+                    state)
 
     # The Arkhianon Supply, three ways. A mission's `complete_time` is
     # set when its reward is CLAIMED, so a finished-but-unclaimed

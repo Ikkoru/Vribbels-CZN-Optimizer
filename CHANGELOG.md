@@ -11,6 +11,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Changed
 
 - Memory Fragments: the `Level:` filter's open list jumps to what you type, as the other dropdowns do.
+- Checklist: the 7-day `Delegation Module` row blinks red when a module has 1-2 days left, and orange when one has 2-3 days left. Otherwise it holds still.
 
 ### Fixed
 

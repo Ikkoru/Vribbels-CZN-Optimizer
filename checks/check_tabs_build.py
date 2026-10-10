@@ -2374,20 +2374,26 @@ def _checklist_blinks_while_due(tab):
     """Something about to be lost blinks, and nothing else does.
 
     A row segment in `SOON` and a period heading in its last day swap
-    between the two `BLINK_COLOURS` each step; the Daily heading, which
-    is always in its last day, holds still; and with nothing due the
-    blink stops on its bright ink rather than leaving a timer running
-    or a row stuck dark.
+    between the two `BLINK_COLOURS` each step, a segment in `WARN_BLINK`
+    between the two `WARN_BLINK_COLOURS` -- and blinks with no SOON on
+    the tab; the Daily heading, which is always in its last day, holds
+    still; and with nothing due the blink stops on its bright ink rather
+    than leaving a timer running or a row stuck dark.
 
     Returns a list of complaints.
     """
     from ui.tabs import checklist_tab as mod
     out = []
     ink = [tab.colors.get(name, name) for name in mod.BLINK_COLOURS]
+    orange = [tab.colors.get(name, name) for name in mod.WARN_BLINK_COLOURS]
     texts = [text for text, _rows in tab.column_texts.values()]
 
     def soon_inks():
         return {str(text.tag_cget(mod.SOON, "foreground")) for text in texts}
+
+    def warn_inks():
+        return {str(text.tag_cget(mod.WARN_BLINK, "foreground"))
+                for text in texts}
 
     period_left, subtext = mod._period_left, mod.disaster_subtext
     # Every heading an hour from its end: the last quarter, last day.
@@ -2427,10 +2433,22 @@ def _checklist_blinks_while_due(tab):
                        "the tab redraws it, and the redraw restarts it.")
         tab.is_hidden = lambda: False
         tab._blink_labels = []
+        tab._blink_restart({"k": [("x", mod.WARN_BLINK)]})
+        if tab._blink_after is None or warn_inks() != {orange[0]}:
+            out.append(f"with only a WARN_BLINK segment drawn, the blink "
+                       f"{'does not run' if tab._blink_after is None else 'runs'}"
+                       f" with WARN_BLINK in {warn_inks()}: it should run, "
+                       f"from {orange[0]}, or a Delegation Module two to "
+                       f"three days out holds still.")
+        tab._blink_step()
+        if warn_inks() != {orange[1]}:
+            out.append(f"one blink step draws WARN_BLINK in {warn_inks()}, "
+                       f"not {orange[1]}.")
         tab._blink_restart({"k": [("x", mod.TODO)]})
-        if tab._blink_after is not None or soon_inks() != {ink[0]}:
+        if tab._blink_after is not None or soon_inks() != {ink[0]} \
+                or warn_inks() != {orange[0]}:
             out.append("with nothing due the blink keeps running, or "
-                       "stops on its dark ink.")
+                       "stops on a dark ink.")
     finally:
         del tab.is_hidden
         mod._period_left, mod.disaster_subtext = period_left, subtext

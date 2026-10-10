@@ -74,7 +74,7 @@ def run():
         columns_for,
         ACTIVITY_CLAIMED, ACTIVITY_UNCLAIMED,
         DELEGATION_CURRENCY, DELEGATION_DONE, DELEGATION_TODO,
-        ENDS_IN, LATER, SOON, WARN,
+        ENDS_IN, LATER, SOON, WARN, WARN_BLINK,
         PASS_DAILY_COUNT, PERIOD_LENGTHS,
         _period_band, _period_left, _period_words, _heading_colour,
         DONE, GREAT_RIFT_TARGET, MODULE_ITEM,
@@ -796,13 +796,31 @@ def run():
             f"the tight module row reads {out['modules_soon']!r}, not "
             f"('1 expiring within 6h!', {SOON!r}). The window bounds what "
             f"is COUNTED; the words say how long the last of them has.")
-    if out["modules_week"] != [("2 expiring within 3 days", SOON)]:
+    if out["modules_week"] != [("2 expiring within 3 days", WARN_BLINK)]:
         failures.append(
             f"the wide module row reads {out['modules_week']!r}, not "
-            f"('2 expiring within 3 days', {SOON!r}). The windows NEST -- "
-            f"a copy inside 24 hours is inside seven days -- so the wider "
-            f"count includes the tighter one, and its number is the "
-            f"furthest out of the two.")
+            f"('2 expiring within 3 days', {WARN_BLINK!r}). The windows "
+            f"NEST -- a copy inside 24 hours is inside seven days -- so "
+            f"the wider count includes the tighter one, and its number is "
+            f"the furthest out of the two.")
+
+    # The seven-day row blinks only for a copy one to three days out:
+    # red from one to two, orange from two to three, red where both
+    # hold. Inside a day the 24-hour row blinks and this one holds still
+    # in red, as it does with copies only further out.
+    for hours, want in (((30,), SOON), ((60,), WARN_BLINK),
+                        ((30, 60), SOON), ((6,), TODO), ((96,), TODO),
+                        ((6, 60), WARN_BLINK), ((48,), SOON),
+                        ((72,), WARN_BLINK), ((24,), TODO)):
+        raw = _snapshot(expiries=tuple(now + h * HOUR for h in hours))
+        got = _readings(raw, now)["modules_week"][0][1]
+        if got != want:
+            failures.append(
+                f"copies {hours} hours from expiring draw the seven-day "
+                f"module row in {got!r}, not {want!r}. It blinks red for "
+                f"one more than a day and at most two out, orange for one "
+                f"more than two and at most three, red first; otherwise "
+                f"it holds still.")
 
     # Rounded UP, so a copy is never promised time it has spent.
     out = _readings(_snapshot(expiries=(now + 90 * 60,)), now)
