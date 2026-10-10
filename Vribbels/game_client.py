@@ -1,8 +1,8 @@
 """The game client's own tables and English text, read from its install.
 
 What changes every patch and the server never sends: each event's
-English name, every item's, and how many Excursion types each
-combatant has.
+English name and how many rewards it holds, every item's name, and how
+many Excursion types each combatant has.
 `docs/client_data.md` says where each is kept and how it was held
 against what the program already knew; `docs/client_tables.py` is the
 maintainer's tool over the same reader. Reads only: nothing here
@@ -62,7 +62,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # What the cache is called in the settings folder, and the shape of
 # what it holds. A cache of another format is read as no cache.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 2
+CACHE_FORMAT = 3
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -128,6 +128,22 @@ VISIT_GROUP = re.compile(r"normal_visit_(\d+)")
 # An item's English name: the text `item@name@<res_id>`, one for every
 # item the game has, whichever item table holds its row.
 ITEM_NAME = re.compile(r"item@name@(\d+)")
+
+# Where an event's rewards are listed. A mission row per reward, by the
+# event's id; a step track's ladder, by its one mission's id; and the
+# define row whose special reward is the final one, unlocking after
+# every other.
+MISSION_TABLE = "event_mission@event_mission"
+STEP_TABLE = "event_mission@event_mission_reward"
+DEFINE_TABLE = "event_mission@event_mission_define"
+NO_REWARD = ("-1", "", "none")
+# A check-in's days: a row per day, `<the define's key>_<day>`.
+CHECK_IN_DEFINES = "event_daily_check@event_daily_check_define"
+CHECK_IN_DAYS = "event_daily_check@event_daily_check"
+# The columns of `event@event` that carry a schedule's id. Its own `id`
+# is the event's number, never a schedule, and kept out so a family
+# worked out over these keys holds instalments and nothing else.
+SCHEDULE_JOINS = ("link_event_schedule_id", "multiple_link", "multiple_key")
 
 # Markup the text carries for the game's own renderer.
 MARKUP = re.compile(r"<[^>]*>")
@@ -432,6 +448,50 @@ def excursion_types(client):
     return {res_id: count for res_id, count in out.items() if count > 1}
 
 
+def event_totals(client):
+    """{schedule id: [rewards, final, steps]} for every event whose
+    rewards the client lists.
+
+    `rewards` is what the Checklist counts claims against: an event's
+    mission rows, or a step track's steps where its one mission carries
+    a ladder (`steps` is then 1). `final` is 1 where a reward unlocks
+    after all the others, the game's Special Reward, which is not one
+    of the rows. A check-in's days are its rewards, with neither.
+
+    An event that pays outside its mission rows is counted by its rows
+    alone, those being the rewards the wire records claims for: the
+    summer event's puzzles and stories are not in its 20.
+    """
+    missions = collections.defaultdict(list)
+    for row in client.rows(MISSION_TABLE):
+        missions[row.get("link_event_id")].append(row.get("id"))
+    steps = collections.Counter(row.get("link_event_mission_id")
+                                for row in client.rows(STEP_TABLE))
+    finals = {row.get("link_event_id") for row in client.rows(DEFINE_TABLE)
+              if row.get("special_reward_link_item_id") not in NO_REWARD}
+    out = {}
+    events = sorted(client.rows(EVENT_TABLE),
+                    key=lambda row: row.get(EVENT_DELETED[0])
+                    == EVENT_DELETED[1])
+    for row in events:
+        ids = missions.get(row.get("id")) or []
+        if not ids:
+            continue
+        ladder = sum(steps.get(mission, 0) for mission in ids)
+        entry = [ladder or len(ids), int(row.get("id") in finals),
+                 int(bool(ladder))]
+        for column in SCHEDULE_JOINS:
+            key = row.get(column)
+            if key and key not in NO_REWARD:
+                out.setdefault(key, entry)
+    days = collections.Counter(row.get("id", "").rsplit("_", 1)[0]
+                               for row in client.rows(CHECK_IN_DAYS))
+    for row in client.rows(CHECK_IN_DEFINES):
+        if days.get(row.get("key")):
+            out.setdefault(row.get("id"), [days[row["key"]], 0, 0])
+    return out
+
+
 def item_names(client):
     """{item res_id: English name} for every item the client names."""
     out = {}
@@ -452,6 +512,7 @@ def read_facts(install):
         "install": str(install),
         "build": client.archive.build,
         "event_names": event_names(client),
+        "event_totals": event_totals(client),
         "item_names": {str(res_id): name for res_id, name
                        in item_names(client).items()},
         "excursion_types": {str(res_id): count for res_id, count
@@ -545,6 +606,19 @@ def event_name(schedule_id):
         if name:
             return name
     return None
+
+
+def known_event_totals():
+    """{schedule id: (rewards, final, steps)}: the shipped table, with
+    what this machine's client says over it. See `event_totals`."""
+    from game_data import from_client
+    out = {key: tuple(value) for key, value
+           in from_client.EVENT_TOTALS.items()}
+    for key, value in ((_facts or {}).get("event_totals") or {}).items():
+        if (isinstance(value, (list, tuple)) and len(value) == 3
+                and all(isinstance(n, int) and n >= 0 for n in value)):
+            out[key] = tuple(value)
+    return out
 
 
 def known_item_names():

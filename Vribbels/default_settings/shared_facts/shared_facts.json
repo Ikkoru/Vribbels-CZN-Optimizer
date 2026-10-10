@@ -1032,43 +1032,6 @@
     }
    }
   },
-  "final_rewards": {
-   "event_bartender": [
-    "event_bartender_01"
-   ],
-   "event_nodelist": [
-    "event_nodelist_006",
-    "event_nodelist_007",
-    "event_nodelist_008"
-   ],
-   "event_stock": [
-    "event_stock_01"
-   ]
-  },
-  "instalment_totals": {
-   "event_bartender": {
-    "event_bartender_01": 24
-   },
-   "event_devil": {
-    "event_schedule_devil_001": 21
-   },
-   "event_love": {
-    "event_schedule_love_4": 21
-   },
-   "event_nodelist": {
-    "event_nodelist_006": 25,
-    "event_nodelist_007": 25
-   },
-   "event_policy": {
-    "event_schedule_policy_005": 6
-   },
-   "event_stock": {
-    "event_stock_01": 17
-   },
-   "event_summer": {
-    "event_summer_01": 20
-   }
-  },
   "offensive_fields": {
    "global": {
     "remnants_boss_penalty_005": {

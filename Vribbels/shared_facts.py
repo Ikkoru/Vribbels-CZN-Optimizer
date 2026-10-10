@@ -2,16 +2,13 @@
 about the player's account: which ship with the program, which a
 player could add, and the file they send in.
 
-Nine kinds. Seven are something the game stops listing after a while,
+Seven kinds. Five are something the game stops listing after a while,
 so a player who installs late or never opened the right screen can
 never read it for themselves:
 
 * `banner_rates` -- a banner's rates reply: its odds and its pools.
 * `trial_slots` -- which Combatant Trial slots each trial event offers,
   which only a claim made while capturing names.
-* `instalment_totals` -- how many rewards a finished event instalment
-  held, before the game purged its rows.
-* `final_rewards` -- which instalments paid a final reward.
 * `rift_tops` -- each Great Rift subdivision's top row, per server: its
   rank and score, never who.
 * `sortie_fields` -- each Sortie season's field, per server: how many
@@ -45,8 +42,7 @@ back.
 **Read beside the user's own, never merged into it.** The shipped copy
 is `default_settings/shared_facts/shared_facts.json`, read-only, and
 each reader combines it with what the account holds, in memory --
-`with_rates`, `with_slots`, `totals_with`, `finals_with`, `tops_with`,
-`fields_for`. The account's files are never rewritten with it, so a
+`with_rates`, `with_slots`, `tops_with`, `fields_for`. The account's files are never rewritten with it, so a
 wrong shipped fact goes away with the release that fixes it and leaves
 nothing behind.
 
@@ -85,15 +81,12 @@ VERSION = 1
 
 RATES = "banner_rates"
 SLOTS = "trial_slots"
-TOTALS = "instalment_totals"
-FINALS = "final_rewards"
 TOPS = "rift_tops"
 SORTIE = "sortie_fields"
 OFFENSIVE = "offensive_fields"
 BASES = "base_stats"
 PARTNER_FLATS = "partner_stats"
-KINDS = (RATES, SLOTS, TOTALS, FINALS, TOPS, SORTIE, OFFENSIVE, BASES,
-         PARTNER_FLATS)
+KINDS = (RATES, SLOTS, TOPS, SORTIE, OFFENSIVE, BASES, PARTNER_FLATS)
 # The kinds kept per server, as {server: {season, ...: reading}}.
 RANKINGS = (TOPS, SORTIE, OFFENSIVE)
 
@@ -101,8 +94,6 @@ RANKINGS = (TOPS, SORTIE, OFFENSIVE)
 # Data panel names them.
 WORDS = {RATES: ("banner's rates", "banners' rates"),
          SLOTS: ("Combatant Trial slot", "Combatant Trial slots"),
-         TOTALS: ("event reward total", "event reward totals"),
-         FINALS: ("final reward", "final rewards"),
          TOPS: ("Great Rift division top", "Great Rift division tops"),
          SORTIE: ("Sortie season", "Sortie seasons"),
          OFFENSIVE: ("Full-Scale Offensive", "Full-Scale Offensives"),
@@ -143,10 +134,6 @@ SAYS = {TOPS: ("rank", "best_score"),
 # `UNIT` levels.
 DEPTH = {TOPS: 3, SORTIE: 1, OFFENSIVE: 1}
 UNIT = {TOPS: 2, SORTIE: 1, OFFENSIVE: 1}
-
-# No instalment holds more rewards than this. A bigger count is not the
-# game's, and a file claiming one is refused the entry.
-MOST_REWARDS = 1000
 
 
 def empty():
@@ -189,9 +176,7 @@ def clean(facts):
     """
     facts = facts if isinstance(facts, dict) else {}
     out = {RATES: _clean_rates(facts.get(RATES)),
-           SLOTS: _clean_lists(facts.get(SLOTS)),
-           TOTALS: _clean_totals(facts.get(TOTALS)),
-           FINALS: _clean_lists(facts.get(FINALS))}
+           SLOTS: _clean_lists(facts.get(SLOTS))}
     for kind in RANKINGS:
         out[kind] = _clean_rankings(kind, facts.get(kind))
     for kind, field in LEVELLED.items():
@@ -249,24 +234,12 @@ def _clean_rates(raw):
 
 
 def _clean_lists(raw):
-    """{id: [id, ...]}, for the trial slots and the final rewards."""
+    """{id: [id, ...]}, for the trial slots."""
     out = {}
     for key, value in _items(raw):
         ids = _ids(value)
         if _is_id(key) and ids:
             out[key] = ids
-    return out
-
-
-def _clean_totals(raw):
-    """{family: {instalment: rewards}}."""
-    out = {}
-    for family, rows in _items(raw):
-        kept = {event: count for event, count in _items(rows)
-                if _is_id(event) and _is_int(count)
-                and 0 < count <= MOST_REWARDS}
-        if _is_id(family) and kept:
-            out[family] = kept
     return out
 
 
@@ -331,21 +304,17 @@ def _get(tree, path):
 
 # ----------------------------------------------------------- gathering
 
-def collect(raw, history, captured, checklist, battles=None):
+def collect(raw, history, captured, battles=None):
     """The account's facts, through the whitelist.
 
     `raw` is the newest snapshot, `history` `stats_history.json`,
-    `captured` the Gacha History's `captured.json`, `checklist`
-    `checklist.json` and `battles` the base stat readings' battles --
-    each as loaded, and any of them None.
+    `captured` the Gacha History's `captured.json` and `battles` the
+    base stat readings' battles -- each as loaded, and any of them None.
     """
     raw = raw if isinstance(raw, dict) else {}
     captured = captured if isinstance(captured, dict) else {}
-    checklist = checklist if isinstance(checklist, dict) else {}
     facts = {RATES: captured.get("rates"),
-             SLOTS: raw.get("combatant_trial_slots"),
-             TOTALS: checklist.get("events"),
-             FINALS: checklist.get("finals")}
+             SLOTS: raw.get("combatant_trial_slots")}
     facts.update(_rankings_by_region(raw, history))
     facts.update(readings_of(battles))
     return clean(facts)
@@ -454,8 +423,7 @@ def collect_from(program_dir, raw=None):
     captured, _note = gacha_history.read_store(
         gacha_history.folder_in(snapshots) / gacha_history.CAPTURED)
     battles, _note = base_stats_store.read(snapshots)
-    return collect(raw, stats_history.load(settings), captured,
-                   _read_json(settings / "checklist.json"), battles)
+    return collect(raw, stats_history.load(settings), captured, battles)
 
 
 def _read_json(path):
@@ -515,25 +483,18 @@ def _is_news(kind, path, reading, held, newest):
 def missing(mine, shipped):
     """What `mine` holds that `shipped` does not: the facts worth sending.
 
-    A key the shipped facts lack, a bigger instalment total, or a
-    later reading that says something new of a season that is over --
-    see `_is_news`.
+    A key the shipped facts lack, or a later reading that says something
+    new of a season that is over -- see `_is_news`.
     """
     mine, shipped = clean(mine), clean(shipped)
     out = empty()
     out[RATES] = {banner: entry for banner, entry in mine[RATES].items()
                   if banner not in shipped[RATES]}
-    for kind in (SLOTS, FINALS):
-        for key, ids in mine[kind].items():
-            have = set(shipped[kind].get(key, ()))
-            new = [i for i in ids if i not in have]
-            if new:
-                out[kind][key] = new
-    for family, rows in mine[TOTALS].items():
-        have = shipped[TOTALS].get(family, {})
-        new = {e: c for e, c in rows.items() if c > have.get(e, 0)}
+    for key, ids in mine[SLOTS].items():
+        have = set(shipped[SLOTS].get(key, ()))
+        new = [i for i in ids if i not in have]
         if new:
-            out[TOTALS][family] = new
+            out[SLOTS][key] = new
     for kind in RANKINGS:
         for region, tree in mine[kind].items():
             held = shipped[kind].get(region, {})
@@ -574,14 +535,11 @@ def _table(kind, key, level):
 
 
 def tally(facts):
-    """{kind: how many entries of it}: a banner, an id in a list, an
-    instalment, a subdivision's top, a season's field or a reading at a
-    level each."""
+    """{kind: how many entries of it}: a banner, a trial slot, a
+    subdivision's top, a season's field or a reading at a level each."""
     facts = clean(facts)
     counts = {RATES: len(facts[RATES]),
-              SLOTS: sum(map(len, facts[SLOTS].values())),
-              TOTALS: sum(map(len, facts[TOTALS].values())),
-              FINALS: sum(map(len, facts[FINALS].values()))}
+              SLOTS: sum(map(len, facts[SLOTS].values()))}
     for kind in RANKINGS:
         counts[kind] = sum(len(list(_walk(tree, DEPTH[kind])))
                            for tree in facts[kind].values())
@@ -626,8 +584,8 @@ def fold(into, facts):
     """`facts` folded into `into`: (the result, [what it added],
     [what it refused], [what went down]).
 
-    Slots and final rewards are unioned, the bigger instalment total
-    wins, and a later reading that says something different replaces
+    Trial slots are unioned, and a later reading that says something
+    different replaces
     an earlier one -- of a running season too, whose latest figure is
     the one to ship, and of a combatant's base or a partner's flat
     stats, which a patch moves. **A banner already held with DIFFERENT
@@ -654,21 +612,12 @@ def fold(into, facts):
             added.append("rates of %s" % banner)
         elif held != entry:
             refused.append("rates of %s differ from the ones held" % banner)
-    for kind in (SLOTS, FINALS):
-        for key, ids in facts[kind].items():
-            held = out[kind].setdefault(key, [])
-            for i in ids:
-                if i not in held:
-                    held.append(i)
-                    added.append("%s %s of %s" % (WORDS[kind][0], i, key))
-    for family, rows in facts[TOTALS].items():
-        held = out[TOTALS].setdefault(family, {})
-        for event, count in rows.items():
-            if count > held.get(event, 0):
-                added.append("%s: %d rewards%s" % (
-                    event, count, "" if event not in held
-                    else " (was %d)" % held[event]))
-                held[event] = count
+    for key, ids in facts[SLOTS].items():
+        held = out[SLOTS].setdefault(key, [])
+        for i in ids:
+            if i not in held:
+                held.append(i)
+                added.append("%s %s of %s" % (WORDS[SLOTS][0], i, key))
     for kind in RANKINGS:
         for region, tree in facts[kind].items():
             held = out[kind].setdefault(region, {})
@@ -705,19 +654,14 @@ def fold(into, facts):
 
 def lost(before, after):
     """What `before` held that `after` does not, or holds less of: a
-    banner, an id, an instalment count, a reading now older. Empty for
-    any fold -- the guard is against the code, not the data."""
+    banner, a trial slot, a reading now older. Empty for any fold --
+    the guard is against the code, not the data."""
     before, after = clean(before), clean(after)
     gone = ["rates of %s" % banner for banner in before[RATES]
             if banner not in after[RATES]]
-    for kind in (SLOTS, FINALS):
-        for key, ids in before[kind].items():
-            gone += ["%s %s of %s" % (WORDS[kind][0], i, key) for i in ids
-                     if i not in after[kind].get(key, ())]
-    for family, rows in before[TOTALS].items():
-        gone += ["%s: %d rewards" % (event, count)
-                 for event, count in rows.items()
-                 if after[TOTALS].get(family, {}).get(event, 0) < count]
+    for key, ids in before[SLOTS].items():
+        gone += ["%s %s of %s" % (WORDS[SLOTS][0], i, key) for i in ids
+                 if i not in after[SLOTS].get(key, ())]
     for kind in RANKINGS:
         for region, tree in before[kind].items():
             for path, reading in _walk(tree, DEPTH[kind]):
@@ -799,22 +743,6 @@ def with_slots(own, shipped):
         held = out.setdefault(key, [])
         held.extend(i for i in ids if i not in held)
     return out
-
-
-def totals_with(own, shipped):
-    """The account's instalment totals and the shipped ones: the bigger
-    count per instalment, as the account's own record keeps."""
-    out = {family: dict(rows) for family, rows in _items(own)}
-    for family, rows in _items((shipped or {}).get(TOTALS)):
-        held = out.setdefault(family, {})
-        for event, count in rows.items():
-            held[event] = max(count, held.get(event, 0))
-    return out
-
-
-def finals_with(own, shipped):
-    """The account's final-reward instalments and the shipped ones."""
-    return with_slots(own, {SLOTS: (shipped or {}).get(FINALS)})
 
 
 def tops_with(tops, shipped, region):

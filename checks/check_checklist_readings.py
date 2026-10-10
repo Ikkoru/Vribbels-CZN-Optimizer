@@ -98,6 +98,7 @@ def run():
         next_disaster_words,
         ChecklistTab, WRITTEN_TOTALS, written_total,
         unsure_ceiling, EVENT_FINISHED_FIELD,
+        EVENT_CLIENT_FIELD, event_totals_onto,
         GRANT_FITS, SOON_SETTLED,
     )
     import checklist_manager
@@ -599,81 +600,63 @@ def run():
                 f"{EVENT_DONE_VALUE!r} takes it off and lets the row go "
                 f"green.")
 
-    # --- what the family's past instalments held ---------------------
-    # A live event's rows are what has been issued so far. Its
-    # FINISHED predecessors' are the whole total, and where two of them
-    # agree the live row can say how much is still coming instead of
-    # reading three of three on its first afternoon.
+    # --- what the family's instalments in the client hold -------------
+    # A live event the game client does not hold -- one a patch added
+    # while the archive could not be read -- has only the rows issued
+    # so far. Its family's instalments in the client are whole totals,
+    # and where two of them agree the live row can say how much is
+    # still coming instead of reading three of three on its first
+    # afternoon.
     #
     # **Two, and agreeing.** One instalment is a number rather than a
-    # pattern -- the twenty-four login-streak rows on this account run
-    # 7, 10, 14 and 21 days between them -- so a family has to repeat
-    # itself before any of this is believed.
+    # pattern -- login streaks of 7, 10, 14 and 21 days share one
+    # table -- so a family has to repeat itself before any of this is
+    # believed.
     def _family(pasts, held, claimed):
-        """(the live event's reading, what got recorded).
-
-        `pasts` is {instalment index: rows it held}, all ended; the
-        live instalment holds `held` rows with `claimed` of them taken.
+        """The live event's reading. `pasts` is {instalment index:
+        rewards} for the family's instalments in the client; the live
+        instalment, which the client does not hold, holds `held` rows
+        with `claimed` of them taken.
         """
         raw = _snapshot()
-        missions, windows = {}, {}
-        for index, rows in list(pasts.items()) + [(9, held)]:
-            live = index == 9
-            windows["event_probe_%d" % index] = {
-                "start_time": now - (10 * DAY if live else 90 * DAY),
-                "end_time": now + 10 * DAY if live else now - 60 * DAY}
-            for at in range(1, rows + 1):
-                name = "event_probe_%d_%02d" % (index, at)
-                missions[name] = {
-                    "res_id": name,
-                    "complete_time": 1 if live and at <= claimed else 1}
-            if live:
-                for at in range(claimed + 1, rows + 1):
-                    missions["event_probe_9_%02d" % at]["complete_time"] = 0
-        raw[PASS_MISSION_FIELD] = missions
-        raw["event_schedules"] = {"EVENT_SCHEDULE": windows}
-        manager = checklist_manager.ChecklistManager(
-            Path(tempfile.mkdtemp(prefix="checklist_totals_")))
-        manager.load()
-        stub = SimpleNamespace(
-            context=SimpleNamespace(checklist_manager=manager))
-        ChecklistTab._recall_event_totals(stub, raw, now)
-        return _event_missions(raw, "event_probe_9", {}, now), manager
+        raw[PASS_MISSION_FIELD] = {
+            "event_probe_9_%02d" % at: {
+                "res_id": "event_probe_9_%02d" % at,
+                "complete_time": 1 if at <= claimed else 0}
+            for at in range(1, held + 1)}
+        raw["event_schedules"] = {"EVENT_SCHEDULE": {"event_probe_9": {
+            "start_time": now - 10 * DAY, "end_time": now + 10 * DAY}}}
+        event_totals_onto(raw, now, {"event_probe_%d" % index: (total, 0, 0)
+                                     for index, total in pasts.items()})
+        return _event_missions(raw, "event_probe_9", {}, now)
 
-    got, manager = _family({1: 20, 2: 20}, held=3, claimed=1)
+    got = _family({1: 20, 2: 20}, held=3, claimed=1)
     want = [(EXPECTED_VALUE + "1/20", TODO)]
     if got != want:
         failures.append(
-            f"an event whose family held 20 twice reads {got!r}, not "
-            f"{want!r}. Three rows issued on day one is what the account "
-            f"HAS, and a row saying 1/3 of an event that holds 20 is the "
-            f"floor this record exists to replace.")
-    if manager.events.get("event_probe") != {"event_probe_1": 20,
-                                             "event_probe_2": 20}:
-        failures.append(
-            f"the finished instalments were recorded as "
-            f"{manager.events!r}. The game purges old instalments, so a "
-            f"count not written down while the rows are there is gone -- "
-            f"that is why every load counts them.")
+            f"an event whose family the client holds at 20 twice reads "
+            f"{got!r}, not {want!r}. Three rows issued on day one is what "
+            f"the account HAS, and a row saying 1/3 of an event that holds "
+            f"20 is the floor this rule exists to replace.")
 
-    for pasts, why in (({1: 20}, "one instalment on record"),
+    for pasts, why in (({1: 20}, "one instalment in the client"),
                        ({1: 20, 2: 14}, "two that disagree")):
-        got, _manager = _family(pasts, held=3, claimed=1)
+        got = _family(pasts, held=3, claimed=1)
         if got != [("1/3" + UNKNOWN_MORE, FLOOR)]:
             failures.append(
                 f"with {why} the row reads {got!r}, not the floor. A total "
                 f"taken from a family that has not repeated itself is a "
                 f"guess wearing a number's clothes.")
 
-    # Nor may a family's history ever shrink a reading: a live event
-    # that has issued MORE than its predecessors held is the wire
-    # saying so, against a record that only remembers.
-    got, _manager = _family({1: 20, 2: 20}, held=25, claimed=25)
+    # Nor may a family's total ever shrink a reading: a live event that
+    # has issued MORE than its family held is the wire saying so,
+    # against instalments that are not this one.
+    got = _family({1: 20, 2: 20}, held=25, claimed=25)
     if got != [("25/25" + UNKNOWN_MORE, FLOOR)]:
         failures.append(
-            f"an event holding more rows than its family's history reads "
-            f"{got!r}. The record is the PAST; where the two disagree the "
-            f"rows in hand are the ones that were counted today.")
+            f"an event holding more rows than its family's total reads "
+            f"{got!r}. The family is OTHER instalments; where the two "
+            f"disagree the rows in hand are this one's.")
 
     # The suffix must not stop a floor settling to orange, which is the
     # whole answer for an event nothing can prove finished.
@@ -2027,6 +2010,30 @@ def run():
             failures.append(
                 f"a streak reading {fields!r} shows {got!r}, not "
                 f"[({want!r}, {state!r})].")
+
+    # **The game client states a streak's length**, and the row is then
+    # exact: red with a day to claim, orange with today's claimed and
+    # days to come, green once every day is claimed.
+    def _days(days, **fields):
+        raw = _snapshot()
+        raw["attendance_entities"] = [dict({"event_id": "event_143",
+                                            "start_time": 2000}, **fields)]
+        raw[EVENT_CLIENT_FIELD] = {"event_daily_16": (days, 0, 0)}
+        return _event_attendance(raw, "event_daily_16", WINDOW, now)
+
+    for days, fields, want, state in (
+            (14, dict(current_days=1, received_days=1), "1/14", CYCLE_DONE),
+            (14, dict(current_days=5, received_days=4), "4/14", TODO),
+            (14, dict(current_days=14, received_days=14), "14/14", DONE),
+            # More claimed than the client's days: the client is not
+            # this event's, and the streak's own reading answers.
+            (7, dict(current_days=9, received_days=9),
+             "9/9" + UNKNOWN_MORE, CYCLE_DONE)):
+        got = _days(days, **fields)
+        if got != [(want, state)]:
+            failures.append(
+                f"a {days}-day streak in the client reading {fields!r} "
+                f"shows {got!r}, not [({want!r}, {state!r})].")
 
     # --- the one answer the program cannot give -----------------------
     # A row at its own ceiling that the game has not called finished is

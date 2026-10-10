@@ -33,8 +33,8 @@ USER_ID = 300001234567
 OWN_RANK, OWN_SCORE = 987654, 1115731
 PLANTED = (str(USER_ID), "Ikkoru", "Stranger", str(OWN_RANK),
            str(OWN_SCORE), "182120591", "user_id", "name", "seen",
-           "2026-09-23", "score_record", "condition_type", "tracked",
-           "currency", "evil", "rank_percent", "0.83", "reward_count")
+           "2026-09-23", "score_record", "condition_type", "evil",
+           "rank_percent", "0.83", "reward_count")
 
 RATES = {"rates": {"total_ratio": 100000, "ssr_ratio": 500},
          "total_rate_info": {"total_ssr_pool_pct": 714.48},
@@ -48,8 +48,8 @@ OFFENSIVE = "remnants_boss_penalty_005"
 
 
 def _planted_inputs():
-    """(raw, history, captured, checklist), each carrying account
-    fields beside the facts, the way the real files do."""
+    """(raw, history, captured), each carrying account fields beside
+    the facts, the way the real files do."""
     raw = {
         "detected_region": "global",
         "user": {"user_id": USER_ID, "name": "Ikkoru"},
@@ -83,13 +83,7 @@ def _planted_inputs():
     captured = {"rates": {"gacha_pickup_combatant_30117": dict(
         RATES, seen="2026-09-23T14:48:33", user_id=USER_ID)},
         "records": [{"id": "1", "user_id": USER_ID}]}
-    checklist = {"events": {"event_stock": {"event_stock_01": 17}},
-                 "finals": {"event_stock": ["event_stock_01"]},
-                 "tracked": {"town_shop_goods_005": True},
-                 "currency": {"2000031": {"kind": "total",
-                                          "points": [[1027, 0]]}},
-                 "finished": {"event_schedule_devil_001": [21, 21]}}
-    return raw, history, captured, checklist
+    return raw, history, captured
 
 
 def _whitelist(sf):
@@ -109,10 +103,6 @@ def _whitelist(sf):
         in facts[sf.RATES],
         "the trial slot": facts[sf.SLOTS].get("event_combatant_trial_4")
         == ["combatant_trial_1052"],
-        "the instalment total": facts[sf.TOTALS]
-        == {"event_stock": {"event_stock_01": 17}},
-        "the final reward": facts[sf.FINALS]
-        == {"event_stock": ["event_stock_01"]},
         "the stamped top": tops.get(MASTER_I, {}).get("rank") == 1,
         "the old log's top, on the snapshot's server": DIAMOND_I in tops,
         "the Sortie's field": facts[sf.SORTIE] == {"global": {
@@ -135,11 +125,8 @@ def _clean_refuses(sf):
     hostile = {
         sf.RATES: {"gacha_a": {"rates": {"r": 1}, "total_rate_info": {}},
                    "gacha b": RATES},
-        sf.TOTALS: {"event_stock": {"event_stock_01": "17",
-                                    "event_stock_02": 5000,
-                                    "event_stock_03": True,
-                                    "event_stock_04": 17}},
-        sf.FINALS: {"event_stock": ["event_stock_01", 7, "a b"]},
+        sf.SLOTS: {"event_t": ["slot_1", 7, "a b"], "event u": ["slot_2"],
+                   "event_v": "slot_3"},
         sf.TOPS: {"moon": {SEASON: {HALF: {MASTER_I: {
             "rank": 1, "read_at": 5}}}},
                   "global": {SEASON: {HALF: {
@@ -156,9 +143,7 @@ def _clean_refuses(sf):
                                                  "read_at": 5}}},
     }
     got = sf.clean(hostile)
-    want = {sf.RATES: {}, sf.SLOTS: {},
-            sf.TOTALS: {"event_stock": {"event_stock_04": 17}},
-            sf.FINALS: {"event_stock": ["event_stock_01"]},
+    want = {sf.RATES: {}, sf.SLOTS: {"event_t": ["slot_1"]},
             sf.TOPS: {"global": {SEASON: {HALF: {DIAMOND_I: {
                 "rank": 9, "read_at": 5, "best_score": 7}}}}},
             sf.SORTIE: {"global": {"assault_1_s7": {
@@ -180,8 +165,6 @@ def _fold_rules(sf):
     field = {"players": 19000, "top_score": 60000, "read_at": 100}
     first = {sf.RATES: {"gacha_a": RATES},
              sf.SLOTS: {"event_t": ["slot_1"]},
-             sf.TOTALS: {"event_f": {"event_f_1": 17}},
-             sf.FINALS: {"event_f": ["event_f_1"]},
              sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: top}}}},
              sf.SORTIE: {"global": {"assault_1_s7": field}}}
     held, added, _refused, _down = sf.fold(sf.empty(), first)
@@ -196,13 +179,11 @@ def _fold_rules(sf):
     held, _added, refused, _down = sf.fold(held, {
         sf.RATES: {"gacha_a": other},
         sf.SLOTS: {"event_t": ["slot_2"]},
-        sf.TOTALS: {"event_f": {"event_f_1": 21}},
         sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: dict(
             top, read_at=200, best_score=12)}}}},
         sf.SORTIE: {"global": {"assault_1_s7": dict(
             field, read_at=300)}}})
     held, _added, _refused, _down = sf.fold(held, {
-        sf.TOTALS: {"event_f": {"event_f_1": 12}},
         sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: dict(
             top, read_at=50, best_score=9)}}}}})
     want = {"rates kept": held[sf.RATES]["gacha_a"] == sf.clean(
@@ -210,7 +191,6 @@ def _fold_rules(sf):
             "rates refused": len(refused) == 1,
             "slots unioned": held[sf.SLOTS]["event_t"] == ["slot_1",
                                                            "slot_2"],
-            "the bigger total": held[sf.TOTALS]["event_f"]["event_f_1"] == 21,
             "the later top": held[sf.TOPS]["global"][SEASON][HALF][
                 MASTER_I]["read_at"] == 200,
             "a later field saying the same left alone": held[sf.SORTIE][
@@ -219,10 +199,10 @@ def _fold_rules(sf):
     if wrong:
         out.append(
             f"folding broke {wrong}. A banner read two ways is refused "
-            f"rather than replaced, slots are unioned, the bigger total "
-            f"and a later reading that says something new win in either "
-            f"order, and one that says the same changes nothing -- or "
-            f"every build rewrites the shipped file for a new timestamp.")
+            f"rather than replaced, slots are unioned, a later reading "
+            f"that says something new wins in either order, and one that "
+            f"says the same changes nothing -- or every build rewrites "
+            f"the shipped file for a new timestamp.")
     # Fewer players later: folded -- a ban is real -- but listed apart,
     # since a wrong server or a doctored file reads the same.
     fewer = dict(field, players=18000, read_at=400)
@@ -262,25 +242,23 @@ def _missing_rules(sf):
     top = {"rank": 1, "best_score": 10, "read_at": 100}
     shipped = sf.clean({
         sf.RATES: {"gacha_a": RATES},
-        sf.TOTALS: {"event_f": {"event_f_1": 17, "event_f_2": 17}},
         sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: top}}}}})
     mine = sf.clean({
         sf.RATES: {"gacha_a": RATES, "gacha_b": RATES},
-        sf.TOTALS: {"event_f": {"event_f_1": 17, "event_f_2": 21}},
         sf.TOPS: {"global": {SEASON: {HALF: {
             MASTER_I: dict(top, read_at=900, best_score=12),
             DIAMOND_I: dict(top, rank=948)}}},
                   "asia": {SEASON: {HALF: {MASTER_I: top}}}}})
     counts = sf.tally(sf.missing(mine, shipped))
     want = dict.fromkeys(sf.KINDS, 0)
-    want.update({sf.RATES: 1, sf.TOTALS: 1, sf.TOPS: 2})
+    want.update({sf.RATES: 1, sf.TOPS: 2})
     if counts != want:
         out.append(
             f"`missing` counts {counts}, not {want}. A banner or a "
-            f"subdivision the shipped facts lack is new, and so is a "
-            f"bigger total; a later reading of the season RUNNING is "
-            f"not, or every active account reads yellow every week. The "
-            f"other server's top is new: they rank different players.")
+            f"subdivision the shipped facts lack is new; a later reading "
+            f"of the season RUNNING is not, or every active account reads "
+            f"yellow every week. The other server's top is new: they rank "
+            f"different players.")
     # A later half known: the one before is over, and a later reading
     # of it that says something new is worth sending. One that says
     # the same is not.
@@ -322,7 +300,7 @@ def _missing_rules(sf):
 
 
 def _documents(sf):
-    facts = sf.clean({sf.TOTALS: {"event_f": {"event_f_1": 17}}})
+    facts = sf.clean({sf.SLOTS: {"event_t": ["slot_1"]}})
     data = sf.document(facts, app_version="9.9.9", region="global",
                        exported="2026-09-25")
     out = []
@@ -375,16 +353,16 @@ def _fold_script(sf):
     work = Path(tempfile.mkdtemp(prefix="shared_facts_fold_"))
     saved = module.TARGET
     module.TARGET = work / sf.FILE_NAME
-    whole = sf.document({sf.TOTALS: {"event_f": {"event_f_1": 17}}})
-    older = dict(whole, facts={sf.TOTALS: whole["facts"][sf.TOTALS]})
+    whole = sf.document({sf.SLOTS: {"event_t": ["slot_1"]}})
+    older = dict(whole, facts={sf.SLOTS: whole["facts"][sf.SLOTS]})
     try:
         for text, refuse in (
                 ("{ not json", True),
                 (json.dumps(dict(whole, facts=dict(
                     whole["facts"], future_kind={"x": 1}))), True),
                 (json.dumps(dict(whole, facts=dict(
-                    whole["facts"], **{sf.TOTALS: {
-                        "event_f": {"event_f_1": "17"}}}))), True),
+                    whole["facts"], **{sf.SLOTS: {
+                        "event_t": "slot_1"}}))), True),
                 (json.dumps(older), False)):
             module.TARGET.write_text(text, encoding="utf-8")
             try:
@@ -449,7 +427,6 @@ def _regions_agree(sf):
 
 def _readers(sf):
     out = []
-    import checklist_manager
     import gacha_history as gh
     import stats_history as sh
 
@@ -518,23 +495,9 @@ def _readers(sf):
             or cells.get("4", {}).get("Out of") != "~41,000":
         out.append(f"the Offensive list reads {cells}.")
 
-    # The Checklist's store: shipped instalments vote.
-    work = Path(tempfile.mkdtemp(prefix="shared_facts_"))
-    manager = checklist_manager.ChecklistManager(work)
-    shipped = sf.clean({sf.TOTALS: {"event_f": {"event_f_1": 25,
-                                                "event_f_2": 25}},
-                        sf.FINALS: {"event_f": ["event_f_1"]}})
-    if manager.event_total("event_f", shipped=shipped) != 25 \
-            or not manager.pays_final("event_f", shipped=shipped):
-        out.append("the Checklist's store ignored shipped instalments: "
-                   "a family's pattern has to reach an account that "
-                   "missed its past instalments.")
-    if manager.event_total("event_f") is not None:
-        out.append("an instalment total appeared with nothing recorded "
-                   "and nothing shipped.")
-
     # The Gacha History: a banner never read here takes shipped rates,
     # and one read here keeps its own.
+    work = Path(tempfile.mkdtemp(prefix="shared_facts_"))
     folder = gh.folder_in(work)
     folder.mkdir(parents=True)
     own = dict(RATES, rates={"total_ratio": 7})
@@ -573,7 +536,7 @@ def _readings(sf):
                    "layers": {"S_ATK_INC_ADD_OUT": OWN_RANK},
                    "partner_id": pid, "partner_level": 60, "partner_lb": 4,
                    "partner_flat": flat, "name": "Ikkoru"}]}
-    facts = sf.collect(None, None, None, None, [battle])
+    facts = sf.collect(None, None, None, [battle])
     text = json.dumps(facts)
     leaked = [p for p in PLANTED if p in text]
     if leaked:

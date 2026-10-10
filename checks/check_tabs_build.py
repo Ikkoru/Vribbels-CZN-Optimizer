@@ -3132,12 +3132,14 @@ def _share_status_colours(tab):
     out = []
     try:
         (work / "settings").mkdir()
-        (work / "settings" / "checklist.json").write_text(_json.dumps(
-            {"events": {"event_stock": {"event_stock_09": 17}}}),
-            encoding="utf-8")
+        (work / "snapshots").mkdir()
+        slots = {"event_combatant_trial_99": ["combatant_trial_99001"]}
+        (work / "snapshots" / "memory_fragments_20260101_000000.json"
+         ).write_text(_json.dumps({"combatant_trial_slots": slots}),
+                      encoding="utf-8")
         context.program_dir = work
         optimizer.raw_data = None
-        held = sf.clean({sf.TOTALS: {"event_stock": {"event_stock_09": 17}}})
+        held = sf.clean({sf.SLOTS: slots})
         for shipped, colour, words in (
                 (sf.empty(), "yellow", "1 fact"),
                 (held, "green", "")):
@@ -3148,7 +3150,7 @@ def _share_status_colours(tab):
             if got != tab.colors[colour].lower() or words not in text:
                 out.append(
                     f"with {'nothing' if colour == 'yellow' else 'it'} "
-                    f"shipped, an account holding one instalment total "
+                    f"shipped, an account holding one trial slot "
                     f"reads {text!r} in {got}, not {colour}"
                     f"{' naming ' + repr(words) if words else ''}.")
             # The row takes the taller panel, and Update Status
@@ -4016,16 +4018,15 @@ def _hidden_tab_catches_up(tab, title, refresh, draws):
 def _checklist_records_while_hidden(tab):
     """A hidden Checklist records from the snapshot and draws later.
 
-    The refresh RECORDS as it reads -- event totals, final rewards, the
-    floor clock, the currency ledger -- and the game purges what those
-    are read from, so a record skipped on one snapshot can be gone by
-    the next. Only the drawing may wait for the tab to be shown, and
-    it must happen when it is.
+    The refresh RECORDS as it reads -- finished streaks, the floor
+    clock, the currency ledger -- and the game purges what those are
+    read from, so a record skipped on one snapshot can be gone by the
+    next. Only the drawing may wait for the tab to be shown, and it
+    must happen when it is.
 
     Returns a list of complaints.
     """
-    records = ("_recall_event_totals", "_recall_finals", "_settle_floors",
-               "_rates")
+    records = ("_recall_streaks", "_settle_floors", "_rates")
     hidden, shown = _hidden_tab_catches_up(
         tab, "Checklist", tab.refresh_checklist,
         records + ("_rebuild_columns",))

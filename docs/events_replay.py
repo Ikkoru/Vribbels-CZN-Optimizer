@@ -5,9 +5,8 @@
 
 Replays each `mission/get_list` reply in every debug log, loose and
 archived, through the Checklist's own event readers, and prints a line
-whenever an event's reading CHANGES. At the end it prints what the
-family records came to -- totals and final rewards -- as the program
-would have learned them over the same history.
+whenever an event's reading CHANGES. The totals are the game client's,
+read now (`game_client`), as the program reads them at launch.
 
 **Use it after mapping or changing anything under `EVENT_READERS`**: a
 reader is checked against every instalment the account has seen rather
@@ -23,9 +22,7 @@ of the same log's `event/get_list`, and every schedule window any log
 has carried (a window is a fixed definition, so the union is safe).
 `now` is the reply's own server time.
 
-Reads the snapshots folder, writes nothing there. The family records
-go to a scratch ChecklistManager in a temp directory, never to
-`Vribbels/settings/`.
+Reads the snapshots folder and the game client, and writes nothing.
 """
 
 import datetime
@@ -35,9 +32,7 @@ import json
 import os
 import sys
 import tarfile
-import tempfile
 from pathlib import Path
-from types import SimpleNamespace
 
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE.parent / "Vribbels"
@@ -45,7 +40,7 @@ SNAPS = SOURCE / "snapshots"
 sys.path.insert(0, str(SOURCE))
 os.chdir(SOURCE)
 
-import checklist_manager                                      # noqa: E402
+import game_client                                            # noqa: E402
 import schedules                                              # noqa: E402
 from capture import archive                                   # noqa: E402
 from ui.tabs import checklist_tab as ct                       # noqa: E402
@@ -120,18 +115,14 @@ def logins():
 
 
 def main(argv):
-    # The manager's file goes in a folder removed when the replay ends.
-    with tempfile.TemporaryDirectory(prefix="events_replay_") as scratch:
-        return _replay(argv, Path(scratch))
-
-
-def _replay(argv, scratch):
     want = [a for a in argv[1:] if not a.startswith("-")]
+    install = game_client.find_install()
+    if install is not None:
+        game_client.use(game_client.read_facts(install))
+    else:
+        print("No game client found: the shipped totals stand in.")
     print("Reading every debug log; this takes a minute.", flush=True)
     found, windows = logins()
-    manager = checklist_manager.ChecklistManager(scratch)
-    manager.load()
-    stub = SimpleNamespace(context=SimpleNamespace(checklist_manager=manager))
     last = {}
     for name, login in found:
         raw = {"mission_entities": {row["res_id"]: row
@@ -142,8 +133,7 @@ def _replay(argv, scratch):
             raw[field] = login[field] or []
         raw.update(login["tables"])
         now = login["now"]
-        ct.ChecklistTab._recall_event_totals(stub, raw, now)
-        ct.ChecklistTab._recall_finals(stub, raw, now)
+        ct.event_totals_onto(raw, now)
         for group in ct.EVENT_GROUPS:
             for event, window in schedules.all_live(group, raw, now):
                 if want and not any(w in event for w in want):
@@ -155,14 +145,6 @@ def _replay(argv, scratch):
                     print("%s  %-22s %-30s %s"
                           % (name[16:31], group, event, reading))
                     last[event] = reading
-    print()
-    print("Families that paid a final reward:")
-    for family, events in sorted(manager.finals.items()):
-        print("   %-20s %s" % (family, ", ".join(events)))
-    print("What finished instalments held:")
-    for family, held in sorted(manager.events.items()):
-        print("   %-20s %s" % (family, ", ".join(
-            "%s %d" % pair for pair in sorted(held.items()))))
     return 0
 
 

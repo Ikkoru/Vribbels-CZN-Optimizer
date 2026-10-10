@@ -17,20 +17,19 @@ words `Delegation Module` and differ only in the deadline they count
 to. `docs/wire_hunt.md` records what each field means and which
 readings are exact.
 
-**A reading that can only be a FLOOR says so, and does not go green
-on its own.** The game issues a mission row when it issues the
-mission, so counting the rows in hand understates an event still
-handing them out -- and a checklist saying done when it is not is
-worse than one saying nothing. Such a row prints `UNKNOWN_MORE` after
-its total and turns green only where the game itself says the event
-is over.
+**An event's total is the game client's.** The wire never states one,
+and the client lists every event's rewards (`event_totals_onto`), so
+an event row counts its claims against that and goes green when all
+are taken.
 
-**An event's own family is what knows its total.** A finished
-instalment's mission rows are all the rows it ever had, so they are
-counted and written down; a live instalment of a family whose past
-agrees with itself reads against that instead of against a floor. It
-still goes green only on the game's own word. See
-`_recall_event_totals`.
+**An event the client does not hold reads off the wire alone**, and
+a reading that can only be a FLOOR says so and does not go green on
+its own. The game issues a mission row when it issues the mission, so
+counting the rows in hand understates an event still handing them out
+-- and a checklist saying done when it is not is worse than one saying
+nothing. Such a row prints `UNKNOWN_MORE` after its total and turns
+green only where the game itself says the event is over. Its family's
+instalments in the client stand in for a total where they agree.
 
 **A number worked out rather than read carries `EXPECTED_VALUE`.**
 Two rows do: a weekly allowance the game has not topped up yet is the
@@ -400,10 +399,11 @@ STALE_FLOOR = "floor_stale"
 # reward is waiting; and it never settles orange, because waiting is
 # not evidence of anything.
 #
-# **Known only from the family's past** where this instalment has not
-# paid one yet: the wire says nothing about a final reward until its
-# claim. So the row also asks `Finished?`, for the instalment that
-# turns out not to have one. See `_recall_finals`.
+# **Known from the game client**, the wire saying nothing about a final
+# reward until its claim. For an event the client does not hold it is
+# known only from the family's past, so that row also asks `Finished?`,
+# for the instalment that turns out not to have one. See
+# `event_totals_onto` and `_mark_finished`.
 FINAL_WAITING = "final_waiting"
 
 # A seasonal shop row whose whole remainder sits on a page that has
@@ -1326,23 +1326,19 @@ def _event_attendance(raw, name, window, now):
     **And never by more than one.** A claim advances the streak by
     exactly one -- `received_days_before` 6 to `received_days_after` 7
     -- and the record has never been caught more than one apart. So
-    the ceiling shown is one past what is claimed, whatever
-    `current_days` says: on the launch login event it says fifty-six
-    against seven claimed, its rewards being finite and its day count
-    not, and a row reading `7/56` would be a tally of nothing.
+    `current_days` says only whether a day is waiting: on the launch
+    login event it says fifty-six against seven claimed, its rewards
+    being finite and its day count not, and a row reading `7/56` would
+    be a tally of nothing.
 
-    Three answers. A day to claim is red; everything claimed is ORANGE
-    while the streak may still have days in it -- the same answer a
-    Forced Daily's finished day gets -- and green only where the game
-    has said the streak is over. See `ATTENDANCE_OVER`.
+    **The total is the client's days** (`EVENT_CLIENT_FIELD`), and the
+    row is red with a day to claim, ORANGE with today's claimed and
+    days still to come -- the answer a Forced Daily's finished day
+    gets -- and green once every day is claimed, or where the game has
+    said the streak is over (`ATTENDANCE_OVER`).
 
-    **The launch event reads red for a day that is not there.** Its
-    `received_days` has sat at seven across every capture while
-    `current_days` climbed, so it looks like a streak one day behind
-    for ever, and no field in the record tells the two apart -- a day
-    left unclaimed included, which the record already holds and which
-    writes the live streak the same way. `docs/events.md` has what has
-    been ruled out.
+    For a streak the client does not hold, the ceiling is one past what
+    is claimed, floored at `ATTENDANCE_FLOOR` and marked unknown.
     """
     rows = (raw or {}).get(ATTENDANCE_FIELD)
     if not isinstance(rows, list) or not isinstance(window, dict):
@@ -1359,6 +1355,12 @@ def _event_attendance(raw, name, window, now):
         return []
     if row.get(ATTENDANCE_OVER):
         return [("%d/%d" % (taken, taken), DONE)]
+    waiting = _is_count(shown) and shown > taken
+    days = _client_total(raw, name)
+    if days is not None and taken <= days[0]:
+        return [("%d/%d" % (taken, days[0]),
+                 DONE if taken >= days[0] else
+                 TODO if waiting else CYCLE_DONE)]
     # **A total written down here beats the streak's own reading**,
     # while the record has not disproved it. See `WRITTEN_TOTALS`: the
     # launch event's seven are all it ever had, and counting its days
@@ -1367,7 +1369,6 @@ def _event_attendance(raw, name, window, now):
     if written is not None:
         return [("%d/%d" % (taken, written),
                  DONE if taken >= written else TODO)]
-    waiting = _is_count(shown) and shown > taken
     return [("%d/%d%s" % (taken,
                           max(taken + (1 if waiting else 0),
                               ATTENDANCE_FLOOR),
@@ -1661,8 +1662,9 @@ def _final_reward(raw, name):
 
     Taken where the game has said so -- its record flagged and not a
     step track, which flags on its own ladder. Known to exist beyond
-    that only from the FAMILY's past: see `_recall_finals`, which is
-    what writes `EVENT_FINALS_FIELD`.
+    that from the game client, or for an event it does not hold from
+    the family's past: see `event_totals_onto`, which writes
+    `EVENT_FINALS_FIELD`.
     """
     records = _event_records(raw, name)
     taken = bool(records) and all(
@@ -1785,25 +1787,24 @@ EVENT_READERS = {
 def _event_progress(raw, name):
     """[(words, state)] for one event's rewards, or [] where unmapped.
 
-    `complete_time` on a mission means its reward was TAKEN. The
-    denominator is the rows the account HOLDS, which is a floor: the
-    game issues a mission row when it issues the mission, so an event
-    dripping three tasks a day for a week reads three of three on its
-    first afternoon.
+    `complete_time` on a mission means its reward was TAKEN, and the
+    total is the game client's (`EVENT_CLIENT_FIELD`): claimed against
+    it, green once every reward is claimed.
 
-    **So this normally cannot read green**, and says so: the total
-    carries `UNKNOWN_MORE` after it, because a denominator that
-    is only a floor is a different claim from one that is a total.
-    Twice a bare tally called an event finished that was not -- a
-    summer event with a wave unissued, and a daily one on its first
-    day -- and a checklist that says done when it is not is worse than
-    one that says nothing. The reading is marked `FLOOR`, and the tab
-    colours it orange once it has stood still long enough to mean
-    something.
+    **An event the client does not hold** has only the rows the account
+    HOLDS to go on, and that is a floor: the game issues a mission row
+    when it issues the mission, so an event dripping three tasks a day
+    for a week reads three of three on its first afternoon. So the
+    total carries `UNKNOWN_MORE` after it, and the reading is marked
+    `FLOOR`, which the tab colours orange once it has stood still long
+    enough to mean something. Twice a bare tally called an event
+    finished that was not -- a summer event with a wave unissued, and
+    a daily one on its first day -- and a checklist that says done when
+    it is not is worse than one that says nothing. The rest of the
+    chain below tries to do better than the floor.
 
-    The exception is an event the game itself calls finished. See
-    `_event_finished`: the suffix comes off and the row goes green,
-    because the question has an answer rather than an estimate.
+    An event the game itself calls finished reads green either way.
+    See `_event_finished`.
 
     **A final reward is one more reward**, counted in both figures once
     it is known to exist -- so the bartender's 24 mission rows and its
@@ -1817,7 +1818,10 @@ def _event_progress(raw, name):
     rows = _event_mission_rows(raw, name)
     if not rows:
         return []
+    client = _client_total(raw, name)
     steps = _step_records(raw, name)
+    if client is not None and client[2]:
+        return _client_steps(steps, client)
     if steps:
         return _step_progress(raw, name, steps)
     claimed = sum(1 for row in rows if row.get("complete_time"))
@@ -1832,13 +1836,13 @@ def _event_progress(raw, name):
 
     if claimed >= len(rows) and _event_finished(raw, name):
         return [("%d/%d" % (claimed + taken, len(rows) + final), DONE)]
-    # **What the family's finished instalments held**, where two of
-    # them agree -- see `ChecklistManager.event_total`. Taken only
-    # where it is BIGGER than the rows in hand, so the reading can
-    # only ever say more work is coming, never less, and marked
-    # `EXPECTED_VALUE` because it is the past speaking for the
-    # present. It does not go green on that: `_event_finished` is
-    # still the only thing that ends an event.
+    # **The client's total**, unless the rows in hand already outnumber
+    # it: then the rows were paired wrongly or the event grew since the
+    # client was read, and the readings below are the honest ones.
+    if client is not None and len(rows) <= client[0]:
+        return [("%d/%d" % (claimed + taken, client[0] + final),
+                 _state(client[0], DONE if claimed >= client[0]
+                        else TODO))]
     # A total written down for this event, while the rows in hand have
     # not gone past it. See `WRITTEN_TOTALS`.
     written = written_total(name, len(rows))
@@ -1852,6 +1856,12 @@ def _event_progress(raw, name):
     if grid is not None:
         return [("%d/%d" % (claimed + taken, grid + final),
                  _state(grid, FLOOR))]
+    # **What the family's instalments in the client held**, where two
+    # of them agree -- see `family_total`. Taken only where it is
+    # BIGGER than the rows in hand, so the reading can only ever say
+    # more work is coming, never less, and marked `EXPECTED_VALUE`
+    # because other instalments are speaking for this one. It does not
+    # go green on that: `_event_finished` is what ends such an event.
     total = ((raw or {}).get(EVENT_TOTALS_FIELD) or {}).get(name)
     if _is_count(total) and total > len(rows):
         return [("%s%d/%d" % (EXPECTED_VALUE, claimed + taken,
@@ -1871,14 +1881,14 @@ def _event_progress(raw, name):
 
 
 def _step_progress(raw, name, steps):
-    """[(words, state)] for a step-track event. See `_step_records`.
+    """[(words, state)] for a step-track event the client does not
+    hold. See `_step_records`, and `_client_steps` for one it does.
 
     **`reward_step` is read as the steps CLAIMED**, so a step track is
     a floor like any other: the claimed count over itself, `+?`. Its
-    total comes from the family's finished instalments where two
-    agree, exactly as a mission family's does -- `_recall_event_totals`
-    files a finished step track under its steps. Green only on the
-    game's own flag, which a finished track carries.
+    total comes from the family's instalments in the client where two
+    agree, exactly as a mission family's does (`family_total`). Green
+    only on the game's own flag, which a finished track carries.
     """
     claimed = max(row[STEP_FIELD] for row in steps)
     if all(row.get(EVENT_DONE_FLAG) == EVENT_DONE_VALUE for row in steps):
@@ -1889,17 +1899,117 @@ def _step_progress(raw, name, steps):
     return [("%d/%d%s" % (claimed, claimed, UNKNOWN_MORE), FLOOR)]
 
 
-def _instalment_size(raw, name):
-    """How many rewards a FINISHED instalment held, or 0.
+def _client_steps(steps, client):
+    """[(words, state)] for a step track the client holds: the steps
+    claimed (`STEP_FIELD`) against the ladder's size, plus a final
+    reward where it has one.
 
-    Its mission rows, or where it is a step track the steps on its
-    record: the one accumulating row it holds is not a reward at all,
-    and filed as one it recorded `event_love` as a family of 1.
+    **Before the first claim there is no record**, and the reading is
+    0 of the ladder.
+
+    **A track at the top of its ladder stays at `FLOOR`**, short of
+    green: the record's `reward_step` is read as the steps claimed,
+    and until a live track settles that (`docs/events.md`, *`reward_step`
+    and `version`*), the other reading -- the track's size -- would put
+    every track there from its first claim. The game's own flag, which
+    a finished track carries, is what makes it green.
     """
-    steps = _step_records(raw, name)
-    if steps:
-        return max(row[STEP_FIELD] for row in steps)
-    return len(_event_mission_rows(raw, name))
+    total, final, _steps = client
+    claimed = max([row[STEP_FIELD] for row in steps] or [0])
+    if steps and all(row.get(EVENT_DONE_FLAG) == EVENT_DONE_VALUE
+                     for row in steps):
+        return [("%d/%d" % (total + final, total + final), DONE)]
+    if claimed >= total:
+        return [("%d/%d" % (claimed, total + final),
+                 FINAL_WAITING if final else FLOOR)]
+    return [("%d/%d" % (claimed, total + final), TODO)]
+
+
+def _client_total(raw, name):
+    """The client's (rewards, final, steps) for one live event, or None.
+    See `EVENT_CLIENT_FIELD`."""
+    return ((raw or {}).get(EVENT_CLIENT_FIELD) or {}).get(name)
+
+
+def _known_by_key(known):
+    """`known`'s entries by normalised key, so a schedule the game names
+    twice finds the one the client holds: `event_schedule_arena_2` is
+    `event_arena_2`. See `_event_key`."""
+    out = {}
+    for key, value in sorted(known.items()):
+        out.setdefault(_event_key(key), value)
+    return out
+
+
+def family_total(name, known):
+    """The rewards every instalment of `name`'s family in the client
+    agrees on, where two or more do; None otherwise.
+
+    For an event the client does not hold -- one a patch added while
+    the archive could not be read. `known` is
+    `game_client.known_event_totals()`. Each instalment votes once,
+    however many ids the client gives it, and `name` itself not at all.
+
+    **Two, and agreeing**: one instalment is a number rather than a
+    pattern -- login streaks of 7, 10, 14 and 21 days share one table,
+    and a family has to repeat itself before any of this is believed.
+    """
+    live = _event_key(name)
+    family = _stem(live)
+    votes = {}
+    for key, (total, _final, _steps) in _known_by_key(known).items():
+        if key != live and key != _stem(key) and _stem(key) == family:
+            votes[key] = total
+    past = set(votes.values())
+    return past.pop() if len(votes) >= 2 and len(past) == 1 else None
+
+
+def family_final(name, known):
+    """Whether any instalment of `name`'s family in the client pays a
+    final reward. **One is enough**, where a total wants two agreeing:
+    being wrong costs a row asking `Finished?` over a reward that is
+    not there, where missing it costs the reward."""
+    live = _event_key(name)
+    family = _stem(live)
+    return any(final for key, (_total, final, _steps)
+               in _known_by_key(known).items()
+               if key != live and key != _stem(key)
+               and _stem(key) == family)
+
+
+def event_totals_onto(raw, now, known=None):
+    """Put what the game client says each live event holds onto `raw`.
+
+    `EVENT_CLIENT_FIELD` for every live event the client holds, by its
+    id or by the id the game also gives it; `EVENT_TOTALS_FIELD` for
+    one it does not, its family's agreed total; `EVENT_FINALS_FIELD`
+    for the ones paying a final reward, by the same two routes. The
+    readers take all three off `raw`.
+
+    `known` defaults to `game_client.known_event_totals()`: this
+    machine's client over the copy the program ships.
+    """
+    if not isinstance(raw, dict):
+        return
+    known = game_client.known_event_totals() if known is None else known
+    by_key = _known_by_key(known)
+    client, totals, finals = {}, {}, set()
+    for group in EVENT_GROUPS:
+        for name, _window in schedules.all_live(group, raw, now):
+            held = known.get(name) or by_key.get(_event_key(name))
+            if held is not None:
+                client[name] = tuple(held)
+                if held[1]:
+                    finals.add(name)
+                continue
+            total = family_total(name, known)
+            if total is not None:
+                totals[name] = total
+            if family_final(name, known):
+                finals.add(name)
+    raw[EVENT_CLIENT_FIELD] = client
+    raw[EVENT_TOTALS_FIELD] = totals
+    raw[EVENT_FINALS_FIELD] = frozenset(finals)
 
 
 def _grid_total(rows):
@@ -2129,8 +2239,9 @@ EVENT_NOISE_WORDS = ("schedule", "mission", "season")
 # the event holds -- a bare `16/20` would read as four left when it
 # may be eight.
 #
-# It comes off only where `_event_finished` can say the event is over,
-# which is also the only way such a row goes green.
+# It comes off where the game client states the event's total
+# (`EVENT_CLIENT_FIELD`), and where `_event_finished` can say the event
+# is over: the only two ways an event row goes green.
 UNKNOWN_MORE = "+?"
 
 # What marks a number WORKED OUT from a rule rather than read off the
@@ -2172,16 +2283,23 @@ EVENT_MISSIONS = {}
 # to the schedule whose window saw its first row. See `_event_roots`.
 EVENT_ROW_FAMILIES = {"event_nodelist": "event_node"}
 
-# Where `_recall_event_totals` leaves what a live event is expected to
-# hold, as {event id: rewards}. **This program's own key, not the
-# wire's** -- it is written onto the loaded snapshot in memory so the
+# Where `event_totals_onto` leaves what the game client says each live
+# event holds, as {event id: (rewards, final, steps)} -- see
+# `game_client.event_totals`. **This program's own key, not the
+# wire's**: it is written onto the loaded snapshot in memory so the
 # readers can take it off `raw` like anything else, the way a recalled
 # streak is written back onto its row. Nothing saves it.
+EVENT_CLIENT_FIELD = "_checklist_event_client"
+
+# Where `event_totals_onto` leaves what a live event the client does
+# NOT hold is expected to hold, as {event id: rewards}: the total its
+# family's instalments in the client agree on (`family_total`). Same
+# arrangement as the field above.
 EVENT_TOTALS_FIELD = "_checklist_event_totals"
 
-# Where `_recall_finals` leaves the live events whose FAMILY has paid a
-# final reward before, as a set of event ids. Same arrangement as the
-# field above: the program's own key, on `raw`, saved by nothing.
+# Where `event_totals_onto` leaves the live events that pay a final
+# reward, as a set of event ids: the client's word, or for an event it
+# does not hold, whether its family has paid one. Same arrangement.
 EVENT_FINALS_FIELD = "_checklist_event_finals"
 
 # The two fields of a completion record that make it a STEP TRACK: an
@@ -2202,13 +2320,11 @@ STEP_FIELD = "reward_step"
 # like the schedule's, so the row is the FIRST one started after the
 # event was -- the streak begins on the first login into it.
 #
-# **A streak's LENGTH is per event and the wire never states it.** One
-# account's twenty-four of them ran 7 days nineteen times, 14 twice,
-# 21 twice and 10 once, so a written-down seven is the commonest
-# answer rather than the rule. What the row does state exactly is how
-# many days have been shown up for and how many claimed, and the gap
-# between those is the only thing a checklist needs: whether there is
-# a reward waiting right now.
+# **A streak's LENGTH is per event, and only the game client states
+# it** (`EVENT_CLIENT_FIELD`): 7, 10, 14, 15 or 21 days. What the row
+# states exactly is how many days have been shown up for and how many
+# claimed, and the gap between those is whether there is a reward
+# waiting right now.
 ATTENDANCE_FIELD = "attendance_entities"
 
 # Days shown up for, days claimed, and whether the streak is OVER.
@@ -2222,14 +2338,13 @@ ATTENDANCE_SHOWN = "current_days"
 ATTENDANCE_TAKEN = "received_days"
 ATTENDANCE_OVER = "completed"
 
-# The lowest ceiling a login event's row is drawn with, before the
-# wire has shown a higher one. **Nothing states how many rewards one
-# holds** -- not the schedule, not the row, not even the claim, whose
-# reply carries the reward and a `completed` flag and no total -- so
-# the row counts what it has and marks the rest unknown. Counting
-# from what is CLAIMED alone read `1/1+?` a day into a new event,
-# which says finished; no login event in the record has ended under
-# seven.
+# The lowest ceiling a login event's row is drawn with where the client
+# does not hold the event. **Nothing on the wire states how many
+# rewards one holds** -- not the schedule, not the row, not even the
+# claim, whose reply carries the reward and a `completed` flag and no
+# total -- so the row counts what it has and marks the rest unknown.
+# Counting from what is CLAIMED alone read `1/1+?` a day into a new
+# event, which says finished; no login event has run under seven days.
 ATTENDANCE_FLOOR = 7
 
 
@@ -3447,8 +3562,7 @@ class ChecklistTab(BaseTab):
         raw[TRIAL_SLOTS_KNOWN] = shared_facts.with_slots(
             raw.get(TRIAL_SLOTS_FIELD), _shipped(self.context))
         self._recall_streaks(raw)
-        self._recall_event_totals(raw, time.time())
-        self._recall_finals(raw, time.time())
+        event_totals_onto(raw, time.time())
         readings = self._settle_floors(
             _readings(raw, tracked=self._tracked))
         # Before the columns are built: the sort reads the answers off
@@ -3469,75 +3583,6 @@ class ChecklistTab(BaseTab):
             self._fill(title, text, rows, readings)
         self._fill_period_headings(raw)
         self._blink_restart(readings)
-
-    def _recall_event_totals(self, raw, now):
-        """Record what ended events held, and say what live ones hold.
-
-        **A finished instalment's mission rows are its whole total.**
-        A live event's are only what has been issued so far, which is
-        why nearly every event row on the tab can show a floor and
-        nothing better -- and the same family's last instalment is the
-        one thing that knows more.
-
-        Recording is the half that cannot wait: the game purges old
-        instalments, and a count nobody wrote down while the rows were
-        there is gone. So every ended event is counted on every load,
-        whether or not anything is live to use it.
-
-        What comes back is written onto `raw` under
-        `EVENT_TOTALS_FIELD`, where the readers take it off the
-        snapshot like any other field. Only families whose finished
-        instalments AGREE are in it -- see
-        `ChecklistManager.event_total`.
-        """
-        manager = getattr(self.context, "checklist_manager", None)
-        if manager is None or not isinstance(raw, dict):
-            return
-        for group in EVENT_GROUPS:
-            for name, _window in schedules.ended(group, raw, now):
-                size = _instalment_size(raw, name)
-                if size:
-                    manager.record_event_total(
-                        _stem(_event_key(name)), name, size)
-        totals = {}
-        for group in EVENT_GROUPS:
-            for name, _window in schedules.all_live(group, raw, now):
-                total = manager.event_total(_stem(_event_key(name)), name,
-                                            same=_event_key,
-                                            shipped=_shipped(self.context))
-                if total is not None:
-                    totals[name] = total
-        raw[EVENT_TOTALS_FIELD] = totals
-
-    def _recall_finals(self, raw, now):
-        """Record which families pay a final reward; mark live ones.
-
-        **The wire says a final reward exists only by recording its
-        claim.** Nothing before that hints there is one, so the only
-        way to show it waiting on a live event is to have seen the
-        family pay one before -- see `ChecklistManager.remember_final`.
-
-        Every event on the schedule is looked at, ended ones included,
-        and recording cannot wait: the records are purged in batches.
-        A step track's flag is its ladder's, not a final reward, and is
-        left out.
-
-        What comes back is written onto `raw` under
-        `EVENT_FINALS_FIELD` for the readers.
-        """
-        manager = getattr(self.context, "checklist_manager", None)
-        if manager is None or not isinstance(raw, dict):
-            return
-        for group in EVENT_GROUPS:
-            for name, _window in (schedules.ended(group, raw, now)
-                                  + schedules.all_live(group, raw, now)):
-                if _final_reward(raw, name)[1]:
-                    manager.remember_final(_stem(_event_key(name)), name)
-        raw[EVENT_FINALS_FIELD] = frozenset(
-            name for group in EVENT_GROUPS
-            for name, _window in schedules.all_live(group, raw, now)
-            if manager.pays_final(_stem(_event_key(name)),
-                                  shipped=_shipped(self.context)))
 
     def _mark_finished(self, raw, readings):
         """Fold the user's `Finished?` answers into the readings.
@@ -3562,12 +3607,21 @@ class ChecklistTab(BaseTab):
         manager = getattr(self.context, "checklist_manager", None)
         not_asked = {str(name) for group in NOT_ASKED_GROUPS
                      for name in schedules.groups(raw).get(group) or ()}
+        client = ((raw or {}).get(EVENT_CLIENT_FIELD) or {}
+                  if isinstance(raw, dict) else {})
         out = {}
         for key, segments in list(readings.items()):
             if not str(key).startswith(EVENT_KEY_PREFIX):
                 continue
             name = key[len(EVENT_KEY_PREFIX):]
-            pair = None if name in not_asked else unsure_ceiling(segments)
+            # A final reward the client lists is certain, so a row
+            # waiting on one asks nothing: the question is for a final
+            # known only from the family's past. A step track still
+            # asks, its claimed count being the unproven half.
+            certain = (name in client and not client[name][2] and segments
+                       and segments[0][1] is FINAL_WAITING)
+            pair = (None if name in not_asked or certain
+                    else unsure_ceiling(segments))
             if pair is None:
                 # The row exists and is not at an unproven ceiling, so
                 # an answer about it is about a reading that is gone.

@@ -41,7 +41,7 @@ from game_client import Client                                # noqa: E402
 
 SHIPPED = REPO / "Vribbels" / "game_data" / "from_client.py"
 
-SHIPPED_HEAD = '''"""Event and item names and Excursion type counts read off the game client.
+SHIPPED_HEAD = '''"""Event names and totals, item names and Excursion types, off the game client.
 
 Written by `python docs/client_tables.py --ship`, as of the game build
 `BUILD`; never edited by hand. What a player's own client says wins
@@ -64,6 +64,7 @@ def _tsv(columns, rows):
 def shipped_source(client):
     """The text of `from_client.py` for what `client` holds."""
     names = game_client.event_names(client)
+    totals = game_client.event_totals(client)
     items = game_client.item_names(client)
     visits = game_client.excursion_types(client)
     lines = [SHIPPED_HEAD, f"BUILD = {client.archive.build}", "",
@@ -71,6 +72,12 @@ def shipped_source(client):
              "EVENT_NAMES = {"]
     lines += [f"    {ascii(key)}: {ascii(name)},"
               for key, name in sorted(names.items())]
+    lines += ["}", "",
+              "# {schedule id: (rewards, final, steps)}. See "
+              "game_client.event_totals.",
+              "EVENT_TOTALS = {"]
+    lines += [f"    {ascii(key)}: ({rewards}, {final}, {steps}),"
+              for key, (rewards, final, steps) in sorted(totals.items())]
     lines += ["}", "",
               "# {item res_id: English name}. See game_client.item_names.",
               "ITEM_NAMES = {"]

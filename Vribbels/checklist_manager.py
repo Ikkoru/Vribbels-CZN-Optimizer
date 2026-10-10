@@ -99,49 +99,14 @@ either of them moving is the game saying something new, and the
 answer goes back to being unknown rather than standing on a reading
 that no longer exists.
 
-## How many rewards a past instalment of an event held
-
-    "events": {"event_stock": {"event_stock_01": 17}}
-
-**A FINISHED event's mission rows are its whole total**, where a live
-one's are only what has been issued so far -- which is why almost every
-event row on the tab can show a floor and nothing better. An instalment
-whose window has closed is counted once and written down here, under
-the family it belongs to.
-
-Written down rather than re-derived because the game PURGES old
-instalments: the rows are in `mission_entities` for a while and then
-they are not, and a total nobody recorded while it was there cannot be
-recovered. The record outlives them, and the next instalment of that
-family is what it is for.
-
-**Two agreeing instalments before any of it is believed.** One is not
-evidence that a family repeats itself: the login streaks run 7, 10, 14
-or 21 days depending on the instalment. See `event_total`.
-
-## Event families that pay a final reward
-
-    "finals": {"event_nodelist": ["event_nodelist_006",
-                                  "event_nodelist_007"]}
-
-**The wire says an event HAS a final reward only once it is claimed.**
-The reward that unlocks after every other one -- the game's Special
-Reward -- is invisible until its claim writes a completion record, and
-nothing before the claim hints that it is there. So the one way to
-know the next instalment has one is to remember that this one did.
-
-Written down for the same reason as the totals: the game purges
-completion records in batches, months after some of their events
-ended. **One instalment is enough here**, unlike a total -- being
-wrong costs a row
-that asks `Finished?` over a reward that is not there, which the user
-answers in one click, where missing it costs the reward.
+An event's total, and whether it pays a final reward, are the game
+client's (`game_client.event_totals`), so nothing about them is kept
+here.
 """
 
 import json
 from pathlib import Path
 
-import shared_facts
 from json_file import write_json
 
 CHECKLIST_VERSION = 1
@@ -208,15 +173,9 @@ class ChecklistManager:
         # Streak event id (str) -> True, for the ones the game has
         # said are over. See the module note.
         self.streaks = {}
-        # Event family (str) -> {instalment id: how many rewards it
-        # held}. Finished instalments only. See the module note.
-        self.events = {}
         # Event id (str) -> [claimed, total] when the user ticked
         # `Finished?`. See the module note.
         self.finished = {}
-        # Event family (str) -> [instalment ids] whose final reward the
-        # game has recorded as taken. See the module note.
-        self.finals = {}
         # The file stands but did not read: nothing is saved over it.
         self.unread = False
 
@@ -254,12 +213,8 @@ class ChecklistManager:
         streaks = data.get("streaks") if isinstance(data, dict) else None
         if isinstance(streaks, dict):
             self.streaks = {str(k): True for k, v in streaks.items() if v}
-        self.events = _clean_events(data.get("events")
-                                    if isinstance(data, dict) else None)
         self.finished = _clean_finished(data.get("finished")
                                         if isinstance(data, dict) else None)
-        self.finals = _clean_finals(data.get("finals")
-                                    if isinstance(data, dict) else None)
 
     def is_tracked(self, product_id) -> bool:
         """Whether a product is ticked. Absent ids take the default."""
@@ -354,90 +309,6 @@ class ChecklistManager:
         held = self.finished.get(str(event_id))
         return bool(held) and held == [int(claimed), int(total)]
 
-    # ----------------------------------------------- finished instalments
-
-    def record_event_total(self, family, event_id, count):
-        """Note how many rewards one FINISHED instalment held.
-
-        The caller decides an instalment is finished; this only files
-        the count. Re-recording the same figure writes nothing, so an
-        ordinary load costs no disk.
-
-        **The BIGGEST count for an instalment wins.** The rows are
-        purged gradually, so a smaller figure later is the purge having
-        started rather than a better reading, and it must not overwrite
-        what was seen whole.
-        """
-        family, event_id = str(family), str(event_id)
-        if not _is_count(count) or count <= 0:
-            return
-        held = self.events.setdefault(family, {})
-        if count <= held.get(event_id, 0):
-            return
-        held[event_id] = int(count)
-        self._write()
-
-    def event_total(self, family, live_id=None, same=str, shipped=None):
-        """What an instalment of `family` holds, or None.
-
-        `shipped` is the program's own game facts (`shared_facts.py`):
-        the instalments they hold vote beside the ones recorded here,
-        the bigger count per instalment standing for it, so an account
-        that missed a family's past instalments still has their pattern.
-
-        Every FINISHED instalment on record has to agree, and there
-        have to be at least two of them: a family that repeats itself
-        says so by repeating, and one instalment is a number rather
-        than a pattern -- the login streaks run 7, 10, 14 or 21 days
-        depending on which one it is.
-
-        `live_id` is left out of the count. A live instalment's rows
-        are what has been issued so far, so letting it vote would be
-        the floor this exists to replace, voting for itself.
-
-        **`same` says which ids are one instalment**, and they vote
-        once. The game can schedule one instalment twice --
-        `event_schedule_arena_2` and `event_arena_2` are the same
-        arena -- and counted as two it agrees with itself.
-        """
-        family = str(family)
-        held = shared_facts.totals_with(
-            {family: self.events.get(family) or {}}, shipped).get(family, {})
-        live = same(str(live_id)) if live_id is not None else None
-        votes = {}
-        for event_id, count in held.items():
-            key = same(event_id)
-            if key != live:
-                votes[key] = max(votes.get(key, 0), count)
-        past = list(votes.values())
-        if len(past) < 2 or len(set(past)) != 1:
-            return None
-        return past[0]
-
-    # ------------------------------------------------- final rewards seen
-
-    def remember_final(self, family, event_id):
-        """Note that an instalment of `family` paid a final reward.
-
-        Re-noting one already held writes nothing, so an ordinary load
-        costs no disk.
-        """
-        family, event_id = str(family), str(event_id)
-        held = self.finals.setdefault(family, [])
-        if event_id in held:
-            return
-        held.append(event_id)
-        held.sort()
-        self._write()
-
-    def pays_final(self, family, shipped=None):
-        """Whether any instalment of `family` has paid a final reward --
-        one recorded here, or one the program ships (`shared_facts.py`).
-        """
-        family = str(family)
-        return bool(shared_facts.finals_with(
-            {family: self.finals.get(family) or []}, shipped).get(family))
-
     # ------------------------------------------------- the currency ledger
 
     def record_currency(self, res_id, value, day, kind=FROM_WIRE,
@@ -500,8 +371,7 @@ class ChecklistManager:
         self.settings_dir.mkdir(parents=True, exist_ok=True)
         data = {"version": CHECKLIST_VERSION, "tracked": self.tracked,
                 "seen": self.seen, "currency": self.currency,
-                "streaks": self.streaks, "events": self.events,
-                "finished": self.finished, "finals": self.finals}
+                "streaks": self.streaks, "finished": self.finished}
         write_json(self.file, data)
 
 
@@ -522,40 +392,6 @@ def _clean_finished(raw):
         if (isinstance(pair, (list, tuple)) and len(pair) == 2
                 and all(_is_count(n) and n >= 0 for n in pair)):
             out[str(event_id)] = [int(pair[0]), int(pair[1])]
-    return out
-
-
-def _clean_finals(raw):
-    """The final-reward record off disk, with the rot taken out.
-
-    A list of instalment ids per family or nothing, the same contract
-    as `_clean_events`.
-    """
-    out = {}
-    for family, held in (raw or {}).items() if isinstance(raw, dict) else ():
-        if not isinstance(held, list):
-            continue
-        ids = sorted({str(event_id) for event_id in held
-                      if isinstance(event_id, str) and event_id})
-        if ids:
-            out[str(family)] = ids
-    return out
-
-
-def _clean_events(raw):
-    """The finished-instalment record off disk, with the rot taken out.
-
-    Same contract as `_clean_ledger`: a hand-edited or half-written
-    file costs the entries it broke and nothing else.
-    """
-    out = {}
-    for family, held in (raw or {}).items() if isinstance(raw, dict) else ():
-        if not isinstance(held, dict):
-            continue
-        rows = {str(event_id): int(count) for event_id, count in held.items()
-                if _is_count(count) and count > 0}
-        if rows:
-            out[str(family)] = rows
     return out
 
 
