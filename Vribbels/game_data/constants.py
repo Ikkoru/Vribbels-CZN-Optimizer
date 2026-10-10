@@ -621,8 +621,15 @@ def item_names():
 
     `RECORDED_NAMES` goes on last, so an identification made by hand
     wins over anything derived.
+
+    **The game client's names go underneath them all**
+    (`game_client.known_item_names`), so every item the game has is
+    named and a table here only overrides. Where the two disagree,
+    `python docs/client_tables.py --audit` says so.
     """
-    names = {rid: row[0] for rid, row in NAMED_MATERIALS.items()}
+    import game_client
+    names = game_client.known_item_names()
+    names.update({rid: row[0] for rid, row in NAMED_MATERIALS.items()})
     names.update({rid: row[0] for rid, row in PERIOD_ITEMS.items()})
     names.update({rid: f"{row[1]} Growth Stone of {row[0]}"
                   for rid, row in GROWTH_STONES.items()})

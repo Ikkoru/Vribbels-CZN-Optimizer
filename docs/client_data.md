@@ -10,13 +10,15 @@ The program finds an install through STOVE's uninstall entry (`Stove App STOVE_C
 
 ## What the program reads at launch
 
-What changes every patch and the server never sends: each event's name, for the Checklist's Events block, and how many Excursion types each combatant has, for the Combatants tab. The first source that knows an id wins:
+What changes every patch and the server never sends: each event's name, for the Checklist's Events block; every item's name, for the Capture Log and the Checklist's shops; and how many Excursion types each combatant has, for the Combatants tab. The first source that knows an id wins:
 
 1. what this machine's client says, saved to `settings/game_client.json` with the install and build it was read at, so the client is read again only after a patch;
 2. `Vribbels/game_data/from_client.py`, the same reading as of the build the program shipped with: `python docs/client_tables.py --ship` after a patch, before a release, and review the diff;
-3. nothing: the Checklist shows the event's id, the Combatants tab `7?`, the floor every combatant has, for the total.
+3. nothing: the Checklist shows the event's id, the Capture Log the item's, the Combatants tab `7?`, the floor every combatant has, for the total.
 
-`check_event_names` holds the readers, the cache and the shipped table.
+**An item name of the program's own goes over all three** (`game_data.constants.item_names`): its tables and `RECORDED_NAMES` override the client, and `--audit` lists where they disagree. The capture addon takes its names when it is written, so a client read that lands after a capture starts reaches the next capture.
+
+`check_event_names` holds the readers, the cache, the shipped table and the order of the sources.
 
 ## The text
 

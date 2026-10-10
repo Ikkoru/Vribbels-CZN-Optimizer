@@ -147,6 +147,17 @@ def _joins(gc):
             f"Excursion types read {visits}, not {{1003: 7, 30117: 11}}. A "
             f"partner's single placeholder row has to be left out, or a "
             f"combatant whose list is not out yet reads 'n/1'.")
+    items = gc.item_names(_FakeClient({}, {
+        "item@name@4020001": "<color_red>Event Coin</>",
+        "item@name@4020002": "",
+        "item@name@x1": "Not an item",
+        "item@desc@4020001": "Not a name"}))
+    if items != {4020001: "Event Coin"}:
+        out.append(
+            f"item names read {items}, not {{4020001: 'Event Coin'}}. Only "
+            f"`item@name@<res_id>` with text names an item, markup taken "
+            f"out; anything else lands a description or a blank where the "
+            f"Capture Log shows an item.")
     return out
 
 
@@ -184,8 +195,45 @@ def _accessors(gc):
         if gc.event_name("event_nobody_named_this") is not None:
             out.append("an id nothing names came back named, where the "
                        "Checklist needs None to fall back to the id.")
+        out.extend(_item_precedence(gc))
     finally:
         gc.use(None)
+    return out
+
+
+def _item_precedence(gc):
+    """Item names: the program's tables over this machine's client, the
+    client over the shipped table. Returns complaints."""
+    from game_data import from_client
+    from game_data.constants import NAMED_MATERIALS, item_names
+    out = []
+    own_id, (own_name, *_rest) = next(iter(NAMED_MATERIALS.items()))
+    shipped_id = next(rid for rid in from_client.ITEM_NAMES
+                      if rid not in item_names.__globals__["NAMED_MATERIALS"]
+                      and rid not in item_names.__globals__["RECORDED_NAMES"])
+    gc.use({"item_names": {"999999901": "Client Only Item",
+                           str(shipped_id): "Client Over Shipped",
+                           str(own_id): "Not The Program's"}})
+    names = item_names()
+    for rid, want, why in (
+            (999999901, "Client Only Item",
+             "an item only the client names has to be named, or the "
+             "Capture Log shows its id"),
+            (shipped_id, "Client Over Shipped",
+             "this machine's client is newer than the shipped table"),
+            (own_id, own_name,
+             "a table of the program's own overrides the client; "
+             "`--audit` lists where they disagree")):
+        if names.get(rid) != want:
+            out.append(f"item {rid} is named {names.get(rid)!r}, not "
+                       f"{want!r}: {why}.")
+    gc.use(None)
+    if item_names().get(shipped_id) != from_client.ITEM_NAMES[shipped_id]:
+        out.append(
+            f"with no client read, item {shipped_id} is named "
+            f"{item_names().get(shipped_id)!r}, not the shipped "
+            f"{from_client.ITEM_NAMES[shipped_id]!r}: a player whose client "
+            f"cannot be read sees its id in the Capture Log.")
     return out
 
 

@@ -1,80 +1,309 @@
 res_id	where	amount	Name	Type	Note
-2000002	currencies	3	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
-2000007	currencies	19	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
+2000002	currencies	89	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered
+2000005	currencies	0	Skill Points		
+2000006	currencies	3	Ark Tour Pass		Spectral Cube candidate
+2000007	currencies	23	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily
+2000008	currencies	0	The Engine of Time		
 2000011	currencies	369	Moment of the Radiant Hero	Shop Currency	
-2000012	currencies	173	Moment of the Radiant Traveler	Shop Currency	
-2000014	currencies	1	Tear of God	Stamina Recovery	
-2000016	currencies	158	Rescue Anchor	Gacha Currency	
+2000012	currencies	118	Moment of the Radiant Traveler	Shop Currency	
+2000013	currencies	0	Prism Module		
+2000014	currencies	5	Tear of God	Stamina Recovery	
+2000016	currencies	159	Rescue Anchor	Gacha Currency	
+2000017	currencies	0	Prism of Support		
 2000018	currencies	44	Research Notes	Ark - Upgrade Currency	
 2000020	currencies	70	Zeronium	Shop Currency	
+2000021	currencies	0	Zero Access		
 2000022	currencies	3	Special Security Code	Trauma Code Unlock Item	Max 3 stored
-2000023	currencies	57	Prism Lens	Gacha Currency - Animated Card	
+2000023	currencies	67	Prism Lens	Gacha Currency - Animated Card	
 2000024	currencies	600	Prism Film	Shop Currency	
-2000031	currencies	18	Policy Point	Ark - Shop Currency	
-2000032	currencies	7500	Crystal of Discord	Shop Currency	
+2000031	currencies	79	Policy Point	Ark - Shop Currency	
+2000032	currencies	10800	Crystal of Discord	Shop Currency	
+2000033	currencies	3	Spectral Cube		Spectral Cube candidate
+2000034	currencies	0	Chaos Architect		
 2000048	currencies	0	Daily Chaos Delegation	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation
-3000005	items	44159	Chaos Orb	Zero System Currency	Worthless
+3000005	items	45451	Chaos Orb	Zero System Currency	Worthless
 3000008	items	600	Tactical Data	Sortie Currency	
 3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Reset when a Galactic Disaster ends
-3200001	items	3193	Particles of Memory	Crafting Material for Memory Fragments	
-3200002	items	11	Core of Memory	Crafting Material for Memory Fragments	
-3210001	items	8604	Traces of Memory	Crafting Material for Memory Fragments	
+3200001	items	3765	Particles of Memory	Crafting Material for Memory Fragments	
+3200002	items	59	Core of Memory	Crafting Material for Memory Fragments	
+3210001	items	9238	Traces of Memory	Crafting Material for Memory Fragments	
 3210002	items	25	Multidimensional Alignment Material	Crafting Material for Memory Fragments	
-3300001	items	14	Sweet Choconilla	Gift Item	Common
-3300002	items	31	Exquisite Slice of Cake	Gift Item	Rare
-3300003	items	3	Wing Step A-50	Gift Item	Legendary
+3300001	items	16	Sweet Choconilla	Gift Item	Common
+3300002	items	38	Exquisite Slice of Cake	Gift Item	Rare
+3300003	items	6	Wing Step A-50	Gift Item	Legendary
 3300004	items	3	Mysterious Encyclopedia	Gift Item	Legendary
-3300005	items	3	Perfect Spray Gun	Gift Item	Legendary
+3300005	items	4	Perfect Spray Gun	Gift Item	Legendary
 3300006	items	15	Locket Necklace of Memories	Gift Item	Rare
 3300007	items	6	Excellent Merit Badge	Gift Item	Rare
-3300008	items	28	Lucky Sachet	Gift Item	Rare
+3300008	items	30	Lucky Sachet	Gift Item	Rare
 3300009	items	3	Hidden Card	Gift Item	Legendary
 3300010	items	3	Strange Decoration	Gift Item	Rare
-3300011	items	6	Carefully Handwritten Letter	Gift Item	Legendary
-3300012	items	4	Heartbeat Purfume	Gift Item	Common
-3300013	items	57	Cute Rabbit Doll	Gift Item	Common
+3300011	items	9	Carefully Handwritten Letter	Gift Item	Legendary
+3300012	items	5	Heartbeat Purfume	Gift Item	Common
+3300013	items	59	Cute Rabbit Doll	Gift Item	Common
 3300014	items	4	Nightmare-Repelling Dreamcatcher	Gift Item	Legendary
 3300015	items	4	Legendary Combat Manual	Gift Item	Legendary
-3300016	items	17	Handmade Wooden Doll	Gift Item	Common
-3300017	items	8	Heartfelt Guitar Pick	Gift Item	Legendary
+3300016	items	20	Handmade Wooden Doll	Gift Item	Common
+3300017	items	10	Heartfelt Guitar Pick	Gift Item	Legendary
 3300018	items	18	A Not So Boring Wait	Gift Item	Rare
-3300019	items	24	Midsummer Night Fireworks	Gift Item	Rare
+3300019	items	28	Midsummer Night Fireworks	Gift Item	Rare
 3300020	items	22	Limited Edition Teddy Bear	Gift Item	Rare
 3310005	items	0	B-Grade Policy Report	Ark - Policy	
 3310006	items	0	A-Grade Policy Report	Ark - Policy	
 3310007	items	0	Special Grade Policy Report	Ark - Policy	
+3920001			Pure White Fragment	Pure White Fragments	Galactic Disaster Season 1 Event Currency
+3920002			Radiant Life	Radiant Life	Galactic Disaster Season 2 Event Currency
+3920004	items	0	Dice		
+3920005	items	0	Tracking Dice		
+3920006			Flawless Melody	Flawless Melody	Galactic Disaster Season 3 Event Currency
 3920007	items	2005	Black Mass	Sortie Currency	
-3920013	items	4	Core of the Reverse	Save Data Edit	
+3920013	items	5	Core of the Reverse	Save Data Edit	
 3920014	items	8	Core of Annihilation	Save Data Edit	
-3920015	items	45	Colorless Core	Save Data Edit	
-3920022	items	7	Abyssal Core	Save Data Edit	
+3920015	items	50	Colorless Core	Save Data Edit	
+3920022	items	11	Abyssal Core	Save Data Edit	
 3920023	items	4	Core of Archetype	Save Data Edit	
-3920024	items	3	Core of Potential	Save Data Edit	
+3920024	items	4	Core of Potential	Save Data Edit	
 3920029	items	3	Core of Variables	Save Data Edit	
 3920030	items	2	Core of Phase	Save Data Edit	
 3920031	items	13	Enrapturing Crystal	Seasonal Event Currency	Galactic Disaster Season 4 Event Currency
+3930002			Torn Fairy Tale Book Page		Couldn't find any 10s. Possibly an event item, because it was gone from the snapshot after new patch dropped
 3930003	items	4	Core of Resonance	Save Data Edit	
-3930004	items	12	Core of Mutation	Save Data Edit	
+3930004	items	13	Core of Mutation	Save Data Edit	
+4010001	items	1	Summer Event Illustration Item (1st)		Summer 2026 Hilde - Main Screen Background candidate
+4010002	items	1	Summer Event Illustration Item (2nd)		Summer 2026 Arabella - Main Screen Background candidate
 4010003	items	1	Summer 2026 Olga	Main Screen Background	
 4020001	items	16	Midsummer Night Memories	Event Exclusive Item	Check if this is reused in various events. In PROVISIONAL_NAMES, so the Capture Log draws the name red
+4100000	items	0	Chaos Selection Chest		
+4100005	items	0	Half-Anniversary Card [Combatants]		
+4100006	items	0	Half-Anniversary Card [Partners]		
+4100007	items	0	Recruitment Contract – Partner		
+4100010	items	0	Selective Combatant Rescue Card		
+5100001	items	0	Memory Code - Nia		
+5100003	items	0	Memory Code - Selena		
+5100005	items	0	Memory Code - Khalipe		
+5100006	items	0	Memory Code - Tressa		
+5100007	items	0	Memory Code - Magna		
+5100010	items	0	Memory Code - Amir		
+5100011	items	0	Memory Code - Rin		
+5100012	items	0	Memory Code - Lucas		
+5100013	items	0	Memory Code - Maribell		
+5100017	items	0	Memory Code - Mika		
+5100018	items	0	Memory Code - Beryl		
+5100037	items	0	Memory Code - Orlea		
+5100038	items	0	Memory Code - Mei Lin		
+5100039	items	0	Memory Code - Veronica		
+5100041	items	0	Memory Code - Cassius		
+5100042	items	0	Memory Code - Owen		
+5100049	items	0	Memory Code - Haru		
+5100055	items	0	Memory Code - Rei		
+5100064	items	0	Memory Code - Yuki		
+5100066	items	0	Memory Code - Sereniel		
+5100067	items	0	Memory Code - Narja		
+5100068	items	0	Memory Code - Nine		
+5100069	items	0	Memory Code - Tiphera		
+5100073	items	0	Memory Code - Heidemarie		
+5100074	items	0	Memory Code - Adelheid		
 5110001	items	4	Omega Code	Omega Code	
+5201003	items	0	Prism Module - Nia		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201005	items	0	Prism Module - Selena		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201009	items	0	Prism Module - Tressa		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201017	items	0	Prism Module - Amir		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201021	items	0	Prism Module - Lucas		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201024	items	0	Prism Module - Orlea		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201028	items	0	Animated Card Unlock - Maribell	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201033	items	0	Prism Module - Veronica		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201039	items	0	Prism Module - Mika		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201040	items	0	Prism Module - Beryl		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201049	items	0	Prism Module - Cassius		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201050	items	0	Prism Module - Owen		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201052	items	0	Prism Module - Narja		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201056	items	0	Prism Module - Rei		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201057	items	0	Prism Module - Yuki		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201060	items	0	Prism Module - Chizuru		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201061	items	0	Prism Module - Diana		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201062	items	0	Prism Module - Haru		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201074	items	0	Prism Module - Tiphera		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201075	items	0	Prism Module - Rita		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201077	items	0	Prism Module - Fei		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201078	items	0	Prism Module - Heidemarie		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201079	items	0	Prism Module - Adelheid		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201080	items	0	Prism Module - Tenebria		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201081	items	0	Prism Module - Hilde		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
+5201082	items	0	Prism Module - Arabella		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it
 5201083	items	0	Animated Card Unlock Item - Olga	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it (this one is char 30117)
 5210000			Prism Module - Nominate	Animated Card Unlock Item - 4*	Seen only in shop_res_data (card_factor_4, 200 Prism Lens, 3/month); the account has never held one, which is why no dump listed it
 5210001	items	1	Prism Module - Masterpiece	Animated Card Unlock Item - 5*	
+9100012	items	1	Forbidden Purple		
+9100013	items	1	Beginning of Disaster		
+9100014	items	1	Burning Life		
+9100015	items	1	Arena in Disaster		
+9100016	items	1	Blazing Genesis		
+9210025	items	1	Burning Life Profile		Background?
+9210026	items	1	Arena in Disaster Profile		Background?
+9210027	items	1	Blazing Genesis Profile		Background?
+9210036	items	1	Under the Willow		Background?
+9210037	items	1	Theater of Illusions Profile		Background?
+9210038	items	1	Ruined Ellinad Profile		Background?
+9210039	items	1	SS Edenity Profile		Background?
+9210040	items	1	Theater of Illusions		Background?
+9210041	items	1	Ruined Ellinad		Background?
+9210042	items	1	SS Edenity		Background?
+9210043	items	1	Melody Muffler Draped Across the Galaxy Profile		Background?
+9210044	items	1	Melody Muffler Draped Across the Galaxy		Background?
 9210049	items	1	Shattered Light and Claw	Background - Save data	
+9210050	items	1	Memories of the Beach Café Festival		Background?
 9210051	items	1	Memories of the Beach Café Festival	Background - ID Card	
+9210052	items	1	Planet Pagna		Background?
+9210053	items	1	Planet Pagna		Background?
+9210054	items	1	Kaleidoscope Hatchery		Background?
+9210055	items	1	Kaleidoscope Hatchery		Background?
+9300115	items	1	Maw of the Void		Galactic Medal or Sticker candidate
+9300116	items	1	Test Subject Flask		Galactic Medal or Sticker candidate
+9300117	items	1	Space Defense Command 1		Galactic Medal or Sticker candidate
+9300118	items	1	Yuki's Fishcake Snack		Galactic Medal or Sticker candidate
+9300119	items	1	Sereniel's Favorite Keyring		Galactic Medal or Sticker candidate
+9300120	items	1	Chizuru's Bell		Galactic Medal or Sticker candidate
+9300121	items	1	Petit Haku		Galactic Medal or Sticker candidate
 9300122	items	2	Forbidden Catalyst Yuki	Sticker	
+9300126	items	1	Suppressed Servant [Platinum]		Galactic Medal or Sticker candidate
+9300132	items	1	Beginning of Desire - Platinum		Galactic Medal or Sticker candidate
+9300135	items	1	Oppressed Servant - Black		Galactic Medal or Sticker candidate
+9300136	items	1	Oppressed Servant - Prism		Galactic Medal or Sticker candidate
+9300137	items	1	Beginning of Desire - Black		Galactic Medal or Sticker candidate
+9300138	items	1	Beginning of Desire - Prism		Galactic Medal or Sticker candidate
+9300165	items	1	Memories with Narja		Galactic Medal or Sticker candidate
+9300176	items	1	Colossus [Black]		Galactic Medal or Sticker candidate
+9300177	items	1	Colossus [Prism]		Galactic Medal or Sticker candidate
+9300182	items	1	Golden Mane [Black]		Galactic Medal or Sticker candidate
+9300183	items	1	Golden Mane [Prism]		Galactic Medal or Sticker candidate
+9300184	items	1	Petit Rico		Galactic Medal or Sticker candidate
+9300185	items	1	Fixer's Sunglasses		Galactic Medal or Sticker candidate
+9300186	items	1	Gladiator's Beloved Weapon		Galactic Medal or Sticker candidate
+9300187	items	1	Marshal's Honor		Galactic Medal or Sticker candidate
+9300188	items	1	Petite Vine Lord		Galactic Medal or Sticker candidate
+9300189	items	1	Cat in Memory		Galactic Medal or Sticker candidate
+9300190	items	1	Overwhelming Hunt		Galactic Medal or Sticker candidate
+9300191	items	1	Seed of Karmic Fire		Galactic Medal or Sticker candidate
+9300192	items	1	Burning Life Cleanse		Galactic Medal or Sticker candidate
+9300193	items	1	Unknown Verne		Galactic Medal or Sticker candidate
+9300194	items	1	[Seed of Karmic Fire] Collector of All		Galactic Medal or Sticker candidate
+9300195	items	1	FLEX		Galactic Medal or Sticker candidate
+9300196	items	1	Weapon Master		Galactic Medal or Sticker candidate
+9300197	items	1	Oops, My Hand Slipped		Galactic Medal or Sticker candidate
+9300198	items	1	Slaughterer of Burning Flames		Galactic Medal or Sticker candidate
+9300200	items	1	[Seed of Karmic Fire] Credit Collector		Galactic Medal or Sticker candidate
+9300204	items	1	Colossus [Master]		Galactic Medal or Sticker candidate
+9300205	items	1	Golden Mane [Diamond]		Galactic Medal or Sticker candidate
+9300210	items	1	Friendly Visitor		Galactic Medal or Sticker candidate
+9300211	items	1	Street Celebrity		Galactic Medal or Sticker candidate
+9300212	items	1	Renowned Fixer		Galactic Medal or Sticker candidate
+9300213	items	1	Reliable Guardian		Galactic Medal or Sticker candidate
+9300214	items	1	Honorary Mayor of the SS Edenity		Galactic Medal or Sticker candidate
+9300217	items	1	I'm cute, aren't I!		Galactic Medal or Sticker candidate
+9300218	items	1	The Mayor's Cheer!		Galactic Medal or Sticker candidate
+9300223	items	1	Punisher of Resentment [Black]		Galactic Medal or Sticker candidate
+9300224	items	1	Punisher of Resentment [Prism]		Galactic Medal or Sticker candidate
+9300226	items	1	Punisher of Resentment [Master]		Galactic Medal or Sticker candidate
+9300231	items	1	Woman Within the Fog [Black]		Galactic Medal or Sticker candidate
+9300232	items	1	Woman Within the Fog [Prism]		Galactic Medal or Sticker candidate
+9300233	items	1	Woman Within the Fog [Diamond]		Galactic Medal or Sticker candidate
+9300235	items	1	Aurora's Emblem		Galactic Medal or Sticker candidate
+9300236	items	1	Heidemarie's Sword		Galactic Medal or Sticker candidate
+9300237	items	1	Clara's Magical Wand		Galactic Medal or Sticker candidate
+9300238	items	1	Parrotbill from Fairy Tale		Galactic Medal or Sticker candidate
+9300239	items	1	Aria Light Stick		Galactic Medal or Sticker candidate
+9300240	items	1	Tenebria Light Stick		Galactic Medal or Sticker candidate
+9300241	items	1	A Song Rippling Through the Stars		Galactic Medal or Sticker candidate
+9300242	items	1	Galactic Orchestra		Galactic Medal or Sticker candidate
+9300243	items	1	Credit Collector		Galactic Medal or Sticker candidate
+9300244	items	1	Glory of Ellinad		Galactic Medal or Sticker candidate
+9300245	items	1	Stealing the Show		Galactic Medal or Sticker candidate
+9300246	items	1	Perfect Method		Galactic Medal or Sticker candidate
+9300247	items	1	Curtain Call at Last		Galactic Medal or Sticker candidate
+9300248	items	1	Collector of All		Galactic Medal or Sticker candidate
+9300249	items	1	A Thousand Faces		Galactic Medal or Sticker candidate
+9300250	items	1	Song of Light and Darkness		Galactic Medal or Sticker candidate
+9300251	items	1	Nameless Artist		Galactic Medal or Sticker candidate
+9300252	items	1	Unknown Audition		Galactic Medal or Sticker candidate
+9300253	items	1	Memories With Fei		Galactic Medal or Sticker candidate
 9300254	items	1	Shattered Light and Claw	Galactic Medal	
+9300255	items	1	Survivor of the Abyss		Galactic Medal or Sticker candidate
+9300256	items	1	Pagna Maurader		Galactic Medal or Sticker candidate
+9300257	items	1	Proof of Legitimacy		Galactic Medal or Sticker candidate
+9300258	items	1	Universal Prism		Galactic Medal or Sticker candidate
 9300259	items	1	Glorious Allegory	Galactic Medal	
+9300260	items	1	Greed Without Consequence		Galactic Medal or Sticker candidate
 9300261	items	1	Petite Anis	Sticker	or Perfect Taxidermy - Galactic Medal
+9300262	items	1	Desire’s Guiding Light		Galactic Medal or Sticker candidate
+9300263	items	1	Condensed World		Galactic Medal or Sticker candidate
+9300264	items	1	Unknown Ecosystem		Galactic Medal or Sticker candidate
+9300265	items	1	Hilde’s Bow		Galactic Medal or Sticker candidate
+9300266	items	1	Eunie’s Gatling Gun		Galactic Medal or Sticker candidate
+9300267	items	1	Cute Snake Decoration		Galactic Medal or Sticker candidate
+9300268	items	1	Black Panther Ears		Galactic Medal or Sticker candidate
+9300269	items	1	Scythe of Rapacity		Galactic Medal or Sticker candidate
+9300270	items	1	Emilie's Sword		Galactic Medal or Sticker candidate
 9300271	items	1	Perfect Taxidermy	Galactic Medal	or Petite Anis Sticker
+9300273	items	1	Aavarck [Diamond]		Galactic Medal or Sticker candidate
+9300278	items	1	Aavarck [Black]		Galactic Medal or Sticker candidate
+9300279	items	1	Aavarck [Prism]		Galactic Medal or Sticker candidate
+9300281	items	1	Pharanes [Diamond]		Galactic Medal or Sticker candidate
+9300286	items	1	Pharanes [Black]		Galactic Medal or Sticker candidate
+9300287	items	1	Pharanes [Prism]		Galactic Medal or Sticker candidate
+9300288	items	1	Arabella’s Support		Galactic Medal or Sticker candidate
+9300289	items	1	Haven’t Bought In Yet		Galactic Medal or Sticker candidate
+9300290	items	1	I bought in yesterday		Galactic Medal or Sticker candidate
 9300291	items	1	Full-Scale Offensive Sticker	Sticker	
 9400008	items	2	Forbidden Catalyst Chizuru	Sticker	
+9400009	items	2	Forbidden Catalyst Sereniel		Sticker candidate
+9400010	items	1	Seed of Karmic Fire Nine		Sticker candidate
+9400011	items	1	Seed of Karmic Fire Tiphera		Sticker candidate
+9400012	items	1	Seed of Karmic Fire Rita		Sticker candidate
+9400013	items	1	Tiphera's [Pass!]		Sticker candidate
+9400014	items	1	Tiphera's [Fail!]		Sticker candidate
+9400016	items	1	Excitement Alighting on Feathers		Sticker candidate
+9400017	items	1	A Song Rippling Through the Stars, Heidemarie		Sticker candidate
+9400018	items	1	A Song Rippling Through the Stars, Adelheid		Sticker candidate
+9400019	items	1	A Song Rippling Through the Stars, Tenebria		Sticker candidate
+9400051	items	1	Prince of Fairytale Land		Sticker candidate
+9400052	items	1	Princess of Fairytale Land		Sticker candidate
+9400053	items	1	Emerald Castle of Fairytale Land		Sticker candidate
+9400054	items	1	Tenebria Light Stick		Sticker candidate
+9400055	items	1	Aria Light Stick		Sticker candidate
+9400056	items	1	Tenebria's Shining Moment		Sticker candidate
+9400057	items	1	Aria's Shining Moment		Sticker candidate
+9400058	items	1	Melody at the Highest Peak Finale		Sticker candidate
+9400059	items	1	Petite Aria		Sticker candidate
+9400061	items	1	Fireteam Fox Signboard		Sticker candidate
+9400062	items	1	Shattered Light and Claw - Hilde		Sticker candidate
+9400063	items	1	Shattered Light and Claw - Arabella		Sticker candidate
+9400064	items	1	Shattered Light and Claw - Olga		Sticker candidate
+9400065	items	1	Shattered Light and Claw - Anis		Sticker candidate
+9400072	items	1	Lethal Elegance		Sticker candidate
 9400080	items	1	Arky	Sticker	CZN x Epic Seven collab
 9400081	items	1	Kayron	Sticker	CZN x Epic Seven collab
 9400082	items	1	Witch of the Mere Tenebria	Sticker	CZN x Epic Seven collab
 9400083	items	1	CZN x Epic Seven	Sticker	CZN x Epic Seven collab
+9400084	items	1	Kaguya Standard	Sticker	Bartender Event sticker reward
+9400085	items	1	Neon Spiral	Sticker	Bartender Event sticker reward
+9400086	items	1	Pinku Rush	Sticker	Bartender Event sticker reward
+9400087	items	1	Melting Heart	Sticker	Bartender Event sticker reward
+9400088	items	1	Forest Deep	Sticker	Bartender Event sticker reward
+9400089	items	1	Verne Breeze	Sticker	Bartender Event sticker reward
+9400090	items	1	Acid Pop	Sticker	Bartender Event sticker reward
+9400091	items	1	Emerald Tear	Sticker	Bartender Event sticker reward
+9400092	items	1	Silent Dune	Sticker	Bartender Event sticker reward
+9400093	items	1	Black Mile	Sticker	Bartender Event sticker reward
+9400094	items	1	Mocha Illusion	Sticker	Bartender Event sticker reward
+9400095	items	1	Dust Noir	Sticker	Bartender Event sticker reward
+9400096	items	1	Ginger Air	Sticker	Bartender Event sticker reward
+9400097	items	1	Voltage Max	Sticker	Bartender Event sticker reward
+9400098	items	1	Sunset Rush	Sticker	Bartender Event sticker reward
+9400099	items	1	Truth Spark	Sticker	Bartender Event sticker reward
+9400100	items	1	Ark Pure	Sticker	Bartender Event sticker reward
+9400101	items	1	Clear Mind	Sticker	Bartender Event sticker reward
+9400102	items	1	Bubble Echo	Sticker	Bartender Event sticker reward
+9400103	items	1	Mirror Lake	Sticker	Bartender Event sticker reward
 9400104	items	1	CZN x Epic Seven	Background - Save Data	CZN x Epic Seven collab
 9400107	items	1	Rabbit Veronica	Sticker	Golden Autumn's Invitation daily login event
 9400108	items	1	Sereniel's Vacation	Sticker	

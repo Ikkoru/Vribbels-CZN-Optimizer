@@ -714,11 +714,13 @@ def run():
             f"way it went; the sign of the figures is not.")
 
     # --- and every identification on the WORKLIST reaches the program --
-    # `docs/items_id_known_not_in_materials.tsv` is where an id gets its
-    # name by hand. Nothing copies that into `RECORDED_NAMES`, so a
-    # name typed there and not here leaves the Capture Log printing the
-    # res_id -- which is the marking reserved for ids nobody has
-    # identified at all.
+    # `docs/items_id_known_not_in_materials.tsv` names each id, from the
+    # game client or by hand, and the Capture Log names it from
+    # `item_names()`: the program's tables over the client's. A name
+    # there that the program does not give leaves the log printing the
+    # number, or another name, with nothing to say which is right.
+    from game_data.constants import item_names
+    program_names = item_names()
     worklist = REPO_ROOT / "docs" / "items_id_known_not_in_materials.tsv"
     if worklist.exists():
         rows = worklist.read_text(encoding="utf-8").splitlines()
@@ -738,17 +740,18 @@ def run():
                 except ValueError:
                     continue
                 name = cells[column].strip()
-                known = RECORDED_NAMES.get(res_id)
+                known = program_names.get(res_id)
                 if known is None:
                     failures.append(
-                        f"{worklist.name} names {res_id} "
-                        f"{name!r} and RECORDED_NAMES does not carry it. "
-                        f"The Capture Log will print the number.")
-                elif known != name:
+                        f"{worklist.name} names {res_id} {name!r} and "
+                        f"neither the client nor RECORDED_NAMES does. The "
+                        f"Capture Log will print the number.")
+                elif known.replace(chr(0x2019), "'") != name.replace(
+                        chr(0x2019), "'"):
                     failures.append(
                         f"{worklist.name} calls {res_id} {name!r} where "
-                        f"RECORDED_NAMES calls it {known!r}. One of the "
-                        f"two is out of date and nothing says which.")
+                        f"the program calls it {known!r}. One of the two "
+                        f"is out of date and nothing says which.")
 
     # --- one payout, one receipt, however many replies carry it ------
     # **A Simulation run's reward arrives twice**: once under

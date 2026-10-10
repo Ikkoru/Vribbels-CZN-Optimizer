@@ -14,8 +14,14 @@ it:
   program does nothing with it. Either the dump carries a hand-typed
   `Name` and no table does, or a table names it only for the record.
   **This is the worklist.**
-* `items_id_unknown.tsv` -- neither. Where it came from and what it
-  reads, for diffing against the next capture.
+* `items_id_unknown.tsv` -- neither, and the game client does not name
+  it either. Where it came from and what it reads, for diffing against
+  the next capture.
+
+An id no table names takes the client's name in the `Name` column
+(`docs/client_data.md`), so identifying one is a lookup rather than a
+capture diff; a name typed by hand stays, and the run prints any that
+differs from the client's.
 
 The last two share their columns, and a row moves between them by
 gaining or losing its `Name` -- so a hand-typed identification is never
@@ -328,6 +334,23 @@ def main():
             if not cells[at].strip():
                 cells[at] = RECORDED_NAMES.get(res_id, "")
 
+    # **Then the game client's**, for every id nothing above named: the
+    # client names every item the game has, so what is left in the
+    # unknown dump is what the client does not. A name typed by hand
+    # stays where it is, and one that differs from the client's is
+    # printed, since one of the two is wrong.
+    if at is not None:
+        for res_id, name in sorted(client_names().items()):
+            if res_id not in rest and res_id not in kept:
+                continue
+            cells = kept.setdefault(res_id, [""] * len(extra))
+            typed = cells[at].strip()
+            if not typed:
+                cells[at] = name
+            elif _plain(typed) != _plain(name):
+                print(f"  named {typed!r} here and {name!r} by the "
+                      f"client: {res_id}")
+
     named_ids = {r for r in set(rest) | set(kept) if identified(r)}
     write(OUT / "items_id_known_not_in_materials.tsv", UNKNOWN_OWNED,
           {r: v for r, v in rest.items() if r in named_ids},
@@ -340,6 +363,25 @@ def main():
     fresh = sorted((set(known_rows) | set(rest) | set(kept)) - was_dumped)
     print(f"{len(fresh)} id(s) no dump had seen before"
           + (f": {few(fresh, 20)}" if fresh else ""))
+
+
+def client_names():
+    """{res_id: name} from the installed client, read now, or from the
+    copy the program ships where none can be read."""
+    import game_client
+    try:
+        install = game_client.find_install()
+        if install is not None:
+            game_client.use(game_client.read_facts(install))
+    except Exception as exc:                              # noqa: BLE001
+        print(f"  the client did not read ({exc}); its shipped names "
+              f"stand in")
+    return game_client.known_item_names()
+
+
+def _plain(name):
+    """A name with the client's typographic apostrophe made plain."""
+    return name.replace(chr(0x2019), "'")
 
 
 def _shared_tail(first, second, owned):

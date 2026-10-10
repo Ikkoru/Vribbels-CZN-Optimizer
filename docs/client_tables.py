@@ -18,11 +18,11 @@ finds. What each table holds, and what was checked against it, is
 whose client the program cannot read sees instead: run it after a
 patch, before a release, and review its diff.
 
-`--audit` prints every place `game_data`'s combatants and partners
-disagree with the client, and the ones either side lacks: the tables
-are typed by hand, and a patch that rebalances one changes nothing
-there. It writes nothing; a disagreement is for the maintainer to
-settle, since the hand-typed figure can be the newer one.
+`--audit` prints every place `game_data`'s combatants, partners and
+item names disagree with the client, and the ones either side lacks:
+the tables are typed by hand, and a patch that rebalances one changes
+nothing there. It writes nothing; a disagreement is for the maintainer
+to settle, since the hand-typed figure can be the newer one.
 
 The reader itself is `Vribbels/game_client.py`, the same one the
 program runs at launch. Python 3.14, for `compression.zstd`.
@@ -41,7 +41,7 @@ from game_client import Client                                # noqa: E402
 
 SHIPPED = REPO / "Vribbels" / "game_data" / "from_client.py"
 
-SHIPPED_HEAD = '''"""Event names and Excursion type counts read off the game client.
+SHIPPED_HEAD = '''"""Event and item names and Excursion type counts read off the game client.
 
 Written by `python docs/client_tables.py --ship`, as of the game build
 `BUILD`; never edited by hand. What a player's own client says wins
@@ -64,12 +64,18 @@ def _tsv(columns, rows):
 def shipped_source(client):
     """The text of `from_client.py` for what `client` holds."""
     names = game_client.event_names(client)
+    items = game_client.item_names(client)
     visits = game_client.excursion_types(client)
     lines = [SHIPPED_HEAD, f"BUILD = {client.archive.build}", "",
              "# {schedule id: English name}. See game_client.event_names.",
              "EVENT_NAMES = {"]
     lines += [f"    {ascii(key)}: {ascii(name)},"
               for key, name in sorted(names.items())]
+    lines += ["}", "",
+              "# {item res_id: English name}. See game_client.item_names.",
+              "ITEM_NAMES = {"]
+    lines += [f"    {res_id}: {ascii(name)},"
+              for res_id, name in sorted(items.items())]
     lines += ["}", "",
               "# {combatant res_id: Excursion types}. See "
               "game_client.excursion_types.",
@@ -233,6 +239,14 @@ def audit(client):
             out.append(f"partner {rid} "
                        f"{texts.get(f'char_base@name@{rid}')}: in the "
                        f"client, not in game_data/partners.py")
+
+    # The program's own item names go over the client's, so a name that
+    # differs is one of its tables overriding the game.
+    from game_data.constants import item_names
+    theirs = game_client.item_names(client)
+    for rid, name in sorted(item_names().items()):
+        if rid in theirs:
+            differ(f"item {rid}", "name", name, theirs[rid])
     return out
 
 

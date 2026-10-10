@@ -1,7 +1,8 @@
 """The game client's own tables and English text, read from its install.
 
 What changes every patch and the server never sends: each event's
-English name, and how many Excursion types each combatant has.
+English name, every item's, and how many Excursion types each
+combatant has.
 `docs/client_data.md` says where each is kept and how it was held
 against what the program already knew; `docs/client_tables.py` is the
 maintainer's tool over the same reader. Reads only: nothing here
@@ -61,7 +62,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # What the cache is called in the settings folder, and the shape of
 # what it holds. A cache of another format is read as no cache.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 1
+CACHE_FORMAT = 2
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -123,6 +124,10 @@ TRIAL_NAME = "%s - %s"           # the trial's name, then the combatant
 # the row's `group` is `normal_visit_<res_id>`.
 VISIT_TABLE = "town_visit@town_normal_visit"
 VISIT_GROUP = re.compile(r"normal_visit_(\d+)")
+
+# An item's English name: the text `item@name@<res_id>`, one for every
+# item the game has, whichever item table holds its row.
+ITEM_NAME = re.compile(r"item@name@(\d+)")
 
 # Markup the text carries for the game's own renderer.
 MARKUP = re.compile(r"<[^>]*>")
@@ -427,6 +432,17 @@ def excursion_types(client):
     return {res_id: count for res_id, count in out.items() if count > 1}
 
 
+def item_names(client):
+    """{item res_id: English name} for every item the client names."""
+    out = {}
+    for key, text in client.text().items():
+        match = ITEM_NAME.fullmatch(key)
+        name = clean(text) if match else ""
+        if name:
+            out[int(match.group(1))] = name
+    return out
+
+
 def read_facts(install):
     """Everything this module reads off an install, as the cache holds
     it. Raises whatever the reading meets."""
@@ -436,6 +452,8 @@ def read_facts(install):
         "install": str(install),
         "build": client.archive.build,
         "event_names": event_names(client),
+        "item_names": {str(res_id): name for res_id, name
+                       in item_names(client).items()},
         "excursion_types": {str(res_id): count for res_id, count
                             in excursion_types(client).items()},
     }
@@ -527,6 +545,18 @@ def event_name(schedule_id):
         if name:
             return name
     return None
+
+
+def known_item_names():
+    """{item res_id: English name}: the shipped table, with what this
+    machine's client says over it. The program's own names go over
+    both (`game_data.constants.item_names`)."""
+    from game_data import from_client
+    out = dict(from_client.ITEM_NAMES)
+    for res_id, name in ((_facts or {}).get("item_names") or {}).items():
+        if str(res_id).isdigit() and name:
+            out[int(res_id)] = name
+    return out
 
 
 def visit_types(res_id):

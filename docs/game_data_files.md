@@ -55,15 +55,13 @@ A rarity that no table prices costs a whole family its plates at once, and the o
 | ---- | ----- |
 | `items_id_known_in_materials.tsv` | a table names it and the program USES it |
 | `items_id_known_not_in_materials.tsv` | identified, and the program does nothing with it — **the worklist** |
-| `items_id_unknown.tsv` | not identified; where it came from and what it reads, for diffing against the next capture |
+| `items_id_unknown.tsv` | not identified, not even by the game client; where it came from and what it reads, for diffing against the next capture |
 
-The last two share their hand-added columns (`Name`, `Type`, `Name Candidate`, …), so a row crosses between them by gaining or losing its `Name` without anything being retyped. **The script owns the leftmost columns and nothing else** — everything typed to the right of them is read back and rewritten untouched, and it refuses to write at all if the header has moved under it.
+The last two share their hand-added columns (`Name`, `Type`, `Name Candidate`, …), so a row crosses between them by gaining or losing its `Name` without anything being retyped. **The script owns the leftmost columns and nothing else** — everything typed to the right of them is read back and rewritten untouched, and it refuses to write at all if the header has moved under it. A blank `Name` takes the game client's (`docs/client_data.md`), and a typed one that differs from it is printed.
 
 An id counts as "known" to the program only when an ITEM table names it. **`RECORDED_NAMES` is not one of those tables** — it is a plain id→name map, kept out of `ITEM_TABLES` because those items have no art and no established rarity. `RECORDED_ONLY` is its key set, and that is what keeps its ids on the worklist rather than promoting them.
 
-`RECORDED_NAMES` is where an identification reaches the RUNNING program: the capture generator merges it into the addon's `ITEM_NAMES`, so a Capture Log line reads `Traces of Memory +40` rather than `3210001 +40`. An id in neither stays a number there, and the Capture Log paints it dark yellow — that colour is a note that the line has just put a capture's worth of context beside a row of `items_id_unknown.tsv`. Keep `RECORDED_NAMES` in step with the worklist by hand; `checks/check_capture_rewards.py` holds it against the addon.
-
-**An id is named by spending some and diffing two captures**, which is why the amount column exists: a dump that has lost its counts cannot be compared against the next one.
+**The game client names every item**, and `item_names()` puts its names under the tables' and `RECORDED_NAMES`, so those only override. That map is what the running program names items with: the capture generator writes it into the addon's `ITEM_NAMES`, so a Capture Log line reads `Traces of Memory +40` rather than `3210001 +40`. An id nothing names stays a number there, and the Capture Log paints it dark yellow — a note that the line has just put a capture's worth of context beside a row of `items_id_unknown.tsv`. `python docs/client_tables.py --audit` lists every override that disagrees with the client, and `checks/check_capture_rewards.py` holds the worklist's names to the program's.
 
 **A res_id's shape is `FFFF0GT`** — family, group, tier. The group digit is the CLASS in a promotion family (0 Striker, 1 Vanguard, 2 Hunter, 3 Ranger, 4 Psionic, 5 Controller) and the ELEMENT in a growth stone. The asset filenames disagree with the game's words in two places: `defender` draws Vanguard and `psionics` draws Psionic.
 
