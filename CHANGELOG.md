@@ -29,6 +29,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - A settings file that can't be read is repaired at launch, keeping everything in it that still reads, or set aside for the defaults, instead of being saved over. A message names each one and where its original was kept.
 - Game data corrected against the game client:
   - Haru's base stats.
+  - Every combatant's stat gains at levels 61 and 62, where most added nothing.
+  - Affinity levels below 20, which were estimated from the rewards claimed.
   - Orlea's Attribute is Instinct.
   - Westmacott's Ego costs 2. Rachel's Ego is `Hamburger Delivery, Sir!` and Scarlet's passive is `Noose of Mastery`.
   - Partner passives and Ego names use the game's wording, and Bria and Marianne have their real ids.

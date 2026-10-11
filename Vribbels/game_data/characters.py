@@ -43,10 +43,11 @@ Levels 61 and 62
 ================
 
 Promotion 5/5 grants +2 levels over the 60 cap. What each adds is kept
-per class and grade in `LEVEL_BONUS_BY_CLASS`, since every combatant of
-a pair observed gains the same; a combatant's own `level_61_bonus` /
-`level_62_bonus` key overrides it. `table_stats_at_level` adds nothing
-for a gain nobody has observed, so missing data is a no-op.
+per class and grade in `LEVEL_BONUS_BY_CLASS`, the game client's level
+curves; a combatant's own `level_61_bonus` / `level_62_bonus` key
+overrides it, for the two on another class's curve
+(`LEVEL_CURVE_EXCEPTIONS`). `table_stats_at_level` adds nothing for a
+gain the table lacks, so missing data is a no-op.
 
 The server's own readings
 =========================
@@ -118,6 +119,8 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
+        "level_62_bonus": {"atk": 6, "def": 3, "hp": 9},
     },
     1040: {
         "name": "Beryl",
@@ -592,6 +595,8 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},
+        "level_62_bonus": {"atk": 9, "def": 3, "hp": 7},
     },
     30117: {
         "name": "Olga",
@@ -857,35 +862,38 @@ def get_character_by_name(name: str) -> dict:
 # ============================================================================
 #
 # Characters max at level 62: promotion 5/5 grants +2 levels over the
-# level-60 cap. What each of the two adds to the level-60 base is the same
-# for every combatant of one class and grade that has been observed, so
-# it is kept per PAIR: a combatant nobody has observed at 61 takes what
-# the others of their pair gain.
-#
-# None where no combatant of the pair has been observed at that level --
-# not zeros, which would read as a known gain of nothing. An unknown gain
-# leaves the level-60 base, as it would be with the level reached but its
-# gain not recorded.
+# level-60 cap. What each of the two adds to the level-60 base is kept per
+# class and grade (a PAIR). A pair a patch adds before this table does is
+# None -- not zeros, which would read as a known gain of nothing -- and
+# leaves the level-60 base, the server's readings filling it meanwhile.
 #
 # A combatant's own `level_61_bonus` / `level_62_bonus` key, shape
-# `{"atk": +X, "def": +Y, "hp": +Z}`, overrides their pair's: the room
-# for an exception. The launch-time data check reports one that differs
-# from its pair's, and a pair left unknown while a combatant of it has
-# its own.
-LEVEL_BONUS_BY_CLASS = {
-    ("Controller", 4): {61: {"atk": 6, "def": 3, "hp": 9}, 62: None},
-    ("Controller", 5): {61: {"atk": 6, "def": 4, "hp": 10}, 62: None},
-    ("Hunter", 4): {61: None, 62: None},
-    ("Hunter", 5): {61: None, 62: None},
-    ("Psionic", 4): {61: None, 62: None},
-    ("Psionic", 5): {61: {"atk": 8, "def": 3, "hp": 9}, 62: None},
-    ("Ranger", 4): {61: {"atk": 8, "def": 2, "hp": 7}, 62: None},
-    ("Ranger", 5): {61: {"atk": 9, "def": 3, "hp": 7}, 62: None},
-    ("Striker", 4): {61: None, 62: None},
-    ("Striker", 5): {61: {"atk": 8, "def": 3, "hp": 9}, 62: None},
-    ("Vanguard", 4): {61: {"atk": 6, "def": 3, "hp": 9}, 62: None},
-    ("Vanguard", 5): {61: {"atk": 6, "def": 4, "hp": 10}, 62: None},
+# `{"atk": +X, "def": +Y, "hp": +Z}`, overrides their pair's. The
+# launch-time data check reports one that differs from its pair's unless
+# `LEVEL_CURVE_EXCEPTIONS` names it, and a pair left unknown while a
+# combatant of it has its own.
+#
+# **The game client states every one** (`char_base@combatant_level`,
+# levels 61 and 62 of each combatant's level curve, `--audit` in
+# `docs/client_tables.py` holding the two together). A curve is a class
+# and grade's, and level 62 adds what 61 did. Two combatants run on
+# another class's curve: their own keys, in `LEVEL_CURVE_EXCEPTIONS`.
+_GAIN = {
+    "Controller": {4: (6, 3, 9), 5: (6, 4, 10)},
+    "Hunter": {4: (7, 3, 9), 5: (8, 3, 9)},
+    "Psionic": {4: (7, 3, 9), 5: (8, 3, 9)},
+    "Ranger": {4: (8, 2, 7), 5: (9, 3, 7)},
+    "Striker": {4: (7, 3, 9), 5: (8, 3, 9)},
+    "Vanguard": {4: (6, 3, 9), 5: (6, 4, 10)},
 }
+LEVEL_BONUS_BY_CLASS = {
+    (cls, grade): {level: dict(zip(("atk", "def", "hp"), gain))
+                   for level in (61, 62)}
+    for cls, grades in _GAIN.items() for grade, gain in grades.items()
+}
+# res_id -> whose curve a combatant's own level keys follow. The
+# launch-time check takes their difference from their pair as stated.
+LEVEL_CURVE_EXCEPTIONS = {1012: "Vanguard grade 4", 30115: "Ranger grade 5"}
 
 
 def level_bonus(char_data: dict, level: int):

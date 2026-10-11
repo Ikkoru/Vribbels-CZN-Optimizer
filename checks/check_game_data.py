@@ -57,10 +57,13 @@ def _level_rules_report():
     against a copy of the real data, put back after."""
     import game_data_validator as v
     from game_data import CHARACTERS
-    from game_data.characters import LEVEL_BONUS_BY_CLASS
+    from game_data.characters import (LEVEL_BONUS_BY_CLASS,
+                                      LEVEL_CURVE_EXCEPTIONS)
     out = []
+    # Not one on another class's curve: its difference is stated.
     rid, entry = next((k, c) for k, c in CHARACTERS.items()
-                      if isinstance(c, dict) and c.get("level_61_bonus"))
+                      if isinstance(c, dict) and c.get("level_61_bonus")
+                      and k not in LEVEL_CURVE_EXCEPTIONS)
     pair_key = (entry["class"], entry["grade"])
     saved_entry = dict(entry)
     saved_pair = LEVEL_BONUS_BY_CLASS[pair_key]

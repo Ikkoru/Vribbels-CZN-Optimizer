@@ -103,7 +103,7 @@ A plain reading wins over a worked-out one. A Sortie settles nothing: the week's
 
 - **To verify a combatant**, take them into any battle but a Sortie during a capture. One outside the Chaos modes settles all three stats directly; a Chaos settles them only beside someone already settled.
 - **To read what the logs hold**, `python docs/base_stats_backfill.py` reports: who is wrong or missing, a level gain the tables lack, a base that changed between plain readings, the Chaos battles set aside, the partners and the formula against the server, and who nothing has settled yet. `--write` files the debug logs' battles, the archived ones included; `--battles` lists every battle with its mode.
-- **A level-61 or 62 reading gives a pair's gain** where `LEVEL_BONUS_BY_CLASS` lacks it: the server's base at that level minus the level-60 base. The check names it; the program uses it meanwhile.
+- **A level-61 or 62 reading gives a pair's gain** where `LEVEL_BONUS_BY_CLASS` lacks it: the server's base at that level minus the level-60 base. The check names it; the program uses it meanwhile. The client states every combatant's gains (`docs/client_tables.py --audit` compares levels 60 to 62), so this answers only for a class and grade a patch adds before the table does.
 - **`UNEXPLAINED` in the check** holds a reading that differs for a reason nobody has pinned down. It is noted rather than failed while the reading stays exactly that.
 
 ## Finding a newly released unit's res_id

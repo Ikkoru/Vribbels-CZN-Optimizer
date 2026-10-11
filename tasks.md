@@ -12,10 +12,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 ### 1b) Needs maintainer assistance figuring out
 
-- **B1 — Affinity below level 20.** The level comes from `friendship_exp` through `constants.AFFINITY_TO_NEXT`, which holds levels 20 to 39. Below 20 the level is unknown and the rewards claimed stand in for it, so a combatant levelled past its claims there reads low. Wanted: each level's exp to the next below 20, read off the Affinity screen as a new combatant levels -- the maintainer's plan for the next release.
-  - Levels 22-24, 26, 28, 29, 36 and 39 are filled in, not read; a reading of any of them confirms or corrects it. `checks/check_affinity.py` holds every reading and battle sheet against the table.
-  - **The quickest exact reading:** gift a new combatant one item at a time with capture on, and claim the Affinity rewards after each. Each claim's `friendship_reward_index` is the level that exp reached, at 5 Crystals a level. Claiming only at the end, as Anika's were, leaves only the end point: 20 rewards, 95 Crystals, at 4090.
-  - **What the logs already bracket.** A gift's reply names any messenger (Unigram) unlocked, as `char_messenger_condition` entries `<res_id>_<n>_condition` of type `FRIENDSHIP__CHARID_LEVEL`, and the guides put Unigrams at Affinity 3, 13 and 15. Read that way, with the exp before and in the reply, over every log on hand (Olga and Anika): level 3 at 151 to 300; levels 13 and 15 both at 2091 to 2610, their two conditions firing in the same gift each time.
+*N/A*
 
 ---
 
@@ -27,37 +24,21 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 ### 2b) Needs maintainer assistance figuring out
 
-- **I33 — What the server has not shown yet.** Each part needs the maintainer in game. `check_base_stats_on_wire` passes on everything filed so far.
+- **I33 — What a loss looks like.** Needs the maintainer in game. With capture on, lose in as many modes as convenient: a Simulation stage, a Battle Mission, the Basin, the Great Rift, the Full-Scale Offensive, a Sortie. For each:
 
-  1. **Base stats, from any plain battle.** Plain: Simulation, Abyss Battle Missions, the Tower, the Basin, the Great Rift, the Full-Scale Offensive. Not plain: a Sortie, a Chaos, a Combatant Trial, the Bartender story. Potential 7 doesn't matter for any of them.
+  - what the close and the `battle_end` say;
+  - whether anything the capture keeps moves: stage limits, rewards, the Checklist's counts, the standings.
 
-     - **Never settled** (the ones `check_base_stats_on_wire`'s note counts): Haru, Luke, Mei Lin and Renoa, at their current level. Hugo and Kayron once the account has them.
-     - **Settled only in a Chaos**, which a plain battle confirms: Adelheid, Maribell and Mika.
-     - **Level 62**: no combatant has been read at it. Any combatant that reaches 62, once.
-
-  2. **Potential 7 parts no sheet has shown.** Same kind of battle, node 7 taken:
-
-     - Tressa at DoT 30% or more: her second +4%. Only the first was seen, at 0 DoT.
-     - Owen at HP 700 or more: his second +4% ATK and DEF.
-
-     The rest of the table matches the server, growth part-way included.
-
-  3. **What a loss looks like.** With capture on, lose in as many modes as convenient: a Simulation stage, a Battle Mission, the Basin, the Great Rift, the Full-Scale Offensive, a Sortie. For each:
-
-     - what the close and the `battle_end` say;
-     - whether anything the capture keeps moves: stage limits, rewards, the Checklist's counts, the standings.
-
-     Seen already, in the Tower and in a Chaos run: `clear_stage` answered `FAIL`. The Chaos run also sent a `battle_end` saying `BATTLE_RESULT_TYPE_STAGE_FAILED`.
+  Seen already, in the Tower and in a Chaos run: `clear_stage` answered `FAIL`. The Chaos run also sent a `battle_end` saying `BATTLE_RESULT_TYPE_STAGE_FAILED`.
 
 - **I35 — After the 2026-09-30 patch.** What the patch's plan left open. The rest is in `past_plans/patch_2026_09_30.md`.
 
   1. **10-13: Nine & Alcea's Normal Rescue rerun, and Nine's trial.** A capture confirms `RERUN_BANNERS`' dates and the trial's pairing.
   2. **10-21: season 5's part 1.**
      - From its notice: `SUPPLY_ROUNDS["disaster_s05"]` in `checklist_tab.py`, and `SEASON_ESTIMATE["disaster_s05"]`, hand-counted off the screens (`past_plans/seasonal_shop.md`).
-     - From its first run: the new Chaos's stage id in `chaos_estimate.CHAOS_NAMES` (90000 and `chaos_10`, if the seasons' pattern holds), and the season currency's id in `docs/chaos_runs.py` `CURRENCY`.
+     - From its first run: the new Chaos's stage id in `chaos_estimate.CHAOS_NAMES`, and the season currency's id in `docs/chaos_runs.py` `CURRENCY`. The client puts `chaos_10` in the season (`disaster_chaos_list`), but build 88 holds no stage id (90000 if the pattern holds), name or currency for it yet; a client read after the next patch may.
      - Then refresh `chaos_estimate.SHIPPED` from `python docs/chaos_runs.py`. Read its by-spot lines: the season's maps hold fewer ordinary battles (its docstring).
   3. **To confirm on the next capture:** a level-up, a Potential node and a gift move the Combatants tab live.
-  4. **An Aether Cell's id**, whenever one charges: the Recharge Aether popup's.
 
 - **I31 — The Chaos estimate's loose end.** Built as the maintainer specified:
 
@@ -115,7 +96,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   **Contentions:**
 
-  1. **Card data is the whole cost.** Each card's coefficient per hit and per damage type, its scaling stat, what triggers Extra damage, DoT stacks and durations, heal and shield coefficients, cost, upgrades and Epiphanies. The wire sends a deck as card ids (`stage_info.deck`), never what a card does; the client holds that. Entering every card by hand is large, and goes stale with each balance patch. Reading the client's data files is less work per patch, but it is datamining, with its own upkeep and questions of propriety.
+  1. **Card data is the whole cost.** Each card's coefficient per hit and per damage type, its scaling stat, what triggers Extra damage, DoT stacks and durations, heal and shield coefficients, cost, upgrades and Epiphanies. The wire sends a deck as card ids (`stage_info.deck`), never what a card does. The program reads the client already (`Vribbels/game_client.py`), which holds a `card(<combatant>)@card`, `@skill_eff` and `@card_r_spark` table set per combatant, read again each patch. What is left is mapping their columns to the calculator's terms.
   2. **"An average turn" needs a model.** Draw order, energy, generated cards, exhaust and retain decide what gets played. The candidates:
      - every card's coefficients averaged over one cycle of the deck: simple and stable, but blind to sequencing;
      - a simulated shuffle-and-play loop: faithful, at the price of many assumptions;
@@ -177,7 +158,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **T19 — More from the game client.** Event names and reward totals, item names, Excursion type counts and the daily tasks are read at launch (`docs/client_data.md`, *What the program reads at launch*). The app reads what changes every patch; the maintainer tool, `docs/client_tables.py --audit`, holds the tables whose every change wants reviewing. Left:
 
-  - **The audit's reach**: sets and Potential are not in it.
+  - **The audit's reach**: combatants (levels 60 to 62), partners, item names and Affinity are in it; memory fragment sets and Potential 7 are not. Both are in the client (`piece_set_option`, `potential_node_effect`), whose node 7 rows already agree with `potential_7.py` where they were looked at (Tressa, Owen).
   - **When the Galactic Disaster season's next part opens**: read the seasonal currency's name and id off its first capture. The item worklist's `Type` and `Note` on 3000009 describe Memory of Light, which the client puts at 3000006.
 
 - **T3 — Richer main-stat forcing for slots IV/V/VI** (UserA). Main-stat forcing is four Force HP/Ego checkboxes. The design question is which options, and in what form: per-slot checklists, dropdowns, or curated rules.
@@ -223,4 +204,3 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 | `user`                                      | `account_title_level`, and when the account was created                                                                                                                                                                      |
 | `card_archive`                              | every collected card id                                                                                                                                                                                                      |
 | `user_setting`                              | the in-game auto-disassemble rarity threshold, and the music-box state                                                                                                                                                       |
-| `attendance_entities`                       | login-event progress, `current_days` vs `received_days`                                                                                                                                                                      |

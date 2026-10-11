@@ -351,7 +351,8 @@ def _check_tier_tuple(rep: _Reporter, key, label: str, field: str,
 def _check_characters(problems: list[str]) -> None:
     from game_data import (CHARACTERS, ATTRIBUTE_COLORS,
                            POTENTIAL_STAT_VALUES, CLASSES)
-    from game_data.characters import LEVEL_BONUS_BY_CLASS
+    from game_data.characters import (LEVEL_BONUS_BY_CLASS,
+                                      LEVEL_CURVE_EXCEPTIONS)
 
     rep = _Reporter("characters.py", _line_map("characters.py", "CHARACTERS"))
     node_stats = tuple(POTENTIAL_STAT_VALUES)
@@ -460,7 +461,7 @@ def _check_characters(problems: list[str]) -> None:
                 rep.add(key, label, f"has its own level-{level} gain while "
                                     f"{pair_name}'s is unknown -- fill the "
                                     f"pair in LEVEL_BONUS_BY_CLASS")
-            elif own != known:
+            elif own != known and key not in LEVEL_CURVE_EXCEPTIONS:
                 rep.add(key, label, f"level_{level}_bonus {own} differs "
                                     f"from {pair_name}'s {known} -- an "
                                     f"exception to confirm, or one of the "

@@ -110,6 +110,7 @@ GRADES = {"RARITY_SR": 4, "RARITY_SSR": 5}
 # A combatant's stats at level 60: its level-1 stat, every level's step
 # up to it, and the five promotions on the way.
 AUDIT_LEVEL = 60
+ABOVE_AUDIT_LEVEL = (61, 62)
 PROMOTIONS = 5
 STATS = (("base_atk", "s_atk", "S_ATK"), ("base_def", "s_def", "S_DEF"),
          ("base_hp", "s_hp", "S_HP"))
@@ -164,6 +165,7 @@ def _figures(numbers):
 def audit(client):
     """Lines saying where `game_data` and `client` disagree."""
     from game_data import CHARACTERS, PARTNERS
+    from game_data.characters import table_stats_at_level
     texts = client.text()
     combat = {r["id"]: r for r in client.rows("char_base@char_combatant")}
     base = {r["id"]: r for r in client.rows("char_base@char_base")}
@@ -200,6 +202,16 @@ def audit(client):
             differ(who, f"{field} at {AUDIT_LEVEL}", ours.get(field),
                    int(row[start]) + stepped.get(stat, 0)
                    + promoted.get(stat, 0))
+        # Past 60, the level steps the client also holds, against what
+        # the tables add there (`table_stats_at_level`).
+        for level in ABOVE_AUDIT_LEVEL:
+            past = _steps(levels, row["link_combatant_level_group"],
+                          level, "level")
+            table = table_stats_at_level(ours, level)
+            for field, start, stat in STATS:
+                differ(who, f"{field} at {level}", table[field],
+                       int(row[start]) + past.get(stat, 0)
+                       + promoted.get(stat, 0))
         differ(who, "base_crit_rate", ours.get("base_crit_rate"),
                float(row["s_cri"]))
         differ(who, "base_crit_dmg", ours.get("base_crit_dmg"),
@@ -210,6 +222,15 @@ def audit(client):
             out.append(f"combatant {rid} "
                        f"{texts.get(f'char_base@name@{rid}')}: in the "
                        f"client, not in game_data/characters.py")
+
+    # Affinity's exp from each level to the next; the cap's row is -1.
+    from game_data.constants import AFFINITY_TO_NEXT
+    exp = {int(r["id"]): int(r["exp"])
+           for r in client.rows("friendship_level@friendship_level")
+           if r.get("id", "").isdigit() and int(r.get("exp") or -1) > 0}
+    if exp != AFFINITY_TO_NEXT:
+        out.append(f"Affinity: exp to the next level is "
+                   f"{AFFINITY_TO_NEXT} here, {exp} in the client")
 
     partner = {r["id"]: r for r in client.rows("partner_base@char_partner")}
     cards = {r["id"]: r for r in client.rows("card(partner)@card")}

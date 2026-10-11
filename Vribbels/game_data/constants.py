@@ -870,17 +870,18 @@ def get_partner_level_from_exp(exp: int) -> int:
     return get_level_from_exp(exp, PARTNER_EXP_TABLE)
 
 
-# Affinity exp from each level to the next, as the game's Affinity
-# screen states it. The capture sends the exp (`friendship_exp`) and the
+# Affinity exp from each level to the next: the game client's
+# `friendship_level` table (`docs/client_tables.py --audit` holds the
+# two together). The capture sends the exp (`friendship_exp`) and the
 # rewards CLAIMED (`friendship_reward_index`), never the level, and the
 # stats follow the level: a battle sheet's flat layer fits the exp's
-# level where the two differ. Levels 20 and up:
-#   read on the screen   20, 21, 25, 27, 30-35, 37, 38
-#   filled in            22-24, 26, 28, 29 at 400; 36, 39 at 600
-# The filled-in ones are what makes the read ones meet the cap, and
-# every (exp, rewards claimed) pair on record agrees with them.
-# ADD A LEVEL BELOW 20 HERE AS IT IS READ.
+# level where the two differ. The Affinity screen's readings from 20 up,
+# the Unigram unlocks at 3, 13 and 15 and every (exp, rewards claimed)
+# pair on record agree with it.
 AFFINITY_TO_NEXT = {
+    1: 80, 2: 120, 3: 150, 4: 150,
+    **{level: 200 for level in range(5, 15)},
+    **{level: 300 for level in range(15, 20)},
     **{level: 400 for level in range(20, 30)},
     **{level: 600 for level in range(30, 40)},
 }
@@ -889,8 +890,8 @@ AFFINITY_CAP_EXP = 14000    # the exp a combatant at the cap holds
 
 
 def affinity_level(exp: int, claimed: int = 0) -> int:
-    """The Affinity level `exp` reaches. Below the lowest level the table
-    reaches, the level is not known and the rewards `claimed` -- never
+    """The Affinity level `exp` reaches. Should the table ever stop short
+    of level 1, below its lowest level the rewards `claimed` -- never
     more than the level -- stand in for it."""
     threshold, level = AFFINITY_CAP_EXP, AFFINITY_CAP
     if exp >= threshold:

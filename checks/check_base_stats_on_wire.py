@@ -401,6 +401,27 @@ def _mutations_are_watched():
 
 
 def _the_overlay_answers():
+    """`_overlay_with_a_pair_unknown`, with one class and grade's level
+    gain blanked for its length. The tables know every pair's -- the
+    client states them -- and the path that fills an unknown gain from
+    the server's readings still has to answer for a pair a patch adds
+    before the tables do."""
+    import collections
+    from game_data import CHARACTERS
+    from game_data.characters import LEVEL_BONUS_BY_CLASS
+    plain = collections.Counter(
+        (c["class"], c["grade"]) for c in CHARACTERS.values()
+        if isinstance(c, dict) and c.get("level_61_bonus") is None)
+    pair = next(p for p, n in plain.most_common() if n >= 2)
+    held = LEVEL_BONUS_BY_CLASS[pair]
+    LEVEL_BONUS_BY_CLASS[pair] = {61: None, 62: None}
+    try:
+        return _overlay_with_a_pair_unknown()
+    finally:
+        LEVEL_BONUS_BY_CLASS[pair] = held
+
+
+def _overlay_with_a_pair_unknown():
     import base_stats_store as bs
     from game_data import CHARACTERS, PARTNERS, learned
     from game_data.characters import (LEVEL_BONUS_BY_CLASS,
