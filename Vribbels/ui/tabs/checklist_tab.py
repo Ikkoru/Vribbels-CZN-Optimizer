@@ -2679,7 +2679,7 @@ SPLIT_COLUMNS = frozenset({"Other"})
 VALUE_STOP_PREFIX = "valuestop:"
 
 # **Rows whose first segment sits in a column of its own**, between the
-# label and the values: the module rows' windows, `24h!` and `6d`, with
+# label and the values: the module rows' windows, `24h!` and `6d!`, with
 # the count at the column's value stop. RIGHT-aligned, centred in the
 # room between the rows' labels and the values, which `MIDDLE_WIDEST`
 # guarantees is there. See `_column_geometry`.
@@ -2874,7 +2874,7 @@ MODULE_ITEM = 3920026           # Time-Limited Command Delegation Module
 MODULE_WINDOWS = (
     (24 * 3600, "modules_soon", "%d%s!", "h", 3600,
      ((None, 24, SOON),), TODO),
-    (7 * 24 * 3600, "modules_week", "%d%s", "d",
+    (7 * 24 * 3600, "modules_week", "%d%s!", "d",
      24 * 3600, ((24, 48, SOON), (48, 72, WARN_BLINK)), WARN),
 )
 

@@ -15,7 +15,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Events count against their reward totals from the game client, final reward included, in place of `+?` floors. A row goes green once every reward is claimed, and a login event counts against its own length. Rewards outside an event's missions, such as a summer event's puzzles, are not in the count.
   - An event the game client cannot supply, such as one a patch adds before the program can read it, takes its total and a login event's length from earlier instalments of the same event, and reads orange once those are all claimed.
   - `Activity (Dailies)` counts the day's points from its tasks: `100/100` blinks orange until the day's reward is claimed, and turns green once it is.
-  - `Delegation Module` rows show their window (`24h!`, `3d`) in a column of its own between the label and the count. The 7-day row is orange, blinks red when a module has 1-2 days left, and blinks orange when one has 2-3 days left.
+  - `Delegation Module` rows show their window (`24h!`, `3d!`) in a column of its own between the label and the count. The 7-day row is orange, green with none expiring, blinks red when a module has 1-2 days left, and blinks orange when one has 2-3 days left.
   - Countdowns read `9d left` in place of `Ends in 9 days`.
   - The Other column lines up its readings and deadlines in three groups: the rows above the Sortie shop, the Sortie shop, and the Events. The Events' deadlines sit just past the widest reading shown.
   - Shop headings break after `Shop -`, the shop's own name on a second line.

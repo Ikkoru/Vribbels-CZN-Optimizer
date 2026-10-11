@@ -803,10 +803,10 @@ def run():
             f"the tight module row reads {out['modules_soon']!r}, not "
             f"`6h!` and `1` in {SOON!r}. The window bounds what is "
             f"COUNTED; the words say how long the last of them has.")
-    if out["modules_week"] != [("3d", WARN_BLINK), ("2", WARN_BLINK)]:
+    if out["modules_week"] != [("3d!", WARN_BLINK), ("2", WARN_BLINK)]:
         failures.append(
             f"the wide module row reads {out['modules_week']!r}, not "
-            f"`3d` and `2` in {WARN_BLINK!r}. The windows "
+            f"`3d!` and `2` in {WARN_BLINK!r}. The windows "
             f"NEST -- a copy inside 24 hours is inside seven days -- so "
             f"the wider count includes the tighter one, and its number is "
             f"the furthest out of the two.")
@@ -849,7 +849,7 @@ def run():
     # does not exist, and both rows are GREEN -- there is nothing to use.
     out = _readings(_snapshot(), now)
     if (out["modules_soon"] != [("24h!", DONE), ("0", DONE)]
-            or out["modules_week"] != [("7d", DONE), ("0", DONE)]):
+            or out["modules_week"] != [("7d!", DONE), ("0", DONE)]):
         failures.append(
             f"with no modules held the two rows read "
             f"{out['modules_soon']!r} and {out['modules_week']!r}, not "
