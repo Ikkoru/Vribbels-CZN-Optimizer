@@ -166,9 +166,8 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   When one ships: `Vribbels/build_tcl/prepare_tcl_data.py`'s `libtcl9*` globs already match a 9.1 library, and `checks/run_all.py` at both scales is the first test.
 
-- **T19 — More from the game client.** Event names and reward totals, item names and Excursion type counts are read at launch (`docs/client_data.md`, *What the program reads at launch*). The app reads what changes every patch; the maintainer tool, `docs/client_tables.py --audit`, holds the tables whose every change wants reviewing. Left:
+- **T19 — More from the game client.** Event names and reward totals, item names, Excursion type counts and the daily tasks are read at launch (`docs/client_data.md`, *What the program reads at launch*). The app reads what changes every patch; the maintainer tool, `docs/client_tables.py --audit`, holds the tables whose every change wants reviewing. Left:
 
-  - **The story-map Node Lists' final reward.** The client counts one reward more than the captures did (`docs/client_data.md`, *What it was held against*). Until a capture of the next one settles it, such a list reads one high until its completion flag arrives.
   - **The audit's reach**: sets and Potential are not in it.
   - **When the Galactic Disaster season's next part opens**: read the seasonal currency's name and id off its first capture. The item worklist's `Type` and `Note` on 3000009 describe Memory of Light, which the client puts at 3000006.
 

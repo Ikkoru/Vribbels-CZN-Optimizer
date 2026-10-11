@@ -187,7 +187,7 @@ A snapshot load while another tab is showing skips three tabs' drawing, and each
 
 A capture reloads after every save while the user is usually on another tab, and startup loads with the Optimizer tab showing.
 
-**Only drawing may wait.** The Checklist's refresh records as it reads: event totals, final rewards, the floor clock, the currency ledger. A record has to come from every snapshot, because the game purges what it is read from. So that refresh runs all of its recording and returns just before its columns are built.
+**Only drawing may wait.** The Checklist's refresh records as it reads: finished streaks, the floor clock, the currency ledger. A record has to come from every snapshot, because the game purges what it is read from. So that refresh runs all of its recording and returns just before its columns are built.
 
 `BaseTab.is_hidden()` counts a notebook with nothing selected as showing. That is how the checks build a tab, and how every tab is built before the notebook gets its pages. `when_shown` does not: a switch that leaves nothing selected shows no tab.
 

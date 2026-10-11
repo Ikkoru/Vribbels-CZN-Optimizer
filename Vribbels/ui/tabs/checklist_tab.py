@@ -394,6 +394,18 @@ HEAD_STATE_TAGS = {DONE: "headdone", TODO: "headtodo"}
 FLOOR = "floor"
 STALE_FLOOR = "floor_stale"
 
+# An event the client does not hold, every reward claimed that its
+# family's instalments in the client agree it holds, with no final
+# reward among them (`family_total`, `family_final`). Orange at once,
+# where a floor waits two days for it: two instalments saying the same
+# total is better evidence than a row standing still. **Still not
+# green, and still asking `Finished?`**: other instalments are
+# speaking for this one, and the person who can see the game settles
+# it. A step track never reads this way -- its `reward_step` reaches
+# the top of its ladder under either reading of the field
+# (`_client_steps`).
+LIKELY_DONE = "likely_done"
+
 # An event whose every mission row is claimed and whose FINAL reward --
 # the one that unlocks after all the others -- is not. Red, because a
 # reward is waiting; and it never settles orange, because waiting is
@@ -1369,6 +1381,17 @@ def _event_attendance(raw, name, window, now):
     if written is not None:
         return [("%d/%d" % (taken, written),
                  DONE if taken >= written else TODO)]
+    # **The length the family's streaks in the client agree on**, while
+    # nothing claimed has gone past it: a family of login events that
+    # all ran one length is a shape, where a guess at seven is only a
+    # floor. Every day of it claimed reads `LIKELY_DONE`, other streaks
+    # speaking for this one; the claim that ends a streak says so for
+    # certain (`ATTENDANCE_OVER`).
+    family = ((raw or {}).get(EVENT_TOTALS_FIELD) or {}).get(name)
+    if _is_count(family) and taken <= family:
+        return [("%s%d/%d" % (EXPECTED_VALUE, taken, family),
+                 LIKELY_DONE if taken >= family else
+                 TODO if waiting else CYCLE_DONE)]
     return [("%d/%d%s" % (taken,
                           max(taken + (1 if waiting else 0),
                               ATTENDANCE_FLOOR),
@@ -1849,23 +1872,35 @@ def _event_progress(raw, name):
     if written is not None:
         return [("%d/%d" % (claimed, written),
                  DONE if claimed >= written else TODO)]
+    # **What the family's instalments in the client held**, where two
+    # of them agree -- see `family_total` -- marked `EXPECTED_VALUE`
+    # wherever it is the reading, other instalments speaking for this
+    # one. It also CORROBORATES: a total this instalment's own rows
+    # state that the family agrees on is two sources saying one thing,
+    # and reached with no final reward to come it reads `LIKELY_DONE`.
+    family = ((raw or {}).get(EVENT_TOTALS_FIELD) or {}).get(name)
+    family = family if _is_count(family) else None
+
+    def _settled(total, usual):
+        """`_state`, or `LIKELY_DONE` where `total` is the family's own
+        and every reward of it is claimed with no final to come."""
+        if total == family and not final and claimed >= total:
+            return LIKELY_DONE
+        return _state(total, usual)
+
     # **A rectangular family states its own size**, from the ids and
     # their issue stamps and nothing else -- see `_grid_total`. Above
     # the family's total because it is THIS instalment speaking.
     grid = _grid_total(rows)
     if grid is not None:
         return [("%d/%d" % (claimed + taken, grid + final),
-                 _state(grid, FLOOR))]
-    # **What the family's instalments in the client held**, where two
-    # of them agree -- see `family_total`. Taken only where it is
-    # BIGGER than the rows in hand, so the reading can only ever say
-    # more work is coming, never less, and marked `EXPECTED_VALUE`
-    # because other instalments are speaking for this one. It does not
-    # go green on that: `_event_finished` is what ends such an event.
-    total = ((raw or {}).get(EVENT_TOTALS_FIELD) or {}).get(name)
-    if _is_count(total) and total > len(rows):
+                 _settled(grid, FLOOR))]
+    # The family's total where it is BIGGER than the rows known, so the
+    # reading can only ever say more work is coming, never less.
+    known = _rows_known(rows)
+    if family is not None and family > known:
         return [("%s%d/%d" % (EXPECTED_VALUE, claimed + taken,
-                              total + final), TODO)]
+                              family + final), TODO)]
     # **Every page issued WHOLE makes the denominator a statement**,
     # so the floor mark comes off -- see `_page_totals`. The row is
     # still not green on it: a page nobody has been issued yet is
@@ -1875,9 +1910,16 @@ def _event_progress(raw, name):
     whole, trickling = _page_totals(rows)
     if whole and not trickling:
         return [("%d/%d" % (claimed + taken, whole + final),
-                 _state(whole, FLOOR))]
-    return [("%d/%d%s" % (claimed + taken, len(rows) + final, UNKNOWN_MORE),
-             _state(len(rows), FLOOR))]
+                 _settled(whole, FLOOR))]
+    # The family's total where the rows known have reached it: every
+    # row it says the event holds is in hand.
+    if family is not None and family == known:
+        return [("%s%d/%d" % (EXPECTED_VALUE, claimed + taken,
+                              family + final), _settled(family, TODO))]
+    # The floor counts the rows a page's numbering says exist as well
+    # as those in hand: `_4` held beside `_2` is a `_3` not issued yet.
+    return [("%d/%d%s" % (claimed + taken, known + final, UNKNOWN_MORE),
+             _state(known, FLOOR))]
 
 
 def _step_progress(raw, name, steps):
@@ -2043,6 +2085,13 @@ def _grid_total(rows):
         if len(parts) < 3:
             return None
         pairs.append((parts[-2], parts[-1], row.get("issued_time")))
+    # **A numbering with holes is still being issued** (`_numbering`):
+    # tasks `_2` and `_4` of every day are a grid of at least four, not
+    # two -- a Node List read `0/9` of its 26 that way. The days need
+    # no `_1`, a Node List's pages starting at 2, only no hole.
+    if not _numbering({i for _p, i, _s in pairs}) \
+            or not _numbering({p for p, _i, _s in pairs}, start=None):
+        return None
     batches = {}
     for page, index, stamp in pairs:
         batches.setdefault(stamp, []).append((page, index))
@@ -2089,20 +2138,68 @@ def _page_totals(rows):
     for row in rows:
         batches[row.get("issued_time")] = batches.get(
             row.get("issued_time"), 0) + 1
+    numbers = _numbered_pages(rows)
     whole = trickling = 0
-    for stamps in pages.values():
+    for page, stamps in pages.items():
         seen = set(stamps)
         # **One row alone is no batch.** A page issuing its tasks one at
         # a time holds a single row on its first day, and a stamp no
         # other row shares says nothing about whether more are coming:
         # Guardian Angel's Vacation and Sereniel's Memoirs both read
         # `1/1` as whole. One row issued with other pages' rows was.
+        #
+        # **Nor is a page whole whose numbering has holes**: the
+        # bartender's first batch was `_03_02` and `_03_03`, and read
+        # `0/2` of 25 as a page issued whole. See `_numbering`.
         if (len(seen) == 1 and all(seen)
-                and (len(stamps) > 1 or batches[stamps[0]] > 1)):
+                and (len(stamps) > 1 or batches[stamps[0]] > 1)
+                and _numbering(numbers.get(page, ()))):
             whole += len(stamps)
         else:
             trickling += len(stamps)
     return whole, trickling
+
+
+def _numbering(values, start=1):
+    """Whether a set of row numbers can be complete: `start` to its
+    highest with none missing, or with `start` None, no hole between
+    its lowest and highest. A value that is not a number answers yes.
+
+    **Every page of every event in the client is numbered from 1 with
+    no hole** (the rhythm game's song unlocks, which nothing here
+    reads, are the one exception) -- so a page that is not was caught
+    part-way through being issued, and more of it is coming.
+    """
+    numbers = {int(v) for v in values if str(v).isdigit()}
+    if not numbers or len(numbers) < len(set(values)):
+        return True
+    low = min(numbers) if start is None else start
+    return numbers == set(range(low, max(numbers) + 1))
+
+
+def _numbered_pages(rows):
+    """{page: the numbers its rows end in}, a page being a row's id
+    without its last segment."""
+    out = {}
+    for row in rows:
+        parts = str(row.get("res_id") or "").split("_")
+        if len(parts) > 1:
+            out.setdefault("_".join(parts[:-1]), set()).add(parts[-1])
+    return out
+
+
+def _rows_known(rows):
+    """How many rows the event is known to hold: those in hand, and
+    the holes inside each page's numbering -- `_2` and `_4` say a `_3`
+    exists. Never what is missing BELOW a page's lowest number, which
+    is not certain to exist (`_numbering`)."""
+    known = 0
+    for values in _numbered_pages(rows).values():
+        numbers = {int(v) for v in values if v.isdigit()}
+        holes = (max(numbers) - min(numbers) + 1 - len(numbers)
+                 if numbers and len(numbers) == len(values) else 0)
+        known += len(values) + holes
+    return known
 
 
 def _event_mission_rows(raw, name):
@@ -3613,6 +3710,7 @@ class ChecklistTab(BaseTab):
         text.tag_configure(FLOOR, foreground=self.colors["red"])
         text.tag_configure(STALE_FLOOR,
                            foreground=self.colors["orange"])
+        text.tag_configure(LIKELY_DONE, foreground=self.colors["orange"])
         text.tag_configure(FINAL_WAITING, foreground=self.colors["red"])
         text.tag_configure(CYCLE_DONE, foreground=self.colors["orange"])
         # Bought out of everything on sale, with the rest on a page

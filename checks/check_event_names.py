@@ -48,6 +48,8 @@ NAME = "event names, event totals and Excursion counts follow the game client"
 # What the injected event is filed under. Any Checklist group would do:
 # the label is what is measured, not the reading beside it.
 WIDEST_GROUP = "EVENT_SCHEDULE"
+# A schedule no client names, given a name longer than any room.
+LONGEST_KEY = "event_schedule_probe_longest_1"
 
 
 class _FakeClient:
@@ -199,6 +201,17 @@ def _totals(gc):
         gc.CHECK_IN_DAYS: [{"id": "daily_check_16_%d" % n}
                            for n in range(1, 15)],
     }, {})
+    tasks = gc.daily_tasks(_FakeClient({gc.DAILY_TASK_TABLE: [
+        {"id": "daily_achieve_001", "count": "1", "point_count": "20"},
+        {"id": "daily_achieve_005", "count": "120", "point_count": "40"},
+        {"id": "daily_achieve_bad", "count": "x", "point_count": "20"},
+        {"id": "daily_achieve_none", "count": "1", "point_count": "0"}]},
+        {}))
+    if tasks != {"daily_achieve_001": [1, 20], "daily_achieve_005": [120, 40]}:
+        return [
+            f"the client's daily tasks read {tasks}. Each is its count and "
+            f"the Activity it pays, both whole numbers above nothing; a row "
+            f"that is not stands for no task."]
     got = gc.event_totals(client)
     want = {"event_schedule_director_002": [21, 0, 0],
             "event_bartender_01": [24, 1, 0],
@@ -278,7 +291,18 @@ def _totals_precedence(gc):
         if known.get(key) != want:
             out.append(f"{key!r} reads {known.get(key)!r}, not {want!r}: "
                        f"{why}.")
+    task_key, task = next(iter(from_client.DAILY_TASKS.items()))
+    gc.use({"daily_tasks": {task_key: [99, 1], "daily_achieve_bad": [1]}})
+    held = gc.known_daily_tasks()
+    if held.get(task_key) != (99, 1) or "daily_achieve_bad" in held:
+        out.append(
+            f"the daily tasks read {held.get(task_key)!r} for {task_key!r} "
+            f"where this machine's client says (99, 1), or kept a task "
+            f"that is not two figures.")
     gc.use(None)
+    if gc.known_daily_tasks().get(task_key) != tuple(task):
+        out.append(f"with no client read, {task_key!r} is not the shipped "
+                   f"{tuple(task)!r}: the Activities row would read '-'.")
     if gc.known_event_totals().get(shipped_key) != tuple(shipped):
         out.append(
             f"with no client read, {shipped_key!r} reads "
@@ -500,7 +524,7 @@ def _measure(scale_name):
     work = Path(tempfile.mkdtemp())
     live = SOURCE_ROOT / "settings"
     if live.exists():
-        # A COPY: a refresh records event totals into checklist.json.
+        # A COPY: a refresh records the floor clock into checklist.json.
         shutil.copytree(live, work / "settings")
     try:
         root, tab, optimizer = _build_checklist(
@@ -516,6 +540,19 @@ def _measure(scale_name):
             tab.refresh_checklist()
             _drain(root, time.monotonic() + 30)
             failures.extend(_fits(root, tab, mod, key, name, scale_name))
+            # **And a name longer than the tab can give room to**: cut,
+            # with the spare width taken up to the floor between columns
+            # -- the names take the room the tab has, not a fixed one.
+            import game_client as gc
+            longest = " - ".join([name] * 3)
+            gc.use({"event_names": {LONGEST_KEY: longest}})
+            groups[WIDEST_GROUP][LONGEST_KEY] = dict(
+                groups[WIDEST_GROUP][key])
+            tab.refresh_checklist()
+            _drain(root, time.monotonic() + 30)
+            failures.extend(_fits(root, tab, mod, LONGEST_KEY, longest,
+                                  scale_name))
+            failures.extend(_fills(root, tab, mod, scale_name))
         finally:
             root.destroy()
     finally:
@@ -586,15 +623,46 @@ def _fits(root, tab, mod, key, name, scale):
             f"At {scale}, with {name!r} among the live events, the "
             f"Checklist's last column runs {over}px past the right edge of "
             f"a default-sized window. The Other column is as wide as its "
-            f"widest row and the grid cannot shrink it: a name wider than "
-            f"`checklist_tab.EVENT_NAME_ROOM` is cut to that, so the room "
-            f"is more than the tab has to give.")
+            f"widest row and the grid cannot shrink it: a name is cut to "
+            f"`ChecklistTab._name_room`, so that room is more than the tab "
+            f"has to give.")
     for left, right in zip(columns, columns[1:]):
         gap = right.winfo_rootx() - (left.winfo_rootx() + left.winfo_width())
         if gap < 0:
             out.append(f"At {scale}, with {name!r} live, two Checklist "
                        f"columns overlap by {-gap}px.")
     return out
+
+
+def _fills(root, tab, mod, scale):
+    """With a name too long for any room live, the columns sit at the
+    floor apart but for what the cut itself leaves: the names took
+    every pixel the tab had spare."""
+    import tkinter.font as tkfont
+    from ui.scaling import px
+    columns = sorted((frame for frame in tab._column_frames
+                      if frame.winfo_ismapped()),
+                     key=lambda w: w.winfo_rootx())
+    gaps = [right.winfo_rootx() - (left.winfo_rootx() + left.winfo_width())
+            for left, right in zip(columns, columns[1:])]
+    floor = px(mod.COLUMN_GAP_FLOOR)
+    label = next((label for _t, (_text, rows) in tab.column_texts.items()
+                  for key, label, _w in rows
+                  if key == mod.EVENT_KEY_PREFIX + LONGEST_KEY), "")
+    # A cut falls on a character, and trims a separator before its mark,
+    # so up to that much of the room goes unused -- shared out among
+    # the spacers whole pixels at a time.
+    unused = tab._fitted_room - tkfont.Font(font=mod.ROW_FONT).measure(label)
+    extra = sum(gap - floor for gap in gaps)
+    if not gaps or min(gaps) < floor - 1 or abs(extra - unused) > len(gaps):
+        return [f"At {scale}, with a name longer than the tab can show "
+                f"live, the Checklist's columns sit {gaps} apart, {extra}px "
+                f"past the {floor}px floor in all, where the cut name "
+                f"left {unused}px of its room unused. A cut name is given "
+                f"what the tab has spare (`ChecklistTab._name_room`): "
+                f"short of it the columns crowd, past it the name was cut "
+                f"for room that was there."]
+    return []
 
 
 def run():

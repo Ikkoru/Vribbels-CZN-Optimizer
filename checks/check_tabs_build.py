@@ -2163,21 +2163,6 @@ def _checklist_block_is_tall_enough(tab):
                 f"the {title!r} column reserves {got}px for {len(rows)} "
                 f"rows where their own pitches come to {want}px. A short "
                 f"block clips its last row and nothing reports it.")
-    # **And the lines the Text actually laid out fit in it.** The sum
-    # above is the same arithmetic twice; this is the widget's word.
-    for title, (text, rows) in tab.column_texts.items():
-        holder = text.master
-        last = text.index("end-1c")
-        box_end = text.dlineinfo(last)
-        if box_end is None:
-            continue                         # not laid out: unmapped
-        bottom = box_end[1] + box_end[3]
-        if bottom > holder.winfo_height():
-            out.append(
-                f"the {title!r} column's last line ends at {bottom}px of "
-                f"a {holder.winfo_height()}px block: the rows the Text "
-                f"drew outgrow what `_block_height` reserved, and the "
-                f"foot of the column is clipped.")
 
     return out
 

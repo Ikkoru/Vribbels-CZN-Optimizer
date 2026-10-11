@@ -15,7 +15,8 @@ What changes every patch and the server never sends:
 - each event's name, for the Checklist's Events block;
 - how many rewards each event holds and whether it pays a final reward, for the same rows (`game_client.event_totals`);
 - every item's name, for the Capture Log and the Checklist's shops;
-- how many Excursion types each combatant has, for the Combatants tab.
+- how many Excursion types each combatant has, for the Combatants tab;
+- what each daily task counts to and pays toward the day's Activity, for the Checklist's Activities row (`game_client.daily_tasks`).
 
 The first source that knows an id wins:
 
@@ -53,6 +54,7 @@ A table's name below is its archived name without its `db` folder and `.db` endi
 | Memory Fragment sets | `piece_set_option@piece_set_option`, `item_piece@item` | the 2, 4 and 6 piece effects, each a stat and value or a skill hook, with names and descriptions in text; every fragment item |
 | Items | the `item_*@item` tables | `item_type`, `rarity`, `icon` and where each is found; text `item@name@<id>`, `item@desc@<id>` |
 | Equipment | `relic(disaster)@relic`, `relic@skill_eff` | what the game's text calls Equipment is a `relic`: names `relic@name@...`, effects `relic@s1_description@...`, whose `#rev_..#` values are in the `skill_eff` tables |
+| A daily task | `daily_achievement@daily_achievement` | one row per task, the wire's `daily_achieve` res_id: `count`, the score it has to reach, and `point_count`, what it then adds to the day's Activity |
 | A Mutation | `savedata_edit_corruption@savedata_edit_corruption` | one row per `corruption_option_<n>`, the number a Save Data carries: its name and effect in text (`savedata_edit_corruption@name@corruption_option_<n>`, `@desc@`), and `ratio`, its weight in a roll |
 | Excursion types | `town_visit@town_normal_visit` | one row per type, `group` `normal_visit_<combatant id>`. A partner, and a combatant not yet released, has one placeholder row |
 | Galactic Disasters | `disaster_season@disaster_season`, `disaster_chaos_list@disaster_chaos_list`, `chaos@chaos` | a season's title is text `chaos@title@disaster_sNN`, its Chaos's `chaos@title@chaos_NN` |
@@ -65,7 +67,7 @@ The derivations above were checked against what the program already knows, and t
   - Combatant stats at 60, derived as the table above says, reproduce `game_data.characters` for every combatant but Haru, which is what vouches for the derivation.
   - A partner's passive is compared by the figures in its text at each level, read as the game draws it (`client_tables.passage`): a keyword's marker carries a level number, which is not one of the figures.
 - **Event totals**: `event_bartender_1` reads 24 missions and a final reward, and the summer event 10 puzzle and 15 story rewards. The seven-day story events, the policy, stock and arena events, the check-ins and the later Node Lists agree with what the wire and the game's own screens gave too.
-- **The three story-map Node Lists differ by one**: the client gives `event_nodelist_001`, `003` and `004` 15, 16 and 19 mission rows and a final reward besides, where the captures held 15, 16 and 19 rewards in all, the final among them. A capture of the next one settles which.
+- **The three story-map Node Lists**: the client gives `event_nodelist_001`, `003` and `004` 15, 16 and 19 mission rows and a final reward besides, and so do the game's update notices for them (`page.onstove.com/chaoszeronightmare/en/view/12012929`, `12945661` and `13168282`: per chapter its achievements, then one for the lot). The captures held one row fewer each.
 - **Galactic Disaster challenge missions** (`event_chaos_mission_*`) are not in the client's event tables at all: only their schedules are.
 
 ## What a patch can break

@@ -121,14 +121,28 @@ def run():
         "achievements": [{"res_id": "ingame_027", "score": 49,
                           "complete_time": 0}],
         "daily_achieve": [{"res_id": "daily_achieve_001", "score": 1,
-                           "version": 314}]}]))
+                           "version": 314},
+                          {"res_id": "daily_achieve_006", "score": 10,
+                           "issued_time": 1791580000, "version": 40}]}]))
     addon.websocket_message(_Flow([{
         "res": "ok", "mission_condition": {"condition": {
             "accumulate_condition": [{"res_id": "ac_collection_003",
                                       "score": 182250591,
                                       "condition_type": "GET_ITEM__ID"}],
             "achievement": [{"res_id": "collection_027", "score": 335,
-                             "condition_type": "LOGIN"}]}}}]))
+                             "condition_type": "LOGIN"}],
+            # Today's first battle issues the day's row afresh.
+            "daily_achievement": [{"res_id": "daily_achieve_006",
+                                   "score": 2, "issued_time": 1791666641,
+                                   "condition_type":
+                                       "KILL_FACTION__ID_SPOT"}]}}}]))
+    task = addon.lifetime.get("daily_achieve", {}).get("daily_achieve_006", {})
+    if (task.get("score"), task.get("issued_time")) != (2, 1791666641):
+        failures.append(
+            f"a daily task moved by `mission_condition` reads {task!r}. Its "
+            f"`issued_time` is the day its score belongs to: kept from the "
+            f"login, today's 2 is filed under yesterday, and the "
+            f"Activities row pays nothing for it.")
     # A claim on the Achievements screen answers with its one row.
     addon.websocket_message(_Flow([{
         "res": "ok", "achievement_entity": {

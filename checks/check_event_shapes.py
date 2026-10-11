@@ -385,12 +385,128 @@ def _step_tracks(ct):
     return out
 
 
+def _numbering(ct):
+    """A page not numbered 1..n is still being issued."""
+    out = []
+    # A Node List's first login held tasks `_2` and `_4` of four days:
+    # a grid of at least four tasks, not two. It read `0/9` of its 26.
+    # Each task issued across the days in one batch: the shape a grid
+    # is read from.
+    early = _raw([_mission("event_node_30115_%d_%d" % (day, task),
+                           issued=NOW - task)
+                  for day in range(2, 6) for task in (2, 4)])
+    rows = ct._event_mission_rows(dict(early, event_schedules={
+        "EVENT_NODELIST_PAGE": {"event_nodelist_007": {
+            "start_time": NOW - 3 * DAY, "end_time": NOW + 9 * DAY}}}),
+        "event_nodelist_007")
+    if ct._grid_total(rows) is not None:
+        out.append(
+            f"a grid of tasks `_2` and `_4` answered "
+            f"{ct._grid_total(rows)!r}. Holes in a page's numbering are "
+            f"tasks not issued yet, so the shape is not known.")
+    if ct._rows_known(rows) != 12:
+        out.append(
+            f"tasks `_2` and `_4` of four days count as "
+            f"{ct._rows_known(rows)} rows known, not 12: each `_3` "
+            f"between them exists. What is below the lowest, `_1`, is "
+            f"not certain to and is not counted.")
+    # The bartender's first batch, `_03_02` and `_03_03` in one second:
+    # not a page issued whole, its `_01` missing.
+    first = [_mission("event_bartender_1_03_%02d" % n, issued=NOW - DAY)
+             for n in (2, 3)]
+    if ct._page_totals(first) != (0, 2):
+        out.append(
+            f"a page holding `_02` and `_03` in one batch counts "
+            f"{ct._page_totals(first)!r} as (whole, trickling), not "
+            f"(0, 2). Its `_01` is not issued yet.")
+    whole = [_mission("event_bartender_1_03_%02d" % n, issued=NOW - DAY)
+             for n in (1, 2, 3)]
+    if ct._page_totals(whole) != (3, 0):
+        out.append(f"a page numbered `_01` to `_03` in one batch counts "
+                   f"{ct._page_totals(whole)!r}, not (3, 0).")
+    # Node List pages start at 2: the DAYS need no 1, only no hole.
+    days = [_mission("event_node_30115_%d_%d" % (day, task),
+                     issued=NOW - task)
+            for day in range(2, 6) for task in range(1, 6)]
+    if ct._grid_total(days) != 20:
+        out.append(f"days 2 to 5 of five tasks each make a grid of "
+                   f"{ct._grid_total(days)!r}, not 20.")
+    return out
+
+
+def _family_corroborates(ct):
+    """A total the family agrees on, reached, reads LIKELY_DONE."""
+    out = []
+    live = {"start_time": NOW - 5 * DAY, "end_time": NOW + 10 * DAY}
+    name = "event_schedule_probe_9"
+    agree = {"event_schedule_probe_1": (6, 0, 0),
+             "event_schedule_probe_2": (6, 0, 0)}
+
+    def event(known, claimed, held=6, batch=True):
+        missions = [_mission("event_probe_9_%d" % n, claimed=n <= claimed,
+                             issued=NOW - DAY if batch else NOW - n)
+                    for n in range(1, held + 1)]
+        raw = _onto(ct, _raw(missions, schedules={
+            "EVENT_SCHEDULE": {name: live}}), known)
+        return ct._event_missions(raw, name, live, NOW), raw
+
+    # A page issued whole, six rows, and a family of sixes.
+    got, raw = event(agree, claimed=6)
+    if got != [("6/6", ct.LIKELY_DONE)]:
+        out.append(
+            f"six rows issued whole, all claimed, in a family of sixes "
+            f"read {got!r}, not 6/6 likely done. Two sources saying one "
+            f"total is the evidence a floor waits two days for.")
+    asked = _asked(ct, raw, name, got)
+    if asked != (6, 6, False):
+        out.append(
+            f"a likely-finished row asked {asked!r} where it should ask "
+            f"Finished? at 6/6: other instalments are speaking for it, "
+            f"and only the person who can see the game can say.")
+    got, _raw_ = event(agree, claimed=5)
+    if got != [("5/6", ct.FLOOR)]:
+        out.append(f"a row short of the agreed total reads {got!r}, not "
+                   f"5/6 on the floor.")
+    # Rows trickling in: the family speaks, marked as the family's.
+    got, _raw_ = event(agree, claimed=6, batch=False)
+    if got != [(ct.EXPECTED_VALUE + "6/6", ct.LIKELY_DONE)]:
+        out.append(
+            f"six trickled rows, all claimed, in a family of sixes read "
+            f"{got!r}, not ~6/6 likely done: every row the family says "
+            f"the event holds is in hand.")
+    # A family paying a final reward: the final is what is left.
+    finals = {k: (6, 1, 0) for k in agree}
+    got, _raw_ = event(finals, claimed=6)
+    if got != [("6/7", ct.FINAL_WAITING)]:
+        out.append(f"a family paying a final reward left {got!r}, not "
+                   f"6/7 waiting on it.")
+    # A family that does not repeat itself says nothing.
+    got, _raw_ = event({"event_schedule_probe_1": (6, 0, 0)}, claimed=6)
+    if got != [("6/6", ct.FLOOR)]:
+        out.append(f"one instalment in the client read {got!r} as "
+                   f"corroboration, not 6/6 on the floor.")
+    # A step track never: `reward_step` tops its ladder either way.
+    track = _onto(ct, _raw([_mission("event_love_09_01")], [{
+        "res_id": "event_season_love_9", "reward_step": 21, "version": 3,
+        ct.EVENT_DONE_FLAG: 0}], {"EVENT_SCHEDULE": {
+            "event_schedule_love_9": live}}),
+        {"event_schedule_love_1": (21, 0, 1),
+         "event_schedule_love_2": (21, 0, 1)})
+    got = ct._event_missions(track, "event_schedule_love_9", live, NOW)
+    if any(state == ct.LIKELY_DONE for _w, state in got):
+        out.append(f"a step track at the top of its ladder read {got!r}. "
+                   f"Its `reward_step` is there from the first claim "
+                   f"under one reading of the field.")
+    return out
+
+
 def run():
     add_source_to_path()
     from ui.tabs import checklist_tab as ct
 
     failures = []
     for probe in (_node_lists, _earlier_instalments, _client_totals,
-                  _one_instalment_votes_once, _final_rewards, _step_tracks):
+                  _one_instalment_votes_once, _final_rewards, _step_tracks,
+                  _numbering, _family_corroborates):
         failures.extend(probe(ct))
     return failures

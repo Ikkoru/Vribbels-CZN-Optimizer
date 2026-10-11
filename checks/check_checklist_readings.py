@@ -98,7 +98,8 @@ def run():
         next_disaster_words,
         ChecklistTab, WRITTEN_TOTALS, written_total,
         unsure_ceiling, EVENT_FINISHED_FIELD,
-        EVENT_CLIENT_FIELD, event_totals_onto,
+        EVENT_CLIENT_FIELD, event_totals_onto, EVENT_TOTALS_FIELD,
+        LIKELY_DONE,
         GRANT_FITS, SOON_SETTLED,
     )
     import checklist_manager
@@ -2056,6 +2057,36 @@ def run():
                 f"a {days}-day streak in the client reading {fields!r} "
                 f"shows {got!r}, not [({want!r}, {state!r})].")
 
+    # **A streak the client does not hold takes its family's length**,
+    # where the family's streaks in the client agree on one -- marked
+    # as worked out, and orange once every day of it is claimed, still
+    # asking Finished?. A claim past it disproves it.
+    def _family_days(days, **fields):
+        raw = _snapshot()
+        raw["attendance_entities"] = [dict({"event_id": "event_143",
+                                            "start_time": 2000}, **fields)]
+        raw[EVENT_TOTALS_FIELD] = {"event_daily_16": days}
+        return _event_attendance(raw, "event_daily_16", WINDOW, now)
+
+    for fields, want, state in (
+            (dict(current_days=4, received_days=3),
+             EXPECTED_VALUE + "3/7", TODO),
+            (dict(current_days=3, received_days=3),
+             EXPECTED_VALUE + "3/7", CYCLE_DONE),
+            (dict(current_days=7, received_days=7),
+             EXPECTED_VALUE + "7/7", LIKELY_DONE),
+            (dict(current_days=9, received_days=9),
+             "9/9" + UNKNOWN_MORE, CYCLE_DONE)):
+        got = _family_days(7, **fields)
+        if got != [(want, state)]:
+            failures.append(
+                f"a streak whose family runs seven days, reading "
+                f"{fields!r}, shows {got!r}, not [({want!r}, {state!r})].")
+    if unsure_ceiling(((EXPECTED_VALUE + "7/7", LIKELY_DONE),)) != (7, 7):
+        failures.append(
+            "a streak likely finished on its family's word does not ask "
+            "Finished?. Other streaks are speaking for it.")
+
     # --- the one answer the program cannot give -----------------------
     # A row at its own ceiling that the game has not called finished is
     # either finished or waiting for more, and nothing here can say
@@ -2310,6 +2341,61 @@ def run():
         failures.append(
             f"with three streaks on the account the row reads {got!r}, not "
             f"the first one started after the event's own window opened.")
+
+    # --- a heading on two lines, and the blocks of the Other column ---
+    from ui.tabs import checklist_tab as ct
+    head = ct.SHOP_HEAD_PREFIX + "shop_hyperspace/none/monthly"
+    for key, label, want in (
+            (head, "Shop - Zeronium Shop", ("Shop -", "Zeronium Shop")),
+            (head, "Nono's Shop", ("Nono's Shop",)),
+            ("coffee", "Shop - not a heading", ("Shop - not a heading",))):
+        if ct._label_lines(key, label) != want:
+            failures.append(
+                f"{label!r} under {key!r} draws as "
+                f"{ct._label_lines(key, label)!r}, not {want!r}. Only a "
+                f"shop heading opening `HEAD_BREAK` breaks after it.")
+    drawn = [((key, label, True, (), None), ("row",), (), None)
+             for key, label in (("coffee", "Coffee"),
+                                (head, "Shop - Zeronium Shop"),
+                                (ct.SHOP_KEY_PREFIX + "p", "Prism Lens"))]
+    if ct._value_lines(drawn) != [1, 3, 4]:
+        failures.append(
+            f"rows below a two-line heading are patched on lines "
+            f"{ct._value_lines(drawn)!r}, not [1, 3, 4]. A patch by row "
+            f"index lands on the line above the reading it means.")
+
+    class _Font:
+        """Every character seven pixels: enough to tell stops apart."""
+        def measure(self, text):
+            return 7 * len(str(text))
+
+    sortie = ct.SHOP_HEAD_PREFIX + "shop_assault/none/account"
+    rows = (("basin", "Basin", ct.with_countdown("99/99")),
+            (sortie, "Sortie - Lab", None),
+            (ct.SHOP_KEY_PREFIX + "core", "Core", "1/1"),
+            (EVENT_KEY_PREFIX, "Events", None),
+            (EVENT_KEY_PREFIX + "event_a", "A long event name, the longest",
+             ct.with_countdown(ct.EVENT_WIDEST)))
+    gap = ct.px(ct.TEXT_INSET + ct.LABEL_TO_VALUE)
+    _stop, _width, tags = ct._column_geometry(_Font(), "Other", rows, 10,
+                                              reserve=())
+    got = tuple((tags.get(tag) or (None,))[0] for tag in (
+        ct.COUNTDOWN_STOP_PREFIX + ct.COUNTDOWN_FIXED,
+        ct.VALUE_STOP_PREFIX + sortie,
+        ct.COUNTDOWN_STOP_PREFIX + ct.COUNTDOWN_EVENTS))
+    want = (35 + gap, 28 + 10 + gap, 7 * 30 + gap)
+    if got != want:
+        failures.append(
+            f"the Other column's three blocks start their readings at "
+            f"{got!r}, not {want!r}: each block lines up off its own "
+            f"labels, so one long event name pushes nothing above it "
+            f"across (`SPLIT_COLUMNS`).")
+    _stop, _width, tags = ct._column_geometry(_Font(), "Weekly", rows, 10,
+                                              reserve=())
+    if len({tags[ct.COUNTDOWN_STOP_PREFIX + ct.COUNTDOWN_FIXED][0],
+            tags[ct.COUNTDOWN_STOP_PREFIX + ct.COUNTDOWN_EVENTS][0]}) != 1:
+        failures.append("a column not in SPLIT_COLUMNS split its readings "
+                        "into blocks.")
 
     # --- the ids the rows read ----------------------------------------
     # **Against the NAME, not against the constant.** Every assertion

@@ -124,7 +124,7 @@ A Checklist row about an event is three separate claims, and they have different
 | **The game client** | the event in the client's tables, this machine's or the copy the program ships | the whole event, exactly, and whether a final reward follows | a patch's event while the archive cannot be read; more rows in hand than it lists | `game_client.event_totals`, `EVENT_CLIENT_FIELD` |
 | **A write-down** | a person deciding | the whole event | it is wrong until a reward past it proves so | `WRITTEN_TOTALS`, `written_total` |
 | **A rectangular family** | one snapshot, once a batch spans an axis | the whole event, exactly | the family is ragged, and most are | `_grid_total` |
-| **The family in the client** | two of the family's instalments in the client agreeing | the whole event, as an expected value | the family turns out not to repeat itself | `family_total`, `EVENT_TOTALS_FIELD` |
+| **The family in the client** | two of the family's instalments in the client agreeing | the whole event, as an expected value, and corroboration for a total the rows state | the family turns out not to repeat itself | `family_total`, `EVENT_TOTALS_FIELD` |
 | **Pages issued whole** | one snapshot | an exact count for that page | a page not yet issued at all is invisible; a page of one row counts only where other pages' rows share its second | `_page_totals` |
 | **The floor** | nothing | a lower bound, always | it is only ever a lower bound | `_event_progress` |
 
@@ -142,6 +142,7 @@ They stack, and they cross-check. `_event_progress` tries them in that order and
 | **All claimed** | every reward the client lists claimed | green |
 | **A final reward waiting** | every row claimed, no flag, and the client lists a final reward, or for an event it does not hold an instalment of its family in the client pays one | red (`FINAL_WAITING`), counting the final in the total; asking `Finished?` only where the family is the evidence |
 | **Said so by the user** | the row's `Finished?` box is ticked | green, and sorted down with the rest. The answer is kept against the pair it was given for: either figure moving retires it |
+| **Likely finished** | for an event the client does not hold: every reward its family's instalments agree it holds claimed, with no final reward among them | orange at once (`LIKELY_DONE`), asking `Finished?` |
 | **Likely finished** | claimed equals the floor and the tally has not moved for two days | orange — see `FLOOR_SETTLES_AFTER` |
 | **Unknown** | anything else | red, with `+?` where the denominator is a floor |
 
@@ -149,7 +150,7 @@ They stack, and they cross-check. `_event_progress` tries them in that order and
 
 **The client's total is the event's missions and its final reward**, and nothing else: a puzzle or story table is not in it, so `event_summer_01` reads `20/20` and green with its puzzles still to do.
 
-**A login streak has one length per event**, which the client's check-in table states, the row counts against, and the wire never states. Off the wire, the row counts claimed against claimed-plus-one, floored at `checklist_tab.ATTENDANCE_FLOOR`, the shortest a streak has run: counting from what is claimed alone read `1/1+?` on a new streak's first day, which says finished. The schedule's length does not predict it -- two 21-day schedules paid 7 and 15. The last claim carries `completed`, which the capture keeps on the streak's row and the tab reads as finished.
+**A login streak has one length per event**, which the client's check-in table states, the row counts against, and the wire never states. For a streak the client does not hold, its family's length where the family's streaks in the client agree on one (`event_daily_*` all run seven days), read `~3/7` and orange (`LIKELY_DONE`) once every day is claimed. With no family to go on, the row counts claimed against claimed-plus-one, floored at `checklist_tab.ATTENDANCE_FLOOR`, the shortest a streak has run: counting from what is claimed alone read `1/1+?` on a new streak's first day, which says finished. The schedule's length does not predict it -- two 21-day schedules paid 7 and 15. The last claim carries `completed`, which the capture keeps on the streak's row and the tab reads as finished.
 
 ## Floors, and the one wrong answer
 
@@ -235,7 +236,7 @@ Run against the whole account, every family answers, and the answers match what 
 
 It answers on the event's first afternoon, which is the only time the answer is worth anything. A batch that varies both indices says nothing and is ignored; one clean batch is enough.
 
-**A grid under-reads a Node List until its last index is issued**: `event_nodelist_007`'s came to 8 on its third day, where it held 25, because the batch that made it a grid spanned its pages but only two of its five indices. A grid is this instalment speaking, so it outranks the family's total and the smaller number wins; the client's total, where it holds the list, comes before both.
+**A grid is held back while its tasks' numbering has holes.** `event_nodelist_007`'s first rows were tasks `_2` and `_4` of four days, a grid of 8 where the list held 25: the batch that made it a grid spanned its pages but only two of its five indices. A numbering that is not `1..n` is part-way through being issued (*A page's numbering says what is still to come*, below), so the grid does not answer until it is; the days need no `_1`, a Node List's pages starting at 2, only no hole. A grid is this instalment speaking, so it outranks the family's total; the client's total, where it holds the list, comes before both.
 
 ### A page is one kind of task
 
@@ -249,6 +250,14 @@ A mission id's middle segment is its page, and each page is one KIND of task. `e
 
 So the total is a sum over pages rather than any product. `_page_totals` counts a page whose rows share one `issued_time` as whole, since one act issued it; a page whose rows trickle in, like the per-day one, is a floor, and so is the sum.
 
+### A page's numbering says what is still to come
+
+**Every page of every event in the client is numbered from `_1` with no hole**, a page being a mission id less its last segment; the rhythm game's song unlocks, which nothing here reads, are the one exception. Every page the account's captures hold ended that way too. So a page caught numbered otherwise is part-way through being issued (`_numbering`):
+
+* it is never a page issued whole: the bartender's first batch was `_03_02` and `_03_03` in one second, and read `0/2` of 25 as one;
+* a hole inside it is a row known to exist: `_2` and `_4` say a `_3`, which the floor counts (`_rows_known`). What is missing BELOW the lowest number is not certain to exist and is not counted, so the floor never reads high;
+* a grid with holes in its tasks does not answer (above).
+
 ## An event the client does not hold
 
 **A patch can add an event while the program cannot read the archive**, and then the wire's chain is all there is for it. The client still answers for the event's family: `game_client.known_event_totals` is this machine's client over the copy the program ships, so an archive that cannot be read leaves the families the build knew. A family is the normalised id without its index (`_stem`, so `event_schedule_policy_005` is `event_policy`).
@@ -260,7 +269,11 @@ A live event takes its denominator from its family when, and only when:
 
 Such a row reads `~1/20` rather than `1/3+?`: the tilde is the tab's mark for a number worked out rather than read. **It does not go green on it** — `event_achieve_state` is still the only thing that ends such an event — so the worst an over-large inherited total can do is leave a finished row looking unfinished.
 
+**The family also corroborates.** Where the rows themselves state a total -- a grid, pages issued whole, or every row the family's total says the event holds now in hand -- and the family agrees on it, every reward of it claimed with no final reward in the family reads `LIKELY_DONE`: orange at once, where a floor at its ceiling waits two days for that, and still asking `Finished?`. A login streak takes its family's length the same way. A step track never reads it, its `reward_step` reaching the top of its ladder under either reading of the field.
+
 `family_total` and `family_final` are the rule, and `event_totals_onto` puts what they say onto the snapshot beside the client's own totals. A step track's family total is its ladder's size in the client.
+
+**`python docs/events_replay.py --fallback` measures all of this**: every event the client holds, replayed login by login with its own entry hidden and its family's left in, each reading judged against the client's total. A total too small with no mark (`short`), one too large (`long`), green with rewards left (`false-done`) and orange with rewards left (`LIKELY-WRONG`) are the wrong answers, and a change to the fallback stands only while it adds none.
 
 ## Naming, and how to find an event's records
 
@@ -296,7 +309,7 @@ Matching is on a segment boundary, so `event_daily_1` cannot swallow `event_dail
 
 What links them on the wire is time. **An instalment's rows are first issued inside its own list's window**, so `EVENT_ROW_FAMILIES` maps the schedule family to the mission family and `_event_roots` gives a list the instalment whose FIRST row its window saw. Later rows of the same instalment are issued days in and prove nothing -- `event_node_30113`'s last rows arrived eight days after its first -- so the first is what places it, and a list with no window takes nothing at all rather than every instalment ever issued.
 
-A list with an achievement page has its missions (four pages of five, `event_node_<id>_<page>_<n>`) and the page (`event_node_<id>_achievement_<n>`), 25 in all: a reward per node, one per stage cleared, each stage's issued as its last node opens. Its completion record, `Clear All Missions`, sits on the achievement page on some lists and on the list itself on others; `_event_records` takes a record at or UNDER the list's instalment, so both count. The story-map lists are shaped otherwise, and how their final reward counts is the one place the client and this page disagree (`client_data.md`).
+A list with an achievement page has its missions (four pages of five, `event_node_<id>_<page>_<n>`) and the page (`event_node_<id>_achievement_<n>`), 25 in all: a reward per node, one per stage cleared, each stage's issued as its last node opens. Its completion record, `Clear All Missions`, sits on the achievement page on some lists and on the list itself on others; `_event_records` takes a record at or UNDER the list's instalment, so both count. The story-map lists are shaped otherwise: each chapter's achievements, then a final reward for the lot, as the client and the game's update notices both count them (`client_data.md`, *What it was held against*).
 
 **Attendance and trial events do not follow this** — their records are numbered in a different space entirely, and `wire_hunt.md` says how each is paired.
 

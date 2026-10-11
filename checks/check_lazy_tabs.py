@@ -277,9 +277,8 @@ def run():
             problems.append(
                 f"`{name}` does not build the Checklist before it loads a "
                 f"snapshot over the one it has not read. The Checklist "
-                f"records event totals, finals and the floor clock from "
-                f"every snapshot, and the game purges what they come "
-                f"from.")
+                f"records finished streaks and the floor clock from every "
+                f"snapshot, and the game purges what they come from.")
 
     # 3. A switch ends with painting on, and painted.
     problems += _painting_comes_back(
