@@ -166,6 +166,15 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   When one ships: `Vribbels/build_tcl/prepare_tcl_data.py`'s `libtcl9*` globs already match a 9.1 library, and `checks/run_all.py` at both scales is the first test.
 
+- **T22 — Rescale live when the window moves to a screen of another DPI**, as taskmaster's asks window does. Feasible only as a rebuild, not a re-configure in place:
+
+  - every distance is scaled once, at build (`px()` at the geometry call), and nothing records it to scale again;
+  - layouts are measured once and pinned in pixels: the Checklist's holders, tab stops and block heights, the checkbox probe, Materials' figure blocks;
+  - fonts are tuples (`ROW_FONT`), which Tk caches per display and never measures again;
+  - `tk scaling`, the theme's pixel options (`scale_theme`) and the icons (`image_utils._resample`) are set or resampled at startup.
+
+  The rebuild: on a DPI change, debounced, set the new scale, apply `tk scaling` and the theme again, reload the icons and rebuild the notebook's tabs from the managers, carrying or dropping each tab's selection and scroll. `checks/check_ui_scales.py` and the spacing audit already cover every scale.
+
 - **T19 — More from the game client.** Event names and reward totals, item names, Excursion type counts and the daily tasks are read at launch (`docs/client_data.md`, *What the program reads at launch*). The app reads what changes every patch; the maintainer tool, `docs/client_tables.py --audit`, holds the tables whose every change wants reviewing. Left:
 
   - **The audit's reach**: sets and Potential are not in it.
