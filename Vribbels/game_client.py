@@ -1,8 +1,9 @@
 """The game client's own tables and English text, read from its install.
 
 What changes every patch and the server never sends: each event's
-English name and how many rewards it holds, every item's name, and how
-many Excursion types each combatant has.
+English name and how many rewards it holds, every item's name, how
+many Excursion types each combatant has, and what each daily task
+counts to and pays toward the day's Activity.
 `docs/client_data.md` says where each is kept and how it was held
 against what the program already knew; `docs/client_tables.py` is the
 maintainer's tool over the same reader. Reads only: nothing here
@@ -62,7 +63,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # What the cache is called in the settings folder, and the shape of
 # what it holds. A cache of another format is read as no cache.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 3
+CACHE_FORMAT = 4
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -144,6 +145,11 @@ CHECK_IN_DAYS = "event_daily_check@event_daily_check"
 # is the event's number, never a schedule, and kept out so a family
 # worked out over these keys holds instalments and nothing else.
 SCHEDULE_JOINS = ("link_event_schedule_id", "multiple_link", "multiple_key")
+
+# The daily tasks: a row per task, `count` what its score has to reach
+# and `point_count` what it then adds to the day's Activity. The wire's
+# `daily_achieve` rows carry the score and nothing else.
+DAILY_TASK_TABLE = "daily_achievement@daily_achievement"
 
 # Markup the text carries for the game's own renderer.
 MARKUP = re.compile(r"<[^>]*>")
@@ -492,6 +498,19 @@ def event_totals(client):
     return out
 
 
+def daily_tasks(client):
+    """{daily task res_id: [score it counts to, Activity it pays]}."""
+    out = {}
+    for row in client.rows(DAILY_TASK_TABLE):
+        try:
+            count, points = int(row.get("count")), int(row.get("point_count"))
+        except (TypeError, ValueError):
+            continue
+        if row.get("id") and count > 0 and points > 0:
+            out[row["id"]] = [count, points]
+    return out
+
+
 def item_names(client):
     """{item res_id: English name} for every item the client names."""
     out = {}
@@ -517,6 +536,7 @@ def read_facts(install):
                        in item_names(client).items()},
         "excursion_types": {str(res_id): count for res_id, count
                             in excursion_types(client).items()},
+        "daily_tasks": daily_tasks(client),
     }
 
 
@@ -617,6 +637,20 @@ def known_event_totals():
     for key, value in ((_facts or {}).get("event_totals") or {}).items():
         if (isinstance(value, (list, tuple)) and len(value) == 3
                 and all(isinstance(n, int) and n >= 0 for n in value)):
+            out[key] = tuple(value)
+    return out
+
+
+def known_daily_tasks():
+    """{daily task res_id: (score it counts to, Activity it pays)}: the
+    shipped table, with what this machine's client says over it. See
+    `daily_tasks`."""
+    from game_data import from_client
+    out = {key: tuple(value) for key, value
+           in from_client.DAILY_TASKS.items()}
+    for key, value in ((_facts or {}).get("daily_tasks") or {}).items():
+        if (isinstance(value, (list, tuple)) and len(value) == 2
+                and all(isinstance(n, int) and n > 0 for n in value)):
             out[key] = tuple(value)
     return out
 

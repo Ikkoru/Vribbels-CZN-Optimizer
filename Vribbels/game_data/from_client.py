@@ -1,4 +1,4 @@
-"""Event names and totals, item names and Excursion types, off the game client.
+"""Event names and totals, item names, Excursion types and daily tasks, off the game client.
 
 Written by `python docs/client_tables.py --ship`, as of the game build
 `BUILD`; never edited by hand. What a player's own client says wins
@@ -1564,4 +1564,17 @@ EXCURSION_TYPES = {
     30113: 11,
     30115: 11,
     30117: 11,
+}
+
+# {daily task res_id: (score it counts to, Activity it pays)}. See game_client.daily_tasks.
+DAILY_TASKS = {
+    'daily_achieve_001': (1, 20),
+    'daily_achieve_002': (1, 20),
+    'daily_achieve_003': (2, 20),
+    'daily_achieve_004': (1, 20),
+    'daily_achieve_005': (120, 40),
+    'daily_achieve_006': (10, 40),
+    'daily_achieve_007': (3, 40),
+    'daily_achieve_ch_001': (1, 20),
+    'daily_achieve_qq_001': (1, 20),
 }

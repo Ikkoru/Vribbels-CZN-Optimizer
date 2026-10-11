@@ -41,7 +41,7 @@ from game_client import Client                                # noqa: E402
 
 SHIPPED = REPO / "Vribbels" / "game_data" / "from_client.py"
 
-SHIPPED_HEAD = '''"""Event names and totals, item names and Excursion types, off the game client.
+SHIPPED_HEAD = '''"""Event names and totals, item names, Excursion types and daily tasks, off the game client.
 
 Written by `python docs/client_tables.py --ship`, as of the game build
 `BUILD`; never edited by hand. What a player's own client says wins
@@ -67,6 +67,7 @@ def shipped_source(client):
     totals = game_client.event_totals(client)
     items = game_client.item_names(client)
     visits = game_client.excursion_types(client)
+    tasks = game_client.daily_tasks(client)
     lines = [SHIPPED_HEAD, f"BUILD = {client.archive.build}", "",
              "# {schedule id: English name}. See game_client.event_names.",
              "EVENT_NAMES = {"]
@@ -89,6 +90,12 @@ def shipped_source(client):
               "EXCURSION_TYPES = {"]
     lines += [f"    {res_id}: {count}," for res_id, count
               in sorted(visits.items())]
+    lines += ["}", "",
+              "# {daily task res_id: (score it counts to, Activity it "
+              "pays)}. See game_client.daily_tasks.",
+              "DAILY_TASKS = {"]
+    lines += [f"    {ascii(res_id)}: ({count}, {points}),"
+              for res_id, (count, points) in sorted(tasks.items())]
     lines += ["}", ""]
     return "\n".join(lines)
 

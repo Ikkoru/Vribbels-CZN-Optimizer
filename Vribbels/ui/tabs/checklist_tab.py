@@ -102,9 +102,9 @@ from game_data.constants import item_names
 from ..base_tab import BaseTab
 from ..utils.checkbox import make_checkbox
 from ..utils.spinbox_clamp import CLAMP_ALERT
-from ..utils.tab_header import make_heading
+from ..utils.tab_header import HEADING_FONT, make_heading
 from ..utils.tooltip import Tooltip
-from ui.scaling import px
+from ui.scaling import WINDOW_W, px
 
 
 # Each column's heading and its rows, left to right. Read off the
@@ -2199,13 +2199,24 @@ EVENT_KEY_PREFIX = "event:"
 # by -- so only the words on screen lose it.
 EVENT_ID_PREFIX = "event_"
 
-# As wide as an event's name may draw, written as text so it scales
-# with the face. A wider name is cut to fit, the whole of it in the
-# row's tooltip: the Other column is as wide as its widest row and the
-# grid cannot shrink it, so one long name would push the last column
-# off the window. `check_event_names` holds the widest name the client
-# has to the default window.
-EVENT_NAME_ROOM = "Virtual Tactical Simulation - Narja"
+# **An event's name may draw as wide as the tab has room for**: the
+# tab's width, less every other column, the Other column's own readings
+# beside the names, and the least two columns may sit apart. A wider
+# name is cut to fit, the whole of it in the row's tooltip: the Other
+# column is as wide as its widest row and the grid cannot shrink it, so
+# a name drawn whole would push the last column off the window. See
+# `ChecklistTab._name_room`; `check_event_names` holds the widest name
+# the client has to the default window.
+#
+# The columns frame's own inset from the tab's edges, each side
+# (`setup_ui`), and that least distance between two columns. **The gap
+# is NOT TRACKED**: it is whatever the tab has spare, shared out evenly,
+# and only a name cut to the room brings it down to this floor.
+COLUMNS_PADX = 4
+COLUMN_GAP_FLOOR = 4    # spacing: content frame -> content frame -- frame, frame ↔
+# How long the tab's width has to hold still before the names are
+# fitted to it again: a window being dragged wider sends a stream.
+WIDTH_SETTLE_MS = 250
 # What ends the cut part of a name, as `SHORT_NAMES` marks a product's,
 # and what the cut part never ends on: a separator or a space before
 # the mark reads as a word missing. The last is an em dash.
@@ -2442,7 +2453,7 @@ SEASONAL_COLUMN = "Galactic Disaster"
 COLUMNS = (
     ("Daily", (
         ("coffee", "Coffee", "Go drink!"),
-        ("activity", "Activity (Dailies)", "100/100 Claimed"),
+        ("activity", "Activity (Dailies)", "100/100"),
         ("supply_daily", "Arkhianon Supply", "3/3"),
         ("excursions", "Excursions", "5/5"),
         ("chaos_delegation", "Chaos Delegation", "Go run!"),
@@ -2453,7 +2464,7 @@ COLUMNS = (
         ("chaos_currency", "Chaos Currency",
          EXPECTED_VALUE + "99/4"),
         ("modules_soon", "Delegation Module", "7 expiring within 24h!"),
-        ("modules_week", "Delegation Module", "7 expiring within 7 days"),
+        ("modules_week", "Delegation Module", "7 expiring within 7d"),
         ("sortie_currency", "Sortie Currency",
          EXPECTED_VALUE + "99/9"),
         ("chaos_progress", "Galactic Disaster - Chaos", "8000/8000"),
@@ -2514,6 +2525,16 @@ COUNTDOWN_ROWS = frozenset(
     key for _title, fixed, _shops, _events in COLUMNS
     for key, _label, widest in fixed
     if widest and widest.endswith(WIDEST_COUNTDOWN))
+
+# **A column whose readings line up block by block** rather than down
+# its whole length: the rows above its first shop, each shop, and the
+# Events list each take a stop off their own words, and their deadlines
+# one off their own readings -- so a long event name pushes nothing
+# above it across, and nothing above it leaves the names a gap to
+# clear. See `_value_blocks`.
+SPLIT_COLUMNS = frozenset({"Other"})
+# What a shop block's stop is tagged with, plus its heading's key.
+VALUE_STOP_PREFIX = "valuestop:"
 
 
 def countdown_group(key):
@@ -2626,28 +2647,31 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
 # together, the checkboxes' own widths included (`_checkbox_overhead`).
 ROW_FONT = ("Segoe UI", 10)
 
-# The Activities row reads `point_entity`, which the game writes ONLY
-# when the day's reward is claimed (`guide_system` / `point_reward`).
-# Nothing rolls it at reset, so:
+# The Activities row: the day's points against the 100 its reward
+# wants, and whether that reward has been claimed.
 #
-#   `day_id` == today  ->  claimed today
+# **The CLAIM is `point_entity`**, which the game writes ONLY when the
+# day's reward is claimed (`guide_system` / `point_reward`). Nothing
+# rolls it at reset, so:
+#
+#   `day_id` == today  ->  claimed today, at `day_point`
 #   `day_id` <  today  ->  yesterday's record, so today is unclaimed
 #
-# **`day_point` belongs to `day_id`, not to now.** It is the point
-# total the claim was paid against and it freezes there, so on a stale
-# record it is yesterday's figure and on a fresh one it is whatever the
-# day stood at when the claim went in. It says nothing about progress
-# since, which is why the row shows it only where it is also the
-# finished reading.
+# `day_point` belongs to `day_id`, not to now: the point total the
+# claim was paid against, frozen there.
+#
+# **The POINTS are the day's tasks** (`DAILY_TASK_FIELD`): each one done
+# today pays its share toward the 100, which the client states
+# (`game_client.known_daily_tasks`). The points come in as the tasks
+# are done, with no claim of their own, so a full day can wait on the
+# reward's claim -- which is what the row's blinking orange says.
 ACTIVITY_FULL = 100
 POINT_FIELD = "point_entity"
-# **The claimed state shows its numbers rather than a word.** The
-# record is written only by the claim and never rolled, so a stale one
-# carries yesterday's points -- and a row that always prints the
-# figures is one where a wrong answer can be SEEN against the game. A
-# word cannot be checked against anything.
-ACTIVITY_UNCLAIMED = "Unclaimed"
-ACTIVITY_CLAIMED = "%d/%d Claimed"
+ACTIVITY_READING = "%d/%d"
+# The day's tasks: one row each, its `score` and the `issued_time` the
+# game gives the day's row on its first progress. A row issued before
+# the day's reset is a past day's, and pays nothing today.
+DAILY_TASK_FIELD = "daily_achieve"
 
 # The two weekly currencies, and the cap the game states for the second.
 # The Card states one too -- four -- but a row that only ever reads
@@ -2696,7 +2720,7 @@ MODULE_ITEM = 3920026           # Time-Limited Command Delegation Module
 MODULE_WINDOWS = (
     (24 * 3600, "modules_soon", "%d expiring within %d%s!", "h", 3600,
      ((None, 24, SOON),)),
-    (7 * 24 * 3600, "modules_week", "%d expiring within %d %s", "days",
+    (7 * 24 * 3600, "modules_week", "%d expiring within %d%s", "d",
      24 * 3600, ((24, 48, SOON), (48, 72, WARN_BLINK))),
 )
 
@@ -2887,6 +2911,19 @@ BLOCK_PAD_FROM_BOX = 6  # spacing: exception -- label row -> label row -- run, r
 # that are not.
 BOX_ROW_SLACK = 1
 
+# A shop heading opening with this breaks after it, the shop's own name
+# on a second line: the prefix says only that the row is a shop, and on
+# one line with the name it made the heading -- and the total and
+# countdown hanging off its words -- the widest thing in its column.
+# See `_label_lines`.
+HEAD_BREAK = "Shop - "
+# The second line's tag. Its `spacing1` is nothing: the two lines of
+# one heading sit at the face's own line spacing, as a wrapped label's
+# do, rather than a row's pitch apart. Not a gap between two rows, so
+# no rule's.
+HEAD_LINE_TAG = "headline"
+HEAD_LINE_PITCH = 0
+
 # What each line tag's `spacing1` is set from. The tags are configured
 # on the Text and `_block_height` has to add the same numbers up, so
 # one table serves both -- a pitch changed in one place and not the
@@ -2899,7 +2936,8 @@ ROW_TAG_PITCH = {"row": ROW_PITCH, "blockrow": ROW_PITCH + BLOCK_PAD,
                  # An ordinary row beside one asking `Finished?`, and
                  # one between two of them. See `BOX_ROW_SLACK`.
                  "row_beside_box": ROW_PITCH - BOX_ROW_SLACK,
-                 "row_between_boxes": ROW_PITCH - 2 * BOX_ROW_SLACK}
+                 "row_between_boxes": ROW_PITCH - 2 * BOX_ROW_SLACK,
+                 HEAD_LINE_TAG: HEAD_LINE_PITCH}
 
 # A row's words against its value, which is a left TAB STOP. A lever
 # short of the rule, the words stopping inside their own advance.
@@ -2941,6 +2979,150 @@ def _head_stop(font, label):
     return font.measure(label) + px(TEXT_INSET + LABEL_TO_VALUE)
 
 
+def _label_lines(key, label):
+    """A row's words as drawn, one string per line: a shop heading
+    opening `HEAD_BREAK` takes two, the shop's own name on the second.
+    Everything that hangs off a row's words hangs off its LAST line."""
+    if (key.startswith(SHOP_HEAD_PREFIX) and label.startswith(HEAD_BREAK)
+            and label[len(HEAD_BREAK):].strip()):
+        return (HEAD_BREAK.rstrip(), label[len(HEAD_BREAK):])
+    return (label,)
+
+
+def _value_lines(drawn):
+    """The line each drawn row's reading sits on, its words' last
+    (`_label_lines`). A patch rewrites a reading by its line, and a row
+    whose words take two lines moves every row after it down one."""
+    out, line = [], 0
+    for (key, label, *_rest), *_tags in drawn:
+        line += len(_label_lines(key, label))
+        out.append(line)
+    return out
+
+
+def _value_blocks(rows):
+    """{row key: the block its reading lines up in}, for a column in
+    `SPLIT_COLUMNS`: `COUNTDOWN_FIXED` above the first shop, a shop
+    heading's key for that shop and its products, `COUNTDOWN_EVENTS`
+    for the Events list. The two countdown groups ARE two of the
+    blocks, so a group's deadlines are measured off its block's stop."""
+    out, block = {}, COUNTDOWN_FIXED
+    for key, _label, _widest in rows:
+        if key.startswith(SHOP_HEAD_PREFIX):
+            block = key
+        elif key.startswith(EVENT_KEY_PREFIX):
+            block = COUNTDOWN_EVENTS
+        out[key] = block
+    return out
+
+
+def _column_geometry(font, title, rows, overhead, reserve=None):
+    """(the Text's own stop, the block's width, {tag: its tab stops})
+    for one column's rows. `overhead` is how far a checkbox row's
+    words start from its edge (`ChecklistTab._checkbox_overhead`), and
+    `reserve` the rows sized for but not drawn, `COLUMN_RESERVE`'s by
+    default.
+
+    The words, plus a column reserved for the widest reading any row
+    can show. RESERVED rather than fitted: a column that sized to its
+    content would move every row's words the moment a figure gained a
+    digit. A shop product's label is a CHECKBOX, so it reaches further
+    right than its words alone say.
+
+    **A shop HEADING never votes on either.** Its whole line hangs off
+    its own words -- its total, then its countdown -- and `reach` is
+    what accounts for it, so a heading that votes is counted twice:
+    once in the column of readings it does not use and once where it
+    actually sits. The column then reserves room for `Ends in 99 days`
+    beside `600/600` as well as where the heading draws it, and nothing
+    looks wrong until the tab outgrows its window. A row showing NO
+    value has no say either, for the same reason; shop PRODUCTS do,
+    their counts being in that column. A shut shop's shelves vote as if
+    drawn: `COLUMN_RESERVE`.
+
+    In a column of `SPLIT_COLUMNS` each block of `_value_blocks` takes
+    its own stop off its own voters, and the block is as wide as the
+    widest of them.
+    """
+    measure = list(rows) + list(COLUMN_RESERVE.get(title, ())
+                                if reserve is None else reserve)
+    votes = [(key, label, w) for key, label, w in measure
+             if w and not key.startswith(SHOP_HEAD_PREFIX)]
+    blocks = _value_blocks(measure) if title in SPLIT_COLUMNS and votes \
+        else {}
+    groups = {}
+    for key, label, w in votes or measure:
+        groups.setdefault(blocks.get(key), []).append((label, w, key))
+    # spacing: label ↔ its element -- run, run ↔
+    gap = px(TEXT_INSET + LABEL_TO_VALUE)
+    stops, widest = {}, {}
+    for block, members in groups.items():
+        stops[block] = gap + max(
+            font.measure(_label_lines(key, label)[-1])
+            + (overhead if _is_shop(key) else 0)
+            for label, _w, key in members)
+        widest[block] = max([font.measure(w) for _l, w, _k in members if w]
+                            or [0])
+    first = next((blocks.get(key) for key, _l, _w in rows
+                  if blocks.get(key) in stops), None)
+    default = stops.get(COUNTDOWN_FIXED, stops.get(first, next(
+        iter(stops.values()))))
+    tags = {VALUE_STOP_PREFIX + block: (at,) for block, at in stops.items()
+            if block and str(block).startswith(SHOP_HEAD_PREFIX)}
+    content = max(stops[block] + widest[block] for block in stops)
+    # **A shop heading's line is outside those columns**, hanging off
+    # its own words: its total, then its reserve, then anything else
+    # the heading shows. So the block is as wide as whichever reaches
+    # further, the readings at their stops or the longest heading here.
+    reach = 0
+    for key, label, w in measure:
+        if not key.startswith(SHOP_HEAD_PREFIX):
+            continue
+        own = _head_stop(font, _label_lines(key, label)[-1])
+        total = font.measure(SHOP_TOTAL_RESERVE.get(key, SHOP_TOTAL_FALLBACK))
+        reach = max(reach, own + total + (font.measure(w) if w else 0))
+        # Two stops, both the heading's own: the total, and whatever
+        # follows it. **The second cannot be the column's stop.** A
+        # total is wider than the gap between a heading and that stop,
+        # so a tab aiming there is already behind the cursor -- and Tk
+        # then falls through to a spacing of its own devising, which is
+        # not a thing to lay a gap on.
+        tags[SHOP_STOP_PREFIX + key] = (own, own + total)
+    # **A stop per group of countdowns**, measured against that group's
+    # own readings: the rows above the shops and the Events block below
+    # them each line their deadlines up on their own, so a long reading
+    # in one does not push the other's across. See `countdown_group`.
+    #
+    # The gap before the column is the width of `SEGMENT_GAP` in the
+    # rows' own face, MEASURED rather than scaled: the font scaling has
+    # already carried it, and two spaces is the narrowest a reading and
+    # a deadline may sit.
+    for group in sorted({countdown_group(key) for key, _l, _w in rows}
+                        - {None}):
+        base = stops.get(group, default)
+        reserve = max([font.measure(countdown_reserve(w))
+                       for key, _l, w in rows
+                       if countdown_group(key) == group] or [0])
+        at = base + reserve + font.measure(SEGMENT_GAP)
+        if group == COUNTDOWN_EVENTS:
+            # **And the Events group has one more**, for the
+            # `Finished?` box at the end of a row whose ceiling nothing
+            # proves. Room is reserved whether or not any row is asking
+            # today: a column that widened the moment a question opened
+            # would move every row beside it. The box ends the line, so
+            # its trailing pad is inside the block: short of it, the
+            # last glyph is what the holder clips.
+            box = at + font.measure(WIDEST_COUNTDOWN) \
+                + font.measure(SEGMENT_GAP)
+            tags[COUNTDOWN_STOP_PREFIX + group] = (base, at, box)
+            reach = max(reach, box + font.measure(FINISHED_LABEL)
+                        + overhead + px(CHECKBOX_TRAIL))
+        else:
+            tags[COUNTDOWN_STOP_PREFIX + group] = (base, at)
+            reach = max(reach, at + font.measure(WIDEST_COUNTDOWN))
+    return default, max(content, reach), tags
+
+
 
 class ChecklistTab(BaseTab):
     """The recurring-task columns."""
@@ -2967,8 +3149,14 @@ class ChecklistTab(BaseTab):
         # written before the shops arrive, and without this the whole
         # shop half of the tab vanishes until the next save.
         self._definitions = None
-        # The countdown beside each period column's heading.
+        # The countdown beside each period column's heading, and each
+        # column's heading frame, whose width `_name_room` counts.
         self._period_labels = {}
+        self._heads = {}
+        # The tab width the event names were last fitted to, and the
+        # refit waiting for a drag to stop. See `_follow_width`.
+        self._fitted_width = None
+        self._width_after = None
         # How tall a line holding a checkbox is. See `_checkbox_line`.
         self._box_line = None
         self._box_overhead = None
@@ -2980,7 +3168,7 @@ class ChecklistTab(BaseTab):
         # when the column was built still says what the tab says now.
         self._shop_tips = {}
         # event row key -> the whole name its row cuts short. See
-        # `EVENT_NAME_ROOM`.
+        # `_name_room`.
         self._event_tips = {}
         # {row key: (claimed, total, ticked)} for the event rows the
         # `Finished?` question is open on. See `_mark_finished`.
@@ -3066,7 +3254,7 @@ class ChecklistTab(BaseTab):
         # gives the leftover to whatever expands.
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
-        columns.pack(fill=tk.BOTH, expand=True, padx=px(4),
+        columns.pack(fill=tk.BOTH, expand=True, padx=px(COLUMNS_PADX),
                      pady=px((0, 2)))
 
         # Content in the EVEN grid columns, an empty expanding one
@@ -3099,6 +3287,8 @@ class ChecklistTab(BaseTab):
             column = ttk.Frame(columns)
             column.grid(row=0, column=2 * index, sticky="nsew")
             self._column_frames.append(column)
+        # The event names are fitted to the tab's width: see `_name_room`.
+        self.frame.bind("<Configure>", self._follow_width, add="+")
 
     def _tracked(self, product_id):
         """Whether the user ticked one shop product. See ChecklistManager."""
@@ -3194,7 +3384,7 @@ class ChecklistTab(BaseTab):
         built = self._fit_event_names(columns_for(
             raw, self._tracked, time.time(), self._definitions))
         for frame, (title, rows) in zip(self._column_frames, built):
-            drawn = self._draw(rows, readings)
+            drawn = self._draw(rows, readings, title)
             if _same_rows(self._rendered.get(title), drawn):
                 continue                    # `_fill` patches or skips
             outgoing = list(frame.winfo_children())
@@ -3217,15 +3407,15 @@ class ChecklistTab(BaseTab):
             show()
 
     def _fit_event_names(self, built):
-        """`columns_for`'s columns, every event name too wide for its
-        row cut to fit, the whole names kept for the rows' tooltips.
+        """`columns_for`'s columns, every event name too wide for the
+        room cut to fit, the whole names kept for the rows' tooltips.
 
         Here rather than in `event_rows`, which runs where there is no
         font to measure with. Everything after reads the cut rows, so
-        the column is sized for what it draws. See `EVENT_NAME_ROOM`.
+        the column is sized for what it draws. See `_name_room`.
         """
         font = tkfont.Font(font=ROW_FONT)
-        room = font.measure(EVENT_NAME_ROOM)
+        room = self._fitted_room = self._name_room(font, built)
         self._event_tips = {}
         out = []
         for title, rows in built:
@@ -3239,6 +3429,74 @@ class ChecklistTab(BaseTab):
                 fitted.append((key, label, widest))
             out.append((title, tuple(fitted)))
         return out
+
+    def _name_room(self, font, built):
+        """How wide an event's name may draw, in pixels. See
+        `COLUMN_GAP_FLOOR`.
+
+        The tab's width, less its inset each side, the floor between
+        every two columns, every other column, and what the Events
+        block draws beside its names. **A column is as wide as its rows
+        or its heading**, whichever is wider -- the Galactic Disaster's
+        heading outgrows its shelves between seasons.
+
+        The tab's own width once it has been laid out, the default
+        window's before. `_follow_width` refits when it changes.
+        """
+        width = self.frame.winfo_width()
+        if width <= 1:
+            width = px(WINDOW_W)
+        self._fitted_width = width
+        overhead = self._checkbox_overhead()
+        room = (width - px(2 * COLUMNS_PADX)
+                - (len(built) - 1) * px(COLUMN_GAP_FLOOR))
+        for title, rows in built:
+            events = [(key, "" if key != EVENT_KEY_PREFIX else label, w)
+                      for key, label, w in rows
+                      if key.startswith(EVENT_KEY_PREFIX)]
+            if len(events) > 1:
+                # The names are what is left to give: the Events block
+                # drawn with every name empty is what it needs besides.
+                # The rest of its column fits under whatever the names
+                # make it, or the tab had no room to give them at all.
+                room -= _column_geometry(font, title, events, overhead,
+                                         reserve=())[1]
+                continue
+            room -= max(self._head_width(font, title),
+                        _column_geometry(font, title, rows, overhead)[1]
+                        if rows else 0)
+        return room
+
+    def _head_width(self, font, title):
+        """How wide a column's heading and the countdown beside it ask
+        to be: the built heading's own widgets where there are any, its
+        words in the heading face before."""
+        head = self._heads.get(title)
+        try:
+            if head is not None and head.winfo_exists():
+                parts = head.winfo_children()
+                return sum(part.winfo_reqwidth() for part in parts) + (
+                    px(HEADING_COUNTDOWN_GAP) if len(parts) > 1 else 0)
+        except tk.TclError:
+            pass
+        return tkfont.Font(font=HEADING_FONT).measure(title)
+
+    def _follow_width(self, event):
+        """Fit the event names again once the tab's width has settled
+        somewhere new. A drag sends a stream of these, so the refit
+        waits for it to stop; one for a width the names already fit
+        does nothing."""
+        if event.widget is not self.frame or event.width <= 1 \
+                or event.width == getattr(self, "_fitted_width", None):
+            return
+        if self._width_after is not None:
+            self.frame.after_cancel(self._width_after)
+        self._width_after = self.frame.after(WIDTH_SETTLE_MS, self._refit)
+
+    def _refit(self):
+        self._width_after = None
+        if not self.is_hidden():
+            self.refresh_checklist()
 
     def _build_column(self, parent, title, rows):
         """One heading and the rows under it, BUILT BUT NOT SHOWN.
@@ -3261,6 +3519,7 @@ class ChecklistTab(BaseTab):
         # The heading and its countdown travel together and the pair is
         # centred, so the heading itself sits a little left of centre.
         head = ttk.Frame(parent)
+        self._heads[title] = head
         show.append(lambda: head.pack(anchor=tk.CENTER))
         make_heading(head, title).pack(side=tk.LEFT, anchor=tk.S)
         if title in PERIOD_LENGTHS or title == SEASONAL_COLUMN:
@@ -3273,86 +3532,10 @@ class ChecklistTab(BaseTab):
 
         if not rows:
             return lambda: [do() for do in show]
-        font = tkfont.Font(font=ROW_FONT)
-        # The words, plus a column reserved for the widest reading any
-        # row in this column can show. RESERVED rather than fitted: a
-        # column that sized to its content would move every row's words
-        # the moment a figure gained a digit.
-        #
-        # A shop product's label is a CHECKBOX, so it reaches further
-        # right than its words alone say.
-        #
-        # **A shop HEADING never votes on either.** Its whole line
-        # hangs off its own words -- its total, then its countdown --
-        # and `reach` below is what accounts for it, so a heading that
-        # votes here is counted twice: once in the column of readings
-        # it does not use and once where it actually sits. The column
-        # then reserves room for `Ends in 99 days` beside `600/600`
-        # as well as where the heading draws it, and nothing looks
-        # wrong until the tab outgrows its window.
-        #
-        # A row showing NO value has no say either, for the same
-        # reason. Shop PRODUCTS do: their counts are in that column.
-        #
-        # A shut shop's shelves vote as if drawn: `COLUMN_RESERVE`.
-        measure = list(rows) + list(COLUMN_RESERVE.get(title, ()))
-        votes = [(key, label, w) for key, label, w in measure
-                 if w and not key.startswith(SHOP_HEAD_PREFIX)]
-        measured = votes or [(key, label, w) for key, label, w in measure]
-        labels = max(font.measure(label)
-                     + (self._checkbox_overhead() if _is_shop(key) else 0)
-                     for key, label, _w in measured)
-        stop = labels + px(TEXT_INSET + LABEL_TO_VALUE)
-        widest = max([font.measure(w) for _k, _l, w in votes] or [0])
-        # **A shop heading's line is outside that column**, hanging off
-        # its own words: its total, then its reserve, then anything
-        # else the heading shows. So the block is as wide as whichever
-        # reaches further, the readings at the stop or the longest
-        # heading here.
-        reach = max([_head_stop(font, label)
-                     + font.measure(SHOP_TOTAL_RESERVE.get(
-                         key, SHOP_TOTAL_FALLBACK))
-                     + (font.measure(w) if w else 0)
-                     for key, label, w in measure
-                     if key.startswith(SHOP_HEAD_PREFIX)] or [0])
-        # **A stop per group of countdowns**, measured against that
-        # group's own readings: the rows above the shops and the
-        # Events block below them each line their deadlines up on
-        # their own, so a long reading in one does not push the
-        # other's across. See `countdown_group`.
-        #
-        # The gap before the column is the width of `SEGMENT_GAP` in
-        # the rows' own face, MEASURED rather than scaled: the font
-        # scaling has already carried it, and two spaces is the
-        # narrowest a reading and a deadline may sit.
-        group_stops = {}
-        for group in sorted({countdown_group(key) for key, _l, _w in rows}
-                            - {None}):
-            reserve = max([font.measure(countdown_reserve(w))
-                           for key, _l, w in rows
-                           if countdown_group(key) == group] or [0])
-            at = stop + reserve + font.measure(SEGMENT_GAP)
-            stops = [at]
-            # **And the Events group has one more**, for the
-            # `Finished?` box at the end of a row whose ceiling nothing
-            # proves. Room is reserved whether or not any row is
-            # asking today: a column that widened the moment a question
-            # opened would move every row beside it.
-            if group == COUNTDOWN_EVENTS:
-                stops.append(at + font.measure(WIDEST_COUNTDOWN)
-                             + font.measure(SEGMENT_GAP))
-            group_stops[group] = tuple(stops)
-            reach = max(reach, stops[-1] + font.measure(WIDEST_COUNTDOWN)
-                        if len(stops) == 1 else
-                        stops[-1] + font.measure(FINISHED_LABEL)
-                        + self._checkbox_overhead()
-                        # The box ends the line, so its trailing pad is
-                        # inside the block: short of it, the last glyph
-                        # is what the holder clips.
-                        + px(CHECKBOX_TRAIL))
-        holder = tk.Frame(parent, width=max(stop + widest, reach),
-                          height=self._block_height(
-                              [key for key, _l, _w in rows]),
+        stop, width, stops = _column_geometry(
+            tkfont.Font(font=ROW_FONT), title, rows, self._checkbox_overhead())
+        holder = tk.Frame(parent, width=width,
+                          height=self._block_height(rows),
                           bg=self.colors["bg"])
         holder.pack_propagate(False)
         # spacing: panel ↕ unrelated label -- heading, frame ↕
@@ -3386,28 +3569,15 @@ class ChecklistTab(BaseTab):
         # spacing: exception -- label row -> label row -- heading, checkbox ↕
         for tag, pitch in ROW_TAG_PITCH.items():
             text.tag_configure(tag, spacing1=px(pitch))
-        for group, stops in group_stops.items():
-            text.tag_configure(COUNTDOWN_STOP_PREFIX + group,
-                               tabs=(stop,) + stops)
-        # A tab stop per shop heading, for the total beside it. A
-        # line's stops come from the tags on its FIRST character, so
-        # each heading needs a tag of its own -- one stop cannot serve
-        # two headings of different lengths.
+        # A line's stops come from the tags on its FIRST character, so
+        # each set of stops needs a tag of its own: a countdown group's,
+        # a split column's block, and each shop heading, one stop being
+        # unable to serve two headings of different lengths.
+        for tag, tabs in stops.items():
+            text.tag_configure(tag, tabs=tabs)
         for key, label, _w in rows:
             if not key.startswith(SHOP_HEAD_PREFIX):
                 continue
-            own = _head_stop(font, label)
-            # Two stops, both the heading's own: the total, and
-            # whatever follows it. **The second cannot be the column's
-            # stop.** A total is wider than the gap between a heading
-            # and that stop, so a tab aiming there is already behind
-            # the cursor -- and Tk then falls through to a spacing of
-            # its own devising, which is not a thing to lay a gap on.
-            # So a shop heading's line hangs entirely off its words.
-            text.tag_configure(
-                SHOP_STOP_PREFIX + key,
-                tabs=(own, own + font.measure(SHOP_TOTAL_RESERVE.get(
-                    key, SHOP_TOTAL_FALLBACK))))
             # What the shop's currency has been earning. Bound to the
             # TAG rather than to the words, and reading the rows back
             # when the pointer stops rather than now: the tag outlives
@@ -3517,8 +3687,10 @@ class ChecklistTab(BaseTab):
         self._checkbox_line()
         return self._box_overhead
 
-    def _block_height(self, keys):
+    def _block_height(self, rows):
         """A column's height: its rows and the space around each.
+        `rows` are `(key, label, ...)`, the label saying how many lines
+        the row's words take (`_label_lines`).
 
         Measured off the face rather than multiplied by a guess -- a
         Text sizes in LINES and this block is pinned in pixels, so the
@@ -3543,11 +3715,13 @@ class ChecklistTab(BaseTab):
         line = tkfont.Font(font=ROW_FONT).metrics("linespace")
         box = self._checkbox_line()
         total, above = 0, None
-        for key in keys:
+        for key, label, *_rest in rows:
             total += (box if _is_shop(key) or key in self._finishable
                       else line)
             total += px(ROW_TAG_PITCH[
                 _row_tags(key, above, self._finishable)[0]])
+            total += (len(_label_lines(key, label)) - 1) * (
+                line + px(ROW_TAG_PITCH[HEAD_LINE_TAG]))
             above = key
         return total
 
@@ -3830,7 +4004,7 @@ class ChecklistTab(BaseTab):
         with `window_create`, and its left edge lands where an ordinary
         row's words do.
         """
-        drawn = self._draw(rows, readings)
+        drawn = self._draw(rows, readings, title)
         was = self._rendered.get(title)
         if drawn == was:
             return
@@ -3842,9 +4016,10 @@ class ChecklistTab(BaseTab):
         # of the line, and the box is in that stretch -- so a countdown
         # ticking over would take the checkbox with it.
         if _same_rows(was, drawn) and not any(after[0][4] for _i, after in moved):
+            lines = _value_lines(drawn)
             text.config(state=tk.NORMAL)
             for index, after in moved:
-                _patch_value(text, index + 1, after)
+                _patch_value(text, lines[index], after)
             text.config(state=tk.DISABLED)
             return
         for box in self._boxes.pop(title, ()):
@@ -3871,11 +4046,20 @@ class ChecklistTab(BaseTab):
                 for tag in line:
                     text.tag_add(tag, at, at + "+1c")
             else:
-                text.insert(tk.END, label, line + label_tag
-                            + ((SHOP_TIP_PREFIX + key,)
-                               if key.startswith(SHOP_HEAD_PREFIX) else ())
-                            + ((EVENT_TIP_PREFIX + key,)
-                               if key in self._event_tips else ()))
+                words = label_tag + (
+                    (SHOP_TIP_PREFIX + key,)
+                    if key.startswith(SHOP_HEAD_PREFIX) else ()) + (
+                    (EVENT_TIP_PREFIX + key,)
+                    if key in self._event_tips else ())
+                first, *more = _label_lines(key, label)
+                text.insert(tk.END, first, line + words)
+                # A heading's second line takes its own pitch and the
+                # row's other tags -- its stops among them, the total
+                # and countdown being on this line.
+                for part in more:
+                    text.insert(tk.END, LINE_SEP, line)
+                    text.insert(tk.END, part,
+                                (HEAD_LINE_TAG,) + line[1:] + words)
             _insert_value(text, key, line, total, segments)
             # **The one question the program cannot answer**, at the
             # end of the row and at a stop of its own. Only where it
@@ -3887,7 +4071,7 @@ class ChecklistTab(BaseTab):
                     title, text, key, box))
         text.config(state=tk.DISABLED)
 
-    def _draw(self, rows, readings):
+    def _draw(self, rows, readings, title=None):
         """Every row's drawn form, each told what precedes it.
 
         One place, because the column is built from this twice -- once
@@ -3895,15 +4079,19 @@ class ChecklistTab(BaseTab):
         two loops that drifted apart would compare a column against a
         different column and rewrite it every refresh.
 
+        `title` is the column's, which says whether its readings line
+        up block by block (`SPLIT_COLUMNS`).
         """
+        blocks = _value_blocks(rows) if title in SPLIT_COLUMNS else {}
         above = None
         out = []
         for key, label, _widest in rows:
-            out.append(self._line(key, label, readings, above))
+            out.append(self._line(key, label, readings, above,
+                                  blocks.get(key)))
             above = key
         return tuple(out)
 
-    def _line(self, key, label, readings, above=None):
+    def _line(self, key, label, readings, above=None, block=None):
         """One row's drawn form: its words, its readings, its tags.
 
         Everything that decides what the line LOOKS like, and nothing
@@ -3931,7 +4119,7 @@ class ChecklistTab(BaseTab):
         # WIDGET rather than a reading: a value patch cannot repaint
         # it, so it belongs in what says whether the line is the same.
         return ((key, label, tracked, segments, self._finishable.get(key)),
-                _row_tags(key, above, self._finishable),
+                _row_tags(key, above, self._finishable, block),
                 _label_tag(key, label), total[0] if total else None)
 
     def _checkbox(self, title, parent, key, label, state):
@@ -4149,6 +4337,31 @@ def _at_ceiling(words):
     return int(parts[0]) >= int(parts[1])
 
 
+def _activity_points(raw, now):
+    """Today's Activity points, at most `ACTIVITY_FULL`, or None where
+    the snapshot holds no daily tasks or nothing says what they pay.
+
+    A task pays once its score reaches the client's count for it, and
+    only on the day its row was issued: `issued_time` before the last
+    reset is a past day's row. See `DAILY_TASK_FIELD`.
+    """
+    rows = (raw or {}).get(DAILY_TASK_FIELD)
+    tasks = game_client.known_daily_tasks()
+    if not isinstance(rows, list) or not tasks:
+        return None
+    since = weekly_reset.last_daily_reset(now)
+    total = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        task = tasks.get(row.get("res_id"))
+        issued, score = row.get("issued_time"), row.get("score")
+        if (task and _is_count(issued) and issued >= since
+                and _is_count(score) and score >= task[0]):
+            total += task[1]
+    return min(total, ACTIVITY_FULL)
+
+
 def _day_block(raw, now):
     """(the town's daily block, whether it is TODAY's).
 
@@ -4302,24 +4515,30 @@ def _readings(raw, now=None, tracked=None):
 
     out = {}
 
-    # Whether today's Activities reward has been taken. See
-    # `POINT_FIELD`: a record stamped with an earlier day is one the
-    # claim has not rewritten, so today is untouched.
+    # Today's Activities: points from the day's tasks, and whether the
+    # reward has been claimed. See `ACTIVITY_FULL`. Green once claimed
+    # at the full 100, BLINKING ORANGE at 100 with the claim still to
+    # make, red below.
     point = raw.get(POINT_FIELD)
     point = point if isinstance(point, dict) else {}
     day_id, day = point.get("day_id"), point.get("day_point")
-    if not _is_count(day_id) or not _is_count(day):
-        out["activity"] = _one(NO_DATA, UNKNOWN)
-    elif day_id < weekly_reset.day_index(now):
-        out["activity"] = _one(ACTIVITY_UNCLAIMED, TODO)
-    elif day >= ACTIVITY_FULL:
+    claimed = day if (_is_count(day_id) and _is_count(day)
+                      and day_id >= weekly_reset.day_index(now)) else 0
+    points = _activity_points(raw, now)
+    if claimed >= ACTIVITY_FULL:
         out["activity"] = _one(
-            ACTIVITY_CLAIMED % (day, ACTIVITY_FULL), DONE)
+            ACTIVITY_READING % (ACTIVITY_FULL, ACTIVITY_FULL), DONE)
+    elif points is None:
+        # No tasks on record: a claim below the full 100 is all there
+        # is to show, and no claim at all says nothing about the day.
+        out["activity"] = (_one(ACTIVITY_READING % (claimed, ACTIVITY_FULL),
+                                TODO) if claimed else _one(NO_DATA, UNKNOWN))
+    elif max(points, claimed) >= ACTIVITY_FULL:
+        out["activity"] = _one(
+            ACTIVITY_READING % (ACTIVITY_FULL, ACTIVITY_FULL), WARN_BLINK)
     else:
-        # Claimed, but against fewer than the day's full points -- so
-        # more will have come due since.
         out["activity"] = _one(
-            ACTIVITY_CLAIMED % (day, ACTIVITY_FULL), TODO)
+            ACTIVITY_READING % (max(points, claimed), ACTIVITY_FULL), TODO)
 
     # Today's coffee. **The field is a CAPABILITY, so the row inverts
     # it**: `is_coffee_possible` true means one is still going begging.
@@ -5179,7 +5398,7 @@ def _crosses_a_block(above, key):
     return _heads_a_block(key) or (_is_shop(above) and not _is_shop(key))
 
 
-def _row_tags(key, above, boxed=()):
+def _row_tags(key, above, boxed=(), block=None):
     """The line tags one row takes, beyond its own colours.
 
     **Exactly one pitch tag per line.** Tk resolves two tags setting
@@ -5196,15 +5415,20 @@ def _row_tags(key, above, boxed=()):
     than its words, so it and the row under it both sit closer.
 
     A shop heading also carries the tab stop its own total sits at --
-    see `SHOP_STOP_PREFIX`. That tag holds no pitch, and the pitch tag
-    stays first: callers read `[0]` for it.
+    see `SHOP_STOP_PREFIX` -- and a shop product in a column of
+    `SPLIT_COLUMNS` its shop's (`block`, the heading's key). Those tags
+    hold no pitch, and the pitch tag stays first: callers read `[0]`
+    for it.
     """
     if _is_shop(key):
         # The first product of a shop sits under WORDS rather than
         # under another box, which the same `spacing1` reads two wider
         # under. See `CHECKBOX_UNDER_HEAD`.
-        return ("boxheadrow" if str(above or "").startswith(SHOP_HEAD_PREFIX)
-                else "boxrow",)
+        pitch = ("boxheadrow" if str(above or "").startswith(SHOP_HEAD_PREFIX)
+                 else "boxrow")
+        if block and str(block).startswith(SHOP_HEAD_PREFIX):
+            return (pitch, VALUE_STOP_PREFIX + block)
+        return (pitch,)
     # **A boundary crossed from a checkbox row pays more.** The
     # widget's ink sits lower in its line than a glyph's, so the same
     # `spacing1` reads two tighter under one. See `BLOCK_PAD_FROM_BOX`.

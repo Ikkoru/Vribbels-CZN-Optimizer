@@ -2149,18 +2149,35 @@ def _checklist_block_is_tall_enough(tab):
     for title, rows in mod.columns_for({}, None, 0, None):
         if not rows:
             continue
-        keys = [key for key, _label, _widest in rows]
         want, above = 0, None
-        for key in keys:
+        for key, label, _widest in rows:
             want += (box if mod._is_shop(key) else line)
             want += px(mod.ROW_TAG_PITCH[mod._row_tags(key, above)[0]])
+            # A heading whose words take two lines: `_label_lines`.
+            want += (len(mod._label_lines(key, label)) - 1) * (
+                line + px(mod.ROW_TAG_PITCH[mod.HEAD_LINE_TAG]))
             above = key
-        got = tab._block_height(keys)
+        got = tab._block_height(rows)
         if got != want:
             out.append(
-                f"the {title!r} column reserves {got}px for {len(keys)} "
+                f"the {title!r} column reserves {got}px for {len(rows)} "
                 f"rows where their own pitches come to {want}px. A short "
                 f"block clips its last row and nothing reports it.")
+    # **And the lines the Text actually laid out fit in it.** The sum
+    # above is the same arithmetic twice; this is the widget's word.
+    for title, (text, rows) in tab.column_texts.items():
+        holder = text.master
+        last = text.index("end-1c")
+        box_end = text.dlineinfo(last)
+        if box_end is None:
+            continue                         # not laid out: unmapped
+        bottom = box_end[1] + box_end[3]
+        if bottom > holder.winfo_height():
+            out.append(
+                f"the {title!r} column's last line ends at {bottom}px of "
+                f"a {holder.winfo_height()}px block: the rows the Text "
+                f"drew outgrow what `_block_height` reserved, and the "
+                f"foot of the column is clipped.")
 
     return out
 
@@ -2531,10 +2548,16 @@ def _checklist_heading_totals_are_marked(tab):
     out = []
     seen = 0
     for title, (text, rows) in tab.column_texts.items():
+        # The line each row's total sits on: a heading's words can take
+        # two (`_label_lines`), and its total hangs off the last.
+        lines, line = [], 0
+        for key, label, _widest in rows:
+            line += len(mod._label_lines(key, label))
+            lines.append(line)
         for at, (key, _label, _widest) in enumerate(rows):
             if not key.startswith(mod.SHOP_HEAD_PREFIX):
                 continue
-            line = at + 1
+            line = lines[at]
             tab_at = text.search("\t", "%d.0" % line, "%d.end" % line)
             if not tab_at:
                 continue                    # no total and no countdown

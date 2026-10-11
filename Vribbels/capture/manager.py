@@ -2040,6 +2040,12 @@ class Addon:
         # The type is kept on the row and carried across restarts --
         # the login's rows never carry it -- so a snapshot says what
         # its counters mean as far as any capture has seen them move.
+        #
+        # A daily task's `issued_time` moves too: the game issues the
+        # day's row afresh on its first progress, so the stamp is what
+        # says which day the score belongs to. Kept from the move, or
+        # the login's stamp -- yesterday's, for a task first done
+        # today -- files today's score under yesterday.
         condition = data.get("mission_condition")
         condition = condition.get("condition") \
             if isinstance(condition, dict) else None
@@ -2057,8 +2063,9 @@ class Addon:
                             res_id] = moved["condition_type"]
                     table = self.lifetime.setdefault(key, {})
                     held = dict(table.get(res_id) or {"res_id": moved["res_id"]})
-                    if "score" in moved:
-                        held["score"] = moved["score"]
+                    for field in ("score", "issued_time"):
+                        if field in moved:
+                            held[field] = moved[field]
                     table[res_id] = self._typed(key, held)
                     self._save_pending = True
         # A Basin objective scored mid-session arrives on the stage

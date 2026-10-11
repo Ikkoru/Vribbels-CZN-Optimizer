@@ -72,7 +72,7 @@ def run():
     from ui.tabs.checklist_tab import (
         ACTIVITY_FULL, CHAOS_CURRENCY, COFFEE_DONE, COFFEE_TODO,
         columns_for,
-        ACTIVITY_CLAIMED, ACTIVITY_UNCLAIMED,
+        ACTIVITY_READING, DAILY_TASK_FIELD,
         DELEGATION_CURRENCY, DELEGATION_DONE, DELEGATION_TODO,
         ENDS_IN, LATER, SOON, WARN, WARN_BLINK,
         PASS_DAILY_COUNT, PERIOD_LENGTHS,
@@ -160,32 +160,53 @@ def run():
             f"with nothing held, Chaos Currency reads "
             f"{out['chaos_currency'][0]!r}, not '0/{CHAOS_CAP}'.")
 
-    # --- the Activities claim -----------------------------------------
-    # **The reading is the DAY the record carries, not its points.**
-    # `point_entity` is rewritten only by the claim, so an earlier
-    # `day_id` is a day that was never claimed -- and its `day_point`
-    # belongs to that earlier day, which is why a stale 100 must not
-    # read as a finished today.
+    # --- the Activities: today's points, and the claim ----------------
+    # **The claim is the DAY the record carries.** `point_entity` is
+    # rewritten only by the claim, so an earlier `day_id` is a day that
+    # was never claimed -- and its `day_point` belongs to that earlier
+    # day, which is why a stale 100 must not read as a finished today.
+    # **The points are the day's tasks**, each paying once its score
+    # reaches the client's count, and only on the day its row was
+    # issued. A full 100 not yet claimed blinks orange.
     today = weekly_reset.day_index(now)
-    # **The claimed state prints its numbers too**, so that a figure
-    # can be checked against the game where a word like `All Claimed`
-    # cannot.
-    cases = ((today, ACTIVITY_FULL,
-              ACTIVITY_CLAIMED % (ACTIVITY_FULL, ACTIVITY_FULL), DONE),
-             (today, 20, ACTIVITY_CLAIMED % (20, ACTIVITY_FULL), TODO),
-             (today - 1, ACTIVITY_FULL, ACTIVITY_UNCLAIMED, TODO),
-             (today - 400, 20, ACTIVITY_UNCLAIMED, TODO),
-             (None, ACTIVITY_FULL, NO_DATA, UNKNOWN),
-             (today, None, NO_DATA, UNKNOWN))
-    for day_id, point, want, state in cases:
-        got = _readings(_snapshot(day_id=day_id, day_point=point),
-                        now)["activity"]
+    reset = int(weekly_reset.last_daily_reset(now))
+
+    def _day(day_id, point, done=(), stale=(), short=()):
+        raw = _snapshot(day_id=day_id, day_point=point)
+        tasks = [{"res_id": "daily_achieve_%03d" % n, "score": score,
+                  "issued_time": when}
+                 for numbers, score, when in (
+                     (done, 999, reset + HOUR), (stale, 999, reset - HOUR),
+                     (short, 0, reset + HOUR))
+                 for n in numbers]
+        if done or stale or short:
+            raw[DAILY_TASK_FIELD] = tasks
+        return _readings(raw, now)["activity"]
+
+    full = ACTIVITY_READING % (ACTIVITY_FULL, ACTIVITY_FULL)
+    for args, want, state, why in (
+            ((today, ACTIVITY_FULL), full, DONE, "claimed today at 100"),
+            ((today - 1, ACTIVITY_FULL, (1, 2, 3, 5)), full, WARN_BLINK,
+             "100 points today with yesterday's claim the last"),
+            ((today - 1, ACTIVITY_FULL, (1, 2, 3, 4, 5, 6, 7)), full,
+             WARN_BLINK, "every task done, the points over 100"),
+            ((today - 1, 20, (1, 2)), "40/100", TODO, "two tasks done"),
+            ((today - 1, ACTIVITY_FULL, (), (1, 2, 3, 5)), "0/100", TODO,
+             "yesterday's tasks, issued before today's reset"),
+            ((today - 1, ACTIVITY_FULL, (1,), (), (5,)), "20/100", TODO,
+             "a task short of its count"),
+            ((today, 60, (1, 2, 3, 5)), full, WARN_BLINK,
+             "claimed at 60 with 100 now earned"),
+            ((today, 60, (1, 5)), "60/100", TODO, "claimed at 60, no more"),
+            ((today, 20), "20/100", TODO, "a claim at 20 and no tasks"),
+            ((None, ACTIVITY_FULL), NO_DATA, UNKNOWN,
+             "no claim and no tasks")):
+        got = _day(*args)
         if got != [(want, state)]:
             failures.append(
-                f"a day_id of {day_id!r} against today's {today} with "
-                f"{point!r} points reads {got!r}, not {(want, state)!r}. "
-                f"Only a record stamped with TODAY is a claim that "
-                f"happened today.")
+                f"the Activities row with {why} reads {got!r}, not "
+                f"{[(want, state)]!r}. A claim counts only on the day it "
+                f"was made, a task only on the day it was issued.")
 
     # --- an event row counts what is DONE, never what is left --------
     # **Both directions print a plausible number**, and the wrong one
@@ -781,10 +802,10 @@ def run():
             f"the tight module row reads {out['modules_soon']!r}, not "
             f"('1 expiring within 6h!', {SOON!r}). The window bounds what "
             f"is COUNTED; the words say how long the last of them has.")
-    if out["modules_week"] != [("2 expiring within 3 days", WARN_BLINK)]:
+    if out["modules_week"] != [("2 expiring within 3d", WARN_BLINK)]:
         failures.append(
             f"the wide module row reads {out['modules_week']!r}, not "
-            f"('2 expiring within 3 days', {WARN_BLINK!r}). The windows "
+            f"('2 expiring within 3d', {WARN_BLINK!r}). The windows "
             f"NEST -- a copy inside 24 hours is inside seven days -- so "
             f"the wider count includes the tighter one, and its number is "
             f"the furthest out of the two.")
@@ -826,7 +847,7 @@ def run():
     # does not exist, and both rows are GREEN -- there is nothing to use.
     out = _readings(_snapshot(), now)
     if (out["modules_soon"] != [("0 expiring within 24h!", DONE)]
-            or out["modules_week"] != [("0 expiring within 7 days", DONE)]):
+            or out["modules_week"] != [("0 expiring within 7d", DONE)]):
         failures.append(
             f"with no modules held the two rows read "
             f"{out['modules_soon']!r} and {out['modules_week']!r}, not "
