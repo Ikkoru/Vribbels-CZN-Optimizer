@@ -16,7 +16,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - An event the game client cannot supply, such as one a patch adds before the program can read it, takes its total and a login event's length from earlier instalments of the same event, and reads orange once those are all claimed.
   - `Activity (Dailies)` counts the day's points from its tasks: `100/100` blinks orange until the day's reward is claimed, and turns green once it is.
   - The 7-day `Delegation Module` row reads `within 3d`. It blinks red when a module has 1-2 days left, and orange when one has 2-3 days left. Otherwise it holds still.
-  - The Other column lines up its readings and deadlines in three groups: the rows above the Sortie shop, the Sortie shop, and the Events.
+  - The Other column lines up its readings and deadlines in three groups: the rows above the Sortie shop, the Sortie shop, and the Events. The Events' deadlines sit just past the widest reading shown.
   - Shop headings break after `Shop -`, the shop's own name on a second line.
 - Combatants: the `Excursion` column counts against each combatant's own number of Excursion types, from the game client, in place of `10?`.
 - Capture Log and Checklist: every item the game client names is named, where an unidentified one showed its number.

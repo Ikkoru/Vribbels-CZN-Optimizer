@@ -2511,15 +2511,36 @@ BANNER_PREFIX = "gacha_pickup_combatant_"
 TRIAL_SLOT_PREFIX = "combatant_trial_"
 TRIAL_GROUP = "EVENT_COMBATANT_TRIAL"
 
-# The widest reading an event row can produce. RESERVED rather than
-# fitted, so a figure gaining a digit does not move every row's
-# words -- and written as the reading itself rather than as a
-# phrase, because that is what an event row ever draws.
-#
-# Two digits each side: the largest event yet held 23 rewards, and
-# the `+?` is on every reading whose total is only a floor. Widen
-# it the day an event issues a hundred.
+# The widest reading an event row can produce, which `event_rows`
+# reserves where no reading is to hand. The tab reserves each live
+# row's own reading instead (`size_event_readings`): the Events'
+# deadlines then sit just past the widest reading actually drawn,
+# where a worst case left most of a reading's width empty on every
+# row.
 EVENT_WIDEST = "99/99" + UNKNOWN_MORE
+# **A reading reserves its SHAPE, every digit a nine.** Digits share
+# one advance width in the rows' face, so `3/21` and `4/21` take the
+# same room, and only a digit more or a mark more changes the reserve
+# -- which is what rebuilds the column (`_rebuild_columns`).
+DIGITS_AS_NINE = str.maketrans("012345678", "999999999")
+
+
+def size_event_readings(built, readings):
+    """`columns_for`'s columns with each event row reserving room for
+    its own reading's shape, and a row with no reading for its deadline
+    alone. See `DIGITS_AS_NINE`."""
+    out = []
+    for title, rows in built:
+        sized = []
+        for key, label, widest in rows:
+            if key.startswith(EVENT_KEY_PREFIX) and key != EVENT_KEY_PREFIX:
+                words = next((str(w) for w, _state in readings.get(key) or ()
+                              if not str(w).startswith(ENDS_IN)), "")
+                widest = (with_countdown(words.translate(DIGITS_AS_NINE))
+                          if words else WIDEST_COUNTDOWN)
+            sized.append((key, label, widest))
+        out.append((title, tuple(sized)))
+    return tuple(out)
 
 
 # The columns, as a skeleton. Each is `(heading, rows, shops, events)`:
@@ -3478,11 +3499,16 @@ class ChecklistTab(BaseTab):
         seen = shop_stock.definitions(raw)
         if seen:
             self._definitions = seen
-        built = self._fit_event_names(columns_for(
-            raw, self._tracked, time.time(), self._definitions))
+        built = self._fit_event_names(size_event_readings(columns_for(
+            raw, self._tracked, time.time(), self._definitions), readings))
         for frame, (title, rows) in zip(self._column_frames, built):
             drawn = self._draw(rows, readings, title)
-            if _same_rows(self._rendered.get(title), drawn):
+            # **What the rows reserve counts too**, not only what they
+            # draw: an event reading a digit wider moves the deadlines'
+            # stop, and a patch keeps the old stops.
+            held = self.column_texts.get(title)
+            if (_same_rows(self._rendered.get(title), drawn)
+                    and (held[1] if held else ()) == rows):
                 continue                    # `_fill` patches or skips
             outgoing = list(frame.winfo_children())
             # The old column's own state goes with it. The checkboxes

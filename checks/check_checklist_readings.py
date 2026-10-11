@@ -2342,8 +2342,24 @@ def run():
             f"with three streaks on the account the row reads {got!r}, not "
             f"the first one started after the event's own window opened.")
 
-    # --- a heading on two lines, and the blocks of the Other column ---
+    # --- an event row reserves its own reading's shape -----------------
     from ui.tabs import checklist_tab as ct
+    key_a, key_b = EVENT_KEY_PREFIX + "event_a", EVENT_KEY_PREFIX + "event_b"
+    sized = dict(ct.size_event_readings((("Other", (
+        (key_a, "A", ct.with_countdown(ct.EVENT_WIDEST)),
+        (key_b, "B", ct.with_countdown(ct.EVENT_WIDEST)))),),
+        {key_a: [("3/21", TODO), (ct.ENDS_IN + "2 days", LATER)],
+         key_b: [(ct.ENDS_IN + "9 days", LATER)]}))["Other"]
+    want = ((key_a, "A", ct.with_countdown("9/99")),
+            (key_b, "B", ct.WIDEST_COUNTDOWN))
+    if sized != want:
+        failures.append(
+            f"event rows reserve {sized!r}, not {want!r}: a reading's "
+            f"shape with every digit a nine, so a claim moves nothing until "
+            f"a digit is added, and a row with no reading its deadline "
+            f"alone.")
+
+    # --- a heading on two lines, and the blocks of the Other column ---
     head = ct.SHOP_HEAD_PREFIX + "shop_hyperspace/none/monthly"
     for key, label, want in (
             (head, "Shop - Zeronium Shop", ("Shop -", "Zeronium Shop")),

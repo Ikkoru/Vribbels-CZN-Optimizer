@@ -4023,6 +4023,61 @@ def _hidden_tab_catches_up(tab, title, refresh, draws):
             {n: c[1] for n, c in counts.items()})
 
 
+def _checklist_reserve_follows_readings(tab):
+    """An event reading a digit wider moves the Events' deadlines.
+
+    Each event row reserves room for its own reading's shape
+    (`size_event_readings`), so the deadlines' stop follows the widest
+    live reading -- and a column whose rows draw the same but reserve
+    differently has to be rebuilt, since a patch keeps the old stops
+    and the wider reading runs into the deadline. A claim that adds no
+    digit must change nothing.
+
+    Returns a list of complaints.
+    """
+    import time as _time
+    from ui.tabs import checklist_tab as mod
+    now = _time.time()
+    name = "event_schedule_probe_reserve_1"
+    key = mod.EVENT_KEY_PREFIX + name
+    raw = {"event_schedules": {"EVENT_SCHEDULE": {name: {
+        "start_time": int(now - 3600), "end_time": int(now + 3 * 86400)}}}}
+    tag = mod.COUNTDOWN_STOP_PREFIX + mod.COUNTDOWN_EVENTS
+
+    def deadline_stop(words):
+        readings = mod._readings(raw, now)
+        readings[key] = ((words, mod.TODO),
+                         (mod.ENDS_IN + "3 days", mod.LATER))
+        tab._rebuild_columns(raw, readings)
+        for _title, (text, rows) in tab.column_texts.items():
+            if any(row[0] == key for row in rows):
+                stops = text.tk.splitlist(text.tag_cget(tag, "tabs"))
+                return int(float(str(stops[1]))) if len(stops) > 1 else None
+        return None
+
+    try:
+        narrow, same, wide = (deadline_stop(words)
+                              for words in ("3/9", "4/9", "13/19"))
+    finally:
+        tab.refresh_checklist()
+    if None in (narrow, same, wide):
+        return [f"the probe event drew no Events stops ({narrow}, {same}, "
+                f"{wide}), so nothing about its reserve was measured."]
+    out = []
+    if wide <= narrow:
+        out.append(
+            f"an event reading `13/19` where it read `3/9` left the "
+            f"deadlines' stop at {wide}px from {narrow}: the column was "
+            f"patched with the old stops, and the wider reading runs into "
+            f"its deadline.")
+    if same != narrow:
+        out.append(
+            f"a claim adding no digit (`3/9` to `4/9`) moved the deadlines' "
+            f"stop from {narrow}px to {same}: digits share one width, so "
+            f"nothing should move.")
+    return out
+
+
 def _checklist_records_while_hidden(tab):
     """A hidden Checklist records from the snapshot and draws later.
 
@@ -5682,6 +5737,8 @@ def run():
                 _checklist_redraw_replaces_nothing(built["ChecklistTab"]))
             failures.extend(
                 _checklist_records_while_hidden(built["ChecklistTab"]))
+            failures.extend(
+                _checklist_reserve_follows_readings(built["ChecklistTab"]))
             failures.extend(
                 _checklist_block_is_tall_enough(built["ChecklistTab"]))
             failures.extend(
