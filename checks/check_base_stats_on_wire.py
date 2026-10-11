@@ -646,8 +646,7 @@ def _the_maintainers_readings(snapshots=None):
             out.append(f"Mutation {mutation} moved res_id {rid}'s stated "
                        f"sheet: {moved}. Name it in "
                        f"base_stats_store.MUTATIONS_ON_THE_SHEET, so readings "
-                       f"from its decks stop being believed, and note it "
-                       f"in docs/mutations.tsv.")
+                       f"from its decks stop being believed.")
     found = base_stats_store.audit(battles)
     odd = dict(UNEXPLAINED)
     for name, level, wire, program, _last, how in found["differs"]:

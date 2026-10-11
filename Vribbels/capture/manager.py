@@ -2709,7 +2709,8 @@ class Addon:
         combatant's deck -- with a Core of Mutation, which the wire
         calls a corruption: `savedata_manage/apply_corruption`, and
         `corruption_option_<number>` on the deck. Mutation 9 is DEF
-        +14%, Mutation 3 ATK +12% (`docs/mutations.tsv`). The deck
+        +14%, Mutation 3 ATK +12% (the game client's
+        `savedata_edit_corruption` table, `docs/client_data.md`). The deck
         carries it, not the combatant, and the sheet the entry states
         does NOT: an Adelheid deck read DEF 477 before its Mutation 9
         and after (`websocket_debug_20261001_222841`). It is kept beside

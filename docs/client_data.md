@@ -53,6 +53,7 @@ A table's name below is its archived name without its `db` folder and `.db` endi
 | Memory Fragment sets | `piece_set_option@piece_set_option`, `item_piece@item` | the 2, 4 and 6 piece effects, each a stat and value or a skill hook, with names and descriptions in text; every fragment item |
 | Items | the `item_*@item` tables | `item_type`, `rarity`, `icon` and where each is found; text `item@name@<id>`, `item@desc@<id>` |
 | Equipment | `relic(disaster)@relic`, `relic@skill_eff` | what the game's text calls Equipment is a `relic`: names `relic@name@...`, effects `relic@s1_description@...`, whose `#rev_..#` values are in the `skill_eff` tables |
+| A Mutation | `savedata_edit_corruption@savedata_edit_corruption` | one row per `corruption_option_<n>`, the number a Save Data carries: its name and effect in text (`savedata_edit_corruption@name@corruption_option_<n>`, `@desc@`), and `ratio`, its weight in a roll |
 | Excursion types | `town_visit@town_normal_visit` | one row per type, `group` `normal_visit_<combatant id>`. A partner, and a combatant not yet released, has one placeholder row |
 | Galactic Disasters | `disaster_season@disaster_season`, `disaster_chaos_list@disaster_chaos_list`, `chaos@chaos` | a season's title is text `chaos@title@disaster_sNN`, its Chaos's `chaos@title@chaos_NN` |
 

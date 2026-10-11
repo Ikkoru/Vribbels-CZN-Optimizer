@@ -51,16 +51,13 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **I35 — After the 2026-09-30 patch.** What the patch's plan left open. The rest is in `past_plans/patch_2026_09_30.md`.
 
-  1. **Mutation numbers, at the next reroll.** With capture on, write down each Mutation shown, in order. The wire's `pick_corruption` replies come in the same order, which pairs each number with its row in `docs/mutations.tsv`.
-     - Matched rows carry their number in `docs/mutations.tsv`. Rolled numbers not matched yet are in its notes.
-     - The matches fit one numbering: the update note's families in its order (Enhanced Attack 1-5, Defense 6-10, Card Damage Amount 11-17), then the seven rows of the families the update left alone, then Shuffle, which ends the list at 101-103.
-  2. **10-13: Nine & Alcea's Normal Rescue rerun, and Nine's trial.** A capture confirms `RERUN_BANNERS`' dates and the trial's pairing.
-  3. **10-21: season 5's part 1.**
+  1. **10-13: Nine & Alcea's Normal Rescue rerun, and Nine's trial.** A capture confirms `RERUN_BANNERS`' dates and the trial's pairing.
+  2. **10-21: season 5's part 1.**
      - From its notice: `SUPPLY_ROUNDS["disaster_s05"]` in `checklist_tab.py`, and `SEASON_ESTIMATE["disaster_s05"]`, hand-counted off the screens (`past_plans/seasonal_shop.md`).
      - From its first run: the new Chaos's stage id in `chaos_estimate.CHAOS_NAMES` (90000 and `chaos_10`, if the seasons' pattern holds), and the season currency's id in `docs/chaos_runs.py` `CURRENCY`.
      - Then refresh `chaos_estimate.SHIPPED` from `python docs/chaos_runs.py`. Read its by-spot lines: the season's maps hold fewer ordinary battles (its docstring).
-  4. **To confirm on the next capture:** a level-up, a Potential node and a gift move the Combatants tab live.
-  5. **An Aether Cell's id**, whenever one charges: the Recharge Aether popup's.
+  3. **To confirm on the next capture:** a level-up, a Potential node and a gift move the Combatants tab live.
+  4. **An Aether Cell's id**, whenever one charges: the Recharge Aether popup's.
 
 - **I31 — The Chaos estimate's loose end.** Built as the maintainer specified:
 
