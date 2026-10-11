@@ -14,8 +14,7 @@ the game's words, and each is noted so the maintainer can write one.
 
 The client's node 7s against `game_data/potential_7.py` are noted too,
 where a client is installed: `python docs/client_tables.py --audit`
-gives the same lines, and the client's own data and text disagree for
-some, which only a battle sheet settles.
+gives the same lines.
 """
 
 import importlib.util
@@ -80,8 +79,10 @@ def _comparisons_report(tool):
 
 def _fallback_shows_the_game():
     """A set with no wording of its own shows the client's words, and
-    one with a wording shows that. Returns complaints."""
+    one with a wording shows that; a set with no entry at all goes by
+    the client's name, which leads back to its id. Returns complaints."""
     from game_data import SETS, from_client, set_bonus
+    from game_data.sets import set_name, set_named
     out = []
     set_id = next(iter(from_client.SET_EFFECTS))
     entry = SETS.get(set_id)
@@ -94,6 +95,15 @@ def _fallback_shows_the_game():
         if set_bonus(set_id) != from_client.SET_EFFECTS[set_id][2]:
             out.append("a set with no wording of its own does not show the "
                        "game's. See `set_bonus` in game_data/sets.py.")
+        del SETS[set_id]
+        theirs = from_client.SET_EFFECTS[set_id][0]
+        if set_name(set_id) != theirs or set_named(theirs) != set_id:
+            out.append(f"a set with no entry is named {set_name(set_id)!r}, "
+                       f"not the client's {theirs!r}, or that name does not "
+                       f"lead back to set {set_id}. See `set_name` and "
+                       f"`set_named` in game_data/sets.py.")
+        if set_name(999999) != "999999" or set_named("999999") != 999999:
+            out.append("a set nothing names does not go by its number.")
     finally:
         if entry is None:
             SETS.pop(set_id, None)

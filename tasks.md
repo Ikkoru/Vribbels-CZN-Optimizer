@@ -31,12 +31,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   Seen already, in the Tower and in a Chaos run: `clear_stage` answered `FAIL`. The Chaos run also sent a `battle_end` saying `BATTLE_RESULT_TYPE_STAGE_FAILED`.
 
-- **I36 — Two node 7s the client contradicts itself on.** The client's effect data and its text disagree, and `potential_7.py` follows the text (`docs/client_data.md`, *What it was held against*). A plain battle with node 7 taken, during a capture, settles each, and `check_base_stats_on_wire` then reports the one that is wrong:
-  - Tenebria at 600 to 800 ATK: her data adds 2% per 20 ATK past 600, her text 1%.
-  - Sereniel at 20% to 40% Crit Chance: her data ramps the second +5% across that range, her text adds it at 40%.
-
-  Every reading on file has them past both (Tenebria at 980 ATK, Sereniel at 60.4%), where the two agree.
-
 - **I35 — After the 2026-09-30 patch.** What the patch's plan left open. The rest is in `past_plans/patch_2026_09_30.md`.
 
   1. **10-13: Nine & Alcea's Normal Rescue rerun, and Nine's trial.** A capture confirms `RERUN_BANNERS`' dates and the trial's pairing.

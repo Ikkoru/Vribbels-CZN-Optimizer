@@ -45,6 +45,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
 from game_data import EQUIPMENT_SLOTS, RARITY_COLORS, SETS, set_bonus
+from game_data.sets import set_named
 from game_data.characters import ATTRIBUTE_COLORS
 # User-facing stat-name overrides (e.g. "Flat ATK" -> "ATK Flat",
 # "CDmg" -> "CDMG%"). Applied when rendering the tree's Main / Sub
@@ -79,7 +80,6 @@ INV_USE_LOG_FILTERS_KEY = "inventory_use_upgrade_log_filters"
 # SETS is keyed by set id; the filter panel only ever holds the display
 # name, so it needs the reverse lookup.
 SETS_BY_NAME = {v["name"]: v for v in SETS.values()}
-SET_IDS_BY_NAME = {v["name"]: k for k, v in SETS.items()}
 
 # The narrowest the Sets panel's contents may be, borders included, at
 # 100%; it takes `px` like any stated distance. A floor, not a width:
@@ -859,11 +859,9 @@ class InventoryTab(BaseTab):
             # show it. Bound to the checkbox AND the count, because Tk
             # fires Leave on a container as the pointer crosses onto a
             # child, so binding the grid would flicker. A set the program
-            # has no entry for is named by its number, and takes the game
-            # client's words where the client knows it. Guarded: an empty
-            # tooltip is a bare box.
-            sid = SET_IDS_BY_NAME.get(
-                set_name, int(set_name) if set_name.isdigit() else None)
+            # has no entry for goes by the game client's name and words
+            # (`sets.set_name`). Guarded: an empty tooltip is a bare box.
+            sid = set_named(set_name)
             tip = set_bonus(sid) if sid is not None else ""
             if tip:
                 # The set NAME carries it, not the count beside it: the

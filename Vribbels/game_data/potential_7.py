@@ -40,9 +40,13 @@ res_id -> a tuple of effects, each a dict:
 **The check reads the value before any Potential 7 bonus**, as the
 server's `potential_base_status` does: Rita's +10% ATK at 800 is in her
 inner % at 902 ATK and absent at 755, where it would have carried her
-past 800. Each line follows the e7bot wiki's text, which the maintainer
-checked against the game; `python docs/client_tables.py --audit` holds
-every entry to the game client's node 7, its effect rows and its text.
+past 800.
+
+**The game client's effect data is the source**, its node 7 effect
+rows as of the live patch; `python docs/client_tables.py --audit`
+holds every entry to them and to the node's text. Where the text
+states other figures than the data, the data wins and `TEXT_FIXES`
+rewrites the text the Combatants tab shows.
 """
 
 # What the score prices, and where `core.compute_build_stats` puts it.
@@ -164,11 +168,8 @@ POTENTIAL_7 = {
         {"grants": "Element%", "value": 4},
         {"grants": "Element%", "value": 4, "stat": "Extra DMG%", "at": 30},
     ),
-    30075: (                                                    # Sereniel
-        {"grants": "Element%", "value": 10, "stat": "CRate", "at": 20},
-        {"grants": "Element%", "value": 5, "stat": "CRate", "at": 40},
-    ),
-    1069: (_grow("Element%", 5, "ATK", 600, 20, 1, 10),),        # Tenebria
+    30075: (_grow("Element%", 10, "CRate", 20, 4, 1, 5),),       # Sereniel
+    1069: (_grow("Element%", 5, "ATK", 600, 20, 2, 10),),        # Tenebria
     30084: ({"grants": "CDmg", "value": 10, "stat": "DEF",       # Tiphera
              "at": 300, "start": True},),
     1009: (                                                     # Tressa
@@ -194,6 +195,36 @@ POTENTIAL_7_BEFORE = {
          "stat": "CRate", "at": 60},
     )),),
 }
+
+
+# Where a node's text in the game client states other figures than its
+# effect data: (res_id, wire node) -> ((the client's words, the words
+# the data says), ...). `node_words` applies them. A fix whose words
+# the client no longer holds does nothing, and the audit names it: a
+# patch has rewritten the text, and maybe corrected it.
+TEXT_FIXES = {
+    # Data: +2% for every 20 ATK past 600, as Fei's, Heidemarie's and
+    # Arabella's are.
+    (1069, 70): (("add an additional +1% (additional +10% max)",
+                  "add an additional +2% (additional +10% max)"),),
+    # Data: the second +5% grows from 20% Crit Chance, 1% per 4%, and
+    # is whole at 40%; the text adds it at 40% in one step.
+    (30075, 70): (("If Critical Chance is 40% or higher, add an "
+                   "additional +5% to the modifier",
+                   "For every 4% Critical Chance exceeding 20%, add an "
+                   "additional +1% to the modifier\n(additional +5% max)"),),
+}
+
+
+def node_words(res_id: int, wire: int):
+    """The game's words for a combatant's node `wire` (70, 51), with
+    `TEXT_FIXES` applied; None where the client has none."""
+    import game_client
+    words = game_client.potential_text(res_id, wire)
+    if words:
+        for wrong, right in TEXT_FIXES.get((res_id, wire), ()):
+            words = words.replace(wrong, right)
+    return words
 
 
 def get_potential_7(res_id: int, when=None) -> tuple:

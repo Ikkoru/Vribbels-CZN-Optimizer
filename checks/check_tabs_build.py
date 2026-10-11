@@ -541,11 +541,12 @@ def _combatant_selection_survives_a_rebuild(tab):
 
 
 def _node_lines_carry_the_games_words(tab):
-    """Node 7's and Node 5.1's level and description on the Character
-    card sit on their tooltip tags, from just past the node's name to
-    the line's end, and the tip asks for the combatant whose card is
-    up. A tag left off puts no tip up and says nothing; one left on the
-    last combatant's lines tips the wrong words.
+    """Node 7's and Node 5.1's description on the Character card sits
+    on its tooltip tag, from just past the level to the line's end --
+    the level itself carries none -- and the tip asks for the combatant
+    whose card is up. A tag left off puts no tip up and says nothing;
+    one left on the last combatant's lines tips the wrong words. The
+    words are the client's with `TEXT_FIXES` applied.
 
     Skips itself with no combatant the game client has words for.
 
@@ -553,7 +554,15 @@ def _node_lines_carry_the_games_words(tab):
     """
     import game_client
     from game_data import POTENTIAL_NODES
+    from game_data.potential_7 import TEXT_FIXES, node_words
     from ui.tabs import heroes_tab as ht
+    for (rid, wire), fixes in TEXT_FIXES.items():
+        said = node_words(rid, wire) or ""
+        if any(right not in said for _wrong, right in fixes):
+            out_of_date = game_client.potential_text(rid, wire)
+            return [f"node {wire} of {rid} reads {said!r}, without its "
+                    f"TEXT_FIXES: the client's words are {out_of_date!r}. "
+                    f"See `node_words` in game_data/potential_7.py."]
     tab.refresh_heroes()
     infos = tab.optimizer.character_info
     names = [h["name"] for h in tab.hero_data_list]
@@ -574,11 +583,11 @@ def _node_lines_carry_the_games_words(tab):
             continue
         prefix = f"{ht.CHAR_SUBLIST_INDENT}Node {node.shown}:\t"
         ranges = text.tag_ranges(ht._node_words_tag(node.wire))
-        lines = [i for i, line in enumerate(
+        lines = [(i, line) for i, line in enumerate(
             text.get("1.0", "end-1c").split("\n"), start=1)
             if line.startswith(prefix)]
-        want = [f"{lines[0]}.{len(prefix)}", f"{lines[0]}.end"] \
-            if lines else []
+        want = [f"{lines[0][0]}.{lines[0][1].find(chr(9), len(prefix)) + 1}",
+                f"{lines[0][0]}.end"] if lines else []
         got = [str(r) for r in ranges]
         if not lines or len(got) != 2 or text.compare(
                 got[0], "!=", want[0]) or text.compare(got[1], "!=", want[1]):

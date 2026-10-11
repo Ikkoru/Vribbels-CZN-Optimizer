@@ -317,6 +317,11 @@ SET_STATS = {"S_ATK_INC_RATE_OUT": "ATK%", "S_DEF_INC_RATE_OUT": "DEF%",
              "S_CRI_INC_ADD": "Crit Rate"}
 
 
+# The game's words for a limit that carry no figure, and how the
+# maintainer's wordings state the same limit: as a `max N`.
+LIMIT_PHRASES = (("cannot stack", "max 1"),)
+
+
 def set_problems(effects):
     """Lines saying where `game_data/sets.py` and `effects`, the
     client's sets as `game_client.set_effects` gives them, disagree: a
@@ -346,7 +351,10 @@ def set_problems(effects):
         # Which figures, not how often: a short wording states a figure
         # once where the game's repeats it.
         bonus = ours.get("bonus")
-        here, there = set(_numbers(bonus)), set(_numbers(words))
+        stated = words
+        for theirs_, ours_ in LIMIT_PHRASES:
+            stated = stated.replace(theirs_, ours_)
+        here, there = set(_numbers(bonus)), set(_numbers(stated))
         if bonus and here != there:
             out.append(f"{who}: its wording states "
                        f"{_figures(sorted(here))}, the game's "
@@ -486,10 +494,11 @@ def potential_7_problems(client):
     """Lines saying where `potential_7.py` and the client's node 7s
     disagree: an effect one side states and the other does not, the
     figures `potential_7.py` holds that the game's text never states,
-    and a combatant either side lacks. The client's data and its text
-    can disagree with each other, so each line quotes the text."""
+    a `TEXT_FIXES` entry whose words the text no longer holds, and a
+    combatant either side lacks. The data is the source; the text is
+    compared as the Combatants tab shows it, its fixes applied."""
     from game_data import CHARACTERS
-    from game_data.potential_7 import POTENTIAL_7
+    from game_data.potential_7 import POTENTIAL_7, TEXT_FIXES
     effect_rows = {r["id"]: r for r
                    in client.rows(game_client.NODE_EFFECT_TABLE)}
     texts = client.text()
@@ -505,6 +514,11 @@ def potential_7_problems(client):
             continue
         node = nodes[rid]
         words = game_client.passage(texts.get(node.get("desc")))
+        for wrong, right in TEXT_FIXES.get((rid, 70), ()):
+            if wrong not in words:
+                out.append(f"{who}: the text no longer holds TEXT_FIXES' "
+                           f"{wrong!r}. It reads {words!r}")
+            words = words.replace(wrong, right)
         if rid not in POTENTIAL_7:
             if isinstance(char, dict):
                 out.append(f"{who} is in the client, not in "
@@ -534,7 +548,9 @@ def potential_7_problems(client):
                 if isinstance(n, (int, float)) and n}
         if held - said:
             out.append(f"{who}: {_figures(sorted(held - said))} here are "
-                       f"not in its text: {words!r}")
+                       f"not in its text: {words!r}. Where the data "
+                       f"states them, a TEXT_FIXES entry in "
+                       f"potential_7.py puts them in the tooltip")
     return out
 
 

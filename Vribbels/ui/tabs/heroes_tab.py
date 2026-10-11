@@ -87,6 +87,7 @@ from game_data import (
     get_potential_node_does, POTENTIAL_NODES, POTENTIAL_MAX_TOTAL,
 )
 from game_data.constants import DISPLAY_NAMES, FRIENDSHIP_BONUSES
+from game_data.potential_7 import node_words
 from models import Stat
 from models.memory_fragment import compute_gs_bounds, normalize_gs
 from ui.scaling import px, px_after, px_spans, text_px
@@ -238,8 +239,9 @@ CHAR_NODE_TAB_DESC = 72    # left stop: start of the description column
 CHAR_NODE_TAG = "nodes"
 
 # The nodes whose effect is the combatant's own (node 7, node 5.1), by
-# wire number: their level and short description carry the game's own
-# words for the node as a tooltip, on a tag of their own per node.
+# wire number: their short description carries the game's own words
+# for the node as a tooltip (`potential_7.node_words`), on a tag of its
+# own per node. Not the level beside it: a `Y` says nothing to explain.
 CHAR_NODE_WORDS = tuple(game_client.OWN_TEXT_NODES.values())
 
 
@@ -945,8 +947,7 @@ class HeroesTab(BaseTab):
         for wire in CHAR_NODE_WORDS:
             self._gear_tooltip.bind_tag(
                 self.hero_char_text, _node_words_tag(wire),
-                lambda w=wire: game_client.potential_text(
-                    self._card_res_id, w))
+                lambda w=wire: node_words(self._card_res_id, w))
 
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border.
@@ -1675,21 +1676,23 @@ class HeroesTab(BaseTab):
 
     def _tag_node_words(self, card: str) -> None:
         """Put each node in `CHAR_NODE_WORDS` on its tooltip tag: the
-        line's level and description, past its first tab. A node the
-        game client has no words for stays untagged, since the tag's
-        underline promises a tip."""
+        line's description, past its second tab. A node the game client
+        has no words for stays untagged, since the tag's underline
+        promises a tip, and so does a line with no description."""
         res_id = self._card_res_id
         lines = card.split("\n")
         for node in POTENTIAL_NODES:
             if node.wire not in CHAR_NODE_WORDS or not res_id \
-                    or not game_client.potential_text(res_id, node.wire):
+                    or not node_words(res_id, node.wire):
                 continue
             prefix = f"{CHAR_SUBLIST_INDENT}Node {node.shown}:\t"
             for number, line in enumerate(lines, start=1):
-                if line.startswith(prefix):
+                does = line.find("\t", len(prefix)) \
+                    if line.startswith(prefix) else -1
+                if does >= 0:
                     self.hero_char_text.tag_add(
                         _node_words_tag(node.wire),
-                        f"{number}.{len(prefix)}", f"{number}.end")
+                        f"{number}.{does + 1}", f"{number}.end")
 
     def _format_partner_text(self, char_info) -> str:
         """Build the Partner-frame text for a CharacterInfo.

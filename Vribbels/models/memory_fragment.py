@@ -144,6 +144,7 @@ from game_data import (
     UPGRADES_PER_RARITY,
     get_character_name,
 )
+from game_data.sets import set_name as set_name_of
 # Direct module-path imports to avoid relying on game_data/__init__.py
 # re-exporting them.
 from game_data.constants import MAX_LEVEL, MAX_LEVEL_PER_RARITY
@@ -774,9 +775,9 @@ class MemoryFragment:
         substats = list(substat_map.values())
         char_id = data.get("char_res_id", 0)
         equipped_to = get_character_name(char_id)
-        # Unknown sets are displayed by their bare numeric ID (no "Unknown(...)").
-        set_info = SETS.get(set_id, {"name": str(set_id)})
-        set_name = set_info["name"] if isinstance(set_info, dict) else set_info
+        # A set the program has no entry for takes the game client's
+        # name, else its bare number (no "Unknown(...)").
+        set_name = set_name_of(set_id)
 
         return cls(
             id=data["id"], slot_name=EQUIPMENT_SLOTS.get(slot_num, f"Unknown({slot_num})"),
@@ -865,4 +866,6 @@ class MemoryFragment:
         set_info = SETS.get(self.set_id)
         if set_info:
             return set_info.get("pieces", 2)
-        return 2
+        import game_client
+        effect = game_client.known_set_effects().get(self.set_id)
+        return effect[1] if effect else 2

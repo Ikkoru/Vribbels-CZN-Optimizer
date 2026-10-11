@@ -21,8 +21,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Shop headings break after `Shop -`, the shop's own name on a second line.
 - Combatants:
   - The `Excursion` column counts against each combatant's own number of Excursion types, from the game client, in place of `10?`.
-  - Node 7 and Node 5.1 on the Character card show the game's full description of the node as a tooltip.
-- A Memory Fragment set the program has no description of its own for shows the game's.
+  - The descriptions of Node 7 and Node 5.1 on the Character card show the game's full description of the node as a tooltip.
+- A Memory Fragment set the program has no description of its own for shows the game's, and one the program doesn't know at all takes its name from the game client.
 - Capture Log and Checklist: every item the game client names is named, where an unidentified one showed its number.
 - Memory Fragments: the `Level:` filter's open list jumps to what you type, as the other dropdowns do.
 - Names and counts the game client could not be read for come from the copy shipped with the program. An install STOVE did not register can be named in `settings.json`'s `game_client_dir`.
@@ -34,6 +34,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Haru's base stats.
   - Every combatant's stat gains at levels 61 and 62, where most added nothing.
   - Affinity levels below 20, which were estimated from the rewards claimed.
+  - Potential 7: Tenebria gains 2% per 20 ATK past 600, and Sereniel's second +5% grows from 20% to 40% Crit Chance. The game's own descriptions state otherwise; the tooltips say what the game does.
   - Orlea's Attribute is Instinct.
   - Westmacott's Ego costs 2. Rachel's Ego is `Hamburger Delivery, Sir!` and Scarlet's passive is `Noose of Mastery`.
   - Partner passives and Ego names use the game's wording, and Bria and Marianne have their real ids.

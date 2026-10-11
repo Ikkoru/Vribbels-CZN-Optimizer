@@ -4790,7 +4790,12 @@ class CaptureManager:
             item_names = build_item_names()
 
             char_names = {rid: c["name"] for rid, c in CHARACTERS.items() if c is not None}
-            set_names = {sid: s["name"] for sid, s in SETS.items()}
+            # The client's sets under the program's, as `set_name` has
+            # them, so a set newer than the tables logs by name.
+            import game_client
+            set_names = {sid: e[0] for sid, e
+                         in game_client.known_set_effects().items()}
+            set_names.update({sid: s["name"] for sid, s in SETS.items()})
             slot_names = {k: v.split(" ", 1)[1] if " " in v else v for k, v in EQUIPMENT_SLOTS.items()}
 
             # Every res_id this build can name. Units awaiting an id sit
