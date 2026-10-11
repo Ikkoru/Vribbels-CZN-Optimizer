@@ -16,7 +16,9 @@ What changes every patch and the server never sends:
 - how many rewards each event holds and whether it pays a final reward, for the same rows (`game_client.event_totals`);
 - every item's name, for the Capture Log and the Checklist's shops;
 - how many Excursion types each combatant has, for the Combatants tab;
-- what each daily task counts to and pays toward the day's Activity, for the Checklist's Activities row (`game_client.daily_tasks`).
+- what each daily task counts to and pays toward the day's Activity, for the Checklist's Activities row (`game_client.daily_tasks`);
+- each Memory Fragment set's effect, in the game's words: what a set shows where `game_data/sets.py` has no wording of the maintainer's for it (`game_client.set_effects`, `sets.set_bonus`);
+- the game's words for each combatant's node 7 and node 5.1, the Combatants tab's tooltips on those two lines of the Character card (`game_client.potential_texts`).
 
 The first source that knows an id wins:
 
@@ -50,8 +52,8 @@ A table's name below is its archived name without its `db` folder and `.db` endi
 | Its stats at a level | `char_base@combatant_level`, `char_base@combatant_ascend` | **steps, not totals**: level 60 is the level-1 stat, plus every level's step up to 60, plus the five promotions' |
 | Affinity, Ego Manifestation | `combatant_friendship_bonus@combatant_friendship_bonus`, `combatant_limit_break@combatant_limit_break` | stats and rewards per level; each manifestation's effect, with its text |
 | A partner | `partner_base@char_partner`, `partner_base@partner_level`, `partner_passive@partner_passive`, `card(partner)@card` | flat stats and their steps; the passive per class and level, its text `partner_passive@description@<id>_c<class>_lv<level>`; the Ego card's name and cost |
-| Potential | `potential_node@potential_node`, `potential_node@potential_node_effect` | each combatant's nodes and maxima; an effect is `NODE_STAT_ADD` with a stat and value, or a card or skill hook; text `potential_node@desc@...` |
-| Memory Fragment sets | `piece_set_option@piece_set_option`, `item_piece@item` | the 2, 4 and 6 piece effects, each a stat and value or a skill hook, with names and descriptions in text; every fragment item |
+| Potential | `potential_node@potential_node`, `potential_node@potential_node_effect` | each combatant's nodes and maxima, text `potential_node@desc@...`. Where a combatant has two trees listed, the game draws the reworked one, whose rows have the higher ids (`game_client.live_nodes`). An effect row is `NODE_STAT_ADD`, a stat always; `NODE_STAT_ADD_ANOTHER_STAT`, a stat once its check reaches `stat_check_threshold`; `NODE_STAT_ADD_SKILL_EFF_VALUE`, a card's figures the same way; or `NODE_CS_ADD`, an in-battle effect whose figures are elsewhere. A checked row grants `stat_add_limit`, and with `stat_check_use_excess` grants `value`/100 for each point past the threshold instead, up to that limit |
+| Memory Fragment sets | `piece_set_option@piece_set_option`, `item_piece@item` | a row per set, `set_public_<n>` for the wire's set id. A row with an `order` is one fragments drop in: `set_option_type` is its piece count, and the matching `set<n>_*` columns its effect, a stat and figure (`SET_TYPE_STAT`) or a skill hook, with its words in text. The other piece counts' columns and texts are left from older sets. Every fragment item |
 | Items | the `item_*@item` tables | `item_type`, `rarity`, `icon` and where each is found; text `item@name@<id>`, `item@desc@<id>` |
 | Equipment | `relic(disaster)@relic`, `relic@skill_eff` | what the game's text calls Equipment is a `relic`: names `relic@name@...`, effects `relic@s1_description@...`, whose `#rev_..#` values are in the `skill_eff` tables |
 | A daily task | `daily_achievement@daily_achievement` | one row per task, the wire's `daily_achieve` res_id: `count`, the score it has to reach, and `point_count`, what it then adds to the day's Activity |
@@ -63,9 +65,11 @@ A table's name below is its archived name without its `db` folder and `.db` endi
 
 The derivations above were checked against what the program already knows, and they agree except where marked:
 
-- **Combatants, partners and item names**: `python docs/client_tables.py --audit` lists every field of `game_data`'s that disagrees with the client, and the units either side lacks. The disagreements are the maintainer's to settle, since the hand-typed figure can be the newer.
+- **Combatants, partners, item names, sets and node 7s**: `python docs/client_tables.py --audit` lists every field of `game_data`'s that disagrees with the client, and the units either side lacks. The disagreements are the maintainer's to settle, since the hand-typed figure can be the newer.
   - Combatant stats at 60, derived as the table above says, reproduce `game_data.characters` for every combatant but Haru, which is what vouches for the derivation.
-  - A partner's passive is compared by the figures in its text at each level, read as the game draws it (`client_tables.passage`): a keyword's marker carries a level number, which is not one of the figures.
+  - A partner's passive is compared by the figures in its text at each level, read as the game draws it (`game_client.passage`): a keyword's marker carries a level number, which is not one of the figures.
+  - A set's wording in `sets.py` is the maintainer's own, so only its figures are compared with the game's, as a set of figures: a short wording states once what the game's repeats. `checks/check_set_wordings.py` runs the same comparison on every run, and after a patch says whether a set's figures moved or its words did.
+  - Node 7 is compared both ways: each effect row, read as the table above says, against `potential_7.py`, and `potential_7.py`'s figures against the node's text. Every combatant agrees on both but two, whose data and text disagree with each other, and `potential_7.py` follows the text: Tenebria's data adds 2% per 20 ATK past 600 where her text says 1%, and Sereniel's ramps from 20% Crit Chance to 40% where her text steps at 40%. A battle sheet with Tenebria between 600 and 800 ATK, or Sereniel between 20% and 40% Crit, settles which the server uses (`check_base_stats_on_wire`).
 - **Event totals**: `event_bartender_1` reads 24 missions and a final reward, and the summer event 10 puzzle and 15 story rewards. The seven-day story events, the policy, stock and arena events, the check-ins and the later Node Lists agree with what the wire and the game's own screens gave too.
 - **The three story-map Node Lists**: the client gives `event_nodelist_001`, `003` and `004` 15, 16 and 19 mission rows and a final reward besides, and so do the game's update notices for them (`page.onstove.com/chaoszeronightmare/en/view/12012929`, `12945661` and `13168282`: per chapter its achievements, then one for the lot). The captures held one row fewer each.
 - **Galactic Disaster challenge missions** (`event_chaos_mission_*`) are not in the client's event tables at all: only their schedules are.

@@ -31,6 +31,12 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   Seen already, in the Tower and in a Chaos run: `clear_stage` answered `FAIL`. The Chaos run also sent a `battle_end` saying `BATTLE_RESULT_TYPE_STAGE_FAILED`.
 
+- **I36 — Two node 7s the client contradicts itself on.** The client's effect data and its text disagree, and `potential_7.py` follows the text (`docs/client_data.md`, *What it was held against*). A plain battle with node 7 taken, during a capture, settles each, and `check_base_stats_on_wire` then reports the one that is wrong:
+  - Tenebria at 600 to 800 ATK: her data adds 2% per 20 ATK past 600, her text 1%.
+  - Sereniel at 20% to 40% Crit Chance: her data ramps the second +5% across that range, her text adds it at 40%.
+
+  Every reading on file has them past both (Tenebria at 980 ATK, Sereniel at 60.4%), where the two agree.
+
 - **I35 — After the 2026-09-30 patch.** What the patch's plan left open. The rest is in `past_plans/patch_2026_09_30.md`.
 
   1. **10-13: Nine & Alcea's Normal Rescue rerun, and Nine's trial.** A capture confirms `RERUN_BANNERS`' dates and the trial's pairing.
@@ -156,9 +162,8 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   The rebuild: on a DPI change, debounced, set the new scale, apply `tk scaling` and the theme again, reload the icons and rebuild the notebook's tabs from the managers, carrying or dropping each tab's selection and scroll. `checks/check_ui_scales.py` and the spacing audit already cover every scale.
 
-- **T19 — More from the game client.** Event names and reward totals, item names, Excursion type counts and the daily tasks are read at launch (`docs/client_data.md`, *What the program reads at launch*). The app reads what changes every patch; the maintainer tool, `docs/client_tables.py --audit`, holds the tables whose every change wants reviewing. Left:
+- **T19 — More from the game client.** Event names and reward totals, item names, Excursion type counts, the daily tasks, set effects and the node 7 and 5.1 texts are read at launch (`docs/client_data.md`, *What the program reads at launch*). The app reads what changes every patch; the maintainer tool, `docs/client_tables.py --audit`, holds the tables whose every change wants reviewing. Left:
 
-  - **The audit's reach**: combatants (levels 60 to 62), partners, item names and Affinity are in it; memory fragment sets and Potential 7 are not. Both are in the client (`piece_set_option`, `potential_node_effect`), whose node 7 rows already agree with `potential_7.py` where they were looked at (Tressa, Owen).
   - **When the Galactic Disaster season's next part opens**: read the seasonal currency's name and id off its first capture. The item worklist's `Type` and `Note` on 3000009 describe Memory of Light, which the client puts at 3000006.
 
 - **T3 — Richer main-stat forcing for slots IV/V/VI** (UserA). Main-stat forcing is four Force HP/Ego checkboxes. The design question is which options, and in what form: per-slot checklists, dropdowns, or curated rules.

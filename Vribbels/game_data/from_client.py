@@ -1,4 +1,4 @@
-"""Event names and totals, item names, Excursion types and daily tasks, off the game client.
+"""Event names and totals, item names, Excursion types, daily tasks, set effects and Potential texts, off the game client.
 
 Written by `python docs/client_tables.py --ship`, as of the game build
 `BUILD`; never edited by hand. What a player's own client says wins
@@ -1577,4 +1577,184 @@ DAILY_TASKS = {
     'daily_achieve_007': (3, 40),
     'daily_achieve_ch_001': (1, 20),
     'daily_achieve_qq_001': (1, 20),
+}
+
+# {set id: (name, pieces, words, stat, value)}. See game_client.set_effects.
+SET_EFFECTS = {
+    6: ("Conqueror's Aspect", 4, '+35% Critical Damage of 1-cost cards', '', None),
+    7: ("Tetra's Authority", 2, '+12% Defense', 'S_DEF_INC_RATE_OUT', 12),
+    8: ("Healer's Journey", 2, '+12% Max HP', 'S_HP_INC_RATE_OUT', 12),
+    9: ('Black Wing', 2, '+12% Attack', 'S_ATK_INC_RATE_OUT', 12),
+    10: ("Seth's Scarab", 2, 'Increase Damage, Shield, and Heal Amounts of Basic Cards by 20%', '', None),
+    11: ("Executioner's Tool", 2, '+25% Critical Damage', 'S_CRI_DMG_RATE_INC_ADD', 25),
+    12: ('Instinctual Growth', 4, 'When 3 or more cards are in hand, increase Damage Amount of Instinct Cards by 20%', '', None),
+    15: ('Bullet of Order', 4, 'When an Attack Card is activated, increase Damage Amount of Order Cards by 10% for 1 turn (2 times per turn)', '', None),
+    16: ('Offering of the Void', 4, 'When a card is Exhausted, increase Damage Amount of Void Cards by 20% for 1 turn (1 times per turn)', '', None),
+    18: ('Spark of Passion', 4, 'When an Upgrade Card is activated, increase Damage Amount of Passion Cards by 20% (cannot stack)', '', None),
+    19: ('Cursed Corpse', 2, 'Increases damage dealt to targets inflicted with Agony by 10%', '', None),
+    20: ('Line of Justice', 4, '+20% Critical Chance of cards that cost 2 or more', '', None),
+    22: ('Orb of Inhibition', 4, '+30% Damage Amount to Void Cards with a Hit Count of 2 or more', '', None),
+    23: ("Judgment's Flames", 4, '+50% Damage Amount to Instinct Cards activated against targets in a Ravage state.', '', None),
+    24: ("Beast's Yearning", 4, 'Increase Damage Amount of Justice and Order Exhaust Attack Cards by 30% (5 times per turn)', '', None),
+    25: ("Glory's Reign", 4, 'When an Exhaust Skill Card is created or activated, increase Damage Amount of allies by 5% (max 15%)', '', None),
+    26: ('Prelude to a Hero', 4, 'When a Passion- or Void-Attribute Attack Card of this unit is Discarded, +15% Critical Chance for 1 turn (max 15%, max 2 stacks)', '', None),
+    27: ('Starlight and Dreams', 4, 'When Shield is gained through an ability, increase Damage Amount of Counterattacks and Extra Attacks by allies by 5% (max 25%)', '', None),
+    28: ('Battlefield Evolution', 4, 'On Extra Attack by this unit, or when an Attack Card of this unit is created in Draw Pile, or on Draw through an Attack Card of this unit, gain 1 Evolving Battlefield (each max 1 time)\nEvolving Battlefield: +10% Critical Damage (max 3 stacks), and when 3 stacks are reached, add an additional +5% Critical Damage', '', None),
+    29: ('Sanguine Thorn', 4, 'When Fracture is applied through a card, +25% Critical Damage for 1 turn (max 25%, max 2 stacks)\nWhen 10 or more Fractures have been applied through cards, +15% Critical Damage to DoTs (max 15%)', '', None),
+}
+
+# {combatant res_id: {wire node: words}}. See game_client.potential_texts.
+POTENTIAL_TEXTS = {
+    1003: {
+        51: "+5% Heal Amount to Nia's Amp Therapy\nIf Nia's Ego Recovery is 30 or higher, add an additional +5% to that value",
+        70: "+30% Heal Amount to Elasticity\nIf Nia's Ego Recovery is 70 or higher, add an additional +20% to the modifier",
+    },
+    1004: {
+        51: "+5% Damage Amount to Luke's Single Shot\nIf Luke's Critical Chance is 20% or higher, add an additional +5% to the modifier",
+        70: "If Luke's Critical Chance is 40% or higher, +3% Damage Amount to Handgun Bullet\nFor every 5% Critical Chance exceeding 40%, add an additional +2% to the modifier\n(additional +12% max)",
+    },
+    1005: {
+        51: "+5% Damage Amount to Selena's Engagement Fire\nIf Selena's Extra Damage (stat) is 15% or higher, add an additional +5% to the modifier",
+        70: "+4% Passion Attribute Damage Amount\nIf Selena's Extra Damage (stat) is 30% or higher, add an additional +4% to the modifier",
+    },
+    1008: {
+        51: "+5% Damage Amount to Khalipe's Lashing and Upward Slash\nIf Khalipe's Defense is 250 or higher, add an additional +5% to the modifier",
+        70: "+10% Damage and Shield Gain Amounts to Vulture Ejection\nIf Khalipe's Attack is 700 or higher, add an additional +20% Damage Amount to Vulture Ejection\nIf Khalipe's Defense is 300 or higher, add an additional +20% Shield Amount to Vulture Ejection",
+    },
+    1009: {
+        51: "+5% Damage Amount to Tressa's Dagger Throw\nIf Tressa's Damage over Time is 15% or higher, add an additional +5% to the modifier",
+        70: "+4% Void Attribute Damage Amount\nIf Tressa's Damage over Time is 30% or higher, add an additional +4% to the modifier",
+    },
+    1010: {
+        51: "+5% Shield Gain Amount to Magna's Frost Shield\nIf Magna's Defense is 250 or higher, add an additional +5% to the modifier",
+        70: "If Magna's Defense is 300 or higher, +5% Justice-Attribute Damage Amount\nFor every 10 Defense exceeding 300, add an additional 2% to the modifier\n(additional +10% max)",
+    },
+    1012: {
+        51: "+5% Damage Amount to Anika's Blaster Swing\nIf Anika's Attack is 250 or higher, add an additional +10% to the modifier",
+        70: "If Anika's Attack is 500 or higher, +10% Attack",
+    },
+    1017: {
+        51: "+5% Damage Amount to Amir's Rapier\nIf Amir's Defense is 250 or higher, add an additional +5% to the modifier",
+        70: "+10% Damage Amount to Metallization\nIf Amir's Defense is 300 or higher, add an additional +10% to the modifier",
+    },
+    1018: {
+        51: "+5% Damage Amount to Rin's Dark Mist Sword: First Form and Dark Mist Sword: Third Form\nIf Rin's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "If Rin's Attack is 600 or higher, +5% Critical Chance\nFor every 40 Attack exceeding 600, add an additional +1% to the modifier\n(additional +10% max)",
+    },
+    1021: {
+        51: "+5% Damage Amount to Lucas's Machine Gun\nIf Lucas's Critical Damage is 160% or higher, add an additional +5% to the modifier",
+        70: "+5% Damage Amount to Launcher Bullet\nIf Lucas's Critical Damage is 240% or higher, add an additional +5% to the modifier",
+    },
+    1024: {
+        51: "+10% Heal Amount to Orlea's Healing of Light",
+        70: "If Orlea's Attack is 700 or higher, or her Defense is 300 or higher, then at the start of battle, +6% Critical Chance to allies",
+    },
+    1027: {
+        51: "+5% Damage Amount to Mei Lin's Strike\nIf Mei Lin's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "If Mei Lin's Attack is 600 or higher, +4% Weakness Damage Amount\nFor every 50 Attack exceeding 600, add an additional +1% to the modifier\n(additional +8% max)",
+    },
+    1028: {
+        51: "+5% Shield Amount to Maribell's Shelter Defense and Shelter Hold\nIf Maribell's Health is 600 or higher, add an additional +5% to the modifier",
+        70: "+5% Damage Amount to Basic Cards and Signature Cards\nIf Maribell's Health is 800 or higher, add an additional +5% to the modifier",
+    },
+    1033: {
+        51: "+5% Damage Amount to Veronica's Rapid Fire\nIf Veronica's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "If Veronica's Attack is 700 or higher, +5% Damage Amount to all Ballista rounds\nFor every 40 Attack exceeding 700, add an additional +1% to the modifier\n(additional +10% max)",
+    },
+    1039: {
+        51: "+5% Heal Amount to Mika's Water Barrier\nIf Mika's Ego Recovery is 30 or higher, add an additional +5% to that value",
+        70: "If Mika's Ego Recovery is 40 or higher, +10% Recover Amount to Source of Water\nFor every 5 Ego Recovery exceeding 40, add an additional +2% to the modifier\n(additional +20% max)",
+    },
+    1040: {
+        51: "+5% Damage Amount to Beryl's Launcher and Charge Launcher\nIf Beryl's Critical Damage is 160% or higher, add an additional 5% to the modifier.",
+        70: "+10% Damage Amount to Beryl's Opening Found\nIf Beryl's Critical Damage is 230% or higher, +10% Damage Amount to Charged Shot",
+    },
+    1041: {
+        51: "+5% Damage Amount to Renoa's Annihilation Shot\nIf Renoa's Critical Chance is 20% or higher, add an additional +5% to the modifier",
+        70: "+5% Damage Amount to Dirge Bullet\nIf Renoa's Critical Chance is 60% or higher, add an additional +10% to the modifier",
+    },
+    1043: {
+        51: "+5% Damage Amount to Hugo's Knife Toss\nIf Hugo's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "If Hugo's Attack is 700 or higher, +4% Extra Damage Amount\nFor every 50 Attack exceeding 700, add an additional +1% to the modifier\n(additional +8% max)",
+    },
+    1049: {
+        51: "+5% Damage Amount to Cassius's Cards and Wild Card\nIf Cassius's Health is 600 or higher, add an additional +5% to the modifier",
+        70: "Upon completing a Quest, gain 1 Morale for 1 turn\nIf Cassius's Health is 700 or higher, when a Quest is completed, 1 Fortitude for 1 turn",
+    },
+    1050: {
+        51: "+5% Damage Amount to Owen's Downward Cut\nIf Owen's Health is 600 or higher, add an additional +5% to the modifier",
+        70: "+4% to Attack and Defense\nIf Owen's Health is 700or higher, add an additional +4% to the modifier",
+    },
+    1052: {
+        51: "+5% Heal Amount to Narja's NA: Defense Response\nIf Narja's Defense is 250 or higher, add an additional +5% to the modifier",
+        70: "+10% Damage Amount to Voracity\nIf Narja's Defense is 300 or higher, +20% Damage Amount to Predation",
+    },
+    1055: {
+        51: "+5% Shield Gain Amount to Adelheid's Fairy's Protection\nIf Adelheid's Defense is 250 or higher, add an additional +5% to the modifier",
+        70: "If Adelheid's Defense is 300 or higher, +5% Void-Attribute Damage Amount, and for every 10 Defense exceeding 300, add an additional 2% to the modifier\n(additional +10% max)",
+    },
+    1056: {
+        51: "+5% Damage Amount to Rei's Dark Blade\nIf Rei's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "If Rei's Attack is 550 or higher, +10% Damage Amount to Predator's Blade\nFor every 10 Attack exceeding 550, add an additional +1% to the modifier\n(additional +20% max)",
+    },
+    1057: {
+        51: "+5% Damage Amount to Yuki's Longsword Slash and Rapid Slash\nIf Yuki's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "If Yuki's Attack is 600 or higher, +5% Damage Amount to Flash Slash and Iceberg Cleave.\nFor every 20 Attack above 600, add an additional +1% to the modifier\n(additional +5% max)",
+    },
+    1060: {
+        51: "+5% Damage Amount to Chizuru's Moonslash\nIf Chizuru's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "If Chizuru's Attack is 600 or higher, +5% Damage Amount to Bind cards\nFor every 10 Attack above 600, add an additional +1% to the modifier (additional +10% max)",
+    },
+    1061: {
+        51: "+5% Damage Amount to Diana's Disruption Fire, and if Diana's Critical Chance is 20% or higher, add an additional +5% to the modifier.",
+        70: "If Diana's Critical Chance is 10% or higher, +4% Extra Damage\nFor every 5% Critical Chance above 10%, add an additional +1% to the modifier\n(additional +8% max)",
+    },
+    1062: {
+        51: "+5% Damage Amount to Haru's Anchor and Power Anchor\nIf Haru's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "+10% Damage Amount to Haru's Anchor Shot\nIf Haru's Attack is 600 or higher, add an additional +10% to the modifier",
+    },
+    1064: {
+        51: "+5% Damage Amount to Kayron's Elimination\nIf Kayron's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "If Kayron's Attack is 600 or higher, +5% Critical Damage\nFor every 40 Attack exceeding 600, add an additional +1% to the modifier\n(additional +10% max)",
+    },
+    1069: {
+        51: "At the start of battle, increase Damage Amount of Tenebria's Rhythm cards by 10%, and if Tenebria's Attack is 500 or higher, increase Damage Amount of other Combatants' Rhythm cards by 10% as well",
+        70: "If Tenebria's Attack is 600 or higher, +5% Passion Attribute Damage Amount, and for every 20 Attack exceeding 600, add an additional +1% (additional +10% max)",
+    },
+    30047: {
+        51: "+5% Damage Amount to Nine's Slash, and if Nine's Defense is 250 or higher, add an additional +5% to the modifier",
+        70: "If Nine's Defense is 300 or higher, +5% Order Attribute Damage Amount, and for every 10 Defense exceeding 300, add an additional +2% to the modifier\n(additional +10% max)",
+    },
+    30048: {
+        51: "+5% Damage Amount to Fei's Azure Flame, and if Fei's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "If Fei's Attack is 600 or higher, +5% Void Attribute Damage Amount, and for every 20 Attack exceeding 600, add an additional +2% to the modifier\n(additional +10% max)",
+    },
+    30075: {
+        51: "+5% Damage Amount to Sereniel's Pulse Fire\nIf Sereniel's Critical Chance is 20% or higher, add an additional +5% to the modifier",
+        70: "If Sereniel's Critical Chance is 20% or higher, +10% Instinct Attribute Damage Amount\nIf Critical Chance is 40% or higher, add an additional +5% to the modifier",
+    },
+    30084: {
+        51: "+5% Heal and Shield Gain Amounts to Archetype cards, and if Tiphera's Defense is 250 or higher, add an additional +5% to the modifier",
+        70: "If Tiphera's Defense is 300 or higher, at the start of battle, +10% to Critical Damage of allies",
+    },
+    30093: {
+        51: "+5% Damage Amount to Heidemarie's Sword Flash, and if Heidemarie's Attack is 500 or higher, add an additional +5% to the modifier.",
+        70: "If Heidemarie's Attack is 600 or higher, +5% Passion Attribute Damage Amount, and for every 20 Attack exceeding 600, add an additional +2%\n(additional +10% max)",
+    },
+    30097: {
+        51: "+5% Damage Amount to Rita's Time Acceleration\nIf Rita's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "If Rita's Attack is 800 or higher, +10% Attack to herself.",
+    },
+    30113: {
+        51: "+5% Damage Amount to Hilde's Multishot\nIf Hilde's Extra Damage (stat) is 6% or higher, add an additional +5% to the modifier",
+        70: "+7% Instinct Attribute Damage Amount\nIf Hilde's Extra Damage (stat) is 6% or higher, add an additional +8% to the modifier",
+    },
+    30115: {
+        51: "+5% Damage Amount to Arabella's Diagonal Slash card\nIf Arabella's Attack is 500 or higher, add an additional +5% to the modifier",
+        70: "If Arabella's Attack is 600 or higher, +5% Instinct Attribute Damage Amount, and for every 20 Attack exceeding 600, add an additional +2% to the modifier (additional +10% max)",
+    },
+    30117: {
+        51: "+5% Damage Amount to Olga's Reaping Slash card\nIf Olga's Damage over Time (stat) is 6% or higher, add an additional +5% to the modifier",
+        70: "+7% Instinct Attribute Damage Amount\nIf Olga's Damage over Time (stat) is 6% or higher, add an additional +8% to the modifier",
+    },
 }

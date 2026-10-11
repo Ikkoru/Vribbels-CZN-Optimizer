@@ -68,6 +68,7 @@ from tkinter import font as tkfont
 from typing import Optional
 
 import excursions
+import game_client
 import perf_log
 import sortie_progress
 
@@ -79,7 +80,7 @@ from ui.utils.combobox_nav import bind_combobox_nav
 from ui.utils.type_ahead import attach, find
 from game_data.characters import CHARACTERS
 from game_data import (
-    EQUIPMENT_SLOTS, SETS, STATS, RARITY_COLORS, RARITY_BG_COLORS,
+    EQUIPMENT_SLOTS, SETS, set_bonus, STATS, RARITY_COLORS, RARITY_BG_COLORS,
     RARITY_STARTING_SUBSTATS, ATTRIBUTE_COLORS,
     get_character_by_name, get_partner, get_partner_stats,
     get_partner_passive_info, get_potential_stat, get_potential_stat_bonus,
@@ -235,6 +236,15 @@ CHAR_NODE_TAB_DESC = 72    # left stop: start of the description column
 
 # The tag those stops live on, and what marks the lines that take it.
 CHAR_NODE_TAG = "nodes"
+
+# The nodes whose effect is the combatant's own (node 7, node 5.1), by
+# wire number: their level and short description carry the game's own
+# words for the node as a tooltip, on a tag of their own per node.
+CHAR_NODE_WORDS = tuple(game_client.OWN_TEXT_NODES.values())
+
+
+def _node_words_tag(wire):
+    return f"node_words_{wire}"
 
 # Tab stops inside a gear cell, in pixels from the text's left edge. The
 # cell is one Text widget, so its columns are tab stops rather than
@@ -615,6 +625,8 @@ class HeroesTab(BaseTab):
         # `char_content_px` walks every combatant's nodes, and the font
         # does not change while the app runs.
         self._char_content_px = None
+        # Whose Character card is up, for its node tooltips.
+        self._card_res_id = None
 
     def setup_ui(self):
         """Setup the Heroes tab UI."""
@@ -928,6 +940,13 @@ class HeroesTab(BaseTab):
         )
         self.hero_char_text.pack(fill=tk.BOTH, expand=True)
         self.hero_char_text.config(state=tk.DISABLED)
+        # Bound once, on tags every render puts back: the tip asks at
+        # hover time whose card is up.
+        for wire in CHAR_NODE_WORDS:
+            self._gear_tooltip.bind_tag(
+                self.hero_char_text, _node_words_tag(wire),
+                lambda w=wire: game_client.potential_text(
+                    self._card_res_id, w))
 
         # No frame padding: the text inset lives on the Text's own
         # padx/pady, so its lighter background reaches the frame border.
@@ -1654,6 +1673,24 @@ class HeroesTab(BaseTab):
             f"{self._format_potential_text(char_info)}"
         )
 
+    def _tag_node_words(self, card: str) -> None:
+        """Put each node in `CHAR_NODE_WORDS` on its tooltip tag: the
+        line's level and description, past its first tab. A node the
+        game client has no words for stays untagged, since the tag's
+        underline promises a tip."""
+        res_id = self._card_res_id
+        lines = card.split("\n")
+        for node in POTENTIAL_NODES:
+            if node.wire not in CHAR_NODE_WORDS or not res_id \
+                    or not game_client.potential_text(res_id, node.wire):
+                continue
+            prefix = f"{CHAR_SUBLIST_INDENT}Node {node.shown}:\t"
+            for number, line in enumerate(lines, start=1):
+                if line.startswith(prefix):
+                    self.hero_char_text.tag_add(
+                        _node_words_tag(node.wire),
+                        f"{number}.{len(prefix)}", f"{number}.end")
+
     def _format_partner_text(self, char_info) -> str:
         """Build the Partner-frame text for a CharacterInfo.
 
@@ -1850,6 +1887,7 @@ class HeroesTab(BaseTab):
             self.preset_assign_combo.set(assigned)
 
         char_info = self.optimizer.character_info.get(hero_name)
+        self._card_res_id = char_info.res_id if char_info else None
         # Text is built by shared helpers so the fixed-size computation can
         # measure the exact same strings that get displayed. The Character
         # card is written at the END of this method instead of here: it now
@@ -1936,6 +1974,7 @@ class HeroesTab(BaseTab):
             else:
                 continue
             self.hero_char_text.tag_add(tag, f"{number}.0", f"{number}.end")
+        self._tag_node_words(card)
         self.hero_char_text.config(state=tk.DISABLED)
 
     # ----- Per-character preset helpers ----------------------------------
@@ -2225,8 +2264,10 @@ class HeroesTab(BaseTab):
         # The name shows live when this combatant has the set's required
         # pieces equipped and dim otherwise, which is the at-a-glance
         # signal for whether the bonus is actually running.
+        # One line however the wording breaks: the game's own words, for
+        # a set with none of the maintainer's, can carry line breaks.
         set_info = SETS.get(piece.set_id)
-        bonus_text = set_info.get("bonus", "") if set_info else ""
+        bonus_text = " ".join(set_bonus(piece.set_id).split())
         required = set_info.get("pieces", 999) if set_info else 999
         equipped_in_set = sum(1 for p in gear if p.set_id == piece.set_id)
         set_tag = "set_live" if equipped_in_set >= required else "set_dim"

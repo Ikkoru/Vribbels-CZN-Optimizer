@@ -41,7 +41,8 @@ res_id -> a tuple of effects, each a dict:
 server's `potential_base_status` does: Rita's +10% ATK at 800 is in her
 inner % at 902 ATK and absent at 755, where it would have carried her
 past 800. Each line follows the e7bot wiki's text, which the maintainer
-checked against the game.
+checked against the game; `python docs/client_tables.py --audit` holds
+every entry to the game client's node 7, its effect rows and its text.
 """
 
 # What the score prices, and where `core.compute_build_stats` puts it.

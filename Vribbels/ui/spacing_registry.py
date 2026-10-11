@@ -2791,6 +2791,22 @@ def _text_columns(cap, box, fill, want=None):
     return columns
 
 
+def _underline_on_line(widget, where):
+    """Whether any span of `where`'s line carries an underlined tag.
+    `_line_underlined` asks at the line's start alone."""
+    start = widget.index(f"{where} linestart")
+    end = widget.index(f"{where} lineend")
+    for tag in widget.tag_names():
+        try:
+            if not int(widget.tag_cget(tag, "underline") or 0):
+                continue
+        except (tk.TclError, ValueError):
+            continue
+        if widget.tag_nextrange(tag, start, end):
+            return True
+    return False
+
+
 def _text_column_gap(locator, needles, index=0, from_end=False):
     """Resolver: the SMALLEST gap at one column boundary of a Text.
 
@@ -2840,8 +2856,16 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
             if info is None:
                 continue
             top = origin + info[1]
+            # A tooltip's underline is not a glyph, and it joins a
+            # field's words into one painted run; the merge below then
+            # takes a word space elsewhere on the line for a column
+            # boundary. On an underlined line the band stops above the
+            # baseline (dlineinfo's fifth figure), where every glyph has
+            # its body and the underline has none.
+            bottom = top + (info[4] if _underline_on_line(widget, where)
+                            else info[3]) - 1
             band = sa.Box(left=box.left, top=top,
-                          right=box.right, bottom=top + info[3] - 1)
+                          right=box.right, bottom=bottom)
             line = widget.get(f"{where} linestart", f"{where} lineend")
             fields = [f for f in line.split("	") if f.strip()]
             columns = _text_columns(cap, band, {fill},

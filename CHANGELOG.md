@@ -19,7 +19,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Countdowns read `9d left` in place of `Ends in 9 days`.
   - The Other column lines up its readings and deadlines in three groups: the rows above the Sortie shop, the Sortie shop, and the Events. The Events' deadlines sit just past the widest reading shown.
   - Shop headings break after `Shop -`, the shop's own name on a second line.
-- Combatants: the `Excursion` column counts against each combatant's own number of Excursion types, from the game client, in place of `10?`.
+- Combatants:
+  - The `Excursion` column counts against each combatant's own number of Excursion types, from the game client, in place of `10?`.
+  - Node 7 and Node 5.1 on the Character card show the game's full description of the node as a tooltip.
+- A Memory Fragment set the program has no description of its own for shows the game's.
 - Capture Log and Checklist: every item the game client names is named, where an unidentified one showed its number.
 - Memory Fragments: the `Level:` filter's open list jumps to what you type, as the other dropdowns do.
 - Names and counts the game client could not be read for come from the copy shipped with the program. An install STOVE did not register can be named in `settings.json`'s `game_client_dir`.

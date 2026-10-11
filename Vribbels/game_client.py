@@ -2,8 +2,9 @@
 
 What changes every patch and the server never sends: each event's
 English name and how many rewards it holds, every item's name, how
-many Excursion types each combatant has, and what each daily task
-counts to and pays toward the day's Activity.
+many Excursion types each combatant has, what each daily task counts
+to and pays toward the day's Activity, each Memory Fragment set's
+effect, and the words of each combatant's own Potential nodes.
 `docs/client_data.md` says where each is kept and how it was held
 against what the program already knew; `docs/client_tables.py` is the
 maintainer's tool over the same reader. Reads only: nothing here
@@ -63,7 +64,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # What the cache is called in the settings folder, and the shape of
 # what it holds. A cache of another format is read as no cache.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 4
+CACHE_FORMAT = 5
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -151,8 +152,32 @@ SCHEDULE_JOINS = ("link_event_schedule_id", "multiple_link", "multiple_key")
 # `daily_achieve` rows carry the score and nothing else.
 DAILY_TASK_TABLE = "daily_achievement@daily_achievement"
 
-# Markup the text carries for the game's own renderer.
+# The Memory Fragment sets: a row each, `set_public_<n>` for the wire's
+# set id n. A row with an `order` is a set fragments drop in;
+# `set_option_type` is how many pieces complete it, and the matching
+# `set<pieces>_*` columns hold its effect -- a stat id and figure where
+# the type is SET_STAT, its words in the text either way.
+SET_TABLE = "piece_set_option@piece_set_option"
+SET_ID = re.compile(r"set_public_(\d+)")
+SET_STAT = "SET_TYPE_STAT"
+
+# The potential tree: a row per node and level, `node_num` the wire's
+# node as `<n>_<m>` (70 is `7_0`), `desc` its text, and
+# `link_potential_node_effect_id` the effect rows it applies. Some
+# combatants have two trees listed, and the one the game draws is the
+# reworked one, whose rows have the higher ids (`live_nodes`).
+NODE_TABLE = "potential_node@potential_node"
+NODE_EFFECT_TABLE = "potential_node@potential_node_effect"
+# The nodes whose effect is the combatant's own, by `node_num`, and the
+# wire number the program knows each by. Every other node's text is
+# shared, and the program words those itself.
+OWN_TEXT_NODES = {"7_0": 70, "5_1": 51}
+
+# Markup the text carries for the game's own renderer: tags, a line
+# break, and a keyword's marker `$Name#level$`, drawn as the name.
 MARKUP = re.compile(r"<[^>]*>")
+BREAK = re.compile(r"<br\s*/?>", re.I)
+KEYWORD = re.compile(r"\$([^$#]*)(?:#\d*)?\$")
 
 
 def _cstr(blob, offset):
@@ -387,6 +412,28 @@ def clean(text):
     return " ".join(text.split())
 
 
+def passage(text):
+    """A passage as the game draws it, for a tooltip: `<br>` as a new
+    line, the colour and underline tags taken out, a keyword down to
+    its name, and the typographic apostrophe as the plain one
+    `game_data` types. What `clean` leaves out, this does too."""
+    text = BREAK.sub("\n", text or "")
+    text = KEYWORD.sub(r"\1", MARKUP.sub("", text))
+    text = text.replace(chr(0x2019), "'")
+    text = "".join(ch for ch in text if ord(ch) <= 0xFFFF)
+    return "\n".join(" ".join(line.split()) for line in text.split("\n"))
+
+
+def _figure(value):
+    """A table's figure as a number, whole where it is whole; None for
+    anything else."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return int(number) if number.is_integer() else number
+
+
 def event_names(client):
     """{schedule id: English name} for every event the client names.
 
@@ -511,6 +558,62 @@ def daily_tasks(client):
     return out
 
 
+def set_effects(client):
+    """{set id: [name, pieces, words, stat, value]} for every set
+    fragments drop in. `words` is the effect's text as `passage` draws
+    it; `stat` and `value` the client's stat id and figure where the
+    effect is a plain stat, else "" and None."""
+    texts = client.text()
+    out = {}
+    for row in client.rows(SET_TABLE):
+        match = SET_ID.fullmatch(row.get("id") or "")
+        order = _figure(row.get("order"))
+        pieces = _figure(row.get("set_option_type"))
+        if not match or not order or order <= 0 or not pieces:
+            continue
+        words = passage(texts.get(row.get(f"set{pieces}_description")))
+        name = passage(texts.get(row.get("name")))
+        if not words or not name:
+            continue
+        stat, value = "", None
+        if row.get(f"set{pieces}_type") == SET_STAT:
+            stat = row.get(f"set{pieces}_option_multiple_link") or ""
+            value = _figure(row.get(f"set{pieces}_value"))
+        out[int(match.group(1))] = [name, pieces, words, stat, value]
+    return out
+
+
+def live_nodes(client):
+    """{(combatant res_id, node_num): the node's first-level row}, off
+    the tree the game draws: where a combatant has two listed, the
+    reworked one, whose rows have the higher ids."""
+    out = {}
+    for row in client.rows(NODE_TABLE):
+        rid, row_id = _figure(row.get("link_char_combatant_id")), \
+            _figure(row.get("id"))
+        if not isinstance(rid, int) or not isinstance(row_id, int) \
+                or _figure(row.get("node_level")) != 1:
+            continue
+        key = (rid, row.get("node_num"))
+        held = out.get(key)
+        if held is None or row_id > _figure(held.get("id")):
+            out[key] = row
+    return out
+
+
+def potential_texts(client):
+    """{combatant res_id: {wire node: words}} for the nodes whose effect
+    is the combatant's own (`OWN_TEXT_NODES`), as `passage` draws them."""
+    texts = client.text()
+    out = {}
+    for (rid, num), row in live_nodes(client).items():
+        wire = OWN_TEXT_NODES.get(num)
+        words = passage(texts.get(row.get("desc"))) if wire else ""
+        if words:
+            out.setdefault(rid, {})[wire] = words
+    return out
+
+
 def item_names(client):
     """{item res_id: English name} for every item the client names."""
     out = {}
@@ -537,6 +640,11 @@ def read_facts(install):
         "excursion_types": {str(res_id): count for res_id, count
                             in excursion_types(client).items()},
         "daily_tasks": daily_tasks(client),
+        "set_effects": {str(set_id): effect for set_id, effect
+                        in set_effects(client).items()},
+        "potential_texts": {
+            str(res_id): {str(wire): words for wire, words in nodes.items()}
+            for res_id, nodes in potential_texts(client).items()},
     }
 
 
@@ -673,3 +781,26 @@ def visit_types(res_id):
     own = (_facts or {}).get("excursion_types") or {}
     count = own.get(str(res_id)) or from_client.EXCURSION_TYPES.get(res_id)
     return count if isinstance(count, int) and count > 0 else None
+
+
+def known_set_effects():
+    """{set id: (name, pieces, words, stat, value)}: the shipped table,
+    with what this machine's client says over it. See `set_effects`."""
+    from game_data import from_client
+    out = {set_id: tuple(effect) for set_id, effect
+           in from_client.SET_EFFECTS.items()}
+    for set_id, effect in ((_facts or {}).get("set_effects") or {}).items():
+        if (str(set_id).isdigit() and isinstance(effect, (list, tuple))
+                and len(effect) == 5 and effect[2]):
+            out[int(set_id)] = tuple(effect)
+    return out
+
+
+def potential_text(res_id, wire):
+    """The game's own words for node `wire` (70, 51) of a combatant, or
+    None. See `potential_texts`."""
+    from game_data import from_client
+    own = ((_facts or {}).get("potential_texts") or {}).get(str(res_id))
+    words = (own or {}).get(str(wire)) or \
+        (from_client.POTENTIAL_TEXTS.get(res_id) or {}).get(wire)
+    return words if isinstance(words, str) and words else None

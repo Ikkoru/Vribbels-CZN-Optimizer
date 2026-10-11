@@ -77,22 +77,21 @@ def _levels(levels):
 
 
 def _class_gains(names):
-    """{(class, grade): {level: gain}} where every combatant of the pair
-    with readings at both levels shows the same gain. A combatant with
-    a gain of its own in characters.py does not vote: it is the one
-    known to differ from its pair."""
-    from game_data.characters import CHARACTERS_BY_NAME
+    """{(class, grade): {level: gain}} where every combatant on the
+    pair's curve with readings at both levels shows the same gain. A
+    combatant votes for the curve they follow (`level_curve`), which is
+    not always their own class's."""
+    from game_data.characters import CHARACTERS_BY_NAME, level_curve
     seen = {}
     for name, levels in names.items():
         char = CHARACTERS_BY_NAME.get(name)
         if not isinstance(char, dict):
             continue
         for step in (61, 62):
-            if step in levels and step - 1 in levels \
-                    and char.get("level_%d_bonus" % step) is None:
+            if step in levels and step - 1 in levels:
                 gain = tuple(a - b for a, b in zip(levels[step],
                                                    levels[step - 1]))
-                seen.setdefault((char.get("class"), char.get("grade"), step),
+                seen.setdefault((*level_curve(char), step),
                                 set()).add(gain)
     out = {}
     for (cls, grade, step), found in seen.items():

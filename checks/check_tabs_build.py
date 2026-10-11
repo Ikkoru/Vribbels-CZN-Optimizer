@@ -540,6 +540,55 @@ def _combatant_selection_survives_a_rebuild(tab):
     return out
 
 
+def _node_lines_carry_the_games_words(tab):
+    """Node 7's and Node 5.1's level and description on the Character
+    card sit on their tooltip tags, from just past the node's name to
+    the line's end, and the tip asks for the combatant whose card is
+    up. A tag left off puts no tip up and says nothing; one left on the
+    last combatant's lines tips the wrong words.
+
+    Skips itself with no combatant the game client has words for.
+
+    Returns a list of complaints.
+    """
+    import game_client
+    from game_data import POTENTIAL_NODES
+    from ui.tabs import heroes_tab as ht
+    tab.refresh_heroes()
+    infos = tab.optimizer.character_info
+    names = [h["name"] for h in tab.hero_data_list]
+    worded = [n for n in names if infos.get(n) and
+              game_client.potential_text(infos[n].res_id, 70)]
+    if not worded:
+        return []
+    out = []
+    name = worded[0]
+    tab.select_hero_row(names.index(name))
+    if tab._card_res_id != infos[name].res_id:
+        out.append(f"the Character card's tips would ask for res_id "
+                   f"{tab._card_res_id}, not {name}'s "
+                   f"{infos[name].res_id}. See `show_hero_details`.")
+    text = tab.hero_char_text
+    for node in POTENTIAL_NODES:
+        if node.wire not in ht.CHAR_NODE_WORDS:
+            continue
+        prefix = f"{ht.CHAR_SUBLIST_INDENT}Node {node.shown}:\t"
+        ranges = text.tag_ranges(ht._node_words_tag(node.wire))
+        lines = [i for i, line in enumerate(
+            text.get("1.0", "end-1c").split("\n"), start=1)
+            if line.startswith(prefix)]
+        want = [f"{lines[0]}.{len(prefix)}", f"{lines[0]}.end"] \
+            if lines else []
+        got = [str(r) for r in ranges]
+        if not lines or len(got) != 2 or text.compare(
+                got[0], "!=", want[0]) or text.compare(got[1], "!=", want[1]):
+            out.append(f"Node {node.shown} on {name}'s card is tagged "
+                       f"{got}, not {want}: its tooltip is missing or "
+                       f"covers the wrong text. See `_tag_node_words` in "
+                       f"heroes_tab.py.")
+    return out
+
+
 def _capture_log_find_marks_all(tab):
     """Ctrl+F's box marks every place its text appears, whatever the
     case, a line written while it is open as well; sits over the log's
@@ -5750,6 +5799,8 @@ def run():
                 _show_missing_adds_rather_than_replaces(built["HeroesTab"]))
             failures.extend(
                 _hero_columns_line_up(built["HeroesTab"]))
+            failures.extend(
+                _node_lines_carry_the_games_words(built["HeroesTab"]))
         failures.extend(_popup_sample_drives_its_own_width(root))
         if "MaterialsTab" in built:
             failures.extend(

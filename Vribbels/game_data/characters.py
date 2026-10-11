@@ -44,9 +44,8 @@ Levels 61 and 62
 
 Promotion 5/5 grants +2 levels over the 60 cap. What each adds is kept
 per class and grade in `LEVEL_BONUS_BY_CLASS`, the game client's level
-curves; a combatant's own `level_61_bonus` / `level_62_bonus` key
-overrides it, for the two on another class's curve
-(`LEVEL_CURVE_EXCEPTIONS`). `table_stats_at_level` adds nothing for a
+curves. A combatant on another class's curve names that class and
+grade in a `level_curve` key. `table_stats_at_level` adds nothing for a
 gain the table lacks, so missing data is a no-op.
 
 The server's own readings
@@ -119,8 +118,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
-        "level_62_bonus": {"atk": 6, "def": 3, "hp": 9},
+        "level_curve": ("Vanguard", 4),
     },
     1040: {
         "name": "Beryl",
@@ -134,7 +132,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
-        "level_61_bonus": {"atk": 8, "def": 2, "hp": 7},
     },
     1049: {
         "name": "Cassius",
@@ -148,7 +145,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "ATK%",
-        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
     },
     1021: {
         "name": "Lucas",
@@ -175,7 +171,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "HP%",
-        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
     },
     1039: {
         "name": "Mika",
@@ -189,7 +184,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "ATK%",
-        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
     },
     1003: {
         "name": "Nia",
@@ -203,7 +197,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "ATK%",
-        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
     },
     1050: {
         "name": "Owen",
@@ -230,7 +223,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "ATK%",
-        "level_61_bonus": {"atk": 6, "def": 3, "hp": 9},
     },
     1005: {
         "name": "Selena",
@@ -296,7 +288,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "HP%",
-        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
     },
     1004: {
         "name": "Luke",
@@ -349,7 +340,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "ATK%",
-        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
     },
     1041: {
         "name": "Renoa",
@@ -389,7 +379,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
-        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},
     },
     1062: {
         "name": "Haru",
@@ -403,7 +392,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},
     },
     1057: {
         "name": "Yuki",
@@ -430,7 +418,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},
     },
     30075: {
         "name": "Sereniel",
@@ -457,7 +444,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "DEF%",
         "node_60": "CRate",
-        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
     },
     30047: {
         "name": "Nine",
@@ -471,7 +457,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
     },
     30084: {
         "name": "Tiphera",
@@ -485,7 +470,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "DEF%",
-        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
     },
     30097: {
         "name": "Rita",
@@ -499,7 +483,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},
     },
     1061: {
         "name": "Diana",
@@ -526,7 +509,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
-        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},
     },
     1055: {
         "name": "Adelheid",
@@ -540,7 +522,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "HP%",
         "node_60": "DEF%",
-        "level_61_bonus": {"atk": 6, "def": 4, "hp": 10},
     },
     1069: {
         "name": "Tenebria",
@@ -554,7 +535,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},
     },
     30048: {
         "name": "Fei",
@@ -568,7 +548,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CDmg",
         "node_60": "CRate",
-        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},
     },
     30113: {
         "name": "Hilde",
@@ -595,8 +574,7 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 9, "def": 3, "hp": 7},
-        "level_62_bonus": {"atk": 9, "def": 3, "hp": 7},
+        "level_curve": ("Ranger", 5),
     },
     30117: {
         "name": "Olga",
@@ -610,7 +588,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_61_bonus": {"atk": 8, "def": 3, "hp": 9},
     },
 }
 
@@ -867,17 +844,13 @@ def get_character_by_name(name: str) -> dict:
 # None -- not zeros, which would read as a known gain of nothing -- and
 # leaves the level-60 base, the server's readings filling it meanwhile.
 #
-# A combatant's own `level_61_bonus` / `level_62_bonus` key, shape
-# `{"atk": +X, "def": +Y, "hp": +Z}`, overrides their pair's. The
-# launch-time data check reports one that differs from its pair's unless
-# `LEVEL_CURVE_EXCEPTIONS` names it, and a pair left unknown while a
-# combatant of it has its own.
-#
 # **The game client states every one** (`char_base@combatant_level`,
 # levels 61 and 62 of each combatant's level curve, `--audit` in
 # `docs/client_tables.py` holding the two together). A curve is a class
-# and grade's, and level 62 adds what 61 did. Two combatants run on
-# another class's curve: their own keys, in `LEVEL_CURVE_EXCEPTIONS`.
+# and grade's, and level 62 adds what 61 did. A combatant on another
+# class's curve says whose in a `level_curve` key, `(class, grade)`,
+# rather than holding gains of their own: a pair corrected here then
+# corrects them too.
 _GAIN = {
     "Controller": {4: (6, 3, 9), 5: (6, 4, 10)},
     "Hunter": {4: (7, 3, 9), 5: (8, 3, 9)},
@@ -891,22 +864,23 @@ LEVEL_BONUS_BY_CLASS = {
                    for level in (61, 62)}
     for cls, grades in _GAIN.items() for grade, gain in grades.items()
 }
-# res_id -> whose curve a combatant's own level keys follow. The
-# launch-time check takes their difference from their pair as stated.
-LEVEL_CURVE_EXCEPTIONS = {1012: "Vanguard grade 4", 30115: "Ranger grade 5"}
+
+
+def level_curve(char_data: dict) -> tuple:
+    """The (class, grade) whose level curve `char_data` follows: their
+    `level_curve` key, else their own class and grade."""
+    curve = char_data.get("level_curve")
+    if curve:
+        return tuple(curve)
+    return (char_data.get("class"), char_data.get("grade"))
 
 
 def level_bonus(char_data: dict, level: int):
     """What `level` (61 or 62) adds to `char_data`'s base per the
-    tables, as {"atk", "def", "hp"}: the combatant's own key, else their
-    class and grade's; None where neither is known. Never the server's
-    readings -- `get_character_stats_at_level` adds those."""
-    own = char_data.get(f"level_{level}_bonus")
-    if own is not None:
-        return own
-    pair = LEVEL_BONUS_BY_CLASS.get(
-        (char_data.get("class"), char_data.get("grade"))) or {}
-    return pair.get(level)
+    tables, as {"atk", "def", "hp"}: their curve's (`level_curve`); None
+    where it is not known. Never the server's readings --
+    `get_character_stats_at_level` adds those."""
+    return (LEVEL_BONUS_BY_CLASS.get(level_curve(char_data)) or {}).get(level)
 
 
 def table_stats_at_level(char_data: dict, level: int) -> dict:
@@ -951,8 +925,8 @@ def get_character_stats_at_level(char_data: dict, level: int) -> dict:
 
     Without a reading at that level, the nearest one is walked to it by
     the level gains -- the combatant's own, read off two readings; else
-    their characters.py key; else what every reading of their class and
-    grade agrees on; else `LEVEL_BONUS_BY_CLASS`. A level-60 base comes
+    what every reading of their curve (`level_curve`) agrees on; else
+    `LEVEL_BONUS_BY_CLASS`. A level-60 base comes
     back down from a level-61 or 62 reading only where every gain on the
     way is known. Levels below 60 read as 60, and above 62 as 62.
     """
@@ -992,10 +966,7 @@ def _gain(char_data, step, known):
         return dict(zip(("atk", "def", "hp"),
                         (a - b for a, b in zip(known[step],
                                                known[step - 1]))))
-    own = char_data.get(f"level_{step}_bonus")
-    if own is not None:
-        return own
-    pair = (char_data.get("class"), char_data.get("grade"))
+    pair = level_curve(char_data)
     agreed = (learned.GAINS.get(pair) or {}).get(step)
     if agreed is not None:
         return agreed

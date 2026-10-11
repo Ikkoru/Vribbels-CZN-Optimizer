@@ -7,7 +7,8 @@ Entry shape
     SETS[set_id] = {
       "name":     "Black Wing",
       "pieces":   2,               # 2 or 4, pieces needed to complete
-      "bonus":    "+12% Attack",   # description text, shown in the UI
+      "bonus":    "+12% Attack",   # optional: the maintainer's own short
+                                   # wording, shown in the UI (`set_bonus`)
       "type":     "unconditional", # or "conditional"
       "stat":     "ATK%",          # see the vocabulary below
       "value":    12,              # magnitude, in that stat's own units
@@ -25,6 +26,17 @@ Entry shape
   nothing, though the set still counts for set-locking).
 
 Full treatment: `docs/game_formulas.md` §5.
+
+The wording
+===========
+
+**`bonus` is the maintainer's own shortening** of the game's text,
+and the game's text is the fallback: a set without one, or one the
+program has no entry for, shows the game client's words
+(`game_client.known_set_effects`) until it gets one. `set_bonus` is
+the one accessor. `checks/check_set_wordings.py` holds every wording's
+figures to the game's, notes each set still on the game's words, and
+says whether a patch moved only a set's figures or reworded it.
 
 Stat-name vocabulary
 ====================
@@ -71,7 +83,7 @@ SETS = {
  12: {"name": "Instinctual Growth", "pieces": 4, "bonus": "Increase Instinct Card DMG by 20% when 3+ Cards in hand", "type": "conditional", "stat": "DMG multi", "value": 20, "elements": ["Instinct"]},
  15: {"name": "Bullet of Order", "pieces": 4, "bonus": "Increase Order Card DMG by 10% after Attack Card used for 1 turn (max 2 per turn)", "type": "conditional", "stat": "DMG multi", "value": 20, "elements": ["Order"]},
  16: {"name": "Offering of the Void", "pieces": 4, "bonus": "Increase Void Card DMG by 20% after Exhaust for 1 turn (max 1 per turn)", "type": "conditional", "stat": "DMG multi", "value": 20, "elements": ["Void"]},
- 18: {"name": "Spark of Passion", "pieces": 4, "bonus": "Increase Passion Card DMG by 20% after Upgrade used (max 1)", "type": "conditional", "stat": "DMG multi", "value": 20, "elements": ["Passion"]},
+ 18: {"name": "Spark of Passion", "pieces": 4, "bonus": "Increase Passion Card DMG by 20% after Upgrade used (no stacking)", "type": "conditional", "stat": "DMG multi", "value": 20, "elements": ["Passion"]},
  19: {"name": "Cursed Corpse", "pieces": 2, "bonus": "Increase DMG by 10% to targets afflicted by Agony", "type": "conditional", "stat": "DMG multi", "value": 10},
  20: {"name": "Line of Justice", "pieces": 4, "bonus": "+20% Crit Rate for 2+ cost Cards", "type": "conditional", "stat": "Crit Rate", "value": 20},
  22: {"name": "Orb of Inhibition", "pieces": 4, "bonus": "+30% Void Card DMG for Cards with 2 or more Hits", "type": "conditional", "stat": "DMG add", "value": 30, "elements": ["Void"]},
@@ -83,6 +95,17 @@ SETS = {
  28: {"name": "Battlefield Evolution", "pieces": 4, "bonus": "On Extra Attack / Attack Card created in Draw Pile / Draw via Attack Card: +10% Critical Damage (each source max 1 time). When 3 stacks are reached add an additional +5% Critical Damage", "type": "conditional", "stat": "Crit DMG", "value": 35},
  29: {"name": "Sanguine Thorn", "pieces": 4, "bonus": "When Fracture via card, +25% Critical Damage for 1 turn (max 25%, max 2 stacks). When 10+ Fractures via cards, +15% Critical Damage to DoTs (max 15%)", "type": "conditional", "stat": "Crit DMG", "value": 40},
 }
+
+def set_bonus(set_id) -> str:
+    """The words a set's effect is shown in: the maintainer's own
+    `bonus`, else the game client's, else nothing."""
+    own = (SETS.get(set_id) or {}).get("bonus")
+    if own:
+        return own
+    import game_client
+    effect = game_client.known_set_effects().get(set_id)
+    return effect[2] if effect else ""
+
 
 TWO_PIECE_SETS = [sid for sid, s in SETS.items() if s["pieces"] == 2]
 FOUR_PIECE_SETS = [sid for sid, s in SETS.items() if s["pieces"] == 4]

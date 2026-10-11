@@ -58,7 +58,7 @@ CHARACTERS_BASE_DEF = (133, 208)
 CHARACTERS_BASE_HP = (293, 423)
 CHARACTERS_BASE_CRIT_RATE = 3.0          # exact, every character
 CHARACTERS_BASE_CRIT_DMG = 125.0         # exact, every character
-CHARACTERS_LEVEL_BONUS_ATK = (4, 9)      # level_61_bonus / level_62_bonus
+CHARACTERS_LEVEL_BONUS_ATK = (4, 9)      # a LEVEL_BONUS_BY_CLASS gain
 CHARACTERS_LEVEL_BONUS_DEF = (2, 7)
 CHARACTERS_LEVEL_BONUS_HP = (4, 10)
 
@@ -351,8 +351,7 @@ def _check_tier_tuple(rep: _Reporter, key, label: str, field: str,
 def _check_characters(problems: list[str]) -> None:
     from game_data import (CHARACTERS, ATTRIBUTE_COLORS,
                            POTENTIAL_STAT_VALUES, CLASSES)
-    from game_data.characters import (LEVEL_BONUS_BY_CLASS,
-                                      LEVEL_CURVE_EXCEPTIONS)
+    from game_data.characters import LEVEL_BONUS_BY_CLASS, level_curve
 
     rep = _Reporter("characters.py", _line_map("characters.py", "CHARACTERS"))
     node_stats = tuple(POTENTIAL_STAT_VALUES)
@@ -422,50 +421,24 @@ def _check_characters(problems: list[str]) -> None:
                                     f"{', '.join(node_stats)} -- an unknown "
                                     f"name makes the node bonus zero")
 
-        for field in ("level_61_bonus", "level_62_bonus"):
-            bonus = data.get(field)
-            if bonus is None:
-                continue
-            if not isinstance(bonus, dict):
-                rep.add(key, label, f"{field} is {type(bonus).__name__}, "
-                                    f"expected a dict")
-                continue
-            for unknown in set(bonus) - set(bonus_ranges):
-                rep.add(key, label, f"{field} has unknown key '{unknown}' "
-                                    f"(expected atk / def / hp) -- it is "
-                                    f"silently ignored")
-            for stat, bounds in bonus_ranges.items():
-                if stat not in bonus:
-                    rep.add(key, label, f"{field} is missing '{stat}'")
-                elif not _in_range(bonus[stat], bounds):
-                    rep.add(key, label, f"{field}['{stat}'] {bonus[stat]} "
-                                        f"outside {bounds[0]}-{bounds[1]}")
-
-        # A combatant's own level gain against their class and grade's:
-        # every one observed has matched, so a difference is either the
-        # first exception or a mistake in one of the two.
-        pair_key = (data.get("class"), data.get("grade"))
-        pair_name = f"{pair_key[0]} grade {pair_key[1]}"
-        pair = LEVEL_BONUS_BY_CLASS.get(pair_key)
-        if pair is None:
-            rep.add(key, label, f"no LEVEL_BONUS_BY_CLASS row for "
-                                f"{pair_name} -- levels 61 and 62 add "
-                                f"nothing unless the entry has its own")
+        # Levels 61 and 62 add the curve's gains, and a curve with no
+        # row adds nothing at all -- a plausible stat, one level short.
+        for field in sorted(set(data) & {"level_61_bonus",
+                                         "level_62_bonus"}):
+            rep.add(key, label, f"'{field}' is not read: the gains are "
+                                f"the curve's, and a combatant on another "
+                                f"class's curve names it in 'level_curve'")
+        curve = data.get("level_curve")
+        if curve is not None and not (isinstance(curve, (tuple, list))
+                                      and len(curve) == 2):
+            rep.add(key, label, f"level_curve {curve!r} is not a "
+                                f"(class, grade) pair")
             continue
-        for level in (61, 62):
-            own = data.get(f"level_{level}_bonus")
-            known = pair.get(level)
-            if not isinstance(own, dict):
-                continue
-            if known is None:
-                rep.add(key, label, f"has its own level-{level} gain while "
-                                    f"{pair_name}'s is unknown -- fill the "
-                                    f"pair in LEVEL_BONUS_BY_CLASS")
-            elif own != known and key not in LEVEL_CURVE_EXCEPTIONS:
-                rep.add(key, label, f"level_{level}_bonus {own} differs "
-                                    f"from {pair_name}'s {known} -- an "
-                                    f"exception to confirm, or one of the "
-                                    f"two is wrong")
+        pair_key = level_curve(data)
+        if pair_key not in LEVEL_BONUS_BY_CLASS:
+            rep.add(key, label, f"no LEVEL_BONUS_BY_CLASS row for "
+                                f"{pair_key[0]} grade {pair_key[1]} -- "
+                                f"levels 61 and 62 add nothing")
 
     table = _Reporter("characters.py", {})
     for pair_key, levels in LEVEL_BONUS_BY_CLASS.items():
@@ -601,7 +574,9 @@ def _check_sets(problems: list[str]) -> None:
     rep = _Reporter("sets.py", _line_map("sets.py", "SETS"))
     attributes = tuple(ATTRIBUTE_COLORS)
     stat_names = tuple(SET_STAT_NAME_MAP) + tuple(SET_CARD_MULT_STATS)
-    required = ("name", "pieces", "bonus", "type", "stat", "value")
+    # `bonus` is optional: without it the game client's words show
+    # (`sets.set_bonus`), and the checks note the set.
+    required = ("name", "pieces", "type", "stat", "value")
     names: dict = {}
 
     for key, data in SETS.items():
@@ -633,6 +608,10 @@ def _check_sets(problems: list[str]) -> None:
                                 f"{', '.join(SETS_TYPES)}")
         if "value" in data and not _is_number(data["value"]):
             rep.add(key, label, f"value {data['value']!r} is not a number")
+        if "bonus" in data and not (isinstance(data["bonus"], str)
+                                    and data["bonus"].strip()):
+            rep.add(key, label, f"bonus {data['bonus']!r} is not a wording "
+                                f"-- leave the key out for the game's own")
 
         stat = data.get("stat")
         if "stat" in data:

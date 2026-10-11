@@ -40,6 +40,7 @@ from .sets import (
     FOUR_PIECE_SETS,
     SET_STAT_NAME_MAP,
     SET_CARD_MULT_STATS,
+    set_bonus,
 )
 
 from .constants import (
@@ -109,6 +110,7 @@ __all__ = [
     'FOUR_PIECE_SETS',
     'SET_STAT_NAME_MAP',
     'SET_CARD_MULT_STATS',
+    'set_bonus',
 
     # Constants
     'CHARACTER_EXP_TABLE',

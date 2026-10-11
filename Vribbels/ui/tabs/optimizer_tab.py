@@ -63,7 +63,7 @@ from ui.utils.style_once import first_time
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import bind_combobox_nav
 from game_data import (
-    SETS, FOUR_PIECE_SETS, TWO_PIECE_SETS,
+    SETS, FOUR_PIECE_SETS, TWO_PIECE_SETS, set_bonus,
     SLOT_MAIN_STATS, RARITY_COLORS, ATTRIBUTE_COLORS,
     CHARACTERS,
     get_character_by_name
@@ -1809,7 +1809,7 @@ class OptimizerTab(BaseTab):
             # The NAME carries it. The checkbox's own text is the piece
             # count -- `4pc` -- and an underline under two characters
             # reads as a mark on the number rather than on the set.
-            tip_text = sinfo.get("bonus", "")
+            tip_text = set_bonus(sid)
             self._tooltip.bind(name_label, tip_text)
 
             def _toggle(_event=None, v=var):

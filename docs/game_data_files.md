@@ -36,6 +36,8 @@ Only the names in that module's docstring table reach the formulas — the five 
 
 Where each value lands: `game_formulas.md` §5.
 
+**A set's `bonus` is the maintainer's own short wording, and optional**: without one the game client's words show, and `check_set_wordings` notes the set. Every wording's figures are held to the game's, so a patch that moves a set's figures fails the check until the wording follows (the `sets.py` docstring, *The wording*).
+
 ## The item tables in `constants.py`
 
 Six tables name every item the Materials tab draws, and `ITEM_TABLES` is the tuple of them. Two shapes:
@@ -73,7 +75,7 @@ The whole potential tree in one tuple — display order, the game's numbering, t
 
 ## `potential_7.py`
 
-Node 7 per combatant: the bonus, the check and its growth, in the shape the module docstring gives; the rules they follow are `game_formulas.md` §1, *Potential 7*. A new combatant needs an entry: the validator reports one without, and its node 7 scores as nothing until it has one. **Check stats are the Have-at-least names** (`CHECK_STATS`) and a misspelt one never passes, which the validator reports too. A new entry's numbers are held to the server by the next plain battle the combatant fights with node 7 taken (`check_base_stats_on_wire`).
+Node 7 per combatant: the bonus, the check and its growth, in the shape the module docstring gives; the rules they follow are `game_formulas.md` §1, *Potential 7*. A new combatant needs an entry: the validator reports one without, and its node 7 scores as nothing until it has one. **Check stats are the Have-at-least names** (`CHECK_STATS`) and a misspelt one never passes, which the validator reports too. A new entry's numbers are held to the server by the next plain battle the combatant fights with node 7 taken (`check_base_stats_on_wire`), and to the game client's node 7 by `python docs/client_tables.py --audit`, whose lines `check_set_wordings` also notes (`client_data.md`, *What it was held against*).
 
 **A balance patch that rewrites a node 7**: move the old effects into `POTENTIAL_7_BEFORE`, with the first second the new one was live, and write the new ones in `POTENTIAL_7`. The readings keep sheets from both sides of the patch, and each is held to the node 7 it was stated under.
 
@@ -96,7 +98,7 @@ A plain reading wins over a worked-out one. A Sortie settles nothing: the week's
 **The program uses what the server says** where its tables are silent or wrong: `game_data.learned`, filled on every snapshot load from the account's readings and the shipped shared facts, newest first. The order `get_character_stats_at_level` answers in:
 
 1. The reading at the level asked.
-2. Else the nearest reading, walked there by the level gains: the combatant's own, read off two readings; else their `level_6N_bonus` key; else the gain every reading of their class and grade agrees on; else `LEVEL_BONUS_BY_CLASS`.
+2. Else the nearest reading, walked there by the level gains: the combatant's own, read off two readings; else the gain every reading on their curve agrees on; else `LEVEL_BONUS_BY_CLASS`. A curve is a class and grade's, and a combatant on another class's curve names it in `level_curve`.
 3. Else the tables alone, as `table_stats_at_level` gives them.
 
 `get_partner_stats` takes the partner's reading at that level, else one of a partner of the same grade and class, else the linear table. The tables are still worth correcting: they are what a player without readings gets, and what the check holds the server against.

@@ -411,7 +411,7 @@ def _the_overlay_answers():
     from game_data.characters import LEVEL_BONUS_BY_CLASS
     plain = collections.Counter(
         (c["class"], c["grade"]) for c in CHARACTERS.values()
-        if isinstance(c, dict) and c.get("level_61_bonus") is None)
+        if isinstance(c, dict) and not c.get("level_curve"))
     pair = next(p for p, n in plain.most_common() if n >= 2)
     held = LEVEL_BONUS_BY_CLASS[pair]
     LEVEL_BONUS_BY_CLASS[pair] = {61: None, 62: None}
@@ -438,14 +438,14 @@ def _overlay_with_a_pair_unknown():
                     if isinstance(c, dict) and want(c))
 
     silent = [(rid, c) for rid, c in CHARACTERS.items()
-              if isinstance(c, dict) and c.get("level_61_bonus") is None
+              if isinstance(c, dict) and not c.get("level_curve")
               and (LEVEL_BONUS_BY_CLASS.get((c["class"], c["grade"]))
                    or {}).get(61) is None]
     pairs = {}
     for rid, c in silent:
         pairs.setdefault((c["class"], c["grade"]), []).append((rid, c))
     (x_id, x), (y_id, y) = next(v for v in pairs.values() if len(v) >= 2)[:2]
-    z_id, z = pick(lambda c: c.get("level_61_bonus") is None and (
+    z_id, z = pick(lambda c: not c.get("level_curve") and (
         LEVEL_BONUS_BY_CLASS.get((c["class"], c["grade"])) or {}).get(61)
         and c is not x and c is not y)
     zgain = LEVEL_BONUS_BY_CLASS[(z["class"], z["grade"])][61]

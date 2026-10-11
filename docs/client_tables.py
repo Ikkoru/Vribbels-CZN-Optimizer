@@ -41,7 +41,7 @@ from game_client import Client                                # noqa: E402
 
 SHIPPED = REPO / "Vribbels" / "game_data" / "from_client.py"
 
-SHIPPED_HEAD = '''"""Event names and totals, item names, Excursion types and daily tasks, off the game client.
+SHIPPED_HEAD = '''"""Event names and totals, item names, Excursion types, daily tasks, set effects and Potential texts, off the game client.
 
 Written by `python docs/client_tables.py --ship`, as of the game build
 `BUILD`; never edited by hand. What a player's own client says wins
@@ -96,6 +96,22 @@ def shipped_source(client):
               "DAILY_TASKS = {"]
     lines += [f"    {ascii(res_id)}: ({count}, {points}),"
               for res_id, (count, points) in sorted(tasks.items())]
+    lines += ["}", "",
+              "# {set id: (name, pieces, words, stat, value)}. See "
+              "game_client.set_effects.",
+              "SET_EFFECTS = {"]
+    lines += [f"    {set_id}: {ascii(tuple(effect))},"
+              for set_id, effect in sorted(
+                  game_client.set_effects(client).items())]
+    lines += ["}", "",
+              "# {combatant res_id: {wire node: words}}. See "
+              "game_client.potential_texts.",
+              "POTENTIAL_TEXTS = {"]
+    for res_id, nodes in sorted(game_client.potential_texts(client).items()):
+        lines.append(f"    {res_id}: {{")
+        lines += [f"        {wire}: {ascii(words)},"
+                  for wire, words in sorted(nodes.items())]
+        lines.append("    },")
     lines += ["}", ""]
     return "\n".join(lines)
 
@@ -115,9 +131,6 @@ PROMOTIONS = 5
 STATS = (("base_atk", "s_atk", "S_ATK"), ("base_def", "s_def", "S_DEF"),
          ("base_hp", "s_hp", "S_HP"))
 NUMBER = re.compile(r"\d+(?:\.\d+)?")
-BREAK = re.compile(r"<br\s*/?>", re.I)
-MARKUP = re.compile(r"<[^>]*>")
-KEYWORD = re.compile(r"\$([^$#]*)(?:#\d*)?\$")
 PASSIVE_TEXT = re.compile(r"partner_passive@description@(\d+)_c\d+_lv(\d+)")
 
 
@@ -141,20 +154,11 @@ def _plain(value):
         else value
 
 
-def passage(text):
-    """A passage of the client's as the game draws it: `<br>` as a new
-    line, colour tags taken out, and a keyword's marker `$Name#level$`
-    down to its name -- the level in it is not one of the figures."""
-    text = BREAK.sub("\n", text or "")
-    text = MARKUP.sub("", text)
-    text = KEYWORD.sub(r"\1", text)
-    text = text.replace(chr(0x2019), "'")
-    return "\n".join(" ".join(line.split()) for line in text.split("\n"))
-
-
 def _numbers(text):
-    """The figures in a passage, markup aside, as sorted floats."""
-    return sorted(float(n) for n in NUMBER.findall(passage(text)))
+    """The figures in a passage, markup aside, as sorted floats. A
+    keyword's level (`$Name#level$`) is not one of them."""
+    return sorted(float(n) for n in
+                  NUMBER.findall(game_client.passage(text)))
 
 
 def _figures(numbers):
@@ -296,6 +300,241 @@ def audit(client):
     for rid, name in sorted(item_names().items()):
         if rid in theirs:
             differ(f"item {rid}", "name", name, theirs[rid])
+
+    effects = game_client.set_effects(client)
+    out += set_problems(effects)
+    out += unlisted_sets(effects)
+    from game_data import from_client
+    out += set_changes(from_client.SET_EFFECTS, effects)
+    out += potential_7_problems(client)
+    return out
+
+
+# The client's stat ids for the plain stats a set's `stat` names.
+SET_STATS = {"S_ATK_INC_RATE_OUT": "ATK%", "S_DEF_INC_RATE_OUT": "DEF%",
+             "S_HP_INC_RATE_OUT": "HP%",
+             "S_CRI_DMG_RATE_INC_ADD": "Crit DMG",
+             "S_CRI_INC_ADD": "Crit Rate"}
+
+
+def set_problems(effects):
+    """Lines saying where `game_data/sets.py` and `effects`, the
+    client's sets as `game_client.set_effects` gives them, disagree: a
+    name, a piece count, a plain stat or its figure, the figures in the
+    maintainer's own wording against the game's, and a set the client
+    lacks (`unlisted_sets` names the ones `sets.py` lacks). The wording
+    itself is the maintainer's, and not compared."""
+    from game_data import SETS
+    out = []
+    for set_id, ours in sorted(SETS.items()):
+        who = f"set {set_id} {ours.get('name')}"
+        theirs = effects.get(set_id)
+        if theirs is None:
+            out.append(f"{who}: not in the client")
+            continue
+        name, pieces, words, stat, value = theirs
+        if _plain(ours.get("name")) != name:
+            out.append(f"{who}: named {name!r} in the client")
+        if ours.get("pieces") != pieces:
+            out.append(f"{who}: {ours.get('pieces')} pieces here, {pieces} "
+                       f"in the client")
+        if stat and (SET_STATS.get(stat), value) != (ours.get("stat"),
+                                                    ours.get("value")):
+            out.append(f"{who}: {ours.get('stat')} {ours.get('value')} "
+                       f"here, {SET_STATS.get(stat, stat)} {value} in the "
+                       f"client")
+        # Which figures, not how often: a short wording states a figure
+        # once where the game's repeats it.
+        bonus = ours.get("bonus")
+        here, there = set(_numbers(bonus)), set(_numbers(words))
+        if bonus and here != there:
+            out.append(f"{who}: its wording states "
+                       f"{_figures(sorted(here))}, the game's "
+                       f"{_figures(sorted(there))}: {words!r}")
+    return out
+
+
+def unlisted_sets(effects):
+    """Lines naming each of the client's sets `game_data/sets.py` lacks.
+    The program shows it by number, in the game's words."""
+    from game_data import SETS
+    return [f"set {set_id} {effects[set_id][0]}: in the client, not in "
+            f"game_data/sets.py" for set_id in sorted(set(effects) - set(SETS))]
+
+
+def set_changes(before, after):
+    """Lines naming each set whose effect `after` words differently
+    from `before` (both as `game_client.set_effects` gives them), and
+    whether only its figures moved -- then the maintainer's wording
+    wants new figures -- or its words did, and it wants rewording."""
+    out = []
+    for set_id in sorted(set(before) & set(after)):
+        old, new = before[set_id][2], after[set_id][2]
+        if old == new:
+            continue
+        who = f"set {set_id} {after[set_id][0]}"
+        if NUMBER.sub("#", old) == NUMBER.sub("#", new):
+            out.append(f"{who}: only its figures moved, "
+                       f"{_figures(_numbers(old))} to "
+                       f"{_figures(_numbers(new))}: {new!r}")
+        else:
+            out.append(f"{who}: reworded, from {old!r} to {new!r}")
+    return out
+
+
+# A node 7 effect's stat ids, in `potential_7.py`'s words: what it
+# grants, and what its check reads. An attribute's damage is Element%.
+NODE_GRANTS = {"S_ATK_INC_RATE_OUT": "ATK%", "S_DEF_INC_RATE_OUT": "DEF%",
+               "S_CRI_INC_ADD": "CRate", "S_CRI_DMG_RATE_INC_ADD": "CDmg",
+               "S_ADDI_ATK_DMG_RATE_INC_ADD": "Extra DMG%",
+               "S_WEAK_EGO_DMG_RATE": "weakness"}
+NODE_ELEMENT = re.compile(r"S_([A-Z]+)_DMG_RATE_INC_ADD")
+NODE_CHECKS = {"S_ATK": "ATK", "S_DEF": "DEF", "S_HP": "HP", "S_CRI": "CRate",
+               "S_CRI_DMG_RATE": "CDmg", "S_ADDI_ATK_DMG_RATE": "Extra DMG%",
+               "S_DOT_ATK_DMG_RATE": "DoT%", "S_CHARGING_POWER": "Ego"}
+# How a node effect row applies: a stat always, a stat once a check
+# passes, a card's figures once it passes, or an in-battle effect whose
+# figures are in another table (so only its check is compared).
+NODE_STAT, NODE_CHECKED, NODE_CARD, NODE_BATTLE = (
+    "NODE_STAT_ADD", "NODE_STAT_ADD_ANOTHER_STAT",
+    "NODE_STAT_ADD_SKILL_EFF_VALUE", "NODE_CS_ADD")
+
+
+def _node_effects(rows, attribute):
+    """A live node 7's effect rows as `potential_7` states effects:
+    [{grants, check, at, value, rate, most}]. A row past its check's
+    threshold grants its limit; one using the EXCESS grants value/100
+    for each point past it, up to its limit, and is folded into the
+    plain row of the same check as that row's growth. `grants` is None
+    for an in-battle effect, which may be any."""
+    found = {}
+    for row in rows:
+        kind = row.get("node_type")
+        stat = row.get("link_stat_list_id") or ""
+        element = NODE_ELEMENT.fullmatch(stat)
+        if kind == NODE_CARD:
+            grants = "card"
+        elif kind == NODE_BATTLE:
+            grants = None
+        elif element and element.group(1) in ATTRIBUTES:
+            grants = "Element%" if ATTRIBUTES[element.group(1)] \
+                == attribute else f"{ATTRIBUTES[element.group(1)]}%"
+        else:
+            grants = NODE_GRANTS.get(stat, stat)
+        at = game_client._figure(row.get("stat_check_threshold")) or None
+        check = NODE_CHECKS.get(row.get("check_link_stat_list_id")) \
+            if at else None
+        key = (grants, check, at)
+        effect = found.setdefault(key, {"grants": grants, "check": check,
+                                        "at": at, "value": None,
+                                        "rate": None, "most": None})
+        value = game_client._figure(row.get("value"))
+        limit = game_client._figure(row.get("stat_add_limit"))
+        if kind == NODE_STAT:
+            effect["value"] = value
+        elif kind == NODE_BATTLE:
+            pass
+        elif row.get("stat_check_use_excess") == "TRUE":
+            effect["rate"], effect["most"] = value / 100, limit
+            if effect["value"] is None:
+                effect["value"] = 0
+        else:
+            effect["value"] = limit
+    return list(found.values())
+
+
+def _program_effects(effects):
+    """`potential_7.py`'s effects in `_node_effects`' shape, an any-of
+    check standing as one effect per stat it reads."""
+    from game_data.potential_7 import conditions
+    out = []
+    for effect in effects:
+        rate = effect["add"] / effect["per"] if effect.get("per") else None
+        for check, at in conditions(effect) or ((None, None),):
+            out.append({"grants": effect["grants"], "check": check,
+                        "at": at, "value": effect["value"], "rate": rate,
+                        "most": effect.get("max")})
+    return out
+
+
+def _same_effect(ours, theirs):
+    """Whether a program effect and a client one say the same; where
+    the client's grants or value is in another table, those aside."""
+    if (ours["check"], ours["at"]) != (theirs["check"], theirs["at"]):
+        return False
+    if theirs["grants"] is None:
+        return True
+    if ours["grants"] != theirs["grants"]:
+        return False
+    return all(theirs[k] is None or abs((ours[k] or 0) - theirs[k]) < 1e-9
+               for k in ("value", "rate", "most"))
+
+
+def _effect_words(effect):
+    """One effect as a short phrase, for a report line."""
+    words = f"{effect['grants'] or 'an in-battle effect'}"
+    if effect["value"] is not None:
+        words += f" {effect['value']:g}"
+    if effect["check"]:
+        words += f" at {effect['check']} {effect['at']:g}"
+    if effect["rate"]:
+        words += f", +{effect['rate']:g} a point past it to {effect['most']:g}"
+    return words
+
+
+def potential_7_problems(client):
+    """Lines saying where `potential_7.py` and the client's node 7s
+    disagree: an effect one side states and the other does not, the
+    figures `potential_7.py` holds that the game's text never states,
+    and a combatant either side lacks. The client's data and its text
+    can disagree with each other, so each line quotes the text."""
+    from game_data import CHARACTERS
+    from game_data.potential_7 import POTENTIAL_7
+    effect_rows = {r["id"]: r for r
+                   in client.rows(game_client.NODE_EFFECT_TABLE)}
+    texts = client.text()
+    nodes = {rid: row for (rid, num), row
+             in game_client.live_nodes(client).items() if num == "7_0"}
+    out = []
+    for rid in sorted(set(nodes) | set(POTENTIAL_7)):
+        char = CHARACTERS.get(rid)
+        name = char.get("name") if isinstance(char, dict) else "?"
+        who = f"combatant {rid} {name}: Potential 7"
+        if rid not in nodes:
+            out.append(f"{who} is not in the client")
+            continue
+        node = nodes[rid]
+        words = game_client.passage(texts.get(node.get("desc")))
+        if rid not in POTENTIAL_7:
+            if isinstance(char, dict):
+                out.append(f"{who} is in the client, not in "
+                           f"game_data/potential_7.py: {words!r}")
+            continue
+        links = (node.get("link_potential_node_effect_id") or "")
+        rows = [effect_rows[k] for k in links.strip("[]").split(",")
+                if k in effect_rows]
+        theirs = _node_effects(rows, char.get("attribute"))
+        ours = _program_effects(POTENTIAL_7[rid])
+        apart_ours = [e for e in ours
+                      if not any(_same_effect(e, t) for t in theirs)]
+        apart_theirs = [t for t in theirs
+                        if not any(_same_effect(e, t) for e in ours)]
+        if apart_ours or apart_theirs:
+            out.append(
+                f"{who}: here "
+                f"{'; '.join(map(_effect_words, apart_ours)) or 'nothing'}"
+                f", in the client's data "
+                f"{'; '.join(map(_effect_words, apart_theirs)) or 'nothing'}"
+                f". Its text: {words!r}")
+        said = set(_numbers(words))
+        held = {float(n) for e in POTENTIAL_7[rid] for n in
+                (e.get("value"), e.get("per"), e.get("add"), e.get("max"),
+                 *(e.get("at") if isinstance(e.get("at"), tuple)
+                   else (e.get("at"),)))
+                if isinstance(n, (int, float)) and n}
+        if held - said:
+            out.append(f"{who}: {_figures(sorted(held - said))} here are "
+                       f"not in its text: {words!r}")
     return out
 
 
