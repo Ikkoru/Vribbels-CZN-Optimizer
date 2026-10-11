@@ -31,6 +31,14 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   Seen already, in the Tower and in a Chaos run: `clear_stage` answered `FAIL`. The Chaos run also sent a `battle_end` saying `BATTLE_RESULT_TYPE_STAGE_FAILED`.
 
+- **I36 — Two node 7s whose texts disagree with the client's data.** `potential_7.py` follows the data, and `TEXT_FIXES` corrects the tooltips (`docs/client_data.md`, *What it was held against*). Sereniel's text agrees with the official developer note on her 09-30 rework (`page.onstove.com/chaoszeronightmare/en/view/14536071`), which states the step version; no official source states Tenebria's. With capture on, a plain battle (Simulation, Battle Mission, the Tower, the Basin, the Great Rift, the Full-Scale Offensive) with node 7 taken, at:
+  - **Tenebria: 620 to 780 ATK.** Data: +5% Passion damage at 600 and +2% per 20 past it, whole at 700. Text: +1% per 20, whole at 800. They differ most at 700, by 5%.
+  - **Sereniel: 24% to 39% Crit Chance.** Data: +10% Instinct damage at 20% and +1% per 4% past it, whole at 40%. Text: the second +5% all at once at 40%. They differ by up to 4.75%, and agree again at 40%.
+
+  The value is the one Potential 7 checks, before partner passives and Equipment: the Optimizer's `Pot7 ATK` and `Pot7 CritRate` lines for a build, not the Character card's final stats. The middle of each range leaves room for the difference. `check_base_stats_on_wire` then holds the sheet's element damage to `potential_7.py` to within 0.05, and fails if the data's version is not the server's. Every reading so far is past both caps (Tenebria at 980 ATK, Sereniel at 60.4%), where the two agree.
+
+- **I37 — Anika's and Arabella's level curves.** The client puts both Strikers on another class's level-61/62 gains: Anika on Vanguard grade 4's (`c_lv_vanguard_sr`), Arabella on Ranger grade 5's (`c_lv_ranger_ssr`), `level_curve` in `characters.py`. No reading has either past level 60. With capture on, a plain battle with either at level 61 or 62; `check_base_stats_on_wire` then holds the server's base to the curve.
+
 - **I35 — After the 2026-09-30 patch.** What the patch's plan left open. The rest is in `past_plans/patch_2026_09_30.md`.
 
   1. **10-13: Nine & Alcea's Normal Rescue rerun, and Nine's trial.** A capture confirms `RERUN_BANNERS`' dates and the trial's pairing.

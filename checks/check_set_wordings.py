@@ -12,16 +12,20 @@ figures) or reworded the effect (the wording wants rewriting).
 A set with no wording of its own, or none in `sets.py` at all, shows
 the game's words, and each is noted so the maintainer can write one.
 
-The client's node 7s against `game_data/potential_7.py` are noted too,
-where a client is installed: `python docs/client_tables.py --audit`
-gives the same lines.
+Where a client is installed, its node 7s are held to
+`game_data/potential_7.py`, and its node 7 and 5.1 texts to their
+data, `TEXT_FIXES` applied (`python docs/client_tables.py --audit`
+gives the same lines). Each is a FAILURE, not a note: a patch that
+rewrites a node's effect, or the text a fix corrects, has to be seen
+the run after it lands -- the fix may now be wrong, or the server may
+be doing something none of the program's readings has shown.
 """
 
 import importlib.util
 
 from ._harness import REPO_ROOT, add_source_to_path, note
 
-NAME = "set wordings and Potential 7 against the game client"
+NAME = "set wordings and Potentials 7 and 5.1 against the game client"
 
 
 def _tool():
@@ -143,6 +147,6 @@ def run():
                      f"docs/client_tables.py --ship`."
                      for line in tool.set_changes(shipped, installed)
                      + tool.set_problems(installed)]
-    for line in tool.potential_7_problems(client):
-        note(line)
+    failures += tool.potential_7_problems(client)
+    failures += tool.node_51_problems(client)
     return failures

@@ -307,6 +307,7 @@ def audit(client):
     from game_data import from_client
     out += set_changes(from_client.SET_EFFECTS, effects)
     out += potential_7_problems(client)
+    out += node_51_problems(client)
     return out
 
 
@@ -490,6 +491,57 @@ def _effect_words(effect):
     return words
 
 
+def _shown_words(rid, wire, raw, who, out):
+    """A node's text as the Combatants tab shows it, `TEXT_FIXES`
+    applied. A fix whose words the text no longer holds is a patch
+    having rewritten it, and goes in `out` with what to do."""
+    from game_data.potential_7 import TEXT_FIXES
+    words = game_client.passage(raw)
+    for wrong, right in TEXT_FIXES.get((rid, wire), ()):
+        if wrong not in words:
+            out.append(
+                f"{who}: a patch rewrote the text TEXT_FIXES corrects. It "
+                f"no longer holds {wrong!r}, and reads {words!r}. If it "
+                f"now states the data's figures, the patch corrected it: "
+                f"delete the fix in game_data/potential_7.py. If not, the "
+                f"text and the data disagree anew, and a battle settles "
+                f"which the server uses (tasks.md, I36)")
+        words = words.replace(wrong, right)
+    return words
+
+
+def node_51_problems(client):
+    """Lines naming each node 5.1 whose text does not state its data's
+    figures -- the flat bonus, the threshold, the bonus past it -- and
+    a stale `TEXT_FIXES` entry. The program prices no node 5.1; its
+    text is what the Combatants tab's tooltip shows. An in-battle
+    effect's figures are in another table, and only its threshold is
+    held."""
+    from game_data import CHARACTERS
+    effect_rows = {r["id"]: r for r
+                   in client.rows(game_client.NODE_EFFECT_TABLE)}
+    texts = client.text()
+    out = []
+    for (rid, num), node in sorted(game_client.live_nodes(client).items()):
+        char = CHARACTERS.get(rid)
+        if num != "5_1" or not isinstance(char, dict):
+            continue
+        who = f"combatant {rid} {char.get('name')}: node 5.1"
+        words = _shown_words(rid, 51, texts.get(node.get("desc")), who, out)
+        links = (node.get("link_potential_node_effect_id") or "")
+        rows = [effect_rows[k] for k in links.strip("[]").split(",")
+                if k in effect_rows]
+        stated = {float(n) for e in _node_effects(rows, char.get("attribute"))
+                  for n in (e["value"], e["at"], e["most"])
+                  if isinstance(n, (int, float)) and n}
+        missing = stated - set(_numbers(words))
+        if missing:
+            out.append(f"{who}: the data's {_figures(sorted(missing))} are "
+                       f"not in its text: {words!r}. A TEXT_FIXES entry in "
+                       f"game_data/potential_7.py puts them in the tooltip")
+    return out
+
+
 def potential_7_problems(client):
     """Lines saying where `potential_7.py` and the client's node 7s
     disagree: an effect one side states and the other does not, the
@@ -498,7 +550,7 @@ def potential_7_problems(client):
     combatant either side lacks. The data is the source; the text is
     compared as the Combatants tab shows it, its fixes applied."""
     from game_data import CHARACTERS
-    from game_data.potential_7 import POTENTIAL_7, TEXT_FIXES
+    from game_data.potential_7 import POTENTIAL_7
     effect_rows = {r["id"]: r for r
                    in client.rows(game_client.NODE_EFFECT_TABLE)}
     texts = client.text()
@@ -513,12 +565,7 @@ def potential_7_problems(client):
             out.append(f"{who} is not in the client")
             continue
         node = nodes[rid]
-        words = game_client.passage(texts.get(node.get("desc")))
-        for wrong, right in TEXT_FIXES.get((rid, 70), ()):
-            if wrong not in words:
-                out.append(f"{who}: the text no longer holds TEXT_FIXES' "
-                           f"{wrong!r}. It reads {words!r}")
-            words = words.replace(wrong, right)
+        words = _shown_words(rid, 70, texts.get(node.get("desc")), who, out)
         if rid not in POTENTIAL_7:
             if isinstance(char, dict):
                 out.append(f"{who} is in the client, not in "
