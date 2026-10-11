@@ -74,7 +74,7 @@ def run():
         columns_for,
         ACTIVITY_READING, DAILY_TASK_FIELD,
         DELEGATION_CURRENCY, DELEGATION_DONE, DELEGATION_TODO,
-        ENDS_IN, LATER, SOON, WARN, WARN_BLINK,
+        is_countdown, countdown_words, LATER, SOON, WARN, WARN_BLINK,
         PASS_DAILY_COUNT, PERIOD_LENGTHS,
         _period_band, _period_left, _period_words, _heading_colour,
         DONE, GREAT_RIFT_TARGET, MODULE_ITEM,
@@ -798,15 +798,15 @@ def run():
     # is the longest a counted copy has left, not the window.
     raw = _snapshot(expiries=(now + 6 * HOUR, now + 3 * DAY, week + DAY))
     out = _readings(raw, now)
-    if out["modules_soon"] != [("1 expiring within 6h!", SOON)]:
+    if out["modules_soon"] != [("6h!", SOON), ("1", SOON)]:
         failures.append(
             f"the tight module row reads {out['modules_soon']!r}, not "
-            f"('1 expiring within 6h!', {SOON!r}). The window bounds what "
-            f"is COUNTED; the words say how long the last of them has.")
-    if out["modules_week"] != [("2 expiring within 3d", WARN_BLINK)]:
+            f"`6h!` and `1` in {SOON!r}. The window bounds what is "
+            f"COUNTED; the words say how long the last of them has.")
+    if out["modules_week"] != [("3d", WARN_BLINK), ("2", WARN_BLINK)]:
         failures.append(
             f"the wide module row reads {out['modules_week']!r}, not "
-            f"('2 expiring within 3d', {WARN_BLINK!r}). The windows "
+            f"`3d` and `2` in {WARN_BLINK!r}. The windows "
             f"NEST -- a copy inside 24 hours is inside seven days -- so "
             f"the wider count includes the tighter one, and its number is "
             f"the furthest out of the two.")
@@ -814,13 +814,14 @@ def run():
     # The seven-day row blinks only for a copy one to three days out:
     # red from one to two, orange from two to three, red where both
     # hold. Inside a day the 24-hour row blinks and this one holds still
-    # in red, as it does with copies only further out.
+    # in orange, as it does with copies only further out.
     for hours, want in (((30,), SOON), ((60,), WARN_BLINK),
-                        ((30, 60), SOON), ((6,), TODO), ((96,), TODO),
+                        ((30, 60), SOON), ((6,), WARN), ((96,), WARN),
                         ((6, 60), WARN_BLINK), ((48,), SOON),
-                        ((72,), WARN_BLINK), ((24,), TODO)):
+                        ((72,), WARN_BLINK), ((24,), WARN)):
         raw = _snapshot(expiries=tuple(now + h * HOUR for h in hours))
-        got = _readings(raw, now)["modules_week"][0][1]
+        got = {state for _w, state in _readings(raw, now)["modules_week"]}
+        got = got.pop() if len(got) == 1 else got
         if got != want:
             failures.append(
                 f"copies {hours} hours from expiring draw the seven-day "
@@ -831,15 +832,15 @@ def run():
 
     # Rounded UP, so a copy is never promised time it has spent.
     out = _readings(_snapshot(expiries=(now + 90 * 60,)), now)
-    if out["modules_soon"][0][0] != "1 expiring within 2h!":
+    if out["modules_soon"][0][0] != "2h!":
         failures.append(
             f"a copy 90 minutes out reads {out['modules_soon'][0]!r}, not "
-            f"'1 expiring within 2h!'. Rounding down promises an hour "
+            f"'2h!'. Rounding down promises an hour "
             f"that is already spent.")
 
     # A copy landing exactly ON a boundary is inside it.
     out = _readings(_snapshot(expiries=(soon,)), now)
-    if out["modules_soon"][0][0] != "1 expiring within 24h!":
+    if out["modules_soon"] != [("24h!", SOON), ("1", SOON)]:
         failures.append(
             f"a copy expiring exactly 24 hours out reads "
             f"{out['modules_soon'][0]!r}. `within` includes the boundary.")
@@ -847,8 +848,8 @@ def run():
     # Nothing held: the window's own bound stands in for a longest that
     # does not exist, and both rows are GREEN -- there is nothing to use.
     out = _readings(_snapshot(), now)
-    if (out["modules_soon"] != [("0 expiring within 24h!", DONE)]
-            or out["modules_week"] != [("0 expiring within 7d", DONE)]):
+    if (out["modules_soon"] != [("24h!", DONE), ("0", DONE)]
+            or out["modules_week"] != [("7d", DONE), ("0", DONE)]):
         failures.append(
             f"with no modules held the two rows read "
             f"{out['modules_soon']!r} and {out['modules_week']!r}, not "
@@ -1715,10 +1716,10 @@ def run():
             f"are separate segments: one says whether the work is done "
             f"and the other how long is left, and one string could take "
             f"only one colour between them.")
-    elif not got[1][0].startswith(ENDS_IN) or got[1][1] != LATER:
+    elif got[1] != ("5d left", LATER):
         failures.append(
-            f"the countdown segment reads {got[1]!r}, not `{ENDS_IN}5 "
-            f"days` in {LATER!r}. Over three days out is the calm band.")
+            f"the countdown segment reads {got[1]!r}, not `5d left` in "
+            f"{LATER!r}. Over three days out is the calm band.")
 
     # The three bands, by how long is left.
     for hours, state in ((6, SOON), (40, WARN), (200, LATER)):
@@ -1737,7 +1738,7 @@ def run():
     raw["event_schedules"] = {"ZERO_REWARD_LIST": {"zero_orb_4": {
         "start_time": int(now - DAY), "end_time": int(now + 5 * DAY)}}}
     got = _readings(raw, now)["matrix"]
-    if len(got) != 1 or not got[0][0].startswith(ENDS_IN):
+    if len(got) != 1 or not is_countdown(got[0][0]):
         failures.append(
             f"a row whose only reading is a deadline reads {got!r}, not "
             f"the time alone. A dash beside it would be a stand-in "
@@ -2118,7 +2119,7 @@ def run():
         _finishable={})
     raw = _snapshot()
     readings = {EVENT_KEY_PREFIX + "probe": (("21/21", FLOOR),
-                                             ("Ends in 3 days", LATER))}
+                                             ("3d left", LATER))}
     open_rows = ChecklistTab._mark_finished(stub, raw, readings)
     if open_rows.get(EVENT_KEY_PREFIX + "probe") != (21, 21, False):
         failures.append(
@@ -2129,7 +2130,7 @@ def run():
 
     store.call_finished("probe", 21, 21)
     readings = {EVENT_KEY_PREFIX + "probe": (("21/21", FLOOR),
-                                             ("Ends in 3 days", LATER))}
+                                             ("3d left", LATER))}
     open_rows = ChecklistTab._mark_finished(stub, raw, readings)
     if readings[EVENT_KEY_PREFIX + "probe"][0] != ("21/21", DONE):
         failures.append(
@@ -2145,7 +2146,7 @@ def run():
     # **Either figure moving retires the answer**, and not quietly:
     # the record goes, so the row is asked about again from scratch.
     readings = {EVENT_KEY_PREFIX + "probe": (("21/22", FLOOR),
-                                             ("Ends in 3 days", LATER))}
+                                             ("3d left", LATER))}
     open_rows = ChecklistTab._mark_finished(stub, raw, readings)
     if store.finished or readings[EVENT_KEY_PREFIX + "probe"][0][1] is DONE:
         failures.append(
@@ -2163,7 +2164,7 @@ def run():
     key = EVENT_KEY_PREFIX + "event_overclock_live_13"
     asked = ChecklistTab._mark_finished(
         SimpleNamespace(context=SimpleNamespace(checklist_manager=store)),
-        clocked, {key: (("6/6", CYCLE_DONE), ("Ends in 1 day", SOON))})
+        clocked, {key: (("6/6", CYCLE_DONE), ("1d left", SOON))})
     if key in asked:
         failures.append(
             f"a live Overclock at 6/6 is asked Finished? ({asked[key]!r}). "
@@ -2348,8 +2349,8 @@ def run():
     sized = dict(ct.size_event_readings((("Other", (
         (key_a, "A", ct.with_countdown(ct.EVENT_WIDEST)),
         (key_b, "B", ct.with_countdown(ct.EVENT_WIDEST)))),),
-        {key_a: [("3/21", TODO), (ct.ENDS_IN + "2 days", LATER)],
-         key_b: [(ct.ENDS_IN + "9 days", LATER)]}))["Other"]
+        {key_a: [("3/21", TODO), ("2d left", LATER)],
+         key_b: [("9d left", LATER)]}))["Other"]
     want = ((key_a, "A", ct.with_countdown("9/99")),
             (key_b, "B", ct.WIDEST_COUNTDOWN))
     if sized != want:
@@ -2406,6 +2407,39 @@ def run():
             f"{got!r}, not {want!r}: each block lines up off its own "
             f"labels, so one long event name pushes nothing above it "
             f"across (`SPLIT_COLUMNS`).")
+    # The module rows' middle column: right-aligned at the edge that
+    # centres its widest segment between their labels and the values,
+    # and room for it whatever the column's other labels.
+    for others, why in (((("seasonal", "Seasonal Accumulated Score"),),
+                         "beside a longer label"),
+                        ((), "with no longer label beside it")):
+        weekly = tuple((key, label, "99") for key, label in (
+            ("modules_soon", "Delegation Module"),
+            ("modules_week", "Delegation Module")) + others)
+        stop, _width, tags = ct._column_geometry(_Font(), "Weekly", weekly,
+                                                 10, reserve=())
+        words, wide = 7 * len("Delegation Module"), 7 * len(ct.MIDDLE_WIDEST)
+        want = (round((words + stop + wide) / 2), "right", stop)
+        if tags.get(ct.MIDDLE_STOP_TAG) != want:
+            failures.append(
+                f"the module rows' middle stop is "
+                f"{tags.get(ct.MIDDLE_STOP_TAG)!r}, not {want!r} "
+                f"({why}): right-aligned, centred between the label and "
+                f"the value stop.")
+        if stop - words < wide + 2 * ct.px(ct.LABEL_TO_VALUE):
+            failures.append(
+                f"the module rows leave {stop - words}px between label and "
+                f"values ({why}), short of `24h!` and a gap either side.")
+    for seconds, want in ((9 * DAY + HOUR, "9d left"), (DAY, "1d left"),
+                          (23 * HOUR + 59, "23h left"), (44 * 60, "44m left"),
+                          (30, "1m left"), (0, "Over")):
+        if countdown_words(seconds) != want or not is_countdown(want):
+            failures.append(
+                f"{seconds}s left reads {countdown_words(seconds)!r}, not "
+                f"{want!r}: rounded down, and read back as a countdown.")
+    if is_countdown("7/7") or is_countdown("Go drink!"):
+        failures.append("a reading was taken for a countdown.")
+
     _stop, _width, tags = ct._column_geometry(_Font(), "Weekly", rows, 10,
                                               reserve=())
     if len({tags[ct.COUNTDOWN_STOP_PREFIX + ct.COUNTDOWN_FIXED][0],

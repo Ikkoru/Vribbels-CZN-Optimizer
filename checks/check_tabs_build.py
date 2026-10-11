@@ -1893,7 +1893,8 @@ def _countdowns_line_up(tab):
     import tkinter as tk
     from ui.tabs.checklist_tab import (
         COLUMN_SEP, COUNTDOWN_EVENTS, COUNTDOWN_FIXED,
-        COUNTDOWN_STOP_PREFIX, ENDS_IN, EVENT_KEY_PREFIX, LINE_SEP)
+        COUNTDOWN_STOP_PREFIX, COUNTDOWN_LEFT, EVENT_KEY_PREFIX, LINE_SEP)
+    import re
     out = []
     held = tab.column_texts.get("Other")
     if held is None:
@@ -1931,12 +1932,13 @@ def _countdowns_line_up(tab):
     # Every row that shows a countdown reaches it through a tab.
     for number, line in enumerate(
             text.get("1.0", tk.END).split(LINE_SEP), 1):
-        if ENDS_IN not in line:
+        found = re.search(r"\d+[dhm]" + re.escape(COUNTDOWN_LEFT), line)
+        if not found:
             continue
         tags = text.tag_names("%d.0" % number)
         if not any(str(t).startswith(COUNTDOWN_STOP_PREFIX) for t in tags):
             continue                      # a shop heading, at its own stop
-        at = line.index(ENDS_IN)
+        at = found.start()
         if not line[:at].endswith(COLUMN_SEP):
             out.append(
                 f"a deadline is written as {line[:at][-12:]!r} + the "
@@ -4023,6 +4025,40 @@ def _hidden_tab_catches_up(tab, title, refresh, draws):
             {n: c[1] for n, c in counts.items()})
 
 
+def _checklist_module_rows_take_the_middle(tab):
+    """A module row draws label, window, count, each through a tab.
+
+    The window sits in a column of its own, right-aligned between the
+    label and the values (`MIDDLE_ROWS`), and the count at the value
+    stop. Written with spaces, the count would land wherever the
+    window's words end.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.tabs import checklist_tab as mod
+    held = tab.column_texts.get("Weekly")
+    if held is None:
+        return ["the Weekly column built no Text to read."]
+    text, _rows = held
+    lines = text.get("1.0", tk.END).split(mod.LINE_SEP)
+    found = [(n, line) for n, line in enumerate(lines, 1)
+             if line.startswith("Delegation Module")]
+    if len(found) != 2:
+        return [f"the Weekly column draws {len(found)} Delegation Module "
+                f"rows, not 2."]
+    out = []
+    for number, line in found:
+        parts = line.split(mod.COLUMN_SEP)
+        tags = text.tag_names("%d.0" % number)
+        if len(parts) != 3 or mod.MIDDLE_STOP_TAG not in tags:
+            out.append(
+                f"a Delegation Module row draws {line!r} with tags "
+                f"{tags!r}: its window and its count each reach their "
+                f"column through a tab, at the middle column's stops.")
+    return out
+
+
 def _checklist_reserve_follows_readings(tab):
     """An event reading a digit wider moves the Events' deadlines.
 
@@ -4047,7 +4083,7 @@ def _checklist_reserve_follows_readings(tab):
     def deadline_stop(words):
         readings = mod._readings(raw, now)
         readings[key] = ((words, mod.TODO),
-                         (mod.ENDS_IN + "3 days", mod.LATER))
+                         ("3d left", mod.LATER))
         tab._rebuild_columns(raw, readings)
         for _title, (text, rows) in tab.column_texts.items():
             if any(row[0] == key for row in rows):
@@ -5739,6 +5775,8 @@ def run():
                 _checklist_records_while_hidden(built["ChecklistTab"]))
             failures.extend(
                 _checklist_reserve_follows_readings(built["ChecklistTab"]))
+            failures.extend(
+                _checklist_module_rows_take_the_middle(built["ChecklistTab"]))
             failures.extend(
                 _checklist_block_is_tall_enough(built["ChecklistTab"]))
             failures.extend(

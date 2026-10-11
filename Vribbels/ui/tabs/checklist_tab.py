@@ -483,8 +483,11 @@ BLINKING = {SOON: BLINK_COLOURS, WARN_BLINK: WARN_BLINK_COLOURS}
 BLINK_MS = 1200
 STILL_HEADINGS = frozenset({"Daily"})
 
-# What a countdown segment says before its time.
-ENDS_IN = "Ends in "
+# What a countdown segment says after its time, `9d left`: the word the
+# period headings use beside their own (`HEADING_LEFT`). And what one
+# says once its time has run out.
+COUNTDOWN_LEFT = " left"
+COUNTDOWN_OVER = "Over"
 
 # Two spaces between a row's value and its countdown, so the two read
 # as separate answers rather than one sentence.
@@ -493,7 +496,28 @@ SEGMENT_GAP = "  "
 # The widest a countdown can render, for the columns that reserve room
 # for one. BUILT from the words it is made of rather than typed out, so
 # a change to either cannot leave the reserve behind.
-WIDEST_COUNTDOWN = ENDS_IN + "99 days"
+WIDEST_COUNTDOWN = "99d" + COUNTDOWN_LEFT
+
+
+def countdown_words(seconds):
+    """`9d left`, `23h left`, `44m left`, or `Over`; None with no time.
+
+    Rounded DOWN, as `schedules.countdown` rounds: nothing is promised
+    time it does not have."""
+    if seconds is None:
+        return None
+    if seconds <= 0:
+        return COUNTDOWN_OVER
+    for size, unit in ((24 * 3600, "d"), (3600, "h"), (60, "m")):
+        if seconds >= size or unit == "m":
+            return "%d%s%s" % (max(1, int(seconds // size)), unit,
+                               COUNTDOWN_LEFT)
+
+
+def is_countdown(words):
+    """Whether a segment's words are a countdown (`countdown_words`)."""
+    words = str(words)
+    return words.endswith(COUNTDOWN_LEFT) or words == COUNTDOWN_OVER
 
 
 def with_countdown(widest):
@@ -538,8 +562,8 @@ HEADING_BANDS = ((0.75, "period_full"), (0.5, "period_most"),
 PERIOD_COLOURS = {"period_full": "green", "period_most": "yellow",
                   "period_some": "orange", "period_last": "red"}
 
-# What a heading countdown says: `18h left`, `5d left`.
-HEADING_LEFT = " left"
+# What a heading countdown says: `18h left`, `5d left`, as a row's.
+HEADING_LEFT = COUNTDOWN_LEFT
 
 # And what the Galactic Disaster's heading says under it in season, and
 # what stands where the shop stood until the next one opens. Spelled
@@ -2535,7 +2559,7 @@ def size_event_readings(built, readings):
         for key, label, widest in rows:
             if key.startswith(EVENT_KEY_PREFIX) and key != EVENT_KEY_PREFIX:
                 words = next((str(w) for w, _state in readings.get(key) or ()
-                              if not str(w).startswith(ENDS_IN)), "")
+                              if not is_countdown(w)), "")
                 widest = (with_countdown(words.translate(DIGITS_AS_NINE))
                           if words else WIDEST_COUNTDOWN)
             sized.append((key, label, widest))
@@ -2581,8 +2605,8 @@ COLUMNS = (
         ("simulation", "Simulation Challenges", "3/3"),
         ("chaos_currency", "Chaos Currency",
          EXPECTED_VALUE + "99/4"),
-        ("modules_soon", "Delegation Module", "7 expiring within 24h!"),
-        ("modules_week", "Delegation Module", "7 expiring within 7d"),
+        ("modules_soon", "Delegation Module", "99"),
+        ("modules_week", "Delegation Module", "99"),
         ("sortie_currency", "Sortie Currency",
          EXPECTED_VALUE + "99/9"),
         ("chaos_progress", "Galactic Disaster - Chaos", "8000/8000"),
@@ -2653,6 +2677,15 @@ COUNTDOWN_ROWS = frozenset(
 SPLIT_COLUMNS = frozenset({"Other"})
 # What a shop block's stop is tagged with, plus its heading's key.
 VALUE_STOP_PREFIX = "valuestop:"
+
+# **Rows whose first segment sits in a column of its own**, between the
+# label and the values: the module rows' windows, `24h!` and `6d`, with
+# the count at the column's value stop. RIGHT-aligned, centred in the
+# room between the rows' labels and the values, which `MIDDLE_WIDEST`
+# guarantees is there. See `_column_geometry`.
+MIDDLE_ROWS = frozenset({"modules_soon", "modules_week"})
+MIDDLE_WIDEST = "24h!"
+MIDDLE_STOP_TAG = "middlestop"
 
 
 def countdown_group(key):
@@ -2823,23 +2856,26 @@ SORTIE_WEEKLY_GRANT = 3
 # carries, fourteen days after it was acquired, and no reset moves it.
 #
 # `(span in seconds, row key, words, unit, what the words divide by,
-# blinks)`. The words take (how many, how long the last of them has,
-# the unit), so a row reads `2 expiring within 6h!` where both copies
-# are due today -- the window bounds what is counted, the words say
-# what is actually about to go.
+# blinks, steady)`. A row reads two segments: the words, taking (how
+# long the last counted copy has, the unit), in a column of their own
+# between the label and the values (`MIDDLE_ROWS`), then how many copies
+# expire in that time, at the column's value stop. So `6h!  2` where
+# both copies are due today -- the window bounds what is counted, the
+# words say what is actually about to go.
 #
 # `blinks` are the bands that make the row blink, as `(more than, at
 # most, state)` in hours left, None for no lower bound. Read top down:
 # the first band holding a copy decides, so the seven-day row's red
 # outranks its orange. A row with copies in none of them holds still in
-# red. Inside a day it is the 24-hour row that blinks, and the
-# seven-day row holds still.
+# `steady`: orange for the seven-day row, its copies days away. Inside a
+# day it is the 24-hour row that blinks, and the seven-day row holds
+# still.
 MODULE_ITEM = 3920026           # Time-Limited Command Delegation Module
 MODULE_WINDOWS = (
-    (24 * 3600, "modules_soon", "%d expiring within %d%s!", "h", 3600,
-     ((None, 24, SOON),)),
-    (7 * 24 * 3600, "modules_week", "%d expiring within %d%s", "d",
-     24 * 3600, ((24, 48, SOON), (48, 72, WARN_BLINK))),
+    (24 * 3600, "modules_soon", "%d%s!", "h", 3600,
+     ((None, 24, SOON),), TODO),
+    (7 * 24 * 3600, "modules_week", "%d%s", "d",
+     24 * 3600, ((24, 48, SOON), (48, 72, WARN_BLINK)), WARN),
 )
 
 # The town's daily block: the coffee flag and the day's Communication
@@ -3151,7 +3187,7 @@ def _column_geometry(font, title, rows, overhead, reserve=None):
     its own words -- its total, then its countdown -- and `reach` is
     what accounts for it, so a heading that votes is counted twice:
     once in the column of readings it does not use and once where it
-    actually sits. The column then reserves room for `Ends in 99 days`
+    actually sits. The column then reserves room for `99d left`
     beside `600/600` as well as where the heading draws it, and nothing
     looks wrong until the tab outgrows its window. A row showing NO
     value has no say either, for the same reason; shop PRODUCTS do,
@@ -3173,11 +3209,16 @@ def _column_geometry(font, title, rows, overhead, reserve=None):
         groups.setdefault(blocks.get(key), []).append((label, w, key))
     # spacing: label ↔ its element -- run, run ↔
     gap = px(TEXT_INSET + LABEL_TO_VALUE)
+    # A row of `MIDDLE_ROWS` needs its label, a label's gap and the
+    # widest middle segment before its block's values can start.
+    # spacing: label ↔ its element -- run, run ↔
+    middle = px(LABEL_TO_VALUE) + font.measure(MIDDLE_WIDEST)
     stops, widest = {}, {}
     for block, members in groups.items():
         stops[block] = gap + max(
             font.measure(_label_lines(key, label)[-1])
             + (overhead if _is_shop(key) else 0)
+            + (middle if key in MIDDLE_ROWS else 0)
             for label, _w, key in members)
         widest[block] = max([font.measure(w) for _l, w, _k in members if w]
                             or [0])
@@ -3187,6 +3228,15 @@ def _column_geometry(font, title, rows, overhead, reserve=None):
         iter(stops.values()))))
     tags = {VALUE_STOP_PREFIX + block: (at,) for block, at in stops.items()
             if block and str(block).startswith(SHOP_HEAD_PREFIX)}
+    # The middle column: right-aligned at the edge that centres its
+    # widest segment between the rows' labels and their values.
+    centred = [(font.measure(label), stops.get(blocks.get(key), default))
+               for key, label, _w in rows if key in MIDDLE_ROWS]
+    if centred:
+        words, base = max(centred)
+        tags[MIDDLE_STOP_TAG] = (
+            round((words + base + font.measure(MIDDLE_WIDEST)) / 2),
+            "right", base)
     content = max(stops[block] + widest[block] for block in stops)
     # **A shop heading's line is outside those columns**, hanging off
     # its own words: its total, then its reserve, then anything else
@@ -4599,8 +4649,13 @@ def _insert_value(text, key, line, total, segments, at=tk.END):
     # the group starts at one x however long the readings beside them
     # are -- and a row with no reading at all still lands there.
     aligned = any(str(tag).startswith(COUNTDOWN_STOP_PREFIX) for tag in line)
+    # A row of `MIDDLE_ROWS` reaches each segment through a tab: its
+    # middle column's right-aligned stop, then the value stop.
+    middle = MIDDLE_STOP_TAG in line
     for index, (words, state) in enumerate(segments):
-        if aligned and str(words).startswith(ENDS_IN):
+        if middle:
+            gap = COLUMN_SEP
+        elif aligned and is_countdown(words):
             # TWO tabs where the row has no reading at all: the first
             # takes the reading's stop and the second the group's, so
             # a row that is only a deadline still lines up with the
@@ -4748,17 +4803,16 @@ def _readings(raw, now=None, tracked=None):
     # is no longest, and the window's own bound stands in.
     #
     # A copy in one of the row's bands blinks: see `MODULE_WINDOWS`.
-    for span, key, words, unit, divisor, blinks in MODULE_WINDOWS:
+    for span, key, words, unit, divisor, blinks, steady in MODULE_WINDOWS:
         inside = [end for end in expiries if end <= now + span]
         edge = (max(inside) - now) if inside else span
         state = DONE if not inside else next(
             (state for after, upto, state in blinks
              if any((after is None or end > now + after * 3600)
                     and end <= now + upto * 3600 for end in inside)),
-            TODO)
-        out[key] = _one(words % (len(inside),
-                             max(1, math.ceil(edge / divisor)), unit),
-                    state)
+            steady)
+        out[key] = [(words % (max(1, math.ceil(edge / divisor)), unit),
+                     state), (str(len(inside)), state)]
 
     # The Arkhianon Supply, three ways. A mission's `complete_time` is
     # set when its reward is CLAIMED, so a finished-but-unclaimed
@@ -4899,7 +4953,7 @@ def _readings(raw, now=None, tracked=None):
         state = _countdown_state(seconds)
         if state == SOON and _segments_settled(raw, name, segments):
             state = SOON_SETTLED
-        segments.append((ENDS_IN + schedules.countdown(seconds), state))
+        segments.append((countdown_words(seconds), state))
         out[key] = segments
 
     _add_countdowns(out, raw, now)
@@ -5298,7 +5352,7 @@ def _add_countdowns(out, raw, now):
     """
     for key, group in COUNTDOWNS.items():
         seconds = schedules.remaining(group, raw, now)
-        left = schedules.countdown(seconds)
+        left = countdown_words(seconds)
         if not left:
             out.setdefault(key, _one(NO_DATA, UNKNOWN))
             continue
@@ -5306,7 +5360,7 @@ def _add_countdowns(out, raw, now):
         # whose only other segment is one drops it rather than saying
         # "nothing, ends in three days".
         rest = [pair for pair in out.get(key, ()) if pair[0] != NO_DATA]
-        out[key] = rest + [(ENDS_IN + left, _countdown_state(seconds))]
+        out[key] = rest + [(left, _countdown_state(seconds))]
 
 
 def _chaos_progress(raw, now):
@@ -5566,6 +5620,8 @@ def _row_tags(key, above, boxed=(), block=None):
         pitch = ("row", "row_beside_box", "row_between_boxes")[slack]
     if key.startswith(SHOP_HEAD_PREFIX):
         return (pitch, SHOP_STOP_PREFIX + key)
+    if key in MIDDLE_ROWS:
+        return (pitch, MIDDLE_STOP_TAG)
     # The stop its countdown lines up at, where it is in a group that
     # has one. See `countdown_group`.
     group = countdown_group(key)
