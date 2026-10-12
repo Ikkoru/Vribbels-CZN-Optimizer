@@ -93,7 +93,7 @@ Use the game's own capitalisation for anything it names: Potential, Neutrals, Co
 
 At release, `unreleased` is replaced by a short release name (`- Multi-core`), which is also when `version.py` is bumped.
 
-**A released entry is edited only to fix it**, never to restate what shipped. Correcting a mistake, an inconsistency or a dead reference is fine; changing what the entry claims happened is not, and neither is tidying prose that is merely verbose — the risk of quietly rewriting history is what the caution is for, not the wording.
+**A released entry is edited only to fix it**, never to restate what shipped. Correcting a mistake, an inconsistency or a dead reference is fine. Changing what the entry claims happened is not, and neither is tidying prose that is merely verbose: the risk of quietly rewriting history is what the caution is for, not the wording.
 
 ## Release notes — what a player is told
 

@@ -26,7 +26,7 @@ A record is `{"id", "user_id", "gacha_id", "count", "reward", "prism", "createAt
 
 **A pull made while capturing is kept off its own reply** (`pulls` in `captured.json`): its `list` names every unit in the order the record will, and its `service_server_time` is the record's `createAt` to the second. It has no `id` until the records are read; a page bringing the record replaces it, matched by second and units, and the loader matches the two the same way so neither can count twice.
 
-A pity record carries `pity_ssr_count` (pulls since the last 5-star), `pity_sr_count` (since the last 4-star -- **a 5-star does not reset it**), `createAt` (the category's first pull ever), `updateAt` -- which moves with some pulls and not others -- and `version`, the record's write counter.
+A pity record carries `pity_ssr_count` (pulls since the last 5-star) and `pity_sr_count` (since the last 4-star: **a 5-star does not reset it**). It also carries `createAt` (the category's first pull ever), `updateAt` (which moves with some pulls and not others) and `version`, the record's write counter.
 
 ## The files
 
@@ -46,7 +46,7 @@ Every write goes through a checked copy, and keeps the file it replaces:
 3. `<name>` is renamed to `<name>.bak`. The rename replaces the older backup, which is how that one goes -- there is only ever one.
 4. The copy is renamed to `<name>`.
 
-A failure before step 3 leaves the file exactly as it was. **Readers fall back to the backup** where the file is missing or unreadable, which is the state a crash between steps 3 and 4 leaves; starting fresh there would write a one-page history over the whole of it at the next write.
+A failure before step 3 leaves the file exactly as it was. **Readers fall back to the backup** where the file is missing or unreadable, which is the state a crash between steps 3 and 4 leaves. Starting fresh there would write a one-page history over the whole of it at the next write.
 
 The addon cannot import the app's code, so the procedure exists twice: `gacha_history.write_verified` and the addon's `_write_gacha_store`. `checks/check_gacha_history.py` drives both, including a copy that loses a record on its way to disk.
 
@@ -58,13 +58,13 @@ A reply only ever ADDS. A record the game has stopped listing stays in the file,
 
 A pickup banner names its unit in its id, `gacha_pickup_combatant_30117`, and **a rerun appends a suffix**, `gacha_pickup_combatant_1052_1`. A rerun is its own category -- "Normal Combatant Rate-Up" -- with its own counter, so the suffix moves it to a pool of its own rather than being dropped.
 
-**A Seasonal Rescue Rate-Up is the exception**: a Seasonal Combatant's return, `gacha_pickup_combatant_30075_1`, carries the suffix and counts on the Combatant Rate-Up counter -- asking for its records answered with Olga's, Arabella's and every release before. **The rates say which reruns these are**: every banner's rates list the Normal Rescues' 5-stars (`general_ssr_*` under `ssr_pool_ids`), and a Seasonal unit is in none of them -- Sereniel and Peko are not, where Narja, Gaya, Nine and Alcea, all on Normal Rescue Rate-Ups, are. `load` notes the list off every rates reply it has, the shipped ones included, before it files a record (`note_general_pool`); with none read, a suffix is a rerun. The rate pools agree: a Normal rerun reuses its first run's pickup number (Narja's `pickup_c_5`) where Sereniel's took the next release's (`pickup_c_17`).
+**A Seasonal Rescue Rate-Up is the exception**: a Seasonal Combatant's return, `gacha_pickup_combatant_30075_1`, carries the suffix and counts on the Combatant Rate-Up counter -- asking for its records answered with Olga's, Arabella's and every release before. **The rates say which reruns these are**: every banner's rates list the Normal Rescues' 5-stars (`general_ssr_*` under `ssr_pool_ids`), and a Seasonal unit is in none of them. Sereniel and Peko are not, where Narja, Gaya, Nine and Alcea, all on Normal Rescue Rate-Ups, are. `load` notes the list off every rates reply it has, the shipped ones included, before it files a record (`note_general_pool`); with none read, a suffix is a rerun. The rate pools agree: a Normal rerun reuses its first run's pickup number (Narja's `pickup_c_5`) where Sereniel's took the next release's (`pickup_c_17`).
 
-The names the tab shows are the notices' spelling, in `POOL_LABELS`. Players call the rate-ups the release or limited banners and the reruns the rerun banners; the Normal Rescues the permanent or normal banner; and the Observe Prism Module -- its banner is Eternal Moment, the wire's `card_factor` -- the animation or card banner.
+The names the tab shows are the notices' spelling, in `POOL_LABELS`. Players call the rate-ups the release or limited banners, and the reruns the rerun banners. The Normal Rescues are the permanent or normal banner. The Observe Prism Module, whose banner is Eternal Moment (the wire's `card_factor`), is the animation or card banner.
 
 Two families are not named after their banner's id, which `PREFIX_POOLS` maps: the Special Rescue Request -- the beginner banner, `gacha_general_first_select_1` -- counts on `gacha_pity_first_select`, and the Partner Special Rescue event, `gacha_partner_reform_1`, on `gacha_pity_partner_reform`. Both guarantee a 5-star within 50 pulls, so the shared schedule below does not describe them, and neither can be opened once over: their rates are never read, and no luck figure is drawn for them.
 
-Whether a category has a 50/50 is read from its rates, not from its name: a Combatant rate-up splits the 5-star chance between `ssr_rate_up_success_ratio` and `ssr_ratio`, where a Partner rate-up and the Prism Module put all of it on the target and a Normal Rescue has no target. Until a banner's rates have been read, `FIFTY_FIFTY_POOLS` holds the notices' answer, so an import read before any capture still counts its 50/50s.
+Whether a category has a 50/50 is read from its rates, not from its name. A Combatant rate-up splits the 5-star chance between `ssr_rate_up_success_ratio` and `ssr_ratio`, where a Partner rate-up and the Prism Module put all of it on the target and a Normal Rescue has no target. Until a banner's rates have been read, `FIFTY_FIFTY_POOLS` holds the notices' answer, so an import read before any capture still counts its 50/50s.
 
 ## Rarity
 
@@ -86,7 +86,7 @@ After a lost 50/50 the next 5-star is the rate-up, whichever banner it lands on.
 
 A 5-star's outcome is `Won`, `Lost`, `Guaranteed`, `Rate-up` -- the featured unit after a stretch where nobody can say whether the last 50/50 was lost -- or `?` where the banner is unknown. A loss still makes the next 5-star a known guarantee even where its banner is unknown; one the history shows was NOT the rate-up is reported as the loss it is.
 
-**The first 5-star of a history that starts mid-cycle has a pity that is only a floor**, so it is left out of the averages and the luck figure -- unless the history reaches back to the category's first pull, which the pity record's `createAt` dates.
+**The first 5-star of a history that starts mid-cycle has a pity that is only a floor**, so it is left out of the averages and the luck figure. The exception is a history that reaches back to the category's first pull, which the pity record's `createAt` dates.
 
 ## Luck
 
@@ -96,7 +96,7 @@ It is shown as a rank from the nearer end -- `luck_rank`, `Top 12%` or `Bottom 2
 
 **The tab reads nothing until it is first shown**, so that cost never lands on startup.
 
-A category is **behind** when the game's counters have moved past its history: the count since the last 5-star or the last 4-star disagreeing with what the history adds up to. **Not the pity record's `updateAt`** -- a captured single pull ticked the counters and the record's `version` and left it where it was -- though a stamp that does move past the newest record counts too, while it is within `GAME_KEEPS_DAYS` and later than the category's last read. **Opening a banner's Probability Info re-stamps the record with no pull made**, and every read of the records goes through that screen, so a stamp at or before the last read is the read's own. Only for a category that has been read at least once, or pulled on while capturing: a finished beginner selection may have no screen left to open, and a player who captures every pull may never open the list.
+A category is **behind** when the game's counters have moved past its history: the count since the last 5-star or the last 4-star disagreeing with what the history adds up to. **Not the pity record's `updateAt`**: a captured single pull ticked the counters and the record's `version` and left it where it was. A stamp that does move past the newest record counts too, though, while it is within `GAME_KEEPS_DAYS` and later than the category's last read. **Opening a banner's Probability Info re-stamps the record with no pull made**, and every read of the records goes through that screen, so a stamp at or before the last read is the read's own. Only for a category that has been read at least once, or pulled on while capturing: a finished beginner selection may have no screen left to open, and a player who captures every pull may never open the list.
 
 Behind is urgent once the category's records were last read more than `URGENT_AFTER_DAYS` ago: the pulls it is missing were made since that read, so the oldest may already be past halfway to `GAME_KEEPS_DAYS`. The tab draws a behind banner orange and an urgent one red, with a line for each colour at the toolbar's right end. A category that is not behind is never urgent, however long ago it was read: it has nothing left to lose.
 
@@ -113,7 +113,7 @@ The Overall Gacha Stats sheet under the Banners list is `across_pools`, into `Ov
 - **Luck across categories is `luckier_than_across`**: the chance that a player who pulled the same categories and got as many 5-stars on each needed more pulls IN TOTAL. It is not an average of the categories' own figures -- a little unlucky on each adds up, and the whole can sit further out than any one of them. Categories on one base rate are one sum of cycles; different base rates are convolved.
 - **The 50/50 record** counts every Combatant rate-up's wins and losses, reruns included, and ranks them with `won_fewer`: the share of players who won fewer, each 50/50 at the chance its rates give.
 - **A rate-up Combatant's cost** is the pulls since the rate-up before it, a lost 50/50 included -- `_rate_up_costs`. Only where the start is known: a history starting mid-cycle does not know the first one's, and a 5-star of unknown outcome may have been the rate-up, so the one after it is unknown too. The expected average beside it is `pulls_per_five` times `2 - p`, `p` the chance of winning the 50/50: one cycle, and a second after each loss.
-- **The records rest on the same pulls as the averages** -- a first 5-star whose pity is only a floor is never the fastest or the slowest -- and **a record is every pull that ties for it**, oldest first. The tab shows as many ties as fit beside it and drops the newest. A streak is any `STREAK_PULLS` pulls in a row on one category, not only a single 10-pull, read forward from each 5-star so that no two tied streaks hold the same 5-stars.
+- **The records rest on the same pulls as the averages**: a first 5-star whose pity is only a floor is never the fastest or the slowest. **A record is every pull that ties for it**, oldest first. The tab shows as many ties as fit beside it and drops the newest. A streak is any `STREAK_PULLS` pulls in a row on one category, not only a single 10-pull, read forward from each 5-star so that no two tied streaks hold the same 5-stars.
 
 ## Importing
 

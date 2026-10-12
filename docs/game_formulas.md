@@ -77,7 +77,7 @@ Ten nodes, and **the numbering on the wire does not match the numbering in the g
 
 Max levels total **45**, which is what the Combatants tab's `Nodes` column counts against. It is summed from `POTENTIAL_NODES` rather than stated, so this table and that one cannot drift apart on it.
 
-`CharacterInfo.potential_nodes` holds every node's level; `potential_50_level` / `potential_60_level` repeat the two STAT nodes as their own fields, because the scoring path reads them per combo and that loop is not the place for a dict lookup. `characters.py` stores a stat for `node_50` and `node_60` only, and node 7's effects live in `game_data/potential_7.py` — deliberate, not an oversight: the card-effect nodes change card magnitudes, which the build score does not model, so they are displayed and not scored.
+`CharacterInfo.potential_nodes` holds every node's level; `potential_50_level` / `potential_60_level` repeat the two STAT nodes as their own fields, because the scoring path reads them per combo and that loop is not the place for a dict lookup. `characters.py` stores a stat for `node_50` and `node_60` only, and node 7's effects live in `game_data/potential_7.py`. That is deliberate, not an oversight: the card-effect nodes change card magnitudes, which the build score does not model, so they are displayed and not scored.
 
 `POTENTIAL_NODES` in `game_data/characters.py` is the one list carrying the display order, both numberings, the maxima and the per-node descriptions. The descriptions live there rather than here on purpose: a second copy of a string the UI already shows is what goes stale.
 
@@ -244,7 +244,7 @@ Final_Card_Multiplier_Shield_Heal =
 
 **Multiplicative_Buffs and Additive_Buffs do NOT apply to shields or heals** (verified in game) — the key difference from the damage card multiplier. `Impair_Penalty` applies only to shielding and depends on enemy state; **treated as 0**.
 
-**Optimizer note:** with buffs excluded, no remaining term depends on gear, so the whole shield/heal card multiplier is constant across builds and the optimizer drops it — the score's shield/heal term is the §4.1 stat expression with no card multiplier attached.
+**Optimizer note:** with buffs excluded, no remaining term depends on gear, so the whole shield/heal card multiplier is constant across builds and the optimizer drops it. The score's shield/heal term is the §4.1 stat expression with no card multiplier attached.
 
 ## 5. Set effects in optimizer math
 
@@ -366,7 +366,7 @@ T_ref         = 6 × the largest raw() among this run's candidates       ← per
 score = blend + SUBSTAT_TIEBREAK × T
 ```
 
-`weight` is the character's assigned preset's Gear Score weight for that stat, 1.0 where the preset names none — so the term reads the substats through the same weights the Gear Score column does, and a stat weighted 0 contributes nothing.
+`weight` is the character's assigned preset's Gear Score weight for that stat, 1.0 where the preset names none. So the term reads the substats through the same weights the Gear Score column does, and a stat weighted 0 contributes nothing.
 
 **`SUBSTAT_TIEBREAK` bounds the whole term**: `T ≤ 1`, so the term is at most `SUBSTAT_TIEBREAK` and **any build ahead on the blend by more than that stays ahead**. It orders builds the blend cannot separate and nothing else. `checks/check_optimizer_parity.py` holds that bound.
 
@@ -376,7 +376,7 @@ score = blend + SUBSTAT_TIEBREAK × T
 
 Eight per-character minimums (ATK, DEF, HP, Ego, CRate, CDmg, Extra%, DoT%), all HARD: builds missing ANY are excluded. If no combination satisfies them the optimizer returns an empty list and the UI must surface that.
 
-They exist mainly to help meet the in-game **Potential 7** stat requirements, so **the comparison values mirror what those in-game checks can see**: Potential 7 ignores ALL Partner passive bonuses (unconditional and conditional alike), all Equipment contributions, conditional set procs and its own bonus — but DOES see the Partner's flat class stats. The optimizer SCORE still models every excluded source; only the Have-at-least gate and the Potential 7 display rows ignore them. The score also prices node 7 itself, so it meets a threshold where that is worth the stats without a minimum asking it to.
+They exist mainly to help meet the in-game **Potential 7** stat requirements, so **the comparison values mirror what those in-game checks can see**. Potential 7 ignores ALL Partner passive bonuses (unconditional and conditional alike), all Equipment contributions, conditional set procs and its own bonus, but DOES see the Partner's flat class stats. The optimizer SCORE still models every excluded source; only the Have-at-least gate and the Potential 7 display rows ignore them. The score also prices node 7 itself, so it meets a threshold where that is worth the stats without a minimum asking it to.
 
 - **ATK / DEF / HP** compare against the build's INNER value: `(Base + Partner flat) × (1 + Fragment% + Potential%) + Fragment flat + Affinity flat` — no outer `(1 + Partner% + Equipment%)`, no Equipment flat.
 - **CRate / CDmg** compare against the final value minus conditional set contributions and minus all partner passives (both `stats` and `stats_conditional` in `partners.py`).

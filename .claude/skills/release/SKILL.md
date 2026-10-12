@@ -54,13 +54,18 @@ Commit `docs/chaos_runs.tsv` with the estimate.
 Then the register: user-facing terminology, engineer-facing grammar (`docs/repo_conventions.md`, *Who reads what*). The CHANGELOG is written for a player who wants the smaller changes too, not for a maintainer. Cut, in this order of frequency:
 
 - **Anything that argues.** A figure defending a decision, worth-it framing, the reason an alternative was rejected. These documents notify; they never persuade. This applies to the CHANGELOG as much as to the notes.
-- **Internal mechanism a user cannot act on** — "three pixels short per shop product and Tk clipped the difference" — and the explanation of a reading: "a late line with all three small was held back by the game itself".
+- **Internal mechanism a user cannot act on**, such as "three pixels short per shop product and Tk clipped the difference", and the explanation of a reading: "a late line with all three small was held back by the game itself".
 - **Words.** Default to one line per entry. Most changes need no more, and a paragraph where a line would do is the most common defect in this file. Passes have still come out wordy by the maintainer's reading: cut further than feels complete. Wordy means slow to absorb as much as long: an entry carrying several things becomes a headline with its parts under it, even where that adds words, and prose is not required. `docs/repo_conventions.md` has the maintainer's own before and after.
-- **Shape.** Read each surviving entry once more for structure, not length: the tab, the subject, what changed (`Checklist: Simulation Challenges tracks wins as they happen.`), the tab left off under a tab's group; one verb; no clause stacked in front of the subject, no chain of which/where. Short sentences instead of complex sentences.
+- **Shape.** Read each surviving entry once more for structure, not length. It names the tab, the subject and what changed (`Checklist: Simulation Challenges tracks wins as they happen.`), the tab left off under a tab's group. It has one verb, no clause stacked in front of the subject, and no chain of which/where. Short sentences instead of complex sentences.
 - **Where something is, when opening the program shows it** — a new tab's place in the tab bar.
 - **The program's word where the game has one.** Check `CLAUDE.md` § Naming, and check the game's own screens for anything it does not cover. Where the game names a thing nowhere recognisable, describe it instead of inventing a name.
 
-The release-notes calls below apply here too, and the maintainer's edits have made each of them: a step the player must take given whole, the player's word ("player count", not "field"), a source linked, and an estimate saying what it assumes ("one Chaos run a day") rather than when the program shows it.
+The release-notes calls below apply here too, and the maintainer's edits have made each of them:
+
+- a step the player must take, given whole;
+- the player's word ("player count", not "field");
+- a source, linked;
+- an estimate saying what it assumes ("one Chaos run a day") rather than when the program shows it.
 
 **An entry earns its place by the confusion it prevents**, not by the size of the edit — `docs/repo_conventions.md` has the test. The commit history is the complete record, so nothing is kept here merely to be thorough.
 

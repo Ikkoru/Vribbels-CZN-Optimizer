@@ -6,7 +6,7 @@ Read before adding to the startup path or doing work off the UI thread. Layout a
 
 A blocked callback stops Tk processing events entirely: the window stays painted but dead, Windows serves a cached taskbar thumbnail, Aero Peek shows bare desktop, and the thumbnail's close button does nothing.
 
-Both startup prerequisite checks are split for this reason — the Setup & Settings tab's `check_status` and the Capture tab's `check_capture_prerequisites` hand the work to a worker (`_probe_prerequisites` / `_probe_capture_prerequisites`) and collect the answer through a main-thread poll (`_poll_probe` / `_poll_capture_prerequisites`).
+Both startup prerequisite checks are split for this reason. The Setup & Settings tab's `check_status` and the Capture tab's `check_capture_prerequisites` hand the work to a worker (`_probe_prerequisites` / `_probe_capture_prerequisites`) and collect the answer through a main-thread poll (`_poll_probe` / `_poll_capture_prerequisites`).
 
 External calls carry `timeout=`, `stdin=DEVNULL` and `CREATE_NO_WINDOW`; without the last a console window flashes over the UI. **A timeout alone is not enough**: a killed child's grandchildren can hold the inherited pipe open past it. That is what makes `python --version` hang forever on a machine without Python, where bare `python` hits the Microsoft Store's app-execution alias, opens the Store and never closes the pipe.
 
@@ -16,7 +16,7 @@ Any new external-program or network call belongs on a worker thread.
 
 It only works while the main thread is inside `mainloop()`. Before it (startup, including the reveal's `update()` passes) or after it (shutdown), Tk raises `RuntimeError: main thread is not in main loop` and kills the worker. Anything scheduled during startup can land there.
 
-**Inside mainloop it is still a wait.** tkinter hands a Tk call made on another thread to the main thread and blocks until the main thread has run it, so the worker stalls for as long as the main thread is busy -- a second behind a snapshot reload.
+**Inside mainloop it is still a wait.** tkinter hands a Tk call made on another thread to the main thread and blocks until the main thread has run it. So the worker stalls for as long as the main thread is busy: a second, behind a snapshot reload.
 
 The pattern that works, used by both prerequisite probes, by `_report_data_problems`, by the game client's read (`_apply_client_read`) and by the capture: the worker assigns a plain attribute or puts on a queue, and a main-thread `after` chain polls for it. The capture's is `OptimizerGUI._poll_capture` over the Capture tab's inbox -- see "Logging from the proxy reader thread" in `capture_pipeline.md`.
 
@@ -30,9 +30,9 @@ The pattern that works, used by both prerequisite probes, by `_report_data_probl
 
 `_hide_until_ready` prefers alpha 0 to `withdraw()`: a transparent window is still MAPPED, so children realize their true sizes and `winfo_width` / `bbox` return real numbers. That also makes it the way to measure rendered geometry in a probe without putting a window on the maintainer's screen.
 
-`_reveal_window()` settles with full `update()` passes, NOT `update_idletasks()`: geometry runs in idle handlers, but the `<Configure>` events geometry generates and the redraws that follow are ordinary events, so draining only idle work reveals a window one layout pass short and partly unpainted.
+`_reveal_window()` settles with full `update()` passes, NOT `update_idletasks()`: geometry runs in idle handlers, but the `<Configure>` events geometry generates and the redraws that follow are ordinary events. So draining only idle work reveals a window one layout pass short and partly unpainted.
 
-Two consequences: startup code MAY pump the event loop to realize geometry (the exclude flow layout depends on this to measure its true width), and anything added to the startup path must not reveal the root early or pop its own window.
+Two consequences. Startup code MAY pump the event loop to realize geometry (the exclude flow layout depends on this to measure its true width). And anything added to the startup path must not reveal the root early or pop its own window.
 
 ## Most tabs are built after the reveal
 
@@ -139,7 +139,7 @@ What the flash is and is not:
 
 **Realizing the window early cannot fix that**, because the frame's background genuinely IS white; there is nothing to create earlier. Equally, colouring the frame does not remove the map-time erase.
 
-`ui/utils/scrolled_text.py` answers the colour half at the source: it builds the same shape — a Text and a vertical scrollbar in a wrapper, with the wrapper's geometry methods copied onto the Text so a caller packs the pair by packing what it was handed — out of a `ttk.Frame` and a `ttk.Scrollbar`, which the theme reaches directly. All three scrolled texts go through it, and the map-time erase is still the walk's job.
+`ui/utils/scrolled_text.py` answers the colour half at the source. It builds the same shape out of a `ttk.Frame` and a `ttk.Scrollbar`, which the theme reaches directly: a Text and a vertical scrollbar in a wrapper, with the wrapper's geometry methods copied onto the Text so a caller packs the pair by packing what it was handed. All three scrolled texts go through it, and the map-time erase is still the walk's job.
 
 **A wrapper recoloured by hand instead reads as a walk failure when one is missed**: only the skipped panel flashes.
 
@@ -159,7 +159,7 @@ The admin prompt uses `MessageBoxW` via `_win_message`. It runs before `Optimize
 
 ## A rebuild on the load path is gated on what it would draw
 
-A panel that destroys its children and builds them again blinks: between the destroy and the next paint there is a hole where the widgets were, and a login burst saves the snapshot several times in a few seconds — so a refresh wired to the data load runs two or three times while the user watches.
+A panel that destroys its children and builds them again blinks: between the destroy and the next paint there is a hole where the widgets were. A login burst saves the snapshot several times in a few seconds, so a refresh wired to the data load runs two or three times while the user watches.
 
 Four panels rebuild real widgets after startup, and each is gated on a SIGNATURE computed before anything is destroyed, holding everything the rebuild would read:
 
@@ -171,7 +171,7 @@ Four panels rebuild real widgets after startup, and each is gated on a SIGNATURE
 | Optimizer's Exclude Combatant's MFs | `refresh_exclude_heroes` | the roster, the excluded set, the selected combatant |
 | The Checklist's columns | `_rebuild_columns` | per column, the row keys and what `_fill` cannot patch |
 
-**Width belongs in the signature wherever the layout is solved from the built widgets' own `winfo_reqwidth()`** — the exclude list's flow is, so it re-flows on `<Configure>`; the Sets grid is five columns whatever the window does, and its column widths are measured off the counts already in the signature.
+**Width belongs in the signature wherever the layout is solved from the built widgets' own `winfo_reqwidth()`.** The exclude list's flow is solved that way, so it re-flows on `<Configure>`. The Sets grid is five columns whatever the window does, and its column widths are measured off the counts already in the signature.
 
 `checks/check_tabs_build.py` holds each of these to widget IDENTITY: same inputs in, the same objects still on screen. Comparing the labels would pass while every widget behind them was replaced.
 
@@ -201,7 +201,7 @@ The panel's own width is an explicit layout preference, never derived from its c
 
 ## A mapped Treeview asks for a new size only on `configure`
 
-Once a Treeview is mapped, a column's new width changes what it draws but not what it asks its container for, and reassigning `columns` asks for 200px a column whatever widths follow. Before the first map it tracks its columns, so a list built once and never rewritten is never caught out; one rewritten while shown keeps its old size, and the only symptom is a list too wide or clipped for its content.
+Once a Treeview is mapped, a column's new width changes what it draws but not what it asks its container for, and reassigning `columns` asks for 200px a column whatever widths follow. Before the first map it tracks its columns, so a list built once and never rewritten is never caught out. One rewritten while shown keeps its old size, and the only symptom is a list too wide or clipped for its content.
 
 The Stats & Gacha History tab's standings lists rebuild their columns on every load, so `_write_standings` ends each list with a `configure(height=...)` that looks redundant: it is what makes the list ask again. `check_tabs_build` writes them twice while mapped and holds every list's requested width to its columns'.
 

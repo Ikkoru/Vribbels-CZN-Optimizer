@@ -19,7 +19,7 @@ A reader can only work off a snapshot if the capture wrote the field into one. T
 
 Each entry below says which. **A key that is not kept has no history**: the first snapshot to carry it is the first reading there will ever be, so a reader that wants a trend should start keeping before it starts reading.
 
-The history from before snapshots kept it is read out of the debug logs, once. `Vribbels/stats_history.py` runs the capture addon over every old log in `snapshots/`, archived and loose, into `settings/stats_history.json`: the ranking readings, the lifetime counters, and a sample per change of the account's own Great Rift and Sortie standings at every login, which no snapshot keeps as history at all. The file records the `VERSION` of the reading that wrote it, and a launch reads the logs again only where the file is missing, broken or of another version -- so a newly kept field reaches the old logs by bumping `VERSION`. The lists join the file's readings with the loaded snapshot's (`stats_history.merged`), one taken at the same moment counting once.
+The history from before snapshots kept it is read out of the debug logs, once. `Vribbels/stats_history.py` runs the capture addon over every old log in `snapshots/`, archived and loose, into `settings/stats_history.json`. It keeps the ranking readings, the lifetime counters, and a sample per change of the account's own Great Rift and Sortie standings at every login, which no snapshot keeps as history at all. The file records the `VERSION` of the reading that wrote it, and a launch reads the logs again only where the file is missing, broken or of another version. So a newly kept field reaches the old logs by bumping `VERSION`. The lists join the file's readings with the loaded snapshot's (`stats_history.merged`), one taken at the same moment counting once.
 
 **Other players are never kept, only their numbers.** A ranking page is twenty strangers with their names, profile cards and teams, and `load/user` carries a `friend_list`. What the capture takes from a ranking page is ranks, scores and times; `check_capture_history` fails if a name, id, profile or team reaches a snapshot.
 
@@ -94,7 +94,7 @@ None of them is a reward track for clear levels: the step record `event_chaos_as
 
 **The 9-star Collection Count is how many Offensives `remnants_user_entity.star_complete_records` holds**: {Offensive: the second its ninth star was won}. It comes first in the result of the clear that wins it (`return_info.remnants_boss_penalty_result.remnants_user_entity`) and in every `event/get_list` after; an account with no 9-starred Offensive is sent no record. Kept per Offensive as `nine_stars_at` beside its rankings. The Full-Scale Offensive Stats list shows it as `3★` in each Score row with no score read; each stage's own `star_count` comes beside its `best_score`, so it never says more than the score does.
 
-Kept as history under `remnants_rankings`, one entry per Offensive: `stages`, each stage's best score as last read, and a reading per change -- `rank`, `rank_percent`, `reward_count`, `score` (the stages summed), `read_at`. A login's reading keeps the percentage entering the Offensive last gave where the rank has not moved since, and has none where it has. The Full-Scale Offensive Stats list gives the field as the rank over `rank_percent`, to the hundred, since the percentage comes to two decimals, then the stages' sum and each stage's score in the order of their ids; that the Offensive ranks on the sum is untested.
+Kept as history under `remnants_rankings`, one entry per Offensive: `stages`, each stage's best score as last read, and a reading per change -- `rank`, `rank_percent`, `reward_count`, `score` (the stages summed), `read_at`. A login's reading keeps the percentage entering the Offensive last gave where the rank has not moved since, and has none where it has. The Full-Scale Offensive Stats list gives the field as the rank over `rank_percent`, to the hundred, since the percentage comes to two decimals. Then come the stages' sum and each stage's score in the order of their ids. That the Offensive ranks on the sum is untested.
 
 ### The Great Rift's divisions
 
@@ -173,7 +173,7 @@ The profile's Display Case and its medal lists draw from `board_entities`, a row
 
 The tallies are all 0 on the first season, which predates them.
 
-**The season running has no row here.** Its Display Case reads the same tallies off `disaster_achievement_entities`: the rows `_126` to `_132` hold, as their `score`, Total Credits, Obtained Equipment, Epiphanies, Monster Cards, Chaos Operation, Chaos Core Ravage and Enemies Defeated, in that order -- checked figure for figure against the screen in season 4. A row with a `complete_time` is a medal earned.
+**The season running has no row here.** Its Display Case reads the same tallies off `disaster_achievement_entities`: the rows `_126` to `_132` hold, as their `score`, Total Credits, Obtained Equipment, Epiphanies, Monster Cards, Chaos Operation, Chaos Core Ravage and Enemies Defeated, in that order. They were checked figure for figure against the screen in season 4. A row with a `complete_time` is a medal earned.
 
 **The Display Case's Contribution is not on the wire.** The maintainer's account shows 1061 for season 2, 1133 for season 3 and 1100 for season 4, and none of the three is in any frame. It is not a count of medals either: season 4 has the most, 268 against 237 and 233, and the second-lowest figure. The game's own description of it says why: points accumulated per category, combined with Chaos Operation performance, **by criteria adjusted every season**. The weights live in the client, change each season, and never cross the wire -- so plain sums of the case's figures that give one season miss the others, and it cannot be worked out from a capture.
 
@@ -181,7 +181,7 @@ The tallies are all 0 on the first season, which predates them.
 
 ### `mission_accumulate`
 
-Kept, as history. Sent with `mission/get_list`, one row per counter: `res_id` `ac_collection_<n>` and a `score` that only climbs. **These are the account's lifetime statistics** -- the collection achievements count off them -- and `ac_collection_003` equals Units' `total_amount` to the unit in every reply that carried both, 36 of them.
+Kept, as history. Sent with `mission/get_list`, one row per counter: `res_id` `ac_collection_<n>` and a `score` that only climbs. **These are the account's lifetime statistics** -- the collection achievements count off them -- and `ac_collection_003` equals Units' `total_amount` to the unit in every reply that carried both.
 
 **The capture writes what a counter counts onto its row**, as `condition_type`, the first time it sees the counter move, and keeps it: the login sends the rows without it, and the next capture starts from the newest snapshot's. So a snapshot's counters say what they mean as far as any capture on this install has seen them move.
 
