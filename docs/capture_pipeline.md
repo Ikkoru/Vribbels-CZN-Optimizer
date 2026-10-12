@@ -85,7 +85,7 @@ Each run goes, as it clears, to `snapshots/chaos_runs/runs.json.gz`, never into 
 
 ### The Zero System's codex
 
-A Zero System map is a Chaos Codex. Creating one (`zero_orb/get_codex_synthesis_result`) names the Chaos (`selected_chaos_id`), the difficulty (`selected_chaos_level`, 0 for difficulty 4 up to 6 for 10), the Effect (`selected_zero_orb_special_key`, a past or current season's, null for none) and the currency spent (`selected_material_item_id`: 3000005 Chaos Orb, or Units). Chaos Orbs raise the codex's rarity and can bring Divine Intervention. The reply holds three codexes (`add_codex_entities`), and `select_codex_synthesis_result` keeps one in a slot. A cleared map is replaced by three of the same Chaos and Effect at a higher level (`zero_orb/stage_reward_codex`).
+A Zero System map is a Chaos Codex. Creating one (`zero_orb/get_codex_synthesis_result`) names the Chaos (`selected_chaos_id`), the difficulty (`selected_chaos_level`, 0 for difficulty 4 up to 6 for 10), the Effect (`selected_zero_orb_special_key`, a past or current season's, null for none) and the currency spent (`selected_material_item_id`: 3000005 Chaos Orb, or Units). Chaos Orbs raise the codex's rarity and can bring Divine Intervention. The reply holds three codexes (`add_codex_entities`), and `select_codex_synthesis_result` keeps one in a slot. A cleared map is replaced by three of the same Chaos and Effect at a higher level (`zero_orb/stage_reward_codex`). A codex's level runs from 30 to 130 at most, in bands of difficulty: the game client's `zero_orb_chaos_level` table, whose top band, 76 to 130, is difficulty 10.
 
 A codex carries what the run records under `codex`:
 
