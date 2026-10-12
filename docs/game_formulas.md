@@ -96,6 +96,7 @@ bonus = 0                                              if check < T
 ```
 
 - **The check reads the value before any Potential 7 bonus** -- the Have-at-least value (§8), as the server states it: the inner ATK/DEF/HP rounded half up, the percentages as they sum. Rita's +10% ATK at 800 is on her sheet at 902 and absent at 755, where it would have carried her past 800.
+- **The figures are the game client's effect data**, which the server follows where a node's own text says otherwise: Tenebria's and Sereniel's, settled by a battle (`client_data.md`, *What it was held against*).
 - **A threshold is met at its own value.** The texts say "or higher".
 - **Growth is continuous, not stepped**: 324 DEF against 300, +2 per 10, gives +4.8.
 - **Where a bonus lands**: ATK% and DEF% in the inner %, beside nodes 5 and 6; CRate, CDmg and Extra DMG% on the final stat; attribute damage in the element multiplier (§7), beside the fragments' element main stat.

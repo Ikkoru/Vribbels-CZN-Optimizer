@@ -1310,9 +1310,8 @@ def _tab_list_to_widget(find):
     return resolve
 
 
-# The rule has nine marker sites and had no entry, which is how Setup
-# came to sit a pixel below the other two headers with nothing
-# reporting it.
+# The rule's marker sites had no entry, which is how Setup came to sit
+# a pixel below the other two headers with nothing reporting it.
 #
 # (tab, the string the gap is measured to, is it 14 bold). The string is
 # there for the ascender class above; None where the first thing painted

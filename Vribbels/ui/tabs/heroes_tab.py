@@ -1782,8 +1782,8 @@ class HeroesTab(BaseTab):
 
         Called when the panel is built and again after a load, and the
         two must agree -- a fresh install has no data and so never
-        reaches the second, which is how the panel came up oversized
-        until the first snapshot arrived.
+        reaches the second, and a panel sized only there comes up
+        oversized until the first snapshot arrives.
         """
         cells = list(self.gear_cells.values())
         if not cells:

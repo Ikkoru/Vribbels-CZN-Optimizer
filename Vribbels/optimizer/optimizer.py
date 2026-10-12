@@ -542,14 +542,14 @@ class GearOptimizer:
         its own. calculate_build_stats builds it per call for all other
         callers.
 
-        get_character_stats_at_level adds what levels 61 and 62 gain
-        -- the character's own key, else their class and grade's -- and
-        nothing for a gain nobody has observed, so the level-60 base
-        stands in for it.
+        get_character_stats_at_level answers with the server's reading
+        where one is known, else adds what levels 61 and 62 gain on the
+        character's curve (`characters.level_curve`) -- and nothing for
+        a gain nobody knows, so the level-60 base stands in for it.
         """
         cs = core.empty_char_static()
-        # Equipment constants apply to every build (even char_name=None
-        # calls -- historical behavior).
+        # Equipment constants apply to every build, char_name=None calls
+        # included.
         cs["equip_flat_atk"] = self.EQUIPMENT_FLAT_ATK
         cs["equip_flat_def"] = self.EQUIPMENT_FLAT_DEF
         cs["equip_flat_hp"] = self.EQUIPMENT_FLAT_HP

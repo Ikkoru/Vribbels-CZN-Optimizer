@@ -269,7 +269,7 @@ A live event takes its denominator from its family when, and only when:
 
 Such a row reads `~1/20` rather than `1/3+?`: the tilde is the tab's mark for a number worked out rather than read. **It does not go green on it** — `event_achieve_state` is still the only thing that ends such an event — so the worst an over-large inherited total can do is leave a finished row looking unfinished.
 
-**The family also corroborates.** Where the rows themselves state a total -- a grid, pages issued whole, or every row the family's total says the event holds now in hand -- and the family agrees on it, every reward of it claimed with no final reward in the family reads `LIKELY_DONE`: orange at once, where a floor at its ceiling waits two days for that, and still asking `Finished?`. A login streak takes its family's length the same way. A step track never reads it, its `reward_step` reaching the top of its ladder under either reading of the field.
+**The family also corroborates.** The rows can state a total themselves: a grid, pages issued whole, or every row the family's total says the event holds now in hand. Where the family agrees on that total, every reward of it claimed with no final reward in the family reads `LIKELY_DONE`. That is orange at once, where a floor at its ceiling waits two days for it, and it still asks `Finished?`. A login streak takes its family's length the same way. A step track never reads it, its `reward_step` reaching the top of its ladder under either reading of the field.
 
 `family_total` and `family_final` are the rule, and `event_totals_onto` puts what they say onto the snapshot beside the client's own totals. A step track's family total is its ladder's size in the client.
 

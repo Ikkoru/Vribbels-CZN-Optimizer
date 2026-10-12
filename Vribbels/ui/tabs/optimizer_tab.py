@@ -4539,8 +4539,8 @@ class OptimizerTab(BaseTab):
         # switch -- even when the character has no Memory Fragments
         # equipped. calculate_build_stats handles an empty gear list (returns
         # base + partner + affection + equipment stats); without this call,
-        # the stats_tree retained the PREVIOUSLY-selected character's stats
-        # when the new character had no gear.
+        # the stats_tree keeps the PREVIOUSLY-selected character's stats
+        # when the new character has no gear.
         self.show_current_stats(char)
         # Refresh the Preset label below the combobox.
         self._update_preset_label()

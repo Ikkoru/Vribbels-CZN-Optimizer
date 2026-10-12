@@ -106,8 +106,8 @@ def parse_set_effect_shares(settings: dict) -> dict:
 
 def empty_char_static() -> dict:
     """Char-static inputs for `char_name=None` calls: all zeros except
-    the 125.0 base Crit DMG default (matches the historical behavior of
-    calculate_build_stats without a character)."""
+    the 125.0 base Crit DMG default (what calculate_build_stats gives
+    without a character)."""
     return {
         "base_atk": 0, "base_def": 0, "base_hp": 0,
         "base_cr": 0, "base_cd": 125.0,

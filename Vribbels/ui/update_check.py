@@ -29,8 +29,8 @@ Version comparison
 the dot-separated numeric prefix. **The prefix has to be extracted
 first**: this fork's own version string reads
 `v1.0.0 (forked from v1.7.0)`, and splitting that on `.` attaches
-` (forked from v1` to the third component -- which compared as newer
-than itself and reported a phantom update.
+` (forked from v1` to the third component -- which compares as newer
+than itself and reports a phantom update.
 """
 
 import json

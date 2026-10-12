@@ -12,12 +12,13 @@ shows as the whole panel flashing white on first display, and the
 scrollbar keeps classic Tk's grey however `TScrollbar` is styled. Both
 were corrected here by hand afterwards. Building the pair from ttk
 answers both at the source: the theme reaches a `ttk.Frame` and a
-`ttk.Scrollbar` directly, and one `TScrollbar` style now paints every
+`ttk.Scrollbar` directly, and one `TScrollbar` style paints every
 scrollbar in the app.
 
 **The map-time erase is a different fault** and still needs
 `ui/utils/realize.py`; the walk there covers these three widgets the way
-it covers every other. What went away is the second, colour half.
+it covers every other. Building from ttk settles the colour half
+alone.
 
 The other options below are the same corrections every text panel in
 this app makes: `bd` and `highlightthickness` default to 1 each on a

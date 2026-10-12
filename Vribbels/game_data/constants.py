@@ -699,7 +699,7 @@ PERIOD_ITEMS = {
 # `town_visit_reset_time` beside it is when it goes back to 0 -- 18:00
 # UTC, which is when the game says the allowance is granted.
 
-# Every ARCHIVE GIFT item is now named. What they are is settled --
+# Every ARCHIVE GIFT item is named. What they are is settled --
 # `characters.archive_gift_data` is keyed by combatant and lists
 # these ids in its `item_id_list`, with
 # `reward_received_item_id_list` saying which have been handed over
