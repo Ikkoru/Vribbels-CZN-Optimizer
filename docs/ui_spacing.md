@@ -21,7 +21,7 @@ Two ways to obey it, and the second is better where it is available. The correct
 
 Wherever a row has a capital, read it at the capital. In a column of rows that means both ends of every pitch, on every row nothing stops from being read that way. The tables and a whole-row ink reading are for what cannot be indexed to a capital: a row with none, a row whose label is an embedded widget, a title found by its own words where the audit has the string but not a font to measure it in. The reading's note names each row that fell back to ink. A Text row with no capital falls back above only: below, it is read at its first glyph that stands on the baseline, a digit or a lowercase letter with no descender (`_baseline_band`), since a slash in the row hangs a pixel below the baseline the rule names.
 
-**The capital's position is where the widget drew it, never where measuring the string puts it.** A Text line can reach its first capital through a tab stop, or under a tag's font, and `font.measure` knows neither: on `50/50s won<tab>Bottom` the measured offset lands inside the words before the tab, the scan reads a slash two below the baseline, and the row comes out two short while still claiming a capital reading. An embedded widget does the same to a count: it takes an index the line's string does not show. `_capital_band` has the Text find the capital and asks it for that character's box; `checks/check_capital_band.py` holds all three cases.
+**The capital's position is where the widget drew it, never where measuring the string puts it.** A Text line can reach its first capital through a tab stop, or under a tag's font, and `font.measure` knows neither. On `50/50s won<tab>Bottom` the measured offset lands inside the words before the tab: the scan reads a slash two below the baseline, and the row comes out two short while still claiming a capital reading. An embedded widget does the same to a count: it takes an index the line's string does not show. `_capital_band` has the Text find the capital and asks it for that character's box; `checks/check_capital_band.py` holds all three cases.
 
 The audit sees INK, so it corrects what it sees. A descender hangs below the baseline and a tall ascender clears the capitals, so a raw reading is tighter than the rule asks by however far the string's glyphs overshoot. `ui/spacing_registry.py` adds that back at the point of measurement.
 
@@ -71,7 +71,7 @@ One case has no correction and cannot get one: a string with no cap and no ascen
 
 These are exact targets, not floors: a value above target needs bringing down as much as one below it needs raising.
 
-**A panel whose content runs to its border cannot be measured across its middle.** The border scan walks inward from the frame's box looking for the first background pixel, and a panel filled edge to edge along that line has none — so the scan hits its cap and every reading on that panel comes out short by however far it walked. The Gear Score preset list running flush to three borders cost the whole panel 3px that way. The scan tries the middle first and falls back to other lines, any one of which reports the same border where there is background behind it.
+**A panel whose content runs to its border cannot be measured across its middle.** The border scan walks inward from the frame's box looking for the first background pixel, and a panel filled edge to edge along that line has none. The scan then hits its cap, and every reading on that panel comes out short by however far it walked. The Gear Score preset list running flush to three borders cost the whole panel 3px that way. The scan tries the middle first and falls back to other lines, any one of which reports the same border where there is background behind it.
 
 Where a side has background on NO line — the list spans that panel's full width, so every column at the bottom is filled — there is no transition to find at all, and the scan cannot answer however many lines it tries. A frame's border is one width, so that side takes it from a side that did answer, and the reading says it was inferred rather than passing for a measurement.
 
@@ -206,7 +206,7 @@ A rule name is spelled in three places (this table, a `RULE_*` constant, every m
 
 **Nothing PERMANENT in the app is out of scope.** Every tab, the Stat Contributions popup, the Restore Defaults dialog and the hover tooltip are all marked and nudged alike, and no `# spacing: out of scope` marker stands anywhere. The exception is for something TEMPORARY -- a specimen block put on the window to be looked at once -- and it carries one `# spacing: out of scope -- <why>` for as long as it is there.
 
-**A Text sizes in CHARACTERS and LINES, and neither can say what a window needs to the pixel.** `width` reserves whole cells, so what is left after the last glyph lands on the RIGHT inset and nothing inside the widget reaches it; `height` multiplies the font's linespace, so a per-line `spacing3` changes what is drawn and not what the widget asks for. The contributions popup rounds both up and takes the difference off the WINDOW, which its text field absorbs because it is the only child packed to expand.
+**A Text sizes in CHARACTERS and LINES, and neither can say what a window needs to the pixel.** `width` reserves whole cells, so what is left after the last glyph lands on the RIGHT inset and nothing inside the widget reaches it. `height` multiplies the font's linespace, so a per-line `spacing3` changes what is drawn and not what the widget asks for. The contributions popup rounds both up and takes the difference off the WINDOW, which its text field absorbs because it is the only child packed to expand.
 
 A gap inside a window the app opens over the main one names that window. A screenshot covers one window, so `track(window=...)` takes a callable returning the widget to photograph, and a scenario opens that window first and destroys it after. The Stat Contributions popup and the Restore Defaults dialog are the two.
 
@@ -291,7 +291,11 @@ Segoe UI 9 only; re-measure for another face, and re-MEASURE rather than reason.
 - **The helper's `bd` / `highlightthickness` are a LAYOUT lever**, not just a look: they set every checkbox's requested size, and the exclude checklist derives its row pitch and column flow from that. See the ledger.
 - **`tk.Checkbutton` applies `padx` to both sides at once.** Where a lever needs one side only it lives on the geometry manager — which is why the Set Configuration left inset is a `pack(padx=(1, 1))` call and not a style.
 - **A Checkbutton's tick is drawn in `fg`**, the same option that colours its text, so an indicator cannot differ in colour from its own label. Where the two must differ (Set Configuration), the widget is split into a text-less Checkbutton plus separate Labels.
-- **Element colouring** reaches: Set Configuration indicators; Capture's Log Presets (only where every combatant assigned to the preset shares one Element — a preset spanning two, or covering an unknown combatant, stays on the default foreground); Memory Fragments' five elemental Main Stat filters; and Memory Fragments' Sets, where a two-Element set colours its NAME with the first and its COUNT with the second.
+- **Element colouring** reaches:
+  - Set Configuration indicators;
+  - Capture's Log Presets, only where every combatant assigned to the preset shares one Element: a preset spanning two, or covering an unknown combatant, stays on the default foreground;
+  - Memory Fragments' five elemental Main Stat filters;
+  - Memory Fragments' Sets, where a two-Element set colours its NAME with the first and its COUNT with the second.
 - **Gear cells put the slot name on the main stat's row**, right-aligned against the main stat's left, so a cell reserves one bold line rather than two.
 
 ### The measurable gaps
@@ -302,7 +306,7 @@ Markers and entries do not count against each other. One entry can cover several
 
 Some values cannot be measured at all. Most of `content frame -> content frame` is pads on a plain `ttk.Frame`, which paints nothing, and a screenshot cannot measure between two things that leave no pixels. The rest are on a `ttk.LabelFrame`, which draws a border, except where the neighbour on the marked side is borderless or absent. Group the sites by what each pad's target was BUILT as, since a container can change class.
 
-Two kinds of gap that look unmeasurable are not, and have their own resolvers. The columns of a Text widget are tab stops with no widget on either side: `_text_column_gap` turns each line into a band of rows with `dlineinfo`, merges painted bands closer together than a column gap into words, and reports the SMALLEST gap across the rows -- these value stops are right-aligned, so a short value leaves a wider gap after its label and only the widest row shows the distance that was set. Its rows are not widgets either, and `_text_line_pitch` reads the painted lines.
+Two kinds of gap that look unmeasurable are not, and have their own resolvers. The columns of a Text widget are tab stops with no widget on either side: `_text_column_gap` turns each line into a band of rows with `dlineinfo`, merges painted bands closer together than a column gap into words, and reports the SMALLEST gap across the rows. These value stops are right-aligned, so a short value leaves a wider gap after its label and only the widest row shows the distance that was set. Its rows are not widgets either, and `_text_line_pitch` reads the painted lines.
 
 Both inset the box by what the widget paints around its own content: a cell with a relief border has painted pixels on every row, so a run scan over the whole box finds one run and never sees the lines inside it.
 
@@ -318,7 +322,7 @@ An entry named in `AWAITING_FIRST_READING` prints yellow, in the short run as we
 
 ### Two rulings worth reading before re-opening them
 
-The `Character` panel is a COLLECTION OF LABELS. It is one Text widget holding two columns of build stats, the Affinity bonus, the Sets and the Potential nodes, but the Text is a drawing-speed choice rather than what the content is: every stat name and value is a `label ↔ its element` pair, and the two columns sit at `element and its label ↔ element and its label` from each other. Its tab stops are STATED for that reason, like the gear cell's.
+The `Character` panel is a COLLECTION OF LABELS. It is one Text widget holding two columns of build stats, the Affinity bonus, the Sets and the Potential nodes. The Text is a drawing-speed choice rather than what the content is: every stat name and value is a `label ↔ its element` pair, and the two columns sit at `element and its label ↔ element and its label` from each other. Its tab stops are STATED for that reason, like the gear cell's.
 
 `How Gear Score Works` goes the other way — it is meant to read as ordinary prose, so no distance rule reaches inside it.
 
@@ -338,7 +342,11 @@ The Banners list takes all of the window's spare width, in its last column, from
 
 What makes the column fit the default window: every list on the tab at `LIST_ROW_HEIGHT`, shorter than the app's other lists; the Banners list showing at most `BANNER_ROWS` rows and scrolling past them; and the tab's scrollbars at `SCROLLBAR_WIDTH`. `check_tabs_build` measures the worst of it -- a Banners row for every banner type, every list scrolling, the warning lines showing, the gacha sheet at its widest -- in a default-sized window, under the app's own styles.
 
-The titles' leading pads differ by what stands above them, all three set for `panel ↕ unrelated label`: `UNDER_SHEET_PAD` under the gacha sheet, whose last line box already reaches below its baseline; `UNDER_LIST_PAD` under the Great Rift's list; and the button group's bottom pad for the Banners and Pulls titles under the toolbar, which holds only while the help text beside the buttons is no taller than they are.
+The titles' leading pads differ by what stands above them, all three set for `panel ↕ unrelated label`:
+
+- `UNDER_SHEET_PAD` under the gacha sheet, whose last line box already reaches below its baseline;
+- `UNDER_LIST_PAD` under the Great Rift's list;
+- the button group's bottom pad for the Banners and Pulls titles under the toolbar, which holds only while the help text beside the buttons is no taller than they are.
 
 The audit reads those columns between where the Text drew each field (`_text_field_gap`), not from the ink alone: a 5px boundary between fields is no wider than the comma-space inside `Nine, Narja`, and inferring columns from the gaps split the units instead. A date's end is read at its advance, since its last digit is the data's.
 
@@ -451,7 +459,7 @@ The widest value each stat can hold, as the STRING rather than a character count
 | DoT%       | `99.9%`  |
 | Element    | `99.9%`  |
 
-A value that outgrows its entry clips rather than pushing the column, so widen it here if one ever does. **Recompute the three stops from this table after changing the rows, the body font, or either rule's target.** At Segoe UI 9 the arithmetic gives 51 / 59 / 138, and the constants sit a pixel tighter: both columns' longest values lead with `1`, whose leading column of ink is too faint to see, so the stops are placed on the ink instead of on the advance. `NAME2` moves with `VAL1` to hold the pair gap, and `VAL2` takes both pixels because it is measured from `NAME2`.
+A value that outgrows its entry clips rather than pushing the column, so widen it here if one ever does. **Recompute the three stops from this table after changing the rows, the body font, or either rule's target.** At Segoe UI 9 the arithmetic gives 51 / 59 / 138, and the constants sit a pixel tighter. Both columns' longest values lead with `1`, whose leading column of ink is too faint to see, so the stops are placed on the ink instead of on the advance. `NAME2` moves with `VAL1` to hold the pair gap, and `VAL2` takes both pixels because it is measured from `NAME2`.
 
 The same panel's NODE block is a second tab-stopped group, on a TAG of its own — a Text carries one set of stops for the whole widget. Three columns, and the middle one right-aligned like the stat block's values so the levels line up on their last digit:
 
@@ -583,7 +591,7 @@ With nothing captured, the Combatants tab selects a combatant only when `Show mi
 
 A borderless panel still has an edge to measure to. `Borderless` drops the frame's own border, but everything these panels hold — a Treeview's `bg_light` field, a gear cell's `RIDGE` — paints a boundary in a colour the tab background never uses. So the reference edge is found by the colour transition, not by scanning for a border run. Pure text is the only thing in the app with no boundary of its own, and the glyph rules cover that case instead.
 
-**The content-frame rule is measured BOX to box, alone among the rules.** It is the one target defined by the pads that produce it rather than by pixels on screen, and a painted reading gets the vertical case wrong: a LabelFrame's title is drawn above its border and inside its box, so a scan for the lower panel's first painted pixel finds the title's glyphs and adds that title's leading to the gap. It read 7 where the pads give 4. Horizontally the two agree, since a border starts at the box edge.
+**The content-frame rule is measured BOX to box, alone among the rules.** It is the one target defined by the pads that produce it rather than by pixels on screen. A painted reading gets the vertical case wrong: a LabelFrame's title is drawn above its border and inside its box, so a scan for the lower panel's first painted pixel finds the title's glyphs and adds that title's leading to the gap. It read 7 where the pads give 4. Horizontally the two agree, since a border starts at the box edge.
 
 **A row that is registered but not yet confirmed by a hand reading prints in dark yellow.** The flag is `provisional=True` on the entry, or its name in `AWAITING_FIRST_READING`; it comes off once a reading agrees. In a table of hundreds of rows that is what says which ones nobody has checked.
 
