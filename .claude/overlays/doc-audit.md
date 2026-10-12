@@ -33,6 +33,8 @@ Each has been mistaken for a breach at least once.
 - **The `# spacing:` markers and `ui_spacing.md`'s contract tables**: a check parses them (*Hard gate*).
 - **A digit inside a name**: `Potential 7`, `Slot 5`, `Level 61`, `Season 8`. A capitalised word before the digit is the tell.
 - **A `past_plans/` entry that reads stale**: the record of a decision, not a description of today.
+- **A backticked name no source file holds**: in `unread_stats.md`, `wire_hunt.md`, `events.md` and `capture_pipeline.md` most are wire fields, ids and the client's tables and columns, which live in captures and the client rather than in the source. Formula symbols in `game_formulas.md` (`Base_Multiplier`) and ttk element names in `ui_spacing.md` are the same. A stale program name is the find; these are not.
+- **A heading phrased as a statement, with a comma or `and`**: it names its subject, and other files cite many by their exact words (`*The item counts arrive once, and change through the reward keys and a sweep*`), so a rename costs every citation.
 
 ## Found this way
 

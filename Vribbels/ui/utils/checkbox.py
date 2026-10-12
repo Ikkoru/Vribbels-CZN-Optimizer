@@ -146,8 +146,7 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
         # justify with it, always. A wrapped label is the only way this
         # widget gets a second line, and tk.Checkbutton centres its lines
         # by default -- which reads as ragged beside the `anchor=tk.W`
-        # above, and against every other label in the app. Two of the
-        # three call sites passed it by hand and the third did not.
+        # above, and against every other label in the app.
         opts["wraplength"] = wraplength
         opts["justify"] = tk.LEFT
     opts.update(kwargs)

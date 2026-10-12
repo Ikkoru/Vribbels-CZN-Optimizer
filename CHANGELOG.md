@@ -12,18 +12,18 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Checklist:
   - Events are listed under their names in the game, read from the installed game client. A Virtual Tactical Simulation also names its combatant. A name takes whatever width the tab has spare, and one still too long is cut short, with the whole name in its tooltip.
-  - Events count against their reward totals from the game client, final reward included, in place of `+?` floors. A row goes green once every reward is claimed, and a login event counts against its own length. Rewards outside an event's missions, such as a summer event's puzzles, are not in the count.
+  - Events count against their reward totals from the game client, final reward included. A row goes green once every reward is claimed, and a login event counts against its own length. Rewards outside an event's missions, such as a summer event's puzzles, are not in the count.
   - An event the game client cannot supply, such as one a patch adds before the program can read it, takes its total and a login event's length from earlier instalments of the same event, and reads orange once those are all claimed.
   - `Activity (Dailies)` counts the day's points from its tasks: `100/100` blinks orange until the day's reward is claimed, and turns green once it is.
   - `Delegation Module` rows show their window (`24h!`, `3d!`) in a column of its own between the label and the count. The 7-day row is orange, green with none expiring, blinks red when a module has 1-2 days left, and blinks orange when one has 2-3 days left.
-  - Countdowns read `9d left` in place of `Ends in 9 days`.
+  - Countdowns read `9d left`.
   - The Other column lines up its readings and deadlines in three groups: the rows above the Sortie shop, the Sortie shop, and the Events. The Events' deadlines sit just past the widest reading shown.
   - Shop headings break after `Shop -`, the shop's own name on a second line.
 - Combatants:
-  - The `Excursion` column counts against each combatant's own number of Excursion types, from the game client, in place of `10?`.
+  - The `Excursion` column counts against each combatant's own number of Excursion types, from the game client.
   - The descriptions of Node 7 and Node 5.1 on the Character card show the game's full description of the node as a tooltip.
 - A Memory Fragment set the program has no description of its own for shows the game's, and one the program doesn't know at all takes its name from the game client.
-- Capture Log and Checklist: every item the game client names is named, where an unidentified one showed its number.
+- Capture Log and Checklist: items show the names the game client gives them.
 - Memory Fragments: the `Level:` filter's open list jumps to what you type, as the other dropdowns do.
 - Names and counts the game client could not be read for come from the copy shipped with the program. An install STOVE did not register can be named in `settings.json`'s `game_client_dir`.
 
@@ -32,8 +32,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - A settings file that can't be read is repaired at launch, keeping everything in it that still reads, or set aside for the defaults, instead of being saved over. A message names each one and where its original was kept.
 - Game data corrected against the game client:
   - Haru's base stats.
-  - Every combatant's stat gains at levels 61 and 62, where most added nothing.
-  - Affinity levels below 20, which were estimated from the rewards claimed.
+  - Every combatant's stat gains at levels 61 and 62.
+  - Affinity levels below 20.
   - Potential 7: Tenebria gains 2% per 20 ATK past 600, and Sereniel's second +5% grows from 20% to 40% Crit Chance. The game's own descriptions state otherwise; the tooltips say what the game does.
   - Orlea's Attribute is Instinct.
   - Westmacott's Ego costs 2. Rachel's Ego is `Hamburger Delivery, Sir!` and Scarlet's passive is `Noose of Mastery`.

@@ -812,9 +812,7 @@ class OptimizerTab(BaseTab):
         # The negative TRAILING padding pulls the glyphs right, toward
         # the rule: a Label's box stops short of its own text where the
         # spinbox below it ends at its border. pack's padx cannot go
-        # negative, so the correction lives on the widget. The target
-        # moved to 5 after this was set, so the audit should now read it
-        # a pixel wide.
+        # negative, so the correction lives on the widget.
         self.status_label = ttk.Label(
             status_cluster, text="No data loaded",
             foreground=self.colors["fg_dim"],

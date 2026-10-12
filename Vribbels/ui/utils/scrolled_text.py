@@ -9,8 +9,8 @@ shape, but the frame and scrollbar it builds are `tk` and no constructor
 keyword reaches them: every keyword goes to the Text. So the frame keeps
 Tk's near-white default and paints before the Text covers it, which
 shows as the whole panel flashing white on first display, and the
-scrollbar keeps classic Tk's grey however `TScrollbar` is styled. Both
-were corrected here by hand afterwards. Building the pair from ttk
+scrollbar keeps classic Tk's grey however `TScrollbar` is styled.
+Building the pair from ttk
 answers both at the source: the theme reaches a `ttk.Frame` and a
 `ttk.Scrollbar` directly, and one `TScrollbar` style paints every
 scrollbar in the app.

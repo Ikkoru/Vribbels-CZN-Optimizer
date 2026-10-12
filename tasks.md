@@ -38,7 +38,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   1. **10-13: Nine & Alcea's Normal Rescue rerun, and Nine's trial.** A capture confirms `RERUN_BANNERS`' dates and the trial's pairing.
   2. **10-21: season 5's part 1.**
      - From its notice: `SUPPLY_ROUNDS["disaster_s05"]` in `checklist_tab.py`, and `SEASON_ESTIMATE["disaster_s05"]`, hand-counted off the screens (`past_plans/seasonal_shop.md`).
-     - From its first run: the new Chaos's stage id in `chaos_estimate.CHAOS_NAMES`, and the season currency's id in `docs/chaos_runs.py` `CURRENCY`. The client puts `chaos_10` in the season (`disaster_chaos_list`), but build 88 holds no stage id (90000 if the pattern holds), name or currency for it yet; a client read after the next patch may.
+     - From its first run: the new Chaos's stage id in `chaos_estimate.CHAOS_NAMES`, and the season currency's id in `docs/chaos_runs.py` `CURRENCY`. The client puts `chaos_10` in the season (`disaster_chaos_list`), but build 88 holds no stage id (90000 if the pattern holds), name or currency for it yet; a client read after the next patch may. Read the currency's name with its id: the item worklist's `Type` and `Note` on 3000009 describe Memory of Light, which the client puts at 3000006.
      - Then refresh `chaos_estimate.SHIPPED` from `python docs/chaos_runs.py`. Read its by-spot lines: the season's maps hold fewer ordinary battles (its docstring).
   3. **To confirm on the next capture:** a level-up, a Potential node and a gift move the Combatants tab live.
 
@@ -154,8 +154,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   - `tk scaling`, the theme's pixel options (`scale_theme`) and the icons (`image_utils._resample`) are set or resampled at startup.
 
   The rebuild: on a DPI change, debounced, set the new scale, apply `tk scaling` and the theme again, reload the icons and rebuild the notebook's tabs from the managers, carrying or dropping each tab's selection and scroll. `checks/check_ui_scales.py` and the spacing audit already cover every scale.
-
-- **T19 — The Galactic Disaster season currency, from the game client.** When the season's next part opens, read the seasonal currency's name and id off its first capture. The item worklist's `Type` and `Note` on 3000009 describe Memory of Light, which the client puts at 3000006.
 
 - **T3 — Richer main-stat forcing for slots IV/V/VI** (UserA). Main-stat forcing is four Force HP/Ego checkboxes. The design question is which options, and in what form: per-slot checklists, dropdowns, or curated rules.
 
