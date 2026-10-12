@@ -54,13 +54,13 @@ Keyed by `str(res_id)`, NOT by name; `name_hints` exists purely for readability 
 
 **Why id-keyed:** a captured-but-unknown character is displayed as `"1055"` and later becomes `"Adelheid"`. Under name keys the user's assignment is silently lost at that moment; under id keys the res_id is stable and only the hint changes. For still-unknown characters the name-to-id resolver falls through to "if it looks numeric, use it".
 
-`character_preset_manager.normalize_to_v2()` is IDEMPOTENT, so it runs on every load and every sync rather than being gated on a version check: numeric keys keep their value, name keys resolve via `CHARACTERS`, and a character carrying both resolves to whichever assignment is non-null. Mixed-version pairs normalize before the per-key merge, and both files are rewritten in v2 so later loads skip it.
+`character_preset_manager.normalize_to_v2()` is IDEMPOTENT, so it runs on every load and every sync rather than being gated on a version check. Numeric keys keep their value, name keys resolve via `CHARACTERS`, and a character carrying both resolves to whichever assignment is non-null. Mixed-version pairs normalize before the per-key merge, and both files are rewritten in v2 so later loads skip it.
 
 ## Restore Defaults
 
 Three buttons on the Setup & Settings tab, one per defaultable file, all opening a generalized modal (`_open_restore_dialog(kind)` in `setup_tab.py`, dispatched via `_RESTORE_KIND_META`). It brings back deleted defaults and picks up updated values at per-entry granularity, overriding the tombstone gate that normally suppresses re-adds.
 
-Two frames: "Restore Missing" (defaults the user has not taken) and "Replace Changed" (same key, different value), each row with a checkbox defaulting to checked. The Presets kind also gets a Rename column, so the user can keep their customized version under a new name while accepting the default under the original; rename text must be non-empty and must not collide with an existing preset or another rename in the same dialog.
+Two frames: "Restore Missing" (defaults the user has not taken) and "Replace Changed" (same key, different value), each row with a checkbox defaulting to checked. The Presets kind also gets a Rename column, so the user can keep their customized version under a new name while accepting the default under the original. Rename text must be non-empty and must not collide with an existing preset or another rename in the same dialog.
 
 **Bucket semantics for `character_preset`** (the non-obvious part — `None` means "no opinion"):
 
