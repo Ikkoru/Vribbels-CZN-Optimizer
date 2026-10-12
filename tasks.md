@@ -155,9 +155,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   The rebuild: on a DPI change, debounced, set the new scale, apply `tk scaling` and the theme again, reload the icons and rebuild the notebook's tabs from the managers, carrying or dropping each tab's selection and scroll. `checks/check_ui_scales.py` and the spacing audit already cover every scale.
 
-- **T19 — More from the game client.** Event names and reward totals, item names, Excursion type counts, the daily tasks, set effects and the node 7 and 5.1 texts are read at launch (`docs/client_data.md`, *What the program reads at launch*). The app reads what changes every patch; the maintainer tool, `docs/client_tables.py --audit`, holds the tables whose every change wants reviewing. Left:
-
-  - **When the Galactic Disaster season's next part opens**: read the seasonal currency's name and id off its first capture. The item worklist's `Type` and `Note` on 3000009 describe Memory of Light, which the client puts at 3000006.
+- **T19 — The Galactic Disaster season currency, from the game client.** When the season's next part opens, read the seasonal currency's name and id off its first capture. The item worklist's `Type` and `Note` on 3000009 describe Memory of Light, which the client puts at 3000006.
 
 - **T3 — Richer main-stat forcing for slots IV/V/VI** (UserA). Main-stat forcing is four Force HP/Ego checkboxes. The design question is which options, and in what form: per-slot checklists, dropdowns, or curated rules.
 
