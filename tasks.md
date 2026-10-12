@@ -49,16 +49,13 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   - a lost run counts when a boss had paid and no non-boss fight was left;
   - `chaos_runs_per_day` sets the runs a day.
 
-  **What is left: season 4's part 1 was never captured.** It borrows part 2's bosses (172 + 172). If part 1 paid something else, the season-4 estimate is off by 21 days of the difference. The maintainer does not remember what it paid, so it stays borrowed unless a capture turns up. Season 5's data can replace it once available.
+  **What is left: season 4's part 1 was never captured.** It borrows part 2's bosses (172 + 172). If part 1 paid something else, the season-4 estimate is off by 21 days of the difference. The maintainer does not remember what it paid, so it stays borrowed unless a capture turns up. Season 5's data can replace it once available. Note: Season 5 may be an exception (at least partially), because it seems like it will feature a Core of Discord boss starting from the first part.
 
 - **C1 — Finish the Checklist tab.** `docs/wire_hunt.md` and `docs/wire_hunt.tsv` hold every row that still shows no value, with its suspect and what would settle it. The TSV is the live list; this is only what it costs. What is left:
 
   1. **How a step track's record reads.** The code takes `reward_step` as the steps CLAIMED, on the evidence in `docs/events.md`, *`reward_step` and `version`*. If it is the track's SIZE instead, `_client_steps` and `_step_progress` change as that section says, and a track at the top of its ladder stops waiting for its flag to go green.
      - Needs, on the next LIVE step track, with a capture running: its `reward_step` against the size the client gives it, while steps are still unclaimed. The next Love event, `event_love_05`, is already in the client.
      - The Sortie has no such track: `event_chaos_assault_1` is its launch event, long over.
-  2. **The Coronomicon Gift row: claimed today, and days left on the pass.** Deferred by the maintainer; the research is done.
-     - `issued_limit_entities[subscription_1]` rides the login burst, and the claim answers with the same record as `issued_entities`, so the capture keeps it either way. `expire_time` dates the pass; `vi1` names the day the gift was last taken. `docs/wire_hunt.md`, *The monthly pass, and what it would take to show it*, has the lot.
-     - Needs nothing from the maintainer. It needs a ROW, not a capture: a Daily entry, claimed-today plus days remaining.
 
   **How the next round runs:**
 
