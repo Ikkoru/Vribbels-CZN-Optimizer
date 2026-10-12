@@ -4,7 +4,7 @@ Read before touching `capture/`, the snapshot parser (`optimizer.GearOptimizer._
 
 The chain: mitmdump intercepts the game's WebSocket traffic → the addon template embedded in `capture/manager.py` parses it and maintains `piece_items` + `characters` → `_save_data()` writes `snapshots/memory_fragments_*.json` → the optimizer reads that and builds `character_info` → the tabs render from it.
 
-**One FRAME writes the snapshot at most once, and the frame is the unit rather than the payload.** The client batches its commands whenever it has several to send and the server answers in kind, so a frame carries a LIST of replies -- and loading into the game sends the roster, the inventory and the banner schedule that way. Every branch that changes cached data sets `_save_pending`; the single save runs after the payload loop in `websocket_message`. `_save_data` writes the whole cache whenever it runs, so a second call in one frame adds nothing but a duplicate `Saved:` line.
+**One FRAME writes the snapshot at most once, and the frame is the unit rather than the payload.** The client batches its commands whenever it has several to send and the server answers in kind, so a frame carries a LIST of replies. Loading into the game sends the roster, the inventory and the banner schedule that way. Every branch that changes cached data sets `_save_pending`; the single save runs after the payload loop in `websocket_message`. `_save_data` writes the whole cache whenever it runs, so a second call in one frame adds nothing but a duplicate `Saved:` line.
 
 **`capture/manager.py` is the ONLY file in the repo with a strict ASCII requirement**: the addon is written out as a generated script, and a cp932/cp949 locale cannot encode a smart quote or an em dash into it.
 
@@ -44,7 +44,7 @@ The `user` key needs the same care: it arrives with no roster attached, so it is
 
 The wire shape is `{"cmd": <domain>, "qid": n, "params": {"cmd": <action>, ...}}`, and the client sends a JSON ARRAY of those whenever it has more than one command to send. The server answers in kind: an array of reply objects, each shaped exactly like a solo reply. `websocket_message` unwraps both forms and hands each object to `_handle_server_payload`.
 
-The login burst is the only long stretch of solo commands. Everything after the lobby arrives batched, so a handler reading only the object form sees the login and then apparently nothing — no parsing, no snapshot save, and no debug-log line either, so the capture looks like it went quiet rather than like it dropped anything.
+The login burst is the only long stretch of solo commands. Everything after the lobby arrives batched, so a handler reading only the object form sees the login and then apparently nothing: no parsing, no snapshot save, and no debug-log line either. So the capture looks like it went quiet rather than like it dropped anything.
 
 `checks/check_capture_batching.py` drives the template with a frame of each shape.
 
@@ -60,7 +60,7 @@ The schedule is kept ONCE, as the GACHA group of `event_schedules`; `_banners()`
 
 ## The pull history is kept in a file of its own
 
-`gacha/history` pages, `gacha/get_rate` replies and the pity records go to `snapshots/gacha_history/captured.json` through `_merge_gacha`, never into the snapshot. **It is the one record here a later capture cannot rebuild**: the game stops listing a pull after about half a year, so the file only ever gains, and every write goes through a checked copy that keeps the previous file as `.bak`.
+`gacha/history` pages, `gacha/get_rate` replies and the pity records go to `snapshots/gacha_history/captured.json` through `_merge_gacha`, never into the snapshot. **It is the one record here a later capture cannot rebuild**: the game stops listing a pull after about half a year, so the file only ever gains. Every write goes through a checked copy that keeps the previous file as `.bak`.
 
 The app refreshes the Stats & Gacha History tab's pull history on `GACHA_MARKER`, not `SAVE_MARKER`: a history page is no reason to reload the whole snapshot, which a `[LIVE]` line would also cost. The tab's standings sheets are the snapshot's, redrawn on every load. The file's location and name are handed to the generated addon from `gacha_history.py` rather than spelled twice. Everything else -- the wire shapes, the write, the reading -- is in `docs/gacha_history.md`.
 
@@ -226,7 +226,7 @@ A Sortie rung is complete only when `complete_time` is set. `sortie_progress.py`
 - `acquired_count` is not a flag. It reaches 3 on title rungs that count once each.
 - Ladder LENGTHS are constants in `sortie_progress.py`. Unearned rungs send nothing, so the wire cannot state them, and a rung arriving past the end is the one sign the game has lengthened one.
 
-Every save prints `[SYNC] saved`, and that is what the app reloads on. The human-readable `Saved:` line is suppressed when it would repeat the previous line word for word — and the login burst saves several times with identical counts, the first as soon as the inventory lands and the later ones carrying the shops, the schedules and the missions. A reload riding on the readable line was therefore skipped for exactly those saves, so the app sat on the first save's snapshot for the whole session. The marker is consumed by the reader and never shown, and it is deliberately not remembered as "the last line" — doing so would sit between two identical reports and stop either reading as a repeat. `checks/check_addon_template.py` holds the reader's copy of the literal equal to the addon's.
+Every save prints `[SYNC] saved`, and that is what the app reloads on. The human-readable `Saved:` line is suppressed when it would repeat the previous line word for word. The login burst saves several times with identical counts, the first as soon as the inventory lands and the later ones carrying the shops, the schedules and the missions. A reload riding on the readable line was therefore skipped for exactly those saves, so the app sat on the first save's snapshot for the whole session. The marker is consumed by the reader and never shown, and it is deliberately not remembered as "the last line" — doing so would sit between two identical reports and stop either reading as a repeat. `checks/check_addon_template.py` holds the reader's copy of the literal equal to the addon's.
 
 **The snapshot's temp-file replace can be refused.** Windows returns `[WinError 5] Access is denied` while another process holds the destination open — the app reading it, an indexer, an antivirus. `_save_data` retries; a save that still cannot land says so and leaves the previous snapshot intact.
 
@@ -265,13 +265,13 @@ so a x6 run sends six entries for the same item and the total is their sum. Noth
 
 **A pull pays on its result list** (`gacha/run`'s `list`): each unit drawn carries `reward_items`, `[{res_id, count, count_result}]`, where `count_result` is the holding's total after that unit and a currency adds `total_amount` and `total_use_amount`. `_apply_pull_rewards` writes each id's last `count_result` in like a `doc.amount`, reporting the counts summed. A duplicate's conversion and the item a Prism turns a unit into arrive nowhere else. Unread, an item first held this way never reached the cache, so spending it later restated a zero the cache already held: neither the gain nor the use reached the log.
 
-`result` is the most OVERLOADED key on the wire — a string, a bool, a stage's step record — so it counts only where it carries a rewards payload or nests one, two levels down under an envelope of its own.
+`result` is the most OVERLOADED key on the wire: a string, a bool, a stage's step record. So it counts only where it carries a rewards payload or nests one, two levels down under an envelope of its own.
 
-Without these branches nothing on the wire moves an item count: the Materials tab reads what the account had at login, no save is triggered, and no line reaches the Capture Log — a capture that has gone stale looks exactly like one where nothing has happened. `checks/check_capture_rewards.py` drives every one of them.
+Without these branches nothing on the wire moves an item count: the Materials tab reads what the account had at login, no save is triggered, and no line reaches the Capture Log. A capture that has gone stale looks exactly like one where nothing has happened. `checks/check_capture_rewards.py` drives every one of them.
 
 **A key missing from the list is close to invisible.** The client asks for the inventory again after a run, so the counts still end up right; the only symptom is the Capture Log staying quiet about something the player watched arrive. `calamity_reward` and `chaos_free_reward_result` were both found by the wire catalogue rather than by reading anything.
 
-**Three keys are payout-shaped and must NOT be applied.** `battle/reward_complete` answers with `drop_item`, a list in exactly the drop shape — and it is the RUN's running tally rather than the battle's payout: the same entries come back after every battle and grow as spots are picked up, while the counts they name stay put. One capture sent `[Units 2000, Traces of Memory 2]` four times in fifty seconds with the Units balance unchanged throughout, then carried those entries plus the spot pickups for the rest of the run. `world/get_stage_info|drop_item` and `merchant/*|drop_item_info` carry the same accumulated list. Applied, a five-battle run pays five times over. `checks/check_capture_rewards.py` holds the line.
+**Three keys are payout-shaped and must NOT be applied.** `battle/reward_complete` answers with `drop_item`, a list in exactly the drop shape. It is the RUN's running tally rather than the battle's payout: the same entries come back after every battle and grow as spots are picked up, while the counts they name stay put. One capture sent `[Units 2000, Traces of Memory 2]` four times in fifty seconds with the Units balance unchanged throughout, then carried those entries plus the spot pickups for the rest of the run. `world/get_stage_info|drop_item` and `merchant/*|drop_item_info` carry the same accumulated list. Applied, a five-battle run pays five times over. `checks/check_capture_rewards.py` holds the line.
 
 **A run's own clear reward is NESTED, and nothing at the top level carries it.** `stage/clear_stage` answers with `return_info`, and inside it:
 
@@ -283,7 +283,7 @@ Without these branches nothing on the wire moves an item count: the Materials ta
 
 **A Simulation run is said in one line, at its clear.** Its drops (`drop_item_result`) pay the runs before the clear, which then restates them in `result_reward_drop_item` beside `result_reward_drop_overclock`, the share an Overclock doubles -- both at the same total. Read off the cache, the restatement moved it by the doubled share and printed the drops' figures again, while the doubled share reached no line. So from `simulation/enter_savedata_stage` (`RUN_HOLDS_DROPS`) the drops are applied but not said, and the clear's line is what its envelopes' `diff`s add up to (`_settle_held_run`); a clear that never comes has the held line said at the next run or connection.
 
-So `_nested_rewards` sweeps `return_info` by SHAPE rather than by name — the names are per-content and there is no reason the next kind of run will reuse them — and takes every totals envelope it finds, bounded and stopping as soon as it has one. **Over-collecting is safe here**: an envelope states what a holding now is, so taking one twice writes the same number. The drop LISTS in the same payload would double, which is why only envelopes are swept.
+So `_nested_rewards` sweeps `return_info` by SHAPE rather than by name: the names are per-content, and there is no reason the next kind of run will reuse them. It takes every totals envelope it finds, bounded and stopping as soon as it has one. **Over-collecting is safe here**: an envelope states what a holding now is, so taking one twice writes the same number. The drop LISTS in the same payload would double, which is why only envelopes are swept.
 
 This is what a Sortie pays at its report screen, and reading only the reply's own keys is why every Sortie finished in silence. The entry itself is `chaos_assault/enter_assault` (Aether −10) and each area's reward is `chaos_assault/receive_area_reward`, which charges a Reason under `dec_result` and pays under `item_result` — both already read.
 
@@ -309,7 +309,7 @@ Only the save marker asks for a reload. A `[LIVE]` line is printed while its rep
 
 ### Timing a line, under Debug WS
 
-A line that reaches the Capture Log late was held by the game or by the program, and Debug WS says which. The addon puts `LAG_MARKER` and three times after every line it prints while handling a reply: when that reply's request went out (by qid, from the proxy's own message timestamp), when the reply came in, and when the line was printed. `split_lag` takes it off in the reader, first thing, so every later test of the line sees the text the addon wrote; the reader adds when it read the line, and `capture_log_msg` shows the four gaps after it in dim text -- `server`, `capture`, `pipe`, `UI`, in milliseconds. `UI` is taken on the UI thread, so the wait in the inbox is inside it, and an `Upgraded` line's includes the reload it waits for (below).
+A line that reaches the Capture Log late was held by the game or by the program, and Debug WS says which. The addon puts `LAG_MARKER` and three times after every line it prints while handling a reply: when that reply's request went out (by qid, from the proxy's own message timestamp), when the reply came in, and when the line was printed. `split_lag` takes it off in the reader, first thing, so every later test of the line sees the text the addon wrote. The reader adds when it read the line, and `capture_log_msg` shows the four gaps after it in dim text: `server`, `capture`, `pipe`, `UI`, in milliseconds. `UI` is taken on the UI thread, so the wait in the inbox is inside it, and an `Upgraded` line's includes the reload it waits for (below).
 
 What none of them can see is the game holding an action before it sends the request. A late line whose four numbers are small was held there, and nothing here can shorten that. A message the server pushes unasked has no request, so it shows no `server`.
 
@@ -349,7 +349,7 @@ So the login burst — the bulk of every capture — is almost pure repetition b
 
 ### Telling a relaunch from a reconnect
 
-Four signals look like a new game and three of them are traps. **This game drops its connection often**, and a reconnect closes and reopens the websocket, redoes the handshake and re-sends the lobby — so `websocket_end` fires, `helo` arrives with its `qid: 1` and its device block, `lobby_update` comes back with `from_title: true`, and a fresh `session` token is issued. An evening with a few dropped connections is indistinguishable from an evening of relaunches by any of them.
+Four signals look like a new game and three of them are traps. **This game drops its connection often**, and a reconnect closes and reopens the websocket, redoes the handshake and re-sends the lobby. So `websocket_end` fires, `helo` arrives with its `qid: 1` and its device block, `lobby_update` comes back with `from_title: true`, and a fresh `session` token is issued. An evening with a few dropped connections is indistinguishable from an evening of relaunches by any of them.
 
 `characters.user.last_login_tm` is the marker, because a reconnect resumes and only a login logs in. Three snapshots written across one evening of dropped connections carried it identical to the second — as they did `activated_tm` and the account payload's own `server_time` — where the launch before them differed.
 
@@ -392,7 +392,7 @@ Qids restart at 1 with each `helo`, which is why `_forget_pending` exists: the p
 
 ### Saving reports itself only when it changes
 
-A save reports itself only when it would say something new — a different file, or different counts. The suppression is keyed on those figures and not on the last line logged: any `[LIVE]` line in between, and there is one after every upgrade, delete and reward, would otherwise put the same numbers back on screen, and an evening of capture reads as that one sentence repeated.
+A save reports itself only when it would say something new — a different file, or different counts. The suppression is keyed on those figures and not on the last line logged. Any `[LIVE]` line in between, and there is one after every upgrade, delete and reward, would otherwise put the same numbers back on screen, and an evening of capture reads as that one sentence repeated.
 
 What is left is the file being written, the numbers moving, and — loudly — a save that FAILS. The write is wrapped for that: unwrapped, an `OSError` surfaces through the frame handler's own catch as a bare `Error:` with no mention of a snapshot, in a log whose every other line is about the game.
 
@@ -406,7 +406,7 @@ What is left is the file being written, the numbers moving, and — loudly — a
 
 "Old" is positional, not temporal. A file is a candidate when it is the Nth back from the newest of its own kind, so what the program reads is never in reach however long ago it was written. `KINDS` carries both marks per kind, and is the only place they are written down — snapshots and logs compact at different counts, since a log is the bigger file and nothing shipped reads an old one.
 
-**A loose file is deleted only after its archived copy has been read back and its SHA-256 matched**, in that same pass, and `_delete` refuses anything that is not directly in the folder, not named like a capture, or not verified — `_capture_addon.py` sits in that directory. A verification mismatch is never retried: either the archive is wrong or the file changed underneath, and both want a human, so the run stops with the old archive untouched. A file that will not open, or will not delete, is left loose for the next compaction instead of failing the run.
+**A loose file is deleted only after its archived copy has been read back and its SHA-256 matched**, in that same pass. `_delete` refuses anything that is not directly in the folder, not named like a capture, or not verified: `_capture_addon.py` sits in that directory. A verification mismatch is never retried: either the archive is wrong or the file changed underneath, and both want a human, so the run stops with the old archive untouched. A file that will not open, or will not delete, is left loose for the next compaction instead of failing the run.
 
 Logs go in decompressed. xz cannot shrink a `.gz`, and ungzipping on the way in recovers about 85% of a log's archived size. `gzip.open` streams straight into the tar, so nothing is written to a temporary file, and the member keeps the `.jsonl` name.
 
@@ -423,4 +423,4 @@ Which presets reach the line is decided in `_upgrade_potentials_suffix`, through
 
 A preset survives if ANY of its selected combatants accepts the fragment — the line lists presets, not combatants, and one preset can be assigned to combatants of different elements, scaling or roles.
 
-A ceiling in the Mythic colour beats what the preset's combatant wears. From `MYTHIC_FROM_LEVEL` on, `_beats_equipped` scores the fragment the combatant has in the same slot under the same preset, as the Memory Fragments tab would, and marks the preset where the new fragment's ceiling prints higher than that one's -- its Potential, where it has no upgrades left. Only for a preset assigned to exactly one combatant, and never for an empty slot: a combatant with nothing on is not in use. The capture tab's `_mark_beaten` finds the number by the preset's name ENDING its entry, so `Nine` does not take the ceiling of `Nine (Line of Justice)`.
+A ceiling in the Mythic colour beats what the preset's combatant wears. From `MYTHIC_FROM_LEVEL` on, `_beats_equipped` scores the fragment the combatant has in the same slot under the same preset, as the Memory Fragments tab would. It marks the preset where the new fragment's ceiling prints higher than that one's: its Potential, where it has no upgrades left. Only for a preset assigned to exactly one combatant, and never for an empty slot: a combatant with nothing on is not in use. The capture tab's `_mark_beaten` finds the number by the preset's name ENDING its entry, so `Nine` does not take the ceiling of `Nine (Line of Justice)`.
