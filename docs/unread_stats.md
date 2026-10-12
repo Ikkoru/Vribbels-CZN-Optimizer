@@ -229,7 +229,7 @@ Kept, as history. Sent with `mission/get_list`, one row per counter: `res_id` `a
 | 092 | `CLEAR_SIMULATION__ID` -- new with the 2026-09-30 patch, counting from it, a x5 run as five |
 | 093 | `CLEAR_INGAME_CONTENTS__ID` -- the same, a Chaos cleared through the Zero System as one |
 
-Not yet seen moving: 002, 004, 007, 015, 017, 023, 026, 027, 028, 043, 051, 057, 059, 066, 076, 078, 082, 084, 085. **A counter sharing a type with others splits it by a parameter the row does not carry** -- rarity, level band, faction -- so which of 070 to 073 is which rarity is readable only off the Achievements screen, whose text is client-side. Of the glosses above, 003's is measured; 024's and 032's only translate `PIECE`, which is the wire's word for a Memory Fragment. Everything else is the condition's own name and nothing more.
+Not yet seen moving: 002, 004, 007, 015, 017, 023, 026, 027, 028, 043, 051, 057, 059, 066, 076, 078, 082, 084, 085. **A counter sharing a type with others splits it by a parameter the row does not carry** -- rarity, level band, faction -- and the game client states it: `accumulate_condition` gives every counter its type and parameters, so 070 counts every rarity, 071 COMMON, 072 RARE and 073 UNIQUE, which the achievements call Mythic (`docs/client_data.md`, *Where each fact is*). Of the glosses above, 003's is measured; 024's and 032's only translate `PIECE`, which is the wire's word for a Memory Fragment. Everything else is the condition's own name and nothing more.
 
 `lobby/lobby_update` sends **`login_total_count`**, kept, which read the same as counter 033 on 2026-09-24.
 
