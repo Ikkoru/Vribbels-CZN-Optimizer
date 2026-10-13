@@ -85,6 +85,6 @@ The derivations above were checked against what the program already knows, and t
 | The tables' key | nothing: the key is read off the data on every run | |
 | The tables' cipher or header | the tool stops: no key rotation yields the magic, or the header size differs | the ripper's `DBParser.cpp` |
 | A table or column renamed | whatever reads that name fails on it | the table's new name, from `--list` and `--table` |
-| A new install path | the manifest is not found | `game_client_dir`, or `--client` |
+| A new install path | the manifest is not found: Setup Status and the Capture Log say the client was not found | `Browse...` in `Client Status`, which sets `game_client_dir`; `--client` for the tool |
 
 The program meets each of these as a read that fails, and keeps the shipped names and totals; `debug_perf_log` records why.
