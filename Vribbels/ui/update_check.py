@@ -95,6 +95,13 @@ PITCH_READINGS = 2   # spacing: config panel row ↕ row -- label, label ↕
 PITCH_VERDICT = 1    # spacing: config panel row ↕ row -- label, label ↕
 PITCH_BUTTON = 6     # spacing: config panel row ↕ row -- label, button ↕
 
+# The readings the value column is held wide enough for, so the panel
+# keeps one width whatever it shows. The widest of `format_age`'s
+# answers, and this build's own version as an up-to-date check shows it
+# (added in `UpdateStatus`). A reading wider than all of them widens the
+# panel, and Client Status beside it gives the width up.
+RESERVED_READINGS = ("999 days ago", "59 minutes ago", "59 seconds ago")
+
 
 def version_core(version: str) -> str:
     """The numeric `x.y.z` core of a version string.
@@ -208,6 +215,19 @@ class UpdateStatus:
         self.checked_label.grid(row=1, column=1, sticky="w",
                                 padx=px((LABEL_TO_VALUE, 0)),
                                 pady=px((PITCH_READINGS, 0)))
+        # The value column's width: what the label asks for each reserved
+        # reading -- its text and its own inset -- and the gap before it,
+        # which sits inside the cell. MEASURED, so `check_ui_scales`
+        # skips the column.
+        reserved = RESERVED_READINGS + (
+            f"{version_core(self.current)} (up to date)",)
+        widest = 0
+        for text in reserved:
+            self.checked_label.configure(text=text)
+            widest = max(widest, self.checked_label.winfo_reqwidth())
+        self.checked_label.configure(text="")
+        rows.grid_columnconfigure(1, minsize=widest + px(LABEL_TO_VALUE))
+        rows.measured_columns = {1}
 
         # `tk.Label`, not ttk: the verdict is coloured per state and a
         # ttk style would need one style per colour.

@@ -12,11 +12,12 @@ height.
 `Share Game Data` saves the game facts the account's captures hold and
 the program does not ship (`shared_facts.py`), for the user to send in,
 and says in yellow or green whether there are any. It shares its row's
-height with `Update Status` and `Client Status`, and its button sits
-under `Window Size`: `align_share_button` sizes Update Status to its
-content and gives Client Status the rest of the width that puts it
-there. `Client Status` shows where the game client is, and `Browse...`
-sets `game_client_dir` and reads the client from there.
+height with `Update Status` and `Client Status`. Share Game Data is
+`SHARE_PANEL_WIDTH` wide and Update Status as wide as its reserved
+readings (`update_check.RESERVED_READINGS`); Client Status takes the
+rest (`size_status_row`). `Client Status` shows where the game client
+is, and `Browse...` sets `game_client_dir` and reads the client from
+there.
 
 `Setup Instructions` is as tall as its text and no taller: a fixed
 block that never grows, so a panel sized to hold it exactly holds all
@@ -117,15 +118,19 @@ RESTORE_TEXT_TRIM = -2  # spacing: button -> button -- button, button ↕
 # the distance between the two.
 RESTORE_COLUMN_GAP = 8  # spacing: control group ↔ control group -- label, button ↔
 
-# Share Game Data, beside Update Status. Its button's left edge sits on
-# Window Size's, and Update Status takes whatever width puts it there --
-# see `align_share_button`. The inset is the button rule on every side:
-# the top and the left meet the button, the right is slack, and the
-# bottom is Update Status' to decide -- see `SHARE_NOTE_TRIM`.
+# Share Game Data's width at 100%, its border included. Its note wraps
+# to whatever this leaves it.
+SHARE_PANEL_WIDTH = 580
+# What the note's first wrap leaves for the panel's border, which no
+# constant states. Any figure at least the border does.
+SHARE_BORDER_ALLOWANCE = 4
+# Share Game Data's inset is the button rule on every side: the top and
+# the left meet the button, the right is slack, and the bottom is
+# Update Status' to decide -- see `SHARE_NOTE_TRIM`.
 SHARE_EDGE_PAD = 3      # spacing: border edge -> button -- panel, button ↔↕
 SHARE_STATUS_GAP = 2    # spacing: label ↔ its element -- button, label ↔
 SHARE_NOTE_GAP = 2      # spacing: explanation text -> the controls it explains -- button, label ↕
-# Each panel's half of the gap between Update Status and Share Game Data.
+# Each panel's half of the gap to its neighbour in Update Status' row.
 SHARE_PANEL_PAD = 2     # spacing: content frame -> content frame -- frame, frame ↔
 # What the note gives back below its last line. A `ttk.Label` carries
 # about two pixels of inset under its glyphs, and handing them back is
@@ -455,14 +460,18 @@ class SetupTab(BaseTab):
         self._build_restore(right)
         self._build_cert_note(right)
         # Update Status, Client Status and Share Game Data share a row
-        # and its height. Update Status is as wide as its content, and
-        # Client Status takes the rest of the width that puts Share Game
-        # Data's button under Window Size -- see `align_share_button`.
+        # and its height. Update Status is as wide as its reserved
+        # readings, Share Game Data `SHARE_PANEL_WIDTH`, and Client
+        # Status takes the rest -- see `size_status_row`.
         row = self._update_row = ttk.Frame(right)
         # spacing: content frame -> content frame -- frame, frame ↔
         # spacing: panel ↕ unrelated label -- panel, title ↕
         row.pack(fill=tk.X, padx=_right_padx(), pady=px((5, 2)))
-        row.grid_columnconfigure(2, weight=1)
+        row.grid_columnconfigure(1, weight=1)
+        # The cell's width, so the panel's own pad on its left joins it.
+        row.grid_columnconfigure(
+            2, minsize=px(SHARE_PANEL_WIDTH)
+            + px_after(SHARE_PANEL_PAD, SHARE_PANEL_PAD))
         self.update_status = UpdateStatus(
             row, self.colors, self.root, self.context.settings_manager)
         # spacing: content frame -> content frame -- frame, frame ↔
@@ -866,9 +875,12 @@ class SetupTab(BaseTab):
         # spacing: explanation text -> the controls it explains -- button, label ↕
         note.pack(fill=tk.X, anchor=tk.W, pady=px((SHARE_NOTE_GAP, 0)))
         # The note wraps at the width it is given. **Before the first
-        # `<Configure>` it asks for its whole length on one line**, and
-        # the grid lets the panel's weight absorb it; after it, it asks
-        # for what its width holds.
+        # `<Configure>` it would ask for its whole length on one line**,
+        # and the cell's `minsize` is only a floor, so it starts wrapped
+        # inside the panel's width -- a few pixels short for the border
+        # -- and takes the exact width when it is laid out.
+        note.configure(wraplength=px(SHARE_PANEL_WIDTH - 2 * SHARE_EDGE_PAD
+                                     - SHARE_BORDER_ALLOWANCE))
         note.bind("<Configure>", lambda e: note.configure(
             wraplength=max(1, e.width)), add="+")
         # Checked again whenever this tab is shown: a capture can have
@@ -1348,45 +1360,27 @@ class SetupTab(BaseTab):
         # status line's words, then the verdict rewrapped to Update
         # Status' width -- since the two alignments after read it.
         self._check_share()
-        self.align_share_button()
+        self.size_status_row()
         self.align_columns()
         self.link_bottom_heights()
 
-    def align_share_button(self):
-        """Put Export Facts' left edge on Window Size's: Update Status
-        as wide as its content, and Client Status the rest of the way.
+    def size_status_row(self):
+        """Hold Update Status to its readings' width.
 
-        **Worked out from edges neither panel's width can move**: where
-        Window Size sits against the row, less where Export Facts sits
-        inside its panel and the gap before Share Game Data. Update
-        Status' content is its two readings and its button, and the
-        verdict is wrapped to the readings' width, so a long verdict --
-        a failed check's error -- takes more lines rather than more of
-        the row.
+        The readings' value column is reserved wide enough for what it
+        shows (`update_check.RESERVED_READINGS`), and the verdict is
+        wrapped to the readings, so a long verdict -- a failed check's
+        error -- takes more lines rather than more of the row. Share
+        Game Data's width is its cell's `minsize`, and Client Status,
+        the one column with weight, takes what the two leave.
 
-        In ROOT coordinates, after layout, and idempotent: public
-        because a check calls it. See `_on_first_map`.
+        After layout, and idempotent: public because a check calls it.
+        See `_on_first_map`.
         """
         self.frame.update_idletasks()
-        # The first two COLUMNS' width together, each holding its
-        # panel's own pads: a grid pad sits inside its cell. Share Game
-        # Data's left pad is the third column's.
-        both = (self._window_size_button.winfo_rootx()
-                - self._update_row.winfo_rootx()
-                - (self._export_button.winfo_rootx()
-                   - self._share_panel.winfo_rootx())
-                - px(SHARE_PANEL_PAD))
         readings = self.update_status.latest_label.master
         self.update_status.verdict.configure(
             wraplength=max(1, readings.winfo_reqwidth()))
-        self.frame.update_idletasks()
-        update = (self.update_status.panel.winfo_reqwidth()
-                  + px(SHARE_PANEL_PAD))
-        client = both - update
-        if client <= 0:
-            return
-        self._update_row.grid_columnconfigure(0, minsize=0)
-        self._update_row.grid_columnconfigure(1, minsize=client)
         self.frame.update_idletasks()
 
     def align_columns(self):

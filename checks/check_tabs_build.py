@@ -3045,25 +3045,30 @@ def _setup_columns_hold_their_shape(tab):
 
 
 def _share_panel_lines_up(tab):
-    """Share Game Data sits beside Update Status at one height, with
-    Export Facts' left edge on Window Size's -- whatever the verdict.
+    """Update Status, Client Status and Share Game Data share one row
+    and one height, and each keeps its width whatever it shows.
 
-    The edge is set by `align_share_button`, which gives Update Status
-    the width that puts it there. A failed update check's error is the
-    widest thing Update Status can hold, and left unwrapped it widens
-    the panel past that width: the grid's `minsize` is a floor. So the
-    check sets one first. Mapped at alpha 0 at the default window size,
-    like `_the_checklist_fits_its_window`.
+    Share Game Data is `SHARE_PANEL_WIDTH` and Update Status its
+    reserved readings' width (`size_status_row`); Client Status takes
+    the rest. A failed update check's error is the widest thing Update
+    Status can hold, and left unwrapped it widens the panel: the grid's
+    `minsize` is a floor. So the check sets one first, and then every
+    reading the value column is reserved for. Mapped at alpha 0 at the
+    default window size, like `_the_checklist_fits_its_window`.
 
     Returns a list of complaints.
     """
     import tkinter as tk
     from ui.scaling import px, WINDOW_H, WINDOW_W
+    from ui.tabs.setup_tab import SHARE_PANEL_WIDTH
+    from ui.update_check import RESERVED_READINGS, version_core
 
     root = tab.frame.winfo_toplevel()
     notebook = tab.frame.master
-    verdict = tab.update_status.verdict
-    saved = verdict.cget("text")
+    updates = tab.update_status
+    verdict = updates.verdict
+    saved = (verdict.cget("text"), updates.latest_label.cget("text"),
+             updates.checked_label.cget("text"))
     out = []
     try:
         root.attributes("-alpha", 0.0)
@@ -3078,21 +3083,18 @@ def _share_panel_lines_up(tab):
             "Check failed: Network: [WinError 10060] A connection attempt "
             "failed because the connected party did not properly respond "
             "after a period of time"))
-        tab.align_share_button()
+        tab.size_status_row()
         root.update_idletasks()
     except tk.TclError as e:
         return [f"Setup & Settings could not be laid out for measuring: {e}"]
     try:
-        under, export = (tab._window_size_button.winfo_rootx(),
-                         tab._export_button.winfo_rootx())
-        if under != export:
-            out.append(
-                f"Export Facts' left edge is at x={export} and Window "
-                f"Size's at x={under}, with a failed check's error in "
-                f"Update Status. `align_share_button` sizes Update Status "
-                f"to line them up, and wraps the verdict to that width.")
-        status, share = tab.update_status.panel, tab._share_panel
+        status, share = updates.panel, tab._share_panel
         client = tab._client_panel
+        if share.winfo_width() != px(SHARE_PANEL_WIDTH):
+            out.append(
+                f"Share Game Data is {share.winfo_width()}px wide, not "
+                f"`SHARE_PANEL_WIDTH`'s {px(SHARE_PANEL_WIDTH)}px: its "
+                f"note asks for more than the panel's width leaves it.")
         heights = {p.cget("text"): p.winfo_height()
                    for p in (status, client, share)}
         if len(set(heights.values())) != 1:
@@ -3103,11 +3105,26 @@ def _share_panel_lines_up(tab):
             out.append(
                 f"Update Status is {status.winfo_width()}px wide where its "
                 f"content asks {status.winfo_reqwidth()}px: it is sized to "
-                f"its content, and Client Status takes the rest "
-                f"(`align_share_button`).")
+                f"its readings, and Client Status takes the rest.")
+        # Every reading the value column is reserved for leaves the
+        # panel the width it has.
+        width = status.winfo_reqwidth()
+        current = version_core(updates.current)
+        for latest, checked in (
+                [(f"{current} (up to date)", "Never")]
+                + [("", text) for text in RESERVED_READINGS]):
+            updates.latest_label.configure(text=latest)
+            updates.checked_label.configure(text=checked)
+            root.update_idletasks()
+            if status.winfo_reqwidth() != width:
+                out.append(
+                    f"Update Status asks {status.winfo_reqwidth()}px "
+                    f"showing {latest or checked!r}, not the {width}px it "
+                    f"is reserved: `RESERVED_READINGS` is meant to hold "
+                    f"every reading it shows.")
         # A long path wraps after its `/`s inside the panel, and Client
-        # Status never sets the row's height: the row is Update Status'
-        # and Share Game Data's, as it was before it had a third panel.
+        # Status never sets the row's height or width.
+        before = client.winfo_width()
         saved_path = tab._client_path_text
         tab._client_path_text = ("C:/Program Files (x86)/A Long Library "
                                  "Folder/Smilegate/Games/ChaosZeroNightmare")
@@ -3117,15 +3134,11 @@ def _share_panel_lines_up(tab):
         if tab._client_path_room <= 1:
             out.append("Client Status' path has no room measured, so the "
                        "wrap below was never exercised.")
-        # Held to an edge the path cannot move: a path that does not
-        # wrap widens its own panel, the room it is measured against
-        # with it, and pushes Share Game Data along.
-        moved = tab._export_button.winfo_rootx()
-        if moved != under:
+        if client.winfo_width() != before:
             out.append(
-                f"A long client path moves Export Facts to x={moved}, off "
-                f"Window Size's x={under}: Client Status grew to hold it. "
-                f"`_wrap_path` breaks it after each `/` to fit.")
+                f"A long client path widens Client Status from {before}px "
+                f"to {client.winfo_width()}px. `_wrap_path` breaks it "
+                f"after each `/` to fit.")
         tallest = max(status.winfo_reqheight(), share.winfo_reqheight())
         if client.winfo_reqheight() > tallest:
             out.append(
@@ -3140,7 +3153,9 @@ def _share_panel_lines_up(tab):
             out.append(f"Share Game Data runs {over}px past the right "
                        f"edge of a default-sized window.")
     finally:
-        verdict.configure(text=saved)
+        verdict.configure(text=saved[0])
+        updates.latest_label.configure(text=saved[1])
+        updates.checked_label.configure(text=saved[2])
         root.withdraw()
     out.extend(_share_status_colours(tab))
     return out
