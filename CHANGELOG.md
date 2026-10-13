@@ -11,9 +11,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Changed
 
 - Checklist:
-  - Events show their names from the game client, a Virtual Tactical Simulation with its combatant's. A name too long for the tab is cut short, with the whole name in its tooltip.
-  - Events count against their reward totals from the game client, final reward included, and go green once every reward is claimed. A login event counts against its own length. Rewards outside an event's missions, such as a summer event's puzzles, are not counted.
-  - An event the game client doesn't know yet takes its total from earlier instalments of the same event, and reads orange once that is all claimed.
+  - Events show their names from the game client. A name too long for the tab is cut short, with the full name in its tooltip.
+  - Events count against their reward totals from the game client, final reward included, and go green once every reward is claimed. Rewards outside an event's missions, such as a summer event's puzzles, are not counted.
+  - In case reading event data from the client fails it takes its total from earlier instalments of the same event, and reads orange once that is all claimed.
   - `Activity (Dailies)` counts the day's points from its tasks: `100/100` blinks orange until the day's reward is claimed, and turns green once it is.
   - `Delegation Module` rows show their window (`24h!`, `3d!`) in a column of its own between the label and the count. The 7-day row is orange, green with none expiring, blinks red when a module has 1-2 days left, and blinks orange when one has 2-3 days left.
   - Countdowns read `9d left`.
